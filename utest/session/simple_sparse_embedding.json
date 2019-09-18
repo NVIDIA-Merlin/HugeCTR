@@ -1,0 +1,126 @@
+{
+  "solver": {
+    "lr_policy": "fixed",
+    "display": 100,
+    "max_iter": 50000,
+    "gpu": [0],
+    "batchsize": 4096,
+    "snapshot": 10000,
+    "snapshot_prefix": "./",
+    "eval_interval": 1000,
+    "eval_batches": 100,
+    "model_file": "./simple_sparse_embedding_file_list.model"
+  },
+  
+  "optimizer": {
+    "type": "Adam",
+    "adam_hparam": {
+      "alpha": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "epsilon": 0.00000001
+    }
+  },
+
+  "data": {
+    "source": "./simple_sparse_embedding/simple_sparse_embedding_file_list.txt",
+    "eval_source": "./simple_sparse_embedding/simple_sparse_embedding_file_list.txt",
+    "max_feature_num_per_sample": 1000,
+    "label_dim": 1,
+    "slot_num": 10
+  },
+
+  "layers": [ 
+    {
+      "name": "sparse_embedding1",
+      "type": "SparseEmbeddingHash",
+      "top": "sparse_embedding1",
+      "sparse_embedding_hparam": {
+        "vocabulary_size": 550000,
+        "embedding_vec_size": 64,
+        "load_factor": 0.75,
+        "slot_num": 10,
+        "combiner": 0
+      }
+    },
+
+    {
+      "name": "concat1",
+      "type": "Concat",
+      "bottom": "sparse_embedding1",
+      "top": "concat1"
+    },
+
+    {
+      "name": "fc1",
+      "type": "InnerProduct",
+      "bottom": "concat1",
+      "top": "fc1",
+       "fc_param": {
+        "num_output": 200
+      }
+    },
+
+    {
+      "name": "relu1",
+      "type": "ReLU",
+      "bottom": "fc1",
+      "top": "relu1"
+     
+    },
+
+    {
+      "name": "fc2",
+      "type": "InnerProduct",
+      "bottom": "relu1",
+      "top": "fc2",
+       "fc_param": {
+        "num_output": 200
+      }
+    },
+
+    {
+      "name": "relu2",
+      "type": "ReLU",
+      "bottom": "fc2",
+      "top": "relu2"
+     
+    },
+    
+    {
+      "name": "fc3",
+      "type": "InnerProduct",
+      "bottom": "relu2",
+      "top": "fc3",
+       "fc_param": {
+        "num_output": 200
+      }
+    },
+
+    {
+      "name": "relu3",
+      "type": "ReLU",
+      "bottom": "fc3",
+      "top": "relu3"
+     
+    },
+
+    {
+      "name": "fc4",
+      "type": "InnerProduct",
+      "bottom": "relu3",
+      "top": "fc4",
+       "fc_param": {
+        "num_output": 1
+      }
+    },
+    
+    
+    {
+      "name": "loss",
+      "type": "BinaryCrossEntropyLoss",
+      "bottom": "fc4",
+      "top": "loss"
+    } 
+  ]
+}
