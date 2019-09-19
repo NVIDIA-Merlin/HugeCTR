@@ -19,13 +19,13 @@ HugeCTR supports Embedding + MLP like Networks (see Fig. 2), in which Embedding 
 * Optimizer: Adam/ Momentum SGD/ Nesterov
 * Loss: CrossEngtropy/ BinaryCrossEntropy
 
-<div align=center><img width = '600' height ='300' src ="docs/user_guide_src/fig1_hugectr_arch.png"/></div>
+<div align=center><img src ="user_guide_src/fig1_hugectr_arch.png" width = '600' height ='300'/></div>
 <div align=center>Fig.1 HugeCTR Architecture</div>
 
-<div align=center><img width = '200' height ='400' src ="docs/user_guide_src/fig2_embedding_mlp.png"/></div>
+<div align=center><img width = '200' height ='400' src ="user_guide_src/fig2_embedding_mlp.png"/></div>
 <div align=center>Fig. 2 Embedding + MLP</div>
 
-<div align=center><img width = '800' height ='300' src ="docs/user_guide_src/fig3_embedding_mech.png"/></div>
+<div align=center><img width = '800' height ='300' src ="user_guide_src/fig3_embedding_mech.png"/></div>
 <div align=center>Fig. 3 Embedding Mechanism</div>
 
 ## New Features in 2.0
@@ -36,7 +36,7 @@ Multi-node training is supported to enable very large embedding. Thus, an embedd
 ### Mixed precision training
 Mixed-precision is an important feature in latest NVIDIA GPUs. On volta and Turing GPUs, fully connected layer can be configured to run on TensorCore with FP16. Please note that loss scaling will be applied to avoid arithmetic underflow (see Fig. 4).  Mixed-precision training can be enabled in cmake options (see README.md).
 
-<div align=center><img width = '500' height ='400' src ="docs/user_guide_src/fig4_arithmetic_underflow.png"/></div>
+<div align=center><img width = '500' height ='400' src ="user_guide_src/fig4_arithmetic_underflow.png"/></div>
 <div align=center>Fig 4. Arithmetic Underflow</div>
 
 ## Usages
@@ -55,7 +55,7 @@ To load a snapshot, you can just modify config.json (model_file, embedding_file 
 ### Network Configurations
 Config file is in json format and has four clauses: “solver, optimizer, data, layers” (see Fig. 5).
 
-<div align=center><img width = '800' height ='600' src ="docs/user_guide_src/fig5_sample_config_json.png"/></div>
+<div align=center><img width = '800' height ='600' src ="user_guide_src/fig5_sample_config_json.png"/></div>
 <div align=center>Fig. 5 Sample config.json File</div>
 
 ### Solver
@@ -182,7 +182,7 @@ typedef struct Slot_{
 ```
 Data field often has a lot of samples. Each sample starts with the labels in integer type, followed by `nnz` (number of nonzero) and key in long long type (see Fig. 6).
 
-<div align=center><img width = '800' height ='200' src ="docs/user_guide_src/fig10_data_field.png"/></div>
+<div align=center><img width = '800' height ='200' src ="user_guide_src/fig10_data_field.png"/></div>
 <div align=center>Fig. 6 Data Field</div>
 
 ### No Trained Parameters
@@ -224,7 +224,7 @@ Network:
 
 ### HugeCTR
 The good scalability HugeCTR shows on multiple nodes is mainly because of the high efficient data exchange via NCCL and the three-stage processing pipeline. In this pipeline, we overlap the data reading from file, host to device data transaction (inter- and intra- node) and GPU training.  The following chart shows the scalability of HugeCTR with the configration of Batch Size=40960, Embedding Vector=64, Layers=12, MLP Output=1024, multi-hot=39 on DGX1 Servers.
-<div align=center><img width = '500' height ='300' src ="docs/user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
+<div align=center><img width = '500' height ='300' src ="user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
 <div align=center>Fig. 7 Multi-GPU Performance of HugeCTR</div>
 
 ### TensorFlow
@@ -236,11 +236,11 @@ The data is provided by CriteoLabs [1]. The original training set contains 45,84
 Network:
 Embedding Vector=64, Layers=4, MLP Output=200, multi-hot=39, Optimizer=MomentumSGD，Loss = BinaryCrossEntropy. We use Batchsize = 40960 and BatchSize = 128 in the performance and loss curve test, respectively.
 
-<div align=center><img width = '500' height ='300' src ="docs/user_guide_src/fig13_performance_comparsion_tf.PNG"/></div>
+<div align=center><img width = '500' height ='300' src ="user_guide_src/fig13_performance_comparsion_tf.PNG"/></div>
 <div align=center>Fig. 8 Performance Comparison with TensorFlow 1.12</div>
 
 
-<div align=center><img width = '500' height ='250' src ="docs/user_guide_src/fig14_loss_curve_tf.png"/></div>
+<div align=center><img width = '500' height ='250' src ="user_guide_src/fig14_loss_curve_tf.png"/></div>
 <div align=center>Fig. 9 Loss curve HugeCTR vs Tensorflow</div>
 
 ### More
