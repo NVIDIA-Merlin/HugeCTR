@@ -52,6 +52,10 @@ $ huge_ctr –-train config.json
 ```
 To load a snapshot, you can just modify config.json (model_file, embedding_file in solver clause) according to the name of the snapshot. 
 
+To run with multiple node: HugeCTR should be built with OpenMPI (GPUDirect support is recommended for high performance), then the configure file and model files should be located in "Network File System" and be visible to each of the processes. A sample of runing in two nodes:
+```shell
+$ mpirun -N2 ./huge_ctr --train config.json
+```
 ### Network Configurations
 Config file is in json format and has four clauses: “solver, optimizer, data, layers” (see Fig. 5).
 
