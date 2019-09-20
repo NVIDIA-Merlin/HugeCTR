@@ -5,7 +5,7 @@ Design Goals:
 * Optimized for recommender system
 * Easy to be customized
 
-Please find more introductions in our "HugeCTR User Guide" and doxygen files in directory `docs\`
+Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs\`
 
 ## Requirements ##
 * cuBLAS >= 9.1
