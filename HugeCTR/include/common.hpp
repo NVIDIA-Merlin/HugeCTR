@@ -29,8 +29,8 @@
 
 namespace HugeCTR {
 
-#define HUGECTR_VERSION_MAJOR 1
-#define HUGECTR_VERSION_MINOR 2
+#define HUGECTR_VERSION_MAJOR 2
+#define HUGECTR_VERSION_MINOR 0
 
 enum class Error_t {
   Success,
