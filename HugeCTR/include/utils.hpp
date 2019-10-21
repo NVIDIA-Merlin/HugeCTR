@@ -45,13 +45,13 @@ class Timer {
     m_bRunning_ = false;
   }
   double elapsedMilliseconds() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(elapsed()).count();
+    return elapsed().count()/1000.0;
   }
   double elapsedMicroseconds() {
     return elapsed().count();
   }
   double elapsedSeconds() {
-    return std::chrono::duration_cast<std::chrono::seconds>(elapsed()).count();
+    return elapsed().count()/1000000.0;
   }
 
  private:
