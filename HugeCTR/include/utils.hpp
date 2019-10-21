@@ -37,36 +37,36 @@ namespace HugeCTR {
 class Timer {
  public:
   void start() {
-    m_StartTime_ = std::chrono::system_clock::now();
+    m_StartTime_ = std::chrono::steady_clock::now();
     m_bRunning_ = true;
   }
   void stop() {
-    m_EndTime_ = std::chrono::system_clock::now();
+    m_EndTime_ = std::chrono::steady_clock::now();
     m_bRunning_ = false;
   }
   double elapsedMilliseconds() {
-    std::chrono::time_point<std::chrono::system_clock> endTime;
-    if (m_bRunning_) {
-      endTime = std::chrono::system_clock::now();
-    } else {
-      endTime = m_EndTime_;
-    }
-    return std::chrono::duration_cast<std::chrono::milliseconds>(endTime - m_StartTime_).count();
+    return elapsed().count()/1000.0;
   }
   double elapsedMicroseconds() {
-    std::chrono::time_point<std::chrono::system_clock> endTime;
+    return elapsed().count();
+  }
+  double elapsedSeconds() {
+    return elapsed().count()/1000000.0;
+  }
+
+ private:
+  std::chrono::microseconds elapsed() {
+    std::chrono::time_point<std::chrono::steady_clock> endTime;
     if (m_bRunning_) {
-      endTime = std::chrono::system_clock::now();
+      endTime = std::chrono::steady_clock::now();
     } else {
       endTime = m_EndTime_;
     }
-    return std::chrono::duration_cast<std::chrono::microseconds>(endTime - m_StartTime_).count();
+    return std::chrono::duration_cast<std::chrono::microseconds>(endTime - m_StartTime_);
   }
-  double elapsedSeconds() { return elapsedMilliseconds() / 1000.0; }
 
- private:
-  std::chrono::time_point<std::chrono::system_clock> m_StartTime_;
-  std::chrono::time_point<std::chrono::system_clock> m_EndTime_;
+  std::chrono::time_point<std::chrono::steady_clock> m_StartTime_{};
+  std::chrono::time_point<std::chrono::steady_clock> m_EndTime_{};
   bool m_bRunning_ = false;
 };
 
