@@ -95,7 +95,7 @@ void Network::update_params() {
   return;
 }
 
-void Network::train() {
+void Network::train(int local_gpu_count) {
 #ifndef NDEBUG
   print_buffer(weight_buff_, 18, 38);
   print_buffer(weight_buff_, -20, -1);
@@ -108,9 +108,49 @@ void Network::train() {
     print_tensor(*tensor, -10, -1);
   }
 #endif
+
+  int fp_loop = 0;
   // forward
   for (auto iter = layers_.begin(); iter != layers_.end(); iter++) {
     iter[0]->fprop(*gpu_resource_.get_stream_ptr());
+    if (fp_loop == 1 && is_speedup_ == 1) {  // get fc1_output_tensor
+      auto fc_output_tensor = tensors_[1];
+      // use NCCL to do Reduce-Scatter
+      int batchsize_per_gpu = (int)(fc_output_tensor->get_dims()[0] / local_gpu_count);
+      int recv_count = batchsize_per_gpu * fc_output_tensor->get_dims()[1];
+      if(local_gpu_count > 1) { // local_gpu_count > 1
+        if(gpu_resource_.get_nccl_ptr() != nullptr){
+          int old_device = -1;
+          CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+          Tensor<float>* output_tensor = forward_temp_tensors_;
+
+          CK_NCCL_THROW_(ncclReduceScatter((const void*)fc_output_tensor->get_ptr(), // send buf
+          (void*)output_tensor->get_ptr(), // recv buff
+          recv_count, 
+          ncclFloat, 
+          ncclSum, 
+          *(gpu_resource_.get_nccl_ptr()), *(gpu_resource_.get_stream_ptr())));
+          CK_CUDA_THROW_(get_set_device(old_device));
+        }
+        else{
+          CK_THROW_(Error_t::IllegalCall, "cannot call exchange_wgrad with single GPU");
+        }
+
+      } 
+      else { // local_gpu_count == 1
+        int old_device = -1;
+        CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+        Tensor<float>* output_tensor = forward_temp_tensors_;
+        CK_CUDA_THROW_(cudaMemcpyAsync(output_tensor->get_ptr(), \
+            fc_output_tensor->get_ptr(), \
+            recv_count * sizeof(float), cudaMemcpyDeviceToDevice, \
+            *(gpu_resource_.get_stream_ptr())));
+        CK_CUDA_THROW_(get_set_device(old_device));
+        CK_CUDA_THROW_(cudaStreamSynchronize(*(gpu_resource_.get_stream_ptr())));
+      }
+    }
+    fp_loop++;
+
 #ifndef NDEBUG
     print_tensor(in_tensor_, -10, -1);
     print_tensor(label_tensor_, -10, -1);
@@ -128,9 +168,47 @@ void Network::train() {
   }
 #endif
 
+  int bp_loop = 0;
   // backward
   for (auto iter = layers_.rbegin(); iter != layers_.rend(); iter++) {
     iter[0]->bprop(*gpu_resource_.get_stream_ptr());
+    if (bp_loop == (layers_.size() - 3) && is_speedup_ == 1) { // relu1_layer
+      auto relu_in_tensors = iter[0]->get_in_tensor();
+      Tensor<float> relu_in_tensor = relu_in_tensors[0];
+      int batchsize_per_gpu = relu_in_tensor.get_dims()[0];
+      // use NCCL to do All-Gather
+      // each recv buffer(backward_temp_tensors_ = fc1_out_tensor) has the same top_grad data
+      int send_count = batchsize_per_gpu * relu_in_tensor.get_dims()[1];
+      if(local_gpu_count > 1) {
+        if(gpu_resource_.get_nccl_ptr() != nullptr){
+          int old_device1 = -1;
+          CK_CUDA_THROW_(get_set_device(device_id_, &old_device1));
+
+          Tensor<float>* output_tensor = backward_temp_tensors_;
+          CK_NCCL_THROW_(ncclAllGather((const void*)relu_in_tensor.get_ptr(), // send buf
+          (void*)output_tensor->get_ptr(), // recv buff
+          send_count, 
+          ncclFloat, 
+          *(gpu_resource_.get_nccl_ptr()), *(gpu_resource_.get_stream_ptr())));
+          CK_CUDA_THROW_(get_set_device(old_device1));
+        }
+        else{
+          CK_THROW_(Error_t::IllegalCall, "cannot call exchange_wgrad with single GPU");
+        }
+      }
+      else { // local_gpu_count == 1
+        int old_device1 = -1;
+        CK_CUDA_THROW_(get_set_device(device_id_, &old_device1));
+        Tensor<float>* output_tensor = backward_temp_tensors_;
+        CK_CUDA_THROW_(cudaMemcpyAsync(output_tensor->get_ptr(), \
+            relu_in_tensor.get_ptr(), send_count * sizeof(float), cudaMemcpyDeviceToDevice, \
+            *(gpu_resource_.get_stream_ptr())));
+        CK_CUDA_THROW_(get_set_device(old_device1));
+        CK_CUDA_THROW_(cudaStreamSynchronize(*(gpu_resource_.get_stream_ptr())));
+      }
+    } 
+    bp_loop++;
+
 #ifndef NDEBUG
     print_tensor(in_tensor_, -10, -1);
     print_tensor(label_tensor_, -10, -1);

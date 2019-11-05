@@ -36,7 +36,7 @@ TEST(network_test, basic_network) {
   basic_network.upload_params_to_device(params);
 
   // train
-  basic_network.train();
+  basic_network.train(1);
 
   // download parameters
   float* updated_params = new float[basic_network.get_params_num()];

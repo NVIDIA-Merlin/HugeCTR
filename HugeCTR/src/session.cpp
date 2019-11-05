@@ -128,9 +128,10 @@ Error_t Session::init_params(std::string model_file) {
   return Error_t::Success;
 }
 
-void network_train_helper(int id, Network* n) {
+void network_train_helper(int id, std::vector<Network*> networks_) {
   try {
-    n->train();
+    int local_gpu_count = networks_.size();
+    networks_[id]->train(local_gpu_count);
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   } catch (const std::exception& err) {
@@ -148,13 +149,13 @@ Error_t Session::train() {
       // execute dense forward and backward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
         gpu_resource_group_.results[i] = gpu_resource_group_.train_thread_pool.push(
-            std::ref(network_train_helper), networks_[i]);
+            std::ref(network_train_helper), networks_);
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
         gpu_resource_group_.results[i].get();
       }
     } else if (networks_.size() == 1) {
-      networks_[0]->train();
+      networks_[0]->train(networks_.size());
     } else {
       assert(!"networks_.size() should not less than 1.");
     }
@@ -202,7 +203,7 @@ Error_t Session::eval() {
       // execute dense forward and backward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
         gpu_resource_group_.results[i] = gpu_resource_group_.train_thread_pool.push(
-            std::ref(network_train_helper), networks_[i]);
+            std::ref(network_train_helper), networks_);
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
         gpu_resource_group_.results[i].get();

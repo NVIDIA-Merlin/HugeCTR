@@ -58,6 +58,9 @@ class Network {
   Tensor<float>& in_tensor_;            /**< input tensor of this network (from embedding) */
   const Tensor<float>& label_tensor_;   /**< label tensor of this network (from data reader) */
   Tensor<float>* loss_tensor_{nullptr}; /**< loss tensor */
+  Tensor<float>* forward_temp_tensors_; /**< relu layer input tensor */
+  Tensor<float>* backward_temp_tensors_;/**< fc layer output tensor */
+  int is_speedup_;                      /**< acceleration scheme for fc layer reducescatter and allgather */
  public:
   /**
    * Ctor.
@@ -77,7 +80,7 @@ class Network {
   /**
    * Forward, backward and update the network.
    */
-  void train();
+  void train(int local_gpu_count);
 
   /**
    * Forward only.

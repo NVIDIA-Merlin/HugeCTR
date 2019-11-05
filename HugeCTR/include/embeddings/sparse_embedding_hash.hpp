@@ -207,7 +207,7 @@ SparseEmbeddingHash<TypeHashKey>::SparseEmbeddingHash(
     SparseEmbeddingHashParams embedding_params, GPUResourceGroup &gpu_resource_group)
     : embedding_params_(embedding_params),
       Base(row_offsets_tensors, hash_key_tensors, embedding_params.batch_size,
-           embedding_params.slot_num, embedding_params.embedding_vec_size, gpu_resource_group) {
+           embedding_params.slot_num, embedding_params.embedding_vec_size, embedding_params.speedup, gpu_resource_group) {
   try {
     int gpu_count = Base::device_resources_.size();
     int o_device = -1;
@@ -590,28 +590,40 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
 
   // use NCCL to do Reduce-Scatter
   int batchsize_per_gpu = (int)(embedding_params_.batch_size / total_gpu_count);
-  int recv_count =
-      batchsize_per_gpu * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
-  if (total_gpu_count > 1) {
-    CK_NCCL_THROW_(ncclGroupStart());
-    for (int id = 0; id < local_gpu_count; id++) {
-      auto input_tensor = embedding_feature_tensors_[id];
-      auto output_tensor = Base::output_tensors_[id];
+  if (embedding_params_.speedup != 1) {
+    int recv_count =
+        batchsize_per_gpu * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
+    if (total_gpu_count > 1) {
+      CK_NCCL_THROW_(ncclGroupStart());
+      for (int id = 0; id < local_gpu_count; id++) {
+        auto input_tensor = embedding_feature_tensors_[id];
+        auto output_tensor = Base::output_tensors_[id];
 
-      CK_NCCL_THROW_(ncclReduceScatter(input_tensor->get_ptr(),   // send buf
-                                       output_tensor->get_ptr(),  // recv buff
-                                       recv_count, ncclFloat, ncclSum,
-                                       *Base::device_resources_[id]->get_nccl_ptr(),
-                                       *Base::device_resources_[id]->get_stream_ptr()));
+        CK_NCCL_THROW_(ncclReduceScatter(input_tensor->get_ptr(),   // send buf
+                                         output_tensor->get_ptr(),  // recv buff
+                                         recv_count, ncclFloat, ncclSum,
+                                         *Base::device_resources_[id]->get_nccl_ptr(),
+                                         *Base::device_resources_[id]->get_stream_ptr()));
+      }
+      CK_NCCL_THROW_(ncclGroupEnd());
+    } else {  // local_gpu_count == 1
+      CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id()));
+      Tensor<float> *output_tensor = Base::output_tensors_[0];
+      CK_CUDA_THROW_(cudaMemcpyAsync(output_tensor->get_ptr(),
+                                     embedding_feature_tensors_[0]->get_ptr(),
+                                     recv_count * sizeof(float), cudaMemcpyDeviceToDevice,
+                                     *Base::device_resources_[0]->get_stream_ptr()));
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
-  } else {  // total_gpu_count == 1
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id()));
-    Tensor<float> *output_tensor = Base::output_tensors_[0];
-    CK_CUDA_THROW_(cudaMemcpyAsync(output_tensor->get_ptr(),
-                                   embedding_feature_tensors_[0]->get_ptr(),
-                                   recv_count * sizeof(float), cudaMemcpyDeviceToDevice,
-                                   *Base::device_resources_[0]->get_stream_ptr()));
+  } else { // fc1_layer reducescatter
+      int recv_count = embedding_params_.batch_size * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
+      for(int id = 0; id < local_gpu_count; id++) {
+        CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+        Tensor<float> *output_tensor = Base::output_tensors_[id];
+        CK_CUDA_THROW_(cudaMemcpyAsync(output_tensor->get_ptr(),
+                               embedding_feature_tensors_[id]->get_ptr(),
+                               recv_count * sizeof(float), cudaMemcpyDeviceToDevice,
+                               *Base::device_resources_[id]->get_stream_ptr()));
+      }
   }
 
   // sync
@@ -699,31 +711,44 @@ void SparseEmbeddingHash<TypeHashKey>::backward() {
 
   int local_gpu_count = Base::device_resources_.size();
   int total_gpu_count = Base::device_resources_.get_total_gpu_count();
-  int batchsize_per_gpu = (int)(embedding_params_.batch_size / total_gpu_count);
 
-  // use NCCL to do All-Gather
-  // each recv buffer(embedding_feature_tensors_[i]) has the same top_grad data
-  int send_count =
-      batchsize_per_gpu * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
-  if (total_gpu_count > 1) {
-    CK_NCCL_THROW_(ncclGroupStart());
-    for (int id = 0; id < local_gpu_count; id++) {
-      Tensor<float> *output_tensor = Base::output_tensors_[id];
+  if (embedding_params_.speedup != 1) {
+    int batchsize_per_gpu = (int)(embedding_params_.batch_size / total_gpu_count);
 
-      CK_NCCL_THROW_(ncclAllGather(output_tensor->get_ptr(),                   // send buff
-                                   embedding_feature_tensors_[id]->get_ptr(),  // recv buff
-                                   send_count, ncclFloat,
-                                   *Base::device_resources_[id]->get_nccl_ptr(),
-                                   *Base::device_resources_[id]->get_stream_ptr()));
+    // use NCCL to do All-Gather
+    // each recv buffer(embedding_feature_tensors_[i]) has the same top_grad data
+    int send_count =
+        batchsize_per_gpu * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
+    if (total_gpu_count > 1) {
+      CK_NCCL_THROW_(ncclGroupStart());
+      for (int id = 0; id < local_gpu_count; id++) {
+        Tensor<float> *output_tensor = Base::output_tensors_[id];
+
+        CK_NCCL_THROW_(ncclAllGather(output_tensor->get_ptr(),                   // send buff
+                                     embedding_feature_tensors_[id]->get_ptr(),  // recv buff
+                                     send_count, ncclFloat,
+                                     *Base::device_resources_[id]->get_nccl_ptr(),
+                                     *Base::device_resources_[id]->get_stream_ptr()));
+      }
+      CK_NCCL_THROW_(ncclGroupEnd());
+    } else {  // local_gpu_count == 1
+      CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id()));
+      Tensor<float> *output_tensor = Base::output_tensors_[0];
+      CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature_tensors_[0]->get_ptr(),
+                                     output_tensor->get_ptr(), send_count * sizeof(float),
+                                     cudaMemcpyDeviceToDevice,
+                                     *Base::device_resources_[0]->get_stream_ptr()));
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
-  } else {  // total_gpu_count == 1
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id()));
-    Tensor<float> *output_tensor = Base::output_tensors_[0];
-    CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature_tensors_[0]->get_ptr(),
-                                   output_tensor->get_ptr(), send_count * sizeof(float),
-                                   cudaMemcpyDeviceToDevice,
-                                   *Base::device_resources_[0]->get_stream_ptr()));
+  } else { // fc1_layer allgather
+      int send_count = embedding_params_.batch_size * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
+      for(int id = 0; id < local_gpu_count; id++) { // gpu_count >= 1
+        CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+        Tensor<float> *output_tensor = Base::output_tensors_[id];
+        CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature_tensors_[id]->get_ptr(),
+                               output_tensor->get_ptr(), send_count * sizeof(float),
+                               cudaMemcpyDeviceToDevice,
+                               *Base::device_resources_[id]->get_stream_ptr()));
+      }
   }
 
   // sync

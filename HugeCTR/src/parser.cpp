@@ -213,6 +213,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   assign_first_tensor(tensor_list, j_array, in_tensor);
 
   std::vector<Tensor<float>*>& tensors = network->tensors_;
+  Tensor<float>*& forward_temp_tensors = network->forward_temp_tensors_;
+  Tensor<float>*& backward_temp_tensors = network->backward_temp_tensors_;
+  int& is_speedup = network->is_speedup_;
   std::vector<Layer*>& layers = network->layers_;
   GeneralBuffer<float>& blobs_buff = network->blobs_buff_;
   GeneralBuffer<float>& weight_buff = network->weight_buff_;
@@ -323,8 +326,23 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto j_fc_param = get_json(j, "fc_param");
         auto output = get_value_from_json<int>(j_fc_param, "num_output");
         std::vector<int> tmp_dim;
-        Tensor<float>* out_tensor =
-            new Tensor<float>(tmp_dim = {batch_size, output}, blobs_buff, TensorFormat_t::HW);
+        int speedup = 0;
+        if (has_key_(j, "speedup")) {
+          speedup = get_value_from_json<int>(j, "speedup");
+        }
+        Tensor<float>* out_tensor;
+        if (speedup == 1) {
+          is_speedup = 1;
+          std::cout << "is_speedup: " << is_speedup << std::endl;
+          std::vector<int> in_dims = fc_in_tensor->get_dims();
+          int bs = in_dims[0]; // batch_size = BS
+          out_tensor = new Tensor<float>(
+              tmp_dim = {bs, output}, blobs_buff, TensorFormat_t::HW);
+          backward_temp_tensors = out_tensor;
+        } else {
+          out_tensor = new Tensor<float>(
+              tmp_dim = {batch_size, output}, blobs_buff, TensorFormat_t::HW);  // batch_size = BS/N
+        }
         output_tensor_pair.tensor = out_tensor;
         // establish layer
         Layer* fc_layer = new FullyConnectedLayer(
@@ -350,10 +368,21 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::ReLU: {
-        auto relu_in_tensor = input_output_info.input;
-
-        // establish out tensor
+        Tensor<float>* relu_in_tensor;
         std::vector<int> tmp_dim;
+        int speedup = 0;
+        if (has_key_(j, "speedup")) {
+          speedup = get_value_from_json<int>(j, "speedup");
+        }
+        if (speedup == 1) {
+            auto relu_in_tensor_old = input_output_info.input;
+            relu_in_tensor = new Tensor<float>(
+                tmp_dim = {batch_size, (relu_in_tensor_old->get_dims())[1]}, blobs_buff, TensorFormat_t::HW);
+            forward_temp_tensors = relu_in_tensor;
+        } else {
+          relu_in_tensor = input_output_info.input;
+        }
+        // establish out tensor
         Tensor<float>* relu_out_tensor =
             new Tensor<float>(tmp_dim = {batch_size, (relu_in_tensor->get_dims())[1]}, blobs_buff,
                               TensorFormat_t::HW);
@@ -479,7 +508,10 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
       auto embedding_vec_size = get_value_from_json<int>(j_hparam, "embedding_vec_size");
       auto combiner = get_value_from_json<int>(j_hparam, "combiner");
       auto slot_num = get_value_from_json<int>(j_hparam, "slot_num");
-
+      int speedup = 0;
+      if (has_key_(j_hparam, "speedup")) {
+        speedup = get_value_from_json<int>(j_hparam, "speedup");
+      }
       switch (embedding_type) {
         case Embedding_t::SparseEmbeddingHash: {
           auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
@@ -491,7 +523,8 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
               max_feature_num_per_sample,
               slot_num,
               combiner,  // combiner: 0-sum, 1-mean, 2-sqrtn
-              opt_params};
+              opt_params,
+              speedup};
           *embedding = EmbeddingCreator::create_sparse_embedding_hash(
               (*data_reader)->get_row_offsets_tensors(), (*data_reader)->get_value_tensors(),
               embedding_params, gpu_resource_group);

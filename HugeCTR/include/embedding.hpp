@@ -61,7 +61,7 @@ class Embedding {
    */
   Embedding(const std::vector<Tensor<TypeKey>*>& row_offsets_tensors,
             const std::vector<Tensor<TypeKey>*>& value_tensors, int batchsize, int slot_num,
-            int embedding_vec_size, GPUResourceGroup& gpu_resource_group);
+            int embedding_vec_size, int speedup, GPUResourceGroup& gpu_resource_group);
   /**
    * The declaration for indicating that there is no default copy construtor in this class.
    */
@@ -136,7 +136,7 @@ class Embedding {
 template <typename TypeKey>
 Embedding<TypeKey>::Embedding(const std::vector<Tensor<TypeKey>*>& row_offsets_tensors,
                               const std::vector<Tensor<TypeKey>*>& value_tensors, int batchsize,
-                              int slot_num, int embedding_vec_size,
+                              int slot_num, int embedding_vec_size, int speedup,
                               GPUResourceGroup& gpu_resource_group)
     : row_offsets_tensors_(row_offsets_tensors),
       value_tensors_(value_tensors),
@@ -158,7 +158,12 @@ Embedding<TypeKey>::Embedding(const std::vector<Tensor<TypeKey>*>& row_offsets_t
     assert(output_buffers_.empty());
     for (size_t i = 0; i < gpu_count; i++) {
       GeneralBuffer<float>* buff = new GeneralBuffer<float>();
-      const int batchsize_per_device = batchsize / device_resources_.get_total_gpu_count();
+      int batchsize_per_device;
+      if (speedup == 1) {
+        batchsize_per_device = batchsize;
+      } else {
+        batchsize_per_device = batchsize / device_resources_.get_total_gpu_count();
+      }
       std::vector<int> output_dims = {batchsize_per_device, slot_num, embedding_vec_size};
       Tensor<float>* output_tensor = new Tensor<float>(output_dims, *buff, TensorFormat_t::HSW);
       buff->init(device_list[i]);
@@ -230,6 +235,7 @@ typedef struct SparseEmbeddingHashParams_ {
   int slot_num;            // slot number
   int combiner;            // 0-sum, 1-mean
   OptParams opt_params;    // optimizer params
+  int speedup;
 } SparseEmbeddingHashParams;
 
 // Embedding should be register here

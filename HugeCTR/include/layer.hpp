@@ -66,6 +66,9 @@ class Layer {
   virtual void bprop(cudaStream_t stream) = 0;
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
   void init_params(std::ofstream& out_stream);
+  virtual std::vector<std::reference_wrapper<Tensor<float>>> get_in_tensor() { 
+    return in_tensors_;
+  }
   inline int get_device_id() const { return device_id_; }
   // Layer(GeneralBuffer& weight_buff, GeneralBuffer& wgrad_buff, int device_id); need to implement
   // this in children
