@@ -95,12 +95,11 @@ class DataReader {
       data_readers_; /**< A vector of DataReaderWorker' pointer.*/
   std::vector<std::thread*> data_reader_threads_; /**< A vector of the pointers of data reader .*/
   std::thread* data_collector_thread_{nullptr};   /**< A data_collector_thread. */
-  std::vector<GeneralBuffer<float>*> label_buffers_; /**< A gpu general buffer for label_buffer */
-  std::vector<Tensor<float>*> label_tensors_;        /**< Label tensors for the usage of loss */
-  std::vector<GeneralBuffer<TypeKey>*>
-      csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
-  std::vector<Tensor<TypeKey>*> row_offsets_tensors_; /**< row offset tensors*/
-  std::vector<Tensor<TypeKey>*> value_tensors_;       /**< value tensors */
+  GeneralBuffers<float> label_buffers_; /**< A gpu general buffer for label_buffer */
+  Tensors<float> label_tensors_;        /**< Label tensors for the usage of loss */
+  GeneralBuffers<TypeKey> csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
+  Tensors<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
+  Tensors<TypeKey> value_tensors_;       /**< value tensors */
   bool shared_output_flag_{false}; /**< whether this is a data reader for eval. It's only mark the
                                       output data, which is sharing output tensor with train. */
 
@@ -160,11 +159,11 @@ class DataReader {
     return new_reader;
   }
 
-  const std::vector<Tensor<float>*>& get_label_tensors() const { return label_tensors_; }
-  const std::vector<Tensor<TypeKey>*>& get_row_offsets_tensors() const {
+  const Tensors<float>& get_label_tensors() const { return label_tensors_; }
+  const Tensors<TypeKey>& get_row_offsets_tensors() const {
     return row_offsets_tensors_;
   }
-  const std::vector<Tensor<TypeKey>*>& get_value_tensors() const { return value_tensors_; }
+  const Tensors<TypeKey>& get_value_tensors() const { return value_tensors_; }
   ~DataReader();
 };
 
