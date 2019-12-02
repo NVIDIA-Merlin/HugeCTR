@@ -17,7 +17,7 @@
 #pragma once
 #include <thread>
 #include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_reader_multi_threads.hpp"
+#include "HugeCTR/include/data_reader_worker.hpp"
 #include "HugeCTR/include/device_map.hpp"
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/network.hpp"
