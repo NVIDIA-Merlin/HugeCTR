@@ -131,7 +131,7 @@ struct TensorPair {
 
 void add_tensor_to_network(TensorPair output_tensor_pair,
                            std::map<std::string, Tensor<float>*>& tensor_list,
-                           std::vector<Tensor<float>*>& tensors) {
+                           Tensors<float>& tensors) {
   auto p = tensor_list.insert(
       std::pair<std::string, Tensor<float>*>(output_tensor_pair.name, output_tensor_pair.tensor));
 
@@ -212,7 +212,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
   assign_first_tensor(tensor_list, j_array, in_tensor);
 
-  std::vector<Tensor<float>*>& tensors = network->tensors_;
+  Tensors<float>& tensors = network->tensors_;
   std::vector<Layer*>& layers = network->layers_;
   GeneralBuffer<float>& blobs_buff = network->blobs_buff_;
   GeneralBuffer<float>& weight_buff = network->weight_buff_;
@@ -509,8 +509,8 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
       auto j_layers_array = get_json(config, "layers");
       auto j_optimizer = get_json(config, "optimizer");
 
-      std::vector<Tensor<float>*>& embedding_tensors = (*embedding)->get_output_tensors();
-      const std::vector<Tensor<float>*>& label_tensors = (*data_reader)->get_label_tensors();
+      Tensors<float>& embedding_tensors = (*embedding)->get_output_tensors();
+      const Tensors<float>& label_tensors = (*data_reader)->get_label_tensors();
 
       int i = 0;
       int total_gpu_count = gpu_resource_group.get_total_gpu_count();
