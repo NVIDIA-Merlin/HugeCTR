@@ -18,6 +18,7 @@
 
 #include "HugeCTR/include/general_buffer.hpp"
 #include "HugeCTR/include/utils.hpp"
+#include <vector>
 
 namespace HugeCTR {
 
@@ -177,5 +178,8 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
   get_set_device(odevice);
   return true;
 }
+
+template <typename T>
+using Tensors = std::vector<Tensor<T>*>;
 
 }  // namespace HugeCTR
