@@ -45,7 +45,7 @@ class Network {
                                  int batch_size, int device_id, const GPUResource* gpu_resource);
 
  private:
-  std::vector<Tensor<float>*> tensors_; /**< vector of tensors */
+  Tensors<float> tensors_; /**< vector of tensors */
   std::vector<Layer*> layers_;          /**< vector of layers */
   GeneralBuffer<float> blobs_buff_;     /**< blobs' general buffer */
   GeneralBuffer<float> weight_buff_;    /**< weight (param) general buffer */
