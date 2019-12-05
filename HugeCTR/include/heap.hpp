@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-
 #pragma once
-#include <unistd.h>
-#include <iostream>
+#include <atomic>
+#include <condition_variable>
 #include <mutex>
-#include <stdexcept>
 #include <vector>
 #include "HugeCTR/include/common.hpp"
 
@@ -40,18 +38,11 @@ class Heap {
   // set to statue 0, while initilization convert some of the lower bits to 1;
   unsigned int higher_bits_{0}, lower_bits_{0};
   std::vector<T> chunks_;
-  const int sleep_time_us{10};
-  std::mutex mtx;
-  bool loop_flag_{1};
+  std::mutex mtx_;
+  std::condition_variable write_cv_, read_cv_;
+  std::atomic<bool> loop_flag_{true};
 
  public:
-  /**
-   * Get a chunk without modification to the flags.
-   * @param id the id of target chunck.
-   * @param chunk the pointer of the chunk under id will be passed out.
-   */
-  void get_chunk(const T** chunk, int id) const { *chunk = &chunks_[id]; }
-
   /**
    * Writer's free chunk checkout.
    * Get a freed or idle chunk from heap. Users can write data into it then.
@@ -60,27 +51,21 @@ class Heap {
    * @param key the id of the chunk, which will be used when checkin.
    */
   void free_chunk_checkout(T** chunk, unsigned int* key) {
-    if (key == nullptr) {
-      CK_THROW_(Error_t::WrongInput, "key == nullptr");
+    if (chunk == nullptr || key == nullptr) {
+      CK_THROW_(Error_t::WrongInput, "chunk == nullptr || key == nullptr");
     }
 
-    int id = -1;
+    std::unique_lock<std::mutex> lock(mtx_);
     while (loop_flag_) {
-      mtx.lock();
-      // thread safe start
-      id = __builtin_ffs(lower_bits_ & (~higher_bits_)) - 1;
+      int id = __builtin_ffs(lower_bits_ & (~higher_bits_)) - 1;
       if (id >= 0) {
-        *key = 1u << id;
         lower_bits_ &= (~(1u << id));
-        mtx.unlock();
         *chunk = &chunks_[id];
+        *key = 1u << id;
         break;
       }
-      mtx.unlock();
-      // thread safe end
-      usleep(sleep_time_us);
+      read_cv_.wait(lock);
     }
-
     return;
   }
 
@@ -91,12 +76,12 @@ class Heap {
    * @param key the id of the chunk, returned by free_chunk_checkout().
    */
   void chunk_write_and_checkin(unsigned int key) {
-    mtx.lock();
+    std::lock_guard<std::mutex> lock(mtx_);
     // thread safe start
     lower_bits_ |= key;
     higher_bits_ |= key;
+    write_cv_.notify_one();
     // thread safe end
-    mtx.unlock();
     return;
   }
 
@@ -108,25 +93,20 @@ class Heap {
    * @param key the id of the chunk, which will be used when checkin.
    */
   void data_chunk_checkout(T** chunk, unsigned int* key) {
-    if (key == nullptr) {
-      CK_THROW_(Error_t::WrongInput, "key == nullptr");
+    if (chunk == nullptr || key == nullptr) {
+      CK_THROW_(Error_t::WrongInput, "chunk == nullptr || key == nullptr");
     }
 
-    int id = -1;
+    std::unique_lock<std::mutex> lock(mtx_);
     while (loop_flag_) {
-      mtx.lock();
-      // thread safe start
-      id = __builtin_ffs(lower_bits_ & higher_bits_) - 1;
+      int id = __builtin_ffs(lower_bits_ & higher_bits_) - 1;
       if (id >= 0) {
-        *key = 1u << id;
         lower_bits_ &= (~(1u << id));
-        mtx.unlock();
         *chunk = &chunks_[id];
+        *key = 1u << id;
         break;
       }
-      // thread safe end
-      mtx.unlock();
-      usleep(sleep_time_us);
+      write_cv_.wait(lock);
     }
     return;
   }
@@ -139,12 +119,12 @@ class Heap {
    * @param key the id of the chunk.
    */
   void chunk_free_and_checkin(unsigned int key) {
-    mtx.lock();
+    std::lock_guard<std::mutex> lock(mtx_);
     // thread safe start
     lower_bits_ |= key;
     higher_bits_ &= (~key);
+    read_cv_.notify_one();
     // thread safe end
-    mtx.unlock();
     return;
   }
 
@@ -152,7 +132,7 @@ class Heap {
    * break the spin lock.
    */
   void break_and_return() {
-    loop_flag_ = 0;
+    loop_flag_ = false;
     return;
   }
 
@@ -160,19 +140,14 @@ class Heap {
    * Ctor.
    * Make "num" copy of the chunks.
    */
-  Heap(int num, const T& chunk) : chunks_(num, chunk) {
-    try {
-      if (num > static_cast<int>(sizeof(unsigned int) * 8)) {
-        CK_THROW_(Error_t::OutOfBound, "num > sizeof(unsigned int)*8");
-      }
-      if (num <= 0) {
-        CK_THROW_(Error_t::WrongInput, "num <= 0");
-      }
-      lower_bits_ = (1ull << num) - 1;
-    } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
+  Heap(int num, const T& chunk) {
+    if (num > static_cast<int>(sizeof(unsigned int) * 8)) {
+      CK_THROW_(Error_t::OutOfBound, "num > sizeof(unsigned int) * 8");
+    } else if (num <= 0) {
+      CK_THROW_(Error_t::WrongInput, "num <= 0");
     }
+    chunks_.resize(num, chunk);
+    lower_bits_ = (1ull << num) - 1;
   }
 };
 

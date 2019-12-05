@@ -109,9 +109,9 @@ void DataReaderMultiThreads<T>::read_a_batch() {
           int buffer_id =
               i / (chunk_tmp->get_batchsize() /
                    label_buffers.size());  // We suppose that the data parallel mode is like this
-          assert(buffer_id < label_buffers.size());
-          int local_id = i % (chunk_tmp->get_batchsize() / label_buffers.size());
-          assert(local_id < (chunk_tmp->get_batchsize() / label_buffers.size()));
+          assert(buffer_id < static_cast<int>(label_buffers.size()));
+          int local_id = i % (chunk_tmp->get_batchsize() / static_cast<int>(label_buffers.size()));
+          assert(local_id < (chunk_tmp->get_batchsize() / static_cast<int>(label_buffers.size())));
           for (int j = 0; j < label_dim; j++) {
             label_buffers[buffer_id][local_id * label_dim + j] = label[j];  // row major for label buffer
           }
@@ -139,7 +139,7 @@ void DataReaderMultiThreads<T>::read_a_batch() {
                 feature_ids_[j] %
                 csr_buffers.size();  // We suppose that the module parallel mode is like this
             T local_id = feature_ids_[j];
-            assert(buffer_id < csr_buffers.size());
+            assert(buffer_id < static_cast<int>(csr_buffers.size()));
             csr_buffers[buffer_id]->push_back(local_id);
 #ifndef NDEBUG
             if (i == 0)
