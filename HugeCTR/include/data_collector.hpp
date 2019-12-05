@@ -183,8 +183,8 @@ void DataCollector<TypeKey>::collect() {
     csr_heap_->data_chunk_checkout(&chunk_tmp, &key);
     const std::vector<CSR<TypeKey>*>& csr_cpu_buffers = chunk_tmp->get_csr_buffers();
     const std::vector<float*>& label_buffers = chunk_tmp->get_label_buffers();
-    assert(csr_cpu_buffers.size() == total_device_count);
-    assert(label_buffers.size() == total_device_count);
+    assert(static_cast<int>(csr_cpu_buffers.size()) == total_device_count);
+    assert(static_cast<int>(label_buffers.size()) == total_device_count);
 
     for (int i = 0; i < total_device_count; i++) {
       int pid = device_resources_.get_pid(i);
