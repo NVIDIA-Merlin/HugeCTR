@@ -23,6 +23,7 @@
 #include "HugeCTR/include/layers/elu_layer.hpp"
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
+#include "HugeCTR/include/layers/reshape_layer.hpp"
 #include "HugeCTR/include/loss.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
@@ -197,6 +198,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
       {"BatchNorm", Layer_t::BatchNorm},
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
+      {"Reshape", Layer_t::Reshape},
       {"Concat", Layer_t::Concat},
       {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
       {"ELU", Layer_t::ELU},
@@ -263,6 +265,19 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss = new BinaryCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
                                           *binary_cross_entropy_loss_in_tensor, *loss_tensor,
                                           device_id);
+        break;
+      }
+      case Layer_t::Reshape: {
+        auto in_tensor = input_output_info.input;
+
+        // get Reshape params
+        auto j_reshape_hparam = get_json(j, "reshape_param");
+        auto leading_dim = get_value_from_json<int>(j_reshape_hparam, "leading_dim");
+
+        Tensor<float>* out_tensor = nullptr;
+        layers.push_back(new ReshapeLayer(*in_tensor, &out_tensor, leading_dim, device_id));
+        output_tensor_pair.tensor = out_tensor;
+
         break;
       }
       case Layer_t::Concat: {

@@ -87,6 +87,7 @@ enum class Optimizer_t { Adam, MomentumSGD, Nesterov };
 enum class Layer_t {
   BatchNorm,
   BinaryCrossEntropyLoss,
+  Reshape,
   Concat,
   CrossEntropyLoss,
   ELU,
