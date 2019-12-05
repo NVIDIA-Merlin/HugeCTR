@@ -24,6 +24,7 @@ file(GLOB huge_ctr_src
   layers/elu_layer.cu
   layers/fully_connected_layer.cu
   layers/relu_layer.cu
+  layers/reshape_layer.cu
   loss.cu
   network.cpp
   optimizers/adam_optimizer.cu

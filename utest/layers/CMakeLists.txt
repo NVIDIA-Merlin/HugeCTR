@@ -20,6 +20,7 @@ file(GLOB layers_test_src
   elu_layer_test.cpp
   fully_connected_layer_test.cpp
   relu_layer_test.cpp
+  reshape_layer_test.cpp
 )
 
 add_executable(layers_test ${layers_test_src})
