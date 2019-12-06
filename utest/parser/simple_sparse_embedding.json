@@ -101,7 +101,7 @@
 
     {
       "name": "concat1",
-      "type": "Concat2",
+      "type": "Concat",
       "bottom": ["fca", "fcb", "fcc"],
       "top": "concat1"
     },

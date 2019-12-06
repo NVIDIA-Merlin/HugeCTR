@@ -17,12 +17,12 @@ cmake_minimum_required(VERSION 3.8)
 file(GLOB layers_test_src
   batch_norm_layer_test.cpp
   concat_layer_test.cpp
-  concat_layer2_test.cpp
   elu_layer_test.cpp
   fully_connected_layer_test.cpp
   relu_layer_test.cpp
   slice_layer_test.cpp
   reshape_layer_test.cpp
+  reshape_layer_test_sel.cpp
 )
 
 add_executable(layers_test ${layers_test_src})
