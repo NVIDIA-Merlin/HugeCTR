@@ -159,7 +159,7 @@ Error_t Session::train() {
       assert(!"networks_.size() should not less than 1.");
     }
     // wgrad exchange
-    if (networks_.size() > 1) {
+    if (gpu_resource_group_.get_total_gpu_count() > 1) {
       CK_NCCL_THROW_(ncclGroupStart());
       for (auto network : networks_) {
         network->exchange_wgrad();
