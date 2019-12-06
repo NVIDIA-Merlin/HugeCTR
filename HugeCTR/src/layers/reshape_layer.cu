@@ -25,8 +25,42 @@
 
 namespace HugeCTR {
 
-ReshapeLayer::ReshapeLayer(Tensor<float>& in_tensor, Tensor<float>** out_tensor, int leading_dim, int device_id)
-    : Layer(device_id) {
+namespace {
+
+template <typename T>
+__global__ void reshape_kernel(T* input, T* output, int batch_size, int n_slot, int vector_length,
+                              const int* const selected, int n_active_slot, bool forward) {
+  int base = blockIdx.x * blockDim.x + threadIdx.x;
+  int input_vector_length = n_slot * vector_length;
+  int output_vector_length = n_active_slot * vector_length;
+  int output_n_elem = batch_size * output_vector_length;
+  for (int idx = base; idx < output_n_elem; idx += blockDim.x * gridDim.x) {
+    int batch_id = idx / output_vector_length;
+    int idx_in_batch = idx % output_vector_length;
+    int output_slot_id = idx_in_batch / vector_length;
+    int idx_in_slot = idx_in_batch % vector_length;
+    int input_slot_id = __ldg(&selected[output_slot_id]);
+    int input_idx = batch_id * input_vector_length + input_slot_id * vector_length + idx_in_slot;
+    if (forward)
+      output[idx] = input[input_idx];
+    else
+      input[input_idx] = output[idx];
+  }
+}
+
+}  // anonymous namespace
+
+
+ReshapeLayer::ReshapeLayer(Tensor<float>& in_tensor, Tensor<float>** out_tensor, int leading_dim,
+                           int device_id)
+    : Layer(device_id),
+      in_place_(true),
+      batch_size_(0),
+      n_slot_(0),
+      vector_length_(0),
+      n_active_slot_(0),
+      selected_(nullptr),
+      n_sms_(0) {
 
   try {
     int o_device = -1;
@@ -63,5 +97,97 @@ ReshapeLayer::ReshapeLayer(Tensor<float>& in_tensor, Tensor<float>** out_tensor,
     throw;
   }
 }
+
+ReshapeLayer::ReshapeLayer(Tensor<float>& in_tensor, Tensor<float>** out_tensor,
+                           GeneralBuffer<float>& blobs_buff, 
+                           std::vector<int>& selected, int device_id)
+    : Layer(device_id),
+      in_place_(selected.empty()),
+      batch_size_(0),
+      n_slot_(0),
+      vector_length_(0),
+      n_active_slot_(selected.size()),
+      selected_(nullptr),
+      n_sms_(0) {
+  try {
+    int o_device = -1;
+    CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+
+    if (in_tensor.get_format() != TensorFormat_t::HSW) {
+      CK_THROW_(Error_t::WrongInput, "Input format is invalid");
+    }
+
+    std::vector<int> in_dims = in_tensor.get_dims();
+    if(in_dims[1] < n_active_slot_) {
+      CK_THROW_(Error_t::WrongInput, "selected is invalid");
+    }
+
+    int in_dims_1 = selected.empty() ? in_dims[1] : int(n_active_slot_);
+    std::vector<int> out_dims = {in_dims[0], in_dims_1 * in_dims[2]};
+
+    if(in_place_) {
+      *out_tensor = new Tensor<float>(out_dims, in_tensor, TensorFormat_t::HW);
+    }
+    else {
+      *out_tensor = new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW);
+      unsigned int i = 0;
+      for (; i < in_dims.size() - 2; i++) batch_size_ += in_dims[i];
+      n_slot_ = in_dims[i++];
+      vector_length_ = in_dims[i];
+      CK_CUDA_THROW_(cudaMalloc(&selected_, n_active_slot_ * sizeof(int)));
+      CK_CUDA_THROW_(cudaMemcpy(selected_, &selected.front(), n_active_slot_ * sizeof(int),
+                                cudaMemcpyHostToDevice));
+    }
+    in_tensors_.push_back(std::ref(in_tensor));
+    out_tensors_.push_back(std::ref(**out_tensor));
+
+    int device = get_device_id();
+    CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device));
+    assert(n_sms_ > 0);
+
+    CK_CUDA_THROW_(get_set_device(o_device));
+  } catch (const std::runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    throw;
+  }
+}
+
+
+ReshapeLayer::~ReshapeLayer() {
+  if (selected_) {
+    cudaFree(selected_);
+  }
+}
+
+void ReshapeLayer::fprop(cudaStream_t stream) {
+  prop_common(true, stream);
+}
+
+void ReshapeLayer::bprop(cudaStream_t stream) {
+  prop_common(false, stream);
+}
+
+void ReshapeLayer::prop_common(bool forward, cudaStream_t stream) {
+  int o_device = -1;
+  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  if (!in_place_) {
+    int block_size = 128;
+    int n_block = n_sms_ * 16;
+    Tensor<float> in_tensor = in_tensors_[0];
+    Tensor<float> out_tensor = out_tensors_[0];
+    float* in = in_tensor.get_ptr();
+    float* out = out_tensor.get_ptr();
+    reshape_kernel<<<n_block, block_size>>>(in, out, batch_size_, n_slot_, vector_length_, selected_,
+                                           n_active_slot_, forward);
+  }
+
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
+
+  CK_CUDA_THROW_(get_set_device(o_device));
+}
+
 
 }  // namespace HugeCTR

@@ -89,7 +89,6 @@ enum class Layer_t {
   BinaryCrossEntropyLoss,
   Reshape,
   Concat,
-  Concat2,
   CrossEntropyLoss,
   ELU,
   InnerProduct,

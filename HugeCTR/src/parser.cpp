@@ -20,7 +20,6 @@
 #include "HugeCTR/include/layer.hpp"
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
 #include "HugeCTR/include/layers/concat_layer.hpp"
-#include "HugeCTR/include/layers/concat_layer2.hpp"
 #include "HugeCTR/include/layers/elu_layer.hpp"
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
@@ -221,7 +220,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"BatchNorm", Layer_t::BatchNorm},
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
       {"Concat", Layer_t::Concat},
-      {"Concat2", Layer_t::Concat2},
       {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
       {"ELU", Layer_t::ELU},
       {"InnerProduct", Layer_t::InnerProduct},
@@ -291,39 +289,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::Concat: {
-        auto in_tensor = input_output_info.input[0];
-        std::vector<int> slot_mask;
-        auto selected_it = j.find("selected");
-        if (selected_it != j.end()) {
-          nlohmann::json selected = (selected_it.value());
-          for (auto slot_obj : selected) {
-            int slot_id = slot_obj.get<int>();
-            if (slot_id < 0) CK_THROW_(Error_t::WrongInput, "slot_id < 0");
-            slot_mask.push_back(slot_id);
-          }
-        }
-
-        // establish out tensor
-        std::vector<int> in_dims = in_tensor->get_dims();
-        int n_batch = in_dims[0];
-        int n_slot = in_dims[1];
-        int vector_length = in_dims[2];
-        int n_active_slot = slot_mask.empty() ? n_slot : int(slot_mask.size());
-        std::vector<int> out_dims = {n_batch, n_active_slot * vector_length};
-        TensorFormat_t out_format = TensorFormat_t::HW;
-        Tensor<float>* out_tensor = slot_mask.empty()
-                                        ? new Tensor<float>(out_dims, *in_tensor, out_format)
-                                        : new Tensor<float>(out_dims, blobs_buff, out_format);
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-        layers.push_back(new ConcatLayer(*in_tensor, *out_tensor, slot_mask, device_id));
-
-        break;
-      }
-      case Layer_t::Concat2: {
         auto in_tensors = input_output_info.input;
 
         Tensor<float>* out_tensor = nullptr;
-        layers.push_back(new ConcatLayer2(in_tensors, &out_tensor, blobs_buff, device_id));
+        layers.push_back(new ConcatLayer(in_tensors, &out_tensor, blobs_buff, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
 
         break;
@@ -398,10 +367,26 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
       case Layer_t::Reshape: {
         auto in_tensor = input_output_info.input[0];
-
-        auto leading_dim = get_value_from_json<int>(j, "leading_dim");
         Tensor<float>* out_tensor = nullptr;
-        layers.push_back(new ReshapeLayer(*in_tensor, &out_tensor, leading_dim, device_id));
+
+        auto selected_it = j.find("selected");
+        // selective reshape
+        if(selected_it != j.end()) { 
+          std::vector<int> selected;
+          nlohmann::json j_selected = (selected_it.value());
+          for (auto slot_obj : j_selected) {
+            int slot_id = slot_obj.get<int>();
+            if (slot_id < 0) CK_THROW_(Error_t::WrongInput, "slot_id < 0");
+            selected.push_back(slot_id);
+          }
+          layers.push_back(new ReshapeLayer(*in_tensor, &out_tensor, blobs_buff, selected, device_id));
+        }
+        // general purpose reshape
+        else {
+          auto leading_dim = get_value_from_json<int>(j, "leading_dim");
+          layers.push_back(new ReshapeLayer(*in_tensor, &out_tensor, leading_dim, device_id));
+        }
+
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
 
         break;
