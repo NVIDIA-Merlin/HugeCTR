@@ -60,8 +60,7 @@ TEST(heap, heap_csr_chunk_test) {
   const int label_dim = 2;
   const int slot_num = 10;
   const int max_value_size = 2048 * 20;
-  CSRChunk<long long> chunk(num_devices, batchsize, label_dim, slot_num, max_value_size);
-  Heap<CSRChunk<long long>> csr_heap(32, chunk);
+  Heap<CSRChunk<long long>> csr_heap(32, num_devices, batchsize, label_dim, slot_num, max_value_size);
   unsigned int key = 0;
   CSRChunk<long long>* chunk_tmp = nullptr;
   csr_heap.free_chunk_checkout(&chunk_tmp, &key);
@@ -75,7 +74,7 @@ TEST(heap, heap_multi_threads_test) {
   std::uniform_int_distribution<int> interval_dis(0, 100);  // from 0ms to 100ms
   std::uniform_int_distribution<long> value_dis(0, INT32_MAX);
 
-  const int TEST_ROUNDS = 2000;
+  const int TEST_ROUNDS = 100000;
   const int PARALLELISM = 8;
 
   int intervals[256];

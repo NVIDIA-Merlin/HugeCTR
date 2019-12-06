@@ -42,7 +42,7 @@ class DataReaderMultiThreads {
   long long current_record_index_{0}; /**< the index of current reading record in a data file */
   std::ifstream in_file_stream_;      /**< file stream of data set file */
   std::string file_name_;             /**< file name of current file */
-  T* feature_ids_;                    /**< a buffer to cache the readed feature from data set */
+  std::unique_ptr<T[]> feature_ids_;  /**< a buffer to cache the readed feature from data set */
   size_t buffer_length_;              /**< max possible nnz in a slot */
   bool skip_read_{false};             /**< set to true when you want to stop the data reading */
  public:
@@ -54,7 +54,6 @@ class DataReaderMultiThreads {
         csr_heap_(csr_heap),
         feature_ids_(new T[buffer_length]()),
         buffer_length_(buffer_length){};
-  ~DataReaderMultiThreads() { delete[] feature_ids_; }
 
   /**
    * read a batch of data from data set to heap.
@@ -93,18 +92,18 @@ void DataReaderMultiThreads<T>::read_a_batch() {
     csr_heap_.free_chunk_checkout(&chunk_tmp, &key);
     if (!skip_read_) {
       const std::vector<CSR<T>*>& csr_buffers = chunk_tmp->get_csr_buffers();
-      const std::vector<float*>& label_buffers = chunk_tmp->get_label_buffers();
+      const std::vector<PinnedBuffer<float>>& label_buffers = chunk_tmp->get_label_buffers();
       const int label_dim = chunk_tmp->get_label_dim();
       if (data_set_header_.label_dim != label_dim)
         CK_THROW_(Error_t::WrongInput, "data_set_header_.label_dim != label_dim");
 
-      int* label = new int[label_dim]();
+      std::unique_ptr<int[]> label(new int[label_dim]);
       for (auto iter = csr_buffers.begin(); iter != csr_buffers.end(); iter++) {
         iter[0]->reset();
       }
       assert(label_buffers.size() > 0);
       for (int i = 0; i < chunk_tmp->get_batchsize(); i++) {
-        in_file_stream_.read(reinterpret_cast<char*>(label), sizeof(int) * (label_dim));
+        in_file_stream_.read(reinterpret_cast<char*>(label.get()), sizeof(int) * (label_dim));
         {
           int buffer_id =
               i / (chunk_tmp->get_batchsize() /
@@ -113,7 +112,8 @@ void DataReaderMultiThreads<T>::read_a_batch() {
           int local_id = i % (chunk_tmp->get_batchsize() / static_cast<int>(label_buffers.size()));
           assert(local_id < (chunk_tmp->get_batchsize() / static_cast<int>(label_buffers.size())));
           for (int j = 0; j < label_dim; j++) {
-            label_buffers[buffer_id][local_id * label_dim + j] = label[j];  // row major for label buffer
+            label_buffers[buffer_id][local_id * label_dim + j] =
+                label[j];  // row major for label buffer
           }
         }
 
@@ -133,7 +133,7 @@ void DataReaderMultiThreads<T>::read_a_batch() {
                       << "nnz: " << nnz << std::endl;
 #endif
 
-          in_file_stream_.read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz);
+          in_file_stream_.read(reinterpret_cast<char*>(feature_ids_.get()), sizeof(T) * nnz);
           for (int j = 0; j < nnz; j++) {
             int buffer_id =
                 feature_ids_[j] %
@@ -172,7 +172,6 @@ void DataReaderMultiThreads<T>::read_a_batch() {
       for (auto iter = csr_buffers.begin(); iter != csr_buffers.end(); iter++) {
         iter[0]->new_row();
       }
-      delete[] label;
     }
     csr_heap_.chunk_write_and_checkin(key);
   } catch (const std::runtime_error& rt_err) {

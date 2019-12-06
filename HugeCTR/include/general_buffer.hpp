@@ -159,10 +159,10 @@ template <typename T>
 bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
   int begin_;
   int end_;
-  if (begin >= 0 && end <= buffer.get_num_elements() && end > begin) {
+  if (begin >= 0 && end <= static_cast<int>(buffer.get_num_elements()) && end > begin) {
     begin_ = begin;
     end_ = end;
-  } else if (end < 0 && -begin <= buffer.get_num_elements() && end > begin) {
+  } else if (end < 0 && -begin <= static_cast<int>(buffer.get_num_elements()) && end > begin) {
     begin_ = buffer.get_num_elements() + begin;
     end_ = buffer.get_num_elements() + end;
   } else {

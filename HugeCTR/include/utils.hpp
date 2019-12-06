@@ -24,6 +24,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 #include "HugeCTR/include/common.hpp"
@@ -204,6 +205,30 @@ bool find_item_in_map(ITEM_TYPE* item, const std::string& str,
   }
 }
 
+/**
+ * Customized deleter for pinned buffer.
+ **/
+template <typename T>
+void pinned_buffer_deleter(T* ptr) {
+  CK_CUDA_THROW_(cudaHostUnregister(ptr));
+  delete[] ptr;
+}
 
+/**
+ * Redefine the generic pinned buffer type.
+ */
+template <typename T>
+using PinnedBuffer = std::unique_ptr<T[], decltype(&pinned_buffer_deleter<T>)>;
+
+/**
+ * Create a pinned buffer instance
+ */
+template <typename T>
+PinnedBuffer<T> create_pinned_buffer(size_t size) {
+  static_assert(std::is_pod<T>::value, "T must be a POD type.");
+  T* ptr = new T[size];
+  CK_CUDA_THROW_(cudaHostRegister(ptr, sizeof(T) * size, cudaHostRegisterDefault));
+  return PinnedBuffer<T>(ptr, &pinned_buffer_deleter<T>);
+}
 
 }  // namespace HugeCTR
