@@ -23,10 +23,10 @@ $ ./criteo2hugectr10slots ../../tools/criteo_script/test.out criteo_test/sparse_
 
 1. Build HugeCTR with the instructions on README.md under home directory.
 
-2. Copy huge_ctr to sample/criteo_multi_slots
+2. Copy huge_ctr to samples/criteo_multi_slots
 ```shell
 $ cd build/bin/
-$ cp ./huge_ctr ../../sample/criteo_multi_slots/
+$ cp ./huge_ctr ../../samples/criteo_multi_slots/
 ```
 
 3. Run huge_ctr
