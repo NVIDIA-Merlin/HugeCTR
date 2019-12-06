@@ -56,6 +56,7 @@ class Heap {
     }
 
     std::unique_lock<std::mutex> lock(mtx_);
+    // thread safe start
     while (loop_flag_) {
       int id = __builtin_ffs(lower_bits_ & (~higher_bits_)) - 1;
       if (id >= 0) {
@@ -66,6 +67,7 @@ class Heap {
       }
       read_cv_.wait(lock);
     }
+    // thread safe end
     return;
   }
 
@@ -76,10 +78,12 @@ class Heap {
    * @param key the id of the chunk, returned by free_chunk_checkout().
    */
   void chunk_write_and_checkin(unsigned int key) {
-    std::lock_guard<std::mutex> lock(mtx_);
-    // thread safe start
-    lower_bits_ |= key;
-    higher_bits_ |= key;
+    {
+      std::lock_guard<std::mutex> lock(mtx_);
+      // thread safe start
+      lower_bits_ |= key;
+      higher_bits_ |= key;
+    }
     write_cv_.notify_one();
     // thread safe end
     return;
@@ -98,6 +102,7 @@ class Heap {
     }
 
     std::unique_lock<std::mutex> lock(mtx_);
+    // thread safe start
     while (loop_flag_) {
       int id = __builtin_ffs(lower_bits_ & higher_bits_) - 1;
       if (id >= 0) {
@@ -108,6 +113,7 @@ class Heap {
       }
       write_cv_.wait(lock);
     }
+    // thread safe end
     return;
   }
 
@@ -119,12 +125,14 @@ class Heap {
    * @param key the id of the chunk.
    */
   void chunk_free_and_checkin(unsigned int key) {
-    std::lock_guard<std::mutex> lock(mtx_);
-    // thread safe start
-    lower_bits_ |= key;
-    higher_bits_ &= (~key);
+    {
+      std::lock_guard<std::mutex> lock(mtx_);
+      // thread safe start
+      lower_bits_ |= key;
+      higher_bits_ &= (~key);
+      // thread safe end
+    }
     read_cv_.notify_one();
-    // thread safe end
     return;
   }
 
@@ -133,6 +141,8 @@ class Heap {
    */
   void break_and_return() {
     loop_flag_ = false;
+    write_cv_.notify_all();
+    read_cv_.notify_all();
     return;
   }
 
@@ -140,13 +150,16 @@ class Heap {
    * Ctor.
    * Make "num" copy of the chunks.
    */
-  Heap(int num, const T& chunk) {
+  template <typename... Args>
+  Heap(int num, Args&&... args) {
     if (num > static_cast<int>(sizeof(unsigned int) * 8)) {
       CK_THROW_(Error_t::OutOfBound, "num > sizeof(unsigned int) * 8");
     } else if (num <= 0) {
       CK_THROW_(Error_t::WrongInput, "num <= 0");
     }
-    chunks_.resize(num, chunk);
+    for (int i = 0; i < num; i++) {
+      chunks_.emplace_back(T(std::forward<Args>(args)...));
+    }
     lower_bits_ = (1ull << num) - 1;
   }
 };
