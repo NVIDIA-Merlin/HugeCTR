@@ -383,7 +383,11 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
         // general purpose reshape
         else {
-          auto leading_dim = get_value_from_json<int>(j, "leading_dim");
+          auto leading_dim_it = j.find("leading_dim");
+          auto in_dims = in_tensor->get_dims();
+          // if leading_dim is not specified, default leading_dim = n_slots * vector_length
+          int leading_dim = (leading_dim_it != j.end())?
+            (*leading_dim_it).get<int>() : in_tensor->get_num_elements() / in_dims[0];
           layers.push_back(new ReshapeLayer(*in_tensor, &out_tensor, leading_dim, device_id));
         }
 

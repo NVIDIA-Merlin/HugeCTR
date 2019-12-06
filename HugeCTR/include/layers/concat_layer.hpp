@@ -27,9 +27,9 @@ namespace HugeCTR {
  * Layer which merges the multiple 2D input tensors to a single 2D output tensor.
  * The input tensors and the resulting output tensor must have the same dimensionallity.
  * Only the innermost dimension is expanded by concatenating those of the input tensors.
- * e.g., 3X(batch_size, n_slots * vector_size) to (batch_size, 3 * n_slots * vector_size),
- * e.g., (batch_size, a * vector_size) + (batch_size, b * vector_size)
- *       to (batch_size, (a + b) * vector_size)
+ * e.g., 3X(batch_size, n_slots * vector_length) to (batch_size, 3 * n_slots * vector_length),
+ * e.g., (batch_size, a * vector_length) + (batch_size, b * vector_length)
+ *       to (batch_size, (a + b) * vector_length)
  */
 class ConcatLayer : public Layer {
  public:
