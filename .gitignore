@@ -6,4 +6,8 @@ docs/latex
 *~
 *.model
 *.swp
+*.tmp
+*.txt
+*.tar.gz
+*.out
 HugeCTR/include/config.hpp

@@ -20,6 +20,7 @@
 #include "HugeCTR/include/layer.hpp"
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
 #include "HugeCTR/include/layers/concat_layer.hpp"
+#include "HugeCTR/include/layers/concat_layer2.hpp"
 #include "HugeCTR/include/layers/elu_layer.hpp"
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
@@ -102,27 +103,47 @@ void assign_first_tensor(std::map<std::string, Tensor<float>*>& tensor_list,
 }
 
 struct InputOutputInfo {
-  Tensor<float>* input;
-  std::string output;
+  std::vector<Tensor<float>*> input;
+  std::vector<std::string> output;
 };
+
+std::vector<std::string> get_layer_names(const nlohmann::json& json) {
+  std::vector<std::string> layer_names;
+  if(json.is_array()) {
+    for(auto j : json) {
+      layer_names.push_back(j.get<std::string>());
+    }
+  }
+  else {
+    layer_names.push_back(json.get<std::string>());
+  }
+
+  return layer_names;
+}
 
 InputOutputInfo get_input_tensor_and_output_name(
     const nlohmann::json& json, std::map<std::string, Tensor<float>*> tensor_list) {
-  auto bottom_str = get_value_from_json<std::string>(json, "bottom");
-  auto top_str = get_value_from_json<std::string>(json, "top");
 
-  if (top_str == bottom_str) {
-    CK_THROW_(Error_t::WrongInput, "top.get<std::string>() == bottom.get<std::string>()");
+  auto bottom = get_json(json, "bottom");
+  std::vector<std::string> bottom_strs = get_layer_names(bottom);
+
+  auto top = get_json(json, "top");
+  std::vector<std::string> top_strs = get_layer_names(top);
+
+  std::vector<Tensor<float>*> bottom_tensors;
+  for(auto& bstr : bottom_strs) {
+    for(auto& tstr : top_strs) {
+      if (bstr == tstr) {
+        CK_THROW_(Error_t::WrongInput, "bottom and top include a same layer name");
+      }
+    }
+    Tensor<float>* tensor = nullptr;
+    if (!find_item_in_map(&tensor, bstr, tensor_list)) {
+      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
+    }
+    bottom_tensors.push_back(tensor);
   }
-
-  Tensor<float>* tensor_ptr;
-  if (!find_item_in_map(&tensor_ptr, bottom_str, tensor_list)) {
-    CK_THROW_(Error_t::WrongInput, "No such bottom: " + bottom_str);
-  }
-
-  InputOutputInfo input_output_info = {.input = tensor_ptr, .output = top_str};
-
-  return input_output_info;
+  return {bottom_tensors, top_strs};
 }
 
 struct TensorPair {
@@ -130,7 +151,7 @@ struct TensorPair {
   std::string name;
 };
 
-void add_tensor_to_network(TensorPair output_tensor_pair,
+void add_tensor_to_network(TensorPair& output_tensor_pair,
                            std::map<std::string, Tensor<float>*>& tensor_list,
                            std::vector<Tensor<float>*>& tensors) {
   auto p = tensor_list.insert(
@@ -200,6 +221,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
       {"Reshape", Layer_t::Reshape},
       {"Concat", Layer_t::Concat},
+      {"Concat2", Layer_t::Concat2},
       {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
       {"ELU", Layer_t::ELU},
       {"InnerProduct", Layer_t::InnerProduct},
@@ -234,17 +256,16 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
     }
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_list);
-    TensorPair output_tensor_pair;
-    output_tensor_pair.name = input_output_info.output;
+    std::vector<TensorPair> output_tensor_pairs;
 
     switch (layer_type) {
       case Layer_t::BatchNorm: {
-        auto bn_in_tensor = input_output_info.input;
+        auto bn_in_tensor = input_output_info.input[0];
         // establish out tensor
         std::vector<int> tmp_dim;
-        Tensor<float>* bn_out_tensor = new Tensor<float>(
+        Tensor<float>* out_tensor = new Tensor<float>(
             tmp_dim = {batch_size, (bn_in_tensor->get_dims())[1]}, blobs_buff, TensorFormat_t::HW);
-        output_tensor_pair.tensor = bn_out_tensor;
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
 
         // get BN params
         auto j_bn_hparam = get_json(j, "bn_param");
@@ -253,13 +274,13 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto eps = get_value_from_json<float>(j_bn_hparam, "eps");
 
         BatchNormLayer::Params params = {is_training, factor, eps};
-        layers.push_back(new BatchNormLayer(weight_buff, wgrad_buff, *bn_in_tensor, *bn_out_tensor,
+        layers.push_back(new BatchNormLayer(weight_buff, wgrad_buff, *bn_in_tensor, *out_tensor,
                                             params, *(gpu_resource->get_cudnn_handle_ptr()),
                                             device_id));
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
-        auto binary_cross_entropy_loss_in_tensor = input_output_info.input;
+        auto binary_cross_entropy_loss_in_tensor = input_output_info.input[0];
         std::vector<int> tmp_dim;
         loss_tensor = new Tensor<float>(tmp_dim = {1, 1}, blobs_buff, TensorFormat_t::HW);
         loss = new BinaryCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
@@ -268,20 +289,17 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::Reshape: {
-        auto in_tensor = input_output_info.input;
+        auto in_tensor = input_output_info.input[0];
 
-        // get Reshape params
-        auto j_reshape_hparam = get_json(j, "reshape_param");
-        auto leading_dim = get_value_from_json<int>(j_reshape_hparam, "leading_dim");
-
+        auto leading_dim = get_value_from_json<int>(j, "leading_dim");
         Tensor<float>* out_tensor = nullptr;
         layers.push_back(new ReshapeLayer(*in_tensor, &out_tensor, leading_dim, device_id));
-        output_tensor_pair.tensor = out_tensor;
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
 
         break;
       }
       case Layer_t::Concat: {
-        auto in_tensor = input_output_info.input;
+        auto in_tensor = input_output_info.input[0];
         std::vector<int> slot_mask;
         auto selected_it = j.find("selected");
         if (selected_it != j.end()) {
@@ -304,13 +322,22 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         Tensor<float>* out_tensor = slot_mask.empty()
                                         ? new Tensor<float>(out_dims, *in_tensor, out_format)
                                         : new Tensor<float>(out_dims, blobs_buff, out_format);
-        output_tensor_pair.tensor = out_tensor;
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         layers.push_back(new ConcatLayer(*in_tensor, *out_tensor, slot_mask, device_id));
 
         break;
       }
+      case Layer_t::Concat2: {
+        auto in_tensors = input_output_info.input;
+
+        Tensor<float>* out_tensor = nullptr;
+        layers.push_back(new ConcatLayer2(in_tensors, &out_tensor, blobs_buff, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+
+        break;
+      }
       case Layer_t::CrossEntropyLoss: {
-        auto cross_entropy_loss_in_tensor = input_output_info.input;
+        auto cross_entropy_loss_in_tensor = input_output_info.input[0];
         std::vector<int> tmp_dim;
         loss_tensor = new Tensor<float>(tmp_dim = {1, 1}, blobs_buff, TensorFormat_t::HW);
         loss = new CrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
@@ -318,29 +345,29 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::ELU: {
-        auto elu_in_tensor = input_output_info.input;
+        auto elu_in_tensor = input_output_info.input[0];
 
         // establish out tensor
         std::vector<int> tmp_dim;
-        Tensor<float>* elu_out_tensor = new Tensor<float>(
+        Tensor<float>* out_tensor = new Tensor<float>(
             tmp_dim = {batch_size, (elu_in_tensor->get_dims())[1]}, blobs_buff, TensorFormat_t::HW);
-        output_tensor_pair.tensor = elu_out_tensor;
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
         auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
-        layers.push_back(new EluLayer(*elu_in_tensor, *elu_out_tensor, alpha, device_id));
+        layers.push_back(new EluLayer(*elu_in_tensor, *out_tensor, alpha, device_id));
 
         break;
       }
       case Layer_t::InnerProduct: {
-        auto fc_in_tensor = input_output_info.input;
+        auto fc_in_tensor = input_output_info.input[0];
         // establish out tensor
         auto j_fc_param = get_json(j, "fc_param");
         auto output = get_value_from_json<int>(j_fc_param, "num_output");
         std::vector<int> tmp_dim;
         Tensor<float>* out_tensor =
             new Tensor<float>(tmp_dim = {batch_size, output}, blobs_buff, TensorFormat_t::HW);
-        output_tensor_pair.tensor = out_tensor;
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         // establish layer
         Layer* fc_layer = new FullyConnectedLayer(
             weight_buff, wgrad_buff, *fc_in_tensor, *out_tensor, TensorFormat_t::HW,
@@ -349,7 +376,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::MultiCrossEntropyLoss: {
-        auto multi_cross_entropy_loss_in_tensor = input_output_info.input;
+        auto multi_cross_entropy_loss_in_tensor = input_output_info.input[0];
         std::vector<int> tmp_dim;
         loss_tensor = new Tensor<float>(tmp_dim = {1, 1}, blobs_buff, TensorFormat_t::HW);
 
@@ -365,15 +392,15 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::ReLU: {
-        auto relu_in_tensor = input_output_info.input;
+        auto relu_in_tensor = input_output_info.input[0];
 
         // establish out tensor
         std::vector<int> tmp_dim;
-        Tensor<float>* relu_out_tensor =
+        Tensor<float>* out_tensor =
             new Tensor<float>(tmp_dim = {batch_size, (relu_in_tensor->get_dims())[1]}, blobs_buff,
                               TensorFormat_t::HW);
-        output_tensor_pair.tensor = relu_out_tensor;
-        layers.push_back(new ReluLayer(*relu_in_tensor, *relu_out_tensor, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        layers.push_back(new ReluLayer(*relu_in_tensor, *out_tensor, device_id));
 
         break;
       }
@@ -384,7 +411,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
     if (!(layer_type == Layer_t::CrossEntropyLoss ||
           layer_type == Layer_t::BinaryCrossEntropyLoss ||
           layer_type == Layer_t::MultiCrossEntropyLoss)) {
-      add_tensor_to_network(output_tensor_pair, tensor_list, tensors);
+      for(auto& output_tensor_pair : output_tensor_pairs) {
+        add_tensor_to_network(output_tensor_pair, tensor_list, tensors);
+      }
     }
   }
 

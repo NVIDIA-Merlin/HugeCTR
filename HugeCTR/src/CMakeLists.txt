@@ -21,6 +21,7 @@ file(GLOB huge_ctr_src
   layer.cpp
   layers/batch_norm_layer.cu
   layers/concat_layer.cu
+  layers/concat_layer2.cu
   layers/elu_layer.cu
   layers/fully_connected_layer.cu
   layers/relu_layer.cu

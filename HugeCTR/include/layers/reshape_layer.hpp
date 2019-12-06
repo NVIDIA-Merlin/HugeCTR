@@ -33,7 +33,7 @@ class ReshapeLayer : public Layer {
   /**
    * Ctor of ReshapeLayer.
    * @param in_tensor the input tensor
-   * @param out_tensor the output tensor which has the same dim with in_tensor
+   * @param out_tensor a double pointer to the resulting output tensor
    * @param leading_dim must be a multiple of the innermost dimesion
    * e.g., leading_dim % vector_size == 0
    * and it must be able to divide the total number of elements in in_tensor
