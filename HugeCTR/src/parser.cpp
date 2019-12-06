@@ -25,6 +25,7 @@
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
 #include "HugeCTR/include/layers/reshape_layer.hpp"
+#include "HugeCTR/include/layers/slice_layer.hpp"
 #include "HugeCTR/include/loss.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
@@ -219,7 +220,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
       {"BatchNorm", Layer_t::BatchNorm},
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
-      {"Reshape", Layer_t::Reshape},
       {"Concat", Layer_t::Concat},
       {"Concat2", Layer_t::Concat2},
       {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
@@ -227,6 +227,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"InnerProduct", Layer_t::InnerProduct},
       {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
       {"ReLU", Layer_t::ReLU},
+      {"Reshape", Layer_t::Reshape},
+      {"Slice", Layer_t::Slice},
   };
 
   Network* network =
@@ -286,16 +288,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss = new BinaryCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
                                           *binary_cross_entropy_loss_in_tensor, *loss_tensor,
                                           device_id);
-        break;
-      }
-      case Layer_t::Reshape: {
-        auto in_tensor = input_output_info.input[0];
-
-        auto leading_dim = get_value_from_json<int>(j, "leading_dim");
-        Tensor<float>* out_tensor = nullptr;
-        layers.push_back(new ReshapeLayer(*in_tensor, &out_tensor, leading_dim, device_id));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-
         break;
       }
       case Layer_t::Concat: {
@@ -401,6 +393,35 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                               TensorFormat_t::HW);
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         layers.push_back(new ReluLayer(*relu_in_tensor, *out_tensor, device_id));
+
+        break;
+      }
+      case Layer_t::Reshape: {
+        auto in_tensor = input_output_info.input[0];
+
+        auto leading_dim = get_value_from_json<int>(j, "leading_dim");
+        Tensor<float>* out_tensor = nullptr;
+        layers.push_back(new ReshapeLayer(*in_tensor, &out_tensor, leading_dim, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+
+        break;
+      }
+      case Layer_t::Slice: {
+        auto in_tensor = input_output_info.input[0];
+
+        std::set<std::pair<int,int>> ranges;
+        auto j_ranges = get_json(j, "ranges");
+        assert(j_ranges.is_array());
+        for(auto j_range : j_ranges) {
+          assert(j_range.is_array());
+          ranges.insert({j_range[0].get<int>(), j_range[1].get<int>()});
+        }
+
+        std::vector<Tensor<float>*> out_tensors;
+        layers.push_back(new SliceLayer(*in_tensor, out_tensors, blobs_buff, ranges, device_id));
+        for(size_t i = 0; i < out_tensors.size(); i++) {
+          output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
+        }
 
         break;
       }
