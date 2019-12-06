@@ -95,6 +95,7 @@ enum class Layer_t {
   InnerProduct,
   MultiCrossEntropyLoss,
   ReLU,
+  Slice,
 };
 
 enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash };

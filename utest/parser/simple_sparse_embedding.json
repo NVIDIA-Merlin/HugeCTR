@@ -107,9 +107,17 @@
     },
 
     {
+      "name": "slice1",
+      "type": "Slice",
+      "bottom": "concat1",
+      "ranges": [[0,200], [300,400]],
+      "top": ["slice11", "slice12"]
+    },
+
+    {
       "name": "fc2",
       "type": "InnerProduct",
-      "bottom": "concat1",
+      "bottom": "slice11",
       "top": "fc2",
        "fc_param": {
         "num_output": 200
