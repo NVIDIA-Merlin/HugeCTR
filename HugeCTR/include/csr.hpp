@@ -65,6 +65,7 @@ class CSR {
 
   CSR(const CSR&) = delete;
   CSR& operator=(const CSR&) = delete;
+  CSR(CSR&&) = default;
 
   /**
    * push back a value to this object.
@@ -102,7 +103,7 @@ class CSR {
   int get_sizeof_value() const { return size_of_value_; }
   int get_num_rows() const { return num_rows_; }
   int get_max_value_size() const { return max_value_size_; }
-  T* get_buffer() { return row_offset_value_buffer_.get(); }
+  const T* get_buffer() const { return row_offset_value_buffer_.get(); }
 };
 
 }  // namespace HugeCTR

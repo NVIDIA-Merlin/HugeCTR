@@ -62,10 +62,8 @@ static void data_reader_thread_func_(DataReaderMultiThreads<TypeKey>* data_reade
 template <typename TypeKey>
 static void data_collector_thread_func_(DataCollector<TypeKey>* data_collector, int* p_loop_flag) {
   try {
-    int count = 0;
     while (*p_loop_flag) {
       data_collector->collect();
-      count++;
     }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
