@@ -35,6 +35,7 @@ namespace HugeCTR {
 enum class Error_t {
   Success,
   FileCannotOpen,
+  BrokenFile,
   OutOfMemory,
   OutOfBound,
   WrongInput,
@@ -47,8 +48,11 @@ enum class Error_t {
   CudnnError,
   CudaError,
   NcclError,
+  DataCheckError,
   UnspecificError
 };
+
+
 
 /**
  * An internal exception to carry the error code.
@@ -152,6 +156,17 @@ typedef struct DataSetHeader_ {
                                           ":" + std::to_string(__LINE__) + " \n");              \
     }                                                                                           \
   } while (0)
+
+#define CK_RETURN_(x, msg)                                                                       \
+  do {                                                                                          \
+    Error_t retval = (x);                                                                       \
+    if (retval != Error_t::Success) {                                                           \
+      std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + \
+                                          ":" + std::to_string(__LINE__) + " \n";               \
+      return x;                                                                                 \
+    }                                                                                           \
+  } while (0)
+
 
 #define MESSAGE_(msg)                                                                            \
   do {                                                                                           \
