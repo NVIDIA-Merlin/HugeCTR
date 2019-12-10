@@ -64,8 +64,8 @@ TEST(heap, heap_csr_chunk_test) {
   unsigned int key = 0;
   CSRChunk<long long>* chunk_tmp = nullptr;
   csr_heap.free_chunk_checkout(&chunk_tmp, &key);
-  const std::vector<CSR<long long>*>& csr_buffers = chunk_tmp->get_csr_buffers();
-  csr_buffers[0]->reset();
+  std::vector<CSR<long long>>& csr_buffers = chunk_tmp->get_csr_buffers();
+  csr_buffers[0].reset();
 }
 
 TEST(heap, heap_multi_threads_test) {

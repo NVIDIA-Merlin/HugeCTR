@@ -45,6 +45,31 @@ class DataReaderMultiThreads {
   std::unique_ptr<T[]> feature_ids_;  /**< a buffer to cache the readed feature from data set */
   size_t buffer_length_;              /**< max possible nnz in a slot */
   bool skip_read_{false};             /**< set to true when you want to stop the data reading */
+
+  /**
+   * Open data file and read header+
+   */
+  void open_file_and_read_head() {
+    std::string file_name = file_list_.get_a_file();
+    in_file_stream_.open(file_name, std::ifstream::binary);
+    if (!in_file_stream_.is_open()) {
+      CK_THROW_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
+    }
+
+    in_file_stream_.read(reinterpret_cast<char*>(&data_set_header_), sizeof(DataSetHeader));
+#ifndef NDEBUG
+    std::cout << file_name << std::endl;
+    std::cout << "number_of_records:" << data_set_header_.number_of_records
+              << ", label_dim:" << data_set_header_.label_dim
+              << ", slot_num:" << data_set_header_.slot_num << std::endl;
+#endif
+
+    current_record_index_ = 0;
+    if (!(data_set_header_.number_of_records > 0)) {
+      CK_THROW_(Error_t::WrongInput, "number_of_records <= 0");
+    }
+  }
+
  public:
   /**
    * Ctor
@@ -70,56 +95,41 @@ template <class T>
 void DataReaderMultiThreads<T>::read_a_batch() {
   try {
     if (!in_file_stream_.is_open()) {
-      std::string file_name = file_list_.get_a_file();
-      in_file_stream_.open(file_name, std::ifstream::binary);
-      in_file_stream_.read(reinterpret_cast<char*>(&data_set_header_), sizeof(DataSetHeader));
-      if (!in_file_stream_.is_open()) {
-        CK_THROW_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
-      }
-
-#ifndef NDEBUG
-      std::cout << file_name << std::endl;
-      std::cout << "number_of_records:" << data_set_header_.number_of_records
-                << ", label_dim:" << data_set_header_.label_dim
-                << ", slot_num:" << data_set_header_.slot_num << std::endl;
-#endif
-      current_record_index_ = 0;
-      if (!(data_set_header_.number_of_records > 0))
-        CK_THROW_(Error_t::WrongInput, "number_of_records <= 0");
+      open_file_and_read_head();
     }
     unsigned int key = 0;
     CSRChunk<T>* chunk_tmp = nullptr;
     csr_heap_.free_chunk_checkout(&chunk_tmp, &key);
     if (!skip_read_) {
-      const std::vector<CSR<T>*>& csr_buffers = chunk_tmp->get_csr_buffers();
+      std::vector<CSR<T>>& csr_buffers = chunk_tmp->get_csr_buffers();
       const std::vector<PinnedBuffer<float>>& label_buffers = chunk_tmp->get_label_buffers();
       const int label_dim = chunk_tmp->get_label_dim();
-      if (data_set_header_.label_dim != label_dim)
+      if (data_set_header_.label_dim != label_dim) {
         CK_THROW_(Error_t::WrongInput, "data_set_header_.label_dim != label_dim");
+      }
 
       std::unique_ptr<int[]> label(new int[label_dim]);
-      for (auto iter = csr_buffers.begin(); iter != csr_buffers.end(); iter++) {
-        iter[0]->reset();
+      for (auto& csr_buffer : csr_buffers) {
+        csr_buffer.reset();
       }
       assert(label_buffers.size() > 0);
       for (int i = 0; i < chunk_tmp->get_batchsize(); i++) {
         in_file_stream_.read(reinterpret_cast<char*>(label.get()), sizeof(int) * (label_dim));
         {
-          int buffer_id =
-              i / (chunk_tmp->get_batchsize() /
-                   label_buffers.size());  // We suppose that the data parallel mode is like this
+          // We suppose that the data parallel mode is like this
+          int buffer_id = i / (chunk_tmp->get_batchsize() / label_buffers.size());
           assert(buffer_id < static_cast<int>(label_buffers.size()));
           int local_id = i % (chunk_tmp->get_batchsize() / static_cast<int>(label_buffers.size()));
           assert(local_id < (chunk_tmp->get_batchsize() / static_cast<int>(label_buffers.size())));
           for (int j = 0; j < label_dim; j++) {
-            label_buffers[buffer_id][local_id * label_dim + j] =
-                label[j];  // row major for label buffer
+            // row major for label buffer
+            label_buffers[buffer_id][local_id * label_dim + j] = label[j];
           }
         }
 
         for (int k = 0; k < data_set_header_.slot_num; k++) {
-          for (auto iter = csr_buffers.begin(); iter != csr_buffers.end(); iter++) {
-            iter[0]->new_row();
+          for (auto& csr_buffer : csr_buffers) {
+            csr_buffer.new_row();
           }
           int nnz;
           in_file_stream_.read(reinterpret_cast<char*>(&nnz), sizeof(int));
@@ -135,12 +145,11 @@ void DataReaderMultiThreads<T>::read_a_batch() {
 
           in_file_stream_.read(reinterpret_cast<char*>(feature_ids_.get()), sizeof(T) * nnz);
           for (int j = 0; j < nnz; j++) {
-            int buffer_id =
-                feature_ids_[j] %
-                csr_buffers.size();  // We suppose that the module parallel mode is like this
+            // We suppose that the module parallel mode is like this
+            int buffer_id = feature_ids_[j] % csr_buffers.size();
             T local_id = feature_ids_[j];
             assert(buffer_id < static_cast<int>(csr_buffers.size()));
-            csr_buffers[buffer_id]->push_back(local_id);
+            csr_buffers[buffer_id].push_back(local_id);
 #ifndef NDEBUG
             if (i == 0)
               std::cout << "[HCDEBUG]"
@@ -153,24 +162,11 @@ void DataReaderMultiThreads<T>::read_a_batch() {
         // start a new file when finish one file read
         if (current_record_index_ >= data_set_header_.number_of_records) {
           in_file_stream_.close();
-          std::string file_name = file_list_.get_a_file();
-          current_record_index_ = 0;
-          in_file_stream_.open(file_name, std::ifstream::binary);
-          if (!in_file_stream_.is_open()) {
-            CK_THROW_(Error_t::FileCannotOpen, "in_file_stream_.is_open() fail: " + file_name);
-          }
-#ifndef NDEBUG
-          std::cout << file_name << std::endl;
-          std::cout << "number_of_records:" << data_set_header_.number_of_records
-                    << ", label_dim:" << data_set_header_.label_dim << std::endl;
-#endif
-          in_file_stream_.read(reinterpret_cast<char*>(&data_set_header_), sizeof(DataSetHeader));
-          if (data_set_header_.number_of_records <= 0)
-            CK_THROW_(Error_t::WrongInput, "number_of_records <= 0");
+          open_file_and_read_head();
         }
       }
-      for (auto iter = csr_buffers.begin(); iter != csr_buffers.end(); iter++) {
-        iter[0]->new_row();
+      for (auto& csr_buffer : csr_buffers) {
+        csr_buffer.new_row();
       }
     }
     csr_heap_.chunk_write_and_checkin(key);

@@ -83,9 +83,9 @@ class Heap {
       // thread safe start
       lower_bits_ |= key;
       higher_bits_ |= key;
+      // thread safe end
     }
     write_cv_.notify_one();
-    // thread safe end
     return;
   }
 
