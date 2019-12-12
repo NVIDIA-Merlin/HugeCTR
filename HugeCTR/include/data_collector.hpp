@@ -187,7 +187,7 @@ void DataCollector<TypeKey>::collect() {
 #endif
       csr_heap_->data_chunk_checkout(&chunk_tmp, &key);
       const std::vector<CSR<TypeKey>>& csr_cpu_buffers = chunk_tmp->get_csr_buffers();
-      const std::vector<PinnedBuffer<float>>& label_buffers = chunk_tmp->get_label_buffers();
+      const std::vector<float*>& label_buffers = chunk_tmp->get_label_buffers();
       assert(static_cast<int>(csr_cpu_buffers.size()) == total_device_count);
       assert(static_cast<int>(label_buffers.size()) == total_device_count);
 
@@ -205,7 +205,7 @@ void DataCollector<TypeKey>::collect() {
                                          csr_copy_num * sizeof(TypeKey), cudaMemcpyHostToDevice,
                                          *device_resources_[local_id]->get_data_copy_stream_ptr()));
           CK_CUDA_THROW_(cudaMemcpyAsync(label_buffers_internal_[local_id]->get_ptr_with_offset(0),
-                                         label_buffers[i].get(), label_copy_num * sizeof(float),
+                                         label_buffers[i], label_copy_num * sizeof(float),
                                          cudaMemcpyHostToDevice,
                                          *device_resources_[local_id]->get_data_copy_stream_ptr()));
           CK_CUDA_THROW_(get_set_device(o_device));
@@ -218,7 +218,7 @@ void DataCollector<TypeKey>::collect() {
           CK_MPI_THROW_(MPI_Isend(csr_cpu_buffers[i].get_buffer(), csr_copy_num,
                                   ToMpiType<TypeKey>::T(), pid, csr_tag, MPI_COMM_WORLD,
                                   (&req.back()) - 1));
-          CK_MPI_THROW_(MPI_Isend(label_buffers[i].get(), label_copy_num, ToMpiType<float>::T(),
+          CK_MPI_THROW_(MPI_Isend(label_buffers[i], label_copy_num, ToMpiType<float>::T(),
                                   pid, l_tag, MPI_COMM_WORLD, &req.back()));
 
 #else

@@ -78,7 +78,7 @@ Session::Session(int batch_size, const std::string& json_name, const DeviceMap& 
  **/
 Error_t Session::load_params(const std::string& model_file, const std::string& embedding_file) {
   try {
-    std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]);
+    float* weight = new float[networks_[0]->get_params_num()];
     std::ifstream model_stream(model_file, std::ifstream::binary);
     if (!embedding_file.empty()) {
       std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
@@ -88,11 +88,12 @@ Error_t Session::load_params(const std::string& model_file, const std::string& e
       embedding_->upload_params_to_device(embedding_stream);
       embedding_stream.close();
     }
-    model_stream.read(reinterpret_cast<char*>(weight.get()),
+    model_stream.read(reinterpret_cast<char*>(weight),
                       networks_[0]->get_params_num() * sizeof(float));
     for (auto network : networks_) {
-      network->upload_params_to_device(weight.get());
+      network->upload_params_to_device(weight);
     }
+    delete[] weight;
     model_stream.close();
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
