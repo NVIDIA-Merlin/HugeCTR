@@ -52,7 +52,21 @@ enum class Error_t {
   UnspecificError
 };
 
+enum class Check_t {
+  Sum,
+  None
+};
 
+enum class DataReaderSparse_t {
+  Distributed,
+  Localized
+};
+  
+struct DataReaderSparseParam{
+  DataReaderSparse_t type;
+  int max_feature_num;
+  int slot_num;
+};
 
 /**
  * An internal exception to carry the error code.
@@ -107,6 +121,16 @@ typedef struct DataSetHeader_ {
   long long slot_num;
   long long reserved;  // reserved for future use
 } DataSetHeader;
+
+typedef struct DataSetHeaderEx_ {
+  long long error_check;        //0: no error check; 1: check_num
+  long long number_of_records;  // the number of samples in this data file
+  long long label_dim;          // dimension of label
+  long long dense_dim;          //dimension of dense feature
+  long long slot_num;           //slot_num for each embedding
+  long long reserved[3];  // reserved for future use
+} DataSetHeaderEx;
+
 
 #ifdef ENABLE_MPI
 #define CK_MPI_THROW_(cmd)                                                                       \

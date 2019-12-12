@@ -33,7 +33,8 @@ public:
    * @return `FileCannotOpen` or `UnspecificError`
    */
   virtual Error_t next_source() noexcept = 0;
-
+  
+  virtual bool is_open() noexcept = 0;
 };
 
 } //namespace HugeCTR
