@@ -46,7 +46,9 @@ class CSR {
   int num_rows_{0};           /**< num rows. */
   int size_of_value_{0};      /**< num of values in this CSR buffer */
   int size_of_row_offset_{0}; /**< num of rows in this CSR buffer */
-  int max_value_size_{0};  // number of element of value the CSR matrix will have for num_rows rows.
+  int max_value_size_{0};  /**< number of element of value the CSR matrix will have for num_rows rows. */
+  int check_point_row_;   /**< check point of size_of_row_offset_. */    
+  int check_point_value_;   /**< check point of size_of_value__. */    
  public:
   /**
    * Ctor
@@ -82,7 +84,7 @@ class CSR {
   }
 
   /**
-   * push back a value to this object.
+   * Push back a value to this object.
    * @param value the value to be pushed back.
    */
   void push_back(const T& value) {
@@ -102,6 +104,21 @@ class CSR {
     if (size_of_row_offset_ > num_rows_) CK_THROW_(Error_t::OutOfBound, "CSR out of bound");
     row_offset_[size_of_row_offset_] = static_cast<T>(size_of_value_);
     size_of_row_offset_++;
+  }
+
+  /**
+   * Set check point.
+   */
+  void set_check_point() {
+    check_point_row_ = size_of_row_offset_;
+    check_point_value_ = size_of_value_;
+  }
+  /**
+   * Give up current row.
+   */
+  void roll_back() {
+    size_of_row_offset_ = check_point_row_;
+    size_of_value_ = check_point_value_;
   }
 
   /**

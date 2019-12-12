@@ -77,6 +77,12 @@ public:
       return Error_t::UnspecificError;
     }
   }
+
+  bool is_open() noexcept{
+    return in_file_stream_.is_open();
+  }
+
+
 };
 
 } //namespace HugeCTR

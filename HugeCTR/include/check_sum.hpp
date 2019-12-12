@@ -96,6 +96,7 @@ public:
     }
     CK_THROW_(Error_t::FileCannotOpen, "Checker::src_.next_source() == Error_t::Success failed");
   }
+
 };
 
 } //namespace HugeCTR
