@@ -210,8 +210,7 @@ SparseEmbeddingHash<TypeHashKey>::SparseEmbeddingHash(
            embedding_params.slot_num, embedding_params.embedding_vec_size, gpu_resource_group) {
   try {
     int gpu_count = Base::device_resources_.size();
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id(), &o_device));
+    CudaDeviceContext context(Base::device_resources_[0]->get_device_id());
 
     // CAUSION: can not decide how many <key,value> pairs in each GPU, because the GPU distribution
     // is computed by (key%gpu_count) In order to not allocate the total size of hash table on each
@@ -244,7 +243,7 @@ SparseEmbeddingHash<TypeHashKey>::SparseEmbeddingHash(
 
     for (int id = 0; id < gpu_count; id++) {
       int cur_device = Base::device_resources_[id]->get_device_id();
-      CK_CUDA_THROW_(get_set_device(cur_device));
+      context.set_device(cur_device);
 
       // construct HashTable object: used to store hash table <key, value_index>
       hash_tables_.push_back(
@@ -424,14 +423,11 @@ SparseEmbeddingHash<TypeHashKey>::SparseEmbeddingHash(
     }  // end of for(int id = 0; id < gpu_count; id++)
 
     for (int id = 0; id < gpu_count; id++) {
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+      context.set_device(Base::device_resources_[id]->get_device_id());
       CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
     }
 
     CK_CUDA_THROW_(cudaFreeHost(h_hash_table_value));
-
-    CK_CUDA_THROW_(get_set_device(o_device));
-
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -539,20 +535,15 @@ long long SparseEmbeddingHash<TypeHashKey>::get_params_num() {
 
   long long total_size = 0;
 
-  // get previous device ID
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[0]->get_device_id());
 
   // need to collect the <key, value> pair count from all GPUs and do sum reduction
   int gpu_count = Base::device_resources_.size();
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     total_size += hash_tables_[id]->get_size(*Base::device_resources_[id]->get_stream_ptr());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
-
-  // set device ID back
-  CK_CUDA_THROW_(get_set_device(o_device));
 
   total_size *= (long long)embedding_params_.embedding_vec_size;
 
@@ -563,15 +554,13 @@ template <typename TypeHashKey>
 void SparseEmbeddingHash<TypeHashKey>::forward() {
   // Read data from input_buffers_ -> look up -> write to output_tensors
 
-  // get previous device ID
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[0]->get_device_id());
 
   int local_gpu_count = Base::device_resources_.size();
   int total_gpu_count = Base::device_resources_.get_total_gpu_count();
   // launch kernels on GPUs: do embedding lookup on multi GPUs
   for (int id = 0; id < local_gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     // embedding lookup and reduction(sum)
     SparseEmbeddingHashKernels::do_forward(
@@ -584,7 +573,7 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
 
   // sync
   for (int id = 0; id < local_gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
 
@@ -606,7 +595,7 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
     }
     CK_NCCL_THROW_(ncclGroupEnd());
   } else {  // total_gpu_count == 1
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id()));
+    context.set_device(Base::device_resources_[0]->get_device_id());
     Tensor<float> *output_tensor = Base::output_tensors_[0];
     CK_CUDA_THROW_(cudaMemcpyAsync(output_tensor->get_ptr(),
                                    embedding_feature_tensors_[0]->get_ptr(),
@@ -616,7 +605,7 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
 
   // sync
   for (int id = 0; id < local_gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
 
@@ -649,7 +638,7 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
 
       CK_NCCL_THROW_(ncclGroupEnd());
     } else {  // gpu == 1
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id()));
+      context.set_device(Base::device_resources_[0]->get_device_id());
       CK_CUDA_THROW_(cudaMemcpyAsync(row_offset_allreduce_tensors_[0]->get_ptr(),
                                      Base::row_offsets_tensors_[0]->get_ptr(),
                                      send_count * sizeof(TypeHashKey), cudaMemcpyDeviceToDevice,
@@ -658,13 +647,13 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
 
     // sync
     for (int id = 0; id < local_gpu_count; id++) {
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+      context.set_device(Base::device_resources_[id]->get_device_id());
       CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
     }
 
     // do average
     for (int id = 0; id < local_gpu_count; id++) {
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+      context.set_device(Base::device_resources_[id]->get_device_id());
 
       TypeHashKey *row_offset =
           row_offset_allreduce_tensors_[id]->get_ptr() + id * batchsize_per_gpu;
@@ -678,13 +667,10 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
 
     // sync
     for (int id = 0; id < local_gpu_count; id++) {
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+      context.set_device(Base::device_resources_[id]->get_device_id());
       CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
     }
   }
-
-  // set device ID back
-  CK_CUDA_THROW_(get_set_device(o_device));
 
   return;
 }  // end of forward()
@@ -693,9 +679,7 @@ template <typename TypeHashKey>
 void SparseEmbeddingHash<TypeHashKey>::backward() {
   // Read dgrad from output_tensors -> compute wgrad
 
-  // get previous device ID
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[0]->get_device_id());
 
   int local_gpu_count = Base::device_resources_.size();
   int total_gpu_count = Base::device_resources_.get_total_gpu_count();
@@ -718,7 +702,7 @@ void SparseEmbeddingHash<TypeHashKey>::backward() {
     }
     CK_NCCL_THROW_(ncclGroupEnd());
   } else {  // total_gpu_count == 1
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id()));
+    context.set_device(Base::device_resources_[0]->get_device_id());
     Tensor<float> *output_tensor = Base::output_tensors_[0];
     CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature_tensors_[0]->get_ptr(),
                                    output_tensor->get_ptr(), send_count * sizeof(float),
@@ -728,13 +712,13 @@ void SparseEmbeddingHash<TypeHashKey>::backward() {
 
   // sync
   for (int id = 0; id < local_gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
 
   // do backward
   for (int id = 0; id < local_gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     // before backward, top diff data are already in embedding_feature_tensors_
     SparseEmbeddingHashKernels::do_backward(
@@ -748,12 +732,9 @@ void SparseEmbeddingHash<TypeHashKey>::backward() {
 
   // sync
   for (int id = 0; id < local_gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
-
-  // set device ID back
-  CK_CUDA_THROW_(get_set_device(o_device));
 
   return;
 }  // end of backward()
@@ -764,8 +745,7 @@ void SparseEmbeddingHash<TypeHashKey>::update_params_per_thread(int tid) {
   MESSAGE_("update_params_per_thread: this is thread: " + std::to_string(tid));
 #endif
 
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[tid]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[tid]->get_device_id());
 
   // accumulate times for adam optimizer
   opt_params_[tid]->hyperparams.adam.times++;
@@ -787,9 +767,6 @@ void SparseEmbeddingHash<TypeHashKey>::update_params_per_thread(int tid) {
 
   // stream sync
   CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[tid]->get_stream_ptr()));
-
-  // set device ID back
-  CK_CUDA_THROW_(get_set_device(o_device));
 
   return;
 }
@@ -854,9 +831,7 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
   CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
 #endif
 
-  // get previous device ID
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[0]->get_device_id());
 
   // define size
   int gpu_count = Base::device_resources_.size();
@@ -885,7 +860,7 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
   hash_table_value_index_chunk_per_gpu_d =
       (TypeHashKey **)malloc(sizeof(TypeHashKey *) * gpu_count);
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(
         cudaMalloc(&hash_table_value_index_chunk_per_gpu_d[id], hash_table_key_chunk_size_in_B));
     // initalize to zeros
@@ -896,7 +871,7 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
 
   // sync wait
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
 
@@ -913,7 +888,7 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
   TypeHashKey **hash_table_key_chunk_per_gpu_d;
   hash_table_key_chunk_per_gpu_d = (TypeHashKey **)malloc(gpu_count * sizeof(TypeHashKey *));
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaMalloc(&hash_table_key_chunk_per_gpu_d[id], hash_table_key_chunk_size_in_B));
   }
   float **hash_table_value_chunk_per_gpu;
@@ -967,7 +942,7 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
 
     // do HashTable insert <key,value_index>
     for (int id = 0; id < gpu_count; id++) {
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+      context.set_device(Base::device_resources_[id]->get_device_id());
 
       long long value_index_chunk_size = hash_table_value_index_count_chunk_per_gpu[id];
 
@@ -993,7 +968,7 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
 
     // memcpy hash_table_value from CPU to GPU
     for (int id = 0; id < gpu_count; id++) {
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+      context.set_device(Base::device_resources_[id]->get_device_id());
       long long value_chunk_size =
           hash_table_value_index_count_chunk_per_gpu[id] * embedding_params_.embedding_vec_size;
       long long value_chunk_offset =
@@ -1007,7 +982,7 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
 
     // sync wait
     for (int id = 0; id < gpu_count; id++) {
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+      context.set_device(Base::device_resources_[id]->get_device_id());
       CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
     }
 
@@ -1043,7 +1018,7 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
       int dst_rank = Base::device_resources_.get_pid(gid);
 
       if (my_rank == dst_rank) {
-        CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+        context.set_device(Base::device_resources_[id]->get_device_id());
 
         // memcpy hash_table_key from CPU to GPU
         key_dst_buf = hash_table_key_chunk_per_gpu_d[id];
@@ -1084,20 +1059,17 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
 
     // sync wait
     for (int id = 0; id < gpu_count; id++) {
-      CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+      context.set_device(Base::device_resources_[id]->get_device_id());
       CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
     }
 
   }  // end of if(remain_loop_num)
 
-  // set device ID back
-  CK_CUDA_THROW_(get_set_device(o_device));
-
   // release resources
   free(hash_table_value_index_count_per_gpu);
   free(hash_table_value_index_count_chunk_per_gpu);
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaFree(hash_table_value_index_chunk_per_gpu_d[id]));
     CK_CUDA_THROW_(cudaFree(hash_table_key_chunk_per_gpu_d[id]));
   }
@@ -1123,9 +1095,7 @@ void SparseEmbeddingHash<TypeHashKey>::download_params_to_host(std::ofstream &we
     return;
   }
 
-  // get previous device ID
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[0]->get_device_id());
 
   int gpu_count = Base::device_resources_.size();
 
@@ -1135,7 +1105,7 @@ void SparseEmbeddingHash<TypeHashKey>::download_params_to_host(std::ofstream &we
   unsigned long long max_count = 0;
   unsigned long long total_count = 0;
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     auto count_tmp = hash_tables_[id]->get_size(*Base::device_resources_[id]->get_stream_ptr());
     if (count_tmp != hash_tables_[id]->get_value_head()) {
       CK_THROW_(Error_t::WrongInput,
@@ -1168,7 +1138,7 @@ void SparseEmbeddingHash<TypeHashKey>::download_params_to_host(std::ofstream &we
   size_t **d_dump_counter;
   d_dump_counter = (size_t **)malloc(gpu_count * sizeof(size_t *));
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
     cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -1182,7 +1152,7 @@ void SparseEmbeddingHash<TypeHashKey>::download_params_to_host(std::ofstream &we
 
   // dump hash table on GPU
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     hash_tables_[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
                            max_vocabulary_size_per_gpu, d_dump_counter[id],
@@ -1205,7 +1175,7 @@ void SparseEmbeddingHash<TypeHashKey>::download_params_to_host(std::ofstream &we
 
   // sync wait
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
 
@@ -1265,7 +1235,7 @@ void SparseEmbeddingHash<TypeHashKey>::download_params_to_host(std::ofstream &we
 #endif
 
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
@@ -1283,8 +1253,6 @@ void SparseEmbeddingHash<TypeHashKey>::download_params_to_host(std::ofstream &we
   free(count);
   free(file_buf);
 
-  CK_CUDA_THROW_(get_set_device(o_device));
-
   return;
 }  // end of download_params_to_host()
 
@@ -1294,8 +1262,7 @@ template <typename TypeHashKey>
 float *SparseEmbeddingHash<TypeHashKey>::get_embedding_feature_ptr(float *embedding_feature) {
   int gpu_count = Base::device_resources_.size();
 
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[0]->get_device_id());
 
   int batchsize_per_gpu =
       (int)(embedding_params_.batch_size / Base::device_resources_.get_total_gpu_count());
@@ -1303,7 +1270,7 @@ float *SparseEmbeddingHash<TypeHashKey>::get_embedding_feature_ptr(float *embedd
       batchsize_per_gpu * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
   int offset = 0;
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     Tensor<float> *output_tensor = Base::output_tensors_[id];
     CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature + offset, output_tensor->get_ptr(),
                                    memcpy_size * sizeof(float), cudaMemcpyDeviceToHost,
@@ -1312,11 +1279,9 @@ float *SparseEmbeddingHash<TypeHashKey>::get_embedding_feature_ptr(float *embedd
   }
 
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 
   return embedding_feature;
 }  // end of get_embedding_feature_ptr()
@@ -1325,16 +1290,13 @@ float *SparseEmbeddingHash<TypeHashKey>::get_embedding_feature_ptr(float *embedd
 // buffer)
 template <typename TypeHashKey>
 float *SparseEmbeddingHash<TypeHashKey>::get_wgrad_ptr(float *wgrad, int devIndex) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[devIndex]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[devIndex]->get_device_id());
 
   // wgard shuld be the same on multi-gpus
   int memcpy_size = embedding_params_.batch_size * embedding_params_.slot_num *
                     embedding_params_.embedding_vec_size;
   CK_CUDA_THROW_(cudaMemcpy(wgrad, wgrad_tensors_[devIndex]->get_ptr(), memcpy_size * sizeof(float),
                             cudaMemcpyDeviceToHost));
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 
   return wgrad;
 }  // end of get_wgrad_ptr()
@@ -1343,9 +1305,7 @@ float *SparseEmbeddingHash<TypeHashKey>::get_wgrad_ptr(float *wgrad, int devInde
 template <typename TypeHashKey>
 void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_table_key,
                                                           float *hash_table_value) {
-  // get previous device ID
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(Base::device_resources_[0]->get_device_id(), &o_device));
+  CudaDeviceContext context(Base::device_resources_[0]->get_device_id());
 
   int gpu_count = Base::device_resources_.size();
 
@@ -1355,7 +1315,7 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
   unsigned long long max_count = 0;
   unsigned long long total_count = 0;
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     if ((count[id] = hash_tables_[id]->get_value_head()) !=
         hash_tables_[id]->get_size(*Base::device_resources_[id]->get_stream_ptr())) {
       CK_THROW_(Error_t::WrongInput,
@@ -1370,7 +1330,7 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
   }
 
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     count[id] = hash_tables_[id]->get_size(*Base::device_resources_[id]->get_stream_ptr());
   }
 
@@ -1389,7 +1349,7 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
   size_t **d_dump_counter;
   d_dump_counter = (size_t **)malloc(gpu_count * sizeof(size_t *));
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
     cudaMalloc(&d_hash_table_value_index[id], count[id] * sizeof(TypeHashValueIndex));
@@ -1400,7 +1360,7 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
 
   // dump hash table on GPU
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     hash_tables_[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
                            max_vocabulary_size_per_gpu, d_dump_counter[id],
@@ -1414,7 +1374,7 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
 
   // sync wait
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*Base::device_resources_[id]->get_stream_ptr()));
   }
 
@@ -1422,7 +1382,7 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
   long long key_offset = 0;
   long long value_offset = 0;
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     CK_CUDA_THROW_(cudaMemcpy(hash_table_key + key_offset, d_hash_table_key[id],
                               count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost));
@@ -1435,7 +1395,7 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
   }
 
   for (int id = 0; id < gpu_count; id++) {
-    CK_CUDA_THROW_(get_set_device(Base::device_resources_[id]->get_device_id()));
+    context.set_device(Base::device_resources_[id]->get_device_id());
 
     CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_value_index[id]));
@@ -1447,9 +1407,6 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
   free(d_hash_table_value);
   free(d_dump_counter);
   free(count);
-
-  CK_CUDA_THROW_(get_set_device(o_device));
-
 }  // end of get_hash_table_value_ptr()
 
 }  // namespace HugeCTR

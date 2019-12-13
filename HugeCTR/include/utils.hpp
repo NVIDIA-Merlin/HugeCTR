@@ -44,15 +44,9 @@ class Timer {
     m_EndTime_ = std::chrono::steady_clock::now();
     m_bRunning_ = false;
   }
-  double elapsedMilliseconds() {
-    return elapsed().count()/1000.0;
-  }
-  double elapsedMicroseconds() {
-    return elapsed().count();
-  }
-  double elapsedSeconds() {
-    return elapsed().count()/1000000.0;
-  }
+  double elapsedMilliseconds() { return elapsed().count() / 1000.0; }
+  double elapsedMicroseconds() { return elapsed().count(); }
+  double elapsedSeconds() { return elapsed().count() / 1000000.0; }
 
  private:
   std::chrono::microseconds elapsed() {
@@ -71,36 +65,42 @@ class Timer {
 };
 
 /**
- * Pop current cuda device and set new device.
- * @param i_device device ID to set
- * @param o_device device ID to pop, if o_device is NULL just set device to i_device.
- * @return the same as cudaError_t
+ * Helper class for switching device
  */
-inline cudaError_t get_set_device(int i_device, int* o_device = NULL) {
-  int current_dev_id = 0;
-  cudaError_t err = cudaSuccess;
+class CudaDeviceContext {
+  int original_device;
 
-  if (o_device != NULL) {
-    err = cudaGetDevice(&current_dev_id);
+  /**
+   * Pop current cuda device and set new device.
+   * @param i_device device ID to set
+   * @param o_device device ID to pop, if o_device is NULL just set device to i_device.
+   * @return the same as cudaError_t
+   */
+  static inline cudaError_t get_set_device(int i_device, int* o_device = nullptr) {
+    int current_device = 0;
+    cudaError_t err = cudaSuccess;
+
+    err = cudaGetDevice(&current_device);
     if (err != cudaSuccess) return err;
-    if (current_dev_id == i_device) {
-      *o_device = i_device;
-    } else {
+
+    if (current_device != i_device) {
       err = cudaSetDevice(i_device);
-      if (err != cudaSuccess) {
-        return err;
-      }
-      *o_device = current_dev_id;
+      if (err != cudaSuccess) return err;
     }
-  } else {
-    err = cudaSetDevice(i_device);
-    if (err != cudaSuccess) {
-      return err;
+
+    if (o_device) {
+      *o_device = current_device;
     }
+
+    return cudaSuccess;
   }
 
-  return cudaSuccess;
-}
+ public:
+  CudaDeviceContext(int device) { CK_CUDA_THROW_(get_set_device(device, &original_device)); }
+  ~CudaDeviceContext() noexcept(false) { CK_CUDA_THROW_(get_set_device(original_device)); }
+
+  void set_device(int device) const { CK_CUDA_THROW_(get_set_device(device)); }
+};
 
 /**
  * Get total product from dims.
@@ -203,7 +203,5 @@ bool find_item_in_map(ITEM_TYPE* item, const std::string& str,
     return true;
   }
 }
-
-
 
 }  // namespace HugeCTR

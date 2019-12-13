@@ -182,7 +182,7 @@ void DataCollector<TypeKey>::collect() {
 #endif
     csr_heap_->data_chunk_checkout(&chunk_tmp, &key);
     const std::vector<CSR<TypeKey>*>& csr_cpu_buffers = chunk_tmp->get_csr_buffers();
-    const std::vector<float*>& label_buffers = chunk_tmp->get_label_buffers();
+    const std::vector<PinnedBuffer<float>>& label_buffers = chunk_tmp->get_label_buffers();
     assert(csr_cpu_buffers.size() == total_device_count);
     assert(label_buffers.size() == total_device_count);
 
@@ -192,18 +192,16 @@ void DataCollector<TypeKey>::collect() {
           (csr_cpu_buffers[i]->get_num_rows() + csr_cpu_buffers[i]->get_sizeof_value() + 1);
       int label_copy_num = label_buffers_[0]->get_num_elements();
       if (pid_ == pid) {
-        int o_device = -1;
         int local_id = device_resources_.get_local_id(i);
-        CK_CUDA_THROW_(get_set_device(device_resources_.get_local_device_id(i), &o_device));
+        CudaDeviceContext context(device_resources_.get_local_device_id(i));
         CK_CUDA_THROW_(cudaMemcpyAsync(csr_buffers_internal_[local_id]->get_ptr_with_offset(0),
                                        csr_cpu_buffers[i]->get_buffer(),
                                        csr_copy_num * sizeof(TypeKey), cudaMemcpyHostToDevice,
                                        *device_resources_[local_id]->get_data_copy_stream_ptr()));
         CK_CUDA_THROW_(cudaMemcpyAsync(label_buffers_internal_[local_id]->get_ptr_with_offset(0),
-                                       label_buffers[i], label_copy_num * sizeof(float),
+                                       label_buffers[i].get(), label_copy_num * sizeof(float),
                                        cudaMemcpyHostToDevice,
                                        *device_resources_[local_id]->get_data_copy_stream_ptr()));
-        CK_CUDA_THROW_(get_set_device(o_device));
       } else {
 #ifdef ENABLE_MPI
         int base_tag = (job_ == TRAIN) ? 1 : 3;
@@ -213,8 +211,8 @@ void DataCollector<TypeKey>::collect() {
         CK_MPI_THROW_(MPI_Isend(csr_cpu_buffers[i]->get_buffer(), csr_copy_num,
                                 ToMpiType<TypeKey>::T(), pid, csr_tag, MPI_COMM_WORLD,
                                 (&req.back()) - 1));
-        CK_MPI_THROW_(MPI_Isend(label_buffers[i], label_copy_num, ToMpiType<float>::T(), pid, l_tag,
-                                MPI_COMM_WORLD, &req.back()));
+        CK_MPI_THROW_(MPI_Isend(label_buffers[i].get(), label_copy_num, ToMpiType<float>::T(), pid,
+                                l_tag, MPI_COMM_WORLD, &req.back()));
 
 #else
         assert(!"No MPI support");
@@ -226,12 +224,10 @@ void DataCollector<TypeKey>::collect() {
     for (int i = 0; i < total_device_count; i++) {
       int pid = device_resources_.get_pid(i);
       if (pid_ == pid) {
-        int o_device = -1;
         int local_id = device_resources_.get_local_id(i);
-        CK_CUDA_THROW_(get_set_device(device_resources_.get_local_device_id(i), &o_device));
+        CudaDeviceContext context(device_resources_.get_local_device_id(i));
         CK_CUDA_THROW_(
             cudaStreamSynchronize(*device_resources_[local_id]->get_data_copy_stream_ptr()));
-        CK_CUDA_THROW_(get_set_device(o_device));
       }
     }
 #ifdef ENABLE_MPI
@@ -244,8 +240,7 @@ void DataCollector<TypeKey>::collect() {
     std::vector<MPI_Request> req;
     req.reserve(2 * device_list.size());                     // to prevent the reallocation
     for (unsigned int i = 0; i < device_list.size(); i++) {  // local_id
-      int o_device = -1;
-      CK_CUDA_THROW_(get_set_device(device_list[i], &o_device));
+      CudaDeviceContext context(device_list[i]);
       int base_tag = (job_ == TRAIN) ? 1 : 3;
       int csr_tag = (device_resources_.get_global_id(device_list[i]) << 2) | base_tag;
       int l_tag =
@@ -257,8 +252,6 @@ void DataCollector<TypeKey>::collect() {
       CK_MPI_THROW_(MPI_Irecv(label_buffers_internal_[i]->get_ptr_with_offset(0),
                               label_buffers_internal_[i]->get_num_elements(), ToMpiType<float>::T(),
                               counter_ % num_procs_, l_tag, MPI_COMM_WORLD, &req.back()));
-
-      CK_CUDA_THROW_(get_set_device(o_device));
     }
 
     CK_MPI_THROW_(MPI_Waitall(req.size(), &req.front(), MPI_STATUSES_IGNORE));
@@ -279,9 +272,8 @@ void DataCollector<TypeKey>::read_a_batch_to_device() {
     }
   }
   for (unsigned int i = 0; i < device_resources_.size(); i++) {
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(device_resources_[i]->get_device_id(), &o_device));
-
+    CudaDeviceContext context(device_resources_[i]->get_device_id());
+    
     CK_CUDA_THROW_(cudaMemcpyAsync(csr_buffers_[i]->get_ptr_with_offset(0),
                                    csr_buffers_internal_[i]->get_ptr_with_offset(0),
                                    csr_buffers_[i]->get_size(), cudaMemcpyDeviceToDevice,
@@ -290,13 +282,10 @@ void DataCollector<TypeKey>::read_a_batch_to_device() {
                                    label_buffers_internal_[i]->get_ptr_with_offset(0),
                                    label_buffers_[i]->get_size(), cudaMemcpyDeviceToDevice,
                                    *device_resources_[i]->get_stream_ptr()));
-    CK_CUDA_THROW_(get_set_device(o_device));
   }
   for (unsigned int i = 0; i < device_resources_.size(); i++) {
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(device_resources_[i]->get_device_id(), &o_device));
+    CudaDeviceContext context(device_resources_[i]->get_device_id());
     CK_CUDA_THROW_(cudaStreamSynchronize(*device_resources_[i]->get_stream_ptr()));
-    CK_CUDA_THROW_(get_set_device(o_device));
   }
   stat_ = READY_TO_WRITE;
 }

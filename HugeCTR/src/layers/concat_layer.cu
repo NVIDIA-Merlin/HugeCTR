@@ -61,8 +61,7 @@ ConcatLayer::ConcatLayer(Tensor<float>& in_tensor, Tensor<float>& out_tensor,
       slot_mask_(nullptr),
       n_sm_(0) {
   try {
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+    CudaDeviceContext context(get_device_id());
 
     if (in_tensor.get_format() != TensorFormat_t::HSW ||
         out_tensor.get_format() != TensorFormat_t::HW)
@@ -101,7 +100,6 @@ ConcatLayer::ConcatLayer(Tensor<float>& in_tensor, Tensor<float>& out_tensor,
     CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sm_, cudaDevAttrMultiProcessorCount, device));
     assert(n_sm_ > 0);
 
-    CK_CUDA_THROW_(get_set_device(o_device));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -113,8 +111,7 @@ ConcatLayer::~ConcatLayer() {
 }
 
 void ConcatLayer::fprop(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
   if (!in_place_) {
     int block_size = 128;
     int n_block = n_sm_ * 16;
@@ -130,13 +127,10 @@ void ConcatLayer::fprop(cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 void ConcatLayer::bprop(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   if (!in_place_) {
     int block_size = 128;
@@ -153,8 +147,6 @@ void ConcatLayer::bprop(cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 }  // namespace HugeCTR

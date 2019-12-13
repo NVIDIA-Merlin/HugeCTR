@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 
 #include <math.h>
@@ -106,8 +105,7 @@ void add_bias(float* data, const float* bias, const int m, const int n, bool row
 
 void FullyConnectedLayer::fprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   Tensor<float> in_tensor = in_tensors_[0];
   Tensor<float> out_tensor = out_tensors_[0];
@@ -151,9 +149,8 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
     add_bias(out, bias, m, n, false, stream);
   } else
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
+
 __inline__ __device__ float warpReduceSum(float val) {
   for (int mask = 16; mask > 0; mask >>= 1) val += __shfl_xor_sync(FINAL_MASK, val, mask, 32);
   return val;
@@ -205,8 +202,7 @@ void cal_bias_grad(float* out, float* bias_grad, int m, int n, bool row_major,
 void FullyConnectedLayer::bprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   Tensor<float> in_tensor = in_tensors_[0];
   Tensor<float> out_tensor = out_tensors_[0];
@@ -263,7 +259,6 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
     cal_bias_grad(out, bias_grad, m, n, false, stream);
   } else
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 std::vector<float> FullyConnectedLayer::get_initializer() {

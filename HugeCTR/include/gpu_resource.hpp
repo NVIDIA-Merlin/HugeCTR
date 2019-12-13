@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/common.hpp"
@@ -50,13 +49,11 @@ class GPUResource {
    * Ctor
    */
   GPUResource(int device_id, const ncclComm_t* comm) : device_id_(device_id), comm_(comm) {
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(device_id_, &o_device));
+    CudaDeviceContext context(device_id_);
     CK_CUBLAS_THROW_(cublasCreate(&cublas_handle_));
     CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle_));
     CK_CUDA_THROW_(cudaStreamCreate(&stream_));
     CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_));
-    CK_CUDA_THROW_(get_set_device(o_device));
     return;
   }
 
@@ -68,13 +65,11 @@ class GPUResource {
    */
   ~GPUResource() {
     try {
-      int o_device = -1;
-      CK_CUDA_THROW_(get_set_device(device_id_, &o_device));
+      CudaDeviceContext context(device_id_);
       CK_CUBLAS_THROW_(cublasDestroy(cublas_handle_));
       CK_CUDNN_THROW_(cudnnDestroy(cudnn_handle_));
       CK_CUDA_THROW_(cudaStreamDestroy(stream_));
       CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_));
-      CK_CUDA_THROW_(get_set_device(o_device));
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
     }
@@ -96,7 +91,7 @@ class GPUResource {
  */
 class GPUResourceGroup {
  private:
-  ncclComm_t* comms_;
+  std::unique_ptr<ncclComm_t[]> comms_;
   const DeviceMap device_map_;
   std::vector<GPUResource*> gpu_resources_; /**< GPU resource vector */
  public:
@@ -134,7 +129,7 @@ class GPUResourceGroup {
     if (total_gpu_count > 1) {
       int my_rank = 0;
       int n_ranks = 1;
-      comms_ = new ncclComm_t[local_gpu_count]();
+      comms_.reset(new ncclComm_t[local_gpu_count]());
 #ifdef ENABLE_MPI
       CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
       CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
@@ -145,18 +140,16 @@ class GPUResourceGroup {
       CK_NCCL_THROW_(ncclGroupStart());
       for (size_t i = 0; i < local_gpu_count; i++) {
         CK_CUDA_THROW_(cudaSetDevice(device_list[i]));
-        CK_NCCL_THROW_(ncclCommInitRank(comms_ + i, total_gpu_count, nid,
+        CK_NCCL_THROW_(ncclCommInitRank(comms_.get() + i, total_gpu_count, nid,
                                         device_map_.get_global_id(device_list[i])));
       }
       CK_NCCL_THROW_(ncclGroupEnd());
 #else
       CK_NCCL_THROW_(ncclCommInitAll(comms_, device_list.size(), device_list.data()));
 #endif
-    } else {
-      comms_ = nullptr;
     }
     for (size_t i = 0; i < local_gpu_count; i++) {
-      gpu_resources_[i] = (new GPUResource(device_list[i], comms_ + i));
+      gpu_resources_[i] = (new GPUResource(device_list[i], comms_.get() + i));
     }
   }
 
@@ -175,7 +168,6 @@ class GPUResourceGroup {
         for (unsigned int i = 0; i < gpu_resources_.size(); i++) {
           CK_NCCL_THROW_(ncclCommDestroy(comms_[i]));
         }
-        delete[] comms_;
       }
       for (auto gpu_resource : gpu_resources_) {
         delete gpu_resource;

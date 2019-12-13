@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
@@ -180,16 +179,13 @@ void Network::eval() {
 
 void Network::download_params_to_host(std::ofstream& weight_stream) {
   // forward
-  int old_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+  CudaDeviceContext context(device_id_);
 
   float* weight = (float*)malloc(weight_buff_.get_size());
   CK_CUDA_THROW_(cudaMemcpy(weight, weight_buff_.get_ptr_with_offset(0), weight_buff_.get_size(),
                             cudaMemcpyDeviceToHost));
   weight_stream.write(reinterpret_cast<char*>(weight), weight_buff_.get_size());
   free(weight);
-
-  CK_CUDA_THROW_(get_set_device(old_device));
 
   return;
 }
@@ -216,37 +212,30 @@ std::string Network::get_no_trained_params_in_string() {
 }
 
 void Network::upload_params_to_device(std::ifstream& params_stream) {
-  int old_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+  CudaDeviceContext context(device_id_);
 
   float* params = (float*)malloc(weight_buff_.get_size());
   params_stream.read(reinterpret_cast<char*>(params), weight_buff_.get_size());
   CK_CUDA_THROW_(cudaMemcpy(weight_buff_.get_ptr_with_offset(0), params, weight_buff_.get_size(),
                             cudaMemcpyHostToDevice));
 
-  CK_CUDA_THROW_(get_set_device(old_device));
-
   return;
 }
 
 void Network::download_params_to_host(float* weight) {
-  int old_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+  CudaDeviceContext context(device_id_);
 
   CK_CUDA_THROW_(cudaMemcpy(weight, weight_buff_.get_ptr_with_offset(0), weight_buff_.get_size(),
                             cudaMemcpyDeviceToHost));
-
-  CK_CUDA_THROW_(get_set_device(old_device));
 
   return;
 }
 
 void Network::upload_params_to_device(float* params) {
-  int old_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+  CudaDeviceContext context(device_id_);
+
   CK_CUDA_THROW_(cudaMemcpy(weight_buff_.get_ptr_with_offset(0), params, weight_buff_.get_size(),
                             cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(get_set_device(old_device));
 
   return;
 }
@@ -258,28 +247,22 @@ void Network::init_params(std::ofstream& out_stream) {
 float Network::get_loss() {
   float loss_host = 0.f;
 
-  int old_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+  CudaDeviceContext context(device_id_);
 
   CK_CUDA_THROW_(
       cudaMemcpy(&loss_host, loss_tensor_->get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
-
-  CK_CUDA_THROW_(get_set_device(old_device));
 
   return loss_host;
 }
 
 void Network::exchange_wgrad() {
   if (gpu_resource_.get_nccl_ptr() != nullptr) {
-    int old_device = -1;
-    CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+    CudaDeviceContext context(device_id_);
 
     CK_NCCL_THROW_(ncclAllReduce(
         (const void*)wgrad_buff_.get_ptr_with_offset(0), (void*)wgrad_buff_.get_ptr_with_offset(0),
         wgrad_buff_.get_num_elements(), ncclFloat, ncclSum, *(gpu_resource_.get_nccl_ptr()),
         *(gpu_resource_.get_stream_ptr())));
-
-    CK_CUDA_THROW_(get_set_device(old_device));
   } else {
     CK_THROW_(Error_t::IllegalCall, "cannot call exchange_wgrad with single GPU");
   }
