@@ -63,7 +63,7 @@ class DataCollector {
   enum JOB { TRAIN, EVAL_MASTER, EVAL_SLAVE };
   volatile STATUS stat_{READY_TO_WRITE};
   JOB job_{TRAIN};
-  Heap<CSRChunk<TypeKey>>* csr_heap_{nullptr};
+  std::shared_ptr<Heap<CSRChunk<TypeKey>>> csr_heap_;
   std::vector<GeneralBuffer<float>*>& label_buffers_;
   std::vector<GeneralBuffer<TypeKey>*>& csr_buffers_;
   const GPUResourceGroup& device_resources_;
@@ -84,7 +84,8 @@ class DataCollector {
   DataCollector(std::vector<GeneralBuffer<float>*>& label_buffers,
                 std::vector<GeneralBuffer<TypeKey>*>& csr_buffers,
                 const GPUResourceGroup& device_resources,
-                Heap<CSRChunk<TypeKey>>* csr_heap = nullptr, bool is_eval = true);
+                const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap = nullptr,
+                bool is_eval = true);
 
   /**
    * Collect data from heap to each GPU (node).
@@ -116,7 +117,8 @@ template <typename TypeKey>
 DataCollector<TypeKey>::DataCollector(std::vector<GeneralBuffer<float>*>& label_buffers,
                                       std::vector<GeneralBuffer<TypeKey>*>& csr_buffers,
                                       const GPUResourceGroup& device_resources,
-                                      Heap<CSRChunk<TypeKey>>* csr_heap, bool is_eval)
+                                      const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap,
+                                      bool is_eval)
     : csr_heap_(csr_heap),
       label_buffers_(label_buffers),
       csr_buffers_(csr_buffers),
@@ -181,7 +183,8 @@ void DataCollector<TypeKey>::collect() {
     req.reserve(2 * total_device_count);  // to prevent the reallocation
 #endif
     csr_heap_->data_chunk_checkout(&chunk_tmp, &key);
-    const std::vector<CSR<TypeKey>*>& csr_cpu_buffers = chunk_tmp->get_csr_buffers();
+    const std::vector<std::unique_ptr<CSR<TypeKey>>>& csr_cpu_buffers =
+        chunk_tmp->get_csr_buffers();
     const std::vector<PinnedBuffer<float>>& label_buffers = chunk_tmp->get_label_buffers();
     assert(csr_cpu_buffers.size() == total_device_count);
     assert(label_buffers.size() == total_device_count);
@@ -273,7 +276,7 @@ void DataCollector<TypeKey>::read_a_batch_to_device() {
   }
   for (unsigned int i = 0; i < device_resources_.size(); i++) {
     CudaDeviceContext context(device_resources_[i]->get_device_id());
-    
+
     CK_CUDA_THROW_(cudaMemcpyAsync(csr_buffers_[i]->get_ptr_with_offset(0),
                                    csr_buffers_internal_[i]->get_ptr_with_offset(0),
                                    csr_buffers_[i]->get_size(), cudaMemcpyDeviceToDevice,
