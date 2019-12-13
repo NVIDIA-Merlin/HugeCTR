@@ -40,8 +40,9 @@ private:
   std::shared_ptr<Source> source_;
   std::shared_ptr<Checker> checker_;
   bool skip_read_{false};             /**< set to true when you want to stop the data reading */
+  const int MAX_TRY = 10;
   void read_new_file(){
-    while(true){
+    for(int i=0; i<MAX_TRY; i++){
       checker_->next_source();
       Error_t err = checker_->read(reinterpret_cast<char*>(&data_set_header_), 
 				   sizeof(DataSetHeaderEx));
@@ -51,9 +52,10 @@ private:
 	continue;
       }
       if(err == Error_t::Success){
-	break;
+	return;
       }
     }
+    CK_THROW_(Error_t::BrokenFile, "failed to read a file");
   }
 
 public:
@@ -139,7 +141,12 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	for (auto& csr_buffer : csr_buffers){
 	  csr_buffer->set_check_point();
 	}
-	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()), sizeof(int) * label_dense_dim));
+	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()), sizeof(float) * label_dense_dim));
+	
+	//std::cout << i << ',';
+	// for(int ii = 0; ii < label_dense_dim; ii++){
+	//   std::cout << label_dense[ii] << std::endl;
+	// }
 
 	{
 	  // We suppose that the data parallel mode is like this
@@ -158,10 +165,11 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	  for (int k = 0; k < param.slot_num; k++) {
 	    int nnz;
 	    CK_READ_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)));
-
+	    
 	    if (nnz > (int)buffer_length_ || nnz < 0) {
 	      ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
 	    }
+
 #ifndef NDEBUG
 	    if (i == 0){
 	      std::cout << "[HCDEBUG]"

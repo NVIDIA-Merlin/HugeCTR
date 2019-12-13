@@ -231,23 +231,21 @@ template<Check_t T>
 class DataWriter{
   std::vector<char> array_;
   std::ofstream& stream_;
-  int N_{0};
   char check_char_{0};
 public:
   DataWriter(std::ofstream& stream): stream_(stream){
     check_char_ = Checker_Traits<T>::zero();
   }
   void append(char* array, int N){
-    N_ += N;
     for(int i=0; i<N; i++){
       array_.push_back(array[i]);
       check_char_ = Checker_Traits<T>::accum(check_char_, array[i]);
     }
   }
   void write(){
-    Checker_Traits<T>::write(N_, array_.data(), check_char_, stream_);
-    N_ = 0;
+    Checker_Traits<T>::write(static_cast<int>(array_.size()), array_.data(), check_char_, stream_);
     check_char_ = Checker_Traits<T>::zero();
+    array_.clear();
   }
 };
 
@@ -278,9 +276,9 @@ void data_generation_ex(std::string file_list_name, std::string data_prefix, int
 
     DataWriter<CK_T> data_writer(out_stream);
 
-    DataSetHeaderEx header = {0, num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
+    DataSetHeaderEx header = {1, num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
 
-    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
+    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeaderEx));
     data_writer.write();
 
     for (int i = 0; i < num_records_per_file; i++) {
