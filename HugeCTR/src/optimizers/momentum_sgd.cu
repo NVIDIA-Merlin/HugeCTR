@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
 
 namespace {
@@ -56,8 +55,7 @@ __global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr
 namespace HugeCTR {
 
 void MomentumSGD::update(cudaStream_t stream) {
-  int old_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+  CudaDeviceContext context(device_id_);
 
   constexpr int block_dim = 256;
   int grid_dim = (weight_.get_num_elements() + block_dim - 1) / block_dim;
@@ -72,8 +70,6 @@ void MomentumSGD::update(cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(old_device));
 }
 
 }  // namespace HugeCTR

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <vector>
 #include "HugeCTR/include/loss.hpp"
 #include "HugeCTR/include/utils.cuh"
@@ -69,8 +68,7 @@ __global__ void CrossEntropy_Kernel(float *input, float *label, float *cel_loss,
 }
 
 void CrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   Tensor<float> input_tensor = input_tensors_[0];
   Tensor<float> label_tensor = label_tensors_[0];
@@ -121,8 +119,6 @@ void CrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(Tensor<float> &label_tensors,
@@ -166,8 +162,7 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, float *label, float *bce
 }
 
 void BinaryCrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   Tensor<float> input_tensor = input_tensors_[0];
   Tensor<float> label_tensor = label_tensors_[0];
@@ -214,8 +209,6 @@ void BinaryCrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 __forceinline__ __device__ __host__ float cross_entropy_loss(float x, float y) {
@@ -264,8 +257,7 @@ __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
 }
 
 void MultiCrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   float *input = input_tensors_[0].get().get_ptr();
   const float *label = label_tensors_[0].get().get_ptr();
@@ -298,8 +290,6 @@ void MultiCrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 
-  CK_CUDA_THROW_(get_set_device(o_device));
-
   return;
 }
 
@@ -327,11 +317,9 @@ MultiCrossEntropyLoss::MultiCrossEntropyLoss(Tensor<float> &label_tensor,
   std::vector<int> twdim = {1, label_tensor.get_dims()[1]};
   target_weight_ = new Tensor<float>(twdim, *internal_buff_, TensorFormat_t::HW);
   internal_buff_->init(device_id);
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id, &o_device));
+  CudaDeviceContext context(device_id);
   CK_CUDA_THROW_(cudaMemcpy(target_weight_->get_ptr(), target_weight.data(),
                             target_weight_->get_size(), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(get_set_device(o_device));
 
   return;
 }

@@ -112,8 +112,7 @@ BatchNormLayer::~BatchNormLayer() {
 }
 
 void BatchNormLayer::fprop(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   CK_CUDNN_THROW_(cudnnSetStream(cudnn_handle_, stream));
 
@@ -143,13 +142,10 @@ void BatchNormLayer::fprop(cudaStream_t stream) {
         cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
         gamma, beta, result_running_mean, result_running_var, params_.eps));
   }
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 void BatchNormLayer::bprop(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   CK_CUDNN_THROW_(cudnnSetStream(cudnn_handle_, stream));
 
@@ -176,8 +172,6 @@ void BatchNormLayer::bprop(cudaStream_t stream) {
       cudnn_handle_, mode_, &one, &zero, &one, &zero, in_out_desc_, temp_in, in_out_desc_, out,
       in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad, params_.eps,
       result_save_mean, result_save_inv_var));
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 std::string BatchNormLayer::get_no_trained_params_in_string() {

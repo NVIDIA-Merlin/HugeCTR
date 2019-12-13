@@ -150,8 +150,7 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
   } else {
     return false;
   }
-  int odevice = -1;
-  get_set_device(tensor.get_device_id(), &odevice);
+  CudaDeviceContext context(tensor.get_device_id());
   cudaDeviceSynchronize();
   assert(end_ > begin_ && begin_ >= 0 && end_ < get_size_from_dims(tensor.get_dims()));
   T host_buff[end_ - begin_];
@@ -174,7 +173,6 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
     std::cout << host_buff[i] << ",";
   }
   std::cout << std::endl;
-  get_set_device(odevice);
   return true;
 }
 

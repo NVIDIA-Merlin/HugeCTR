@@ -19,6 +19,7 @@
 #include <iostream>
 #include <stdexcept>
 #include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/pinned_buffer.hpp"
 
 namespace HugeCTR {
 
@@ -40,7 +41,7 @@ namespace HugeCTR {
 template <typename T>
 class CSR {
  private:
-  T* row_offset_value_buffer_; /**< a unified buffer for row offset and value. */
+  PinnedBuffer<T> row_offset_value_buffer_; /**< a unified buffer for row offset and value. */
   T* row_offset_; /**< just offset on the buffer, note that the length of it is slot*batchsize+1. */
   T* value_;      /**< pointer of value buffer. */
   int num_rows_{0};           /**< num rows. */
@@ -54,32 +55,16 @@ class CSR {
    * @param max_value_size max size of value buffer.
    */
   CSR(int num_rows, int max_value_size)
-      : row_offset_value_buffer_(new T[num_rows + 1 + max_value_size]),
-        row_offset_(row_offset_value_buffer_),
-        value_(row_offset_value_buffer_ + num_rows + 1),
+      : row_offset_value_buffer_(num_rows + 1 + max_value_size),
+        row_offset_(row_offset_value_buffer_.get()),
+        value_(row_offset_value_buffer_.get() + num_rows + 1),
         num_rows_(num_rows),
         max_value_size_(max_value_size) {
     static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                   "type not support");
-    CK_CUDA_THROW_(
-        cudaHostRegister(row_offset_value_buffer_, (num_rows + 1 + max_value_size) * sizeof(T),
-                         cudaHostRegisterDefault));  // make sure these memory can be copy to GPU
-                                                     // without synchronization
   }
-  CSR(const CSR& C) = delete;
-  CSR& operator=(const CSR& C) = delete;
-
-  /**
-   * Dtor
-   */
-  ~CSR() {
-    try {
-      CK_CUDA_THROW_(cudaHostUnregister(row_offset_value_buffer_));
-      delete[] row_offset_value_buffer_;
-    } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-    }
-  }
+  CSR(const CSR&) = delete;
+  CSR& operator=(const CSR&) = delete;
 
   /**
    * push back a value to this object.
@@ -117,7 +102,7 @@ class CSR {
   int get_sizeof_value() const { return size_of_value_; }
   int get_num_rows() const { return num_rows_; }
   int get_max_value_size() const { return max_value_size_; }
-  T* get_buffer() { return row_offset_value_buffer_; }
+  const T* get_buffer() const { return row_offset_value_buffer_.get(); }
 };
 
 }  // namespace HugeCTR

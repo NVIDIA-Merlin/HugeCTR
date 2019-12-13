@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/session.hpp"
 #include <nvToolsExt.h>
 #include "HugeCTR/include/embedding.hpp"
@@ -35,8 +34,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
   if (device_id >= device_count) {
     CK_THROW_(Error_t::WrongInput, "device is not avaliable");
   }
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id, &o_device));
+  CudaDeviceContext context(device_id);
   cudaDeviceProp deviceProp;
   if (cudaGetDeviceProperties(&deviceProp, device_id) != cudaSuccess) {
     CK_THROW_(Error_t::InvalidEnv, "Invalid device:" + std::to_string(device_id));
@@ -50,7 +48,6 @@ static void check_device(int device_id, int min_major, int min_minor) {
   } else if (major == min_major && minor < min_minor) {
     CK_THROW_(Error_t::InvalidEnv, "Device Compute Compacity is low");
   }
-  CK_CUDA_THROW_(get_set_device(o_device));
   return;
 }
 
@@ -79,7 +76,7 @@ Session::Session(int batch_size, const std::string& json_name, const DeviceMap& 
  **/
 Error_t Session::load_params(const std::string& model_file, const std::string& embedding_file) {
   try {
-    float* weight = new float[networks_[0]->get_params_num()]();
+    std::unique_ptr<float> weight(new float[networks_[0]->get_params_num()]());
     std::ifstream model_stream(model_file, std::ifstream::binary);
     if (!embedding_file.empty()) {
       std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
@@ -89,12 +86,11 @@ Error_t Session::load_params(const std::string& model_file, const std::string& e
       embedding_->upload_params_to_device(embedding_stream);
       embedding_stream.close();
     }
-    model_stream.read(reinterpret_cast<char*>(weight),
+    model_stream.read(reinterpret_cast<char*>(weight.get()),
                       networks_[0]->get_params_num() * sizeof(float));
     for (auto network : networks_) {
-      network->upload_params_to_device(weight);
+      network->upload_params_to_device(weight.get());
     }
-    delete[] weight;
     model_stream.close();
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -288,10 +284,8 @@ Error_t Session::get_current_loss(float* loss) {
 Session::~Session() {
   try {
     for (auto device : gpu_resource_group_.get_device_list()) {
-      int o_device = -1;
-      CK_CUDA_THROW_(get_set_device(device, &o_device));
+      CudaDeviceContext context(device);
       CK_CUDA_THROW_(cudaDeviceSynchronize());
-      CK_CUDA_THROW_(get_set_device(o_device));
     }
 
     for (auto network : networks_) {

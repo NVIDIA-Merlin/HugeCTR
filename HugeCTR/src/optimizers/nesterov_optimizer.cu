@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
 
 namespace {
@@ -47,8 +46,7 @@ __global__ void nesterov_kernel(int len, float* weight, const float* wgrad, floa
 namespace HugeCTR {
 
 void NesterovOptimizer::update(cudaStream_t stream) {
-  int old_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+  CudaDeviceContext context(device_id_);
 
   const int len = weight_.get_num_elements();
   const int block_dim = 256;
@@ -64,7 +62,6 @@ void NesterovOptimizer::update(cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-  CK_CUDA_THROW_(get_set_device(old_device));
 }
 
 }  // namespace HugeCTR
