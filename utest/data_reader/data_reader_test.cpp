@@ -122,7 +122,7 @@ TEST(data_reader_worker_ex, data_reader_worker_ex_test) {
   params.push_back(param);
 
   constexpr size_t buffer_length = max_nnz;
-  CSRChunk<T> chunk(num_devices, batchsize, label_dim, slot_num, max_value_size);
+  CSRChunk<T> chunk(num_devices, batchsize, label_dim + dense_dim, slot_num, max_value_size);
   Heap<CSRChunk<T>> csr_heap(32, chunk);
   // setup a data reader
   DataReaderWorkerEx<T> data_reader_ex(csr_heap, file_list, buffer_length, CHK, params);
