@@ -106,12 +106,15 @@ class DataCollector {
     CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
 #endif
     stat_ = STOP;
+    stat_cv_.notify_all();
   }
 
   /**
    * Dtor.
    */
-  ~DataCollector() { stat_ = STOP; }
+  ~DataCollector() {
+    if (stat_ != STOP) stop();
+  }
 };
 
 template <typename TypeKey>
@@ -218,8 +221,8 @@ void DataCollector<TypeKey>::collect() {
           CK_MPI_THROW_(MPI_Isend(csr_cpu_buffers[i].get_buffer(), csr_copy_num,
                                   ToMpiType<TypeKey>::T(), pid, csr_tag, MPI_COMM_WORLD,
                                   (&req.back()) - 1));
-          CK_MPI_THROW_(MPI_Isend(label_buffers[i], label_copy_num, ToMpiType<float>::T(),
-                                  pid, l_tag, MPI_COMM_WORLD, &req.back()));
+          CK_MPI_THROW_(MPI_Isend(label_buffers[i], label_copy_num, ToMpiType<float>::T(), pid,
+                                  l_tag, MPI_COMM_WORLD, &req.back()));
 
 #else
           assert(!"No MPI support");
@@ -277,7 +280,7 @@ void DataCollector<TypeKey>::collect() {
     counter_++;
     stat_ = READY_TO_READ;
   }
-  stat_cv_.notify_one();
+  stat_cv_.notify_all();
 }
 
 template <typename TypeKey>
@@ -313,7 +316,7 @@ void DataCollector<TypeKey>::read_a_batch_to_device() {
     }
     stat_ = READY_TO_WRITE;
   }
-  stat_cv_.notify_one();
+  stat_cv_.notify_all();
 }
 
 }  // namespace HugeCTR

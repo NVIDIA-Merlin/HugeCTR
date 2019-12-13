@@ -69,15 +69,27 @@ class CSR {
 
   CSR(const CSR&) = delete;
   CSR& operator=(const CSR&) = delete;
-  CSR(CSR&&) = default;
-
+  CSR(CSR&& c)
+      : row_offset_value_buffer_(c.row_offset_value_buffer_),
+        row_offset_(c.row_offset_value_buffer_),
+        value_(c.value_),
+        num_rows_(c.num_rows_),
+        size_of_value_(c.size_of_value_),
+        size_of_row_offset_(c.size_of_row_offset_),
+        max_value_size_(c.max_value_size_) {
+    c.row_offset_value_buffer_ = nullptr;
+    c.row_offset_ = nullptr;
+    c.value_ = nullptr;
+  }
   /**
    * Dtor
    */
   ~CSR() {
     try {
-      CK_CUDA_THROW_(cudaHostUnregister(row_offset_value_buffer_));
-      delete[] row_offset_value_buffer_;
+      if (row_offset_value_buffer_) {
+        CK_CUDA_THROW_(cudaHostUnregister(row_offset_value_buffer_));
+        delete[] row_offset_value_buffer_;
+      }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
     }
