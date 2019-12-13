@@ -36,10 +36,10 @@ private:
   size_t buffer_length_;              /**< max possible nnz in a slot */
   Check_t check_type_;
   T* feature_ids_;                    /**< a buffer to cache the readed feature from data set */
-  std::vector<DataReaderSparseParam> parms_
+  std::vector<DataReaderSparseParam> params_;
   std::shared_ptr<Source> source_;
   std::shared_ptr<Checker> checker_;
-
+  bool skip_read_{false};             /**< set to true when you want to stop the data reading */
   void read_new_file(){
     while(true){
       checker_->next_source();
@@ -61,7 +61,7 @@ public:
    * Ctor
    */
   DataReaderWorkerEx(Heap<CSRChunk<T>>& csr_heap, FileList& file_list, size_t buffer_length, 
-    Check_t check_type, std::vector<DataReaderSparseParam>& parms):
+    Check_t check_type, std::vector<DataReaderSparseParam>& params):
     csr_heap_(csr_heap), buffer_length_(buffer_length), 
     check_type_(check_type), params_(params),
     feature_ids_(new T[buffer_length]())
@@ -96,15 +96,15 @@ public:
     if(__ERR == Error_t::Success){			\
     }							\
     else if(__ERR == Error_t::DataCheckError){		\
-      for (auto& __CSR : csr_buffers_){			\
-	__CSR.roll_back();				\
+      for (auto& __CSR : csr_buffers){			\
+	__CSR->roll_back();				\
       }							\
       i--;						\
       goto END_SAMPLE;					\
     }							\
     else{						\
-      for (auto& __CSR : csr_buffers_){			\
-	__CSR.roll_back();				\
+      for (auto& __CSR : csr_buffers){			\
+	__CSR->roll_back();				\
       }							\
       i--;						\
       read_new_file();					\
@@ -115,7 +115,7 @@ public:
 template <class T>
 void DataReaderWorkerEx<T>::read_a_batch() {
   try {
-    if(!checker_->is_open){
+    if(!checker_->is_open()){
       read_new_file();
     }
     unsigned int key = 0;
@@ -128,6 +128,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
       if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
         CK_THROW_(Error_t::WrongInput, "data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim");
       std::unique_ptr<float[]> label_dense(new float[label_dense_dim]());
+      int current_record_index_ = 0;
 
       for (auto& csr_buffer : csr_buffers){
 	csr_buffer->reset();
@@ -136,9 +137,9 @@ void DataReaderWorkerEx<T>::read_a_batch() {
       //batch loop
       for (int i = 0; i < chunk_tmp->get_batchsize(); i++) {
 	for (auto& csr_buffer : csr_buffers){
-	  csr_buffer.set_check_point();
+	  csr_buffer->set_check_point();
 	}
-	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense, sizeof(int) * label_dense_dim)));
+	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()), sizeof(int) * label_dense_dim));
 
 	{
 	  // We suppose that the data parallel mode is like this
@@ -156,7 +157,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	for(auto& param: params_){
 	  for (int k = 0; k < param.slot_num; k++) {
 	    int nnz;
-	    CK_READ_(checker_->read(reinterpret_cast<char*>(&nnz, sizeof(int))));
+	    CK_READ_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)));
 
 	    if (nnz > (int)buffer_length_ || nnz < 0) {
 	      ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
@@ -167,7 +168,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 			<< "nnz: " << nnz << std::endl;
 	    }
 #endif
-	    CK_READ_(checker_.read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
+	    CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
 	    if(param.type == DataReaderSparse_t::Distributed){
 	      for (auto csr_buffer : csr_buffers) {
 		csr_buffer->new_row();
@@ -210,7 +211,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	  }
 	  read_new_file();
 	}
-      END_SAMPLE:
+      END_SAMPLE: ;
       }//batch loop
     }
     csr_heap_.chunk_write_and_checkin(key);
