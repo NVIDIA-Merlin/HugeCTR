@@ -31,7 +31,7 @@ namespace HugeCTR {
 template <typename CSR_Type>
 class CSRChunk {
  private:
-  std::vector<CSR<CSR_Type>*>
+  std::vector<std::unique_ptr<CSR<CSR_Type>>>
       csr_buffers_; /**< A vector of CSR objects, should be same number as devices. */
   std::vector<PinnedBuffer<float>> label_buffers_; /**< A vector of label buffers */
   int label_dim_;                                  /**< dimension of label (for one sample) */
@@ -63,8 +63,8 @@ class CSRChunk {
     slot_num_ = slot_num;
     assert(csr_buffers_.empty() && label_buffers_.empty());
     for (int i = 0; i < num_csr_buffers; i++) {
-      csr_buffers_.push_back(new CSR<CSR_Type>(batchsize * slot_num, max_value_size));
-      label_buffers_.push_back(PinnedBuffer<float>(batchsize / num_csr_buffers * label_dim));
+      csr_buffers_.emplace_back(new CSR<CSR_Type>(batchsize * slot_num, max_value_size));
+      label_buffers_.emplace_back(batchsize / num_csr_buffers * label_dim);
     }
   }
 
@@ -72,7 +72,7 @@ class CSRChunk {
    * Get the vector of csr objects.
    * This methord is used in collector (consumer) and data_reader (provider).
    */
-  const std::vector<CSR<CSR_Type>*>& get_csr_buffers() const { return csr_buffers_; }
+  const std::vector<std::unique_ptr<CSR<CSR_Type>>>& get_csr_buffers() const { return csr_buffers_; }
   /**
    * Get labels
    * This methord is used in collector (consumer) and data_reader (provider).
@@ -89,7 +89,7 @@ class CSRChunk {
    * @param C prototype of the Ctor.
    */
   CSRChunk(const CSRChunk& C) {
-    const std::vector<CSR<CSR_Type>*>& csr_buffers = C.get_csr_buffers();
+    const std::vector<std::unique_ptr<CSR<CSR_Type>>>& csr_buffers = C.get_csr_buffers();
     const int num_csr_buffers = csr_buffers.size();
     const int batchsize = C.get_batchsize();
     const int label_dim = C.get_label_dim();
@@ -109,21 +109,8 @@ class CSRChunk {
     assert(csr_buffers_.empty());
     assert(label_buffers_.empty());
     for (int i = 0; i < num_csr_buffers; i++) {
-      csr_buffers_.push_back(new CSR<CSR_Type>(batchsize * slot_num, max_value_size));
-      label_buffers_.push_back(PinnedBuffer<float>(batchsize / num_csr_buffers * label_dim));
-    }
-  }
-
-  /**
-   * Dtor
-   */
-  ~CSRChunk() {
-    try {
-      for (auto buffer : csr_buffers_) {
-        delete buffer;
-      }
-    } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+      csr_buffers_.emplace_back(new CSR<CSR_Type>(batchsize * slot_num, max_value_size));
+      label_buffers_.emplace_back(batchsize / num_csr_buffers * label_dim);
     }
   }
 };

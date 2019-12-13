@@ -35,8 +35,8 @@ namespace HugeCTR {
 template <class T>
 class DataReaderMultiThreads {
  private:
-  FileList& file_list_;         /**< file list of data set */
-  Heap<CSRChunk<T>>& csr_heap_; /**< heap to cache the data set */
+  std::shared_ptr<FileList> file_list_;         /**< file list of data set */
+  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   DataSetHeader
       data_set_header_; /**< the header of data set, which has main informations of a data file */
   long long current_record_index_{0}; /**< the index of current reading record in a data file */
@@ -49,7 +49,8 @@ class DataReaderMultiThreads {
   /**
    * Ctor
    */
-  DataReaderMultiThreads(Heap<CSRChunk<T>>& csr_heap, FileList& file_list, size_t buffer_length)
+  DataReaderMultiThreads(const std::shared_ptr<Heap<CSRChunk<T>>>& csr_heap,
+                         const std::shared_ptr<FileList>& file_list, size_t buffer_length)
       : file_list_(file_list),
         csr_heap_(csr_heap),
         feature_ids_(new T[buffer_length]()),
@@ -70,7 +71,7 @@ template <class T>
 void DataReaderMultiThreads<T>::read_a_batch() {
   try {
     if (!in_file_stream_.is_open()) {
-      std::string file_name = file_list_.get_a_file();
+      std::string file_name = file_list_->get_a_file();
       in_file_stream_.open(file_name, std::ifstream::binary);
       in_file_stream_.read(reinterpret_cast<char*>(&data_set_header_), sizeof(DataSetHeader));
       if (!in_file_stream_.is_open()) {
@@ -89,17 +90,17 @@ void DataReaderMultiThreads<T>::read_a_batch() {
     }
     unsigned int key = 0;
     CSRChunk<T>* chunk_tmp = nullptr;
-    csr_heap_.free_chunk_checkout(&chunk_tmp, &key);
+    csr_heap_->free_chunk_checkout(&chunk_tmp, &key);
     if (!skip_read_) {
-      const std::vector<CSR<T>*>& csr_buffers = chunk_tmp->get_csr_buffers();
+      const std::vector<std::unique_ptr<CSR<T>>>& csr_buffers = chunk_tmp->get_csr_buffers();
       const std::vector<PinnedBuffer<float>>& label_buffers = chunk_tmp->get_label_buffers();
       const int label_dim = chunk_tmp->get_label_dim();
       if (data_set_header_.label_dim != label_dim)
         CK_THROW_(Error_t::WrongInput, "data_set_header_.label_dim != label_dim");
 
       std::unique_ptr<int[]> label(new int[label_dim]());
-      for (auto iter = csr_buffers.begin(); iter != csr_buffers.end(); iter++) {
-        iter[0]->reset();
+      for (auto& csr_buffer : csr_buffers) {
+        csr_buffer->reset();
       }
       assert(label_buffers.size() > 0);
       for (int i = 0; i < chunk_tmp->get_batchsize(); i++) {
@@ -118,8 +119,8 @@ void DataReaderMultiThreads<T>::read_a_batch() {
         }
 
         for (int k = 0; k < data_set_header_.slot_num; k++) {
-          for (auto iter = csr_buffers.begin(); iter != csr_buffers.end(); iter++) {
-            iter[0]->new_row();
+          for (auto& csr_buffer : csr_buffers) {
+            csr_buffer->new_row();
           }
           int nnz;
           in_file_stream_.read(reinterpret_cast<char*>(&nnz), sizeof(int));
@@ -153,7 +154,7 @@ void DataReaderMultiThreads<T>::read_a_batch() {
         // start a new file when finish one file read
         if (current_record_index_ >= data_set_header_.number_of_records) {
           in_file_stream_.close();
-          std::string file_name = file_list_.get_a_file();
+          std::string file_name = file_list_->get_a_file();
           current_record_index_ = 0;
           in_file_stream_.open(file_name, std::ifstream::binary);
           if (!in_file_stream_.is_open()) {
@@ -169,11 +170,11 @@ void DataReaderMultiThreads<T>::read_a_batch() {
             CK_THROW_(Error_t::WrongInput, "number_of_records <= 0");
         }
       }
-      for (auto iter = csr_buffers.begin(); iter != csr_buffers.end(); iter++) {
-        iter[0]->new_row();
+      for (auto& csr_buffer : csr_buffers) {
+        csr_buffer->new_row();
       }
     }
-    csr_heap_.chunk_write_and_checkin(key);
+    csr_heap_->chunk_write_and_checkin(key);
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
