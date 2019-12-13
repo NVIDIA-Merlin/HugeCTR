@@ -16,6 +16,7 @@
 
 
 #include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_reader_worker_ex.hpp"
 #include <fstream>
 #include <thread>
 #include "HugeCTR/include/data_parser.hpp"
@@ -30,6 +31,7 @@ using namespace HugeCTR;
 const std::string file_list_name("sample_file_list.txt");
 const int num_files = 20;
 const long long label_dim = 2;
+const long long dense_dim = 64;
 const long long slot_num = 10;
 const long long num_records = 2048 * 2;
 const int max_nnz = 30;
@@ -37,14 +39,19 @@ typedef long long T;
 const std::string prefix("./data_reader_test_data/temp_dataset_");
 const int vocabulary_size = 511;
 
+// configurations for data_reader_worker_ex
+const std::string file_list_name_ex("sample_ex_file_list.txt");
+const std::string prefix_ex("./data_reader_test_data_ex/temp_dataset_");
+const Check_t CHK = Check_t::Sum;
 
 
+#if 0
 TEST(data_reader_multi_threads, data_reader_single_thread_test) {
   // writing data
   test::mpi_init();
   HugeCTR::data_generation<T>(file_list_name, prefix, num_files, num_records, slot_num,
                               vocabulary_size, label_dim, max_nnz);
-
+  
   // setup a file list
   FileList file_list(file_list_name);
   // setup a CSR heap
@@ -94,6 +101,34 @@ TEST(data_reader_multi_threads, data_reader_multi_threads_test) {
   for (auto th : data_reader_threads) {
     th->join();
   }
+}
+#endif
+
+TEST(data_reader_worker_ex, data_reader_worker_ex_test) {
+  test::mpi_init();
+  // data generation
+  HugeCTR::data_generation_ex<T, Check_t::Sum>(file_list_name_ex, prefix_ex, num_files, num_records, slot_num,
+     vocabulary_size, label_dim, dense_dim, max_nnz);
+  
+
+  // setup a file list
+  FileList file_list(file_list_name_ex);
+  // setup a CSR heap
+  const int num_devices = 1;
+  const int batchsize = 2048;
+  const int max_value_size = max_nnz * batchsize * slot_num;
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz*slot_num, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+
+  constexpr size_t buffer_length = max_nnz;
+  CSRChunk<T> chunk(num_devices, batchsize, label_dim, slot_num, max_value_size);
+  Heap<CSRChunk<T>> csr_heap(32, chunk);
+  // setup a data reader
+  DataReaderWorkerEx<T> data_reader_ex(csr_heap, file_list, buffer_length, CHK, params);
+  // // call read a batch
+  data_reader_ex.read_a_batch();
+  
 }
 
 

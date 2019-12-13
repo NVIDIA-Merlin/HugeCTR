@@ -89,7 +89,7 @@ public:
     // initialize
     counter_ = 0;
     accum_ = 0;
-    for(int i = MAX_TRY_; i > 0; i++){
+    for(int i = MAX_TRY_; i > 0; i--){
       if(Checker::src_.next_source() == Error_t::Success){
 	return;
       }

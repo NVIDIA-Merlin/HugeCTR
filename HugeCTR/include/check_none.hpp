@@ -25,7 +25,7 @@ class CheckNone: public Checker {
 private:
   const int MAX_TRY{10};
 public:
-  CheckSum(Source& src): Base(src){}
+  CheckNone(Source& src): Checker(src){}
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
    * Users don't need to manualy maintain the check bit offset, just specify
@@ -36,7 +36,7 @@ public:
    */
   Error_t read(char* ptr, size_t bytes_to_read) noexcept{
     try{
-      Base::src_.read(ptr, bytes_to_read);
+      Checker::src_.read(ptr, bytes_to_read);
       return Error_t::Success;
     }
     catch (const std::runtime_error& rt_err){
@@ -51,13 +51,12 @@ public:
    * @return `FileCannotOpen` or `UnspecificError`
    */
   void next_source(){
-    int i = MAX_TRY;
-    for(int i = MAX_TRY; i > 0; i++){
-      if(Base::src_.next_source() == Error_t::Success){
-	return Error_t::Success;
+    for(int i = MAX_TRY; i > 0; i--){
+      if(Checker::src_.next_source() == Error_t::Success){
+	return;
       }
     }
-    CK_THROW_(Error_t::FileCannotOpen, "Base::src_.next_source() == Error_t::Success failed");
+    CK_THROW_(Error_t::FileCannotOpen, "Checker::src_.next_source() == Error_t::Success failed");
   }
 };
 
