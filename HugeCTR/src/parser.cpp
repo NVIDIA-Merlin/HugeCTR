@@ -204,20 +204,20 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"ReLU", Layer_t::ReLU},
   };
 
-  Network* network =
-      new Network(in_tensor, label_tensor, batch_size, device_id, gpu_resource, false);
+  std::unique_ptr<Network> network(
+      new Network(in_tensor, label_tensor, batch_size, device_id, gpu_resource, false));
   std::map<std::string, Tensor<float>*> tensor_list;
   tensor_list.clear();
 
   assign_first_tensor(tensor_list, j_array, in_tensor);
 
   std::vector<Tensor<float>*>& tensors = network->tensors_;
-  std::vector<Layer*>& layers = network->layers_;
+  std::vector<std::unique_ptr<Layer>>& layers = network->layers_;
   GeneralBuffer<float>& blobs_buff = network->blobs_buff_;
   GeneralBuffer<float>& weight_buff = network->weight_buff_;
   GeneralBuffer<float>& wgrad_buff = network->wgrad_buff_;
   Tensor<float>*& loss_tensor = network->loss_tensor_;
-  Loss*& loss = network->loss_;
+  std::unique_ptr<Loss>& loss = network->loss_;
 
   assert(tensors.empty());
   assert(layers.empty());
@@ -250,17 +250,18 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto eps = get_value_from_json<float>(j_bn_hparam, "eps");
 
         BatchNormLayer::Params params = {is_training, factor, eps};
-        layers.push_back(new BatchNormLayer(weight_buff, wgrad_buff, *bn_in_tensor, *bn_out_tensor,
-                                            params, gpu_resource->get_cudnn_handle(), device_id));
+        layers.emplace_back(new BatchNormLayer(weight_buff, wgrad_buff, *bn_in_tensor,
+                                               *bn_out_tensor, params,
+                                               gpu_resource->get_cudnn_handle(), device_id));
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
         auto binary_cross_entropy_loss_in_tensor = input_output_info.input;
         std::vector<int> tmp_dim;
         loss_tensor = new Tensor<float>(tmp_dim = {1, 1}, blobs_buff, TensorFormat_t::HW);
-        loss = new BinaryCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
-                                          *binary_cross_entropy_loss_in_tensor, *loss_tensor,
-                                          device_id);
+        loss.reset(new BinaryCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
+                                              *binary_cross_entropy_loss_in_tensor, *loss_tensor,
+                                              device_id));
         break;
       }
       case Layer_t::Concat: {
@@ -288,7 +289,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                                         ? new Tensor<float>(out_dims, *in_tensor, out_format)
                                         : new Tensor<float>(out_dims, blobs_buff, out_format);
         output_tensor_pair.tensor = out_tensor;
-        layers.push_back(new ConcatLayer(*in_tensor, *out_tensor, slot_mask, device_id));
+        layers.emplace_back(new ConcatLayer(*in_tensor, *out_tensor, slot_mask, device_id));
 
         break;
       }
@@ -296,8 +297,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto cross_entropy_loss_in_tensor = input_output_info.input;
         std::vector<int> tmp_dim;
         loss_tensor = new Tensor<float>(tmp_dim = {1, 1}, blobs_buff, TensorFormat_t::HW);
-        loss = new CrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
-                                    *cross_entropy_loss_in_tensor, *loss_tensor, device_id);
+        loss.reset(new CrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
+                                        *cross_entropy_loss_in_tensor, *loss_tensor, device_id));
         break;
       }
       case Layer_t::ELU: {
@@ -311,7 +312,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
         auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
-        layers.push_back(new EluLayer(*elu_in_tensor, *elu_out_tensor, alpha, device_id));
+        layers.emplace_back(new EluLayer(*elu_in_tensor, *elu_out_tensor, alpha, device_id));
 
         break;
       }
@@ -328,7 +329,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         Layer* fc_layer = new FullyConnectedLayer(weight_buff, wgrad_buff, *fc_in_tensor,
                                                   *out_tensor, TensorFormat_t::HW,
                                                   gpu_resource->get_cublas_handle(), device_id);
-        layers.push_back(fc_layer);
+        layers.emplace_back(fc_layer);
         break;
       }
       case Layer_t::MultiCrossEntropyLoss: {
@@ -342,9 +343,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           float tweight_val = tweight_tmp.get<float>();
           target_weight_vec.push_back(tweight_val);
         }
-        loss = new MultiCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
-                                         *multi_cross_entropy_loss_in_tensor, *loss_tensor,
-                                         target_weight_vec, device_id);
+        loss.reset(new MultiCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor),
+                                             *multi_cross_entropy_loss_in_tensor, *loss_tensor,
+                                             target_weight_vec, device_id));
         break;
       }
       case Layer_t::ReLU: {
@@ -356,7 +357,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             new Tensor<float>(tmp_dim = {batch_size, (relu_in_tensor->get_dims())[1]}, blobs_buff,
                               TensorFormat_t::HW);
         output_tensor_pair.tensor = relu_out_tensor;
-        layers.push_back(new ReluLayer(*relu_in_tensor, *relu_out_tensor, device_id));
+        layers.emplace_back(new ReluLayer(*relu_in_tensor, *relu_out_tensor, device_id));
 
         break;
       }
@@ -380,22 +381,22 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       auto beta1 = opt_param.hyperparams.adam.beta1;
       auto beta2 = opt_param.hyperparams.adam.beta2;
       auto epsilon = opt_param.hyperparams.adam.epsilon;
-      network->optimizer_ =
-          new AdamOptimizer(weight_buff, wgrad_buff, device_id, alpha, beta1, beta2, epsilon);
+      network->optimizer_.reset(
+          new AdamOptimizer(weight_buff, wgrad_buff, device_id, alpha, beta1, beta2, epsilon));
       break;
     }
     case Optimizer_t::MomentumSGD: {
       auto learning_rate = opt_param.lr;
       auto momentum_factor = opt_param.hyperparams.momentum.factor;
-      network->optimizer_ =
-          new MomentumSGD(weight_buff, wgrad_buff, device_id, learning_rate, momentum_factor);
+      network->optimizer_.reset(
+          new MomentumSGD(weight_buff, wgrad_buff, device_id, learning_rate, momentum_factor));
       break;
     }
     case Optimizer_t::Nesterov: {
       auto learning_rate = opt_param.lr;
       auto momentum_factor = opt_param.hyperparams.nesterov.mu;
-      network->optimizer_ =
-          new NesterovOptimizer(weight_buff, wgrad_buff, device_id, learning_rate, momentum_factor);
+      network->optimizer_.reset(new NesterovOptimizer(weight_buff, wgrad_buff, device_id,
+                                                      learning_rate, momentum_factor));
       break;
     }
     default:
@@ -405,12 +406,14 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   wgrad_buff.init(device_id);
   blobs_buff.init(device_id);
 
-  return network;
+  return network.release();
 }
 
 template <typename TypeKey>
-static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
-                                     Embedding<TypeKey>** embedding, std::vector<Network*>* network,
+static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_reader,
+                                     std::unique_ptr<DataReader<TypeKey>>& data_reader_eval,
+                                     std::unique_ptr<Embedding<TypeKey>>& embedding,
+                                     std::vector<std::unique_ptr<Network>>& network,
                                      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                                      nlohmann::json config, int batch_size) {
   try {
@@ -443,16 +446,16 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
       max_feature_num_per_sample = get_value_from_json<int>(j, "max_feature_num_per_sample");
       auto label_dim = get_value_from_json<int>(j, "label_dim");
       auto slot_num = get_value_from_json<int>(j, "slot_num");
-      data_reader[0] = new DataReader<TypeKey>(source_data, batch_size, label_dim, slot_num,
-                                               max_feature_num_per_sample, gpu_resource_group);
-      data_reader[1] = nullptr;
+      data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, slot_num,
+                                                max_feature_num_per_sample, gpu_resource_group));
+      data_reader_eval = nullptr;
       std::string eval_source;
       FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
       if (eval_source.empty() == false) {
         if (pid == 0) {  // master process
-          data_reader[1] = data_reader[0]->clone_eval_with_shared_output(eval_source);
+          data_reader_eval.reset(data_reader->clone_eval_with_shared_output(eval_source));
         } else {  // slave process
-          data_reader[1] = data_reader[0]->clone_eval_with_shared_output();
+          data_reader_eval.reset(data_reader->clone_eval_with_shared_output());
         }
       }
     }
@@ -468,7 +471,7 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
 
       Embedding_t embedding_type;
       if (!find_item_in_map(&embedding_type, embedding_name, EMBEDDING_TYPE_MAP)) {
-        *embedding = nullptr;
+        embedding = nullptr;
         CK_THROW_(Error_t::WrongInput, "Not supported embedding type: " + embedding_name);
       }
 
@@ -490,9 +493,9 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
               slot_num,
               combiner,  // combiner: 0-sum, 1-mean, 2-sqrtn
               opt_params};
-          *embedding = EmbeddingCreator::create_sparse_embedding_hash(
-              (*data_reader)->get_row_offsets_tensors(), (*data_reader)->get_value_tensors(),
-              embedding_params, gpu_resource_group);
+          embedding.reset(EmbeddingCreator::create_sparse_embedding_hash(
+              data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
+              embedding_params, gpu_resource_group));
           break;
         }
         default: { assert(!"Error: no such option && should never get here!"); }
@@ -500,15 +503,15 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
     }
     /* Create Network */
     {
-      if (!network->empty()) {
+      if (!network.empty()) {
         CK_THROW_(Error_t::WrongInput, "vector network is not empty");
       }
 
       auto j_layers_array = get_json(config, "layers");
       auto j_optimizer = get_json(config, "optimizer");
 
-      std::vector<Tensor<float>*>& embedding_tensors = (*embedding)->get_output_tensors();
-      const std::vector<Tensor<float>*>& label_tensors = (*data_reader)->get_label_tensors();
+      std::vector<Tensor<float>*>& embedding_tensors = embedding->get_output_tensors();
+      const std::vector<Tensor<float>*>& label_tensors = data_reader->get_label_tensors();
 
       int i = 0;
       int total_gpu_count = gpu_resource_group->get_total_gpu_count();
@@ -517,9 +520,9 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
       }
       std::vector<int> device_list = gpu_resource_group->get_device_list();
       for (auto device_id : device_list) {
-        network->push_back(create_network(j_layers_array, j_optimizer, *(embedding_tensors[i]),
-                                          *(label_tensors[i]), batch_size / total_gpu_count,
-                                          device_id, (*gpu_resource_group)[i]));
+        network.emplace_back(create_network(j_layers_array, j_optimizer, *(embedding_tensors[i]),
+                                            *(label_tensors[i]), batch_size / total_gpu_count,
+                                            device_id, (*gpu_resource_group)[i]));
         i++;
       }
     }
@@ -530,18 +533,22 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
   }
 }
 
-void Parser::create_pipeline(DataReader<TYPE_1>** data_reader, Embedding<TYPE_1>** embedding,
-                             std::vector<Network*>* network,
+void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
+                             std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
+                             std::unique_ptr<Embedding<TYPE_1>>& embedding,
+                             std::vector<std::unique_ptr<Network>>& network,
                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
-  create_pipeline_internal<TYPE_1>(data_reader, embedding, network, gpu_resource_group, config_,
-                                   batch_size_);
+  create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, network,
+                                   gpu_resource_group, config_, batch_size_);
 }
 
-void Parser::create_pipeline(DataReader<TYPE_2>** data_reader, Embedding<TYPE_2>** embedding,
-                             std::vector<Network*>* network,
+void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
+                             std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
+                             std::unique_ptr<Embedding<TYPE_2>>& embedding,
+                             std::vector<std::unique_ptr<Network>>& network,
                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
-  create_pipeline_internal<TYPE_2>(data_reader, embedding, network, gpu_resource_group, config_,
-                                   batch_size_);
+  create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, network,
+                                   gpu_resource_group, config_, batch_size_);
 }
 
 SolverParser::SolverParser(std::string configure_file) {
