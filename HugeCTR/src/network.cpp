@@ -40,43 +40,43 @@ Network::Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, in
       // FC 0 xxx->200
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
-      layers_.push_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, (in_tensor_),
-                                                *tensors_[0], TensorFormat_t::HW,
-                                                gpu_resource_->get_cublas_handle(), device_id));
+      layers_.emplace_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, (in_tensor_),
+                                                   *tensors_[0], TensorFormat_t::HW,
+                                                   gpu_resource_->get_cublas_handle(), device_id));
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
-      layers_.push_back(new ReluLayer(*tensors_[0], *tensors_[1], device_id));
+      layers_.emplace_back(new ReluLayer(*tensors_[0], *tensors_[1], device_id));
       // FC 1 200->200
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
-      layers_.push_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[1],
-                                                *tensors_[2], TensorFormat_t::HW,
-                                                gpu_resource_->get_cublas_handle(), device_id));
+      layers_.emplace_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[1],
+                                                   *tensors_[2], TensorFormat_t::HW,
+                                                   gpu_resource_->get_cublas_handle(), device_id));
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
-      layers_.push_back(new ReluLayer(*tensors_[2], *tensors_[3], device_id));
+      layers_.emplace_back(new ReluLayer(*tensors_[2], *tensors_[3], device_id));
       // FC 2 200->200
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
-      layers_.push_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[3],
-                                                *tensors_[4], TensorFormat_t::HW,
-                                                gpu_resource_->get_cublas_handle(), device_id));
+      layers_.emplace_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[3],
+                                                   *tensors_[4], TensorFormat_t::HW,
+                                                   gpu_resource_->get_cublas_handle(), device_id));
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
-      layers_.push_back(new ReluLayer(*tensors_[4], *tensors_[5], device_id));
+      layers_.emplace_back(new ReluLayer(*tensors_[4], *tensors_[5], device_id));
       // FC 3 200->1
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 1}, blobs_buff_, TensorFormat_t::HW));
-      layers_.push_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[5],
-                                                *tensors_[6], TensorFormat_t::HW,
-                                                gpu_resource_->get_cublas_handle(), device_id));
+      layers_.emplace_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[5],
+                                                   *tensors_[6], TensorFormat_t::HW,
+                                                   gpu_resource_->get_cublas_handle(), device_id));
       // setup loss
       loss_tensor_ = new Tensor<float>(tmp_dim = {1, 1}, blobs_buff_, TensorFormat_t::HW);
-      loss_ = new BinaryCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor_),
-                                         *tensors_.back(), *loss_tensor_, device_id);
+      loss_.reset(new BinaryCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor_),
+                                             *tensors_.back(), *loss_tensor_, device_id));
 
       // setup optimizer
-      optimizer_ = new MomentumSGD(weight_buff_, wgrad_buff_, device_id, 0.01, 0.9);
+      optimizer_.reset(new MomentumSGD(weight_buff_, wgrad_buff_, device_id, 0.01, 0.9));
 
       weight_buff_.init(device_id);
       wgrad_buff_.init(device_id);
@@ -109,8 +109,8 @@ void Network::train() {
   }
 #endif
   // forward
-  for (auto iter = layers_.begin(); iter != layers_.end(); iter++) {
-    iter[0]->fprop(gpu_resource_->get_stream());
+  for (auto& layer : layers_) {
+    layer->fprop(gpu_resource_->get_stream());
 #ifndef NDEBUG
     print_tensor(in_tensor_, -10, -1);
     print_tensor(label_tensor_, -10, -1);
@@ -129,8 +129,8 @@ void Network::train() {
 #endif
 
   // backward
-  for (auto iter = layers_.rbegin(); iter != layers_.rend(); iter++) {
-    iter[0]->bprop(gpu_resource_->get_stream());
+  for (auto& layer : layers_) {
+    layer->bprop(gpu_resource_->get_stream());
 #ifndef NDEBUG
     print_tensor(in_tensor_, -10, -1);
     print_tensor(label_tensor_, -10, -1);
@@ -156,8 +156,8 @@ void Network::eval() {
   }
 #endif
   // forward
-  for (auto iter = layers_.begin(); iter != layers_.end(); iter++) {
-    iter[0]->fprop(gpu_resource_->get_stream());
+  for (auto& layer : layers_) {
+    layer->fprop(gpu_resource_->get_stream());
 #ifndef NDEBUG
     print_tensor(in_tensor_, -10, -1);
     print_tensor(label_tensor_, -10, -1);
@@ -194,7 +194,7 @@ void Network::download_params_to_host(std::ofstream& weight_stream) {
 std::string Network::get_no_trained_params_in_string() {
   bool prev_exist = false;
   std::string net_str;
-  for (auto layer : layers_) {
+  for (auto& layer : layers_) {
     std::string layer_str = layer->get_no_trained_params_in_string();
     if (layer_str.length() != 0) {
       if (prev_exist) net_str += ",\n";
@@ -242,7 +242,7 @@ void Network::upload_params_to_device(float* params) {
 }
 
 void Network::init_params(std::ofstream& out_stream) {
-  for (auto layer : layers_) layer->init_params(out_stream);
+  for (auto& layer : layers_) layer->init_params(out_stream);
 }
 
 float Network::get_loss() {
@@ -272,18 +272,12 @@ void Network::exchange_wgrad() {
 Network::~Network() {
   try {
     assert(optimizer_ != nullptr && loss_ != nullptr && loss_tensor_ != nullptr);
-    delete optimizer_;
-    delete loss_;
     delete loss_tensor_;
     for (auto tensor : tensors_) {
       assert(tensor != nullptr);
       delete tensor;
     }
 
-    for (auto layer : layers_) {
-      assert(layer != nullptr);
-      delete layer;
-    }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }

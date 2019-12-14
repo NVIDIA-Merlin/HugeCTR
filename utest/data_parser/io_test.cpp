@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/data_parser.hpp"
 #include "gtest/gtest.h"
 
@@ -22,7 +21,7 @@ using namespace HugeCTR;
 
 TEST(data_parser, InputParser) {
   // setup DataSimulator and InputParser
-  UnifiedDataSimulator<long long> uSimulator(4211111111, 4222222222);
+  auto uSimulator = new UnifiedDataSimulator<long long>(4211111111, 4222222222);
   InputParser iParser("temp.data", uSimulator);
   const int N(16);
   // write data into file
@@ -43,7 +42,7 @@ TEST(data_parser, InputParser) {
 }
 
 TEST(data_parser, ParameterParser) {
-  GaussianDataSimulator<float> gSimulator(0, 20, -100., 100.);
+  auto gSimulator = new GaussianDataSimulator<float>(0, 20, -100., 100.);
   ParameterParser pParser("gtemp.data", gSimulator);
   const int N(16);
   // write data into file
@@ -65,7 +64,7 @@ TEST(data_parser, ParameterParser) {
 
 TEST(data_parser, InputParserll) {
   // setup DataSimulator and InputParser
-  GaussianDataSimulator<long long> gSimulator(0, 20, 0, 100);
+  auto gSimulator = new GaussianDataSimulator<long long>(0, 20, 0, 100);
   InputParser iParser("gltemp.data", gSimulator);
   const int N(16);
   // write data into file

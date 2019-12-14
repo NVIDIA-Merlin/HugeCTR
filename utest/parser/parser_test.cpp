@@ -35,19 +35,13 @@ void test_parser(std::string& json_name) {
   DeviceMap device_map(vvgpu, 0);
   int batch_size = 4096;
   Parser p(json_name, batch_size);
-  DataReader<TypeKey>* data_reader;
-  Embedding<TypeKey>* embedding;
-  std::vector<Network*> networks;
+  std::unique_ptr<DataReader<TypeKey>> data_reader;
+  std::unique_ptr<DataReader<TypeKey>> data_reader_eval;
+  std::unique_ptr<Embedding<TypeKey>> embedding;
+  std::vector<std::unique_ptr<Network>> networks;
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
-  p.create_pipeline(&data_reader, &embedding, &networks, gpu_resource_group);
-
-  for (auto network : networks) {
-    assert(network != nullptr);
-    delete network;
-  }
-  delete data_reader;
-  delete embedding;
+  p.create_pipeline(data_reader, data_reader_eval, embedding, networks, gpu_resource_group);
   return;
 }
 

@@ -46,15 +46,15 @@ class Network {
 
  private:
   std::vector<Tensor<float>*> tensors_;       /**< vector of tensors */
-  std::vector<Layer*> layers_;                /**< vector of layers */
+  std::vector<std::unique_ptr<Layer>> layers_;                /**< vector of layers */
   GeneralBuffer<float> blobs_buff_;           /**< blobs' general buffer */
   GeneralBuffer<float> weight_buff_;          /**< weight (param) general buffer */
   GeneralBuffer<float> wgrad_buff_;           /**< weight gradient general buffer */
   std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
   int device_id_;                             /**< device id */
   int batchsize_;                             /**< batch size */
-  Optimizer* optimizer_{nullptr};             /**< optimizer */
-  Loss* loss_{nullptr};                       /**< loss */
+  std::unique_ptr<Optimizer> optimizer_;      /**< optimizer */
+  std::unique_ptr<Loss> loss_;                /**< loss */
   Tensor<float>& in_tensor_;                  /**< input tensor of this network (from embedding) */
   const Tensor<float>& label_tensor_;   /**< label tensor of this network (from data reader) */
   Tensor<float>* loss_tensor_{nullptr}; /**< loss tensor */

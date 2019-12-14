@@ -68,15 +68,19 @@ class Parser {
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(DataReader<TYPE_1>** data_reader, Embedding<TYPE_1>** embedding,
-                       std::vector<Network*>* network,
+  void create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
+                       std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
+                       std::unique_ptr<Embedding<TYPE_1>>& embedding,
+                       std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(DataReader<TYPE_2>** data_reader, Embedding<TYPE_2>** embedding,
-                       std::vector<Network*>* network,
+  void create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
+                       std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
+                       std::unique_ptr<Embedding<TYPE_2>>& embedding,
+                       std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 };
 
