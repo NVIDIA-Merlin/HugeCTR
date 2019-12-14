@@ -76,10 +76,10 @@ class GPUResource {
     return;
   }
   int get_device_id() const { return device_id_; }
-  const cudaStream_t* get_stream_ptr() const { return &stream_; }
-  const cudaStream_t* get_data_copy_stream_ptr() const { return &data_copy_stream_; }
-  const cublasHandle_t* get_cublas_handle_ptr() const { return &cublas_handle_; }
-  const cudnnHandle_t* get_cudnn_handle_ptr() const { return &cudnn_handle_; }
+  const cudaStream_t& get_stream() const { return stream_; }
+  const cudaStream_t& get_data_copy_stream() const { return data_copy_stream_; }
+  const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
+  const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t* get_nccl_ptr() const { return comm_; }
 };
 
@@ -93,7 +93,7 @@ class GPUResourceGroup {
  private:
   std::unique_ptr<ncclComm_t[]> comms_;
   const DeviceMap device_map_;
-  std::vector<GPUResource*> gpu_resources_; /**< GPU resource vector */
+  std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
  public:
   ctpl::thread_pool train_thread_pool; /**< cpu thread pool for training */
   std::vector<std::future<void>> results;
@@ -101,7 +101,6 @@ class GPUResourceGroup {
   GPUResourceGroup(const DeviceMap& device_map)
       : comms_(nullptr),
         device_map_(device_map),
-        gpu_resources_(device_map_.get_device_list().size(), nullptr),
         train_thread_pool(device_map_.get_device_list().size()),
         results(device_map_.get_device_list().size()) {
     auto& device_list = device_map_.get_device_list();
@@ -121,8 +120,8 @@ class GPUResourceGroup {
       }
     }
 
-    if (gpu_resources_.size() != local_gpu_count) {
-      CK_THROW_(Error_t::WrongInput, "gpu_resource_.size() != local_gpu_count");
+    if (device_map_.get_device_list().size() != local_gpu_count) {
+      CK_THROW_(Error_t::WrongInput, "device_map_.get_device_list().size() != local_gpu_count");
     }
     int total_gpu_count = get_total_gpu_count();
     // if ther are multiple GPUs within a node or/and across nodes
@@ -149,14 +148,14 @@ class GPUResourceGroup {
 #endif
     }
     for (size_t i = 0; i < local_gpu_count; i++) {
-      gpu_resources_[i] = (new GPUResource(device_list[i], comms_.get() + i));
+      gpu_resources_.emplace_back(new GPUResource(device_list[i], comms_.get() + i));
     }
   }
 
   GPUResourceGroup(const GPUResourceGroup& C) = delete;
   GPUResourceGroup& operator=(const GPUResourceGroup&) = delete;
 
-  const GPUResource* operator[](int idx) const { return gpu_resources_[idx]; }
+  const std::shared_ptr<GPUResource>& operator[](int idx) const { return gpu_resources_[idx]; }
   size_t size() const {
     // return gpu_resources_.size();
     return device_map_.get_device_list().size();
@@ -168,9 +167,6 @@ class GPUResourceGroup {
         for (unsigned int i = 0; i < gpu_resources_.size(); i++) {
           CK_NCCL_THROW_(ncclCommDestroy(comms_[i]));
         }
-      }
-      for (auto gpu_resource : gpu_resources_) {
-        delete gpu_resource;
       }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;

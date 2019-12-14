@@ -22,7 +22,7 @@ namespace HugeCTR {
 Embedding<EmbeddingCreator::TYPE_1>* EmbeddingCreator::create_sparse_embedding_hash(
     const std::vector<Tensor<TYPE_1>*>& row_offsets_tensors,
     const std::vector<Tensor<TYPE_1>*>& value_tensors, SparseEmbeddingHashParams embedding_params,
-    GPUResourceGroup& gpu_resource_group) {
+    const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   Embedding<TYPE_1>* sparse_embedding = new SparseEmbeddingHash<TYPE_1>(
       row_offsets_tensors, value_tensors, embedding_params, gpu_resource_group);
   return sparse_embedding;
@@ -31,7 +31,7 @@ Embedding<EmbeddingCreator::TYPE_1>* EmbeddingCreator::create_sparse_embedding_h
 Embedding<EmbeddingCreator::TYPE_2>* EmbeddingCreator::create_sparse_embedding_hash(
     const std::vector<Tensor<TYPE_2>*>& row_offsets_tensors,
     const std::vector<Tensor<TYPE_2>*>& value_tensors, SparseEmbeddingHashParams embedding_params,
-    GPUResourceGroup& gpu_resource_group) {
+    const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   Embedding<TYPE_2>* sparse_embedding = new SparseEmbeddingHash<TYPE_2>(
       row_offsets_tensors, value_tensors, embedding_params, gpu_resource_group);
   return sparse_embedding;

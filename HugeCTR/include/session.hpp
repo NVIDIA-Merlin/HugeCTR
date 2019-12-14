@@ -40,7 +40,8 @@ class Session {
   DataReader<TypeKey>* data_reader_; /**< data reader to reading data from data set to embedding. */
   DataReader<TypeKey>* data_reader_eval_; /**< data reader for evaluation. */
   Parser* parser_;                        /***< model parser */
-  GPUResourceGroup gpu_resource_group_;   /**< GPU resources include handles and streams etc.*/
+  std::shared_ptr<GPUResourceGroup>
+      gpu_resource_group_; /**< GPU resources include handles and streams etc.*/
  public:
   /**
    * Ctor of Session.

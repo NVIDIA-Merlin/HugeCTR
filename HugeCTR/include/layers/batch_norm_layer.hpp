@@ -84,7 +84,7 @@ class BatchNormLayer : public Layer {
 
   const Params params_;
   const cudnnBatchNormMode_t mode_;
-  cudnnHandle_t const& cudnn_handle_;
+  const cudnnHandle_t cudnn_handle_;
   cudnnTensorDescriptor_t in_out_desc_;
   cudnnTensorDescriptor_t gamma_beta_desc_;
 
