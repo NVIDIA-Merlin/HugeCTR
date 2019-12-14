@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/parser.hpp"
 #include <cuda_profiler_api.h>
 #include <vector>
@@ -39,7 +38,7 @@ void test_parser(std::string& json_name) {
   DataReader<TypeKey>* data_reader;
   Embedding<TypeKey>* embedding;
   std::vector<Network*> networks;
-  GPUResourceGroup gpu_resource_group(device_map);
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   p.create_pipeline(&data_reader, &embedding, &networks, gpu_resource_group);
 

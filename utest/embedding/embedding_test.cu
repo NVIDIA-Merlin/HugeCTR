@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-
 #include <nccl.h>
+#include <sys/time.h>
 #include <fstream>
 #include <functional>
+#include <unordered_set>
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_hash.hpp"
 #include "gtest/gtest.h"
+#include "nvToolsExt.h"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/test_utils.h"
-#include "nvToolsExt.h"
-#include <sys/time.h>
-#include <unordered_set>
 
 #define EPSILON 1e-4
 
@@ -272,7 +271,7 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
   //	// just for debug
   //	for(long long i = 0; i < capacity; i++) {
   //		printf("i=%d, key_from_gpu=%d, key_from_cpu=%d \n", i, hash_table_key_from_gpu[i],
-  //hash_table_key_from_cpu[i]);
+  // hash_table_key_from_cpu[i]);
   //	}
 
   // Since the <key1,value1> and <key2,value2> is not the same ordered, we need to insert <key1,
@@ -562,7 +561,7 @@ TEST(sparse_embedding_hash_test, training_correctness) {
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
   DeviceMap device_map(vvgpu, 0);
-  GPUResourceGroup gpu_resource_group(device_map);
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   // setup a data reader
   DataReader<T> *data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, slot_num,
@@ -788,7 +787,7 @@ TEST(sparse_embedding_hash_test, perf_profiling) {
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
   DeviceMap device_map(vvgpu, 0);
-  GPUResourceGroup gpu_resource_group(device_map);
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   // setup a data reader
   DataReader<T> *data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, slot_num,

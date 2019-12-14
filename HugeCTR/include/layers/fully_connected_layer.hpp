@@ -31,7 +31,7 @@ namespace HugeCTR {
  */
 class FullyConnectedLayer : public Layer {
  private:
-  cublasHandle_t const& cublas_handle_;
+  const cublasHandle_t cublas_handle_;
 
  public:
   /**

@@ -104,7 +104,7 @@ class DataReader {
   bool shared_output_flag_{false}; /**< whether this is a data reader for eval. It's only mark the
                                       output data, which is sharing output tensor with train. */
 
-  const GPUResourceGroup& device_resources_;
+  std::shared_ptr<GPUResourceGroup> device_resources_;
   const int batchsize_;
   const int label_dim_;                  /**< dimention of label e.g. 1 for BinaryCrossEntropy */
   const int slot_num_;                   /**< num of slots for reduce */
@@ -141,8 +141,9 @@ class DataReader {
    * Ctor
    */
   DataReader(const std::string& file_list_name, int batchsize, int label_dim, int slot_num,
-             int max_feature_num_per_sample, const GPUResourceGroup& gpu_resource_group,
-             int num_chunks = 31, int num_threads = 20);
+             int max_feature_num_per_sample,
+             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, int num_chunks = 31,
+             int num_threads = 20);
 
   /**
    * Slave process of evaluation will call this to create a new object of DataReader
@@ -187,7 +188,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name,
       max_feature_num_per_sample_(prototype.max_feature_num_per_sample_) {
   shared_output_flag_ = true;
   data_reader_loop_flag_ = 1;
-  int total_gpu_count = device_resources_.get_total_gpu_count();
+  int total_gpu_count = device_resources_->get_total_gpu_count();
   if (total_gpu_count == 0 || batchsize_ <= 0 || label_dim_ <= 0 || slot_num_ <= 0 ||
       max_feature_num_per_sample_ <= 0 || 0 != batchsize_ % total_gpu_count) {
     CK_THROW_(Error_t::WrongInput,
@@ -227,7 +228,7 @@ DataReader<TypeKey>::DataReader(const DataReader<TypeKey>& prototype)
       max_feature_num_per_sample_(prototype.max_feature_num_per_sample_) {
   shared_output_flag_ = true;
   data_reader_loop_flag_ = 1;
-  int total_gpu_count = device_resources_.get_total_gpu_count();
+  int total_gpu_count = device_resources_->get_total_gpu_count();
   if (total_gpu_count == 0 || batchsize_ <= 0 || label_dim_ <= 0 || slot_num_ <= 0 ||
       max_feature_num_per_sample_ <= 0 || 0 != batchsize_ % total_gpu_count) {
     CK_THROW_(Error_t::WrongInput,
@@ -245,8 +246,8 @@ DataReader<TypeKey>::DataReader(const DataReader<TypeKey>& prototype)
 template <typename TypeKey>
 DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize, int label_dim,
                                 int slot_num, int max_feature_num_per_sample,
-                                const GPUResourceGroup& gpu_resource_group, int num_chunks,
-                                int num_threads)
+                                const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                                int num_chunks, int num_threads)
     : file_list_(new FileList(file_list_name)),
       NumChunks(num_chunks),
       NumThreads(num_threads),
@@ -256,7 +257,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       slot_num_(slot_num),
       max_feature_num_per_sample_(max_feature_num_per_sample) {
   data_reader_loop_flag_ = 1;
-  int total_gpu_count = device_resources_.get_total_gpu_count();
+  int total_gpu_count = device_resources_->get_total_gpu_count();
   if (total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || slot_num <= 0 ||
       max_feature_num_per_sample <= 0 || 0 != batchsize_ % total_gpu_count) {
     CK_THROW_(Error_t::WrongInput,
@@ -275,7 +276,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
                                       &data_reader_loop_flag_);
   }
 
-  auto& device_list = device_resources_.get_device_list();
+  auto& device_list = device_resources_->get_device_list();
 
   // create label tensor
   int batch_size_per_device = batchsize_ / total_gpu_count;

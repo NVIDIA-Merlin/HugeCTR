@@ -52,9 +52,9 @@ static void check_device(int device_id, int min_major, int min_minor) {
 }
 
 Session::Session(int batch_size, const std::string& json_name, const DeviceMap& device_map)
-    : gpu_resource_group_(device_map) {
+    : gpu_resource_group_(new GPUResourceGroup(device_map)) {
   try {
-    for (auto dev : gpu_resource_group_.get_device_list()) {
+    for (auto dev : gpu_resource_group_->get_device_list()) {
       check_device(dev, 6, 0);  // lowest supported device is CC=60
     }
     parser_ = new Parser(json_name, batch_size);
@@ -143,11 +143,11 @@ Error_t Session::train() {
     if (networks_.size() > 1) {
       // execute dense forward and backward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_.results[i] = gpu_resource_group_.train_thread_pool.push(
+        gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
             std::ref(network_train_helper), networks_[i]);
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_.results[i].get();
+        gpu_resource_group_->results[i].get();
       }
     } else if (networks_.size() == 1) {
       networks_[0]->train();
@@ -155,7 +155,7 @@ Error_t Session::train() {
       assert(!"networks_.size() should not less than 1.");
     }
     // wgrad exchange
-    if (gpu_resource_group_.get_total_gpu_count() > 1) {
+    if (gpu_resource_group_->get_total_gpu_count() > 1) {
       CK_NCCL_THROW_(ncclGroupStart());
       for (auto network : networks_) {
         network->exchange_wgrad();
@@ -197,11 +197,11 @@ Error_t Session::eval() {
     if (networks_.size() > 1) {
       // execute dense forward and backward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_.results[i] = gpu_resource_group_.train_thread_pool.push(
+        gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
             std::ref(network_train_helper), networks_[i]);
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_.results[i].get();
+        gpu_resource_group_->results[i].get();
       }
     } else if (networks_.size() == 1) {
       networks_[0]->eval();
@@ -283,7 +283,7 @@ Error_t Session::get_current_loss(float* loss) {
 
 Session::~Session() {
   try {
-    for (auto device : gpu_resource_group_.get_device_list()) {
+    for (auto device : gpu_resource_group_->get_device_list()) {
       CudaDeviceContext context(device);
       CK_CUDA_THROW_(cudaDeviceSynchronize());
     }

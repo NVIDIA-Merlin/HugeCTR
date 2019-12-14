@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/parser.hpp"
 #include "HugeCTR/include/device_map.hpp"
 #include "HugeCTR/include/layer.hpp"
@@ -193,7 +192,7 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
  */
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         Tensor<float>& in_tensor, const Tensor<float>& label_tensor, int batch_size,
-                        int device_id, const GPUResource* gpu_resource) {
+                        int device_id, const std::shared_ptr<GPUResource>& gpu_resource) {
   const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
       {"BatchNorm", Layer_t::BatchNorm},
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
@@ -252,8 +251,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         BatchNormLayer::Params params = {is_training, factor, eps};
         layers.push_back(new BatchNormLayer(weight_buff, wgrad_buff, *bn_in_tensor, *bn_out_tensor,
-                                            params, *(gpu_resource->get_cudnn_handle_ptr()),
-                                            device_id));
+                                            params, gpu_resource->get_cudnn_handle(), device_id));
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
@@ -327,9 +325,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             new Tensor<float>(tmp_dim = {batch_size, output}, blobs_buff, TensorFormat_t::HW);
         output_tensor_pair.tensor = out_tensor;
         // establish layer
-        Layer* fc_layer = new FullyConnectedLayer(
-            weight_buff, wgrad_buff, *fc_in_tensor, *out_tensor, TensorFormat_t::HW,
-            *(gpu_resource->get_cublas_handle_ptr()), device_id);
+        Layer* fc_layer = new FullyConnectedLayer(weight_buff, wgrad_buff, *fc_in_tensor,
+                                                  *out_tensor, TensorFormat_t::HW,
+                                                  gpu_resource->get_cublas_handle(), device_id);
         layers.push_back(fc_layer);
         break;
       }
@@ -413,8 +411,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 template <typename TypeKey>
 static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
                                      Embedding<TypeKey>** embedding, std::vector<Network*>* network,
-                                     GPUResourceGroup& gpu_resource_group, nlohmann::json config,
-                                     int batch_size) {
+                                     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                                     nlohmann::json config, int batch_size) {
   try {
     int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
@@ -513,15 +511,15 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
       const std::vector<Tensor<float>*>& label_tensors = (*data_reader)->get_label_tensors();
 
       int i = 0;
-      int total_gpu_count = gpu_resource_group.get_total_gpu_count();
+      int total_gpu_count = gpu_resource_group->get_total_gpu_count();
       if (0 != batch_size % total_gpu_count) {
         CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
       }
-      std::vector<int> device_list = gpu_resource_group.get_device_list();
+      std::vector<int> device_list = gpu_resource_group->get_device_list();
       for (auto device_id : device_list) {
         network->push_back(create_network(j_layers_array, j_optimizer, *(embedding_tensors[i]),
                                           *(label_tensors[i]), batch_size / total_gpu_count,
-                                          device_id, gpu_resource_group[i]));
+                                          device_id, (*gpu_resource_group)[i]));
         i++;
       }
     }
@@ -533,13 +531,15 @@ static void create_pipeline_internal(DataReader<TypeKey>** data_reader,
 }
 
 void Parser::create_pipeline(DataReader<TYPE_1>** data_reader, Embedding<TYPE_1>** embedding,
-                             std::vector<Network*>* network, GPUResourceGroup& gpu_resource_group) {
+                             std::vector<Network*>* network,
+                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   create_pipeline_internal<TYPE_1>(data_reader, embedding, network, gpu_resource_group, config_,
                                    batch_size_);
 }
 
 void Parser::create_pipeline(DataReader<TYPE_2>** data_reader, Embedding<TYPE_2>** embedding,
-                             std::vector<Network*>* network, GPUResourceGroup& gpu_resource_group) {
+                             std::vector<Network*>* network,
+                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   create_pipeline_internal<TYPE_2>(data_reader, embedding, network, gpu_resource_group, config_,
                                    batch_size_);
 }

@@ -22,8 +22,9 @@
 namespace HugeCTR {
 
 Network::Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, int batchsize,
-                 int device_id, const GPUResource* gpu_resource, bool disable_parser)
-    : gpu_resource_(*gpu_resource),
+                 int device_id, const std::shared_ptr<GPUResource>& gpu_resource,
+                 bool disable_parser)
+    : gpu_resource_(gpu_resource),
       device_id_(device_id),
       batchsize_(batchsize),
       in_tensor_(in_tensor),
@@ -41,7 +42,7 @@ Network::Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, in
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.push_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, (in_tensor_),
                                                 *tensors_[0], TensorFormat_t::HW,
-                                                *gpu_resource_.get_cublas_handle_ptr(), device_id));
+                                                gpu_resource_->get_cublas_handle(), device_id));
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.push_back(new ReluLayer(*tensors_[0], *tensors_[1], device_id));
@@ -50,7 +51,7 @@ Network::Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, in
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.push_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[1],
                                                 *tensors_[2], TensorFormat_t::HW,
-                                                *gpu_resource_.get_cublas_handle_ptr(), device_id));
+                                                gpu_resource_->get_cublas_handle(), device_id));
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.push_back(new ReluLayer(*tensors_[2], *tensors_[3], device_id));
@@ -59,7 +60,7 @@ Network::Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, in
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.push_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[3],
                                                 *tensors_[4], TensorFormat_t::HW,
-                                                *gpu_resource_.get_cublas_handle_ptr(), device_id));
+                                                gpu_resource_->get_cublas_handle(), device_id));
       tensors_.push_back(
           new Tensor<float>(tmp_dim = {batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.push_back(new ReluLayer(*tensors_[4], *tensors_[5], device_id));
@@ -68,7 +69,7 @@ Network::Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, in
           new Tensor<float>(tmp_dim = {batchsize, 1}, blobs_buff_, TensorFormat_t::HW));
       layers_.push_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, *tensors_[5],
                                                 *tensors_[6], TensorFormat_t::HW,
-                                                *gpu_resource_.get_cublas_handle_ptr(), device_id));
+                                                gpu_resource_->get_cublas_handle(), device_id));
       // setup loss
       loss_tensor_ = new Tensor<float>(tmp_dim = {1, 1}, blobs_buff_, TensorFormat_t::HW);
       loss_ = new BinaryCrossEntropyLoss(const_cast<Tensor<float>&>(label_tensor_),
@@ -90,7 +91,7 @@ Network::Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, in
 }
 
 void Network::update_params() {
-  optimizer_->update(*gpu_resource_.get_stream_ptr());
+  optimizer_->update(gpu_resource_->get_stream());
   return;
 }
 
@@ -109,7 +110,7 @@ void Network::train() {
 #endif
   // forward
   for (auto iter = layers_.begin(); iter != layers_.end(); iter++) {
-    iter[0]->fprop(*gpu_resource_.get_stream_ptr());
+    iter[0]->fprop(gpu_resource_->get_stream());
 #ifndef NDEBUG
     print_tensor(in_tensor_, -10, -1);
     print_tensor(label_tensor_, -10, -1);
@@ -118,7 +119,7 @@ void Network::train() {
     }
 #endif
   }
-  loss_->fused_loss_computation(*gpu_resource_.get_stream_ptr());
+  loss_->fused_loss_computation(gpu_resource_->get_stream());
 #ifndef NDEBUG
   print_tensor(in_tensor_, -10, -1);
   print_tensor(label_tensor_, -10, -1);
@@ -129,7 +130,7 @@ void Network::train() {
 
   // backward
   for (auto iter = layers_.rbegin(); iter != layers_.rend(); iter++) {
-    iter[0]->bprop(*gpu_resource_.get_stream_ptr());
+    iter[0]->bprop(gpu_resource_->get_stream());
 #ifndef NDEBUG
     print_tensor(in_tensor_, -10, -1);
     print_tensor(label_tensor_, -10, -1);
@@ -156,7 +157,7 @@ void Network::eval() {
 #endif
   // forward
   for (auto iter = layers_.begin(); iter != layers_.end(); iter++) {
-    iter[0]->fprop(*gpu_resource_.get_stream_ptr());
+    iter[0]->fprop(gpu_resource_->get_stream());
 #ifndef NDEBUG
     print_tensor(in_tensor_, -10, -1);
     print_tensor(label_tensor_, -10, -1);
@@ -165,7 +166,7 @@ void Network::eval() {
     }
 #endif
   }
-  loss_->fused_loss_computation(*gpu_resource_.get_stream_ptr());
+  loss_->fused_loss_computation(gpu_resource_->get_stream());
 #ifndef NDEBUG
   print_tensor(in_tensor_, -10, -1);
   print_tensor(label_tensor_, -10, -1);
@@ -256,13 +257,13 @@ float Network::get_loss() {
 }
 
 void Network::exchange_wgrad() {
-  if (gpu_resource_.get_nccl_ptr() != nullptr) {
+  if (gpu_resource_->get_nccl_ptr() != nullptr) {
     CudaDeviceContext context(device_id_);
 
-    CK_NCCL_THROW_(ncclAllReduce(
-        (const void*)wgrad_buff_.get_ptr_with_offset(0), (void*)wgrad_buff_.get_ptr_with_offset(0),
-        wgrad_buff_.get_num_elements(), ncclFloat, ncclSum, *(gpu_resource_.get_nccl_ptr()),
-        *(gpu_resource_.get_stream_ptr())));
+    CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_buff_.get_ptr_with_offset(0),
+                                 (void*)wgrad_buff_.get_ptr_with_offset(0),
+                                 wgrad_buff_.get_num_elements(), ncclFloat, ncclSum,
+                                 *(gpu_resource_->get_nccl_ptr()), gpu_resource_->get_stream()));
   } else {
     CK_THROW_(Error_t::IllegalCall, "cannot call exchange_wgrad with single GPU");
   }
