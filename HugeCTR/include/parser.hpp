@@ -89,20 +89,19 @@ class Parser {
  * This class is designed to parse the solver clause of the configure file.
  */
 struct SolverParser {
-  LrPolicy_t lr_policy;         /**< the only fixed lr is supported now. */
-  int display;                  /**< the interval of loss display. */
-  int max_iter;                 /**< the number of iterations for training */
-  int snapshot;                 /**< the number of iterations for a snapshot */
-  std::string snapshot_prefix;  /**< naming prefix of snapshot file */
-  int eval_interval;            /**< the interval of evaluations */
-  int eval_batches;             /**< the number of batches for evaluations */
-  int batchsize;                /**< batchsize */
-  std::string model_file;       /**< name of model file */
-  std::string embedding_file;   /**< name of embedding file */
-  std::vector<int> device_list; /**< device_list */
-  DeviceMap* device_map;        /**< device map */
+  LrPolicy_t lr_policy;                        /**< the only fixed lr is supported now. */
+  int display;                                 /**< the interval of loss display. */
+  int max_iter;                                /**< the number of iterations for training */
+  int snapshot;                                /**< the number of iterations for a snapshot */
+  std::string snapshot_prefix;                 /**< naming prefix of snapshot file */
+  int eval_interval;                           /**< the interval of evaluations */
+  int eval_batches;                            /**< the number of batches for evaluations */
+  int batchsize;                               /**< batchsize */
+  std::string model_file;                      /**< name of model file */
+  std::string embedding_file;                  /**< name of embedding file */
+  std::vector<int> device_list;                /**< device_list */
+  std::shared_ptr<const DeviceMap> device_map; /**< device map */
   SolverParser(std::string configure_file);
-  ~SolverParser() { delete device_map; }
 };
 
 }  // namespace HugeCTR

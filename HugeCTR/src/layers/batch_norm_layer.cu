@@ -27,18 +27,20 @@
 
 namespace HugeCTR {
 
-BatchNormLayer::BatchNormLayer(GeneralBuffer<float>& weight_buff, GeneralBuffer<float>& wgrad_buff,
-                               Tensor<float>& in_tensor, Tensor<float>& out_tensor,
+BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                               const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
+                               const std::shared_ptr<Tensor<float>>& in_tensor,
+                               const std::shared_ptr<Tensor<float>>& out_tensor,
                                const Params& params, cudnnHandle_t const& cudnn_handle,
                                int device_id)
     : Layer(device_id),
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION),
       cudnn_handle_(cudnn_handle) {
-  auto in_tensor_dim = in_tensor.get_dims();
-  auto out_tensor_dim = out_tensor.get_dims();
-  TensorFormat_t in_format = in_tensor.get_format();
-  TensorFormat_t out_format = out_tensor.get_format();
+  const auto& in_tensor_dim = in_tensor->get_dims();
+  const auto& out_tensor_dim = out_tensor->get_dims();
+  TensorFormat_t in_format = in_tensor->get_format();
+  TensorFormat_t out_format = out_tensor->get_format();
 
   assert(get_size_from_dims(in_tensor_dim) == get_size_from_dims(out_tensor_dim));
   assert(in_tensor_dim.size() == 2 && out_tensor_dim.size() == 2);
@@ -61,8 +63,8 @@ BatchNormLayer::BatchNormLayer(GeneralBuffer<float>& weight_buff, GeneralBuffer<
   CK_CUDNN_THROW_(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
                                                num_feature, n_stride, 1, 1, w_stride));
 
-  in_tensors_.push_back(std::ref(in_tensor));
-  out_tensors_.push_back(std::ref(out_tensor));
+  in_tensors_.emplace_back(std::move(in_tensor));
+  out_tensors_.emplace_back(std::move(out_tensor));
 
   CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&gamma_beta_desc_));
 
@@ -72,40 +74,40 @@ BatchNormLayer::BatchNormLayer(GeneralBuffer<float>& weight_buff, GeneralBuffer<
   std::vector<int> gamma_dim = {num_feature, 1};
 
   // gamma & beta
-  gamma_ = new Tensor<float>(gamma_dim, weight_buff, gamma_format);
-  beta_ = new Tensor<float>(gamma_dim, weight_buff, gamma_format);
+  gamma_.reset(new Tensor<float>(gamma_dim, weight_buff, gamma_format));
+  beta_.reset(new Tensor<float>(gamma_dim, weight_buff, gamma_format));
   weights_.push_back(gamma_);
   weights_.push_back(beta_);
 
   // gamma grad & beta grad
-  gamma_grad_ = new Tensor<float>(gamma_dim, wgrad_buff, gamma_format);
-  beta_grad_ = new Tensor<float>(gamma_dim, wgrad_buff, gamma_format);
-  wgrad_.push_back(gamma_grad_);
-  wgrad_.push_back(beta_grad_);
+  gamma_grad_.reset(new Tensor<float>(gamma_dim, wgrad_buff, gamma_format));
+  beta_grad_.reset(new Tensor<float>(gamma_dim, wgrad_buff, gamma_format));
+  wgrad_.emplace_back(gamma_grad_);
+  wgrad_.emplace_back(beta_grad_);
 
-  temp_in_tensor_.reset(new Tensor<float>(in_tensor_dim, internal_buf_, in_format));
+  std::shared_ptr<GeneralBuffer<float>> internal_buf(new GeneralBuffer<float>());
+
+  temp_in_tensor_.reset(new Tensor<float>(in_tensor_dim, internal_buf, in_format));
 
   // result running mean & var
-  result_running_mean_.reset(new Tensor<float>(gamma_dim, internal_buf_, gamma_format));
-  result_running_var_.reset(new Tensor<float>(gamma_dim, internal_buf_, gamma_format));
+  result_running_mean_.reset(new Tensor<float>(gamma_dim, internal_buf, gamma_format));
+  result_running_var_.reset(new Tensor<float>(gamma_dim, internal_buf, gamma_format));
 
   // save running mean & var (cache)
-  result_save_mean_.reset(new Tensor<float>(gamma_dim, internal_buf_, gamma_format));
-  result_save_inv_var_.reset(new Tensor<float>(gamma_dim, internal_buf_, gamma_format));
+  result_save_mean_.reset(new Tensor<float>(gamma_dim, internal_buf, gamma_format));
+  result_save_inv_var_.reset(new Tensor<float>(gamma_dim, internal_buf, gamma_format));
 
-  internal_buf_.init(get_device_id());
+  internal_buf->init(get_device_id());
 
   // host array to get running mean & var
-  h_result_running_mean_ = new float[num_feature];
-  h_result_running_var_ = new float[num_feature];
+  h_result_running_mean_.reset(new float[num_feature]);
+  h_result_running_var_.reset(new float[num_feature]);
 }
 
 BatchNormLayer::~BatchNormLayer() {
   try {
     CK_CUDNN_THROW_(cudnnDestroyTensorDescriptor(in_out_desc_));
     CK_CUDNN_THROW_(cudnnDestroyTensorDescriptor(gamma_beta_desc_));
-    delete h_result_running_mean_;
-    delete h_result_running_var_;
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
@@ -118,10 +120,10 @@ void BatchNormLayer::fprop(cudaStream_t stream) {
 
   float one = 1.0f, zero = 0.0f;
 
-  Tensor<float> in_tensor = in_tensors_[0];
-  Tensor<float> out_tensor = out_tensors_[0];
-  float* in = in_tensor.get_ptr();
-  float* out = out_tensor.get_ptr();
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
+  float* in = in_tensor->get_ptr();
+  float* out = out_tensor->get_ptr();
 
   float* gamma = gamma_->get_ptr();
   float* beta = beta_->get_ptr();
@@ -151,10 +153,10 @@ void BatchNormLayer::bprop(cudaStream_t stream) {
 
   float one = 1.0f, zero = 0.0f;
 
-  Tensor<float> in_tensor = in_tensors_[0];
-  Tensor<float> out_tensor = out_tensors_[0];
-  float* in = in_tensor.get_ptr();
-  float* out = out_tensor.get_ptr();
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
+  float* in = in_tensor->get_ptr();
+  float* out = out_tensor->get_ptr();
 
   float* gamma = gamma_->get_ptr();
 
@@ -180,10 +182,10 @@ std::string BatchNormLayer::get_no_trained_params_in_string() {
   size_t n_byte = result_running_mean_->get_size();
   size_t n_elem = n_byte / sizeof(float);
 
-  CK_CUDA_THROW_(
-      cudaMemcpy(h_result_running_mean_, d_result_running_mean, n_byte, cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(
-      cudaMemcpy(h_result_running_var_, d_result_running_var, n_byte, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(h_result_running_mean_.get(), d_result_running_mean, n_byte,
+                            cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(h_result_running_var_.get(), d_result_running_var, n_byte,
+                            cudaMemcpyDeviceToHost));
 
   std::string result = "      \"type\": \"BatchNorm\",\n";
   result += "      \"mean\": [";

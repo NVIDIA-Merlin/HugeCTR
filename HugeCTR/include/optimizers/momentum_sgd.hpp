@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/optimizer.hpp"
@@ -39,22 +38,12 @@ class MomentumSGD : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor momentum factor
    */
-  MomentumSGD(GeneralBuffer<float>& weight, GeneralBuffer<float>& wgrad, int device_id,
+  MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight,
+              const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
               float learning_rate, float momentum_factor)
       : Optimizer(weight, wgrad, device_id, learning_rate), momentum_factor_(momentum_factor) {
-    momentum_ = new GeneralBuffer<float>(weight_.get_num_elements(), device_id_);
+    momentum_.reset(new GeneralBuffer<float>(weight_->get_num_elements(), device_id_));
     momentum_->reset_sync();
-  }
-
-  /**
-   * destructor of MomentumSGD
-   */
-  ~MomentumSGD() {
-    try {
-      delete momentum_;
-    } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-    }
   }
 
   /**
@@ -64,7 +53,7 @@ class MomentumSGD : public Optimizer {
   void update(cudaStream_t stream) final;
 
  private:
-  GeneralBuffer<float>* momentum_;
+  std::unique_ptr<GeneralBuffer<float>> momentum_;
   float momentum_factor_;
 };
 

@@ -50,12 +50,12 @@ namespace HugeCTR {
 void AdamOptimizer::update(cudaStream_t stream) {
   CudaDeviceContext context(device_id_);
 
-  const int len = weight_.get_num_elements();
+  const int len = weight_->get_num_elements();
   const int block_dim = 256;
   const int grid_dim = (len - 1) / block_dim + 1;
 
-  float* weight = weight_.get_ptr_with_offset(0);
-  const float* wgrad = wgrad_.get_ptr_with_offset(0);
+  float* weight = weight_->get_ptr_with_offset(0);
+  const float* wgrad = wgrad_->get_ptr_with_offset(0);
   float* m = m_.get_ptr_with_offset(0);
   float* v = v_.get_ptr_with_offset(0);
 

@@ -64,11 +64,11 @@ class DataCollector {
   volatile STATUS stat_{READY_TO_WRITE};
   JOB job_{TRAIN};
   std::shared_ptr<Heap<CSRChunk<TypeKey>>> csr_heap_;
-  std::vector<GeneralBuffer<float>*>& label_buffers_;
-  std::vector<GeneralBuffer<TypeKey>*>& csr_buffers_;
+  std::vector<std::shared_ptr<GeneralBuffer<float>>>& label_buffers_;
+  std::vector<std::shared_ptr<GeneralBuffer<TypeKey>>>& csr_buffers_;
   std::shared_ptr<GPUResourceGroup> device_resources_;
-  std::vector<GeneralBuffer<float>*> label_buffers_internal_;
-  std::vector<GeneralBuffer<TypeKey>*> csr_buffers_internal_;
+  std::vector<std::unique_ptr<GeneralBuffer<float>>> label_buffers_internal_;
+  std::vector<std::unique_ptr<GeneralBuffer<TypeKey>>> csr_buffers_internal_;
   long long counter_{0};
   int pid_{0}, num_procs_{1};
 
@@ -81,8 +81,8 @@ class DataCollector {
    * @param csr_heap heap of data reader.
    * @param is_eval whether it's evaluation.
    */
-  DataCollector(std::vector<GeneralBuffer<float>*>& label_buffers,
-                std::vector<GeneralBuffer<TypeKey>*>& csr_buffers,
+  DataCollector(std::vector<std::shared_ptr<GeneralBuffer<float>>>& label_buffers,
+                std::vector<std::shared_ptr<GeneralBuffer<TypeKey>>>& csr_buffers,
                 const std::shared_ptr<GPUResourceGroup>& device_resources,
                 const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap = nullptr,
                 bool is_eval = true);
@@ -114,11 +114,11 @@ class DataCollector {
 };
 
 template <typename TypeKey>
-DataCollector<TypeKey>::DataCollector(std::vector<GeneralBuffer<float>*>& label_buffers,
-                                      std::vector<GeneralBuffer<TypeKey>*>& csr_buffers,
-                                      const std::shared_ptr<GPUResourceGroup>& device_resources,
-                                      const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap,
-                                      bool is_eval)
+DataCollector<TypeKey>::DataCollector(
+    std::vector<std::shared_ptr<GeneralBuffer<float>>>& label_buffers,
+    std::vector<std::shared_ptr<GeneralBuffer<TypeKey>>>& csr_buffers,
+    const std::shared_ptr<GPUResourceGroup>& device_resources,
+    const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap, bool is_eval)
     : csr_heap_(csr_heap),
       label_buffers_(label_buffers),
       csr_buffers_(csr_buffers),
@@ -138,12 +138,12 @@ DataCollector<TypeKey>::DataCollector(std::vector<GeneralBuffer<float>*>& label_
       CK_THROW_(Error_t::WrongInput, "stat_!=READY_TO_WRITE");
     }
     // create internal buffers
-    for (auto lb : label_buffers_) {
-      label_buffers_internal_.push_back(
+    for (auto& lb : label_buffers_) {
+      label_buffers_internal_.emplace_back(
           new GeneralBuffer<float>(lb->get_num_elements(), lb->get_device_id()));
     }
-    for (auto cb : csr_buffers_) {
-      csr_buffers_internal_.push_back(
+    for (auto& cb : csr_buffers_) {
+      csr_buffers_internal_.emplace_back(
           new GeneralBuffer<TypeKey>(cb->get_num_elements(), cb->get_device_id()));
     }
 #ifdef ENABLE_MPI
@@ -183,11 +183,10 @@ void DataCollector<TypeKey>::collect() {
     req.reserve(2 * total_device_count);  // to prevent the reallocation
 #endif
     csr_heap_->data_chunk_checkout(&chunk_tmp, &key);
-    const std::vector<std::unique_ptr<CSR<TypeKey>>>& csr_cpu_buffers =
-        chunk_tmp->get_csr_buffers();
-    const std::vector<PinnedBuffer<float>>& label_buffers = chunk_tmp->get_label_buffers();
-    assert(csr_cpu_buffers.size() == total_device_count);
-    assert(label_buffers.size() == total_device_count);
+    const auto& csr_cpu_buffers = chunk_tmp->get_csr_buffers();
+    const auto& label_buffers = chunk_tmp->get_label_buffers();
+    assert(static_cast<int>(csr_cpu_buffers.size()) == total_device_count);
+    assert(static_cast<int>(label_buffers.size()) == total_device_count);
 
     for (int i = 0; i < total_device_count; i++) {
       int pid = device_resources_->get_pid(i);

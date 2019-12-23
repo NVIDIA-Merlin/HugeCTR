@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
@@ -108,15 +107,15 @@ void batch_norm_bprop_cpu(const float* gamma, const float* out, float* in, bool 
 }
 
 void batch_norm_test(bool row_major, int batch_size, int num_feature) {
-  GeneralBuffer<float> wbuff;
-  GeneralBuffer<float> wgbuff;
-  GeneralBuffer<float> blobs;
+  std::shared_ptr<GeneralBuffer<float>> wbuff(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer<float>> wgbuff(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer<float>> blobs(new GeneralBuffer<float>());
 
   vector<int> dims = {row_major ? batch_size : num_feature, row_major ? num_feature : batch_size};
   TensorFormat_t format = row_major ? TensorFormat_t::HW : TensorFormat_t::WH;
 
-  Tensor<float> in_tensor(dims, blobs, format);
-  Tensor<float> out_tensor(dims, blobs, format);
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, blobs, format));
+  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims, blobs, format));
 
   cudnnHandle_t cudnn_handle;
   CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle));
@@ -124,20 +123,20 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
   BatchNormLayer::Params params = {true, 1.0, eps};
   BatchNormLayer batch_norm_layer(wbuff, wgbuff, in_tensor, out_tensor, params, cudnn_handle, 0);
 
-  wbuff.init(0);
-  wgbuff.init(0);
-  blobs.init(0);
+  wbuff->init(0);
+  wgbuff->init(0);
+  blobs->init(0);
 
   const int len = batch_size * num_feature;
 
-  float* d_in = in_tensor.get_ptr();
-  float* d_out = out_tensor.get_ptr();
+  float* d_in = in_tensor->get_ptr();
+  float* d_out = out_tensor->get_ptr();
 
-  float* h_gamma = (float*)malloc(num_feature * sizeof(float));
-  float* h_beta = (float*)malloc(num_feature * sizeof(float));
-  float* h_in = (float*)malloc(len * sizeof(float));
-  float* h_out = (float*)malloc(len * sizeof(float));
-  float* h_expected = (float*)malloc(len * sizeof(float));
+  std::unique_ptr<float[]> h_gamma(new float[num_feature]);
+  std::unique_ptr<float[]> h_beta(new float[num_feature]);
+  std::unique_ptr<float[]> h_in(new float[len]);
+  std::unique_ptr<float[]> h_out(new float[len]);
+  std::unique_ptr<float[]> h_expected(new float[len]);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -100.0, 100.0);
 
@@ -147,10 +146,10 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
     h_beta[j] = 0.0;
   }
 
-  float* d_gamma = wbuff.get_ptr_with_offset(0);
-  float* d_beta = wbuff.get_ptr_with_offset(num_feature);
-  cudaMemcpy(d_gamma, h_gamma, num_feature * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_beta, h_beta, num_feature * sizeof(float), cudaMemcpyHostToDevice);
+  float* d_gamma = wbuff->get_ptr_with_offset(0);
+  float* d_beta = wbuff->get_ptr_with_offset(num_feature);
+  cudaMemcpy(d_gamma, h_gamma.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_beta, h_beta.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice);
 
   for (int i = 0; i < batch_size; i++) {
     for (int j = 0; j < num_feature; j++) {
@@ -159,13 +158,14 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
     }
   }
 
-  batch_norm_fprop_cpu(h_gamma, h_beta, h_in, h_expected, row_major, batch_size, num_feature);
+  batch_norm_fprop_cpu(h_gamma.get(), h_beta.get(), h_in.get(), h_expected.get(), row_major,
+                       batch_size, num_feature);
 
-  cudaMemcpy(d_in, h_in, len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
   batch_norm_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(h_out, d_out, len * sizeof(float), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_out.get(), d_out, len * sizeof(float), cudaMemcpyDeviceToHost);
 
-  ASSERT_TRUE(test::compare_array_approx<float>(h_out, h_expected, len, eps));
+  ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len, eps));
 
   for (int i = 0; i < batch_size; i++) {
     for (int j = 0; j < num_feature; j++) {
@@ -174,20 +174,15 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
     }
   }
 
-  cudaMemcpy(h_expected, d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
-  batch_norm_bprop_cpu(h_gamma, h_out, h_expected, row_major, batch_size, num_feature);
+  cudaMemcpy(h_expected.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
+  batch_norm_bprop_cpu(h_gamma.get(), h_out.get(), h_expected.get(), row_major, batch_size,
+                       num_feature);
 
-  cudaMemcpy(d_out, h_out, len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_out, h_out.get(), len * sizeof(float), cudaMemcpyHostToDevice);
   batch_norm_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in, d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
 
-  ASSERT_TRUE(test::compare_array_approx<float>(h_in, h_expected, len, eps));
-
-  free(h_gamma);
-  free(h_beta);
-  free(h_in);
-  free(h_out);
-  free(h_expected);
+  ASSERT_TRUE(test::compare_array_approx<float>(h_in.get(), h_expected.get(), len, eps));
 
   CK_CUDNN_THROW_(cudnnDestroy(cudnn_handle));
 }

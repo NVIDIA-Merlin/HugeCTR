@@ -50,7 +50,8 @@ class Session {
    * @param json_name the json file of configuration.
    * @param device_map a index list of the devices which be used in this training.
    */
-  Session(int batch_size, const std::string& json_name, const DeviceMap& device_map);
+  Session(int batch_size, const std::string& json_name,
+          const std::shared_ptr<const DeviceMap>& device_map);
 
   /**
    * A method loading trained parameters of both dense and sparse model.
@@ -68,7 +69,7 @@ class Session {
    * @param device_map a index list of the devices which be used in this training.
    */
   Session(int batch_size, const std::string& model_file, const std::string& embedding_file,
-          const std::string& json_name, const DeviceMap& device_map)
+          const std::string& json_name, const std::shared_ptr<const DeviceMap>& device_map)
       : Session(batch_size, json_name, device_map) {
     load_params(model_file, embedding_file);
   }
