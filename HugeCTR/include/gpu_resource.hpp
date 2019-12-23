@@ -144,7 +144,7 @@ class GPUResourceGroup {
       }
       CK_NCCL_THROW_(ncclGroupEnd());
 #else
-      CK_NCCL_THROW_(ncclCommInitAll(comms_, device_list.size(), device_list.data()));
+      CK_NCCL_THROW_(ncclCommInitAll(comms_.get(), device_list.size(), device_list.data()));
 #endif
     }
     for (size_t i = 0; i < local_gpu_count; i++) {
