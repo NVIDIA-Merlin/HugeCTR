@@ -124,8 +124,8 @@ void Network::train() {
 #endif
 
   // backward
-  for (auto& layer : layers_) {
-    layer->bprop(gpu_resource_->get_stream());
+  for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
+    (*it)->bprop(gpu_resource_->get_stream());
 #ifndef NDEBUG
     print_tensor(*in_tensor_, -10, -1);
     print_tensor(*label_tensor_, -10, -1);
