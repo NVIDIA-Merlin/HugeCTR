@@ -48,12 +48,12 @@ namespace HugeCTR {
 void NesterovOptimizer::update(cudaStream_t stream) {
   CudaDeviceContext context(device_id_);
 
-  const int len = weight_.get_num_elements();
+  const int len = weight_->get_num_elements();
   const int block_dim = 256;
   const int grid_dim = (len - 1) / block_dim + 1;
 
-  float* weight = weight_.get_ptr_with_offset(0);
-  const float* wgrad = wgrad_.get_ptr_with_offset(0);
+  float* weight = weight_->get_ptr_with_offset(0);
+  const float* wgrad = wgrad_->get_ptr_with_offset(0);
   float* accum = accum_.get_ptr_with_offset(0);
 
   nesterov_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, accum, lr_, mu_);

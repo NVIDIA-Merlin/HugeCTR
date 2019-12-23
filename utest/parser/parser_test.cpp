@@ -29,10 +29,10 @@ typedef long long TypeKey;
 
 template <typename TypeKey>
 void test_parser(std::string& json_name) {
-  std::vector<int> device_list = {0};
+  std::vector<int> device_list{0};
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  DeviceMap device_map(vvgpu, 0);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
   int batch_size = 4096;
   Parser p(json_name, batch_size);
   std::unique_ptr<DataReader<TypeKey>> data_reader;

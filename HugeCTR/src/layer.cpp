@@ -32,17 +32,4 @@ void Layer::init_params(std::ofstream& out_stream) {
   out_stream.write(reinterpret_cast<char*>(&initializer.front()), size_in_byte);
 }
 
-Layer::~Layer() {
-  try {
-    for (auto weight : weights_) {
-      delete weight;
-    }
-    for (auto wgrad : wgrad_) {
-      delete wgrad;
-    }
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  }
-}
-
 }  // namespace HugeCTR

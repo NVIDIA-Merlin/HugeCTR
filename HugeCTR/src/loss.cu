@@ -20,17 +20,19 @@
 
 namespace HugeCTR {
 
-CrossEntropyLoss::CrossEntropyLoss(Tensor<float> &label_tensors, Tensor<float> &input_tensors,
-                                   Tensor<float> &loss_tensors, int device_id)
+CrossEntropyLoss::CrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &label_tensors,
+                                   const std::shared_ptr<Tensor<float>> &input_tensors,
+                                   const std::shared_ptr<Tensor<float>> &loss_tensors,
+                                   int device_id)
     : Loss(device_id) {
-  input_tensors_.push_back(std::ref(input_tensors));
-  label_tensors_.push_back(std::ref(label_tensors));
-  loss_tensors_.push_back(std::ref(loss_tensors));
+  input_tensors_.emplace_back(input_tensors);
+  label_tensors_.emplace_back(label_tensors);
+  loss_tensors_.emplace_back(loss_tensors);
 }
 
 // Suppose we use one thread to calculate one sample
-__global__ void CrossEntropy_Kernel(float *input, float *label, float *cel_loss, int batch_size,
-                                    int feature_dim, bool row_major, int scaler) {
+__global__ void CrossEntropy_Kernel(float *input, const float *label, float *cel_loss,
+                                    int batch_size, int feature_dim, bool row_major, int scaler) {
   int tid = threadIdx.x;
   extern __shared__ float loss_s[];
 
@@ -70,17 +72,17 @@ __global__ void CrossEntropy_Kernel(float *input, float *label, float *cel_loss,
 void CrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
-  Tensor<float> input_tensor = input_tensors_[0];
-  Tensor<float> label_tensor = label_tensors_[0];
-  Tensor<float> loss_tensor = loss_tensors_[0];
+  const auto &input_tensor = input_tensors_[0];
+  const auto &label_tensor = label_tensors_[0];
+  const auto &loss_tensor = loss_tensors_[0];
 
-  if (input_tensor.get_format() != label_tensor.get_format())
+  if (input_tensor->get_format() != label_tensor->get_format())
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
 
-  bool row_major = (input_tensor.get_format() == TensorFormat_t::HW);
+  bool row_major = (input_tensor->get_format() == TensorFormat_t::HW);
 
-  std::vector<int> input_dim = input_tensor.get_dims();
-  std::vector<int> label_dim = label_tensor.get_dims();
+  const auto &input_dim = input_tensor->get_dims();
+  const auto &label_dim = label_tensor->get_dims();
 
   int batch_size = row_major ? input_dim[0] : input_dim[1];
   int feature_dim = row_major ? input_dim[1] : input_dim[0];
@@ -92,9 +94,9 @@ void CrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   if (!row_major && input_dim[1] != label_dim[1])
     CK_THROW_(Error_t::WrongInput, "The batch sizes of input tensor and label tensor are not same");
 
-  float *input = input_tensor.get_ptr();
-  float *label = label_tensor.get_ptr();
-  float *cel_loss = loss_tensor.get_ptr();
+  float *input = input_tensor->get_ptr();
+  const float *label = label_tensor->get_ptr();
+  float *cel_loss = loss_tensor->get_ptr();
 
   int block_size = min(batch_size, 1024);
 
@@ -121,17 +123,18 @@ void CrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
 #endif
 }
 
-BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(Tensor<float> &label_tensors,
-                                               Tensor<float> &input_tensors,
-                                               Tensor<float> &loss_tensors, int device_id)
+BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
+    const std::shared_ptr<const Tensor<float>> &label_tensors,
+    const std::shared_ptr<Tensor<float>> &input_tensors,
+    const std::shared_ptr<Tensor<float>> &loss_tensors, int device_id)
     : Loss(device_id) {
-  input_tensors_.push_back(std::ref(input_tensors));
-  label_tensors_.push_back(std::ref(label_tensors));
-  loss_tensors_.push_back(std::ref(loss_tensors));
+  input_tensors_.emplace_back(input_tensors);
+  label_tensors_.emplace_back(label_tensors);
+  loss_tensors_.emplace_back(loss_tensors);
 }
 // Suppose we use one thread to calculate one sample
-__global__ void BinaryCrossEntropy_Kernel(float *input, float *label, float *bce_loss, int scaler,
-                                          int batch_size) {
+__global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, float *bce_loss,
+                                          int scaler, int batch_size) {
   const float MIN_ = 1e-6;
   const float MIN_X = -707.f;
   int tid = threadIdx.x;
@@ -164,17 +167,17 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, float *label, float *bce
 void BinaryCrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
-  Tensor<float> input_tensor = input_tensors_[0];
-  Tensor<float> label_tensor = label_tensors_[0];
-  Tensor<float> loss_tensor = loss_tensors_[0];
+  const auto &input_tensor = input_tensors_[0];
+  const auto &label_tensor = label_tensors_[0];
+  const auto &loss_tensor = loss_tensors_[0];
 
-  if (input_tensor.get_format() != label_tensor.get_format())
+  if (input_tensor->get_format() != label_tensor->get_format())
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
 
-  bool row_major = (input_tensor.get_format() == TensorFormat_t::HW);
+  bool row_major = (input_tensor->get_format() == TensorFormat_t::HW);
 
-  std::vector<int> input_dim = input_tensor.get_dims();
-  std::vector<int> label_dim = label_tensor.get_dims();
+  const auto &input_dim = input_tensor->get_dims();
+  const auto &label_dim = label_tensor->get_dims();
 
   int batch_size = row_major ? input_dim[0] : input_dim[1];
   int feature_dim = row_major ? input_dim[1] : input_dim[0];
@@ -182,9 +185,9 @@ void BinaryCrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   if (feature_dim != 1)
     CK_THROW_(Error_t::WrongInput, "The feature dimension of BCE loss input should be 1");
 
-  float *input = input_tensor.get_ptr();
-  float *label = label_tensor.get_ptr();
-  float *bce_loss = loss_tensor.get_ptr();
+  float *input = input_tensor->get_ptr();
+  const float *label = label_tensor->get_ptr();
+  float *bce_loss = loss_tensor->get_ptr();
 
   int block_size = min(batch_size, 1024);
 
@@ -259,15 +262,15 @@ __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
 void MultiCrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
-  float *input = input_tensors_[0].get().get_ptr();
-  const float *label = label_tensors_[0].get().get_ptr();
-  float *loss = loss_tensors_[0].get().get_ptr();
+  float *input = input_tensors_[0]->get_ptr();
+  const float *label = label_tensors_[0]->get_ptr();
+  float *loss = loss_tensors_[0]->get_ptr();
   float *target_weight = target_weight_->get_ptr();
-  int batchsize = input_tensors_[0].get().get_dims()[0];
-  int labels_per_sample = input_tensors_[0].get().get_dims()[1];
+  int batchsize = input_tensors_[0]->get_dims()[0];
+  int labels_per_sample = input_tensors_[0]->get_dims()[1];
   const int BLOCK_SIZE = 256;
   const int GRID_SIZE = min(40, (batchsize * labels_per_sample - 1) / BLOCK_SIZE);
-  cudaMemsetAsync(loss, 0, loss_tensors_[0].get().get_size(), stream);
+  cudaMemsetAsync(loss, 0, loss_tensors_[0]->get_size(), stream);
 
   int scaler = 1;
 #ifdef SCALE_128
@@ -293,29 +296,30 @@ void MultiCrossEntropyLoss::fused_loss_computation(cudaStream_t stream) {
   return;
 }
 
-MultiCrossEntropyLoss::MultiCrossEntropyLoss(Tensor<float> &label_tensor,
-                                             Tensor<float> &input_tensor,
-                                             Tensor<float> &loss_tensor,
-                                             const std::vector<float> target_weight, int device_id)
+MultiCrossEntropyLoss::MultiCrossEntropyLoss(
+    const std::shared_ptr<const Tensor<float>> &label_tensor,
+    const std::shared_ptr<Tensor<float>> &input_tensor,
+    const std::shared_ptr<Tensor<float>> &loss_tensor, const std::vector<float> &target_weight,
+    int device_id)
     : Loss(device_id) {
-  if (label_tensor.get_dims().size() != 2 || label_tensor.get_format() != TensorFormat_t::HW ||
-      input_tensor.get_dims().size() != 2 || input_tensor.get_format() != TensorFormat_t::HW ||
-      label_tensor.get_dims()[0] != input_tensor.get_dims()[0] ||
-      label_tensor.get_dims()[1] != input_tensor.get_dims()[1]) {
+  if (label_tensor->get_dims().size() != 2 || label_tensor->get_format() != TensorFormat_t::HW ||
+      input_tensor->get_dims().size() != 2 || input_tensor->get_format() != TensorFormat_t::HW ||
+      label_tensor->get_dims()[0] != input_tensor->get_dims()[0] ||
+      label_tensor->get_dims()[1] != input_tensor->get_dims()[1]) {
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
   }
   // verify the length of target_weight
-  if ((int)target_weight.size() != input_tensor.get_dims()[1]) {
+  if ((int)target_weight.size() != input_tensor->get_dims()[1]) {
     CK_THROW_(Error_t::WrongInput, "target_weight.size() != input_tensor.get_dims()[0]");
   }
-  input_tensors_.push_back(std::ref(input_tensor));
-  label_tensors_.push_back(std::ref(label_tensor));
-  loss_tensors_.push_back(std::ref(loss_tensor));
+  input_tensors_.emplace_back(input_tensor);
+  label_tensors_.emplace_back(label_tensor);
+  loss_tensors_.emplace_back(loss_tensor);
 
   // load target_weight to internal Tensor
-  internal_buff_ = new GeneralBuffer<float>();
-  std::vector<int> twdim = {1, label_tensor.get_dims()[1]};
-  target_weight_ = new Tensor<float>(twdim, *internal_buff_, TensorFormat_t::HW);
+  internal_buff_.reset(new GeneralBuffer<float>());
+  std::vector<int> twdim = {1, label_tensor->get_dims()[1]};
+  target_weight_.reset(new Tensor<float>(twdim, internal_buff_, TensorFormat_t::HW));
   internal_buff_->init(device_id);
   CudaDeviceContext context(device_id);
   CK_CUDA_THROW_(cudaMemcpy(target_weight_->get_ptr(), target_weight.data(),

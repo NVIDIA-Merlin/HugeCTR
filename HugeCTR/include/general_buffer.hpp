@@ -103,7 +103,25 @@ class GeneralBuffer {
    * @param offset element offset on this buffer.
    * @return memory address on this offset.
    */
-  T* get_ptr_with_offset(size_t offset) const {
+  T* get_ptr_with_offset(size_t offset) {
+    try {
+      if (initialized_ != true)
+        CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is not initialized");
+      assert(ptr_ != nullptr);
+      return ptr_ + offset;
+    } catch (const std::runtime_error& rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+    }
+    return nullptr;
+  }
+
+  /**
+   * Calculate the address of memory with offset.
+   * Tensor can call this to aquire the real address of memory.
+   * @param offset element offset on this buffer.
+   * @return memory address on this offset.
+   */
+  const T* get_ptr_with_offset(size_t offset) const {
     try {
       if (initialized_ != true)
         CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is not initialized");
@@ -153,10 +171,10 @@ template <typename T>
 bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
   int begin_;
   int end_;
-  if (begin >= 0 && end <= buffer.get_num_elements() && end > begin) {
+  if (begin >= 0 && end <= static_cast<int>(buffer.get_num_elements()) && end > begin) {
     begin_ = begin;
     end_ = end;
-  } else if (end < 0 && -begin <= buffer.get_num_elements() && end > begin) {
+  } else if (end < 0 && -begin <= static_cast<int>(buffer.get_num_elements()) && end > begin) {
     begin_ = buffer.get_num_elements() + begin;
     end_ = buffer.get_num_elements() + end;
   } else {

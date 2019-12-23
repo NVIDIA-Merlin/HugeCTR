@@ -92,18 +92,18 @@ class GPUResource {
 class GPUResourceGroup {
  private:
   std::unique_ptr<ncclComm_t[]> comms_;
-  const DeviceMap device_map_;
+  std::shared_ptr<const DeviceMap> device_map_;
   std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
  public:
   ctpl::thread_pool train_thread_pool; /**< cpu thread pool for training */
   std::vector<std::future<void>> results;
 
-  GPUResourceGroup(const DeviceMap& device_map)
+  GPUResourceGroup(const std::shared_ptr<const DeviceMap>& device_map)
       : comms_(nullptr),
         device_map_(device_map),
-        train_thread_pool(device_map_.get_device_list().size()),
-        results(device_map_.get_device_list().size()) {
-    auto& device_list = device_map_.get_device_list();
+        train_thread_pool(device_map->get_device_list().size()),
+        results(device_map->get_device_list().size()) {
+    auto& device_list = device_map->get_device_list();
     size_t local_gpu_count = device_list.size();
 
     if (local_gpu_count == 0) {
@@ -120,8 +120,8 @@ class GPUResourceGroup {
       }
     }
 
-    if (device_map_.get_device_list().size() != local_gpu_count) {
-      CK_THROW_(Error_t::WrongInput, "device_map_.get_device_list().size() != local_gpu_count");
+    if (device_map->get_device_list().size() != local_gpu_count) {
+      CK_THROW_(Error_t::WrongInput, "device_map->get_device_list().size() != local_gpu_count");
     }
     int total_gpu_count = get_total_gpu_count();
     // if ther are multiple GPUs within a node or/and across nodes
@@ -140,7 +140,7 @@ class GPUResourceGroup {
       for (size_t i = 0; i < local_gpu_count; i++) {
         CK_CUDA_THROW_(cudaSetDevice(device_list[i]));
         CK_NCCL_THROW_(ncclCommInitRank(comms_.get() + i, total_gpu_count, nid,
-                                        device_map_.get_global_id(device_list[i])));
+                                        device_map->get_global_id(device_list[i])));
       }
       CK_NCCL_THROW_(ncclGroupEnd());
 #else
@@ -158,7 +158,7 @@ class GPUResourceGroup {
   const std::shared_ptr<GPUResource>& operator[](int idx) const { return gpu_resources_[idx]; }
   size_t size() const {
     // return gpu_resources_.size();
-    return device_map_.get_device_list().size();
+    return device_map_->get_device_list().size();
   }
   bool empty() const { return size() == 0; }
   ~GPUResourceGroup() {
@@ -173,19 +173,19 @@ class GPUResourceGroup {
     }
   }
 
-  const std::vector<int>& get_device_list() const { return device_map_.get_device_list(); }
+  const std::vector<int>& get_device_list() const { return device_map_->get_device_list(); }
   int get_global_id(int local_device_id) const {
-    return device_map_.get_global_id(local_device_id);
+    return device_map_->get_global_id(local_device_id);
   }
   int get_local_id(int global_id) const {  // sequential GPU indices
-    return device_map_.get_local_id(global_id);
+    return device_map_->get_local_id(global_id);
   }
   int get_local_device_id(int global_id) const {  // the actual GPU ids
-    return device_map_.get_local_device_id(global_id);
+    return device_map_->get_local_device_id(global_id);
   }
-  int get_total_gpu_count() const { return device_map_.size(); }
-  int get_node_count() const { return device_map_.num_nodes(); }
-  int get_pid(int global_id) const { return device_map_.get_pid(global_id); }
+  int get_total_gpu_count() const { return device_map_->size(); }
+  int get_node_count() const { return device_map_->num_nodes(); }
+  int get_pid(int global_id) const { return device_map_->get_pid(global_id); }
 };
 
 }  // namespace HugeCTR

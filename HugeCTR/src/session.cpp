@@ -51,7 +51,8 @@ static void check_device(int device_id, int min_major, int min_minor) {
   return;
 }
 
-Session::Session(int batch_size, const std::string& json_name, const DeviceMap& device_map)
+Session::Session(int batch_size, const std::string& json_name,
+                 const std::shared_ptr<const DeviceMap>& device_map)
     : gpu_resource_group_(new GPUResourceGroup(device_map)) {
   try {
     for (auto dev : gpu_resource_group_->get_device_list()) {
@@ -74,7 +75,7 @@ Session::Session(int batch_size, const std::string& json_name, const DeviceMap& 
  **/
 Error_t Session::load_params(const std::string& model_file, const std::string& embedding_file) {
   try {
-    std::unique_ptr<float> weight(new float[networks_[0]->get_params_num()]());
+    std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
     std::ifstream model_stream(model_file, std::ifstream::binary);
     if (!embedding_file.empty()) {
       std::ifstream embedding_stream(embedding_file, std::ifstream::binary);

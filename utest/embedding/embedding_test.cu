@@ -560,7 +560,7 @@ TEST(sparse_embedding_hash_test, training_correctness) {
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  DeviceMap device_map(vvgpu, 0);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   // setup a data reader
@@ -786,7 +786,7 @@ TEST(sparse_embedding_hash_test, perf_profiling) {
   }
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  DeviceMap device_map(vvgpu, 0);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   // setup a data reader

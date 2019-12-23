@@ -95,12 +95,14 @@ class DataReader {
       data_readers_;                             /**< A vector of DataReaderMultiThreads' pointer.*/
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
   std::thread data_collector_thread_;            /**< A data_collector_thread. */
-  std::vector<GeneralBuffer<float>*> label_buffers_; /**< A gpu general buffer for label_buffer */
-  std::vector<Tensor<float>*> label_tensors_;        /**< Label tensors for the usage of loss */
-  std::vector<GeneralBuffer<TypeKey>*>
+  std::vector<std::shared_ptr<GeneralBuffer<float>>>
+      label_buffers_; /**< A gpu general buffer for label_buffer */
+  std::vector<std::shared_ptr<Tensor<float>>>
+      label_tensors_; /**< Label tensors for the usage of loss */
+  std::vector<std::shared_ptr<GeneralBuffer<TypeKey>>>
       csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
-  std::vector<Tensor<TypeKey>*> row_offsets_tensors_; /**< row offset tensors*/
-  std::vector<Tensor<TypeKey>*> value_tensors_;       /**< value tensors */
+  std::vector<std::shared_ptr<Tensor<TypeKey>>> row_offsets_tensors_; /**< row offset tensors*/
+  std::vector<std::shared_ptr<Tensor<TypeKey>>> value_tensors_;       /**< value tensors */
   bool shared_output_flag_{false}; /**< whether this is a data reader for eval. It's only mark the
                                       output data, which is sharing output tensor with train. */
 
@@ -161,11 +163,18 @@ class DataReader {
     return new_reader;
   }
 
-  const std::vector<Tensor<float>*>& get_label_tensors() const { return label_tensors_; }
-  const std::vector<Tensor<TypeKey>*>& get_row_offsets_tensors() const {
+  const std::vector<std::shared_ptr<Tensor<float>>>& get_label_tensors() const {
+    return label_tensors_;
+  }
+
+  const std::vector<std::shared_ptr<Tensor<TypeKey>>>& get_row_offsets_tensors() const {
     return row_offsets_tensors_;
   }
-  const std::vector<Tensor<TypeKey>*>& get_value_tensors() const { return value_tensors_; }
+
+  const std::vector<std::shared_ptr<Tensor<TypeKey>>>& get_value_tensors() const {
+    return value_tensors_;
+  }
+
   ~DataReader();
 };
 
@@ -280,27 +289,26 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
   // create label tensor
   int batch_size_per_device = batchsize_ / total_gpu_count;
-  std::vector<int> tmp_dim = {batch_size_per_device, label_dim_};
   assert(label_tensors_.empty() && label_buffers_.empty());
   for (auto device_id : device_list) {
-    GeneralBuffer<float>* tmp_label_buff = new GeneralBuffer<float>();
-    label_tensors_.push_back(new Tensor<float>(tmp_dim, *tmp_label_buff, TensorFormat_t::HW));
+    std::shared_ptr<GeneralBuffer<float>> tmp_label_buff(new GeneralBuffer<float>());
+    label_tensors_.emplace_back(
+        new Tensor<float>({batch_size_per_device, label_dim_}, tmp_label_buff, TensorFormat_t::HW));
     tmp_label_buff->init(device_id);
-    label_buffers_.push_back(tmp_label_buff);
+    label_buffers_.emplace_back(tmp_label_buff);
   }
   // create value and row offset tensor
   std::vector<int> num_rows_dim = {1, batchsize_ * slot_num_ + 1};
   std::vector<int> num_max_value_dim = {1, max_feature_num_per_sample_ * batchsize_};
   for (auto device_id : device_list) {
-    GeneralBuffer<TypeKey>* tmp_buffer = new GeneralBuffer<TypeKey>();
+    std::shared_ptr<GeneralBuffer<TypeKey>> tmp_buffer(new GeneralBuffer<TypeKey>());
     Tensor<TypeKey>* tmp_row_offset =
-        new Tensor<TypeKey>(num_rows_dim, *tmp_buffer, TensorFormat_t::HW);
-    Tensor<TypeKey>* tmp_value =
-        new Tensor<TypeKey>(num_max_value_dim, *tmp_buffer, TensorFormat_t::HW);
-    row_offsets_tensors_.push_back(tmp_row_offset);
-    value_tensors_.push_back(tmp_value);
+        new Tensor<TypeKey>(num_rows_dim, tmp_buffer, TensorFormat_t::HW);
+    row_offsets_tensors_.emplace_back(tmp_row_offset);
+    value_tensors_.emplace_back(
+        new Tensor<TypeKey>(num_max_value_dim, tmp_buffer, TensorFormat_t::HW));
     tmp_buffer->init(device_id);
-    csr_buffers_.push_back(tmp_buffer);
+    csr_buffers_.emplace_back(tmp_buffer);
   }
 
   data_collector_.reset(new DataCollector<TypeKey>(label_buffers_, csr_buffers_, device_resources_,
@@ -334,24 +342,6 @@ DataReader<TypeKey>::~DataReader() {
       data_reader_thread.join();
     }
     data_collector_thread_.join();
-
-    if (shared_output_flag_ == false) {
-      for (auto row_offsets_tensor : row_offsets_tensors_) {
-        delete row_offsets_tensor;
-      }
-      for (auto value_tensor : value_tensors_) {
-        delete value_tensor;
-      }
-      for (auto csr_buffer : csr_buffers_) {
-        delete csr_buffer;
-      }
-      for (auto label_tensor : label_tensors_) {
-        delete label_tensor;
-      }
-      for (auto label_buffer : label_buffers_) {
-        delete label_buffer;
-      }
-    }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }

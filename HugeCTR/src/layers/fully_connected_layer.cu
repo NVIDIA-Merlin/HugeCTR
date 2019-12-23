@@ -22,29 +22,31 @@
 #define FINAL_MASK 0xffffffff
 namespace HugeCTR {
 
-FullyConnectedLayer::FullyConnectedLayer(GeneralBuffer<float>& weight_buff,
-                                         GeneralBuffer<float>& wgrad_buff, Tensor<float>& in_tensor,
-                                         Tensor<float>& out_tensor, TensorFormat_t weight_format,
+FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                                         const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
+                                         const std::shared_ptr<Tensor<float>>& in_tensor,
+                                         const std::shared_ptr<Tensor<float>>& out_tensor,
+                                         TensorFormat_t weight_format,
                                          cublasHandle_t const& cublas_handle, int device_id)
     : cublas_handle_(cublas_handle), Layer(device_id) {
   try {
     // check the in_tensor and out_tensor
-    std::vector<int> in_tensor_dim = in_tensor.get_dims();
-    std::vector<int> out_tensor_dim = out_tensor.get_dims();
+    const auto& in_tensor_dim = in_tensor->get_dims();
+    const auto& out_tensor_dim = out_tensor->get_dims();
     // 1. two dim?
     if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "input or output tensor doesn't has two dimensions");
     }
     // 2. dim match?
-    assert(in_tensor.get_format() == TensorFormat_t::WH ||
-           in_tensor.get_format() == TensorFormat_t::HW);
-    assert(out_tensor.get_format() == TensorFormat_t::WH ||
-           out_tensor.get_format() == TensorFormat_t::HW);
-    int m = in_tensor.get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
-    int n = out_tensor.get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
-    int k = in_tensor.get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
+    assert(in_tensor->get_format() == TensorFormat_t::WH ||
+           in_tensor->get_format() == TensorFormat_t::HW);
+    assert(out_tensor->get_format() == TensorFormat_t::WH ||
+           out_tensor->get_format() == TensorFormat_t::HW);
+    int m = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
+    int n = out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
+    int k = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
     int m_ck =
-        out_tensor.get_format() == TensorFormat_t::WH ? out_tensor_dim[1] : out_tensor_dim[0];
+        out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[1] : out_tensor_dim[0];
     if (m != m_ck) {
       CK_THROW_(Error_t::WrongInput, "size of input / output tensor doesn't match");
     }
@@ -61,12 +63,12 @@ FullyConnectedLayer::FullyConnectedLayer(GeneralBuffer<float>& weight_buff,
       CK_THROW_(Error_t::WrongInput, "weight_format doesn't match Mlp Layer");
     }
 
-    weights_.push_back(new Tensor<float>(weight_dim, weight_buff, weight_format));
-    weights_.push_back(new Tensor<float>(bias_dim, weight_buff, weight_format));
-    wgrad_.push_back(new Tensor<float>(weight_dim, wgrad_buff, weight_format));
-    wgrad_.push_back(new Tensor<float>(bias_dim, wgrad_buff, weight_format));
-    in_tensors_.push_back(std::ref(in_tensor));
-    out_tensors_.push_back(std::ref(out_tensor));
+    weights_.emplace_back(new Tensor<float>(weight_dim, weight_buff, weight_format));
+    weights_.emplace_back(new Tensor<float>(bias_dim, weight_buff, weight_format));
+    wgrad_.emplace_back(new Tensor<float>(weight_dim, wgrad_buff, weight_format));
+    wgrad_.emplace_back(new Tensor<float>(bias_dim, wgrad_buff, weight_format));
+    in_tensors_.emplace_back(in_tensor);
+    out_tensors_.emplace_back(out_tensor);
     // Where should we create this cuBLAS handle?
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -107,22 +109,22 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
   CudaDeviceContext context(get_device_id());
 
-  Tensor<float> in_tensor = in_tensors_[0];
-  Tensor<float> out_tensor = out_tensors_[0];
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
 
   float* weight = (weights_[0])->get_ptr();
   float* bias = (weights_[1])->get_ptr();
-  float* in = in_tensor.get_ptr();
-  float* out = out_tensor.get_ptr();
+  float* in = in_tensor->get_ptr();
+  float* out = out_tensor->get_ptr();
 
-  std::vector<int> in_tensor_dim = in_tensor.get_dims();
-  std::vector<int> out_tensor_dim = out_tensor.get_dims();
+  const auto& in_tensor_dim = in_tensor->get_dims();
+  const auto& out_tensor_dim = out_tensor->get_dims();
 
   int m, n, k;
 
-  m = in_tensor.get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
-  n = out_tensor.get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
-  k = in_tensor.get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
+  m = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
+  n = out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
+  k = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
 
   float alpha = 1.0f, beta = 0.0f;
 
@@ -134,15 +136,15 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
 #endif
 
   if ((weights_[0])->get_format() == TensorFormat_t::HW &&
-      in_tensor.get_format() == TensorFormat_t::HW &&
-      out_tensor.get_format() == TensorFormat_t::HW) {
+      in_tensor->get_format() == TensorFormat_t::HW &&
+      out_tensor->get_format() == TensorFormat_t::HW) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, weight,
                                   CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out, CUDA_R_32F, n,
                                   CUDA_R_32F, algo));
     add_bias(out, bias, m, n, true, stream);
   } else if ((weights_[0])->get_format() == TensorFormat_t::WH &&
-             in_tensor.get_format() == TensorFormat_t::WH &&
-             out_tensor.get_format() == TensorFormat_t::WH) {
+             in_tensor->get_format() == TensorFormat_t::WH &&
+             out_tensor->get_format() == TensorFormat_t::WH) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, in,
                                   CUDA_R_32F, m, weight, CUDA_R_32F, k, &beta, out, CUDA_R_32F, m,
                                   CUDA_R_32F, algo));
@@ -204,23 +206,23 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
 
   CudaDeviceContext context(get_device_id());
 
-  Tensor<float> in_tensor = in_tensors_[0];
-  Tensor<float> out_tensor = out_tensors_[0];
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
 
   float* wgrad = (wgrad_[0])->get_ptr();
   float* bias_grad = (wgrad_[1])->get_ptr();
   float* weight = (weights_[0])->get_ptr();
-  float* in = in_tensor.get_ptr();
-  float* out = out_tensor.get_ptr();
+  float* in = in_tensor->get_ptr();
+  float* out = out_tensor->get_ptr();
 
-  std::vector<int> in_tensor_dim = in_tensor.get_dims();
-  std::vector<int> out_tensor_dim = out_tensor.get_dims();
+  const auto& in_tensor_dim = in_tensor->get_dims();
+  const auto& out_tensor_dim = out_tensor->get_dims();
 
   int m, n, k;
 
-  m = in_tensor.get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
-  n = out_tensor.get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
-  k = in_tensor.get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
+  m = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
+  n = out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
+  k = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
 
   cublasGemmAlgo_t algo;
 #ifdef WMMA
@@ -232,8 +234,8 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
   float alpha = 1.0f, beta = 0.0f;
   // row-major
   if ((wgrad_[0])->get_format() == TensorFormat_t::HW &&
-      in_tensor.get_format() == TensorFormat_t::HW &&
-      out_tensor.get_format() == TensorFormat_t::HW) {
+      in_tensor->get_format() == TensorFormat_t::HW &&
+      out_tensor->get_format() == TensorFormat_t::HW) {
     // gradient respect to W
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha, out,
                                   CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, wgrad, CUDA_R_32F, n,
@@ -246,8 +248,8 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
   }
   // Col-major
   else if ((weights_[0])->get_format() == TensorFormat_t::WH &&
-           in_tensor.get_format() == TensorFormat_t::WH &&
-           out_tensor.get_format() == TensorFormat_t::WH) {
+           in_tensor->get_format() == TensorFormat_t::WH &&
+           out_tensor->get_format() == TensorFormat_t::WH) {
     // gradient respect to W
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_T, CUBLAS_OP_N, k, n, m, &alpha, in,
                                   CUDA_R_32F, m, out, CUDA_R_32F, m, &beta, wgrad, CUDA_R_32F, k,
@@ -264,9 +266,9 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
 std::vector<float> FullyConnectedLayer::get_initializer() {
   std::vector<float> initializer;
   initializer.resize((weights_[0])->get_num_elements() + (weights_[1])->get_num_elements());
-  Tensor<float>& in_tensor = in_tensors_[0];
-  float in_dim = in_tensor.get_format() == TensorFormat_t::WH ? (in_tensor.get_dims())[0]
-                                                              : (in_tensor.get_dims())[1];
+  const auto& in_tensor = in_tensors_[0];
+  float in_dim = in_tensor->get_format() == TensorFormat_t::WH ? (in_tensor->get_dims())[0]
+                                                               : (in_tensor->get_dims())[1];
   float sigma = 1.f / sqrt(in_dim);
   HugeCTR::GaussianDataSimulator<float> fdata_sim(0.f, sigma, -2 * sigma, 2 * sigma);
   for (size_t i = 0; i < initializer.size(); i++) initializer[i] = fdata_sim.get_num();

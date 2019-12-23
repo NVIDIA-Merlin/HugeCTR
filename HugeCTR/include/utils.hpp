@@ -105,7 +105,7 @@ class CudaDeviceContext {
 /**
  * Get total product from dims.
  */
-inline size_t get_size_from_dims(std::vector<int> dims) {
+inline size_t get_size_from_dims(const std::vector<int>& dims) {
   size_t matrix_size = 1;
   for (auto iter = dims.begin(); iter != dims.end(); iter++) {
     matrix_size = matrix_size * iter[0];
@@ -128,7 +128,7 @@ inline bool file_exist(const std::string& name) {
 /**
  * Check if file path exist if not create it.
  */
-inline void check_make_dir(std::string finalpath) {
+inline void check_make_dir(const std::string& finalpath) {
   if (mkdir(finalpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
     if (errno == EEXIST) {
       MESSAGE_(finalpath + " exist");
@@ -143,9 +143,9 @@ inline void check_make_dir(std::string finalpath) {
  * Generate random dataset for HugeCTR test.
  */
 template <typename T>
-void data_generation(std::string file_list_name, std::string data_prefix, int num_files,
-                     int num_records_per_file, int slot_num, int vocabulary_size, int label_dim,
-                     int max_nnz) {
+void data_generation(const std::string& file_list_name, const std::string& data_prefix,
+                     int num_files, int num_records_per_file, int slot_num, int vocabulary_size,
+                     int label_dim, int max_nnz) {
   if (file_exist(file_list_name)) {
     return;
   }
@@ -193,13 +193,13 @@ void data_generation(std::string file_list_name, std::string data_prefix, int nu
  * @return true: found / false: not found
  **/
 template <typename ITEM_TYPE>
-bool find_item_in_map(ITEM_TYPE* item, const std::string& str,
+bool find_item_in_map(ITEM_TYPE& item, const std::string& str,
                       const std::map<std::string, ITEM_TYPE>& item_map) {
   typename std::map<std::string, ITEM_TYPE>::const_iterator it = item_map.find(str);
   if (it == item_map.end()) {
     return false;
   } else {
-    *item = it->second;
+    item = it->second;
     return true;
   }
 }

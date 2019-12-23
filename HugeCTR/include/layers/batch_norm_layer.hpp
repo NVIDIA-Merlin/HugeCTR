@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/layer.hpp"
@@ -52,8 +51,10 @@ class BatchNormLayer : public Layer {
    * @param cudnn_handle cuDNN handle created externally
    * @param device_id the id of GPU where this layer belongs
    */
-  BatchNormLayer(GeneralBuffer<float>& weight_buff, GeneralBuffer<float>& wgrad_buff,
-                 Tensor<float>& in_tensor, Tensor<float>& out_tensor, const Params& params,
+  BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                 const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
+                 const std::shared_ptr<Tensor<float>>& in_tensor,
+                 const std::shared_ptr<Tensor<float>>& out_tensor, const Params& params,
                  cudnnHandle_t const& cudnn_handle, int device_id);
   ~BatchNormLayer() override;
 
@@ -90,12 +91,10 @@ class BatchNormLayer : public Layer {
 
   // these four pointers are just for convenience
   // they are deleted by Layer d'tor through the other pointer aliases: weight_ and wgrad_
-  Tensor<float>* gamma_;
-  Tensor<float>* beta_;
-  Tensor<float>* gamma_grad_;
-  Tensor<float>* beta_grad_;
-
-  GeneralBuffer<float> internal_buf_;
+  std::shared_ptr<Tensor<float>> gamma_;
+  std::shared_ptr<Tensor<float>> beta_;
+  std::shared_ptr<Tensor<float>> gamma_grad_;
+  std::shared_ptr<Tensor<float>> beta_grad_;
 
   // these tensors are internal only managed by smart ptrs
   std::unique_ptr<Tensor<float>> temp_in_tensor_;
@@ -105,8 +104,8 @@ class BatchNormLayer : public Layer {
   std::unique_ptr<Tensor<float>> result_save_inv_var_;
 
   // host array to do device-to-host copy for mean and var
-  float* h_result_running_mean_;
-  float* h_result_running_var_;
+  std::unique_ptr<float[]> h_result_running_mean_;
+  std::unique_ptr<float[]> h_result_running_var_;
 };
 
 }  // namespace HugeCTR
