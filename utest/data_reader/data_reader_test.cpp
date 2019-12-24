@@ -18,7 +18,7 @@
 #include <fstream>
 #include <thread>
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/data_reader_multi_threads.hpp"
+#include "HugeCTR/include/data_reader_worker.hpp"
 #include "HugeCTR/include/file_list.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -53,7 +53,7 @@ TEST(data_reader_multi_threads, data_reader_single_thread_test) {
   CSRChunk<T> chunk(num_devices, batchsize, label_dim, slot_num, max_value_size);
   std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(new Heap<CSRChunk<T>>(32, chunk));
   // setup a data reader
-  DataReaderMultiThreads<T> data_reader(csr_heap, file_list, buffer_length);
+  DataReaderWorker<T> data_reader(csr_heap, file_list, buffer_length);
   // call read a batch
   data_reader.read_a_batch();
 }
@@ -61,7 +61,7 @@ TEST(data_reader_multi_threads, data_reader_single_thread_test) {
 template <typename T>
 void threadFunc(const std::shared_ptr<Heap<CSRChunk<T>>>& csr_heap,
                 const std::shared_ptr<FileList>& file_list, size_t buffer_length) {
-  DataReaderMultiThreads<T> data_reader(csr_heap, file_list, buffer_length);
+  DataReaderWorker<T> data_reader(csr_heap, file_list, buffer_length);
   data_reader.read_a_batch();
 }
 

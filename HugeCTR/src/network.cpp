@@ -23,7 +23,7 @@ namespace HugeCTR {
 
 Network::Network(const std::shared_ptr<Tensor<float>>& in_tensor,
                  const std::shared_ptr<const Tensor<float>>& label_tensor, int batchsize,
-                 int device_id, const std::shared_ptr<GPUResource>& gpu_resource,
+                 int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
                  bool disable_parser)
     : blobs_buff_(new GeneralBuffer<float>()),
       weight_buff_(new GeneralBuffer<float>()),

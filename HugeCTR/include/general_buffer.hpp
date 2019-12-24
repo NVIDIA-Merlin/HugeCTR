@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <vector>
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/utils.hpp"
 
@@ -193,5 +194,8 @@ bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
   std::cout << std::endl;
   return true;
 }
+
+template <typename T>
+using GeneralBuffers = std::vector<std::shared_ptr<GeneralBuffer<T>>>;
 
 }  // namespace HugeCTR

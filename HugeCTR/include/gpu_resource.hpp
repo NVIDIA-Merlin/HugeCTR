@@ -93,7 +93,7 @@ class GPUResourceGroup {
  private:
   std::unique_ptr<ncclComm_t[]> comms_;
   std::shared_ptr<const DeviceMap> device_map_;
-  std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
+  std::vector<std::shared_ptr<const GPUResource>> gpu_resources_; /**< GPU resource vector */
  public:
   ctpl::thread_pool train_thread_pool; /**< cpu thread pool for training */
   std::vector<std::future<void>> results;
@@ -155,7 +155,9 @@ class GPUResourceGroup {
   GPUResourceGroup(const GPUResourceGroup& C) = delete;
   GPUResourceGroup& operator=(const GPUResourceGroup&) = delete;
 
-  const std::shared_ptr<GPUResource>& operator[](int idx) const { return gpu_resources_[idx]; }
+  const std::shared_ptr<const GPUResource>& operator[](int idx) const {
+    return gpu_resources_[idx];
+  }
   size_t size() const {
     // return gpu_resources_.size();
     return device_map_->get_device_list().size();

@@ -38,11 +38,11 @@ class Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> weights_;
+  Tensors<float> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> wgrad_;
+  Tensors<float> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */

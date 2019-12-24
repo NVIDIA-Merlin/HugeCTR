@@ -59,62 +59,51 @@ class SparseEmbeddingHash : public Embedding<TypeHashKey> {
       hash_tables_; /**< Hash table.  */
 
   // define tensors
-  std::vector<std::unique_ptr<Tensor<float>>> hash_table_value_tensors_; /**< Hash table value. */
-  std::vector<std::unique_ptr<Tensor<TypeHashValueIndex>>>
+  Tensors<float> hash_table_value_tensors_; /**< Hash table value. */
+  Tensors<TypeHashValueIndex>
       hash_value_index_tensors_; /**< Hash table value index. The index is corresponding to the line
                                     number of the value. */
-  std::vector<std::unique_ptr<Tensor<float>>>
+  Tensors<float>
       embedding_feature_tensors_; /**< Embedding feature: the output tensor of the forward(). */
-  std::vector<std::unique_ptr<Tensor<float>>>
-      wgrad_tensors_; /**< wgrad: the input tensor of the backward(). */
-  std::vector<std::unique_ptr<Tensor<float>>>
+  Tensors<float> wgrad_tensors_;  /**< wgrad: the input tensor of the backward(). */
+  Tensors<float>
       opt_m_tensors_; /**< The mi variable storage for adam optimizer in the update_params(). */
-  std::vector<std::unique_ptr<Tensor<float>>>
+  Tensors<float>
       opt_v_tensors_; /**< The vi variable storage for adam optimizer in the update_params(). */
-  std::vector<std::unique_ptr<Tensor<float>>>
-      opt_momentum_tensors_; /**< The momentum variable storage for the momentum optimizer in the
-                                update_params(). */
-  std::vector<std::unique_ptr<Tensor<float>>>
-      opt_accm_tensors_; /**< The accm variable storage for the nesterov
-             optimizer in the update_params(). */
-  std::vector<std::unique_ptr<Tensor<TypeHashKey>>>
+  Tensors<float> opt_momentum_tensors_; /**< The momentum variable storage for the momentum
+                                           optimizer in the update_params(). */
+  Tensors<float> opt_accm_tensors_;     /**< The accm variable storage for the nesterov
+                                                         optimizer in the update_params(). */
+  Tensors<TypeHashKey>
       row_offset_allreduce_tensors_; /**< The temp memory to store the row_offset after all_reduce
                                         operation among multi-gpu in forward(). */
-  std::vector<std::unique_ptr<Tensor<TypeHashValueIndex>>>
+  Tensors<TypeHashValueIndex>
       hash_value_index_sort_tensors_; /**< The temp memory to store the sorted hash table value
                                          indexes in update_params(). */
-  std::vector<std::unique_ptr<Tensor<uint32_t>>>
-      hash_value_index_count_tensors_; /**< The temp memory to store the count of hash table value
-                                          indexes in update_params(). */
-  std::vector<std::unique_ptr<Tensor<uint32_t>>>
+  Tensors<uint32_t> hash_value_index_count_tensors_; /**< The temp memory to store the count of hash
+                                                        table value indexes in update_params(). */
+  Tensors<uint32_t>
       hash_value_index_count_offset_tensors_; /**< The temp memory to store the offset of each count
                                                  of hash table value indexes in update_params(). */
-  std::vector<std::unique_ptr<Tensor<uint32_t>>>
-      hash_value_index_count_counter_tensors_; /**< The temp memory to store the counter of the
-                                                  count of hash table value indexes in
-                                                  update_params(). */
-  std::vector<std::unique_ptr<Tensor<TypeHashKey>>>
-      sample_id_tensors_; /**< The temp memory to store the sample ids of hash table value in
-                             update_params(). */
-  std::vector<std::unique_ptr<Tensor<TypeHashKey>>>
-      sample_id_sort_tensors_; /**< The temp memory to store the sorted sample ids of hash table
-                                  value in update_params(). */
-  std::vector<std::unique_ptr<Tensor<TypeHashKey>>>
-      temp_storage_sort_tensors_; /**< The temp memory for the CUB lib sorting API in
-                                     update_params(). */
-  std::vector<std::unique_ptr<Tensor<TypeHashValueIndex>>>
+  Tensors<uint32_t> hash_value_index_count_counter_tensors_; /**< The temp memory to store the
+                                                                counter of the count of hash table
+                                                                value indexes in update_params(). */
+  Tensors<TypeHashKey> sample_id_tensors_;      /**< The temp memory to store the sample ids of hash
+                                                   table value in      update_params(). */
+  Tensors<TypeHashKey> sample_id_sort_tensors_; /**< The temp memory to store the sorted sample ids
+                                                   of hash table value in update_params(). */
+  Tensors<TypeHashKey> temp_storage_sort_tensors_; /**< The temp memory for the CUB lib sorting API
+                                                      in update_params(). */
+  Tensors<TypeHashValueIndex>
       deltaw_hash_value_index_tensors_; /**< The temp memory to store the hash table indexes of
                                            deltaw in update_params(). */
-  std::vector<std::unique_ptr<Tensor<float>>>
-      deltaw_tensors_; /**< The temp memory to store the deltaw in update_params(). */
+  Tensors<float> deltaw_tensors_; /**< The temp memory to store the deltaw in update_params(). */
 
   // define GeneralBuffers
-  std::vector<std::shared_ptr<GeneralBuffer<float>>> float_bufs_; /**< float type general buffer. */
-  std::vector<std::shared_ptr<GeneralBuffer<uint32_t>>>
-      uint32_bufs_; /**< uint32 type general buffer. */
-  std::vector<std::shared_ptr<GeneralBuffer<TypeHashKey>>>
-      key_bufs_; /**< TypeHashKey type general buffer. */
-  std::vector<std::shared_ptr<GeneralBuffer<TypeHashValueIndex>>>
+  GeneralBuffers<float> float_bufs_;     /**< float type general buffer. */
+  GeneralBuffers<uint32_t> uint32_bufs_; /**< uint32 type general buffer. */
+  GeneralBuffers<TypeHashKey> key_bufs_; /**< TypeHashKey type general buffer. */
+  GeneralBuffers<TypeHashValueIndex>
       value_index_bufs_; /**< TypeHashValueIndex type general buffer. */
 
   std::vector<size_t> temp_storage_sort_bytes_;  // for CUB radix sort /**< The temp variable for
@@ -131,8 +120,8 @@ class SparseEmbeddingHash : public Embedding<TypeHashKey> {
    * @param embedding_params embedding params for initialization.
    * @param gpu_resource_group the GPU resource group
    */
-  SparseEmbeddingHash(const std::vector<std::shared_ptr<Tensor<TypeHashKey>>> &row_offsets_tensors,
-                      const std::vector<std::shared_ptr<Tensor<TypeHashKey>>> &hash_key_tensors,
+  SparseEmbeddingHash(const Tensors<TypeHashKey> &row_offsets_tensors,
+                      const Tensors<TypeHashKey> &hash_key_tensors,
                       SparseEmbeddingHashParams embedding_params,
                       const std::shared_ptr<GPUResourceGroup> &gpu_resource_group);
   /**
@@ -202,8 +191,7 @@ class SparseEmbeddingHash : public Embedding<TypeHashKey> {
 
 template <typename TypeHashKey>
 SparseEmbeddingHash<TypeHashKey>::SparseEmbeddingHash(
-    const std::vector<std::shared_ptr<Tensor<TypeHashKey>>> &row_offsets_tensors,
-    const std::vector<std::shared_ptr<Tensor<TypeHashKey>>> &hash_key_tensors,
+    const Tensors<TypeHashKey> &row_offsets_tensors, const Tensors<TypeHashKey> &hash_key_tensors,
     SparseEmbeddingHashParams embedding_params,
     const std::shared_ptr<GPUResourceGroup> &gpu_resource_group)
     : embedding_params_(embedding_params),

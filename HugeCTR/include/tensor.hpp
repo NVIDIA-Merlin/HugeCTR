@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <vector>
 #include "HugeCTR/include/general_buffer.hpp"
 #include "HugeCTR/include/utils.hpp"
 
@@ -178,5 +179,8 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
   std::cout << std::endl;
   return true;
 }
+
+template <typename T>
+using Tensors = std::vector<std::shared_ptr<Tensor<T>>>;
 
 }  // namespace HugeCTR
