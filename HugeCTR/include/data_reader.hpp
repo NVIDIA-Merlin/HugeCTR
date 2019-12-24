@@ -24,7 +24,7 @@
 #include "HugeCTR/include/csr.hpp"
 #include "HugeCTR/include/csr_chunk.hpp"
 #include "HugeCTR/include/data_collector.hpp"
-#include "HugeCTR/include/data_reader_multi_threads.hpp"
+#include "HugeCTR/include/data_reader_worker.hpp"
 #include "HugeCTR/include/file_list.hpp"
 #include "HugeCTR/include/general_buffer.hpp"
 #include "HugeCTR/include/gpu_resource.hpp"
@@ -38,10 +38,10 @@ namespace HugeCTR {
  * A helper function to read data from dataset to heap in a new thread.
  * @param data_reader a pointer of data_reader.
  * @param p_loop_flag a flag to control the loop,
-          and break loop when DataReaderMultiThreads is destroyed.
+          and break loop when DataReaderWorker is destroyed.
  */
 template <typename TypeKey>
-static void data_reader_thread_func_(DataReaderMultiThreads<TypeKey>* data_reader,
+static void data_reader_thread_func_(DataReaderWorker<TypeKey>* data_reader,
                                      int* p_loop_flag) {
   try {
     while (*p_loop_flag) {
@@ -75,7 +75,7 @@ static void data_collector_thread_func_(DataCollector<TypeKey>* data_collector, 
  *
  * Control the data reading from data set to embedding.
  * An instance of DataReader will maintain independent
- * threads for data reading (DataReaderMultiThreads)
+ * threads for data reading (DataReaderWorker)
  * from dataset to heap. Meanwhile one independent
  * thread consumes the data (DataCollector),
  * and copy the data to GPU buffer.
@@ -88,16 +88,15 @@ class DataReader {
   const int NumThreads{20};      /**< number of threads for data reading */
 
   Heap<CSRChunk<TypeKey>>* csr_heap_{nullptr}; /**< heap to cache the data set */
-  std::vector<DataReaderMultiThreads<TypeKey>*>
-      data_readers_; /**< A vector of DataReaderMultiThreads' pointer.*/
+  std::vector<DataReaderWorker<TypeKey>*>
+      data_readers_; /**< A vector of DataReaderWorker' pointer.*/
   std::vector<std::thread*> data_reader_threads_; /**< A vector of the pointers of data reader .*/
   std::thread* data_collector_thread_{nullptr};   /**< A data_collector_thread. */
-  std::vector<GeneralBuffer<float>*> label_buffers_; /**< A gpu general buffer for label_buffer */
-  std::vector<Tensor<float>*> label_tensors_;        /**< Label tensors for the usage of loss */
-  std::vector<GeneralBuffer<TypeKey>*>
-      csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
-  std::vector<Tensor<TypeKey>*> row_offsets_tensors_; /**< row offset tensors*/
-  std::vector<Tensor<TypeKey>*> value_tensors_;       /**< value tensors */
+  GeneralBuffers<float> label_buffers_; /**< A gpu general buffer for label_buffer */
+  Tensors<float> label_tensors_;        /**< Label tensors for the usage of loss */
+  GeneralBuffers<TypeKey> csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
+  Tensors<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
+  Tensors<TypeKey> value_tensors_;       /**< value tensors */
   bool shared_output_flag_{false}; /**< whether this is a data reader for eval. It's only mark the
                                       output data, which is sharing output tensor with train. */
 
@@ -157,11 +156,11 @@ class DataReader {
     return new_reader;
   }
 
-  const std::vector<Tensor<float>*>& get_label_tensors() const { return label_tensors_; }
-  const std::vector<Tensor<TypeKey>*>& get_row_offsets_tensors() const {
+  const Tensors<float>& get_label_tensors() const { return label_tensors_; }
+  const Tensors<TypeKey>& get_row_offsets_tensors() const {
     return row_offsets_tensors_;
   }
-  const std::vector<Tensor<TypeKey>*>& get_value_tensors() const { return value_tensors_; }
+  const Tensors<TypeKey>& get_value_tensors() const { return value_tensors_; }
   ~DataReader();
 };
 
@@ -196,8 +195,8 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name,
                                           slot_num_, max_feature_num_per_sample_ * batchsize_);
   assert(data_readers_.empty() && data_reader_threads_.empty());
   for (int i = 0; i < NumThreads; i++) {
-    DataReaderMultiThreads<TypeKey>* data_reader =
-        new DataReaderMultiThreads<TypeKey>(*csr_heap_, *file_list_, max_feature_num_per_sample_);
+    DataReaderWorker<TypeKey>* data_reader =
+        new DataReaderWorker<TypeKey>(*csr_heap_, *file_list_, max_feature_num_per_sample_);
     data_readers_.push_back(data_reader);
     data_reader_threads_.push_back(
         new std::thread(data_reader_thread_func_<TypeKey>, data_reader, &data_reader_loop_flag_));
@@ -265,8 +264,8 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
   assert(data_readers_.empty() && data_reader_threads_.empty());
   for (int i = 0; i < NumThreads; i++) {
-    DataReaderMultiThreads<TypeKey>* data_reader =
-        new DataReaderMultiThreads<TypeKey>(*csr_heap_, *file_list_, max_feature_num_per_sample_);
+    DataReaderWorker<TypeKey>* data_reader =
+        new DataReaderWorker<TypeKey>(*csr_heap_, *file_list_, max_feature_num_per_sample_);
     data_readers_.push_back(data_reader);
     data_reader_threads_.push_back(
         new std::thread(data_reader_thread_func_<TypeKey>, data_reader, &data_reader_loop_flag_));

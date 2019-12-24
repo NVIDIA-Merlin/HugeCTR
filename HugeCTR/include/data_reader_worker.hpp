@@ -33,7 +33,7 @@ namespace HugeCTR {
  * It reads data from files in file_list to CSR heap.
  */
 template <class T>
-class DataReaderMultiThreads {
+class DataReaderWorker {
  private:
   FileList& file_list_;         /**< file list of data set */
   Heap<CSRChunk<T>>& csr_heap_; /**< heap to cache the data set */
@@ -74,12 +74,12 @@ class DataReaderMultiThreads {
   /**
    * Ctor
    */
-  DataReaderMultiThreads(Heap<CSRChunk<T>>& csr_heap, FileList& file_list, size_t buffer_length)
+  DataReaderWorker(Heap<CSRChunk<T>>& csr_heap, FileList& file_list, size_t buffer_length)
       : file_list_(file_list),
         csr_heap_(csr_heap),
         feature_ids_(new T[buffer_length]()),
         buffer_length_(buffer_length){};
-  ~DataReaderMultiThreads() { delete[] feature_ids_; }
+  ~DataReaderWorker() { delete[] feature_ids_; }
 
   /**
    * read a batch of data from data set to heap.
@@ -93,7 +93,7 @@ class DataReaderMultiThreads {
 };
 
 template <class T>
-void DataReaderMultiThreads<T>::read_a_batch() {
+void DataReaderWorker<T>::read_a_batch() {
   try {
     if (!in_file_stream_.is_open()) {
       open_file_and_read_head();
