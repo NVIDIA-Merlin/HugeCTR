@@ -18,6 +18,7 @@
 
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/utils.hpp"
+#include <vector>
 
 namespace HugeCTR {
 
@@ -183,5 +184,9 @@ bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
   get_set_device(odevice);
   return true;
 }
+
+template <typename T>
+using GeneralBuffers = std::vector<GeneralBuffer<T>*>;
+
 
 }  // namespace HugeCTR

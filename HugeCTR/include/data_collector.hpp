@@ -66,11 +66,11 @@ class DataCollector {
   std::condition_variable stat_cv_;
   JOB job_{TRAIN};
   Heap<CSRChunk<TypeKey>>* csr_heap_{nullptr};
-  std::vector<GeneralBuffer<float>*>& label_buffers_;
-  std::vector<GeneralBuffer<TypeKey>*>& csr_buffers_;
+  GeneralBuffers<float>& label_buffers_;
+  GeneralBuffers<TypeKey>& csr_buffers_;
+  GeneralBuffers<float> label_buffers_internal_;
+  GeneralBuffers<TypeKey> csr_buffers_internal_;
   const GPUResourceGroup& device_resources_;
-  std::vector<GeneralBuffer<float>*> label_buffers_internal_;
-  std::vector<GeneralBuffer<TypeKey>*> csr_buffers_internal_;
   long long counter_{0};
   int pid_{0}, num_procs_{1};
 
@@ -83,8 +83,8 @@ class DataCollector {
    * @param csr_heap heap of data reader.
    * @param is_eval whether it's evaluation.
    */
-  DataCollector(std::vector<GeneralBuffer<float>*>& label_buffers,
-                std::vector<GeneralBuffer<TypeKey>*>& csr_buffers,
+  DataCollector(GeneralBuffers<float>& label_buffers,
+                GeneralBuffers<TypeKey>& csr_buffers,
                 const GPUResourceGroup& device_resources,
                 Heap<CSRChunk<TypeKey>>* csr_heap = nullptr, bool is_eval = true);
 
@@ -118,8 +118,8 @@ class DataCollector {
 };
 
 template <typename TypeKey>
-DataCollector<TypeKey>::DataCollector(std::vector<GeneralBuffer<float>*>& label_buffers,
-                                      std::vector<GeneralBuffer<TypeKey>*>& csr_buffers,
+DataCollector<TypeKey>::DataCollector(GeneralBuffers<float>& label_buffers,
+                                      GeneralBuffers<TypeKey>& csr_buffers,
                                       const GPUResourceGroup& device_resources,
                                       Heap<CSRChunk<TypeKey>>* csr_heap, bool is_eval)
     : csr_heap_(csr_heap),
