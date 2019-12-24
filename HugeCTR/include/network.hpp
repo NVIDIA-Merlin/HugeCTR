@@ -42,19 +42,19 @@ class Network {
   friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
                                  const std::shared_ptr<Tensor<float>>& in_tensor,
                                  const std::shared_ptr<Tensor<float>>& label_tensor, int batch_size,
-                                 int device_id, const std::shared_ptr<GPUResource>& gpu_resource);
+                                 int device_id, const std::shared_ptr<const GPUResource>& gpu_resource);
 
  private:
-  std::vector<std::shared_ptr<Tensor<float>>> tensors_; /**< vector of tensors */
-  std::vector<std::unique_ptr<Layer>> layers_;          /**< vector of layers */
-  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;    /**< blobs' general buffer */
-  std::shared_ptr<GeneralBuffer<float>> weight_buff_;   /**< weight (param) general buffer */
-  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;    /**< weight gradient general buffer */
-  std::shared_ptr<GPUResource> gpu_resource_;           /**< gpu resource */
-  int device_id_;                                       /**< device id */
-  int batchsize_;                                       /**< batch size */
-  std::unique_ptr<Optimizer> optimizer_;                /**< optimizer */
-  std::unique_ptr<Loss> loss_;                          /**< loss */
+  Tensors<float> tensors_;                            /**< vector of tensors */
+  std::vector<std::unique_ptr<Layer>> layers_;        /**< vector of layers */
+  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;  /**< blobs' general buffer */
+  std::shared_ptr<GeneralBuffer<float>> weight_buff_; /**< weight (param) general buffer */
+  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;  /**< weight gradient general buffer */
+  std::shared_ptr<const GPUResource> gpu_resource_;   /**< gpu resource */
+  int device_id_;                                     /**< device id */
+  int batchsize_;                                     /**< batch size */
+  std::unique_ptr<Optimizer> optimizer_;              /**< optimizer */
+  std::unique_ptr<Loss> loss_;                        /**< loss */
   std::shared_ptr<Tensor<float>> in_tensor_; /**< input tensor of this network (from embedding) */
   std::shared_ptr<const Tensor<float>>
       label_tensor_; /**< label tensor of this network (from data reader) */
@@ -71,7 +71,7 @@ class Network {
    */
   Network(const std::shared_ptr<Tensor<float>>& in_tensor,
           const std::shared_ptr<const Tensor<float>>& label_tensor, int batchsize, int device_id,
-          const std::shared_ptr<GPUResource>& gpu_resource, bool disable_parser = true);
+          const std::shared_ptr<const GPUResource>& gpu_resource, bool disable_parser = true);
   Network(const Network& C) = delete;
   Network& operator=(const Network&) = delete;
 

@@ -64,11 +64,11 @@ class DataCollector {
   volatile STATUS stat_{READY_TO_WRITE};
   JOB job_{TRAIN};
   std::shared_ptr<Heap<CSRChunk<TypeKey>>> csr_heap_;
-  std::vector<std::shared_ptr<GeneralBuffer<float>>>& label_buffers_;
-  std::vector<std::shared_ptr<GeneralBuffer<TypeKey>>>& csr_buffers_;
+  GeneralBuffers<float> label_buffers_;
+  GeneralBuffers<TypeKey> csr_buffers_;
+  GeneralBuffers<float> label_buffers_internal_;
+  GeneralBuffers<TypeKey> csr_buffers_internal_;
   std::shared_ptr<GPUResourceGroup> device_resources_;
-  std::vector<std::unique_ptr<GeneralBuffer<float>>> label_buffers_internal_;
-  std::vector<std::unique_ptr<GeneralBuffer<TypeKey>>> csr_buffers_internal_;
   long long counter_{0};
   int pid_{0}, num_procs_{1};
 
@@ -81,8 +81,8 @@ class DataCollector {
    * @param csr_heap heap of data reader.
    * @param is_eval whether it's evaluation.
    */
-  DataCollector(std::vector<std::shared_ptr<GeneralBuffer<float>>>& label_buffers,
-                std::vector<std::shared_ptr<GeneralBuffer<TypeKey>>>& csr_buffers,
+  DataCollector(const GeneralBuffers<float>& label_buffers,
+                const GeneralBuffers<TypeKey>& csr_buffers,
                 const std::shared_ptr<GPUResourceGroup>& device_resources,
                 const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap = nullptr,
                 bool is_eval = true);
@@ -114,11 +114,11 @@ class DataCollector {
 };
 
 template <typename TypeKey>
-DataCollector<TypeKey>::DataCollector(
-    std::vector<std::shared_ptr<GeneralBuffer<float>>>& label_buffers,
-    std::vector<std::shared_ptr<GeneralBuffer<TypeKey>>>& csr_buffers,
-    const std::shared_ptr<GPUResourceGroup>& device_resources,
-    const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap, bool is_eval)
+DataCollector<TypeKey>::DataCollector(const GeneralBuffers<float>& label_buffers,
+                                      const GeneralBuffers<TypeKey>& csr_buffers,
+                                      const std::shared_ptr<GPUResourceGroup>& device_resources,
+                                      const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap,
+                                      bool is_eval)
     : csr_heap_(csr_heap),
       label_buffers_(label_buffers),
       csr_buffers_(csr_buffers),

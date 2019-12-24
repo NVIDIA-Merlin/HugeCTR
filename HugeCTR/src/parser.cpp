@@ -131,7 +131,7 @@ struct TensorPair {
 
 void add_tensor_to_network(const TensorPair& output_tensor_pair,
                            std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list,
-                           std::vector<std::shared_ptr<Tensor<float>>>& tensors) {
+                           Tensors<float>& tensors) {
   auto p = tensor_list.emplace(output_tensor_pair.name, output_tensor_pair.tensor);
 
   if (p.second == false) {
@@ -193,7 +193,7 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         const std::shared_ptr<Tensor<float>>& in_tensor,
                         const std::shared_ptr<Tensor<float>>& label_tensor, int batch_size,
-                        int device_id, const std::shared_ptr<GPUResource>& gpu_resource) {
+                        int device_id, const std::shared_ptr<const GPUResource>& gpu_resource) {
   const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
       {"BatchNorm", Layer_t::BatchNorm},
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
