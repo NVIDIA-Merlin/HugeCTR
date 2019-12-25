@@ -561,7 +561,6 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
           row_offset_allreduce_tensors_[id]->get_ptr() + id * batchsize_per_gpu;
       const auto &output_tensor = Base::output_tensors_[id];
 
-
       do_forward_scale((*Base::device_resources_)[id]->get_stream(),
                         batchsize_per_gpu, 
                         embedding_params_.slot_num,
@@ -679,7 +678,7 @@ void SparseEmbeddingHash<TypeHashKey>::update_params_per_thread(int tid) {
                     deltaw_hash_value_index_tensors_[tid]->get_ptr(),
                     deltaw_tensors_[tid]->get_ptr(), 
                     hash_table_value_tensors_[tid]->get_ptr());
-
+                    
   // stream sync
   CK_CUDA_THROW_(cudaStreamSynchronize((*Base::device_resources_)[tid]->get_stream()));
 
@@ -866,8 +865,10 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
       TypeHashKey *value_index_buf = hash_table_value_index_chunk_per_gpu_d[id];
       // set hash_table_value_index on GPU
       do_memset_liner((*Base::device_resources_)[id]->get_stream(),
-                      value_index_buf, (TypeHashKey)value_index_offset,
-                      (TypeHashKey)1, value_index_chunk_size);
+                      value_index_buf, 
+                      (TypeHashKey)value_index_offset,
+                      (TypeHashKey)1, 
+                      value_index_chunk_size);
 
       // do hash table insert <key, value_index> on GPU
       hash_tables_[id]->insert(hash_table_key_chunk_per_gpu_d[id], value_index_buf,
@@ -943,7 +944,9 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
         value_index_buf = hash_table_value_index_chunk_per_gpu_d[id];
         do_memset_liner((*Base::device_resources_)[id]->get_stream(), 
                         value_index_buf,
-                        (TypeHashKey)value_index_offset, (TypeHashKey)1, 1);
+                        (TypeHashKey)value_index_offset, 
+                        (TypeHashKey)1, 
+                        1);
 
         // do hash table insert <key, value_index> on GPU
         hash_tables_[id]->insert(hash_table_key_chunk_per_gpu_d[id], value_index_buf,
@@ -1252,10 +1255,9 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
                            max_vocabulary_size_per_gpu, d_dump_counter[id],
                            (*Base::device_resources_)[id]->get_stream());
 
-    do_get_hash_table_value(
-        (*Base::device_resources_)[id]->get_stream(), count[id],
-        embedding_params_.embedding_vec_size, d_hash_table_value_index[id],
-        hash_table_value_tensors_[id]->get_ptr(), d_hash_table_value[id]);
+    do_get_hash_table_value((*Base::device_resources_)[id]->get_stream(), count[id],
+                            embedding_params_.embedding_vec_size, d_hash_table_value_index[id],
+                            hash_table_value_tensors_[id]->get_ptr(), d_hash_table_value[id]);
   }
 
   // sync wait
