@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/layer.hpp"
@@ -37,7 +36,8 @@ class ConcatLayer : public Layer {
    * Othewise, the only selected slots are concatenated in newly assigned tensor.
    * @param device_id the id of GPU where this layer belongs
    */
-  ConcatLayer(Tensor<float>& in_tensor, Tensor<float>& out_tensor, std::vector<int>& selected,
+  ConcatLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
+              const std::shared_ptr<Tensor<float>>& out_tensor, std::vector<int>& selected,
               int device_id);
   ~ConcatLayer() override;
 

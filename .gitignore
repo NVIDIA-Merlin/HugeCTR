@@ -1,6 +1,7 @@
 build
 docs/html
 docs/latex
+.vscode
 *.o
 *.so
 *~

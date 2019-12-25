@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include <cublas_v2.h>
@@ -41,23 +40,25 @@ namespace HugeCTR {
  */
 class Network {
   friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-                                 Tensor<float>& in_tensor, const Tensor<float>& label_tensor,
-                                 int batch_size, int device_id, const GPUResource* gpu_resource);
+                                 const std::shared_ptr<Tensor<float>>& in_tensor,
+                                 const std::shared_ptr<Tensor<float>>& label_tensor, int batch_size,
+                                 int device_id, const std::shared_ptr<const GPUResource>& gpu_resource);
 
  private:
-  std::vector<Tensor<float>*> tensors_; /**< vector of tensors */
-  std::vector<Layer*> layers_;          /**< vector of layers */
-  GeneralBuffer<float> blobs_buff_;     /**< blobs' general buffer */
-  GeneralBuffer<float> weight_buff_;    /**< weight (param) general buffer */
-  GeneralBuffer<float> wgrad_buff_;     /**< weight gradient general buffer */
-  const GPUResource& gpu_resource_;     /**< gpu resource */
-  int device_id_;                       /**< device id */
-  int batchsize_;                       /**< batch size */
-  Optimizer* optimizer_{nullptr};       /**< optimizer */
-  Loss* loss_{nullptr};                 /**< loss */
-  Tensor<float>& in_tensor_;            /**< input tensor of this network (from embedding) */
-  const Tensor<float>& label_tensor_;   /**< label tensor of this network (from data reader) */
-  Tensor<float>* loss_tensor_{nullptr}; /**< loss tensor */
+  Tensors<float> tensors_;                            /**< vector of tensors */
+  std::vector<std::unique_ptr<Layer>> layers_;        /**< vector of layers */
+  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;  /**< blobs' general buffer */
+  std::shared_ptr<GeneralBuffer<float>> weight_buff_; /**< weight (param) general buffer */
+  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;  /**< weight gradient general buffer */
+  std::shared_ptr<const GPUResource> gpu_resource_;   /**< gpu resource */
+  int device_id_;                                     /**< device id */
+  int batchsize_;                                     /**< batch size */
+  std::unique_ptr<Optimizer> optimizer_;              /**< optimizer */
+  std::unique_ptr<Loss> loss_;                        /**< loss */
+  std::shared_ptr<Tensor<float>> in_tensor_; /**< input tensor of this network (from embedding) */
+  std::shared_ptr<const Tensor<float>>
+      label_tensor_; /**< label tensor of this network (from data reader) */
+  std::shared_ptr<Tensor<float>> loss_tensor_; /**< loss tensor */
  public:
   /**
    * Ctor.
@@ -68,11 +69,11 @@ class Network {
    * @param gpu_resource gpu resource for local gpu.
    * @param disable_parser only for unit test.
    */
-  Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, int batchsize, int device_id,
-          const GPUResource* gpu_resource, bool disable_parser = true);
+  Network(const std::shared_ptr<Tensor<float>>& in_tensor,
+          const std::shared_ptr<const Tensor<float>>& label_tensor, int batchsize, int device_id,
+          const std::shared_ptr<const GPUResource>& gpu_resource, bool disable_parser = true);
   Network(const Network& C) = delete;
   Network& operator=(const Network&) = delete;
-  ~Network();
 
   /**
    * Forward, backward and update the network.
@@ -92,7 +93,7 @@ class Network {
   /**
    * Get number of parameters in this network.
    */
-  size_t get_params_num() { return weight_buff_.get_num_elements(); }
+  size_t get_params_num() const { return weight_buff_->get_num_elements(); }
 
   /**
    * Writting paramters to fstream.
