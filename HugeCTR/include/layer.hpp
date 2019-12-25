@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include <fstream>
@@ -47,11 +46,11 @@ class Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::reference_wrapper<Tensor<float>>> in_tensors_;
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::reference_wrapper<Tensor<float>>> out_tensors_;
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
 
  public:
   /*
@@ -72,7 +71,7 @@ class Layer {
   Layer(int device_id) : device_id_(device_id) {}
   Layer(const Layer& C) = delete;
   Layer& operator=(const Layer& C) = delete;
-  virtual ~Layer();
+  virtual ~Layer() {}
 
  private:
   virtual std::vector<float> get_initializer() { return std::vector<float>(); }

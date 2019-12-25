@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/layers/concat_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
@@ -34,20 +33,20 @@ namespace {
 const float eps = 1e-5;
 
 void concat_layer_test(int n_batch, int n_slot, int vector_length, std::vector<int> selected) {
-  GeneralBuffer<float> buf;
+  std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>());
   TensorFormat_t in_format = TensorFormat_t::HSW;
   TensorFormat_t out_format = TensorFormat_t::HW;
   int n_active_slot = selected.empty() ? n_slot : int(selected.size());
   std::vector<int> in_dims = {n_batch, n_slot, vector_length};
   std::vector<int> out_dims = {n_batch, n_active_slot * vector_length};
-  std::unique_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buf, in_format));
-  std::unique_ptr<Tensor<float>> out_tensor(
-      selected.empty() ? new Tensor<float>(out_dims, *(in_tensor.get()), out_format)
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buf, in_format));
+  std::shared_ptr<Tensor<float>> out_tensor(
+      selected.empty() ? new Tensor<float>(out_dims, *in_tensor, out_format)
                        : new Tensor<float>(out_dims, buf, out_format));
 
-  ConcatLayer concat_layer(*(in_tensor.get()), *(out_tensor.get()), selected, 0);
+  ConcatLayer concat_layer(in_tensor, out_tensor, selected, 0);
 
-  buf.init(0);
+  buf->init(0);
 
   std::vector<float> h_in;
   h_in.resize(in_tensor->get_num_elements());

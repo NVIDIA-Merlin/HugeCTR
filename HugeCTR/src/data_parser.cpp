@@ -20,7 +20,7 @@ namespace HugeCTR {
 void InputParser::write(long long num_index) {
   switch_io_mode(IOmode::write);
   for (long long i = 0; i < num_index; i++) {
-    long long index = data_sim_.get_num();
+    long long index = data_sim_->get_num();
     file_stream_.write(reinterpret_cast<char*>(&index), sizeof(long long));
   }
   return;
@@ -46,7 +46,7 @@ void InputParser::read(int num_index, long long* index) {
 void ParameterParser::write(long long num_params) {
   switch_io_mode(IOmode::write);
   for (int i = 0; i < num_params; i++) {
-    float param = data_sim_.get_num();
+    float param = data_sim_->get_num();
     file_stream_.write(reinterpret_cast<char*>(&param), sizeof(float));
   }
   return;

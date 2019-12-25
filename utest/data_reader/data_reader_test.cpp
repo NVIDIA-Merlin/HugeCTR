@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/data_reader.hpp"
 #include "HugeCTR/include/data_reader_worker_ex.hpp"
 #include <fstream>
@@ -39,11 +38,11 @@ typedef long long T;
 const std::string prefix("./data_reader_test_data/temp_dataset_");
 const int vocabulary_size = 511;
 
+
 // configurations for data_reader_worker_ex
 const std::string file_list_name_ex("sample_ex_file_list.txt");
 const std::string prefix_ex("./data_reader_test_data_ex/temp_dataset_");
 const Check_t CHK = Check_t::Sum;
-
 
 #if 0
 TEST(data_reader_multi_threads, data_reader_single_thread_test) {
@@ -53,15 +52,16 @@ TEST(data_reader_multi_threads, data_reader_single_thread_test) {
                               vocabulary_size, label_dim, max_nnz);
   
   // setup a file list
-  FileList file_list(file_list_name);
+  std::shared_ptr<FileList> file_list(new FileList(file_list_name));
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
   const int max_value_size = max_nnz * batchsize * slot_num;
 
   constexpr size_t buffer_length = max_nnz;
-  CSRChunk<T> chunk(num_devices, batchsize, label_dim, slot_num, max_value_size);
-  Heap<CSRChunk<T>> csr_heap(32, chunk);
+
+  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(
+      new Heap<CSRChunk<T>>(32, num_devices, batchsize, label_dim, slot_num, max_value_size));
   // setup a data reader
   DataReaderWorker<T> data_reader(csr_heap, file_list, buffer_length);
   // call read a batch
@@ -69,8 +69,9 @@ TEST(data_reader_multi_threads, data_reader_single_thread_test) {
 }
 
 template <typename T>
-void threadFunc(Heap<CSRChunk<T>>* csr_heap, FileList* file_list, size_t buffer_length) {
-  DataReaderWorker<T> data_reader(*csr_heap, *file_list, buffer_length);
+void threadFunc(const std::shared_ptr<Heap<CSRChunk<T>>>& csr_heap,
+                const std::shared_ptr<FileList>& file_list, size_t buffer_length) {
+  DataReaderWorker<T> data_reader(csr_heap, file_list, buffer_length);
   data_reader.read_a_batch();
 }
 
@@ -78,28 +79,27 @@ TEST(data_reader_multi_threads, data_reader_multi_threads_test) {
   test::mpi_init();
 
   // setup a file list
-  FileList file_list(file_list_name);
+  std::shared_ptr<FileList> file_list(new FileList(file_list_name));
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
   const int max_value_size = max_nnz * batchsize * slot_num;
 
   constexpr size_t buffer_length = max_nnz;
-  CSRChunk<T> chunk(num_devices, batchsize, label_dim, slot_num, max_value_size);
-  Heap<CSRChunk<T>> csr_heap(32, chunk);
+  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(
+      new Heap<CSRChunk<T>>(32, num_devices, batchsize, label_dim, slot_num, max_value_size));
 
   // setup several data readers
   const int num_threads = 5;
 
-  std::vector<std::thread*> data_reader_threads;
+  std::thread data_reader_threads[num_threads];
 
   for (int i = 0; i < num_threads; i++) {
-    data_reader_threads.push_back(
-        new std::thread(threadFunc<T>, &csr_heap, &file_list, buffer_length));
+    data_reader_threads[i] = std::thread(threadFunc<T>, csr_heap, file_list, buffer_length);
   }
 
-  for (auto th : data_reader_threads) {
-    th->join();
+  for (int i = 0; i < num_threads; i++) {
+    data_reader_threads[i].join();
   }
 }
 #endif
@@ -122,15 +122,15 @@ TEST(data_reader_worker_ex, data_reader_worker_ex_test) {
   params.push_back(param);
 
   constexpr size_t buffer_length = max_nnz;
-  CSRChunk<T> chunk(num_devices, batchsize, label_dim + dense_dim, slot_num, max_value_size);
-  Heap<CSRChunk<T>> csr_heap(32, chunk);
+  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(
+      new Heap<CSRChunk<T>>(32, num_devices, batchsize, label_dim + dense_dim, slot_num, max_value_size));
+
   // setup a data reader
   DataReaderWorkerEx<T> data_reader_ex(csr_heap, file_list, buffer_length, CHK, params);
   // // call read a batch
   data_reader_ex.read_a_batch();
   
 }
-
 
 #if 0
 TEST(data_reader_test, data_reader_simple_test) {
