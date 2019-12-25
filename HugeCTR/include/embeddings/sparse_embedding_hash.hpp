@@ -17,7 +17,7 @@
 #pragma once
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_hash.cuh"
+#include "HugeCTR/include/embeddings/sparse_embedding_hash_wrapper.h"
 #include "cub/cub/device/device_radix_sort.cuh"
 
 #include "HugeCTR/include/hashtable/nv_hashtable.cuh"
@@ -461,12 +461,16 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
     context.set_device((*Base::device_resources_)[id]->get_device_id());
 
     // embedding lookup and reduction(sum)
-    SparseEmbeddingHashKernels::do_forward(
-        (*Base::device_resources_)[id]->get_stream(), embedding_params_.batch_size,
-        embedding_params_.slot_num, embedding_params_.embedding_vec_size,
-        Base::row_offsets_tensors_[id]->get_ptr(), Base::value_tensors_[id]->get_ptr(),
-        hash_tables_[id].get(), hash_table_value_tensors_[id]->get_ptr(),
-        hash_value_index_tensors_[id]->get_ptr(), embedding_feature_tensors_[id]->get_ptr());
+    do_forward((*Base::device_resources_)[id]->get_stream(), 
+                embedding_params_.batch_size,
+                embedding_params_.slot_num, 
+                embedding_params_.embedding_vec_size,
+                Base::row_offsets_tensors_[id]->get_ptr(), 
+                Base::value_tensors_[id]->get_ptr(),
+                hash_tables_[id].get(), 
+                hash_table_value_tensors_[id]->get_ptr(),
+                hash_value_index_tensors_[id]->get_ptr(), 
+                embedding_feature_tensors_[id]->get_ptr());
   }
 
   // sync
@@ -557,10 +561,13 @@ void SparseEmbeddingHash<TypeHashKey>::forward() {
           row_offset_allreduce_tensors_[id]->get_ptr() + id * batchsize_per_gpu;
       const auto &output_tensor = Base::output_tensors_[id];
 
-      SparseEmbeddingHashKernels::do_forward_scale((*Base::device_resources_)[id]->get_stream(),
-                                                   batchsize_per_gpu, embedding_params_.slot_num,
-                                                   embedding_params_.embedding_vec_size, row_offset,
-                                                   output_tensor->get_ptr());
+
+      do_forward_scale((*Base::device_resources_)[id]->get_stream(),
+                        batchsize_per_gpu, 
+                        embedding_params_.slot_num,
+                        embedding_params_.embedding_vec_size, 
+                        row_offset,
+                        output_tensor->get_ptr());
     }
 
     // sync
@@ -619,13 +626,14 @@ void SparseEmbeddingHash<TypeHashKey>::backward() {
     context.set_device((*Base::device_resources_)[id]->get_device_id());
 
     // before backward, top diff data are already in embedding_feature_tensors_
-    SparseEmbeddingHashKernels::do_backward(
-        (*Base::device_resources_)[id]->get_stream(), embedding_params_.batch_size,
-        embedding_params_.slot_num, embedding_params_.embedding_vec_size,
-        embedding_params_.combiner, row_offset_allreduce_tensors_[id]->get_ptr(),
-        embedding_feature_tensors_[id]
-            ->get_ptr(),  // the output of forward, also the input of backward
-        wgrad_tensors_[id]->get_ptr());
+    do_backward((*Base::device_resources_)[id]->get_stream(), 
+                embedding_params_.batch_size,
+                embedding_params_.slot_num, 
+                embedding_params_.embedding_vec_size,
+                embedding_params_.combiner, 
+                row_offset_allreduce_tensors_[id]->get_ptr(),
+                embedding_feature_tensors_[id]->get_ptr(), 
+                wgrad_tensors_[id]->get_ptr());
   }
 
   // sync
@@ -649,19 +657,28 @@ void SparseEmbeddingHash<TypeHashKey>::update_params_per_thread(int tid) {
   opt_params_[tid].hyperparams.adam.times++;
 
   // do update params operation
-  SparseEmbeddingHashKernels::do_update_params(
-      (*Base::device_resources_)[tid]->get_stream(), embedding_params_.batch_size,
-      embedding_params_.slot_num, embedding_params_.embedding_vec_size, max_vocabulary_size_per_gpu,
-      opt_params_[tid], Base::row_offsets_tensors_[tid]->get_ptr(),
-      Base::value_tensors_[tid]->get_ptr(), hash_tables_[tid].get(),
-      hash_value_index_tensors_[tid]->get_ptr(), sample_id_tensors_[tid]->get_ptr(),
-      sample_id_sort_tensors_[tid]->get_ptr(), hash_value_index_sort_tensors_[tid]->get_ptr(),
-      hash_value_index_count_tensors_[tid]->get_ptr(),
-      hash_value_index_count_offset_tensors_[tid]->get_ptr(),
-      hash_value_index_count_counter_tensors_[tid]->get_ptr(),
-      temp_storage_sort_tensors_[tid]->get_ptr(), temp_storage_sort_bytes_[tid],
-      wgrad_tensors_[tid]->get_ptr(), deltaw_hash_value_index_tensors_[tid]->get_ptr(),
-      deltaw_tensors_[tid]->get_ptr(), hash_table_value_tensors_[tid]->get_ptr());
+  do_update_params((*Base::device_resources_)[tid]->get_stream(), 
+                    embedding_params_.batch_size,
+                    embedding_params_.slot_num, 
+                    embedding_params_.embedding_vec_size, 
+                    max_vocabulary_size_per_gpu,
+                    opt_params_[tid], 
+                    Base::row_offsets_tensors_[tid]->get_ptr(),
+                    Base::value_tensors_[tid]->get_ptr(), 
+                    hash_tables_[tid].get(),
+                    hash_value_index_tensors_[tid]->get_ptr(), 
+                    sample_id_tensors_[tid]->get_ptr(),
+                    sample_id_sort_tensors_[tid]->get_ptr(), 
+                    hash_value_index_sort_tensors_[tid]->get_ptr(),
+                    hash_value_index_count_tensors_[tid]->get_ptr(),
+                    hash_value_index_count_offset_tensors_[tid]->get_ptr(),
+                    hash_value_index_count_counter_tensors_[tid]->get_ptr(),
+                    temp_storage_sort_tensors_[tid]->get_ptr(), 
+                    temp_storage_sort_bytes_[tid],
+                    wgrad_tensors_[tid]->get_ptr(), 
+                    deltaw_hash_value_index_tensors_[tid]->get_ptr(),
+                    deltaw_tensors_[tid]->get_ptr(), 
+                    hash_table_value_tensors_[tid]->get_ptr());
 
   // stream sync
   CK_CUDA_THROW_(cudaStreamSynchronize((*Base::device_resources_)[tid]->get_stream()));
@@ -848,9 +865,9 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
       long long value_index_offset = hash_table_value_index_count_per_gpu[id];
       TypeHashKey *value_index_buf = hash_table_value_index_chunk_per_gpu_d[id];
       // set hash_table_value_index on GPU
-      SparseEmbeddingHashKernels::do_memset_liner((*Base::device_resources_)[id]->get_stream(),
-                                                  value_index_buf, (TypeHashKey)value_index_offset,
-                                                  (TypeHashKey)1, value_index_chunk_size);
+      do_memset_liner((*Base::device_resources_)[id]->get_stream(),
+                      value_index_buf, (TypeHashKey)value_index_offset,
+                      (TypeHashKey)1, value_index_chunk_size);
 
       // do hash table insert <key, value_index> on GPU
       hash_tables_[id]->insert(hash_table_key_chunk_per_gpu_d[id], value_index_buf,
@@ -924,9 +941,9 @@ void SparseEmbeddingHash<TypeHashKey>::upload_params_to_device(std::ifstream &we
         // set value_index
         long long value_index_offset = hash_table_value_index_count_per_gpu[id];
         value_index_buf = hash_table_value_index_chunk_per_gpu_d[id];
-        SparseEmbeddingHashKernels::do_memset_liner(
-            (*Base::device_resources_)[id]->get_stream(), value_index_buf,
-            (TypeHashKey)value_index_offset, (TypeHashKey)1, 1);
+        do_memset_liner((*Base::device_resources_)[id]->get_stream(), 
+                        value_index_buf,
+                        (TypeHashKey)value_index_offset, (TypeHashKey)1, 1);
 
         // do hash table insert <key, value_index> on GPU
         hash_tables_[id]->insert(hash_table_key_chunk_per_gpu_d[id], value_index_buf,
@@ -1044,10 +1061,9 @@ void SparseEmbeddingHash<TypeHashKey>::download_params_to_host(std::ofstream &we
                                    count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
                                    (*Base::device_resources_)[id]->get_stream()));
 
-    SparseEmbeddingHashKernels::do_get_hash_table_value(
-        (*Base::device_resources_)[id]->get_stream(), count[id],
-        embedding_params_.embedding_vec_size, d_hash_table_value_index[id],
-        hash_table_value_tensors_[id]->get_ptr(), d_hash_table_value[id]);
+    do_get_hash_table_value((*Base::device_resources_)[id]->get_stream(), count[id],
+                            embedding_params_.embedding_vec_size, d_hash_table_value_index[id],
+                            hash_table_value_tensors_[id]->get_ptr(), d_hash_table_value[id]);
 
     CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_value[id], d_hash_table_value[id],
                                    count[id] * embedding_params_.embedding_vec_size * sizeof(float),
@@ -1236,7 +1252,7 @@ void SparseEmbeddingHash<TypeHashKey>::get_hash_table_ptr(TypeHashKey *hash_tabl
                            max_vocabulary_size_per_gpu, d_dump_counter[id],
                            (*Base::device_resources_)[id]->get_stream());
 
-    SparseEmbeddingHashKernels::do_get_hash_table_value(
+    do_get_hash_table_value(
         (*Base::device_resources_)[id]->get_stream(), count[id],
         embedding_params_.embedding_vec_size, d_hash_table_value_index[id],
         hash_table_value_tensors_[id]->get_ptr(), d_hash_table_value[id]);

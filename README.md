@@ -88,7 +88,7 @@ $ doxygen
 Totally three kinds of files will be used as input of HugeCTR Training: configuration file (.json), model file, data set.
 
 ### Configuration File ###
-Configuration file should be a json format file e.g. [simple_sparse_embedding.json](https://gitlab-master.nvidia.com/zehuanw/HugeCTR/blob/master/utest/session/simple_sparse_embedding.json)
+Configuration file should be a json format file e.g. [simple_sparse_embedding.json](utest/session/simple_sparse_embedding.json)
 
 There are four sessions in a configuration file: "solver", "optimizer", "data", "layers". The sequence of these sessions is not restricted.
 * You can specify the device (or devices), batchsize, model_file.. in `solver` session;
