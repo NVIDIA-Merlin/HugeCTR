@@ -50,8 +50,9 @@ TEST(data_reader_multi_threads, data_reader_single_thread_test) {
   const int max_value_size = max_nnz * batchsize * slot_num;
 
   constexpr size_t buffer_length = max_nnz;
-  CSRChunk<T> chunk(num_devices, batchsize, label_dim, slot_num, max_value_size);
-  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(new Heap<CSRChunk<T>>(32, chunk));
+
+  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(
+      new Heap<CSRChunk<T>>(32, num_devices, batchsize, label_dim, slot_num, max_value_size));
   // setup a data reader
   DataReaderWorker<T> data_reader(csr_heap, file_list, buffer_length);
   // call read a batch
@@ -76,8 +77,8 @@ TEST(data_reader_multi_threads, data_reader_multi_threads_test) {
   const int max_value_size = max_nnz * batchsize * slot_num;
 
   constexpr size_t buffer_length = max_nnz;
-  CSRChunk<T> chunk(num_devices, batchsize, label_dim, slot_num, max_value_size);
-  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(new Heap<CSRChunk<T>>(32, chunk));
+  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(
+      new Heap<CSRChunk<T>>(32, num_devices, batchsize, label_dim, slot_num, max_value_size));
 
   // setup several data readers
   const int num_threads = 5;

@@ -17,10 +17,13 @@
 #include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/device_map.hpp"
 #include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 
 TEST(network_test, basic_network) {
+  test::mpi_init();
+
   std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   const int batchsize = 128;
   std::shared_ptr<Tensor<float>> in_tensor(

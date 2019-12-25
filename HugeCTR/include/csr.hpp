@@ -42,9 +42,10 @@ template <typename T>
 class CSR {
  private:
   PinnedBuffer<T> row_offset_value_buffer_; /**< a unified buffer for row offset and value. */
-  T* row_offset_; /**< just offset on the buffer, note that the length of it is slot*batchsize+1. */
-  T* value_;      /**< pointer of value buffer. */
-  int num_rows_{0};           /**< num rows. */
+  T* row_offset_;   /**< just offset on the buffer, note that the length of it is slot*batchsize+1.
+                     */
+  T* value_;        /**< pointer of value buffer. */
+  int num_rows_{0}; /**< num rows. */
   int size_of_value_{0};      /**< num of values in this CSR buffer */
   int size_of_row_offset_{0}; /**< num of rows in this CSR buffer */
   int max_value_size_{0};  // number of element of value the CSR matrix will have for num_rows rows.
@@ -65,6 +66,7 @@ class CSR {
   }
   CSR(const CSR&) = delete;
   CSR& operator=(const CSR&) = delete;
+  CSR(CSR&&) = default;
 
   /**
    * push back a value to this object.
@@ -83,7 +85,6 @@ class CSR {
    * again.
    */
   void new_row() {  // call before push_back values in this line
-
     if (size_of_row_offset_ > num_rows_) CK_THROW_(Error_t::OutOfBound, "CSR out of bound");
     row_offset_[size_of_row_offset_] = static_cast<T>(size_of_value_);
     size_of_row_offset_++;
@@ -97,6 +98,7 @@ class CSR {
     size_of_value_ = 0;
     size_of_row_offset_ = 0;
   }
+
   const T* get_row_offset() const { return row_offset_; }
   const T* get_value() const { return value_; }
   int get_sizeof_value() const { return size_of_value_; }
