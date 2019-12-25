@@ -18,10 +18,13 @@
 #include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/device_map.hpp"
 #include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 
 TEST(network_test, basic_network) {
+  test::mpi_init();
+
   GeneralBuffer<float> buff;
   std::vector<int> dim;
   const int batchsize = 128;
