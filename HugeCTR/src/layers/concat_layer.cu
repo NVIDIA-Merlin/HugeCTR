@@ -50,7 +50,8 @@ __global__ void concat_kernel(T* input, T* output, int n_batch, int n_slot, int 
 
 }  // anonymous namespace
 
-ConcatLayer::ConcatLayer(Tensor<float>& in_tensor, Tensor<float>& out_tensor,
+ConcatLayer::ConcatLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
+                         const std::shared_ptr<Tensor<float>>& out_tensor,
                          std::vector<int>& slot_mask, int device_id)
     : Layer(device_id),
       in_place_(slot_mask.empty()),
@@ -61,19 +62,18 @@ ConcatLayer::ConcatLayer(Tensor<float>& in_tensor, Tensor<float>& out_tensor,
       slot_mask_(nullptr),
       n_sm_(0) {
   try {
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+    CudaDeviceContext context(get_device_id());
 
-    if (in_tensor.get_format() != TensorFormat_t::HSW ||
-        out_tensor.get_format() != TensorFormat_t::HW)
+    if (in_tensor->get_format() != TensorFormat_t::HSW ||
+        out_tensor->get_format() != TensorFormat_t::HW)
       CK_THROW_(Error_t::WrongInput, "Input or output format is invalid");
 
     if (in_place_) {
-      if (in_tensor.get_size() != out_tensor.get_size())
+      if (in_tensor->get_size() != out_tensor->get_size())
         CK_THROW_(Error_t::WrongInput, "Input and output tensors have inconsistent dims");
     } else {
-      auto in_dims = in_tensor.get_dims();
-      auto out_dims = out_tensor.get_dims();
+      const auto& in_dims = in_tensor->get_dims();
+      const auto& out_dims = out_tensor->get_dims();
       if (in_dims.size() != out_dims.size() + 1)
         CK_THROW_(Error_t::WrongInput, "Input and output tensors have inconsistent dims");
       for (unsigned int i = 0; i < out_dims.size(); i++) {
@@ -94,14 +94,13 @@ ConcatLayer::ConcatLayer(Tensor<float>& in_tensor, Tensor<float>& out_tensor,
       CK_CUDA_THROW_(cudaMemcpy(slot_mask_, &slot_mask.front(), n_active_slot_ * sizeof(int),
                                 cudaMemcpyHostToDevice));
     }
-    in_tensors_.push_back(std::ref(in_tensor));
-    out_tensors_.push_back(std::ref(out_tensor));
+    in_tensors_.emplace_back(std::move(in_tensor));
+    out_tensors_.emplace_back(std::move(out_tensor));
 
     int device = get_device_id();
     CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sm_, cudaDevAttrMultiProcessorCount, device));
     assert(n_sm_ > 0);
 
-    CK_CUDA_THROW_(get_set_device(o_device));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -113,15 +112,14 @@ ConcatLayer::~ConcatLayer() {
 }
 
 void ConcatLayer::fprop(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
   if (!in_place_) {
     int block_size = 128;
     int n_block = n_sm_ * 16;
-    Tensor<float> in_tensor = in_tensors_[0];
-    Tensor<float> out_tensor = out_tensors_[0];
-    float* in = in_tensor.get_ptr();
-    float* out = out_tensor.get_ptr();
+    const auto& in_tensor = in_tensors_[0];
+    const auto& out_tensor = out_tensors_[0];
+    float* in = in_tensor->get_ptr();
+    float* out = out_tensor->get_ptr();
     concat_kernel<<<n_block, block_size>>>(in, out, n_batch_, n_slot_, vector_length_, slot_mask_,
                                            n_active_slot_, true);
   }
@@ -130,21 +128,18 @@ void ConcatLayer::fprop(cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 void ConcatLayer::bprop(cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   if (!in_place_) {
     int block_size = 128;
     int n_block = n_sm_ * 16;
-    Tensor<float> in_tensor = in_tensors_[0];
-    Tensor<float> out_tensor = out_tensors_[0];
-    float* in = in_tensor.get_ptr();
-    float* out = out_tensor.get_ptr();
+    const auto& in_tensor = in_tensors_[0];
+    const auto& out_tensor = out_tensors_[0];
+    float* in = in_tensor->get_ptr();
+    float* out = out_tensor->get_ptr();
     concat_kernel<<<n_block, block_size>>>(in, out, n_batch_, n_slot_, vector_length_, slot_mask_,
                                            n_active_slot_, false);
   }
@@ -153,8 +148,6 @@ void ConcatLayer::bprop(cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 }  // namespace HugeCTR
