@@ -63,10 +63,8 @@ template <typename TypeKey>
 static void data_collector_thread_func_(
     const std::shared_ptr<DataCollector<TypeKey>>& data_collector, int* p_loop_flag) {
   try {
-    int count = 0;
     while (*p_loop_flag) {
       data_collector->collect();
-      count++;
     }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -193,9 +191,9 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name,
               "total_gpu_count = 0 || batchsize <=0 || label_dim <= 0  || slot_num <= 0 || "
               "max_feature_num_per_sample <= 0|| batchsize_ % total_gpu_count != 0");
   }
-  CSRChunk<TypeKey> tmp_chunk(total_gpu_count, batchsize_, label_dim_, slot_num_,
-                              max_feature_num_per_sample_ * batchsize_);
-  csr_heap_.reset(new Heap<CSRChunk<TypeKey>>(NumChunks, tmp_chunk));
+
+  csr_heap_.reset(new Heap<CSRChunk<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_,
+                                              slot_num_, max_feature_num_per_sample_ * batchsize_));
   assert(data_readers_.empty() && data_reader_threads_.empty());
   for (int i = 0; i < NumThreads; i++) {
     std::shared_ptr<DataReaderWorker<TypeKey>> data_reader(
@@ -262,9 +260,10 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
               "total_gpu_count == 0 || batchsize <=0 || label_dim <= 0  || slot_num <= 0 || "
               "max_feature_num_per_sample <= 0|| batchsize_ % total_gpu_count != 0");
   }
-  CSRChunk<TypeKey> tmp_chunk(total_gpu_count, batchsize_, label_dim_, slot_num_,
-                              max_feature_num_per_sample_ * batchsize_);
-  csr_heap_.reset(new Heap<CSRChunk<TypeKey>>(NumChunks, tmp_chunk));
+
+  csr_heap_.reset(new Heap<CSRChunk<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_,
+                                              slot_num_, max_feature_num_per_sample_ * batchsize_));
+
   assert(data_readers_.empty() && data_reader_threads_.empty());
   for (int i = 0; i < NumThreads; i++) {
     std::shared_ptr<DataReaderWorker<TypeKey>> data_reader(
