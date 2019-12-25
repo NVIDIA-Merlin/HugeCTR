@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/common.hpp"
@@ -35,11 +34,11 @@ class Optimizer {
    * @param device_id the id of GPU where update kernel is launched
    * @param learning_rate learning rate
    */
-  Optimizer(GeneralBuffer<float>& weight, GeneralBuffer<float>& wgrad, int device_id,
-            float learning_rate)
+  Optimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
+            const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id, float learning_rate)
       : device_id_(device_id), weight_(weight), wgrad_(wgrad), lr_(learning_rate) {
     try {
-      if (weight_.get_size() != wgrad_.get_size()) {
+      if (weight_->get_size() != wgrad_->get_size()) {
         CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
       }
       if (lr_ <= 0) {
@@ -70,8 +69,8 @@ class Optimizer {
 
  protected:
   int device_id_;
-  GeneralBuffer<float>& weight_;
-  GeneralBuffer<float>& wgrad_;
+  std::shared_ptr<GeneralBuffer<float>> weight_;
+  std::shared_ptr<GeneralBuffer<float>> wgrad_;
   float lr_;  // learning rate
 };
 

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include <functional>
@@ -31,7 +30,7 @@ namespace HugeCTR {
  */
 class FullyConnectedLayer : public Layer {
  private:
-  cublasHandle_t const& cublas_handle_;
+  const cublasHandle_t cublas_handle_;
 
  public:
   /**
@@ -55,8 +54,10 @@ class FullyConnectedLayer : public Layer {
    * @param weight_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  FullyConnectedLayer(GeneralBuffer<float>& weight_buff, GeneralBuffer<float>& wgrad_buff,
-                      Tensor<float>& in_tensor, Tensor<float>& out_tensor,
+  FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                      const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
+                      const std::shared_ptr<Tensor<float>>& in_tensor,
+                      const std::shared_ptr<Tensor<float>>& out_tensor,
                       TensorFormat_t weight_format, cublasHandle_t const& cublas_handle,
                       int device_id);
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;

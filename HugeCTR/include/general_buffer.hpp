@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <vector>
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/utils.hpp"
-#include <vector>
 
 namespace HugeCTR {
 
@@ -56,12 +56,10 @@ class GeneralBuffer {
    */
   void init(int device_id) {
     if (initialized_ != false) CK_THROW_(Error_t::IllegalCall, "Initilized general buffer");
-    int o_device = -1;
     device_id_ = device_id;
-    CK_CUDA_THROW_(get_set_device(device_id, &o_device));
+    CudaDeviceContext context(device_id);
     CK_CUDA_THROW_(cudaMalloc((void**)&ptr_, current_offset_ * sizeof(T)));
     CK_CUDA_THROW_(cudaMemset(ptr_, 0, current_offset_ * sizeof(T)));
-    CK_CUDA_THROW_(get_set_device(o_device));
     initialized_ = true;
   }
 
@@ -70,11 +68,9 @@ class GeneralBuffer {
    */
   void reset_sync() {
     if (initialized_ != true) CK_THROW_(Error_t::IllegalCall, "Not initialized");
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(device_id_, &o_device));
+    CudaDeviceContext context(device_id_);
     CK_CUDA_THROW_(cudaMemset(ptr_, 0, current_offset_ * sizeof(T)));
     CK_CUDA_THROW_(cudaDeviceSynchronize());
-    CK_CUDA_THROW_(get_set_device(o_device));
   }
 
   /**
@@ -108,7 +104,25 @@ class GeneralBuffer {
    * @param offset element offset on this buffer.
    * @return memory address on this offset.
    */
-  T* get_ptr_with_offset(size_t offset) const {
+  T* get_ptr_with_offset(size_t offset) {
+    try {
+      if (initialized_ != true)
+        CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is not initialized");
+      assert(ptr_ != nullptr);
+      return ptr_ + offset;
+    } catch (const std::runtime_error& rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+    }
+    return nullptr;
+  }
+
+  /**
+   * Calculate the address of memory with offset.
+   * Tensor can call this to aquire the real address of memory.
+   * @param offset element offset on this buffer.
+   * @return memory address on this offset.
+   */
+  const T* get_ptr_with_offset(size_t offset) const {
     try {
       if (initialized_ != true)
         CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is not initialized");
@@ -136,10 +150,8 @@ class GeneralBuffer {
   ~GeneralBuffer() {
     try {
       if (initialized_ == true) {
-        int o_device = -1;
-        CK_CUDA_THROW_(get_set_device(device_id_, &o_device));
+        CudaDeviceContext context(device_id_);
         CK_CUDA_THROW_(cudaFree(ptr_));
-        CK_CUDA_THROW_(get_set_device(o_device));
       }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -169,8 +181,7 @@ bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
   } else {
     return false;
   }
-  int odevice = -1;
-  get_set_device(buffer.get_device_id(), &odevice);
+  CudaDeviceContext context(buffer.get_device_id());
   cudaDeviceSynchronize();
   T host_buff[end_ - begin_];
   cudaMemcpy(host_buff, buffer.get_ptr_with_offset(begin_), (end_ - begin_) * sizeof(T),
@@ -181,12 +192,10 @@ bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
     std::cout << host_buff[i] << ",";
   }
   std::cout << std::endl;
-  get_set_device(odevice);
   return true;
 }
 
 template <typename T>
-using GeneralBuffers = std::vector<GeneralBuffer<T>*>;
-
+using GeneralBuffers = std::vector<std::shared_ptr<GeneralBuffer<T>>>;
 
 }  // namespace HugeCTR

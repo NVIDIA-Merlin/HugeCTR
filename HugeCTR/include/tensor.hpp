@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <vector>
 #include "HugeCTR/include/general_buffer.hpp"
 #include "HugeCTR/include/utils.hpp"
-#include <vector>
 
 namespace HugeCTR {
 
@@ -34,7 +34,8 @@ class Tensor {
  private:
   std::vector<int>
       dims_; /**< Dimensions of tensor, and the last element is the leading dimension */
-  GeneralBuffer<T>& buff_; /**< GeneralBuffer used in this tensor (the real memory allocator) */
+  std::shared_ptr<GeneralBuffer<T>>
+      buff_; /**< GeneralBuffer used in this tensor (the real memory allocator) */
   const TensorFormat_t format_; /**< Format of the tensor */
   const size_t mem_offset_;     /**< An internal used offset to generate pointer of GPU memory */
  public:
@@ -44,12 +45,12 @@ class Tensor {
    * @param buffer GeneralBuffer used in this tensor (the real memory allocator).
    * @param format Format of the tensor.
    */
-  Tensor(const std::vector<int>& dims, GeneralBuffer<T>& buffer,
+  Tensor(const std::vector<int>& dims, const std::shared_ptr<GeneralBuffer<T>>& buffer,
          TensorFormat_t format = TensorFormat_t::WH)
       : dims_(dims),
         buff_(buffer),
         format_(format),
-        mem_offset_(buffer.reserve(get_size_from_dims(dims))) {
+        mem_offset_(buffer->reserve(get_size_from_dims(dims))) {
     static_assert(std::is_same<T, float>::value || std::is_same<T, long long>::value ||
                       std::is_same<T, unsigned int>::value,
                   "type not support");
@@ -115,9 +116,10 @@ class Tensor {
     }
   }
   typedef T TYPE;
-  int get_device_id() const { return buff_.get_device_id(); }
-  T* get_ptr() const { return buff_.get_ptr_with_offset(mem_offset_); }
-  std::vector<int> get_dims() const { return dims_; }
+  int get_device_id() const { return buff_->get_device_id(); }
+  const T* get_ptr() const { return buff_->get_ptr_with_offset(mem_offset_); }
+  T* get_ptr() { return buff_->get_ptr_with_offset(mem_offset_); }
+  const std::vector<int>& get_dims() const { return dims_; }
   size_t get_num_elements() const {
     size_t tensor_size = 1;
     for (auto dim : dims_) {
@@ -151,8 +153,7 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
   } else {
     return false;
   }
-  int odevice = -1;
-  get_set_device(tensor.get_device_id(), &odevice);
+  CudaDeviceContext context(tensor.get_device_id());
   cudaDeviceSynchronize();
   assert(end_ > begin_ && begin_ >= 0 &&
          end_ < static_cast<int>(get_size_from_dims(tensor.get_dims())));
@@ -176,11 +177,10 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
     std::cout << host_buff[i] << ",";
   }
   std::cout << std::endl;
-  get_set_device(odevice);
   return true;
 }
 
 template <typename T>
-using Tensors = std::vector<Tensor<T>*>;
+using Tensors = std::vector<std::shared_ptr<Tensor<T>>>;
 
 }  // namespace HugeCTR

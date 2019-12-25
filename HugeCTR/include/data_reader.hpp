@@ -41,7 +41,7 @@ namespace HugeCTR {
           and break loop when DataReaderWorker is destroyed.
  */
 template <typename TypeKey>
-static void data_reader_thread_func_(DataReaderWorker<TypeKey>* data_reader,
+static void data_reader_thread_func_(const std::shared_ptr<DataReaderWorker<TypeKey>>& data_reader,
                                      int* p_loop_flag) {
   try {
     while (*p_loop_flag) {
@@ -60,7 +60,8 @@ static void data_reader_thread_func_(DataReaderWorker<TypeKey>* data_reader,
                       break loop when DataReader is destroyed.
  */
 template <typename TypeKey>
-static void data_collector_thread_func_(DataCollector<TypeKey>* data_collector, int* p_loop_flag) {
+static void data_collector_thread_func_(
+    const std::shared_ptr<DataCollector<TypeKey>>& data_collector, int* p_loop_flag) {
   try {
     while (*p_loop_flag) {
       data_collector->collect();
@@ -83,30 +84,31 @@ static void data_collector_thread_func_(DataCollector<TypeKey>* data_collector, 
 template <typename TypeKey>
 class DataReader {
  private:
-  FileList* file_list_{nullptr}; /**< file list of data set */
-  const int NumChunks{31};       /**< NumChunks will be used in Heap*/
-  const int NumThreads{20};      /**< number of threads for data reading */
+  std::shared_ptr<FileList> file_list_; /**< file list of data set */
+  const int NumChunks{31};              /**< NumChunks will be used in Heap*/
+  const int NumThreads{20};             /**< number of threads for data reading */
 
-  Heap<CSRChunk<TypeKey>>* csr_heap_{nullptr}; /**< heap to cache the data set */
-  std::vector<DataReaderWorker<TypeKey>*>
-      data_readers_; /**< A vector of DataReaderWorker' pointer.*/
-  std::vector<std::thread*> data_reader_threads_; /**< A vector of the pointers of data reader .*/
-  std::thread* data_collector_thread_{nullptr};   /**< A data_collector_thread. */
-  GeneralBuffers<float> label_buffers_; /**< A gpu general buffer for label_buffer */
-  Tensors<float> label_tensors_;        /**< Label tensors for the usage of loss */
-  GeneralBuffers<TypeKey> csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
+  std::shared_ptr<Heap<CSRChunk<TypeKey>>> csr_heap_; /**< heap to cache the data set */
+  std::vector<std::shared_ptr<DataReaderWorker<TypeKey>>>
+      data_readers_;                             /**< A vector of DataReaderWorker' pointer.*/
+  std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
+  std::thread data_collector_thread_;            /**< A data_collector_thread. */
+  GeneralBuffers<float> label_buffers_;          /**< A gpu general buffer for label_buffer */
+  Tensors<float> label_tensors_;                 /**< Label tensors for the usage of loss */
+  GeneralBuffers<TypeKey>
+      csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
   Tensors<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
   Tensors<TypeKey> value_tensors_;       /**< value tensors */
   bool shared_output_flag_{false}; /**< whether this is a data reader for eval. It's only mark the
                                       output data, which is sharing output tensor with train. */
 
-  const GPUResourceGroup& device_resources_;
+  std::shared_ptr<GPUResourceGroup> device_resources_;
   const int batchsize_;
-  const int label_dim_;                    /**< dimention of label e.g. 1 for BinaryCrossEntropy */
-  const int slot_num_;                     /**< num of slots for reduce */
-  const int max_feature_num_per_sample_;   /**< max possible nnz in a slot (to allocate buffer) */
-  int data_reader_loop_flag_;              /**< p_loop_flag a flag to control the loop */
-  DataCollector<TypeKey>* data_collector_; /**< pointer of DataCollector */
+  const int label_dim_;                  /**< dimention of label e.g. 1 for BinaryCrossEntropy */
+  const int slot_num_;                   /**< num of slots for reduce */
+  const int max_feature_num_per_sample_; /**< max possible nnz in a slot (to allocate buffer) */
+  int data_reader_loop_flag_;            /**< p_loop_flag a flag to control the loop */
+  std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
 
   /**
    * Ctor.
@@ -137,8 +139,9 @@ class DataReader {
    * Ctor
    */
   DataReader(const std::string& file_list_name, int batchsize, int label_dim, int slot_num,
-             int max_feature_num_per_sample, const GPUResourceGroup& gpu_resource_group,
-             int num_chunks = 31, int num_threads = 20);
+             int max_feature_num_per_sample,
+             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, int num_chunks = 31,
+             int num_threads = 20);
 
   /**
    * Slave process of evaluation will call this to create a new object of DataReader
@@ -157,9 +160,7 @@ class DataReader {
   }
 
   const Tensors<float>& get_label_tensors() const { return label_tensors_; }
-  const Tensors<TypeKey>& get_row_offsets_tensors() const {
-    return row_offsets_tensors_;
-  }
+  const Tensors<TypeKey>& get_row_offsets_tensors() const { return row_offsets_tensors_; }
   const Tensors<TypeKey>& get_value_tensors() const { return value_tensors_; }
   ~DataReader();
 };
@@ -183,7 +184,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name,
       max_feature_num_per_sample_(prototype.max_feature_num_per_sample_) {
   shared_output_flag_ = true;
   data_reader_loop_flag_ = 1;
-  int total_gpu_count = device_resources_.get_total_gpu_count();
+  int total_gpu_count = device_resources_->get_total_gpu_count();
   if (total_gpu_count == 0 || batchsize_ <= 0 || label_dim_ <= 0 || slot_num_ <= 0 ||
       max_feature_num_per_sample_ <= 0 || 0 != batchsize_ % total_gpu_count) {
     CK_THROW_(Error_t::WrongInput,
@@ -191,22 +192,22 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name,
               "max_feature_num_per_sample <= 0|| batchsize_ % total_gpu_count != 0");
   }
 
-  csr_heap_ = new Heap<CSRChunk<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_,
-                                          slot_num_, max_feature_num_per_sample_ * batchsize_);
+  csr_heap_.reset(new Heap<CSRChunk<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_,
+                                              slot_num_, max_feature_num_per_sample_ * batchsize_));
   assert(data_readers_.empty() && data_reader_threads_.empty());
   for (int i = 0; i < NumThreads; i++) {
-    DataReaderWorker<TypeKey>* data_reader =
-        new DataReaderWorker<TypeKey>(*csr_heap_, *file_list_, max_feature_num_per_sample_);
+    std::shared_ptr<DataReaderWorker<TypeKey>> data_reader(
+        new DataReaderWorker<TypeKey>(csr_heap_, file_list_, max_feature_num_per_sample_));
     data_readers_.push_back(data_reader);
-    data_reader_threads_.push_back(
-        new std::thread(data_reader_thread_func_<TypeKey>, data_reader, &data_reader_loop_flag_));
+    data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
+                                      &data_reader_loop_flag_);
   }
 
-  data_collector_ =
-      new DataCollector<TypeKey>(label_buffers_, csr_buffers_, device_resources_, csr_heap_);
+  data_collector_.reset(
+      new DataCollector<TypeKey>(label_buffers_, csr_buffers_, device_resources_, csr_heap_));
 
-  data_collector_thread_ = new std::thread(data_collector_thread_func_<TypeKey>, data_collector_,
-                                           &data_reader_loop_flag_);
+  data_collector_thread_ =
+      std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
 }
 
 template <typename TypeKey>
@@ -223,7 +224,7 @@ DataReader<TypeKey>::DataReader(const DataReader<TypeKey>& prototype)
       max_feature_num_per_sample_(prototype.max_feature_num_per_sample_) {
   shared_output_flag_ = true;
   data_reader_loop_flag_ = 1;
-  int total_gpu_count = device_resources_.get_total_gpu_count();
+  int total_gpu_count = device_resources_->get_total_gpu_count();
   if (total_gpu_count == 0 || batchsize_ <= 0 || label_dim_ <= 0 || slot_num_ <= 0 ||
       max_feature_num_per_sample_ <= 0 || 0 != batchsize_ % total_gpu_count) {
     CK_THROW_(Error_t::WrongInput,
@@ -231,17 +232,18 @@ DataReader<TypeKey>::DataReader(const DataReader<TypeKey>& prototype)
               "max_feature_num_per_sample <= 0|| batchsize_ % total_gpu_count != 0");
   }
 
-  data_collector_ = new DataCollector<TypeKey>(label_buffers_, csr_buffers_, device_resources_);
+  data_collector_.reset(
+      new DataCollector<TypeKey>(label_buffers_, csr_buffers_, device_resources_));
 
-  data_collector_thread_ = new std::thread(data_collector_thread_func_<TypeKey>, data_collector_,
-                                           &data_reader_loop_flag_);
+  data_collector_thread_ =
+      std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
 }
 
 template <typename TypeKey>
 DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize, int label_dim,
                                 int slot_num, int max_feature_num_per_sample,
-                                const GPUResourceGroup& gpu_resource_group, int num_chunks,
-                                int num_threads)
+                                const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                                int num_chunks, int num_threads)
     : file_list_(new FileList(file_list_name)),
       NumChunks(num_chunks),
       NumThreads(num_threads),
@@ -251,7 +253,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       slot_num_(slot_num),
       max_feature_num_per_sample_(max_feature_num_per_sample) {
   data_reader_loop_flag_ = 1;
-  int total_gpu_count = device_resources_.get_total_gpu_count();
+  int total_gpu_count = device_resources_->get_total_gpu_count();
   if (total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || slot_num <= 0 ||
       max_feature_num_per_sample <= 0 || 0 != batchsize_ % total_gpu_count) {
     CK_THROW_(Error_t::WrongInput,
@@ -259,50 +261,49 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
               "max_feature_num_per_sample <= 0|| batchsize_ % total_gpu_count != 0");
   }
 
-  csr_heap_ = new Heap<CSRChunk<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_,
-                                          slot_num_, max_feature_num_per_sample_ * batchsize_);
+  csr_heap_.reset(new Heap<CSRChunk<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_,
+                                              slot_num_, max_feature_num_per_sample_ * batchsize_));
 
   assert(data_readers_.empty() && data_reader_threads_.empty());
   for (int i = 0; i < NumThreads; i++) {
-    DataReaderWorker<TypeKey>* data_reader =
-        new DataReaderWorker<TypeKey>(*csr_heap_, *file_list_, max_feature_num_per_sample_);
+    std::shared_ptr<DataReaderWorker<TypeKey>> data_reader(
+        new DataReaderWorker<TypeKey>(csr_heap_, file_list_, max_feature_num_per_sample_));
     data_readers_.push_back(data_reader);
-    data_reader_threads_.push_back(
-        new std::thread(data_reader_thread_func_<TypeKey>, data_reader, &data_reader_loop_flag_));
+    data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
+                                      &data_reader_loop_flag_);
   }
 
-  auto& device_list = device_resources_.get_device_list();
+  auto& device_list = device_resources_->get_device_list();
 
   // create label tensor
   int batch_size_per_device = batchsize_ / total_gpu_count;
-  std::vector<int> tmp_dim = {batch_size_per_device, label_dim_};
   assert(label_tensors_.empty() && label_buffers_.empty());
   for (auto device_id : device_list) {
-    GeneralBuffer<float>* tmp_label_buff = new GeneralBuffer<float>();
-    label_tensors_.push_back(new Tensor<float>(tmp_dim, *tmp_label_buff, TensorFormat_t::HW));
+    std::shared_ptr<GeneralBuffer<float>> tmp_label_buff(new GeneralBuffer<float>());
+    label_tensors_.emplace_back(
+        new Tensor<float>({batch_size_per_device, label_dim_}, tmp_label_buff, TensorFormat_t::HW));
     tmp_label_buff->init(device_id);
-    label_buffers_.push_back(tmp_label_buff);
+    label_buffers_.emplace_back(tmp_label_buff);
   }
   // create value and row offset tensor
   std::vector<int> num_rows_dim = {1, batchsize_ * slot_num_ + 1};
   std::vector<int> num_max_value_dim = {1, max_feature_num_per_sample_ * batchsize_};
   for (auto device_id : device_list) {
-    GeneralBuffer<TypeKey>* tmp_buffer = new GeneralBuffer<TypeKey>();
+    std::shared_ptr<GeneralBuffer<TypeKey>> tmp_buffer(new GeneralBuffer<TypeKey>());
     Tensor<TypeKey>* tmp_row_offset =
-        new Tensor<TypeKey>(num_rows_dim, *tmp_buffer, TensorFormat_t::HW);
-    Tensor<TypeKey>* tmp_value =
-        new Tensor<TypeKey>(num_max_value_dim, *tmp_buffer, TensorFormat_t::HW);
-    row_offsets_tensors_.push_back(tmp_row_offset);
-    value_tensors_.push_back(tmp_value);
+        new Tensor<TypeKey>(num_rows_dim, tmp_buffer, TensorFormat_t::HW);
+    row_offsets_tensors_.emplace_back(tmp_row_offset);
+    value_tensors_.emplace_back(
+        new Tensor<TypeKey>(num_max_value_dim, tmp_buffer, TensorFormat_t::HW));
     tmp_buffer->init(device_id);
-    csr_buffers_.push_back(tmp_buffer);
+    csr_buffers_.emplace_back(tmp_buffer);
   }
 
-  data_collector_ =
-      new DataCollector<TypeKey>(label_buffers_, csr_buffers_, device_resources_, csr_heap_, false);
+  data_collector_.reset(new DataCollector<TypeKey>(label_buffers_, csr_buffers_, device_resources_,
+                                                   csr_heap_, false));
 
-  data_collector_thread_ = new std::thread(data_collector_thread_func_<TypeKey>, data_collector_,
-                                           &data_reader_loop_flag_);
+  data_collector_thread_ =
+      std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
   return;
 }
 
@@ -316,49 +317,19 @@ template <typename TypeKey>
 DataReader<TypeKey>::~DataReader() {
   try {
     // stop all the loops
-    for (auto data_reader : data_readers_) {
+    for (auto& data_reader : data_readers_) {
       data_reader->skip_read();
-      // delete data_reader;
     }
     if (csr_heap_ != nullptr) {
       csr_heap_->break_and_return();
     }
     data_reader_loop_flag_ = 0;
     data_collector_->stop();
-    // delete threads
-    for (auto data_reader_thread : data_reader_threads_) {
-      data_reader_thread->join();
-      delete data_reader_thread;
-    }
 
-    data_collector_thread_->join();
-    delete data_collector_thread_;
-    delete data_collector_;
-
-    if (shared_output_flag_ == false) {
-      for (auto row_offsets_tensor : row_offsets_tensors_) {
-        delete row_offsets_tensor;
-      }
-      for (auto value_tensor : value_tensors_) {
-        delete value_tensor;
-      }
-      for (auto csr_buffer : csr_buffers_) {
-        delete csr_buffer;
-      }
-      for (auto label_tensor : label_tensors_) {
-        delete label_tensor;
-      }
-      for (auto label_buffer : label_buffers_) {
-        delete label_buffer;
-      }
+    for (auto& data_reader_thread : data_reader_threads_) {
+      data_reader_thread.join();
     }
-    // delete heap
-    if (file_list_ != nullptr) {
-      delete file_list_;
-    }
-    if (csr_heap_ != nullptr) {
-      delete csr_heap_;
-    }
+    data_collector_thread_.join();
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }

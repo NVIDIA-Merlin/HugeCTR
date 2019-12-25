@@ -34,13 +34,15 @@ namespace HugeCTR {
  */
 class Session {
  private:
-  typedef long long TypeKey;               /**< type of input key in dataset. */
-  std::vector<Network*> networks_;         /**< networks (dense) used in training. */
-  Embedding<TypeKey>* embedding_{nullptr}; /**< embedding */
-  DataReader<TypeKey>* data_reader_; /**< data reader to reading data from data set to embedding. */
-  DataReader<TypeKey>* data_reader_eval_; /**< data reader for evaluation. */
-  Parser* parser_;                        /***< model parser */
-  GPUResourceGroup gpu_resource_group_;   /**< GPU resources include handles and streams etc.*/
+  typedef long long TypeKey;                       /**< type of input key in dataset. */
+  std::vector<std::unique_ptr<Network>> networks_; /**< networks (dense) used in training. */
+  std::unique_ptr<Embedding<TypeKey>> embedding_;  /**< embedding */
+  std::unique_ptr<DataReader<TypeKey>>
+      data_reader_; /**< data reader to reading data from data set to embedding. */
+  std::unique_ptr<DataReader<TypeKey>> data_reader_eval_; /**< data reader for evaluation. */
+  std::unique_ptr<Parser> parser_;                        /***< model parser */
+  std::shared_ptr<GPUResourceGroup>
+      gpu_resource_group_; /**< GPU resources include handles and streams etc.*/
  public:
   /**
    * Ctor of Session.
@@ -48,7 +50,8 @@ class Session {
    * @param json_name the json file of configuration.
    * @param device_map a index list of the devices which be used in this training.
    */
-  Session(int batch_size, const std::string& json_name, const DeviceMap& device_map);
+  Session(int batch_size, const std::string& json_name,
+          const std::shared_ptr<const DeviceMap>& device_map);
 
   /**
    * A method loading trained parameters of both dense and sparse model.
@@ -66,7 +69,7 @@ class Session {
    * @param device_map a index list of the devices which be used in this training.
    */
   Session(int batch_size, const std::string& model_file, const std::string& embedding_file,
-          const std::string& json_name, const DeviceMap& device_map)
+          const std::string& json_name, const std::shared_ptr<const DeviceMap>& device_map)
       : Session(batch_size, json_name, device_map) {
     load_params(model_file, embedding_file);
   }
@@ -104,7 +107,7 @@ class Session {
    * @param lr learning rate.
    */
   Error_t set_learning_rate(float lr) {
-    for (auto network : networks_) {
+    for (auto& network : networks_) {
       network->set_learning_rate(lr);
     }
     return Error_t::Success;
