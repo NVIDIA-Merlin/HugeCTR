@@ -60,12 +60,12 @@ TEST(heap, heap_csr_chunk_test) {
   const int label_dim = 2;
   const int slot_num = 10;
   const int max_value_size = 2048 * 20;
-  Heap<CSRChunk<long long>> csr_heap(32, num_devices, batchsize, label_dim, slot_num, max_value_size);
+  Heap<CSRChunk<long long>> csr_heap(32, num_devices, batchsize, label_dim, slot_num,
+                                     max_value_size);
   unsigned int key = 0;
   CSRChunk<long long>* chunk_tmp = nullptr;
   csr_heap.free_chunk_checkout(&chunk_tmp, &key);
-  std::vector<CSR<long long>>& csr_buffers = chunk_tmp->get_csr_buffers();
-  csr_buffers[0].reset();
+  chunk_tmp->get_csr_buffer(0).reset();
 }
 
 TEST(heap, heap_multi_threads_test) {

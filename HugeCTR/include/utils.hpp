@@ -24,7 +24,6 @@
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <memory>
 #include <stdexcept>
 #include <vector>
 #include "HugeCTR/include/common.hpp"
@@ -45,15 +44,9 @@ class Timer {
     m_EndTime_ = std::chrono::steady_clock::now();
     m_bRunning_ = false;
   }
-  double elapsedMilliseconds() {
-    return elapsed().count()/1000.0;
-  }
-  double elapsedMicroseconds() {
-    return elapsed().count();
-  }
-  double elapsedSeconds() {
-    return elapsed().count()/1000000.0;
-  }
+  double elapsedMilliseconds() { return elapsed().count() / 1000.0; }
+  double elapsedMicroseconds() { return elapsed().count(); }
+  double elapsedSeconds() { return elapsed().count() / 1000000.0; }
 
  private:
   std::chrono::microseconds elapsed() {
@@ -72,34 +65,47 @@ class Timer {
 };
 
 /**
- * Pop current cuda device and set new device.
- * @param i_device device ID to set
- * @param o_device device ID to pop, if o_device is NULL just set device to i_device.
- * @return the same as cudaError_t
+ * Helper class for switching device
  */
-inline cudaError_t get_set_device(int i_device, int* o_device = nullptr) {
-  int current_device = 0;
-  cudaError_t err = cudaSuccess;
+class CudaDeviceContext {
+  int original_device;
 
-  err = cudaGetDevice(&current_device);
-  if (err != cudaSuccess) return err;
+  /**
+   * Pop current cuda device and set new device.
+   * @param i_device device ID to set
+   * @param o_device device ID to pop, if o_device is NULL just set device to i_device.
+   * @return the same as cudaError_t
+   */
+  static inline cudaError_t get_set_device(int i_device, int* o_device = nullptr) {
+    int current_device = 0;
+    cudaError_t err = cudaSuccess;
 
-  if (current_device != i_device) {
-    err = cudaSetDevice(i_device);
+    err = cudaGetDevice(&current_device);
     if (err != cudaSuccess) return err;
+
+    if (current_device != i_device) {
+      err = cudaSetDevice(i_device);
+      if (err != cudaSuccess) return err;
+    }
+
+    if (o_device) {
+      *o_device = current_device;
+    }
+
+    return cudaSuccess;
   }
 
-  if (o_device) {
-    *o_device = current_device;
-  }
+ public:
+  CudaDeviceContext(int device) { CK_CUDA_THROW_(get_set_device(device, &original_device)); }
+  ~CudaDeviceContext() noexcept(false) { CK_CUDA_THROW_(get_set_device(original_device)); }
 
-  return cudaSuccess;
-}
+  void set_device(int device) const { CK_CUDA_THROW_(get_set_device(device)); }
+};
 
 /**
  * Get total product from dims.
  */
-inline size_t get_size_from_dims(std::vector<int> dims) {
+inline size_t get_size_from_dims(const std::vector<int>& dims) {
   size_t matrix_size = 1;
   for (auto iter = dims.begin(); iter != dims.end(); iter++) {
     matrix_size = matrix_size * iter[0];
@@ -122,7 +128,7 @@ inline bool file_exist(const std::string& name) {
 /**
  * Check if file path exist if not create it.
  */
-inline void check_make_dir(std::string finalpath) {
+inline void check_make_dir(const std::string& finalpath) {
   if (mkdir(finalpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
     if (errno == EEXIST) {
       MESSAGE_(finalpath + " exist");
@@ -137,9 +143,9 @@ inline void check_make_dir(std::string finalpath) {
  * Generate random dataset for HugeCTR test.
  */
 template <typename T>
-void data_generation(std::string file_list_name, std::string data_prefix, int num_files,
-                     int num_records_per_file, int slot_num, int vocabulary_size, int label_dim,
-                     int max_nnz) {
+void data_generation(const std::string& file_list_name, const std::string& data_prefix,
+                     int num_files, int num_records_per_file, int slot_num, int vocabulary_size,
+                     int label_dim, int max_nnz) {
   if (file_exist(file_list_name)) {
     return;
   }
@@ -187,13 +193,13 @@ void data_generation(std::string file_list_name, std::string data_prefix, int nu
  * @return true: found / false: not found
  **/
 template <typename ITEM_TYPE>
-bool find_item_in_map(ITEM_TYPE* item, const std::string& str,
+bool find_item_in_map(ITEM_TYPE& item, const std::string& str,
                       const std::map<std::string, ITEM_TYPE>& item_map) {
   typename std::map<std::string, ITEM_TYPE>::const_iterator it = item_map.find(str);
   if (it == item_map.end()) {
     return false;
   } else {
-    *item = it->second;
+    item = it->second;
     return true;
   }
 }

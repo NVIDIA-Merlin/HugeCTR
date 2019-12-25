@@ -41,7 +41,7 @@ class Loss {
   /**
    * label_tensors_: stores the label information during the training process.
    */
-  std::vector<std::reference_wrapper<Tensor<float>>> label_tensors_;
+  std::vector<std::shared_ptr<const Tensor<float>>> label_tensors_;
   /**
    * input_tensors_: at beginning, the input_tensors_ stores the result of the last layer for the
    * final loss calculation.
@@ -49,12 +49,12 @@ class Loss {
    * After the fused_loss_computation is called, the input_tensors_ will be updated to the input
    * gradiant values for the backward pass.
    */
-  std::vector<std::reference_wrapper<Tensor<float>>> input_tensors_;
+  std::vector<std::shared_ptr<Tensor<float>>> input_tensors_;
   /**
    * loss_tensors: contains a single value, which stores the average cross entropy, binary cross
    * entropy or multi-class cross entropy loss value.
    */
-  std::vector<std::reference_wrapper<Tensor<float>>> loss_tensors_;
+  std::vector<std::shared_ptr<Tensor<float>>> loss_tensors_;
 
  public:
   /**
@@ -80,27 +80,30 @@ class Loss {
 class CrossEntropyLoss : public Loss {
  public:
   void fused_loss_computation(cudaStream_t stream) final;
-  CrossEntropyLoss(Tensor<float>& label_tensors, Tensor<float>& input_tensors,
-                   Tensor<float>& loss_tensors, int device_id);
+  CrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensors,
+                   const std::shared_ptr<Tensor<float>>& input_tensors,
+                   const std::shared_ptr<Tensor<float>>& loss_tensors, int device_id);
 };
 
 class BinaryCrossEntropyLoss : public Loss {
  public:
   void fused_loss_computation(cudaStream_t stream) final;
-  BinaryCrossEntropyLoss(Tensor<float>& label_tensors, Tensor<float>& input_tensors,
-                         Tensor<float>& loss_tensors, int device_id);
+  BinaryCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensors,
+                         const std::shared_ptr<Tensor<float>>& input_tensors,
+                         const std::shared_ptr<Tensor<float>>& loss_tensors, int device_id);
 };
 
 class MultiCrossEntropyLoss : public Loss {
  private:
-  GeneralBuffer<float>* internal_buff_;
-  Tensor<float>* target_weight_;
+  std::shared_ptr<GeneralBuffer<float>> internal_buff_;
+  std::unique_ptr<Tensor<float>> target_weight_;
 
  public:
   void fused_loss_computation(cudaStream_t stream) final;
-  MultiCrossEntropyLoss(Tensor<float>& label_tensor, Tensor<float>& input_tensor,
-                        Tensor<float>& loss_tensor, const std::vector<float> target_weight,
-                        int device_id);
+  MultiCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
+                        const std::shared_ptr<Tensor<float>>& input_tensor,
+                        const std::shared_ptr<Tensor<float>>& loss_tensor,
+                        const std::vector<float>& target_weight, int device_id);
 };
 
 }  // namespace HugeCTR
