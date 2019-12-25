@@ -33,10 +33,11 @@ class NesterovOptimizer : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor the momentum factor
    */
-  NesterovOptimizer(GeneralBuffer<float>& weight, GeneralBuffer<float>& wgrad, int device_id,
+  NesterovOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
+                    const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
                     float learning_rate, float momentum_factor)
       : Optimizer(weight, wgrad, device_id, learning_rate),
-        accum_(weight.get_num_elements(), device_id),
+        accum_(weight->get_num_elements(), device_id),
         mu_(momentum_factor) {
     accum_.reset_sync();
   }
