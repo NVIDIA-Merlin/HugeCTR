@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/session.hpp"
 #include <nvToolsExt.h>
 #include "HugeCTR/include/embedding.hpp"
@@ -79,7 +78,7 @@ Session::Session(int batch_size, const std::string& json_name, const DeviceMap& 
  **/
 Error_t Session::load_params(const std::string& model_file, const std::string& embedding_file) {
   try {
-    float* weight = new float[networks_[0]->get_params_num()]();
+    float* weight = new float[networks_[0]->get_params_num()];
     std::ifstream model_stream(model_file, std::ifstream::binary);
     if (!embedding_file.empty()) {
       std::ifstream embedding_stream(embedding_file, std::ifstream::binary);

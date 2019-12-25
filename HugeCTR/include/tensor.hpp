@@ -154,7 +154,8 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
   int odevice = -1;
   get_set_device(tensor.get_device_id(), &odevice);
   cudaDeviceSynchronize();
-  assert(end_ > begin_ && begin_ >= 0 && end_ < get_size_from_dims(tensor.get_dims()));
+  assert(end_ > begin_ && begin_ >= 0 &&
+         end_ < static_cast<int>(get_size_from_dims(tensor.get_dims())));
   T host_buff[end_ - begin_];
   cudaMemcpy(host_buff, tensor.get_ptr() + begin_, (end_ - begin_) * sizeof(T),
              cudaMemcpyDeviceToHost);
