@@ -104,7 +104,7 @@ ConcatLayer::ConcatLayer(Tensors<float>& in_tensors,
     std::vector<int> out_dims = {height, new_width};
     out_tensor.reset(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
 
-    for(auto in_tensor : in_tensors) {
+    for(auto& in_tensor : in_tensors) {
       in_tensors_.emplace_back(in_tensor);
     }
     out_tensors_.emplace_back(out_tensor);
