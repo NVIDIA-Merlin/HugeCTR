@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/layers/concat_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
@@ -34,9 +33,9 @@ namespace {
 const float eps = 1e-5;
 
 void concat_layer_test(int height, std::vector<int> widths) {
-  GeneralBuffer<float> buff;
+  std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   TensorFormat_t in_format = TensorFormat_t::HW;
-  std::vector<Tensor<float>*> in_tensors;
+  Tensors<float> in_tensors;
 
   GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
   std::vector<std::vector<float>> h_ins;
@@ -48,20 +47,19 @@ void concat_layer_test(int height, std::vector<int> widths) {
     int width = widths[i];
     new_width += width;
     std::vector<int> in_dims = {height, width};
-    Tensor<float>* in_tensor = new Tensor<float>(in_dims, buff, in_format);
-    in_tensors.push_back(in_tensor);
+    in_tensors.emplace_back(new Tensor<float>(in_dims, buff, in_format));
 
-    std::vector<float> h_in(in_tensor->get_num_elements(), 0.0);
+    std::vector<float> h_in(height * width, 0.0);
     for (unsigned int i = 0; i < h_in.size(); i++) {
       h_in[i] = data_sim.get_num();
     }
     h_ins.push_back(h_in);
   }
 
-  Tensor<float>* out_tensor = nullptr;
-  ConcatLayer concat_layer(in_tensors, &out_tensor, buff, 0);
+  std::shared_ptr<Tensor<float>> out_tensor;
+  ConcatLayer concat_layer(in_tensors, out_tensor, buff, 0);
 
-  buff.init(0);
+  buff->init(0);
 
   // fprop
   std::vector<float> h_ref(out_tensor->get_num_elements(), 0.0);

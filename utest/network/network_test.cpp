@@ -14,34 +14,35 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/device_map.hpp"
 #include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 
 TEST(network_test, basic_network) {
-  GeneralBuffer<float> buff;
-  std::vector<int> dim;
+  test::mpi_init();
+
+  std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   const int batchsize = 128;
-  Tensor<float> in_tensor(dim = {batchsize, 128}, buff, TensorFormat_t::HW);
-  Tensor<float> label_tensor(dim = {batchsize, 1}, buff, TensorFormat_t::HW);
-  buff.init(0);
-  DeviceMap device_map(std::vector<std::vector<int>>{{0}}, 0);
+  std::shared_ptr<Tensor<float>> in_tensor(
+      new Tensor<float>({batchsize, 128}, buff, TensorFormat_t::HW));
+  std::shared_ptr<Tensor<float>> label_tensor(
+      new Tensor<float>({batchsize, 1}, buff, TensorFormat_t::HW));
+  buff->init(0);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap({{0}}, 0));
   GPUResourceGroup gpu_resource_group(device_map);
   Network basic_network(in_tensor, label_tensor, batchsize, 0, gpu_resource_group[0]);
   // load parameters from CPU to GPU
-  float* params = new float[basic_network.get_params_num()]();
-  basic_network.upload_params_to_device(params);
+  std::unique_ptr<float[]> params(new float[basic_network.get_params_num()]);
+  basic_network.upload_params_to_device(params.get());
 
   // train
   basic_network.train();
 
   // download parameters
-  float* updated_params = new float[basic_network.get_params_num()];
-  basic_network.download_params_to_host(updated_params);
+  std::unique_ptr<float[]> updated_params(new float[basic_network.get_params_num()]);
+  basic_network.download_params_to_host(updated_params.get());
   // verification
-
-  delete params;
 }

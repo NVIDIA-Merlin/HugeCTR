@@ -32,18 +32,18 @@ using namespace HugeCTR;
 namespace {
 
 void reshape_test(vector<int>& in_dims, int leading_dim) {
-  GeneralBuffer<float> buf;
-  Tensor<float> in_tensor(in_dims, buf,
-      (in_dims.size() == 3)? TensorFormat_t::HSW : TensorFormat_t::HW);
-  buf.init(0);
+  std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buff,
+      (in_dims.size() == 3)? TensorFormat_t::HSW : TensorFormat_t::HW));
+  buff->init(0);
 
-  Tensor<float>* out_tensor = nullptr;
-  ReshapeLayer reshape_layer(in_tensor, &out_tensor, leading_dim, 0);
+  std::shared_ptr<Tensor<float>> out_tensor;
+  ReshapeLayer reshape_layer(in_tensor, out_tensor, leading_dim, 0);
 
-  ASSERT_TRUE(out_tensor != nullptr);
+  ASSERT_TRUE(out_tensor);
 
   std::vector<int> out_dims = out_tensor->get_dims();
-  int n_in_elems = in_tensor.get_num_elements();
+  int n_in_elems = in_tensor->get_num_elements();
   int n_out_elems = out_tensor->get_num_elements();
 
   ASSERT_TRUE(out_dims.size() == 2 &&

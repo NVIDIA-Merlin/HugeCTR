@@ -40,12 +40,11 @@ namespace HugeCTR {
 template <typename TypeKey>
 class Embedding {
  protected:
-  std::vector<GeneralBuffer<float>*> output_buffers_; /**< The buffer for storing output tensors. */
-  std::vector<Tensor<float>*> output_tensors_;        /**< The output tensors. */
-  const std::vector<Tensor<TypeKey>*>&
-      row_offsets_tensors_; /**< The row_offsets tensors of the input data. */
-  const std::vector<Tensor<TypeKey>*>& value_tensors_; /**< The value tensors of the input data. */
-  GPUResourceGroup& device_resources_;                 /**< The GPU device resources. */
+  GeneralBuffers<float> output_buffers_;       /**< The buffer for storing output tensors. */
+  Tensors<float> output_tensors_;              /**< The output tensors. */
+  const Tensors<TypeKey> row_offsets_tensors_; /**< The row_offsets tensors of the input data. */
+  const Tensors<TypeKey> value_tensors_;       /**< The value tensors of the input data. */
+  std::shared_ptr<GPUResourceGroup> device_resources_; /**< The GPU device resources. */
   const int batchsize_; /**< The batch size of the input data for the current training process. */
  public:
   /**
@@ -59,9 +58,9 @@ class Embedding {
    * @param embedding_vec_size the dim size of the embedding feature vector.
    * @param gpu_resource_group the GPU device resource group
    */
-  Embedding(const std::vector<Tensor<TypeKey>*>& row_offsets_tensors,
-            const std::vector<Tensor<TypeKey>*>& value_tensors, int batchsize, int slot_num,
-            int embedding_vec_size, GPUResourceGroup& gpu_resource_group);
+  Embedding(const Tensors<TypeKey>& row_offsets_tensors, const Tensors<TypeKey>& value_tensors,
+            int batchsize, int slot_num, int embedding_vec_size,
+            const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
   /**
    * The declaration for indicating that there is no default copy construtor in this class.
    */
@@ -69,7 +68,7 @@ class Embedding {
   /**
    * The destructor of Embedding class.
    */
-  virtual ~Embedding();
+  virtual ~Embedding() {}
   /**
    * The forward propagation of embedding layer.
    */
@@ -105,7 +104,7 @@ class Embedding {
   /**
    * Return the output tensors.
    */
-  std::vector<Tensor<float>*>& get_output_tensors() { return output_tensors_; }
+  const Tensors<float>& get_output_tensors() const { return output_tensors_; }
 
   // only used for results check
   /**
@@ -134,10 +133,10 @@ class Embedding {
 };
 
 template <typename TypeKey>
-Embedding<TypeKey>::Embedding(const std::vector<Tensor<TypeKey>*>& row_offsets_tensors,
-                              const std::vector<Tensor<TypeKey>*>& value_tensors, int batchsize,
-                              int slot_num, int embedding_vec_size,
-                              GPUResourceGroup& gpu_resource_group)
+Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
+                              const Tensors<TypeKey>& value_tensors, int batchsize, int slot_num,
+                              int embedding_vec_size,
+                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group)
     : row_offsets_tensors_(row_offsets_tensors),
       value_tensors_(value_tensors),
       device_resources_(gpu_resource_group),
@@ -148,7 +147,7 @@ Embedding<TypeKey>::Embedding(const std::vector<Tensor<TypeKey>*>& row_offsets_t
       CK_THROW_(Error_t::WrongInput, "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
     }
 
-    const auto& device_list = device_resources_.get_device_list();
+    const auto& device_list = device_resources_->get_device_list();
     size_t gpu_count = device_list.size();
     if (row_offsets_tensors.size() != gpu_count || value_tensors.size() != gpu_count) {
       CK_THROW_(Error_t::WrongInput,
@@ -157,32 +156,16 @@ Embedding<TypeKey>::Embedding(const std::vector<Tensor<TypeKey>*>& row_offsets_t
 
     assert(output_buffers_.empty());
     for (size_t i = 0; i < gpu_count; i++) {
-      GeneralBuffer<float>* buff = new GeneralBuffer<float>();
-      const int batchsize_per_device = batchsize / device_resources_.get_total_gpu_count();
+      std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
+      const int batchsize_per_device = batchsize / device_resources_->get_total_gpu_count();
       std::vector<int> output_dims = {batchsize_per_device, slot_num, embedding_vec_size};
-      Tensor<float>* output_tensor = new Tensor<float>(output_dims, *buff, TensorFormat_t::HSW);
+      output_tensors_.emplace_back(new Tensor<float>(output_dims, buff, TensorFormat_t::HSW));
       buff->init(device_list[i]);
-      output_tensors_.push_back(output_tensor);
-      output_buffers_.push_back(buff);
+      output_buffers_.emplace_back(buff);
     }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
-  }
-  return;
-}
-
-template <typename TypeKey>
-Embedding<TypeKey>::~Embedding() {
-  try {
-    for (auto output_tensor : output_tensors_) {
-      delete output_tensor;
-    }
-    for (auto output_buffer : output_buffers_) {
-      delete output_buffer;
-    }
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
   }
   return;
 }
@@ -238,13 +221,13 @@ struct EmbeddingCreator {
   typedef unsigned int TYPE_2;
 
   static Embedding<TYPE_1>* create_sparse_embedding_hash(
-      const std::vector<Tensor<TYPE_1>*>& row_offsets_tensors,
-      const std::vector<Tensor<TYPE_1>*>& value_tensors, SparseEmbeddingHashParams embedding_params,
-      GPUResourceGroup& gpu_resource_group);
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      SparseEmbeddingHashParams embedding_params,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
   static Embedding<TYPE_2>* create_sparse_embedding_hash(
-      const std::vector<Tensor<TYPE_2>*>& row_offsets_tensors,
-      const std::vector<Tensor<TYPE_2>*>& value_tensors, SparseEmbeddingHashParams embedding_params,
-      GPUResourceGroup& gpu_resource_group);
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      SparseEmbeddingHashParams embedding_params,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 };
 
 }  // namespace HugeCTR

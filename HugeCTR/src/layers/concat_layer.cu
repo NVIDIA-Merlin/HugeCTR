@@ -65,13 +65,14 @@ __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w
 
 }  // anonymous namespace
 
-ConcatLayer::ConcatLayer(std::vector<Tensor<float>*>& in_tensors, Tensor<float>** out_tensor,
-                           GeneralBuffer<float>& blobs_buff, int device_id)
+ConcatLayer::ConcatLayer(Tensors<float>& in_tensors,
+                         std::shared_ptr<Tensor<float>>& out_tensor,
+                         const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
+                         int device_id)
     : Layer(device_id),
       n_sms_(0) {
   try {
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+    CudaDeviceContext context(get_device_id());
 
     if(in_tensors.empty()) {
       CK_THROW_(Error_t::WrongInput, "Empty input tensors");
@@ -101,18 +102,17 @@ ConcatLayer::ConcatLayer(std::vector<Tensor<float>*>& in_tensors, Tensor<float>*
     }
 
     std::vector<int> out_dims = {height, new_width};
-    *out_tensor = new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW);
+    out_tensor.reset(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
 
     for(auto in_tensor : in_tensors) {
-      in_tensors_.push_back(std::ref(*in_tensor));
+      in_tensors_.emplace_back(in_tensor);
     }
-    out_tensors_.push_back(std::ref(**out_tensor));
+    out_tensors_.emplace_back(out_tensor);
 
     int device = get_device_id();
     CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device));
     assert(n_sms_ > 0);
 
-    CK_CUDA_THROW_(get_set_device(o_device));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -128,8 +128,7 @@ void ConcatLayer::bprop(cudaStream_t stream) {
 }
 
 void ConcatLayer::prop_common(bool forward, cudaStream_t stream) {
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
+  CudaDeviceContext context(get_device_id());
 
   int n_in_tensors = in_tensors_.size();
   if(n_in_tensors == 2) {
@@ -156,16 +155,14 @@ void ConcatLayer::prop_common(bool forward, cudaStream_t stream) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(o_device));
 }
 
 std::vector<ConcatLayer::InParam<float>> ConcatLayer::set_in_params(int n) {
   std::vector<InParam<float>> in_params;
   for(int i = 0; i < n; i++) {
-    Tensor<float>& in_tensor = in_tensors_[i];
-    float* in = in_tensor.get_ptr();
-    int w = in_tensor.get_dims()[1];
+    const auto& in_tensor = in_tensors_[i];
+    float* in = in_tensor->get_ptr();
+    int w = in_tensor->get_dims()[1];
     in_params.push_back({in, w});
   }
   return std::move(in_params);
@@ -175,10 +172,10 @@ template <typename... Args>
 void ConcatLayer::kernel_launch(bool forward, cudaStream_t stream, Args&... args) {
   int block_size = 256;
   int n_blocks = n_sms_ * 8;
-  Tensor<float>& out_tensor = out_tensors_[0];
-  float* out = out_tensor.get_ptr();
-  int h = out_tensor.get_dims()[0];
-  int out_w = out_tensor.get_dims()[1];
+  const auto& out_tensor = out_tensors_[0];
+  float* out = out_tensor->get_ptr();
+  int h = out_tensor->get_dims()[0];
+  int out_w = out_tensor->get_dims()[1];
   concat_kernel<<<n_blocks, block_size, 0, stream>>>(forward, out, h, out_w, args...);
 }
 

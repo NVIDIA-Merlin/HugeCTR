@@ -34,20 +34,20 @@ namespace {
 const float eps = 1e-5;
 
 void reshape_layer_test(int batch_size, int n_slot, int vector_length, std::vector<int> selected) {
-  GeneralBuffer<float> buf;
+  std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   TensorFormat_t in_format = TensorFormat_t::HSW;
   int n_active_slot = selected.empty() ? n_slot : int(selected.size());
   std::vector<int> in_dims = {batch_size, n_slot, vector_length};
   std::vector<int> out_dims = {batch_size, n_active_slot * vector_length};
 
-  Tensor<float> in_tensor(in_dims, buf, in_format);
-  Tensor<float>* out_tensor = nullptr;
-  ReshapeLayer reshape_layer(in_tensor, &out_tensor, buf, selected, 0);
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buff, in_format));
+  std::shared_ptr<Tensor<float>> out_tensor;
+  ReshapeLayer reshape_layer(in_tensor, out_tensor, buff, selected, 0);
 
-  buf.init(0);
+  buff->init(0);
 
   std::vector<float> h_in;
-  h_in.resize(in_tensor.get_num_elements());
+  h_in.resize(in_tensor->get_num_elements());
   GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
   for (unsigned int i = 0; i < h_in.size(); i++) h_in[i] = data_sim.get_num();
 
@@ -69,8 +69,8 @@ void reshape_layer_test(int batch_size, int n_slot, int vector_length, std::vect
     }
   }
 
-  float* d_in = in_tensor.get_ptr();
-  cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size(), cudaMemcpyHostToDevice);
+  float* d_in = in_tensor->get_ptr();
+  cudaMemcpy(d_in, &h_in.front(), in_tensor->get_size(), cudaMemcpyHostToDevice);
 
   reshape_layer.fprop(cudaStreamDefault);
 
@@ -89,7 +89,7 @@ void reshape_layer_test(int batch_size, int n_slot, int vector_length, std::vect
   reshape_layer.bprop(cudaStreamDefault);
 
   h_result.resize(batch_size * n_slot * vector_length);
-  cudaMemcpy(&h_result.front(), d_in, in_tensor.get_size(), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&h_result.front(), d_in, in_tensor->get_size(), cudaMemcpyDeviceToHost);
 
   ASSERT_TRUE(
       test::compare_array_approx<float>(&h_result.front(), &h_in.front(), h_result.size(), eps));

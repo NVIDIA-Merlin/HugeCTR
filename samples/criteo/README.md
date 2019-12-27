@@ -23,10 +23,10 @@ $ ./criteo2hugectr ../../tools/criteo_script/test.out criteo_test/sparse_embeddi
 
 1. Build HugeCTR with the instructions on README.md under home directory.
 
-2. Copy huge_ctr to sample/criteo
+2. Copy huge_ctr to samples/criteo
 ```shell
 $ cd build/bin/
-$ cp ./huge_ctr ../../sample/criteo/
+$ cp ./huge_ctr ../../samples/criteo/
 ```
 
 3. Run huge_ctr

@@ -35,10 +35,10 @@ namespace {
 const float eps = 1e-5;
 
 void slice_layer_test(int height, int width, std::set<std::pair<int,int>> ranges) {
-  GeneralBuffer<float> buff;
+  std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   std::vector<int> in_dims = {height, width};
   TensorFormat_t in_format = TensorFormat_t::HW;
-  Tensor<float>* in_tensor = new Tensor<float>(in_dims, buff, in_format);
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buff, in_format));
 
   GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
   std::vector<float> h_in(in_tensor->get_num_elements(), 0.0);
@@ -46,12 +46,12 @@ void slice_layer_test(int height, int width, std::set<std::pair<int,int>> ranges
     h_in[i] = data_sim.get_num();
   }
 
-  std::vector<Tensor<float>*> out_tensors;
-  SliceLayer slice_layer(*in_tensor, out_tensors, buff, ranges, 0);
+  Tensors<float> out_tensors;
+  SliceLayer slice_layer(in_tensor, out_tensors, buff, ranges, 0);
 
   int n_outs = out_tensors.size();
 
-  buff.init(0);
+  buff->init(0);
 
   // fprop
   std::vector<std::vector<float>> h_refs;

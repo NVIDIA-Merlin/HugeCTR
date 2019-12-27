@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/layer.hpp"
@@ -32,7 +31,8 @@ class ReluLayer : public Layer {
    * @param out_tensor the output tensor which has the same dim with in_tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  ReluLayer(Tensor<float>& in_tensor, Tensor<float>& out_tensor, int device_id);
+  ReluLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
+            const std::shared_ptr<Tensor<float>>& out_tensor, int device_id);
 
   /**
    * A method of implementing the forward pass of Relu
