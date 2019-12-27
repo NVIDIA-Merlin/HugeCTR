@@ -38,8 +38,12 @@ public:
    * Dtor of SparseEmbeddingHashFunctors.
    */
   ~SparseEmbeddingHashFunctors() {}
-
-  // stream sync on multi GPUs 
+ 
+  /**
+   * stream sync on multi GPUs.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device.
+   */
   void sync_all_gpus(const std::shared_ptr<GPUResourceGroup> device_resources,
             const CudaDeviceContext& context) {
 
@@ -51,7 +55,20 @@ public:
     }
   }
 
-  // forward computation 
+  /**
+   * forward propagation.
+   * @param batch_size batch size for the current mini-batch computation.
+   * @param slot_num the number of slots in hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param row_offsets_tensors row_offsets tensors of mulitple GPUs (CSR format of input sparse tensors)
+   * @param value_tensors value tensors of multi GPUs (CSR format of input sparse tensors)
+   * @param hash_tables hash table of multi GPUs, pairs of <key, value_index>
+   * @param hash_table_value_tensors hash table value tenosrs of multi GPUs, the value is represented for embedding vector
+   * @param hash_value_index_tensors hash table value_index tensors of multi GPUs
+   * @param embedding_feature_tensors embedding feature tensors on multi GPUs
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
   template <typename TypeHashKey, typename TypeHashValueIndex>
   void forward(const int batch_size, 
               const int slot_num,
@@ -63,8 +80,8 @@ public:
               const Tensors<float>& hash_table_value_tensors, 
               const Tensors<TypeHashValueIndex>& hash_value_index_tensors,
               Tensors<float>& embedding_feature_tensors,
-              const CudaDeviceContext& context,
-              const std::shared_ptr<GPUResourceGroup> device_resources) {
+              const std::shared_ptr<GPUResourceGroup> device_resources,
+              const CudaDeviceContext& context) {
 
     int local_gpu_count = device_resources->size();
 
@@ -86,7 +103,6 @@ public:
         CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num], sizeof(TypeHashKey),
                                       cudaMemcpyDeviceToHost, stream));
         hash_table->get_insert(hash_key, hash_value_index, num, stream);
-        // hash_table->get(hash_key, hash_value_index, num, stream);
 
         // do sum reduction
         dim3 blockSize(embedding_vec_size, 1,
@@ -106,7 +122,16 @@ public:
     return;
   }
 
-  // this is an additional function for combiner=mean
+  /**
+   * An additional function for the forward propagation when (combiner=mean).
+   * @param batch_size batch size for the current mini-batch computation.
+   * @param slot_num the number of slots in hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs 
+   * @param output_tensors forward prop output tensors of multi GPUs
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
   template <typename TypeHashKey>
   void forward_scale(const int batch_size, 
                     const int slot_num,
@@ -145,7 +170,18 @@ public:
     return;
   }
 
-  // calculate wgrad
+  /**
+   * The first step of backward propagation: computing the wgrad.
+   * @param batch_size batch size for the current mini-batch computation.
+   * @param slot_num the number of slots in hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param combiner combiner type: 0-sum, 1-mean
+   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs 
+   * @param embedding_feature_tensors embedding features tensors of multiplu GPUs, storing dgrad from the top layer
+   * @param wgrad_tensors wgrad tensors of multi GPUs, the output of this function.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
   template <typename TypeHashKey>
   void backward(const int batch_size, 
                 const int slot_num,
@@ -191,7 +227,31 @@ public:
     return;
   }
 
-  // update embedding table(weights)
+  /**
+   * The second step of backward propagation: update embedding tables(weights)
+   * @param stream cuda stream corresponding to the current GPU.
+   * @param batch_size batch size for the current mini-batch computation.
+   * @param slot_num the number of slots in hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param max_vocabulary_size_per_gpu the max row number of hash table for each GPU.
+   * @param opt_params optimizer params.
+   * @param row_offset the pointer of row_offset 
+   * @param hash_key the pointer of hash table keys
+   * @param hash_table the pointer of hash table 
+   * @param hash_value_index the pointer of hash value_index
+   * @param sample_id the pointer of sample ids
+   * @param sample_id_sort the pointer of sorted sample ids
+   * @param hash_value_index_sort the pointer of sorted hash table value_index
+   * @param hash_value_index_count the pointer of the count of each hash value_index
+   * @param hash_value_index_count_offset the pointer of the offset for each count of hash value_index
+   * @param hash_value_index_count_counter the pointer of the counter of hash value_index count
+   * @param temp_storage_sort the pointer of the temp buffer for the CUB lib sorting API
+   * @param temp_storage_sort_bytes the bytes of the temp buffer for the CUB lib sorting API
+   * @param wgrad the pointer of wgrad
+   * @param deltaw_hash_value_index the pointer of deltaw's corresponding hash value_index
+   * @param deltaw the pointer of deltaw, which is used to update the hash table value
+   * @param hash_table_value the pointer of hash table value, which will be updated
+   */
   template <typename TypeHashKey, typename TypeHashValueIndex>
   void update_params(const cudaStream_t stream, 
                     const int batch_size, 
@@ -299,7 +359,14 @@ public:
     return;
   }
 
-  // collection communication: reduce_scatter
+  /**
+   * collection communication: reduce_scatter.
+   * @param recv_count the count of elements will be received.
+   * @param send_tensors the send tensors of multi GPUs.
+   * @param recv_tensors the recv tensors of multi GPUs.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device.
+   */
   void reduce_scatter(const int recv_count,
                       const Tensors<float>& send_tensors,
                       Tensors<float>& recv_tensors,
@@ -333,7 +400,14 @@ public:
     return;
   }
 
-  // collection communication: all_reduce
+  /**
+   * collection communication: all_reduce.
+   * @param send_count the count of elements will be sent.
+   * @param send_tensors the send tensors of multi GPUs.
+   * @param recv_tensors the recv tensors of multi GPUs.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device.
+   */
   template<typename TypeHashKey>
   void all_reduce(const int send_count,
                   const Tensors<TypeHashKey>& send_tensors,
@@ -379,7 +453,14 @@ public:
     return;
   }
 
-  // collection communication: all_gather 
+  /**
+   * collection communication: all_gather.
+   * @param send_count the count of elements will be sent.
+   * @param send_tensors the send tensors of multi GPUs.
+   * @param recv_tensors the recv tensors of multi GPUs.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device.
+   */
   void all_gather(int send_count,
                   const Tensors<float> send_tensors,
                   Tensors<float> recv_tensors,
@@ -412,13 +493,20 @@ public:
     }
   }
 
-  // set liner data for a buffer
+  /**
+   * set liner data for a buffer
+   * @param stream cuda stream.
+   * @param data the pointer of the data buffer which will be written.
+   * @param start_value the start value of the liner data.
+   * @param stride_value the stride value of the liner data.
+   * @param n the number of the data.
+   */
   template <typename Type>
   void memset_liner(const cudaStream_t stream, 
-                        Type *data, 
-                        const Type start_value, 
-                        const Type stride_value,
-                        const long long n) {
+                    Type *data, 
+                    const Type start_value, 
+                    const Type stride_value,
+                    const long long n) {
     try {
       int blockSize = 256;
       int gridSize = (n + blockSize - 1) / blockSize;
@@ -430,14 +518,22 @@ public:
     }
   }
 
-  // get hash table value by value_index
+  /**
+   * get hash table value by value_index
+   * @param stream cuda stream.
+   * @param count total count of value which will be get from hash table.
+   * @param embedding_vec_size embedding vector size, each value has the dim of embedding_vec_size.
+   * @param value_index the pointer of value_index.
+   * @param hash_table_value the pointer of hash table value.
+   * @param value_retrieved the pointer of the retrived value.
+   */
   template <typename TypeHashValueIndex>
   void get_hash_table_value(const cudaStream_t stream, 
-                                const long long count,
-                                const int embedding_vec_size, 
-                                const TypeHashValueIndex *value_index,
-                                const float *hash_table_value, 
-                                float *value_retrieved) {
+                            const long long count,
+                            const int embedding_vec_size, 
+                            const TypeHashValueIndex *value_index,
+                            const float *hash_table_value, 
+                            float *value_retrieved) {
     try {
       int blockSize = embedding_vec_size;
       int gridSize = count;
@@ -451,17 +547,28 @@ public:
     }
   }
 
-  // upload hash_table to GPUs
+  /**
+   * upload hash_table from CPU to GPUs.
+   * @param weight_stream weight file stream to read.
+   * @param vocabulary_size the total row number of hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param max_vocabulary_size_per_gpu max vocabulary size for each GPU
+   * @param hash_table_value_tensors the tensors of hash table value on multi GPUs.
+   * @param hash_tables the hash tables on multi GPUs
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
   template<typename TypeHashKey, typename TypeHashValueIndex>
   void upload_params_to_device(std::ifstream &weight_stream,
                                   long long vocabulary_size,
                                   int embedding_vec_size,
                                   int max_vocabulary_size_per_gpu,
-                                  std::shared_ptr<GPUResourceGroup>& device_resources,
                                   Tensors<float>& hash_table_value_tensors,
                                   std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
                                     TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>& 
-                                    hash_tables) {
+                                    hash_tables,
+                                  const std::shared_ptr<GPUResourceGroup>& device_resources,
+                                  const CudaDeviceContext& context) {
     // check file size and vocabulary_size (file size <=　hash_table_size)
     weight_stream.seekg(0, weight_stream.end);
     long long file_size_in_B = weight_stream.tellg();
@@ -481,8 +588,6 @@ public:
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
   #endif
-
-    CudaDeviceContext context((*device_resources)[0]->get_device_id());
 
     // define size
     int gpu_count = device_resources->size();
@@ -719,19 +824,28 @@ public:
 
   }
 
-  // download hash_table from GPUs to CPU
+  /**
+   * download hash_table from GPUs to CPU.
+   * @param weight_stream weight file stream to write.
+   * @param vocabulary_size the total row number of hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param max_vocabulary_size_per_gpu max vocabulary size for each GPU
+   * @param hash_table_value_tensors the tensors of hash table value on multi GPUs.
+   * @param hash_tables the hash tables on multi GPUs
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
   template<typename TypeHashKey, typename TypeHashValueIndex>
   void download_params_to_host(std::ofstream &weight_stream,
                               long long vocabulary_size,
                               int embedding_vec_size,
                               int max_vocabulary_size_per_gpu,
-                              std::shared_ptr<GPUResourceGroup>& device_resources,
                               Tensors<float>& hash_table_value_tensors,
                               std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
                                 TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>& 
-                                hash_tables) {
-
-    CudaDeviceContext context((*device_resources)[0]->get_device_id());
+                                hash_tables,
+                              const std::shared_ptr<GPUResourceGroup>& device_resources,
+                              const CudaDeviceContext& context) {
 
     int gpu_count = device_resources->size();
 
@@ -876,10 +990,17 @@ public:
     return;
   }  // end of download_params_to_host()
 
-  // get forward results from GPUs to CPU
+  /**
+   * get forward results from GPUs to CPU. This functin is just used for utest.
+   * @param memcpy_size the number of elemments to do memcpy.
+   * @param embedding_feature_tensors the source tensors of multi GPUs to copy from.
+   * @param embedding_feature the destination CPU buffer pointer to copy to.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
   void get_forward_results(const int memcpy_size,
-                          const Tensors<float> src_tensors,
-                          float * dst_buf,
+                          const Tensors<float> embedding_feature_tensors,
+                          float * embedding_feature,
                           const std::shared_ptr<GPUResourceGroup>& device_resources,
                           CudaDeviceContext& context) {
     int local_gpu_count = device_resources->size();
@@ -887,7 +1008,7 @@ public:
     int offset = 0;
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf + offset, src_tensors[id]->get_ptr(),
+      CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature + offset, embedding_feature_tensors[id]->get_ptr(),
                                     memcpy_size * sizeof(float), cudaMemcpyDeviceToHost,
                                     (*device_resources)[id]->get_stream()));
       offset += memcpy_size;
@@ -896,7 +1017,15 @@ public:
     return;
   }
 
-  // get backward results from GPU to CPU
+  /**
+   * get backward results from GPU to CPU. This functin is just used for utest.
+   * @param devId gpu device id to get backward resutls from.
+   * @param memcpy_size the number of elemments to do memcpy.
+   * @param wgrad_tensors the source tensors of multi GPUs to copy from.
+   * @param wgrad the destination CPU buffer pointer to copy to.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
   void get_backward_results(int devId,
                             int memcpy_size,
                             const Tensors<float> wgrad_tensors,
@@ -914,6 +1043,18 @@ public:
     return;
   }
 
+  /**
+   * get update_params results from GPU to CPU. This functin is just used for utest.
+   * @param max_vocabulary_size_per_gpu max vocabulary size for each GPU.
+   * @param embedding_vec_size embedding vector size.
+   * @param vocabulary_size the total number of rows in hash table
+   * @param hash_table_value_tensors the tensors of hash table value on multi GPUs
+   * @param hash_tables the hash tables on multi GPUs
+   * @param hash_table_key the pointer of hash table key on CPU 
+   * @param hash_table_value the ponter of hash table value on CPU
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
   template<typename TypeHashKey, typename TypeHashValueIndex>
   void get_update_params_results(int max_vocabulary_size_per_gpu,
                                 int embedding_vec_size,
