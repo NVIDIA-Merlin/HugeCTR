@@ -127,7 +127,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       prev_max = cur_max;
     }
 
-    in_tensors_.emplace_back(std::move(in_tensor));
+    in_tensors_.emplace_back(in_tensor);
     for(auto out_tensor : out_tensors) {
       out_tensors_.emplace_back(out_tensor);
     }
