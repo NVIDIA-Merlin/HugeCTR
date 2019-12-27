@@ -414,7 +414,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #endif
 
     const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
-        {"SparseEmbeddingHash", Embedding_t::SparseEmbeddingHash}};
+        {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash}};
     int max_feature_num_per_sample;
     {
       // Create Data Reader
@@ -472,7 +472,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       auto slot_num = get_value_from_json<int>(j_hparam, "slot_num");
 
       switch (embedding_type) {
-        case Embedding_t::SparseEmbeddingHash: {
+        case Embedding_t::DistributedSlotSparseEmbeddingHash: {
           auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
           const SparseEmbeddingHashParams embedding_params = {
               batch_size,

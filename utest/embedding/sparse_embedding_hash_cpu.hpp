@@ -148,8 +148,8 @@ class SparseEmbeddingHashCpu {
                               const float lr);
 
   // only used for results check
-  float *get_embedding_feature_ptr() { return embedding_feature_; }
-  float *get_wgrad_ptr() { return wgrad_; }
+  float *get_forward_results() { return embedding_feature_; }
+  float *get_backward_results() { return wgrad_; }
   TypeHashKey *get_hash_table_key_ptr() { return hash_table_key_; }
   TypeHashValueIndex *get_hash_table_value_index_ptr() { return hash_table_value_index_; }
   float *get_hash_table_value_ptr() { return hash_table_value_; }
