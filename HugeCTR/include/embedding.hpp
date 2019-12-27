@@ -113,7 +113,7 @@ class Embedding {
    * @param embedding_feature the host pointer for storing the forward()
    * results.
    */
-  virtual float* get_embedding_feature_ptr(float* embedding_feature) = 0;
+  virtual void get_forward_results(float* embedding_feature) = 0;
   /**
    * Get the backward() results from GPUs and copy them to the host pointer
    * wgrad. The wgrad on each GPU should be the same. This function is only
@@ -121,7 +121,7 @@ class Embedding {
    * @param wgrad the host pointer for stroing the backward() results.
    * @param devIndex the GPU device id.
    */
-  virtual float* get_wgrad_ptr(float* wgrad, int devIndex) = 0;
+  virtual void get_backward_results(float* wgrad, int devIndex) = 0;
   /**
    * Get the update_params() results(the hash table, including hash_table_keys
    * and hash_table_values) from GPUs and copy them to the host pointers.
@@ -129,7 +129,7 @@ class Embedding {
    * @param hash_table_key the host pointer for stroing the hash table keys.
    * @param hash_table_value the host pointer for stroing the hash table values.
    */
-  virtual void get_hash_table_ptr(TypeKey* hash_table_key, float* hash_table_value) = 0;
+  virtual void get_update_params_results(TypeKey* hash_table_key, float* hash_table_value) = 0;
 };
 
 template <typename TypeKey>

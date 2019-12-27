@@ -22,7 +22,7 @@
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
 #include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_hash.hpp"
+#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
@@ -419,7 +419,7 @@ TEST(sparse_embedding_hash_test, upload_and_download_params) {
     label_dim, slot_num, max_feature_num, gpu_resource_group, 1, 1);
 
   // define object
-  Embedding<T>* embedding = new SparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params, gpu_resource_group);
+  Embedding<T>* embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params, gpu_resource_group);
 
   // init hash table file
   std::ofstream weight_stream(hash_table_file_name);
@@ -486,7 +486,7 @@ TEST(sparse_embedding_hash_test, training_correctness) {
   // constexpr long long vocabulary_size = 10;
   constexpr int embedding_vec_size = 128;
   // constexpr int embedding_vec_size = 1;
-  constexpr int combiner = 1;   // 0-sum, 1-mean
+  constexpr int combiner = 0;   // 0-sum, 1-mean
   constexpr int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
   constexpr float lr = 0.01;
   // std::vector<int> device_list = {0,1};
@@ -567,7 +567,7 @@ TEST(sparse_embedding_hash_test, training_correctness) {
   DataReader<T> *data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, slot_num,
                                                  max_feature_num, gpu_resource_group, 1, 1);
 
-  Embedding<T> *embedding = new SparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
+  Embedding<T> *embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
                                                        data_reader->get_value_tensors(),
                                                        embedding_params, gpu_resource_group);
 
@@ -610,12 +610,12 @@ TEST(sparse_embedding_hash_test, training_correctness) {
   // for results check
   float *embedding_feature_from_gpu =
       (float *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(float));
-  float *embedding_feature_from_cpu = embedding_cpu->get_embedding_feature_ptr();
+  float *embedding_feature_from_cpu = embedding_cpu->get_forward_results();
   float *wgrad_from_gpu[device_list.size()];
   for (unsigned int i = 0; i < device_list.size(); i++) {
     wgrad_from_gpu[i] = (float *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(float));
   }
-  float *wgrad_from_cpu = embedding_cpu->get_wgrad_ptr();
+  float *wgrad_from_cpu = embedding_cpu->get_backward_results();
   T *hash_table_key_from_gpu = (T *)malloc(vocabulary_size * sizeof(T));
   float *hash_table_value_from_gpu =
       (float *)malloc(vocabulary_size * (long long)embedding_vec_size * sizeof(float));
@@ -639,7 +639,7 @@ TEST(sparse_embedding_hash_test, training_correctness) {
     embedding_cpu->forward();
 
     // check the result of forward
-    embedding->get_embedding_feature_ptr(embedding_feature_from_gpu);  // memcpy from GPU to CPU
+    embedding->get_forward_results(embedding_feature_from_gpu);  // memcpy from GPU to CPU
     ASSERT_EQ(true,
               compare_embedding_feature(batchsize * slot_num * embedding_vec_size,
                                         embedding_feature_from_gpu, embedding_feature_from_cpu));
@@ -651,11 +651,11 @@ TEST(sparse_embedding_hash_test, training_correctness) {
     embedding_cpu->backward();
 
     // check the result of backward
-    embedding->get_wgrad_ptr(wgrad_from_gpu[0], 0);
+    embedding->get_backward_results(wgrad_from_gpu[0], 0);
     // check the result on multi GPUs first
     if (device_list.size() > 1) {
       for (unsigned int j = 1; j < device_list.size(); j++) {
-        embedding->get_wgrad_ptr(wgrad_from_gpu[j], j);  // memcpy from GPU to CPU
+        embedding->get_backward_results(wgrad_from_gpu[j], j);  // memcpy from GPU to CPU
         // printf("\ncompare GPU[%d] and GPU[%d]\n", 0, j);
         ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, wgrad_from_gpu[0],
                                       wgrad_from_gpu[j]));
@@ -672,7 +672,7 @@ TEST(sparse_embedding_hash_test, training_correctness) {
     embedding_cpu->update_params();
 
     // check the results of update params
-    embedding->get_hash_table_ptr(hash_table_key_from_gpu,
+    embedding->get_update_params_results(hash_table_key_from_gpu,
                                   hash_table_value_from_gpu);  // memcpy from GPU to CPU
     // ASSERT_EQ(true, compare_embedding_table(vocabulary_size*embedding_vec_size,
     // hash_table_value_from_gpu, hash_table_value_from_cpu));
@@ -693,7 +693,7 @@ TEST(sparse_embedding_hash_test, training_correctness) {
 }
 #endif
 
-#if 1
+#if 0
 // sparse_embedding_hash performance profiling: forward()/backward()/update_params()
 // 1. complie this app as release version
 // 2. use nvprof / nvvp to run this app
@@ -793,7 +793,7 @@ TEST(sparse_embedding_hash_test, perf_profiling) {
   DataReader<T> *data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, slot_num,
                                                  max_feature_num, gpu_resource_group, 1, 1);
 
-  Embedding<T> *embedding = new SparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
+  Embedding<T> *embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
                                                        data_reader->get_value_tensors(),
                                                        embedding_params, gpu_resource_group);
 

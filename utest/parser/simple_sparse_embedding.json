@@ -33,7 +33,7 @@
   "layers": [ 
     {
       "name": "sparse_embedding1",
-      "type": "SparseEmbeddingHash",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "vocabulary_size": 550000,

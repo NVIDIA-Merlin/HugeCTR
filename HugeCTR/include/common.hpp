@@ -95,7 +95,7 @@ enum class Layer_t {
   ReLU,
 };
 
-enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash };
+enum class Embedding_t { DistributedSlotSparseEmbeddingHash};
 
 typedef struct DataSetHeader_ {
   long long number_of_records;  // the number of samples in this data file

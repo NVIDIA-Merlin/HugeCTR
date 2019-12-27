@@ -383,7 +383,7 @@ __global__ void update_kernel(const uint32_t hash_value_index_count_num,
 
 // memset liner data to the buffer
 template <typename Type>
-__global__ void memset_liner(Type *data, 
+__global__ void memset_liner_kernel(Type *data, 
                              const Type start_value, 
                              const Type stride_value, 
                              const long long n) {
@@ -395,7 +395,7 @@ __global__ void memset_liner(Type *data,
 }
 
 template <typename TypeValueIndex>
-__global__ void get_hash_table_value(const long long count, 
+__global__ void get_hash_table_value_kernel(const long long count, 
                                     const int embedding_vec_size,
                                     const TypeValueIndex *value_index,
                                     const float *hash_table_value, 
