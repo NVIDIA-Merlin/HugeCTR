@@ -18,6 +18,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <random>
 #include "HugeCTR/include/common.hpp"
 
@@ -111,7 +112,7 @@ class GaussianDataSimulator : public DataSimulator<T> {
 template <class T>
 class DataParser {
  public:
-  DataParser(std::string file_name, DataSimulator<T>& data_sim)
+  DataParser(std::string file_name, DataSimulator<T>* data_sim)
       : data_sim_(data_sim),
         file_stream_(file_name, std::fstream::trunc | std::fstream::in | std::fstream::out |
                                     std::fstream::binary),
@@ -130,7 +131,7 @@ class DataParser {
   }
 
  protected:
-  DataSimulator<T>& data_sim_;
+  std::unique_ptr<DataSimulator<T>> data_sim_;
   std::fstream file_stream_;
 
  private:

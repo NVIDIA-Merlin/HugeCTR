@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/layer.hpp"
@@ -36,12 +35,14 @@ class ConcatLayer : public Layer {
   /**
    * Ctor of ConcatLayer.
    * @param in_tensors the vector of the input tensors
-   * @param out_tensor a double pointer to the resulting output tensor
+   * @param out_tensor the resulting output tensor
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  ConcatLayer(std::vector<Tensor<float>*>& in_tensors, Tensor<float>** out_tensor,
-               GeneralBuffer<float>& blobs_buff, int device_id);
+  ConcatLayer(Tensors<float>& in_tensors,
+              std::shared_ptr<Tensor<float>>& out_tensor,
+              const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
+              int device_id);
   ~ConcatLayer() override {};
 
   /**

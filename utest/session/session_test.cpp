@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/session.hpp"
 #include <cuda_profiler_api.h>
 #include "HugeCTR/include/data_parser.hpp"
@@ -45,7 +44,7 @@ TEST(session_test, basic_session) {
   std::vector<int> device_list{0};
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  DeviceMap device_map(vvgpu, 0);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
   std::string json_name = PROJECT_HOME_ + "utest/session/simple_sparse_embedding.json";
   const std::string model_file("session_test_model_file.data");
   Session session_instance(batchsize, json_name, device_map);

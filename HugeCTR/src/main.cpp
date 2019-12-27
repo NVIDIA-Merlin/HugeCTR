@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <fstream>
 #include "HugeCTR/include/parser.hpp"
 #include "HugeCTR/include/session.hpp"
@@ -61,7 +60,7 @@ int main(int argc, char* argv[]) {
     }
 
     CmdOptions_t opt = CmdOptions_t::Help;
-    if (!HugeCTR::find_item_in_map(&opt, std::string(argv[1]), CMD_OPTIONS_TYPE_MAP) && pid == 0) {
+    if (!HugeCTR::find_item_in_map(opt, std::string(argv[1]), CMD_OPTIONS_TYPE_MAP) && pid == 0) {
       std::cerr << "wrong option: " << argv[1] << std::endl;
       std::cerr << simple_help;
       return -1;
@@ -93,7 +92,7 @@ int main(int argc, char* argv[]) {
         }
         HugeCTR::SolverParser solver_config(config_file);
         HugeCTR::Session session_instance(solver_config.batchsize, config_file,
-                                          *solver_config.device_map);
+                                          solver_config.device_map);
         session_instance.init_params(solver_config.model_file);
         break;
       }
@@ -111,7 +110,7 @@ int main(int argc, char* argv[]) {
         HugeCTR::SolverParser solver_config(config_file);
         HugeCTR::Session session_instance(solver_config.batchsize, solver_config.model_file,
                                           solver_config.embedding_file, config_file,
-                                          *solver_config.device_map);
+                                          solver_config.device_map);
 
         HugeCTR::Timer timer;
         timer.start();

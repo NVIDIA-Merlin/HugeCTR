@@ -15,8 +15,8 @@
  */
 
 #pragma once
+#include <atomic>
 #include <fstream>
-#include <mutex>
 #include <vector>
 
 namespace HugeCTR {
@@ -39,8 +39,7 @@ class FileList {
  private:
   int num_of_files_;                     /**< num of files read from text file. */
   std::vector<std::string> file_vector_; /**< the vector of file names. */
-  int current_file_idx_{0};              /**< the current index of file name getting */
-  std::mutex mtx_;                       /**< mutex for threads safty */
+  std::atomic<int> current_file_idx_{0}; /**< the current index of file name getting */
  public:
   /*
    * Ctor
@@ -76,13 +75,12 @@ class FileList {
    * @return the file name.
    */
   std::string get_a_file() {
-    std::lock_guard<std::mutex> lock(mtx_);
-    std::string file_name = file_vector_[current_file_idx_];
-    current_file_idx_++;
-    if (current_file_idx_ == num_of_files_) {
-      current_file_idx_ = 0;
-    }
-    return file_name;
+    int current_file_idx = current_file_idx_;
+    while (!current_file_idx_.compare_exchange_weak(current_file_idx,
+                                                    (current_file_idx + 1) % num_of_files_))
+      ;
+
+    return file_vector_[current_file_idx];
   }
 };
 
