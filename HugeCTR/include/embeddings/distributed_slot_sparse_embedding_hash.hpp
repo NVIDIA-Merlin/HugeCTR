@@ -30,9 +30,11 @@
 
 namespace HugeCTR {
 /**
- * The DistributedSlotSparseEmbeddingHash class inherits from Embedding class, which is the base class for
- * implementing all embedding layers. In this class, the embedding table is encapsulated in
- * a hash table. The key in the hash table is called as hash_table_key, and the value in
+ * The DistributedSlotSparseEmbeddingHash class inherits from Embedding class, which is the 
+ * base class for implementing all embedding layers. In this class, some of the slots in the 
+ * embedding table are assigned to multiple GPUs, which are called distributed slots. For 
+ * example, slot-0 on GPU-0/GPU-1, slot-1 on GPU-0/GPU-1, etc. The embedding table is encapsulated 
+ * in a hash table. The key in the hash table is called as hash_table_key, and the value in
  * the hash table is called as hash_table_value_index that means it indicates the embedding
  * feature's row number in the embedding table, and the embedding feature is called as
  * hash_table_value. This class implements all the operations needed by the training process of
@@ -56,7 +58,6 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
 
   std::vector<OptParams> opt_params_; /**< Optimizer params. */
   std::vector<std::unique_ptr<NvHashTable>> hash_tables_; /**< Hash table.  */
-  //std::vector<NvHashTable*> hash_tables_;
 
   // define tensors
   Tensors<float> hash_table_value_tensors_; /**< Hash table value. */
@@ -64,8 +65,8 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
       hash_value_index_tensors_; /**< Hash table value index. The index is corresponding to the line
                                     number of the value. */
   Tensors<float>
-      embedding_feature_tensors_; /**< Embedding feature: the output tensor of the forward(). */
-  Tensors<float> wgrad_tensors_;  /**< wgrad: the input tensor of the backward(). */
+      embedding_feature_tensors_; /**< the output tensor of the forward(). */
+  Tensors<float> wgrad_tensors_;  /**< the input tensor of the backward(). */
   Tensors<float>
       opt_m_tensors_; /**< The mi variable storage for adam optimizer in the update_params(). */
   Tensors<float>
@@ -106,11 +107,10 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
   GeneralBuffers<TypeHashValueIndex>
       value_index_bufs_; /**< TypeHashValueIndex type general buffer. */
 
-  std::vector<size_t> temp_storage_sort_bytes_;  // for CUB radix sort /**< The temp variable for
-                                                 // CUB lib sorting API. */
+  std::vector<size_t> temp_storage_sort_bytes_;  /**< The temp variable for CUB lib sorting API. */
   int max_vocabulary_size_per_gpu_;               /**< Max vocabulary size for each GPU. */
 
-  SparseEmbeddingHashFunctors functors;
+  SparseEmbeddingHashFunctors functors; /**< obj of SparseEmbeddingHashFunctors */
   
  public:
   /**
@@ -465,8 +465,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
                   hash_table_value_tensors_, 
                   hash_value_index_tensors_,
                   embedding_feature_tensors_,
-                  context,
-                  Base::device_resources_);
+                  Base::device_resources_,
+                  context);
 
   // sync
   functors.sync_all_gpus(Base::device_resources_, context);
@@ -628,14 +628,16 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::upload_params_to_device(st
     CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
   }
 
+  CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
+
   functors.upload_params_to_device<TypeHashKey, TypeHashValueIndex>(weight_stream,
                             embedding_params_.vocabulary_size,
                             embedding_params_.embedding_vec_size,
                             max_vocabulary_size_per_gpu_,
-                            Base::device_resources_,
                             hash_table_value_tensors_,
-                            hash_tables_
-                            );
+                            hash_tables_,
+                            Base::device_resources_,
+                            context);
 
   return;
 }  // end of upload_params_to_device()
@@ -649,13 +651,16 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::download_params_to_host(st
     return;
   }
 
+  CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
+
   functors.download_params_to_host(weight_stream,
                             embedding_params_.vocabulary_size,
                             embedding_params_.embedding_vec_size,
                             max_vocabulary_size_per_gpu_,
-                            Base::device_resources_,
                             hash_table_value_tensors_,
-                            hash_tables_);
+                            hash_tables_,
+                            Base::device_resources_,
+                            context);
 
   return;
 }  // end of download_params_to_host()
