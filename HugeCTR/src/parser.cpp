@@ -19,6 +19,7 @@
 #include "HugeCTR/include/layer.hpp"
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
 #include "HugeCTR/include/layers/concat_layer.hpp"
+#include "HugeCTR/include/layers/dropout_layer.hpp"
 #include "HugeCTR/include/layers/elu_layer.hpp"
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
@@ -199,6 +200,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
       {"Concat", Layer_t::Concat},
       {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
+      {"Dropout", Layer_t::Dropout},
       {"ELU", Layer_t::ELU},
       {"InnerProduct", Layer_t::InnerProduct},
       {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
@@ -295,6 +297,24 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         loss.reset(new CrossEntropyLoss(label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
                                         device_id));
+        break;
+      }
+      case Layer_t::Dropout: {
+        const auto& do_in_tensor = input_output_info.input;
+
+        // establish out tensor
+        std::shared_ptr<Tensor<float>> do_out_tensor(new Tensor<float>(
+            {batch_size, (do_in_tensor->get_dims())[1]}, blobs_buff, TensorFormat_t::HW));
+        output_tensor_pair.tensor = do_out_tensor;
+        // get ELU params
+        auto rate_it = j.find("rate");
+        auto rate = (rate_it != j.end())? rate_it->get<float>() : 0.5f;
+        layers.emplace_back(new DropoutLayer(do_in_tensor,
+                                             do_out_tensor,
+                                             rate,
+                                             gpu_resource->get_curand_generator(),
+                                             device_id));
+
         break;
       }
       case Layer_t::ELU: {

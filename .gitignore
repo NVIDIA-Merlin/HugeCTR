@@ -8,3 +8,11 @@ docs/latex
 *.model
 *.swp
 HugeCTR/include/config.hpp
+tools/criteo_script/*.txt
+tools/criteo_script/*.out
+tools/criteo_script/test
+tools/criteo_script/train
+tools/criteo_script/val
+tools/criteo_script/valtest
+tools/criteo_script/*.gz
+
