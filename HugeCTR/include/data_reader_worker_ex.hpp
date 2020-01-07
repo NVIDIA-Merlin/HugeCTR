@@ -19,7 +19,7 @@
 #include <vector>
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/csr.hpp"
-#include "HugeCTR/include/csr_chunk.hpp"
+#include "HugeCTR/include/csr_chunk_ex.hpp"
 #include "HugeCTR/include/file_list.hpp"
 #include "HugeCTR/include/heap.hpp"
 #include "HugeCTR/include/check_sum.hpp"
@@ -120,7 +120,6 @@ void DataReaderWorkerEx<T>::read_a_batch() {
     CSRChunk<T>* csr_chunk = nullptr;
     csr_heap_->free_chunk_checkout(&csr_chunk, &key);
     if (!skip_read_) {
-      const auto& csr_buffers = csr_chunk->get_csr_buffers();
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
       const int label_dense_dim = csr_chunk->get_label_dim();
       if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
@@ -128,7 +127,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
       std::unique_ptr<float[]> label_dense(new float[label_dense_dim]());
       int current_record_index_ = 0;
 
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::reset);
+      csr_chunk->apply_to_csr_buffers(&CSR<T>::reset); 
       assert(label_dense_buffers.size() > 0);
       //batch loop
       for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
@@ -153,6 +152,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
             label_dense_buffers[buffer_id][local_id * label_dense_dim + j] = label_dense[j];  // row major for label buffer
           }
 	}
+	int param_id = 0;
 	for(auto& param: params_){
 	  for (int k = 0; k < param.slot_num; k++) {
 	    int nnz;
@@ -170,14 +170,16 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 #endif
 	    CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
 	    if(param.type == DataReaderSparse_t::Distributed){
-	      csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
+	      for(int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++){
+		csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
+	      }
 	      for (int j = 0; j < nnz; j++) {
-		int buffer_id =
+		int dev_id =
 		  feature_ids_[j] %
-		  csr_buffers.size();  
+		  csr_chunk->get_num_devices();  
 		T local_id = feature_ids_[j];
-		assert(buffer_id < csr_buffers.size());
-		csr_chunk->get_csr_buffer(buffer_id).push_back(local_id);
+		assert(dev_id < csr_chunk->get_num_devices());
+		csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
 #ifndef NDEBUG
 		if (i == 0)
 		  std::cout << "[HCDEBUG]"
@@ -187,24 +189,25 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	      }
 	    }
 	    else if(param.type == DataReaderSparse_t::Localized){
-	      int buffer_id = k % csr_buffers.size();  
-	      csr_chunk->get_csr_buffer(buffer_id).new_row();
+	      int dev_id = k % csr_chunk->get_num_devices(); 
+	      csr_chunk->get_csr_buffer(param_id, dev_id).new_row(); 
 	      for (int j = 0; j < nnz; j++) {
 		T local_id = feature_ids_[j];
-		csr_chunk->get_csr_buffer(buffer_id).push_back(local_id);
+		csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id); 
 	      }
 	    }	    
 	    else{
 	      CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
 	    }
 	  }
+	  param_id++;
 	} //for(auto& param: params_)
 	current_record_index_++;
 
 	// start a new file when finish one file read
 	if(current_record_index_ >= data_set_header_.number_of_records) {
 	  //write the last idex to row
-	  csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
+	  csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row); 
 	  read_new_file();
 	}
       END_SAMPLE: ;
