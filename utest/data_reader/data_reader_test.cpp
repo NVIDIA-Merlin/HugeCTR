@@ -122,8 +122,8 @@ TEST(data_reader_worker_ex, data_reader_worker_ex_test) {
   params.push_back(param);
 
   constexpr size_t buffer_length = max_nnz;
-  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(
-      new Heap<CSRChunk<T>>(32, num_devices, batchsize, label_dim + dense_dim, slot_num, max_value_size));
+  std::shared_ptr<Heap<CSRChunkEx<T>>> csr_heap(
+      new Heap<CSRChunkEx<T>>(32, num_devices, batchsize, label_dim + dense_dim, params));
 
   // setup a data reader
   DataReaderWorkerEx<T> data_reader_ex(csr_heap, file_list, buffer_length, CHK, params);
