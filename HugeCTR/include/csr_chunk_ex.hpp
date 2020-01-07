@@ -50,7 +50,7 @@ class CSRChunkEx {
    * @param max_value_size the number of element of values the CSR matrix will have
    *        for num_rows rows (See csr.hpp).
    */
-  CSRChunkEx(num_devices, int batchsize, int label_dim, std::vector<DataReaderSparseParam>& params) {
+  CSRChunkEx(int num_devices, int batchsize, int label_dim, std::vector<DataReaderSparseParam>& params) {
     if (num_devices <= 0 || batchsize % num_devices != 0 || label_dim <= 0 ) {
       CK_THROW_(Error_t::WrongInput, "num_devices <= 0 || batchsize % num_devices != 0 || label_dim <= 0 ");
     }
@@ -70,10 +70,10 @@ class CSRChunkEx {
 	else if(param.type == DataReaderSparse_t::Localized){
 	  int mod_slots = param.slot_num % num_devices; //ceiling
 	  if(i < mod_slots){
-	    slots = params_.slot_num / num_devices + 1;
+	    slots = param.slot_num / num_devices + 1;
 	  }
 	  else{
-	    slots = params_.slot_num / num_devices;
+	    slots = param.slot_num / num_devices;
 	  }
 	}
 	csr_buffers_.emplace_back(batchsize * slots, param.max_feature_num*batchsize);

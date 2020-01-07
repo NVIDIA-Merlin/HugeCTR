@@ -30,7 +30,7 @@ namespace HugeCTR {
 template <class T>
 class DataReaderWorkerEx {
 private:
-  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
+  std::shared_ptr<Heap<CSRChunkEx<T>>> csr_heap_; /**< heap to cache the data set */
   DataSetHeaderEx
       data_set_header_; /**< the header of data set, which has main informations of a data file */
   size_t buffer_length_;              /**< max possible nnz in a slot */
@@ -62,7 +62,7 @@ public:
   /**
    * Ctor
    */
-  DataReaderWorkerEx(const std::shared_ptr<Heap<CSRChunk<T>>>& csr_heap, FileList& file_list, size_t buffer_length, 
+  DataReaderWorkerEx(const std::shared_ptr<Heap<CSRChunkEx<T>>>& csr_heap, FileList& file_list, size_t buffer_length, 
     Check_t check_type, std::vector<DataReaderSparseParam>& params):
     csr_heap_(csr_heap), buffer_length_(buffer_length), 
     check_type_(check_type), params_(params),
@@ -117,7 +117,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
       read_new_file();
     }
     unsigned int key = 0;
-    CSRChunk<T>* csr_chunk = nullptr;
+    CSRChunkEx<T>* csr_chunk = nullptr;
     csr_heap_->free_chunk_checkout(&csr_chunk, &key);
     if (!skip_read_) {
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
@@ -131,6 +131,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
       assert(label_dense_buffers.size() > 0);
       //batch loop
       for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
+	int param_id = 0;
 	csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
 	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()), sizeof(float) * label_dense_dim));
 	
@@ -152,7 +153,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
             label_dense_buffers[buffer_id][local_id * label_dense_dim + j] = label_dense[j];  // row major for label buffer
           }
 	}
-	int param_id = 0;
+
 	for(auto& param: params_){
 	  for (int k = 0; k < param.slot_num; k++) {
 	    int nnz;
@@ -162,12 +163,12 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	      ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
 	    }
 
-#ifndef NDEBUG
+	    //#ifndef NDEBUG
 	    if (i == 0){
 	      std::cout << "[HCDEBUG]"
 			<< "nnz: " << nnz << std::endl;
 	    }
-#endif
+	    //#endif
 	    CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
 	    if(param.type == DataReaderSparse_t::Distributed){
 	      for(int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++){
@@ -180,12 +181,12 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 		T local_id = feature_ids_[j];
 		assert(dev_id < csr_chunk->get_num_devices());
 		csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
-#ifndef NDEBUG
+		//#ifndef NDEBUG
 		if (i == 0)
 		  std::cout << "[HCDEBUG]"
 			    << "feature_ids:" << feature_ids_[j] << " local_id: " << local_id
 			    << std::endl;
-#endif
+		//#endif
 	      }
 	    }
 	    else if(param.type == DataReaderSparse_t::Localized){
