@@ -23,6 +23,7 @@
 #include "HugeCTR/include/data_reader.hpp"
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
@@ -334,7 +335,7 @@ class UnorderedKeyGenerator {
 
 #if 0
 // sparse_embedding_hash upload_params() and download_params() testing
-TEST(sparse_embedding_hash_test, upload_and_download_params) {
+TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
   test::mpi_init();
   
   // influential params for this test
@@ -468,9 +469,9 @@ TEST(sparse_embedding_hash_test, upload_and_download_params) {
 }
 #endif
 
-#if 1
+#if 0
 // sparse_embedding_hash correctness testing: forward->backward->update_params
-TEST(sparse_embedding_hash_test, training_correctness) {
+TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   test::mpi_init();
 
   constexpr int batch_num = 4;  // can not more than 32
@@ -697,7 +698,7 @@ TEST(sparse_embedding_hash_test, training_correctness) {
 // sparse_embedding_hash performance profiling: forward()/backward()/update_params()
 // 1. complie this app as release version
 // 2. use nvprof / nvvp to run this app
-TEST(sparse_embedding_hash_test, perf_profiling) {
+TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
   test::mpi_init();
   constexpr int batch_num = 10;  // can not more than 32
   // constexpr int batch_num = 1;
@@ -899,3 +900,226 @@ TEST(sparse_embedding_hash_test, perf_profiling) {
          (unsigned long)((time_update_params + time_forward + time_backward) / batch_num));
 }
 #endif
+
+
+TEST(localized_sparse_embedding_hash_test, reorder) {
+  int local_gpu_count = 4; // 4,2 pass 
+  int embedding_vec_size = 4;
+  int batch_size = 16; // 8,16 pass 
+  int samples_per_gpu = batch_size / local_gpu_count;
+  int slot_num = 10; // 8,10 pass 
+  int slots_per_sample = (slot_num + local_gpu_count - 1) / local_gpu_count; 
+  int size_per_gpu = batch_size * slots_per_sample * embedding_vec_size;
+
+  float * h_src, * d_src, * h_dst, * d_dst;
+  cudaMallocHost(&h_src, size_per_gpu*sizeof(float));
+  cudaMallocHost(&h_dst, size_per_gpu*sizeof(float));
+  cudaMalloc(&d_src, size_per_gpu*sizeof(float));
+  cudaMalloc(&d_dst, size_per_gpu*sizeof(float));
+
+  int stride = samples_per_gpu * slots_per_sample * embedding_vec_size;
+  for(int i = 0; i < samples_per_gpu; i++) {
+    int offset = i * slots_per_sample * embedding_vec_size;
+    for(int j = 0; j < slot_num; j++) {
+      int addr = offset + (j/local_gpu_count) * embedding_vec_size + (j%local_gpu_count) * stride;
+      //printf("sample_id=%d, slot_id=%d, addr=%d\n", i, j, addr);
+      for(int k = 0; k < embedding_vec_size; k++) {
+        h_src[addr+k] = (float)j;
+      }
+    }
+  }
+
+  for(int i = 0; i < batch_size; i++) {
+    for(int j = 0; j < slots_per_sample; j++) {
+      for(int k = 0; k < embedding_vec_size; k++) {
+        int addr = i*slots_per_sample*embedding_vec_size+j*embedding_vec_size+k;
+        //std::cout << "addr[" << addr << "]=" << h_src[addr] << ", ";
+        std::cout << h_src[addr] << ", ";
+      }
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+
+  dim3 blockSize(embedding_vec_size, 1, 1);
+  dim3 gridSize(batch_size/local_gpu_count, 1, 1);
+
+  cudaMemcpy(d_src, h_src, size_per_gpu * sizeof(float), cudaMemcpyHostToDevice);
+
+  reorder_kernel<float><<<gridSize, blockSize>>>(batch_size,
+                                                  slot_num,
+                                                  embedding_vec_size,
+                                                  local_gpu_count,
+                                                  d_src,
+                                                  d_dst);
+
+  cudaMemcpy(h_dst, d_dst, size_per_gpu * sizeof(float), cudaMemcpyDeviceToHost);
+
+  for(int i = 0; i < samples_per_gpu; i++) {
+    std::cout << "sample " << i << ":" << std::endl;
+    for(int j = 0; j < slot_num; j++) {
+      for(int k = 0; k < embedding_vec_size; k++) {
+        int addr = i*slot_num*embedding_vec_size+j*embedding_vec_size+k;
+        std::cout << h_dst[addr] << ", ";
+      }
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;         
+
+  // check results 
+  bool results = true;
+  for(int i = 0; i < samples_per_gpu; i++) {
+    for(int j = 0; j < slot_num; j++) {
+      for(int k = 0; k < embedding_vec_size; k++) {
+        int addr = i*slot_num*embedding_vec_size+j*embedding_vec_size+k;
+        if(!compare_float(h_dst[addr], float(j))) {
+          results = false;
+          j = slot_num;
+          i = samples_per_gpu;
+          break;
+        }
+      }
+    }
+  }
+
+  ASSERT_EQ(results, true);
+  
+  cudaFreeHost(h_src);
+  cudaFreeHost(h_dst);
+  cudaFree(d_src);
+  cudaFree(d_dst);
+}
+
+TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
+  std::vector<int> device_list = {0,1,2,3};
+  int local_gpu_count = device_list.size();
+  int embedding_vec_size = 4;
+  int batch_size = 16; // 8,16 pass 
+  int samples_per_gpu = batch_size / local_gpu_count;
+  int slot_num = 10; // 8,10 pass 
+  int slots_per_sample = (slot_num + local_gpu_count - 1) / local_gpu_count; 
+  int size_per_gpu = batch_size * slots_per_sample * embedding_vec_size;
+
+  std::vector<std::vector<int>> vvgpu;
+  vvgpu.push_back(device_list);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+  CudaDeviceContext context((*gpu_resource_group)[0]->get_device_id());
+  
+  std::vector<float *> h_src(local_gpu_count);
+  std::vector<float *> h_dst(local_gpu_count);
+  for(int id = 0; id < local_gpu_count; id++) {
+    cudaMallocHost(&h_src[id], size_per_gpu*sizeof(float));
+    cudaMallocHost(&h_dst[id], size_per_gpu*sizeof(float));
+  }
+
+  Tensors<float> d_src(local_gpu_count);
+  Tensors<float> d_mid(local_gpu_count);
+  Tensors<float> d_dst(local_gpu_count);
+  GeneralBuffers<float> buffers;
+  for (int i = 0; i < local_gpu_count; i++) {
+    std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
+    std::vector<int> dims = {batch_size, slots_per_sample, embedding_vec_size};
+    d_src.emplace_back(new Tensor<float>(dims, buff, TensorFormat_t::HSW));
+    d_mid.emplace_back(new Tensor<float>(dims, buff, TensorFormat_t::HSW));
+    d_dst.emplace_back(new Tensor<float>(dims, buff, TensorFormat_t::HSW));
+    buff->init(device_list[i]);
+    buffers.emplace_back(buff);
+  }
+
+  // init src
+  for(int id = 0; id < local_gpu_count; id++) {
+    for(int sample_id = 0; sample_id < batch_size; sample_id++) {
+      for(int slot_id = 0; slot_id < slots_per_sample; slot_id++) {
+        h_src[id][sample_id * slots_per_sample + slot_id] = id + slot_id * local_gpu_count;
+      }
+    }
+  }
+
+  // show src 
+  for(int id = 0; id < local_gpu_count; id++) {
+    std::cout << "gpu " << id << ": " << std::endl;
+    for(int sample_id = 0; sample_id < batch_size; sample_id++) {
+      std::cout << "\tsample " << sample_id << ": ";
+      for(int slot_id = 0; slot_id < slots_per_sample; slot_id++) {
+        std::cout << h_src[id][sample_id * slots_per_sample + slot_id] << ", ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+  }
+
+  SparseEmbeddingHashFunctors functors;
+
+  // memcpy from CPU to GPU
+  for(int id = 0; id < local_gpu_count; id++) {
+    cudaMemcpyAsync(d_src[id]->get_ptr(), h_src[id], size_per_gpu * sizeof(float), \
+      cudaMemcpyHostToDevice, (*gpu_resource_group)[id]->get_stream());
+  }
+  functors.sync_all_gpus(gpu_resource_group, context);
+
+  // all2all 
+  using comm_handler_traits = FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
+  using comm_handler = FasterGossipComm::FasterGossipComm<float, comm_handler_traits>;
+  std::unique_ptr<comm_handler> all2all;
+  const std::string plan_file = "";
+  const size_t element_per_send = samples_per_gpu * slots_per_sample * embedding_vec_size;
+  functors.all2all_init(all2all, plan_file, element_per_send, d_src, d_mid, gpu_resource_group);
+  functors.all2all_async(all2all);
+  functors.sync_all_gpus(gpu_resource_group, context);
+
+  // reorder
+  dim3 blockSize(embedding_vec_size, 1, 1);
+  dim3 gridSize(batch_size/local_gpu_count, 1, 1);
+  for(int id = 0; id < local_gpu_count; id++) {
+    reorder_kernel<float><<<gridSize, blockSize, 0, (*gpu_resource_group)[id]->get_stream()>>>(batch_size,
+                                                    slot_num,
+                                                    embedding_vec_size,
+                                                    local_gpu_count,
+                                                    d_mid[id]->get_ptr(),
+                                                    d_dst[id]->get_ptr());
+  }
+
+  // memcpy from GPU to CPU
+  for(int id = 0; id < local_gpu_count; id++) {
+    cudaMemcpyAsync(h_dst[id], d_dst[id]->get_ptr(), size_per_gpu * sizeof(float), \
+      cudaMemcpyDeviceToHost, (*gpu_resource_group)[id]->get_stream());
+  }
+  functors.sync_all_gpus(gpu_resource_group, context);
+
+  // show dst
+  for(int id = 0; id < local_gpu_count; id++) {
+    std::cout << "gpu " << id << ": " << std::endl;
+    for(int sample_id = 0; sample_id < batch_size; sample_id++) {
+      std::cout << "\tsample " << sample_id << ": ";
+      for(int slot_id = 0; slot_id < slots_per_sample; slot_id++) {
+        std::cout << h_dst[id][sample_id * slots_per_sample + slot_id] << ", ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+  }     
+
+  // check results 
+  bool results = true;
+  for(int id = 0; id < local_gpu_count; id++) {
+    for(int sample_id = 0; sample_id < batch_size; sample_id++) {
+      for(int slot_id = 0; slot_id < slots_per_sample; slot_id++) {
+        if(!compare_float(h_dst[id][sample_id * slots_per_sample + slot_id], float(slot_id))) {
+          results = false;
+          id = local_gpu_count;
+          sample_id = batch_size;
+          break;
+        }
+      }
+    }
+  } 
+
+  ASSERT_EQ(results, true);
+  
+  for(int id = 0; id < local_gpu_count; id++) {
+    cudaFreeHost(h_src[id]);
+    cudaFreeHost(h_dst[id]);
+  }
+}
