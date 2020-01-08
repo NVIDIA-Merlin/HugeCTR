@@ -46,16 +46,16 @@
 
 
     {
-      "name": "concat1",
-      "type": "Concat",
+      "name": "reshape1",
+      "type": "Reshape",
       "bottom": "sparse_embedding1",
-      "top": "concat1"
+      "top": "reshape1"
     },
 
     {
       "name": "fc1",
       "type": "InnerProduct",
-      "bottom": "concat1",
+      "bottom": "reshape1",
       "top": "fc1",
        "fc_param": {
         "num_output": 200
