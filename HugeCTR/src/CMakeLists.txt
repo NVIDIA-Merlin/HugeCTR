@@ -31,6 +31,7 @@ file(GLOB huge_ctr_src
   optimizers/nesterov_optimizer.cu
   parser.cpp
   session.cpp
+  ../include/faster_gossip_comm/FasterGossipComm/gossip/include/plan_parser.cpp 
   embedding_creator.cu
 )
 

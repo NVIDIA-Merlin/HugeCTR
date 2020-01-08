@@ -483,9 +483,27 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
               slot_num,
               combiner,  // combiner: 0-sum, 1-mean, 2-sqrtn
               opt_params};
-          embedding.reset(EmbeddingCreator::create_sparse_embedding_hash(
+          embedding.reset(EmbeddingCreator::create_distributed_sparse_embedding_hash(
               data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
               embedding_params, gpu_resource_group));
+          break;
+        }
+
+        case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
+          auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
+          auto plan_file = get_value_from_json<std::string>(j_hparam, "plan_file"); // TODO: placeholder for plan_file
+          const SparseEmbeddingHashParams embedding_params = {
+              batch_size,
+              vocabulary_size,
+              load_factor,
+              embedding_vec_size,
+              max_feature_num_per_sample,
+              slot_num,
+              combiner,  // combiner: 0-sum, 1-mean, 2-sqrtn
+              opt_params};
+          embedding.reset(EmbeddingCreator::create_localized_sparse_embedding_hash(
+              data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
+              embedding_params, plan_file, gpu_resource_group));
           break;
         }
         default: { assert(!"Error: no such option && should never get here!"); }

@@ -410,4 +410,39 @@ __global__ void get_hash_table_value_kernel(const long long count,
   }
 }
 
+template <typename Type>
+__global__ void reorder_kernel(const int batch_size,
+                              const int slot_num,
+                              const int embedding_vec_size,
+                              const int gpu_num,
+                              const Type * input,
+                              Type * output) {
+  // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding vector
+  // gridDim.x = batch_size / gpu_num = samples_per_gpu; // each block corresponding to one sample on each GPU
+  // Each thread needs to process slot_num slots
+
+  int tid  = threadIdx.x;
+  int bid = blockIdx.x;
+
+  int samples_per_gpu = batch_size / gpu_num; 
+  int sample_id = bid; // sample_id on the current GPU 
+
+  if((bid < samples_per_gpu) && (tid < embedding_vec_size)) {
+    int slots_per_sample = (slot_num + gpu_num - 1) / gpu_num; 
+
+    int src_offset = sample_id * slots_per_sample * embedding_vec_size; 
+    int src_stride = samples_per_gpu * slots_per_sample * embedding_vec_size; 
+
+    int dst_offset = sample_id * slot_num * embedding_vec_size; // offset for the first slot of one sample
+    int dst_stride = embedding_vec_size; // stride from slot to slot
+
+    for(int slot_id = 0; slot_id < slot_num; slot_id++) {
+      int src_addr =  src_offset + (int)(slot_id / gpu_num) * embedding_vec_size \
+                      + src_stride * (slot_id % gpu_num);
+      int dst_addr = dst_offset + dst_stride * slot_id;
+      output[dst_addr+tid] = input[src_addr+tid];
+    }
+  }
+}
+
 }  // end of namespace HugeCTR
