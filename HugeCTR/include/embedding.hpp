@@ -134,7 +134,9 @@ class Embedding {
 
 template <typename TypeKey>
 Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
-                              const Tensors<TypeKey>& value_tensors, int batchsize, int slot_num,
+                              const Tensors<TypeKey>& value_tensors, 
+                              int batchsize, 
+                              int slot_num,
                               int embedding_vec_size,
                               const std::shared_ptr<GPUResourceGroup>& gpu_resource_group)
     : row_offsets_tensors_(row_offsets_tensors),
@@ -220,13 +222,30 @@ struct EmbeddingCreator {
   typedef long long TYPE_1;
   typedef unsigned int TYPE_2;
 
-  static Embedding<TYPE_1>* create_sparse_embedding_hash(
-      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+  static Embedding<TYPE_1>* create_distributed_sparse_embedding_hash(
+      const Tensors<TYPE_1>& row_offsets_tensors, 
+      const Tensors<TYPE_1>& value_tensors,
       SparseEmbeddingHashParams embedding_params,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
-  static Embedding<TYPE_2>* create_sparse_embedding_hash(
-      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+
+  static Embedding<TYPE_2>* create_distributed_sparse_embedding_hash(
+      const Tensors<TYPE_2>& row_offsets_tensors, 
+      const Tensors<TYPE_2>& value_tensors,
       SparseEmbeddingHashParams embedding_params,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_1>* create_localized_sparse_embedding_hash(
+      const Tensors<TYPE_1>& row_offsets_tensors, 
+      const Tensors<TYPE_1>& value_tensors,
+      SparseEmbeddingHashParams embedding_params,
+      const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+      
+  static Embedding<TYPE_2>* create_localized_sparse_embedding_hash(
+      const Tensors<TYPE_2>& row_offsets_tensors, 
+      const Tensors<TYPE_2>& value_tensors,
+      SparseEmbeddingHashParams embedding_params,
+      const std::string plan_file,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 };
 
