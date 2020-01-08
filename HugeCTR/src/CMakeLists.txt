@@ -9,8 +9,6 @@
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 #
 
 cmake_minimum_required(VERSION 3.8)
@@ -25,6 +23,8 @@ file(GLOB huge_ctr_src
   layers/elu_layer.cu
   layers/fully_connected_layer.cu
   layers/relu_layer.cu
+  layers/reshape_layer.cu
+  layers/slice_layer.cu
   loss.cu
   network.cpp
   optimizers/adam_optimizer.cu

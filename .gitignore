@@ -7,6 +7,10 @@ docs/latex
 *~
 *.model
 *.swp
+*.tmp
+*.txt
+*.tar.gz
+*.out
 HugeCTR/include/config.hpp
 tools/criteo_script/*.txt
 tools/criteo_script/*.out

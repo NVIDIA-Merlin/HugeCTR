@@ -87,6 +87,7 @@ enum class Optimizer_t { Adam, MomentumSGD, Nesterov };
 enum class Layer_t {
   BatchNorm,
   BinaryCrossEntropyLoss,
+  Reshape,
   Concat,
   CrossEntropyLoss,
   Dropout,
@@ -94,6 +95,7 @@ enum class Layer_t {
   InnerProduct,
   MultiCrossEntropyLoss,
   ReLU,
+  Slice,
 };
 
 enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash };
