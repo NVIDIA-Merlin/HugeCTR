@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_collector_ex.hpp"
 #include "HugeCTR/include/general_buffer.hpp"
@@ -21,7 +22,7 @@
 
 namespace HugeCTR {
 
-__global__ void split_kernel__(int batchsize, float* label_ptr, int lable_dim, 
+__global__ void split_kernel__(int batchsize, float* label_ptr, int label_dim, 
 			       float* dense_ptr, int dense_dim, const float* label_dense){
   
   int idx = blockDim.x*blockIdx.x + threadIdx.x;
@@ -41,7 +42,7 @@ __global__ void split_kernel__(int batchsize, float* label_ptr, int lable_dim,
   return;
 }
 
-void split(std::shared_ptr<<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor, const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream ){
+void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor, const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream ){
   //check the input size
   assert(label_tensor->get_dims()[0] == dense_tensor->get_dims()[0]);
   assert(label_tensor->get_num_elements() + dense_tensor->get_num_elements() == label_dense_buffer->get_num_elements());

@@ -18,10 +18,11 @@
 
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/csr.hpp"
-#include "HugeCTR/include/csr_chunk.hpp"
+#include "HugeCTR/include/csr_chunk_ex.hpp"
 #include "HugeCTR/include/general_buffer.hpp"
 #include "HugeCTR/include/gpu_resource.hpp"
 #include "HugeCTR/include/heap.hpp"
+#include "HugeCTR/include/tensor.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -67,7 +68,7 @@ class DataCollector {
   std::mutex stat_mtx_;
   std::condition_variable stat_cv_;
   JOB job_{TRAIN};
-  std::shared_ptr<Heap<CSRChunk<TypeKey>>> csr_heap_;
+  std::shared_ptr<Heap<CSRChunkEx<TypeKey>>> csr_heap_;
 
   Tensors<float> label_tensors_;
   Tensors<float> dense_tensors_;
@@ -94,7 +95,7 @@ class DataCollector {
 		const Tensors<float>& dense_tensors,
 		const GeneralBuffers<TypeKey>& csr_buffers,
 		const std::shared_ptr<GPUResourceGroup>& device_resources,
-		const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap = nullptr,
+		const std::shared_ptr<Heap<CSRChunkEx<TypeKey>>>& csr_heap = nullptr,
 		bool is_eval = true);
 
 
@@ -133,10 +134,10 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
 				      const Tensors<float>& dense_tensors,
                                       const GeneralBuffers<TypeKey>& csr_buffers,
                                       const std::shared_ptr<GPUResourceGroup>& device_resources,
-                                      const std::shared_ptr<Heap<CSRChunk<TypeKey>>>& csr_heap,
+                                      const std::shared_ptr<Heap<CSRChunkEx<TypeKey>>>& csr_heap,
                                       bool is_eval)
     : csr_heap_(csr_heap),
-      label_tesnors_(label_tensors),
+      label_tensors_(label_tensors),
       dense_tensors_(dense_tensors),
       csr_buffers_(csr_buffers),
       device_resources_(device_resources) {
@@ -159,12 +160,12 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
     }
     
     // create internal buffers
-    auto& local_device_list = device_resources_.get_device_list();
-    for (int i=0; i < local_device_list.size(); i++){
-      assert(local_device_list[i] == label_tensors_[i].get_device_id());
-      assert(local_device_list[i] == dense_tensors_[i].get_device_id());
-      int buf_size = label_tensors_[i].get_num_elements()+dense_tensors_[i].get_num_elements();
-      label_dense_buffers_internal_.emplace_back(buf_size,local_device_list[i]);
+    auto& local_device_list = device_resources_->get_device_list();
+    for (unsigned int i=0; i < local_device_list.size(); i++){
+      assert(local_device_list[i] == label_tensors_[i]->get_device_id());
+      assert(local_device_list[i] == dense_tensors_[i]->get_device_id());
+      int buf_size = label_tensors_[i]->get_num_elements()+dense_tensors_[i]->get_num_elements();
+      label_dense_buffers_internal_.emplace_back(std::make_shared<GeneralBuffer<float>>(buf_size,local_device_list[i]));
     }
     for (auto& cb : csr_buffers_) {
       csr_buffers_internal_.emplace_back(
@@ -202,7 +203,7 @@ void DataCollector<TypeKey>::collect() {
 
     if ((job_ == TRAIN && pid_ == counter_ % num_procs_) || job_ == EVAL_MASTER) {
       // my turn
-      CSRChunk<TypeKey>* chunk_tmp = nullptr;
+      CSRChunkEx<TypeKey>* chunk_tmp = nullptr;
       unsigned int key = 0;
 
       int total_device_count = device_resources_->get_total_gpu_count();
@@ -222,7 +223,7 @@ void DataCollector<TypeKey>::collect() {
 
       for (int i = 0; i < total_device_count; i++) {
         int pid = device_resources_->get_pid(i);
-        int label_copy_num = label_dense_buffers_[0]->get_num_elements();
+        int label_copy_num = (label_dense_buffers[0]).get_num_elements();
         if (pid_ == pid) {
           int local_id = device_resources_->get_local_id(i);
           CudaDeviceContext context(device_resources_->get_local_device_id(i));
@@ -286,9 +287,9 @@ void DataCollector<TypeKey>::collect() {
 
         req.resize(req.size() + 1 + num_params_);
 	for (int j = 0; j < num_params_; j++){
-	  int csr_tag = ((device_resources_->get_global_id(device_list[i])*num_params+j) << 2) | base_tag;
-	  CK_MPI_THROW_(MPI_Irecv(csr_buffers_internal_[i*num_params + j]->get_ptr_with_offset(0),
-				  csr_buffers_internal_[i*num_params + j]->get_num_elements(),
+	  int csr_tag = ((device_resources_->get_global_id(device_list[i])*num_params_+j) << 2) | base_tag;
+	  CK_MPI_THROW_(MPI_Irecv(csr_buffers_internal_[i*num_params_ + j]->get_ptr_with_offset(0),
+				  csr_buffers_internal_[i*num_params_ + j]->get_num_elements(),
 				  ToMpiType<TypeKey>::T(), counter_ % num_procs_, csr_tag,
 				  MPI_COMM_WORLD, &(req.back()) - 1 - j));
 	}
@@ -331,7 +332,6 @@ void DataCollector<TypeKey>::read_a_batch_to_device() {
 				       csr_buffers_internal_[csr_id]->get_ptr_with_offset(0),
 				       csr_buffers_[csr_id]->get_size(), cudaMemcpyDeviceToDevice,
 				       (*device_resources_)[i]->get_stream()));
-				 
       }
 
       split(label_tensors_[i], dense_tensors_[i],

@@ -63,7 +63,7 @@ public:
    * Ctor
    */
   DataReaderWorkerEx(const std::shared_ptr<Heap<CSRChunkEx<T>>>& csr_heap, FileList& file_list, size_t buffer_length, 
-    Check_t check_type, std::vector<DataReaderSparseParam>& params):
+    Check_t check_type, const std::vector<DataReaderSparseParam>& params):
     csr_heap_(csr_heap), buffer_length_(buffer_length), 
     check_type_(check_type), params_(params),
     feature_ids_(new T[buffer_length]())
