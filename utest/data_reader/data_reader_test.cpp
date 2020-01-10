@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_reader_ex.hpp"
 #include "HugeCTR/include/data_reader_worker_ex.hpp"
 #include <fstream>
 #include <thread>
@@ -116,7 +116,6 @@ TEST(data_reader_worker_ex, data_reader_worker_ex_test) {
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
-  const int max_value_size = max_nnz * batchsize * slot_num;
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz*slot_num, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
@@ -131,6 +130,49 @@ TEST(data_reader_worker_ex, data_reader_worker_ex_test) {
   data_reader_ex.read_a_batch();
   
 }
+
+TEST(data_reader_test, data_reader_ex_simple_test) {
+  const int batchsize = 2048;
+  int numprocs = 1, pid = 0;
+  std::vector<std::vector<int>> vvgpu;
+  std::vector<int> device_list = {0, 1};
+  cudaSetDevice(0);
+#ifdef ENABLE_MPI
+  test::mpi_init();
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+#endif
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  auto device_map = std::make_shared<DeviceMap>(vvgpu, pid);
+  auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
+
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz*slot_num, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+
+
+  DataReaderEx<T> data_reader(file_list_name_ex, batchsize, label_dim, dense_dim, CHK, params, 
+                            gpu_resource_group, 31, 1);
+
+  data_reader.read_a_batch_to_device();
+  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  data_reader.read_a_batch_to_device();
+  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  data_reader.read_a_batch_to_device();
+  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  //  while(1){}
+
+}
+
+
 
 #if 0
 TEST(data_reader_test, data_reader_simple_test) {
