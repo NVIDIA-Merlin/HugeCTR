@@ -243,6 +243,9 @@ public:
     }
   }
   void write(){
+    // if(array_.size() == 0){
+    //   std::cout << "array_.size() == 0" << std::endl;;
+    // }
     Checker_Traits<T>::write(static_cast<int>(array_.size()), array_.data(), check_char_, stream_);
     check_char_ = Checker_Traits<T>::zero();
     array_.clear();

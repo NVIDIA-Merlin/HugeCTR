@@ -41,11 +41,23 @@ private:
   std::shared_ptr<Checker> checker_;
   bool skip_read_{false};             /**< set to true when you want to stop the data reading */
   const int MAX_TRY = 10;
+  int current_record_index_{0};
+
+void tmp_check(int i, int a, std::string str, int b = 264){
+  if(a == b){
+    std::cout << std::to_string(i) << str << std::endl;
+  }
+}
+
+
   void read_new_file(){
     for(int i=0; i<MAX_TRY; i++){
       checker_->next_source();
+
+      //      tmp_check(0, sizeof(DataSetHeaderEx), "sizeof(DataSetHeaderEx)");
       Error_t err = checker_->read(reinterpret_cast<char*>(&data_set_header_), 
 				   sizeof(DataSetHeaderEx));
+      current_record_index_ = 0;
       //todo: check if file match our DataReader setting.
       if(!(data_set_header_.error_check == 0 && check_type_ == Check_t::None) 
 	 && !(data_set_header_.error_check == 1 && check_type_ == Check_t::Sum)){
@@ -57,6 +69,7 @@ private:
     }
     CK_THROW_(Error_t::BrokenFile, "failed to read a file");
   }
+
 
 public:
   /**
@@ -110,6 +123,7 @@ public:
     }							\
   } while (0)
 
+
 template <class T>
 void DataReaderWorkerEx<T>::read_a_batch() {
   try {
@@ -125,14 +139,18 @@ void DataReaderWorkerEx<T>::read_a_batch() {
       if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
         CK_THROW_(Error_t::WrongInput, "data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim");
       std::unique_ptr<float[]> label_dense(new float[label_dense_dim]());
-      int current_record_index_ = 0;
 
       csr_chunk->apply_to_csr_buffers(&CSR<T>::reset); 
       assert(label_dense_buffers.size() > 0);
       //batch loop
       for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
+	//	std::cout << std::to_string(i) << ";";
+
 	int param_id = 0;
 	csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
+	
+	//	tmp_check(i, sizeof(float) * label_dense_dim, "sizeof(float) * label_dense_dim");
+
 	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()), sizeof(float) * label_dense_dim));
 	
 	//std::cout << i << ',';
@@ -163,12 +181,13 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	      ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
 	    }
 
-	    //#ifndef NDEBUG
+	    #ifndef NDEBUG
 	    if (i == 0){
 	      std::cout << "[HCDEBUG]"
 			<< "nnz: " << nnz << std::endl;
 	    }
-	    //#endif
+	    #endif
+	    //	    tmp_check(i, sizeof(T) * nnz, "sizeof(T) * nnz");
 	    CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
 	    if(param.type == DataReaderSparse_t::Distributed){
 	      for(int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++){
@@ -181,12 +200,12 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 		T local_id = feature_ids_[j];
 		assert(dev_id < csr_chunk->get_num_devices());
 		csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
-		//#ifndef NDEBUG
+		#ifndef NDEBUG
 		if (i == 0)
 		  std::cout << "[HCDEBUG]"
 			    << "feature_ids:" << feature_ids_[j] << " local_id: " << local_id
 			    << std::endl;
-		//#endif
+		#endif
 	      }
 	    }
 	    else if(param.type == DataReaderSparse_t::Localized){
@@ -203,16 +222,19 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	  }
 	  param_id++;
 	} //for(auto& param: params_)
-	current_record_index_++;
+      END_SAMPLE: ;
 
+	current_record_index_++;
+	
 	// start a new file when finish one file read
 	if(current_record_index_ >= data_set_header_.number_of_records) {
-	  //write the last idex to row
-	  csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row); 
 	  read_new_file();
 	}
-      END_SAMPLE: ;
       }//batch loop
+
+      //write the last index to row
+      csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row); 
+
     }
     csr_heap_->chunk_write_and_checkin(key);
   }
