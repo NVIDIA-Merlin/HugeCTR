@@ -42,12 +42,20 @@ public:
       //if counter == 0 read int length and char check_sum
       if(counter_ == 0){
 	Checker::src_.read(reinterpret_cast<char*>(&counter_), sizeof(int));
+	if(counter_ == 0){
+	  std::cout << "counter_ == 0;;" << std::endl;
+	}
+
+      }
+      if(counter_ == 0){
+	std::cout << "counter_ == 0;" << std::endl;
       }
       counter_ -= bytes_to_read;
       //if user read more data than expected, return `BrokenFile`. 
       //User should check this error and call next_source to new a source.
       if(counter_ < 0){
-	CK_THROW_(Error_t::BrokenFile, "counter_ < 0");
+	std::cout << "counter_ < 0" << std::endl;
+	CK_THROW_(Error_t::BrokenFile, "counter_ " + std::to_string(counter_) + "< 0");
       }
       else{
 	Checker::src_.read(ptr, bytes_to_read);
