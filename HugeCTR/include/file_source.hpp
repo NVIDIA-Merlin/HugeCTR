@@ -44,7 +44,9 @@ public:
       if (!in_file_stream_.is_open()){
 	return Error_t::FileCannotOpen;
       }
-      in_file_stream_.read(ptr, bytes_to_read);
+      if(bytes_to_read > 0 ){
+	in_file_stream_.read(ptr, bytes_to_read);
+      }
       if(in_file_stream_.gcount() != static_cast<int>(bytes_to_read)){
 	return Error_t::OutOfBound;
       }

@@ -47,6 +47,7 @@ static void data_reader_thread_func_(const std::shared_ptr<DataReaderWorkerEx<Ty
     while (*p_loop_flag) {
       data_reader->read_a_batch();
     }
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
@@ -141,22 +142,21 @@ class DataReaderEx {
       if(param.max_feature_num <= 0 || param.slot_num <= 0){
 	CK_THROW_(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
       }
-      
+    }      
 
-      // init the heap
-      csr_heap_.reset(new Heap<CSRChunkEx<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_ + dense_dim_,
-						    params_));
+    // init the heap
+    csr_heap_.reset(new Heap<CSRChunkEx<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_ + dense_dim_,
+						  params_));
 
-      assert(data_readers_.empty() && data_reader_threads_.empty());
+    assert(data_readers_.empty() && data_reader_threads_.empty());
 
-      // create data reader
-      for (int i = 0; i < NumThreads; i++) {
-	std::shared_ptr<DataReaderWorkerEx<TypeKey>> data_reader(
- 	  new DataReaderWorkerEx<TypeKey>(csr_heap_, *file_list_, max_feature_num_per_sample, check_type_, params_));
-	data_readers_.push_back(data_reader);
-	data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
-					  &data_reader_loop_flag_);
-      }
+    // create data reader
+    for (int i = 0; i < NumThreads; i++) {
+      std::shared_ptr<DataReaderWorkerEx<TypeKey>> data_reader(
+       new DataReaderWorkerEx<TypeKey>(csr_heap_, *file_list_, max_feature_num_per_sample, check_type_, params_));
+      data_readers_.push_back(data_reader);
+      data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
+					&data_reader_loop_flag_);
     }
   }
 
@@ -369,19 +369,22 @@ template <typename TypeKey>
 DataReaderEx<TypeKey>::~DataReaderEx() {
   try {
     // stop all the loops
+    data_reader_loop_flag_ = 0;
     for (auto& data_reader : data_readers_) {
       data_reader->skip_read();
     }
     if (csr_heap_ != nullptr) {
       csr_heap_->break_and_return();
     }
-    data_reader_loop_flag_ = 0;
     data_collector_->stop();
+
+    data_collector_thread_.join();
 
     for (auto& data_reader_thread : data_reader_threads_) {
       data_reader_thread.join();
     }
-    data_collector_thread_.join();
+
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
