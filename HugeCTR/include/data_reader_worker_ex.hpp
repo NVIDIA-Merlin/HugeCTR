@@ -126,7 +126,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
     unsigned int key = 0;
     CSRChunkEx<T>* csr_chunk = nullptr;
     csr_heap_->free_chunk_checkout(&csr_chunk, &key);
-    //if (skip_read_){ std::cout << "skip_read_" << std::endl;}
+
     if (!skip_read_) {
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
       const int label_dense_dim = csr_chunk->get_label_dim();
@@ -138,7 +138,6 @@ void DataReaderWorkerEx<T>::read_a_batch() {
       assert(label_dense_buffers.size() > 0);
       //batch loop
       for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
-	//	std::cout << std::to_string(i) << ";";
 
 	int param_id = 0;
 	csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
@@ -146,11 +145,6 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	//	tmp_check(i, sizeof(float) * label_dense_dim, "sizeof(float) * label_dense_dim");
 
 	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()), sizeof(float) * label_dense_dim));
-	
-	//std::cout << i << ',';
-	// for(int ii = 0; ii < label_dense_dim; ii++){
-	//   std::cout << label_dense[ii] << std::endl;
-	// }
 
 	{
 	  // We suppose that the data parallel mode is like this
