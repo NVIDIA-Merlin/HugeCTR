@@ -44,65 +44,6 @@ const std::string file_list_name_ex("sample_ex_file_list.txt");
 const std::string prefix_ex("./data_reader_test_data_ex/temp_dataset_");
 const Check_t CHK = Check_t::Sum;
 
-#if 0
-TEST(data_reader_multi_threads, data_reader_single_thread_test) {
-  // writing data
-  test::mpi_init();
-  HugeCTR::data_generation<T>(file_list_name, prefix, num_files, num_records, slot_num,
-                              vocabulary_size, label_dim, max_nnz);
-  
-  // setup a file list
-  std::shared_ptr<FileList> file_list(new FileList(file_list_name));
-  // setup a CSR heap
-  const int num_devices = 1;
-  const int batchsize = 2048;
-  const int max_value_size = max_nnz * batchsize * slot_num;
-
-  constexpr size_t buffer_length = max_nnz;
-
-  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(
-      new Heap<CSRChunk<T>>(32, num_devices, batchsize, label_dim, slot_num, max_value_size));
-  // setup a data reader
-  DataReaderWorker<T> data_reader(csr_heap, file_list, buffer_length);
-  // call read a batch
-  data_reader.read_a_batch();
-}
-
-template <typename T>
-void threadFunc(const std::shared_ptr<Heap<CSRChunk<T>>>& csr_heap,
-                const std::shared_ptr<FileList>& file_list, size_t buffer_length) {
-  DataReaderWorker<T> data_reader(csr_heap, file_list, buffer_length);
-  data_reader.read_a_batch();
-}
-
-TEST(data_reader_multi_threads, data_reader_multi_threads_test) {
-  test::mpi_init();
-
-  // setup a file list
-  std::shared_ptr<FileList> file_list(new FileList(file_list_name));
-  // setup a CSR heap
-  const int num_devices = 1;
-  const int batchsize = 2048;
-  const int max_value_size = max_nnz * batchsize * slot_num;
-
-  constexpr size_t buffer_length = max_nnz;
-  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap(
-      new Heap<CSRChunk<T>>(32, num_devices, batchsize, label_dim, slot_num, max_value_size));
-
-  // setup several data readers
-  const int num_threads = 5;
-
-  std::thread data_reader_threads[num_threads];
-
-  for (int i = 0; i < num_threads; i++) {
-    data_reader_threads[i] = std::thread(threadFunc<T>, csr_heap, file_list, buffer_length);
-  }
-
-  for (int i = 0; i < num_threads; i++) {
-    data_reader_threads[i].join();
-  }
-}
-
 
 TEST(data_reader_worker_ex, data_reader_worker_ex_test) {
   test::mpi_init();
@@ -210,7 +151,7 @@ TEST(data_reader_test, data_reader_ex_localized_test) {
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
 
 }
-#endif
+
 
 
 TEST(data_reader_test, data_reader_ex_mixed_test) {
@@ -257,41 +198,3 @@ TEST(data_reader_test, data_reader_ex_mixed_test) {
   
 }
 
-
-#if 0
-TEST(data_reader_test, data_reader_simple_test) {
-  const int batchsize = 2048;
-  int numprocs = 1, pid = 0;
-  std::vector<std::vector<int>> vvgpu;
-  std::vector<int> device_list = {0, 1};
-  cudaSetDevice(0);
-#ifdef ENABLE_MPI
-  test::mpi_init();
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-#endif
-  for (int i = 0; i < numprocs; i++) {
-    vvgpu.push_back(device_list);
-  }
-  DeviceMap device_map(vvgpu, pid);
-  GPUResourceGroup gpu_resource_group(device_map);
-
-  DataReader<T> data_reader(file_list_name, batchsize, label_dim, slot_num, max_nnz * slot_num,
-                            gpu_resource_group, 31, 1);
-
-  data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
-  data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
-  data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
-  //  while(1){}
-
-}
-#endif
