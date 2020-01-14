@@ -43,13 +43,6 @@ private:
   const int MAX_TRY = 10;
   int current_record_index_{0};
 
-void tmp_check(int i, int a, std::string str, int b = 264){
-  if(a == b){
-    std::cout << std::to_string(i) << str << std::endl;
-  }
-}
-
-
   void read_new_file(){
     for(int i=0; i<MAX_TRY; i++){
       checker_->next_source();
@@ -133,6 +126,7 @@ void DataReaderWorkerEx<T>::read_a_batch() {
     unsigned int key = 0;
     CSRChunkEx<T>* csr_chunk = nullptr;
     csr_heap_->free_chunk_checkout(&csr_chunk, &key);
+    //if (skip_read_){ std::cout << "skip_read_" << std::endl;}
     if (!skip_read_) {
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
       const int label_dense_dim = csr_chunk->get_label_dim();
@@ -188,6 +182,9 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	    }
 	    #endif
 	    //	    tmp_check(i, sizeof(T) * nnz, "sizeof(T) * nnz");
+	    // if(nnz == 0){
+	    //    std::cout << "p:" << param_id << "k:" << k;
+	    //  }
 	    CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
 	    if(param.type == DataReaderSparse_t::Distributed){
 	      for(int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++){
@@ -231,10 +228,8 @@ void DataReaderWorkerEx<T>::read_a_batch() {
 	  read_new_file();
 	}
       }//batch loop
-
       //write the last index to row
       csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row); 
-
     }
     csr_heap_->chunk_write_and_checkin(key);
   }
