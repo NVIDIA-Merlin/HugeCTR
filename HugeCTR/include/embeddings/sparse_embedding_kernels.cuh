@@ -113,6 +113,44 @@ __global__ void forward_scale_kernel(const int batch_size,
   }
 }
 
+// forward kernel funcion: for both combiner=sum and combiner=mean
+template <typename TypeKey, typename TypeValueIndex>
+__global__ void forward_mean_kernel(const int batch_size, 
+                                   const int slot_num,
+                                   const int embedding_vec_size, 
+                                   const TypeKey *row_offset,
+                                   const TypeValueIndex *hash_value_index,
+                                   const float *hash_table_value, 
+                                   float *embedding_feature) {
+  int bid = blockIdx.x;   // each block corresponding to one sample
+  int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
+
+  if (bid < batch_size && tid < embedding_vec_size) {
+    for (int i = 0; i < slot_num; i++) {
+      int feature_row_index = bid * slot_num + i;
+      TypeKey value_offset = row_offset[feature_row_index];
+      TypeKey feature_num =
+          row_offset[feature_row_index + 1] - value_offset;  // number of hash values in one slot
+
+      float sum = 0.0f;
+
+      // reduce in a slot
+      for (int j = 0; j < feature_num; j++) {
+        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        sum += hash_table_value[value_index * embedding_vec_size + tid];
+      }
+
+      float scaler = 1.0f;
+      if (feature_num > 1) {
+        scaler = 1.0f / (float)feature_num;
+      }
+
+      // store the embedding vector
+      embedding_feature[feature_row_index * embedding_vec_size + tid] = (sum * scaler);
+    }
+  }
+}
+
 // backward kernel function: for combiner=sum
 template <typename TypeKey>
 __global__ void backward_sum_kernel(const int batch_size, 
@@ -189,6 +227,7 @@ __global__ void value_count_kernel(const int nnz,
                                    uint32_t *hash_value_index_count,
                                    uint32_t *hash_value_index_count_offset,
                                    uint32_t *hash_value_index_count_counter) {
+
   int gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (gid < nnz) {
@@ -394,22 +433,38 @@ __global__ void memset_liner_kernel(Type *data,
   }
 }
 
+// get hash_value by value_index from hash_table_value matrix
 template <typename TypeValueIndex>
-__global__ void get_hash_table_value_kernel(const long long count, 
-                                    const int embedding_vec_size,
-                                    const TypeValueIndex *value_index,
-                                    const float *hash_table_value, 
-                                    float *value_retrieved) {
+__global__ void get_hash_value_kernel(const long long count, 
+                                      const int embedding_vec_size,
+                                      const TypeValueIndex *value_index,
+                                      const float *hash_table_value, 
+                                      float *value_retrieved) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
 
   if (bid < count && tid < embedding_vec_size) {
-    TypeValueIndex index = value_index[bid];
+    TypeValueIndex index = value_index[bid]; // row number in the hash_table_value matrix
     value_retrieved[bid * embedding_vec_size + tid] =
         hash_table_value[index * embedding_vec_size + tid];
   }
 }
 
+// get slot_id from hash_table_slot_id vector by value_index
+template<typename TypeValueIndex>
+__global__ void get_hash_slot_id_kernel(const int count, 
+                                        const TypeValueIndex * value_index,
+                                        const TypeValueIndex * hash_table_slot_id, 
+                                        TypeValueIndex * slot_id) {
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(gid < count) {
+    TypeValueIndex index = value_index[gid];
+    slot_id[gid] = hash_table_slot_id[index];
+  }
+}
+
+// reorder operation after all2all
 template <typename Type>
 __global__ void reorder_kernel(const int batch_size,
                               const int slot_num,
@@ -441,6 +496,32 @@ __global__ void reorder_kernel(const int batch_size,
                       + src_stride * (slot_id % gpu_num);
       int dst_addr = dst_offset + dst_stride * slot_id;
       output[dst_addr+tid] = input[src_addr+tid];
+    }
+  }
+}
+
+// store slot_id by row_offset and value_index
+template <typename TypeKey, typename TypeValueIndex>
+__global__ void store_slot_id_kernel(const int batch_size, 
+                                    const int slot_num, // total slot number in hash table
+                                    const int gpu_num, // total gpu number
+                                    const int gpu_id, // global gpu device id
+                                    const TypeKey *row_offset, 
+                                    const TypeValueIndex *value_index,
+                                    TypeValueIndex *slot_id) {
+  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+  int slot_num_per_gpu = (slot_num + gpu_num - 1) / gpu_num;
+
+  if (gid < (batch_size * slot_num_per_gpu)) {
+    int sid = gid % slot_num_per_gpu;
+    sid = gpu_id + sid * gpu_num; // global slot id 
+    if(sid < slot_num) {
+      TypeKey offset = row_offset[gid];
+      int value_num = row_offset[gid + 1] - offset;
+      for (int i = 0; i < value_num; i++) {
+        TypeValueIndex index = value_index[offset+i]; // row number 
+        slot_id[index] = sid;
+      }
     }
   }
 }
