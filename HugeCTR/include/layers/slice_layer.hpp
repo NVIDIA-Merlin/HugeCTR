@@ -14,61 +14,65 @@
  * limitations under the License.
  */
 
+
 #pragma once
 
 #include "HugeCTR/include/layer.hpp"
 
+#include <set>
 #include <vector>
 
 namespace HugeCTR {
 
 /**
- * Layer which merges the multiple 2D input tensors to a single 2D output tensor.
- * The input tensors and the resulting output tensor must have the same dimensionallity.
- * Only the innermost dimension is expanded by concatenating those of the input tensors.
- * e.g., 3X(batch_size, n_slots * vector_length) to (batch_size, 3 * n_slots * vector_length),
- * e.g., (batch_size, a * vector_length) + (batch_size, b * vector_length)
- *       to (batch_size, (a + b) * vector_length)
+ * Layer which splits a single 2D input tensor into multiple 2D output tensors across columns.
+ * e.g., (batch_size, 90) to (batch_size, 40) and (batch_size, 4) by choosing the column ranges
+ * [0:40) and (50:90)
  */
-class ConcatLayer : public Layer {
+class SliceLayer : public Layer {
  public:
   /**
-   * Ctor of ConcatLayer.
-   * @param in_tensors the vector of the input tensors
-   * @param out_tensor the resulting output tensor
+   * Ctor of SliceLayer.
+   * @param in_tensor input tensor
+   * @param out_tensor vector where the pointers to the created output tensors are stored
    * @param blobs_buff GeneralBuffer used to create the output tensor
+   * @param ranges set of the slice ranges along columns
    * @param device_id the id of GPU where this layer belongs
    */
-  ConcatLayer(Tensors<float>& in_tensors,
-              std::shared_ptr<Tensor<float>>& out_tensor,
-              const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-              int device_id);
-  ~ConcatLayer() override {};
+  SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
+             Tensors<float>& out_tensors,
+             const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
+             std::set<std::pair<int,int>>& ranges,
+             int device_id);
+  ~SliceLayer() override {};
 
   /**
-   * Concat's foward pass to gather data to the output tensor
+   * Slice's foward pass to gather data to the output tensor
    * @param stream CUDA stream where the foward propagation is executed
    */
   void fprop(cudaStream_t stream) override;
   /**
-   * Concat's backward pass to scatter data to the input tensors
+   * Slice's backward pass to scatter data to the input tensors
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
 
   template <typename T>
-  struct InParam {
-    T* in;
-    const int in_w;
+  struct OutParam {
+    T* out;
+    const int st;
+    const int ed;
   };
 
  private:
   void prop_common(bool forward, cudaStream_t stream);
-  std::vector<InParam<float>> set_in_params(int n);
+  std::vector<OutParam<float>> set_out_params(int n);
   template <typename... Args>
   void kernel_launch(bool forward, cudaStream_t stream, Args&... args);
 
   int n_sms_;
+  int virt_w_;
+  std::vector<int> sts_;
 };
 
 }  // namespace HugeCTR

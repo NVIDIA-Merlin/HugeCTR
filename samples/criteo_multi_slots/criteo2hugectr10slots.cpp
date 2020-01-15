@@ -39,9 +39,9 @@ inline void check_make_dir(std::string finalpath){
   if (mkdir(finalpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
     {
       if( errno == EEXIST ) {
-	std::cout << (finalpath + " exist") << std::endl;
+        std::cout << (finalpath + " exist") << std::endl;
       } else {
-	std::cerr << ("cannot create" + finalpath + ": unexpected error") << std::endl;
+        std::cerr << ("cannot create" + finalpath + ": unexpected error") << std::endl;
       }
     }
 }
@@ -110,43 +110,43 @@ int main(int argc, char* argv[]){
       std::getline(txt_file, line);
       //if end
       if(txt_file.eof()){
-	txt_file.close();
-	data_file.seekp(std::ios_base::beg);
-	DataSetHeader last_header = {static_cast<long long>(i), label_dim, static_cast<long long>(SLOT_NUM), 0};
-	data_file.write(reinterpret_cast<char*>(&last_header), sizeof(DataSetHeader));
-	data_file.close();
-	file_list_tmp.close();
-	//redirect
-	{
-	  std::ifstream tmp(tmp_file_list_name);
-	  if(!tmp.is_open()){
-	    std::cerr << "Cannot open " << tmp_file_list_name << std::endl;
-	  }
+        txt_file.close();
+        data_file.seekp(std::ios_base::beg);
+        DataSetHeader last_header = {static_cast<long long>(i), label_dim, static_cast<long long>(SLOT_NUM), 0};
+        data_file.write(reinterpret_cast<char*>(&last_header), sizeof(DataSetHeader));
+        data_file.close();
+        file_list_tmp.close();
+        //redirect
+        {
+          std::ifstream tmp(tmp_file_list_name);
+          if(!tmp.is_open()){
+            std::cerr << "Cannot open " << tmp_file_list_name << std::endl;
+          }
 
-	  std::cout << "Opening " << argv[3] << std::endl;
-	  std::ofstream file_list(argv[3], std::ofstream::out);
-	  if(!file_list.is_open()){
-	    std::cerr << "Cannot open " << argv[3] << std::endl;
-	  }
+          std::cout << "Opening " << argv[3] << std::endl;
+          std::ofstream file_list(argv[3], std::ofstream::out);
+          if(!file_list.is_open()){
+            std::cerr << "Cannot open " << argv[3] << std::endl;
+          }
 
-	  
-	  file_list << (std::to_string(file_counter) + "\n");
-	  file_list << tmp.rdbuf();
+          
+          file_list << (std::to_string(file_counter) + "\n");
+          file_list << tmp.rdbuf();
 
-	  tmp.close();
-	  file_list.close();
-	}
+          tmp.close();
+          file_list.close();
+        }
 
-	return 0;
+        return 0;
       }
       std::vector<std::string> vec_string;
       split(line, ' ', vec_string);
       if(vec_string.size() != KEYS_PER_SAMPLE+1) //first one is label
-	{
-	  std::cerr << "vec_string.size() != KEYS_PER_SAMPLE+1" << std::endl;
-	  std::cerr << line << std::endl;
-	  exit(-1);
-	}
+        {
+          std::cerr << "vec_string.size() != KEYS_PER_SAMPLE+1" << std::endl;
+          std::cerr << line << std::endl;
+          exit(-1);
+        }
       int label = std::stoi(vec_string[0]);
 #ifndef NDEBUG
       std::cout << std::endl;
@@ -155,19 +155,19 @@ int main(int argc, char* argv[]){
       data_file.write(reinterpret_cast<char*>(&label), sizeof(int));
       std::vector<T> slots[SLOT_NUM];
       for(int j = 0; j < KEYS_PER_SAMPLE; j++){
-	T key = static_cast<T>(std::stoi(vec_string[j+1]));
-	int slot_id = key%SLOT_NUM;
-	slots[slot_id].push_back(key);
+        T key = static_cast<T>(std::stoi(vec_string[j+1]));
+        int slot_id = key%SLOT_NUM;
+        slots[slot_id].push_back(key);
       }
       for(int j = 0; j < SLOT_NUM; j++){
-	int nnz = slots[j].size();
-	data_file.write(reinterpret_cast<char*>(&nnz), sizeof(int));
-	for(T key : slots[j]){
-	  data_file.write(reinterpret_cast<char*>(&key), sizeof(T));
+        int nnz = slots[j].size();
+        data_file.write(reinterpret_cast<char*>(&nnz), sizeof(int));
+        for(T key : slots[j]){
+          data_file.write(reinterpret_cast<char*>(&key), sizeof(T));
 #ifndef NDEBUG
-	  std::cout << j << ',' << key << ' ';
+          std::cout << j << ',' << key << ' ';
 #endif
-	}
+        }
       }
     }
     data_file.close();
