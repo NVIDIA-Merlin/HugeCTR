@@ -1,9 +1,5 @@
 #!/bin/bash
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/private/home/dheevatsa/local/lib
-export PATH=$PATH:/private/home/dheevatsa/local/bin
-export PATH=$PATH:/private/home/dheevatsa/local/share
-
 #cuda v10
 #module load cuda/10.0
 #module load cudnn/v7.6-cuda.10.0
