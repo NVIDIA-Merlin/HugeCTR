@@ -1002,10 +1002,9 @@ public:
     weight_stream.seekg(0, weight_stream.end);
     size_t file_size_in_B = weight_stream.tellg();
     weight_stream.seekg(0, weight_stream.beg);
-    size_t hash_table_size_in_B =
-        vocabulary_size *
-        ((size_t)embedding_vec_size * sizeof(float) +
-        sizeof(TypeHashKey));  // hash_key size + hash_value size
+    size_t hash_table_size_in_B = vocabulary_size *
+        (sizeof(TypeHashKey) + sizeof(TypeHashValueIndex) + \
+        (size_t)embedding_vec_size * sizeof(float));  // key+ slot_id + value
     if (file_size_in_B > hash_table_size_in_B) {
       CK_THROW_(Error_t::WrongInput,
                 "Error: hash table file size is larger than hash table vocabulary_size");

@@ -118,7 +118,7 @@ bool compare_float_files(std::string file1, std::string file2) {
 
 // hash table files have same keys and values, but they may be unordered
 template <typename TypeHashKey, typename TypeHashValue>
-bool compare_hash_table_files(std::string file1, std::string file2) {
+bool compare_distributed_hash_table_files(std::string file1, std::string file2) {
   bool rtn = true;
 
   std::ifstream file_stream1(file1);
@@ -175,6 +175,95 @@ bool compare_hash_table_files(std::string file1, std::string file2) {
   }
 
   // Then, we read <key,value1> pairs from file_stream1, and get(key,value2) from hash table, and
+  // compare value1 and value2.
+  TypeHashValue *value1;
+  TypeHashValue *value2 = (TypeHashValue *)malloc(sizeof(TypeHashValue));
+  size_t value_len = sizeof(TypeHashValue) / sizeof(float);
+  while (file_stream1.peek() != EOF) {
+    file_stream1.read(buf, pair_size_in_B);
+    key = (TypeHashKey *)buf;
+    value1 = (TypeHashValue *)(buf + sizeof(TypeHashKey));
+    hash_table->get(key, value2, 1);
+    if (!compare_float_array((float *)value1, (float *)value2, value_len)) {
+      rtn = false;
+      break;
+    }
+  }
+  file_stream1.close();
+
+  free(value2);
+
+  return rtn;
+}
+
+// hash table files have same keys and values, but they may be unordered
+template <typename TypeHashKey, typename TypeHashValue>
+bool compare_localized_hash_table_files(std::string file1, std::string file2) {
+  bool rtn = true;
+
+  std::ifstream file_stream1(file1);
+  std::ifstream file_stream2(file2);
+
+  if (!file_stream1.is_open() || !file_stream2.is_open()) {
+    ERROR_MESSAGE_("Error: file open failed");
+    return false;
+  }
+
+  long long start_pos = file_stream1.tellg();
+  file_stream1.seekg(0, file_stream1.end);
+  long long end_pos = file_stream1.tellg();
+  long long file_size1 = end_pos - start_pos;
+
+  file_stream2.seekg(0, file_stream1.beg);
+  start_pos = file_stream2.tellg();
+  file_stream2.seekg(0, file_stream2.end);
+  long long file_size2 = end_pos - start_pos;
+
+  if (file_size1 != file_size2) {
+    ERROR_MESSAGE_("Error: files size is not same");
+    std::cout << "file_size1=" << file_size1 << ", file_size2="\
+         << file_size2 << std::endl;
+    file_stream1.close();
+    file_stream2.close();
+    return false;
+  }
+
+  file_stream1.seekg(0, file_stream1.beg);
+  file_stream2.seekg(0, file_stream2.beg);
+
+  size_t pair_size_in_B = sizeof(TypeHashKey) + sizeof(TypeHashValue);
+  long long pair_num = file_size1 / pair_size_in_B;
+
+#ifndef NDEBUG
+  std::cout << "pair_size_in_B=" << pair_size_in_B << std::endl;
+  std::cout << "pair_num=" << pair_num << std::endl; 
+#endif 
+
+  // CAUSION: file_stream1 is ordered, while file_stream2 is unordered
+  // So, firstly, we read <key,value> pairs from file_stream2, and insert it into a hash table.
+  char *buf = (char *)malloc(pair_size_in_B);
+  TypeHashKey *key;
+  TypeHashValue *value;
+  HashTableCpu<TypeHashKey, TypeHashValue> *hash_table =
+      new HashTableCpu<TypeHashKey, TypeHashValue>();
+  while (file_stream2.peek() != EOF) {
+    file_stream2.read(buf, pair_size_in_B);
+    key = (TypeHashKey *)buf;
+    value = (TypeHashValue *)(buf + sizeof(TypeHashKey)); // including slot_id and value
+    hash_table->insert(key, value, 1);
+  }
+  file_stream2.close();
+
+  size_t hash_table_size = hash_table->get_size();
+  if (hash_table_size != pair_num) {
+    ERROR_MESSAGE_(
+        "Error: The number of <key,value> pair inserting into CPU hash table is not equal to hash "
+        "table file size\n");
+    std::cout << "CPU hash_table_size=" << hash_table_size << std::endl;
+    return false;
+  }
+
+  // Then, we read <key,value1> pairs from file_stream1, and get(key,value2) from hash_table, and
   // compare value1 and value2.
   TypeHashValue *value1;
   TypeHashValue *value2 = (TypeHashValue *)malloc(sizeof(TypeHashValue));
@@ -342,10 +431,10 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
   const long long vocabulary_size = 50010;
   //const long long vocabulary_size = 20;
   //const long long vocabulary_size = 1010;
-  const int embedding_vec_size = 128;
+  const int embedding_vec_size = 64;
   //const int embedding_vec_size = 1;
-  //std::vector<int> device_list = {0};
-  std::vector<int> device_list = {0,1};
+  std::vector<int> device_list = {0};
+  //std::vector<int> device_list = {0,1};
   int num_devices = device_list.size();
   const char * hash_table_file_name = "hash_table.bin";
   const char * hash_table_check_file_name = "hash_table_check.bin";
@@ -409,11 +498,11 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
     file_list_stream << (tmp_file_name + "\n");
     file_list_stream.close();
   }
-  GPUResourceGroup gpu_resource_group(device_list);
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  DeviceMap device_map(vvgpu, 0);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   //setup a data reader
   DataReader<T>* data_reader = new DataReader<T>(file_list_name, batchsize, \
@@ -462,9 +551,9 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
   typedef struct TypeHashValue_{
   	float data[embedding_vec_size];
   } TypeHashValue;
-  //ASSERT_EQ(true, compare_hash_table_files<T, TypeHashValue>(hash_table_file_name, hash_table_check_file_name));
-  printf("start compare_hash_table_files()\n");
-  bool rtn = compare_hash_table_files<T, TypeHashValue>(hash_table_file_name, hash_table_check_file_name);
+  //ASSERT_EQ(true, compare_distributed_hash_table_files<T, TypeHashValue>(hash_table_file_name, hash_table_check_file_name));
+  printf("start compare_distributed_hash_table_files()\n");
+  bool rtn = compare_distributed_hash_table_files<T, TypeHashValue>(hash_table_file_name, hash_table_check_file_name);
   ASSERT_EQ(true, rtn);
 }
 #endif
@@ -901,7 +990,6 @@ TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
 }
 #endif
 
-
 TEST(localized_sparse_embedding_hash_test, reorder) {
   int local_gpu_count = 4; // 4,2 pass 
   int embedding_vec_size = 4;
@@ -991,6 +1079,7 @@ TEST(localized_sparse_embedding_hash_test, reorder) {
   cudaFree(d_dst);
 }
 
+#if 0
 TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
   std::vector<int> device_list = {0,1,2,3}; // 4,8 gpus pass
   int local_gpu_count = device_list.size();
@@ -1187,3 +1276,148 @@ TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
     cudaFreeHost(h_dst[id]);
   }
 }
+#endif 
+
+#if 1
+// sparse_embedding_hash upload_params() and download_params() testing
+TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
+  test::mpi_init();
+  
+  // influential params for this test
+  const long long vocabulary_size = 50010;
+  //const long long vocabulary_size = 20;
+  //const long long vocabulary_size = 1010;
+  const int embedding_vec_size = 64;
+  //const int embedding_vec_size = 1;
+  std::vector<int> device_list = {0};
+  //std::vector<int> device_list = {0,1};
+  int num_devices = device_list.size();
+  const char * hash_table_file_name = "hash_table.bin";
+  const char * hash_table_check_file_name = "hash_table_check.bin";
+  const std::string plan_file = "./bin/all2all_plan.json";
+  
+  // uninfluential params
+  const int slot_num = 2;
+  const int max_feature_num = 2*slot_num;
+  const int batchsize = 2;
+  const int batch_num = 1; // can not more than 32
+  const long long num_records = batchsize * batch_num;
+  const long long label_dim = 1;
+  typedef long long T;
+
+  // In order to not allocate the total size of hash table on each GPU, the users need to set the size of max_vocabulary_size_per_gpu,
+	// which should be more than vocabulary_size/gpu_count, eg: (1/0.75)x of that.
+  float load_factor = 0.75; // CAUSION: this is a very important param for hash_table get() performance
+  //long long max_vocabulary_size_per_gpu = (long long)((double)(vocabulary_size) / num_devices / load_factor);
+
+  const SparseEmbeddingHashParams embedding_params = {
+  	batchsize,
+    vocabulary_size,
+    load_factor,
+    embedding_vec_size,
+    max_feature_num,
+    slot_num,
+    0,              //combiner: 0-sum, 1-mean
+    0               //optimizer: 0-adam
+  };
+
+  // CUASION: the dataset will not be used in this test case, but we still need to let the data file non-empty since the DataRead requiring
+  // generate input data
+  const std::string tmp_file_name("temp_dataset_embedding.data");
+  const std::string file_list_name("file_list_embedding.txt");
+  {
+    //data generation;
+    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
+    DataSetHeader header = {num_records, label_dim, slot_num, 0};
+    out_stream.write(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
+    for(int i=0; i<num_records; i++){
+      UnifiedDataSimulator<int> idata_sim(0, max_feature_num/slot_num-1); //both inclusive
+      UnifiedDataSimulator<T> ldata_sim(0,vocabulary_size-1);
+      for(int j=0; j<label_dim; j++){
+        int label = idata_sim.get_num();
+        out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
+      }
+      for(int k=0; k<slot_num; k++){
+        int nnz = idata_sim.get_num();
+        //nnz = 10; // just for test 20181211
+        nnz = (int)(max_feature_num/slot_num); // just for test 20181221
+        out_stream.write(reinterpret_cast<char*>(&nnz), sizeof(int));
+        for(int j=0; j<nnz; j++){
+          T value = ldata_sim.get_num();
+          out_stream.write(reinterpret_cast<char*>(&value), sizeof(T));
+        }
+        //std::cout << std::endl; // just for test 20181211
+      }
+    }
+    out_stream.close();
+    std::ofstream file_list_stream(file_list_name, std::ofstream::out);
+    file_list_stream << (std::to_string(1) + "\n");
+    file_list_stream << (tmp_file_name + "\n");
+    file_list_stream.close();
+  }
+
+  std::vector<std::vector<int>> vvgpu;
+  vvgpu.push_back(device_list);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+
+  //setup a data reader
+  DataReader<T>* data_reader = new DataReader<T>(file_list_name, batchsize, \
+    label_dim, slot_num, max_feature_num, gpu_resource_group, 1, 1);
+
+  // define object
+  Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingHash<T>(\
+      data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), \
+      embedding_params, plan_file, gpu_resource_group);
+
+  // init hash table file
+  std::ofstream weight_stream(hash_table_file_name);
+  if(!weight_stream.is_open()) {
+    ERROR_MESSAGE_("Error: file not open for writing");
+  }
+  //UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size-1); // for key 
+  UnifiedDataSimulator<T> ldata_sim(0, slot_num-1); // for slot_id
+  UnifiedDataSimulator<float> fdata_sim(0, vocabulary_size-1); // for value
+  T * p_key = (T *)malloc(vocabulary_size * sizeof(T));
+  UnorderedKeyGenerator<T> unorderedKey;
+  unorderedKey.fill_unique(p_key, vocabulary_size);
+  // key + slot_id + value
+  for(int i = 0; i < vocabulary_size; i++) {
+  	//T key = (T)i;
+  	//T key = ldata_sim.get_num(); // CAUSION: can not get correct results when testing by the case with duplicated keys
+  	//weight_stream.write((char *)&key, sizeof(T));
+    weight_stream.write((char *)&p_key[i], sizeof(T));
+    T slot_id = ldata_sim.get_num();
+    weight_stream.write((char *)&slot_id, sizeof(T));
+    //float val = (float)i;
+  	float val = fdata_sim.get_num();
+    for(int j = 0; j < embedding_vec_size; j++) {
+      weight_stream.write((char *)&val, sizeof(float));
+    }
+  }
+  weight_stream.close();
+  free(p_key);
+
+  // upload data from host to device
+  std::ifstream i_weight_stream(hash_table_file_name);
+  printf("start updaload_params_to_device()\n");
+  embedding->upload_params_to_device(i_weight_stream);
+  i_weight_stream.close();
+
+  // download data from device to host
+  std::ofstream o_weight_stream(hash_table_check_file_name);
+  printf("start download_params_to_host()\n");
+  embedding->download_params_to_host(o_weight_stream);
+  o_weight_stream.close();
+
+  // comapre the read file with the written file
+  typedef struct TypeHashValue_{
+    T slot_id;
+  	float data[embedding_vec_size];
+  } TypeHashValue;
+  //ASSERT_EQ(true, compare_localized_hash_table_files<T, TypeHashValue>(hash_table_file_name, hash_table_check_file_name));
+  printf("start compare_localized_hash_table_files()\n");
+  bool rtn = compare_localized_hash_table_files<T, TypeHashValue>(hash_table_file_name, hash_table_check_file_name);
+  ASSERT_EQ(true, rtn);
+}
+#endif 
