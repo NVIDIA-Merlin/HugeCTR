@@ -19,6 +19,7 @@ file(GLOB huge_ctr_src
   layer.cpp
   layers/batch_norm_layer.cu
   layers/concat_layer.cu
+  layers/dropout_layer.cu
   layers/elu_layer.cu
   layers/fully_connected_layer.cu
   layers/relu_layer.cu
@@ -38,10 +39,10 @@ file(GLOB huge_ctr_src
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_static PUBLIC cublas cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
-  target_link_libraries(huge_ctr_static PUBLIC cublas cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
