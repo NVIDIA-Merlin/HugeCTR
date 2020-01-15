@@ -90,6 +90,7 @@ enum class Layer_t {
   Reshape,
   Concat,
   CrossEntropyLoss,
+  Dropout,
   ELU,
   InnerProduct,
   MultiCrossEntropyLoss,
@@ -252,6 +253,17 @@ typedef struct DataSetHeader_ {
       throw internal_runtime_error(                                                               \
           Error_t::CudnnError, std::string("CUDNN Runtime error: ") +                             \
                                    std::string(cudnnGetErrorString(cmd)) + " " + __FILE__ + ":" + \
+                                   std::to_string(__LINE__) + " \n");                             \
+    }                                                                                             \
+  } while (0)
+
+#define CK_CURAND_THROW_(cmd)                                                                     \
+  do {                                                                                            \
+    curandStatus_t retval = (cmd);                                                                \
+    if (retval !=CURAND_STATUS_SUCCESS) {                                                         \
+      throw internal_runtime_error(                                                               \
+          Error_t::CudnnError, std::string("CURAND Runtime error: ") +                            \
+                                   std::to_string(retval) + " " + __FILE__ + ":" +                \
                                    std::to_string(__LINE__) + " \n");                             \
     }                                                                                             \
   } while (0)
