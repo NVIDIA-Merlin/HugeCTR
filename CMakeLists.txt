@@ -1,11 +1,11 @@
-# 
+#
 # Copyright (c) 2019, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -56,18 +56,18 @@ set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 option(USE_WMMA "Use Mixed-Precision" OFF)
 # setting compiler flags
-if (SM STREQUAL 75 OR 
+if (SM STREQUAL 75 OR
     SM STREQUAL 70 OR
     SM STREQUAL 62 OR
     SM STREQUAL 61 OR
     SM STREQUAL 60)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM},code=\\\"sm_${SM},compute_${SM}\\\" -rdc=true")
-   if (USE_WMMA) 
+   if (USE_WMMA)
         set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
         set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
         set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
    endif()
-set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")	
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall")
     message(STATUS "-- Assign GPU architecture (sm=${SM})")
@@ -77,8 +77,8 @@ else()
 endif()
 
 if (USE_WMMA)
-  if (SM STREQUAL 60 OR 
-      SM STREQUAL 61 OR 
+  if (SM STREQUAL 60 OR
+      SM STREQUAL 61 OR
       SM STREQUAL 62)
     message(FATAL_ERROR "WMMA can only be used on GPU with SM >= 70")
   endif()
@@ -118,6 +118,8 @@ configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOU
 # building
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${CUDA_INCLUDE_DIRS})
+include_directories(${CUDNN_INCLUDE_DIR})
+include_directories(${NCCL_INCLUDE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/googletest/googletest/include)
 include_directories(${PROJECT_SOURCE_DIR}/json/single_include)
 include_directories(${CUDNN_INC_PATHS})
