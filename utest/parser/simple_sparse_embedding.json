@@ -45,22 +45,22 @@
     },
 
     {
-      "name": "concat1",
-      "type": "Concat",
+      "name": "reshape1",
+      "type": "Reshape",
       "bottom": "sparse_embedding1",
-      "top": "concat1"
+      "top": "reshape1",
+      "leading_dim": 640
     },
 
     {
       "name": "fc1",
       "type": "InnerProduct",
-      "bottom": "concat1",
+      "bottom": "reshape1",
       "top": "fc1",
        "fc_param": {
         "num_output": 200
       }
     },
-
     {
       "name": "relu1",
       "type": "ReLU",
@@ -70,9 +70,54 @@
     },
 
     {
-      "name": "fc2",
+      "name": "fca",
       "type": "InnerProduct",
       "bottom": "relu1",
+      "top": "fca",
+       "fc_param": {
+        "num_output": 128 
+      }
+    },
+
+    {
+      "name": "fcb",
+      "type": "InnerProduct",
+      "bottom": "relu1",
+      "top": "fcb",
+       "fc_param": {
+        "num_output": 128
+      }
+    },
+
+    {
+      "name": "fcc",
+      "type": "InnerProduct",
+      "bottom": "relu1",
+      "top": "fcc",
+       "fc_param": {
+        "num_output": 256
+      }
+    },
+
+    {
+      "name": "concat1",
+      "type": "Concat",
+      "bottom": ["fca", "fcb", "fcc"],
+      "top": "concat1"
+    },
+
+    {
+      "name": "slice1",
+      "type": "Slice",
+      "bottom": "concat1",
+      "ranges": [[0,200], [300,400]],
+      "top": ["slice11", "slice12"]
+    },
+
+    {
+      "name": "fc2",
+      "type": "InnerProduct",
+      "bottom": "slice11",
       "top": "fc2",
        "fc_param": {
         "num_output": 200
