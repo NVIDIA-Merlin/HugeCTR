@@ -60,4 +60,46 @@ __forceinline__ __device__ void atomic_global_sum(T x, T* acc) {
   return;
 }
 
+__inline__ __device__ float warpReduceSum(float val) {
+  const unsigned int FINAL_MASK = 0xffffffff;
+  for (int mask = 16; mask > 0; mask >>= 1) val += __shfl_xor_sync(FINAL_MASK, val, mask, 32);
+  return val;
+}
+
+/* Calculate the sum of all elements in a block */
+__inline__ __device__ float blockReduceSum(float val) {
+  static __shared__ float shared[32];
+  int lane = threadIdx.x & 0x1f;
+  int wid = threadIdx.x >> 5;
+
+  val = warpReduceSum(val);
+
+  if (lane == 0) shared[wid] = val;
+
+  __syncthreads();
+
+  val = (threadIdx.x < (blockDim.x >> 5)) ? shared[lane] : 0;
+  val = warpReduceSum(val);
+
+  return val;
+}
+
+template <typename T>
+__global__ void initialize_array(T* array, int num_elements, T value) {
+  const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;
+  const int num_threads = blockDim.x * gridDim.x;
+  for(int tid = tid_base; tid < num_elements; tid += num_threads) {
+    array[tid] = value;
+  }
+}
+
+template <typename T>
+__global__ void copy_array(const T* in, T* out, int num_elements, T alpha, T beta) {
+  const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;
+  const int num_threads = blockDim.x * gridDim.x;
+  for(int tid = tid_base; tid < num_elements; tid += num_threads) {
+    out[tid] = alpha * in[tid] + beta;
+  }
+}
+
 }  // namespace HugeCTR

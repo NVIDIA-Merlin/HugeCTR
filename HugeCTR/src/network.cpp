@@ -18,11 +18,12 @@
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
+#include "HugeCTR/include/regularizers/no_regularizer.hpp"
 
 namespace HugeCTR {
 
 Network::Network(const std::shared_ptr<Tensor<float>>& in_tensor,
-                 const std::shared_ptr<const Tensor<float>>& label_tensor, int batchsize,
+                 const std::shared_ptr<const Tensor<float>>& label_tensor, int batch_size,
                  int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
                  bool disable_parser)
     : blobs_buff_(new GeneralBuffer<float>()),
@@ -30,7 +31,7 @@ Network::Network(const std::shared_ptr<Tensor<float>>& in_tensor,
       wgrad_buff_(new GeneralBuffer<float>()),
       gpu_resource_(gpu_resource),
       device_id_(device_id),
-      batchsize_(batchsize),
+      batch_size_(batch_size),
       in_tensor_(in_tensor),
       label_tensor_(label_tensor) {
   if (disable_parser) {
@@ -40,35 +41,42 @@ Network::Network(const std::shared_ptr<Tensor<float>>& in_tensor,
       assert(layers_.empty());
 
       // FC 0 xxx->200
-      tensors_.emplace_back(new Tensor<float>({batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
+      tensors_.emplace_back(new Tensor<float>({batch_size, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.emplace_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, (in_tensor_),
                                                    tensors_[0], TensorFormat_t::HW,
                                                    gpu_resource_->get_cublas_handle(), device_id));
-      tensors_.emplace_back(new Tensor<float>({batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
+      tensors_.emplace_back(new Tensor<float>({batch_size, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.emplace_back(new ReluLayer(tensors_[0], tensors_[1], device_id));
       // FC 1 200->200
-      tensors_.emplace_back(new Tensor<float>({batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
+      tensors_.emplace_back(new Tensor<float>({batch_size, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.emplace_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, tensors_[1],
                                                    tensors_[2], TensorFormat_t::HW,
                                                    gpu_resource_->get_cublas_handle(), device_id));
-      tensors_.emplace_back(new Tensor<float>({batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
+      tensors_.emplace_back(new Tensor<float>({batch_size, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.emplace_back(new ReluLayer(tensors_[2], tensors_[3], device_id));
       // FC 2 200->200
-      tensors_.emplace_back(new Tensor<float>({batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
+      tensors_.emplace_back(new Tensor<float>({batch_size, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.emplace_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, tensors_[3],
                                                    tensors_[4], TensorFormat_t::HW,
                                                    gpu_resource_->get_cublas_handle(), device_id));
-      tensors_.emplace_back(new Tensor<float>({batchsize, 200}, blobs_buff_, TensorFormat_t::HW));
+      tensors_.emplace_back(new Tensor<float>({batch_size, 200}, blobs_buff_, TensorFormat_t::HW));
       layers_.emplace_back(new ReluLayer(tensors_[4], tensors_[5], device_id));
       // FC 3 200->1
-      tensors_.emplace_back(new Tensor<float>({batchsize, 1}, blobs_buff_, TensorFormat_t::HW));
+      tensors_.emplace_back(new Tensor<float>({batch_size, 1}, blobs_buff_, TensorFormat_t::HW));
       layers_.emplace_back(new FullyConnectedLayer(weight_buff_, wgrad_buff_, tensors_[5],
                                                    tensors_[6], TensorFormat_t::HW,
                                                    gpu_resource_->get_cublas_handle(), device_id));
       // setup loss
       loss_tensor_.reset(new Tensor<float>({1, 1}, blobs_buff_, TensorFormat_t::HW));
       loss_.reset(
-          new BinaryCrossEntropyLoss(label_tensor_, tensors_.back(), loss_tensor_, device_id));
+          new BinaryCrossEntropyLoss(label_tensor_,
+                                     tensors_.back(),
+                                     loss_tensor_,
+                                     std::shared_ptr<Regularizer>(new NoRegularizer(weight_buff_,
+                                                                                    wgrad_buff_,
+                                                                                    batch_size,
+                                                                                    device_id)),
+                                     device_id));
 
       // setup optimizer
       optimizer_.reset(new MomentumSGD(weight_buff_, wgrad_buff_, device_id, 0.01, 0.9));

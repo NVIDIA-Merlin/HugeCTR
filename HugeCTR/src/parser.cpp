@@ -25,6 +25,8 @@
 #include "HugeCTR/include/layers/relu_layer.hpp"
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 #include "HugeCTR/include/layers/slice_layer.hpp"
+#include "HugeCTR/include/regularizers/l2_regularizer.hpp"
+#include "HugeCTR/include/regularizers/no_regularizer.hpp"
 #include "HugeCTR/include/loss.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
@@ -69,7 +71,13 @@ namespace HugeCTR {
 static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"Adam", Optimizer_t::Adam},
     {"MomentumSGD", Optimizer_t::MomentumSGD},
-    {"Nesterov", Optimizer_t::Nesterov}};
+    {"Nesterov", Optimizer_t::Nesterov}
+};
+
+static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
+    {"L1", Regularizer_t::L1},
+    {"L2", Regularizer_t::L2},
+};
 
 bool has_key_(const nlohmann::json& j_in, const std::string& key_in) {
   if (j_in.find(key_in) == j_in.end()) {
@@ -208,6 +216,47 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
   }
   return opt_params;
 }
+
+std::shared_ptr<Regularizer>
+create_regularizer(const nlohmann::json& j,
+                   const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                   const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
+                   const int batch_size,
+                   cublasHandle_t cublas_handle,
+                   const int device_id) {
+  std::shared_ptr<Regularizer> reg(new NoRegularizer(weight_buff,
+                                                     wgrad_buff,
+                                                     batch_size,
+                                                     device_id));
+  auto reg_it = j.find("regularizer");
+  if(reg_it != j.end()) { 
+    Regularizer_t reg_type;
+    auto reg_name = reg_it->get<std::string>();
+    if (!find_item_in_map(reg_type, reg_name, REGULARIZER_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "No such regularizer: " + reg_name);
+    }
+    switch(reg_type) {
+      case Regularizer_t::L1: {
+        break;
+      }
+      case Regularizer_t::L2: {
+        const auto lambda = get_value_from_json<float>(j, "lambda");
+        reg.reset(new L2Regularizer(weight_buff,
+                                    wgrad_buff,
+                                    batch_size,
+                                    lambda,
+                                    cublas_handle,
+                                    device_id));
+        break;
+      }
+      default: {
+        assert(!"Error: no such regularizer!");
+      }
+    }
+  }
+  return reg;
+}
+
 /*
  * Create single network
  *
@@ -281,8 +330,16 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::BinaryCrossEntropyLoss: {
         const auto& binary_cross_entropy_loss_in_tensor = input_output_info.input[0];
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
-        loss.reset(new BinaryCrossEntropyLoss(label_tensor, binary_cross_entropy_loss_in_tensor,
-                                              loss_tensor, device_id));
+        loss.reset(new BinaryCrossEntropyLoss(label_tensor,
+                                              binary_cross_entropy_loss_in_tensor,
+                                              loss_tensor,
+                                              create_regularizer(j,
+                                                                 weight_buff,
+                                                                 wgrad_buff,
+                                                                 batch_size,
+                                                                 gpu_resource->get_cublas_handle(),
+                                                                 device_id),
+                                              device_id));
         break;
       }
       case Layer_t::Concat: {
@@ -296,7 +353,15 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::CrossEntropyLoss: {
         const auto& cross_entropy_loss_in_tensor = input_output_info.input[0];
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
-        loss.reset(new CrossEntropyLoss(label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
+        loss.reset(new CrossEntropyLoss(label_tensor,
+                                        cross_entropy_loss_in_tensor,
+                                        loss_tensor,
+                                        create_regularizer(j,
+                                                           weight_buff,
+                                                           wgrad_buff,
+                                                           batch_size,
+                                                           gpu_resource->get_cublas_handle(),
+                                                           device_id),
                                         device_id));
         break;
       }
@@ -357,8 +422,17 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           float tweight_val = tweight_tmp.get<float>();
           target_weight_vec.push_back(tweight_val);
         }
-        loss.reset(new MultiCrossEntropyLoss(label_tensor, multi_cross_entropy_loss_in_tensor,
-                                             loss_tensor, target_weight_vec, device_id));
+        loss.reset(new MultiCrossEntropyLoss(label_tensor,
+                                             multi_cross_entropy_loss_in_tensor,
+                                             loss_tensor,
+                                             create_regularizer(j,
+                                                                weight_buff,
+                                                                wgrad_buff,
+                                                                batch_size,
+                                                                gpu_resource->get_cublas_handle(),
+                                                                device_id),
+                                             target_weight_vec,
+                                             device_id));
         break;
       }
       case Layer_t::ReLU: {

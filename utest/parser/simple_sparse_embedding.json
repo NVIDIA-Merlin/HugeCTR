@@ -165,6 +165,8 @@
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
       "bottom": "fc4",
+      "regularizer": "L2",
+      "lambda": 0.0005,
       "top": "loss"
     } 
   ]
