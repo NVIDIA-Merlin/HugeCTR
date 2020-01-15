@@ -116,20 +116,13 @@ enum class Layer_t {
 enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash };
 
 typedef struct DataSetHeader_ {
-  long long number_of_records;  // the number of samples in this data file
-  long long label_dim;          // dimension of label
-  long long slot_num;
-  long long reserved;  // reserved for future use
-} DataSetHeader;
-
-typedef struct DataSetHeaderEx_ {
   long long error_check;        //0: no error check; 1: check_num
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
   long long dense_dim;          //dimension of dense feature
   long long slot_num;           //slot_num for each embedding
   long long reserved[3];  // reserved for future use
-} DataSetHeaderEx;
+} DataSetHeader;
 
 
 #ifdef ENABLE_MPI

@@ -142,51 +142,6 @@ inline void check_make_dir(const std::string& finalpath) {
 /**
  * Generate random dataset for HugeCTR test.
  */
-template <typename T>
-void data_generation(const std::string& file_list_name, const std::string& data_prefix,
-                     int num_files, int num_records_per_file, int slot_num, int vocabulary_size,
-                     int label_dim, int max_nnz) {
-  if (file_exist(file_list_name)) {
-    return;
-  }
-  std::string directory;
-  const size_t last_slash_idx = data_prefix.rfind('/');
-  if (std::string::npos != last_slash_idx) {
-    directory = data_prefix.substr(0, last_slash_idx);
-  }
-  check_make_dir(directory);
-
-  std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-  file_list_stream << (std::to_string(num_files) + "\n");
-  for (int k = 0; k < num_files; k++) {
-    std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
-    file_list_stream << (tmp_file_name + "\n");
-
-    // data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-    DataSetHeader header = {num_records_per_file, label_dim, slot_num, 0};
-    out_stream.write(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
-    for (int i = 0; i < num_records_per_file; i++) {
-      UnifiedDataSimulator<int> idata_sim(0, max_nnz - 1);  // both inclusive
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size);
-      for (int j = 0; j < label_dim; j++) {
-        int label = idata_sim.get_num();
-        out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
-      }
-      for (int k = 0; k < slot_num; k++) {
-        int nnz = idata_sim.get_num();
-        out_stream.write(reinterpret_cast<char*>(&nnz), sizeof(int));
-        for (int j = 0; j < nnz; j++) {
-          T value = ldata_sim.get_num();
-          out_stream.write(reinterpret_cast<char*>(&value), sizeof(T));
-        }
-      }
-    }
-    out_stream.close();
-  }
-  file_list_stream.close();
-  return;
-}
 
 template<Check_t T>
 class Checker_Traits;
@@ -254,7 +209,7 @@ public:
 
 
 template <typename T, Check_t CK_T>
-void data_generation_ex(std::string file_list_name, std::string data_prefix, int num_files,
+void data_generation(std::string file_list_name, std::string data_prefix, int num_files,
                      int num_records_per_file, int slot_num, int vocabulary_size, int label_dim, 
 			int dense_dim, int max_nnz) {
   if (file_exist(file_list_name)) {
@@ -279,9 +234,9 @@ void data_generation_ex(std::string file_list_name, std::string data_prefix, int
 
     DataWriter<CK_T> data_writer(out_stream);
 
-    DataSetHeaderEx header = {1, num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
+    DataSetHeader header = {1, num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
 
-    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeaderEx));
+    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
     data_writer.write();
 
     for (int i = 0; i < num_records_per_file; i++) {
