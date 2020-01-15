@@ -301,12 +301,12 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::Dropout: {
-        const auto& do_in_tensor = input_output_info.input;
+        const auto& do_in_tensor = input_output_info.input[0];
 
         // establish out tensor
         std::shared_ptr<Tensor<float>> do_out_tensor(new Tensor<float>(
             {batch_size, (do_in_tensor->get_dims())[1]}, blobs_buff, TensorFormat_t::HW));
-        output_tensor_pair.tensor = do_out_tensor;
+        output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
         // get ELU params
         auto rate_it = j.find("rate");
         auto rate = (rate_it != j.end())? rate_it->get<float>() : 0.5f;
