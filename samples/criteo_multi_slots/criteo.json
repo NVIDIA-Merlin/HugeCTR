@@ -2,7 +2,7 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 50000,
+    "max_iter": 500000,
     "gpu": [0],
     "batchsize": 40960,
     "snapshot": 10000,
@@ -68,11 +68,19 @@
       "top": "relu1"
      
     },
+		
+    {
+      "name": "dropout1",
+      "type": "Dropout",
+      "bottom": "relu1",
+      "top": "dropout1",
+			"rate": 0.1
+    },
 
     {
       "name": "fc2",
       "type": "InnerProduct",
-      "bottom": "relu1",
+      "bottom": "dropout1",
       "top": "fc2",
        "fc_param": {
         "num_output": 200

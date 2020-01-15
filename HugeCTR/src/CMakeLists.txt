@@ -30,6 +30,9 @@ file(GLOB huge_ctr_src
   optimizers/adam_optimizer.cu
   optimizers/momentum_sgd.cu
   optimizers/nesterov_optimizer.cu
+	regularizer.cu
+	regularizers/l2_regularizer.cu
+	regularizers/no_regularizer.cu
   parser.cpp
   session.cpp
   embedding_creator.cu
