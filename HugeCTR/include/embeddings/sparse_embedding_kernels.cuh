@@ -16,13 +16,9 @@
 
 #pragma once
 
-//#include <cooperative_groups.h>
-//#include <cuda_runtime.h>
 #include "HugeCTR/include/common.hpp"
-#include "cub/cub/device/device_radix_sort.cuh"
 
-//#include "HugeCTR/include/hashtable/nv_hashtable.cuh"
-
+//#include <cooperative_groups.h>
 // using namespace cooperative_groups;
 
 namespace HugeCTR {
@@ -520,6 +516,7 @@ __global__ void store_slot_id_kernel(const int batch_size,
       int value_num = row_offset[gid + 1] - offset;
       for (int i = 0; i < value_num; i++) {
         TypeValueIndex index = value_index[offset+i]; // row number 
+        // TODO: slot_id may be filled in repeatly 
         slot_id[index] = sid;
       }
     }

@@ -17,10 +17,8 @@
 #pragma once
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.h"
 #include "cub/cub/device/device_radix_sort.cuh"
-
-#include "HugeCTR/include/hashtable/nv_hashtable.cuh"
+#include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.h"
 
 #include <vector>
 
@@ -231,7 +229,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
     slot_num_per_gpu_ = (embedding_params_.slot_num + total_gpu_count - 1) / total_gpu_count;
 
 #ifndef NDEBUG
-    std::cout << "max_vocabulary_size_per_gpu_:" << max_vocabulary_size_per_gpu_;
+    std::cout << "max_vocabulary_size_per_gpu_:" << max_vocabulary_size_per_gpu_ << std::endl;
 #endif
 
     // for hash_table_value initialization
@@ -438,14 +436,14 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 
     }  // end of for(int id = 0; id < local_gpu_count; id++)
 
-    // all2all init
-    // TODO: (just support intra-node currently)
-    const size_t element_per_send = (embedding_params_.batch_size * slot_num_per_gpu_) * \
-                                    embedding_params_.embedding_vec_size / total_gpu_count;
-    functors_.all2all_init(all2all_forward_, plan_file_, element_per_send, embedding_feature_tensors_, \
-                          all2all_tensors_, Base::device_resources_);
-    functors_.all2all_init(all2all_backward_, plan_file_, element_per_send, Base::output_tensors_, \
-                          all2all_tensors_, Base::device_resources_);
+    // // all2all init
+    // // TODO: (just support intra-node currently)
+    // const size_t element_per_send = (embedding_params_.batch_size * slot_num_per_gpu_) * \
+    //                                 embedding_params_.embedding_vec_size / total_gpu_count;
+    // functors_.all2all_init(all2all_forward_, plan_file_, element_per_send, embedding_feature_tensors_, \
+    //                       all2all_tensors_, Base::device_resources_);
+    // functors_.all2all_init(all2all_backward_, plan_file_, element_per_send, Base::output_tensors_, \
+    //                       all2all_tensors_, Base::device_resources_);
     // sync
     functors_.sync_all_gpus(Base::device_resources_, context);
 
