@@ -216,7 +216,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
               Base::device_resources_->get_total_gpu_count() / embedding_params_.load_factor);
 
 #ifndef NDEBUG
-    std::cout << "max_vocabulary_size_per_gpu_:" << max_vocabulary_size_per_gpu_;
+    std::cout << "max_vocabulary_size_per_gpu_:" << max_vocabulary_size_per_gpu_ << std::endl;
 #endif
 
     // for hash_table_value initialization

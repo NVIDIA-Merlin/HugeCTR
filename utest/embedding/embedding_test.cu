@@ -232,7 +232,7 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
   file_stream2.seekg(0, file_stream2.beg);
 
   size_t pair_size_in_B = sizeof(TypeHashKey) + sizeof(TypeHashValue);
-  long long pair_num = file_size1 / pair_size_in_B;
+  size_t pair_num = file_size1 / pair_size_in_B;
 
 #ifndef NDEBUG
   std::cout << "pair_size_in_B=" << pair_size_in_B << std::endl;
@@ -436,7 +436,7 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
   std::vector<int> device_list = {0};
   //std::vector<int> device_list = {0,1};
   int num_devices = device_list.size();
-  const char * hash_table_file_name = "hash_table.bin";
+  const char * hash_table_file_name = "distributed_hash_table.bin";
   const char * hash_table_check_file_name = "hash_table_check.bin";
 
   // uninfluential params
@@ -592,7 +592,7 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   // long long max_vocabulary_size_per_gpu = (long long)((double)(vocabulary_size) / num_devices /
   // load_factor);
 
-  const char *hash_table_file_name = "hash_table.bin";
+  const char *hash_table_file_name = "distributed_hash_table.bin";
   const char *data_file_name = "temp_dataset_embedding.data";
 
   bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -819,7 +819,7 @@ TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
   // long long max_vocabulary_size_per_gpu = (long long)((double)(vocabulary_size) / num_devices /
   // load_factor);
 
-  const char *hash_table_file_name = "hash_table.bin";
+  const char *hash_table_file_name = "distributed_hash_table.bin";
   const char *data_file_name = "temp_dataset_embedding.data";
 
   bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -1292,8 +1292,8 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   std::vector<int> device_list = {0};
   //std::vector<int> device_list = {0,1};
   int num_devices = device_list.size();
-  const char * hash_table_file_name = "hash_table.bin";
-  const char * hash_table_check_file_name = "hash_table_check.bin";
+  const char * hash_table_file_name = "localized_hash_table.bin";
+  const char * hash_table_check_file_name = "localized_hash_table_check.bin";
   const std::string plan_file = "./bin/all2all_plan.json";
   
   // uninfluential params
@@ -1421,3 +1421,254 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   ASSERT_EQ(true, rtn);
 }
 #endif 
+
+#if 1
+// localized_sparse_embedding_hash correctness testing: forward->backward->update_params
+TEST(localized_sparse_embedding_hash_test, training_correctness) {
+  test::mpi_init();
+
+  constexpr int batch_num = 4;  // can not more than 32
+  // constexpr int batch_num = 1;
+  constexpr int batchsize = 4096;
+  // constexpr int batchsize = 2;
+  constexpr long long num_records = batchsize * batch_num;
+  // constexpr int slot_num = 1;
+  constexpr int slot_num = 2;
+  constexpr int max_feature_num = 10 * slot_num;  // max_feature_num in a sample
+  // constexpr int max_feature_num = 2*slot_num;
+  constexpr long long vocabulary_size = 55000;
+  // constexpr long long vocabulary_size = 10;
+  constexpr int embedding_vec_size = 128;
+  // constexpr int embedding_vec_size = 1;
+  constexpr int combiner = 0;   // 0-sum, 1-mean
+  constexpr int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
+  constexpr float lr = 0.01;
+  // std::vector<int> device_list = {0,1};
+  std::vector<int> device_list = {0};
+  int num_devices = device_list.size();
+  constexpr long long label_dim = 1;
+  typedef long long T;
+
+  // In order to not allocate the total size of hash table on each GPU, the users need to set the
+  // size of max_vocabulary_size_per_gpu, which should be more than vocabulary_size/gpu_count,
+  // eg: 1.25x of that.
+  float load_factor = 0.75;  // CAUSION: this is a very important param for performance
+  // long long max_vocabulary_size_per_gpu = (long long)((double)(vocabulary_size) / num_devices /
+  // load_factor);
+
+  const char *hash_table_file_name = "localized_hash_table.bin";
+  const char *data_file_name = "temp_dataset_embedding.data";
+  const std::string plan_file = "./bin/all2all_plan.json";
+
+  bool init_hash_table = true;  // true: init hash_table and upload_to_device
+                                // false: don't init hash_table or upload_to_device, just use an
+                                //        empty hash_table to train
+
+  // set up params
+  OptHyperParams hyper_params;
+  hyper_params.adam.beta1 = 0.9f;
+  hyper_params.adam.beta2 = 0.999f;
+  hyper_params.adam.epsilon = 1e-8f;
+  hyper_params.momentum.factor = 0.9f;
+  hyper_params.nesterov.mu = 0.9f;
+
+  OptParams opt_params = {optimizer, lr, hyper_params};
+
+  const SparseEmbeddingHashParams embedding_params = {
+      batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
+      combiner,  // combiner: 0-sum, 1-mean
+      opt_params};
+
+  // generate input data
+  const std::string tmp_file_name(data_file_name);
+  const std::string file_list_name("file_list_embedding.txt");
+  {
+    // data generation;
+    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
+    DataSetHeader header = {num_records, label_dim, slot_num, 0};
+    out_stream.write(reinterpret_cast<char *>(&header), sizeof(DataSetHeader));
+    for (int i = 0; i < num_records; i++) {
+      UnifiedDataSimulator<int> idata_sim(0, max_feature_num / slot_num - 1);  // both inclusive
+      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);
+      for (int j = 0; j < label_dim; j++) {
+        int label = idata_sim.get_num();
+        out_stream.write(reinterpret_cast<char *>(&label), sizeof(int));
+      }
+      for (int k = 0; k < slot_num; k++) {
+        int nnz = idata_sim.get_num();
+        nnz = (int)(max_feature_num / slot_num);  // just for test
+        out_stream.write(reinterpret_cast<char *>(&nnz), sizeof(int));
+        for (int j = 0; j < nnz; j++) {
+          T value = ldata_sim.get_num();
+          // T value = k*nnz+j; // just for test, 20190625
+          out_stream.write(reinterpret_cast<char *>(&value), sizeof(T));
+        }
+        // std::cout << std::endl; // just for test 20181211
+      }
+    }
+    out_stream.close();
+    std::ofstream file_list_stream(file_list_name, std::ofstream::out);
+    file_list_stream << (std::to_string(1) + "\n");
+    file_list_stream << (tmp_file_name + "\n");
+    file_list_stream.close();
+  }
+
+  std::vector<std::vector<int>> vvgpu;
+  vvgpu.push_back(device_list);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+
+  // setup a data reader
+  DataReader<T> *data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, slot_num,
+                                                 max_feature_num, gpu_resource_group, 1, 1);
+
+  Embedding<T> *embedding = new LocalizedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
+                                                       data_reader->get_value_tensors(),
+                                                       embedding_params, plan_file, gpu_resource_group);
+
+  if (init_hash_table) {
+    // init hash table file: <key, solt_id, value>
+    std::ofstream weight_stream(hash_table_file_name);
+    if (!weight_stream.is_open()) {
+      ERROR_MESSAGE_("Error: file not open for writing");
+    }
+    UnifiedDataSimulator<T> ldata_sim(0, slot_num-1); // for slot_id
+    UnifiedDataSimulator<float> fdata_sim(-0.1f, 0.1f); // for value
+    for (long long i = 0; i < vocabulary_size; i++) {
+      T key = (T)i;
+      // T key = ldata_sim.get_num();
+      // CAUSION: can not set random keys here, because we need to ensure that:
+      // 1) we can find keys in the data file from this hash table
+      // 2) there are no repeated keys
+      weight_stream.write((char *)&key, sizeof(T));
+      T slot_id = ldata_sim.get_num();
+      weight_stream.write((char *)&slot_id, sizeof(T));
+      // float val = (float)i;
+      // float val = 1.0f;
+      float val = fdata_sim.get_num();
+      for (int j = 0; j < embedding_vec_size; j++) {
+        weight_stream.write((char *)&val, sizeof(float));
+      }
+    }
+    weight_stream.close();
+
+    // upload hash table to device
+    std::ifstream i_weight_stream(hash_table_file_name);
+    embedding->upload_params_to_device(i_weight_stream);
+    i_weight_stream.close();
+  }
+
+  // for SparseEmbeddingCpu
+  std::ifstream weight_stream_cpu(hash_table_file_name);
+  std::ifstream csr_stream_cpu(data_file_name);
+  SparseEmbeddingHashCpu<T> *embedding_cpu = new SparseEmbeddingHashCpu<T>(
+      batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, combiner,
+      optimizer, lr, weight_stream_cpu, csr_stream_cpu, label_dim);
+
+  // for results check
+  float *embedding_feature_from_gpu =
+      (float *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(float));
+  float *embedding_feature_from_cpu = embedding_cpu->get_forward_results();
+  float *wgrad_from_gpu[device_list.size()];
+  for (unsigned int i = 0; i < device_list.size(); i++) {
+    wgrad_from_gpu[i] = (float *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(float));
+  }
+  float *wgrad_from_cpu = embedding_cpu->get_backward_results();
+  T *hash_table_key_from_gpu = (T *)malloc(vocabulary_size * sizeof(T));
+  float *hash_table_value_from_gpu =
+      (float *)malloc(vocabulary_size * (long long)embedding_vec_size * sizeof(float));
+  T *hash_table_key_from_cpu = embedding_cpu->get_hash_table_key_ptr();
+  float *hash_table_value_from_cpu = embedding_cpu->get_hash_table_value_ptr();
+
+  typedef struct TypeHashValue_ {
+    float data[embedding_vec_size];
+  } TypeHashValue;
+
+  for (int i = 0; i < batch_num; i++) {
+    printf("Round %d start:\n", i);
+
+    // call read a batch
+    data_reader->read_a_batch_to_device();
+
+    printf("finish data_reader->read_a_batch_to_device()\n");
+
+    // GPU forward
+    embedding->forward();
+
+    printf("finish finish embedding->forward()\n");
+
+    // CPU forward
+    embedding_cpu->forward();
+
+    printf("finish embedding_cpu->forward()\n");
+
+    // check the result of forward
+    embedding->get_forward_results(embedding_feature_from_gpu);  // memcpy from GPU to CPU
+    ASSERT_EQ(true,
+              compare_embedding_feature(batchsize * slot_num * embedding_vec_size,
+                                        embedding_feature_from_gpu, embedding_feature_from_cpu));
+
+    printf("finish embedding->get_forward_results()\n");
+
+    // GPU backward
+    embedding->backward();
+
+    printf("finish embedding->backward()\n");
+
+    // CPU backward
+    embedding_cpu->backward();
+
+    printf("finish embedding_cpu->backward()\n");
+
+    // check the result of backward
+    embedding->get_backward_results(wgrad_from_gpu[0], 0);
+
+    printf("finish embedding->get_backward_results()\n");
+
+    // check the result on multi GPUs first
+    if (device_list.size() > 1) {
+      for (unsigned int j = 1; j < device_list.size(); j++) {
+        embedding->get_backward_results(wgrad_from_gpu[j], j);  // memcpy from GPU to CPU
+        // printf("\ncompare GPU[%d] and GPU[%d]\n", 0, j);
+        ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, wgrad_from_gpu[0],
+                                      wgrad_from_gpu[j]));
+      }
+    }
+    // printf("\ncompare GPU0 and CPU\n");
+    ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, wgrad_from_gpu[0],
+                                  wgrad_from_cpu));
+
+    // GPU update_params
+    embedding->update_params();
+
+    printf("finish embedding->update_params()\n");
+
+    // CPU update_params
+    embedding_cpu->update_params();
+
+    printf("finish embedding_cpu->update_params()\n");
+
+    // check the results of update params
+    embedding->get_update_params_results(hash_table_key_from_gpu,
+                                  hash_table_value_from_gpu);  // memcpy from GPU to CPU
+    
+    printf("finish embedding->get_update_params_results()\n");
+
+    // ASSERT_EQ(true, compare_embedding_table(vocabulary_size*embedding_vec_size,
+    // hash_table_value_from_gpu, hash_table_value_from_cpu));
+    bool rtn = compare_hash_table<T, TypeHashValue>(
+        vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue *)hash_table_value_from_gpu,
+        (T *)hash_table_key_from_cpu, (TypeHashValue *)hash_table_value_from_cpu);
+    ASSERT_EQ(true, rtn);
+    printf("Round %d end:\n", i);
+  }
+
+  // release resources
+  free(embedding_feature_from_gpu);
+  for (int i = 0; i < num_devices; i++) {
+    free(wgrad_from_gpu[i]);
+  }
+  free(hash_table_value_from_gpu);
+  free(hash_table_key_from_gpu);
+}
+#endif

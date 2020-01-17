@@ -19,11 +19,10 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/hashtable/nv_hashtable.cuh"
 #include "HugeCTR/include/embeddings/sparse_embedding_kernels.cuh"
+#include "cub/cub/device/device_radix_sort.cuh"
 #include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/FasterGossipComm.h"
-#include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/gossip/include/clipp/include/clipp.h"
-#include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/gossip/include/plan_parser.hpp"
+#include "HugeCTR/include/hashtable/nv_hashtable.cuh"
 
 namespace HugeCTR {
 
@@ -889,7 +888,7 @@ public:
 
         if (tile_counter_per_gpu[id] > max_vocabulary_size_per_gpu) {
           char msg[100];
-          sprintf(msg, "The size of hash table on GPU%d is out of range %d\n", id,
+          sprintf(msg, "The size of hash table on GPU%d is out of range %zu\n", id,
                   max_vocabulary_size_per_gpu);
           CK_THROW_(Error_t::OutOfBound, msg);
         }
@@ -1207,7 +1206,7 @@ public:
 
         if (tile_counter_per_gpu[id] > max_vocabulary_size_per_gpu) {
           char msg[100];
-          sprintf(msg, "The size of hash table on GPU%d is out of range %d\n", id,
+          sprintf(msg, "The size of hash table on GPU%d is out of range %zu\n", id,
                   max_vocabulary_size_per_gpu);
           CK_THROW_(Error_t::OutOfBound, msg);
         }
