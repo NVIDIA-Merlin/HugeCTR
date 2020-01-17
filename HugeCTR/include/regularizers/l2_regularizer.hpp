@@ -28,7 +28,7 @@
 namespace HugeCTR {
 
 /**
- * @brief L2Regularizer
+ * @brief L2 Regularizer
  */
 class L2Regularizer : public Regularizer {
  public:
@@ -37,6 +37,8 @@ class L2Regularizer : public Regularizer {
   * @param weight_buff GeneralBuffer containing all the layers' weights
   * @param wgrad_buff GeneralBuffer containing all the layers' wgrads
   * @param batch_size Network batch size
+  * @param lambda Hyperparameter to scale the regularization term
+  * @param cublas_handle cuBLAS handle to execute the kernel in fprop
   * @param device_id Device to be used
   */
   L2Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
@@ -52,9 +54,23 @@ class L2Regularizer : public Regularizer {
   ~L2Regularizer() override {}
 
  private:
+ /*
+  * Calculate rterm based on the dot product and scale it with lambda / (2 * batch_size)
+  * @param weight the device buffer of weight
+  * @param h_rterm the host pointer to the regularization term
+  * @param num_elements the number of weight values across layers
+  * @param stream CUDA Stream where the kernel is executed
+  */
   void do_compute_rterm(const float* weight, float* h_rterm,
                         int num_elements,
                         cudaStream_t stream) override;
+ /*
+  * Initialize wgrad with weight * (lambda / batch_size)
+  * @param weight the device buffer of weight
+  * @param h_rterm the host pointer to the regularization term
+  * @param num_elements the number of weight values across layers
+  * @param stream CUDA Stream where the kernel is executed
+  */
   void do_initialize_wgrad(const float* weight, float* wgrad,
                          int num_elements,
                          cudaStream_t stream) override;

@@ -52,9 +52,23 @@ class L1Regularizer : public Regularizer {
   ~L1Regularizer() override {}
 
  private:
+ /*
+  * Calculate rterm based on the absolute sum and scale it with lambda / (batch_size)
+  * @param weight the device buffer of weight
+  * @param h_rterm the host pointer to the regularization term
+  * @param num_elements the number of weight values across layers
+  * @param stream CUDA Stream where the kernel is executed
+  */
   void do_compute_rterm(const float* weight, float* h_rterm,
                         int num_elements,
                         cudaStream_t stream) override;
+ /*
+  * Initialize wgrad with +-(lambda / batch_size)
+  * @param weight the device buffer of weight
+  * @param h_rterm the host pointer to the regularization term
+  * @param num_elements the number of weight values across layers
+  * @param stream CUDA Stream where the kernel is executed
+  */
   void do_initialize_wgrad(const float* weight, float* wgrad,
                          int num_elements,
                          cudaStream_t stream) override;
