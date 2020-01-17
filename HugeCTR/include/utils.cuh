@@ -93,12 +93,12 @@ __global__ void initialize_array(T* array, int num_elements, T value) {
   }
 }
 
-template <typename T>
-__global__ void copy_array(const T* in, T* out, int num_elements, T alpha, T beta) {
+template <typename T, typename Lambda>
+__global__ void transform_array(const T* in, T* out, int num_elements, Lambda op) {
   const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;
   const int num_threads = blockDim.x * gridDim.x;
   for(int tid = tid_base; tid < num_elements; tid += num_threads) {
-    out[tid] = alpha * in[tid] + beta;
+    out[tid] = op(in[tid]);
   }
 }
 
