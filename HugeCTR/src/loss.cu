@@ -106,7 +106,8 @@ CrossEntropyLoss::CrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &l
 
 // Suppose we use one thread to calculate one sample
 __global__ void CrossEntropy_Kernel(float *input, const float *label, float *cel_loss,
-                                    int batch_size, int feature_dim, bool row_major, int scaler) {
+                                    int batch_size, int feature_dim, bool row_major, int scaler,
+                                    float rterm) {
   int tid = threadIdx.x;
   extern __shared__ float loss_s[];
 
@@ -139,7 +140,7 @@ __global__ void CrossEntropy_Kernel(float *input, const float *label, float *cel
 
   if (tid == 0) {
     for (int i = 0; i < blockDim.x; ++i) loss_tmp += loss_s[i];
-    cel_loss[0] = loss_tmp / batch_size;
+    cel_loss[0] = loss_tmp / batch_size + rterm;
   }
 }
 
@@ -150,7 +151,7 @@ void CrossEntropyLoss::do_fused_loss_computation(float* input, const float* labe
   bool row_major = (input_tensors_[0]->get_format() == TensorFormat_t::HW);
   int block_size = min(batch_size, 1024);
   CrossEntropy_Kernel<<<1, block_size, block_size * sizeof(float), stream>>>(
-      input, label, loss, batch_size, feature_dim, row_major, scaler);
+      input, label, loss, batch_size, feature_dim, row_major, scaler, rterm);
 }
 
 BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
@@ -171,7 +172,7 @@ BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
 }
 // Suppose we use one thread to calculate one sample
 __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, float *bce_loss,
-                                          int scaler, int batch_size, int rterm) {
+                                          int scaler, int batch_size, float rterm) {
   const float MIN_ = 1e-6;
   const float MIN_X = -707.f;
   int tid = threadIdx.x;
@@ -197,7 +198,7 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
   float loss_tmp = 0.0f;
   if (tid == 0) {
     for (int i = 0; i < blockDim.x; ++i) loss_tmp += loss_s[i];
-    bce_loss[0] = -loss_tmp / batch_size;
+    bce_loss[0] = -loss_tmp / batch_size + rterm;
   }
 }
 
@@ -207,7 +208,7 @@ void BinaryCrossEntropyLoss::do_fused_loss_computation(float* input, const float
                                                        cudaStream_t stream) {
   int block_size = min(batch_size, 1024);
   BinaryCrossEntropy_Kernel<<<1, block_size, block_size * sizeof(float), stream>>>(
-      input, label, loss, scaler, batch_size);
+      input, label, loss, scaler, batch_size, rterm);
 }
 
 __forceinline__ __device__ __host__ float cross_entropy_loss(float x, float y) {
@@ -230,7 +231,8 @@ __forceinline__ __device__ __host__ float cross_entropy_loss_backward(float x, f
 
 __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
                                          const float *target_weight, float *bce_loss, int batchsize,
-                                         int labels_per_sample, int scaler) {
+                                         int labels_per_sample, int scaler,
+                                         float rterm) {
   int tid = threadIdx.x + blockDim.x * blockIdx.x;
   int num_threads = blockDim.x * gridDim.x;
   float loss_s = 0.f;
@@ -245,13 +247,12 @@ __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
     input[i] = (label[i] < -0.5) ? 0.f
                                  : (target_weight[target_weight_idx] *
                                     cross_entropy_loss_backward(x, y) / size * scaler);
-    // if(i == 0){
-    //   printf("i=%d, x=%f, y=%f, target_weight[target_weight_idx]=%f, loss=%f, input=%f\n", i, x,
-    //   y, target_weight[target_weight_idx], loss, input[i]);
-    // }
   }
 
   atomic_global_sum_div(-loss_s, bce_loss, size);
+  if(tid == 0) {
+    atomicAdd(bce_loss, rterm);
+  }
   return;
 }
 
@@ -266,7 +267,7 @@ void MultiCrossEntropyLoss::do_fused_loss_computation(float* input, const float*
   const int GRID_SIZE = min(40, (batch_size * labels_per_sample - 1) / BLOCK_SIZE);
   float *target_weight = target_weight_->get_ptr();
   MultiCrossEntropy_Kernel<<<GRID_SIZE, BLOCK_SIZE, 0, stream>>>(
-      input, label, target_weight, loss, batch_size, labels_per_sample, scaler);
+      input, label, target_weight, loss, batch_size, labels_per_sample, scaler, rterm);
 }
 
 MultiCrossEntropyLoss::MultiCrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &label_tensor,

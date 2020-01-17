@@ -25,6 +25,7 @@
 #include "HugeCTR/include/layers/relu_layer.hpp"
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 #include "HugeCTR/include/layers/slice_layer.hpp"
+#include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
 #include "HugeCTR/include/loss.hpp"
@@ -237,6 +238,13 @@ create_regularizer(const nlohmann::json& j,
     }
     switch(reg_type) {
       case Regularizer_t::L1: {
+        const auto lambda = get_value_from_json<float>(j, "lambda");
+        reg.reset(new L1Regularizer(weight_buff,
+                                    wgrad_buff,
+                                    batch_size,
+                                    lambda,
+                                    cublas_handle,
+                                    device_id));
         break;
       }
       case Regularizer_t::L2: {
