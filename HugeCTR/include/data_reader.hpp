@@ -118,7 +118,6 @@ class DataReader {
   int data_reader_loop_flag_;            /**< p_loop_flag a flag to control the loop */
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
 
-
   void create_heap_workers_(){
     int max_feature_num_per_sample = 0;
     int slot_num = 0;
@@ -216,6 +215,22 @@ class DataReader {
   const Tensors<float>& get_dense_tensors() const { return dense_tensors_; }
   const Tensors<TypeKey>& get_row_offsets_tensors() const { return row_offsets_tensors_; }
   const Tensors<TypeKey>& get_value_tensors() const { return value_tensors_; }
+  const Tensors<TypeKey> get_row_offsets_tensors(int param_id) const {
+    Tensors<TypeKey> tensors;
+    for(unsigned int i=0; i< device_resources_->size(); i++){
+      tensors.emplace_back(row_offsets_tensors_[i*params_.size() + param_id]);
+    }
+    return tensors;
+  }
+  const Tensors<TypeKey> get_value_tensors(int param_id) const {
+    Tensors<TypeKey> tensors;
+    for(unsigned int i=0; i< device_resources_->size(); i++){
+      tensors.emplace_back(value_tensors_[i*params_.size() + param_id]);
+    }
+    return tensors;
+  }
+
+
   ~DataReader();
 };
 
@@ -228,16 +243,16 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name,
       NumThreads(num_threads),
       label_dense_buffers_(prototype.label_dense_buffers_),
       label_tensors_(prototype.label_tensors_),
-      dense_tensors_(prototype.dense_tensor_),
-      check_type_(prototype.check_type),
+      dense_tensors_(prototype.dense_tensors_),
+      check_type_(prototype.check_type_),
       csr_buffers_(prototype.csr_buffers_),
       row_offsets_tensors_(prototype.row_offsets_tensors_),
       value_tensors_(prototype.value_tensors_),
-      params_(prototype.params),
+      params_(prototype.params_),
       device_resources_(prototype.device_resources_),
       batchsize_(prototype.batchsize_),
       label_dim_(prototype.label_dim_),
-      dense_dim_(prototype.dense_dim)
+      dense_dim_(prototype.dense_dim_)
       {
   shared_output_flag_ = true;
   data_reader_loop_flag_ = 1;
@@ -255,16 +270,16 @@ template <typename TypeKey>
 DataReader<TypeKey>::DataReader(const DataReader<TypeKey>& prototype)
     : label_dense_buffers_(prototype.label_dense_buffers_),
       label_tensors_(prototype.label_tensors_),
-      dense_tensors_(prototype.dense_tensor_),
-      check_type_(prototype.check_type),
+      dense_tensors_(prototype.dense_tensors_),
+      check_type_(prototype.check_type_),
       csr_buffers_(prototype.csr_buffers_),
       row_offsets_tensors_(prototype.row_offsets_tensors_),
       value_tensors_(prototype.value_tensors_),
-      params_(prototype.params),
+      params_(prototype.params_),
       device_resources_(prototype.device_resources_),
       batchsize_(prototype.batchsize_),
       label_dim_(prototype.label_dim_),
-      dense_dim_(prototype.dense_dim)
+      dense_dim_(prototype.dense_dim_)
       {
   shared_output_flag_ = true;
   data_reader_loop_flag_ = 1;
@@ -296,9 +311,9 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
   int total_gpu_count = device_resources_->get_total_gpu_count();
 
   // input check
-  if (total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || dense_dim <= 0 ||
+  if (total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || dense_dim < 0 ||
       0 != batchsize_ % total_gpu_count) {
-    CK_THROW_(Error_t::WrongInput, "total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || dense_dim <= 0 || 0 != batchsize_ % total_gpu_count");
+    CK_THROW_(Error_t::WrongInput, "total_gpu_count == 0 || batchsize <= 0 || label_dim <= 0 || dense_dim < 0 || 0 != batchsize_ % total_gpu_count");
   }
 
   create_heap_workers_();
@@ -311,9 +326,9 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
   for (auto device_id : device_list) {
     std::shared_ptr<GeneralBuffer<float>> tmp_label_dense_buff(new GeneralBuffer<float>());
     label_tensors_.emplace_back(
-				new Tensor<float>({batch_size_per_device, label_dim_}, tmp_label_dense_buff, TensorFormat_t::HW));
+      new Tensor<float>({batch_size_per_device, label_dim_}, tmp_label_dense_buff, TensorFormat_t::HW));
     dense_tensors_.emplace_back(
-				new Tensor<float>({batch_size_per_device, dense_dim_}, tmp_label_dense_buff, TensorFormat_t::HW));
+      new Tensor<float>({batch_size_per_device, dense_dim_}, tmp_label_dense_buff, TensorFormat_t::HW));
 
     tmp_label_dense_buff->init(device_id);
     label_dense_buffers_.emplace_back(tmp_label_dense_buff);
