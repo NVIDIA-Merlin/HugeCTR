@@ -37,7 +37,7 @@ void test_parser(std::string& json_name) {
   Parser p(json_name, batch_size);
   std::unique_ptr<DataReader<TypeKey>> data_reader;
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval;
-  std::unique_ptr<Embedding<TypeKey>> embedding;
+  std::vector<std::unique_ptr<Embedding<TypeKey>>> embedding;
   std::vector<std::unique_ptr<Network>> networks;
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 

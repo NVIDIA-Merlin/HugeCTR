@@ -22,6 +22,7 @@
 
 using namespace HugeCTR;
 
+#if 0
 TEST(session_test, basic_session) {
   const int batchsize = 2048;
   const int label_dim = 1;
@@ -62,3 +63,4 @@ TEST(session_test, basic_session) {
   }
   cudaProfilerStop();
 }
+#endif
