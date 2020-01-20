@@ -248,7 +248,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   for (unsigned int i = 1; i < j_array.size(); i++) {
     const nlohmann::json& j = j_array[i];
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
-
     Layer_t layer_type;
     if (!find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP)) {
       //CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
@@ -278,6 +277,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
+	if(input_output_info.input.size() != 2){
+	  CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
+	}
         const auto& binary_cross_entropy_loss_in_tensor = input_output_info.input[0];
 	const auto& label_tensor = input_output_info.input[1];
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
@@ -293,6 +295,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::CrossEntropyLoss: {
+	if(input_output_info.input.size() != 2){
+	  CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
+	}
         const auto& cross_entropy_loss_in_tensor = input_output_info.input[0];
 	const auto& label_tensor = input_output_info.input[1];
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
@@ -348,6 +353,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         break;
       }
       case Layer_t::MultiCrossEntropyLoss: {
+	if(input_output_info.input.size() != 2){
+	  CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
+	}
         const auto& multi_cross_entropy_loss_in_tensor = input_output_info.input[0];
 	const auto& label_tensor = input_output_info.input[1];
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
@@ -499,8 +507,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 	// Create Data Reader
 	const nlohmann::json& j = j_layers_array[0];
 	const auto layer_type_name = get_value_from_json<std::string>(j, "type");
-	if(!layer_type_name.compare("Data")){
-	  CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer");
+	if(layer_type_name.compare("Data")!=0){
+	  CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
 	}
 	
 	auto j_source = get_json(j, "source");
@@ -597,7 +605,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
 	
 	const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
-	  {"SparseEmbeddingHash", Embedding_t::SparseEmbeddingHash},
+	  {"SparseEmbedding", Embedding_t::SparseEmbeddingHash},
 	  {"LocalizedSlotSparseEmbedding", Embedding_t::LocalizedSlotSparseEmbedding}
 	};
 	for (unsigned int i = 1; i < j_layers_array.size(); i++) {
@@ -611,7 +619,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 	  auto bottom_name = get_value_from_json<std::string>(j, "bottom");
 	  auto top_name = get_value_from_json<std::string>(j, "top");
 
-	  auto j_hparam = get_json(j[0], "sparse_embedding_hparam");
+	  auto j_hparam = get_json(j, "sparse_embedding_hparam");
 	  auto vocabulary_size = get_value_from_json<int>(j_hparam, "vocabulary_size");
 	  auto embedding_vec_size = get_value_from_json<int>(j_hparam, "embedding_vec_size");
 	  auto combiner = get_value_from_json<int>(j_hparam, "combiner");

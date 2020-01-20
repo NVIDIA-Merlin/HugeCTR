@@ -45,8 +45,26 @@ void test_parser(std::string& json_name) {
   return;
 }
 
+
+
+const long long label_dim = 1;
+const long long dense_dim = 64;
+const int max_nnz = 30;
+typedef long long T;
+const int vocabulary_size = 1603616;
+const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
+const std::string file_list_name = prefix + "_file_list.txt";
+const int num_files = 20;
+const long long num_records = 4096 * 5;
+const long long slot_num = 10;
+const Check_t CHK = Check_t::Sum;
+
+
 TEST(parser_test, simple_sparse_embedding) {
   test::mpi_init();
+  HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records, slot_num,
+    vocabulary_size, label_dim, dense_dim, max_nnz);
+
   std::string json_name = PROJECT_HOME_ + "utest/parser/simple_sparse_embedding.json";
   test_parser<long long>(json_name);
 }
