@@ -30,18 +30,18 @@
       "eval_source": "./simple_sparse_embedding/simple_sparse_embedding_file_list.txt",
       "check": "Sum",
       "label": {
-        "top": "Label",
+        "top": "label",
         "label_dim": 1
       },
       "dense": {
-        "top": "Dense",
+        "top": "dense",
         "dense_dim": 64
       },
       "sparse": [
         {
           "top": "data1",
           "type": "DistributedSlot",
-          "max_feature_num_per_sample": 100,
+          "max_feature_num_per_sample": 300,
           "slot_num": 10
         }        
       ]
@@ -181,7 +181,7 @@
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": "fc4",
+      "bottom": ["fc4","label"],
       "top": "loss"
     } 
   ]

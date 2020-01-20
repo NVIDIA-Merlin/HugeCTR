@@ -148,8 +148,6 @@ TEST(data_reader_test, data_reader_localized_test) {
 
 }
 
-
-
 TEST(data_reader_test, data_reader_mixed_test) {
   const int batchsize = 2048;
   int numprocs = 1, pid = 0;
