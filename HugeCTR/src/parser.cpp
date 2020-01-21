@@ -733,15 +733,16 @@ SolverParser::SolverParser(std::string configure_file) {
     FIND_AND_ASSIGN_INT_KEY(eval_interval, j);
     FIND_AND_ASSIGN_INT_KEY(eval_batches, j);
     //FIND_AND_ASSIGN_STRING_KEY(embedding_file, j);
-    auto j_embedding_files = get_json(j, "embedding_files");
-    if(j_embedding_files.is_array()) {
-      for(unsigned int i = 0; i < j_embedding_files; i++){
-	embedding_files.push_back(j_embedding_files[i].get<std::string>());
+    if(has_key_(j, "embedding_files")){
+      auto j_embedding_files = get_json(j, "embedding_files");
+      if(j_embedding_files.is_array()) {
+	for(unsigned int i = 0; i < j_embedding_files; i++){
+	  embedding_files.push_back(j_embedding_files[i].get<std::string>());
+	}
+      } else {
+	embedding_files.push_back(get_value_from_json<std::string>(j, "embedding_file"));
       }
-    } else {
-      embedding_files.push_back(get_value_from_json<std::string>(j, "embedding_file"));
     }
-    
     auto gpu_array = get_json(j, "gpu");
     assert(device_list.empty());
     std::vector<std::vector<int>> vvgpu;

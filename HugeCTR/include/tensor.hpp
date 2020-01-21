@@ -67,8 +67,8 @@ class Tensor {
         CK_THROW_(Error_t::WrongInput, "doesn't support dims != 2 and != 3");
       }
       for (auto iter = dims_.begin(); iter < dims_.end(); iter++) {
-        if (iter[0] <= 0)
-          CK_THROW_(Error_t::WrongInput, "dims vector cannot have 0 or smaller elements");
+        if (iter[0] < 0)
+          CK_THROW_(Error_t::WrongInput, "dims vector cannot have elements less than 0");
       }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
