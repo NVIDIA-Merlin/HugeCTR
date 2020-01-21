@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
         }
         HugeCTR::SolverParser solver_config(config_file);
         HugeCTR::Session session_instance(solver_config.batchsize, solver_config.model_file,
-                                          solver_config.embedding_file, config_file,
+                                          solver_config.embedding_files, config_file,
                                           solver_config.device_map);
 
         HugeCTR::Timer timer;
@@ -134,11 +134,7 @@ int main(int argc, char* argv[]) {
           }
           if (i % solver_config.snapshot == 0 && i != 0) {
             // snapshot
-            std::string snapshot_dense_name =
-                solver_config.snapshot_prefix + "_dense_" + std::to_string(i) + ".model";
-            std::string snapshot_sparse_name =
-                solver_config.snapshot_prefix + "_sparse_" + std::to_string(i) + ".model";
-            session_instance.download_params_to_file(snapshot_dense_name, snapshot_sparse_name);
+            session_instance.download_params_to_files(solver_config.snapshot_prefix, i);
           }
           if (solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0) {
             float avg_loss = 0.f;
