@@ -87,6 +87,11 @@ __forceinline__ void mpi_init(){
 #endif 
 }
 
+__forceinline__ void mpi_finialize(){
+#ifdef ENABLE_MPI
+  MPI_Finalize();
+#endif 
+}
 
  
 } // end namespace test

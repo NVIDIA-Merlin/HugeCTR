@@ -22,65 +22,70 @@
 #include "HugeCTR/include/csr_chunk.hpp"
 #include "HugeCTR/include/file_list.hpp"
 #include "HugeCTR/include/heap.hpp"
+#include "HugeCTR/include/check_sum.hpp"
+#include "HugeCTR/include/check_none.hpp"
+#include "HugeCTR/include/file_source.hpp"
 
 namespace HugeCTR {
-
-/**
- * @brief worker of data reader.
- *
- * This is the data readers which will be initilized within multiple
- * threads in class DataReader.
- * It reads data from files in file_list to CSR heap.
- */
 template <class T>
 class DataReaderWorker {
- private:
-  std::shared_ptr<FileList> file_list_;         /**< file list of data set */
+private:
   std::shared_ptr<Heap<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   DataSetHeader
       data_set_header_; /**< the header of data set, which has main informations of a data file */
-  long long current_record_index_{0}; /**< the index of current reading record in a data file */
-  std::ifstream in_file_stream_;      /**< file stream of data set file */
-  std::string file_name_;             /**< file name of current file */
-  std::unique_ptr<T[]> feature_ids_;  /**< a buffer to cache the readed feature from data set */
   size_t buffer_length_;              /**< max possible nnz in a slot */
+  Check_t check_type_;
+  std::vector<DataReaderSparseParam> params_;
+  T* feature_ids_;                    /**< a buffer to cache the readed feature from data set */
+  std::shared_ptr<Source> source_;
+  std::shared_ptr<Checker> checker_;
   bool skip_read_{false};             /**< set to true when you want to stop the data reading */
+  const int MAX_TRY = 10;
+  int current_record_index_{0};
 
-  /**
-   * Open data file and read header+
-   */
-  void open_file_and_read_head() {
-    std::string file_name = file_list_->get_a_file();
-    in_file_stream_.open(file_name, std::ifstream::binary);
-    if (!in_file_stream_.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
+  void read_new_file(){
+    for(int i=0; i<MAX_TRY; i++){
+      checker_->next_source();
+
+      //      tmp_check(0, sizeof(DataSetHeader), "sizeof(DataSetHeader)");
+      Error_t err = checker_->read(reinterpret_cast<char*>(&data_set_header_), 
+				   sizeof(DataSetHeader));
+      current_record_index_ = 0;
+      //todo: check if file match our DataReader setting.
+      if(!(data_set_header_.error_check == 0 && check_type_ == Check_t::None) 
+	 && !(data_set_header_.error_check == 1 && check_type_ == Check_t::Sum)){
+	continue;
+      }
+      if(err == Error_t::Success){
+	return;
+      }
     }
-
-    in_file_stream_.read(reinterpret_cast<char*>(&data_set_header_), sizeof(DataSetHeader));
-#ifndef NDEBUG
-    std::cout << file_name << std::endl;
-    std::cout << "number_of_records:" << data_set_header_.number_of_records
-              << ", label_dim:" << data_set_header_.label_dim
-              << ", slot_num:" << data_set_header_.slot_num << std::endl;
-#endif
-
-    current_record_index_ = 0;
-    if (!(data_set_header_.number_of_records > 0)) {
-      CK_THROW_(Error_t::WrongInput, "number_of_records <= 0");
-    }
+    CK_THROW_(Error_t::BrokenFile, "failed to read a file");
   }
 
- public:
+
+public:
   /**
    * Ctor
    */
-  DataReaderWorker(const std::shared_ptr<Heap<CSRChunk<T>>>& csr_heap,
-                   const std::shared_ptr<FileList>& file_list, size_t buffer_length)
-      : file_list_(file_list),
-        csr_heap_(csr_heap),
-        feature_ids_(new T[buffer_length]()),
-        buffer_length_(buffer_length){};
-
+  DataReaderWorker(const std::shared_ptr<Heap<CSRChunk<T>>>& csr_heap, FileList& file_list, size_t buffer_length, 
+    Check_t check_type, const std::vector<DataReaderSparseParam>& params):
+    csr_heap_(csr_heap), buffer_length_(buffer_length), 
+    check_type_(check_type), params_(params),
+    feature_ids_(new T[buffer_length]())
+  {
+    source_ = std::make_shared<FileSource>(file_list);
+    switch(check_type_){
+    case Check_t::Sum:
+      checker_ = std::make_shared<CheckSum>(*source_);
+      break;
+    case Check_t::None:
+      checker_ = std::make_shared<CheckNone>(*source_);
+      break;
+    default:
+      assert(!"Error: no such Check_t && should never get here!!");
+    }
+  }
   /**
    * read a batch of data from data set to heap.
    */
@@ -90,86 +95,144 @@ class DataReaderWorker {
    * skip data reading in read_a_batch()
    */
   void skip_read() { skip_read_ = true; }
+
 };
+
+#define CK_READ_(x)					\
+  do{							\
+    Error_t __ERR = (x);				\
+    if(__ERR == Error_t::Success){			\
+    }							\
+    else if(__ERR == Error_t::DataCheckError){		\
+      csr_chunk->apply_to_csr_buffers(&CSR<T>::roll_back);\
+      i--;						\
+      goto END_SAMPLE;					\
+    }							\
+    else{						\
+      csr_chunk->apply_to_csr_buffers(&CSR<T>::roll_back);\
+      i--;						\
+      read_new_file();					\
+      goto END_SAMPLE;					\
+    }							\
+  } while (0)
+
 
 template <class T>
 void DataReaderWorker<T>::read_a_batch() {
   try {
-    if (!in_file_stream_.is_open()) {
-      open_file_and_read_head();
+    if(!checker_->is_open()){
+      read_new_file();
     }
     unsigned int key = 0;
     CSRChunk<T>* csr_chunk = nullptr;
     csr_heap_->free_chunk_checkout(&csr_chunk, &key);
+
     if (!skip_read_) {
-      const auto& csr_buffers = csr_chunk->get_csr_buffers();
-      const auto& label_buffers = csr_chunk->get_label_buffers();
-      const int label_dim = csr_chunk->get_label_dim();
-      if (data_set_header_.label_dim != label_dim) {
-        CK_THROW_(Error_t::WrongInput, "data_set_header_.label_dim != label_dim");
-      }
+      const auto& label_dense_buffers = csr_chunk->get_label_buffers();
+      const int label_dense_dim = csr_chunk->get_label_dim();
+      if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
+        CK_THROW_(Error_t::WrongInput, "data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim");
+      std::unique_ptr<float[]> label_dense(new float[label_dense_dim]());
 
-      std::unique_ptr<int[]> label(new int[label_dim]());
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::reset);
-      assert(label_buffers.size() > 0);
+      csr_chunk->apply_to_csr_buffers(&CSR<T>::reset); 
+      assert(label_dense_buffers.size() > 0);
+      //batch loop
       for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
-        in_file_stream_.read(reinterpret_cast<char*>(label.get()), sizeof(int) * (label_dim));
-        {
-          // We suppose that the data parallel mode is like this
-          int buffer_id = i / (csr_chunk->get_batchsize() / label_buffers.size());
-          assert(buffer_id < static_cast<int>(label_buffers.size()));
-          int local_id = i % (csr_chunk->get_batchsize() / static_cast<int>(label_buffers.size()));
-          assert(local_id < (csr_chunk->get_batchsize() / static_cast<int>(label_buffers.size())));
-          for (int j = 0; j < label_dim; j++) {
-            // row major for label buffer
-            label_buffers[buffer_id][local_id * label_dim + j] = label[j];
-          }
-        }
 
-        for (int k = 0; k < data_set_header_.slot_num; k++) {
-          csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
-          int nnz;
-          in_file_stream_.read(reinterpret_cast<char*>(&nnz), sizeof(int));
-          if (nnz > (int)buffer_length_ || nnz < 0) {
-            ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
-          }
+	int param_id = 0;
+	csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
+	
+	//	tmp_check(i, sizeof(float) * label_dense_dim, "sizeof(float) * label_dense_dim");
 
-#ifndef NDEBUG
-          if (i == 0)
-            std::cout << "[HCDEBUG]"
-                      << "nnz: " << nnz << std::endl;
-#endif
+	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()), sizeof(float) * label_dense_dim));
 
-          in_file_stream_.read(reinterpret_cast<char*>(feature_ids_.get()), sizeof(T) * nnz);
-          for (int j = 0; j < nnz; j++) {
-            // We suppose that the module parallel mode is like this
-            int buffer_id = feature_ids_[j] % csr_buffers.size();
-            T local_id = feature_ids_[j];
-            assert(buffer_id < static_cast<int>(csr_buffers.size()));
-            csr_chunk->get_csr_buffer(buffer_id).push_back(local_id);
-#ifndef NDEBUG
-            if (i == 0)
-              std::cout << "[HCDEBUG]"
-                        << "feature_ids:" << feature_ids_[j] << " local_id: " << local_id
-                        << std::endl;
-#endif
+	{
+	  // We suppose that the data parallel mode is like this
+	  // The subsequence samples will be located to the same GPU
+	  int buffer_id =
+	    i / (csr_chunk->get_batchsize() / 
+		 label_dense_buffers.size());  
+          assert(buffer_id < label_dense_buffers.size());
+          int local_id = i % (csr_chunk->get_batchsize() / label_dense_buffers.size());
+          assert(local_id < (csr_chunk->get_batchsize() / label_dense_buffers.size()));
+          for (int j = 0; j < label_dense_dim; j++) {
+            label_dense_buffers[buffer_id][local_id * label_dense_dim + j] = label_dense[j];  // row major for label buffer
           }
-        }
-        current_record_index_++;
-        // start a new file when finish one file read
-        if (current_record_index_ >= data_set_header_.number_of_records) {
-          in_file_stream_.close();
-          open_file_and_read_head();
-        }
-      }
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
+	}
+
+	for(auto& param: params_){
+	  for (int k = 0; k < param.slot_num; k++) {
+	    int nnz;
+	    CK_READ_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)));
+	    
+	    if (nnz > (int)buffer_length_ || nnz < 0) {
+	      ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
+	    }
+
+	    #ifndef NDEBUG
+	    if (i == 0){
+	      std::cout << "[HCDEBUG]"
+			<< "nnz: " << nnz << std::endl;
+	    }
+	    #endif
+	    //	    tmp_check(i, sizeof(T) * nnz, "sizeof(T) * nnz");
+	    // if(nnz == 0){
+	    //    std::cout << "p:" << param_id << "k:" << k;
+	    //  }
+	    CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
+	    if(param.type == DataReaderSparse_t::Distributed){
+	      for(int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++){
+		csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
+	      }
+	      for (int j = 0; j < nnz; j++) {
+		int dev_id =
+		  feature_ids_[j] %
+		  csr_chunk->get_num_devices();  
+		T local_id = feature_ids_[j];
+		assert(dev_id < csr_chunk->get_num_devices());
+		csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
+		#ifndef NDEBUG
+		if (i == 0)
+		  std::cout << "[HCDEBUG]"
+			    << "feature_ids:" << feature_ids_[j] << " local_id: " << local_id
+			    << std::endl;
+		#endif
+	      }
+	    }
+	    else if(param.type == DataReaderSparse_t::Localized){
+	      int dev_id = k % csr_chunk->get_num_devices(); 
+	      csr_chunk->get_csr_buffer(param_id, dev_id).new_row(); 
+	      for (int j = 0; j < nnz; j++) {
+		T local_id = feature_ids_[j];
+		csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id); 
+	      }
+	    }	    
+	    else{
+	      CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
+	    }
+	  }
+	  param_id++;
+	} //for(auto& param: params_)
+      END_SAMPLE: ;
+
+	current_record_index_++;
+	
+	// start a new file when finish one file read
+	if(current_record_index_ >= data_set_header_.number_of_records) {
+	  read_new_file();
+	}
+      }//batch loop
+      //write the last index to row
+      csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row); 
     }
     csr_heap_->chunk_write_and_checkin(key);
-  } catch (const std::runtime_error& rt_err) {
+  }
+  catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
   return;
 }
 
-}  // namespace HugeCTR
+
+} //namespace HugeCTR

@@ -73,17 +73,21 @@ Session::Session(int batch_size, const std::string& json_name,
  * In model file, model should be saved as
  * the sequence as discribed in configure file.
  **/
-Error_t Session::load_params(const std::string& model_file, const std::string& embedding_file) {
+  Error_t Session::load_params(const std::string& model_file, const std::vector<std::string>& embedding_files) {
   try {
     std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
     std::ifstream model_stream(model_file, std::ifstream::binary);
-    if (!embedding_file.empty()) {
-      std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
-      if (!embedding_stream.is_open()) {
-        CK_THROW_(Error_t::WrongInput, "Cannot open model file");
+    if (!embedding_files.empty()) {
+      int i=0;
+      for(auto& embedding_file: embedding_files){
+	std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
+	if (!embedding_stream.is_open()) {
+	  CK_THROW_(Error_t::WrongInput, "Cannot open model file");
+	}
+	embedding_[i]->upload_params_to_device(embedding_stream);
+	embedding_stream.close();
+	i++;
       }
-      embedding_->upload_params_to_device(embedding_stream);
-      embedding_stream.close();
     }
     model_stream.read(reinterpret_cast<char*>(weight.get()),
                       networks_[0]->get_params_num() * sizeof(float));
@@ -137,8 +141,9 @@ void network_train_helper(int id, Network* n) {
 Error_t Session::train() {
   try {
     data_reader_->read_a_batch_to_device();
-    embedding_->forward();
-
+    for(auto& one_embedding: embedding_){
+      one_embedding->forward();
+    }
     if (networks_.size() > 1) {
       // execute dense forward and backward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
@@ -164,9 +169,10 @@ Error_t Session::train() {
     for (auto& network : networks_) {
       network->update_params();
     }
-
-    embedding_->backward();
-    embedding_->update_params();
+    for(auto& one_embedding: embedding_){
+      one_embedding->backward();
+      one_embedding->update_params();
+    }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -191,8 +197,9 @@ Error_t Session::eval() {
   try {
     if (data_reader_eval_ == nullptr) return Error_t::NotInitialized;
     data_reader_eval_->read_a_batch_to_device();
-    embedding_->forward();
-
+    for(auto& one_embedding: embedding_){
+      one_embedding->forward();
+    }
     if (networks_.size() > 1) {
       // execute dense forward and backward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
@@ -217,10 +224,30 @@ Error_t Session::eval() {
   return Error_t::Success;
 }
 
-Error_t Session::download_params_to_file(std::string weights_file, std::string embedding_file) {
+  Error_t Session::download_params_to_files(std::string prefix, int iter) {
+    std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
+    std::vector<std::string> snapshot_sparse_names;
+    if(iter<=0){
+      return Error_t::WrongInput;
+    }
+
+    for(int i = 0; i < embedding_.size(); i++){
+      snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) + ".model");
+    }
+    return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
+  }
+
+  Error_t Session::download_params_to_files_(std::string weights_file, const std::vector<std::string>& embedding_files) {
   try {
-    std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
-    embedding_->download_params_to_host(out_stream_embedding);
+    {
+      int i = 0;
+      for(auto& embedding_file: embedding_files){
+	std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
+	embedding_[i]->download_params_to_host(out_stream_embedding);
+	out_stream_embedding.close();
+	i++;
+      }
+    }
     int numprocs = 1, pid = 0;
 #ifdef ENABLE_MPI
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
@@ -238,7 +265,7 @@ Error_t Session::download_params_to_file(std::string weights_file, std::string e
       }
       out_stream_weight.close();
     }
-    out_stream_embedding.close();
+
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
