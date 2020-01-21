@@ -63,8 +63,8 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weig
   CK_CUDNN_THROW_(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
                                                num_feature, n_stride, 1, 1, w_stride));
 
-  in_tensors_.emplace_back(std::move(in_tensor));
-  out_tensors_.emplace_back(std::move(out_tensor));
+  in_tensors_.emplace_back(in_tensor);
+  out_tensors_.emplace_back(out_tensor);
 
   CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&gamma_beta_desc_));
 

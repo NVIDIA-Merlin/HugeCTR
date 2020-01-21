@@ -19,6 +19,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <vector>
+#include <thread>
 #include "HugeCTR/include/common.hpp"
 
 namespace HugeCTR {
@@ -54,7 +55,6 @@ class Heap {
     if (chunk == nullptr || key == nullptr) {
       CK_THROW_(Error_t::WrongInput, "chunk == nullptr || key == nullptr");
     }
-
     std::unique_lock<std::mutex> lock(mtx_);
     // thread safe start
     while (loop_flag_) {
@@ -67,6 +67,7 @@ class Heap {
       }
       read_cv_.wait(lock);
     }
+    //if (!loop_flag_){ std::cout << "loop_flag2_" << std::endl;}
     // thread safe end
     return;
   }
@@ -113,6 +114,7 @@ class Heap {
       }
       write_cv_.wait(lock);
     }
+    //if (!loop_flag_){ std::cout << "loop_flag1_" << std::endl;}
     // thread safe end
     return;
   }

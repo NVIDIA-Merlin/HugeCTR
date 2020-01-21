@@ -22,6 +22,7 @@
 #include "ctpl/ctpl_stl.h"
 
 #include <cudnn.h>
+#include <curand.h>
 #include <nccl.h>
 
 #ifdef ENABLE_MPI
@@ -40,6 +41,7 @@ class GPUResource {
   cudaStream_t stream_;           /**< cuda stream for computation */
   cudaStream_t data_copy_stream_; /**< cuda stream for data copy */
   cublasHandle_t cublas_handle_;
+  curandGenerator_t curand_generator_;
   cudnnHandle_t cudnn_handle_;
   const int device_id_;
   const ncclComm_t* comm_;
@@ -51,6 +53,7 @@ class GPUResource {
   GPUResource(int device_id, const ncclComm_t* comm) : device_id_(device_id), comm_(comm) {
     CudaDeviceContext context(device_id_);
     CK_CUBLAS_THROW_(cublasCreate(&cublas_handle_));
+    CK_CURAND_THROW_(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
     CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle_));
     CK_CUDA_THROW_(cudaStreamCreate(&stream_));
     CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_));
@@ -67,6 +70,7 @@ class GPUResource {
     try {
       CudaDeviceContext context(device_id_);
       CK_CUBLAS_THROW_(cublasDestroy(cublas_handle_));
+      CK_CURAND_THROW_(curandDestroyGenerator(curand_generator_));
       CK_CUDNN_THROW_(cudnnDestroy(cudnn_handle_));
       CK_CUDA_THROW_(cudaStreamDestroy(stream_));
       CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_));
@@ -79,6 +83,7 @@ class GPUResource {
   const cudaStream_t& get_stream() const { return stream_; }
   const cudaStream_t& get_data_copy_stream() const { return data_copy_stream_; }
   const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
+  const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t* get_nccl_ptr() const { return comm_; }
 };
