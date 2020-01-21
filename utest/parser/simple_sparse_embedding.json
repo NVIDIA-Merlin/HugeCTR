@@ -22,25 +22,42 @@
     }
   },
 
-  "data": {
-    "source": "./simple_sparse_embedding/simple_sparse_embedding_file_list.txt",
-    "eval_source": "./simple_sparse_embedding/simple_sparse_embedding_file_list.txt",
-    "max_feature_num_per_sample": 1000,
-    "label_dim": 1,
-    "slot_num": 10
-  },
-
   "layers": [ 
+  {
+      "name": "data",
+      "type": "Data",
+      "source": "./simple_sparse_embedding/simple_sparse_embedding_file_list.txt",
+      "eval_source": "./simple_sparse_embedding/simple_sparse_embedding_file_list.txt",
+      "check": "Sum",
+      "label": {
+        "top": "label",
+        "label_dim": 1
+      },
+      "dense": {
+        "top": "dense",
+        "dense_dim": 64
+      },
+      "sparse": [
+        {
+          "top": "data1",
+          "type": "DistributedSlot",
+          "max_feature_num_per_sample": 300,
+          "slot_num": 10
+        }        
+      ]
+    },
+    
+    
     {
       "name": "sparse_embedding1",
-      "type": "SparseEmbeddingHash",
+      "type": "SparseEmbedding",
+      "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 550000,
-        "embedding_vec_size": 64,
+        "vocabulary_size": 1603616,
         "load_factor": 0.75,
-        "slot_num": 10,
-        "combiner": 0
+        "embedding_vec_size": 64,
+        "combiner": 1
       }
     },
 
@@ -164,7 +181,7 @@
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": "fc4",
+      "bottom": ["fc4","label"],
       "top": "loss"
     } 
   ]
