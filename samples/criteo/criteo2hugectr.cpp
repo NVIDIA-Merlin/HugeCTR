@@ -18,13 +18,15 @@
  * DEBUG: g++ -g -o criteo2hugectr -std=c++11 criteo2hugectr.cpp
  * RELEASE: g++ -DNDEBUG -o criteo2hugectr -std=c++11 criteo2hugectr.cpp
  */
-
+#include "HugeCTR/include/utils.hpp"
 #include <sys/stat.h>
 #include <fstream>
 #include <ios>
 #include <iostream>
 #include <sstream>
 #include <vector>
+
+using namespace HugeCTR;
 
 static std::string usage_str = "usage: ./criteo2hugectr in.txt dir/prefix file_list.txt";
 
@@ -35,16 +37,6 @@ typedef long long T;
 static const long long label_dim = 1;
 static const int voc_size = 1603616;
 
-inline void check_make_dir(std::string finalpath) {
-  if (mkdir(finalpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-    if (errno == EEXIST) {
-      std::cout << (finalpath + " exist") << std::endl;
-    } else {
-      std::cerr << ("cannot create" + finalpath + ": unexpected error") << std::endl;
-    }
-  }
-}
-
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
   std::stringstream ss(s);
   std::string item;
@@ -53,13 +45,6 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
   }
   return elems;
 }
-
-typedef struct DataSetHeader_ {
-  long long number_of_records;  // the number of samples in this data file
-  long long label_dim;          // dimension of label
-  long long slot_num;
-  long long reserved;  // reserved for future use
-} DataSetHeader;
 
 int main(int argc, char *argv[]) {
   const std::string tmp_file_list_name("file_list.tmp");
@@ -96,10 +81,11 @@ int main(int argc, char *argv[]) {
     if (!data_file.is_open()) {
       std::cerr << "Cannot open data_file" << std::endl;
     }
-
-    DataSetHeader header = {static_cast<long long>(N), label_dim, static_cast<long long>(SLOT_NUM),
-                            0};
-    data_file.write(reinterpret_cast<char *>(&header), sizeof(DataSetHeader));
+    DataWriter<Check_t::Sum> data_writer(data_file);
+    DataSetHeader header = {1, static_cast<long long>(N), label_dim, 0, static_cast<long long>(SLOT_NUM), 0, 0, 0
+                            };
+    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
+    data_writer.write();
     // read N lines
     int i = 0;
     for (; i < N; i++) {
@@ -107,11 +93,11 @@ int main(int argc, char *argv[]) {
       std::string line;
       std::getline(txt_file, line);
       // if end
-      if (txt_file.eof()) {
+      if (txt_file.eof()) { //todo
         txt_file.close();
         data_file.seekp(std::ios_base::beg);
-        DataSetHeader last_header = {static_cast<long long>(i), label_dim,
-                                     static_cast<long long>(SLOT_NUM), 0};
+        DataSetHeader last_header = {1, static_cast<long long>(i), label_dim, 0,
+                                     static_cast<long long>(SLOT_NUM), 0, 0, 0};
         data_file.write(reinterpret_cast<char *>(&last_header), sizeof(DataSetHeader));
         data_file.close();
         file_list_tmp.close();
@@ -145,12 +131,12 @@ int main(int argc, char *argv[]) {
         std::cerr << line << std::endl;
         exit(-1);
       }
-      int label = std::stoi(vec_string[0]);
+      float label = std::stoi(vec_string[0]);
 #ifndef NDEBUG
       std::cout << std::endl;
       std::cout << label << ' ';
 #endif
-      data_file.write(reinterpret_cast<char *>(&label), sizeof(int));
+      data_writer.append(reinterpret_cast<char*>(&label), sizeof(float));
       std::vector<T> slots[SLOT_NUM];
       for (int j = 0; j < KEYS_PER_SAMPLE; j++) {
         T key = static_cast<T>(std::stoi(vec_string[j + 1]));
@@ -159,14 +145,15 @@ int main(int argc, char *argv[]) {
       }
       for (int j = 0; j < SLOT_NUM; j++) {
         int nnz = slots[j].size();
-        data_file.write(reinterpret_cast<char *>(&nnz), sizeof(int));
+	data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
         for (T key : slots[j]) {
-          data_file.write(reinterpret_cast<char *>(&key), sizeof(T));
+	  data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
 #ifndef NDEBUG
           std::cout << j << ',' << key << ' ';
 #endif
         }
       }
+      data_writer.write();
     }
     data_file.close();
     file_counter++;

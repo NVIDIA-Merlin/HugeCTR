@@ -57,6 +57,11 @@ TEST(session_test, basic_session) {
   cudaProfilerStart();
   for (int i = 0; i < 100; i++) {
     session_instance.train();
+    if(i%10 == 0){
+      float loss = 0;
+      session_instance.get_current_loss(&loss);
+      std::cout << "iter:" << i << "; loss: " << loss << std::endl; 
+    }
   }
   for (auto device : device_list) {
     cudaSetDevice(device);
