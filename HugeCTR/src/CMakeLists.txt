@@ -33,6 +33,7 @@ file(GLOB huge_ctr_src
   parser.cpp
   session.cpp
   embedding_creator.cu
+  data_collector.cu
 )
 
 
