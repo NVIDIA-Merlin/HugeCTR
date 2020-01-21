@@ -990,6 +990,7 @@ TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
 }
 #endif
 
+#if 0
 TEST(localized_sparse_embedding_hash_test, reorder) {
   int local_gpu_count = 4; // 4,2 pass 
   int embedding_vec_size = 4;
@@ -1078,6 +1079,7 @@ TEST(localized_sparse_embedding_hash_test, reorder) {
   cudaFree(d_src);
   cudaFree(d_dst);
 }
+#endif 
 
 #if 0
 TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
@@ -1323,38 +1325,47 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
 
   // CUASION: the dataset will not be used in this test case, but we still need to let the data file non-empty since the DataRead requiring
   // generate input data
-  const std::string tmp_file_name("temp_dataset_embedding.data");
+  const int num_files = 20;
+  const long long dense_dim = 64;
+  const Check_t CHK = Check_t::None;
   const std::string file_list_name("file_list_embedding.txt");
-  {
-    //data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-    DataSetHeader header = {num_records, label_dim, slot_num, 0};
-    out_stream.write(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
-    for(int i=0; i<num_records; i++){
-      UnifiedDataSimulator<int> idata_sim(0, max_feature_num/slot_num-1); //both inclusive
-      UnifiedDataSimulator<T> ldata_sim(0,vocabulary_size-1);
-      for(int j=0; j<label_dim; j++){
-        int label = idata_sim.get_num();
-        out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
-      }
-      for(int k=0; k<slot_num; k++){
-        int nnz = idata_sim.get_num();
-        //nnz = 10; // just for test 20181211
-        nnz = (int)(max_feature_num/slot_num); // just for test 20181221
-        out_stream.write(reinterpret_cast<char*>(&nnz), sizeof(int));
-        for(int j=0; j<nnz; j++){
-          T value = ldata_sim.get_num();
-          out_stream.write(reinterpret_cast<char*>(&value), sizeof(T));
-        }
-        //std::cout << std::endl; // just for test 20181211
-      }
-    }
-    out_stream.close();
-    std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-    file_list_stream << (std::to_string(1) + "\n");
-    file_list_stream << (tmp_file_name + "\n");
-    file_list_stream.close();
-  }
+  const std::string prefix("./data_reader_test_data/temp_dataset_");
+
+  // const std::string tmp_file_name("temp_dataset_embedding.data");
+  // {
+  //   //data generation;
+  //   std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
+  //   DataSetHeader header = {num_records, label_dim, slot_num, 0};
+  //   out_stream.write(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
+  //   for(int i=0; i<num_records; i++){
+  //     UnifiedDataSimulator<int> idata_sim(0, max_feature_num/slot_num-1); //both inclusive
+  //     UnifiedDataSimulator<T> ldata_sim(0,vocabulary_size-1);
+  //     for(int j=0; j<label_dim; j++){
+  //       int label = idata_sim.get_num();
+  //       out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
+  //     }
+  //     for(int k=0; k<slot_num; k++){
+  //       int nnz = idata_sim.get_num();
+  //       //nnz = 10; // just for test 20181211
+  //       nnz = (int)(max_feature_num/slot_num); // just for test 20181221
+  //       out_stream.write(reinterpret_cast<char*>(&nnz), sizeof(int));
+  //       for(int j=0; j<nnz; j++){
+  //         T value = ldata_sim.get_num();
+  //         out_stream.write(reinterpret_cast<char*>(&value), sizeof(T));
+  //       }
+  //       //std::cout << std::endl; // just for test 20181211
+  //     }
+  //   }
+  //   out_stream.close();
+  //   std::ofstream file_list_stream(file_list_name, std::ofstream::out);
+  //   file_list_stream << (std::to_string(1) + "\n");
+  //   file_list_stream << (tmp_file_name + "\n");
+  //   file_list_stream.close();
+  // }
+
+  // data generation
+  HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records, slot_num,
+    vocabulary_size, label_dim, dense_dim, max_feature_num);
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
@@ -1362,8 +1373,13 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   //setup a data reader
-  DataReader<T>* data_reader = new DataReader<T>(file_list_name, batchsize, \
-    label_dim, slot_num, max_feature_num, gpu_resource_group, 1, 1);
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_feature_num*slot_num, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+  int num_chunks = 1;
+  int num_threads = 1;
+  DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
+                            gpu_resource_group, num_chunks, num_threads);
 
   // define object
   Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingHash<T>(\
@@ -1422,7 +1438,7 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
 }
 #endif 
 
-#if 1
+#if 0
 // localized_sparse_embedding_hash correctness testing: forward->backward->update_params
 TEST(localized_sparse_embedding_hash_test, training_correctness) {
   test::mpi_init();

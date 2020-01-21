@@ -9,8 +9,6 @@
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 #
 
 cmake_minimum_required(VERSION 3.8)
@@ -21,9 +19,12 @@ file(GLOB huge_ctr_src
   layer.cpp
   layers/batch_norm_layer.cu
   layers/concat_layer.cu
+  layers/dropout_layer.cu
   layers/elu_layer.cu
   layers/fully_connected_layer.cu
   layers/relu_layer.cu
+  layers/reshape_layer.cu
+  layers/slice_layer.cu
   loss.cu
   network.cpp
   optimizers/adam_optimizer.cu
@@ -33,16 +34,17 @@ file(GLOB huge_ctr_src
   session.cpp
   ../include/faster_gossip_comm/FasterGossipComm/gossip/include/plan_parser.cpp 
   embedding_creator.cu
+  data_collector.cu
 )
 
 
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_static PUBLIC cublas cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
-  target_link_libraries(huge_ctr_static PUBLIC cublas cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
