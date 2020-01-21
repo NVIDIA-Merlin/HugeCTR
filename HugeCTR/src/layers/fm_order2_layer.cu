@@ -1,0 +1,149 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "HugeCTR/include/layers/fm_order2_layer.hpp"
+
+namespace HugeCTR 
+{
+
+namespace 
+{
+__global__ void fm_order2_kernel(const float* in, 
+                                 float* out, 
+                                 const int batch_size,
+                                 const int slot_num,
+                                 const int emb_vec_size) {
+  int tid = threadIdx.x;
+  int bid = blockIdx.x;
+
+  if(tid < emb_vec_size && bid < batch_size) {
+    float emb_sum = 0.0f;
+    float emb_sum_square = 0.0f;
+    float emb_square_sum = 0.0f;
+    int offset = bid * slot_num * emb_vec_size + tid;
+
+    for(int i = 0; i < slot_num; i++) {
+      int index = offset + i * emb_vec_size;
+      float temp = in[index];
+      emb_sum += temp;
+      emb_square_sum += temp * temp;
+    }
+    emb_sum_square = emb_sum * emb_sum;
+
+    out[bid*emb_vec_size+tid] = 0.5f * (emb_sum_square - emb_square_sum);
+  }
+}
+
+__global__ void fm_order2_dgrad_kernel(const float* in,
+                                       const float* top_grad,
+                                       float * dgrad,
+                                       const int batch_size,
+                                       const int slot_num,
+                                       const int emb_vec_size) {
+  int tid = threadIdx.x;
+  int bid = blockIdx.x;
+
+  if(tid < emb_vec_size && bid < batch_size) {
+    float emb_sum = 0.0f;
+    int offset = bid * slot_num * emb_vec_size + tid;
+
+    for(int i = 0; i < slot_num; i++) {
+      int index = offset + i * emb_vec_size;
+      emb_sum += in[index];
+    }
+    float tgrad = top_grad[bid*emb_vec_size+tid];
+    for(int i = 0; i < slot_num; i++) {
+      int index = offset + i * emb_vec_size;
+      dgrad[index] = tgrad * (emb_sum - in[index]);
+    }  
+  }
+}
+
+} // end of namespace
+
+FmOrder2Layer::FmOrder2Layer(const std::shared_ptr<Tensor<float>>& in_tensor,
+                            const std::shared_ptr<Tensor<float>>& out_tensor,
+                            const int device_id): Layer(device_id) {
+  try {
+    auto in_dims = in_tensor->get_dims();
+    if(in_dims.size() != 3) {
+      CK_THROW_(Error_t::WrongInput, "only 3D tensors can be used as input for FmOrder2Layer");
+    }
+    TensorFormat_t in_format = in_tensor->get_format();
+    if(in_format != TensorFormat_t::HSW) {
+      CK_THROW_(Error_t::WrongInput, "only HSW tensors can be used as input for FmOrder2Layer");
+    }
+    auto out_dims = out_tensor->get_dims();
+    if(out_dims.size() != 2) {
+      CK_THROW_(Error_t::WrongInput, "only 2D tensors can be used as output for FmOrder2Layer");
+    }
+    TensorFormat_t out_format = out_tensor->get_format();
+    if(out_format != TensorFormat_t::HW) {
+      CK_THROW_(Error_t::WrongInput, "only HW tensors can be used as output for FmOrder2Layer");
+    }
+
+    in_tensors_.emplace_back(in_tensor);
+    out_tensors_.emplace_back(out_tensor);
+
+  } catch(const std::runtime_error& rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+      throw;
+  }
+}
+
+void FmOrder2Layer::fprop(cudaStream_t stream) {
+
+  CudaDeviceContext context(get_device_id());
+  
+  float * in = in_tensors_[0]->get_ptr();
+  float * out = out_tensors_[0]->get_ptr();
+
+  auto in_dims = in_tensors_[0]->get_dims();
+  int batch_size = in_dims[0];
+  int slot_num = in_dims[1];
+  int emb_vec_size = in_dims[2];
+
+  dim3 blockSize(emb_vec_size, 1, 1);
+  dim3 grdiSize(batch_size, 1, 1);
+  fm_order2_kernel<<<grdiSize, blockSize, 0, stream>>>(in,
+                                                       out,
+                                                       batch_size,
+                                                       slot_num,
+                                                       emb_vec_size);
+}
+
+void FmOrder2Layer::bprop(cudaStream_t stream) {
+  CudaDeviceContext context(get_device_id());
+  
+  float * in = in_tensors_[0]->get_ptr();
+  float * out = out_tensors_[0]->get_ptr();
+
+  auto in_dims = in_tensors_[0]->get_dims();
+  int batch_size = in_dims[0];
+  int slot_num = in_dims[1];
+  int emb_vec_size = in_dims[2];
+
+  dim3 blockSize(emb_vec_size, 1, 1);
+  dim3 gridSize(batch_size, 1, 1);
+  fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(in,
+                                                            out, // top_grad
+                                                            in, // dgrad
+                                                            batch_size,
+                                                            slot_num,
+                                                            emb_vec_size);
+}
+
+} // end of namespace HugeCTR
