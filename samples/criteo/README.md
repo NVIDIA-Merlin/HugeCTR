@@ -14,7 +14,7 @@ $ cd ../../tools/criteo_script/ && bash usage.sh && cd ../../samples/criteo/
 
 2. Translate the dataset to HugeCTR format
 ```shell
-$ g++ -DNDEBUG -o criteo2hugectr -std=c++11 criteo2hugectr.cpp  
+$ cp ../../build/bin/criteo2hugectr ./
 $ ./criteo2hugectr ../../tools/criteo_script/train.out criteo/sparse_embedding file_list.txt
 $ ./criteo2hugectr ../../tools/criteo_script/test.out criteo_test/sparse_embedding file_list_test.txt
 ```
