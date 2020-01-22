@@ -14,15 +14,4 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-add_subdirectory(data_parser)
-add_subdirectory(layers)
-add_subdirectory(data_reader)
-add_subdirectory(optimizer)
-add_subdirectory(loss)
-add_subdirectory(session)
-add_subdirectory(heap)
-add_subdirectory(parser)
-add_subdirectory(regularizers)
-add_subdirectory(device_map)
-#add_subdirectory(embedding)
-add_subdirectory(checker)
+add_subdirectory(criteo)
