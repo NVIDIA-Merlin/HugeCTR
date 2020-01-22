@@ -132,7 +132,7 @@ int main(int argc, char* argv[]){
           std::cerr << line << std::endl;
           exit(-1);
         }
-      int label = std::stoi(vec_string[0]);
+      float label = std::stoi(vec_string[0]);
 #ifndef NDEBUG
       std::cout << std::endl;
       std::cout << label << ' ';
