@@ -43,6 +43,8 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
 }
 
 int main(int argc, char* argv[]){
+  
+
   const std::string tmp_file_list_name("file_list.tmp");
 
   if (argc != 5){
