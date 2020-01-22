@@ -52,7 +52,7 @@ class Network {
   std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;  /**< weight gradient general buffer */
   std::shared_ptr<const GPUResource> gpu_resource_;   /**< gpu resource */
   int device_id_;                                     /**< device id */
-  int batchsize_;                                     /**< batch size */
+  int batch_size_;                                     /**< batch size */
   std::unique_ptr<Optimizer> optimizer_;              /**< optimizer */
   std::unique_ptr<Loss> loss_;                        /**< loss */
   //  std::shared_ptr<Tensor<float>> in_tensor_; /**< input tensor of this network (from embedding) */
@@ -62,12 +62,12 @@ class Network {
  public:
   /**
    * Ctor.
-   * @param batchsize batch size.
+   * @param batch_size batch size.
    * @param device_id device id.
    * @param gpu_resource gpu resource for local gpu.
    * @param disable_parser only for unit test.
    */
-  Network(int batchsize, int device_id,
+  Network(int batch_size, int device_id,
           const std::shared_ptr<const GPUResource>& gpu_resource, bool disable_parser = true);
   Network(const Network& C) = delete;
   Network& operator=(const Network&) = delete;
