@@ -48,7 +48,7 @@ TEST(session_test, basic_session) {
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
   std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
-  std::string json_name = PROJECT_HOME_ + "utest/parser/simple_sparse_embedding.json";
+  std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
   const std::string model_file("session_test_model_file.data");
   Session session_instance(batchsize, json_name, device_map);
   session_instance.init_params(model_file);
