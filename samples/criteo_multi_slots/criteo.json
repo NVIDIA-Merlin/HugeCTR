@@ -3,7 +3,7 @@
     "lr_policy": "fixed",
     "display": 200,
     "max_iter": 50000,
-    "gpu": [0,1],
+    "gpu": [0],
     "batchsize": 40960,
     "snapshot": 10000,
     "snapshot_prefix": "./",
@@ -66,7 +66,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 64
+      "leading_dim": 640
     },
 
     {
