@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-/**
- * DEBUG: g++ -g -o criteo2hugectr10slots -std=c++11 criteo2hugectr10slots.cpp 
- * RELEASE: g++ -DNDEBUG -o criteo2hugectr10slots -std=c++11 criteo2hugectr10slots.cpp 
- */
-
+#include "HugeCTR/include/utils.hpp"
 #include <fstream>
 #include <iostream>
 #include <ios>
@@ -26,25 +22,15 @@
 #include <sys/stat.h>
 #include <vector>
 
-static std::string usage_str = "usage: ./criteo2hugectr10slots in.txt dir/prefix file_list.txt"; 
+using namespace HugeCTR;
+
+static std::string usage_str = "usage: ./criteo2hugectr10slots <num slots> in.txt dir/prefix file_list.txt"; 
 
 static const int N = 40960; //number of samples per data file
 static const int KEYS_PER_SAMPLE = 39;
-static const int SLOT_NUM = 10;
 typedef long long T;
 static const long long label_dim = 1;
 static const int voc_size = 1603616;
-
-inline void check_make_dir(std::string finalpath){
-  if (mkdir(finalpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
-    {
-      if( errno == EEXIST ) {
-        std::cout << (finalpath + " exist") << std::endl;
-      } else {
-        std::cerr << ("cannot create" + finalpath + ": unexpected error") << std::endl;
-      }
-    }
-}
 
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
@@ -56,29 +42,21 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
     return elems;
 }
 
-typedef struct DataSetHeader_{
-  long long number_of_records; //the number of samples in this data file
-  long long label_dim; //dimension of label
-  long long slot_num;
-  long long reserved; //reserved for future use
-} DataSetHeader;
-
-
 int main(int argc, char* argv[]){
   const std::string tmp_file_list_name("file_list.tmp");
 
-  if (argc != 4){
+  if (argc != 5){
     std::cout << usage_str << std::endl;
     exit(-1);
   }
-
+  const int SLOT_NUM = atoi(argv[1]);
   //open txt file
-  std::ifstream txt_file(argv[1], std::ifstream::binary);
+  std::ifstream txt_file(argv[2], std::ifstream::binary);
   if(!txt_file.is_open()){
-    std::cerr << "Cannot open argv[1]" << std::endl;
+    std::cerr << "Cannot open argv[2]" << std::endl;
   }
   //create a data file under prefix
-  std::string data_prefix(argv[2]);
+  std::string data_prefix(argv[3]);
   std::string directory;
   const size_t last_slash_idx = data_prefix.rfind('/');
   if (std::string::npos != last_slash_idx){
@@ -100,8 +78,11 @@ int main(int argc, char* argv[]){
       std::cerr << "Cannot open data_file" << std::endl;
     }
 
-    DataSetHeader header = {static_cast<long long>(N), label_dim, static_cast<long long>(SLOT_NUM), 0};
-    data_file.write(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
+    DataWriter<Check_t::Sum> data_writer(data_file);
+    DataSetHeader header = {1, static_cast<long long>(N), label_dim, 0, static_cast<long long>(SLOT_NUM), 0, 0, 0
+                            };
+    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
+    data_writer.write();
     //read N lines
     int i = 0;
     for(; i < N; i++){
@@ -112,8 +93,10 @@ int main(int argc, char* argv[]){
       if(txt_file.eof()){
         txt_file.close();
         data_file.seekp(std::ios_base::beg);
-        DataSetHeader last_header = {static_cast<long long>(i), label_dim, static_cast<long long>(SLOT_NUM), 0};
-        data_file.write(reinterpret_cast<char*>(&last_header), sizeof(DataSetHeader));
+        DataSetHeader last_header = {1, static_cast<long long>(i), label_dim, 0,
+                                     static_cast<long long>(SLOT_NUM), 0, 0, 0};
+	data_writer.append(reinterpret_cast<char*>(&last_header), sizeof(DataSetHeader));
+	data_writer.write();
         data_file.close();
         file_list_tmp.close();
         //redirect
@@ -123,10 +106,10 @@ int main(int argc, char* argv[]){
             std::cerr << "Cannot open " << tmp_file_list_name << std::endl;
           }
 
-          std::cout << "Opening " << argv[3] << std::endl;
-          std::ofstream file_list(argv[3], std::ofstream::out);
+          std::cout << "Opening " << argv[4] << std::endl;
+          std::ofstream file_list(argv[4], std::ofstream::out);
           if(!file_list.is_open()){
-            std::cerr << "Cannot open " << argv[3] << std::endl;
+            std::cerr << "Cannot open " << argv[4] << std::endl;
           }
 
           
@@ -152,7 +135,7 @@ int main(int argc, char* argv[]){
       std::cout << std::endl;
       std::cout << label << ' ';
 #endif
-      data_file.write(reinterpret_cast<char*>(&label), sizeof(int));
+      data_writer.append(reinterpret_cast<char*>(&label), sizeof(float));
       std::vector<T> slots[SLOT_NUM];
       for(int j = 0; j < KEYS_PER_SAMPLE; j++){
         T key = static_cast<T>(std::stoi(vec_string[j+1]));
@@ -161,14 +144,15 @@ int main(int argc, char* argv[]){
       }
       for(int j = 0; j < SLOT_NUM; j++){
         int nnz = slots[j].size();
-        data_file.write(reinterpret_cast<char*>(&nnz), sizeof(int));
+	data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
         for(T key : slots[j]){
-          data_file.write(reinterpret_cast<char*>(&key), sizeof(T));
+	  data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
 #ifndef NDEBUG
           std::cout << j << ',' << key << ' ';
 #endif
         }
       }
+      data_writer.write();
     }
     data_file.close();
     file_counter ++;
