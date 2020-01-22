@@ -55,9 +55,6 @@ class Network {
   int batch_size_;                                     /**< batch size */
   std::unique_ptr<Optimizer> optimizer_;              /**< optimizer */
   std::unique_ptr<Loss> loss_;                        /**< loss */
-  //  std::shared_ptr<Tensor<float>> in_tensor_; /**< input tensor of this network (from embedding) */
-  //  std::shared_ptr<const Tensor<float>>
-  //    label_tensor_; /**< label tensor of this network (from data reader) */
   std::shared_ptr<Tensor<float>> loss_tensor_; /**< loss tensor */
  public:
   /**
