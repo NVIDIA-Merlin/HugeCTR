@@ -102,6 +102,8 @@ enum class LrPolicy_t { fixed };
 
 enum class Optimizer_t { Adam, MomentumSGD, Nesterov };
 
+enum class Regularizer_t {L1, L2};
+
 enum class Layer_t {
   BatchNorm,
   BinaryCrossEntropyLoss,

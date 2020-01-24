@@ -18,17 +18,19 @@
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
+#include "HugeCTR/include/regularizers/no_regularizer.hpp"
 
 namespace HugeCTR {
 
-Network::Network(int batchsize, int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
+
+Network::Network(int batch_size, int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
                  bool disable_parser)
     : blobs_buff_(new GeneralBuffer<float>()),
       weight_buff_(new GeneralBuffer<float>()),
       wgrad_buff_(new GeneralBuffer<float>()),
       gpu_resource_(gpu_resource),
       device_id_(device_id),
-      batchsize_(batchsize){
+      batch_size_(batch_size){
   return;
 }
 

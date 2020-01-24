@@ -65,7 +65,7 @@ TEST(parser_test, simple_sparse_embedding) {
   HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records, slot_num,
     vocabulary_size, label_dim, dense_dim, max_nnz);
 
-  std::string json_name = PROJECT_HOME_ + "utest/parser/simple_sparse_embedding.json";
+  std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
   test_parser<long long>(json_name);
 }
 
