@@ -58,8 +58,10 @@ class GeneralBuffer {
     if (initialized_ != false) CK_THROW_(Error_t::IllegalCall, "Initilized general buffer");
     device_id_ = device_id;
     CudaDeviceContext context(device_id);
-    CK_CUDA_THROW_(cudaMalloc((void**)&ptr_, current_offset_ * sizeof(T)));
-    CK_CUDA_THROW_(cudaMemset(ptr_, 0, current_offset_ * sizeof(T)));
+    if(current_offset_>0){
+      CK_CUDA_THROW_(cudaMalloc((void**)&ptr_, current_offset_ * sizeof(T)));
+      CK_CUDA_THROW_(cudaMemset(ptr_, 0, current_offset_ * sizeof(T)));
+    }
     initialized_ = true;
   }
 
@@ -69,7 +71,9 @@ class GeneralBuffer {
   void reset_sync() {
     if (initialized_ != true) CK_THROW_(Error_t::IllegalCall, "Not initialized");
     CudaDeviceContext context(device_id_);
-    CK_CUDA_THROW_(cudaMemset(ptr_, 0, current_offset_ * sizeof(T)));
+    if(current_offset_>0){
+      CK_CUDA_THROW_(cudaMemset(ptr_, 0, current_offset_ * sizeof(T)));
+    }
     CK_CUDA_THROW_(cudaDeviceSynchronize());
   }
 
@@ -149,7 +153,7 @@ class GeneralBuffer {
    */
   ~GeneralBuffer() {
     try {
-      if (initialized_ == true) {
+      if (initialized_ == true && current_offset_ > 0) {
         CudaDeviceContext context(device_id_);
         CK_CUDA_THROW_(cudaFree(ptr_));
       }
