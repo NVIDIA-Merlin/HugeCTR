@@ -35,6 +35,7 @@ namespace HugeCTR {
 enum class Error_t {
   Success,
   FileCannotOpen,
+  BrokenFile,
   OutOfMemory,
   OutOfBound,
   WrongInput,
@@ -47,7 +48,24 @@ enum class Error_t {
   CudnnError,
   CudaError,
   NcclError,
+  DataCheckError,
   UnspecificError
+};
+
+enum class Check_t {
+  Sum,
+  None
+};
+
+enum class DataReaderSparse_t {
+  Distributed,
+  Localized
+};
+  
+struct DataReaderSparseParam{
+  DataReaderSparse_t type;
+  int max_feature_num;
+  int slot_num;
 };
 
 /**
@@ -84,6 +102,8 @@ enum class LrPolicy_t { fixed };
 
 enum class Optimizer_t { Adam, MomentumSGD, Nesterov };
 
+enum class Regularizer_t {L1, L2};
+
 enum class Layer_t {
   BatchNorm,
   BinaryCrossEntropyLoss,
@@ -98,14 +118,17 @@ enum class Layer_t {
   Slice,
 };
 
-enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash };
+enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash, LocalizedSlotSparseEmbedding};
 
 typedef struct DataSetHeader_ {
+  long long error_check;        //0: no error check; 1: check_num
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
-  long long slot_num;
-  long long reserved;  // reserved for future use
+  long long dense_dim;          //dimension of dense feature
+  long long slot_num;           //slot_num for each embedding
+  long long reserved[3];  // reserved for future use
 } DataSetHeader;
+
 
 #ifdef ENABLE_MPI
 #define CK_MPI_THROW_(cmd)                                                                       \
@@ -155,6 +178,17 @@ typedef struct DataSetHeader_ {
                                           ":" + std::to_string(__LINE__) + " \n");              \
     }                                                                                           \
   } while (0)
+
+#define CK_RETURN_(x, msg)                                                                       \
+  do {                                                                                          \
+    Error_t retval = (x);                                                                       \
+    if (retval != Error_t::Success) {                                                           \
+      std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + \
+                                          ":" + std::to_string(__LINE__) + " \n";               \
+      return x;                                                                                 \
+    }                                                                                           \
+  } while (0)
+
 
 #define MESSAGE_(msg)                                                                            \
   do {                                                                                           \

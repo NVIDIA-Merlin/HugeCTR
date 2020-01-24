@@ -35,8 +35,9 @@ class CSRChunk {
       csr_buffers_; /**< A vector of CSR objects, should be same number as devices. */
   std::vector<PinnedBuffer<float>> label_buffers_; /**< A vector of label buffers */
   int label_dim_;                                  /**< dimension of label (for one sample) */
-  int slot_num_;                                   /**< slot num */
   int batchsize_;                                  /**< batch size of training */
+  int num_params_;
+  int num_devices_;
  public:
   /**
    * Ctor of CSRChunk.
@@ -49,22 +50,35 @@ class CSRChunk {
    * @param max_value_size the number of element of values the CSR matrix will have
    *        for num_rows rows (See csr.hpp).
    */
-  CSRChunk(int num_csr_buffers, int batchsize, int label_dim, int slot_num, int max_value_size) {
-    if (num_csr_buffers <= 0 || batchsize % num_csr_buffers != 0 || label_dim <= 0 ||
-        slot_num <= 0 || max_value_size <= batchsize) {
-      CK_THROW_(Error_t::WrongInput,
-                "num_src_buffers <= 0 || batchsize%num_csr_buffers != 0 || label_dim <= 0 ||  "
-                "slot_num <=0 || max_value_size <= batchsize");
+  CSRChunk(int num_devices, int batchsize, int label_dim, const std::vector<DataReaderSparseParam>& params) {
+    if (num_devices <= 0 || batchsize % num_devices != 0 || label_dim <= 0 ) {
+      CK_THROW_(Error_t::WrongInput, "num_devices <= 0 || batchsize % num_devices != 0 || label_dim <= 0 ");
     }
-    if (batchsize % num_csr_buffers != 0)
-      CK_THROW_(Error_t::WrongInput, "batchsize%num_csr_buffers");
     label_dim_ = label_dim;
     batchsize_ = batchsize;
-    slot_num_ = slot_num;
+    num_params_ = params.size();
+    num_devices_ = num_devices;
+
     assert(csr_buffers_.empty() && label_buffers_.empty());
-    for (int i = 0; i < num_csr_buffers; i++) {
-      csr_buffers_.emplace_back(batchsize * slot_num, max_value_size);
-      label_buffers_.emplace_back(batchsize / num_csr_buffers * label_dim);
+
+    for(int i=0; i<num_devices; i++){
+      for(auto& param: params){
+	int slots = 0;
+	if(param.type == DataReaderSparse_t::Distributed){
+	  slots = param.slot_num;
+	}
+	else if(param.type == DataReaderSparse_t::Localized){
+	  int mod_slots = param.slot_num % num_devices; //ceiling
+	  if(i < mod_slots){
+	    slots = param.slot_num / num_devices + 1;
+	  }
+	  else{
+	    slots = param.slot_num / num_devices;
+	  }
+	}
+	csr_buffers_.emplace_back(batchsize * slots, param.max_feature_num*batchsize);
+      }
+      label_buffers_.emplace_back(batchsize / num_devices * label_dim);
     }
   }
 
@@ -79,6 +93,11 @@ class CSRChunk {
    * This methord is used in collector (consumer) and data_reader (provider).
    */
   CSR<CSR_Type>& get_csr_buffer(int i) { return csr_buffers_[i]; }
+
+  /**
+   * Get the specific csr object with param_id and device_id.
+   */
+  CSR<CSR_Type>& get_csr_buffer(int param_id, int dev_id) {return csr_buffers_[dev_id*num_params_ + param_id];}
 
   /**
    * Call member function of all csr objects.
@@ -98,7 +117,8 @@ class CSRChunk {
   const std::vector<PinnedBuffer<float>>& get_label_buffers() const { return label_buffers_; }
   int get_label_dim() const { return label_dim_; }
   int get_batchsize() const { return batchsize_; }
-  int get_slot_num() const { return slot_num_; }
+  int get_num_devices() const {return num_devices_; }
+  int get_num_params() const {return num_params_; }
 
   /**
    * A copy Ctor but allocating new resources.

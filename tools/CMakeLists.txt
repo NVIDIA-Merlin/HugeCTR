@@ -14,10 +14,4 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-file(GLOB network_test_src
-  network_test.cpp
-)
-
-add_executable(network_test ${network_test_src})
-target_compile_features(network_test PUBLIC cxx_std_11)
-target_link_libraries(network_test PUBLIC huge_ctr_static gtest gtest_main cudart)
+add_subdirectory(criteo_script)
