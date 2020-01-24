@@ -111,8 +111,8 @@ class DataReader {
   bool shared_output_flag_{false}; /**< whether this is a data reader for eval. It's only mark the
                                       output data, which is sharing output tensor with train. */
   
-  std::shared_ptr<GPUResourceGroup> device_resources_;
-  const int batchsize_;
+  std::shared_ptr<GPUResourceGroup> device_resources_; /**< gpu resource used in this data reader*/
+  const int batchsize_;                  /**< batch size */
   const int label_dim_;                  /**< dimention of label e.g. 1 for BinaryCrossEntropy */
   const int dense_dim_;                  /**< dimention of dense */
   int data_reader_loop_flag_;            /**< p_loop_flag a flag to control the loop */
