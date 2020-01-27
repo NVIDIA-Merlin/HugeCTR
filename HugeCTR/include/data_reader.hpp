@@ -322,7 +322,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
   // create label and dense tensor
   int batch_size_per_device = batchsize_ / total_gpu_count;
-  assert(label_tensors_.empty() && label_buffers_.empty() && dense_tensors_.empty());
+  //assert(label_tensors_.empty() && label_buffers_.empty() && dense_tensors_.empty());
   for (auto device_id : device_list) {
     std::shared_ptr<GeneralBuffer<float>> tmp_label_dense_buff(new GeneralBuffer<float>());
     label_tensors_.emplace_back(
