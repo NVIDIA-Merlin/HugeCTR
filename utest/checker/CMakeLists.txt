@@ -14,15 +14,10 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-add_subdirectory(data_parser)
-add_subdirectory(layers)
-add_subdirectory(data_reader)
-add_subdirectory(optimizer)
-add_subdirectory(loss)
-add_subdirectory(session)
-add_subdirectory(heap)
-add_subdirectory(parser)
-add_subdirectory(regularizers)
-add_subdirectory(device_map)
-add_subdirectory(embedding)
-add_subdirectory(checker)
+file(GLOB checker_test_src
+  checker_test.cpp
+)
+
+add_executable(checker_test ${checker_test_src})
+target_compile_features(checker_test PUBLIC cxx_std_11)
+target_link_libraries(checker_test PUBLIC huge_ctr_static gtest gtest_main)

@@ -1283,10 +1283,9 @@ TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
 #if 1
 // sparse_embedding_hash upload_params() and download_params() testing
 TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
-  test::mpi_init();
   
   // influential params for this test
-  const long long vocabulary_size = 50010;
+  const long long vocabulary_size = 511;
   //const long long vocabulary_size = 20;
   //const long long vocabulary_size = 1010;
   const int embedding_vec_size = 64;
@@ -1299,12 +1298,12 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   const std::string plan_file = "./bin/all2all_plan.json";
   
   // uninfluential params
-  const int slot_num = 2;
-  const int max_feature_num = 2*slot_num;
-  const int batchsize = 2;
-  const int batch_num = 1; // can not more than 32
+  const int slot_num = 10;
+  const int max_feature_num = 30;
+  const int batchsize = 2048;
+  const int batch_num = 2; // can not more than 32
   const long long num_records = batchsize * batch_num;
-  const long long label_dim = 1;
+  const long long label_dim = 2;
   typedef long long T;
 
   // In order to not allocate the total size of hash table on each GPU, the users need to set the size of max_vocabulary_size_per_gpu,
@@ -1323,12 +1322,25 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
     0               //optimizer: 0-adam
   };
 
+  int numprocs = 1, pid = 0;
+  std::vector<std::vector<int>> vvgpu;
+#ifdef ENABLE_MPI
+  test::mpi_init();
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+#endif
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+
   // CUASION: the dataset will not be used in this test case, but we still need to let the data file non-empty since the DataRead requiring
   // generate input data
   const int num_files = 20;
   const long long dense_dim = 64;
   const Check_t CHK = Check_t::None;
-  const std::string file_list_name("file_list_embedding.txt");
+  const std::string file_list_name("sample_file_list.txt");
   const std::string prefix("./data_reader_test_data/temp_dataset_");
 
   // const std::string tmp_file_name("temp_dataset_embedding.data");
@@ -1366,11 +1378,6 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   // data generation
   HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records, slot_num,
     vocabulary_size, label_dim, dense_dim, max_feature_num);
-
-  std::vector<std::vector<int>> vvgpu;
-  vvgpu.push_back(device_list);
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
-  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   //setup a data reader
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_feature_num*slot_num, slot_num};

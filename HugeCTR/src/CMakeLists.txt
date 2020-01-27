@@ -30,6 +30,10 @@ file(GLOB huge_ctr_src
   optimizers/adam_optimizer.cu
   optimizers/momentum_sgd.cu
   optimizers/nesterov_optimizer.cu
+  regularizer.cu
+  regularizers/l1_regularizer.cu
+  regularizers/l2_regularizer.cu
+  regularizers/no_regularizer.cu
   parser.cpp
   session.cpp
   ../include/faster_gossip_comm/FasterGossipComm/gossip/include/plan_parser.cpp 
