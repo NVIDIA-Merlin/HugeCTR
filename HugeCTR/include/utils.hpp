@@ -131,10 +131,10 @@ inline bool file_exist(const std::string& name) {
 inline void check_make_dir(const std::string& finalpath) {
   if (mkdir(finalpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
     if (errno == EEXIST) {
-      MESSAGE_(finalpath + " exist");
+      std::cout << (finalpath + " exist") << std::endl;
     } else {
       // something else
-      ERROR_MESSAGE_("cannot create" + finalpath + ": unexpected error");
+      std::cerr << ("cannot create" + finalpath + ": unexpected error") << std::endl;
     }
   }
 }

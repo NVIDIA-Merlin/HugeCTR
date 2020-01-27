@@ -32,15 +32,15 @@ class DataReaderWorker {
 private:
   std::shared_ptr<Heap<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   DataSetHeader
-      data_set_header_; /**< the header of data set, which has main informations of a data file */
-  size_t buffer_length_;              /**< max possible nnz in a slot */
-  Check_t check_type_;
-  std::vector<DataReaderSparseParam> params_;
+      data_set_header_;               /**< the header of data set, which has main informations of a data file */
+  size_t buffer_length_;              /**< buffer size for internal use */
+  Check_t check_type_;                /**< check type for data set */
+  std::vector<DataReaderSparseParam> params_;  /**< configuration of data reader sparse input */
   T* feature_ids_;                    /**< a buffer to cache the readed feature from data set */
-  std::shared_ptr<Source> source_;
-  std::shared_ptr<Checker> checker_;
+  std::shared_ptr<Source> source_;    /**< source: can be file or network */
+  std::shared_ptr<Checker> checker_;  /**< checker aim to perform error check of the input data */
   bool skip_read_{false};             /**< set to true when you want to stop the data reading */
-  const int MAX_TRY = 10;
+  const int MAX_TRY = 10;             
   int current_record_index_{0};
 
   void read_new_file(){
@@ -142,8 +142,6 @@ void DataReaderWorker<T>::read_a_batch() {
 	int param_id = 0;
 	csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
 	
-	//	tmp_check(i, sizeof(float) * label_dense_dim, "sizeof(float) * label_dense_dim");
-
 	CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()), sizeof(float) * label_dense_dim));
 
 	{
@@ -175,10 +173,6 @@ void DataReaderWorker<T>::read_a_batch() {
 			<< "nnz: " << nnz << std::endl;
 	    }
 	    #endif
-	    //	    tmp_check(i, sizeof(T) * nnz, "sizeof(T) * nnz");
-	    // if(nnz == 0){
-	    //    std::cout << "p:" << param_id << "k:" << k;
-	    //  }
 	    CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
 	    if(param.type == DataReaderSparse_t::Distributed){
 	      for(int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++){

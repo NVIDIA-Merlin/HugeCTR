@@ -179,7 +179,6 @@ void ReshapeLayer::prop_common(bool forward, cudaStream_t stream) {
     reshape_kernel<<<n_block, block_size>>>(in, out, batch_size_, n_slot_, vector_length_, selected_,
                                            n_active_slot_, forward);
   }
-
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());

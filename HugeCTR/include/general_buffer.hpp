@@ -153,7 +153,7 @@ class GeneralBuffer {
    */
   ~GeneralBuffer() {
     try {
-      if (initialized_ == true) {
+      if (initialized_ == true && current_offset_ > 0) {
         CudaDeviceContext context(device_id_);
         CK_CUDA_THROW_(cudaFree(ptr_));
       }
