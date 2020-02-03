@@ -25,7 +25,7 @@ using namespace HugeCTR;
 namespace 
 {
 
-const float eps = 1e-6;
+const float eps = 1e-5;
 
 void fm_order2_fprop_cpu(const float * in,
                         float * out,
