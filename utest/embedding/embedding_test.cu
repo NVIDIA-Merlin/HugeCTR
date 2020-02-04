@@ -441,9 +441,10 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
 
   // uninfluential params
   const int slot_num = 2;
-  const int max_feature_num = 2*slot_num;
-  const int batchsize = 2;
-  const int batch_num = 1; // can not more than 32
+  const int max_nnz_per_slot = 10;
+  const int max_feature_num = max_nnz_per_slot*slot_num;
+  const int batchsize = 4096;
+  const int batch_num = 2; // can not more than 32
   const long long num_records = batchsize * batch_num;
   const long long label_dim = 1;
   typedef long long T;
@@ -464,49 +465,37 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
     0               //optimizer: 0-adam
   };
 
-  // CUASION: the data will be used in this test case, but we still need to let the data file non-empty since the DataRead requiring
-  // generate input data
-  const std::string tmp_file_name("temp_dataset_embedding.data");
-  const std::string file_list_name("file_list_embedding.txt");
-  {
-    //data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-    DataSetHeader header = {num_records, label_dim, slot_num, 0};
-    out_stream.write(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
-    for(int i=0; i<num_records; i++){
-      UnifiedDataSimulator<int> idata_sim(0, max_feature_num/slot_num-1); //both inclusive
-      UnifiedDataSimulator<T> ldata_sim(0,vocabulary_size-1);
-      for(int j=0; j<label_dim; j++){
-        int label = idata_sim.get_num();
-        out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
-      }
-      for(int k=0; k<slot_num; k++){
-        int nnz = idata_sim.get_num();
-        //nnz = 10; // just for test 20181211
-        nnz = (int)(max_feature_num/slot_num); // just for test 20181221
-        out_stream.write(reinterpret_cast<char*>(&nnz), sizeof(int));
-        for(int j=0; j<nnz; j++){
-          T value = ldata_sim.get_num();
-          out_stream.write(reinterpret_cast<char*>(&value), sizeof(T));
-        }
-        //std::cout << std::endl; // just for test 20181211
-      }
-    }
-    out_stream.close();
-    std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-    file_list_stream << (std::to_string(1) + "\n");
-    file_list_stream << (tmp_file_name + "\n");
-    file_list_stream.close();
-  }
-
+  int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
-  vvgpu.push_back(device_list);
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+#ifdef ENABLE_MPI
+  test::mpi_init();
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+#endif
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
+  // CUASION: the data will be used in this test case, but we still need to let the data file non-empty since the DataRead requiring
+  // generate input data
+  const int num_files = 1;
+  const long long dense_dim = 0;
+  const Check_t CHK = Check_t::Sum; // Check_t::Sum
+  const std::string file_list_name("sample_file_list.txt");
+  const std::string prefix("./data_reader_test_data/temp_dataset_");
+
+  // data generation
+  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+    vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+
   //setup a data reader
-  DataReader<T>* data_reader = new DataReader<T>(file_list_name, batchsize, \
-    label_dim, slot_num, max_feature_num, gpu_resource_group, 1, 1);
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot*slot_num, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+  DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
+                            gpu_resource_group, 1, 1);
 
   // define object
   Embedding<T>* embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params, gpu_resource_group);
@@ -563,18 +552,18 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
 TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   test::mpi_init();
 
-  constexpr int batch_num = 4;  // can not more than 32
+  constexpr int batch_num = 2;  // can not more than 32
   // constexpr int batch_num = 1;
   constexpr int batchsize = 4096;
   // constexpr int batchsize = 2;
   constexpr long long num_records = batchsize * batch_num;
   // constexpr int slot_num = 1;
   constexpr int slot_num = 2;
-  constexpr int max_feature_num = 10 * slot_num;  // max_feature_num in a sample
-  // constexpr int max_feature_num = 2*slot_num;
+  constexpr int max_nnz_per_slot = 10;
+  constexpr int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
   constexpr long long vocabulary_size = 55000;
   // constexpr long long vocabulary_size = 10;
-  constexpr int embedding_vec_size = 128;
+  constexpr int embedding_vec_size = 64;
   // constexpr int embedding_vec_size = 1;
   constexpr int combiner = 0;   // 0-sum, 1-mean
   constexpr int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
@@ -592,13 +581,6 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   // long long max_vocabulary_size_per_gpu = (long long)((double)(vocabulary_size) / num_devices /
   // load_factor);
 
-  const char *hash_table_file_name = "distributed_hash_table.bin";
-  const char *data_file_name = "temp_dataset_embedding.data";
-
-  bool init_hash_table = true;  // true: init hash_table and upload_to_device
-                                // false: don't init hash_table or upload_to_device, just use an
-                                // empty hash_table to train
-
   // set up params
   OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
@@ -614,55 +596,48 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
       combiner,  // combiner: 0-sum, 1-mean
       opt_params};
 
-  // generate input data
-  const std::string tmp_file_name(data_file_name);
-  const std::string file_list_name("file_list_embedding.txt");
-  {
-    // data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-    DataSetHeader header = {num_records, label_dim, slot_num, 0};
-    out_stream.write(reinterpret_cast<char *>(&header), sizeof(DataSetHeader));
-    for (int i = 0; i < num_records; i++) {
-      UnifiedDataSimulator<int> idata_sim(0, max_feature_num / slot_num - 1);  // both inclusive
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);
-      for (int j = 0; j < label_dim; j++) {
-        int label = idata_sim.get_num();
-        out_stream.write(reinterpret_cast<char *>(&label), sizeof(int));
-      }
-      for (int k = 0; k < slot_num; k++) {
-        int nnz = idata_sim.get_num();
-        nnz = (int)(max_feature_num / slot_num);  // just for test
-        out_stream.write(reinterpret_cast<char *>(&nnz), sizeof(int));
-        for (int j = 0; j < nnz; j++) {
-          T value = ldata_sim.get_num();
-          // T value = k*nnz+j; // just for test, 20190625
-          out_stream.write(reinterpret_cast<char *>(&value), sizeof(T));
-        }
-        // std::cout << std::endl; // just for test 20181211
-      }
-    }
-    out_stream.close();
-    std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-    file_list_stream << (std::to_string(1) + "\n");
-    file_list_stream << (tmp_file_name + "\n");
-    file_list_stream.close();
-  }
-
+  int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
-  vvgpu.push_back(device_list);
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+#ifdef ENABLE_MPI
+  test::mpi_init();
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+#endif
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
-  // setup a data reader
-  DataReader<T> *data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, slot_num,
-                                                 max_feature_num, gpu_resource_group, 1, 1);
+  // generate input data
+  const int num_files = 1; // for CPU&GPU correctness checking, the num_files and num_threads can only be 1
+  const long long dense_dim = 0;
+  const Check_t CHK = Check_t::Sum; // Check_t::Sum
+  const std::string file_list_name("sample_file_list.txt");
+  const std::string prefix("./data_reader_test_data/temp_dataset_");
+
+  // data generation
+  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+    vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+
+  //setup a data reader
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot*slot_num, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+  DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
+                            gpu_resource_group, 1, 1);
 
   Embedding<T> *embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
                                                        data_reader->get_value_tensors(),
                                                        embedding_params, gpu_resource_group);
+  
+  const char *hash_table_file_name = "distributed_hash_table.bin";
 
+  bool init_hash_table = true;  // true: init hash_table and upload_to_device
+                                // false: don't init hash_table or upload_to_device, just use an
+                                // empty hash_table to train                                                       
+  // init hash table file
   if (init_hash_table) {
-    // init hash table file
     std::ofstream weight_stream(hash_table_file_name);
     if (!weight_stream.is_open()) {
       ERROR_MESSAGE_("Error: file not open for writing");
@@ -691,11 +666,10 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   }
 
   // for SparseEmbeddingCpu
-  std::ifstream weight_stream_cpu(hash_table_file_name);
-  std::ifstream csr_stream_cpu(data_file_name);
   SparseEmbeddingHashCpu<T> *embedding_cpu = new SparseEmbeddingHashCpu<T>(
-      batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, combiner,
-      optimizer, lr, weight_stream_cpu, csr_stream_cpu, label_dim);
+      batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, 
+      label_dim, dense_dim, CHK, num_records, combiner, optimizer, lr, 
+      file_list_name, hash_table_file_name);
 
   // for results check
   float *embedding_feature_from_gpu =
@@ -788,19 +762,18 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
 // 1. complie this app as release version
 // 2. use nvprof / nvvp to run this app
 TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
-  test::mpi_init();
-  constexpr int batch_num = 10;  // can not more than 32
+  constexpr int batch_num = 2;  // can not more than 32
   // constexpr int batch_num = 1;
-  constexpr int batchsize = 40960;
+  constexpr int batchsize = 4096;
   // constexpr int batchsize = 2;
   constexpr long long num_records = batchsize * batch_num;
   // constexpr int slot_num = 1;
-  constexpr int slot_num = 10;
-  constexpr int max_feature_num = 10 * slot_num;
-  // constexpr int max_feature_num = 2*slot_num;
+  constexpr int slot_num = 2;
+  constexpr int max_nnz_per_slot = 10;
+  constexpr int max_feature_num = max_nnz_per_slot * slot_num;
   constexpr long long vocabulary_size = 55000;
   // constexpr long long vocabulary_size = 100;
-  constexpr int embedding_vec_size = 128;
+  constexpr int embedding_vec_size = 64;
   // constexpr int embedding_vec_size = 1;
   constexpr int combiner = 0;   // 0-sum, 1-mean
   constexpr int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
@@ -819,13 +792,6 @@ TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
   // long long max_vocabulary_size_per_gpu = (long long)((double)(vocabulary_size) / num_devices /
   // load_factor);
 
-  const char *hash_table_file_name = "distributed_hash_table.bin";
-  const char *data_file_name = "temp_dataset_embedding.data";
-
-  bool init_hash_table = true;  // true: init hash_table and upload_to_device
-                                // false: don't init hash_table or upload_to_device, just use an
-                                // empty hash_table to train
-
   // set up params
   OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
@@ -841,52 +807,46 @@ TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
       combiner,  // combiner: 0-sum, 1-mean
       opt_params};
 
-  // generate input data
-  const std::string tmp_file_name(data_file_name);
-  const std::string file_list_name("file_list_embedding.txt");
-  {
-    // data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-    DataSetHeader header = {num_records, label_dim, slot_num, 0};
-    out_stream.write(reinterpret_cast<char *>(&header), sizeof(DataSetHeader));
-    for (int i = 0; i < num_records; i++) {
-      UnifiedDataSimulator<int> idata_sim(0, max_feature_num / slot_num - 1);  // both inclusive
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);
-      for (int j = 0; j < label_dim; j++) {
-        int label = idata_sim.get_num();
-        out_stream.write(reinterpret_cast<char *>(&label), sizeof(int));
-      }
-      for (int k = 0; k < slot_num; k++) {
-        int nnz = idata_sim.get_num();
-        // nnz = 10; // just for test 20181211
-        nnz = (int)(max_feature_num / slot_num);  // just for test 20181221
-        out_stream.write(reinterpret_cast<char *>(&nnz), sizeof(int));
-        for (int j = 0; j < nnz; j++) {
-          T value = ldata_sim.get_num();
-          out_stream.write(reinterpret_cast<char *>(&value), sizeof(T));
-        }
-        // std::cout << std::endl; // just for test 20181211
-      }
-    }
-    out_stream.close();
-    std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-    file_list_stream << (std::to_string(1) + "\n");
-    file_list_stream << (tmp_file_name + "\n");
-    file_list_stream.close();
-  }
+  int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
-  vvgpu.push_back(device_list);
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+#ifdef ENABLE_MPI
+  test::mpi_init();
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+#endif
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
-  // setup a data reader
-  DataReader<T> *data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, slot_num,
-                                                 max_feature_num, gpu_resource_group, 1, 1);
+  // generate input data
+  const int num_files = 1;
+  const long long dense_dim = 0;
+  const Check_t CHK = Check_t::Sum; // Check_t::Sum
+  const std::string file_list_name("sample_file_list.txt");
+  const std::string prefix("./data_reader_test_data/temp_dataset_");
+
+  // data generation
+  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+    vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+
+  //setup a data reader
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot*slot_num, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+  DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
+                            gpu_resource_group, 1, 1);
 
   Embedding<T> *embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
                                                        data_reader->get_value_tensors(),
                                                        embedding_params, gpu_resource_group);
 
+  const char *hash_table_file_name = "distributed_hash_table.bin";
+
+  bool init_hash_table = true;  // true: init hash_table and upload_to_device
+                              // false: don't init hash_table or upload_to_device, just use an
+                              // empty hash_table to train                                                      
   if (init_hash_table) {
     // init hash table file
     std::ofstream weight_stream(hash_table_file_name);
@@ -1280,14 +1240,12 @@ TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
 }
 #endif 
 
-#if 1
+#if 0
 // sparse_embedding_hash upload_params() and download_params() testing
 TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   
   // influential params for this test
   const long long vocabulary_size = 511;
-  //const long long vocabulary_size = 20;
-  //const long long vocabulary_size = 1010;
   const int embedding_vec_size = 64;
   //const int embedding_vec_size = 1;
   std::vector<int> device_list = {0};
@@ -1298,12 +1256,13 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   const std::string plan_file = "./bin/all2all_plan.json";
   
   // uninfluential params
-  const int slot_num = 10;
-  const int max_feature_num = 30;
+  const int slot_num = 2;
+  const int max_nnz_per_slot = 10;
+  const int max_feature_num = slot_num * max_nnz_per_slot;
   const int batchsize = 2048;
   const int batch_num = 2; // can not more than 32
   const long long num_records = batchsize * batch_num;
-  const long long label_dim = 2;
+  const long long label_dim = 1;
   typedef long long T;
 
   // In order to not allocate the total size of hash table on each GPU, the users need to set the size of max_vocabulary_size_per_gpu,
@@ -1332,61 +1291,27 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
   // CUASION: the dataset will not be used in this test case, but we still need to let the data file non-empty since the DataRead requiring
   // generate input data
-  const int num_files = 20;
-  const long long dense_dim = 64;
-  const Check_t CHK = Check_t::None;
+  const int num_files = 1;
+  const long long dense_dim = 0;
+  const Check_t CHK = Check_t::Sum; // Check_t::Sum
   const std::string file_list_name("sample_file_list.txt");
   const std::string prefix("./data_reader_test_data/temp_dataset_");
 
-  // const std::string tmp_file_name("temp_dataset_embedding.data");
-  // {
-  //   //data generation;
-  //   std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-  //   DataSetHeader header = {num_records, label_dim, slot_num, 0};
-  //   out_stream.write(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
-  //   for(int i=0; i<num_records; i++){
-  //     UnifiedDataSimulator<int> idata_sim(0, max_feature_num/slot_num-1); //both inclusive
-  //     UnifiedDataSimulator<T> ldata_sim(0,vocabulary_size-1);
-  //     for(int j=0; j<label_dim; j++){
-  //       int label = idata_sim.get_num();
-  //       out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
-  //     }
-  //     for(int k=0; k<slot_num; k++){
-  //       int nnz = idata_sim.get_num();
-  //       //nnz = 10; // just for test 20181211
-  //       nnz = (int)(max_feature_num/slot_num); // just for test 20181221
-  //       out_stream.write(reinterpret_cast<char*>(&nnz), sizeof(int));
-  //       for(int j=0; j<nnz; j++){
-  //         T value = ldata_sim.get_num();
-  //         out_stream.write(reinterpret_cast<char*>(&value), sizeof(T));
-  //       }
-  //       //std::cout << std::endl; // just for test 20181211
-  //     }
-  //   }
-  //   out_stream.close();
-  //   std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-  //   file_list_stream << (std::to_string(1) + "\n");
-  //   file_list_stream << (tmp_file_name + "\n");
-  //   file_list_stream.close();
-  // }
-
   // data generation
-  HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records, slot_num,
-    vocabulary_size, label_dim, dense_dim, max_feature_num);
+  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+    vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
 
   //setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_feature_num*slot_num, slot_num};
+  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot*slot_num, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
-  int num_chunks = 1;
-  int num_threads = 1;
   DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
-                            gpu_resource_group, num_chunks, num_threads);
+                            gpu_resource_group, 1, 1);
 
   // define object
   Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingHash<T>(\
@@ -1445,20 +1370,20 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
 }
 #endif 
 
-#if 0
+#if 1
 // localized_sparse_embedding_hash correctness testing: forward->backward->update_params
 TEST(localized_sparse_embedding_hash_test, training_correctness) {
   test::mpi_init();
 
-  constexpr int batch_num = 4;  // can not more than 32
+  constexpr int batch_num = 2;  // can not more than 32
   // constexpr int batch_num = 1;
   constexpr int batchsize = 4096;
   // constexpr int batchsize = 2;
-  constexpr long long num_records = batchsize * batch_num;
+  constexpr size_t num_records = batchsize * batch_num;
   // constexpr int slot_num = 1;
   constexpr int slot_num = 2;
-  constexpr int max_feature_num = 10 * slot_num;  // max_feature_num in a sample
-  // constexpr int max_feature_num = 2*slot_num;
+  constexpr int max_nnz_per_slot = 10;
+  constexpr int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
   constexpr long long vocabulary_size = 55000;
   // constexpr long long vocabulary_size = 10;
   constexpr int embedding_vec_size = 128;
@@ -1479,14 +1404,6 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   // long long max_vocabulary_size_per_gpu = (long long)((double)(vocabulary_size) / num_devices /
   // load_factor);
 
-  const char *hash_table_file_name = "localized_hash_table.bin";
-  const char *data_file_name = "temp_dataset_embedding.data";
-  const std::string plan_file = "./bin/all2all_plan.json";
-
-  bool init_hash_table = true;  // true: init hash_table and upload_to_device
-                                // false: don't init hash_table or upload_to_device, just use an
-                                //        empty hash_table to train
-
   // set up params
   OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
@@ -1502,53 +1419,46 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
       combiner,  // combiner: 0-sum, 1-mean
       opt_params};
 
-  // generate input data
-  const std::string tmp_file_name(data_file_name);
-  const std::string file_list_name("file_list_embedding.txt");
-  {
-    // data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-    DataSetHeader header = {num_records, label_dim, slot_num, 0};
-    out_stream.write(reinterpret_cast<char *>(&header), sizeof(DataSetHeader));
-    for (int i = 0; i < num_records; i++) {
-      UnifiedDataSimulator<int> idata_sim(0, max_feature_num / slot_num - 1);  // both inclusive
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);
-      for (int j = 0; j < label_dim; j++) {
-        int label = idata_sim.get_num();
-        out_stream.write(reinterpret_cast<char *>(&label), sizeof(int));
-      }
-      for (int k = 0; k < slot_num; k++) {
-        int nnz = idata_sim.get_num();
-        nnz = (int)(max_feature_num / slot_num);  // just for test
-        out_stream.write(reinterpret_cast<char *>(&nnz), sizeof(int));
-        for (int j = 0; j < nnz; j++) {
-          T value = ldata_sim.get_num();
-          // T value = k*nnz+j; // just for test, 20190625
-          out_stream.write(reinterpret_cast<char *>(&value), sizeof(T));
-        }
-        // std::cout << std::endl; // just for test 20181211
-      }
-    }
-    out_stream.close();
-    std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-    file_list_stream << (std::to_string(1) + "\n");
-    file_list_stream << (tmp_file_name + "\n");
-    file_list_stream.close();
-  }
-
+  int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
-  vvgpu.push_back(device_list);
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
+#ifdef ENABLE_MPI
+  test::mpi_init();
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+#endif
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
-  // setup a data reader
-  DataReader<T> *data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, slot_num,
-                                                 max_feature_num, gpu_resource_group, 1, 1);
+  // generate input data
+  const int num_files = 1; // for CPU&GPU correctness checking, the num_files and num_threads can only be 1
+  const long long dense_dim = 0;
+  const Check_t CHK = Check_t::Sum; // Check_t::Sum
+  const std::string file_list_name("sample_file_list.txt");
+  const std::string prefix("./data_reader_test_data/temp_dataset_");
 
+  // data generation
+  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+    vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+
+  //setup a data reader
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot*slot_num, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+  DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
+                            gpu_resource_group, 1, 1);
+
+  const std::string plan_file = "./bin/all2all_plan.json";
   Embedding<T> *embedding = new LocalizedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
                                                        data_reader->get_value_tensors(),
                                                        embedding_params, plan_file, gpu_resource_group);
 
+  const char *hash_table_file_name = "localized_hash_table.bin";
+  bool init_hash_table = true;  // true: init hash_table and upload_to_device
+                                // false: don't init hash_table or upload_to_device, just use an
+                                //        empty hash_table to train
   if (init_hash_table) {
     // init hash table file: <key, solt_id, value>
     std::ofstream weight_stream(hash_table_file_name);
@@ -1582,11 +1492,10 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   }
 
   // for SparseEmbeddingCpu
-  std::ifstream weight_stream_cpu(hash_table_file_name);
-  std::ifstream csr_stream_cpu(data_file_name);
   SparseEmbeddingHashCpu<T> *embedding_cpu = new SparseEmbeddingHashCpu<T>(
-      batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, combiner,
-      optimizer, lr, weight_stream_cpu, csr_stream_cpu, label_dim);
+    batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, 
+    label_dim, dense_dim, CHK, num_records, combiner, optimizer, lr, 
+    file_list_name, hash_table_file_name);
 
   // for results check
   float *embedding_feature_from_gpu =
