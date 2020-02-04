@@ -163,6 +163,10 @@ public:
     stream.write(reinterpret_cast<char*>(&chk_bits), sizeof(char));
   }
 
+  static long long ID(){
+    return 1;
+  }
+
 };
 
 template<>
@@ -179,6 +183,11 @@ public:
   static void write(int N, char* array, char chk_bits, std::ofstream& stream){
     stream.write(reinterpret_cast<char*>(array), N);
   }
+
+  static long long ID(){
+    return 0;
+  }
+
 };
 
 
@@ -234,7 +243,7 @@ void data_generation(std::string file_list_name, std::string data_prefix, int nu
 
     DataWriter<CK_T> data_writer(out_stream);
 
-    DataSetHeader header = {1, num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
+    DataSetHeader header = { Checker_Traits<CK_T>::ID(), num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
 
     data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
     data_writer.write();
