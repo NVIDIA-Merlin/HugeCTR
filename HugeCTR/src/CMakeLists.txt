@@ -26,6 +26,7 @@ file(GLOB huge_ctr_src
   layers/reshape_layer.cu
   layers/slice_layer.cu
   layers/fm_order2_layer.cu
+  layers/multiply_layer.cu
   loss.cu
   network.cpp
   optimizers/adam_optimizer.cu
