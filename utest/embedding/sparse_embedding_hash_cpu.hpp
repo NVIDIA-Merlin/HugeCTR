@@ -20,11 +20,15 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/csr_chunk.hpp"
 #include "HugeCTR/include/heap.hpp"
+#include "HugeCTR/include/check_sum.hpp"
+#include "HugeCTR/include/check_none.hpp"
+#include "HugeCTR/include/file_source.hpp"
+#include "HugeCTR/include/file_list.hpp"
+
+#include "utest/embedding/cpu_hashtable.hpp"
 
 #include <math.h>
 #include <stdlib.h>
-
-#include "utest/embedding/cpu_hashtable.hpp"
 
 using namespace HugeCTR;
 
@@ -38,6 +42,8 @@ class SparseEmbeddingHashCpu {
   int vocabulary_size_;
   int embedding_vec_size_;
   int slot_num_;
+  int label_dim_;
+  int dense_dim_;
   int combiner_;
   int optimizer_;
   float lr_;
@@ -50,6 +56,8 @@ class SparseEmbeddingHashCpu {
 
   TypeHashKey *row_offset_;
   TypeHashKey *hash_key_;
+  float * dense_feature_; 
+  float * lable_;
   TypeHashValueIndex *hash_value_index_;
   TypeHashValueIndex *hash_value_index_undup_;
   TypeHashValueIndex *hash_value_index_undup_offset_;
@@ -64,19 +72,49 @@ class SparseEmbeddingHashCpu {
   float *opt_momentum_;
   float *opt_accm_;
 
-  std::ifstream &csr_stream_;
-  long long csr_stream_offset_ = 0;
-  int label_dim_;
+  //std::ifstream &csr_stream_;
+  //long long csr_stream_offset_ = 0;
+  const Check_t check_sum_;
+  long long num_records_;
+  int current_record_index_{0};
+  DataSetHeader data_set_header_;
+  FileList * file_list_;
+  std::shared_ptr<Source> source_;    /**< source: can be file or network */
+  std::shared_ptr<Checker> checker_;  /**< checker aim to perform error check of the input data */
+
+  int MAX_TRY = 10;
+  void read_new_file(){
+
+    for(int i=0; i<MAX_TRY; i++){
+      checker_->next_source();
+      
+      Error_t err = checker_->read(reinterpret_cast<char*>(&data_set_header_), 
+				   sizeof(DataSetHeader));
+      current_record_index_ = 0;
+
+      //todo: check if file match our DataReader setting.
+      if(!(data_set_header_.error_check == 0 && check_sum_ == Check_t::None) 
+	      && !(data_set_header_.error_check == 1 && check_sum_ == Check_t::Sum)){
+	      continue;
+      }
+      if(err == Error_t::Success){
+	      return;
+      }
+    }
+    CK_THROW_(Error_t::BrokenFile, "failed to read a file");
+  }
 
   HashTableCpu<TypeHashKey, TypeHashValueIndex> *hash_table_;
 
  public:
-  SparseEmbeddingHashCpu(int batchsize, int max_feature_num, int vocabulary_size,
-                         int embedding_vec_size, int slot_num, int combiner, int optimizer,
-                         float lr, std::ifstream &hash_table_stream, std::ifstream &csr_stream,
-                         int label_dim);
+  SparseEmbeddingHashCpu(const int batchsize, const int max_feature_num, const int vocabulary_size,
+                         const int embedding_vec_size, const int slot_num, const int label_dim,
+                         const int dense_dim, const Check_t check_sum, const long long num_records, 
+                         const int combiner, const int optimizer, const float lr, 
+                         const std::string &file_list_name, const std::string &hash_table_file);
   ~SparseEmbeddingHashCpu();
-  void load_data_from_csr();
+  //void load_data_from_csr();
+  void read_a_batch();
   void forward();
   void backward();
   void update_params();
@@ -158,28 +196,26 @@ class SparseEmbeddingHashCpu {
 
 template <typename TypeHashKey>
 SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
-    int batchsize, int max_feature_num, int vocabulary_size, int embedding_vec_size, int slot_num,
-    int combiner, int optimizer, float lr, std::ifstream &hash_table_stream,
-    std::ifstream &csr_stream, int label_dim)
+    const int batchsize, const int max_feature_num, const int vocabulary_size, 
+    const int embedding_vec_size, const int slot_num, const int label_dim, 
+    const int dense_dim, const Check_t check_sum, const long long num_records, 
+    const int combiner, const int optimizer, const float lr, 
+    const std::string &file_list_name, const std::string &hash_table_file)
     : batchsize_(batchsize),
       max_feature_num_(max_feature_num),
       vocabulary_size_(vocabulary_size),
       embedding_vec_size_(embedding_vec_size),
       slot_num_(slot_num),
+      label_dim_(label_dim),
+      dense_dim_(dense_dim),
+      check_sum_(check_sum),
+      num_records_(num_records),
       combiner_(combiner),
       optimizer_(optimizer),
-      lr_(lr),
-      csr_stream_(csr_stream),
-      label_dim_(label_dim) {
+      lr_(lr) {
 #ifndef NDEBUG
   PRINT_FUNC_NAME_();
 #endif
-
-  // load hash_table_key and hash_table_value from file
-  if (!hash_table_stream.is_open()) {
-    ERROR_MESSAGE_("Error: hash table file open failed");
-    return;
-  }
 
   // define size
   long long hash_table_key_size_in_B = (long long)vocabulary_size_ * sizeof(TypeHashKey);
@@ -194,6 +230,8 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
   hash_table_value_ = (float *)malloc(hash_table_value_size_in_B);  // embedding table
   hash_table_key_ = (TypeHashKey *)malloc(hash_table_key_size_in_B);
   row_offset_ = (TypeHashKey *)malloc((batchsize_ * slot_num_ + 1) * sizeof(TypeHashKey));
+  lable_ = (float *)malloc(batchsize_ * label_dim_ * sizeof(float));
+  dense_feature_ = (float *)malloc(batchsize_ * dense_dim_ * sizeof(float));
   hash_key_ = (TypeHashKey *)malloc(batchsize_ * max_feature_num_ * sizeof(TypeHashKey));
   hash_value_index_ =
       (TypeHashValueIndex *)malloc(batchsize_ * max_feature_num_ * sizeof(TypeHashKey));
@@ -222,6 +260,11 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
   char *hash_table_tile = (char *)malloc(hash_table_tile_size_in_B);
 
   // read hash table
+  std::ifstream hash_table_stream(hash_table_file);
+  if (!hash_table_stream.is_open()) {
+    ERROR_MESSAGE_("Error: hash table file open failed");
+    return;
+  }
   hash_table_stream.seekg(0, std::ios::end);
   long long file_size_in_B = hash_table_stream.tellg();
   hash_table_stream.seekg(0, std::ios::beg);
@@ -246,11 +289,36 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
   // insert <key,value_index> into HashTableCpu
   hash_table_->insert(hash_table_key_, hash_table_value_index_, vocabulary_size_);
 
-  // for csr file reading
-  if (!csr_stream.is_open()) {
-    ERROR_MESSAGE_("Error: csr file open failed");
+  // // for csr file reading
+  // if (!csr_stream.is_open()) {
+  //   ERROR_MESSAGE_("Error: csr file open failed");
+  // }
+  // DataSetHeader data_set_header;
+  // csr_stream_.read((char *)&data_set_header, sizeof(DataSetHeader));
+  // if(data_set_header.num_records != num_records_ ||
+  //   data_set_header.label_dim != label_dim_ || 
+  //   data_set_header.dense_dim != dense_dim_ || 
+  //   data_set_header.slot_num != slot_num_) {
+  //   ERROR_MESSAGE_("Error: csr file data header param error");
+  // }
+  // if(!((data_set_header.error_check == 0 && check_sum == Check_t::None) || 
+  //   (data_set_header.error_check == 1 && check_sum == Check_t::Sum))) {
+  //   ERROR_MESSAGE_("Error: csr file check_sum error");
+  // }
+  // csr_stream_offset_ = sizeof(DataSetHeader);
+
+  file_list_ = new FileList(file_list_name);
+  source_ = std::make_shared<FileSource>(*file_list_);
+  switch(check_sum_){
+  case Check_t::Sum:
+    checker_ = std::make_shared<CheckSum>(*source_);
+    break;
+  case Check_t::None:
+    checker_ = std::make_shared<CheckNone>(*source_);
+    break;
+  default:
+    assert(!"Error: no such Check_t && should never get here!!");
   }
-  csr_stream_offset_ = sizeof(DataSetHeader);
 
   // for optimizer
   times_ = 0;
@@ -268,6 +336,8 @@ SparseEmbeddingHashCpu<TypeHashKey>::~SparseEmbeddingHashCpu() {
 #endif
 
   free(row_offset_);
+  free(lable_);
+  free(dense_feature_);
   free(hash_key_);
   free(hash_value_index_);
   free(hash_value_index_undup_);
@@ -284,33 +354,70 @@ SparseEmbeddingHashCpu<TypeHashKey>::~SparseEmbeddingHashCpu() {
   free(opt_accm_);
 }
 
+// template <typename TypeHashKey>
+// void SparseEmbeddingHashCpu<TypeHashKey>::load_data_from_csr() {
+// #ifndef NDEBUG
+//   PRINT_FUNC_NAME_();
+// #endif
+
+//   // read csr from file
+//   if (!csr_stream_.is_open()) {
+//     ERROR_MESSAGE_("Error: csr_stream can not be opened for read");
+//   }
+
+//   // read 1 batch: get row_offset_ and hash_key_
+//   row_offset_[0] = 0;
+//   for (int row_num = 0; row_num < batchsize_; row_num++) {
+//     csr_stream_offset_ += label_dim_ * sizeof(int);
+//     csr_stream_.seekg(csr_stream_offset_);
+
+//     for (int slot = 0; slot < slot_num_; slot++) {
+//       int nnz;
+//       csr_stream_.read((char *)&nnz, sizeof(int));
+//       csr_stream_offset_ += sizeof(int);
+//       row_offset_[row_num * slot_num_ + slot + 1] = row_offset_[row_num * slot_num_ + slot] + nnz;
+//       csr_stream_.read((char *)(hash_key_ + row_offset_[row_num * slot_num_ + slot]),
+//                        sizeof(TypeHashKey) * nnz);
+//       csr_stream_offset_ += nnz * sizeof(TypeHashKey);
+//     }
+//   }
+// }
+
 template <typename TypeHashKey>
-void SparseEmbeddingHashCpu<TypeHashKey>::load_data_from_csr() {
-#ifndef NDEBUG
-  PRINT_FUNC_NAME_();
-#endif
-
-  // read csr from file
-  if (!csr_stream_.is_open()) {
-    ERROR_MESSAGE_("Error: csr_stream can not be opened for read");
-  }
-
-  // read 1 batch
-  row_offset_[0] = 0;
-  for (int row_num = 0; row_num < batchsize_; row_num++) {
-    csr_stream_offset_ += label_dim_ * sizeof(int);
-    csr_stream_.seekg(csr_stream_offset_);
-
-    for (int slot = 0; slot < slot_num_; slot++) {
-      int nnz;
-      csr_stream_.read((char *)&nnz, sizeof(int));
-      csr_stream_offset_ += sizeof(int);
-      row_offset_[row_num * slot_num_ + slot + 1] = row_offset_[row_num * slot_num_ + slot] + nnz;
-      csr_stream_.read((char *)(hash_key_ + row_offset_[row_num * slot_num_ + slot]),
-                       sizeof(TypeHashKey) * nnz);
-      csr_stream_offset_ += nnz * sizeof(TypeHashKey);
+void SparseEmbeddingHashCpu<TypeHashKey>::read_a_batch() {
+  try {
+    if(!checker_->is_open()){
+      read_new_file();
     }
+
+    row_offset_[0] = 0;
+
+    //batch loop
+    for (int i = 0; i < batchsize_; i++) {
+
+      checker_->read(reinterpret_cast<char*>(lable_+i*label_dim_), sizeof(float) * label_dim_);
+      checker_->read(reinterpret_cast<char*>(dense_feature_+i*dense_dim_), sizeof(float) * dense_dim_);
+
+      for (int k = 0; k < slot_num_; k++) {
+        int nnz;
+        checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int));
+        row_offset_[i * slot_num_ + k + 1] = row_offset_[i*slot_num_+k] + nnz;
+        checker_->read(reinterpret_cast<char*>(hash_key_+row_offset_[i*slot_num_+k]), sizeof(TypeHashKey) * nnz);
+      }
+      
+      current_record_index_++;
+      
+      // start a new file when finish one file read
+      if(current_record_index_ >= data_set_header_.number_of_records) {
+        read_new_file();
+      }
+    }//batch loop
   }
+  catch (const std::runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    throw;
+  }
+  return;
 }
 
 // CPU implementation of forward computation of embedding lookup and sum reduction with sparse
@@ -385,7 +492,8 @@ void SparseEmbeddingHashCpu<TypeHashKey>::forward() {
   PRINT_FUNC_NAME_();
 #endif
 
-  load_data_from_csr();
+  //load_data_from_csr();
+  read_a_batch();
 
   if (combiner_ == 0) {
     // do hash_table get() value_index by key
