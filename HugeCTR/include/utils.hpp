@@ -242,7 +242,7 @@ void data_generation(std::string file_list_name, std::string data_prefix, int nu
     for (int i = 0; i < num_records_per_file; i++) {
       UnifiedDataSimulator<int> idata_sim(0, max_nnz - 1);  // both inclusive
       UnifiedDataSimulator<float> fdata_sim(0, 1);  
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size);
+      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);
       for (int j = 0; j < label_dim + dense_dim; j++) {
         float label_dense = fdata_sim.get_num();
 	data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
