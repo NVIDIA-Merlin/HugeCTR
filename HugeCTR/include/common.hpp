@@ -32,6 +32,9 @@ namespace HugeCTR {
 #define HUGECTR_VERSION_MAJOR 2
 #define HUGECTR_VERSION_MINOR 0
 
+#define WARP_SIZE 32
+
+
 enum class Error_t {
   Success,
   FileCannotOpen,
