@@ -45,7 +45,7 @@ const int max_nnz_per_slot = 10;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
 const long long vocabulary_size = 55000;
 const int embedding_vec_size = 64;
-const int combiner = 0;   // 0-sum, 1-mean
+const int combiner = 1;   // 0-sum, 1-mean
 const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
 const float lr = 0.01;
 const long long label_dim = 1;
@@ -613,38 +613,31 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
     embedding->backward();
 
     // CPU backward
+    printf("embedding_cpu->backward()\n");
     embedding_cpu->backward();
 
     // check the result of backward
+    printf("embedding->get_backward_results()\n");
     embedding->get_backward_results(wgrad_from_gpu, 0);
     
-    // for(int l=0; l<batchsize; l++) {
-    //   for(int j=0; j<slot_num; j++) {
-    //     for(int k=0; k<embedding_vec_size; k++) {
-    //       std::cout << "  wgrad_cpu=" << wgrad_from_cpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
-    //                 << ",wgrad_gpu=" << wgrad_from_gpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
-    //                 << std::endl;
-    //     }
-    //   }
-    // }
-    // std::cout << std::endl;
-
-
+    printf("check backward results: GPU and CPU\n");
     ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, 
                                   wgrad_from_gpu, wgrad_from_cpu));
 
     // GPU update_params
+    printf("embedding->update_params()\n");
     embedding->update_params();
 
     // CPU update_params
+    printf("embedding_cpu->update_params()\n");
     embedding_cpu->update_params();
 
     // check the results of update params
+    printf("embedding->get_update_params_results()\n");
     embedding->get_update_params_results(hash_table_key_from_gpu,
                                   hash_table_value_from_gpu);  // memcpy from GPU to CPU
 
-    // ASSERT_EQ(true, compare_embedding_table(vocabulary_size*embedding_vec_size,
-    // hash_table_value_from_gpu, hash_table_value_from_cpu));
+    printf("check update_params results\n");
     bool rtn = compare_hash_table<T, TypeHashValue>(
         vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue *)hash_table_value_from_gpu,
         (T *)hash_table_key_from_cpu, (TypeHashValue *)hash_table_value_from_cpu);

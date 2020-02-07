@@ -435,9 +435,6 @@ void SparseEmbeddingHashCpu<TypeHashKey>::cpu_forward_sum(
         TypeHashValueIndex nFeatureIndex = hash_value_index[row_offset[user] + item];
 
         sum += hash_table_value[nFeatureIndex * embedding_vec_size + vec];
-
-        // printf("user=%d, value_index=%d, value=%f\n", user, nFeatureIndex,  
-        //     hash_table_value[nFeatureIndex * embedding_vec_size + vec]);
       }
 
       embedding_feature[user * embedding_vec_size + vec] = sum;
@@ -488,31 +485,6 @@ void SparseEmbeddingHashCpu<TypeHashKey>::forward() {
 
   // do hash_table get() value_index by key
    hash_table_->get(hash_key_, hash_value_index_, row_offset_[batchsize_ * slot_num_]);
-
-
-  // std::cout << "CPU hash keys:" << std::endl;
-  // for(int i = 0; i < row_offset_[batchsize_ * slot_num_]; i++) {
-  //   std::cout << hash_key_[i] << " ";
-  // }
-  // std::cout << std::endl;
-
-  // std::cout << "CPU hash value index:" << std::endl;
-  // int index = 0;
-  // for(int i = 0; i < batchsize_; i++) {
-  //   for(int j = 0; j < slot_num_; j++) {
-  //     int num = row_offset_[i*slot_num_+j+1] - row_offset_[i*slot_num_+j];
-  //     std::cout << "batch=" << i << ", slot=" << j << ": num=" << num << " value_index:" << std::endl;
-  //     for(int k = 0; k < num; k++) {
-  //       std::cout << hash_value_index_[index++] << " ";
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
-  // if(index != row_offset_[batchsize_*slot_num_]) {
-  //   std::cout << "Error: print number not match" << std::endl;
-  //   return;
-  // }
-
 
   if (combiner_ == 0) {
     cpu_forward_sum(batchsize_, slot_num_, embedding_vec_size_, row_offset_, hash_value_index_,

@@ -160,13 +160,6 @@ public:
 
     int local_gpu_count = device_resources->size();
 
-
-    // int max_num = batch_size * slot_num * 10;
-    // TypeHashKey * cpu_row_offset = (TypeHashKey *)malloc((batch_size*slot_num+1)*sizeof(TypeHashKey));
-    // TypeHashKey * cpu_hash_key = (TypeHashKey *)malloc(max_num*sizeof(TypeHashKey));
-    // TypeHashValueIndex * cpu_hash_value_index = (TypeHashValueIndex *)malloc(max_num*sizeof(TypeHashValueIndex));
-
-
     // launch kernels on GPUs: do embedding lookup on multi GPUs
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
@@ -185,30 +178,6 @@ public:
         CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num], sizeof(TypeHashKey),
                                       cudaMemcpyDeviceToHost, stream));
         hash_table->get_insert(hash_key, hash_value_index, num, stream);
-
-
-        // std::cout << "gpu=" << id << std::endl;
-        // cudaMemcpy(cpu_row_offset, row_offset, (batch_size*slot_num+1)*sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
-        // std::cout << "row offset:" << std::endl;
-        // for(int i = 0; i < (batch_size*slot_num+1); i++) {
-        //   std::cout << cpu_row_offset[i] << ", ";
-        // }
-        // std::cout << std::endl;
-
-        // cudaMemcpy(cpu_hash_key, hash_key, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
-        // std::cout << "hash keys:" << std::endl;
-        // for(int i = 0; i < num; i++) {
-        //   std::cout << cpu_hash_key[i] << ", ";
-        // }
-        // std::cout << std::endl;
-
-        // cudaMemcpy(cpu_hash_value_index, hash_value_index, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
-        // std::cout << "hash value_index:" << std::endl;
-        // for(int i = 0; i < num; i++) {
-        //   std::cout << cpu_hash_value_index[i] << ", ";
-        // }
-        // std::cout << std::endl;
-
 
         // do sum reduction
         dim3 blockSize(embedding_vec_size, 1,
@@ -271,14 +240,8 @@ public:
         dim3 blockSize(embedding_vec_size, 1, 1);
         dim3 gridSize(batchsize_per_gpu, 1, 1);
 
-        // // TODO: just for debug 
-        // std::cout << "gpu=" << id << std::endl;
-
         forward_scale_kernel<<<gridSize, blockSize, 0, stream>>>(
             batchsize_per_gpu, slot_num, embedding_vec_size, row_offset, embedding_feature);
-
-        // // TODO: just for debug 
-        // cudaStreamSynchronize(stream);
 
       } catch (const std::runtime_error &rt_err) {
         std::cerr << rt_err.what() << std::endl;
