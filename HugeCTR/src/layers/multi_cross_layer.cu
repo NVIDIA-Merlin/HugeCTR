@@ -494,6 +494,19 @@ namespace HugeCTR {
     return;
   }
 
-
+  std::vector<float> MultiCrossLayer::get_initializer() {
+    std::vector<float> initializer;
+    size_t weight_size = 0;
+    for(const auto& w: weights_){
+      weight_size += w->get_num_elements();
+    }
+    initializer.resize(weight_size);
+    const auto& in_tensor = in_tensors_[0];
+    float in_dim = in_tensor->get_dims()[1];
+    float sigma = 1.f / sqrt(in_dim);
+    HugeCTR::GaussianDataSimulator<float> fdata_sim(0.f, sigma, -2 * sigma, 2 * sigma);
+    for (size_t i = 0; i < initializer.size(); i++) initializer[i] = fdata_sim.get_num();
+    return initializer;
+  }
 
 } //namespace HugeCTR
