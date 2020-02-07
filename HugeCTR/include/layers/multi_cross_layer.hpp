@@ -56,5 +56,33 @@ public:
    * Use Gaussian initialization.
    */
   std::vector<float> get_initializer() override;
+
+  void fprof_step_(std::shared_ptr<Tensor<float>> xL_next, //output
+		   std::shared_ptr<Tensor<float>> x0, 
+		   std::shared_ptr<Tensor<float>> xL,
+		   std::shared_ptr<Tensor<float>> wL,
+		   std::shared_ptr<Tensor<float>> bL,
+		   cudaStream_t stream);
+
+  void bprop_first_step_(std::shared_ptr<Tensor<float>> dxL_pre, //output
+			 std::shared_ptr<Tensor<float>> dwL, //output
+			 std::shared_ptr<Tensor<float>> dbL, //output
+			 std::shared_ptr<Tensor<float>> x0, //Note: x0 and dxL_pre share the same buffer
+			 std::shared_ptr<Tensor<float>> dxL,
+			 std::shared_ptr<Tensor<float>> wL,
+			 std::shared_ptr<Tensor<float>> bL,
+			 cudaStream_t stream);
+
+  void bprop_step_(std::shared_ptr<Tensor<float>> dxL_pre, //output
+		   std::shared_ptr<Tensor<float>> dwL, //output
+		   std::shared_ptr<Tensor<float>> dbL, //output
+		   std::shared_ptr<Tensor<float>> x0,
+		   std::shared_ptr<Tensor<float>> xL, //Note: xL and dxL_pre share the same buffer
+		   std::shared_ptr<Tensor<float>> dxL,
+		   std::shared_ptr<Tensor<float>> wL,
+		   std::shared_ptr<Tensor<float>> bL,
+		   cudaStream_t stream);
+
+
 };
 } //namespace HugeCTR
