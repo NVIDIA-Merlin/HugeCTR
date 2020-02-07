@@ -44,7 +44,7 @@ const Check_t CHK = Check_t::Sum;
 TEST(data_reader_worker, data_reader_worker_test) {
   test::mpi_init();
   // data generation
-  HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records, slot_num,
+  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
      vocabulary_size, label_dim, dense_dim, max_nnz);
   
 
