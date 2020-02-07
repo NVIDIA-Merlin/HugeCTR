@@ -360,7 +360,7 @@ namespace HugeCTR {
      * @param o_mat: 1xw
      * @param mat: hxw
      */
-    __global__ void rows_sum_kernel(float* out, float* mat, int h, int w){
+    __global__ void row_sum_kernel(float* out, float* mat, int h, int w){
       const int tid = blockDim.x*blockIdx.x+threadIdx.x;
       const int wtid = tid%WARP_SIZE; //thread id in warp
       const int wid = tid/WARP_SIZE; //warp id
@@ -421,7 +421,7 @@ namespace HugeCTR {
   
   void MultiCrossLayer::fprop(cudaStream_t stream){
     auto x0 = blob_tensors_[0];
-    for(int i=0; i<blob_tensors_.size()-1; i++){
+    for(unsigned int i=0; i<blob_tensors_.size()-1; i++){
       fprof_step_(blob_tensors_[i+1], x0, blob_tensors_[i], weights_[2*i], weights_[2*i+1], stream);
     }
     return;
@@ -440,18 +440,18 @@ namespace HugeCTR {
     //tmp_mat[0] = out_product(tmp_vec[0], wL)
     out_product(tmp_mat_tensors_[0], tmp_vec_tensors_[0], wL, stream);
     //tmp_vec[1] = matrix_vec_mul(x0, wL, 1.0)
-    matrix_vec_mul(tmp_vec_tensors_[1], w0, wL, 1.0f, stream);
+    matrix_vec_mul(tmp_vec_tensors_[1], x0, wL, 1.0f, stream);
     //tmp_mat[1] = row_scaling(dxL, tmp_vec[1])
     row_scaling(tmp_mat_tensors_[1], dxL, tmp_vec_tensors_[1], stream);
 
     //dwL = row_scaling_sum(x0, tmp_vec[0])
-    row_scaling_sum(dwL, x0, tmp_vec[0], stream);
+    row_scaling_sum(dwL, x0, tmp_vec_tensors_[0], stream);
 
     //dbL = rows_sum(dxL)
     rows_sum(dbL, dxL, stream);
 
     //dxL_pre = matrix_add(tmp_mat[0], tmp_mat[1])
-    matrix_add(dxL_pre, tmp_mat_tensors_[0], tmp_mat_tensors_[1]);
+    matrix_add(dxL_pre, tmp_mat_tensors_[0], tmp_mat_tensors_[1], stream);
     
     return;
   }
@@ -472,13 +472,13 @@ namespace HugeCTR {
     out_product(tmp_mat_tensors_[0], tmp_vec_tensors_[0], wL, stream);
     
     //dwL = row_scaling_sum(xL, tmp_vec[0])
-    row_scaling_sum(dwL, xL, tmp_vec_tensors[0], stream);
+    row_scaling_sum(dwL, xL, tmp_vec_tensors_[0], stream);
 
     //dbL = rows_sum(dxL)
     rows_sum(dbL, dxL, stream);
 
     //dxL_pre = matrix_add(tmp_mat[0], dxL)
-    matrix_add(dxL_pre, tmp_mat_tensors_[0], dxL);
+    matrix_add(dxL_pre, tmp_mat_tensors_[0], dxL, stream);
 
     return;
   }
@@ -486,9 +486,9 @@ namespace HugeCTR {
 
   void MultiCrossLayer::bprop(cudaStream_t stream){
     auto& x0 = blob_tensors_[0];
-    for(i=blob_tensors_.size()-1; i>1; i--){
+    for(int i=blob_tensors_.size()-1; i>1; i--){
       bprop_step_(blob_tensors_[i-1], wgrad_[(i-1)*2], wgrad_[(i-1)*2+1], x0, blob_tensors_[i-1],
-		 blob_tensors_[i], weights_[(i-1)*2], weights_[(i-1)*2+1]);
+		  blob_tensors_[i], weights_[(i-1)*2], weights_[(i-1)*2+1], stream);
     }
     bprop_first_step_(x0, wgrad_[0], wgrad_[1], x0, blob_tensors_[1], weights_[0], weights_[1], stream);
     return;

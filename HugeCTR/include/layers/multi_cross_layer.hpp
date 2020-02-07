@@ -46,11 +46,11 @@ public:
 
   MultiCrossLayer( const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
 		   const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-		   const std::shared_ptr<Tensor<float>>& in_tensor,
-		   const std::shared_ptr<Tensor<float>>& out_tensor,
+		   std::shared_ptr<Tensor<float>>& in_tensor,
+		   std::shared_ptr<Tensor<float>>& out_tensor,
 		   int num_layers,
 		   int device_id);
-  MultiCrossLayer(const FullyConnectedLayer& C) = delete;
+  MultiCrossLayer(const MultiCrossLayer& C) = delete;
  private:
   /**
    * Use Gaussian initialization.
