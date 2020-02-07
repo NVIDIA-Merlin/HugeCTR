@@ -72,9 +72,9 @@ __global__ void forward_sum_kernel(const int batch_size,
         TypeValueIndex value_index = hash_value_index[value_offset + j];
         sum += hash_table_value[value_index * embedding_vec_size + tid];
 
-        // just for debug
+        // // just for debug
         // printf("bid=%d, slot=%d, tid=%d, j=%d, value_index=%d, value=%f\n", bid, i, tid, j,
-        // value_index, hash_table_value[value_index * embedding_vec_size + tid]);
+        // value_index, hash_table_value[value_index*embedding_vec_size+tid]);
       }
 
       // store the embedding vector
@@ -105,6 +105,10 @@ __global__ void forward_scale_kernel(const int batch_size,
       }
 
       embedding_feature[feature_index] = feature * scaler;
+
+      // // just for debug
+      // printf("bid=%d, slot=%d, tid=%d, feature_num=%d, feature_in=%f, feature_out=%f\n", bid, i, tid, feature_num, feature, embedding_feature[feature_index]);
+      // printf("\tfeature_row_index=%d, row_offset[0]=%d, row_offset[1]=%d\n", feature_row_index, (int)row_offset[feature_row_index], (int)row_offset[feature_row_index+1]);
     }
   }
 }

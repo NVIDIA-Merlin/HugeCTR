@@ -466,7 +466,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
                   embedding_feature_tensors_,
                   Base::device_resources_,
                   context);
-
+                  
   // sync
   functors.sync_all_gpus(Base::device_resources_, context);
 
@@ -491,6 +491,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
                         row_offset_allreduce_tensors_,
                         Base::device_resources_,
                         context);
+
     // sync
     functors.sync_all_gpus(Base::device_resources_, context);
 
