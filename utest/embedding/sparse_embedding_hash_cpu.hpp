@@ -32,6 +32,11 @@
 
 using namespace HugeCTR;
 
+enum class SparseEmbedding_t {
+  Distributed,
+  Localized
+};
+
 template <typename TypeHashKey>
 class SparseEmbeddingHashCpu {
   using TypeHashValueIndex = TypeHashKey;
@@ -111,9 +116,10 @@ class SparseEmbeddingHashCpu {
                          const int embedding_vec_size, const int slot_num, const int label_dim,
                          const int dense_dim, const Check_t check_sum, const long long num_records, 
                          const int combiner, const int optimizer, const float lr, 
-                         const std::string &file_list_name, const std::string &hash_table_file);
+                         const std::string &file_list_name, const std::string &hash_table_file, 
+                         const SparseEmbedding_t emb_type);
   ~SparseEmbeddingHashCpu();
-  //void load_data_from_csr();
+
   void read_a_batch();
   void forward();
   void backward();
@@ -200,7 +206,8 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
     const int embedding_vec_size, const int slot_num, const int label_dim, 
     const int dense_dim, const Check_t check_sum, const long long num_records, 
     const int combiner, const int optimizer, const float lr, 
-    const std::string &file_list_name, const std::string &hash_table_file)
+    const std::string &file_list_name, const std::string &hash_table_file,
+    const SparseEmbedding_t emb_type)
     : batchsize_(batchsize),
       max_feature_num_(max_feature_num),
       vocabulary_size_(vocabulary_size),
@@ -221,7 +228,19 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
   long long hash_table_key_size_in_B = (long long)vocabulary_size_ * sizeof(TypeHashKey);
   long long hash_table_value_size_in_B =
       (long long)vocabulary_size_ * (long long)embedding_vec_size_ * sizeof(float);
-  long long hash_table_size_in_B = hash_table_key_size_in_B + hash_table_value_size_in_B;
+  long long hash_table_slot_id_size_in_B = (long long)vocabulary_size_ * sizeof(TypeHashKey);
+  long long hash_table_size_in_B;
+  if(emb_type == SparseEmbedding_t::Distributed) {  // <key,value_index>
+    hash_table_size_in_B = hash_table_key_size_in_B + hash_table_value_size_in_B;
+  }
+  else if(emb_type == SparseEmbedding_t::Localized) { // <key, slot_id, value_index>
+    hash_table_size_in_B = hash_table_key_size_in_B + 
+      hash_table_slot_id_size_in_B + hash_table_value_size_in_B;
+  }
+  else {
+    ERROR_MESSAGE_("Error: sparse_embedding_type is undefined");
+    return;
+  }
   long long embedding_feature_size_in_B =
       batchsize_ * slot_num_ * embedding_vec_size_ * sizeof(float);
 
@@ -256,7 +275,18 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
     hash_table_value_index_[i] = (TypeHashValueIndex)i;
   }
 
-  int hash_table_tile_size_in_B = (sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size_);
+  int hash_table_tile_size_in_B;
+  if(emb_type == SparseEmbedding_t::Distributed) {  // <key,value_index>
+    hash_table_tile_size_in_B = (sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size_);
+  }
+  else if(emb_type == SparseEmbedding_t::Localized) { // <key, slot_id, value_index>
+    hash_table_tile_size_in_B = (sizeof(TypeHashKey) * 2 + sizeof(float) * embedding_vec_size_);
+  }
+  else {
+    ERROR_MESSAGE_("Error: sparse_embedding_type is undefined");
+    return;
+  }
+
   char *hash_table_tile = (char *)malloc(hash_table_tile_size_in_B);
 
   // read hash table
@@ -279,9 +309,18 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
 
     // get hash_table_key and hash_table_value
     memcpy(hash_table_key_ + tile_num, hash_table_tile, sizeof(TypeHashKey));
-    memcpy(hash_table_value_ + tile_num * embedding_vec_size_,
+    if(emb_type == SparseEmbedding_t::Distributed) {
+      memcpy(hash_table_value_ + tile_num * embedding_vec_size_,
            hash_table_tile + sizeof(TypeHashKey), embedding_vec_size_ * sizeof(float));
-
+    }
+    else if(emb_type == SparseEmbedding_t::Localized) { // <key, slot_id, value_index>
+      memcpy(hash_table_value_ + tile_num * embedding_vec_size_,
+           hash_table_tile + sizeof(TypeHashKey) * 2, embedding_vec_size_ * sizeof(float));
+    }
+    else {
+      ERROR_MESSAGE_("Error: sparse_embedding_type is undefined");
+      return;
+    }
     tile_num++;
   }
   hash_table_stream.close();
@@ -289,24 +328,7 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
   // insert <key,value_index> into HashTableCpu
   hash_table_->insert(hash_table_key_, hash_table_value_index_, vocabulary_size_);
 
-  // // for csr file reading
-  // if (!csr_stream.is_open()) {
-  //   ERROR_MESSAGE_("Error: csr file open failed");
-  // }
-  // DataSetHeader data_set_header;
-  // csr_stream_.read((char *)&data_set_header, sizeof(DataSetHeader));
-  // if(data_set_header.num_records != num_records_ ||
-  //   data_set_header.label_dim != label_dim_ || 
-  //   data_set_header.dense_dim != dense_dim_ || 
-  //   data_set_header.slot_num != slot_num_) {
-  //   ERROR_MESSAGE_("Error: csr file data header param error");
-  // }
-  // if(!((data_set_header.error_check == 0 && check_sum == Check_t::None) || 
-  //   (data_set_header.error_check == 1 && check_sum == Check_t::Sum))) {
-  //   ERROR_MESSAGE_("Error: csr file check_sum error");
-  // }
-  // csr_stream_offset_ = sizeof(DataSetHeader);
-
+  // dataset filelist 
   file_list_ = new FileList(file_list_name);
   source_ = std::make_shared<FileSource>(*file_list_);
   switch(check_sum_){
@@ -353,35 +375,6 @@ SparseEmbeddingHashCpu<TypeHashKey>::~SparseEmbeddingHashCpu() {
   free(opt_momentum_);
   free(opt_accm_);
 }
-
-// template <typename TypeHashKey>
-// void SparseEmbeddingHashCpu<TypeHashKey>::load_data_from_csr() {
-// #ifndef NDEBUG
-//   PRINT_FUNC_NAME_();
-// #endif
-
-//   // read csr from file
-//   if (!csr_stream_.is_open()) {
-//     ERROR_MESSAGE_("Error: csr_stream can not be opened for read");
-//   }
-
-//   // read 1 batch: get row_offset_ and hash_key_
-//   row_offset_[0] = 0;
-//   for (int row_num = 0; row_num < batchsize_; row_num++) {
-//     csr_stream_offset_ += label_dim_ * sizeof(int);
-//     csr_stream_.seekg(csr_stream_offset_);
-
-//     for (int slot = 0; slot < slot_num_; slot++) {
-//       int nnz;
-//       csr_stream_.read((char *)&nnz, sizeof(int));
-//       csr_stream_offset_ += sizeof(int);
-//       row_offset_[row_num * slot_num_ + slot + 1] = row_offset_[row_num * slot_num_ + slot] + nnz;
-//       csr_stream_.read((char *)(hash_key_ + row_offset_[row_num * slot_num_ + slot]),
-//                        sizeof(TypeHashKey) * nnz);
-//       csr_stream_offset_ += nnz * sizeof(TypeHashKey);
-//     }
-//   }
-// }
 
 template <typename TypeHashKey>
 void SparseEmbeddingHashCpu<TypeHashKey>::read_a_batch() {
@@ -443,9 +436,8 @@ void SparseEmbeddingHashCpu<TypeHashKey>::cpu_forward_sum(
 
         sum += hash_table_value[nFeatureIndex * embedding_vec_size + vec];
 
-        // printf("user=%d, vec=%d, feature_num=%d, item=%d, nFeatureIndex=%d, value=%f\n", user,
-        // vec, feature_num, item, nFeatureIndex,  hash_table_value[nFeatureIndex *
-        // embedding_vec_size + vec]);
+        // printf("user=%d, value_index=%d, value=%f\n", user, nFeatureIndex,  
+        //     hash_table_value[nFeatureIndex * embedding_vec_size + vec]);
       }
 
       embedding_feature[user * embedding_vec_size + vec] = sum;
@@ -492,17 +484,42 @@ void SparseEmbeddingHashCpu<TypeHashKey>::forward() {
   PRINT_FUNC_NAME_();
 #endif
 
-  //load_data_from_csr();
   read_a_batch();
 
-  if (combiner_ == 0) {
-    // do hash_table get() value_index by key
-    hash_table_->get(hash_key_, hash_value_index_, row_offset_[batchsize_ * slot_num_]);
+  // do hash_table get() value_index by key
+   hash_table_->get(hash_key_, hash_value_index_, row_offset_[batchsize_ * slot_num_]);
 
+
+  // std::cout << "CPU hash keys:" << std::endl;
+  // for(int i = 0; i < row_offset_[batchsize_ * slot_num_]; i++) {
+  //   std::cout << hash_key_[i] << " ";
+  // }
+  // std::cout << std::endl;
+
+  // std::cout << "CPU hash value index:" << std::endl;
+  // int index = 0;
+  // for(int i = 0; i < batchsize_; i++) {
+  //   for(int j = 0; j < slot_num_; j++) {
+  //     int num = row_offset_[i*slot_num_+j+1] - row_offset_[i*slot_num_+j];
+  //     std::cout << "batch=" << i << ", slot=" << j << ": num=" << num << " value_index:" << std::endl;
+  //     for(int k = 0; k < num; k++) {
+  //       std::cout << hash_value_index_[index++] << " ";
+  //     }
+  //     std::cout << std::endl;
+  //   }
+  // }
+  // if(index != row_offset_[batchsize_*slot_num_]) {
+  //   std::cout << "Error: print number not match" << std::endl;
+  //   return;
+  // }
+
+
+  if (combiner_ == 0) {
     cpu_forward_sum(batchsize_, slot_num_, embedding_vec_size_, row_offset_, hash_value_index_,
                     hash_table_value_, embedding_feature_);
+
   } else if (combiner_ == 1) {
-    cpu_forward_mean(batchsize_, slot_num_, embedding_vec_size_, row_offset_, hash_key_,
+    cpu_forward_mean(batchsize_, slot_num_, embedding_vec_size_, row_offset_, hash_value_index_,
                      hash_table_value_, embedding_feature_);
   } else {
   }

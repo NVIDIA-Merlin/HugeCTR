@@ -118,6 +118,115 @@ public:
                                                 hash_value_index, hash_table_value, embedding_feature);
         // for combiner=mean, call forward_scale() after this forward() and NCCL all-reduce
         // operation
+
+      } catch (const std::runtime_error &rt_err) {
+        std::cerr << rt_err.what() << std::endl;
+        throw;
+      }
+    }
+
+    return;
+  }
+
+  /**
+   * The overload version of forward for LocalizedSlotSparseEmbeddingHash
+   * @param batch_size batch size for the current mini-batch computation.
+   * @param slot_num the number of slots in hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param combiner 0-sum; 1-mean
+   * @param row_offsets_tensors row_offsets tensors of mulitple GPUs (CSR format of input sparse tensors)
+   * @param value_tensors value tensors of multi GPUs (CSR format of input sparse tensors)
+   * @param hash_tables hash table of multi GPUs, pairs of <key, value_index>
+   * @param hash_table_value_tensors hash table value tenosrs of multi GPUs, the value is represented for embedding vector
+   * @param hash_value_index_tensors hash table value_index tensors of multi GPUs
+   * @param embedding_feature_tensors embedding feature tensors on multi GPUs
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
+  template <typename TypeHashKey, typename TypeHashValueIndex>
+  void forward(const int batch_size, 
+              const int slot_num,
+              const int embedding_vec_size, 
+              const int combiner,
+              const Tensors<TypeHashKey>& row_offsets_tensors,
+              const Tensors<TypeHashKey>& value_tensors,
+              const std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, TypeHashValueIndex,
+                std::numeric_limits<TypeHashKey>::max()>>>& hash_tables,
+              const Tensors<float>& hash_table_value_tensors, 
+              const Tensors<TypeHashValueIndex>& hash_value_index_tensors,
+              Tensors<float>& embedding_feature_tensors,
+              const std::shared_ptr<GPUResourceGroup>& device_resources,
+              const CudaDeviceContext& context) {
+
+    int local_gpu_count = device_resources->size();
+
+
+    // int max_num = batch_size * slot_num * 10;
+    // TypeHashKey * cpu_row_offset = (TypeHashKey *)malloc((batch_size*slot_num+1)*sizeof(TypeHashKey));
+    // TypeHashKey * cpu_hash_key = (TypeHashKey *)malloc(max_num*sizeof(TypeHashKey));
+    // TypeHashValueIndex * cpu_hash_value_index = (TypeHashValueIndex *)malloc(max_num*sizeof(TypeHashValueIndex));
+
+
+    // launch kernels on GPUs: do embedding lookup on multi GPUs
+    for (int id = 0; id < local_gpu_count; id++) {
+      context.set_device((*device_resources)[id]->get_device_id());
+
+      const auto &row_offset = row_offsets_tensors[id]->get_ptr();
+      const auto &hash_key = value_tensors[id]->get_ptr();
+      const auto &hash_table = hash_tables[id].get();
+      const auto &hash_table_value = hash_table_value_tensors[id]->get_ptr();
+      const auto &hash_value_index = hash_value_index_tensors[id]->get_ptr();
+      auto embedding_feature = embedding_feature_tensors[id]->get_ptr();
+      const cudaStream_t stream = (*device_resources)[id]->get_stream();
+
+      try {
+        // get hash_value_index from hash_table by hash_key
+        size_t num;
+        CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num], sizeof(TypeHashKey),
+                                      cudaMemcpyDeviceToHost, stream));
+        hash_table->get_insert(hash_key, hash_value_index, num, stream);
+
+
+        // std::cout << "gpu=" << id << std::endl;
+        // cudaMemcpy(cpu_row_offset, row_offset, (batch_size*slot_num+1)*sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
+        // std::cout << "row offset:" << std::endl;
+        // for(int i = 0; i < (batch_size*slot_num+1); i++) {
+        //   std::cout << cpu_row_offset[i] << ", ";
+        // }
+        // std::cout << std::endl;
+
+        // cudaMemcpy(cpu_hash_key, hash_key, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
+        // std::cout << "hash keys:" << std::endl;
+        // for(int i = 0; i < num; i++) {
+        //   std::cout << cpu_hash_key[i] << ", ";
+        // }
+        // std::cout << std::endl;
+
+        // cudaMemcpy(cpu_hash_value_index, hash_value_index, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
+        // std::cout << "hash value_index:" << std::endl;
+        // for(int i = 0; i < num; i++) {
+        //   std::cout << cpu_hash_value_index[i] << ", ";
+        // }
+        // std::cout << std::endl;
+
+
+        // do sum reduction
+        dim3 blockSize(embedding_vec_size, 1,
+                      1);  // each thread corresponds to one element in an embedding vector
+        dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
+        if(combiner == 0) {
+          forward_sum_kernel<TypeHashKey, TypeHashValueIndex>
+              <<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num, embedding_vec_size, row_offset,
+                                                hash_value_index, hash_table_value, embedding_feature);
+        }
+        else if(combiner == 1) {
+          forward_mean_kernel<TypeHashKey, TypeHashValueIndex>
+              <<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num, embedding_vec_size, row_offset,
+                                                hash_value_index, hash_table_value, embedding_feature);
+        }
+        else {
+          CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+        }
       } catch (const std::runtime_error &rt_err) {
         std::cerr << rt_err.what() << std::endl;
         throw;
@@ -154,16 +263,22 @@ public:
       context.set_device((*device_resources)[id]->get_device_id());
 
       const auto &row_offset =
-          row_offset_allreduce_tensors[id]->get_ptr() + id * batchsize_per_gpu;
+          row_offset_allreduce_tensors[id]->get_ptr() + id * batchsize_per_gpu * slot_num;
       auto embedding_feature = output_tensors[id]->get_ptr();
       const auto &stream = (*device_resources)[id]->get_stream();
 
       try {
         dim3 blockSize(embedding_vec_size, 1, 1);
-        dim3 gridSize(batch_size, 1, 1);
+        dim3 gridSize(batchsize_per_gpu, 1, 1);
+
+        // // TODO: just for debug 
+        // std::cout << "gpu=" << id << std::endl;
 
         forward_scale_kernel<<<gridSize, blockSize, 0, stream>>>(
-            batch_size, slot_num, embedding_vec_size, row_offset, embedding_feature);
+            batchsize_per_gpu, slot_num, embedding_vec_size, row_offset, embedding_feature);
+
+        // // TODO: just for debug 
+        // cudaStreamSynchronize(stream);
 
       } catch (const std::runtime_error &rt_err) {
         std::cerr << rt_err.what() << std::endl;
@@ -628,7 +743,7 @@ public:
     try {
       int blockSize = 256;
       int gridSize = (n + blockSize - 1) / blockSize;
-
+                
       memset_liner_kernel<Type><<<gridSize, blockSize, 0, stream>>>(data, start_value, stride_value, n);
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -851,12 +966,15 @@ public:
 
         size_t value_index_offset = tile_counter_per_gpu[id];
         TypeHashKey *value_index_buf = d_hash_table_value_index_chunk_per_gpu[id];
-        // set hash_table_value_index on GPU
-        memset_liner((*device_resources)[id]->get_stream(),
-                        value_index_buf, 
-                        (TypeHashKey)value_index_offset,
-                        (TypeHashKey)1, 
-                        tile_count);
+
+        if(tile_count > 0) {
+          // set hash_table_value_index on GPU
+          memset_liner((*device_resources)[id]->get_stream(),
+                          value_index_buf, 
+                          (TypeHashKey)value_index_offset,
+                          (TypeHashKey)1, 
+                          tile_count);
+        }
 
         // do hash table insert <key, value_index> on GPU
         hash_tables[id]->insert(d_hash_table_key_chunk_per_gpu[id], value_index_buf,
@@ -1158,12 +1276,15 @@ public:
 
         size_t value_index_offset = tile_counter_per_gpu[id];
         TypeHashKey *value_index_buf = d_hash_table_value_index_chunk_per_gpu[id];
-        // set hash_table_value_index on GPU
-        memset_liner((*device_resources)[id]->get_stream(),
-                        value_index_buf, 
-                        (TypeHashKey)value_index_offset,
-                        (TypeHashKey)1, 
-                        tile_count);
+
+        if(tile_count > 0) {
+          // set hash_table_value_index on GPU
+          memset_liner((*device_resources)[id]->get_stream(),
+                          value_index_buf, 
+                          (TypeHashKey)value_index_offset,
+                          (TypeHashKey)1, 
+                          tile_count);
+        }
 
         // do hash table insert <key, value_index> on GPU
         hash_tables[id]->insert(d_hash_table_key_chunk_per_gpu[id], value_index_buf,
@@ -1180,8 +1301,21 @@ public:
             tile_counter_in_chunk_per_gpu[id] * hash_table_slot_id_tile_size;
         size_t slot_id_offset = 
             tile_counter_per_gpu[id] * hash_table_slot_id_tile_size;
+        
+        if ((slot_id_offset + slot_id_chunk_size) > max_vocabulary_size_per_gpu) {
+          char msg[100];
+          sprintf(msg, "The size of hash table on GPU%d is out of range %zu\n", id,
+                  max_vocabulary_size_per_gpu);
+          CK_THROW_(Error_t::OutOfBound, msg);
+        }
+
         TypeHashValueIndex *src_buf_sid = h_hash_table_slot_id_chunk_per_gpu[id];
         TypeHashValueIndex *dst_buf_sid = hash_table_slot_id_tensors[id]->get_ptr() + slot_id_offset;
+        // std::cout << "gpu_id=" << id 
+        //           << " max_vocabulary_size_per_gpu=" << max_vocabulary_size_per_gpu
+        //           << " slot_id_chunk_size=" << slot_id_chunk_size
+        //           << " slot_id_offset=" << slot_id_offset 
+        //           << std::endl;
         CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf_sid, src_buf_sid, slot_id_chunk_size * sizeof(TypeHashValueIndex),
                                       cudaMemcpyHostToDevice,
                                       (*device_resources)[id]->get_stream()));
@@ -1700,6 +1834,35 @@ public:
                                   cudaMemcpyDeviceToHost,
                                   (*device_resources)[devId]->get_stream()));
     CK_CUDA_THROW_(cudaStreamSynchronize((*device_resources)[devId]->get_stream()));
+
+    return;
+  }
+
+  /**
+   * The overload version of get_backward_results function for LocalizedSlotSparseEmbeddingHash
+   * @param devId gpu device id to get backward resutls from.
+   * @param memcpy_size the number of elemments to do memcpy.
+   * @param wgrad_tensors the source tensors of multi GPUs to copy from.
+   * @param wgrad the destination CPU buffer pointer to copy to.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
+  void get_backward_results(int memcpy_size,
+                            const Tensors<float>& wgrad_tensors,
+                            float * wgrad,
+                            const std::shared_ptr<GPUResourceGroup>& device_resources,
+                            CudaDeviceContext& context) {
+
+    int local_gpu_count = device_resources->size();
+
+    int offset = 0;
+    for (int id = 0; id < local_gpu_count; id++) {
+      context.set_device((*device_resources)[id]->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(wgrad + offset, wgrad_tensors[id]->get_ptr(),
+                                    memcpy_size * sizeof(float), cudaMemcpyDeviceToHost,
+                                    (*device_resources)[id]->get_stream()));
+      offset += memcpy_size;
+    }
 
     return;
   }
