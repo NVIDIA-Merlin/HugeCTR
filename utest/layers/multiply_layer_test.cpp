@@ -64,21 +64,20 @@ void multiply_dgrad_cpu(const T * top_grad,
 }
 
 void multiply_test(int batch_size, int vector_length) {
-  std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>());
-  vector<int> dims_in = {batch_size, vector_length};
-  vector<int> dims_weight = {1, vector_length};
+  int dev_id = 0;
+  std::shared_ptr<GeneralBuffer<float>> in_out_buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer<float>> weight_buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer<float>> wgrad_buf(new GeneralBuffer<float>());
 
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims_in, buf, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims_in, buf, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> weight_tensor(new Tensor<float>(dims_weight, buf, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> wgrad_tensor(new Tensor<float>(dims_in, buf, TensorFormat_t::HW));
-  buf->init(0);
+  vector<int> dims_in = {batch_size, vector_length};
+
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims_in, in_out_buf, TensorFormat_t::HW));
+  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims_in, in_out_buf, TensorFormat_t::HW));
+  in_out_buf->init(dev_id);
 
   const int len = batch_size * vector_length;
   float* d_in = in_tensor->get_ptr();
   float* d_out = out_tensor->get_ptr();
-  float* d_weight = weight_tensor->get_ptr();
-  float* d_wgrad = wgrad_tensor->get_ptr();
   std::unique_ptr<float[]> h_in(new float[len]);
   std::unique_ptr<float[]> h_out(new float[len]);
   std::unique_ptr<float[]> h_weight(new float[vector_length]);
@@ -87,7 +86,13 @@ void multiply_test(int batch_size, int vector_length) {
   std::unique_ptr<float[]> h_expected_wgrad(new float[len]);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  MultiplyLayer multiply_layer(weight_tensor, wgrad_tensor, in_tensor, out_tensor, 0);
+  MultiplyLayer multiply_layer(weight_buf, wgrad_buf, in_tensor, out_tensor, 0);
+
+  weight_buf->init(dev_id);
+  wgrad_buf->init(dev_id);
+
+  float *d_weight = weight_buf->get_ptr_with_offset(0);
+  float *d_wgrad = wgrad_buf->get_ptr_with_offset(0);
 
   // fprop
   for (int i = 0; i < len; ++i) {
