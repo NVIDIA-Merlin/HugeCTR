@@ -73,8 +73,8 @@ __global__ void multiply_dgrad_kernel(const T * top_grad,
 
 }
 
-MultiplyLayer::MultiplyLayer(const std::shared_ptr<Tensor<float>>& weight_tensor,
-                            const std::shared_ptr<Tensor<float>>& wgrad_tensor,
+MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                            const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
                             const std::shared_ptr<Tensor<float>>& in_tensor,
                             const std::shared_ptr<Tensor<float>>& out_tensor, 
                             int device_id)
@@ -103,8 +103,9 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<Tensor<float>>& weight_tensor
 
     in_tensors_.emplace_back(in_tensor);
     out_tensors_.emplace_back(out_tensor);
-    weights_.emplace_back(weight_tensor);
-    wgrad_.emplace_back(wgrad_tensor);
+
+    weights_.emplace_back(new Tensor<float>({1, in_dims[1]}, weight_buff, TensorFormat_t::HW));
+    wgrad_.emplace_back(new Tensor<float>(out_dims, wgrad_buff, TensorFormat_t::HW));
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
