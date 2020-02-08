@@ -24,8 +24,8 @@ namespace HugeCTR {
 				    const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
 				    std::shared_ptr<Tensor<float>>& in_tensor,
 				    std::shared_ptr<Tensor<float>>& out_tensor,
-				    int num_layers,
-				    int device_id): num_layers_(num_layers), Layer(device_id) {
+				    int num_layers, int device_id): 
+    num_layers_(num_layers), blobs_buff_(new GeneralBuffer<float>()), Layer(device_id) {
     try{
       // check the in_tensor and out_tensor
       const auto& in_tensor_dim = in_tensor->get_dims();
