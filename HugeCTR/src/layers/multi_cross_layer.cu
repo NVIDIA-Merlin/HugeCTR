@@ -100,19 +100,11 @@ namespace HugeCTR {
       if(wid < h){
 	double accum = 0.;
 	for(int i = wtid; i < w; i+=WARP_SIZE){
-	  // if(tid == 0)
-	  //   printf("%f,",accum);
-
 	  accum +=  mat_with_offset[i]*vec[i];
-	  // if(tid == 0)
-	  //   printf("%f,%f,%f!",accum,mat_with_offset[i],vec[i]);
-	  
 	}
 	float val = warpReduceSum(accum);
 	if(wtid == 0){
 	  out[wid] = val + bias;
-	  // if(wid == 0)
-	  //   printf("out[wid]=%f;val=%f;\n",out[wid],val);
 	}
       }
     }
@@ -262,7 +254,7 @@ namespace HugeCTR {
       const float* mat_a_with_offset = mat_a + wid*w;
       const float* mat_b_with_offset = mat_b + wid*w;
       if(wid < h){
-	float accum = 0.f;
+	double accum = 0.f;
 	for(int i = wtid; i < w; i+=WARP_SIZE){
 	  accum += mat_a_with_offset[i]*mat_b_with_offset[i];
 	}
@@ -336,7 +328,7 @@ namespace HugeCTR {
       const int wtid = tid%WARP_SIZE; //thread id in warp
       const int wid = tid/WARP_SIZE; //warp id
       if(wid < w){
-	float accum = 0.f;
+	double accum = 0.f;
 	for(int i = wtid; i < h; i+=WARP_SIZE){
 	  const int col = wid;
 	  const int idx = i*w+col;
@@ -382,7 +374,7 @@ namespace HugeCTR {
       const int wtid = tid%WARP_SIZE; //thread id in warp
       const int wid = tid/WARP_SIZE; //warp id
       if(wid < w){
-	float accum = 0.f;
+	double accum = 0.f;
 	for(int i = wtid; i < h; i+=WARP_SIZE){
 	  const int col = wid;
 	  const int idx = i*w+col;

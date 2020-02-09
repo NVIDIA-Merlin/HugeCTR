@@ -30,7 +30,7 @@ using namespace HugeCTR;
 
 class MultiCrossLayerTest{
 private:
-  const float eps = 10.;
+  const float eps = 1;
   const int batchsize_;
   const int w_;
   const int layers_;
@@ -81,8 +81,8 @@ private:
     const int batchsize = x0.size()/w.size();
     const int width = w.size();
 
-    std::vector<float> tmp_v(batchsize, 0.f); //Batchsize
-    std::vector<float> tmp_m(x0.size(), 0.f); //Batchsize*width
+    std::vector<double> tmp_v(batchsize, 0.f); //Batchsize
+    std::vector<double> tmp_m(x0.size(), 0.f); //Batchsize*width
     //tmp_v = xL*w
     for(int i=0; i<batchsize; i++){
       for(int j=0; j< width; j++){
