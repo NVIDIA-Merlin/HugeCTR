@@ -40,8 +40,8 @@ namespace HugeCTR {
 	  CK_THROW_(Error_t::WrongInput, "input and output tensor doesn't match");
 	}
       }
-      int vec_length = in_tensor_dim[0]; 
-      int batchsize = in_tensor_dim[1]; 
+      int vec_length = in_tensor_dim[1]; 
+      int batchsize = in_tensor_dim[0]; 
 
       // check num_lyaers
       if (num_layers < 1){
@@ -98,13 +98,21 @@ namespace HugeCTR {
       const int wid = tid/WARP_SIZE; //warp id
       const float* mat_with_offset = mat + wid*w;
       if(wid < h){
-	float accum = 0.f;
+	double accum = 0.;
 	for(int i = wtid; i < w; i+=WARP_SIZE){
-	  accum += mat_with_offset[i]*vec[i];
+	  // if(tid == 0)
+	  //   printf("%f,",accum);
+
+	  accum +=  mat_with_offset[i]*vec[i];
+	  // if(tid == 0)
+	  //   printf("%f,%f,%f!",accum,mat_with_offset[i],vec[i]);
+	  
 	}
 	float val = warpReduceSum(accum);
-	if(tid == 0){
+	if(wtid == 0){
 	  out[wid] = val + bias;
+	  // if(wid == 0)
+	  //   printf("out[wid]=%f;val=%f;\n",out[wid],val);
 	}
       }
     }
@@ -143,6 +151,9 @@ namespace HugeCTR {
       if(tid < h*w){
 	const int row = tid/w;
 	o_mat[tid] = mat[tid]*vec[row];
+	  if(tid == 0)
+	    printf("o_mat[wid]=%f\n",o_mat[tid]);
+	
       }
     }
     
@@ -181,6 +192,9 @@ namespace HugeCTR {
       if(tid < h*w){
 	const int col = tid%w;
 	o_mat[tid] = mat[tid]+vec[col];
+	if(tid  == 0)
+	    printf("o_mat[tid]=%f\n",o_mat[tid]);
+
       }
     }
 
@@ -214,7 +228,10 @@ namespace HugeCTR {
     __global__ void matrix_add_kenrel(float* o_mat, float* mat_a, int h, int w, float* mat_b){
       const int tid = blockDim.x*blockIdx.x+threadIdx.x;
       if(tid < h*w){
-	o_mat[tid] = mat_a[tid]*mat_b[tid];
+	o_mat[tid] = mat_a[tid]+mat_b[tid];
+	if(tid  == 0)
+	    printf("o_mat[tid]=%f\n",o_mat[tid]);
+
       }
     }
 
@@ -250,7 +267,7 @@ namespace HugeCTR {
 	  accum += mat_a_with_offset[i]*mat_b_with_offset[i];
 	}
 	float val = warpReduceSum(accum);
-	if(tid == 0){
+	if(wtid == 0){
 	  o_mat[wid] = val;
 	}
       }
@@ -326,7 +343,7 @@ namespace HugeCTR {
 	  accum += mat[idx]*vec[i];
 	}
 	float val = warpReduceSum(accum);
-	if(tid == 0){
+	if(wtid == 0){
 	  out[wid] += val; //using += here to enable regularization
 	}
       }
@@ -372,7 +389,7 @@ namespace HugeCTR {
 	  accum += mat[idx];
 	}
 	float val = warpReduceSum(accum);
-	if(tid == 0){
+	if(wtid == 0){
 	  out[wid] += val; //using += here to enable regularization
 	}
       }
