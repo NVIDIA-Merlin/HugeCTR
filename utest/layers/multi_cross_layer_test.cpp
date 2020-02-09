@@ -30,6 +30,7 @@ using namespace HugeCTR;
 
 class MultiCrossLayerTest{
 private:
+  const float eps = 10.;
   const int batchsize_;
   const int w_;
   const int layers_;
@@ -40,30 +41,95 @@ private:
   std::shared_ptr<Tensor<float>> output_;
   std::shared_ptr<MultiCrossLayer> layer_;
   GaussianDataSimulator<float> data_sim_;
-  std::vector<float> h_in_;
-  std::vector<float> h_out_;
-
+  std::shared_ptr<std::vector<float>> h_in_;
+  std::shared_ptr<std::vector<float>> h_out_;
+  std::shared_ptr<std::vector<float>> h_weight_;
   void reset_(){
-    for(auto& a: h_in_){
+    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl;
+    for(auto& a: *h_in_){
       a = data_sim_.get_num();
+      //      a = 1.f;
     }
-    for(auto& b: h_out_){
+    for(auto& b: *h_out_){
+      //b = 1.f;//data_sim_.get_num();
       b = data_sim_.get_num();
     }
-    CK_CUDA_THROW_(cudaMemcpy(input_->get_ptr(), h_in_.data(), input_->get_size(), cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(output_->get_ptr(), h_out_.data(), output_->get_size(), cudaMemcpyHostToDevice));
-    weight_buf_->reset_sync();
+    for(auto& w: *h_weight_){
+      w = data_sim_.get_num();
+    }
+
+    CK_CUDA_THROW_(cudaMemcpy(input_->get_ptr(), h_in_->data(), input_->get_size(), cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(cudaMemcpy(output_->get_ptr(), h_out_->data(), output_->get_size(), cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(cudaMemcpy(weight_buf_->get_ptr_with_offset(0), h_weight_->data(), weight_buf_->get_size(), cudaMemcpyHostToDevice));
     wgrad_buf_->reset_sync();
 
     return; 
   }
 
-  void cpu_fprop_(){
 
+  void cpu_fprop_step_(std::shared_ptr<std::vector<float>> x0__, std::shared_ptr<std::vector<float>> xL__, 
+		       std::shared_ptr<std::vector<float>> w__, std::shared_ptr<std::vector<float>> out__, 
+		       std::shared_ptr<std::vector<float>> bias__){
+    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl;
+    auto& x0 = *x0__;
+    auto& xL = *xL__;
+    auto& w = *w__;
+    auto& out = *out__;
+    auto& bias = *bias__;
+
+    assert(x0.size()%w.size() == 0);
+    const int batchsize = x0.size()/w.size();
+    const int width = w.size();
+
+    std::vector<float> tmp_v(batchsize, 0.f); //Batchsize
+    std::vector<float> tmp_m(x0.size(), 0.f); //Batchsize*width
+    //tmp_v = xL*w
+    for(int i=0; i<batchsize; i++){
+      for(int j=0; j< width; j++){
+        tmp_v[i]+=xL[i*width + j]*w[j];
+      }
+    }
+    //tmp_m = x0*tmp
+    for(int i=0; i<batchsize; i++){
+      for(int j=0; j< width; j++){
+        tmp_m[i*width+j]+=x0[i*width + j]*tmp_v[i];
+      }
+    }
+    //tmp_m+=xL
+    //out = tmp_m+bias
+    for(int i=0; i<batchsize; i++){
+      for(int j=0; j< width; j++){
+        out[i*width+j] = tmp_m[i*width+j]+xL[i*width+j]+bias[j];
+      }
+    }
+    return;
+  }
+
+  void cpu_fprop_(){
+    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl;
+    std::vector<std::shared_ptr<std::vector<float>>> blobs;
+    blobs.emplace_back(h_in_);
+    for(int i=0; i<layers_-1; i++){
+      blobs.emplace_back(std::make_shared<std::vector<float>>(h_in_->size(), 0.f)); //Batchsize*width
+    }
+    blobs.emplace_back(h_out_);
+
+    std::shared_ptr<std::vector<float>> weight_tmp = std::make_shared<std::vector<float>>(w_);
+    std::shared_ptr<std::vector<float>> bias_tmp = std::make_shared<std::vector<float>>(w_);
+
+    for(int i=0; i<layers_; i++){
+      int offset = w_*2*i;
+      std::copy(h_weight_->begin()+offset, h_weight_->begin()+offset+w_, weight_tmp->begin());
+      std::copy(h_weight_->begin()+offset+w_, h_weight_->begin()+offset+2*w_, bias_tmp->begin());
+      cpu_fprop_step_(blobs[0], blobs[i], weight_tmp, blobs[i+1], bias_tmp);
+    }
+
+    
     return;
   }
 
   void gpu_fprop_(){
+    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl;
     layer_->fprop(cudaStreamDefault);
     return;
   }
@@ -74,11 +140,13 @@ private:
   }
 
   void gpu_bprop_(){
+    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl;
     layer_->bprop(cudaStreamDefault);
     return;
   }
 
   void compare_(){
+    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl;
     std::vector<float> tmp_in(batchsize_* w_);
     std::vector<float> tmp_out(batchsize_* w_);
 
@@ -86,15 +154,17 @@ private:
     CK_CUDA_THROW_(cudaMemcpy(tmp_out.data(), output_->get_ptr(), output_->get_size(), cudaMemcpyDeviceToHost));
 
     //todo compare
-    
+    //ASSERT_TRUE(test::compare_array_approx<float>(h_in_->data(), tmp_in.data(), h_in_->size(), eps));
+    ASSERT_TRUE(test::compare_array_approx<float>(tmp_out.data(), h_out_->data(), h_out_->size(), eps));
+
+
     return;
   }
 public:
   MultiCrossLayerTest(int batchsize, int w, int layers):
     batchsize_(batchsize), w_(w), layers_(layers),
     blob_buf_(new GeneralBuffer<float>()), weight_buf_(new GeneralBuffer<float>()),
-    wgrad_buf_(new GeneralBuffer<float>()), data_sim_(0.0, 1.0, -10.0, 10.0),
-    h_in_(batchsize*w, 0.f), h_out_(batchsize*w, 0.f)
+    wgrad_buf_(new GeneralBuffer<float>()), data_sim_(0.0, 1.0, -10.0, 10.0)
   {
     std::vector<int> dim ={batchsize, w};
 
@@ -107,9 +177,15 @@ public:
     //layer
     layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, input_, output_, layers, 0));
 
+
     blob_buf_->init(0);
     weight_buf_->init(0);
     wgrad_buf_->init(0);
+
+
+    h_in_ = std::make_shared<std::vector<float>>(batchsize*w, 0.f);
+    h_out_ = std::make_shared<std::vector<float>>(batchsize*w, 0.f);
+    h_weight_ = std::make_shared<std::vector<float>>(w*layers*2,0.f);
     return;
   }
 
@@ -139,8 +215,28 @@ public:
 };
 
 
+TEST(multi_cross_layer, 1x1x1024){
+  MultiCrossLayerTest test(1, 1024, 1);
+  test.fprop_test();
+  //  test.bprop_test();
+}
+
+
+TEST(multi_cross_layer, 3x1x1024){
+  MultiCrossLayerTest test(1, 1024, 3);
+  test.fprop_test();
+  //  test.bprop_test();
+}
+
+
 TEST(multi_cross_layer, 3x4096x1024){
   MultiCrossLayerTest test(4096, 1024, 3);
   test.fprop_test();
-  test.bprop_test();
+  //  test.bprop_test();
+}
+
+TEST(multi_cross_layer, 3x40963x356){
+  MultiCrossLayerTest test(40963, 356, 3);
+  test.fprop_test();
+  //  test.bprop_test();
 }
