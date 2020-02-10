@@ -253,6 +253,7 @@ namespace HugeCTR {
 	if(wtid == 0){
 	  o_mat[wid] = val;
 	}
+
       }
     }
     void matrix_pair_mul(std::shared_ptr<Tensor<float>> out_mat, 
