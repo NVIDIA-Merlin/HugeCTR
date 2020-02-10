@@ -49,11 +49,16 @@ __global__ void multiply_wgrad_kernel(const T * top_grad,
                                       T * wgrad,
                                       const int batch_size,
                                       const int vector_length) {
-  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  int tid = threadIdx.x;
+  int bid = blockIdx.x;
   size_t size = (size_t)batch_size * vector_length;
 
-  if(tid < size) {
-    wgrad[tid] = top_grad[tid] * input[tid];
+  if(bid < batch_size) {
+    for(int i = tid; i < vector_length; i += blockDim.x) {
+      int index = bid * vector_length + i;
+      T tmp = top_grad[index] * input[index];
+      atomicAdd(wgrad+i, tmp);
+    }
   }
 }
 
@@ -104,8 +109,10 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     in_tensors_.emplace_back(in_tensor);
     out_tensors_.emplace_back(out_tensor);
 
-    weights_.emplace_back(new Tensor<float>({1, in_dims[1]}, weight_buff, TensorFormat_t::HW));
-    wgrad_.emplace_back(new Tensor<float>(out_dims, wgrad_buff, TensorFormat_t::HW));
+    std::vector<int> w_dim = {1, in_dims[1]};
+    TensorFormat_t w_format = TensorFormat_t::HW;
+    weights_.emplace_back(new Tensor<float>(w_dim, weight_buff, w_format));
+    wgrad_.emplace_back(new Tensor<float>(w_dim, wgrad_buff, w_format));
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -140,10 +147,14 @@ void MultiplyLayer::bprop(cudaStream_t stream) {
   int vector_length = in_tensors_[0]->get_dims()[1];
   size_t size = (size_t)batch_size * vector_length;
 
-  dim3 blockSize(256, 1, 1);
-  dim3 gridSize((size + blockSize.x - 1)/blockSize.x, 1, 1);
+  dim3 blockSize(64, 1, 1);
+  dim3 gridSize(batch_size, 1, 1);
   multiply_wgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, wgrad, 
                                                             batch_size, vector_length);
+
+  // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
+  blockSize.x = 64;
+  gridSize.x = (size + blockSize.x - 1) / blockSize.x;
   multiply_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, weight, input, 
                                                             batch_size, vector_length);
 }
