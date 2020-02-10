@@ -44,21 +44,30 @@ private:
   std::shared_ptr<std::vector<float>> h_in_;
   std::shared_ptr<std::vector<float>> h_out_;
   std::shared_ptr<std::vector<float>> h_weight_;
+  std::shared_ptr<std::vector<float>> h_wgrad_;
   void reset_(){
     for(auto& a: *h_in_){
-      a = data_sim_.get_num();
+      //a = data_sim_.get_num();
+      a = 1.f;
     }
     for(auto& b: *h_out_){
-      b = data_sim_.get_num();
+      //b = data_sim_.get_num();
+      b = 1.f;
     }
     for(auto& w: *h_weight_){
-      w = data_sim_.get_num();
+      //w = data_sim_.get_num();
+      w = 1.f;
+    }
+
+    for(auto& g: *h_wgrad_){
+      //g = data_sim_.get_num();
+      g = 1.f;
     }
 
     CK_CUDA_THROW_(cudaMemcpy(input_->get_ptr(), h_in_->data(), input_->get_size(), cudaMemcpyHostToDevice));
     CK_CUDA_THROW_(cudaMemcpy(output_->get_ptr(), h_out_->data(), output_->get_size(), cudaMemcpyHostToDevice));
     CK_CUDA_THROW_(cudaMemcpy(weight_buf_->get_ptr_with_offset(0), h_weight_->data(), weight_buf_->get_size(), cudaMemcpyHostToDevice));
-    wgrad_buf_->reset_sync();
+    CK_CUDA_THROW_(cudaMemcpy(wgrad_buf_->get_ptr_with_offset(0), h_wgrad_->data(), wgrad_buf_->get_size(), cudaMemcpyHostToDevice));
 
     return; 
   }
@@ -124,19 +133,20 @@ private:
   }
 
   void gpu_fprop_(){
-    std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl;
     layer_->fprop(cudaStreamDefault);
     return;
   }
 
   void cpu_bprop_step_(std::shared_ptr<std::vector<float>> x0__,std::shared_ptr<std::vector<float>> dxL__, 
 		       std::shared_ptr<std::vector<float>> w__, std::shared_ptr<std::vector<float>> out__, 
-		       std::shared_ptr<std::vector<float>> bias__){
+		       std::shared_ptr<std::vector<float>> dw__, 
+		       std::shared_ptr<std::vector<float>> db__){
     auto& x0 = *x0__;
     auto& dxL = *dxL__;
     auto& w = *w__;
     auto& out = *out__;
-    auto& bias = *bias__;
+    auto& dw = *dw__;
+    auto& db = *db__;
 
 
     assert(x0.size()%w.size() == 0);
@@ -159,7 +169,25 @@ private:
 	tmp_m[i*width+j] = tmp_v[i]*w[j];
       }
     }
+
+    //dw = scale_sum(tmp_v, xL) where xL is out
+    for(int j=0; j<width; j++){
+      double dw_tmp = 0.;
+      for(int i=0; i<batchsize; i++){
+	dw_tmp += tmp_v[i]*out[i*width+j];
+      }
+      dw[j] += dw_tmp;
+    }
     
+    //db = sum(dxL)
+    for(int j=0; j<width; j++){
+      double db_tmp = 0.f;
+      for(int i=0; i<batchsize; i++){
+	db_tmp += dxL[i*width+j];
+      }
+      db[j] += db_tmp;
+    }
+
     //tmp_m += dxL
     for(int i=0; i<batchsize; i++){
       for(int j=0; j<width; j++){
@@ -167,17 +195,22 @@ private:
       }
     }
 
+
+
     return;
   }
 
   void cpu_bprop_first_step_(std::shared_ptr<std::vector<float>> x0__, std::shared_ptr<std::vector<float>> dxL__, 
 			     std::shared_ptr<std::vector<float>> w__, std::shared_ptr<std::vector<float>> out__, 
-			     std::shared_ptr<std::vector<float>> bias__){
+			     std::shared_ptr<std::vector<float>> dw__, 
+			     std::shared_ptr<std::vector<float>> db__){
     auto& x0 = *x0__;
     auto& dxL = *dxL__;
     auto& w = *w__;
     auto& out = *out__;
-    auto& bias = *bias__;
+    auto& dw = *dw__;
+    auto& db = *db__;
+
 
     assert(x0.size()%w.size() == 0);
     const int batchsize = x0.size()/w.size();
@@ -188,6 +221,7 @@ private:
     std::vector<double> tmp_v_b(batchsize, 0.f); //Batchsize
     std::vector<double> tmp_m(x0.size(), 0.f); //Batchsize*width
     std::vector<double> tmp_m_b(x0.size(), 0.f); //Batchsize*width
+    
 
     //tmp_v = dxL*x0
     for(int i=0; i<batchsize; i++){
@@ -195,8 +229,6 @@ private:
 	tmp_v[i] += dxL[i*width+j]*x0[i*width+j];
       }
     }
-    std::cout << "print first cpu:" << std::endl;
-    std::cout << tmp_v[0] << std::endl;
 
     //tmp_m = out_product(tmp_vec, wd)
     for(int i=0; i<batchsize; i++){
@@ -220,6 +252,25 @@ private:
       }
     }    
 
+    //dw = scale_sum(tmp_v, xL) where xL is out
+    
+    for(int j=0; j<width; j++){
+      double tmp_d = 0.;
+      for(int i=0; i<batchsize; i++){
+	tmp_d += tmp_v[i]*out[i*width+j];
+      }
+      dw[j] += tmp_d;
+    }
+    
+    //db = sum(dxL)
+    for(int j=0; j<width; j++){
+      double tmp_d = 0.;
+      for(int i=0; i<batchsize; i++){
+	tmp_d += dxL[i*width+j];
+      }
+      db[j] += tmp_d;
+    }
+
     //out = tmp_m + tmp_m_b
     for(int i=0; i<batchsize; i++){
       for(int j=0; j<width; j++){
@@ -241,16 +292,20 @@ private:
     blobs.emplace_back(h_out_);
 
     std::shared_ptr<std::vector<float>> weight_tmp = std::make_shared<std::vector<float>>(w_);
-    std::shared_ptr<std::vector<float>> bias_tmp = std::make_shared<std::vector<float>>(w_);
-
+    std::shared_ptr<std::vector<float>> dweight_tmp = std::make_shared<std::vector<float>>(w_);
+    std::shared_ptr<std::vector<float>> dbias_tmp = std::make_shared<std::vector<float>>(w_);
+    
     for(int i=layers_-1; i>=0; i--){
       int offset = w_*2*i;
       std::copy(h_weight_->begin()+offset, h_weight_->begin()+offset+w_, weight_tmp->begin());
-      std::copy(h_weight_->begin()+offset+w_, h_weight_->begin()+offset+2*w_, bias_tmp->begin());
+      std::copy(h_wgrad_->begin()+offset, h_wgrad_->begin()+offset+w_, dweight_tmp->begin());
+      std::copy(h_wgrad_->begin()+offset+w_, h_wgrad_->begin()+offset+2*w_, dbias_tmp->begin());
       if(i!=0)
-	cpu_bprop_step_(blobs[0], blobs[i+1], weight_tmp, blobs[i], bias_tmp);
+	cpu_bprop_step_(blobs[0], blobs[i+1], weight_tmp, blobs[i], dweight_tmp, dbias_tmp);
       else
-	cpu_bprop_first_step_(blobs[0], blobs[i+1], weight_tmp, blobs[i], bias_tmp);
+	cpu_bprop_first_step_(blobs[0], blobs[i+1], weight_tmp, blobs[i], dweight_tmp, dbias_tmp);
+      std::copy(dweight_tmp->begin(), dweight_tmp->begin()+w_, h_wgrad_->begin()+offset);
+      std::copy(dbias_tmp->begin(), dbias_tmp->begin()+w_, h_wgrad_->begin()+offset+w_);
     }
     return;
   }
@@ -263,14 +318,16 @@ private:
   void compare_(){
     std::vector<float> tmp_in(batchsize_* w_);
     std::vector<float> tmp_out(batchsize_* w_);
+    std::vector<float> tmp_grad(w_*layers_*2);
 
     CK_CUDA_THROW_(cudaMemcpy(tmp_in.data(), input_->get_ptr(), input_->get_size(), cudaMemcpyDeviceToHost));
     CK_CUDA_THROW_(cudaMemcpy(tmp_out.data(), output_->get_ptr(), output_->get_size(), cudaMemcpyDeviceToHost));
+    CK_CUDA_THROW_(cudaMemcpy(tmp_grad.data(),wgrad_buf_->get_ptr_with_offset(0), wgrad_buf_->get_size(), cudaMemcpyDeviceToHost));
 
     //todo compare
-    ASSERT_TRUE(test::compare_array_approx<float>(tmp_in.data(), h_in_->data(), h_in_->size(), eps));
-    ASSERT_TRUE(test::compare_array_approx<float>(tmp_out.data(), h_out_->data(), h_out_->size(), eps));
-
+    //ASSERT_TRUE(test::compare_array_approx<float>(tmp_in.data(), h_in_->data(), h_in_->size(), eps));
+    //ASSERT_TRUE(test::compare_array_approx<float>(tmp_out.data(), h_out_->data(), h_out_->size(), eps));
+    ASSERT_TRUE(test::compare_array_approx<float>(tmp_grad.data(), h_wgrad_->data(), h_wgrad_->size(), eps));
 
     return;
   }
@@ -300,6 +357,7 @@ public:
     h_in_ = std::make_shared<std::vector<float>>(batchsize*w, 0.f);
     h_out_ = std::make_shared<std::vector<float>>(batchsize*w, 0.f);
     h_weight_ = std::make_shared<std::vector<float>>(w*layers*2,0.f);
+    h_wgrad_ = std::make_shared<std::vector<float>>(w*layers*2,0.f);
     return;
   }
 
@@ -352,6 +410,16 @@ TEST(multi_cross_layer, 3x1x1024_fprop){
 
 TEST(multi_cross_layer, 3x1x1024_bprop){
   MultiCrossLayerTest test(1, 1024, 3);
+  test.bprop_test();
+}
+
+TEST(multi_cross_layer, 3x32x1024_bprop){
+  MultiCrossLayerTest test(32, 1024, 3);
+  test.bprop_test();
+}
+
+TEST(multi_cross_layer, 2x4096x1024_bprop){
+  MultiCrossLayerTest test(4096, 1024, 2);
   test.bprop_test();
 }
 
