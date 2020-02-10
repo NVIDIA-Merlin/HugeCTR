@@ -143,9 +143,6 @@ namespace HugeCTR {
       if(tid < h*w){
 	const int row = tid/w;
 	o_mat[tid] = mat[tid]*vec[row];
-	  if(tid == 0)
-	    printf("o_mat[wid]=%f\n",o_mat[tid]);
-	
       }
     }
     
@@ -184,9 +181,6 @@ namespace HugeCTR {
       if(tid < h*w){
 	const int col = tid%w;
 	o_mat[tid] = mat[tid]+vec[col];
-	if(tid  == 0)
-	    printf("o_mat[tid]=%f\n",o_mat[tid]);
-
       }
     }
 
@@ -221,9 +215,6 @@ namespace HugeCTR {
       const int tid = blockDim.x*blockIdx.x+threadIdx.x;
       if(tid < h*w){
 	o_mat[tid] = mat_a[tid]+mat_b[tid];
-	if(tid  == 0)
-	    printf("o_mat[tid]=%f\n",o_mat[tid]);
-
       }
     }
 
@@ -272,10 +263,11 @@ namespace HugeCTR {
       float* pmat_a = mat_a->get_ptr();
       float* pmat_b = mat_b->get_ptr();
 
-      const auto dim = out_mat->get_dims();
+      const auto dim = mat_a->get_dims();
 
       const int h = dim[0];
       const int w = dim[1];
+      assert(h == mat_b->get_dims()[0] && w == mat_a->get_dims()[1] && h == out_mat->get_dims()[0] && 1  == out_mat->get_dims()[1]);
 
       const int BLOCK_DIM = 256;
       const int GRID_DIM = calc_grid(h*WARP_SIZE, BLOCK_DIM);
