@@ -125,6 +125,20 @@
     },
 
     {
+      "name": "multiply1",
+      "type": "Multiply",
+      "bottom": "relu1",
+      "top": "multiply1"
+    },
+
+    {
+      "name": "fmorder2_1",
+      "type": "FmOrder2",
+      "bottom": "sparse_embedding1",
+      "top": "fmorder2_1"
+    },
+
+    {
       "name": "slice1",
       "type": "Slice",
       "bottom": "concat1",

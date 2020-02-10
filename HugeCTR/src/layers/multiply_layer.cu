@@ -51,7 +51,6 @@ __global__ void multiply_wgrad_kernel(const T * top_grad,
                                       const int vector_length) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
-  size_t size = (size_t)batch_size * vector_length;
 
   if(bid < batch_size) {
     for(int i = tid; i < vector_length; i += blockDim.x) {

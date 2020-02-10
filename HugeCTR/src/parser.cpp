@@ -25,6 +25,8 @@
 #include "HugeCTR/include/layers/relu_layer.hpp"
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 #include "HugeCTR/include/layers/slice_layer.hpp"
+#include "HugeCTR/include/layers/multiply_layer.hpp"
+#include "HugeCTR/include/layers/fm_order2_layer.hpp"
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
@@ -286,6 +288,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"ReLU", Layer_t::ReLU},
       {"Reshape", Layer_t::Reshape},
       {"Slice", Layer_t::Slice},
+      {"Multiply", Layer_t::Multiply},
+      {"FmOrder2", Layer_t::FmOrder2},
   };
 
   std::unique_ptr<Network> network(
@@ -511,6 +515,24 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
         break;
       }
+      case Layer_t::Multiply: {
+        const auto& in_tensor = input_output_info.input[0];
+
+        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+            in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, in_tensor, out_tensor, device_id));
+        break;
+      }
+      case Layer_t::FmOrder2: {
+        const auto& in_tensor = input_output_info.input[0];
+
+        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+            {batch_size, (in_tensor->get_dims())[2]}, blobs_buff, TensorFormat_t::HW));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, device_id));
+        break;
+      }
       default:
         assert(!"Error: no such layer && should never get here!");
     }  // end of switch
@@ -680,13 +702,10 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         }
       }
 
-
       // Create Embedding 
       {
-
         auto opt_params = get_optimizer_param(j_optimizer);
 
-        
         const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
           {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
           {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash}
