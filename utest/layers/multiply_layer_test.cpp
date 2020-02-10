@@ -48,11 +48,11 @@ void multiply_wgrad_cpu(const T * top_grad,
                       const int batch_size,
                       const int vector_length) {
   for (int i = 0; i < (vector_length); i++) {
-    T tmp = 0.0f;
+    double tmp = 0.0;
     for(int j = 0; j < batch_size; j++) {
-      tmp += input[j*vector_length+i] * top_grad[j*vector_length+i];
+      tmp += (double)input[j*vector_length+i] * (double)top_grad[j*vector_length+i];
     }
-    wgrad[i] = tmp;
+    wgrad[i] = (T)tmp;
   }
 }
 
@@ -130,9 +130,8 @@ void multiply_test(int batch_size, int vector_length) {
   cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost); // dgrad
 
   multiply_wgrad_cpu(h_out.get(), h_expected.get(), h_expected_wgrad.get(), batch_size, vector_length);
-  //TODO: because of the accumulated error, comparing absolute error can not pass,
-  //      and relative erro can not pass when esp>=1e-4
-  ASSERT_TRUE(test::compare_array_approx_relative<float>(h_wgrad.get(), h_expected_wgrad.get(), vector_length, 1e-3f)); // compare wgrad
+  //TODO: because of the accumulated error, comparing absolute error can not pass when esp>=1e-4
+  ASSERT_TRUE(test::compare_array_approx<float>(h_wgrad.get(), h_expected_wgrad.get(), vector_length, 1e-3)); // compare wgrad
 
   // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
   multiply_dgrad_cpu(h_out.get(), h_weight.get(), h_expected.get(), batch_size, vector_length);

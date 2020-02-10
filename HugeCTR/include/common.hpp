@@ -116,6 +116,8 @@ enum class Layer_t {
   MultiCrossEntropyLoss,
   ReLU,
   Slice,
+  Multiply,
+  FmOrder2,
 };
 
 enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash };
