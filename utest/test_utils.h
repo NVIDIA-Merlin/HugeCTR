@@ -46,6 +46,27 @@ template <typename T>
 }
 
 template <typename T>
+::testing::AssertionResult compare_array_approx_relative(const T* h_out, const T* h_exp,
+                                                int len, T eps) {
+  for (int i = 0; i < len; ++i) {
+    auto output = h_out[i];
+    auto expected = h_exp[i];
+    T diff;
+    if (abs(output) >= abs(expected)) {
+      diff = abs((output - expected) / output);
+    }
+    else {
+      diff = abs((output - expected) / expected);
+    }
+    if(diff > eps)  {
+      return ::testing::AssertionFailure()
+          << "output: " << output << " != expected: " << expected << " at idx " << i << "diff: " << diff;
+    }
+  }
+  return ::testing::AssertionSuccess();
+}
+
+template <typename T>
 ::testing::AssertionResult compare_array_approx(const T* h_out, const T expected,
                                                 int len, T eps) {
   for (int i = 0; i < len; ++i) {
