@@ -1,17 +1,18 @@
 {
   "solver": {
     "lr_policy": "fixed",
-    "display": 100,
+    "display": 200,
     "max_iter": 50000,
-    "gpu": [0],
-    "batchsize": 4096,
+    "gpu": [0,1],
+    "batchsize": 40960,
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "eval_batches": 100,
-    "model_file": "./simple_sparse_embedding_file_list.model"
+    "dense_model_file": "./criteo.model",
+    "sparse_model_file": ["./Sparse1.model", "./Sparse2.model"]
   },
-  
+
   "optimizer": {
     "type": "Adam",
     "adam_hparam": {
@@ -41,18 +42,39 @@
         {
           "top": "data1",
           "type": "DistributedSlot",
-          "max_feature_num_per_sample": 300,
+          "max_feature_num_per_sample": 100,
           "slot_num": 10
-        }        
+        },
+        
+        {
+          "top": "data2",
+          "type": "LocalizedSlot",
+          "max_feature_num_per_sample": 100,
+          "slot_num": 10
+        }   
       ]
     },
     
     
     {
       "name": "sparse_embedding1",
-      "type": "SparseEmbedding",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "bottom": "data1",
       "top": "sparse_embedding1",
+      "sparse_embedding_hparam": {
+        "vocabulary_size": 1603616,
+        "load_factor": 0.75,
+        "embedding_vec_size": 64,
+        "combiner": 1
+      }
+    },
+
+    {
+      "name": "sparse_embedding2",
+      "type": "LocalizedSlotSparseEmbeddingHash",
+      "plan_file": "./bin/all2all_plan.json",
+      "bottom": "data2",
+      "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
         "vocabulary_size": 1603616,
         "load_factor": 0.75,
@@ -70,14 +92,30 @@
     },
 
     {
+      "name": "reshape2",
+      "type": "Reshape",
+      "bottom": "sparse_embedding2",
+      "top": "reshape2",
+      "leading_dim": 640
+    },
+
+    {
+      "name": "concat1",
+      "type": "Concat",
+      "bottom": ["reshape1","reshape2","dense"],
+      "top": "concat1"
+    },
+
+    {
       "name": "fc1",
       "type": "InnerProduct",
-      "bottom": "reshape1",
+      "bottom": "concat1",
       "top": "fc1",
        "fc_param": {
         "num_output": 200
       }
     },
+
     {
       "name": "relu1",
       "type": "ReLU",
@@ -87,40 +125,17 @@
     },
 
     {
-      "name": "fca",
-      "type": "InnerProduct",
+      "name": "multiply1",
+      "type": "Multiply",
       "bottom": "relu1",
-      "top": "fca",
-       "fc_param": {
-        "num_output": 128 
-      }
+      "top": "multiply1"
     },
 
     {
-      "name": "fcb",
-      "type": "InnerProduct",
-      "bottom": "relu1",
-      "top": "fcb",
-       "fc_param": {
-        "num_output": 128
-      }
-    },
-
-    {
-      "name": "fcc",
-      "type": "InnerProduct",
-      "bottom": "relu1",
-      "top": "fcc",
-       "fc_param": {
-        "num_output": 256
-      }
-    },
-
-    {
-      "name": "concat1",
-      "type": "Concat",
-      "bottom": ["fca", "fcb", "fcc"],
-      "top": "concat1"
+      "name": "fmorder2_1",
+      "type": "FmOrder2",
+      "bottom": "sparse_embedding1",
+      "top": "fmorder2_1"
     },
 
     {

@@ -15,7 +15,8 @@
 
 cmake_minimum_required(VERSION 3.8)
 file(GLOB embedding_test_src
-  embedding_test.cu
+  distributed_embedding_test.cu 
+  localized_embedding_test.cu 
 )
 
 add_executable(embedding_test ${embedding_test_src})

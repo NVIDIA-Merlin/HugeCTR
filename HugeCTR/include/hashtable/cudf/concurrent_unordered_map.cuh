@@ -61,10 +61,10 @@ __inline__ __device__ int64_t atomicCAS(int64_t* address, int64_t compare, int64
                             (unsigned long long)val);
 }
 
-__inline__ __device__ uint64_t atomicCAS(uint64_t* address, uint64_t compare, uint64_t val) {
-  return (uint64_t)atomicCAS((unsigned long long*)address, (unsigned long long)compare,
-                             (unsigned long long)val);
-}
+// __inline__ __device__ uint64_t atomicCAS(uint64_t* address, uint64_t compare, uint64_t val) {
+//   return (uint64_t)atomicCAS((unsigned long long*)address, (unsigned long long)compare,
+//                              (unsigned long long)val);
+// }
 
 __inline__ __device__ long long int atomicCAS(long long int* address, long long int compare,
                                               long long int val) {
@@ -85,9 +85,9 @@ __inline__ __device__ int64_t atomicAdd(int64_t* address, int64_t val) {
   return (int64_t)atomicAdd((unsigned long long*)address, (unsigned long long)val);
 }
 
-__inline__ __device__ uint64_t atomicAdd(uint64_t* address, uint64_t val) {
-  return (uint64_t)atomicAdd((unsigned long long*)address, (unsigned long long)val);
-}
+// __inline__ __device__ uint64_t atomicAdd(uint64_t* address, uint64_t val) {
+//   return (uint64_t)atomicAdd((unsigned long long*)address, (unsigned long long)val);
+// }
 
 template <typename pair_type>
 __forceinline__ __device__ pair_type load_pair_vectorized(const pair_type* __restrict__ const ptr) {

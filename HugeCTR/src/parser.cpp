@@ -25,6 +25,8 @@
 #include "HugeCTR/include/layers/relu_layer.hpp"
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 #include "HugeCTR/include/layers/slice_layer.hpp"
+#include "HugeCTR/include/layers/multiply_layer.hpp"
+#include "HugeCTR/include/layers/fm_order2_layer.hpp"
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
@@ -166,6 +168,7 @@ void add_tensor_to_network(TensorPair& output_tensor_pair,
   auto p = tensor_list.emplace(output_tensor_pair.name, output_tensor_pair.tensor);
 
   if (p.second == false) {
+    std::cout << "tensor name:" << output_tensor_pair.name << std::endl;
     CK_THROW_(Error_t::WrongInput, "Tensor insert failed");
   }
   tensors.push_back(output_tensor_pair.tensor);
@@ -285,6 +288,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"ReLU", Layer_t::ReLU},
       {"Reshape", Layer_t::Reshape},
       {"Slice", Layer_t::Slice},
+      {"Multiply", Layer_t::Multiply},
+      {"FmOrder2", Layer_t::FmOrder2},
   };
 
   std::unique_ptr<Network> network(
@@ -510,6 +515,24 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
         break;
       }
+      case Layer_t::Multiply: {
+        const auto& in_tensor = input_output_info.input[0];
+
+        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+            in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, in_tensor, out_tensor, device_id));
+        break;
+      }
+      case Layer_t::FmOrder2: {
+        const auto& in_tensor = input_output_info.input[0];
+
+        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+            {batch_size, (in_tensor->get_dims())[2]}, blobs_buff, TensorFormat_t::HW));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, device_id));
+        break;
+      }
       default:
         assert(!"Error: no such layer && should never get here!");
     }  // end of switch
@@ -584,162 +607,178 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       auto j_layers_array = get_json(config, "layers");
       auto j_optimizer = get_json(config, "optimizer");
 
-      
+      // Create Data Reader
       {
-	// Create Data Reader
-	const nlohmann::json& j = j_layers_array[0];
-	const auto layer_type_name = get_value_from_json<std::string>(j, "type");
-	if(layer_type_name.compare("Data")!=0){
-	  CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
-	}
-	
-	auto j_source = get_json(j, "source");
-	std::string source_data;
-	if (j_source.is_array()) {
-	  int num_nodes = j_source.size();
-	  if (num_nodes != num_procs) {
-	    CK_THROW_(Error_t::WrongInput, "num_nodes != num_procs");
-	  }
-	  source_data = j_source[pid].get<std::string>();
-	} else {
-	  if (num_procs > 1) {
-	    CK_THROW_(Error_t::WrongInput, "num_procs > 1");
-	  }
-	  source_data = get_value_from_json<std::string>(j, "source");
-	}
-	
+        const nlohmann::json& j = j_layers_array[0];
+        const auto layer_type_name = get_value_from_json<std::string>(j, "type");
+        if(layer_type_name.compare("Data")!=0){
+          CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
+        }
+        
+        auto j_source = get_json(j, "source");
+        std::string source_data;
+        if (j_source.is_array()) {
+          int num_nodes = j_source.size();
+          if (num_nodes != num_procs) {
+            CK_THROW_(Error_t::WrongInput, "num_nodes != num_procs");
+          }
+          source_data = j_source[pid].get<std::string>();
+        } else {
+          if (num_procs > 1) {
+            CK_THROW_(Error_t::WrongInput, "num_procs > 1");
+          }
+          source_data = get_value_from_json<std::string>(j, "source");
+        }
+        
 
-	auto j_label = get_json(j, "label");
-	auto top_strs_label = get_value_from_json<std::string>(j_label, "top");
-	auto label_dim = get_value_from_json<int>(j_label, "label_dim");
+        auto j_label = get_json(j, "label");
+        auto top_strs_label = get_value_from_json<std::string>(j_label, "top");
+        auto label_dim = get_value_from_json<int>(j_label, "label_dim");
 
-	auto j_dense = get_json(j, "dense");
-	auto top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
-	auto dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
+        auto j_dense = get_json(j, "dense");
+        auto top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
+        auto dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
 
-	const std::map<std::string, Check_t> CHECK_TYPE_MAP = {
-	  {"Sum", Check_t::Sum},
-	  {"None", Check_t::None}
-	};
+        const std::map<std::string, Check_t> CHECK_TYPE_MAP = {
+          {"Sum", Check_t::Sum},
+          {"None", Check_t::None}
+        };
 
-	Check_t check_type;
-	const auto check_str = get_value_from_json<std::string>(j, "check");
-	if (!find_item_in_map(check_type, check_str, CHECK_TYPE_MAP)){
-	  CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
-	}
-	
-	std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
+        Check_t check_type;
+        const auto check_str = get_value_from_json<std::string>(j, "check");
+        if (!find_item_in_map(check_type, check_str, CHECK_TYPE_MAP)){
+          CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
+        }
+        
+        std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
 
-	const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
-	  {"DistributedSlot", DataReaderSparse_t::Distributed},
-	  {"Localized", DataReaderSparse_t::Localized},
-	};
+        const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
+          {"DistributedSlot", DataReaderSparse_t::Distributed},
+          {"LocalizedSlot", DataReaderSparse_t::Localized},
+        };
 
-	auto j_sparse = get_json(j, "sparse");
-	std::vector<std::string> sparse_names;
+        auto j_sparse = get_json(j, "sparse");
+        std::vector<std::string> sparse_names;
 
-	for(unsigned int i = 0; i < j_sparse.size(); i++){
-	  DataReaderSparseParam param;
-	  
-	  const nlohmann::json& js = j_sparse[i];
-	  const auto sparse_name = get_value_from_json<std::string>(js, "top");
-	  const auto data_type_name = get_value_from_json<std::string>(js, "type");
-	  if (!find_item_in_map(param.type, data_type_name, DATA_TYPE_MAP)){
-	    CK_THROW_(Error_t::WrongInput, "Not supported data type: " + data_type_name);
-	  }
-	  param.max_feature_num = get_value_from_json<int>(js, "max_feature_num_per_sample");
-	  param.slot_num = get_value_from_json<int>(js, "slot_num");
-	  data_reader_sparse_param_array.push_back(param);
-	  SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
-	  sparse_input_map.emplace(sparse_name, sparse_input);
-	  sparse_names.push_back(sparse_name);
-	}
+        for(unsigned int i = 0; i < j_sparse.size(); i++){
+          DataReaderSparseParam param;
+          
+          const nlohmann::json& js = j_sparse[i];
+          const auto sparse_name = get_value_from_json<std::string>(js, "top");
+          const auto data_type_name = get_value_from_json<std::string>(js, "type");
+          if (!find_item_in_map(param.type, data_type_name, DATA_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "Not supported data type: " + data_type_name);
+          }
+          param.max_feature_num = get_value_from_json<int>(js, "max_feature_num_per_sample");
+          param.slot_num = get_value_from_json<int>(js, "slot_num");
+          data_reader_sparse_param_array.push_back(param);
+          SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
+          sparse_input_map.emplace(sparse_name, sparse_input);
+          sparse_names.push_back(sparse_name);
+        }
 
-	data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim, check_type,
-						  data_reader_sparse_param_array, gpu_resource_group));
+        data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim, check_type,
+                    data_reader_sparse_param_array, gpu_resource_group));
 
-	for(unsigned int i = 0; i < gpu_resource_group->size(); i++){
-	  tensor_maps[i].emplace(top_strs_label, (data_reader->get_label_tensors())[i]);
-	  tensor_maps[i].emplace(top_strs_dense, (data_reader->get_dense_tensors())[i]);
-	}
+        for(unsigned int i = 0; i < gpu_resource_group->size(); i++){
+          tensor_maps[i].emplace(top_strs_label, (data_reader->get_label_tensors())[i]);
+          tensor_maps[i].emplace(top_strs_dense, (data_reader->get_dense_tensors())[i]);
+        }
 
-	for(unsigned int i = 0; i < j_sparse.size(); i++){
-	  const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
-	  sparse_input->second.row = data_reader->get_row_offsets_tensors(i);
-	  sparse_input->second.value = data_reader->get_value_tensors(i);
-	}
-	data_reader_eval = nullptr;
-	std::string eval_source;
-	FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
-	if (eval_source.empty() == false) {
-	  if (pid == 0) {  // master process
-	    data_reader_eval.reset(data_reader->clone_eval_with_shared_output(eval_source));
-	  } else {  // slave process
-	    data_reader_eval.reset(data_reader->clone_eval_with_shared_output());
-	  }
-	}
+        for(unsigned int i = 0; i < j_sparse.size(); i++){
+          const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
+          sparse_input->second.row = data_reader->get_row_offsets_tensors(i);
+          sparse_input->second.value = data_reader->get_value_tensors(i);
+        }
+        data_reader_eval = nullptr;
+        std::string eval_source;
+        FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
+        if (eval_source.empty() == false) {
+          if (pid == 0) {  // master process
+            data_reader_eval.reset(data_reader->clone_eval_with_shared_output(eval_source));
+          } else {  // slave process
+            data_reader_eval.reset(data_reader->clone_eval_with_shared_output());
+          }
+        }
       }
 
-      /* Create Embedding */
+      // Create Embedding 
       {
+        auto opt_params = get_optimizer_param(j_optimizer);
 
-	auto opt_params = get_optimizer_param(j_optimizer);
+        const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
+          {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
+          {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash}
+        };
+        for (unsigned int i = 1; i < j_layers_array.size(); i++) {
+          //if not embedding then break
+          const nlohmann::json& j = j_layers_array[i];
+          auto embedding_name = get_value_from_json<std::string>(j, "type");
+          Embedding_t embedding_type;
+          
+          if (!find_item_in_map(embedding_type, embedding_name, EMBEDDING_TYPE_MAP)) {
+            break;
+          }
 
-	
-	const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
-	  {"SparseEmbedding", Embedding_t::SparseEmbeddingHash},
-	  {"LocalizedSlotSparseEmbedding", Embedding_t::LocalizedSlotSparseEmbedding}
-	};
-	for (unsigned int i = 1; i < j_layers_array.size(); i++) {
-	  //if not embedding then break
-	  const nlohmann::json& j = j_layers_array[i];
-	  auto embedding_name = get_value_from_json<std::string>(j, "type");
-	  Embedding_t embedding_type;
-	  if (!find_item_in_map(embedding_type, embedding_name, EMBEDDING_TYPE_MAP)) {
-	    break;
-	  }
-	  auto bottom_name = get_value_from_json<std::string>(j, "bottom");
-	  auto top_name = get_value_from_json<std::string>(j, "top");
+          auto bottom_name = get_value_from_json<std::string>(j, "bottom");
+          auto top_name = get_value_from_json<std::string>(j, "top");
 
-	  auto j_hparam = get_json(j, "sparse_embedding_hparam");
-	  auto vocabulary_size = get_value_from_json<int>(j_hparam, "vocabulary_size");
-	  auto embedding_vec_size = get_value_from_json<int>(j_hparam, "embedding_vec_size");
-	  auto combiner = get_value_from_json<int>(j_hparam, "combiner");
-	  
-	  SparseInput<TypeKey> sparse_input;
+          auto j_hparam = get_json(j, "sparse_embedding_hparam");
+          auto vocabulary_size = get_value_from_json<int>(j_hparam, "vocabulary_size");
+          auto embedding_vec_size = get_value_from_json<int>(j_hparam, "embedding_vec_size");
+          auto combiner = get_value_from_json<int>(j_hparam, "combiner");
+          
+          SparseInput<TypeKey> sparse_input;
 
-	  if (!find_item_in_map(sparse_input, bottom_name, sparse_input_map)) {
-	    CK_THROW_(Error_t::WrongInput, "Cannot find bottom");
-	  }
+          if (!find_item_in_map(sparse_input, bottom_name, sparse_input_map)) {
+            CK_THROW_(Error_t::WrongInput, "Cannot find bottom");
+          }
 
-	  switch (embedding_type) {
-	  case Embedding_t::SparseEmbeddingHash: {
-	    auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
-	    const SparseEmbeddingHashParams embedding_params = {
-	      batch_size,
-	      vocabulary_size,
-	      load_factor,
-	      embedding_vec_size,
-	      sparse_input.max_feature_num_per_sample,
-	      sparse_input.slot_num,
-	      combiner,  // combiner: 0-sum, 1-mean, 2-sqrtn
-	      opt_params};
-	    embedding.emplace_back(EmbeddingCreator::create_sparse_embedding_hash(
-          	   sparse_input.row, sparse_input.value,
-		   embedding_params, gpu_resource_group));
-	    for(unsigned int i = 0; i < gpu_resource_group->size(); i++){
-	      tensor_maps[i].emplace(top_name, (embedding.back()->get_output_tensors())[i]);
-	    }
-	    break;
-	  }
-	  case Embedding_t::LocalizedSlotSparseEmbedding: {
-	    //TODO fill with LocalizedSlotSparseEmbedding
-	  }
-	  default: { assert(!"Error: no such option && should never get here!"); }
-	  }
-	}
+          switch (embedding_type) {
+            case Embedding_t::DistributedSlotSparseEmbeddingHash: {
+              auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
+              const SparseEmbeddingHashParams embedding_params = {
+                  batch_size,
+                  vocabulary_size,
+                  load_factor,
+                  embedding_vec_size,
+                  sparse_input.max_feature_num_per_sample,
+                  sparse_input.slot_num,
+                  combiner,  // combiner: 0-sum, 1-mean
+                  opt_params};
+              embedding.emplace_back(EmbeddingCreator::create_distributed_sparse_embedding_hash(
+                  sparse_input.row, sparse_input.value,
+                  embedding_params, gpu_resource_group));
+              break;
+            }
+
+            case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
+              auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
+              auto plan_file = get_value_from_json<std::string>(j, "plan_file");
+              const SparseEmbeddingHashParams embedding_params = {
+                  batch_size,
+                  vocabulary_size,
+                  load_factor,
+                  embedding_vec_size,
+                  sparse_input.max_feature_num_per_sample,
+                  sparse_input.slot_num,
+                  combiner,  // combiner: 0-sum, 1-mean
+                  opt_params};
+              embedding.emplace_back(EmbeddingCreator::create_localized_sparse_embedding_hash(
+                  sparse_input.row, sparse_input.value,
+                  embedding_params, plan_file, gpu_resource_group));
+              break;
+            }
+            default: { assert(!"Error: no such option && should never get here!"); }
+          }
+
+          for(unsigned int i = 0; i < gpu_resource_group->size(); i++){
+	          tensor_maps[i].emplace(top_name, (embedding.back()->get_output_tensors())[i]);
+	        }
+        }
       }
 
+      // create network
       int i = 0;
       int total_gpu_count = gpu_resource_group->get_total_gpu_count();
       if (0 != batch_size % total_gpu_count) {

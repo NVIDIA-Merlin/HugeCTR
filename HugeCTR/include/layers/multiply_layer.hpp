@@ -38,8 +38,8 @@ class MultiplyLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  MultiplyLayer(const std::shared_ptr<Tensor<float>>& weight_tensor,
-                const std::shared_ptr<Tensor<float>>& wgrad_tensor,
+  MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
                 const std::shared_ptr<Tensor<float>>& in_tensor,
                 const std::shared_ptr<Tensor<float>>& out_tensor,
                 int device_id);

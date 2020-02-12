@@ -45,6 +45,8 @@ find_package(OpenMP REQUIRED)
 find_package(Threads)
 find_package(MPI)
 
+set(CUDA_SEPARABLE_COMPILATION ON) 
+
 if (OPENMP_FOUND)
 message(STATUS "OPENMP FOUND")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")

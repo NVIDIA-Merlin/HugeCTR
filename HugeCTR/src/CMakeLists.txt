@@ -38,6 +38,7 @@ file(GLOB huge_ctr_src
   regularizers/no_regularizer.cu
   parser.cpp
   session.cpp
+  ../include/faster_gossip_comm/FasterGossipComm/gossip/include/plan_parser.cpp 
   embedding_creator.cu
   data_collector.cu
 )
