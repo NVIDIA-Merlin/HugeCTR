@@ -66,6 +66,8 @@ TEST(parser_test, simple_sparse_embedding) {
     vocabulary_size, label_dim, dense_dim, max_nnz);
 
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
+  std::string plan_name = PROJECT_HOME_ + "utest/all2all_plan.json";
+  rename(plan_name.c_str(), "./all2all_plan.json");
   test_parser<long long>(json_name);
 }
 

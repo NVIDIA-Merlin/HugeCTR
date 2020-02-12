@@ -231,7 +231,7 @@ Error_t Session::eval() {
       return Error_t::WrongInput;
     }
 
-    for(int i = 0; i < embedding_.size(); i++){
+    for(unsigned int i = 0; i < embedding_.size(); i++){
       snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) + ".model");
     }
     return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
