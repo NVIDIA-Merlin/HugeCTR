@@ -16,8 +16,9 @@
 
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+//#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+//#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/embedding.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/embedding/embedding_test_utils.hpp"
 #include "utest/test_utils.h"
@@ -212,9 +213,13 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
                             gpu_resource_group, num_chunks, num_threads);
 
-  Embedding<T> *embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
-                                                       data_reader->get_value_tensors(),
-                                                       embedding_params, gpu_resource_group);
+  // Embedding<T> *embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
+  //                                                      data_reader->get_value_tensors(),
+  //                                                      embedding_params, gpu_resource_group);
+
+  Embedding<T> *embedding = EmbeddingCreator::create_distributed_sparse_embedding_hash(data_reader->get_row_offsets_tensors(),
+								     data_reader->get_value_tensors(),
+								     embedding_params, gpu_resource_group);
                                                    
   // init hash table file
   if (init_hash_table) {

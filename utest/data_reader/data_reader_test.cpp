@@ -72,8 +72,7 @@ TEST(data_reader_test, data_reader_simple_test) {
   const int batchsize = 2048;
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
-  //std::vector<int> device_list = {0, 1};
-  std::vector<int> device_list = {0};
+  std::vector<int> device_list = {0, 1};
   cudaSetDevice(0);
 #ifdef ENABLE_MPI
   test::mpi_init();

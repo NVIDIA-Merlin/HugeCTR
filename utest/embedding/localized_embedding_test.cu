@@ -16,8 +16,8 @@
 
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+//#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/embedding.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/embedding/embedding_test_utils.hpp"
 #include "utest/test_utils.h"
@@ -63,7 +63,7 @@ const int num_files = 1;
 const Check_t CHK = Check_t::Sum; // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
-const std::string plan_file("./bin/all2all_plan.json");
+const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan.json");
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -261,7 +261,8 @@ TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
   using comm_handler_traits = FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
   using comm_handler = FasterGossipComm::FasterGossipComm<float, comm_handler_traits>;
   std::unique_ptr<comm_handler> all2all;
-  const std::string plan_file = "./bin/all2all_plan.json";
+  const std::string plan_file = PROJECT_HOME_ + "utest/all2all_plan.json";
+
   const size_t element_per_send = samples_per_gpu * slots_per_sample * embedding_vec_size;
   std::cout << "all2all init" << std::endl;
   functors.all2all_init(all2all, plan_file, element_per_send, d_src, d_mid, gpu_resource_group);
@@ -514,9 +515,14 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
                             gpu_resource_group, num_chunks, num_threads);
 
-  Embedding<T> *embedding = new LocalizedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
-                                                       data_reader->get_value_tensors(),
-                                                       embedding_params, plan_file, gpu_resource_group);
+  // Embedding<T> *embedding = new LocalizedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
+  //                                                      data_reader->get_value_tensors(),
+  //                                                      embedding_params, plan_file, gpu_resource_group);
+
+  
+  Embedding<T> *embedding = EmbeddingCreator::create_localized_sparse_embedding_hash(data_reader->get_row_offsets_tensors(),
+								   data_reader->get_value_tensors(),
+								   embedding_params, plan_file, gpu_resource_group);
 
   if (init_hash_table) {
     // init hash table file: <key, solt_id, value>

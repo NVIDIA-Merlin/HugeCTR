@@ -150,9 +150,9 @@ void DataReaderWorker<T>::read_a_batch() {
 	  int buffer_id =
 	    i / (csr_chunk->get_batchsize() / 
 		 label_dense_buffers.size());  
-          assert(buffer_id < label_dense_buffers.size());
+          assert((unsigned int)buffer_id < label_dense_buffers.size());
           int local_id = i % (csr_chunk->get_batchsize() / label_dense_buffers.size());
-          assert(local_id < (csr_chunk->get_batchsize() / label_dense_buffers.size()));
+          assert((unsigned int)local_id < (csr_chunk->get_batchsize() / label_dense_buffers.size()));
           for (int j = 0; j < label_dense_dim; j++) {
             label_dense_buffers[buffer_id][local_id * label_dense_dim + j] = label_dense[j];  // row major for label buffer
           }
