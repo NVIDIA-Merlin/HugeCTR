@@ -116,9 +116,11 @@ enum class Layer_t {
   MultiCrossEntropyLoss,
   ReLU,
   Slice,
+  Multiply,
+  FmOrder2,
 };
 
-enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash, LocalizedSlotSparseEmbedding};
+enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash };
 
 typedef struct DataSetHeader_ {
   long long error_check;        //0: no error check; 1: check_num

@@ -18,7 +18,7 @@
 #define NV_HASHTABLE_H_
 #include <mutex>
 #include "cudf/concurrent_unordered_map.cuh"
-#include "nv_util.h"
+#include "../nv_util.h"
 #include "thrust/pair.h"
 //#define COUNTER_TYPE ValType
 
