@@ -16,6 +16,8 @@
 
 #include "HugeCTR/include/parser.hpp"
 #include <cuda_profiler_api.h>
+#include<iostream>
+#include<fstream>
 #include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -63,11 +65,19 @@ const Check_t CHK = Check_t::Sum;
 TEST(parser_test, simple_sparse_embedding) {
   test::mpi_init();
   HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-    vocabulary_size, label_dim, dense_dim, max_nnz);
+				   vocabulary_size, label_dim, dense_dim, max_nnz);
 
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
   std::string plan_name = PROJECT_HOME_ + "utest/all2all_plan.json";
-  rename(plan_name.c_str(), "./all2all_plan.json");
+  std::ifstream src;
+  std::ofstream dst;
+
+  src.open(plan_name, std::ios::in);
+  dst.open("./all2all_plan.json", std::ofstream::out);
+  std::filebuf* inbuf  = src.rdbuf();
+  dst << inbuf;
+  src.close();
+  dst.close();
   test_parser<long long>(json_name);
 }
 

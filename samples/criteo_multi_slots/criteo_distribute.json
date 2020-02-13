@@ -41,7 +41,7 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "LocalizedSlot",
+          "type": "DistributedSlot",
           "max_feature_num_per_sample": 100,
           "slot_num": 10
         }        
@@ -50,7 +50,7 @@
 
     {
       "name": "sparse_embedding1",
-      "type": "LocalizedSlotSparseEmbeddingHash",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "plan_file": "./all2all_plan.json",
       "bottom": "data1",
       "top": "sparse_embedding1",

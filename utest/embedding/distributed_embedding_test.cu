@@ -46,7 +46,7 @@ const int slot_num = 8;
 const int max_nnz_per_slot = 10;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
 const long long vocabulary_size = 55000;
-const int embedding_vec_size = 1;
+const int embedding_vec_size = 64;
 const int combiner = 1;   // 0-sum, 1-mean
 const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
 const float lr = 0.01;
@@ -113,7 +113,12 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
                             gpu_resource_group, num_chunks, num_threads);
 
   // define object
-  Embedding<T>* embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params, gpu_resource_group);
+  // Embedding<T>* embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params, gpu_resource_group);
+
+  Embedding<T> *embedding = EmbeddingCreator::create_distributed_sparse_embedding_hash(
+                                data_reader->get_row_offsets_tensors(),
+                                data_reader->get_value_tensors(),
+                                embedding_params, gpu_resource_group);
 
   const std::string hash_table_upload("distributed_hash_table_upload.bin");
   const std::string hash_table_download("distributed_hash_table_download.bin");         
@@ -236,7 +241,7 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
       // 2) there are no repeated keys
       weight_stream.write((char *)&key, sizeof(T));
       // float val = (float)i;
-      // float val = 1.0f;
+      //float val = 1.0f;
       float val = fdata_sim.get_num();
       for (int j = 0; j < embedding_vec_size; j++) {
         weight_stream.write((char *)&val, sizeof(float));
