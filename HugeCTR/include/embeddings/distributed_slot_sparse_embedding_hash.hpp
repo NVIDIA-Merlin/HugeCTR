@@ -602,8 +602,11 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::update_params() {
   if (total_gpu_count > 1) {  // use multiple CPU threads to launch tasks on multiple GPUs
     // launch threads
     for (int id = 0; id < local_gpu_count; id++) {
+      // Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
+      //     std::ref(update_params_per_thread_wrapper_hash_distributed<TypeHashKey>), this);
+      // std::cout << "num_threads:" << Base::device_resources_->train_thread_pool.size() << std::endl;
       Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
-          std::ref(update_params_per_thread_wrapper_hash_distributed<TypeHashKey>), this);
+          [this, id](int i) { this->update_params_per_thread(id); } );
     }
 
     // wait for threads completion
