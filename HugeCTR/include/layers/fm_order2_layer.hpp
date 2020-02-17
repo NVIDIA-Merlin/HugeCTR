@@ -28,7 +28,7 @@ namespace HugeCTR
  * computation (reference code implemented in Tensorflow: line 92~104, 
  * https://github.com/ChenglongChen/tensorflow-DeepFM/blob/master/DeepFM.py).
  */
-class FmOrder2Layer: Layer {
+class FmOrder2Layer: public Layer {
 public:
   /**
    * Ctor of FmOrder2Layer.
