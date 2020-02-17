@@ -9,7 +9,7 @@
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "eval_batches": 100,
-    "model_file": "./criteo.model"
+    "dense_model_file": "./criteo.model"
   },
   
   "optimizer": {
@@ -50,7 +50,7 @@
     
     {
       "name": "sparse_embedding1",
-      "type": "SparseEmbedding",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

@@ -28,7 +28,7 @@ using namespace HugeCTR;
 
 namespace {
 
-const float eps = 1e-6;
+const float eps = 1e-5f;
 
 template<typename T>
 void multiply_cpu(const T * input, 
@@ -47,8 +47,12 @@ void multiply_wgrad_cpu(const T * top_grad,
                       T * wgrad,
                       const int batch_size,
                       const int vector_length) {
-  for (int i = 0; i < (batch_size*vector_length); ++i) {
-    wgrad[i] = input[i] * top_grad[i];
+  for (int i = 0; i < (vector_length); i++) {
+    double tmp = 0.0;
+    for(int j = 0; j < batch_size; j++) {
+      tmp += (double)input[j*vector_length+i] * (double)top_grad[j*vector_length+i];
+    }
+    wgrad[i] = (T)tmp;
   }
 }
 
@@ -64,30 +68,35 @@ void multiply_dgrad_cpu(const T * top_grad,
 }
 
 void multiply_test(int batch_size, int vector_length) {
-  std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>());
-  vector<int> dims_in = {batch_size, vector_length};
-  vector<int> dims_weight = {1, vector_length};
+  int dev_id = 0;
+  std::shared_ptr<GeneralBuffer<float>> in_out_buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer<float>> weight_buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer<float>> wgrad_buf(new GeneralBuffer<float>());
 
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims_in, buf, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims_in, buf, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> weight_tensor(new Tensor<float>(dims_weight, buf, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> wgrad_tensor(new Tensor<float>(dims_in, buf, TensorFormat_t::HW));
-  buf->init(0);
+  vector<int> dims_in = {batch_size, vector_length};
+
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims_in, in_out_buf, TensorFormat_t::HW));
+  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims_in, in_out_buf, TensorFormat_t::HW));
+  in_out_buf->init(dev_id);
 
   const int len = batch_size * vector_length;
   float* d_in = in_tensor->get_ptr();
   float* d_out = out_tensor->get_ptr();
-  float* d_weight = weight_tensor->get_ptr();
-  float* d_wgrad = wgrad_tensor->get_ptr();
   std::unique_ptr<float[]> h_in(new float[len]);
   std::unique_ptr<float[]> h_out(new float[len]);
   std::unique_ptr<float[]> h_weight(new float[vector_length]);
-  std::unique_ptr<float[]> h_wgrad(new float[len]);
+  std::unique_ptr<float[]> h_wgrad(new float[vector_length]);
   std::unique_ptr<float[]> h_expected(new float[len]);
-  std::unique_ptr<float[]> h_expected_wgrad(new float[len]);
+  std::unique_ptr<float[]> h_expected_wgrad(new float[vector_length]);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  MultiplyLayer multiply_layer(weight_tensor, wgrad_tensor, in_tensor, out_tensor, 0);
+  MultiplyLayer multiply_layer(weight_buf, wgrad_buf, in_tensor, out_tensor, 0);
+
+  weight_buf->init(dev_id);
+  wgrad_buf->init(dev_id);
+
+  float *d_weight = weight_buf->get_ptr_with_offset(0);
+  float *d_wgrad = wgrad_buf->get_ptr_with_offset(0);
 
   // fprop
   for (int i = 0; i < len; ++i) {
@@ -117,12 +126,14 @@ void multiply_test(int batch_size, int vector_length) {
   cudaMemcpy(d_out, h_out.get(), len * sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(d_weight, h_weight.get(), vector_length * sizeof(float), cudaMemcpyHostToDevice);
   multiply_layer.bprop(cudaStreamDefault); // compute wgrad and dgrad
-  cudaMemcpy(h_wgrad.get(), d_wgrad, len * sizeof(float), cudaMemcpyDeviceToHost); // wgrad
+  cudaMemcpy(h_wgrad.get(), d_wgrad, vector_length * sizeof(float), cudaMemcpyDeviceToHost); // wgrad
   cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost); // dgrad
 
   multiply_wgrad_cpu(h_out.get(), h_expected.get(), h_expected_wgrad.get(), batch_size, vector_length);
-  ASSERT_TRUE(test::compare_array_approx<float>(h_wgrad.get(), h_expected_wgrad.get(), len, eps)); // compare wgrad
+  //TODO: because of the accumulated error, comparing absolute error can not pass when esp>=1e-4
+  ASSERT_TRUE(test::compare_array_approx<float>(h_wgrad.get(), h_expected_wgrad.get(), vector_length, 1e-3)); // compare wgrad
 
+  // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
   multiply_dgrad_cpu(h_out.get(), h_weight.get(), h_expected.get(), batch_size, vector_length);
   ASSERT_TRUE(test::compare_array_approx<float>(h_in.get(), h_expected.get(), len, eps)); // compare dgrad
 }
@@ -130,7 +141,7 @@ void multiply_test(int batch_size, int vector_length) {
 }  // namespace
 
 TEST(multiply_layer, fprop_and_bprop) {
-  multiply_test(4, 32);
-  multiply_test(4, 128);
-  multiply_test(40960, 128);
+  multiply_test(1, 32);
+  multiply_test(4, 64);
+  multiply_test(4096, 128);
 }
