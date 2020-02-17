@@ -26,6 +26,7 @@
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 #include "HugeCTR/include/layers/slice_layer.hpp"
 #include "HugeCTR/include/layers/multiply_layer.hpp"
+#include "HugeCTR/include/layers/multi_cross_layer.hpp"
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
@@ -290,6 +291,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"Slice", Layer_t::Slice},
       {"Multiply", Layer_t::Multiply},
       {"FmOrder2", Layer_t::FmOrder2},
+      {"MultiCross", Layer_t::MultiCross}
   };
 
   std::unique_ptr<Network> network(
@@ -430,6 +432,20 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         layers.emplace_back(fc_layer);
         break;
       }
+      case Layer_t::MultiCross: {
+        auto& mc_in_tensor = input_output_info.input[0];
+        // establish out tensor
+        auto j_mc_param = get_json(j, "mc_param");
+        auto num_layers = get_value_from_json<int>(j_mc_param, "num_layers");
+        std::shared_ptr<Tensor<float>> out_tensor(
+	  new Tensor<float>(mc_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        // establish layer
+        Layer* mc_layer = new MultiCrossLayer(weight_buff, wgrad_buff, mc_in_tensor, out_tensor, num_layers, device_id);
+        layers.emplace_back(mc_layer);
+        break;
+      }
+
       case Layer_t::MultiCrossEntropyLoss: {
 	if(input_output_info.input.size() != 2){
 	  CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
