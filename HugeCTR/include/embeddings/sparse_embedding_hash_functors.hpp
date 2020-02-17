@@ -645,15 +645,16 @@ public:
    * collection communication: all2all.
    * @param all2all all2all handler
    */
-  void all2all_async(const std::unique_ptr<comm_handler>& all2all) {
+  void all2all_sync(const std::unique_ptr<comm_handler>& all2all) {
 
     all2all->execAsync();
-
+    all2all->sync();
+    
     return;
   }
 
   /**
-   * reoder the sequence of data after all2all operation
+   * reoder the sequence of data after all2all operation in forward propagation
    * @param batch_size batch size for the current mini-batch computation.
    * @param slot_num the number of localized slots 
    * @param embedding_vec_size embedding vector size.
@@ -662,31 +663,64 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  void reorder(const int batch_size, 
-              const int slot_num,
-              const int embedding_vec_size,
-              Tensors<float>& src_tensors,
-              Tensors<float>& dst_tensors,
-              const std::shared_ptr<GPUResourceGroup>& device_resources,
-              const CudaDeviceContext& context
-              ) 
-  {
+  void forward_reorder(const int batch_size, 
+                      const int slot_num,
+                      const int embedding_vec_size,
+                      Tensors<float>& src_tensors,
+                      Tensors<float>& dst_tensors,
+                      const std::shared_ptr<GPUResourceGroup>& device_resources,
+                      const CudaDeviceContext& context) {
     int local_gpu_count = device_resources->size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
     dim3 blockSize(embedding_vec_size, 1, 1);
-    dim3 gridSize(batch_size/local_gpu_count, 1, 1);
+    dim3 gridSize(batch_size/total_gpu_count, 1, 1);
 
     for(int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
-      reorder_kernel<float><<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(batch_size,
+      forward_reorder_kernel<float><<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(batch_size,
                                                                                         slot_num,
                                                                                         embedding_vec_size,
-                                                                                        local_gpu_count,
+                                                                                        total_gpu_count,
                                                                                         src_tensors[id]->get_ptr(),
                                                                                         dst_tensors[id]->get_ptr());
 
     }
+  }
 
+  /**
+   * reoder the sequence of data before all2all operation in backward propagation
+   * @param batch_size batch size for the current mini-batch computation.
+   * @param slot_num the number of localized slots 
+   * @param embedding_vec_size embedding vector size.
+   * @param src_tensors the source tensors before reorder 
+   * @param dst_tensors the destination tensors after reorder
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device.
+   */
+  void backward_reorder(const int batch_size, 
+                      const int slot_num,
+                      const int embedding_vec_size,
+                      Tensors<float>& src_tensors,
+                      Tensors<float>& dst_tensors,
+                      const std::shared_ptr<GPUResourceGroup>& device_resources,
+                      const CudaDeviceContext& context) {
+    int local_gpu_count = device_resources->size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
+
+    dim3 blockSize(embedding_vec_size, 1, 1);
+    dim3 gridSize(batch_size/total_gpu_count, 1, 1);
+
+    for(int id = 0; id < local_gpu_count; id++) {
+      context.set_device((*device_resources)[id]->get_device_id());
+      backward_reorder_kernel<float><<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(batch_size,
+                                                                                        slot_num,
+                                                                                        embedding_vec_size,
+                                                                                        total_gpu_count,
+                                                                                        src_tensors[id]->get_ptr(),
+                                                                                        dst_tensors[id]->get_ptr());
+
+    }
   }
 
   /**

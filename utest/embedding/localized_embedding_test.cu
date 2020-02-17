@@ -16,8 +16,8 @@
 
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+//#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/embedding.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/embedding/embedding_test_utils.hpp"
 #include "utest/test_utils.h"
@@ -35,17 +35,17 @@ namespace {
 
 //---------------------------------------------------------------------------------------
 // global params for all testing 
-const std::vector<int> device_list = {0,1,2,3};
+const std::vector<int> device_list = {0,1};
 //const std::vector<int> device_list = {0};
-const int batch_num = 2;  // can not more than 32
+const int batch_num = 10;  // can not more than 32
 const int batchsize = 4096;
 const long long num_records = batchsize * batch_num;
-const int slot_num = 8; 
+const int slot_num = 10; 
 const int max_nnz_per_slot = 10;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
-const long long vocabulary_size = 55000;
+const long long vocabulary_size = 100;
 const int embedding_vec_size = 64;
-const int combiner = 1;   // 0-sum, 1-mean
+const int combiner = 0;   // 0-sum, 1-mean
 const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
 const float lr = 0.01;
 const long long label_dim = 1;
@@ -63,7 +63,7 @@ const int num_files = 1;
 const Check_t CHK = Check_t::Sum; // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
-const std::string plan_file("./bin/all2all_plan.json");
+const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan.json");
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -73,7 +73,7 @@ bool init_hash_table = true;  // true: init hash_table and upload_to_device
 //-----------------------------------------------------------------------------------------
 
 #if 0
-TEST(localized_sparse_embedding_hash_test, reorder) {
+TEST(localized_sparse_embedding_hash_test, forward_reorder) {
   int local_gpu_count = 4; // 4,2 pass 
   int embedding_vec_size = 4;
   int batch_size = 16; // 8,16 pass 
@@ -118,7 +118,7 @@ TEST(localized_sparse_embedding_hash_test, reorder) {
 
   cudaMemcpy(d_src, h_src, size_per_gpu * sizeof(float), cudaMemcpyHostToDevice);
 
-  reorder_kernel<float><<<gridSize, blockSize>>>(batch_size,
+  forward_reorder_kernel<float><<<gridSize, blockSize>>>(batch_size,
                                                   slot_num,
                                                   embedding_vec_size,
                                                   local_gpu_count,
@@ -166,10 +166,10 @@ TEST(localized_sparse_embedding_hash_test, reorder) {
 #endif 
 
 #if 0
-TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
+TEST(localized_sparse_embedding_hash_test, forward_all2all_reorder_single_node) {
   std::vector<int> device_list = {0,1,2,3}; // 4,8 gpus pass
   int local_gpu_count = device_list.size();
-  int embedding_vec_size = 4;
+  int embedding_vec_size = 1;
   int batch_size = 8; // 8,16 pass
   int samples_per_gpu = batch_size / local_gpu_count;
   int slot_num = 10;  // 8,10 pass
@@ -261,14 +261,13 @@ TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
   using comm_handler_traits = FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
   using comm_handler = FasterGossipComm::FasterGossipComm<float, comm_handler_traits>;
   std::unique_ptr<comm_handler> all2all;
-  const std::string plan_file = "./bin/all2all_plan.json";
+  const std::string plan_file = PROJECT_HOME_ + "utest/all2all_plan.json";
+
   const size_t element_per_send = samples_per_gpu * slots_per_sample * embedding_vec_size;
   std::cout << "all2all init" << std::endl;
   functors.all2all_init(all2all, plan_file, element_per_send, d_src, d_mid, gpu_resource_group);
-  std::cout << "all2all async" << std::endl;
-  functors.all2all_async(all2all);
-  std::cout << "sync" << std::endl;
-  functors.sync_all_gpus(gpu_resource_group, context);
+  std::cout << "all2all sync" << std::endl;
+  functors.all2all_sync(all2all);
 
   // check results of all2all
   for(int id = 0; id < local_gpu_count; id++) {
@@ -302,7 +301,7 @@ TEST(localized_sparse_embedding_hash_test, all2all_reorder_single_node) {
   dim3 gridSize(batch_size/local_gpu_count, 1, 1);
   for(int id = 0; id < local_gpu_count; id++) {
     context.set_device((*gpu_resource_group)[id]->get_device_id());
-    reorder_kernel<float><<<gridSize, blockSize, 0, (*gpu_resource_group)[id]->get_stream()>>>(batch_size,
+    forward_reorder_kernel<float><<<gridSize, blockSize, 0, (*gpu_resource_group)[id]->get_stream()>>>(batch_size,
                                                     slot_num,
                                                     embedding_vec_size,
                                                     local_gpu_count,
@@ -514,9 +513,14 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
                             gpu_resource_group, num_chunks, num_threads);
 
-  Embedding<T> *embedding = new LocalizedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
-                                                       data_reader->get_value_tensors(),
-                                                       embedding_params, plan_file, gpu_resource_group);
+  // Embedding<T> *embedding = new LocalizedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
+  //                                                      data_reader->get_value_tensors(),
+  //                                                      embedding_params, plan_file, gpu_resource_group);
+
+  
+  Embedding<T> *embedding = EmbeddingCreator::create_localized_sparse_embedding_hash(data_reader->get_row_offsets_tensors(),
+								   data_reader->get_value_tensors(),
+								   embedding_params, plan_file, gpu_resource_group);
 
   if (init_hash_table) {
     // init hash table file: <key, solt_id, value>
@@ -537,7 +541,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
       T slot_id = key%slot_num; // CAUSION: need to dedicate the slot_id for each key for correctness verification
       weight_stream.write((char *)&slot_id, sizeof(T));
       // float val = (float)i;
-      // float val = 1.0f;
+      //float val = 1.0f;
       float val = fdata_sim.get_num();
       for (int j = 0; j < embedding_vec_size; j++) {
         weight_stream.write((char *)&val, sizeof(float));
@@ -620,6 +624,11 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
     printf("embedding->get_backward_results()\n");
     embedding->get_backward_results(wgrad_from_gpu, 0);
     
+    // // just for debug 
+    // for(int j = 0; j < (batchsize * slot_num * embedding_vec_size); j++) {
+    //   printf("cpu:%f, gpu:%f\n", wgrad_from_cpu[j], wgrad_from_gpu[j]);
+    // }
+
     printf("check backward results: GPU and CPU\n");
     ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, 
                                   wgrad_from_gpu, wgrad_from_cpu));

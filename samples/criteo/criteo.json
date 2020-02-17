@@ -9,7 +9,7 @@
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "eval_batches": 100,
-    "model_file": "./criteo.model"
+    "dense_model_file": "./criteo.model"
   },
   
   "optimizer": {

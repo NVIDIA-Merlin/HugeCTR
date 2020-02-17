@@ -17,7 +17,7 @@
 #pragma once
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.h"
+#include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.hpp"
 #include "cub/cub/device/device_radix_sort.cuh"
 
 #include "HugeCTR/include/hashtable/nv_hashtable.cuh"
@@ -110,7 +110,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
   std::vector<size_t> temp_storage_sort_bytes_;  /**< The temp variable for CUB lib sorting API. */
   int max_vocabulary_size_per_gpu_;               /**< Max vocabulary size for each GPU. */
 
-  SparseEmbeddingHashFunctors functors; /**< obj of SparseEmbeddingHashFunctors */
+  SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
   
  public:
   /**
@@ -411,7 +411,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
 
     }  // end of for(int id = 0; id < gpu_count; id++)
 
-    functors.sync_all_gpus(Base::device_resources_, context);
+    functors_.sync_all_gpus(Base::device_resources_, context);
 
     CK_CUDA_THROW_(cudaFreeHost(h_hash_table_value));
   } catch (const std::runtime_error &rt_err) {
@@ -455,7 +455,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
   int total_gpu_count = Base::device_resources_->get_total_gpu_count();
 
   // do forward propagation
-  functors.forward(embedding_params_.batch_size,
+  functors_.forward(embedding_params_.batch_size,
                   embedding_params_.slot_num, 
                   embedding_params_.embedding_vec_size,
                   Base::row_offsets_tensors_,
@@ -468,35 +468,35 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
                   context);
                   
   // sync
-  functors.sync_all_gpus(Base::device_resources_, context);
+  functors_.sync_all_gpus(Base::device_resources_, context);
 
   // do reduce scatter
   int batchsize_per_gpu = (int)(embedding_params_.batch_size / total_gpu_count);
   int recv_count = batchsize_per_gpu * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
-  functors.reduce_scatter(recv_count,
+  functors_.reduce_scatter(recv_count,
                           embedding_feature_tensors_,
                           Base::output_tensors_,
                           Base::device_resources_,
                           context);
 
   // sync
-  functors.sync_all_gpus(Base::device_resources_, context);
+  functors_.sync_all_gpus(Base::device_resources_, context);
 
   // scale for combiner=mean after reduction
   if (embedding_params_.combiner == 1) {
 
     int send_count = embedding_params_.batch_size * embedding_params_.slot_num + 1;
-    functors.all_reduce(send_count,
+    functors_.all_reduce(send_count,
                         Base::row_offsets_tensors_,
                         row_offset_allreduce_tensors_,
                         Base::device_resources_,
                         context);
 
     // sync
-    functors.sync_all_gpus(Base::device_resources_, context);
+    functors_.sync_all_gpus(Base::device_resources_, context);
 
     // do average
-    functors.forward_scale(embedding_params_.batch_size, 
+    functors_.forward_scale(embedding_params_.batch_size, 
                           embedding_params_.slot_num,
                           embedding_params_.embedding_vec_size, 
                           row_offset_allreduce_tensors_,
@@ -505,7 +505,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
                           context);
 
     // sync
-    functors.sync_all_gpus(Base::device_resources_, context);
+    functors_.sync_all_gpus(Base::device_resources_, context);
   }
 
   return;
@@ -521,17 +521,17 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::backward() {
   int total_gpu_count = Base::device_resources_->get_total_gpu_count();
   int batchsize_per_gpu = (int)(embedding_params_.batch_size / total_gpu_count);
   int send_count = batchsize_per_gpu * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
-  functors.all_gather(send_count,
+  functors_.all_gather(send_count,
                       Base::output_tensors_,
                       embedding_feature_tensors_,
                       Base::device_resources_,
                       context);
 
   // sync
-  functors.sync_all_gpus(Base::device_resources_, context);
+  functors_.sync_all_gpus(Base::device_resources_, context);
 
   // do backward
-  functors.backward(embedding_params_.batch_size, 
+  functors_.backward(embedding_params_.batch_size, 
                     embedding_params_.slot_num,
                     embedding_params_.embedding_vec_size, 
                     embedding_params_.combiner, 
@@ -542,7 +542,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::backward() {
                     context);
 
   // sync
-  functors.sync_all_gpus(Base::device_resources_, context);
+  functors_.sync_all_gpus(Base::device_resources_, context);
 
   return;
 }  // end of backward()
@@ -559,7 +559,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::update_params_per_thread(i
   opt_params_[tid].hyperparams.adam.times++;
 
   // do update params operation
-  functors.update_params((*Base::device_resources_)[tid]->get_stream(), 
+  functors_.update_params((*Base::device_resources_)[tid]->get_stream(), 
                     embedding_params_.batch_size,
                     embedding_params_.slot_num, 
                     embedding_params_.embedding_vec_size, 
@@ -602,8 +602,11 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::update_params() {
   if (total_gpu_count > 1) {  // use multiple CPU threads to launch tasks on multiple GPUs
     // launch threads
     for (int id = 0; id < local_gpu_count; id++) {
+      // Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
+      //     std::ref(update_params_per_thread_wrapper_hash_distributed<TypeHashKey>), this);
+      // std::cout << "num_threads:" << Base::device_resources_->train_thread_pool.size() << std::endl;
       Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
-          std::ref(update_params_per_thread_wrapper_hash_distributed<TypeHashKey>), this);
+          [this, id](int i) { this->update_params_per_thread(id); } );
     }
 
     // wait for threads completion
@@ -630,7 +633,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::upload_params_to_device(st
 
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-  functors.upload_params_to_device<TypeHashKey, TypeHashValueIndex>(weight_stream,
+  functors_.upload_params_to_device<TypeHashKey, TypeHashValueIndex>(weight_stream,
                             embedding_params_.vocabulary_size,
                             embedding_params_.embedding_vec_size,
                             max_vocabulary_size_per_gpu_,
@@ -653,7 +656,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::download_params_to_host(st
 
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-  functors.download_params_to_host(weight_stream,
+  functors_.download_params_to_host(weight_stream,
                             embedding_params_.vocabulary_size,
                             embedding_params_.embedding_vec_size,
                             max_vocabulary_size_per_gpu_,
@@ -678,14 +681,14 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::get_forward_results(float 
   int memcpy_size =
       batchsize_per_gpu * embedding_params_.slot_num * embedding_params_.embedding_vec_size;
 
-  functors.get_forward_results(memcpy_size,
+  functors_.get_forward_results(memcpy_size,
                               Base::output_tensors_,
                               embedding_feature,
                               Base::device_resources_,
                               context);
 
   // sync
-  functors.sync_all_gpus(Base::device_resources_, context);
+  functors_.sync_all_gpus(Base::device_resources_, context);
 
   return;
 }  // end of get_forward_results()
@@ -699,7 +702,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::get_backward_results(float
   // wgard shuld be the same on multi-gpus after backward()
   int memcpy_size = embedding_params_.batch_size * embedding_params_.slot_num *
                     embedding_params_.embedding_vec_size;
-  functors.get_backward_results(devId,
+  functors_.get_backward_results(devId,
                                 memcpy_size,
                                 wgrad_tensors_,
                                 wgrad,
@@ -716,7 +719,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::get_update_params_results(
                                                                         float *hash_table_value) {
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-  functors.get_update_params_results(max_vocabulary_size_per_gpu_,
+  functors_.get_update_params_results(max_vocabulary_size_per_gpu_,
                                     embedding_params_.embedding_vec_size,
                                     embedding_params_.vocabulary_size,
                                     hash_table_value_tensors_,

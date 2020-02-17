@@ -71,10 +71,6 @@ __global__ void forward_sum_kernel(const int batch_size,
       for (int j = 0; j < feature_num; j++) {
         TypeValueIndex value_index = hash_value_index[value_offset + j];
         sum += hash_table_value[value_index * embedding_vec_size + tid];
-
-        // // just for debug
-        // printf("bid=%d, slot=%d, tid=%d, j=%d, value_index=%d, value=%f\n", bid, i, tid, j,
-        // value_index, hash_table_value[value_index*embedding_vec_size+tid]);
       }
 
       // store the embedding vector
@@ -105,10 +101,6 @@ __global__ void forward_scale_kernel(const int batch_size,
       }
 
       embedding_feature[feature_index] = feature * scaler;
-
-      // // just for debug
-      // printf("bid=%d, slot=%d, tid=%d, feature_num=%d, feature_in=%f, feature_out=%f\n", bid, i, tid, feature_num, feature, embedding_feature[feature_index]);
-      // printf("\tfeature_row_index=%d, row_offset[0]=%d, row_offset[1]=%d\n", feature_row_index, (int)row_offset[feature_row_index], (int)row_offset[feature_row_index+1]);
     }
   }
 }
@@ -415,7 +407,6 @@ __global__ void update_kernel(const uint32_t hash_value_index_count_num,
   if ((bid < hash_value_index_count_num) && (tid < embedding_vec_size)) {
     TypeValueIndex value_index = deltaw_hash_value_index[bid];
     long long feature_index = value_index * embedding_vec_size + tid;
-
     hash_table_value[feature_index] += deltaw[bid * embedding_vec_size + tid];
   }
 }
@@ -464,14 +455,14 @@ __global__ void get_hash_slot_id_kernel(const int count,
   }
 }
 
-// reorder operation after all2all
+// reorder operation after all2all in forward propagation 
 template <typename Type>
-__global__ void reorder_kernel(const int batch_size,
-                              const int slot_num,
-                              const int embedding_vec_size,
-                              const int gpu_num,
-                              const Type * input,
-                              Type * output) {
+__global__ void forward_reorder_kernel(const int batch_size,
+                                      const int slot_num,
+                                      const int embedding_vec_size,
+                                      const int gpu_num,
+                                      const Type * input,
+                                      Type * output) {
   // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding vector
   // gridDim.x = batch_size / gpu_num = samples_per_gpu; // each block corresponding to one sample on each GPU
   // Each thread needs to process slot_num slots
@@ -495,6 +486,42 @@ __global__ void reorder_kernel(const int batch_size,
       int src_addr =  src_offset + (int)(slot_id / gpu_num) * embedding_vec_size \
                       + src_stride * (slot_id % gpu_num);
       int dst_addr = dst_offset + dst_stride * slot_id;
+      output[dst_addr+tid] = input[src_addr+tid];
+    }
+  }
+}
+
+// reorder operation before all2all in backward propagation 
+template <typename Type>
+__global__ void backward_reorder_kernel(const int batch_size,
+                                        const int slot_num,
+                                        const int embedding_vec_size,
+                                        const int gpu_num,
+                                        const Type * input,
+                                        Type * output) {
+  // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding vector
+  // gridDim.x = batch_size / gpu_num = samples_per_gpu; // each block corresponding to one sample on each GPU
+  // Each thread needs to process slot_num slots
+
+  int tid  = threadIdx.x;
+  int bid = blockIdx.x;
+
+  int samples_per_gpu = batch_size / gpu_num; 
+  int sample_id = bid; // sample_id on the current GPU 
+
+  if((bid < samples_per_gpu) && (tid < embedding_vec_size)) {
+    int slots_per_sample = (slot_num + gpu_num - 1) / gpu_num; 
+
+    int src_offset = sample_id * slot_num * embedding_vec_size; 
+    int src_stride = embedding_vec_size; 
+
+    int dst_offset = sample_id * slots_per_sample * embedding_vec_size; // offset for the first slot of one sample
+    int dst_stride = samples_per_gpu * slots_per_sample * embedding_vec_size; // stride from slot to slot
+
+    for(int slot_id = 0; slot_id < slot_num; slot_id++) {
+      int src_addr =  src_offset + src_stride * slot_id;
+      int dst_addr = dst_offset + (int)(slot_id / gpu_num) * embedding_vec_size \
+      + dst_stride * (slot_id % gpu_num);
       output[dst_addr+tid] = input[src_addr+tid];
     }
   }

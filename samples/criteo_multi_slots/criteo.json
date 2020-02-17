@@ -3,13 +3,13 @@
     "lr_policy": "fixed",
     "display": 200,
     "max_iter": 50000,
-    "gpu": [0],
+    "gpu": [0,1],
     "batchsize": 40960,
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "eval_batches": 100,
-    "model_file": "./criteo.model"
+    "dense_model_file": "./criteo.model"
   },
   
   "optimizer": {
@@ -23,7 +23,8 @@
   },
 
   "layers": [ 
-  {
+    
+    {
       "name": "data",
       "type": "Data",
       "source": "/gpfs/fs1/zehuanw/dataset/criteo_check_sum_10/file_list.txt",
@@ -40,24 +41,24 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "DistributedSlot",
+          "type": "LocalizedSlot",
           "max_feature_num_per_sample": 100,
           "slot_num": 10
         }        
       ]
     },
-    
-    
+
     {
       "name": "sparse_embedding1",
-      "type": "DistributedSlotSparseEmbeddingHash",
+      "type": "LocalizedSlotSparseEmbeddingHash",
+      "plan_file": "./all2all_plan.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "vocabulary_size": 1603616,
         "load_factor": 0.75,
         "embedding_vec_size": 64,
-        "combiner": 0
+        "combiner": 1
       }
     },
 
