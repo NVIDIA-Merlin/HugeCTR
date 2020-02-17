@@ -163,11 +163,21 @@
       "top": "relu2"
      
     },
+
+    {
+      "name": "multicross1",
+      "type": "MultiCross",
+      "bottom": "relu2",
+      "top": "multicross1",
+      "mc_param": {
+        "num_layers": 2
+      }
+    },
     
     {
       "name": "fc3",
       "type": "InnerProduct",
-      "bottom": "relu2",
+      "bottom": "multicross1",
       "top": "fc3",
        "fc_param": {
         "num_output": 200
