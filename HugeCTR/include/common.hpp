@@ -32,6 +32,9 @@ namespace HugeCTR {
 #define HUGECTR_VERSION_MAJOR 2
 #define HUGECTR_VERSION_MINOR 0
 
+#define WARP_SIZE 32
+
+
 enum class Error_t {
   Success,
   FileCannotOpen,
@@ -118,6 +121,7 @@ enum class Layer_t {
   Slice,
   Multiply,
   FmOrder2,
+  MultiCross
 };
 
 enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash };

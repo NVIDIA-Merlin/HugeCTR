@@ -19,6 +19,11 @@
 
 namespace HugeCTR {
 
+inline int calc_grid(int t, int b){
+  return (t - 1)/b + 1;
+}
+
+
 template <typename T>
 struct TypeFunc;
 
