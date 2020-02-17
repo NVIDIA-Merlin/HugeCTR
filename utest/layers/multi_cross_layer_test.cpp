@@ -325,8 +325,8 @@ private:
     CK_CUDA_THROW_(cudaMemcpy(tmp_grad.data(),wgrad_buf_->get_ptr_with_offset(0), wgrad_buf_->get_size(), cudaMemcpyDeviceToHost));
 
     //todo compare
-    //ASSERT_TRUE(test::compare_array_approx<float>(tmp_in.data(), h_in_->data(), h_in_->size(), eps));
-    //ASSERT_TRUE(test::compare_array_approx<float>(tmp_out.data(), h_out_->data(), h_out_->size(), eps));
+    ASSERT_TRUE(test::compare_array_approx<float>(tmp_in.data(), h_in_->data(), h_in_->size(), eps));
+    ASSERT_TRUE(test::compare_array_approx<float>(tmp_out.data(), h_out_->data(), h_out_->size(), eps));
     ASSERT_TRUE(test::compare_array_approx<float>(tmp_grad.data(), h_wgrad_->data(), h_wgrad_->size(), eps));
 
     return;
