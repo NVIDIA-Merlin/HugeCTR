@@ -596,39 +596,44 @@ public:
 
     using transfer_plan_t = comm_handler_traits::transfer_plan_t;
     transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
-    int total_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
-    std::vector<gossip::gpu_id_t> device_ids;
-    device_ids.resize(total_gpu_count);
-    std::iota(device_ids.begin(), device_ids.end(), 0); // GPU list is 0 to num_gpu-1
+    int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
+    
+    std::vector<int> device_list = device_resources->get_device_list();
+    size_t local_gpu_count =  device_list.size();    
+    if(local_gpu_count != plan_gpu_count) {
+      CK_THROW_(Error_t::WrongInput,
+            "Error: the device_list doesn't matched the plan_file");   
+    }
+    std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
+#ifndef NDEBUG
+    std::cout << "gpu device list: { ";
+    for(auto dev: device_ids) {
+      std::cout << dev << " ";
+    }
+    std::cout << "}" << std::endl;
+#endif 
+
     all2all = std::unique_ptr<comm_handler>(new comm_handler(plan_file, device_ids)); // The all2all communication class
 
-    std::vector<float *> src(total_gpu_count);
-    std::vector<float *> dst(total_gpu_count);
-    for(int id = 0; id < total_gpu_count; id++) {
-
-      int gid = device_resources->get_global_id(id); // get global_id from device_id
-      if(gid >= 0) {
-        src[id] = send_tensors[gid]->get_ptr();
-        dst[id] = recv_tensors[gid]->get_ptr();
-      }
+    std::vector<float *> src(plan_gpu_count);
+    std::vector<float *> dst(plan_gpu_count);
+    for(int id = 0; id < plan_gpu_count; id++) {
+      src[id] = send_tensors[id]->get_ptr();
+      dst[id] = recv_tensors[id]->get_ptr();
     }
 
     // Fill in partition table, ith Topo GPU to jth Topo GPU
-    std::vector<std::vector<size_t>> table(total_gpu_count, std::vector<size_t>(total_gpu_count));
-    for(int i = 0; i < total_gpu_count; i++){
-      int gid_i = device_resources->get_global_id(i); // get global_id from device_id
-      for(int j = 0; j < total_gpu_count; j++){
-        int gid_j =  device_resources->get_global_id(j); // get global_id from device_id
-        if((gid_i >= 0) && (gid_j >= 0)) {
-          table[i][j] = element_per_send;
-        }
+    std::vector<std::vector<size_t>> table(plan_gpu_count, std::vector<size_t>(plan_gpu_count));
+    for(int i = 0; i < plan_gpu_count; i++){
+      for(int j = 0; j < plan_gpu_count; j++){
+        table[i][j] = element_per_send;
       }
     }
 
 #ifndef NDEBUG
     std::cout << "all2all table:"<< std::endl;
-    for(int i = 0; i < total_gpu_count; i++){
-      for(int j = 0; j < total_gpu_count; j++){
+    for(int i = 0; i < plan_gpu_count; i++){
+      for(int j = 0; j < plan_gpu_count; j++){
         std::cout << table[i][j] << ", ";
       }
       std::cout << std::endl;
