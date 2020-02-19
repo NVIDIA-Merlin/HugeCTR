@@ -16,7 +16,7 @@
 
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
-//#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+//#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embedding.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/embedding/embedding_test_utils.hpp"
@@ -35,9 +35,10 @@ namespace {
 
 //---------------------------------------------------------------------------------------
 // global params for all testing 
-const std::vector<int> device_list = {0,1};
+//const std::vector<int> device_list = {0,1};
+const std::vector<int> device_list = {0,3};
 //const std::vector<int> device_list = {0};
-const int batch_num = 10;  // can not more than 32
+const int batch_num = 4;  // can not more than 32
 const int batchsize = 4096;
 const long long num_records = batchsize * batch_num;
 const int slot_num = 10; 
@@ -63,7 +64,8 @@ const int num_files = 1;
 const Check_t CHK = Check_t::Sum; // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
-const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan.json");
+//const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan.json");
+const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_0_3.json"); // for device_list {0,3} testing
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -405,9 +407,13 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
                             gpu_resource_group, num_chunks, num_threads);
 
   // define object
-  Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingHash<T>(\
-      data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), \
-      embedding_params, plan_file, gpu_resource_group);
+  // Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingHash<T>(\
+  //     data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), \
+  //     embedding_params, plan_file, gpu_resource_group);
+
+  Embedding<T> *embedding = EmbeddingCreator::create_localized_sparse_embedding_hash(data_reader->get_row_offsets_tensors(),
+        data_reader->get_value_tensors(),
+        embedding_params, plan_file, gpu_resource_group);
 
   // init hash table file
   const std::string hash_table_upload("localized_hash_table_upload.bin");

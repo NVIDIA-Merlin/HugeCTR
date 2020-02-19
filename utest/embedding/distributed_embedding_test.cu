@@ -17,7 +17,6 @@
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
 //#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-//#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embedding.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/embedding/embedding_test_utils.hpp"
@@ -37,15 +36,16 @@ namespace {
 
 //---------------------------------------------------------------------------------------
 // global params for all testing 
-const std::vector<int> device_list = {0,1,2,3};
+//const std::vector<int> device_list = {0,1,2,3};
+const std::vector<int> device_list = {0,3};
 //const std::vector<int> device_list = {0};
-const int batch_num = 2;  // can not more than 32
+const int batch_num = 4;  // can not more than 32
 const int batchsize = 4096;
 const long long num_records = batchsize * batch_num;
 const int slot_num = 8; 
 const int max_nnz_per_slot = 10;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
-const long long vocabulary_size = 55000;
+const long long vocabulary_size = 100;
 const int embedding_vec_size = 64;
 const int combiner = 1;   // 0-sum, 1-mean
 const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
@@ -65,7 +65,6 @@ const int num_files = 1;
 const Check_t CHK = Check_t::Sum; // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
-const std::string plan_file("./bin/all2all_plan.json");
 
 const char *hash_table_file_name = "distributed_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
