@@ -589,12 +589,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::update_params_per_thread(i
 }
 
 template <typename TypeHashKey>
-static inline void update_params_per_thread_wrapper_hash_distributed(
-    int tid, DistributedSlotSparseEmbeddingHash<TypeHashKey> *sparse_embedding_hash) {
-  sparse_embedding_hash->update_params_per_thread(tid);
-}
-
-template <typename TypeHashKey>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey>::update_params() {
   int local_gpu_count = Base::device_resources_->size();
   int total_gpu_count = Base::device_resources_->get_total_gpu_count();
@@ -602,9 +596,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::update_params() {
   if (total_gpu_count > 1) {  // use multiple CPU threads to launch tasks on multiple GPUs
     // launch threads
     for (int id = 0; id < local_gpu_count; id++) {
-      // Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
-      //     std::ref(update_params_per_thread_wrapper_hash_distributed<TypeHashKey>), this);
-      // std::cout << "num_threads:" << Base::device_resources_->train_thread_pool.size() << std::endl;
       Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
           [this, id](int i) { this->update_params_per_thread(id); } );
     }
