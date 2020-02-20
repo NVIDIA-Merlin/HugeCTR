@@ -19,8 +19,7 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 ## Build ##
 ### Init Git ###
 ```shell
-$ git submodule init
-$ git submodule update
+$ git submodule update --init --recursive
 ```
 
 ### Build with Release ###
