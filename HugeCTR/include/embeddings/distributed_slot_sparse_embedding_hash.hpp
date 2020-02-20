@@ -81,20 +81,32 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
   Tensors<TypeHashValueIndex>
       hash_value_index_sort_tensors_; /**< The temp memory to store the sorted hash table value
                                          indexes in update_params(). */
-  Tensors<uint32_t> hash_value_index_count_tensors_; /**< The temp memory to store the count of hash
-                                                        table value indexes in update_params(). */
+  // Tensors<uint32_t> hash_value_index_count_tensors_; /**< The temp memory to store the count of hash
+  //                                                       table value indexes in update_params(). */
   Tensors<uint32_t>
       hash_value_index_count_offset_tensors_; /**< The temp memory to store the offset of each count
                                                  of hash table value indexes in update_params(). */
   Tensors<uint32_t> hash_value_index_count_counter_tensors_; /**< The temp memory to store the
                                                                 counter of the count of hash table
                                                                 value indexes in update_params(). */
+
+  Tensors<uint32_t> new_hash_value_flag_tensors_; 
+  Tensors<uint32_t> hash_value_flag_sumed_tensors_; 
+
+
+
   Tensors<TypeHashKey> sample_id_tensors_;      /**< The temp memory to store the sample ids of hash
                                                    table value in      update_params(). */
   Tensors<TypeHashKey> sample_id_sort_tensors_; /**< The temp memory to store the sorted sample ids
                                                    of hash table value in update_params(). */
   Tensors<TypeHashKey> temp_storage_sort_tensors_; /**< The temp memory for the CUB lib sorting API
                                                       in update_params(). */
+
+  Tensors<uint32_t> temp_storage_scan_tensors_; /**< The temp memory for the CUB lib scaning API
+                                                      in update_params(). */
+
+
+
   Tensors<TypeHashValueIndex>
       deltaw_hash_value_index_tensors_; /**< The temp memory to store the hash table indexes of
                                            deltaw in update_params(). */
@@ -108,6 +120,10 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
       value_index_bufs_; /**< TypeHashValueIndex type general buffer. */
 
   std::vector<size_t> temp_storage_sort_bytes_;  /**< The temp variable for CUB lib sorting API. */
+
+  std::vector<size_t> temp_storage_scan_bytes_;   /**< The temp variable for CUB lib scaning API. */
+
+
   int max_vocabulary_size_per_gpu_;               /**< Max vocabulary size for each GPU. */
 
   SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
@@ -312,12 +328,24 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
       hash_value_index_sort_tensors_.emplace_back(new Tensor<TypeHashValueIndex>(
           {1, embedding_params_.batch_size * embedding_params_.max_feature_num},
           value_index_bufs_.back(), TensorFormat_t::HW));
-      hash_value_index_count_tensors_.emplace_back(new Tensor<uint32_t>(
-          {1, embedding_params_.batch_size * embedding_params_.max_feature_num},
-          uint32_bufs_.back(), TensorFormat_t::HW));
+      // hash_value_index_count_tensors_.emplace_back(new Tensor<uint32_t>(
+      //     {1, embedding_params_.batch_size * embedding_params_.max_feature_num},
+      //     uint32_bufs_.back(), TensorFormat_t::HW));
       hash_value_index_count_offset_tensors_.emplace_back(new Tensor<uint32_t>(
-          {1, embedding_params_.batch_size * embedding_params_.max_feature_num},
+          {1, embedding_params_.batch_size * embedding_params_.max_feature_num + 1},
           uint32_bufs_.back(), TensorFormat_t::HW));
+
+
+      new_hash_value_flag_tensors_.emplace_back(new Tensor<uint32_t>(
+           {1, embedding_params_.batch_size * embedding_params_.max_feature_num},
+           uint32_bufs_.back(), TensorFormat_t::HW));
+      
+
+      hash_value_flag_sumed_tensors_.emplace_back(new Tensor<uint32_t>(
+           {1, embedding_params_.batch_size * embedding_params_.max_feature_num},
+           uint32_bufs_.back(), TensorFormat_t::HW));
+
+
       hash_value_index_count_counter_tensors_.emplace_back(
           new Tensor<uint32_t>({1, 1}, uint32_bufs_.back(), TensorFormat_t::HW));
       deltaw_hash_value_index_tensors_.emplace_back(new Tensor<TypeHashValueIndex>(
@@ -327,19 +355,32 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
           new Tensor<float>({embedding_params_.batch_size * embedding_params_.max_feature_num,
                              embedding_params_.embedding_vec_size},
                             float_bufs_.back(), TensorFormat_t::HW));
+      {
+	// cal the temp storage bytes for CUB radix sort
+	size_t temp = 0;
+	cub::DeviceRadixSort::SortPairs(
+					(void *)NULL, (size_t &)temp, (TypeHashKey *)NULL, (TypeHashKey *)NULL,
+					(TypeHashKey *)NULL, (TypeHashKey *)NULL,
+					embedding_params_.batch_size * embedding_params_.max_feature_num);
+	temp_storage_sort_bytes_.push_back(temp);
+	int size = (int)ceil((float)temp_storage_sort_bytes_[id] / sizeof(TypeHashKey));
 
-      // cal the temp storage bytes for CUB radix sort
-      size_t temp = 0;
-      cub::DeviceRadixSort::SortPairs(
-          (void *)NULL, (size_t &)temp, (TypeHashKey *)NULL, (TypeHashKey *)NULL,
-          (TypeHashKey *)NULL, (TypeHashKey *)NULL,
-          embedding_params_.batch_size * embedding_params_.max_feature_num);
-      temp_storage_sort_bytes_.push_back(temp);
-      int size = (int)ceil((float)temp_storage_sort_bytes_[id] / sizeof(TypeHashKey));
+	// new temp storage tensors for CUB radix sort
+	temp_storage_sort_tensors_.emplace_back(
+  	  new Tensor<TypeHashKey>({1, size}, key_bufs_.back(), TensorFormat_t::HW));
+      }
 
-      // new temp storage tensors for CUB radix sort
-      temp_storage_sort_tensors_.emplace_back(
-          new Tensor<TypeHashKey>({1, size}, key_bufs_.back(), TensorFormat_t::HW));
+      {
+	size_t temp = 0;
+	cub::DeviceScan::ExclusiveSum((void *)NULL, temp, (uint32_t*)NULL, (uint32_t*)NULL, embedding_params_.batch_size * embedding_params_.max_feature_num);
+	temp_storage_scan_bytes_.push_back(temp);
+
+	int size = (int)ceil((float)temp_storage_scan_bytes_[id] / sizeof(uint32_t));
+	
+	temp_storage_scan_tensors_.emplace_back(
+  	  new Tensor<uint32_t>({1, size}, uint32_bufs_.back(), TensorFormat_t::HW));
+      }
+
 
       // init GenenralBuffers to do real allocation
 #ifndef NDEBUG
@@ -572,11 +613,17 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::update_params_per_thread(i
                     sample_id_tensors_[tid]->get_ptr(),
                     sample_id_sort_tensors_[tid]->get_ptr(), 
                     hash_value_index_sort_tensors_[tid]->get_ptr(),
-                    hash_value_index_count_tensors_[tid]->get_ptr(),
+
                     hash_value_index_count_offset_tensors_[tid]->get_ptr(),
+
+		  new_hash_value_flag_tensors_[tid]->get_ptr(),
+		  hash_value_flag_sumed_tensors_[tid]->get_ptr(),
+
                     hash_value_index_count_counter_tensors_[tid]->get_ptr(),
                     temp_storage_sort_tensors_[tid]->get_ptr(), 
                     temp_storage_sort_bytes_[tid],
+		    temp_storage_scan_tensors_[tid]->get_ptr(), 
+		    temp_storage_scan_bytes_[tid],
                     wgrad_tensors_[tid]->get_ptr(), 
                     deltaw_hash_value_index_tensors_[tid]->get_ptr(),
                     deltaw_tensors_[tid]->get_ptr(), 
