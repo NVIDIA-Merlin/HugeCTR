@@ -21,6 +21,7 @@
 #include "HugeCTR/include/gpu_resource.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_kernels.cuh"
 #include "cub/cub/device/device_radix_sort.cuh"
+#include "cub/cub/device/device_scan.cuh"
 #include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/FasterGossipComm.h"
 #include "HugeCTR/include/hashtable/nv_hashtable.cuh"
 
@@ -408,6 +409,8 @@ public:
    * @param hash_value_index_count_counter the pointer of the counter of hash value_index count
    * @param temp_storage_sort the pointer of the temp buffer for the CUB lib sorting API
    * @param temp_storage_sort_bytes the bytes of the temp buffer for the CUB lib sorting API
+   * @param temp_storage_scan the pointer of the temp buffer for the CUB lib scaning API
+   * @param temp_storage_scan_bytes the bytes of the temp buffer for the CUB lib scaning API
    * @param wgrad the pointer of wgrad
    * @param deltaw_hash_value_index the pointer of deltaw's corresponding hash value_index
    * @param deltaw the pointer of deltaw, which is used to update the hash table value
@@ -428,11 +431,18 @@ public:
                     TypeHashKey *sample_id, 
                     TypeHashKey *sample_id_sort,
                     TypeHashValueIndex *hash_value_index_sort, 
-                    uint32_t *hash_value_index_count,
-                    uint32_t *hash_value_index_count_offset, 
+                    // uint32_t *hash_value_index_count,
+                    
+		    uint32_t *hash_value_index_count_offset, 
+                    uint32_t *new_hash_value_flag,
+                    uint32_t *hash_value_flag_sumed, 
+
                     uint32_t *hash_value_index_count_counter,
                     void *temp_storage_sort, 
                     size_t temp_storage_sort_bytes, 
+                    void *temp_storage_scan, 
+                    size_t temp_storage_scan_bytes, 
+
                     const float *wgrad,
                     TypeHashValueIndex *deltaw_hash_value_index, 
                     float *deltaw, 
@@ -491,11 +501,20 @@ public:
 
       // step4: count the number for each unduplicated hash_value_index
       CK_CUDA_THROW_(cudaMemsetAsync(hash_value_index_count_counter, 0, sizeof(uint32_t), stream));
-      gridSize.x = (nnz + (blockSize.x - 1)) / blockSize.x;
-      value_count_kernel<<<gridSize, blockSize, 0, stream>>>(
-          nnz, hash_value_index_sort, hash_value_index_count, hash_value_index_count_offset,
-          hash_value_index_count_counter);
+      blockSize.x = 256;
+      const int target_grid_size = (nnz + (blockSize.x - 1)) / blockSize.x;
+      const int MAX_GRID = 384;
+      gridSize.x = target_grid_size < MAX_GRID ? target_grid_size : MAX_GRID;
+      value_count_kernel_1<<<gridSize, blockSize, 0, stream>>>(
+          nnz, hash_value_index_sort, new_hash_value_flag);
 
+      //prefix_sum
+      CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum((void *)temp_storage_scan, temp_storage_scan_bytes, new_hash_value_flag, hash_value_flag_sumed, nnz, stream));
+
+      value_count_kernel_2<<<gridSize, blockSize, 0, stream>>>(
+        nnz, new_hash_value_flag, hash_value_flag_sumed, hash_value_index_count_offset, hash_value_index_count_counter);
+
+#if 1
       uint32_t hash_hash_value_index_count_num = 0;
       // this async memcpy will not perform as a async operation because the host memory is not a
       // pinned memroy
@@ -515,21 +534,21 @@ public:
 
           opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-              sample_id_sort, hash_value_index_sort, hash_value_index_count,
+              sample_id_sort, hash_value_index_sort, 
               hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw);
           break;
         case 1:  // momentum sgd
           opt_momentum_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
               opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
-              hash_value_index_count, hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
+              hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
               (float *)deltaw);
           break;
         case 2:  // nesterov
           opt_nesterov_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
               opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-              hash_value_index_count, hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
+              hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
               (float *)deltaw);
           break;
         default:
@@ -542,6 +561,8 @@ public:
       update_kernel<TypeHashValueIndex>
           <<<gridSize, blockSize, 0, stream>>>(hash_hash_value_index_count_num, embedding_vec_size,
                                               deltaw_hash_value_index, deltaw, hash_table_value);
+
+#endif
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;
       throw;
