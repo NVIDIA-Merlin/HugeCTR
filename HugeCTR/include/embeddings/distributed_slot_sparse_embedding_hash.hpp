@@ -372,7 +372,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
 
       {
 	size_t temp = 0;
-	cub::DeviceScan::ExclusiveSum((void *)NULL, temp, (uint32_t*)NULL, (uint32_t*)NULL, embedding_params_.batch_size * embedding_params_.max_feature_num);
+	cub::DeviceScan::InclusiveSum((void *)NULL, temp, (uint32_t*)NULL, (uint32_t*)NULL, embedding_params_.batch_size * embedding_params_.max_feature_num);
 	temp_storage_scan_bytes_.push_back(temp);
 
 	int size = (int)ceil((float)temp_storage_scan_bytes_[id] / sizeof(uint32_t));

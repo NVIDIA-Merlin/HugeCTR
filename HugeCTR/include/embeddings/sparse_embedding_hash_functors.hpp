@@ -509,12 +509,10 @@ public:
           nnz, hash_value_index_sort, new_hash_value_flag);
 
       //prefix_sum
-      CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum((void *)temp_storage_scan, temp_storage_scan_bytes, new_hash_value_flag, hash_value_flag_sumed, nnz));
+      CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum((void *)temp_storage_scan, temp_storage_scan_bytes, new_hash_value_flag, hash_value_flag_sumed, nnz, stream));
 
       value_count_kernel_2<<<gridSize, blockSize, 0, stream>>>(
         nnz, new_hash_value_flag, hash_value_flag_sumed, hash_value_index_count_offset, hash_value_index_count_counter);
-
-      
 
 #if 1
       uint32_t hash_hash_value_index_count_num = 0;
