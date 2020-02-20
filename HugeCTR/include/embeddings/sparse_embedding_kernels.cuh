@@ -249,12 +249,12 @@ __global__ void value_count_kernel_2(const int nnz,
   for(int gid = blockIdx.x * blockDim.x + threadIdx.x; gid < nnz; gid += blockDim.x*gridDim.x){
     uint32_t flag = new_hash_value_flag[gid];
     if(flag == 1){
-	hash_value_index_index[hash_value_flag_sumed[gid]] = gid;
+	hash_value_index_index[hash_value_flag_sumed[gid]-1] = gid;
     }
   }
   if(blockIdx.x * blockDim.x + threadIdx.x == 0){
-    *counter = hash_value_flag_sumed[nnz-1]+1;
-    hash_value_index_index[*counter] == nnz;
+    *counter = hash_value_flag_sumed[nnz-1];
+    hash_value_index_index[*counter] = nnz;
   }
 }
 
