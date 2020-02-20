@@ -212,54 +212,53 @@ __device__ __forceinline__ void swap(TypeKey &a, TypeKey &b) {
   b = temp;
 }
 
-// count the number for each unduplicated hash_value_index
+
+
 template <typename TypeValueIndex>
-__global__ void value_count_kernel(const int nnz, 
-                                   const TypeValueIndex *hash_value_index_sort,
-                                   uint32_t *hash_value_index_count,
-                                   uint32_t *hash_value_index_count_offset,
-                                   uint32_t *hash_value_index_count_counter) {
-
-  int gid = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if (gid < nnz) {
+__global__ void value_count_kernel_1(const int nnz, 
+				     const TypeValueIndex *hash_value_index_sort,
+				     uint32_t *new_hash_value_flag)
+				     // uint32_t *hash_value_index_count,
+				     // uint32_t *hash_value_index_count_offset,
+				     // uint32_t *hash_value_index_count_counter) {
+{  
+  for(int gid = blockIdx.x * blockDim.x + threadIdx.x; gid < nnz; gid += blockDim.x*gridDim.x){
     TypeValueIndex cur_value = hash_value_index_sort[gid];
-    uint32_t sample_num = 0;
     if (gid > 0) {
       TypeValueIndex former_value = hash_value_index_sort[gid - 1];
       // decide if this is the start of a group(the elements in this group have the same
       // hash_value_index_sort)
       if (cur_value != former_value) {
-        sample_num = 1;
+        new_hash_value_flag[gid] = 1;
       } else {
-        sample_num = 0;
+        new_hash_value_flag[gid] = 0;
       }
     } else {  // gid == 0
-      sample_num = 1;
-    }
-
-    // if sample_num > 0, continue to compare the current hash_value_index_sort with latter values,
-    // cal how many elements in this group
-    if (sample_num) {
-      while (gid + sample_num < nnz) {
-        TypeValueIndex latter_value = hash_value_index_sort[gid + sample_num];
-        if (cur_value == latter_value) {
-          sample_num++;
-        } else {
-          break;
-        }
-      }
-
-      // record sample_num in the hash_value_index_count array(with all non-zero values) and the
-      // corresponding offset in the hash_value_index_count_offset array This is a parallel writing,
-      // so the hash_value_index_count array will be out-of-order(not sorted like the original
-      // hash_value_index_sort array).
-      uint32_t counter = atomicAdd(hash_value_index_count_counter, 1);
-      hash_value_index_count[counter] = sample_num;
-      hash_value_index_count_offset[counter] = gid;
+      new_hash_value_flag[gid] = 1;
     }
   }
 }
+
+__global__ void value_count_kernel_2(const int nnz, 
+				     const uint32_t *new_hash_value_flag,
+				     const uint32_t *hash_value_flag_sumed,
+				     uint32_t *hash_value_index_index,
+				     uint32_t *counter)
+
+{ 
+  for(int gid = blockIdx.x * blockDim.x + threadIdx.x; gid < nnz; gid += blockDim.x*gridDim.x){
+    uint32_t flag = new_hash_value_flag[gid];
+    if(flag == 1){
+	hash_value_index_index[hash_value_flag_sumed[gid]] = gid;
+    }
+  }
+  if(blockIdx.x * blockDim.x + threadIdx.x == 0){
+    *counter = hash_value_flag_sumed[nnz-1]+1;
+    hash_value_index_index[*counter] == nnz;
+  }
+}
+
+
 
 // calculate weights update value(deltaw) by adam opitimizer
 template <typename TypeKey, typename TypeValueIndex>
@@ -268,7 +267,6 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
                                 const AdamOptHyperParams adam,
                                 const TypeKey *sample_id,
                                 const TypeValueIndex *hash_value_index_sort,
-                                const uint32_t *hash_value_index_count,
                                 const uint32_t *hash_value_index_count_offset, 
                                 const float *wgrad,
                                 TypeValueIndex *deltaw_hash_value_index, 
@@ -277,7 +275,8 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    uint32_t sample_num = hash_value_index_count[bid];
+    //uint32_t sample_num = hash_value_index_count[bid];
+    uint32_t sample_num = hash_value_index_count_offset[bid+1] - hash_value_index_count_offset[bid];
 
     // accumulate the wgrads for the corresponding embedding vector
     float gi = 0.0f;
@@ -314,7 +313,6 @@ __global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_nu
                                         const MomentumSgdOptHyperParams momentum, 
                                         const TypeKey *sample_id,
                                         const TypeValueIndex *hash_value_index_sort, 
-                                        const uint32_t *hash_value_index_count,
                                         const uint32_t *hash_value_index_count_offset, 
                                         const float *wgrad,
                                         TypeValueIndex *deltaw_hash_value_index, 
@@ -323,8 +321,8 @@ __global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_nu
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    uint32_t sample_num = hash_value_index_count[bid];
-
+    //    uint32_t sample_num = hash_value_index_count[bid];
+    uint32_t sample_num = hash_value_index_count_offset[bid+1] - hash_value_index_count_offset[bid];
     // accumulate the wgrads for the corresponding embedding vector
     float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
@@ -357,7 +355,6 @@ __global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num,
                                     const NesterovOptHyperParams nesterov, 
                                     const TypeKey *sample_id,
                                     const TypeValueIndex *hash_value_index_sort, 
-                                    const uint32_t *hash_value_index_count,
                                     const uint32_t *hash_value_index_count_offset, 
                                     const float *wgrad,
                                     TypeValueIndex *deltaw_hash_value_index, 
@@ -366,7 +363,8 @@ __global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num,
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    uint32_t sample_num = hash_value_index_count[bid];
+    //    uint32_t sample_num = hash_value_index_count[bid];
+    uint32_t sample_num = hash_value_index_count_offset[bid+1] - hash_value_index_count_offset[bid];
 
     // accumulate the wgrads for the corresponding embedding vector
     float gi = 0.0f;
