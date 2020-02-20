@@ -35,14 +35,16 @@ namespace {
 
 //---------------------------------------------------------------------------------------
 // global params for all testing 
-//const std::vector<int> device_list = {0,1};
-const std::vector<int> device_list = {0,3};
+// const std::vector<int> device_list = {0,1};
+const std::vector<int> device_list = {0,1,2,3};
+//const std::vector<int> device_list = {0,3};
+// const std::vector<int> device_list = {0,1,2,3,4,5,6,7};
 //const std::vector<int> device_list = {0};
 const int batch_num = 4;  // can not more than 32
-const int batchsize = 4096;
+const int batchsize = 8;
 const long long num_records = batchsize * batch_num;
-const int slot_num = 10; 
-const int max_nnz_per_slot = 10;
+const int slot_num = 5; 
+const int max_nnz_per_slot = 4;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
 const long long vocabulary_size = 100;
 const int embedding_vec_size = 64;
@@ -64,8 +66,10 @@ const int num_files = 1;
 const Check_t CHK = Check_t::Sum; // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
-//const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan.json");
-const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_0_3.json"); // for device_list {0,3} testing
+//const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
+//const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); // for device_list {0,3} testing
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json"); // for device_list {0,3} testing
+const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json"); // for device_list {0,3} testing
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -269,7 +273,7 @@ TEST(localized_sparse_embedding_hash_test, forward_all2all_reorder_single_node) 
   std::cout << "all2all init" << std::endl;
   functors.all2all_init(all2all, plan_file, element_per_send, d_src, d_mid, gpu_resource_group);
   std::cout << "all2all sync" << std::endl;
-  functors.all2all_sync(all2all);
+  functors.all2all_exec(all2all);
 
   // check results of all2all
   for(int id = 0; id < local_gpu_count; id++) {
@@ -547,8 +551,8 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
       T slot_id = key%slot_num; // CAUSION: need to dedicate the slot_id for each key for correctness verification
       weight_stream.write((char *)&slot_id, sizeof(T));
       // float val = (float)i;
-      //float val = 1.0f;
-      float val = fdata_sim.get_num();
+      float val = 0.1f;
+      //float val = fdata_sim.get_num();
       for (int j = 0; j < embedding_vec_size; j++) {
         weight_stream.write((char *)&val, sizeof(float));
       }
@@ -602,6 +606,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
     printf("embedding->get_forward_results()\n");
     embedding->get_forward_results(embedding_feature_from_gpu);  // memcpy from GPU to CPU
 
+    // // just for debug 
     // for(int l=0; l<batchsize; l++) {
     //   for(int j=0; j<slot_num; j++) {
     //     for(int k=0; k<embedding_vec_size; k++) {
@@ -651,6 +656,18 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
     printf("embedding->get_update_params_results()\n");
     embedding->get_update_params_results(hash_table_key_from_gpu,
                                   hash_table_value_from_gpu);  // memcpy from GPU to CPU
+
+    // // just for debug 
+    // std::cout << "hash_table_key_from_gpu: " << std::endl;
+    // for(int i = 0; i < (vocabulary_size+1); i++) {
+    //   std::cout << hash_table_key_from_gpu[i] << ", ";
+    //   if((i+1)%10 == 0) {
+    //     std::cout << std::endl;
+    //   }
+    // }
+    // std::cout << std::endl;
+
+
 
     printf("check update_params results\n");
     bool rtn = compare_hash_table<T, TypeHashValue>(
