@@ -146,6 +146,8 @@ void MultiplyLayer::bprop(cudaStream_t stream) {
   int vector_length = in_tensors_[0]->get_dims()[1];
   size_t size = (size_t)batch_size * vector_length;
 
+  cudaMemsetAsync(wgrad, 0, wgrad_[0]->get_size(), stream);
+
   dim3 blockSize(64, 1, 1);
   dim3 gridSize(batch_size, 1, 1);
   multiply_wgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, wgrad, 
