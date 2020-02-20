@@ -13,7 +13,7 @@
 #include "../FasterComm.h"
 #include "FasterGossipCommTraits.h"
 #include "gossip/include/plan_parser.hpp"
-#include "../../nv_util.h"
+#include "HugeCTR/include/nv_util.h"
 
 namespace FasterGossipComm{
 
@@ -93,6 +93,40 @@ public:
             CUDA_CHECK( cudaSetDevice( context_->get_device_id(i) ) );
             CUDA_CHECK( cudaMalloc( &buf_[i], sizeof(data_t) * bufs_lens_calc[i] ) );
         }
+    }
+
+    std::vector<size_t> Initialize_no_malloc(const std::vector<data_t *>& src,
+                                             const std::vector<data_t *>& dst,
+                                             const std::vector<std::vector<size_t>>& table){
+
+        // Device restorer
+        nv::CudaDeviceRestorer dev_restorer;
+
+        // Set user specific src and dst GPU buffers and partition table
+        parameters_.set(src, dst, table);
+
+        // Calculate send/recv buffer length on each GPUs
+        for(gossip::gpu_id_t i = 0; i < num_gpu_; i++){
+            src_len_[i] = 0;
+            dst_len_[i] = 0;
+            for( gossip::gpu_id_t j = 0; j < num_gpu_; j++){
+                src_len_[i] += parameters_.table_[i][j];
+                dst_len_[i] += parameters_.table_[j][i];
+            }
+        }
+
+        // Calculate temp buffers required on each GPU for communication 
+        std::vector<size_t> bufs_lens_calc = executor_->calcBufferLengths(parameters_.table_);
+
+        // Temp buffer length
+        buf_len_ = bufs_lens_calc;
+
+        return bufs_lens_calc;
+
+    }
+
+    void set_buf(const std::vector<data_t *>& buf){
+        buf_ = buf;
     }
 
     void execAsync(){

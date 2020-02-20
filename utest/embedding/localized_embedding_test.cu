@@ -269,7 +269,7 @@ TEST(localized_sparse_embedding_hash_test, forward_all2all_reorder_single_node) 
   std::cout << "all2all init" << std::endl;
   functors.all2all_init(all2all, plan_file, element_per_send, d_src, d_mid, gpu_resource_group);
   std::cout << "all2all sync" << std::endl;
-  functors.all2all_sync(all2all);
+  functors.all2all_exec(all2all);
 
   // check results of all2all
   for(int id = 0; id < local_gpu_count; id++) {

@@ -19,12 +19,7 @@
 #include "HugeCTR/include/embedding.hpp"
 #include "cub/cub/device/device_radix_sort.cuh"
 #include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.hpp"
-
 #include <vector>
-
-#ifdef ENABLE_MPI
-#include <mpi.h>
-#endif
 
 namespace HugeCTR {
 /**
@@ -51,8 +46,13 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
                                            // will be uint32 or int64)
   using NvHashTable = nv::HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>;
   
-  using comm_handler_traits = FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
+#if (!ENABLE_MPI)
+  using comm_handler_traits= FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
   using comm_handler = FasterGossipComm::FasterGossipComm<float, comm_handler_traits>;
+#else 
+  using comm_handler_traits = FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<data_t>;
+  using comm_handler = FasterGossipCommMulti::FasterGossipCommMulti<data_t, comm_handler_traits>;
+#endif 
 
  private:
   SparseEmbeddingHashParams embedding_params_; /**< Sparse embedding hash params. */
@@ -441,14 +441,15 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
     // TODO: (just support intra-node currently)
     const size_t element_per_send = (embedding_params_.batch_size * slot_num_per_gpu_) * \
                                     embedding_params_.embedding_vec_size / total_gpu_count;
-    // std::cout << "slot_num_per_gpu_=" << slot_num_per_gpu_ << std::endl;
-    // std::cout << "element_per_send=" << element_per_send << std::endl;
-    // std::cout << "embedding_feature_tensors_=" << embedding_feature_tensors_[0]->get_ptr() << std::endl;
-    // std::cout << "all2all_tensors_" << all2all_tensors_[0]->get_ptr() << std::endl;
+#ifndef NDEBUG
+    std::cout << "slot_num_per_gpu_=" << slot_num_per_gpu_ << std::endl;
+    std::cout << "element_per_send=" << element_per_send << std::endl;
+#endif 
     functors_.all2all_init(all2all_forward_, plan_file_, element_per_send, embedding_feature_tensors_, \
                           all2all_tensors_, Base::device_resources_);
     functors_.all2all_init(all2all_backward_, plan_file_, element_per_send, all2all_tensors_, \
                           embedding_feature_tensors_, Base::device_resources_);
+    
     // sync
     functors_.sync_all_gpus(Base::device_resources_, context);
 
@@ -512,7 +513,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
 
   // do all-to-all (just support intra-node currently)
   // src=embedding_feature_tensors_; dst=Base::output_tensors_
-  functors_.all2all_sync(all2all_forward_);
+  functors_.all2all_exec(all2all_forward_);
 
   // reorder 
   functors_.forward_reorder(embedding_params_.batch_size,
@@ -560,7 +561,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::backward() {
 
   // do all2all to collect the top_grad
   // src=all2all_tensors_; dst=embedding_feature_tensors_
-  functors_.all2all_sync(all2all_backward_);
+  functors_.all2all_exec(all2all_backward_);
 
   // do backward
   functors_.backward(embedding_params_.batch_size, 
@@ -768,7 +769,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::get_backward_results(float *
                                   embedding_params_.embedding_vec_size / total_gpu_count;
   functors_.all2all_init(all2all, plan_file_, element_per_send, wgrad_tensors_, \
                         all2all_tensors, Base::device_resources_);
-  functors_.all2all_sync(all2all);
+  functors_.all2all_exec(all2all);
 
   // reorder 
   functors_.forward_reorder(embedding_params_.batch_size,

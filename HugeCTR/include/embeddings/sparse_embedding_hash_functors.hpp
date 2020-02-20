@@ -22,14 +22,24 @@
 #include "HugeCTR/include/embeddings/sparse_embedding_kernels.cuh"
 #include "cub/cub/device/device_radix_sort.cuh"
 #include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/FasterGossipComm.h"
+#include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/FasterGossipCommMulti.h"
 #include "HugeCTR/include/hashtable/nv_hashtable.cuh"
+
+#ifdef ENABLE_MPI
+#include <mpi.h>
+#endif
 
 namespace HugeCTR {
 
 class SparseEmbeddingHashFunctors {
 
-  using comm_handler_traits = FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
+#if (!ENABLE_MPI)
+  using comm_handler_traits= FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
   using comm_handler = FasterGossipComm::FasterGossipComm<float, comm_handler_traits>;
+#else 
+  using comm_handler_traits = FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<data_t>;
+  using comm_handler = FasterGossipCommMulti::FasterGossipCommMulti<data_t, comm_handler_traits>;
+#endif 
 
 public:
   /**
@@ -579,9 +589,11 @@ public:
     }
   }
 
+#if (!ENABLE_MPI)
   /**
-   * the initialization of collection communication: all2all.
+   * the initialization of collection communication: all2all for single node 
    * @param all2all all2all handler
+   * @param plan_file plan file which demonstrates gpu topo
    * @param element_per_send the element number per send
    * @param send_tensors the send tensors of multi GPUs.
    * @param recv_tensors the recv tensors of multi GPUs.
@@ -602,7 +614,7 @@ public:
     size_t local_gpu_count =  device_list.size();    
     if(local_gpu_count != plan_gpu_count) {
       CK_THROW_(Error_t::WrongInput,
-            "Error: the device_list doesn't matched the plan_file");   
+            "Error: the device_list doesn't match the plan_file");   
     }
     std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
 #ifndef NDEBUG
@@ -615,25 +627,25 @@ public:
 
     all2all = std::unique_ptr<comm_handler>(new comm_handler(plan_file, device_ids)); // The all2all communication class
 
-    std::vector<float *> src(plan_gpu_count);
-    std::vector<float *> dst(plan_gpu_count);
-    for(int id = 0; id < plan_gpu_count; id++) {
+    std::vector<float *> src(local_gpu_count);
+    std::vector<float *> dst(local_gpu_count);
+    for(int id = 0; id < local_gpu_count; id++) {
       src[id] = send_tensors[id]->get_ptr();
       dst[id] = recv_tensors[id]->get_ptr();
     }
 
     // Fill in partition table, ith Topo GPU to jth Topo GPU
-    std::vector<std::vector<size_t>> table(plan_gpu_count, std::vector<size_t>(plan_gpu_count));
-    for(int i = 0; i < plan_gpu_count; i++){
-      for(int j = 0; j < plan_gpu_count; j++){
+    std::vector<std::vector<size_t>> table(local_gpu_count, std::vector<size_t>(local_gpu_count));
+    for(int i = 0; i < local_gpu_count; i++){
+      for(int j = 0; j < local_gpu_count; j++){
         table[i][j] = element_per_send;
       }
     }
 
 #ifndef NDEBUG
     std::cout << "all2all table:"<< std::endl;
-    for(int i = 0; i < plan_gpu_count; i++){
-      for(int j = 0; j < plan_gpu_count; j++){
+    for(int i = 0; i < local_gpu_count; i++){
+      for(int j = 0; j < local_gpu_count; j++){
         std::cout << table[i][j] << ", ";
       }
       std::cout << std::endl;
@@ -647,16 +659,133 @@ public:
   }
 
   /**
-   * collection communication: all2all.
+   * collection communication: all2all for single node 
    * @param all2all all2all handler
    */
-  void all2all_sync(const std::unique_ptr<comm_handler>& all2all) {
+  void all2all_exec(const std::unique_ptr<comm_handler>& all2all) {
 
     all2all->execAsync();
     all2all->sync();
     
     return;
   }
+
+#else 
+
+  /**
+   * the initialization of collection communication: all2all for multi-node 
+   * @param all2all all2all handler
+   * @param plan_file plan file which demonstrates gpu topo
+   * @param element_per_send the element number per send
+   * @param send_tensors the send tensors of multi GPUs.
+   * @param recv_tensors the recv tensors of multi GPUs.
+   * @param device_resources all gpus device resources.
+   */
+  void all2all_init(std::unique_ptr<comm_handler>& all2all,
+                    const std::string& plan_file,
+                    const size_t element_per_send,
+                    const Tensors<float>& send_tensors,
+                    Tensors<float>& recv_tensors,
+                    const std::shared_ptr<GPUResourceGroup>& device_resources) {
+
+    using transfer_plan_t = comm_handler_traits::transfer_plan_t;
+    transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
+    int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
+    
+    std::vector<int> device_list = device_resources->get_device_list();
+    size_t local_gpu_count =  device_list.size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
+    if(local_gpu_count != plan_gpu_count) {
+      CK_THROW_(Error_t::WrongInput,
+            "Error: the device_list doesn't match the plan_file");   
+    }
+
+    int total_rank = 1;
+    int my_rank = 0;
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
+    int num_proc = device_resources->get_node_count();
+    if(num_proc != total_rank) {
+      CK_THROW_(Error_t::WrongInput,
+            "Error: the MPI total rank doesn't match the node count");   
+    }
+    if(total_gpu_count != (total_rank*local_gpu_count)) {
+      CK_THROW_(Error_t::WrongInput,
+            "Error: the total gpu count doesn't match");   
+    }
+#ifndef NDEBUG
+    std::cout << "total_rank=" << total_rank << ", my_rank=" << my_rank \
+      ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" \
+      << local_gpu_count << std::endl;
+#endif 
+
+    std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
+#ifndef NDEBUG
+    std::cout << "gpu device list: { ";
+    for(auto dev: device_ids) {
+      std::cout << dev << " ";
+    }
+    std::cout << "}" << std::endl;
+#endif 
+
+    // The all2all communication class
+    all2all = std::unique_ptr<comm_handler>(\
+        new comm_handler(plan_file, device_ids, num_proc, my_rank, MPI_COMM_WORLD)); 
+
+    std::vector<float *> src(local_gpu_count);
+    std::vector<float *> dst(local_gpu_count);
+    for(int id = 0; id < local_gpu_count; id++) {
+      src[id] = send_tensors[id]->get_ptr();
+      dst[id] = recv_tensors[id]->get_ptr();
+    }
+
+    // Fill in partition table, ith Topo GPU to jth Topo GPU
+    std::vector<std::vector<size_t>> send_table(local_gpu_count, std::vector<size_t>(total_gpu_count));
+    std::vector<std::vector<size_t>> recv_table(local_gpu_count, std::vector<size_t>(total_gpu_count));
+    for(int i = 0; i < local_gpu_count; i++){
+      for(int j = 0; j < total_gpu_count; j++){
+        send_table[i][j] = element_per_send;
+        recv_table[i][j] = element_per_send;
+      }
+    }
+
+#ifndef NDEBUG
+    std::cout << "all2all send_table:"<< std::endl;
+    for(int i = 0; i < local_gpu_count; i++){
+      for(int j = 0; j < total_gpu_count; j++){
+        std::cout << send_table[i][j] << ", ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << "all2all recv_table:"<< std::endl;
+    for(int i = 0; i < local_gpu_count; i++){
+      for(int j = 0; j < total_gpu_count; j++){
+        std::cout << recv_table[i][j] << ", ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+#endif 
+
+    all2all->Initialize(src, dst, send_table, recv_table);
+
+    return;
+  }
+
+  /**
+   * collection communication: all2all for multi-node
+   * @param all2all all2all handler
+   */
+  void all2all_exec(const std::unique_ptr<comm_handler>& all2all) {
+
+    all2all->exec();
+    
+    return;
+  }
+
+#endif 
 
   /**
    * reoder the sequence of data after all2all operation in forward propagation
