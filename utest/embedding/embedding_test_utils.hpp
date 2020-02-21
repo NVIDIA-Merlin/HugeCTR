@@ -227,8 +227,7 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
   size_t pair_size_in_B = sizeof(TypeHashKey) + sizeof(TypeSlotId) + sizeof(TypeHashValue);
   size_t pair_num = file_size1 / pair_size_in_B;
 
-//#ifndef NDEBUG
-#if 0
+#ifndef NDEBUG
   std::cout << "pair_size_in_B=" << pair_size_in_B << std::endl;
   std::cout << "pair_num=" << pair_num << std::endl; 
 #endif 
