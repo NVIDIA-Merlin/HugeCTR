@@ -901,7 +901,7 @@ public:
     }
 #ifndef NDEBUG
     std::cout << "total_rank=" << total_rank << ", my_rank=" << my_rank \
-      ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" \
+      << ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" \
       << local_gpu_count << std::endl;
 #endif 
 
@@ -1015,7 +1015,7 @@ public:
     }
 #ifndef NDEBUG
     std::cout << "total_rank=" << total_rank << ", my_rank=" << my_rank \
-      ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" \
+      << ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" \
       << local_gpu_count << std::endl;
 #endif 
 
