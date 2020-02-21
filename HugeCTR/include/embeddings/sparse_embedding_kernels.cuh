@@ -457,7 +457,7 @@ __global__ void get_hash_slot_id_kernel(const int count,
 
 // reorder operation after all2all in forward propagation 
 template <typename Type>
-__global__ void forward_reorder_kernel(const int batch_size,
+__global__ void forward_reorder_kernel(const int batch_size_per_gpu,
                                       const int slot_num,
                                       const int embedding_vec_size,
                                       const int gpu_num,
@@ -470,30 +470,37 @@ __global__ void forward_reorder_kernel(const int batch_size,
   int tid  = threadIdx.x;
   int bid = blockIdx.x;
 
-  int samples_per_gpu = batch_size / gpu_num; 
   int sample_id = bid; // sample_id on the current GPU 
 
-  if((bid < samples_per_gpu) && (tid < embedding_vec_size)) {
-    int slots_per_sample = (slot_num + gpu_num - 1) / gpu_num; 
-
-    int src_offset = sample_id * slots_per_sample * embedding_vec_size; 
-    int src_stride = samples_per_gpu * slots_per_sample * embedding_vec_size; 
-
+  if((bid < batch_size_per_gpu) && (tid < embedding_vec_size)) {
     int dst_offset = sample_id * slot_num * embedding_vec_size; // offset for the first slot of one sample
     int dst_stride = embedding_vec_size; // stride from slot to slot
 
     for(int slot_id = 0; slot_id < slot_num; slot_id++) {
-      int src_addr =  src_offset + (int)(slot_id / gpu_num) * embedding_vec_size \
-                      + src_stride * (slot_id % gpu_num);
+      int gpu_id = slot_id % gpu_num; 
+      int offset_pre = 0; // offset in previous gpus
+      for(int id = 0; id < gpu_id; id++) {
+        int slot_num_per_gpu = slot_num / gpu_num + ((id<(slot_num % gpu_num))? 1 : 0);
+        int stride = batch_size_per_gpu * slot_num_per_gpu;
+        offset_pre += stride;
+      }
+      int slot_num_per_gpu = slot_num / gpu_num + ((gpu_id<(slot_num % gpu_num))? 1 : 0);
+      int offset_cur = sample_id * slot_num_per_gpu; // offset in current gpu 
+      int src_addr = (offset_cur + offset_pre + (int)(slot_id / gpu_num)) * embedding_vec_size;
+
       int dst_addr = dst_offset + dst_stride * slot_id;
       output[dst_addr+tid] = input[src_addr+tid];
+
+      // // just for debug 
+      // printf("bid=%d, tid=%d, slot_id=%d, src_addr=%d, dst_addr=%d, input=%f, output=%f\n",\
+      // bid, tid, slot_id, src_addr, dst_addr, input[src_addr+tid], output[dst_addr+tid]);
     }
   }
 }
 
 // reorder operation before all2all in backward propagation 
 template <typename Type>
-__global__ void backward_reorder_kernel(const int batch_size,
+__global__ void backward_reorder_kernel(const int batch_size_per_gpu,
                                         const int slot_num,
                                         const int embedding_vec_size,
                                         const int gpu_num,
@@ -506,22 +513,25 @@ __global__ void backward_reorder_kernel(const int batch_size,
   int tid  = threadIdx.x;
   int bid = blockIdx.x;
 
-  int samples_per_gpu = batch_size / gpu_num; 
   int sample_id = bid; // sample_id on the current GPU 
 
-  if((bid < samples_per_gpu) && (tid < embedding_vec_size)) {
-    int slots_per_sample = (slot_num + gpu_num - 1) / gpu_num; 
-
+  if((bid < batch_size_per_gpu) && (tid < embedding_vec_size)) {
     int src_offset = sample_id * slot_num * embedding_vec_size; 
     int src_stride = embedding_vec_size; 
 
-    int dst_offset = sample_id * slots_per_sample * embedding_vec_size; // offset for the first slot of one sample
-    int dst_stride = samples_per_gpu * slots_per_sample * embedding_vec_size; // stride from slot to slot
-
     for(int slot_id = 0; slot_id < slot_num; slot_id++) {
+      int gpu_id = slot_id % gpu_num; 
+      int offset_pre = 0; // offset in previous gpus
+      for(int id = 0; id < gpu_id; id++) {
+        int slot_num_per_gpu = slot_num / gpu_num + ((id<(slot_num % gpu_num))? 1 : 0);
+        int stride = batch_size_per_gpu * slot_num_per_gpu;
+        offset_pre += stride;
+      }
+      int slot_num_per_gpu = slot_num / gpu_num + ((gpu_id<(slot_num % gpu_num))? 1 : 0);
+      int offset_cur = sample_id * slot_num_per_gpu; // offset in current gpu 
+      int dst_addr = (offset_cur + offset_pre + (int)(slot_id / gpu_num)) * embedding_vec_size;
+
       int src_addr =  src_offset + src_stride * slot_id;
-      int dst_addr = dst_offset + (int)(slot_id / gpu_num) * embedding_vec_size \
-      + dst_stride * (slot_id % gpu_num);
       output[dst_addr+tid] = input[src_addr+tid];
     }
   }
@@ -531,13 +541,14 @@ __global__ void backward_reorder_kernel(const int batch_size,
 template <typename TypeKey, typename TypeValueIndex>
 __global__ void store_slot_id_kernel(const int batch_size, 
                                     const int slot_num, // total slot number in hash table
+                                    const int slot_num_per_gpu,
                                     const int gpu_num, // total gpu number
                                     const int gpu_id, // global gpu device id
                                     const TypeKey *row_offset, 
                                     const TypeValueIndex *value_index,
                                     TypeValueIndex *slot_id) {
   int gid = blockIdx.x * blockDim.x + threadIdx.x;
-  int slot_num_per_gpu = (slot_num + gpu_num - 1) / gpu_num;
+  //int slot_num_per_gpu = (slot_num + gpu_num - 1) / gpu_num;
 
   if (gid < (batch_size * slot_num_per_gpu)) {
     int sid = gid % slot_num_per_gpu;
