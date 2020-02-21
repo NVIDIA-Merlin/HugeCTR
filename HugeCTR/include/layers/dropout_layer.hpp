@@ -60,6 +60,7 @@ class DropoutLayer : public Layer {
   void prop_common(const float* in, float* out, cudaStream_t stream);
 
   float rate_;
+  float scale_;
   float* mask_;
   curandGenerator_t curand_generator_;
   int n_sms_;
