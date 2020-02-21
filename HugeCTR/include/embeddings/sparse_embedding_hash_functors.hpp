@@ -33,12 +33,12 @@ namespace HugeCTR {
 
 class SparseEmbeddingHashFunctors {
 
-#if (!ENABLE_MPI)
+#ifndef ENABLE_MPI
   using comm_handler_traits= FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
   using comm_handler = FasterGossipComm::FasterGossipComm<float, comm_handler_traits>;
 #else 
-  using comm_handler_traits = FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<data_t>;
-  using comm_handler = FasterGossipCommMulti::FasterGossipCommMulti<data_t, comm_handler_traits>;
+  using comm_handler_traits = FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<float>;
+  using comm_handler = FasterGossipCommMulti::FasterGossipCommMulti<float, comm_handler_traits>;
 #endif 
 
 public:
@@ -141,7 +141,7 @@ public:
   /**
    * The overload version of forward for LocalizedSlotSparseEmbeddingHash
    * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num the number of slots in hash table.
+   * @param slot_num the number of slots
    * @param embedding_vec_size embedding vector size.
    * @param combiner 0-sum; 1-mean
    * @param row_offsets_tensors row_offsets tensors of mulitple GPUs (CSR format of input sparse tensors)
@@ -155,7 +155,7 @@ public:
    */
   template <typename TypeHashKey, typename TypeHashValueIndex>
   void forward(const int batch_size, 
-              const int slot_num,
+              const std::vector<int>& slot_num_per_gpu,
               const int embedding_vec_size, 
               const int combiner,
               const Tensors<TypeHashKey>& row_offsets_tensors,
@@ -169,10 +169,12 @@ public:
               const CudaDeviceContext& context) {
 
     int local_gpu_count = device_resources->size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
     // launch kernels on GPUs: do embedding lookup on multi GPUs
     for (int id = 0; id < local_gpu_count; id++) {
-      context.set_device((*device_resources)[id]->get_device_id());
+      int cur_device = (*device_resources)[id]->get_device_id();
+      context.set_device(cur_device);
 
       const auto &row_offset = row_offsets_tensors[id]->get_ptr();
       const auto &hash_key = value_tensors[id]->get_ptr();
@@ -185,9 +187,20 @@ public:
       try {
         // get hash_value_index from hash_table by hash_key
         size_t num;
-        CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num], sizeof(TypeHashKey),
+        CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num_per_gpu[id]], sizeof(TypeHashKey),
                                       cudaMemcpyDeviceToHost, stream));
         hash_table->get_insert(hash_key, hash_value_index, num, stream);
+
+
+        // // just for debug
+        // TypeHashKey * h_hash_key = (TypeHashKey *)malloc(num * sizeof(TypeHashKey));
+        // cudaMemcpy(h_hash_key, hash_key, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
+        // std::cout << "gpu=" << id << ", hash_keys:" << std::endl;
+        // for(int i = 0; i < num; i++) {
+        //   std::cout << h_hash_key[i] << ", " << std::endl;
+        // } 
+        // std::cout << std::endl;
+
 
         // do sum reduction
         dim3 blockSize(embedding_vec_size, 1,
@@ -195,17 +208,23 @@ public:
         dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
         if(combiner == 0) {
           forward_sum_kernel<TypeHashKey, TypeHashValueIndex>
-              <<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num, embedding_vec_size, row_offset,
+              <<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset,
                                                 hash_value_index, hash_table_value, embedding_feature);
         }
         else if(combiner == 1) {
           forward_mean_kernel<TypeHashKey, TypeHashValueIndex>
-              <<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num, embedding_vec_size, row_offset,
+              <<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset,
                                                 hash_value_index, hash_table_value, embedding_feature);
         }
         else {
           CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
         }
+
+        // // just for debug
+        // cudaStreamSynchronize(stream);
+
+
+
       } catch (const std::runtime_error &rt_err) {
         std::cerr << rt_err.what() << std::endl;
         throw;
@@ -216,9 +235,10 @@ public:
   }
 
   /**
-   * An additional function for the forward propagation when (combiner=mean).
+   * An additional function for the forward propagation when (combiner=mean). 
+   *  (only for DistributedSlotSparseEmbeddingHash)
    * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num the number of slots in hash table.
+   * @param slot_num the number of slots
    * @param embedding_vec_size embedding vector size.
    * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs 
    * @param output_tensors forward prop output tensors of multi GPUs
@@ -321,6 +341,64 @@ public:
   }
 
   /**
+   * The first step of backward propagation: computing the wgrad. 
+   * The overload version for LocalizedSlotSparserEmbeddingHash.
+   * @param batch_size batch size for the current mini-batch computation.
+   * @param slot_num_per_gpu slot_num per GPU.
+   * @param embedding_vec_size embedding vector size.
+   * @param combiner combiner type: 0-sum, 1-mean
+   * @param row_offset_allreduce_tensors row_offsets tensors after all_reduce of mulitple GPUs 
+   * @param embedding_feature_tensors embedding features tensors of multiplu GPUs, storing dgrad from the top layer
+   * @param wgrad_tensors wgrad tensors of multi GPUs, the output of this function.
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
+  template <typename TypeHashKey>
+  void backward(const int batch_size, 
+                const std::vector<int>& slot_num_per_gpu,
+                const int embedding_vec_size, 
+                const int combiner, 
+                const Tensors<TypeHashKey>& row_offset_allreduce_tensors,
+                const Tensors<float>& embedding_feature_tensors,
+                Tensors<float>& wgrad_tensors,
+                const std::shared_ptr<GPUResourceGroup>& device_resources,
+                const CudaDeviceContext& context) {
+
+    int local_gpu_count = device_resources->size();
+
+    for (int id = 0; id < local_gpu_count; id++) {
+      context.set_device((*device_resources)[id]->get_device_id());
+      const auto &stream = (*device_resources)[id]->get_stream();
+      const auto &top_grad = embedding_feature_tensors[id]->get_ptr();
+      const auto &row_offset = row_offset_allreduce_tensors[id]->get_ptr();
+      auto wgrad = wgrad_tensors[id]->get_ptr();
+
+      try {
+        dim3 blockSize(embedding_vec_size, 1,
+                      1);                // each thread corresponds to one element in an embedding vetor
+        dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
+
+        if (combiner == 0)  // sum
+        {
+          backward_sum_kernel<TypeHashKey><<<gridSize, blockSize, 0, stream>>>(
+              batch_size, slot_num_per_gpu[id], embedding_vec_size, top_grad, wgrad);
+        } else if (combiner == 1)  // mean
+        {
+          backward_mean_kernel<<<gridSize, blockSize, 0, stream>>>(
+              batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset, top_grad, wgrad);
+        } else {
+          CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+        }
+      } catch (const std::runtime_error &rt_err) {
+        std::cerr << rt_err.what() << std::endl;
+        throw;
+      }
+    }
+
+    return;
+  }
+
+  /**
    * The second step of backward propagation: update embedding tables(weights)
    * @param stream cuda stream corresponding to the current GPU.
    * @param batch_size batch size for the current mini-batch computation.
@@ -376,6 +454,9 @@ public:
       sample_id_expand_kernel<<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num, row_offset,
                                                                   sample_id);
 
+      // // just for debug
+      // std::cout << "sample_id number=" << batch_size * slot_num << std::endl;
+
       int nnz;
       // this async memcpy will not perform as a async operation because the host memory is not a
       // pinned memory
@@ -385,6 +466,32 @@ public:
       // TODO: OPT: just use the results from forward process
       // step2: get hash_value_index by hash_key
       hash_table->get_insert(hash_key, hash_value_index, nnz, stream);
+
+
+      // // just for debug
+      // TypeHashKey * h_hash_key = (TypeHashKey *)malloc(nnz * sizeof(TypeHashKey));
+      // cudaMemcpy(h_hash_key, hash_key, nnz * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
+      // std::cout << "in update_params hash_keys:" << " nnz=" << nnz << std::endl;
+      // for(int i = 0; i < nnz; i++) {
+      //   std::cout << h_hash_key[i] << ", ";
+      // } 
+      // std::cout << std::endl;
+
+      // int size= batch_size * slot_num * embedding_vec_size;
+      // float * h_wgrad = (float *)malloc(size * sizeof(float));
+      // cudaMemcpy(h_wgrad, wgrad, size*sizeof(float), cudaMemcpyDeviceToHost);
+      // std::cout << "wgrad: size=" << size << std::endl;
+      // for(int i = 0 ; i < batch_size; i++) {
+      //   std::cout << "batch=" << i << std::endl;
+      //   for(int j = 0; j < slot_num; j++) {
+      //     std::cout << "slot=" << j << ": ";
+      //     for(int k = 0; k < embedding_vec_size; k++) {
+      //       std::cout << "wgrad[" << k << "]=" << h_wgrad[i*slot_num*embedding_vec_size+j*embedding_vec_size+k];
+      //     }
+      //     std::cout << std::endl;
+      //   }
+      // }
+
 
       // step3: sort by hash_value_index
       int end_bit = (int)log2((float)max_vocabulary_size_per_gpu) + 1;
@@ -589,19 +696,23 @@ public:
     }
   }
 
-#if (!ENABLE_MPI)
+#ifndef ENABLE_MPI  // without MPI
   /**
    * the initialization of collection communication: all2all for single node 
    * @param all2all all2all handler
-   * @param plan_file plan file which demonstrates gpu topo
-   * @param element_per_send the element number per send
+   * @param plan_file plan file that describe the topo of GPUs
+   * @param batch_size_per_gpu batch size per GPU
+   * @param slot_num_per_gpu slot number per gpu
+   * @param embedding_vec_size embedding vector size 
    * @param send_tensors the send tensors of multi GPUs.
    * @param recv_tensors the recv tensors of multi GPUs.
    * @param device_resources all gpus device resources.
    */
-  void all2all_init(std::unique_ptr<comm_handler>& all2all,
+  void all2all_init_forward(std::unique_ptr<comm_handler>& all2all,
                     const std::string& plan_file,
-                    const size_t element_per_send,
+                    const int& batch_size_per_gpu,
+                    const std::vector<int>& slot_num_per_gpu,
+                    const int& embedding_vec_size,
                     const Tensors<float>& send_tensors,
                     Tensors<float>& recv_tensors,
                     const std::shared_ptr<GPUResourceGroup>& device_resources) {
@@ -613,6 +724,9 @@ public:
     std::vector<int> device_list = device_resources->get_device_list();
     size_t local_gpu_count =  device_list.size();    
     if(local_gpu_count != plan_gpu_count) {
+      std::cout << "local_gpu_count=" << local_gpu_count 
+                << ", plan_gpu_count=" << plan_gpu_count 
+                << std::endl;
       CK_THROW_(Error_t::WrongInput,
             "Error: the device_list doesn't match the plan_file");   
     }
@@ -637,13 +751,14 @@ public:
     // Fill in partition table, ith Topo GPU to jth Topo GPU
     std::vector<std::vector<size_t>> table(local_gpu_count, std::vector<size_t>(local_gpu_count));
     for(int i = 0; i < local_gpu_count; i++){
+      size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu[i] * embedding_vec_size;
       for(int j = 0; j < local_gpu_count; j++){
         table[i][j] = element_per_send;
       }
     }
 
 #ifndef NDEBUG
-    std::cout << "all2all table:"<< std::endl;
+    std::cout << "forward all2all table:"<< std::endl;
     for(int i = 0; i < local_gpu_count; i++){
       for(int j = 0; j < local_gpu_count; j++){
         std::cout << table[i][j] << ", ";
@@ -659,7 +774,84 @@ public:
   }
 
   /**
-   * collection communication: all2all for single node 
+   * the initialization of collection communication: all2all.
+   * @param all2all all2all handler
+   * @param plan_file plan file that describe the topo of GPUs
+   * @param batch_size_per_gpu batch size per GPU
+   * @param slot_num_per_gpu slot number 
+   * @param embedding_vec_size embedding vector size 
+   * @param send_tensors the send tensors of multi GPUs.
+   * @param recv_tensors the recv tensors of multi GPUs.
+   * @param device_resources all gpus device resources.
+   */
+  void all2all_init_backward(std::unique_ptr<comm_handler>& all2all,
+                    const std::string& plan_file,
+                    const int& batch_size_per_gpu,
+                    const std::vector<int>& slot_num_per_gpu,
+                    const int& embedding_vec_size,
+                    const Tensors<float>& send_tensors,
+                    Tensors<float>& recv_tensors,
+                    const std::shared_ptr<GPUResourceGroup>& device_resources) {
+
+    using transfer_plan_t = comm_handler_traits::transfer_plan_t;
+    transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
+    int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
+    
+    std::vector<int> device_list = device_resources->get_device_list();
+    size_t local_gpu_count =  device_list.size();    
+    if(local_gpu_count != plan_gpu_count) {
+      std::cout << "local_gpu_count=" << local_gpu_count 
+                << ", plan_gpu_count=" << plan_gpu_count 
+                << std::endl;
+      CK_THROW_(Error_t::WrongInput,
+            "Error: the device_list doesn't matched the plan_file");   
+    }
+    std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
+#ifndef NDEBUG
+    std::cout << "gpu device list: { ";
+    for(auto dev: device_ids) {
+      std::cout << dev << " ";
+    }
+    std::cout << "}" << std::endl;
+#endif 
+
+    all2all = std::unique_ptr<comm_handler>(new comm_handler(plan_file, device_ids)); // The all2all communication class
+
+    std::vector<float *> src(local_gpu_count);
+    std::vector<float *> dst(local_gpu_count);
+    for(int id = 0; id < local_gpu_count; id++) {
+      src[id] = send_tensors[id]->get_ptr();
+      dst[id] = recv_tensors[id]->get_ptr();
+    }
+
+    // Fill in partition table, ith Topo GPU to jth Topo GPU
+    std::vector<std::vector<size_t>> table(local_gpu_count, std::vector<size_t>(local_gpu_count));
+    for(int i = 0; i < local_gpu_count; i++){
+      size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu[i] * embedding_vec_size;
+      for(int j = 0; j < local_gpu_count; j++){
+        //table[i][j] = element_per_send;
+        table[j][i] = element_per_send;
+      }
+    }
+
+#ifndef NDEBUG
+    std::cout << "backward all2all table:"<< std::endl;
+    for(int i = 0; i < local_gpu_count; i++){
+      for(int j = 0; j < local_gpu_count; j++){
+        std::cout << table[i][j] << ", ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+#endif 
+
+    all2all->Initialize(src, dst, table);
+
+    return;
+  }
+
+  /**
+   * collection communication: all2all.
    * @param all2all all2all handler
    */
   void all2all_exec(const std::unique_ptr<comm_handler>& all2all) {
@@ -670,7 +862,7 @@ public:
     return;
   }
 
-#else 
+#else // for mpirun
 
   /**
    * the initialization of collection communication: all2all for multi-node 
@@ -681,24 +873,18 @@ public:
    * @param recv_tensors the recv tensors of multi GPUs.
    * @param device_resources all gpus device resources.
    */
-  void all2all_init(std::unique_ptr<comm_handler>& all2all,
+  void all2all_init_forward(std::unique_ptr<comm_handler>& all2all,
                     const std::string& plan_file,
-                    const size_t element_per_send,
+                    const int& batch_size_per_gpu,
+                    const int& slot_num,
+                    const int& embedding_vec_size,
                     const Tensors<float>& send_tensors,
                     Tensors<float>& recv_tensors,
                     const std::shared_ptr<GPUResourceGroup>& device_resources) {
 
-    using transfer_plan_t = comm_handler_traits::transfer_plan_t;
-    transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
-    int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
-    
     std::vector<int> device_list = device_resources->get_device_list();
     size_t local_gpu_count =  device_list.size();
     int total_gpu_count = device_resources->get_total_gpu_count();
-    if(local_gpu_count != plan_gpu_count) {
-      CK_THROW_(Error_t::WrongInput,
-            "Error: the device_list doesn't match the plan_file");   
-    }
 
     int total_rank = 1;
     int my_rank = 0;
@@ -739,18 +925,36 @@ public:
       dst[id] = recv_tensors[id]->get_ptr();
     }
 
-    // Fill in partition table, ith Topo GPU to jth Topo GPU
     std::vector<std::vector<size_t>> send_table(local_gpu_count, std::vector<size_t>(total_gpu_count));
     std::vector<std::vector<size_t>> recv_table(local_gpu_count, std::vector<size_t>(total_gpu_count));
+
+    // Fill in sending partition table, ith Topo GPU send to jth global GPU
     for(int i = 0; i < local_gpu_count; i++){
+      int device_id = (*device_resources)[i]->get_device_id();
+      int global_id = device_resources->get_global_id(device_id);
+      int slot_num_per_gpu = slot_num / total_gpu_count \
+        + ((global_id<(slot_num % total_gpu_count))? 1 : 0);
+      size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
+      
       for(int j = 0; j < total_gpu_count; j++){
         send_table[i][j] = element_per_send;
-        recv_table[i][j] = element_per_send;
+      }
+    }
+
+    // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
+    for(int j = 0; j < total_gpu_count; j++){
+      int global_id = j;
+      int slot_num_per_gpu = slot_num / total_gpu_count \
+        + ((global_id<(slot_num % total_gpu_count))? 1 : 0);
+      size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
+            
+      for(int i = 0; i < local_gpu_count; i++){
+        recv_table[i][j] = element_per_recv;
       }
     }
 
 #ifndef NDEBUG
-    std::cout << "all2all send_table:"<< std::endl;
+    std::cout << "backward all2all send_table:"<< std::endl;
     for(int i = 0; i < local_gpu_count; i++){
       for(int j = 0; j < total_gpu_count; j++){
         std::cout << send_table[i][j] << ", ";
@@ -759,7 +963,7 @@ public:
     }
     std::cout << std::endl;
 
-    std::cout << "all2all recv_table:"<< std::endl;
+    std::cout << "backward all2all recv_table:"<< std::endl;
     for(int i = 0; i < local_gpu_count; i++){
       for(int j = 0; j < total_gpu_count; j++){
         std::cout << recv_table[i][j] << ", ";
@@ -773,6 +977,121 @@ public:
 
     return;
   }
+
+    /**
+   * the initialization of collection communication: all2all for multi-node 
+   * @param all2all all2all handler
+   * @param plan_file plan file which demonstrates gpu topo
+   * @param element_per_send the element number per send
+   * @param send_tensors the send tensors of multi GPUs.
+   * @param recv_tensors the recv tensors of multi GPUs.
+   * @param device_resources all gpus device resources.
+   */
+  void all2all_init_backward(std::unique_ptr<comm_handler>& all2all,
+                    const std::string& plan_file,
+                    const int& batch_size_per_gpu,
+                    const int& slot_num,
+                    const int& embedding_vec_size,
+                    const Tensors<float>& send_tensors,
+                    Tensors<float>& recv_tensors,
+                    const std::shared_ptr<GPUResourceGroup>& device_resources) {
+
+    std::vector<int> device_list = device_resources->get_device_list();
+    size_t local_gpu_count =  device_list.size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
+
+    int total_rank = 1;
+    int my_rank = 0;
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
+    int num_proc = device_resources->get_node_count();
+    if(num_proc != total_rank) {
+      CK_THROW_(Error_t::WrongInput,
+            "Error: the MPI total rank doesn't match the node count");   
+    }
+    if(total_gpu_count != (total_rank*local_gpu_count)) {
+      CK_THROW_(Error_t::WrongInput,
+            "Error: the total gpu count doesn't match");   
+    }
+#ifndef NDEBUG
+    std::cout << "total_rank=" << total_rank << ", my_rank=" << my_rank \
+      ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" \
+      << local_gpu_count << std::endl;
+#endif 
+
+    std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
+#ifndef NDEBUG
+    std::cout << "gpu device list: { ";
+    for(auto dev: device_ids) {
+      std::cout << dev << " ";
+    }
+    std::cout << "}" << std::endl;
+#endif 
+
+    // The all2all communication class
+    all2all = std::unique_ptr<comm_handler>(\
+        new comm_handler(plan_file, device_ids, num_proc, my_rank, MPI_COMM_WORLD)); 
+
+    std::vector<float *> src(local_gpu_count);
+    std::vector<float *> dst(local_gpu_count);
+    for(int id = 0; id < local_gpu_count; id++) {
+      src[id] = send_tensors[id]->get_ptr();
+      dst[id] = recv_tensors[id]->get_ptr();
+    }
+
+    std::vector<std::vector<size_t>> send_table(local_gpu_count, std::vector<size_t>(total_gpu_count));
+    std::vector<std::vector<size_t>> recv_table(local_gpu_count, std::vector<size_t>(total_gpu_count));
+
+    // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
+    for(int i = 0; i < local_gpu_count; i++){
+      int device_id = (*device_resources)[i]->get_device_id();
+      int global_id = device_resources->get_global_id(device_id);
+      int slot_num_per_gpu = slot_num / total_gpu_count \
+        + ((global_id<(slot_num % total_gpu_count))? 1 : 0);
+      size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
+      
+      for(int j = 0; j < total_gpu_count; j++){
+        recv_table[i][j] = element_per_recv;
+      }
+    }
+
+    // Fill in sending partition table, ith Topo GPU send to jth global GPU
+    for(int j = 0; j < total_gpu_count; j++){
+      int global_id = j;
+      int slot_num_per_gpu = slot_num / total_gpu_count \
+        + ((global_id<(slot_num % total_gpu_count))? 1 : 0);
+      size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
+            
+      for(int i = 0; i < local_gpu_count; i++){
+        send_table[i][j] = element_per_send;
+      }
+    }
+
+#ifndef NDEBUG
+    std::cout << "backward all2all send_table:"<< std::endl;
+    for(int i = 0; i < local_gpu_count; i++){
+      for(int j = 0; j < total_gpu_count; j++){
+        std::cout << send_table[i][j] << ", ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << "backward all2all recv_table:"<< std::endl;
+    for(int i = 0; i < local_gpu_count; i++){
+      for(int j = 0; j < total_gpu_count; j++){
+        std::cout << recv_table[i][j] << ", ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+#endif 
+
+    all2all->Initialize(src, dst, send_table, recv_table);
+
+    return;
+  }
+
 
   /**
    * collection communication: all2all for multi-node
@@ -789,7 +1108,7 @@ public:
 
   /**
    * reoder the sequence of data after all2all operation in forward propagation
-   * @param batch_size batch size for the current mini-batch computation.
+   * @param batch_size_per_gpu batch size per GPU
    * @param slot_num the number of localized slots 
    * @param embedding_vec_size embedding vector size.
    * @param src_tensors the source tensors before reorder 
@@ -797,7 +1116,7 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  void forward_reorder(const int batch_size, 
+  void forward_reorder(const int batch_size_per_gpu, 
                       const int slot_num,
                       const int embedding_vec_size,
                       Tensors<float>& src_tensors,
@@ -808,23 +1127,30 @@ public:
     int total_gpu_count = device_resources->get_total_gpu_count();
 
     dim3 blockSize(embedding_vec_size, 1, 1);
-    dim3 gridSize(batch_size/total_gpu_count, 1, 1);
+    dim3 gridSize(batch_size_per_gpu, 1, 1);
 
     for(int id = 0; id < local_gpu_count; id++) {
+
+      // // just for debug 
+      // std::cout << "gpu=" << id << ":" << std::endl;
+
+
       context.set_device((*device_resources)[id]->get_device_id());
-      forward_reorder_kernel<float><<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(batch_size,
+      forward_reorder_kernel<float><<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(batch_size_per_gpu,
                                                                                         slot_num,
                                                                                         embedding_vec_size,
                                                                                         total_gpu_count,
                                                                                         src_tensors[id]->get_ptr(),
                                                                                         dst_tensors[id]->get_ptr());
+      // // just for debug 
+      // cudaStreamSynchronize((*device_resources)[id]->get_stream());
 
     }
   }
 
   /**
    * reoder the sequence of data before all2all operation in backward propagation
-   * @param batch_size batch size for the current mini-batch computation.
+   * @param batch_size_per_gpu batch size per GPU
    * @param slot_num the number of localized slots 
    * @param embedding_vec_size embedding vector size.
    * @param src_tensors the source tensors before reorder 
@@ -832,7 +1158,7 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  void backward_reorder(const int batch_size, 
+  void backward_reorder(const int batch_size_per_gpu, 
                       const int slot_num,
                       const int embedding_vec_size,
                       Tensors<float>& src_tensors,
@@ -843,11 +1169,11 @@ public:
     int total_gpu_count = device_resources->get_total_gpu_count();
 
     dim3 blockSize(embedding_vec_size, 1, 1);
-    dim3 gridSize(batch_size/total_gpu_count, 1, 1);
+    dim3 gridSize(batch_size_per_gpu, 1, 1);
 
     for(int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
-      backward_reorder_kernel<float><<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(batch_size,
+      backward_reorder_kernel<float><<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(batch_size_per_gpu,
                                                                                         slot_num,
                                                                                         embedding_vec_size,
                                                                                         total_gpu_count,
@@ -1422,6 +1748,11 @@ public:
                                 tile_count,
                                 (*device_resources)[id]->get_stream());
         size_t value_head = hash_tables[id]->add_value_head(tile_count);
+
+        // // just for debug 
+        // std::cout << "gpu=" << id
+        //           << "value_head=" << value_head
+        //           << std::endl;
       }
 
       // memcpy hash_table_slot_id and hash_table_value from CPU to GPU
@@ -1520,6 +1851,16 @@ public:
                                   hash_table_key_tile_size,
                                   (*device_resources)[id]->get_stream());
           size_t value_head = hash_tables[id]->add_value_head(hash_table_key_tile_size);
+
+
+          // // just for debug 
+          // std::cout << "i=" << i 
+          //           << ", slot_id=" << slot_id 
+          //           << ", key=" << *(TypeHashKey*)src_buf 
+          //           << ", gid=" << gid 
+          //           << ", value_head=" << value_head
+          //           << std::endl;
+
 
           // memcpy hash_table_slot_id to corresponding GPU
           size_t slot_id_offset = tile_counter_per_gpu[id];
@@ -2026,7 +2367,6 @@ public:
 
     // memory allocation
     std::unique_ptr<size_t[]> count(new size_t[local_gpu_count]);
-    size_t max_count = 0;
     size_t total_count = 0;
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
@@ -2035,17 +2375,11 @@ public:
         CK_THROW_(Error_t::WrongInput,
                   "Error: hash_table get_value_head() size not equal to get_size()");
       }
-      max_count = max(max_count, count[id]);
       total_count += count[id];
 
   #ifndef NDEBUG
-      std::cout << "GPU[%d]: " << id << "number of <key,value> pairs:%d" << count[id] << std::endl;
+      std::cout << "GPU[" << id << "]: number of <key,value> pairs:" << count[id] << std::endl;
   #endif
-    }
-
-    for (int id = 0; id < local_gpu_count; id++) {
-      context.set_device((*device_resources)[id]->get_device_id());
-      count[id] = hash_tables[id]->get_size((*device_resources)[id]->get_stream());
     }
 
     if (total_count > (size_t)vocabulary_size) {
@@ -2125,6 +2459,7 @@ public:
   template<typename TypeKey>
   void store_slot_id(const int batch_size,
                     const int slot_num, 
+                    const std::vector<int>& slot_num_per_gpu,
                     const Tensors<TypeKey>& row_offset_tensors, 
                     const Tensors<TypeKey>& value_index_tensors,
                     Tensors<TypeKey> slot_id_tensors,
@@ -2133,18 +2468,17 @@ public:
     int local_gpu_count = device_resources->size();
     int total_gpu_count = device_resources->get_total_gpu_count();
 
-    int slot_num_per_gpu = (slot_num + total_gpu_count - 1) / total_gpu_count;
-
-    dim3 blockSize(64, 1, 1);
-    dim3 gridSize((batch_size * slot_num_per_gpu + blockSize.x - 1) / blockSize.x, 1, 1);
-
     for (int id = 0; id < local_gpu_count; id++) {
       int local_device_id = (*device_resources)[id]->get_device_id();
       int global_id = device_resources->get_global_id(local_device_id);
 
+      dim3 blockSize(64, 1, 1);
+      dim3 gridSize((batch_size * slot_num_per_gpu[id] + blockSize.x - 1) / blockSize.x, 1, 1);
+
       context.set_device(local_device_id);
       store_slot_id_kernel<<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(\
-                          batch_size, slot_num, total_gpu_count, global_id, \
+                          batch_size, slot_num, slot_num_per_gpu[id], \
+                          total_gpu_count, global_id, \
                           row_offset_tensors[id]->get_ptr(), \
                           value_index_tensors[id]->get_ptr(), 
                           slot_id_tensors[id]->get_ptr());
