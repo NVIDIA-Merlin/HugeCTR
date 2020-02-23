@@ -141,7 +141,8 @@ void multiply_test(int batch_size, int vector_length) {
 }  // namespace
 
 TEST(multiply_layer, fprop_and_bprop) {
-  multiply_test(1, 32);
-  multiply_test(4, 64);
+  // multiply_test(1, 32);
+  // multiply_test(2, 64);
   multiply_test(4096, 128);
+  multiply_test(40960, 128);
 }

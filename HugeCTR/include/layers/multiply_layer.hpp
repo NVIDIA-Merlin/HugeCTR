@@ -58,6 +58,8 @@ class MultiplyLayer : public Layer {
 
  private:
 
+  Tensors<float> wgrad_tmp_trans_;
+
 };
 
 }  // namespace HugeCTR
