@@ -770,7 +770,22 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
             case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
               auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
-              auto plan_file = get_value_from_json<std::string>(j, "plan_file");
+
+              auto j_plan = get_json(j, "plan_file");
+              std::string plan_file;
+              if (j_plan.is_array()) {
+                int num_nodes = j_plan.size();
+                if (num_nodes != num_procs) {
+                  CK_THROW_(Error_t::WrongInput, "num_nodes != num_procs");
+                }
+                plan_file = j_plan[pid].get<std::string>();
+              } else {
+                if (num_procs > 1) {
+                  CK_THROW_(Error_t::WrongInput, "num_procs > 1");
+                }
+                plan_file = get_value_from_json<std::string>(j, "plan_file");
+              }
+
               const SparseEmbeddingHashParams embedding_params = {
                   batch_size,
                   vocabulary_size,
