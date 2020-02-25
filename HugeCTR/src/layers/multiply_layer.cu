@@ -119,7 +119,7 @@ __global__ void sum_reduce_batch_kernel(const int row, // row=blockDim.x
   }
 
   if(tid == 0) {
-    output[bid] = sum_total;
+    output[bid] += sum_total; // should be "+=" since we have regularization
   }
 }
 
@@ -237,7 +237,10 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     TensorFormat_t w_format = TensorFormat_t::HW;
     weights_.emplace_back(new Tensor<float>(w_dim, weight_buff, w_format));
     wgrad_.emplace_back(new Tensor<float>(w_dim, wgrad_buff, w_format));
-    wgrad_tmp_trans_.emplace_back(new Tensor<float>(in_dims, wgrad_buff, w_format));
+
+    internal_buff_.reset(new GeneralBuffer<float>());
+    wgrad_tmp_trans_.reset(new Tensor<float>(in_dims, internal_buff_, w_format));
+    internal_buff_->init(get_device_id());
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -266,7 +269,7 @@ void MultiplyLayer::bprop(cudaStream_t stream) {
 
   float* weight = weights_[0]->get_ptr();
   float* wgrad = wgrad_[0]->get_ptr();
-  float* wgrad_tmp_trans = wgrad_tmp_trans_[0]->get_ptr();
+  float* wgrad_tmp_trans = wgrad_tmp_trans_->get_ptr();
   float* input = in_tensors_[0]->get_ptr();
   float* output = out_tensors_[0]->get_ptr();
   int batch_size = in_tensors_[0]->get_dims()[0];
