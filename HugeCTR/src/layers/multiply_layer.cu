@@ -15,12 +15,13 @@
  */
 
 #include "HugeCTR/include/layers/multiply_layer.hpp"
-
 #include "HugeCTR/include/layers/element_wise_function.hpp"
+#include "HugeCTR/include/utils.hpp"
+#include "HugeCTR/include/utils.cuh"
 
 #include <algorithm>
 #include <functional>
-#include "HugeCTR/include/utils.hpp"
+
 #ifndef NDEBUG
 #include <iostream>
 #endif
@@ -74,52 +75,19 @@ __global__ void multiply_transpose_fuse_kernel(const int row,
 
 // sum reduce computation in one block
 template<typename T>
-__global__ void sum_reduce_batch_kernel(const int row, // row=blockDim.x
-                      const int col,
-                      const T * input, 
-                      T * output) {
-  int tid = threadIdx.x;
-  int bid = blockIdx.x;
-  extern __shared__ T sh_data[];
-  T sum = 0.0f;
-  T sum_total = 0.0f;
-
-  sh_data[tid] = 0.0f;
+__global__ void sum_reduce_batch_kernel(const int row, // row=gridDim.x
+                                        const int col,
+                                        const T * input, 
+                                        T * output) {
+  float local_sum = 0.0f;
+  for (int tid = threadIdx.x; tid < col; tid += blockDim.x) {
+    local_sum += input[blockIdx.x * col + tid];
+  }
   __syncthreads();
 
-  for(int gid = tid; gid < col; gid += blockDim.x) {
-    sh_data[tid] = input[bid * col + gid];
-    __syncthreads();
-
-    for(int num = (blockDim.x/2); num >= warpSize; num /=2) {
-      if(tid < num) {
-        sum = sh_data[tid] + sh_data[tid + num];
-      }
-      __syncthreads();
-
-      if(tid < num) {
-        sh_data[tid] = sum;
-      }
-      __syncthreads();
-    }
-
-    // sum reduce in a warp
-    if(tid < warpSize) {
-      sum = sh_data[tid];
-      __syncwarp();
-
-      for(int i = (warpSize/2); i >= 1; i /= 2) {
-        sum += __shfl_xor_sync(0xffffffff, sum, i, warpSize);
-      }
-
-      sum_total += sum;
-    }
-
-    __syncthreads();
-  }
-
-  if(tid == 0) {
-    output[bid] += sum_total; // should be "+=" since we have regularization
+  local_sum = blockReduceSum(local_sum);
+  if (threadIdx.x == 0) {
+    output[blockIdx.x] += local_sum;
   }
 }
 
@@ -175,13 +143,13 @@ void multiply_wgrad(const T * top_grad,
                                                                       top_grad,
                                                                       input,
                                                                       wgrad_tmp_trans);
-
-  dim3 blockSize2(GetBlockSize(batch_size) , 1, 1);
+             
+  dim3 blockSize2(1024, 1, 1);
   dim3 gridSize2(vector_length, 1, 1);
-  sum_reduce_batch_kernel<<<gridSize2, blockSize2, blockSize2.x*sizeof(float), stream>>>(vector_length, 
-                                                                                        batch_size, 
-                                                                                        wgrad_tmp_trans, 
-                                                                                        wgrad);
+  sum_reduce_batch_kernel<<<gridSize2, blockSize2, 0, stream>>>(vector_length, 
+                                                                batch_size, 
+                                                                wgrad_tmp_trans, 
+                                                                wgrad);
 }
 
 template<typename T> 
