@@ -58,8 +58,8 @@ class MultiplyLayer : public Layer {
 
  private:
 
-  Tensors<float> wgrad_tmp_trans_;
-
+  std::shared_ptr<GeneralBuffer<float>> internal_buff_;
+  std::unique_ptr<Tensor<float>> wgrad_tmp_trans_;
 };
 
 }  // namespace HugeCTR
