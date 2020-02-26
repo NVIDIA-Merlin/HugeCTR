@@ -183,4 +183,7 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
 template <typename T>
 using Tensors = std::vector<std::shared_ptr<Tensor<T>>>;
 
+template <typename T>
+using TensorPtr = std::shared_ptr<Tensor<T>>;
+
 }  // namespace HugeCTR

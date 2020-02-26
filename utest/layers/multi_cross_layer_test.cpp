@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,420 +27,335 @@
 
 using namespace HugeCTR;
 
-
-class MultiCrossLayerTest{
-private:
-  const float eps = 1;
+class MultiCrossLayerTest {
+ private:
+  const float eps = 2;
   const int batchsize_;
   const int w_;
   const int layers_;
-  std::shared_ptr<GeneralBuffer<float>> blob_buf_;
+  GeneralBufferPtr<float> blob_buf_;
   std::shared_ptr<GeneralBuffer<float>> weight_buf_;
   std::shared_ptr<GeneralBuffer<float>> wgrad_buf_;
-  std::shared_ptr<Tensor<float>> input_;
-  std::shared_ptr<Tensor<float>> output_;
+
+  TensorPtr<float> d_input_;
+  TensorPtr<float> d_output_;
+
+  std::vector<float> h_input_;
+  std::vector<float> h_input_grad_;
+  std::vector<float> h_output_grad_;
+  std::vector<std::vector<float>> h_kernels_;
+  std::vector<std::vector<float>> h_biases_;
+
+  std::vector<std::vector<float>> h_outputs_;
+  std::vector<std::vector<float>> h_hiddens_;
+
+  std::vector<std::vector<float>> h_kernel_grads_;
+  std::vector<std::vector<float>> h_bias_grads_;
+
   std::shared_ptr<MultiCrossLayer> layer_;
   GaussianDataSimulator<float> data_sim_;
-  std::shared_ptr<std::vector<float>> h_in_;
-  std::shared_ptr<std::vector<float>> h_out_;
-  std::shared_ptr<std::vector<float>> h_weight_;
-  std::shared_ptr<std::vector<float>> h_wgrad_;
-  void reset_(){
-    for(auto& a: *h_in_){
-      //a = data_sim_.get_num();
-      a = 1.f;
+
+  void reset_forward_() {
+    for (auto& a : h_input_) {
+      a = data_sim_.get_num();
     }
-    for(auto& b: *h_out_){
-      //b = data_sim_.get_num();
-      b = 1.f;
-    }
-    for(auto& w: *h_weight_){
-      //w = data_sim_.get_num();
-      w = 1.f;
-    }
-
-    for(auto& g: *h_wgrad_){
-      //g = data_sim_.get_num();
-      g = 1.f;
-    }
-
-    CK_CUDA_THROW_(cudaMemcpy(input_->get_ptr(), h_in_->data(), input_->get_size(), cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(output_->get_ptr(), h_out_->data(), output_->get_size(), cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(weight_buf_->get_ptr_with_offset(0), h_weight_->data(), weight_buf_->get_size(), cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(wgrad_buf_->get_ptr_with_offset(0), h_wgrad_->data(), wgrad_buf_->get_size(), cudaMemcpyHostToDevice));
-
-    return; 
-  }
-
-
-  void cpu_fprop_step_(std::shared_ptr<std::vector<float>> x0__, std::shared_ptr<std::vector<float>> xL__, 
-		       std::shared_ptr<std::vector<float>> w__, std::shared_ptr<std::vector<float>> out__, 
-		       std::shared_ptr<std::vector<float>> bias__){
-    auto& x0 = *x0__;
-    auto& xL = *xL__;
-    auto& w = *w__;
-    auto& out = *out__;
-    auto& bias = *bias__;
-
-    assert(x0.size()%w.size() == 0);
-    const int batchsize = x0.size()/w.size();
-    const int width = w.size();
-
-    std::vector<double> tmp_v(batchsize, 0.f); //Batchsize
-    std::vector<double> tmp_m(x0.size(), 0.f); //Batchsize*width
-    //tmp_v = xL*w
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j< width; j++){
-        tmp_v[i]+=xL[i*width + j]*w[j];
+    for (auto& a : h_kernels_) {
+      for (auto& b : a) {
+        b = data_sim_.get_num();
       }
     }
-    //tmp_m = x0*tmp
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j< width; j++){
-        tmp_m[i*width+j]+=x0[i*width + j]*tmp_v[i];
+    for (auto& a : h_biases_) {
+      for (auto& b : a) {
+        b = data_sim_.get_num();
       }
     }
-    //tmp_m+=xL
-    //out = tmp_m+bias
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j< width; j++){
-        out[i*width+j] = tmp_m[i*width+j]+xL[i*width+j]+bias[j];
-      }
+
+    CK_CUDA_THROW_(cudaMemcpy(d_input_->get_ptr(), h_input_.data(), d_input_->get_size(),
+                              cudaMemcpyHostToDevice));
+    float* p = weight_buf_->get_ptr_with_offset(0);
+    for (int i = 0; i < layers_; i++) {
+      CK_CUDA_THROW_(
+          cudaMemcpy(p, h_kernels_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
+      p += w_;
+      CK_CUDA_THROW_(
+          cudaMemcpy(p, h_biases_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
+      p += w_;
     }
     return;
   }
 
-  void cpu_fprop_(){
-    std::vector<std::shared_ptr<std::vector<float>>> blobs;
-    blobs.emplace_back(h_in_);
-    for(int i=0; i<layers_-1; i++){
-      blobs.emplace_back(std::make_shared<std::vector<float>>(h_in_->size(), 0.f)); //Batchsize*width
+  void reset_backward_() {
+    for (auto& a : h_output_grad_) {
+      a = 1.0f;
     }
-    blobs.emplace_back(h_out_);
-
-    std::shared_ptr<std::vector<float>> weight_tmp = std::make_shared<std::vector<float>>(w_);
-    std::shared_ptr<std::vector<float>> bias_tmp = std::make_shared<std::vector<float>>(w_);
-
-    for(int i=0; i<layers_; i++){
-      int offset = w_*2*i;
-      std::copy(h_weight_->begin()+offset, h_weight_->begin()+offset+w_, weight_tmp->begin());
-      std::copy(h_weight_->begin()+offset+w_, h_weight_->begin()+offset+2*w_, bias_tmp->begin());
-      cpu_fprop_step_(blobs[0], blobs[i], weight_tmp, blobs[i+1], bias_tmp);
+    for (auto& a : h_kernel_grads_) {
+      for (auto& b : a) {
+        b = 0.0f;
+      }
     }
-
-    
-    return;
+    for (auto& a : h_bias_grads_) {
+      for (auto& b : a) {
+        b = 0.0f;
+      }
+    }
+    CK_CUDA_THROW_(cudaMemcpy(d_output_->get_ptr(), h_output_grad_.data(),
+                              batchsize_ * w_ * sizeof(float), cudaMemcpyHostToDevice));
+    float* p = wgrad_buf_->get_ptr_with_offset(0);
+    for (int i = 0; i < layers_; i++) {
+      CK_CUDA_THROW_(
+          cudaMemcpy(p, h_kernel_grads_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
+      p += w_;
+      CK_CUDA_THROW_(
+          cudaMemcpy(p, h_bias_grads_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
+      p += w_;
+    }
   }
 
-  void gpu_fprop_(){
+  void matrix_vec_mul(float* out, const float* in_m, const float* in_v, int h, int w) {
+    for (int j = 0; j < h; j++) {
+      out[j] = 0.0f;
+      for (int i = 0; i < w; i++) {
+        int k = j * w + i;
+        out[j] += in_m[k] * in_v[i];
+      }
+    }
+  }
+
+  void row_scaling(float* out, const float* in_m, const float* in_v, int h, int w) {
+    for (int j = 0; j < h; j++) {
+      for (int i = 0; i < w; i++) {
+        int k = j * w + i;
+        out[k] = in_m[k] * in_v[j];
+      }
+    }
+  }
+
+  void matrix_add(float* out, const float* in_m_1, const float* in_m_2, int h, int w) {
+    for (int j = 0; j < h; j++) {
+      for (int i = 0; i < w; i++) {
+        int k = j * w + i;
+        out[k] = in_m_1[k] + in_m_2[k];
+      }
+    }
+  }
+
+  void matrix_vec_add(float* out, const float* in_m, const float* in_v, int h, int w) {
+    for (int j = 0; j < h; j++) {
+      for (int i = 0; i < w; i++) {
+        int k = j * w + i;
+        out[k] = in_m[k] + in_v[i];
+      }
+    }
+  }
+
+  void matrix_pair_mul(float* out, const float* in_m_1, const float* in_m_2, int h, int w) {
+    for (int j = 0; j < h; j++) {
+      out[j] = 0.0f;
+      for (int i = 0; i < w; i++) {
+        int k = j * w + i;
+        out[j] += in_m_1[k] * in_m_2[k];
+      }
+    }
+  }
+
+  void row_scaling_sum(float* out, const float* in_m, const float* in_v, int h, int w) {
+    for (int i = 0; i < w; i++) {
+      out[i] = 0.0f;
+      for (int j = 0; j < h; j++) {
+        int k = j * w + i;
+        out[i] += in_m[k] * in_v[j];
+      }
+    }
+  }
+
+  void rows_sum(float* out, const float* in_m, int h, int w) {
+    for (int i = 0; i < w; i++) {
+      out[i] = 0.0f;
+      for (int j = 0; j < h; j++) {
+        int k = j * w + i;
+        out[i] += in_m[k];
+      }
+    }
+  }
+
+  void out_product(float* out, const float* in_v_1, const float* in_v_2, int h, int w) {
+    for (int j = 0; j < h; j++) {
+      for (int i = 0; i < w; i++) {
+        int k = j * w + i;
+        out[k] = in_v_1[j] * in_v_2[i];
+      }
+    }
+  }
+
+  void cpu_fprop_() {
+    for (int i = 0; i < layers_; i++) {
+      matrix_vec_mul(h_hiddens_[i].data(), i == 0 ? h_input_.data() : h_outputs_[i - 1].data(),
+                     h_kernels_[i].data(), batchsize_, w_);
+      row_scaling(h_outputs_[i].data(), h_input_.data(), h_hiddens_[i].data(), batchsize_, w_);
+      matrix_add(h_outputs_[i].data(), h_outputs_[i].data(),
+                 i == 0 ? h_input_.data() : h_outputs_[i - 1].data(), batchsize_, w_);
+      matrix_vec_add(h_outputs_[i].data(), h_outputs_[i].data(), h_biases_[i].data(), batchsize_,
+                     w_);
+    }
+  }
+
+  void gpu_fprop_() {
     layer_->fprop(cudaStreamDefault);
     return;
   }
 
-  void cpu_bprop_step_(std::shared_ptr<std::vector<float>> x0__,std::shared_ptr<std::vector<float>> dxL__, 
-		       std::shared_ptr<std::vector<float>> w__, std::shared_ptr<std::vector<float>> out__, 
-		       std::shared_ptr<std::vector<float>> dw__, 
-		       std::shared_ptr<std::vector<float>> db__){
-    auto& x0 = *x0__;
-    auto& dxL = *dxL__;
-    auto& w = *w__;
-    auto& out = *out__;
-    auto& dw = *dw__;
-    auto& db = *db__;
+  void cpu_bprop_() {
+    std::vector<float> tmp_mat_0(batchsize_ * w_);
+    std::vector<float> tmp_mat_1(batchsize_ * w_);
+    std::vector<float> tmp_vec(batchsize_);
 
-
-    assert(x0.size()%w.size() == 0);
-    const int batchsize = x0.size()/w.size();
-    const int width = w.size();
-
-    std::vector<double> tmp_v(batchsize, 0.f); //Batchsize
-    std::vector<double> tmp_m(x0.size(), 0.f); //Batchsize*width
-
-    //tmp_v = dxL*x0
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j<width; j++){
-	tmp_v[i] += dxL[i*width+j]*x0[i*width+j];
-      }
+    memset(h_input_grad_.data(), 0, h_input_grad_.size() * sizeof(float));
+    for (int i = layers_ - 1; i >= 0; i--) {
+      row_scaling(tmp_mat_0.data(), i == layers_ - 1 ? h_output_grad_.data() : tmp_mat_1.data(),
+                  h_hiddens_[i].data(), batchsize_, w_);
+      matrix_add(h_input_grad_.data(), h_input_grad_.data(), tmp_mat_0.data(), batchsize_, w_);
+      matrix_pair_mul(tmp_vec.data(), i == layers_ - 1 ? h_output_grad_.data() : tmp_mat_1.data(),
+                      h_input_.data(), batchsize_, w_);
+      row_scaling_sum(h_kernel_grads_[i].data(),
+                      i == 0 ? h_input_.data() : h_outputs_[i - 1].data(), tmp_vec.data(),
+                      batchsize_, w_);
+      rows_sum(h_bias_grads_[i].data(), i == layers_ - 1 ? h_output_grad_.data() : tmp_mat_1.data(),
+               batchsize_, w_);
+      out_product(tmp_mat_0.data(), tmp_vec.data(), h_kernels_[i].data(), batchsize_, w_);
+      matrix_add(tmp_mat_1.data(), i == layers_ - 1 ? h_output_grad_.data() : tmp_mat_1.data(),
+                 tmp_mat_0.data(), batchsize_, w_);
     }
-
-    //tmp_m = out_product(tmp_vec, wd)
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j<width; j++){
-	tmp_m[i*width+j] = tmp_v[i]*w[j];
-      }
-    }
-
-    //dw = scale_sum(tmp_v, xL) where xL is out
-    for(int j=0; j<width; j++){
-      double dw_tmp = 0.;
-      for(int i=0; i<batchsize; i++){
-	dw_tmp += tmp_v[i]*out[i*width+j];
-      }
-      dw[j] += dw_tmp;
-    }
-    
-    //db = sum(dxL)
-    for(int j=0; j<width; j++){
-      double db_tmp = 0.f;
-      for(int i=0; i<batchsize; i++){
-	db_tmp += dxL[i*width+j];
-      }
-      db[j] += db_tmp;
-    }
-
-    //tmp_m += dxL
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j<width; j++){
-	out[i*width+j] =  dxL[i*width+j] + tmp_m[i*width+j];
-      }
-    }
-
-
-
-    return;
+    matrix_add(h_input_grad_.data(), h_input_grad_.data(), tmp_mat_1.data(), batchsize_, w_);
   }
 
-  void cpu_bprop_first_step_(std::shared_ptr<std::vector<float>> x0__, std::shared_ptr<std::vector<float>> dxL__, 
-			     std::shared_ptr<std::vector<float>> w__, std::shared_ptr<std::vector<float>> out__, 
-			     std::shared_ptr<std::vector<float>> dw__, 
-			     std::shared_ptr<std::vector<float>> db__){
-    auto& x0 = *x0__;
-    auto& dxL = *dxL__;
-    auto& w = *w__;
-    auto& out = *out__;
-    auto& dw = *dw__;
-    auto& db = *db__;
-
-
-    assert(x0.size()%w.size() == 0);
-    const int batchsize = x0.size()/w.size();
-    const int width = w.size();
-
-    
-    std::vector<double> tmp_v(batchsize, 0.f); //Batchsize
-    std::vector<double> tmp_v_b(batchsize, 0.f); //Batchsize
-    std::vector<double> tmp_m(x0.size(), 0.f); //Batchsize*width
-    std::vector<double> tmp_m_b(x0.size(), 0.f); //Batchsize*width
-    
-
-    //tmp_v = dxL*x0
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j<width; j++){
-	tmp_v[i] += dxL[i*width+j]*x0[i*width+j];
-      }
-    }
-
-    //tmp_m = out_product(tmp_vec, wd)
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j<width; j++){
-	tmp_m[i*width+j] = tmp_v[i]*w[j];
-      }
-    }    
-
-    //tmp_v_b = x0*w+1
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j<width; j++){
-	tmp_v_b[i] += x0[i*width+j]*w[j];
-      }
-      tmp_v_b[i] += 1.f;
-    }    
-
-    //tmp_m_b = dxL*tmp_v_b
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j<width; j++){
-	tmp_m_b[i*width+j] = dxL[i*width+j]*tmp_v_b[i];
-      }
-    }    
-
-    //dw = scale_sum(tmp_v, xL) where xL is out
-    
-    for(int j=0; j<width; j++){
-      double tmp_d = 0.;
-      for(int i=0; i<batchsize; i++){
-	tmp_d += tmp_v[i]*out[i*width+j];
-      }
-      dw[j] += tmp_d;
-    }
-    
-    //db = sum(dxL)
-    for(int j=0; j<width; j++){
-      double tmp_d = 0.;
-      for(int i=0; i<batchsize; i++){
-	tmp_d += dxL[i*width+j];
-      }
-      db[j] += tmp_d;
-    }
-
-    //out = tmp_m + tmp_m_b
-    for(int i=0; i<batchsize; i++){
-      for(int j=0; j<width; j++){
-	out[i*width+j] = tmp_m[i*width+j] + tmp_m_b[i*width+j];
-      }
-    }
-
-    
-    return;
-  }
-  
-
-  void cpu_bprop_(){
-    std::vector<std::shared_ptr<std::vector<float>>> blobs;
-    blobs.emplace_back(h_in_);
-    for(int i=0; i<layers_-1; i++){
-      blobs.emplace_back(std::make_shared<std::vector<float>>(h_in_->size(), 0.f)); //Batchsize*width
-    }
-    blobs.emplace_back(h_out_);
-
-    std::shared_ptr<std::vector<float>> weight_tmp = std::make_shared<std::vector<float>>(w_);
-    std::shared_ptr<std::vector<float>> dweight_tmp = std::make_shared<std::vector<float>>(w_);
-    std::shared_ptr<std::vector<float>> dbias_tmp = std::make_shared<std::vector<float>>(w_);
-    
-    for(int i=layers_-1; i>=0; i--){
-      int offset = w_*2*i;
-      std::copy(h_weight_->begin()+offset, h_weight_->begin()+offset+w_, weight_tmp->begin());
-      std::copy(h_wgrad_->begin()+offset, h_wgrad_->begin()+offset+w_, dweight_tmp->begin());
-      std::copy(h_wgrad_->begin()+offset+w_, h_wgrad_->begin()+offset+2*w_, dbias_tmp->begin());
-      if(i!=0)
-	cpu_bprop_step_(blobs[0], blobs[i+1], weight_tmp, blobs[i], dweight_tmp, dbias_tmp);
-      else
-	cpu_bprop_first_step_(blobs[0], blobs[i+1], weight_tmp, blobs[i], dweight_tmp, dbias_tmp);
-      std::copy(dweight_tmp->begin(), dweight_tmp->begin()+w_, h_wgrad_->begin()+offset);
-      std::copy(dbias_tmp->begin(), dbias_tmp->begin()+w_, h_wgrad_->begin()+offset+w_);
-    }
-    return;
-  }
-
-  void gpu_bprop_(){
+  void gpu_bprop_() {
     layer_->bprop(cudaStreamDefault);
     return;
   }
 
-  void compare_(){
-    std::vector<float> tmp_in(batchsize_* w_);
-    std::vector<float> tmp_out(batchsize_* w_);
-    std::vector<float> tmp_grad(w_*layers_*2);
+  void compare_forward_() {
+    std::vector<float> d2h_output;
+    d2h_output.resize(batchsize_ * w_);
 
-    CK_CUDA_THROW_(cudaMemcpy(tmp_in.data(), input_->get_ptr(), input_->get_size(), cudaMemcpyDeviceToHost));
-    CK_CUDA_THROW_(cudaMemcpy(tmp_out.data(), output_->get_ptr(), output_->get_size(), cudaMemcpyDeviceToHost));
-    CK_CUDA_THROW_(cudaMemcpy(tmp_grad.data(),wgrad_buf_->get_ptr_with_offset(0), wgrad_buf_->get_size(), cudaMemcpyDeviceToHost));
+    CK_CUDA_THROW_(cudaMemcpy(d2h_output.data(), d_output_->get_ptr(), d_output_->get_size(),
+                              cudaMemcpyDeviceToHost));
 
-    //todo compare
-    ASSERT_TRUE(test::compare_array_approx<float>(tmp_in.data(), h_in_->data(), h_in_->size(), eps));
-    ASSERT_TRUE(test::compare_array_approx<float>(tmp_out.data(), h_out_->data(), h_out_->size(), eps));
-    ASSERT_TRUE(test::compare_array_approx<float>(tmp_grad.data(), h_wgrad_->data(), h_wgrad_->size(), eps));
-
-    return;
+    // todo compare
+    ASSERT_TRUE(test::compare_array_approx<float>(d2h_output.data(), h_outputs_.back().data(),
+                                                  h_outputs_.back().size(), eps));
   }
-public:
-  MultiCrossLayerTest(int batchsize, int w, int layers):
-    batchsize_(batchsize), w_(w), layers_(layers),
-    blob_buf_(new GeneralBuffer<float>()), weight_buf_(new GeneralBuffer<float>()),
-    wgrad_buf_(new GeneralBuffer<float>()), data_sim_(0.0, 1.0, -10.0, 10.0)
-  {
-    std::vector<int> dim ={batchsize, w};
 
-    //input
-    input_.reset(new Tensor<float>(dim, blob_buf_, TensorFormat_t::HW));
+  void compare_backward_() {
+    std::vector<float> d2h_input_grad;
+    std::vector<std::vector<float>> d2h_kernel_grads_;
+    std::vector<std::vector<float>> d2h_bias_grads_;
 
-    //output
-    output_.reset(new Tensor<float>(dim, blob_buf_, TensorFormat_t::HW));
+    d2h_input_grad.resize(batchsize_ * w_);
+    for (int i = 0; i < layers_; i++) {
+      d2h_kernel_grads_.push_back(std::vector<float>(1 * w_));
+      d2h_bias_grads_.push_back(std::vector<float>(1 * w_));
+    }
 
-    //layer
-    layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, input_, output_, layers, 0));
+    CK_CUDA_THROW_(cudaMemcpy(d2h_input_grad.data(), d_input_->get_ptr(), d_input_->get_size(),
+                              cudaMemcpyDeviceToHost));
+    float* p = wgrad_buf_->get_ptr_with_offset(0);
+    for (int i = 0; i < layers_; i++) {
+      CK_CUDA_THROW_(
+          cudaMemcpy(d2h_kernel_grads_[i].data(), p, w_ * sizeof(float), cudaMemcpyDeviceToHost));
+      p += w_;
+      CK_CUDA_THROW_(
+          cudaMemcpy(d2h_bias_grads_[i].data(), p, w_ * sizeof(float), cudaMemcpyDeviceToHost));
+      p += w_;
+    }
 
+    ASSERT_TRUE(test::compare_array_approx<float>(d2h_input_grad.data(), h_input_grad_.data(),
+                                                  h_input_grad_.size(), eps));
+    for (int i = 0; i < layers_; i++) {
+      ASSERT_TRUE(test::compare_array_approx<float>(
+          d2h_kernel_grads_[i].data(), h_kernel_grads_[i].data(), h_kernel_grads_[i].size(), eps));
+      ASSERT_TRUE(test::compare_array_approx<float>(
+          d2h_bias_grads_[i].data(), h_bias_grads_[i].data(), h_bias_grads_[i].size(), eps));
+    }
+  }
+
+ public:
+  MultiCrossLayerTest(int batchsize, int w, int layers)
+      : batchsize_(batchsize),
+        w_(w),
+        layers_(layers),
+        blob_buf_(new GeneralBuffer<float>()),
+        weight_buf_(new GeneralBuffer<float>()),
+        wgrad_buf_(new GeneralBuffer<float>()),
+        data_sim_(0.0, 1.0, -10.0, 10.0) {
+    d_input_.reset(new Tensor<float>({batchsize, w}, blob_buf_, TensorFormat_t::HW));
+    d_output_.reset(new Tensor<float>({batchsize, w}, blob_buf_, TensorFormat_t::HW));
+
+    h_input_.resize(batchsize * w);
+    h_output_grad_.resize(batchsize * w);
+    h_input_grad_.resize(batchsize * w);
+
+    for (int i = 0; i < layers_; i++) {
+      h_kernels_.push_back(std::vector<float>(1 * w));
+      h_biases_.push_back(std::vector<float>(1 * w));
+      h_outputs_.push_back(std::vector<float>(batchsize * w));
+      h_hiddens_.push_back(std::vector<float>(batchsize * 1));
+      h_kernel_grads_.push_back(std::vector<float>(1 * w));
+      h_bias_grads_.push_back(std::vector<float>(1 * w));
+    }
+
+    // layer
+    layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, d_input_, d_output_, layers, 0));
 
     blob_buf_->init(0);
     weight_buf_->init(0);
     wgrad_buf_->init(0);
 
-
-    h_in_ = std::make_shared<std::vector<float>>(batchsize*w, 0.f);
-    h_out_ = std::make_shared<std::vector<float>>(batchsize*w, 0.f);
-    h_weight_ = std::make_shared<std::vector<float>>(w*layers*2,0.f);
-    h_wgrad_ = std::make_shared<std::vector<float>>(w*layers*2,0.f);
     return;
   }
 
-  void fprop_test(){
-    reset_();
-    
+  void test() {
+    reset_forward_();
     cpu_fprop_();
-
     gpu_fprop_();
-
-    compare_();
-
-    return; 
-  }
-
-  void bprop_test(){
-    reset_();
-
+    compare_forward_();
+    reset_backward_();
     cpu_bprop_();
-
     gpu_bprop_();
-
-    compare_();
-    
-    return; 
+    compare_backward_();
   }
 };
 
-
-TEST(multi_cross_layer, 1x1x1024_fprop){
+TEST(multi_cross_layer, 1x1024x1) {
   MultiCrossLayerTest test(1, 1024, 1);
-  test.fprop_test();
+  test.test();
 }
 
-TEST(multi_cross_layer, 1x1x1024_bprop){
-  MultiCrossLayerTest test(1, 1024, 1);
-  test.bprop_test();
-}
-
-TEST(multi_cross_layer, 2x1x1024_bprop){
+TEST(multi_cross_layer, 1x1024x2) {
   MultiCrossLayerTest test(1, 1024, 2);
-  test.bprop_test();
+  test.test();
 }
 
-
-TEST(multi_cross_layer, 3x1x1024_fprop){
+TEST(multi_cross_layer, 1x1024x3) {
   MultiCrossLayerTest test(1, 1024, 3);
-  test.fprop_test();
+  test.test();
 }
 
-TEST(multi_cross_layer, 3x1x1024_bprop){
-  MultiCrossLayerTest test(1, 1024, 3);
-  test.bprop_test();
-}
-
-TEST(multi_cross_layer, 3x32x1024_bprop){
+TEST(multi_cross_layer, 32x1024x3) {
   MultiCrossLayerTest test(32, 1024, 3);
-  test.bprop_test();
+  test.test();
 }
 
-TEST(multi_cross_layer, 2x4096x1024_bprop){
+TEST(multi_cross_layer, 4096x1024x2) {
   MultiCrossLayerTest test(4096, 1024, 2);
-  test.bprop_test();
+  test.test();
 }
 
-
-TEST(multi_cross_layer, 3x4096x1024_fprop){
+TEST(multi_cross_layer, 4096x1024x3) {
   MultiCrossLayerTest test(4096, 1024, 3);
-  test.fprop_test();
+  test.test();
 }
 
-
-TEST(multi_cross_layer, 3x4096x1024_bprop){
-  MultiCrossLayerTest test(4096, 1024, 3);
-  test.bprop_test();
-}
-
-TEST(multi_cross_layer, 3x40963x356_fprop){
+TEST(multi_cross_layer, 40963x356x3) {
   MultiCrossLayerTest test(40963, 356, 3);
-  test.fprop_test();
-}
-
-TEST(multi_cross_layer, 3x40963x356_bprop){
-  MultiCrossLayerTest test(40963, 356, 3);
-  test.bprop_test();
+  test.test();
 }
