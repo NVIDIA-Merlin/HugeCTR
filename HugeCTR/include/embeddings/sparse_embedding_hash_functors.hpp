@@ -899,6 +899,7 @@ public:
       CK_THROW_(Error_t::WrongInput,
             "Error: the total gpu count doesn't match");   
     }
+
 #ifndef NDEBUG
     std::cout << "total_rank=" << total_rank << ", my_rank=" << my_rank \
       << ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" \
@@ -906,10 +907,20 @@ public:
 #endif 
 
     std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
+
 #ifndef NDEBUG
-    std::cout << "gpu device list: { ";
+    std::cout << "my_rank=" << my_rank << ", gpu device ids: { ";
     for(auto dev: device_ids) {
       std::cout << dev << " ";
+    }
+    std::cout << "}, gpu global ids: {";
+    for(auto dev: device_ids) {
+      std::cout << device_resources->get_global_id(dev) << " ";
+    }
+    std::cout << "}, gpu local ids: {";
+    for(auto dev: device_ids) {
+      std::cout << device_resources->get_local_id(device_resources->get_global_id(dev)) 
+                << " ";
     }
     std::cout << "}" << std::endl;
 #endif 
@@ -954,7 +965,7 @@ public:
     }
 
 #ifndef NDEBUG
-    std::cout << "backward all2all send_table:"<< std::endl;
+    std::cout << "my_rank=" << my_rank << ", forward all2all send_table:"<< std::endl;
     for(int i = 0; i < local_gpu_count; i++){
       for(int j = 0; j < total_gpu_count; j++){
         std::cout << send_table[i][j] << ", ";
@@ -963,7 +974,7 @@ public:
     }
     std::cout << std::endl;
 
-    std::cout << "backward all2all recv_table:"<< std::endl;
+    std::cout << "my_rank=" << my_rank << ", forward all2all recv_table:"<< std::endl;
     for(int i = 0; i < local_gpu_count; i++){
       for(int j = 0; j < total_gpu_count; j++){
         std::cout << recv_table[i][j] << ", ";
@@ -1068,7 +1079,7 @@ public:
     }
 
 #ifndef NDEBUG
-    std::cout << "backward all2all send_table:"<< std::endl;
+    std::cout << "my_rank=" << my_rank << ", backward all2all send_table:"<< std::endl;
     for(int i = 0; i < local_gpu_count; i++){
       for(int j = 0; j < total_gpu_count; j++){
         std::cout << send_table[i][j] << ", ";
@@ -1077,7 +1088,7 @@ public:
     }
     std::cout << std::endl;
 
-    std::cout << "backward all2all recv_table:"<< std::endl;
+    std::cout << "my_rank=" << my_rank << ", backward all2all recv_table:"<< std::endl;
     for(int i = 0; i < local_gpu_count; i++){
       for(int j = 0; j < total_gpu_count; j++){
         std::cout << recv_table[i][j] << ", ";

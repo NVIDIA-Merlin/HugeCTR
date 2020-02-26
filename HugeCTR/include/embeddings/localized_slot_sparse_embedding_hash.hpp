@@ -448,6 +448,9 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 
     }  // end of for(int id = 0; id < local_gpu_count_; id++)
 
+    // sync
+    functors_.sync_all_gpus(Base::device_resources_, context);
+    
     // all2all init
 #ifndef ENABLE_MPI  // without MPI
     functors_.all2all_init_forward(all2all_forward_, plan_file_,  batch_size_per_gpu_, 
@@ -464,8 +467,6 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
                           embedding_params_.slot_num, embedding_params_.embedding_vec_size,
                           all2all_tensors_, embedding_feature_tensors_, Base::device_resources_);
 #endif 
-    // sync
-    functors_.sync_all_gpus(Base::device_resources_, context);
 
     CK_CUDA_THROW_(cudaFreeHost(h_hash_table_value));
   } catch (const std::runtime_error &rt_err) {
