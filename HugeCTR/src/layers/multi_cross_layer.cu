@@ -477,6 +477,7 @@ MultiCrossLayer::MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
 }
 
 void MultiCrossLayer::fprop(cudaStream_t stream) {
+  CudaDeviceContext context(get_device_id());
   std::vector<const Tensor<float>*> kernel_tensors;
   std::vector<const Tensor<float>*> bias_tensors;
   std::vector<Tensor<float>*> output_tensors;
@@ -497,6 +498,7 @@ void MultiCrossLayer::fprop(cudaStream_t stream) {
 }
 
 void MultiCrossLayer::bprop(cudaStream_t stream) {
+  CudaDeviceContext context(get_device_id());
   std::vector<const Tensor<float>*> kernel_tensors;
   std::vector<Tensor<float>*> kernel_output_tensors;
   std::vector<Tensor<float>*> bias_output_tensors;
