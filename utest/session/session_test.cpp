@@ -36,15 +36,15 @@ TEST(session_test, basic_session) {
     const int vocabulary_size = 1603616;
     const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
     const std::string file_list_name = prefix + "_file_list.txt";
-    const int num_files = 20;
+    const int num_files = 3;
     const long long num_records = batchsize * 5;
-    const long long slot_num = 10;
+    const long long slot_num = 20;
     HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records, slot_num,
       vocabulary_size, label_dim, dense_dim, max_nnz);
 
   }
 
-  std::vector<int> device_list{0};
+  std::vector<int> device_list{0,1};
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
   std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));

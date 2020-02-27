@@ -34,7 +34,6 @@ namespace HugeCTR {
 
 #define WARP_SIZE 32
 
-
 enum class Error_t {
   Success,
   FileCannotOpen,
