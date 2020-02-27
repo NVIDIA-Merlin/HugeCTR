@@ -61,13 +61,15 @@ void dropout_test(int dim0, int dim1, float rate) {
   std::unique_ptr<float[]> h_mask(new float[len]);
   std::unique_ptr<float[]> h_ref(new float[len]);
 
+  float scale = 1.0 / (1.0 - rate);
+
   // fprop test
   dropout_layer.fprop(cudaStreamDefault);
   cudaMemcpy(h_mask.get(), dropout_layer.mask(), n_bytes, cudaMemcpyDeviceToHost); 
   cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost);
   int cnt_zero_fprop = 0;
   for(int i = 0; i < len; i++) {
-    h_ref[i] = (h_mask[i] > rate) * h_in[i];
+    h_ref[i] = (h_mask[i] > rate) * h_in[i] * scale;
     if(std::abs(h_ref[i] - 0.f) < 1e-6) {
       cnt_zero_fprop++;
     }
@@ -79,7 +81,7 @@ void dropout_test(int dim0, int dim1, float rate) {
   cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost);
   int cnt_zero_bprop = 0;
   for(int i = 0; i < len; i++) {
-    h_ref[i] = (h_mask[i] > rate) * h_out[i];
+    h_ref[i] = (h_mask[i] > rate) * h_out[i] * scale;
     if(std::abs(h_ref[i] - 0.f) < 1e-6) {
       cnt_zero_bprop++;
     }

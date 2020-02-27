@@ -31,7 +31,7 @@ typedef long long TypeKey;
 
 template <typename TypeKey>
 void test_parser(std::string& json_name) {
-  std::vector<int> device_list{0};
+  std::vector<int> device_list{0,1};
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
   std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
@@ -56,8 +56,8 @@ typedef long long T;
 const int vocabulary_size = 1603616;
 const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
 const std::string file_list_name = prefix + "_file_list.txt";
-const int num_files = 20;
-const long long num_records = 4096 * 20;
+const int num_files = 3;
+const long long num_records = 4096 * 3;
 const long long slot_num = 20;
 const Check_t CHK = Check_t::Sum;
 
@@ -68,7 +68,7 @@ TEST(parser_test, simple_sparse_embedding) {
 				   vocabulary_size, label_dim, dense_dim, max_nnz);
 
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
-  std::string plan_name = PROJECT_HOME_ + "utest/all2all_plan.json";
+  std::string plan_name = PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json";
   std::ifstream src;
   std::ofstream dst;
 

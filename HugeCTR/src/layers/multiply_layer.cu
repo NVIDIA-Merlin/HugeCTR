@@ -15,12 +15,13 @@
  */
 
 #include "HugeCTR/include/layers/multiply_layer.hpp"
-
 #include "HugeCTR/include/layers/element_wise_function.hpp"
+#include "HugeCTR/include/utils.hpp"
+#include "HugeCTR/include/utils.cuh"
 
 #include <algorithm>
 #include <functional>
-#include "HugeCTR/include/utils.hpp"
+
 #ifndef NDEBUG
 #include <iostream>
 #endif
@@ -28,6 +29,8 @@
 namespace HugeCTR {
  
 namespace {
+
+#define BLOCK_DIM_SIZE 32
 
 template<typename T>
 __global__ void multiply_kernel(const T * input, 
@@ -44,20 +47,47 @@ __global__ void multiply_kernel(const T * input,
 }
 
 template<typename T>
-__global__ void multiply_wgrad_kernel(const T * top_grad,
-                                      const T * input,
-                                      T * wgrad,
-                                      const int batch_size,
-                                      const int vector_length) {
-  int tid = threadIdx.x;
-  int bid = blockIdx.x;
+__global__ void multiply_transpose_fuse_kernel(const int row,
+                                              const int col,
+                                              const T * input_1,
+                                              const T * input_2,
+                                              T * output) {
+  __shared__ T sh_data[BLOCK_DIM_SIZE+1][BLOCK_DIM_SIZE];
 
-  if(bid < batch_size) {
-    for(int i = tid; i < vector_length; i += blockDim.x) {
-      int index = bid * vector_length + i;
-      T tmp = top_grad[index] * input[index];
-      atomicAdd(wgrad+i, tmp);
-    }
+  unsigned int src_index_x = blockIdx.x * blockDim.x + threadIdx.x;
+  unsigned int src_index_y = blockIdx.y * blockDim.y + threadIdx.y;
+  if ((src_index_x < col) && (src_index_y < row))
+  {
+    unsigned int index_in = src_index_y * col + src_index_x;
+    sh_data[threadIdx.x][threadIdx.y] = input_1[index_in] * input_2[index_in];
+  }
+
+  __syncthreads();
+
+  unsigned int dst_index_x = blockIdx.y*blockDim.y + threadIdx.x;
+  unsigned int dst_index_y = blockIdx.x*blockDim.x + threadIdx.y;
+  if ((dst_index_x < row) && (dst_index_y < col))
+  {
+    unsigned int index_out = dst_index_y * row + dst_index_x;
+    output[index_out] = sh_data[threadIdx.y][threadIdx.x];
+  }
+}
+
+// sum reduce computation in one block
+template<typename T>
+__global__ void sum_reduce_batch_kernel(const int row, // row=gridDim.x
+                                        const int col,
+                                        const T * input, 
+                                        T * output) {
+  float local_sum = 0.0f;
+  for (int tid = threadIdx.x; tid < col; tid += blockDim.x) {
+    local_sum += input[blockIdx.x * col + tid];
+  }
+  __syncthreads();
+
+  local_sum = blockReduceSum(local_sum);
+  if (threadIdx.x == 0) {
+    output[blockIdx.x] += local_sum;
   }
 }
 
@@ -73,6 +103,69 @@ __global__ void multiply_dgrad_kernel(const T * top_grad,
   if(tid < size) {
     dgrad[tid] = top_grad[tid] * weight[tid % vector_length];
   }
+}
+
+__host__ inline int GetBlockSize(int size) 
+{
+  if(size <= 32) {
+    return 32;
+  }
+  else if(size <= 64) {
+    return 64;
+  }
+  else if(size <= 128) {
+    return 128;
+  }
+  else if(size <= 256) {
+    return 256;
+  }
+  else if(size <= 512) {
+    return 512;
+  }
+  else {
+    return 1024;
+  }
+}
+
+template<typename T>
+void multiply_wgrad(const T * top_grad,
+                    const T * input,
+                    T * wgrad,
+                    T * wgrad_tmp_trans,
+                    const int batch_size,
+                    const int vector_length,
+                    cudaStream_t stream) {
+
+  dim3 blockSize1(BLOCK_DIM_SIZE, BLOCK_DIM_SIZE, 1);
+  dim3 gridSize1((vector_length+blockSize1.x-1)/blockSize1.x, (batch_size+blockSize1.y-1)/blockSize1.y, 1);
+  multiply_transpose_fuse_kernel<<<gridSize1, blockSize1, 0, stream>>>(batch_size, 
+                                                                      vector_length,
+                                                                      top_grad,
+                                                                      input,
+                                                                      wgrad_tmp_trans);
+             
+  dim3 blockSize2(1024, 1, 1);
+  dim3 gridSize2(vector_length, 1, 1);
+  sum_reduce_batch_kernel<<<gridSize2, blockSize2, 0, stream>>>(vector_length, 
+                                                                batch_size, 
+                                                                wgrad_tmp_trans, 
+                                                                wgrad);
+}
+
+template<typename T> 
+void multiply_dgrad(const T * top_grad,
+                    const T * weight,
+                    T * dgrad,
+                    const int batch_size,
+                    const int vector_length,
+                    cudaStream_t stream) {
+
+  size_t size = (size_t)batch_size * vector_length;
+
+  dim3 blockSize(64, 1, 1);
+  dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
+  multiply_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(top_grad, weight, dgrad, 
+                                                            batch_size, vector_length);
 }
 
 }
@@ -113,6 +206,10 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     weights_.emplace_back(new Tensor<float>(w_dim, weight_buff, w_format));
     wgrad_.emplace_back(new Tensor<float>(w_dim, wgrad_buff, w_format));
 
+    internal_buff_.reset(new GeneralBuffer<float>());
+    wgrad_tmp_trans_.reset(new Tensor<float>(in_dims, internal_buff_, w_format));
+    internal_buff_->init(get_device_id());
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -140,24 +237,18 @@ void MultiplyLayer::bprop(cudaStream_t stream) {
 
   float* weight = weights_[0]->get_ptr();
   float* wgrad = wgrad_[0]->get_ptr();
+  float* wgrad_tmp_trans = wgrad_tmp_trans_->get_ptr();
   float* input = in_tensors_[0]->get_ptr();
   float* output = out_tensors_[0]->get_ptr();
   int batch_size = in_tensors_[0]->get_dims()[0];
   int vector_length = in_tensors_[0]->get_dims()[1];
-  size_t size = (size_t)batch_size * vector_length;
 
   cudaMemsetAsync(wgrad, 0, wgrad_[0]->get_size(), stream);
 
-  dim3 blockSize(64, 1, 1);
-  dim3 gridSize(batch_size, 1, 1);
-  multiply_wgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, wgrad, 
-                                                            batch_size, vector_length);
+  multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size, vector_length, stream);
 
   // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
-  blockSize.x = 64;
-  gridSize.x = (size + blockSize.x - 1) / blockSize.x;
-  multiply_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, weight, input, 
-                                                            batch_size, vector_length);
+  multiply_dgrad(output, weight, input, batch_size, vector_length, stream);
 }
  
 }  // namespace HugeCTR

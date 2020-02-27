@@ -30,9 +30,9 @@ namespace HugeCTR {
 namespace {
 
 __global__ void dropout_kernel(const float* in, const float* mask, float* out,
-                               const int len, const float rate) {
+                               const int len, const float rate, const float scale) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
-    out[i] = (mask[i] > rate) * in[i];
+    out[i] = (mask[i] > rate) * in[i] * scale;
   }
 }
 
@@ -46,6 +46,7 @@ DropoutLayer::DropoutLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
                            int device_id)
     : Layer(device_id),
       rate_(rate),
+      scale_(1.0 / (1.0 - rate)),
       mask_(nullptr),
       curand_generator_(curand_generator),
       n_sms_(0) {
@@ -98,7 +99,7 @@ void DropoutLayer::prop_common(const float* in, float* out, cudaStream_t stream)
 
   int grid_size = n_sms_ * 16;
   int block_size = 256;
-  dropout_kernel<<<grid_size, block_size>>>(in, mask_, out, len, rate_);
+  dropout_kernel<<<grid_size, block_size, 0, stream>>>(in, mask_, out, len, rate_, scale_);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
