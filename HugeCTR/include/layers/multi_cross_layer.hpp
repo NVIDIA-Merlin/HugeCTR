@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,19 +21,46 @@
 #include "HugeCTR/include/general_buffer.hpp"
 #include "HugeCTR/include/layer.hpp"
 
-
 namespace HugeCTR {
+
+struct MultiCrossForwardFunctor {
+  MultiCrossForwardFunctor() = default;
+  MultiCrossForwardFunctor(const MultiCrossForwardFunctor&) = delete;
+  MultiCrossForwardFunctor& operator=(const MultiCrossForwardFunctor&) = delete;
+
+  void operator()(cudaStream_t stream, const Tensor<float>& input_tensor,
+                  const std::vector<const Tensor<float>*>& kernel_tensors,
+                  const std::vector<const Tensor<float>*>& bias_tensors,
+                  const std::vector<Tensor<float>*>& layer_output_tensors,
+                  const std::vector<Tensor<float>*>& layer_hidden_tensors, int num_layers) const;
+};
+
+struct MultiCrossBackwardFunctor {
+  MultiCrossBackwardFunctor() = default;
+  MultiCrossBackwardFunctor(const MultiCrossBackwardFunctor&) = delete;
+  MultiCrossBackwardFunctor& operator=(const MultiCrossBackwardFunctor&) = delete;
+
+  void operator()(cudaStream_t stream, const Tensor<float>& input_tensor,
+                  const std::vector<const Tensor<float>*>& kernel_tensors,
+                  const std::vector<const Tensor<float>*>& layer_output_tensors,
+                  const std::vector<const Tensor<float>*>& layer_hidden_tensors,
+                  const Tensor<float>& grad_tensor, Tensor<float>& output_tensor,
+                  const std::vector<Tensor<float>*>& kernel_output_tensors,
+                  const std::vector<Tensor<float>*>& bias_output_tensors,
+                  Tensor<float>& tmp_vec_tensor, const std::vector<Tensor<float>*>& tmp_mat_tensors,
+                  int num_layers) const;
+};
+
 class MultiCrossLayer : public Layer {
-private:
+ private:
   const int num_layers_;
-  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;  /**< internal blobs' general buffer */
-  Tensors<float> blob_tensors_;                            /**< vector of internal blobs' tensors */
-  
-  const int TMP_MATS{2};
-  const int TMP_VECS{2};
-  Tensors<float> tmp_mat_tensors_; //[h,w]
-  Tensors<float> tmp_vec_tensors_; //[h,1]
-public:
+  GeneralBufferPtr<float> blobs_buff_; /**< internal blobs' general buffer */
+  Tensors<float> blob_tensors_;     /**< vector of internal blobs' tensors */
+  Tensors<float> vec_tensors_;      //[h,1]
+
+  TensorPtr<float> tmp_mat_tensors_[3];  //[h,w]
+  TensorPtr<float> tmp_vec_tensor_;      //[h,1]
+ public:
   /**
    * forward pass
    */
@@ -43,46 +70,16 @@ public:
    */
   void bprop(cudaStream_t stream) final;
 
+  MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
+                  const GeneralBufferPtr<float>& wgrad_buff, const TensorPtr<float>& in_tensor,
+                  const TensorPtr<float>& out_tensor, int num_layers, int device_id);
+  MultiCrossLayer(const MultiCrossLayer&) = delete;
+  MultiCrossLayer& operator=(const MultiCrossLayer&) = delete;
 
-  MultiCrossLayer( const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-		   const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-		   std::shared_ptr<Tensor<float>>& in_tensor,
-		   std::shared_ptr<Tensor<float>>& out_tensor,
-		   int num_layers,
-		   int device_id);
-  MultiCrossLayer(const MultiCrossLayer& C) = delete;
  private:
   /**
    * Use Gaussian initialization.
    */
   std::vector<float> get_initializer() override;
-
-  void fprof_step_(std::shared_ptr<Tensor<float>> xL_next, //output
-		   std::shared_ptr<Tensor<float>> x0, 
-		   std::shared_ptr<Tensor<float>> xL,
-		   std::shared_ptr<Tensor<float>> wL,
-		   std::shared_ptr<Tensor<float>> bL,
-		   cudaStream_t stream);
-
-  void bprop_first_step_(std::shared_ptr<Tensor<float>> dxL_pre, //output
-			 std::shared_ptr<Tensor<float>> dwL, //output
-			 std::shared_ptr<Tensor<float>> dbL, //output
-			 std::shared_ptr<Tensor<float>> x0, //Note: x0 and dxL_pre share the same buffer
-			 std::shared_ptr<Tensor<float>> dxL,
-			 std::shared_ptr<Tensor<float>> wL,
-			 std::shared_ptr<Tensor<float>> bL,
-			 cudaStream_t stream);
-
-  void bprop_step_(std::shared_ptr<Tensor<float>> dxL_pre, //output
-		   std::shared_ptr<Tensor<float>> dwL, //output
-		   std::shared_ptr<Tensor<float>> dbL, //output
-		   std::shared_ptr<Tensor<float>> x0,
-		   std::shared_ptr<Tensor<float>> xL, //Note: xL and dxL_pre share the same buffer
-		   std::shared_ptr<Tensor<float>> dxL,
-		   std::shared_ptr<Tensor<float>> wL,
-		   std::shared_ptr<Tensor<float>> bL,
-		   cudaStream_t stream);
-
-
 };
-} //namespace HugeCTR
+}  // namespace HugeCTR
