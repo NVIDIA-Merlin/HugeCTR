@@ -24,10 +24,10 @@
 
 using namespace HugeCTR;
 
-static std::string usage_str = "usage: ./criteo2hugectr in.txt dir/prefix file_list.txt [option:keys]"; 
-
+static std::string usage_str = "usage: ./criteo2hugectr in.txt dir/prefix file_list.txt [option:#keys for wide model]"; 
 static const int N = 40960; //number of samples per data file
-static  int KEYS_PER_SAMPLE = 26;
+static int KEYS_WIDE_MODEL = 0;
+static const int KEYS_DENSE_MODEL = 26;
 static const int dense_dim = 13;
 typedef long long T;
 static const long long label_dim = 1;
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]){
   }
 
   if (argc == 5){
-    KEYS_PER_SAMPLE = atoi(argv[4]);
+    KEYS_WIDE_MODEL = atoi(argv[4]);
   }
   //open txt file
   std::ifstream txt_file(argv[1], std::ifstream::binary);
@@ -130,9 +130,9 @@ int main(int argc, char* argv[]){
       }
       std::vector<std::string> vec_string;
       split(line, ' ', vec_string);
-      if(vec_string.size() != KEYS_PER_SAMPLE+dense_dim+label_dim) //first one is label
+      if(vec_string.size() != KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim) //first one is label
         {
-          std::cerr << "vec_string.size() != KEYS_PER_SAMPLE+dense_dim+label_dim" << std::endl;
+          std::cerr << "vec_string.size() != KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim" << std::endl;
           std::cerr << line << std::endl;
           exit(-1);
         }
@@ -146,17 +146,23 @@ int main(int argc, char* argv[]){
       std::cout << label_dense << ' ';
 #endif
       }
-
-      int nnz = 1;
-      for(int j = dense_dim+label_dim; j < KEYS_PER_SAMPLE+dense_dim+label_dim; j++){
-        T key = static_cast<T>(std::stoi(vec_string[j]));
-	data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
+      
+      data_writer.append(reinterpret_cast<char*>(&KEYS_WIDE_MODEL), sizeof(int));
+      for(int j = dense_dim+label_dim; j < KEYS_WIDE_MODEL+dense_dim+label_dim; j++){
+	T key = static_cast<T>(std::stoi(vec_string[j]));
 	data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
-
 #ifndef NDEBUG
 	std::cout << key << ',';
 #endif
-
+      }
+      int nnz = 1;
+      for(int j = KEYS_WIDE_MODEL+dense_dim+label_dim; j <  KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim; j++){
+        T key = static_cast<T>(std::stoi(vec_string[j]));
+	data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
+	data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
+#ifndef NDEBUG
+	std::cout << key << ',';
+#endif
       }
       data_writer.write();
     }
