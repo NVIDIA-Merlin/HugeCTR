@@ -19,12 +19,7 @@
 #include "HugeCTR/include/embedding.hpp"
 #include "cub/cub/device/device_radix_sort.cuh"
 #include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.hpp"
-
 #include <vector>
-
-#ifdef ENABLE_MPI
-#include <mpi.h>
-#endif
 
 namespace HugeCTR {
 /**
@@ -51,8 +46,13 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
                                            // will be uint32 or int64)
   using NvHashTable = nv::HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>;
   
-  using comm_handler_traits = FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
+#ifndef ENABLE_MPI
+  using comm_handler_traits= FasterGossipComm::FasterGossipCommAll2AllTraits<float>;
   using comm_handler = FasterGossipComm::FasterGossipComm<float, comm_handler_traits>;
+#else 
+  using comm_handler_traits = FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<float>;
+  using comm_handler = FasterGossipCommMulti::FasterGossipCommMulti<float, comm_handler_traits>;
+#endif 
 
  private:
   SparseEmbeddingHashParams embedding_params_; /**< Sparse embedding hash params. */
@@ -267,7 +267,8 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
       context.set_device(cur_device);
 
       int gid = Base::device_resources_->get_global_id(cur_device);
-      int slot_num_per_gpu = embedding_params_.slot_num / total_gpu_count_ + ((gid<(embedding_params_.slot_num % total_gpu_count_))? 1 : 0);
+      int slot_num_per_gpu = embedding_params_.slot_num / total_gpu_count_ \
+        + ((gid<(embedding_params_.slot_num % total_gpu_count_))? 1 : 0);
       slot_num_per_gpu_.push_back(slot_num_per_gpu);
 
       // construct HashTable object: used to store hash table <key, value_index>
@@ -483,16 +484,25 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 
     }  // end of for(int id = 0; id < local_gpu_count_; id++)
 
+    // sync
+    functors_.sync_all_gpus(Base::device_resources_, context);
+    
     // all2all init
-    // TODO: (just support intra-node currently)
+#ifndef ENABLE_MPI  // without MPI
     functors_.all2all_init_forward(all2all_forward_, plan_file_,  batch_size_per_gpu_, 
                           slot_num_per_gpu_, embedding_params_.embedding_vec_size,
                           embedding_feature_tensors_, all2all_tensors_, Base::device_resources_);
     functors_.all2all_init_backward(all2all_backward_, plan_file_,  batch_size_per_gpu_, 
                           slot_num_per_gpu_, embedding_params_.embedding_vec_size,
                           all2all_tensors_, embedding_feature_tensors_, Base::device_resources_);
-    // sync
-    functors_.sync_all_gpus(Base::device_resources_, context);
+#else 
+    functors_.all2all_init_forward(all2all_forward_, plan_file_,  batch_size_per_gpu_, 
+                          embedding_params_.slot_num, embedding_params_.embedding_vec_size,
+                          embedding_feature_tensors_, all2all_tensors_, Base::device_resources_);
+    functors_.all2all_init_backward(all2all_backward_, plan_file_,  batch_size_per_gpu_, 
+                          embedding_params_.slot_num, embedding_params_.embedding_vec_size,
+                          all2all_tensors_, embedding_feature_tensors_, Base::device_resources_);
+#endif 
 
     CK_CUDA_THROW_(cudaFreeHost(h_hash_table_value));
   } catch (const std::runtime_error &rt_err) {
@@ -885,9 +895,16 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::get_backward_results(float *
 
   // all2all
   std::unique_ptr<comm_handler> all2all;
+#ifndef ENABLE_MPI
   functors_.all2all_init_forward(all2all, plan_file_, batch_size_per_gpu_, 
                         slot_num_per_gpu_, embedding_params_.embedding_vec_size,
                         wgrad_tensors_, all2all_tensors, Base::device_resources_);
+#else 
+  functors_.all2all_init_forward(all2all, plan_file_, batch_size_per_gpu_, 
+                        embedding_params_.slot_num, embedding_params_.embedding_vec_size,
+                        wgrad_tensors_, all2all_tensors, Base::device_resources_);
+#endif 
+
   functors_.all2all_exec(all2all);
 
   // reorder 
