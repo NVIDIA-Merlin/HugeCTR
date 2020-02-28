@@ -20,4 +20,8 @@ file(GLOB criteo2hugectr_src
 
 add_executable(criteo2hugectr ${criteo2hugectr_src})
 target_compile_features(criteo2hugectr PUBLIC cxx_std_11)
-target_link_libraries(criteo2hugectr ${MPI_CXX_LIBRARIES})
+if(MPI_FOUND)
+  target_link_libraries(criteo2hugectr PUBLIC ${MPI_CXX_LIBRARIES})
+endif()
+
+

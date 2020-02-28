@@ -14,5 +14,14 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-add_subdirectory(criteo_script)
-add_subdirectory(criteo_script_legacy)
+
+file(GLOB criteo2hugectr_legacy_src
+  criteo2hugectr_legacy.cpp
+)
+
+add_executable(criteo2hugectr_legacy ${criteo2hugectr_legacy_src})
+target_compile_features(criteo2hugectr_legacy PUBLIC cxx_std_11)
+if(MPI_FOUND)
+  target_link_libraries(criteo2hugectr_legacy PUBLIC ${MPI_CXX_LIBRARIES})
+endif()
+
