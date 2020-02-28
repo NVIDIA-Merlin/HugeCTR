@@ -9,14 +9,14 @@ The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-displa
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/) and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
 
 ```shell
-$ cd ../../tools/criteo_script/ && bash usage.sh && cd ../../samples/criteo_multi_slots/
+$ cd ../../tools/criteo_script_legacy/ && bash usage.sh && cd ../../samples/criteo_multi_slots/
 ```
 
 2. Translate the dataset to HugeCTR format
 ```shell
-$ cp ../../build/bin/criteo2hugectr10slots ./
-$ ./criteo2hugectr 10 ../../tools/criteo_script/train.out criteo/sparse_embedding file_list.txt
-$ ./criteo2hugectr 10 ../../tools/criteo_script/test.out criteo_test/sparse_embedding file_list_test.txt
+$ cp ../../build/bin/criteo2hugectr_legacy ./
+$ ./criteo2hugectr_legacy 10 ../../tools/criteo_script_legacy/train.out criteo/sparse_embedding file_list.txt
+$ ./criteo2hugectr_legacy 10 ../../tools/criteo_script_legacy/test.out criteo_test/sparse_embedding file_list_test.txt
 ```
 
 ## Training with HugeCTR ##
