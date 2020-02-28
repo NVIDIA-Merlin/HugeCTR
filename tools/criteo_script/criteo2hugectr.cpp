@@ -24,10 +24,10 @@
 
 using namespace HugeCTR;
 
-static std::string usage_str = "usage: ./criteo2hugectr in.txt dir/prefix file_list.txt"; 
+static std::string usage_str = "usage: ./criteo2hugectr in.txt dir/prefix file_list.txt [option:keys]"; 
 
 static const int N = 40960; //number of samples per data file
-static const int KEYS_PER_SAMPLE = 26;
+static  int KEYS_PER_SAMPLE = 26;
 static const int dense_dim = 13;
 typedef long long T;
 static const long long label_dim = 1;
@@ -48,9 +48,13 @@ int main(int argc, char* argv[]){
 
   const std::string tmp_file_list_name("file_list.tmp");
 
-  if (argc != 4){
+  if (argc != 4 && argc != 5){
     std::cout << usage_str << std::endl;
     exit(-1);
+  }
+
+  if (argc == 5){
+    KEYS_PER_SAMPLE = atoi(argv[4]);
   }
   //open txt file
   std::ifstream txt_file(argv[1], std::ifstream::binary);
