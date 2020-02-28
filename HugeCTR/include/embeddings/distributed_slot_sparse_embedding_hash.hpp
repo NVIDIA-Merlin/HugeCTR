@@ -24,10 +24,6 @@
 
 #include <vector>
 
-#ifdef ENABLE_MPI
-#include <mpi.h>
-#endif
-
 namespace HugeCTR {
 /**
  * The DistributedSlotSparseEmbeddingHash class inherits from Embedding class, which is the 
