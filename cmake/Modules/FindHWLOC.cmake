@@ -17,6 +17,7 @@ set(HWLOC_INC_PATHS
     /usr/include
     /usr/local/include
     $ENV{HWLOC_DIR}/include
+    $ENV{HWLOC}/include
     )
 
 set(HWLOC_LIB_PATHS
@@ -27,6 +28,7 @@ set(HWLOC_LIB_PATHS
     /usr/local/lib
     /usr/local/lib64
     $ENV{HWLOC_DIR}/lib
+    $ENV{HWLOC}/lib
     )
 
 find_path(HWLOC_INCLUDE_DIR NAMES hwloc.h PATHS ${HWLOC_INC_PATHS})

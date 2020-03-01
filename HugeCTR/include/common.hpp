@@ -279,7 +279,7 @@ typedef struct DataSetHeader_ {
     ncclResult_t r = (cmd);                                                                        \
     if (r != ncclSuccess) {                                                                        \
       throw internal_runtime_error(Error_t::NcclError, std::string("Runtime error: NCCL Error ") + \
-                                                           std::string(ncclGetErrorString(cmd)) +  \
+                                                           std::string(ncclGetErrorString(r)) +  \
                                                            " " + __FILE__ + ":" +                  \
                                                            std::to_string(__LINE__) + " \n");      \
     }                                                                                              \
