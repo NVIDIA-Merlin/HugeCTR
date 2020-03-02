@@ -53,9 +53,10 @@ void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<f
   
   const int BLOCK_DIM = 256;
   const int GRID_DIM = (label_dense_buffer->get_num_elements()-1)/BLOCK_DIM + 1;
-
+  assert(dense_dim >= 0 || "dense_dim should be >= 0");
   split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(batchsize, label_tensor->get_ptr(), label_dim, 
     dense_tensor->get_ptr(), dense_dim, label_dense_buffer->get_ptr_with_offset(0));
+
   return;
 }
 
