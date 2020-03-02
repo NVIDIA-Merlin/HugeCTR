@@ -129,7 +129,7 @@ void DataReaderWorker<T>::read_a_batch() {
 
     if (!skip_read_) {
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
-      const int label_dense_dim = csr_chunk->get_label_dim();
+      const int label_dense_dim = csr_chunk->get_label_dense_dim();
       if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
         CK_THROW_(Error_t::WrongInput, "data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim");
       std::unique_ptr<float[]> label_dense(new float[label_dense_dim]());

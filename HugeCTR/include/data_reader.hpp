@@ -120,24 +120,11 @@ class DataReader {
 
   void create_heap_workers_(){
     int max_feature_num_per_sample = 0;
-    int slot_num = 0;
     int total_gpu_count = device_resources_->get_total_gpu_count();
 
     for(auto& param : params_){
       max_feature_num_per_sample += param.max_feature_num;
 
-      /* Note that the slot_num here (csr row - 1) is larger than reqired for convinence. */
-      /* For example: in a four gpu system, if param.type == Localized, and param.slot_num is 7*/
-      /* You will expect slot_num == 2 because each of the CSR should share the same size */
-      if(param.type == DataReaderSparse_t::Distributed){
-	slot_num += param.slot_num;
-      }
-      else if(param.type == DataReaderSparse_t::Localized){
-	slot_num += (param.slot_num - 1) / total_gpu_count + 1;
-      }
-      else{
-	CK_THROW_(Error_t::WrongInput, "param.type is illegal");
-      }
       if(param.max_feature_num <= 0 || param.slot_num <= 0){
 	CK_THROW_(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
       }

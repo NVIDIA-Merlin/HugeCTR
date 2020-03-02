@@ -34,7 +34,7 @@ class CSRChunk {
   std::vector<CSR<CSR_Type>>
       csr_buffers_; /**< A vector of CSR objects, should be same number as devices. */
   std::vector<PinnedBuffer<float>> label_buffers_; /**< A vector of label buffers */
-  int label_dim_;                                  /**< dimension of label (for one sample) */
+  int label_dense_dim_;                                  /**< dimension of label + dense (for one sample) */
   int batchsize_;                                  /**< batch size of training */
   int num_params_;
   int num_devices_;
@@ -45,16 +45,16 @@ class CSRChunk {
    * @param num_csr_buffers the number of CSR object it will have.
    *        the number usually equal to num devices will be used.
    * @param batchsize batch size.
-   * @param label_dim dimension of label (for one sample).
+   * @param label_dense_dim dimension of label (for one sample).
    * @param slot_num slot num.
    * @param max_value_size the number of element of values the CSR matrix will have
    *        for num_rows rows (See csr.hpp).
    */
-  CSRChunk(int num_devices, int batchsize, int label_dim, const std::vector<DataReaderSparseParam>& params) {
-    if (num_devices <= 0 || batchsize % num_devices != 0 || label_dim <= 0 ) {
-      CK_THROW_(Error_t::WrongInput, "num_devices <= 0 || batchsize % num_devices != 0 || label_dim <= 0 ");
+  CSRChunk(int num_devices, int batchsize, int label_dense_dim, const std::vector<DataReaderSparseParam>& params) {
+    if (num_devices <= 0 || batchsize % num_devices != 0 || label_dense_dim <= 0 ) {
+      CK_THROW_(Error_t::WrongInput, "num_devices <= 0 || batchsize % num_devices != 0 || label_dense_dim <= 0 ");
     }
-    label_dim_ = label_dim;
+    label_dense_dim_ = label_dense_dim;
     batchsize_ = batchsize;
     num_params_ = params.size();
     num_devices_ = num_devices;
@@ -78,7 +78,7 @@ class CSRChunk {
 	}
 	csr_buffers_.emplace_back(batchsize * slots, param.max_feature_num*batchsize);
       }
-      label_buffers_.emplace_back(batchsize / num_devices * label_dim);
+      label_buffers_.emplace_back(batchsize / num_devices * label_dense_dim);
     }
   }
 
@@ -115,7 +115,7 @@ class CSRChunk {
    * This methord is used in collector (consumer) and data_reader (provider).
    */
   const std::vector<PinnedBuffer<float>>& get_label_buffers() const { return label_buffers_; }
-  int get_label_dim() const { return label_dim_; }
+  int get_label_dense_dim() const { return label_dense_dim_; }
   int get_batchsize() const { return batchsize_; }
   int get_num_devices() const {return num_devices_; }
   int get_num_params() const {return num_params_; }
