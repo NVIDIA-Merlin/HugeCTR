@@ -929,7 +929,8 @@ public:
 
     std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
 
-#ifndef NDEBUG
+#if 1
+//#ifndef NDEBUG
     std::cout << "my_rank=" << my_rank << ", gpu device ids: { ";
     for(auto dev: device_ids) {
       std::cout << dev << " ";
@@ -985,7 +986,8 @@ public:
       }
     }
 
-#ifndef NDEBUG
+#if 1
+//#ifndef NDEBUG
     std::cout << "my_rank=" << my_rank << ", forward all2all send_table:"<< std::endl;
     for(int i = 0; i < local_gpu_count; i++){
       for(int j = 0; j < total_gpu_count; j++){
@@ -1437,7 +1439,10 @@ public:
 
           tile_counter_in_chunk_per_gpu[id] += tile_size;
         } else {
-          break;
+          //break;
+          src_buf += hash_table_key_tile_size_in_B;
+          src_buf += hash_table_value_tile_size_in_B;
+          continue;
         }
       }  // end of for(int k = 0; k < (chunk_loop * local_gpu_count); k++)
 
@@ -1557,7 +1562,10 @@ public:
           // set counter
           tile_counter_per_gpu[id] += hash_table_key_tile_size;
         } else {
-          break;
+          //break;
+          src_buf += hash_table_key_tile_size_in_B;
+          src_buf += hash_table_value_tile_size_in_B;
+          continue;
         }
       }
 
@@ -1747,7 +1755,11 @@ public:
 
           tile_counter_in_chunk_per_gpu[id] += tile_size;
         } else {
-          break;
+          //break;
+          src_buf += hash_table_key_tile_size_in_B;
+          src_buf += hash_table_slot_id_tile_size_in_B;
+          src_buf += hash_table_value_tile_size_in_B;
+          continue;
         }
       }  // end of for(int k = 0; k < (chunk_loop * local_gpu_count); k++)
 
@@ -1780,11 +1792,6 @@ public:
                                 tile_count,
                                 (*device_resources)[id]->get_stream());
         size_t value_head = hash_tables[id]->add_value_head(tile_count);
-
-        // // just for debug 
-        // std::cout << "gpu=" << id
-        //           << "value_head=" << value_head
-        //           << std::endl;
       }
 
       // memcpy hash_table_slot_id and hash_table_value from CPU to GPU
@@ -1805,11 +1812,6 @@ public:
 
         TypeHashValueIndex *src_buf_sid = h_hash_table_slot_id_chunk_per_gpu[id];
         TypeHashValueIndex *dst_buf_sid = hash_table_slot_id_tensors[id]->get_ptr() + slot_id_offset;
-        // std::cout << "gpu_id=" << id 
-        //           << " max_vocabulary_size_per_gpu=" << max_vocabulary_size_per_gpu
-        //           << " slot_id_chunk_size=" << slot_id_chunk_size
-        //           << " slot_id_offset=" << slot_id_offset 
-        //           << std::endl;
         CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf_sid, src_buf_sid, slot_id_chunk_size * sizeof(TypeHashValueIndex),
                                       cudaMemcpyHostToDevice,
                                       (*device_resources)[id]->get_stream()));
@@ -1854,10 +1856,18 @@ public:
       TypeHashValueIndex *slot_id_dst_buf;
       float *value_dst_buf;
       for (int i = 0; i < remain_loop_num; i++) { // process one tile in each loop
+
         TypeHashValueIndex slot_id = *((TypeHashValueIndex *)(src_buf + hash_table_key_tile_size_in_B));
         int gid = slot_id % total_gpu_count;  // global GPU ID
         int id = device_resources->get_local_id(gid); // local GPU ID (not gpu devie id)
         int dst_rank = device_resources->get_pid(gid); // node id
+
+        // // just for debug 
+        // std::cout << "i=" << i << ", remain_loop_num=" << remain_loop_num
+        //           << ", rank:" << my_rank << ", dst_rank=" << dst_rank 
+        //           << ", slot_id=" << slot_id 
+        //           << ", gid=" << gid 
+        //           << std::endl;
 
         if (my_rank == dst_rank) {
           context.set_device((*device_resources)[id]->get_device_id());
@@ -1886,13 +1896,13 @@ public:
 
 
           // // just for debug 
-          // std::cout << "i=" << i 
+          // std::cout << "rank=" << my_rank
+          //           << ", i=" << i 
           //           << ", slot_id=" << slot_id 
-          //           << ", key=" << *(TypeHashKey*)src_buf 
+          //           << ", key=" << *((TypeHashKey*)(src_buf-hash_table_key_tile_size_in_B)) 
           //           << ", gid=" << gid 
           //           << ", value_head=" << value_head
           //           << std::endl;
-
 
           // memcpy hash_table_slot_id to corresponding GPU
           size_t slot_id_offset = tile_counter_per_gpu[id];
@@ -1914,7 +1924,11 @@ public:
           // set counter
           tile_counter_per_gpu[id] += tile_size;
         } else {
-          break;
+          //break;
+          src_buf += hash_table_key_tile_size_in_B;
+          src_buf += hash_table_slot_id_tile_size_in_B;
+          src_buf += hash_table_value_tile_size_in_B;
+          continue;
         }
       }
 
@@ -2129,6 +2143,13 @@ public:
 
     int local_gpu_count = device_resources->size();
 
+    int my_rank = 0;
+    int n_ranks = 1;
+  #ifdef ENABLE_MPI
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
+  #endif
+
     // memory allocation
     std::unique_ptr<size_t[]> count(new size_t[local_gpu_count]);
     size_t max_count = 0;
@@ -2143,6 +2164,8 @@ public:
       count[id] = count_tmp;
       max_count = max(max_count, count[id]);
       total_count += count[id];
+
+      printf("rank:%d, gpu:%d, count=%d\n", my_rank, id, count_tmp);
     }
 
   #ifdef ENABLE_MPI
@@ -2185,6 +2208,9 @@ public:
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
 
+      // // just for debug 
+      // printf("gpu:%d, count=%d, max_vocabulary_size_per_gpu=%d\n", id, count[id], max_vocabulary_size_per_gpu);
+
       hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
                             max_vocabulary_size_per_gpu, d_dump_counter[id],
                             (*device_resources)[id]->get_stream());
@@ -2213,14 +2239,6 @@ public:
 
     // sync wait
     sync_all_gpus(device_resources, context);
-
-    int my_rank = 0;
-    int n_ranks = 1;
-  #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
-    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
-
-  #endif
 
     const int master_node = 0;
     const int base_tag = 0xed;
@@ -2303,7 +2321,9 @@ public:
                           const std::shared_ptr<GPUResourceGroup>& device_resources,
                           CudaDeviceContext& context) {
     int local_gpu_count = device_resources->size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
+#if 0 // only support one node
     int offset = 0;
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
@@ -2312,11 +2332,50 @@ public:
                                     (*device_resources)[id]->get_stream()));
       offset += memcpy_size;
     }
+#else // support multi-node 
+    if(local_gpu_count > 1) {
+      GeneralBuffers<float> temp_bufs;   
+      Tensors<float> temp_tensors;
+      for (int id = 0; id < local_gpu_count; id++) {
+        int cur_device = (*device_resources)[id]->get_device_id();
+        context.set_device(cur_device);
+        temp_bufs.emplace_back(new GeneralBuffer<float>());
+        temp_tensors.emplace_back(
+          new Tensor<float>({1, total_gpu_count * memcpy_size},
+                            temp_bufs.back(), TensorFormat_t::HW));
+        temp_bufs.back()->init(cur_device);
+      }
+
+      all_gather(memcpy_size,
+                embedding_feature_tensors, // send 
+                temp_tensors, // recv
+                device_resources,
+                context);
+      sync_all_gpus(device_resources, context);
+
+      context.set_device((*device_resources)[0]->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature, temp_tensors[0]->get_ptr(),
+                                    total_gpu_count * memcpy_size * sizeof(float), 
+                                    cudaMemcpyDeviceToHost,
+                                    (*device_resources)[0]->get_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize((*device_resources)[0]->get_stream()));
+    }
+    else {
+      context.set_device((*device_resources)[0]->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature, 
+                                    embedding_feature_tensors[0]->get_ptr(),
+                                    memcpy_size * sizeof(float), 
+                                    cudaMemcpyDeviceToHost,
+                                    (*device_resources)[0]->get_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize((*device_resources)[0]->get_stream()));
+    }
+#endif 
 
     return;
   }
 
   /**
+   * get_backward_results for DistributedSlotSparseEmbeddingHash
    * get backward results from GPU to CPU. This functin is just used for utest.
    * @param devId gpu device id to get backward resutls from.
    * @param memcpy_size the number of elemments to do memcpy.
@@ -2343,7 +2402,8 @@ public:
   }
 
   /**
-   * The overload version of get_backward_results function for LocalizedSlotSparseEmbeddingHash
+   * get_backward_results for LocalizedSlotSparseEmbeddingHash
+   * get backward results from GPU to CPU. This functin is just used for utest.
    * @param devId gpu device id to get backward resutls from.
    * @param memcpy_size the number of elemments to do memcpy.
    * @param wgrad_tensors the source tensors of multi GPUs to copy from.
@@ -2351,22 +2411,121 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void get_backward_results(int memcpy_size,
+  void get_backward_results(const int& batch_size,
+                            const int& slot_num,
+                            const int& embedding_vec_size,
+                            const std::string& plan_file,
                             const Tensors<float>& wgrad_tensors,
                             float * wgrad,
                             const std::shared_ptr<GPUResourceGroup>& device_resources,
                             CudaDeviceContext& context) {
 
     int local_gpu_count = device_resources->size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
+    int batch_size_per_gpu = batch_size / total_gpu_count;
+
+    Tensors<float> all2all_tensors;
+    Tensors<float> reorder_tensors;
+    GeneralBuffers<float> float_bufs;
+
+    for (int id = 0; id < local_gpu_count; id++) { 
+      int cur_device = (*device_resources)[id]->get_device_id();
+      context.set_device(cur_device);
+      float_bufs.emplace_back(new GeneralBuffer<float>());
+      all2all_tensors.emplace_back(
+          new Tensor<float>({batch_size_per_gpu * slot_num,
+                            embedding_vec_size},
+                            float_bufs.back(), TensorFormat_t::HW));
+      reorder_tensors.emplace_back(
+          new Tensor<float>({batch_size_per_gpu * slot_num,
+                            embedding_vec_size},
+                            float_bufs.back(), TensorFormat_t::HW));    
+      float_bufs.back()->init(cur_device); 
+    }
+
+    // all2all
+    std::unique_ptr<comm_handler> all2all;
+#ifndef ENABLE_MPI
+    std::vector<int> v_slot_num_per_gpu; 
+    for (int id = 0; id < local_gpu_count; id++) { 
+      int slot_num_per_gpu = slot_num / total_gpu_count \
+          + ((id<(slot_num % total_gpu_count))? 1 : 0);
+      v_slot_num_per_gpu.push_back(slot_num_per_gpu);
+    }
+    all2all_init_forward(all2all, plan_file, batch_size_per_gpu, 
+                         v_slot_num_per_gpu, embedding_vec_size,
+                         wgrad_tensors, all2all_tensors, device_resources);
+#else 
+    all2all_init_forward(all2all, plan_file, batch_size_per_gpu, 
+                         slot_num, embedding_vec_size,
+                         wgrad_tensors, all2all_tensors, device_resources);
+#endif 
+
+    all2all_exec(all2all);
+
+    // reorder 
+    forward_reorder(batch_size_per_gpu,
+                    slot_num, 
+                    embedding_vec_size,
+                    all2all_tensors, 
+                    reorder_tensors,
+                    device_resources,
+                    context);
+    
+    // sync
+    sync_all_gpus(device_resources, context);
+
+    // there are batch_size_per_gpu samples' wgard on each GPU 
+    int memcpy_size = batch_size_per_gpu * slot_num * embedding_vec_size;
+
+#if 1 // one node 
     int offset = 0;
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(wgrad + offset, wgrad_tensors[id]->get_ptr(),
+      CK_CUDA_THROW_(cudaMemcpyAsync(wgrad + offset, reorder_tensors[id]->get_ptr(),
                                     memcpy_size * sizeof(float), cudaMemcpyDeviceToHost,
                                     (*device_resources)[id]->get_stream()));
       offset += memcpy_size;
     }
+#else // multi node 
+    if(local_gpu_count > 1) {
+      GeneralBuffers<float> temp_bufs;   
+      Tensors<float> temp_tensors;
+      for (int id = 0; id < local_gpu_count; id++) {
+        int cur_device = (*device_resources)[id]->get_device_id();
+        context.set_device(cur_device);
+        temp_bufs.emplace_back(new GeneralBuffer<float>());
+        temp_tensors.emplace_back(
+          new Tensor<float>({1, total_gpu_count * memcpy_size},
+                            temp_bufs.back(), TensorFormat_t::HW));
+        temp_bufs.back()->init(cur_device);
+      }
+
+      all_gather(memcpy_size,
+                reorder_tensors, // send 
+                temp_tensors, // recv
+                device_resources,
+                context);
+      sync_all_gpus(device_resources, context);
+
+      context.set_device((*device_resources)[0]->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(wgrad, temp_tensors[0]->get_ptr(),
+                                    total_gpu_count * memcpy_size * sizeof(float), 
+                                    cudaMemcpyDeviceToHost,
+                                    (*device_resources)[0]->get_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize((*device_resources)[0]->get_stream()));
+    }
+    else {
+      context.set_device((*device_resources)[0]->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(wgrad, 
+                                    reorder_tensors[0]->get_ptr(),
+                                    memcpy_size * sizeof(float), 
+                                    cudaMemcpyDeviceToHost,
+                                    (*device_resources)[0]->get_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize((*device_resources)[0]->get_stream()));
+    }
+#endif 
 
     return;
   }

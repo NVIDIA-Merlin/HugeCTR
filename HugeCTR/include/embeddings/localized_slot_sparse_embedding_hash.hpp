@@ -295,7 +295,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
       embedding_feature_tensors_.emplace_back(
           new Tensor<float>({embedding_params_.batch_size * slot_num_per_gpu,
                              embedding_params_.embedding_vec_size},
-                            float_bufs_.back(), TensorFormat_t::HW));
+                             float_bufs_.back(), TensorFormat_t::HW));
 
       // new wgrad used by backward
       wgrad_tensors_.emplace_back(
@@ -870,64 +870,14 @@ template <typename TypeHashKey>
 void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::get_backward_results(float *wgrad, int devIndex) {
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-  Tensors<float> all2all_tensors;
-  Tensors<float> reorder_tensors;
-  GeneralBuffers<float> float_bufs;
-
-  for (int id = 0; id < local_gpu_count_; id++) { 
-    int cur_device = (*Base::device_resources_)[id]->get_device_id();
-    context.set_device(cur_device);
-
-    float_bufs.emplace_back(new GeneralBuffer<float>());
-
-    all2all_tensors.emplace_back(
-        new Tensor<float>({batch_size_per_gpu_ * embedding_params_.slot_num,
-                          embedding_params_.embedding_vec_size},
-                          float_bufs.back(), TensorFormat_t::HW));
-
-    reorder_tensors.emplace_back(
-        new Tensor<float>({batch_size_per_gpu_ * embedding_params_.slot_num,
-                          embedding_params_.embedding_vec_size},
-                          float_bufs.back(), TensorFormat_t::HW));    
-
-    float_bufs.back()->init(cur_device); 
-  }
-
-  // all2all
-  std::unique_ptr<comm_handler> all2all;
-#ifndef ENABLE_MPI
-  functors_.all2all_init_forward(all2all, plan_file_, batch_size_per_gpu_, 
-                        slot_num_per_gpu_, embedding_params_.embedding_vec_size,
-                        wgrad_tensors_, all2all_tensors, Base::device_resources_);
-#else 
-  functors_.all2all_init_forward(all2all, plan_file_, batch_size_per_gpu_, 
-                        embedding_params_.slot_num, embedding_params_.embedding_vec_size,
-                        wgrad_tensors_, all2all_tensors, Base::device_resources_);
-#endif 
-
-  functors_.all2all_exec(all2all);
-
-  // reorder 
-  functors_.forward_reorder(batch_size_per_gpu_,
-                    embedding_params_.slot_num, 
-                    embedding_params_.embedding_vec_size,
-                    all2all_tensors, 
-                    reorder_tensors,
-                    Base::device_resources_,
-                    context);
-  
-  // sync
-  functors_.sync_all_gpus(Base::device_resources_, context);
-
-  // there are batch_size_per_gpu samples' wgard on each GPU 
-  int memcpy_size = batch_size_per_gpu_ * embedding_params_.slot_num *
-                    embedding_params_.embedding_vec_size;
-  functors_.get_backward_results(memcpy_size,
-                                reorder_tensors,
+  functors_.get_backward_results(embedding_params_.batch_size,
+                                embedding_params_.slot_num,
+                                embedding_params_.embedding_vec_size,
+                                plan_file_,
+                                wgrad_tensors_,
                                 wgrad,
                                 Base::device_resources_,
                                 context);
-
   return;
 }  // end of get_backward_results()
 
