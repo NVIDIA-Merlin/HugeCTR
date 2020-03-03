@@ -199,10 +199,10 @@ Error_t Session::eval() {
     embedding_->forward();
 
     if (networks_.size() > 1) {
-      // execute dense forward and backward with multi-cpu threads
+      // execute dense forward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
         gpu_resource_group_.results[i] = gpu_resource_group_.train_thread_pool.push(
-            std::ref(network_train_helper), networks_[i]);
+            std::ref(network_eval_helper), networks_[i]);
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
         gpu_resource_group_.results[i].get();
