@@ -558,22 +558,30 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
   // sync
   functors_.sync_all_gpus(Base::device_resources_, context);
 
-  // // just for debug 
-  // for(int id = 0; id < local_gpu_count_; id++) {
-  //   context.set_device((*Base::device_resources_)[id]->get_device_id());
+//   // just for debug 
+//   int numprocs = 1, pid = 0;
+//   std::vector<std::vector<int>> vvgpu;
+// #ifdef ENABLE_MPI
+//   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+//   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+// #endif
+//   for(int id = 0; id < local_gpu_count_; id++) {
+//     context.set_device((*Base::device_resources_)[id]->get_device_id());
 
-  //   int size = embedding_params_.batch_size * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size;
-  //   float * host_emb = (float *)malloc(size * sizeof(float));
+//     int size = embedding_params_.batch_size * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size;
+//     float * host_emb = (float *)malloc(size * sizeof(float));
 
-  //   cudaMemcpy(host_emb, embedding_feature_tensors_[id]->get_ptr(), size * sizeof(float), cudaMemcpyDeviceToHost);
+//     cudaMemcpy(host_emb, embedding_feature_tensors_[id]->get_ptr(), size * sizeof(float), cudaMemcpyDeviceToHost);
 
-  //   std::cout << "gpu=" << id << ": embedding_feature:"<< std::endl;
-  //   for(int i = 0; i < size; i++) {
-  //     std::cout << host_emb[i] << ", ";
-  //   }
-  //   std::cout << std::endl;
-  // }
-
+//     std::cout << "rank:" << pid << ", gpu=" << id << ": embedding_feature:"<< std::endl;
+//     //for(int i = 0; i < size; i++) {
+//     for(int i = 0; i < (8 * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size); i++) {
+//       if((i % embedding_params_.embedding_vec_size) == 0) {
+//         std::cout << host_emb[i] << ", ";
+//       }
+//     }
+//     std::cout << std::endl;
+//   }
 
   // do all-to-all (just support intra-node currently)
   // src=embedding_feature_tensors_; dst=Base::output_tensors_
@@ -587,11 +595,27 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
   //   context.set_device((*Base::device_resources_)[id]->get_device_id());
   //   cudaMemcpy(host_all2all, all2all_tensors_[id]->get_ptr(), size * sizeof(float), cudaMemcpyDeviceToHost);
 
-  //   std::cout << "gpu=" << id << ": all2all:"<< std::endl;
-  //   for(int i = 0; i < size; i++) {
-  //     std::cout << host_all2all[i] << ", ";
-  //   }
-  //   std::cout << std::endl;
+  //   //if(pid == 0) {
+  //     std::cout << "rank:" << pid << ", gpu=" << id << ": all2all:"<< std::endl;
+  //     // //for(int i = 0; i < size; i++) {
+  //     // for(int i = 0; i < (8 * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size); i++) {
+  //     //   std::cout << host_all2all[i] << ", ";
+  //     // }
+  //     // std::cout << std::endl;
+  //     int offset = 0;
+  //     for(int k = 0; k < total_gpu_count_; k++) {
+  //       if(k > 0) {
+  //         //offset += batch_size_per_gpu_ * slot_num_per_gpu_[k-1] * embedding_params_.embedding_vec_size;
+  //         offset += batch_size_per_gpu_ * 2 * embedding_params_.embedding_vec_size;
+  //       }
+  //       for(int i = 0; i < (8 * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size); i++) {
+  //         if((i % embedding_params_.embedding_vec_size) == 0) {
+  //           std::cout << host_all2all[offset+i] << ", ";
+  //         }
+  //       }
+  //       std::cout << std::endl;
+  //     }
+  //   //}
   // }
 
 
@@ -615,11 +639,16 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
   //   context.set_device((*Base::device_resources_)[id]->get_device_id());
   //   cudaMemcpy(host_reorder, Base::output_tensors_[id]->get_ptr(), size * sizeof(float), cudaMemcpyDeviceToHost);
 
-  //   std::cout << "gpu=" << id << ": reorder:"<< std::endl;
-  //   for(int i = 0; i < size; i++) {
-  //     std::cout << host_reorder[i] << ", ";
+  //   if(pid == 0) {
+  //     std::cout << "rank:" << pid << ", gpu=" << id << ": reorder:"<< std::endl;
+  //     //for(int i = 0; i < size; i++) {
+  //     for(int i = 0; i < (2 * embedding_params_.slot_num * embedding_params_.embedding_vec_size); i++) {
+  //       if((i % embedding_params_.embedding_vec_size) == 0) {
+  //         std::cout << host_reorder[i] << ", ";
+  //       }
+  //     }
+  //     std::cout << std::endl;
   //   }
-  //   std::cout << std::endl;
   // }
 
 

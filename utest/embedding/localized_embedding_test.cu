@@ -46,8 +46,8 @@ const long long num_records = batchsize * batch_num;
 const int slot_num = 8; 
 const int max_nnz_per_slot = 10;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
-const long long vocabulary_size = 50000;
-const int embedding_vec_size = 1;
+const long long vocabulary_size = 100;
+const int embedding_vec_size = 64;
 const int combiner = 0;   // 0-sum, 1-mean
 const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
 const float lr = 0.01;
@@ -371,7 +371,7 @@ TEST(localized_sparse_embedding_hash_test, forward_all2all_reorder_single_node) 
 }
 #endif 
 
-#if 1
+#if 0
 // localized_sparse_embedding_hash upload_params() and download_params() testing
 TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
 
@@ -405,10 +405,9 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
         vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
   }
 
-  
 #ifdef ENABLE_MPI
-MPI_Barrier(MPI_COMM_WORLD);
-std::cout << "This is rank: " << pid << std::endl; 
+  MPI_Barrier(MPI_COMM_WORLD);
+  std::cout << "This is rank: " << pid << std::endl; 
 #endif 
 
   //setup a data reader
@@ -465,8 +464,7 @@ std::cout << "This is rank: " << pid << std::endl;
   }
 
 #ifdef ENABLE_MPI
-MPI_Barrier(MPI_COMM_WORLD);
-std::cout << "This is rank: " << pid << std::endl; 
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif 
 
   // upload data from host to device
@@ -476,8 +474,7 @@ std::cout << "This is rank: " << pid << std::endl;
   i_weight_stream.close();
 
 #ifdef ENABLE_MPI
-MPI_Barrier(MPI_COMM_WORLD);
-std::cout << "This is rank: " << pid << std::endl; 
+  MPI_Barrier(MPI_COMM_WORLD);
 #endif 
 
   // download data from device to host
@@ -485,6 +482,10 @@ std::cout << "This is rank: " << pid << std::endl;
   printf("start download_params_to_host()\n");
   embedding->download_params_to_host(o_weight_stream);
   o_weight_stream.close();
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif 
 
   // comapre the read file with the written file
   typedef struct TypeHashValue_{
@@ -497,7 +498,7 @@ std::cout << "This is rank: " << pid << std::endl;
 }
 #endif 
 
-#if 0
+#if 1
 // localized_sparse_embedding_hash correctness testing: forward->backward->update_params
 TEST(localized_sparse_embedding_hash_test, training_correctness) {
 
@@ -521,6 +522,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 #endif
+
   // if there are multi-node, we assume each node has the same gpu device_list
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
@@ -564,6 +566,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
                    embedding_params, plan_file, gpu_resource_group);
 
   if (init_hash_table) {
+    // generate hashtable
     if(pid == 0) {
       // init hash table file: <key, solt_id, value>
       std::ofstream weight_stream(hash_table_file_name);
@@ -591,6 +594,10 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
       }
       weight_stream.close();
     }
+
+#ifdef ENABLE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif 
 
     // upload hash table to device
     std::ifstream i_weight_stream(hash_table_file_name);
@@ -636,27 +643,24 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
     printf("embedding->get_forward_results()\n");
     embedding->get_forward_results(embedding_feature_from_gpu);  // memcpy from GPU to CPU
 
-#ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-  std::cout << "rank:" << pid << ", get_foward_results" << std::endl;
-#endif 
-
     if(pid == 0) {
       // CPU forward
       printf("embedding_cpu->forward()\n");
       embedding_cpu->forward();
 
-      // just for debug 
-      for(int l=0; l<10; l++) {
-        for(int j=0; j<slot_num; j++) {
-          for(int k=0; k<embedding_vec_size; k++) {
-            std::cout << "  emb_fea_cpu=" << embedding_feature_from_cpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
-                      << ",emb_fea_gpu=" << embedding_feature_from_gpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
-                      << std::endl;
-          }
-        }
-      }
-      std::cout << std::endl;
+      // // just for debug 
+      // for(int l=0; l<10; l++) {
+      //   for(int j=0; j<slot_num; j++) {
+      //     for(int k=0; k<embedding_vec_size; k++) {
+      //       if(k == 0) {
+      //         std::cout << "  emb_fea_cpu=" << embedding_feature_from_cpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
+      //                   << ",emb_fea_gpu=" << embedding_feature_from_gpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
+      //                   << std::endl;
+      //       }
+      //     }
+      //   }
+      // }
+      // std::cout << std::endl;
 
       printf("check forward results\n");
       ASSERT_EQ(true,
@@ -666,8 +670,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
 
 #ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
-    std::cout << "rank:" << pid << ", compare_embedding_feature" << std::endl;
-  #endif 
+#endif 
 
     // GPU backward
     printf("embedding->backward()\n");

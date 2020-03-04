@@ -37,17 +37,17 @@ namespace {
 //---------------------------------------------------------------------------------------
 // global params for all testing 
 //const std::vector<int> device_list = {0,1,2,3};
-const std::vector<int> device_list = {0,3};
+const std::vector<int> device_list = {0,1};
 //const std::vector<int> device_list = {0};
 const int batch_num = 4;  // can not more than 32
-const int batchsize = 4096;
+const int batchsize = 40960;
 const long long num_records = batchsize * batch_num;
 const int slot_num = 8; 
 const int max_nnz_per_slot = 10;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
 const long long vocabulary_size = 100;
 const int embedding_vec_size = 64;
-const int combiner = 1;   // 0-sum, 1-mean
+const int combiner = 0;   // 0-sum, 1-mean
 const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
 const float lr = 0.01;
 const long long label_dim = 1;
@@ -93,16 +93,23 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
   std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
+  if(pid == 0) {
 #if 1
-  // re-generate the dataset files 
-  std::ifstream file(file_list_name);
-  if(file.good()) {
-    std::remove(file_list_name.c_str());
-  }
+    // re-generate the dataset files 
+    std::ifstream file(file_list_name);
+    if(file.good()) {
+      std::remove(file_list_name.c_str());
+    }
 #endif 
-  // data generation
-  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-      vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+    // data generation
+    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+  }
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  std::cout << "This is rank: " << pid << std::endl; 
+#endif 
 
   //setup a data reader
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot*slot_num, slot_num};
@@ -122,29 +129,36 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
   const std::string hash_table_upload("distributed_hash_table_upload.bin");
   const std::string hash_table_download("distributed_hash_table_download.bin");         
 
-  // init hash table file
-  std::ofstream weight_stream(hash_table_upload);
-  if(!weight_stream.is_open()) {
-    ERROR_MESSAGE_("Error: file not open for writing");
-  }
-  UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size-1);
-  UnifiedDataSimulator<float> fdata_sim(0, vocabulary_size-1);
-  T * p_key = (T *)malloc(vocabulary_size * sizeof(T));
-  UnorderedKeyGenerator<T> unorderedKey;
-  unorderedKey.fill_unique(p_key, vocabulary_size);
-  for(int i = 0; i < vocabulary_size; i++) {
-  	//T key = (T)i;
-  	//T key = ldata_sim.get_num(); // CAUSION: can not get correct results when testing by the case with duplicated keys
-  	//weight_stream.write((char *)&key, sizeof(T));
-  	weight_stream.write((char *)&p_key[i], sizeof(T));
-    //float val = (float)i;
-  	float val = fdata_sim.get_num();
-    for(int j = 0; j < embedding_vec_size; j++) {
-      weight_stream.write((char *)&val, sizeof(float));
+  if(pid == 0) {
+    // init hash table file
+    std::ofstream weight_stream(hash_table_upload);
+    if(!weight_stream.is_open()) {
+      ERROR_MESSAGE_("Error: file not open for writing");
     }
+    UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size-1);
+    UnifiedDataSimulator<float> fdata_sim(0, vocabulary_size-1);
+    T * p_key = (T *)malloc(vocabulary_size * sizeof(T));
+    UnorderedKeyGenerator<T> unorderedKey;
+    unorderedKey.fill_unique(p_key, vocabulary_size);
+    for(int i = 0; i < vocabulary_size; i++) {
+      //T key = (T)i;
+      //T key = ldata_sim.get_num(); // CAUSION: can not get correct results when testing by the case with duplicated keys
+      //weight_stream.write((char *)&key, sizeof(T));
+      weight_stream.write((char *)&p_key[i], sizeof(T));
+      //float val = (float)i;
+      float val = fdata_sim.get_num();
+      for(int j = 0; j < embedding_vec_size; j++) {
+        weight_stream.write((char *)&val, sizeof(float));
+      }
+    }
+    weight_stream.close();
+    free(p_key);
   }
-  weight_stream.close();
-  free(p_key);
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  std::cout << "This is rank: " << pid << std::endl; 
+#endif 
 
   // upload data from host to device
   std::ifstream i_weight_stream(hash_table_upload);
@@ -152,11 +166,20 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
   embedding->upload_params_to_device(i_weight_stream);
   i_weight_stream.close();
 
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  std::cout << "This is rank: " << pid << std::endl; 
+#endif 
+
   // download data from device to host
   std::ofstream o_weight_stream(hash_table_download);
   printf("start download_params_to_host()\n");
   embedding->download_params_to_host(o_weight_stream);
   o_weight_stream.close();
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif 
 
   // comapre the read file with the written file
   typedef struct TypeHashValue_{
@@ -199,16 +222,23 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
+  if(pid == 0) {
 #if 1
-  // re-generate the dataset files 
-  std::ifstream file(file_list_name);
-  if(file.good()) {
-    std::remove(file_list_name.c_str());
-  }
+    // re-generate the dataset files 
+    std::ifstream file(file_list_name);
+    if(file.good()) {
+      std::remove(file_list_name.c_str());
+    }
 #endif 
-  // data generation
-  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-      vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+    // data generation
+    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+  }
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  std::cout << "This is rank: " << pid << std::endl; 
+#endif 
 
   //setup a data reader
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot*slot_num, slot_num};
@@ -227,26 +257,32 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
                                                    
   // init hash table file
   if (init_hash_table) {
-    std::ofstream weight_stream(hash_table_file_name);
-    if (!weight_stream.is_open()) {
-      ERROR_MESSAGE_("Error: file not open for writing");
-    }
-    UnifiedDataSimulator<float> fdata_sim(-0.1f, 0.1f);
-    for (long long i = 0; i < vocabulary_size; i++) {
-      T key = (T)i;
-      // T key = ldata_sim.get_num();
-      // CAUSION: can not set random keys here, because we need to ensure that:
-      // 1) we can find keys in the data file from this hash table
-      // 2) there are no repeated keys
-      weight_stream.write((char *)&key, sizeof(T));
-      // float val = (float)i;
-      //float val = 1.0f;
-      float val = fdata_sim.get_num();
-      for (int j = 0; j < embedding_vec_size; j++) {
-        weight_stream.write((char *)&val, sizeof(float));
+    if(pid == 0) {
+      std::ofstream weight_stream(hash_table_file_name);
+      if (!weight_stream.is_open()) {
+        ERROR_MESSAGE_("Error: file not open for writing");
       }
+      UnifiedDataSimulator<float> fdata_sim(-0.1f, 0.1f);
+      for (long long i = 0; i < vocabulary_size; i++) {
+        T key = (T)i;
+        // T key = ldata_sim.get_num();
+        // CAUSION: can not set random keys here, because we need to ensure that:
+        // 1) we can find keys in the data file from this hash table
+        // 2) there are no repeated keys
+        weight_stream.write((char *)&key, sizeof(T));
+        // float val = (float)i;
+        //float val = 1.0f;
+        float val = fdata_sim.get_num();
+        for (int j = 0; j < embedding_vec_size; j++) {
+          weight_stream.write((char *)&val, sizeof(float));
+        }
+      }
+      weight_stream.close();
     }
-    weight_stream.close();
+
+#ifdef ENABLE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif 
 
     // upload hash table to device
     std::ifstream i_weight_stream(hash_table_file_name);
@@ -290,73 +326,93 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
     printf("embedding->forward()\n");
     embedding->forward();
 
-    // CPU forward
-    printf("embedding_cpu->forward()\n");
-    embedding_cpu->forward();
-
     // check the result of forward
     printf("embedding->get_forward_results()\n");
     embedding->get_forward_results(embedding_feature_from_gpu);  // memcpy from GPU to CPU
 
-    // for(int l=0; l<batchsize; l++) {
-    //   for(int j=0; j<slot_num; j++) {
-    //     for(int k=0; k<embedding_vec_size; k++) {
-    //       std::cout << "  emb_fea_cpu=" << embedding_feature_from_cpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
-    //                 << ",emb_fea_gpu=" << embedding_feature_from_gpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
-    //                 << std::endl;
-    //     }
-    //   }
-    // }
-    // std::cout << std::endl;
+    if(pid == 0) {
+      // CPU forward
+      printf("embedding_cpu->forward()\n");
+      embedding_cpu->forward();
 
-    printf("check forward results\n");
-    ASSERT_EQ(true,
-              compare_embedding_feature(batchsize * slot_num * embedding_vec_size,
-                                        embedding_feature_from_gpu, embedding_feature_from_cpu));
+      // for(int l=0; l<batchsize; l++) {
+      //   for(int j=0; j<slot_num; j++) {
+      //     for(int k=0; k<embedding_vec_size; k++) {
+      //       std::cout << "  emb_fea_cpu=" << embedding_feature_from_cpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
+      //                 << ",emb_fea_gpu=" << embedding_feature_from_gpu[l*slot_num*embedding_vec_size+j*embedding_vec_size+k]
+      //                 << std::endl;
+      //     }
+      //   }
+      // }
+      // std::cout << std::endl;
+
+      printf("check forward results\n");
+      ASSERT_EQ(true,
+                compare_embedding_feature(batchsize * slot_num * embedding_vec_size,
+                                          embedding_feature_from_gpu, embedding_feature_from_cpu));
+    }
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif 
 
     // GPU backward
     printf("embedding->backward()\n");
     embedding->backward();
 
-    // CPU backward
-    printf("embedding_cpu->backward()\n");
-    embedding_cpu->backward();
-
     // check the result of backward
     printf("embedding->get_backward_results()\n");
     embedding->get_backward_results(wgrad_from_gpu[0], 0);
-    // check the result on multi GPUs first
-    printf("check backward results: GPU and GPU\n");
-    if (device_list.size() > 1) {
-      for (unsigned int j = 1; j < device_list.size(); j++) {
-        embedding->get_backward_results(wgrad_from_gpu[j], j);  // memcpy from GPU to CPU
-        // printf("\ncompare GPU[%d] and GPU[%d]\n", 0, j);
-        ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, wgrad_from_gpu[0],
-                                      wgrad_from_gpu[j]));
-      }
+
+    if(pid == 0) {
+      // CPU backward
+      printf("embedding_cpu->backward()\n");
+      embedding_cpu->backward();
+
+      // // check the result on multi GPUs first
+      // printf("check backward results: GPU and GPU\n");
+      // if (device_list.size() > 1) {
+      //   for (unsigned int j = 1; j < device_list.size(); j++) {
+      //     embedding->get_backward_results(wgrad_from_gpu[j], j);  // memcpy from GPU to CPU
+      //     // printf("\ncompare GPU[%d] and GPU[%d]\n", 0, j);
+      //     ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, wgrad_from_gpu[0],
+      //                                   wgrad_from_gpu[j]));
+      //   }
+      // }
+      printf("check backward results: GPU-0 and CPU\n");
+      ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, wgrad_from_gpu[0],
+                                    wgrad_from_cpu));
     }
-    printf("check backward results: GPU-0 and CPU\n");
-    ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, wgrad_from_gpu[0],
-                                  wgrad_from_cpu));
+
+#ifdef ENABLE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif 
 
     // GPU update_params
     printf("embedding->update_params()\n");
     embedding->update_params();
-
-    // CPU update_params
-    printf("embedding_cpu->update_params()\n");
-    embedding_cpu->update_params();
 
     // check the results of update params
     printf("embedding->get_update_params_results()\n");
     embedding->get_update_params_results(hash_table_key_from_gpu,
                                   hash_table_value_from_gpu);  // memcpy from GPU to CPU
 
-    printf("check update_params results\n");
-    bool rtn = compare_hash_table<T, TypeHashValue>(
-        vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue *)hash_table_value_from_gpu,
-        (T *)hash_table_key_from_cpu, (TypeHashValue *)hash_table_value_from_cpu);
-    ASSERT_EQ(true, rtn);
+    if(pid == 0) {
+      // CPU update_params
+      printf("embedding_cpu->update_params()\n");
+      embedding_cpu->update_params();
+
+      printf("check update_params results\n");
+      bool rtn = compare_hash_table<T, TypeHashValue>(
+          vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue *)hash_table_value_from_gpu,
+          (T *)hash_table_key_from_cpu, (TypeHashValue *)hash_table_value_from_cpu);
+      ASSERT_EQ(true, rtn);
+    }
+
+#ifdef ENABLE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif 
+
     printf("Round %d end:\n", i);
   }
 
@@ -402,16 +458,23 @@ TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
   std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
+  if(pid == 0) {
 #if 1
-  // re-generate the dataset files 
-  std::ifstream file(file_list_name);
-  if(file.good()) {
-    std::remove(file_list_name.c_str());
-  }
+    // re-generate the dataset files 
+    std::ifstream file(file_list_name);
+    if(file.good()) {
+      std::remove(file_list_name.c_str());
+    }
 #endif 
-  // data generation
-  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-      vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+    // data generation
+    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+  }
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  std::cout << "This is rank: " << pid << std::endl; 
+#endif 
 
   //setup a data reader
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot*slot_num, slot_num};
@@ -426,26 +489,32 @@ TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
                                                   
   // init hash table file
   if (init_hash_table) {
-    std::ofstream weight_stream(hash_table_file_name);
-    if (!weight_stream.is_open()) {
-      ERROR_MESSAGE_("Error: file not open for writing");
-    }
-    UnifiedDataSimulator<float> fdata_sim(-0.1f, 0.1f);
-    for (long long i = 0; i < vocabulary_size; i++) {
-      T key = (T)i;
-      // T key = ldata_sim.get_num();
-      // CAUSION: can not set random keys here, because we need to ensure that:
-      // 1) we can find keys in the data file from this hash table
-      // 2) there are no repeated keys
-      weight_stream.write((char *)&key, sizeof(T));
-      // float val = (float)i;
-      // float val = 1.0f;
-      float val = fdata_sim.get_num();
-      for (int j = 0; j < embedding_vec_size; j++) {
-        weight_stream.write((char *)&val, sizeof(float));
+    if(pid == 0) {
+      std::ofstream weight_stream(hash_table_file_name);
+      if (!weight_stream.is_open()) {
+        ERROR_MESSAGE_("Error: file not open for writing");
       }
+      UnifiedDataSimulator<float> fdata_sim(-0.1f, 0.1f);
+      for (long long i = 0; i < vocabulary_size; i++) {
+        T key = (T)i;
+        // T key = ldata_sim.get_num();
+        // CAUSION: can not set random keys here, because we need to ensure that:
+        // 1) we can find keys in the data file from this hash table
+        // 2) there are no repeated keys
+        weight_stream.write((char *)&key, sizeof(T));
+        // float val = (float)i;
+        // float val = 1.0f;
+        float val = fdata_sim.get_num();
+        for (int j = 0; j < embedding_vec_size; j++) {
+          weight_stream.write((char *)&val, sizeof(float));
+        }
+      }
+      weight_stream.close();
     }
-    weight_stream.close();
+
+#ifdef ENABLE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif 
 
     // upload hash table to device
     std::ifstream i_weight_stream(hash_table_file_name);
