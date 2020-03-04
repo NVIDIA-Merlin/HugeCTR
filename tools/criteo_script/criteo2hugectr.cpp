@@ -31,7 +31,7 @@ static const int KEYS_DENSE_MODEL = 26;
 static const int dense_dim = 13;
 typedef long long T;
 static const long long label_dim = 1;
-static const int SLOT_NUM = 26;
+static int SLOT_NUM = 26;
 
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
@@ -55,6 +55,7 @@ int main(int argc, char* argv[]){
 
   if (argc == 5){
     KEYS_WIDE_MODEL = atoi(argv[4]);
+    SLOT_NUM += 1;
   }
   //open txt file
   std::ifstream txt_file(argv[1], std::ifstream::binary);

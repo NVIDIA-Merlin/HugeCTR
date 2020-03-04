@@ -1,9 +1,9 @@
 {
   "solver": {
     "lr_policy": "fixed",
-    "display": 10000,
+    "display": 100,
     "max_iter": 2500000,
-    "gpu": [0],
+    "gpu": [0,1],
     "batchsize": 128,
     "snapshot": 100000,
     "snapshot_prefix": "./",
@@ -47,7 +47,7 @@
         },
         {
           "top": "deep_data",
-          "type": "LocalizedSlot",
+          "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
           "slot_num": 26
         }
@@ -57,8 +57,7 @@
 
     {
       "name": "sparse_embedding2",
-      "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "./all2all_8_plan.json",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "bottom": "wide_data",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
@@ -72,7 +71,7 @@
 
     {
       "name": "sparse_embedding1",
-      "type": "LocalizedSlotSparseEmbeddingHash",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "plan_file": "./all2all_8_plan.json",
       "bottom": "deep_data",
       "top": "sparse_embedding1",
@@ -90,6 +89,14 @@
       "bottom": "sparse_embedding1",
       "top": "reshape1",
       "leading_dim": 832
+    },
+
+    {
+      "name": "reshape2",
+      "type": "Reshape",
+      "bottom": "sparse_embedding2",
+      "top": "reshape2",
+      "leading_dim": 32
     },
 
 
@@ -157,7 +164,7 @@
     {
       "name": "concat2",
       "type": "Concat",
-      "bottom": ["relu3","sparse_embedding2"],
+      "bottom": ["relu3","reshape2"],
       "top": "concat2"
     },
     

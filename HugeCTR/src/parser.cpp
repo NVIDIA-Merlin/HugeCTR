@@ -694,7 +694,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         }
 
         data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim, check_type,
-                    data_reader_sparse_param_array, gpu_resource_group));
+						  data_reader_sparse_param_array, gpu_resource_group, 1, 1));
 
         for(unsigned int i = 0; i < gpu_resource_group->size(); i++){
           tensor_maps[i].emplace(top_strs_label, (data_reader->get_label_tensors())[i]);
@@ -717,7 +717,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           }
         }
       }
-
+      
       // Create Embedding 
       {
         auto opt_params = get_optimizer_param(j_optimizer);
