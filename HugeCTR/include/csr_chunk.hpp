@@ -58,7 +58,7 @@ class CSRChunk {
     batchsize_ = batchsize;
     num_params_ = params.size();
     num_devices_ = num_devices;
-
+    //    std::cout << "CSRChunk()" << std::endl;
     assert(csr_buffers_.empty() && label_buffers_.empty());
 
     for(int i=0; i<num_devices; i++){
@@ -77,10 +77,16 @@ class CSRChunk {
 	  }
 	}
 	csr_buffers_.emplace_back(batchsize * slots, param.max_feature_num*batchsize);
+	//	std::cout << "A" << i << std::endl;
       }
       label_buffers_.emplace_back(batchsize / num_devices * label_dense_dim);
     }
   }
+
+  // ~CSRChunk(){
+  //   std::cout << "~CSRChunk()" << std::endl;
+  // }
+
 
   /**
    * Get the vector of csr objects.
