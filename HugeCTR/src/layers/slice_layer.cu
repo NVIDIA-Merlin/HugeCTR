@@ -105,6 +105,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
 
     int height = in_dims[0];
     int in_w = in_dims[1];
+    int prev_min = -1;
     int prev_max = 0;
     for(auto& range : ranges) {
       int cur_min = range.first;
@@ -112,8 +113,12 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       if(cur_min >= cur_max) {
         CK_THROW_(Error_t::WrongInput, "Reverse range is not allowed");
       }
-      if(cur_min < prev_max || cur_max < prev_max) {
-        CK_THROW_(Error_t::WrongInput, "Ranges cannot be overlapped");
+      if(cur_min < 0 || cur_max < 0) {
+        CK_THROW_(Error_t::WrongInput, "Negative ranges cannot be allowed");
+      }
+      if(!(prev_min < cur_min && prev_max < cur_max)) {
+        CK_THROW_(Error_t::WrongInput,
+	          "A range cannot be out-order nor included in another");
       }
       if(cur_min >= in_w || cur_max > in_w) {
         CK_THROW_(Error_t::WrongInput, "Ranges cannot be bigger than the input width");
@@ -124,6 +129,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       sts_.push_back(cur_min);
       virt_w_ += out_w;
 
+      prev_min = cur_min;
       prev_max = cur_max;
     }
 
@@ -171,7 +177,7 @@ void SliceLayer::prop_common(bool forward, cudaStream_t stream) {
     kernel_launch(forward, stream, out_params[0], out_params[1], out_params[2], out_params[3], out_params[4]);
   }
   else {
-    CK_THROW_(Error_t::UnSupportedFormat, "Merging > 5 layers is not supported");
+    CK_THROW_(Error_t::UnSupportedFormat, "Slicing into > 5 layers is not supported");
   }
 
 #ifndef NDEBUG
