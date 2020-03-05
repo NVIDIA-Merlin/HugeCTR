@@ -750,7 +750,7 @@ public:
                 << ", plan_gpu_count=" << plan_gpu_count 
                 << std::endl;
       CK_THROW_(Error_t::WrongInput,
-            "Error: the device_list doesn't match the plan_file");   
+                "Error: the local device_list doesn't match all2all plan_file");     
     }
     std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
 #ifndef NDEBUG
@@ -826,7 +826,7 @@ public:
                 << ", plan_gpu_count=" << plan_gpu_count 
                 << std::endl;
       CK_THROW_(Error_t::WrongInput,
-            "Error: the device_list doesn't matched the plan_file");   
+                "Error: the local device_list doesn't match all2all plan_file");     
     }
     std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
 #ifndef NDEBUG
@@ -923,9 +923,19 @@ public:
     //     exit(-1);
     // }
 
+    using transfer_plan_t = comm_handler_traits::transfer_plan_t;
+    transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
+    int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();
+    size_t local_gpu_count =  device_list.size();    
     int total_gpu_count = device_resources->get_total_gpu_count();
+    if(local_gpu_count != plan_gpu_count) {
+      std::cout << "local_gpu_count=" << local_gpu_count 
+                << ", plan_gpu_count=" << plan_gpu_count 
+                << std::endl;
+      CK_THROW_(Error_t::WrongInput,
+            "Error: the local device_list doesn't match all2all plan_file");   
+    }
 
     int total_rank = 1;
     int my_rank = 0;
@@ -1050,9 +1060,19 @@ public:
                             Tensors<float>& recv_tensors,
                             const std::shared_ptr<GPUResourceGroup>& device_resources) {
 
+    using transfer_plan_t = comm_handler_traits::transfer_plan_t;
+    transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
+    int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();
+    size_t local_gpu_count =  device_list.size();    
     int total_gpu_count = device_resources->get_total_gpu_count();
+    if(local_gpu_count != plan_gpu_count) {
+      std::cout << "local_gpu_count=" << local_gpu_count 
+                << ", plan_gpu_count=" << plan_gpu_count 
+                << std::endl;
+      CK_THROW_(Error_t::WrongInput,
+                "Error: the local device_list doesn't match all2all plan_file");   
+    }
 
     int total_rank = 1;
     int my_rank = 0;
