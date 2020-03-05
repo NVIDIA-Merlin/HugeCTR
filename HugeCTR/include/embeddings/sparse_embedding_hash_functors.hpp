@@ -86,9 +86,9 @@ public:
    * @param context gpu device context, for switching device
    */
   template <typename TypeHashKey, typename TypeHashValueIndex>
-  void forward(const int& batch_size, 
-              const int& slot_num,
-              const int& embedding_vec_size, 
+  void forward(int batch_size, 
+              int slot_num,
+              int embedding_vec_size, 
               const Tensors<TypeHashKey>& row_offsets_tensors,
               const Tensors<TypeHashKey>& value_tensors,
               const std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, TypeHashValueIndex,
@@ -155,10 +155,10 @@ public:
    * @param context gpu device context, for switching device
    */
   template <typename TypeHashKey, typename TypeHashValueIndex>
-  void forward(const int& batch_size, 
+  void forward(int batch_size, 
               const std::vector<int>& slot_num_per_gpu,
-              const int& embedding_vec_size, 
-              const int& combiner,
+              int embedding_vec_size, 
+              int combiner,
               const Tensors<TypeHashKey>& row_offsets_tensors,
               const Tensors<TypeHashKey>& value_tensors,
               const std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, TypeHashValueIndex,
@@ -247,9 +247,9 @@ public:
    * @param context gpu device context, for switching device
    */
   template <typename TypeHashKey>
-  void forward_scale(const int& batch_size, 
-                    const int& slot_num,
-                    const int& embedding_vec_size, 
+  void forward_scale(int batch_size, 
+                    int slot_num,
+                    int embedding_vec_size, 
                     const Tensors<TypeHashKey>& row_offset_allreduce_tensors,
                     Tensors<float>& output_tensors,
                     const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -298,10 +298,10 @@ public:
    * @param context gpu device context, for switching device
    */
   template <typename TypeHashKey>
-  void backward(const int& batch_size, 
-                const int& slot_num,
-                const int& embedding_vec_size, 
-                const int& combiner, 
+  void backward(int batch_size, 
+                int slot_num,
+                int embedding_vec_size, 
+                int combiner, 
                 const Tensors<TypeHashKey>& row_offset_allreduce_tensors,
                 const Tensors<float>& embedding_feature_tensors,
                 Tensors<float>& wgrad_tensors,
@@ -356,10 +356,10 @@ public:
    * @param context gpu device context, for switching device
    */
   template <typename TypeHashKey>
-  void backward(const int batch_size, 
+  void backward(int batch_size, 
                 const std::vector<int>& slot_num_per_gpu,
-                const int embedding_vec_size, 
-                const int combiner, 
+                int embedding_vec_size, 
+                int combiner, 
                 const Tensors<TypeHashKey>& row_offset_allreduce_tensors,
                 const Tensors<float>& embedding_feature_tensors,
                 Tensors<float>& wgrad_tensors,
@@ -428,11 +428,11 @@ public:
    * @param hash_table_value the pointer of hash table value, which will be updated
    */
   template <typename TypeHashKey, typename TypeHashValueIndex>
-  void update_params(const cudaStream_t& stream, 
-                    const int& batch_size, 
-                    const int& slot_num,
-                    const int& embedding_vec_size, 
-                    const size_t& max_vocabulary_size_per_gpu, 
+  void update_params(cudaStream_t stream, 
+                    int batch_size, 
+                    int slot_num,
+                    int embedding_vec_size, 
+                    size_t max_vocabulary_size_per_gpu, 
                     OptParams& opt_params,
                     const TypeHashKey *row_offset, 
                     const TypeHashKey *hash_key,
@@ -590,7 +590,7 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  void reduce_scatter(const int& recv_count,
+  void reduce_scatter(int recv_count,
                       const Tensors<float>& send_tensors,
                       Tensors<float>& recv_tensors,
                       const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -632,7 +632,7 @@ public:
    * @param context gpu device context, for switching device.
    */
   template<typename TypeHashKey>
-  void all_reduce(const int& send_count,
+  void all_reduce(int send_count,
                   const Tensors<TypeHashKey>& send_tensors,
                   Tensors<TypeHashKey>& recv_tensors,
                   const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -686,7 +686,7 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  void all_gather(const int& send_count,
+  void all_gather(int send_count,
                   const Tensors<float>& send_tensors,
                   Tensors<float>& recv_tensors,
                   const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -732,9 +732,9 @@ public:
    */
   void all2all_init_forward(std::unique_ptr<comm_handler>& all2all,
                             const std::string& plan_file,
-                            const int& batch_size_per_gpu,
+                            int batch_size_per_gpu,
                             const std::vector<int>& slot_num_per_gpu,
-                            const int& embedding_vec_size,
+                            int embedding_vec_size,
                             const Tensors<float>& send_tensors,
                             Tensors<float>& recv_tensors,
                             const std::shared_ptr<GPUResourceGroup>& device_resources) {
@@ -808,9 +808,9 @@ public:
    */
   void all2all_init_backward(std::unique_ptr<comm_handler>& all2all,
                             const std::string& plan_file,
-                            const int& batch_size_per_gpu,
+                            int batch_size_per_gpu,
                             const std::vector<int>& slot_num_per_gpu,
-                            const int& embedding_vec_size,
+                            int embedding_vec_size,
                             const Tensors<float>& send_tensors,
                             Tensors<float>& recv_tensors,
                             const std::shared_ptr<GPUResourceGroup>& device_resources) {
@@ -899,9 +899,9 @@ public:
    */
   void all2all_init_forward(std::unique_ptr<comm_handler>& all2all,
                             const std::string& plan_file,
-                            const int& batch_size_per_gpu,
-                            const int& slot_num,
-                            const int& embedding_vec_size,
+                            int batch_size_per_gpu,
+                            int slot_num,
+                            int embedding_vec_size,
                             const Tensors<float>& send_tensors,
                             Tensors<float>& recv_tensors,
                             const std::shared_ptr<GPUResourceGroup>& device_resources) {
@@ -1053,9 +1053,9 @@ public:
    */
   void all2all_init_backward(std::unique_ptr<comm_handler>& all2all,
                             const std::string& plan_file,
-                            const int& batch_size_per_gpu,
-                            const int& slot_num,
-                            const int& embedding_vec_size,
+                            int batch_size_per_gpu,
+                            int slot_num,
+                            int embedding_vec_size,
                             const Tensors<float>& send_tensors,
                             Tensors<float>& recv_tensors,
                             const std::shared_ptr<GPUResourceGroup>& device_resources) {
@@ -1188,9 +1188,9 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  void forward_reorder(const int& batch_size_per_gpu, 
-                      const int& slot_num,
-                      const int& embedding_vec_size,
+  void forward_reorder(int batch_size_per_gpu, 
+                      int slot_num,
+                      int embedding_vec_size,
                       Tensors<float>& src_tensors,
                       Tensors<float>& dst_tensors,
                       const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -1230,9 +1230,9 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  void backward_reorder(const int& batch_size_per_gpu, 
-                        const int& slot_num,
-                        const int& embedding_vec_size,
+  void backward_reorder(int batch_size_per_gpu, 
+                        int slot_num,
+                        int embedding_vec_size,
                         Tensors<float>& src_tensors,
                         Tensors<float>& dst_tensors,
                         const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -1264,11 +1264,11 @@ public:
    * @param n the number of the data.
    */
   template <typename Type>
-  void memset_liner(const cudaStream_t& stream, 
+  void memset_liner(cudaStream_t stream, 
                     Type *data, 
-                    const Type& start_value, 
-                    const Type& stride_value,
-                    const size_t& n) {
+                    Type start_value, 
+                    Type stride_value,
+                    size_t n) {
     try {
       int blockSize = 256;
       int gridSize = (n + blockSize - 1) / blockSize;
@@ -1290,9 +1290,9 @@ public:
    * @param value_retrieved the pointer of the retrived value.
    */
   template <typename TypeHashValueIndex>
-  void get_hash_value(const cudaStream_t& stream, 
-                      const size_t& count,
-                      const int& embedding_vec_size, 
+  void get_hash_value(cudaStream_t stream, 
+                      size_t count,
+                      int embedding_vec_size, 
                       const TypeHashValueIndex *value_index,
                       const float *hash_table_value, 
                       float *value_retrieved) {
@@ -1318,8 +1318,8 @@ public:
    * @param slot_id the pointer of the retrieved slot_id.
    */
   template <typename TypeHashValueIndex>
-  void get_hash_slot_id(const cudaStream_t& stream, 
-                        const size_t& count,
+  void get_hash_slot_id(cudaStream_t stream, 
+                        size_t count,
                         const TypeHashValueIndex *value_index,
                         const TypeHashValueIndex *hash_table_slot_id, 
                         TypeHashValueIndex *slot_id) {
@@ -1350,9 +1350,9 @@ public:
    */
   template<typename TypeHashKey, typename TypeHashValueIndex>
   void upload_params_to_device(std::ifstream& weight_stream,
-                              const size_t& vocabulary_size,
-                              const int& embedding_vec_size,
-                              const size_t& max_vocabulary_size_per_gpu,
+                              size_t vocabulary_size,
+                              int embedding_vec_size,
+                              size_t max_vocabulary_size_per_gpu,
                               Tensors<float>& hash_table_value_tensors,
                               std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
                                 TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>& 
@@ -1637,9 +1637,9 @@ public:
    */
   template<typename TypeHashKey, typename TypeHashValueIndex>
   void upload_params_to_device(std::ifstream& weight_stream,
-                              const size_t& vocabulary_size,
-                              const int& embedding_vec_size,
-                              const size_t& max_vocabulary_size_per_gpu,
+                              size_t vocabulary_size,
+                              int embedding_vec_size,
+                              size_t max_vocabulary_size_per_gpu,
                               Tensors<float>& hash_table_value_tensors,
                               Tensors<TypeHashValueIndex>&  hash_table_slot_id_tensors,
                               std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
@@ -1997,9 +1997,9 @@ public:
    */
   template<typename TypeHashKey, typename TypeHashValueIndex>
   void download_params_to_host(std::ofstream& weight_stream,
-                              const size_t& vocabulary_size,
-                              const int& embedding_vec_size,
-                              const size_t& max_vocabulary_size_per_gpu,
+                              size_t vocabulary_size,
+                              int embedding_vec_size,
+                              size_t max_vocabulary_size_per_gpu,
                               Tensors<float>& hash_table_value_tensors,
                               std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
                                 TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>& 
@@ -2164,9 +2164,9 @@ public:
    */
   template<typename TypeHashKey, typename TypeHashValueIndex>
   void download_params_to_host(std::ofstream& weight_stream,
-                              const size_t& vocabulary_size,
-                              const int& embedding_vec_size,
-                              const size_t& max_vocabulary_size_per_gpu,
+                              size_t vocabulary_size,
+                              int embedding_vec_size,
+                              size_t max_vocabulary_size_per_gpu,
                               Tensors<float>& hash_table_value_tensors,
                               Tensors<TypeHashValueIndex>& hash_table_slot_id_tensors,
                               std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
@@ -2350,7 +2350,7 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void get_forward_results(const int& memcpy_size,
+  void get_forward_results(int memcpy_size,
                           const Tensors<float>& embedding_feature_tensors,
                           float * embedding_feature,
                           const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -2421,8 +2421,8 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void get_backward_results(const int& devId,
-                            const int& memcpy_size,
+  void get_backward_results(int devId,
+                            int memcpy_size,
                             const Tensors<float>& wgrad_tensors,
                             float * wgrad,
                             const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -2448,9 +2448,9 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void get_backward_results(const int& batch_size,
-                            const int& slot_num,
-                            const int& embedding_vec_size,
+  void get_backward_results(int batch_size,
+                            int slot_num,
+                            int embedding_vec_size,
                             const std::string& plan_file,
                             const Tensors<float>& wgrad_tensors,
                             float * wgrad,
@@ -2582,9 +2582,9 @@ public:
    * @param context gpu device context, for switching device
    */
   template<typename TypeHashKey, typename TypeHashValueIndex>
-  void get_update_params_results(const size_t& max_vocabulary_size_per_gpu,
-                                const int& embedding_vec_size,
-                                const size_t& vocabulary_size,
+  void get_update_params_results(size_t max_vocabulary_size_per_gpu,
+                                int embedding_vec_size,
+                                size_t vocabulary_size,
                                 const Tensors<float>& hash_table_value_tensors,
                                 const std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, TypeHashValueIndex,
                                   std::numeric_limits<TypeHashKey>::max()>>>& hash_tables,
@@ -2687,8 +2687,8 @@ public:
    * @param context gpu device context, for switching device
    */
   template<typename TypeKey>
-  void store_slot_id(const int& batch_size,
-                    const int& slot_num, 
+  void store_slot_id(int batch_size,
+                    int slot_num, 
                     const std::vector<int>& slot_num_per_gpu,
                     const Tensors<TypeKey>& row_offset_tensors, 
                     const Tensors<TypeKey>& value_index_tensors,
