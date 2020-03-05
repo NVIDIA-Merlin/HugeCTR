@@ -27,7 +27,7 @@ namespace HugeCTR {
 /**
  * Layer which splits a single 2D input tensor into multiple 2D output tensors across columns.
  * e.g., (batch_size, 90) to (batch_size, 40) and (batch_size, 4) by choosing the column ranges
- * [0:40) and (50:90)
+ * [0:40) and (50:90). It is possible those ranges overlap, e.g., [0:100) and [50:200).
  */
 class SliceLayer : public Layer {
  public:

@@ -18,6 +18,7 @@
 
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/tensor.hpp"
+#include "HugeCTR/include/utils.cuh"
 
 #ifndef NDEBUG
 #include <iostream>
@@ -32,46 +33,29 @@ __device__ int array_length(T (&arr)[length]) { return length; }
 
 template <typename T, typename... Args>
 __global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, const int virt_w, const Args... args) {
-  const int gid_base = blockIdx.x * blockDim.x + threadIdx.x;
   const SliceLayer::OutParam<T> out_params[] = {args...};
   const int n_outs = array_length(out_params);
 
-  for(int gid = gid_base; gid < h * virt_w; gid+= blockDim.x * gridDim.x) {
-    int row = gid / virt_w;
-    int virt_col = gid % virt_w;
-
-    int in_col = 0;
-    T* out = nullptr;
-    int out_w = 0;
-    int out_col = 0;
-
-    int accum_margin = 0;
-    int prev_ed = 0;
-    for(int k = 0; k < n_outs; k++) {
+	for(int row = blockIdx.x; row < h; row += gridDim.x) {
+		for(int k = 0; k < n_outs; k++) {
       int st = out_params[k].st;
       int ed = out_params[k].ed;
-      accum_margin += (st - prev_ed);
-      int cand_in_col = virt_col + accum_margin;
-      if(cand_in_col >= st && cand_in_col < ed) {
-        in_col = cand_in_col;
-        out = out_params[k].out;
-        out_w = ed - st;
-        out_col = in_col - st;
-        break;
-      }
-      prev_ed = ed;
-    }
-
-    int in_idx = row * in_w + in_col;
-    int out_idx = row * out_w + out_col;
-
-    if(forward) {
-      out[out_idx] = in[in_idx];
-    }
-    else {
-      in[in_idx] = out[out_idx];
-    }
-  }
+			int out_w = ed - st;
+			for(int out_col = threadIdx.x; out_col < out_w; out_col += blockDim.x) {
+				int in_col = out_col + st;
+				int in_idx = row * in_w + in_col;
+				int out_idx = row * out_w + out_col;
+				T* out = out_params[k].out;
+				if(forward) {
+					out[out_idx] = in[in_idx];
+				}
+				else {
+					in[in_idx] += out[out_idx];
+				}
+			}
+		__syncthreads();
+		}
+	}
 }
 
 }  // anonymous namespace
@@ -105,6 +89,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
 
     int height = in_dims[0];
     int in_w = in_dims[1];
+    int prev_min = -1;
     int prev_max = 0;
     for(auto& range : ranges) {
       int cur_min = range.first;
@@ -112,8 +97,12 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       if(cur_min >= cur_max) {
         CK_THROW_(Error_t::WrongInput, "Reverse range is not allowed");
       }
-      if(cur_min < prev_max || cur_max < prev_max) {
-        CK_THROW_(Error_t::WrongInput, "Ranges cannot be overlapped");
+      if(cur_min < 0 || cur_max < 0) {
+        CK_THROW_(Error_t::WrongInput, "Negative ranges cannot be allowed");
+      }
+      if(!(prev_min < cur_min && prev_max < cur_max)) {
+        CK_THROW_(Error_t::WrongInput,
+	          "A range cannot be out-order nor included in another");
       }
       if(cur_min >= in_w || cur_max > in_w) {
         CK_THROW_(Error_t::WrongInput, "Ranges cannot be bigger than the input width");
@@ -124,6 +113,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       sts_.push_back(cur_min);
       virt_w_ += out_w;
 
+      prev_min = cur_min;
       prev_max = cur_max;
     }
 
@@ -171,7 +161,7 @@ void SliceLayer::prop_common(bool forward, cudaStream_t stream) {
     kernel_launch(forward, stream, out_params[0], out_params[1], out_params[2], out_params[3], out_params[4]);
   }
   else {
-    CK_THROW_(Error_t::UnSupportedFormat, "Merging > 5 layers is not supported");
+    CK_THROW_(Error_t::UnSupportedFormat, "Slicing into > 5 layers is not supported");
   }
 
 #ifndef NDEBUG
@@ -194,12 +184,15 @@ std::vector<SliceLayer::OutParam<float>> SliceLayer::set_out_params(int n) {
 
 template <typename... Args>
 void SliceLayer::kernel_launch(bool forward, cudaStream_t stream, Args&... args) {
-  int block_size = 256;
-  int n_blocks = n_sms_ * 8;
+  int block_size = 512;
+  int n_blocks = n_sms_ * 4;
   const auto& in_tensor = in_tensors_[0];
   float* in = in_tensor->get_ptr();
   int h = in_tensor->get_dims()[0];
   int in_w = in_tensor->get_dims()[1];
+	if(!forward) {
+		initialize_array<<<n_blocks, block_size, 0, stream>>>(in, h * in_w, float(0));
+	}
   slice_kernel<<<n_blocks, block_size, 0, stream>>>(forward, in, h, in_w, virt_w_, args...);
 }
 
