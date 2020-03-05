@@ -786,6 +786,11 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                 plan_file = get_value_from_json<std::string>(j, "plan_file");
               }
 
+              std::ifstream ifs(plan_file);
+              if(!ifs) {
+                CK_THROW_(Error_t::WrongInput, "plan file " + plan_file +  " can bot be open");
+              }
+
               const SparseEmbeddingHashParams embedding_params = {
                   batch_size,
                   vocabulary_size,
