@@ -21,6 +21,7 @@ public:
     using FasterGossipCommTrait = FasterGossipComm::FasterGossipCommAll2AllTraits<data_t_>;
     using FasterGossipComm = FasterGossipComm::FasterGossipComm<data_t_, FasterGossipCommTrait>;
     using gpu_id_t = gossip::gpu_id_t;
+    using transfer_plan_t = gossip::transfer_plan_t;
 
 }; // class
 
