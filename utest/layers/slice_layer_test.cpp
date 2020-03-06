@@ -34,7 +34,7 @@ namespace {
 
 const float eps = 1e-5;
 
-void slice_layer_test(int height, int width, std::set<std::pair<int,int>> ranges) {
+void slice_layer_test(int height, int width, std::vector<std::pair<int,int>> ranges) {
   std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   std::vector<int> in_dims = {height, width};
   TensorFormat_t in_format = TensorFormat_t::HW;
@@ -113,27 +113,49 @@ void slice_layer_test(int height, int width, std::set<std::pair<int,int>> ranges
 }  // namespace
 
 TEST(slice_layer, 64x128_0_48_32_64) {
-  slice_layer_test(64, 128, {{0,48}, {32,64}});
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0,48));
+  ranges.push_back(std::make_pair(32,64));
+  slice_layer_test(64, 128, ranges);
 }
 
 TEST(slice_layer, 64x128_0_32_32_64) {
-  slice_layer_test(64, 128, {{0,32}, {32,64}});
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0,32));
+  ranges.push_back(std::make_pair(32,64));
+  slice_layer_test(64, 128, ranges);
 }
 
 TEST(slice_layer, 64x100_0_40_50_90) {
-  slice_layer_test(64, 100, {{0,40}, {50,90}});
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0,40));
+  ranges.push_back(std::make_pair(50,90));
+  slice_layer_test(64, 100, ranges);
 }
 
 TEST(slice_layer, 64x100_0_50_40_90) {
-  slice_layer_test(64, 100, {{0,50}, {40,90}});
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0,50));
+  ranges.push_back(std::make_pair(40,90));
+  slice_layer_test(64, 100, ranges);
 }
 
 TEST(slice_layer, 64x256_0_50_40_90_80_130) {
-  slice_layer_test(64, 256, {{0,50}, {40,90}, {80, 130}});
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0,50));
+  ranges.push_back(std::make_pair(40,90));
+  ranges.push_back(std::make_pair(80,130));
+  slice_layer_test(64, 256, ranges);
 }
 
 TEST(slice_layer, 64x256_0_32_64_80_96_128_128_160_192_256) {
-  slice_layer_test(64, 256, {{0,32} ,{64,80}, {96,128}, {128,160}, {192,256}});
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0,32));
+  ranges.push_back(std::make_pair(64,80));
+  ranges.push_back(std::make_pair(96,128));
+  ranges.push_back(std::make_pair(128,160));
+  ranges.push_back(std::make_pair(192,256));
+  slice_layer_test(64, 256, ranges);
 }
 
 
