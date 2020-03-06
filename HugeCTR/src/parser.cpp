@@ -269,14 +269,6 @@ create_regularizer(const nlohmann::json& j,
   return reg;
 }
 
-/*
- * Create single network
- *
- */
-Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
-			const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
-			int batch_size,
-                        int device_id, const std::shared_ptr<const GPUResource>& gpu_resource) {
   const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
       {"BatchNorm", Layer_t::BatchNorm},
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
@@ -293,6 +285,20 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"FmOrder2", Layer_t::FmOrder2},
       {"MultiCross", Layer_t::MultiCross}
   };
+  const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
+    {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
+    {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash}
+  };
+
+
+/*
+ * Create single network
+ *
+ */
+Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
+			const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
+			int batch_size,
+                        int device_id, const std::shared_ptr<const GPUResource>& gpu_resource) {
 
   std::unique_ptr<Network> network(
       new Network(batch_size, device_id, gpu_resource, false));
@@ -312,9 +318,13 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   for (unsigned int i = 1; i < j_array.size(); i++) {
     const nlohmann::json& j = j_array[i];
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
+    std::cout << layer_type_name << std::endl;
     Layer_t layer_type;
     if (!find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP)) {
-      //CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+      Embedding_t embedding_type;
+      if (!find_item_in_map(embedding_type, layer_type_name, EMBEDDING_TYPE_MAP)) {
+	CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+      }
       continue;
     }
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_list);
@@ -516,18 +526,20 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Slice: {
         const auto& in_tensor = input_output_info.input[0];
 
-        std::set<std::pair<int,int>> ranges;
+        std::vector<std::pair<int,int>> ranges;
         auto j_ranges = get_json(j, "ranges");
         assert(j_ranges.is_array());
         for(auto j_range : j_ranges) {
           assert(j_range.is_array());
           ranges.insert({j_range[0].get<int>(), j_range[1].get<int>()});
+	  std::cout << j_range[0].get<int>() << "," <<  j_range[1].get<int>() << std::endl;
         }
 
         Tensors<float> out_tensors;
         layers.emplace_back(new SliceLayer(in_tensor, out_tensors, blobs_buff, ranges, device_id));
         for(size_t i = 0; i < out_tensors.size(); i++) {
           output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
+	  std::cout << out_tensors.size() << input_output_info.output[i] <<std::endl;
         }
         break;
       }
@@ -722,17 +734,16 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       {
         auto opt_params = get_optimizer_param(j_optimizer);
 
-        const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
-          {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
-          {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash}
-        };
         for (unsigned int i = 1; i < j_layers_array.size(); i++) {
           //if not embedding then break
           const nlohmann::json& j = j_layers_array[i];
           auto embedding_name = get_value_from_json<std::string>(j, "type");
           Embedding_t embedding_type;
-          
           if (!find_item_in_map(embedding_type, embedding_name, EMBEDDING_TYPE_MAP)) {
+	    Layer_t layer_type;
+	    if (!find_item_in_map(layer_type, embedding_name, LAYER_TYPE_MAP)) {
+	      CK_THROW_(Error_t::WrongInput, "No such layer: " + embedding_name);
+	    }
             break;
           }
 

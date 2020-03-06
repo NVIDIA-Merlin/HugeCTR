@@ -79,7 +79,7 @@ __global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, c
 SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
                        Tensors<float>& out_tensors,
                        const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-                       std::set<std::pair<int,int>>& ranges,
+                       std::vector<std::pair<int,int>>& ranges,
                        int device_id)
     : Layer(device_id),
       n_sms_(0),

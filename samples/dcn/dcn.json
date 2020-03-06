@@ -41,7 +41,7 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "LocalizedSlot",
+          "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
           "slot_num": 26
         }        
@@ -50,8 +50,7 @@
 
     {
       "name": "sparse_embedding1",
-      "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "./all2all_8_plan.json",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
@@ -90,17 +89,17 @@
     {
       "name": "multicross1",
       "type": "MultiCross",
-      "bottom": "slicel1",
+      "bottom": "slice11",
       "top": "multicross1",
       "mc_param": {
-        "num_layers": 3
+        "num_layers": 6
       }
     },
 
     {
       "name": "fc1",
       "type": "InnerProduct",
-      "bottom": "slicel2",
+      "bottom": "slice12",
       "top": "fc1",
        "fc_param": {
         "num_output": 200
