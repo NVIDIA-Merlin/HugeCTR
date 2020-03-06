@@ -148,13 +148,15 @@ int main(int argc, char* argv[]){
 #endif
       }
       
-      data_writer.append(reinterpret_cast<char*>(&KEYS_WIDE_MODEL), sizeof(int));
-      for(int j = dense_dim+label_dim; j < KEYS_WIDE_MODEL+dense_dim+label_dim; j++){
-	T key = static_cast<T>(std::stoll(vec_string[j]));
-	data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
+      if(KEYS_WIDE_MODEL != 0){
+	data_writer.append(reinterpret_cast<char*>(&KEYS_WIDE_MODEL), sizeof(int));
+	for(int j = dense_dim+label_dim; j < KEYS_WIDE_MODEL+dense_dim+label_dim; j++){
+	  T key = static_cast<T>(std::stoll(vec_string[j]));
+	  data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
 #ifndef NDEBUG
-	std::cout << key << ',';
+	  std::cout << key << ',';
 #endif
+	}
       }
       int nnz = 1;
       for(int j = KEYS_WIDE_MODEL+dense_dim+label_dim; j <  KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim; j++){
