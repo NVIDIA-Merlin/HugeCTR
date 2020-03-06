@@ -318,7 +318,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   for (unsigned int i = 1; i < j_array.size(); i++) {
     const nlohmann::json& j = j_array[i];
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
-    std::cout << layer_type_name << std::endl;
     Layer_t layer_type;
     if (!find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP)) {
       Embedding_t embedding_type;
@@ -531,15 +530,13 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         assert(j_ranges.is_array());
         for(auto j_range : j_ranges) {
           assert(j_range.is_array());
-          ranges.insert({j_range[0].get<int>(), j_range[1].get<int>()});
-	  std::cout << j_range[0].get<int>() << "," <<  j_range[1].get<int>() << std::endl;
+          ranges.emplace_back(std::make_pair(j_range[0].get<int>(), j_range[1].get<int>()));
         }
 
         Tensors<float> out_tensors;
         layers.emplace_back(new SliceLayer(in_tensor, out_tensors, blobs_buff, ranges, device_id));
         for(size_t i = 0; i < out_tensors.size(); i++) {
           output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
-	  std::cout << out_tensors.size() << input_output_info.output[i] <<std::endl;
         }
         break;
       }

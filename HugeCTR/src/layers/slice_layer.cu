@@ -100,7 +100,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       if(cur_min < 0 || cur_max < 0) {
         CK_THROW_(Error_t::WrongInput, "Negative ranges cannot be allowed");
       }
-      if(!(prev_min < cur_min && prev_max < cur_max)) {
+      if(!(prev_min <= cur_min && prev_max <= cur_max)) {
         CK_THROW_(Error_t::WrongInput,
 	          "A range cannot be out-order nor included in another");
       }

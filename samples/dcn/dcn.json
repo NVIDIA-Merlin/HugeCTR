@@ -15,7 +15,7 @@
   "optimizer": {
     "type": "Adam",
     "adam_hparam": {
-      "alpha": 0.005,
+      "alpha": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
       "epsilon": 0.00000001
@@ -23,7 +23,6 @@
   },
 
   "layers": [ 
-    
     {
       "name": "data",
       "type": "Data",
@@ -54,7 +53,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1603616,
+        "vocabulary_size": 33603616,
         "load_factor": 0.75,
         "embedding_vec_size": 48,
         "combiner": 1
