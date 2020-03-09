@@ -117,28 +117,6 @@ __global__ void multiply_dgrad_kernel(const T * top_grad,
   }
 }
 
-__host__ inline int GetBlockSize(int size) 
-{
-  if(size <= 32) {
-    return 32;
-  }
-  else if(size <= 64) {
-    return 64;
-  }
-  else if(size <= 128) {
-    return 128;
-  }
-  else if(size <= 256) {
-    return 256;
-  }
-  else if(size <= 512) {
-    return 512;
-  }
-  else {
-    return 1024;
-  }
-}
-
 template<typename T>
 void multiply_wgrad(const T * top_grad,
                     const T * input,
@@ -207,6 +185,9 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     }
     if(out_tensor->get_format() != TensorFormat_t::HSW) {
       CK_THROW_(Error_t::WrongInput, "Only TensorFormat_t::HSW is allowed for multiply layer");
+    }
+    if(out_dims[2] > 1024) { // embedding_vec_size 
+      CK_THROW_(Error_t::WrongInput, "the out_dims[2] can not be more than 1024 in multiply layer");
     }
 
     in_tensors_.emplace_back(in_tensor);
