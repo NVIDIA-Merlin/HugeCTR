@@ -1,14 +1,14 @@
 {
   "solver": {
     "lr_policy": "fixed",
-    "display": 200,
-    "max_iter": 50000,
+    "display": 1000,
+    "max_iter": 250000,
     "gpu": [0],
     "batchsize": 512,
-    "snapshot": 10000,
+    "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 100,
+    "eval_batches": 20,
     "dense_model_file": "./criteo.model"
   },
   
@@ -53,7 +53,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 33603616,
+        "vocabulary_size": 1737710,
         "load_factor": 0.75,
         "embedding_vec_size": 48,
         "combiner": 1

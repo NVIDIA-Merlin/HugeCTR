@@ -123,8 +123,17 @@ int main(int argc, char* argv[]) {
           if (i % solver_config.display == 0 && i != 0) {
             timer.stop();
             // display
-            float loss = 0;
-            session_instance.get_current_loss(&loss);
+            // float loss = 0;
+            // session_instance.get_current_loss(&loss);
+	    float loss = 0;
+	    for(int j = 0; j < 20; j++){
+	      float loss_tmp = 0;
+	      session_instance.train();
+	      session_instance.get_current_loss(&loss_tmp);
+	      loss += loss_tmp;
+	    }
+	    loss = loss / 20;
+
             if (pid == 0) {
               MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
                        std::to_string(solver_config.display) + " iters): " +
