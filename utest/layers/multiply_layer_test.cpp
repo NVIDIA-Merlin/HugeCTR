@@ -34,9 +34,9 @@ template<typename T>
 void multiply_cpu(const T * input, 
                  const T * weight, 
                  T * output, 
-                 const int batch_size, 
-                 const int slot_num,
-                 const int embedding_vec_size) {
+                 int batch_size, 
+                 int slot_num,
+                 int embedding_vec_size) {
   for (int i = 0; i < batch_size; i++) {
     for (int j = 0; j < slot_num; j++) {
       for (int k = 0; k < embedding_vec_size; k++) {
@@ -51,9 +51,9 @@ template<typename T>
 void multiply_wgrad_cpu(const T * top_grad,
                       const T * input,
                       T * wgrad,
-                      const int batch_size,
-                      const int slot_num,
-                      const int embedding_vec_size) {
+                      int batch_size,
+                      int slot_num,
+                      int embedding_vec_size) {
   int len_w = slot_num * embedding_vec_size;
   for (int i = 0; i < len_w; i++) {
     double tmp = 0.0;
@@ -69,9 +69,9 @@ template<typename T>
 void multiply_dgrad_cpu(const T * top_grad,
                       const T * weight,
                       T * dgrad,
-                      const int batch_size,
-                      const int slot_num,
-                      const int embedding_vec_size) {
+                      int batch_size,
+                      int slot_num,
+                      int embedding_vec_size) {
   for (int i = 0; i < batch_size; i++) {
     for (int j = 0; j < slot_num; j++) {
       T tmp = 0;

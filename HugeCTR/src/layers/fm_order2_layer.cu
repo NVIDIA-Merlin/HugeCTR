@@ -23,9 +23,9 @@ namespace
 {
 __global__ void fm_order2_kernel(const float* in, 
                                  float* out, 
-                                 const int batch_size,
-                                 const int slot_num,
-                                 const int emb_vec_size) {
+                                 int batch_size,
+                                 int slot_num,
+                                 int emb_vec_size) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
 
@@ -50,9 +50,9 @@ __global__ void fm_order2_kernel(const float* in,
 __global__ void fm_order2_dgrad_kernel(const float* in,
                                        const float* top_grad,
                                        float * dgrad,
-                                       const int batch_size,
-                                       const int slot_num,
-                                       const int emb_vec_size) {
+                                       int batch_size,
+                                       int slot_num,
+                                       int emb_vec_size) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
 
@@ -76,7 +76,7 @@ __global__ void fm_order2_dgrad_kernel(const float* in,
 
 FmOrder2Layer::FmOrder2Layer(const std::shared_ptr<Tensor<float>>& in_tensor,
                             const std::shared_ptr<Tensor<float>>& out_tensor,
-                            const int device_id): Layer(device_id) {
+                            int device_id): Layer(device_id) {
   try {
     auto in_dims = in_tensor->get_dims();
     if(in_dims.size() != 3) {
