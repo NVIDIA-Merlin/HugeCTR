@@ -23,7 +23,7 @@
 namespace HugeCTR {
 
 /**
- * Layer which does element-wise product by input vector X and weight W. 
+ * Layer which does element-wise product by input tensor X and weight W. 
  * The input tensor X has dimention: [batch_size, slot_num, 1], while 
  * the input weight W has dimention: [slot_num, embedding_vec_size]. 
  * The MultiplyLayer will broadcast the value of W to "batch_size" dim 
