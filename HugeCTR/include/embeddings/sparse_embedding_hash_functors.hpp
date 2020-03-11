@@ -542,11 +542,20 @@ public:
               opt_params.lr *
               sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
               (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+	  // opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
+          //     hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+          //     sample_id_sort, hash_value_index_sort, 
+          //     hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw);
 
-          opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
+	  //update all the mi and vi
+	  opt_adam_update_all_m_v_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam);
+
+	  //update target mi and vi
+          opt_adam_kernel2<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
               sample_id_sort, hash_value_index_sort, 
-              hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw);
+              hash_value_index_count_offset, wgrad);
+
           break;
         case 1:  // momentum sgd
           opt_momentum_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
@@ -566,13 +575,18 @@ public:
           CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
       }
 
-      // step6: update hash_table_value by deltaw
-      blockSize.x = embedding_vec_size;
-      gridSize.x = max(1, hash_hash_value_index_count_num);
-      update_kernel<TypeHashValueIndex>
+      if(opt_params.optimizer == 0){
+      	//all update according to the mi vi
+      	adam_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam, hash_table_value);
+      }
+      else{
+	// step6: update hash_table_value by deltaw
+	blockSize.x = embedding_vec_size;
+	gridSize.x = max(1, hash_hash_value_index_count_num);
+	update_kernel<TypeHashValueIndex>
           <<<gridSize, blockSize, 0, stream>>>(hash_hash_value_index_count_num, embedding_vec_size,
-                                              deltaw_hash_value_index, deltaw, hash_table_value);
-
+					       deltaw_hash_value_index, deltaw, hash_table_value);
+    }
 #endif
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;

@@ -418,6 +418,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
               embedding_params_.opt_params.hyperparams.adam.epsilon;
           opt_params_[id].hyperparams.adam.m_ptr = opt_m_tensors_[id]->get_ptr();
           opt_params_[id].hyperparams.adam.v_ptr = opt_v_tensors_[id]->get_ptr();
+
           break;
 
         case 1:  // momentum_sgd

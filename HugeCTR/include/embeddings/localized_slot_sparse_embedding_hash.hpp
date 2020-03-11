@@ -801,6 +801,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::update_params() {
 
   if (total_gpu_count_ > 1) {  // use multiple CPU threads to launch tasks on multiple GPUs
     // launch threads
+
     for (int id = 0; id < local_gpu_count_; id++) {
       Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
           [this, id](int i) { this->update_params_per_thread(id); } );
