@@ -61,7 +61,6 @@ void AdamOptimizer::update(cudaStream_t stream) {
 
   ++t_;
   const float alpha_t = lr_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
-
   adam_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, m, v, alpha_t, beta1_, beta2_,
                                                   epsilon_);
 #ifndef NDEBUG

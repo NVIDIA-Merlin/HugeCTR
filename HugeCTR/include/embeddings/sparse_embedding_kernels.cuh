@@ -258,6 +258,72 @@ __global__ void value_count_kernel_2(const int nnz,
   }
 }
 
+__global__ void opt_adam_update_all_m_v_kernel(const int embedding_vec_size, 
+					       const int table_size, //vocabulary size / factor
+					       const AdamOptHyperParams adam) {
+
+  //if with in the table
+  const int TILE_SIZE = blockDim.x*gridDim.x;
+  for(  int feature_index = blockIdx.x*blockDim.x + threadIdx.x; 
+	feature_index < table_size*embedding_vec_size; feature_index += TILE_SIZE){
+    float mi = adam.beta1 * adam.m_ptr[feature_index];
+    float vi = adam.beta2 * adam.v_ptr[feature_index];
+    adam.m_ptr[feature_index] = mi;
+    adam.v_ptr[feature_index] = vi;
+  }
+}
+
+
+__global__ void adam_update_kernel( const int embedding_vec_size,
+				    const int table_size, //vocabulary size / factor
+				    const AdamOptHyperParams adam,
+				    float *hash_table_value) {
+  const int TILE_SIZE = blockDim.x*gridDim.x;
+  for(  int feature_index = blockIdx.x*blockDim.x + threadIdx.x; 
+	feature_index < table_size*embedding_vec_size; feature_index += TILE_SIZE){
+    float mi = adam.m_ptr[feature_index];
+    float vi = adam.v_ptr[feature_index];
+    float weight_diff = -adam.alpha_t * mi / (sqrtf(vi) + adam.epsilon);
+    hash_table_value[feature_index] += weight_diff;
+  }
+}
+
+
+// calculate weights update value(deltaw) by adam opitimizer
+template <typename TypeKey, typename TypeValueIndex>
+__global__ void opt_adam_kernel2(const uint32_t hash_value_index_count_num,
+                                const int embedding_vec_size, 
+                                const AdamOptHyperParams adam,
+                                const TypeKey *sample_id,
+                                const TypeValueIndex *hash_value_index_sort,
+                                const uint32_t *hash_value_index_count_offset, 
+                                const float *wgrad) {
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+
+  if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
+    //uint32_t sample_num = hash_value_index_count[bid];
+    uint32_t sample_num = hash_value_index_count_offset[bid+1] - hash_value_index_count_offset[bid];
+
+    // accumulate the wgrads for the corresponding embedding vector
+    float gi = 0.0f;
+    uint32_t offset = hash_value_index_count_offset[bid];
+    for (int i = 0; i < sample_num; i++) {
+      int sample_index = sample_id[offset + i];
+      gi += wgrad[sample_index * embedding_vec_size + tid];
+    }
+
+    // compute the grad of the weights and update it
+    TypeValueIndex row_index = hash_value_index_sort[offset];
+    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    float mi = adam.m_ptr[feature_index] + (1.0f - adam.beta1) * gi;
+    float vi = adam.v_ptr[feature_index] + (1.0f - adam.beta2) * gi * gi;
+    adam.m_ptr[feature_index] = mi;
+    adam.v_ptr[feature_index] = vi;
+  }
+}
+
+
 
 
 // calculate weights update value(deltaw) by adam opitimizer
@@ -293,6 +359,7 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
     float vi = adam.beta2 * adam.v_ptr[feature_index] + (1.0f - adam.beta2) * gi * gi;
     adam.m_ptr[feature_index] = mi;
     adam.v_ptr[feature_index] = vi;
+
     float weight_diff = -adam.alpha_t * mi / (sqrtf(vi) + adam.epsilon);
 
     // save weights diff
