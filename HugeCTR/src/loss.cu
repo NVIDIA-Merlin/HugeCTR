@@ -201,7 +201,8 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
 
     // grad
     if(x > MIN_X && val < 1.0f - MIN_ && val > MIN_){
-      input[i] = -1.0f * val * (y - val) * exp_neg_x / (1.0f - val) / batch_size * scaler;
+      //input[i] = -1.0f * val * (y - val) * exp_neg_x / (1.0f - val) / batch_size * scaler;
+      input[i] = (-y * (1.0f - val) + val * (1.0f - y)) / batch_size * scaler;
     }
     else{
       input[i] = 0.f;
