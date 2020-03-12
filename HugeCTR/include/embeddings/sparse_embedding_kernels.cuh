@@ -298,6 +298,22 @@ __global__ void opt_adam_kernel2(const uint32_t hash_value_index_count_num,
                                 const TypeValueIndex *hash_value_index_sort,
                                 const uint32_t *hash_value_index_count_offset, 
                                 const float *wgrad) {
+
+  float scaler = 1.f;
+#ifdef SCALE_128
+  scaler = 128.f;
+#elif SCALE_256
+  scaler = 256.f;
+#elif SCALE_512
+  scaler = 512.f;
+#elif SCALE_1024
+  scaler = 1024.f;
+#else
+  scaler = 1.f;
+#endif
+
+
+
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -310,7 +326,7 @@ __global__ void opt_adam_kernel2(const uint32_t hash_value_index_count_num,
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
     }
 
     // compute the grad of the weights and update it
@@ -337,6 +353,21 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
                                 const float *wgrad,
                                 TypeValueIndex *deltaw_hash_value_index, 
                                 float *deltaw) {
+
+
+  float scaler = 1.f;
+#ifdef SCALE_128
+  scaler = 128.f;
+#elif SCALE_256
+  scaler = 256.f;
+#elif SCALE_512
+  scaler = 512.f;
+#elif SCALE_1024
+  scaler = 1024.f;
+#else
+  scaler = 1.f;
+#endif
+
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -349,7 +380,7 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
     }
 
     // compute the grad of the weights and update it
@@ -384,6 +415,20 @@ __global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_nu
                                         const float *wgrad,
                                         TypeValueIndex *deltaw_hash_value_index, 
                                         float *deltaw) {
+
+  float scaler = 1.f;
+#ifdef SCALE_128
+  scaler = 128.f;
+#elif SCALE_256
+  scaler = 256.f;
+#elif SCALE_512
+  scaler = 512.f;
+#elif SCALE_1024
+  scaler = 1024.f;
+#else
+  scaler = 1.f;
+#endif
+
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -395,7 +440,7 @@ __global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_nu
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
     }
 
     // compute the grad of the weights and update it
@@ -426,6 +471,21 @@ __global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num,
                                     const float *wgrad,
                                     TypeValueIndex *deltaw_hash_value_index, 
                                     float *deltaw) {
+
+  float scaler = 1.f;
+#ifdef SCALE_128
+  scaler = 128.f;
+#elif SCALE_256
+  scaler = 256.f;
+#elif SCALE_512
+  scaler = 512.f;
+#elif SCALE_1024
+  scaler = 1024.f;
+#else
+  scaler = 1.f;
+#endif
+
+
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -438,7 +498,7 @@ __global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num,
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
     }
 
     // compute the grad of the weights and update it

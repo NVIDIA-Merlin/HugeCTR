@@ -21,25 +21,25 @@ namespace {
 __global__ void adam_kernel(int len, float* weight, const float* wgrad, float* m, float* v,
                             float alpha_t, float beta1, float beta2, float epsilon) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int scaler = 1;
+  float scaler = 1.f;
 #ifdef SCALE_128
-  scaler = 128;
+  scaler = 128.f
 #elif SCALE_256
-  scaler = 256;
+  scaler = 256.f
 #elif SCALE_512
-  scaler = 512;
+  scaler = 512.f
 #elif SCALE_1024
-  scaler = 1024;
+  scaler = 1024.f;
 #else
-  scaler = 1;
+  scaler = 1.f;
 #endif
   if (i < len) {
-    float gi = wgrad[i];
+    float gi = wgrad[i] / scaler;
     float mi = beta1 * m[i] + (1 - beta1) * gi;
     float vi = beta2 * v[i] + (1 - beta2) * gi * gi;
     m[i] = mi;
     v[i] = vi;
-    weight[i] -= alpha_t * mi / (sqrt(vi) + epsilon) / scaler;
+    weight[i] -= alpha_t * mi / (sqrt(vi) + epsilon);
 
     // if(isnan(weight[i]) && (!isnan(wgrad[i]))){
     //   printf("%f, %f?",mi,vi);

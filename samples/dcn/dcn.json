@@ -1,21 +1,21 @@
 {
   "solver": {
     "lr_policy": "fixed",
-    "display": 2000,
-    "max_iter": 150000,
+    "display": 1000,
+    "max_iter": 300000,
     "gpu": [0],
     "batchsize": 512,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
-    "eval_interval": 2000,
-    "eval_batches": 20,
+    "eval_interval": 1000,
+    "eval_batches": 60,
     "dense_model_file": "./criteo.model"
   },
   
   "optimizer": {
     "type": "Adam",
     "adam_hparam": {
-      "alpha": 0.0005,
+      "alpha": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
       "epsilon": 0.00000001
@@ -27,7 +27,7 @@
       "name": "data",
       "type": "Data",
       "source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list.txt",
-      "eval_source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list_test_1.txt",
+      "eval_source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",
@@ -55,8 +55,8 @@
       "sparse_embedding_hparam": {
         "vocabulary_size": 1737710,
         "load_factor": 0.75,
-        "embedding_vec_size": 48,
-        "combiner": 1
+        "embedding_vec_size": 16,
+        "combiner": 0
       }
     },
 
@@ -65,7 +65,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 1248
+      "leading_dim": 416
     },
 
 
@@ -80,7 +80,7 @@
       "name": "slice1",
       "type": "Slice",
       "bottom": "concat1",
-      "ranges": [[0,1261], [0,1261]],
+      "ranges": [[0,429], [0,429]],
       "top": ["slice11", "slice12"]
     },
 
@@ -101,7 +101,7 @@
       "bottom": "slice12",
       "top": "fc1",
        "fc_param": {
-        "num_output": 200
+        "num_output": 1024
       }
     },
 
@@ -113,12 +113,20 @@
     },
       
     {
+      "name": "dropout1",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu1",
+      "top": "dropout1" 
+    },
+
+    {
       "name": "fc2",
       "type": "InnerProduct",
-      "bottom": "relu1",
+      "bottom": "dropout1",
       "top": "fc2",
        "fc_param": {
-        "num_output": 200
+        "num_output": 1024
       }
     },
 
@@ -126,33 +134,21 @@
       "name": "relu2",
       "type": "ReLU",
       "bottom": "fc2",
-      "top": "relu2"
-     
+      "top": "relu2"     
     },
 
     {
-      "name": "fc3",
-      "type": "InnerProduct",
+      "name": "dropout2",
+      "type": "Dropout",
+      "rate": 0.5,
       "bottom": "relu2",
-      "top": "fc3",
-       "fc_param": {
-        "num_output": 200
-      }
+      "top": "dropout2" 
     },
-
-    {
-      "name": "relu3",
-      "type": "ReLU",
-      "bottom": "fc3",
-      "top": "relu3"
-     
-    },
-
     
     {
       "name": "concat2",
       "type": "Concat",
-      "bottom": ["relu3","multicross1"],
+      "bottom": ["dropout2","multicross1"],
       "top": "concat2"
     },
     
@@ -165,7 +161,6 @@
         "num_output": 1
       }
     },
-
     
     {
       "name": "loss",
