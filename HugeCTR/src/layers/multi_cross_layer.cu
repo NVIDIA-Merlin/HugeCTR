@@ -537,7 +537,23 @@ std::vector<float> MultiCrossLayer::get_initializer() {
   float out_dim = out_tensor->get_dims()[1];
   float sigma = 6.f / sqrt(in_dim+out_dim);
   HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1*sigma, sigma);
-  for (size_t i = 0; i < initializer.size(); i++) initializer[i] = fdata_sim.get_num();
+  //  for (size_t i = 0; i < initializer.size(); i++) initializer[i] = fdata_sim.get_num();
+  
+  size_t w_size_accum = 0;
+  for (int i = 0; i < num_layers_; i++) {
+    // setup weights
+    size_t w_size = (weights_[2*i])->get_num_elements();
+    for(int j = 0; j < w_size; j++){
+      initializer[w_size_accum + j] = fdata_sim.get_num();
+    }
+    w_size_accum += w_size;
+    // setup bias
+    w_size = (weights_[2*i+1])->get_num_elements();
+    for(int j = 0; j < w_size; j++){
+      initializer[w_size_accum + j] = 0.f;
+    }
+    w_size_accum += w_size;
+  }
   return initializer;
 }
 

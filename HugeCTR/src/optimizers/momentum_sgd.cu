@@ -21,21 +21,21 @@ namespace {
 __device__ __forceinline__ void momentumSGD_update_device(
     float* weight_ptr, float* momentum_ptr, float wgrad,
     HugeCTR::MomentumSGDHyperParameters hyper_parameters) {
-  int scaler = 1;
+  float scaler = 1.f;
 #ifdef SCALE_128
-  scaler = 128;
+  scaler = 128.f;
 #elif SCALE_256
-  scaler = 256;
+  scaler = 256.f;
 #elif SCALE_512
-  scaler = 512;
+  scaler = 512.f;
 #elif SCALE_1024
-  scaler = 1024;
+  scaler = 1024.f;
 #else
-  scaler = 1;
+  scaler = 1.f;
 #endif
   momentum_ptr[0] =
-      hyper_parameters.momentum_factor * momentum_ptr[0] - hyper_parameters.lr * wgrad;
-  weight_ptr[0] += momentum_ptr[0] / scaler;
+      hyper_parameters.momentum_factor * momentum_ptr[0] - hyper_parameters.lr * wgrad / scaler;
+  weight_ptr[0] += momentum_ptr[0];
   return;
 }
 
