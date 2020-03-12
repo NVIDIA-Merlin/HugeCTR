@@ -1,13 +1,13 @@
 {
   "solver": {
     "lr_policy": "fixed",
-    "display": 1000,
-    "max_iter": 250000,
+    "display": 2000,
+    "max_iter": 150000,
     "gpu": [0],
     "batchsize": 512,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
-    "eval_interval": 1000,
+    "eval_interval": 2000,
     "eval_batches": 20,
     "dense_model_file": "./criteo.model"
   },
@@ -15,7 +15,7 @@
   "optimizer": {
     "type": "Adam",
     "adam_hparam": {
-      "alpha": 0.001,
+      "alpha": 0.0005,
       "beta1": 0.9,
       "beta2": 0.999,
       "epsilon": 0.00000001
@@ -27,7 +27,7 @@
       "name": "data",
       "type": "Data",
       "source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list.txt",
-      "eval_source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list_test.txt",
+      "eval_source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list_test_1.txt",
       "check": "Sum",
       "label": {
         "top": "label",
@@ -104,12 +104,12 @@
         "num_output": 200
       }
     },
+
     {
       "name": "relu1",
       "type": "ReLU",
       "bottom": "fc1",
-      "top": "relu1"
-     
+      "top": "relu1" 
     },
       
     {
@@ -129,7 +129,7 @@
       "top": "relu2"
      
     },
-    
+
     {
       "name": "fc3",
       "type": "InnerProduct",
@@ -148,6 +148,7 @@
      
     },
 
+    
     {
       "name": "concat2",
       "type": "Concat",
@@ -155,8 +156,6 @@
       "top": "concat2"
     },
     
-
-
     {
       "name": "fc4",
       "type": "InnerProduct",

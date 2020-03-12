@@ -232,8 +232,9 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
 #endif
 
     // for hash_table_value initialization
-    HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1.f / embedding_params_.embedding_vec_size,
-                                                   1.f / embedding_params_.embedding_vec_size);
+    // HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1.f / embedding_params_.embedding_vec_size,
+    //                                                1.f / embedding_params_.embedding_vec_size);
+    HugeCTR::GaussianDataSimulator<float> fdata_sim(0, 0.05, -0.1, 0.1);
     float *h_hash_table_value;
     CK_CUDA_THROW_(cudaMallocHost(
         &h_hash_table_value,

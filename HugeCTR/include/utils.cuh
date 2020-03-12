@@ -107,4 +107,20 @@ __global__ void transform_array(const T* in, T* out, int num_elements, Lambda op
   }
 }
 
+template<typename T>
+__device__ __forceinline__ T clip(T val, T min,T max){
+  val = val < min ? min : val;
+  val = val > max ? max : val;
+  return val;
+}
+
+template<typename T>
+__device__ __forceinline__ bool isnan(T val){
+  if(val != val){
+    return true;
+  }
+  return false;
+}
+
+
 }  // namespace HugeCTR
