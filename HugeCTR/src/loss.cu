@@ -170,11 +170,12 @@ BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
   if (feature_dim != 1)
     CK_THROW_(Error_t::WrongInput, "The feature dimension of BCE loss input should be 1");
 }
+
 // Suppose we use one thread to calculate one sample
 __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, float *bce_loss,
                                           int scaler, int batch_size, float rterm) {
-  const float MIN_ = 1e-6;
-  const float MIN_X = -707.f;
+  const double MIN_ = 1e-7;
+  const float MIN_X = -18.f;
   int tid = threadIdx.x;
   extern __shared__ float loss_s[];
   loss_s[tid] = 0.0f;
@@ -183,15 +184,44 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
   double val;
 
   for (int i = tid; i < batch_size; i += blockDim.x) {
-    x = input[i] < MIN_X ? MIN_X : input[i];
-    double exp_neg_x = exp((double)-x);
-    val = 1.0f / (1.0f + exp_neg_x);
-    y = label[i];
 
-    loss_s[tid] += y * log(val + MIN_) + (1.0f - y) * log(1.0f - val + MIN_);
+    x = input[i];
+    double exp_neg_x = 0.;
+    if(x > MIN_X){
+      exp_neg_x = exp((double)-x);
+      val = 1.0f / (1.0f + exp_neg_x);
+    }
+    else{
+      val = 0.;
+    }
+
+    y = label[i];
+    val = clip(val, MIN_, 1.0 - MIN_);
+    loss_s[tid] += y * log(val) + (1.0f - y) * log(1.0f - val);
 
     // grad
-    input[i] = -1.0f * val * (y - val) * exp_neg_x / (1.0f - val + MIN_) / batch_size * scaler;
+    if(x > MIN_X && val < 1.0 - MIN_ && val > MIN_){
+      input[i] = -1.0 * val * (y - val) * exp_neg_x / (1.0 - val) / batch_size * scaler;
+    }
+    else{
+      input[i] = 0;
+    }
+    
+//     if(isnan(input[i]) && (!isnan(x))){
+//       printf("%f,%f,%f,%f,%f,%f___", 
+// 	     val, exp_neg_x, 1.0 - val, log(val), log(1.0 - val),x);
+// #undef NDEBUG
+//       assert(0);
+// #define NDEBUG
+//     }
+//     if(isinf(input[i]) && (!isinf(x))){
+//       printf("%f,%f,%f,%f,%f,%f___", 
+// 	     val, exp_neg_x, 1.0 - val, log(val), log(1.0 - val),x);
+// #undef NDEBUG
+//       assert(0);
+// #define NDEBUG
+//     }
+
   }
   __syncthreads();
 

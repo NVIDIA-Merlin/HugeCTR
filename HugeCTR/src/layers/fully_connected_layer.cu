@@ -247,10 +247,13 @@ std::vector<float> FullyConnectedLayer::get_initializer() {
   std::vector<float> initializer;
   initializer.resize((weights_[0])->get_num_elements() + (weights_[1])->get_num_elements());
   const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
   float in_dim = in_tensor->get_format() == TensorFormat_t::WH ? (in_tensor->get_dims())[0]
                                                                : (in_tensor->get_dims())[1];
-  float sigma = 1.f / sqrt(in_dim);
-  HugeCTR::GaussianDataSimulator<float> fdata_sim(0.f, sigma, -2 * sigma, 2 * sigma);
+  float out_dim = out_tensor->get_format() == TensorFormat_t::WH ? (out_tensor->get_dims())[0]
+                                                               : (out_tensor->get_dims())[1];
+  float sigma = 6.f / sqrt(in_dim+out_dim);
+  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1*sigma, sigma);
   for (size_t i = 0; i < initializer.size(); i++) initializer[i] = fdata_sim.get_num();
   return initializer;
 }
