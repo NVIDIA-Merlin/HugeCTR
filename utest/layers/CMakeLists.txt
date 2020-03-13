@@ -28,6 +28,7 @@ file(GLOB layers_test_src
   multiply_layer_test.cpp
   multi_cross_layer_test.cpp
   add_layer_test.cpp
+  reduce_sum_layer_test.cpp
 )
 
 add_executable(layers_test ${layers_test_src})
