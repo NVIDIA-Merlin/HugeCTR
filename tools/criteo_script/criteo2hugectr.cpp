@@ -32,7 +32,7 @@ static const int dense_dim = 13;
 typedef long long T;
 static const long long label_dim = 1;
 static int SLOT_NUM = 26;
-
+const int RANGE[] = {0,1460,2018,337396,549106,549411,549431,561567,562200,562203,613501,618803,951403,954582,954609,966800,1268011,1268021,1272862,1274948,1274952,1599225,1599242,1599257,1678991,1679087,1737709};
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
     std::stringstream ss(s);
@@ -57,6 +57,10 @@ int main(int argc, char* argv[]){
     KEYS_WIDE_MODEL = atoi(argv[4]);
     SLOT_NUM += 1;
   }
+  else{
+    std::cout << "Checking the range of each key..." << std::endl;
+  }
+
   //open txt file
   std::ifstream txt_file(argv[1], std::ifstream::binary);
   if(!txt_file.is_open()){
@@ -163,6 +167,11 @@ int main(int argc, char* argv[]){
         T key = static_cast<T>(std::stoll(vec_string[j]));
 	data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
 	data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
+	if(KEYS_WIDE_MODEL == 0){
+	  if(key < RANGE[j-dense_dim-label_dim] || key > RANGE[j+1-dense_dim-label_dim]){
+	    std::cout << key << " in feature:" << j << " our of range:" << RANGE[j] << "," << RANGE[j+1] << std::endl;
+	  }
+	}
 #ifndef NDEBUG
 	std::cout << key << ',';
 #endif
