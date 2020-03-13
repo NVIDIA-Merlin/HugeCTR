@@ -23,44 +23,39 @@
 namespace HugeCTR {
 
 /**
- * Layer which does element-wise product by input tensor X and weight W. 
- * The input tensor X has dimention: [batch_size, slot_num, 1], while 
- * the input weight W has dimention: [slot_num, embedding_vec_size]. 
- * The MultiplyLayer will broadcast the value of W to "batch_size" dim 
- * and broadcast the value of X to embedding_vec_size dim automatically
- * when doing element-wise product with X. So, the output tensor has 
- * the dimention: [batch_size, slot_num, embedding_vec_size].
+ * Layer which does element-wise add by input tensors. 
+ * All the input tensors should have the same shape.
  */
-class MultiplyLayer : public Layer {
+class AddLayer : public Layer {
  public:
   /**
-   * Ctor of MultiplyLayer.
+   * Ctor of AddLayer.
    * @param in_tensor the input tensor
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-                const std::shared_ptr<Tensor<float>>& in_tensor,
-                const std::shared_ptr<Tensor<float>>& out_tensor,
-                int device_id);
-  ~MultiplyLayer() override {};
+  AddLayer(const std::vector<std::shared_ptr<Tensor<float>>>& in_tensors,
+          const std::shared_ptr<Tensor<float>>& out_tensor,
+          int device_id);
+  ~AddLayer();
 
   /**
-   * MultiplyLayer's foward propagation to do element-wise production
+   * AddLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
   void fprop(cudaStream_t stream) override;
   /**
-   * MultiplyLayer's backward propagation
+   * AddLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
 
  private:
+   int size_;
+   int num_;
+   float ** h_inputs_ = NULL;
+   float ** d_inputs_ = NULL;
 
-  std::shared_ptr<GeneralBuffer<float>> internal_buff_;
-  std::unique_ptr<Tensor<float>> wgrad_tmp_trans_;
 };
 
 }  // namespace HugeCTR
