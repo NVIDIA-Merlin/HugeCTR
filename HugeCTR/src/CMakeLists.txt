@@ -29,6 +29,7 @@ file(GLOB huge_ctr_src
   layers/multiply_layer.cu
   layers/multi_cross_layer.cu
   layers/add_layer.cu
+  layers/reduce_sum_layer.cu
   loss.cu
   network.cpp
   optimizers/adam_optimizer.cu
