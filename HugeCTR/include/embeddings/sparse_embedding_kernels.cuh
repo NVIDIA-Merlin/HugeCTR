@@ -48,9 +48,9 @@ namespace HugeCTR {
 
 // forward kernel funcion: for both combiner=sum and combiner=mean
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_sum_kernel(const int batch_size, 
-                                   const int slot_num,
-                                   const int embedding_vec_size, 
+__global__ void forward_sum_kernel(int batch_size, 
+                                   int slot_num,
+                                   int embedding_vec_size, 
                                    const TypeKey *row_offset,
                                    const TypeValueIndex *hash_value_index,
                                    const float *hash_table_value, 
@@ -81,9 +81,9 @@ __global__ void forward_sum_kernel(const int batch_size,
 
 // forward kernel function: this is an additional function for combiner=mean
 template <typename TypeKey>
-__global__ void forward_scale_kernel(const int batch_size, 
-                                     const int slot_num,
-                                     const int embedding_vec_size, 
+__global__ void forward_scale_kernel(int batch_size, 
+                                     int slot_num,
+                                     int embedding_vec_size, 
                                      const TypeKey *row_offset,
                                      float *embedding_feature) {
   int bid = blockIdx.x;
@@ -107,9 +107,9 @@ __global__ void forward_scale_kernel(const int batch_size,
 
 // forward kernel funcion: for both combiner=sum and combiner=mean
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_mean_kernel(const int batch_size, 
-                                   const int slot_num,
-                                   const int embedding_vec_size, 
+__global__ void forward_mean_kernel(int batch_size, 
+                                   int slot_num,
+                                   int embedding_vec_size, 
                                    const TypeKey *row_offset,
                                    const TypeValueIndex *hash_value_index,
                                    const float *hash_table_value, 
@@ -145,9 +145,9 @@ __global__ void forward_mean_kernel(const int batch_size,
 
 // backward kernel function: for combiner=sum
 template <typename TypeKey>
-__global__ void backward_sum_kernel(const int batch_size, 
-                                    const int slot_num,
-                                    const int embedding_vec_size, 
+__global__ void backward_sum_kernel(int batch_size, 
+                                    int slot_num,
+                                    int embedding_vec_size, 
                                     const float *top_grad,
                                     float *wgrad) {
   int tid = threadIdx.x;
@@ -163,9 +163,9 @@ __global__ void backward_sum_kernel(const int batch_size,
 
 // backward kernel function: for combiner=mean
 template <typename TypeKey>
-__global__ void backward_mean_kernel(const int batch_size, 
-                                     const int slot_num,
-                                     const int embedding_vec_size, 
+__global__ void backward_mean_kernel(int batch_size, 
+                                     int slot_num,
+                                     int embedding_vec_size, 
                                      const TypeKey *row_offset,
                                      const float *top_grad, 
                                      float *wgrad) {
@@ -190,8 +190,8 @@ __global__ void backward_mean_kernel(const int batch_size,
 
 // expand sample id by row_offset
 template <typename TypeKey>
-__global__ void sample_id_expand_kernel(const int batch_size, 
-                                        const int slot_num,
+__global__ void sample_id_expand_kernel(int batch_size, 
+                                        int slot_num,
                                         const TypeKey *row_offset, 
                                         TypeKey *sample_id) {
   int gid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -215,7 +215,7 @@ __device__ __forceinline__ void swap(TypeKey &a, TypeKey &b) {
 
 
 template <typename TypeValueIndex>
-__global__ void value_count_kernel_1(const int nnz, 
+__global__ void value_count_kernel_1(int nnz, 
 				     const TypeValueIndex *hash_value_index_sort,
 				     uint32_t *new_hash_value_flag)
 				     // uint32_t *hash_value_index_count,
@@ -239,7 +239,7 @@ __global__ void value_count_kernel_1(const int nnz,
   }
 }
 
-__global__ void value_count_kernel_2(const int nnz, 
+__global__ void value_count_kernel_2(int nnz, 
 				     const uint32_t *new_hash_value_flag,
 				     const uint32_t *hash_value_flag_sumed,
 				     uint32_t *hash_value_index_index,
@@ -344,8 +344,8 @@ __global__ void opt_adam_kernel2(const uint32_t hash_value_index_count_num,
 
 // calculate weights update value(deltaw) by adam opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
-                                const int embedding_vec_size, 
+__global__ void opt_adam_kernel(uint32_t hash_value_index_count_num,
+                                int embedding_vec_size, 
                                 const AdamOptHyperParams adam,
                                 const TypeKey *sample_id,
                                 const TypeValueIndex *hash_value_index_sort,
@@ -405,9 +405,9 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
 
 // calculate weights update value(deltaw) by momentum_sgd opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_num, 
-                                        const int embedding_vec_size, 
-                                        const float lr,
+__global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num, 
+                                        int embedding_vec_size, 
+                                        float lr,
                                         const MomentumSgdOptHyperParams momentum, 
                                         const TypeKey *sample_id,
                                         const TypeValueIndex *hash_value_index_sort, 
@@ -461,9 +461,9 @@ __global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_nu
 
 // calculate weights update value(deltaw) by nesterov opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num, 
-                                    const int embedding_vec_size, 
-                                    const float lr,
+__global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num, 
+                                    int embedding_vec_size, 
+                                    float lr,
                                     const NesterovOptHyperParams nesterov, 
                                     const TypeKey *sample_id,
                                     const TypeValueIndex *hash_value_index_sort, 
@@ -521,8 +521,8 @@ __global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num,
 
 // update embedding table(weights) by deltaw
 template <typename TypeValueIndex>
-__global__ void update_kernel(const uint32_t hash_value_index_count_num,
-                              const int embedding_vec_size,
+__global__ void update_kernel(uint32_t hash_value_index_count_num,
+                              int embedding_vec_size,
                               const TypeValueIndex *deltaw_hash_value_index, 
                               const float *deltaw,
                               float *hash_table_value) {
@@ -551,8 +551,8 @@ __global__ void memset_liner_kernel(Type *data,
 
 // get hash_value by value_index from hash_table_value matrix
 template <typename TypeValueIndex>
-__global__ void get_hash_value_kernel(const long long count, 
-                                      const int embedding_vec_size,
+__global__ void get_hash_value_kernel(long long count, 
+                                      int embedding_vec_size,
                                       const TypeValueIndex *value_index,
                                       const float *hash_table_value, 
                                       float *value_retrieved) {
@@ -568,7 +568,7 @@ __global__ void get_hash_value_kernel(const long long count,
 
 // get slot_id from hash_table_slot_id vector by value_index
 template<typename TypeValueIndex>
-__global__ void get_hash_slot_id_kernel(const int count, 
+__global__ void get_hash_slot_id_kernel(int count, 
                                         const TypeValueIndex * value_index,
                                         const TypeValueIndex * hash_table_slot_id, 
                                         TypeValueIndex * slot_id) {
@@ -582,10 +582,10 @@ __global__ void get_hash_slot_id_kernel(const int count,
 
 // reorder operation after all2all in forward propagation 
 template <typename Type>
-__global__ void forward_reorder_kernel(const int batch_size_per_gpu,
-                                      const int slot_num,
-                                      const int embedding_vec_size,
-                                      const int gpu_num,
+__global__ void forward_reorder_kernel(int batch_size_per_gpu,
+                                      int slot_num,
+                                      int embedding_vec_size,
+                                      int gpu_num,
                                       const Type * input,
                                       Type * output) {
   // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding vector
@@ -625,10 +625,10 @@ __global__ void forward_reorder_kernel(const int batch_size_per_gpu,
 
 // reorder operation before all2all in backward propagation 
 template <typename Type>
-__global__ void backward_reorder_kernel(const int batch_size_per_gpu,
-                                        const int slot_num,
-                                        const int embedding_vec_size,
-                                        const int gpu_num,
+__global__ void backward_reorder_kernel(int batch_size_per_gpu,
+                                        int slot_num,
+                                        int embedding_vec_size,
+                                        int gpu_num,
                                         const Type * input,
                                         Type * output) {
   // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding vector
@@ -664,11 +664,11 @@ __global__ void backward_reorder_kernel(const int batch_size_per_gpu,
 
 // store slot_id by row_offset and value_index
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void store_slot_id_kernel(const int batch_size, 
-                                    const int slot_num, // total slot number in hash table
-                                    const int slot_num_per_gpu,
-                                    const int gpu_num, // total gpu number
-                                    const int gpu_id, // global gpu device id
+__global__ void store_slot_id_kernel(int batch_size, 
+                                    int slot_num, // total slot number in hash table
+                                    int slot_num_per_gpu,
+                                    int gpu_num, // total gpu number
+                                    int gpu_id, // global gpu device id
                                     const TypeKey *row_offset, 
                                     const TypeValueIndex *value_index,
                                     TypeValueIndex *slot_id) {
