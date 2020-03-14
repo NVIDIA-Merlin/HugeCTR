@@ -89,6 +89,12 @@ void DropoutLayer::bprop(cudaStream_t stream) {
 
 }
 
+void DropoutLayer::inference(cudaStream_t stream) {
+  CudaDeviceContext context(get_device_id());
+  cudaMemcpyAsync(out_tensors_[0]->get_ptr(), in_tensors_[0]->get_ptr(), in_tensors_[0]->get_size(), cudaMemcpyDeviceToDevice, stream);
+}
+
+
 int64_t DropoutLayer::get_seed() const {
   FILE* f = fopen("/dev/urandom", "rb");
   if(f) {

@@ -350,11 +350,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         // get BN params
         auto j_bn_hparam = get_json(j, "bn_param");
-        auto is_training = get_value_from_json<bool>(j_bn_hparam, "is_training");
         auto factor = get_value_from_json<float>(j_bn_hparam, "factor");
         auto eps = get_value_from_json<float>(j_bn_hparam, "eps");
 
-        BatchNormLayer::Params params = {is_training, factor, eps};
+        BatchNormLayer::Params params = {factor, eps};
         layers.emplace_back(new BatchNormLayer(weight_buff, wgrad_buff, bn_in_tensor, bn_out_tensor,
                                                params, gpu_resource->get_cudnn_handle(),
                                                device_id));
