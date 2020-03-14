@@ -1,21 +1,21 @@
 {
   "solver": {
     "lr_policy": "fixed",
-    "display": 100,
-    "max_iter": 2500000,
-    "gpu": [0,1],
-    "batchsize": 128,
-    "snapshot": 100000,
+    "display": 1000,
+    "max_iter": 300000,
+    "gpu": [0],
+    "batchsize": 512,
+    "snapshot": 1000000,
     "snapshot_prefix": "./",
-    "eval_interval": 10000,
-    "eval_batches": 20,
+    "eval_interval": 1000,
+    "eval_batches": 60,
     "dense_model_file": "./criteo.model"
   },
   
   "optimizer": {
     "type": "Adam",
     "adam_hparam": {
-      "alpha": 0.005,
+      "alpha": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
       "epsilon": 0.00000001
@@ -23,7 +23,6 @@
   },
 
   "layers": [ 
-    
     {
       "name": "data",
       "type": "Data",
@@ -63,8 +62,8 @@
       "sparse_embedding_hparam": {
         "vocabulary_size": 1603616,
         "load_factor": 0.75,
-        "embedding_vec_size": 32,
-        "combiner": 1
+        "embedding_vec_size": 1,
+        "combiner": 0
       }
     },
 
@@ -72,14 +71,13 @@
     {
       "name": "sparse_embedding1",
       "type": "DistributedSlotSparseEmbeddingHash",
-      "plan_file": "./all2all_8_plan.json",
       "bottom": "deep_data",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "vocabulary_size": 1603616,
         "load_factor": 0.75,
-        "embedding_vec_size": 32,
-        "combiner": 1
+        "embedding_vec_size": 16,
+        "combiner": 0
       }
     },
 
@@ -88,7 +86,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 832
+      "leading_dim": 416
     },
 
     {
@@ -96,7 +94,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding2",
       "top": "reshape2",
-      "leading_dim": 32
+      "leading_dim": 1
     },
 
 
@@ -114,7 +112,7 @@
       "bottom": "concat1",
       "top": "fc1",
        "fc_param": {
-        "num_output": 1024
+        "num_output": 200
       }
     },
     {
@@ -124,14 +122,22 @@
       "top": "relu1"
      
     },
-      
+
+    {
+      "name": "dropout1",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu1",
+      "top": "dropout1" 
+    },
+
     {
       "name": "fc2",
       "type": "InnerProduct",
-      "bottom": "relu1",
+      "bottom": "dropout1",
       "top": "fc2",
        "fc_param": {
-        "num_output": 1024
+        "num_output": 200
       }
     },
 
@@ -144,12 +150,20 @@
     },
     
     {
+      "name": "dropout2",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu2",
+      "top": "dropout2" 
+    },
+
+    {
       "name": "fc3",
       "type": "InnerProduct",
-      "bottom": "relu2",
+      "bottom": "dropout2",
       "top": "fc3",
        "fc_param": {
-        "num_output": 1024
+        "num_output": 200
       }
     },
 
@@ -162,29 +176,34 @@
     },
 
     {
-      "name": "concat2",
-      "type": "Concat",
-      "bottom": ["relu3","reshape2"],
-      "top": "concat2"
+      "name": "dropout3",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu3",
+      "top": "dropout3" 
     },
-    
-
 
     {
       "name": "fc4",
       "type": "InnerProduct",
-      "bottom": "concat2",
+      "bottom": "dropout3",
       "top": "fc4",
-       "fc_param": {
+	"fc_param": {
         "num_output": 1
       }
     },
 
-    
+    {
+      "name": "add1",
+      "type": "Add",
+      "bottom": ["fc4","reshape2"],
+      "top": "add1"
+    },
+
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": ["fc4","label"],
+      "bottom": ["add1","label"],
       "top": "loss"
     } 
   ]

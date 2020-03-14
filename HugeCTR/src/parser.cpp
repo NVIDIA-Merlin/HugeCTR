@@ -17,6 +17,7 @@
 #include "HugeCTR/include/parser.hpp"
 #include "HugeCTR/include/device_map.hpp"
 #include "HugeCTR/include/layer.hpp"
+#include "HugeCTR/include/layers/add_layer.hpp"
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
 #include "HugeCTR/include/layers/concat_layer.hpp"
 #include "HugeCTR/include/layers/dropout_layer.hpp"
@@ -283,7 +284,8 @@ create_regularizer(const nlohmann::json& j,
       {"Slice", Layer_t::Slice},
       {"Multiply", Layer_t::Multiply},
       {"FmOrder2", Layer_t::FmOrder2},
-      {"MultiCross", Layer_t::MultiCross}
+      {"MultiCross", Layer_t::MultiCross},
+      {"Add", Layer_t::Add},
   };
   const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
@@ -330,6 +332,15 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
     std::vector<TensorPair> output_tensor_pairs;
 
     switch (layer_type) {
+      case Layer_t::Add: {
+	const auto& add_in_tensors = input_output_info.input;
+	const auto& dims_out = input_output_info.input[0]->get_dims();
+	std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims_out, blobs_buff, TensorFormat_t::HW));
+	output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+	layers.emplace_back(new AddLayer(add_in_tensors, out_tensor, device_id));
+        break;
+      }
+
       case Layer_t::BatchNorm: {
         const auto& bn_in_tensor = input_output_info.input[0];
         // establish out tensor

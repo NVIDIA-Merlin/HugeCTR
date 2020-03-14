@@ -55,7 +55,7 @@ class AddLayer : public Layer {
    int num_;
    float ** h_inputs_ = NULL;
    float ** d_inputs_ = NULL;
-
+   bool initialized_{false};
 };
 
 }  // namespace HugeCTR

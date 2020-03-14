@@ -118,9 +118,9 @@ int main(int argc, char* argv[]) {
         if (pid == 0) {
           std::cout << "HugeCTR training start:" << std::endl;
         }
-        // for (int i = 0; i < solver_config.max_iter; i++) {
-        //   session_instance.train();
-	//   float loss = 0;
+        //for (int i = 0; i < solver_config.max_iter; i++) {
+	  //          session_instance.train();
+	  //float loss = 0;
         //   if (i % solver_config.display == 0 && i != 0) {
         //     timer.stop();
         //     // display
@@ -194,7 +194,18 @@ int main(int argc, char* argv[]) {
 	    loss = 0;
 	    loop = i;
 	  }
-	}
+	
+	  // float avg_loss = 0.f;
+	  // for (int j = 0; j < solver_config.eval_batches; ++j) {
+	  //   session_instance.eval();
+	  //   float tmp_loss = 0.f;
+	  //   session_instance.get_current_loss(&tmp_loss);
+	  //   avg_loss += tmp_loss;
+	  // }
+	  // avg_loss /= solver_config.eval_batches;
+	  // std::cout << " " << avg_loss << std::endl;
+	  
+      	}
         break;
       }
       default: { assert(!"Error: no such option && should never get here!"); }
