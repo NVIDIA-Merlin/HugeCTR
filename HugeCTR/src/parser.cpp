@@ -28,6 +28,7 @@
 #include "HugeCTR/include/layers/multiply_layer.hpp"
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
+#include "HugeCTR/include/layers/add_layer.hpp"
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
@@ -291,6 +292,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"Slice", Layer_t::Slice},
       {"Multiply", Layer_t::Multiply},
       {"FmOrder2", Layer_t::FmOrder2},
+      {"Add", Layer_t::Add},
       {"MultiCross", Layer_t::MultiCross}
   };
 
@@ -542,9 +544,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
 
         std::shared_ptr<Tensor<float>>  out_tensor;
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff, 
           in_tensor, out_tensor, weight_dims, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }
       case Layer_t::FmOrder2: {
@@ -552,8 +554,16 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
             {batch_size, (in_tensor->get_dims())[2]}, blobs_buff, TensorFormat_t::HW));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        break;
+      }
+      case Layer_t::Add: {
+        auto& in_tensors = input_output_info.input;
+        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+            in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
+        layers.emplace_back(new AddLayer(in_tensors, out_tensor, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }
       default:
