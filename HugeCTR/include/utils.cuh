@@ -122,5 +122,26 @@ __device__ __forceinline__ bool isnan(T val){
   return false;
 }
 
+template<typename T>
+void print_cuda_buff(T* buf, int start, int end){
+  T h_buf[end-start];
+  cudaMemcpy(h_buf, buf, (end-start)*sizeof(T), cudaMemcpyDeviceToHost);
+  std::cout << "Cuda Buff Print " << start << "-" << end << ": " << std::endl;
+  for(int i = 0; i<(end-start); i++){
+    std::cout << h_buf[i] << ",";
+  }
+  std::cout << std::endl;
+}
+
+template<typename T>
+void print_cuda_buff_sum(T* buf, int num){
+  T sum;
+  T h_buf[num];
+  cudaMemcpy(h_buf, buf, (num)*sizeof(T), cudaMemcpyDeviceToHost);
+  for(int i = 0; i<num; i++){
+    sum+=h_buf[i];
+  }
+  std::cout << "Cuda Buff Sum: " << sum << " size:" << num << std::endl;
+}
 
 }  // namespace HugeCTR

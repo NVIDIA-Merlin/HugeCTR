@@ -252,8 +252,8 @@ std::vector<float> FullyConnectedLayer::get_initializer() {
                                                                : (in_tensor->get_dims())[1];
   float out_dim = out_tensor->get_format() == TensorFormat_t::WH ? (out_tensor->get_dims())[0]
                                                                : (out_tensor->get_dims())[1];
-  float sigma = 6.f / sqrt(in_dim+out_dim);
-  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1*sigma, sigma);
+  float limit = sqrt(6.f / (in_dim+out_dim));
+  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1*limit, limit);
   for (size_t i = 0; i < (weights_[0])->get_num_elements(); i++) initializer[i] = fdata_sim.get_num();
   for (size_t i = 0; i < (weights_[1])->get_num_elements(); i++) initializer[i+(weights_[0])->get_num_elements()] = 0.f;
   return initializer;

@@ -203,7 +203,7 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
     else{
       float exp_x = exp(x);
       loss_s[tid] += -x*y + log(1+exp_x);
-      input[i] = (-y + exp_x/(1+exp_x))*scaler/(float)batch_size;
+      input[i] = (-y + exp_x/(1+exp_x))*scaler /(float)batch_size;
     }
 
     // val = clip(val, MIN_, 1.0f - MIN_);
