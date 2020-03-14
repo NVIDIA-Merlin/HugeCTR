@@ -78,7 +78,7 @@ class Network {
    * Forward only.
    */
   void eval();
-
+  
   /**
    * Get current loss and return.
    */
