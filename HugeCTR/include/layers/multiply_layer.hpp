@@ -41,8 +41,10 @@ class MultiplyLayer : public Layer {
    */
   MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
                 const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
+                const std::shared_ptr<GeneralBuffer<float>>& blob_buff,
                 const std::shared_ptr<Tensor<float>>& in_tensor,
-                const std::shared_ptr<Tensor<float>>& out_tensor,
+                std::shared_ptr<Tensor<float>>& out_tensor,
+                const std::vector<int>& weight_dims,
                 int device_id);
   ~MultiplyLayer() override {};
 

@@ -534,10 +534,17 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Multiply: {
         const auto& in_tensor = input_output_info.input[0];
 
-        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
-            in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        std::vector<int> weight_dims;
+        auto dims = get_json(j, "weight_dims");
+        assert(dims.is_array());
+        for(auto dim : dims) {
+          weight_dims.emplace_back(dim.get<int>());
+        }
+
+        std::shared_ptr<Tensor<float>>  out_tensor;
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, in_tensor, out_tensor, device_id));
+        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff, 
+          in_tensor, out_tensor, weight_dims, device_id));
         break;
       }
       case Layer_t::FmOrder2: {
