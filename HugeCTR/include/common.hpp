@@ -121,6 +121,7 @@ enum class Layer_t {
   Multiply,
   FmOrder2,
   Add,
+  ReduceSum,
   MultiCross
 };
 

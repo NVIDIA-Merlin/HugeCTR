@@ -29,6 +29,7 @@
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
 #include "HugeCTR/include/layers/add_layer.hpp"
+#include "HugeCTR/include/layers/reduce_sum_layer.hpp"
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
@@ -293,6 +294,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"Multiply", Layer_t::Multiply},
       {"FmOrder2", Layer_t::FmOrder2},
       {"Add", Layer_t::Add},
+      {"ReduceSum", Layer_t::ReduceSum},
       {"MultiCross", Layer_t::MultiCross}
   };
 
@@ -563,6 +565,14 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
             in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
         layers.emplace_back(new AddLayer(in_tensors, out_tensor, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        break;
+      }
+      case Layer_t::ReduceSum: {
+        auto& in_tensor = input_output_info.input[0];
+        std::shared_ptr<Tensor<float>> out_tensor;
+        int axis = get_json(j, "axis").get<int>();
+        layers.emplace_back(new ReduceSumLayer(in_tensor, out_tensor, blobs_buff, axis, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }
