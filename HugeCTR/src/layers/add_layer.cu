@@ -96,10 +96,6 @@ AddLayer::AddLayer(const std::vector<std::shared_ptr<Tensor<float>>>& in_tensors
 
     CK_CUDA_THROW_(cudaMallocHost((void**)(&h_inputs_), num_ * sizeof(float*)));
     CK_CUDA_THROW_(cudaMalloc((void**)(&d_inputs_), num_ * sizeof(float*)));
-    for(int i = 0; i < num_; i++) {
-      h_inputs_[i] = in_tensors_[i]->get_ptr();
-    }
-    CK_CUDA_THROW_(cudaMemcpy((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*), cudaMemcpyHostToDevice));
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -123,6 +119,11 @@ AddLayer::~AddLayer() {
 void AddLayer::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
+  for(int i = 0; i < num_; i++) {
+    h_inputs_[i] = in_tensors_[i]->get_ptr();
+  }
+  CK_CUDA_THROW_(cudaMemcpy((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*), cudaMemcpyHostToDevice));
+
   float* output = out_tensors_[0]->get_ptr();
 
   dim3 blockSize(256, 1, 1);
@@ -132,6 +133,11 @@ void AddLayer::fprop(cudaStream_t stream) {
  
 void AddLayer::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
+
+  for(int i = 0; i < num_; i++) {
+    h_inputs_[i] = in_tensors_[i]->get_ptr();
+  }
+  CK_CUDA_THROW_(cudaMemcpy((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*), cudaMemcpyHostToDevice));
 
   float* output = out_tensors_[0]->get_ptr();
 
