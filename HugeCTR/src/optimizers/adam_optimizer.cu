@@ -23,11 +23,11 @@ __global__ void adam_kernel(int len, float* weight, const float* wgrad, float* m
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   float scaler = 1.f;
 #ifdef SCALE_128
-  scaler = 128.f
+  scaler = 128.f;
 #elif SCALE_256
-  scaler = 256.f
+  scaler = 256.f;
 #elif SCALE_512
-  scaler = 512.f
+  scaler = 512.f;
 #elif SCALE_1024
   scaler = 1024.f;
 #else

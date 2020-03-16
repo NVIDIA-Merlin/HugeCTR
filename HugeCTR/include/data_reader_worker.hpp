@@ -79,7 +79,6 @@ public:
     check_type_(check_type), params_(params),
     feature_ids_(new T[buffer_length]())
   {
-    std::cout << "DataReaderWorker" << std::endl;
     slots_ = 0;
     for(auto& p: params){
       slots_+=p.slot_num;
