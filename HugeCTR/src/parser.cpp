@@ -907,8 +907,9 @@ SolverParser::SolverParser(std::string configure_file) {
     snapshot = get_value_from_json<int>(j, "snapshot");
     batchsize = get_value_from_json<int>(j, "batchsize");
     snapshot_prefix = get_value_from_json<std::string>(j, "snapshot_prefix");
-    model_file = get_value_from_json<std::string>(j, "dense_model_file");
-
+    if(has_key_(j, "dense_model_file")){
+      model_file = get_value_from_json<std::string>(j, "dense_model_file");
+    }
     FIND_AND_ASSIGN_INT_KEY(eval_interval, j);
     FIND_AND_ASSIGN_INT_KEY(eval_batches, j);
     //FIND_AND_ASSIGN_STRING_KEY(embedding_file, j);
