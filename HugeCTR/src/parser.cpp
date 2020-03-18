@@ -553,9 +553,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
       case Layer_t::FmOrder2: {
         const auto& in_tensor = input_output_info.input[0];
+        auto out_dim = get_json(j, "out_dim").get<int>();
 
         std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
-            {batch_size, (in_tensor->get_dims())[2]}, blobs_buff, TensorFormat_t::HW));
+            {batch_size, out_dim}, blobs_buff, TensorFormat_t::HW));
         layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
