@@ -47,7 +47,7 @@ $ cd build
 $ cmake -DSM=XX -DUSE_TENSORCORE=ON -DSCALER=YYY ..
 ```
 
-### Build with validation mode ###
+### Build with Validation Vode ###
 This mode is designed for framework validation. In this mode loss of trainig will be shown as the average of `eval_batches` result. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
 ```shell
 $ mkdir -p build
