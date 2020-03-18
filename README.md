@@ -48,7 +48,7 @@ $ cmake -DSM=XX -DUSE_TENSORCORE=ON -DSCALER=YYY ..
 ```
 
 ### Build with verification mode ###
-In this mode loss of trainig will be shown as the average of `eval_batches` result. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
+This mode is designed for framework verification. In this mode loss of trainig will be shown as the average of `eval_batches` result. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
 ```shell
 $ mkdir -p build
 $ cd build
