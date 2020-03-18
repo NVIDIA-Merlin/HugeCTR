@@ -113,6 +113,30 @@ BatchNormLayer::~BatchNormLayer() {
   }
 }
 
+void BatchNormLayer::inference(cudaStream_t stream) {
+  CudaDeviceContext context(get_device_id());
+  CK_CUDNN_THROW_(cudnnSetStream(cudnn_handle_, stream));
+  float one = 1.0f, zero = 0.0f;
+
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
+  float* in = in_tensor->get_ptr();
+  float* out = out_tensor->get_ptr();
+
+  float* gamma = gamma_->get_ptr();
+  float* beta = beta_->get_ptr();
+
+  float* result_running_mean = result_running_mean_->get_ptr();
+  float* result_running_var = result_running_var_->get_ptr();
+  float* result_save_mean = result_save_mean_->get_ptr();
+  float* result_save_inv_var = result_save_inv_var_->get_ptr();
+
+  CK_CUDNN_THROW_(cudnnBatchNormalizationForwardInference(
+      cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
+      gamma, beta, result_running_mean, result_running_var, params_.eps));
+
+}
+
 void BatchNormLayer::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
@@ -133,17 +157,12 @@ void BatchNormLayer::fprop(cudaStream_t stream) {
   float* result_save_mean = result_save_mean_->get_ptr();
   float* result_save_inv_var = result_save_inv_var_->get_ptr();
 
-  if (params_.is_training) {
-    CK_CUDNN_THROW_(cudnnBatchNormalizationForwardTraining(
-        cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
-        gamma, beta, params_.factor, result_running_mean, result_running_var, params_.eps,
-        result_save_mean, result_save_inv_var));
 
-  } else {
-    CK_CUDNN_THROW_(cudnnBatchNormalizationForwardInference(
-        cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
-        gamma, beta, result_running_mean, result_running_var, params_.eps));
-  }
+  CK_CUDNN_THROW_(cudnnBatchNormalizationForwardTraining(
+      cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
+      gamma, beta, params_.factor, result_running_mean, result_running_var, params_.eps,
+      result_save_mean, result_save_inv_var));
+
 }
 
 void BatchNormLayer::bprop(cudaStream_t stream) {
@@ -175,6 +194,8 @@ void BatchNormLayer::bprop(cudaStream_t stream) {
       in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad, params_.eps,
       result_save_mean, result_save_inv_var));
 }
+
+
 
 std::string BatchNormLayer::get_no_trained_params_in_string() {
   float* d_result_running_mean = result_running_mean_->get_ptr();

@@ -42,7 +42,7 @@ class SliceLayer : public Layer {
   SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
              Tensors<float>& out_tensors,
              const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-             std::set<std::pair<int,int>>& ranges,
+             std::vector<std::pair<int,int>>& ranges,
              int device_id);
   ~SliceLayer() override {};
 

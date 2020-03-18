@@ -29,9 +29,9 @@ const float eps = 1e-5f;
 
 void fm_order2_fprop_cpu(const float * in,
                         float * out,
-                        const int batch_size,
-                        const int slot_num,
-                        const int emb_vec_size)
+                        int batch_size,
+                        int slot_num,
+                        int emb_vec_size)
 {
   for(int i = 0; i < batch_size; i++) {
     for(int j = 0; j < emb_vec_size; j++) {
@@ -53,9 +53,9 @@ void fm_order2_fprop_cpu(const float * in,
 void fm_order2_bprop_cpu(const float * in,
                         const float * top_grad,
                         float * dgrad,
-                        const int batch_size,
-                        const int slot_num,
-                        const int emb_vec_size)
+                        int batch_size,
+                        int slot_num,
+                        int emb_vec_size)
 {
   for(int i = 0; i < batch_size; i++) {
     for(int j = 0; j < emb_vec_size; j++) {

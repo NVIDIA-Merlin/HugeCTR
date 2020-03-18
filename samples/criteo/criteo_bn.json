@@ -68,7 +68,6 @@
       "bottom": "fc1",
       "top": "bn1",
        "bn_param": {
-        "is_training": true,
         "factor": 0.999,
         "eps": 1e-5
       }
