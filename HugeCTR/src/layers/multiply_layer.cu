@@ -175,17 +175,24 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     CudaDeviceContext context(get_device_id());
 
     auto in_dims = in_tensor->get_dims();
-    if(in_dims.size() != 3) {
-      CK_THROW_(Error_t::WrongInput, "Only 3D tensors can be multiplied");
+    if(in_dims.size() != 2) {
+      CK_THROW_(Error_t::WrongInput, "Only 2D tensors can be multiplied");
     }
-    if(in_tensor->get_format() != TensorFormat_t::HSW) {
-      CK_THROW_(Error_t::WrongInput, "Only TensorFormat_t::HSW is allowed for multiply layer");
+    if(in_tensor->get_format() != TensorFormat_t::HW) {
+      CK_THROW_(Error_t::WrongInput, "Only TensorFormat_t::HW is allowed for multiply layer");
     }
     if(weight_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "Only 2D weights is allowed for multiply layer");
     }
+    if(weight_dims[0] != in_dims[1]) {
+      CK_THROW_(Error_t::WrongInput, "weight_dims[0] must be equal to in_dims[1]");
+    }
 
-    std::vector<int> out_dims{in_dims[0], weight_dims[0], weight_dims[1]};
+    batch_size_ = in_dims[0];
+    slot_num_ = weight_dims[0];
+    embedding_vec_size_ = weight_dims[1];
+    
+    std::vector<int> out_dims{batch_size_, slot_num_*embedding_vec_size_};
     out_tensor.reset(new Tensor<float>(out_dims, blob_buff, in_tensor->get_format()));
     in_tensors_.emplace_back(in_tensor);
     out_tensors_.emplace_back(out_tensor);
@@ -195,7 +202,7 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     wgrad_.emplace_back(new Tensor<float>(weight_dims, wgrad_buff, w_format));
 
     internal_buff_.reset(new GeneralBuffer<float>());
-    wgrad_tmp_trans_.reset(new Tensor<float>(out_dims, internal_buff_, TensorFormat_t::HSW));
+    wgrad_tmp_trans_.reset(new Tensor<float>(out_dims, internal_buff_, TensorFormat_t::HW));
     internal_buff_->init(get_device_id());
 
   } catch (const std::runtime_error& rt_err) {
@@ -210,15 +217,12 @@ void MultiplyLayer::fprop(cudaStream_t stream) {
   float* input = in_tensors_[0]->get_ptr();
   float * weight = weights_[0]->get_ptr();
   float* output = out_tensors_[0]->get_ptr();
-  int batch_size = out_tensors_[0]->get_dims()[0];
-  int slot_num = out_tensors_[0]->get_dims()[1];
-  int embedding_vec_size = out_tensors_[0]->get_dims()[2];
 
-  dim3 blockSize(embedding_vec_size, 1, 1);
-  dim3 gridSize(batch_size, 1, 1);
+  dim3 blockSize(embedding_vec_size_, 1, 1);
+  dim3 gridSize(batch_size_, 1, 1);
   multiply_kernel<<<gridSize, blockSize, 0, stream>>>(input, weight, output, 
-                                                      batch_size, slot_num, 
-                                                      embedding_vec_size);
+                                                      batch_size_, slot_num_, 
+                                                      embedding_vec_size_);
 }
  
 void MultiplyLayer::bprop(cudaStream_t stream) {
@@ -229,16 +233,15 @@ void MultiplyLayer::bprop(cudaStream_t stream) {
   float* wgrad_tmp_trans = wgrad_tmp_trans_->get_ptr();
   float* input = in_tensors_[0]->get_ptr();
   float* output = out_tensors_[0]->get_ptr();
-  int batch_size = out_tensors_[0]->get_dims()[0];
-  int slot_num = out_tensors_[0]->get_dims()[1];
-  int embedding_vec_size = out_tensors_[0]->get_dims()[2];
 
   cudaMemsetAsync(wgrad, 0, wgrad_[0]->get_size(), stream);
 
-  multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size, slot_num, embedding_vec_size, stream);
+  multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, 
+    slot_num_, embedding_vec_size_, stream);
 
   // CAUSION: dgrad computation will modify the "input", so it must be put after wgrad computation
-  multiply_dgrad(output, weight, input, batch_size, slot_num, embedding_vec_size, stream);
+  multiply_dgrad(output, weight, input, batch_size_, 
+    slot_num_, embedding_vec_size_, stream);
 }
  
 }  // namespace HugeCTR
