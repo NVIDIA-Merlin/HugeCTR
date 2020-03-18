@@ -75,7 +75,8 @@ void Network::eval() {
 #endif
   // forward
   for (auto& layer : layers_) {
-    layer->fprop(gpu_resource_->get_stream());
+    //layer->fprop(gpu_resource_->get_stream());
+    layer->inference(gpu_resource_->get_stream());
 #ifndef NDEBUG
     for (auto& tensor : tensors_) {
       print_tensor(*tensor, -10, -1);

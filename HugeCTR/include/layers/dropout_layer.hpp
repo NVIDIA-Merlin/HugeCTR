@@ -52,6 +52,12 @@ class DropoutLayer : public Layer {
    * @param stream CUDA stream where the backward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
+  /*
+   * Inference pass
+   * @param stream: the CUDA stream that the forward function will be executed on.
+   */
+  void inference(cudaStream_t stream) override;
+
 
   const float* mask() const { return mask_; }
 

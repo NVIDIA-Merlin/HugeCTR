@@ -149,6 +149,10 @@ Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
       CK_THROW_(Error_t::WrongInput, "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
     }
 
+    if(embedding_vec_size > 1024) { 
+      CK_THROW_(Error_t::WrongInput, "the embedding_vec_size can not be more than 1024 in embedding layer");
+    }
+
     const auto& device_list = device_resources_->get_device_list();
     size_t gpu_count = device_list.size();
     if (row_offsets_tensors.size() != gpu_count || value_tensors.size() != gpu_count) {
