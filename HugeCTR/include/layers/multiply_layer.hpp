@@ -24,12 +24,12 @@ namespace HugeCTR {
 
 /**
  * Layer which does element-wise product by input tensor X and weight W. 
- * The input tensor X has dimention: [batch_size, slot_num, 1], while 
+ * The input tensor X has dimention: [batch_size, slot_num], while 
  * the input weight W has dimention: [slot_num, embedding_vec_size]. 
  * The MultiplyLayer will broadcast the value of W to "batch_size" dim 
  * and broadcast the value of X to embedding_vec_size dim automatically
  * when doing element-wise product with X. So, the output tensor has 
- * the dimention: [batch_size, slot_num, embedding_vec_size].
+ * the dimention: [batch_size, slot_num*embedding_vec_size].
  */
 class MultiplyLayer : public Layer {
  public:
@@ -60,7 +60,9 @@ class MultiplyLayer : public Layer {
   void bprop(cudaStream_t stream) override;
 
  private:
-
+  int batch_size_;
+  int slot_num_;
+  int embedding_vec_size_;
   std::shared_ptr<GeneralBuffer<float>> internal_buff_;
   std::unique_ptr<Tensor<float>> wgrad_tmp_trans_;
 };

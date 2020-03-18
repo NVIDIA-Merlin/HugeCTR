@@ -90,10 +90,11 @@ void multiply_test(int batch_size, int slot_num, int embedding_vec_size) {
   std::shared_ptr<GeneralBuffer<float>> weight_buf(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> wgrad_buf(new GeneralBuffer<float>());
 
-  vector<int> in_dims = {batch_size, slot_num, 1};
+  vector<int> in_dims = {batch_size, slot_num};
   vector<int> weight_dims = {slot_num, embedding_vec_size};
 
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, in_out_buf, TensorFormat_t::HSW));
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, in_out_buf, 
+    TensorFormat_t::HW));
   std::shared_ptr<Tensor<float>> out_tensor;
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
@@ -131,8 +132,10 @@ void multiply_test(int batch_size, int slot_num, int embedding_vec_size) {
   multiply_layer.fprop(cudaStreamDefault);
   cudaMemcpy(h_out.get(), d_out, len_out * sizeof(float), cudaMemcpyDeviceToHost);
 
-  multiply_cpu(h_in.get(), h_weight.get(), h_expected.get(), batch_size, slot_num, embedding_vec_size);
-  ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len_out, eps));
+  multiply_cpu(h_in.get(), h_weight.get(), h_expected.get(), batch_size, 
+    slot_num, embedding_vec_size);
+  ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), 
+    len_out, eps));
 
   // bprop
   for (int i = 0; i < len_in; ++i) {
