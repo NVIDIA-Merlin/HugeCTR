@@ -39,12 +39,21 @@ $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=XX ..
 $ make
 ```
-### Build with Mixed Precision (WMMA) Support ###
+### Build with Mixed Precision (TensorCore) Support ###
 To use mixed precision training, enable USE_WMMA and set SCALER to 128/256/512/1024 by:
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DSM=XX -DUSE_WMMA=ON -DSCALER=YYY ..
+$ cmake -DSM=XX -DUSE_TENSORCORE=ON -DSCALER=YYY ..
+```
+
+### Build with verification mode ###
+In this mode loss of trainig will be shown as the average of `eval_batches` result. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
+```shell
+$ mkdir -p build
+$ cd build
+$ cmake -DVAL_MODE=ON ..
+$ make
 ```
 
 ## Run ##
