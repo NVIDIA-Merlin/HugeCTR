@@ -52,6 +52,11 @@ public:
    * @param stream CUDA stream where the backward propagation is executed
    */
   void bprop(cudaStream_t stream);
+
+private:
+  int batch_size_;
+  int slot_num_;
+  int embedding_vec_size_;
 };
 
 }
