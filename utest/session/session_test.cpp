@@ -44,16 +44,8 @@ TEST(session_test, basic_session) {
 
   }
 
-  std::vector<int> device_list{0,1};
-  std::vector<std::vector<int>> vvgpu;
-  vvgpu.push_back(device_list);
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
-  const std::string model_file("session_test_model_file.data");
-  Session session_instance(batchsize, json_name, device_map);
-  session_instance.init_params(model_file);
-  const std::vector<std::string> embedding_file;
-  session_instance.load_params(model_file, embedding_file);
+  Session session_instance(json_name);
   cudaProfilerStart();
   for (int i = 0; i < 100; i++) {
     session_instance.train();
@@ -62,10 +54,6 @@ TEST(session_test, basic_session) {
       session_instance.get_current_loss(&loss);
       std::cout << "iter:" << i << "; loss: " << loss << std::endl; 
     }
-  }
-  for (auto device : device_list) {
-    cudaSetDevice(device);
-    cudaDeviceSynchronize();
   }
   cudaProfilerStop();
 }

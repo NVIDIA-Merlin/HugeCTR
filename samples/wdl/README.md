@@ -31,7 +31,6 @@ $ cp ./huge_ctr ../../samples/dcn/
 
 3. Run huge_ctr
 ```shell
-$ ./huge_ctr --model-init ./dcn.json
 $ ./huge_ctr --train ./dcn.json
 ```
 

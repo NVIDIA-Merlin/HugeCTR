@@ -31,7 +31,6 @@ $ cp ./huge_ctr ../../samples/criteo/
 
 3. Run huge_ctr
 ```shell
-$ ./huge_ctr --model-init ./criteo.json
 $ ./huge_ctr --train ./criteo.json
 ```
 
