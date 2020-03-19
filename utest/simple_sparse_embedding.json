@@ -128,14 +128,24 @@
       "name": "multiply1",
       "type": "Multiply",
       "bottom": "relu1",
+      "weight_dims": [200, 10],
       "top": "multiply1"
     },
 
     {
       "name": "fmorder2_1",
       "type": "FmOrder2",
-      "bottom": "sparse_embedding1",
+      "bottom": "reshape1",
+      "out_dim": 64,
       "top": "fmorder2_1"
+    },
+
+    {
+      "name": "reducesum1",
+      "type": "ReduceSum",
+      "bottom": "fmorder2_1",
+      "axis": 1,
+      "top": "reducesum1"
     },
 
     {
@@ -201,12 +211,19 @@
         "num_output": 1
       }
     },
+
+    {
+      "name": "add",
+      "type": "Add",
+      "bottom": ["fc4", "reducesum1"],
+      "top": "add"
+    },
     
     
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": ["fc4","label"],
+      "bottom": ["add","label"],
       "regularizer": "L2",
       "lambda": 0.0005,
       "top": "loss"
