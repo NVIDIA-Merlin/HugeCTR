@@ -169,9 +169,12 @@ class DataReader {
    * Reading a batch from cpu to gpu (embedding)
    */
   void read_a_batch_to_device();  // read data from csr to tensors
-
-
   
+  void read_a_batch_to_device_delay_release();
+
+  void ready_to_collect(){
+    data_collector_->set_ready_to_write();
+  }
 
   /**
    * Ctor
@@ -359,8 +362,15 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 }
 
 template <typename TypeKey>
-void DataReader<TypeKey>::read_a_batch_to_device() {
+void DataReader<TypeKey>:: read_a_batch_to_device_delay_release(){
   data_collector_->read_a_batch_to_device();
+  return;
+}
+
+template <typename TypeKey>
+void DataReader<TypeKey>::read_a_batch_to_device() {
+  read_a_batch_to_device_delay_release();
+  ready_to_collect();
   return;
 }
 
