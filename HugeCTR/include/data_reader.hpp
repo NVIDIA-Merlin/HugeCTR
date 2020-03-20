@@ -87,7 +87,7 @@ class DataReader {
  private:
   std::shared_ptr<FileList> file_list_; /**< file list of data set */
   const int NumChunks{31};              /**< NumChunks will be used in HeapEx*/
-  const int NumThreads{20};             /**< number of threads for data reading */
+  const int NumThreads{31};             /**< number of threads for data reading */
 
   std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_; /**< heap to cache the data set */
   std::vector<std::shared_ptr<DataReaderWorker<TypeKey>>>
@@ -182,7 +182,7 @@ class DataReader {
   DataReader(const std::string& file_list_name, int batchsize, int label_dim, int dense_dim,
 	       Check_t check_type, std::vector<DataReaderSparseParam>& params,
 	       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-	       int num_chunks = 31, int num_threads = 20);
+	       int num_chunks = 31, int num_threads = 31);
 
   /**
    * process of evaluation will call this to create a new object of DataReader
