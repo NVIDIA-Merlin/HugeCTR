@@ -36,7 +36,6 @@ class BatchNormLayer : public Layer {
    * BatchNorm parameters
    */
   struct Params {
-    bool is_training; /**< if it is trained mode or not*/
     float factor;     /**<  moving average computation factor*/
     float eps;        /**< small value to avoid divide-by-zero error*/
   };
@@ -68,6 +67,13 @@ class BatchNormLayer : public Layer {
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
+    /*
+   * Inference pass
+   * @param stream: the CUDA stream that the forward function will be executed on.
+   */
+  void inference(cudaStream_t stream) override;
+
+
   /**
    * A method to get mean and variance which are needed for inference as string.
    * Session is in charge of calling this method and store the contensts to file.

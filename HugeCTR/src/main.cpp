@@ -33,9 +33,9 @@
 #endif
 
 static const std::string simple_help =
-    "usage: huge_ctr.exe [--train] [--model-init] [--help] [--version] config_file.json\n";
+    "usage: huge_ctr.exe [--train] [--help] [--version] config_file.json\n";
 
-enum class CmdOptions_t { Train, ModelInit, Version, Help };
+enum class CmdOptions_t { Train, Version, Help };
 
 int main(int argc, char* argv[]) {
   try {
@@ -50,7 +50,6 @@ int main(int argc, char* argv[]) {
 #endif
     const std::map<std::string, CmdOptions_t> CMD_OPTIONS_TYPE_MAP = {
         {"--train", CmdOptions_t::Train},
-        {"--model-init", CmdOptions_t::ModelInit},
         {"--help", CmdOptions_t::Help},
         {"--version", CmdOptions_t::Version}};
 
@@ -80,22 +79,6 @@ int main(int argc, char* argv[]) {
         }
         break;
       }
-      case CmdOptions_t::ModelInit: {
-        if (argc != 3 && pid == 0) {
-          std::cerr << "expect config file." << std::endl;
-          std::cerr << simple_help;
-          return -1;
-        }
-        std::string config_file(argv[2]);
-        if (pid == 0) {
-          std::cout << "Config file: " << config_file << std::endl;
-        }
-        HugeCTR::SolverParser solver_config(config_file);
-        HugeCTR::Session session_instance(solver_config.batchsize, config_file,
-                                          solver_config.device_map);
-        session_instance.init_params(solver_config.model_file);
-        break;
-      }
       case CmdOptions_t::Train: {
         if (argc != 3 && pid == 0) {
           std::cerr << "expect config file." << std::endl;
@@ -107,18 +90,18 @@ int main(int argc, char* argv[]) {
         if (pid == 0) {
           std::cout << "Config file: " << config_file << std::endl;
         }
-        HugeCTR::SolverParser solver_config(config_file);
-        HugeCTR::Session session_instance(solver_config.batchsize, solver_config.model_file,
-                                          solver_config.embedding_files, config_file,
-                                          solver_config.device_map);
-
+        HugeCTR::Session session_instance(config_file);
+	const HugeCTR::SolverParser& solver_config = session_instance.get_solver_config();
         HugeCTR::Timer timer;
         timer.start();
+
+
         // train
         if (pid == 0) {
           std::cout << "HugeCTR training start:" << std::endl;
         }
-        for (int i = 0; i < solver_config.max_iter; i++) {
+#ifndef VAL
+	for (int i = 0; i < solver_config.max_iter; i++) {
           session_instance.train();
           if (i % solver_config.display == 0 && i != 0) {
             timer.stop();
@@ -152,9 +135,40 @@ int main(int argc, char* argv[]) {
             }
           }
         }
+#else 
+	float loss = 0;
+	bool start_test = false;
+	int loop = 0;
+        for (int i = 0; i < solver_config.max_iter; i++) {
+          session_instance.train();
+	  if(start_test == true){
+	    float loss_tmp = 0;
+            session_instance.get_current_loss(&loss_tmp);
+	    loss += loss_tmp;
+          }
+          if (i % solver_config.eval_interval == solver_config.eval_batches && i != solver_config.eval_batches) {
+	    loss = loss/solver_config.eval_batches;
+            float avg_loss = 0.f;
+            for (int j = 0; j < solver_config.eval_batches; ++j) {
+              session_instance.eval();
+              float tmp_loss = 0.f;
+              session_instance.get_current_loss(&tmp_loss);
+              avg_loss += tmp_loss;
+            }
+	    avg_loss /= solver_config.eval_batches;
+	    start_test = false;
+	    std::cout << loop << " " << loss << " " << avg_loss << std::endl;
+          }
+	  if(i!=0 && i % solver_config.eval_interval == 0){
+	    start_test = true;
+	    loss = 0;
+	    loop = i;
+	  }
+      	}
+#endif	
         break;
       }
-      default: { assert(!"Error: no such option && should never get here!"); }
+    default: { assert(!"Error: no such option && should never get here!"); }
     }
 #ifdef ENABLE_MPI
     CK_MPI_THROW__(MPI_Finalize());

@@ -63,6 +63,13 @@ class Layer {
    * @param stream: the CUDA stream that the forward function will be executed on.
    */
   virtual void bprop(cudaStream_t stream) = 0;
+  /*
+   * Inference pass (most layers just call fprop but some layer like dropout should inherit it)
+   * @param stream: the CUDA stream that the forward function will be executed on.
+   */
+  virtual void inference(cudaStream_t stream){
+    fprop(stream);
+  }
 
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
   void init_params(std::ofstream& out_stream);

@@ -232,8 +232,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
 #endif
 
     // for hash_table_value initialization
-    HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1.f / embedding_params_.embedding_vec_size,
-                                                   1.f / embedding_params_.embedding_vec_size);
+    HugeCTR::GaussianDataSimulator<float> fdata_sim(0, 0.05, -0.1, 0.1);
     float *h_hash_table_value;
     CK_CUDA_THROW_(cudaMallocHost(
         &h_hash_table_value,
@@ -418,6 +417,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
               embedding_params_.opt_params.hyperparams.adam.epsilon;
           opt_params_[id].hyperparams.adam.m_ptr = opt_m_tensors_[id]->get_ptr();
           opt_params_[id].hyperparams.adam.v_ptr = opt_v_tensors_[id]->get_ptr();
+
           break;
 
         case 1:  // momentum_sgd

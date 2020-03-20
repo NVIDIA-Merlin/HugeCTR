@@ -75,7 +75,8 @@ void Network::eval() {
 #endif
   // forward
   for (auto& layer : layers_) {
-    layer->fprop(gpu_resource_->get_stream());
+    //layer->fprop(gpu_resource_->get_stream());
+    layer->inference(gpu_resource_->get_stream());
 #ifndef NDEBUG
     for (auto& tensor : tensors_) {
       print_tensor(*tensor, -10, -1);
@@ -125,14 +126,18 @@ std::string Network::get_no_trained_params_in_string() {
   return net_str;
 }
 
-void Network::upload_params_to_device(std::ifstream& params_stream) {
+void Network::upload_params_to_device(const std::string& model_file) {
+  std::ifstream model_stream(model_file, std::ifstream::binary);
+  if (!model_stream.is_open()) {
+    CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
+  }
   CudaDeviceContext context(device_id_);
 
   std::unique_ptr<char[]> params(new char[weight_buff_->get_size()]);
-  params_stream.read(params.get(), weight_buff_->get_size());
+  model_stream.read(params.get(), weight_buff_->get_size());
   CK_CUDA_THROW_(cudaMemcpy(weight_buff_->get_ptr_with_offset(0), params.get(),
                             weight_buff_->get_size(), cudaMemcpyHostToDevice));
-
+  model_stream.close();
   return;
 }
 
@@ -154,9 +159,24 @@ void Network::upload_params_to_device(float* params) {
   return;
 }
 
-void Network::init_params(std::ofstream& out_stream) {
+// void Network::init_params(std::ofstream& out_stream) {
+//   for (auto& layer : layers_) layer->init_params(out_stream);
+// }
+
+void Network::init_params(const std::string& dense_name) {
+  std::ofstream out_stream(dense_name, std::ofstream::binary);
+  if (!out_stream.is_open()) {
+    CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
+  }
   for (auto& layer : layers_) layer->init_params(out_stream);
+  out_stream.close();
 }
+
+void Network::copy_params(const Network& n) {
+  assert(weight_buff_->get_size() == n.weight_buff_->get_size());
+  CK_CUDA_THROW_(cudaMemcpy(weight_buff_->get_ptr_with_offset(0), n.weight_buff_->get_ptr_with_offset(0), weight_buff_->get_size(),cudaMemcpyDeviceToDevice));
+}
+
 
 float Network::get_loss() {
   float loss_host = 0.f;

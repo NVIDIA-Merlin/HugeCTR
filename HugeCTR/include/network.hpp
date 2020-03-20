@@ -78,7 +78,7 @@ class Network {
    * Forward only.
    */
   void eval();
-
+  
   /**
    * Get current loss and return.
    */
@@ -100,9 +100,9 @@ class Network {
   std::string get_no_trained_params_in_string();
 
   /**
-   * Read parameters from fstream.
+   * Read parameters from model_file.
    */
-  void upload_params_to_device(std::ifstream& params_stream);
+  void upload_params_to_device(const std::string& model_file);
 
   /**
    * Writting paramters to cpu buffer.
@@ -117,7 +117,12 @@ class Network {
   /**
    * Init parameters and write to fstream.
    */
-  void init_params(std::ofstream& out_stream);
+  void init_params(const std::string& dense_name);
+
+  /**
+   * Copy parameters from a network.
+   */
+  void copy_params(const Network& n);
 
   /**
    * Exchange wgrad between gpus.

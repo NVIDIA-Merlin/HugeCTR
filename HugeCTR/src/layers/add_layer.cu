@@ -80,11 +80,11 @@ AddLayer::AddLayer(const std::vector<std::shared_ptr<Tensor<float>>>& in_tensors
     }
     for(int i = 1; i < num_; i++) {
       if(in_tensors[i]->get_dims().size() != dims.size()) {
-        CK_THROW_(Error_t::WrongInput, "All the input tensors mush have the same num of dims");
+        CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same num of dims");
       }
       for(int j = 0; j < dims.size(); j++) {
         if(in_tensors[i]->get_dims()[j] != dims[j]) {
-          CK_THROW_(Error_t::WrongInput, "All the input tensors mush have the same dims");
+          CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same dims");
         }
       }
     }
@@ -118,12 +118,13 @@ AddLayer::~AddLayer() {
  
 void AddLayer::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
-
-  for(int i = 0; i < num_; i++) {
-    h_inputs_[i] = in_tensors_[i]->get_ptr();
+  if(!initialized_){
+    for(int i = 0; i < num_; i++) {
+      h_inputs_[i] = in_tensors_[i]->get_ptr();
+    }
+    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*), cudaMemcpyHostToDevice,stream));
+    initialized_ = true;
   }
-  CK_CUDA_THROW_(cudaMemcpy((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*), cudaMemcpyHostToDevice));
-
   float* output = out_tensors_[0]->get_ptr();
 
   dim3 blockSize(256, 1, 1);
@@ -133,12 +134,13 @@ void AddLayer::fprop(cudaStream_t stream) {
  
 void AddLayer::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
-
-  for(int i = 0; i < num_; i++) {
-    h_inputs_[i] = in_tensors_[i]->get_ptr();
+  if(!initialized_){
+    for(int i = 0; i < num_; i++) {
+      h_inputs_[i] = in_tensors_[i]->get_ptr();
+    }
+    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*), cudaMemcpyHostToDevice,stream));
+    initialized_ = true;
   }
-  CK_CUDA_THROW_(cudaMemcpy((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*), cudaMemcpyHostToDevice));
-
   float* output = out_tensors_[0]->get_ptr();
 
   dim3 blockSize(256, 1, 1);
