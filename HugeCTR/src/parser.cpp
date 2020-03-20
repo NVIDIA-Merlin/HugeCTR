@@ -650,20 +650,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
         }
         
-        auto j_source = get_json(j, "source");
-        std::string source_data;
-        if (j_source.is_array()) {
-          int num_nodes = j_source.size();
-          if (num_nodes != num_procs) {
-            CK_THROW_(Error_t::WrongInput, "num_nodes != num_procs");
-          }
-          source_data = j_source[pid].get<std::string>();
-        } else {
-          if (num_procs > 1) {
-            CK_THROW_(Error_t::WrongInput, "num_procs > 1");
-          }
-          source_data = get_value_from_json<std::string>(j, "source");
-        }
+        std::string source_data = get_value_from_json<std::string>(j, "source");
         
 
         auto j_label = get_json(j, "label");
@@ -733,11 +720,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         std::string eval_source;
         FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
         if (eval_source.empty() == false) {
-          if (pid == 0) {  // master process
             data_reader_eval.reset(data_reader->clone_eval_with_shared_output(eval_source));
-          } else {  // slave process
-            data_reader_eval.reset(data_reader->clone_eval_with_shared_output());
-          }
         }
       }
       

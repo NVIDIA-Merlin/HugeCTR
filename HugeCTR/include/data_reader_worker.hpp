@@ -21,7 +21,7 @@
 #include "HugeCTR/include/csr.hpp"
 #include "HugeCTR/include/csr_chunk.hpp"
 #include "HugeCTR/include/file_list.hpp"
-#include "HugeCTR/include/heap.hpp"
+#include "HugeCTR/include/heapex.hpp"
 #include "HugeCTR/include/check_sum.hpp"
 #include "HugeCTR/include/check_none.hpp"
 #include "HugeCTR/include/file_source.hpp"
@@ -30,7 +30,7 @@ namespace HugeCTR {
 template <class T>
 class DataReaderWorker {
 private:
-  std::shared_ptr<Heap<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
+  std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   DataSetHeader
       data_set_header_;               /**< the header of data set, which has main informations of a data file */
   size_t buffer_length_;              /**< buffer size for internal use */
@@ -73,7 +73,7 @@ public:
   /**
    * Ctor
    */
-  DataReaderWorker(const std::shared_ptr<Heap<CSRChunk<T>>>& csr_heap, FileList& file_list, size_t buffer_length, 
+  DataReaderWorker(const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap, FileList& file_list, size_t buffer_length, 
     Check_t check_type, const std::vector<DataReaderSparseParam>& params):
     csr_heap_(csr_heap), buffer_length_(buffer_length), 
     check_type_(check_type), params_(params),
@@ -133,9 +133,10 @@ void DataReaderWorker<T>::read_a_batch() {
     if(!checker_->is_open()){
       read_new_file();
     }
-    unsigned int key = 0;
+    unsigned int key;
     CSRChunk<T>* csr_chunk = nullptr;
-    csr_heap_->free_chunk_checkout(&csr_chunk, &key);
+    key = checker_->get_source_counter();
+    csr_heap_->free_chunk_checkout(&csr_chunk, key);
 
     if (!skip_read_) {
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
