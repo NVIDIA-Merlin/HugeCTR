@@ -60,6 +60,11 @@ class MultiplyLayer : public Layer {
   void bprop(cudaStream_t stream) override;
 
  private:
+  /**
+   * Use Gaussian initialization.
+   */
+  std::vector<float> get_initializer() override;
+  
   int batch_size_;
   int slot_num_;
   int embedding_vec_size_;

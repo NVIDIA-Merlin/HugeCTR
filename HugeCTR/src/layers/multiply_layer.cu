@@ -210,6 +210,21 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     throw;
   }
 }
+
+std::vector<float> MultiplyLayer::get_initializer() {
+  std::vector<float> initializer;
+  size_t w_size = (weights_[0])->get_num_elements();
+  initializer.resize(w_size);
+  float in_dim = slot_num_; // in_tensor dim[1]
+  float out_dim = slot_num_*embedding_vec_size_; // out_tensor dim[1]
+
+  float limit = sqrt(6.f / (in_dim+out_dim));
+  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1*limit, limit);
+  for (size_t i = 0; i < w_size; i++) 
+    initializer[i] = fdata_sim.get_num();
+  
+  return initializer;
+}
  
 void MultiplyLayer::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
