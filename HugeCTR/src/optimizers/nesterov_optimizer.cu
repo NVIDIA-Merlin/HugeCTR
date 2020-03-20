@@ -21,23 +21,23 @@ namespace {
 __global__ void nesterov_kernel(int len, float* weight, const float* wgrad, float* accum, float lr,
                                 float mu) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int scaler = 1;
+  float scaler = 1.f;
 #ifdef SCALE_128
-  scaler = 128;
+  scaler = 128.f;
 #elif SCALE_256
-  scaler = 256;
+  scaler = 256.f;
 #elif SCALE_512
-  scaler = 512;
+  scaler = 512.f;
 #elif SCALE_1024
-  scaler = 1024;
+  scaler = 1024.f;
 #else
-  scaler = 1;
+  scaler = 1.f;
 #endif
   if (i < len) {
     float accum_old = accum[i];
-    float accum_new = mu * accum_old - lr * wgrad[i];
+    float accum_new = mu * accum_old - lr * wgrad[i] / scaler;
     accum[i] = accum_new;
-    weight[i] += (-mu * accum_old + (1 + mu) * accum_new) / scaler;
+    weight[i] += (-mu * accum_old + (1 + mu) * accum_new);
   }
 }
 

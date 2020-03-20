@@ -42,7 +42,7 @@ private:
   bool skip_read_{false};             /**< set to true when you want to stop the data reading */
   const int MAX_TRY = 10;             
   int current_record_index_{0};
-
+  int slots_{0};
   void read_new_file(){
     for(int i=0; i<MAX_TRY; i++){
       checker_->next_source();
@@ -54,6 +54,11 @@ private:
       //todo: check if file match our DataReader setting.
       if(!(data_set_header_.error_check == 0 && check_type_ == Check_t::None) 
 	 && !(data_set_header_.error_check == 1 && check_type_ == Check_t::Sum)){
+	ERROR_MESSAGE_("DataHeaderError");      
+	continue;
+      }
+      if(data_set_header_.slot_num != slots_){
+	ERROR_MESSAGE_("DataHeaderError");      
 	continue;
       }
       if(err == Error_t::Success){
@@ -74,6 +79,10 @@ public:
     check_type_(check_type), params_(params),
     feature_ids_(new T[buffer_length]())
   {
+    slots_ = 0;
+    for(auto& p: params){
+      slots_+=p.slot_num;
+    }
     source_ = std::make_shared<FileSource>(file_list);
     switch(check_type_){
     case Check_t::Sum:
@@ -106,6 +115,7 @@ public:
     else if(__ERR == Error_t::DataCheckError){		\
       csr_chunk->apply_to_csr_buffers(&CSR<T>::roll_back);\
       i--;						\
+      ERROR_MESSAGE_("Error_t::DataCheckError");        \
       goto END_SAMPLE;					\
     }							\
     else{						\
@@ -167,12 +177,12 @@ void DataReaderWorker<T>::read_a_batch() {
 	      ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
 	    }
 
-	    #ifndef NDEBUG
-	    if (i == 0){
+      	    #ifndef NDEBUG
+	    if (i >= 0){
 	      std::cout << "[HCDEBUG]"
-			<< "nnz: " << nnz << std::endl;
+			<< "nnz: " << nnz << "sample " << i << std::endl;
 	    }
-	    #endif
+     	    #endif
 	    CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
 	    if(param.type == DataReaderSparse_t::Distributed){
 	      for(int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++){
@@ -182,15 +192,18 @@ void DataReaderWorker<T>::read_a_batch() {
 		int dev_id =
 		  feature_ids_[j] %
 		  csr_chunk->get_num_devices();  
+		dev_id = std::abs(dev_id);
 		T local_id = feature_ids_[j];
 		assert(dev_id < csr_chunk->get_num_devices());
-		csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
-		#ifndef NDEBUG
-		if (i == 0)
+ 		#ifndef NDEBUG
+		if (i >= 0)
 		  std::cout << "[HCDEBUG]"
 			    << "feature_ids:" << feature_ids_[j] << " local_id: " << local_id
+		            << " param_id: " << param_id << " dev_id: " << dev_id 
 			    << std::endl;
-		#endif
+    		#endif
+
+		csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
 	      }
 	    }
 	    else if(param.type == DataReaderSparse_t::Localized){

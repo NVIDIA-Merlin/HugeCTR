@@ -525,7 +525,7 @@ public:
       value_count_kernel_2<<<gridSize, blockSize, 0, stream>>>(
         nnz, new_hash_value_flag, hash_value_flag_sumed, hash_value_index_count_offset, hash_value_index_count_counter);
 
-#if 1
+
       uint32_t hash_hash_value_index_count_num = 0;
       // this async memcpy will not perform as a async operation because the host memory is not a
       // pinned memroy
@@ -542,38 +542,34 @@ public:
               opt_params.lr *
               sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
               (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
-
+	  //update target mi and vi
           opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
               sample_id_sort, hash_value_index_sort, 
-              hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw);
+              hash_value_index_count_offset, wgrad);
+	  //all update according to the mi vi
+	  adam_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam, hash_table_value);
           break;
         case 1:  // momentum sgd
           opt_momentum_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
               opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
-              hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
-              (float *)deltaw);
+              hash_value_index_count_offset, wgrad);
+
+	  momentum_sgd_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum , hash_table_value);
+
           break;
         case 2:  // nesterov
-          opt_nesterov_kernel<<<gridSize, blockSize, 0, stream>>>(
-              hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+	  nesterov_global_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov, hash_table_value);
+          nesterov_local_update_kernel<<<gridSize, blockSize, 0, stream>>>(
+	      hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
               opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-              hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
-              (float *)deltaw);
+              hash_value_index_count_offset, wgrad, hash_table_value);
           break;
         default:
           CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
       }
 
-      // step6: update hash_table_value by deltaw
-      blockSize.x = embedding_vec_size;
-      gridSize.x = max(1, hash_hash_value_index_count_num);
-      update_kernel<TypeHashValueIndex>
-          <<<gridSize, blockSize, 0, stream>>>(hash_hash_value_index_count_num, embedding_vec_size,
-                                              deltaw_hash_value_index, deltaw, hash_table_value);
-
-#endif
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;
       throw;

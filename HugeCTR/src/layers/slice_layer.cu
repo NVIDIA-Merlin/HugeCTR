@@ -63,7 +63,7 @@ __global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, c
 SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
                        Tensors<float>& out_tensors,
                        const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-                       std::set<std::pair<int,int>>& ranges,
+                       std::vector<std::pair<int,int>>& ranges,
                        int device_id)
     : Layer(device_id),
       n_sms_(0),
@@ -100,7 +100,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       if(cur_min < 0 || cur_max < 0) {
         CK_THROW_(Error_t::WrongInput, "Negative ranges cannot be allowed");
       }
-      if(!(prev_min < cur_min && prev_max < cur_max)) {
+      if(!(prev_min <= cur_min && prev_max <= cur_max)) {
         CK_THROW_(Error_t::WrongInput,
 	          "A range cannot be out-order nor included in another");
       }

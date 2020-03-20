@@ -82,7 +82,7 @@ class Loss {
 
  private:
   virtual void do_fused_loss_computation(float* input, const float* label, float* loss,
-                                         int batch_size, int feature_dim, int scaler,
+                                         int batch_size, int feature_dim, float scaler,
                                          float rterm,
                                          cudaStream_t stream) = 0;
 
@@ -93,7 +93,7 @@ class Loss {
 class CrossEntropyLoss : public Loss {
  public:
   void do_fused_loss_computation(float* input, const float* label, float* loss,
-                                 int batch_size, int feature_dim, int scaler,
+                                 int batch_size, int feature_dim, float scaler,
                                  float rterm,
                                  cudaStream_t stream) override final;
   CrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
@@ -106,7 +106,7 @@ class CrossEntropyLoss : public Loss {
 class BinaryCrossEntropyLoss : public Loss {
  public:
   void do_fused_loss_computation(float* input, const float* label, float* loss,
-                                 int batch_size, int feature_dim, int scaler,
+                                 int batch_size, int feature_dim, float scaler,
                                  float rterm,
                                  cudaStream_t stream) override final;
   BinaryCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
@@ -123,7 +123,7 @@ class MultiCrossEntropyLoss : public Loss {
 
  public:
   void do_fused_loss_computation(float* input, const float* label, float* loss,
-                                 int batch_size, int feature_dim, int scaler,
+                                 int batch_size, int feature_dim, float scaler,
                                  float rterm,
                                  cudaStream_t stream) override final;
   MultiCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,

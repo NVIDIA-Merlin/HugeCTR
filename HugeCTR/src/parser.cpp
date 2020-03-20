@@ -17,6 +17,7 @@
 #include "HugeCTR/include/parser.hpp"
 #include "HugeCTR/include/device_map.hpp"
 #include "HugeCTR/include/layer.hpp"
+#include "HugeCTR/include/layers/add_layer.hpp"
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
 #include "HugeCTR/include/layers/concat_layer.hpp"
 #include "HugeCTR/include/layers/dropout_layer.hpp"
@@ -271,14 +272,6 @@ create_regularizer(const nlohmann::json& j,
   return reg;
 }
 
-/*
- * Create single network
- *
- */
-Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
-			const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
-			int batch_size,
-                        int device_id, const std::shared_ptr<const GPUResource>& gpu_resource) {
   const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
       {"BatchNorm", Layer_t::BatchNorm},
       {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
@@ -297,6 +290,20 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       {"ReduceSum", Layer_t::ReduceSum},
       {"MultiCross", Layer_t::MultiCross}
   };
+  const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
+    {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
+    {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash}
+  };
+
+
+/*
+ * Create single network
+ *
+ */
+Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
+			const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
+			int batch_size,
+                        int device_id, const std::shared_ptr<const GPUResource>& gpu_resource) {
 
   std::unique_ptr<Network> network(
       new Network(batch_size, device_id, gpu_resource, false));
@@ -318,7 +325,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
     Layer_t layer_type;
     if (!find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP)) {
-      //CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+      Embedding_t embedding_type;
+      if (!find_item_in_map(embedding_type, layer_type_name, EMBEDDING_TYPE_MAP)) {
+	CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+      }
       continue;
     }
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_list);
@@ -334,11 +344,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         // get BN params
         auto j_bn_hparam = get_json(j, "bn_param");
-        auto is_training = get_value_from_json<bool>(j_bn_hparam, "is_training");
         auto factor = get_value_from_json<float>(j_bn_hparam, "factor");
         auto eps = get_value_from_json<float>(j_bn_hparam, "eps");
 
-        BatchNormLayer::Params params = {is_training, factor, eps};
+        BatchNormLayer::Params params = {factor, eps};
         layers.emplace_back(new BatchNormLayer(weight_buff, wgrad_buff, bn_in_tensor, bn_out_tensor,
                                                params, gpu_resource->get_cudnn_handle(),
                                                device_id));
@@ -520,12 +529,12 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Slice: {
         const auto& in_tensor = input_output_info.input[0];
 
-        std::set<std::pair<int,int>> ranges;
+        std::vector<std::pair<int,int>> ranges;
         auto j_ranges = get_json(j, "ranges");
         assert(j_ranges.is_array());
         for(auto j_range : j_ranges) {
           assert(j_range.is_array());
-          ranges.insert({j_range[0].get<int>(), j_range[1].get<int>()});
+          ranges.emplace_back(std::make_pair(j_range[0].get<int>(), j_range[1].get<int>()));
         }
 
         Tensors<float> out_tensors;
@@ -720,10 +729,14 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           sparse_input_map.emplace(sparse_name, sparse_input);
           sparse_names.push_back(sparse_name);
         }
-
+#ifdef VAL
         data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim, check_type,
-                    data_reader_sparse_param_array, gpu_resource_group));
+						  data_reader_sparse_param_array, gpu_resource_group,1,1));
+#else
+        data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim, check_type,
+						  data_reader_sparse_param_array, gpu_resource_group));
 
+#endif
         for(unsigned int i = 0; i < gpu_resource_group->size(); i++){
           tensor_maps[i].emplace(top_strs_label, (data_reader->get_label_tensors())[i]);
           tensor_maps[i].emplace(top_strs_dense, (data_reader->get_dense_tensors())[i]);
@@ -745,22 +758,21 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           }
         }
       }
-
+      
       // Create Embedding 
       {
         auto opt_params = get_optimizer_param(j_optimizer);
 
-        const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
-          {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
-          {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash}
-        };
         for (unsigned int i = 1; i < j_layers_array.size(); i++) {
           //if not embedding then break
           const nlohmann::json& j = j_layers_array[i];
           auto embedding_name = get_value_from_json<std::string>(j, "type");
           Embedding_t embedding_type;
-          
           if (!find_item_in_map(embedding_type, embedding_name, EMBEDDING_TYPE_MAP)) {
+	    Layer_t layer_type;
+	    if (!find_item_in_map(layer_type, embedding_name, LAYER_TYPE_MAP)) {
+	      CK_THROW_(Error_t::WrongInput, "No such layer: " + embedding_name);
+	    }
             break;
           }
 
@@ -913,8 +925,9 @@ SolverParser::SolverParser(std::string configure_file) {
     snapshot = get_value_from_json<int>(j, "snapshot");
     batchsize = get_value_from_json<int>(j, "batchsize");
     snapshot_prefix = get_value_from_json<std::string>(j, "snapshot_prefix");
-    model_file = get_value_from_json<std::string>(j, "dense_model_file");
-
+    if(has_key_(j, "dense_model_file")){
+      model_file = get_value_from_json<std::string>(j, "dense_model_file");
+    }
     FIND_AND_ASSIGN_INT_KEY(eval_interval, j);
     FIND_AND_ASSIGN_INT_KEY(eval_batches, j);
     //FIND_AND_ASSIGN_STRING_KEY(embedding_file, j);

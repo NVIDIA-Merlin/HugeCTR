@@ -155,8 +155,7 @@ class DataReader {
    * @params num_chunks number of chunks in heap.
    * @params number of threads for data reading.
    */
-  DataReader(const std::string& file_list_name, const DataReader& prototype, int num_chunks = 31,
-             int num_threads = 20);
+  DataReader(const std::string& file_list_name, const DataReader& prototype);
 
   /**
    * Ctor
@@ -223,11 +222,10 @@ class DataReader {
 
 template <typename TypeKey>
 DataReader<TypeKey>::DataReader(const std::string& file_list_name,
-                                const DataReader<TypeKey>& prototype, int num_chunks,
-                                int num_threads)
+                                const DataReader<TypeKey>& prototype)
     : file_list_(new FileList(file_list_name)),
-      NumChunks(num_chunks),
-      NumThreads(num_threads),
+      NumChunks(prototype.NumChunks),
+      NumThreads(prototype.NumChunks),
       label_dense_buffers_(prototype.label_dense_buffers_),
       label_tensors_(prototype.label_tensors_),
       dense_tensors_(prototype.dense_tensors_),

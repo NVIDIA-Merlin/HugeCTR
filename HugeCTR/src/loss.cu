@@ -51,19 +51,18 @@ void Loss::fused_loss_computation(cudaStream_t stream) {
   const float* label = label_tensor->get_ptr();
   float* loss = loss_tensor->get_ptr();
 
-  int scaler = 1;
+  float scaler = 1.f;
 #ifdef SCALE_128
-  scaler = 128;
+  scaler = 128.f;
 #elif SCALE_256
-  scaler = 256;
+  scaler = 256.f;
 #elif SCALE_512
-  scaler = 512;
+  scaler = 512.f;
 #elif SCALE_1024
-  scaler = 1024;
+  scaler = 1024.f;
 #else
-  scaler = 1;
+  scaler = 1.f;
 #endif
-
   float rterm = 0.0f;
   if(regularizer_) {
     regularizer_->compute_rterm(stream);
@@ -106,7 +105,7 @@ CrossEntropyLoss::CrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &l
 
 // Suppose we use one thread to calculate one sample
 __global__ void CrossEntropy_Kernel(float *input, const float *label, float *cel_loss,
-                                    int batch_size, int feature_dim, bool row_major, int scaler,
+                                    int batch_size, int feature_dim, bool row_major, float scaler,
                                     float rterm) {
   int tid = threadIdx.x;
   extern __shared__ float loss_s[];
@@ -145,7 +144,7 @@ __global__ void CrossEntropy_Kernel(float *input, const float *label, float *cel
 }
 
 void CrossEntropyLoss::do_fused_loss_computation(float* input, const float* label, float* loss,
-                                                 int batch_size, int feature_dim, int scaler,
+                                                 int batch_size, int feature_dim, float scaler,
                                                  float rterm,
                                                  cudaStream_t stream) {
   bool row_major = (input_tensors_[0]->get_format() == TensorFormat_t::HW);
@@ -170,40 +169,82 @@ BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
   if (feature_dim != 1)
     CK_THROW_(Error_t::WrongInput, "The feature dimension of BCE loss input should be 1");
 }
+
 // Suppose we use one thread to calculate one sample
 __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, float *bce_loss,
-                                          int scaler, int batch_size, float rterm) {
-  const float MIN_ = 1e-6;
-  const float MIN_X = -707.f;
+                                          float scaler, int batch_size, float rterm) {
+  const float MIN_ = 1e-7;
+  const float MIN_X = -18.f;
   int tid = threadIdx.x;
   extern __shared__ float loss_s[];
   loss_s[tid] = 0.0f;
 
-  float x, y;
-  double val;
+  // float x, y;
+  // float val;
 
   for (int i = tid; i < batch_size; i += blockDim.x) {
-    x = input[i] < MIN_X ? MIN_X : input[i];
-    double exp_neg_x = exp((double)-x);
-    val = 1.0f / (1.0f + exp_neg_x);
-    y = label[i];
 
-    loss_s[tid] += y * log(val + MIN_) + (1.0f - y) * log(1.0f - val + MIN_);
+    const float x = input[i];
+    //float exp_neg_x = 0.f;
+    // if(x > MIN_X){
+    //   exp_neg_x = exp(-x);
+    //   val = 1.0f / (1.0f + exp_neg_x);
+    // }
+    // else{
+    //   val = 0.f;
+    // }
 
-    // grad
-    input[i] = -1.0f * val * (y - val) * exp_neg_x / (1.0f - val + MIN_) / batch_size * scaler;
+    const float y = label[i];
+    if(x >= 0){
+      float exp_neg_x = exp(-x);
+      loss_s[tid] += x*(1 - y) + log(1 + exp_neg_x);
+      input[i] = ((1 - y) - exp_neg_x/(1+exp_neg_x))*scaler/(float)batch_size;
+    }
+    else{
+      float exp_x = exp(x);
+      loss_s[tid] += -x*y + log(1+exp_x);
+      input[i] = (-y + exp_x/(1+exp_x))*scaler /(float)batch_size;
+    }
+
+    // val = clip(val, MIN_, 1.0f - MIN_);
+    // loss_s[tid] += y * log(val) + (1.0f - y) * log(1.0f - val);
+
+    // // grad
+    // if(x > MIN_X && val < 1.0f - MIN_ && val > MIN_){
+    //   //input[i] = -1.0f * val * (y - val) * exp_neg_x / (1.0f - val) / batch_size * scaler;
+    //   input[i] = (-y * (1.0f - val) + val * (1.0f - y)) / (float)batch_size * scaler;
+    // }
+    // else{
+    //   input[i] = 0.f;
+    // }
+    
+//     if(isnan(input[i]) && (!isnan(x))){
+//       printf("%f,%f,%f,%f,%f,%f___", 
+// 	     val, exp_neg_x, 1.0 - val, log(val), log(1.0 - val),x);
+// #undef NDEBUG
+//       assert(0);
+// #define NDEBUG
+//     }
+//     if(isinf(input[i]) && (!isinf(x))){
+//       printf("%f,%f,%f,%f,%f,%f___", 
+// 	     val, exp_neg_x, 1.0 - val, log(val), log(1.0 - val),x);
+// #undef NDEBUG
+//       assert(0);
+// #define NDEBUG
+//     }
+
   }
   __syncthreads();
 
   float loss_tmp = 0.0f;
   if (tid == 0) {
     for (int i = 0; i < blockDim.x; ++i) loss_tmp += loss_s[i];
-    bce_loss[0] = -loss_tmp / batch_size + rterm;
+    bce_loss[0] = loss_tmp / batch_size + rterm;
   }
 }
 
 void BinaryCrossEntropyLoss::do_fused_loss_computation(float* input, const float* label, float* loss,
-                                                       int batch_size, int feature_dim, int scaler,
+                                                       int batch_size, int feature_dim, float scaler,
                                                        float rterm,
                                                        cudaStream_t stream) {
   int block_size = min(batch_size, 1024);
@@ -231,7 +272,7 @@ __forceinline__ __device__ __host__ float cross_entropy_loss_backward(float x, f
 
 __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
                                          const float *target_weight, float *bce_loss, int batchsize,
-                                         int labels_per_sample, int scaler,
+                                         int labels_per_sample, float scaler,
                                          float rterm) {
   int tid = threadIdx.x + blockDim.x * blockIdx.x;
   int num_threads = blockDim.x * gridDim.x;
@@ -257,7 +298,7 @@ __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
 }
 
 void MultiCrossEntropyLoss::do_fused_loss_computation(float* input, const float* label, float* loss,
-                                                      int batch_size, int feature_dim, int scaler,
+                                                      int batch_size, int feature_dim, float scaler,
                                                       float rterm,
                                                       cudaStream_t stream) {
   int labels_per_sample = feature_dim;
