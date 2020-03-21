@@ -466,6 +466,11 @@ public:
                     TypeHashValueIndex *deltaw_hash_value_index, 
                     float *deltaw, 
                     float *hash_table_value) {
+
+    if(slot_num == 0) {
+      return;
+    }
+
     try {
       // step1: expand sample IDs
       dim3 blockSize(64, 1, 1);
@@ -510,7 +515,6 @@ public:
       //     std::cout << std::endl;
       //   }
       // }
-
 
       // step3: sort by hash_value_index
       int end_bit = (int)log2((float)max_vocabulary_size_per_gpu) + 1;
