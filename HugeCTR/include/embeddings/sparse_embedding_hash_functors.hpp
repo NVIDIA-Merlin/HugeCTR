@@ -174,6 +174,10 @@ public:
 
     // launch kernels on GPUs: do embedding lookup on multi GPUs
     for (int id = 0; id < local_gpu_count; id++) {
+      if(slot_num_per_gpu[id] == 0) {
+        continue;
+      }
+
       int cur_device = (*device_resources)[id]->get_device_id();
       context.set_device(cur_device);
 
@@ -369,6 +373,10 @@ public:
     int local_gpu_count = device_resources->size();
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(slot_num_per_gpu[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
       const auto &stream = (*device_resources)[id]->get_stream();
       const auto &top_grad = embedding_feature_tensors[id]->get_ptr();
@@ -1795,6 +1803,10 @@ public:
 
       // do HashTable insert <key,value_index>
       for (int id = 0; id < local_gpu_count; id++) {
+        if(tile_counter_in_chunk_per_gpu[id] == 0) {
+          continue;
+        }
+
         context.set_device((*device_resources)[id]->get_device_id());
 
         size_t tile_count = tile_counter_in_chunk_per_gpu[id];
@@ -1826,6 +1838,10 @@ public:
 
       // memcpy hash_table_slot_id and hash_table_value from CPU to GPU
       for (int id = 0; id < local_gpu_count; id++) {
+        if(tile_counter_in_chunk_per_gpu[id] == 0) {
+          continue;
+        }
+        
         context.set_device((*device_resources)[id]->get_device_id());
 
         size_t slot_id_chunk_size = 
@@ -2039,6 +2055,10 @@ public:
     std::unique_ptr<float *[]> d_hash_table_value(new float *[local_gpu_count]);
     std::unique_ptr<size_t *[]> d_dump_counter(new size_t *[local_gpu_count]);
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -2053,6 +2073,10 @@ public:
 
     // dump hash table on GPU
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
@@ -2133,6 +2157,10 @@ public:
   #endif
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
@@ -2221,6 +2249,10 @@ public:
     std::unique_ptr<float *[]> d_hash_table_value(new float *[local_gpu_count]);
     std::unique_ptr<size_t *[]> d_dump_counter(new size_t *[local_gpu_count]);
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -2237,6 +2269,10 @@ public:
 
     // dump hash table on GPU
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       // // just for debug 
@@ -2323,6 +2359,10 @@ public:
   #endif
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
@@ -2619,6 +2659,10 @@ public:
     std::unique_ptr<float *[]> d_hash_table_value(new float *[local_gpu_count]);
     std::unique_ptr<size_t *[]> d_dump_counter(new size_t *[local_gpu_count]);
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -2630,6 +2674,10 @@ public:
 
     // dump hash table on GPU
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
@@ -2648,6 +2696,10 @@ public:
     size_t key_offset = 0;
     size_t value_offset = 0;
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       CK_CUDA_THROW_(cudaMemcpy(hash_table_key + key_offset, d_hash_table_key[id],
@@ -2661,6 +2713,10 @@ public:
     }
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
@@ -2695,6 +2751,10 @@ public:
     int total_gpu_count = device_resources->get_total_gpu_count();
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(slot_num_per_gpu[id] == 0) {
+        continue;
+      }
+
       int local_device_id = (*device_resources)[id]->get_device_id();
       int global_id = device_resources->get_global_id(local_device_id);
 
