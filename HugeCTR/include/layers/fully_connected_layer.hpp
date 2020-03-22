@@ -26,12 +26,11 @@ namespace HugeCTR {
 /**
  * @brief
  * This class implements the fully connected layer.
- * WMMA is used in the GEMM calculation when SM >= 70 and the WMMA option is turned on.
  */
 class FullyConnectedLayer : public Layer {
  private:
   const cublasHandle_t cublas_handle_;
-
+  const bool use_mixed_precision_{false};
  public:
   /**
    * forward pass
@@ -59,7 +58,7 @@ class FullyConnectedLayer : public Layer {
                       const std::shared_ptr<Tensor<float>>& in_tensor,
                       const std::shared_ptr<Tensor<float>>& out_tensor,
                       TensorFormat_t weight_format, cublasHandle_t const& cublas_handle,
-                      int device_id);
+                      int device_id, bool use_mixed_precision = false);
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);
 

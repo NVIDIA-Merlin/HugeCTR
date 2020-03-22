@@ -61,9 +61,14 @@ Session::Session(const std::string& json_name):solver_config_(json_name),
 #endif
 
     for (auto dev : gpu_resource_group_->get_device_list()) {
-      check_device(dev, 6, 0);  // earliest supported device is CC=60
+      if(solver_config_.use_mixed_precision){
+	check_device(dev, 7, 0);  // to support mixed precision training earliest supported device is CC=70
+      }
+      else{
+	check_device(dev, 6, 0);  // earliest supported device is CC=60
+      }
     }
-    parser_.reset(new Parser(json_name, solver_config_.batchsize));
+    parser_.reset(new Parser(json_name, solver_config_.batchsize, solver_config_.use_mixed_precision, solver_config_.scaler));
     parser_->create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_,
 			     gpu_resource_group_);
   

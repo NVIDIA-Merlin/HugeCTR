@@ -282,20 +282,9 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
                                 const TypeKey *sample_id,
                                 const TypeValueIndex *hash_value_index_sort,
                                 const uint32_t *hash_value_index_count_offset, 
-                                const float *wgrad) {
+                                const float *wgrad, 
+                                const float scaler) {
 
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -330,20 +319,8 @@ __global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num,
 				        const TypeKey *sample_id,
                                         const TypeValueIndex *hash_value_index_sort, 
 					const uint32_t *hash_value_index_count_offset,
-					const float *wgrad) {
-
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
+					const float *wgrad,
+					const float scaler) {
 
   int bid = blockIdx.x;
   int tid = threadIdx.x;
@@ -404,21 +381,9 @@ __global__ void nesterov_local_update_kernel(uint32_t hash_value_index_count_num
 					const TypeValueIndex *hash_value_index_sort, 
 					const uint32_t *hash_value_index_count_offset, 
 					const float *wgrad,
-					float *hash_table_value) {
+                        		float *hash_table_value,
+                                        const float scaler) {
   
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
-
 
   int bid = blockIdx.x;
   int tid = threadIdx.x;

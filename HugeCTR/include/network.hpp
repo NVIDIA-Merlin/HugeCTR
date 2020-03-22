@@ -42,7 +42,8 @@ class Network {
   friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
 				 const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
                                  int batch_size,
-                                 int device_id, const std::shared_ptr<const GPUResource>& gpu_resource);
+                                 int device_id, const std::shared_ptr<const GPUResource>& gpu_resource, 
+				 bool use_mixed_precision, float scaler);
 
  private:
   Tensors<float> tensors_;                            /**< vector of tensors */

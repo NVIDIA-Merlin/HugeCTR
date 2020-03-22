@@ -78,7 +78,7 @@ TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
 
   const SparseEmbeddingHashParams embedding_params = {
       batchsize, vocabulary_size, load_factor, embedding_vec_size, 
-      max_feature_num, slot_num, 0, 0};
+      max_feature_num, slot_num, 0, 0, 1.f};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -207,7 +207,7 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
 
   const SparseEmbeddingHashParams embedding_params = {
       batchsize, vocabulary_size, load_factor, embedding_vec_size, 
-      max_feature_num, slot_num, combiner, opt_params};
+      max_feature_num, slot_num, combiner, opt_params, 1.f};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -443,7 +443,7 @@ TEST(distributed_sparse_embedding_hash_test, perf_profiling) {
 
   const SparseEmbeddingHashParams embedding_params = {
       batchsize, vocabulary_size, load_factor, embedding_vec_size, 
-      max_feature_num, slot_num, combiner, opt_params};
+      max_feature_num, slot_num, combiner, opt_params, 1.f};
   
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;

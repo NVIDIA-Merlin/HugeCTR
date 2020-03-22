@@ -426,6 +426,7 @@ public:
    * @param deltaw_hash_value_index the pointer of deltaw's corresponding hash value_index
    * @param deltaw the pointer of deltaw, which is used to update the hash table value
    * @param hash_table_value the pointer of hash table value, which will be updated
+   * @param scaler scaler used in mixed precision training
    */
   template <typename TypeHashKey, typename TypeHashValueIndex>
   void update_params(cudaStream_t stream, 
@@ -457,7 +458,8 @@ public:
                     const float *wgrad,
                     TypeHashValueIndex *deltaw_hash_value_index, 
                     float *deltaw, 
-                    float *hash_table_value) {
+         	    float *hash_table_value,
+                    float scaler) {
     try {
       // step1: expand sample IDs
       dim3 blockSize(64, 1, 1);
@@ -546,7 +548,7 @@ public:
           opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
               sample_id_sort, hash_value_index_sort, 
-              hash_value_index_count_offset, wgrad);
+              hash_value_index_count_offset, wgrad, scaler);
 	  //all update according to the mi vi
 	  adam_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam, hash_table_value);
           break;
@@ -554,7 +556,7 @@ public:
           opt_momentum_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
               opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
-              hash_value_index_count_offset, wgrad);
+              hash_value_index_count_offset, wgrad, scaler);
 
 	  momentum_sgd_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum , hash_table_value);
 
@@ -564,7 +566,7 @@ public:
           nesterov_local_update_kernel<<<gridSize, blockSize, 0, stream>>>(
 	      hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
               opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-              hash_value_index_count_offset, wgrad, hash_table_value);
+              hash_value_index_count_offset, wgrad, hash_table_value, scaler);
           break;
         default:
           CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
