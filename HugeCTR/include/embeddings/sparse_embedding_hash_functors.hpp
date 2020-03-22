@@ -2109,7 +2109,6 @@ public:
   #ifdef ENABLE_MPI
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
-
   #endif
 
     const int master_node = 0;
@@ -2647,10 +2646,14 @@ public:
       }
       total_count += count[id];
 
-  #ifndef NDEBUG
+#ifndef NDEBUG
       std::cout << "GPU[" << id << "]: number of <key,value> pairs:" << count[id] << std::endl;
-  #endif
+#endif
     }
+
+#ifndef NDEBUG
+    std::cout << "Total number of <key,value> pairs:" << total_count << std::endl;
+#endif
 
     if (total_count > (size_t)vocabulary_size) {
       CK_THROW_(Error_t::WrongInput,
@@ -2728,6 +2731,50 @@ public:
       CK_CUDA_THROW_(cudaFree(d_hash_table_value[id]));
       CK_CUDA_THROW_(cudaFree(d_dump_counter[id]));
     }
+
+  #ifdef ENABLE_MPI
+    int my_rank = 0;
+    int n_ranks = 1;
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
+
+    if(n_ranks > 1) {
+      std::unique_ptr<int> displs(new int(n_ranks));
+      std::unique_ptr<int> recv_count(new int(n_ranks));
+      MPI_Gather(&total_count, 1, MPI_INT, recv_count.get(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+      if(my_rank == 0) {
+        displs.get()[0] = 0;
+        for(int i = 1; i < n_ranks; i++) {
+          displs.get()[i] = displs.get()[i-1] + recv_count.get()[i-1]; 
+        }
+      }
+
+      std::unique_ptr<int> displs_key(new int(n_ranks));
+      std::unique_ptr<int> recv_count_key(new int(n_ranks));
+      if(my_rank == 0) {
+        for(int i = 0; i < n_ranks; i++) {
+          recv_count_key.get()[i] = recv_count.get()[i] * sizeof(TypeHashKey);
+          displs_key.get()[i] = displs.get()[i] * sizeof(TypeHashKey);
+        }
+      }
+
+      MPI_Gatherv(hash_table_key, total_count*sizeof(TypeHashKey), MPI_CHAR, 
+        hash_table_key, recv_count_key.get(), displs_key.get(), MPI_CHAR, 0, MPI_COMM_WORLD);
+
+      std::unique_ptr<int> displs_value(new int(n_ranks));
+      std::unique_ptr<int> recv_count_value(new int(n_ranks));
+      if(my_rank == 0) {
+        for(int i = 0; i < n_ranks; i++) {
+          recv_count_value.get()[i] = recv_count.get()[i] * embedding_vec_size * sizeof(float);
+          displs_value.get()[i] = displs.get()[i] * embedding_vec_size * sizeof(float);
+        }
+      } 
+
+      MPI_Gatherv(hash_table_value, total_count*embedding_vec_size*sizeof(float), MPI_CHAR, 
+        hash_table_value, recv_count_value.get(), displs_value.get(), MPI_CHAR, 0, MPI_COMM_WORLD);
+    }
+  #endif
 
     return;
   }
