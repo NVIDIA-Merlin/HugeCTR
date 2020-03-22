@@ -726,8 +726,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       
       // Create Embedding 
       {
-        auto opt_params = get_optimizer_param(j_optimizer);
-
         for (unsigned int i = 1; i < j_layers_array.size(); i++) {
           //if not embedding then break
           const nlohmann::json& j = j_layers_array[i];
@@ -743,13 +741,21 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
           auto bottom_name = get_value_from_json<std::string>(j, "bottom");
           auto top_name = get_value_from_json<std::string>(j, "top");
-
+	  
           auto j_hparam = get_json(j, "sparse_embedding_hparam");
           auto vocabulary_size = get_value_from_json<int>(j_hparam, "vocabulary_size");
           auto embedding_vec_size = get_value_from_json<int>(j_hparam, "embedding_vec_size");
           auto combiner = get_value_from_json<int>(j_hparam, "combiner");
           
           SparseInput<TypeKey> sparse_input;
+	  
+	  OptParams embedding_opt_params;
+	  if(has_key_(j, "optimizer")){
+	    embedding_opt_params = get_optimizer_param(get_json(j, "optimizer"));
+	  }
+	  else{
+	    embedding_opt_params = get_optimizer_param(j_optimizer);
+	  }
 
           if (!find_item_in_map(sparse_input, bottom_name, sparse_input_map)) {
             CK_THROW_(Error_t::WrongInput, "Cannot find bottom");
@@ -766,7 +772,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                   sparse_input.max_feature_num_per_sample,
                   sparse_input.slot_num,
                   combiner,  // combiner: 0-sum, 1-mean
-                  opt_params};
+                  embedding_opt_params};
               embedding.emplace_back(EmbeddingCreator::create_distributed_sparse_embedding_hash(
                   sparse_input.row, sparse_input.value,
                   embedding_params, gpu_resource_group));
@@ -804,7 +810,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                   sparse_input.max_feature_num_per_sample,
                   sparse_input.slot_num,
                   combiner,  // combiner: 0-sum, 1-mean
-                  opt_params};
+                  embedding_opt_params};
               embedding.emplace_back(EmbeddingCreator::create_localized_sparse_embedding_hash(
                   sparse_input.row, sparse_input.value,
                   embedding_params, plan_file, gpu_resource_group));
