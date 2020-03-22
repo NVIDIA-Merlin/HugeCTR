@@ -192,16 +192,23 @@ public:
       try {
         // get hash_value_index from hash_table by hash_key
         size_t num;
-        CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num_per_gpu[id]], sizeof(TypeHashKey),
-                                      cudaMemcpyDeviceToHost, stream));
+        CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num_per_gpu[id]], 
+          sizeof(TypeHashKey), cudaMemcpyDeviceToHost, stream));
         hash_table->get_insert(hash_key, hash_value_index, num, stream);
 
 
-        // // just for debug
-        // TypeHashKey * h_hash_key = (TypeHashKey *)malloc(num * sizeof(TypeHashKey));
-        // cudaMemcpy(h_hash_key, hash_key, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
-        // std::cout << "gpu=" << id << ", hash_keys:" << std::endl;
-        // for(int i = 0; i < 20; i++) {
+//         // just for debug
+//         int numprocs = 1, pid = 0;
+//         std::vector<std::vector<int>> vvgpu;
+// #ifdef ENABLE_MPI
+//         MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+//         MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+// #endif
+//         TypeHashKey * h_hash_key = (TypeHashKey *)malloc(num * sizeof(TypeHashKey));
+//         cudaMemcpy(h_hash_key, hash_key, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
+//         std::cout << "rank" << pid  << ", gpu" << id << ", slot_num_per_gpu=" 
+//           << slot_num_per_gpu[id] << ", key_num=" << num << ", hash_keys:" << std::endl;
+        // for(int i = 0; i < num; i++) {
         //   std::cout << h_hash_key[i] << ", " << std::endl;
         // } 
         // std::cout << std::endl;
@@ -2428,7 +2435,7 @@ public:
                 context);
       sync_all_gpus(device_resources, context);
 
-      // memcpy H2D
+      // memcpy D2H
       context.set_device((*device_resources)[0]->get_device_id());
       CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature, temp_tensors[0]->get_ptr(),
                                     total_gpu_count * memcpy_size * sizeof(float), 
