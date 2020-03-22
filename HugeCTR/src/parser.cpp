@@ -300,7 +300,8 @@ create_regularizer(const nlohmann::json& j,
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
 			const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
 			int batch_size,
-                        int device_id, const std::shared_ptr<const GPUResource>& gpu_resource) {
+                        int device_id, const std::shared_ptr<const GPUResource>& gpu_resource, 
+			bool use_mixed_precision, float scaler) {
 
   std::unique_ptr<Network> network(
       new Network(batch_size, device_id, gpu_resource, false));
@@ -447,7 +448,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // establish layer
         Layer* fc_layer = new FullyConnectedLayer(weight_buff, wgrad_buff, fc_in_tensor, out_tensor,
                                                   TensorFormat_t::HW,
-                                                  gpu_resource->get_cublas_handle(), device_id);
+                                                  gpu_resource->get_cublas_handle(), device_id, use_mixed_precision);
         layers.emplace_back(fc_layer);
         break;
       }
@@ -591,21 +592,21 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       auto beta2 = opt_param.hyperparams.adam.beta2;
       auto epsilon = opt_param.hyperparams.adam.epsilon;
       network->optimizer_.reset(
-          new AdamOptimizer(weight_buff, wgrad_buff, device_id, alpha, beta1, beta2, epsilon));
+	new AdamOptimizer(weight_buff, wgrad_buff, device_id, alpha, beta1, beta2, epsilon, scaler));
       break;
     }
     case Optimizer_t::MomentumSGD: {
       auto learning_rate = opt_param.lr;
       auto momentum_factor = opt_param.hyperparams.momentum.factor;
       network->optimizer_.reset(
-          new MomentumSGD(weight_buff, wgrad_buff, device_id, learning_rate, momentum_factor));
+	new MomentumSGD(weight_buff, wgrad_buff, device_id, learning_rate, momentum_factor, scaler));
       break;
     }
     case Optimizer_t::Nesterov: {
       auto learning_rate = opt_param.lr;
       auto momentum_factor = opt_param.hyperparams.nesterov.mu;
       network->optimizer_.reset(new NesterovOptimizer(weight_buff, wgrad_buff, device_id,
-                                                      learning_rate, momentum_factor));
+                                                      learning_rate, momentum_factor, scaler));
       break;
     }
     default:
@@ -624,7 +625,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                                      std::vector<std::unique_ptr<Embedding<TypeKey>>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
                                      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                                     nlohmann::json config, int batch_size) {
+                                     nlohmann::json config, int batch_size, 
+				     bool use_mixed_precision, float scaler) {
   try {
     int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
@@ -772,7 +774,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                   sparse_input.max_feature_num_per_sample,
                   sparse_input.slot_num,
                   combiner,  // combiner: 0-sum, 1-mean
-                  embedding_opt_params};
+                  embedding_opt_params,
+		  scaler};
               embedding.emplace_back(EmbeddingCreator::create_distributed_sparse_embedding_hash(
                   sparse_input.row, sparse_input.value,
                   embedding_params, gpu_resource_group));
@@ -810,7 +813,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                   sparse_input.max_feature_num_per_sample,
                   sparse_input.slot_num,
                   combiner,  // combiner: 0-sum, 1-mean
-                  embedding_opt_params};
+                  embedding_opt_params,
+		  scaler};
               embedding.emplace_back(EmbeddingCreator::create_localized_sparse_embedding_hash(
                   sparse_input.row, sparse_input.value,
                   embedding_params, plan_file, gpu_resource_group));
@@ -835,7 +839,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       for (auto device_id : device_list) {
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i],
                                             batch_size / total_gpu_count,
-                                            device_id, (*gpu_resource_group)[i]));
+                                            device_id, (*gpu_resource_group)[i], use_mixed_precision, scaler));
         i++;
       }
     }
@@ -852,7 +856,7 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                              std::vector<std::unique_ptr<Network>>& network,
                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, network,
-                                   gpu_resource_group, config_, batch_size_);
+                                   gpu_resource_group, config_, batch_size_, use_mixed_precision_, scaler_);
 }
 
 void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
@@ -861,7 +865,7 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                              std::vector<std::unique_ptr<Network>>& network,
                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, network,
-                                   gpu_resource_group, config_, batch_size_);
+                                   gpu_resource_group, config_, batch_size_, use_mixed_precision_, scaler_);
 }
 
 SolverParser::SolverParser(std::string configure_file) {
@@ -912,6 +916,24 @@ SolverParser::SolverParser(std::string configure_file) {
 	embedding_files.push_back(get_value_from_json<std::string>(j, "sparse_model_file"));
       }
     }
+
+    if(has_key_(j, "mixed_precision")){
+      use_mixed_precision = true;
+      int i_scaler = get_value_from_json<int>(j, "mixed_precision");
+      if(i_scaler != 128 && i_scaler != 256 && i_scaler != 512 && i_scaler != 1024){
+	CK_THROW_(Error_t::WrongInput, "Scaler of mixed_precision training should be either 128/256/512/1024");
+      }
+      scaler = i_scaler;
+      if (pid == 0) {
+	std::cout << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
+      }
+
+    }
+    else{
+      use_mixed_precision = false;
+      scaler = 1.f;
+    }
+
     auto gpu_array = get_json(j, "gpu");
     assert(device_list.empty());
     std::vector<std::vector<int>> vvgpu;
@@ -951,6 +973,9 @@ SolverParser::SolverParser(std::string configure_file) {
 
     device_map.reset(new DeviceMap(vvgpu, pid));
     device_list = device_map->get_device_list();
+
+    
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
