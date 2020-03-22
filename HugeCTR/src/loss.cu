@@ -173,26 +173,13 @@ BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
 // Suppose we use one thread to calculate one sample
 __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, float *bce_loss,
                                           float scaler, int batch_size, float rterm) {
-  const float MIN_ = 1e-7;
-  const float MIN_X = -18.f;
   int tid = threadIdx.x;
   extern __shared__ float loss_s[];
   loss_s[tid] = 0.0f;
 
-  // float x, y;
-  // float val;
-
   for (int i = tid; i < batch_size; i += blockDim.x) {
 
     const float x = input[i];
-    //float exp_neg_x = 0.f;
-    // if(x > MIN_X){
-    //   exp_neg_x = exp(-x);
-    //   val = 1.0f / (1.0f + exp_neg_x);
-    // }
-    // else{
-    //   val = 0.f;
-    // }
 
     const float y = label[i];
     if(x >= 0){
@@ -205,33 +192,6 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
       loss_s[tid] += -x*y + log(1+exp_x);
       input[i] = (-y + exp_x/(1+exp_x))*scaler /(float)batch_size;
     }
-
-    // val = clip(val, MIN_, 1.0f - MIN_);
-    // loss_s[tid] += y * log(val) + (1.0f - y) * log(1.0f - val);
-
-    // // grad
-    // if(x > MIN_X && val < 1.0f - MIN_ && val > MIN_){
-    //   //input[i] = -1.0f * val * (y - val) * exp_neg_x / (1.0f - val) / batch_size * scaler;
-    //   input[i] = (-y * (1.0f - val) + val * (1.0f - y)) / (float)batch_size * scaler;
-    // }
-    // else{
-    //   input[i] = 0.f;
-    // }
-    
-//     if(isnan(input[i]) && (!isnan(x))){
-//       printf("%f,%f,%f,%f,%f,%f___", 
-// 	     val, exp_neg_x, 1.0 - val, log(val), log(1.0 - val),x);
-// #undef NDEBUG
-//       assert(0);
-// #define NDEBUG
-//     }
-//     if(isinf(input[i]) && (!isinf(x))){
-//       printf("%f,%f,%f,%f,%f,%f___", 
-// 	     val, exp_neg_x, 1.0 - val, log(val), log(1.0 - val),x);
-// #undef NDEBUG
-//       assert(0);
-// #define NDEBUG
-//     }
 
   }
   __syncthreads();
