@@ -39,15 +39,15 @@ const std::vector<int> device_list = {0,1};
 // const std::vector<int> device_list = {0,1,2,3};
 //const std::vector<int> device_list = {0,3};
 // const std::vector<int> device_list = {0,1,2,3,4,5,6,7};
-//const std::vector<int> device_list = {0};
+// const std::vector<int> device_list = {0};
 const int batch_num = 1;  // can not more than 32
-const int batchsize = 40960;
+const int batchsize = 8192; // for testing on Prom cluster, the bs can not be less than 40960
 const long long num_records = batchsize * batch_num;
-const int slot_num = 8; 
-const int max_nnz_per_slot = 10;
+const int slot_num = 6; 
+const int max_nnz_per_slot = 1;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
 const long long vocabulary_size = 100;
-const int embedding_vec_size = 64;
+const int embedding_vec_size = 4;
 const int combiner = 0;   // 0-sum, 1-mean
 const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
 const float lr = 0.01;
@@ -66,10 +66,11 @@ const int num_files = 1;
 const Check_t CHK = Check_t::Sum; // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
-//const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
 //const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); // for device_list {0,3} testing
 const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json"); // for device_list {0,3} testing
 // const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json"); // for device_list {0,3} testing
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); // for device_list {0} testing
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -629,23 +630,25 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   } TypeHashValue;
 
   for (int i = 0; i < batch_num; i++) {
-    printf("Round %d start:\n", i);
+    printf("Rank%d: Round %d start:\n", pid, i);
 
     // call read a batch
-    printf("data_reader->read_a_batch_to_device()\n");
+    printf("Rank%d: data_reader->read_a_batch_to_device()\n", pid);
     data_reader->read_a_batch_to_device();
 
     // GPU forward
-    printf("embedding->forward()\n");
+    printf("Rank%d: embedding->forward()\n", pid);
     embedding->forward();
 
+    // while(1) {}
+
     // check the result of forward
-    printf("embedding->get_forward_results()\n");
+    printf("Rank%d: embedding->get_forward_results()\n", pid);
     embedding->get_forward_results(embedding_feature_from_gpu);  // memcpy from GPU to CPU
 
     if(pid == 0) {
       // CPU forward
-      printf("embedding_cpu->forward()\n");
+      printf("Rank0: embedding_cpu->forward()\n");
       embedding_cpu->forward();
 
       // // just for debug 
@@ -662,7 +665,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
       // }
       // std::cout << std::endl;
 
-      printf("check forward results\n");
+      printf("Rank0: check forward results\n");
       ASSERT_EQ(true,
                 compare_embedding_feature(batchsize * slot_num * embedding_vec_size,
                                           embedding_feature_from_gpu, embedding_feature_from_cpu));
@@ -673,16 +676,16 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
 #endif 
 
     // GPU backward
-    printf("embedding->backward()\n");
+    printf("Rank%d: embedding->backward()\n", pid);
     embedding->backward();
 
     // check the result of backward
-    printf("embedding->get_backward_results()\n");
+    printf("Rank%d: embedding->get_backward_results()\n", pid);
     embedding->get_backward_results(wgrad_from_gpu, 0);
 
     if(pid == 0) {
       // CPU backward
-      printf("embedding_cpu->backward()\n");
+      printf("Rank0: embedding_cpu->backward()\n");
       embedding_cpu->backward();
 
       // // just for debug 
@@ -690,7 +693,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
       //   printf("cpu:%f, gpu:%f\n", wgrad_from_cpu[j], wgrad_from_gpu[j]);
       // }
 
-      printf("check backward results: GPU and CPU\n");
+      printf("Rank0: check backward results: GPU and CPU\n");
       ASSERT_EQ(true, compare_wgrad(batchsize * slot_num * embedding_vec_size, 
                                     wgrad_from_gpu, wgrad_from_cpu));
     }
@@ -700,17 +703,17 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
 #endif 
 
     // GPU update_params
-    printf("embedding->update_params()\n");
+    printf("Rank%d: embedding->update_params()\n", pid);
     embedding->update_params();
 
     // check the results of update params
-    printf("embedding->get_update_params_results()\n");
+    printf("Rank%d: embedding->get_update_params_results()\n", pid);
     embedding->get_update_params_results(hash_table_key_from_gpu,
                                   hash_table_value_from_gpu);  // memcpy from GPU to CPU
 
     if(pid == 0) {                 
       // CPU update_params
-      printf("embedding_cpu->update_params()\n");
+      printf("Rank0: embedding_cpu->update_params()\n");
       embedding_cpu->update_params();
 
       // // just for debug 
@@ -722,20 +725,27 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
       //   }
       // }
       // std::cout << std::endl;
+      // std::cout << "hash_table_key_from_cpu: " << std::endl;
+      // for(int i = 0; i < (vocabulary_size+1); i++) {
+      //   std::cout << hash_table_key_from_cpu[i] << ", ";
+      //   if((i+1)%10 == 0) {
+      //     std::cout << std::endl;
+      //   }
+      // }
+      // std::cout << std::endl;
 
-      printf("check update_params results\n");
+      printf("Rank0: check update_params results\n");
       bool rtn = compare_hash_table<T, TypeHashValue>(
           vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue *)hash_table_value_from_gpu,
           (T *)hash_table_key_from_cpu, (TypeHashValue *)hash_table_value_from_cpu);
       ASSERT_EQ(true, rtn);
-      printf("Round %d end:\n", i);
-
     }
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif 
 
+    printf("Rank%d: Round %d end:\n", pid, i);
   }
 
   // release resources

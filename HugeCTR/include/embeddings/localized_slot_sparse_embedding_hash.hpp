@@ -557,6 +557,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
   // sync
   functors_.sync_all_gpus(Base::device_resources_, context);
 
+
 //   // just for debug 
 //   int numprocs = 1, pid = 0;
 //   std::vector<std::vector<int>> vvgpu;
@@ -573,8 +574,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
 //     cudaMemcpy(host_emb, embedding_feature_tensors_[id]->get_ptr(), size * sizeof(float), cudaMemcpyDeviceToHost);
 
 //     std::cout << "rank:" << pid << ", gpu=" << id << ": embedding_feature:"<< std::endl;
-//     //for(int i = 0; i < size; i++) {
-//     for(int i = 0; i < (8 * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size); i++) {
+//     for(int i = 0; i < size; i++) {
+//     //for(int i = 0; i < (8 * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size); i++) {
 //       if((i % embedding_params_.embedding_vec_size) == 0) {
 //         std::cout << host_emb[i] << ", ";
 //       }
@@ -596,24 +597,26 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
 
   //   //if(pid == 0) {
   //     std::cout << "rank:" << pid << ", gpu=" << id << ": all2all:"<< std::endl;
-  //     // //for(int i = 0; i < size; i++) {
+  //     for(int i = 0; i < size; i++) {
   //     // for(int i = 0; i < (8 * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size); i++) {
-  //     //   std::cout << host_all2all[i] << ", ";
-  //     // }
-  //     // std::cout << std::endl;
-  //     int offset = 0;
-  //     for(int k = 0; k < total_gpu_count_; k++) {
-  //       if(k > 0) {
-  //         //offset += batch_size_per_gpu_ * slot_num_per_gpu_[k-1] * embedding_params_.embedding_vec_size;
-  //         offset += batch_size_per_gpu_ * 2 * embedding_params_.embedding_vec_size;
+  //       if((i % embedding_params_.embedding_vec_size) == 0) {
+  //         std::cout << host_all2all[i] << ", ";
   //       }
-  //       for(int i = 0; i < (8 * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size); i++) {
-  //         if((i % embedding_params_.embedding_vec_size) == 0) {
-  //           std::cout << host_all2all[offset+i] << ", ";
-  //         }
-  //       }
-  //       std::cout << std::endl;
   //     }
+  //     std::cout << std::endl;
+  //     // int offset = 0;
+  //     // for(int k = 0; k < total_gpu_count_; k++) {
+  //     //   if(k > 0) {
+  //     //     //offset += batch_size_per_gpu_ * slot_num_per_gpu_[k-1] * embedding_params_.embedding_vec_size;
+  //     //     offset += batch_size_per_gpu_ * 2 * embedding_params_.embedding_vec_size;
+  //     //   }
+  //     //   for(int i = 0; i < (8 * slot_num_per_gpu_[id] * embedding_params_.embedding_vec_size); i++) {
+  //     //     if((i % embedding_params_.embedding_vec_size) == 0) {
+  //     //       std::cout << host_all2all[offset+i] << ", ";
+  //     //     }
+  //     //   }
+  //     //   std::cout << std::endl;
+  //     // }
   //   //}
   // }
 
@@ -640,8 +643,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
 
   //   if(pid == 0) {
   //     std::cout << "rank:" << pid << ", gpu=" << id << ": reorder:"<< std::endl;
-  //     //for(int i = 0; i < size; i++) {
-  //     for(int i = 0; i < (2 * embedding_params_.slot_num * embedding_params_.embedding_vec_size); i++) {
+  //     for(int i = 0; i < size; i++) {
+  //     //for(int i = 0; i < (2 * embedding_params_.slot_num * embedding_params_.embedding_vec_size); i++) {
   //       if((i % embedding_params_.embedding_vec_size) == 0) {
   //         std::cout << host_reorder[i] << ", ";
   //       }
