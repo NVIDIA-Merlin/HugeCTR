@@ -1,19 +1,20 @@
-HUGECTR 2.0 USER GUIDE
+HUGECTR 2.1 USER GUIDE
 ===================================
 ## Introduction
 HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training, which targets both high performance and easy usage. Following sections list the performance comparison, supported features and usage information. 
 
-HugeCTR version 2.0 is a major update, which aims to provide a reference design for framework designers and users who has requirements on high performance CTR training. 
+HugeCTR version 2.1 is a major update, which aims to provide a reference design for framework designers and users who has requirements on high performance CTR training. 
 
-Highlighted features in version 2.0:
+Highlighted features of HugeCTR
 * GPU Hashtable and dynamic insertion
 * Multi-node training and very large embedding support
 * Mixed-precision training
+* Training data error check
 
 ## Architecture and Supported Networks
 To enable large embedding training, the embedding table in HugeCTR is model parallel and distributed across all the GPUs in a homogeneous cluster, which consists of multiple nodes and multiple GPUs. Meanwhile, the dense model is data parallel, which has one copy in each GPU (see Fig.1).
 
-HugeCTR supports Embedding + MLP like Networks (see Fig. 2), in which Embedding has a three-stage workflow: table lookup, reducing the weights within a slot, concat the weights from different slots (see Fig.3). Operations and layers supported in HugeCTR are listed as follows:
+HugeCTR supports Embedding + MLP like Networks e.g. WDL, DCN, DeepFM, in which Embedding has a three-stage workflow: table lookup, reducing the weights within a slot, concat the weights from different slots (see Fig.3). Operations and layers supported in HugeCTR are listed as follows:
 * Multi-slot embedding: Sum / Mean
 * Layers: Concat /  Fully Connected / Relu / BatchNorm / elu
 * Optimizer: Adam/ Momentum SGD/ Nesterov
@@ -28,9 +29,9 @@ HugeCTR supports Embedding + MLP like Networks (see Fig. 2), in which Embedding 
 <div align=center><img width = '800' height ='300' src ="user_guide_src/fig3_embedding_mech.png"/></div>
 <div align=center>Fig. 3 Embedding Mechanism</div>
 
-## New Features in 2.0
+## Highlighted Features
 ### GPU hashtable and dynamic insertion
-GPU Hashtable makes the data preprocessing easier and enables dynamic insertion in HugeCTR 2.0. The input training data are hash values (64bit long long type) instead of original indices. Thus embedding initialization is not required before training and if you start a training from scratch, only an initialized dense model is needed (using –model-init). A pair of <key,value> (random small weight) will be inserted during runtime only when a new key appears in the training data and hashtable cannot find it. 
+GPU Hashtable makes the data preprocessing easier and enables dynamic insertion in HugeCTR 2.x. The input training data are hash values (64bit long long type) instead of original indices. Thus embedding initialization is not required before training and if you start a training from scratch, only an initialized dense model is needed (using –model-init). A pair of <key,value> (random small weight) will be inserted during runtime only when a new key appears in the training data and hashtable cannot find it. 
 ### Multi-node training and enabling large embedding
 Multi-node training is supported to enable very large embedding. Thus, an embedding table of arbitrary size can be trained in HugeCTR. In multi-node solution, sparse model or embedding is also distributed across the nodes, and dense model is in data parallel. In our implementation, HugeCTR leverages NCCL for high speed and scalable inner- and intra-node communication.
 ### Mixed precision training
@@ -40,24 +41,20 @@ Mixed-precision is an important feature in latest NVIDIA GPUs. On volta and Turi
 <div align=center>Fig 4. Arithmetic Underflow</div>
 
 ## Usages
-Two main usages:
+One shot training:
 
-Model initialization: generate a file with initialized weight according to the name in the config file.
-```shell
-$ huge_ctr –-model-init config.json
-```
 Training: load model and start training.
 ```shell
 $ huge_ctr –-train config.json
 ```
-To load a snapshot, you can just modify config.json (model_file, embedding_file in solver clause) according to the name of the snapshot. 
+To load a snapshot, you can just modify config.json (dense_model_file, sparse_model_files in solver clause) according to the name of the snapshot. 
 
 To run with multiple node: HugeCTR should be built with OpenMPI (GPUDirect support is recommended for high performance), then the configure file and model files should be located in "Network File System" and be visible to each of the processes. A sample of runing in two nodes:
 ```shell
 $ mpirun -N2 ./huge_ctr --train config.json
 ```
 ### Network Configurations
-Config file is in json format and has four clauses: “solver, optimizer, data, layers” (see Fig. 5).
+Config file is in json format and has three clauses: “solver, optimizer, layers” (see Fig. 5).
 
 <div align=center><img width = '800' height ='600' src ="user_guide_src/fig5_sample_config_json.png"/></div>
 <div align=center>Fig. 5 Sample config.json File</div>
@@ -71,11 +68,13 @@ Solver clause contains the configuration to training resource and task, items in
 * `snapshot`: intervals to save a checkpoint in file with the prefix of `snapshot_prefix`
 * `eval_interval`: intervals of evaluation on test set.
 * `eval_batches`: the number of batches will be used in loss calculation of evaluation. HugeCTR will print the average loss of the batches.
-* `model_file`: file of dense model.
-* `embedding_file`: file of sparse model. There’s no need to configure if you train from scratch (see “New Features in 2.0”). 
+* `dense model_file`: file of dense model (No need to config if train from scratch).
+* `sparse_model_file`: file of sparse models. In v2.1 multi-embeddings are supported in one model. Each embedding will have one model file (No need to config if train from scratch).
+* `mixed_precision`: enabling mixed precision training with the scaler specified here. Only 128/256/512/1024 are supported.
 
 ### Optimizer
-The optimizer used in both dense and sparse models. Adam/MomentumSGD/Nesterov are supported in HugeCTR 2.0.
+The optimizer used in both dense and sparse models. Adam/MomentumSGD/Nesterov are supported in v2.1. Note that different optimizers can be supported in dense model and each embeddings.
+To enable specific optimizers in embeddings, please just put the optimizer clause into the embedding layer. Otherwise, the embedding layer will use the same optimizer as dense model. 
 ```json
 "optimizer": {
   "type": "Adam",
@@ -101,13 +100,15 @@ The optimizer used in both dense and sparse models. Adam/MomentumSGD/Nesterov ar
   }
 }
 ```
-### Data
-Data set properties include file name of training and testing (evaluation) set, maximum elements (key) in a sample, and label dimensions (see fig. 5).
-* For multi-node training, each of the nodes has a file list for training and an identical file list for evaluation. This mechanism can maximize the throughput of data reading. For example, if you have two nodes, you can configure like “source”: [“file_list1.txt”, “file_list2.txt”].
-* "slot_num” is the number of slots used in this training set. All the weight vectors get out of a slot will be reduced into one vector after embedding lookup (see Fig.3).
 
 ### Layers
-Many different kinds of layers are supported in clause `layer`, which includes dense model like: Concat /  Fully Connected / Relu / BatchNorm / elu, and sparse model SparseEmbeddingHash. `Embedding` should always be the first layer where `concat` should be the second.
+Many different kinds of layers are supported in clause `layer`, which includes data layer; dense model like: Fully Connected / ReLU / ELU / Dropout / Split / Reshape / Concat / BN / Multiply / FmOrder2 / MultCross / add , and sparse model LocalizedSlotSparseEmbeddingHash / DistributedSlotSparseEmbeddingHash. `Embedding` should always be the first layer after data layer.
+
+Data:
+Data set properties include file name of training and testing (evaluation) set, maximum elements (key) in a sample, and label dimensions (see fig. 5).
+* From v2.1, data will be one of the layer in layers list. So that the name of dense input and sparse input can be reference in the following layers. 
+* All the nodes will share the same file list in training.
+* "slot_num” is the number of slots used in this training set. All the weight vectors get out of a slot will be reduced into one vector after embedding lookup (see Fig.3).
 
 Embedding:
 * `vocabulary_size`: the maximum possible size of embedding.
