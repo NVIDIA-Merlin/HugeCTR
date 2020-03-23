@@ -75,9 +75,11 @@ Solver clause contains the configuration to training resource and task, items in
 ### Optimizer
 The optimizer used in both dense and sparse models. Adam/MomentumSGD/Nesterov are supported in v2.1. Note that different optimizers can be supported in dense model and each embeddings.
 To enable specific optimizers in embeddings, please just put the optimizer clause into the embedding layer. Otherwise, the embedding layer will use the same optimizer as dense model. 
+`global_update` can be specified in optimizer. By default optimizer will only update the hot columns of embedding in each iterations, but if you assign `true`, our optimizer will update all the columns.
 ```json
 "optimizer": {
   "type": "Adam",
+  "global_update": ture,
   "adam_hparam": {
     "alpha": 0.005,
     "beta1": 0.9,
@@ -87,6 +89,7 @@ To enable specific optimizers in embeddings, please just put the optimizer claus
 },
 "optimizer": {
   "type": "MomentumSGD",
+  "global_update": false,
   "momentum_sgd_hparam": {
     "learning_rate": 0.005,
     "momentum_factor": 0.0
@@ -94,6 +97,7 @@ To enable specific optimizers in embeddings, please just put the optimizer claus
 },
 "optimizer": {
   "type": "Nesterov",
+  "global_update": ture,
   "nesterov_hparam": {
     "learning_rate": 0.005,
     "momentum_factor": 0.0
