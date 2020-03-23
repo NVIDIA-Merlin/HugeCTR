@@ -187,6 +187,12 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
   OptHyperParams opt_hyper_params;
   memset(&opt_hyper_params, 0, sizeof(opt_hyper_params));
   OptParams opt_params;
+  
+  bool global_update = false;
+  if(has_key_(j_optimizer,"global_update")){
+    global_update = get_value_from_json<bool>(j_optimizer, "global_update");
+  }
+
 
   switch (optimizer_type) {
     case Optimizer_t::Adam: {
@@ -198,7 +204,7 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
       opt_hyper_params.adam.beta1 = beta1;
       opt_hyper_params.adam.beta2 = beta2;
       opt_hyper_params.adam.epsilon = epsilon;
-      opt_params = {0, alpha, opt_hyper_params};
+      opt_params = {0, alpha, opt_hyper_params, global_update};
       break;
     }
     case Optimizer_t::MomentumSGD: {
@@ -206,7 +212,7 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
       auto learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       auto momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.momentum.factor = momentum_factor;
-      opt_params = {1, learning_rate, opt_hyper_params};
+      opt_params = {1, learning_rate, opt_hyper_params, global_update};
       break;
     }
     case Optimizer_t::Nesterov: {
@@ -214,7 +220,7 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
       auto learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       auto momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.nesterov.mu = momentum_factor;
-      opt_params = {2, learning_rate, opt_hyper_params};
+      opt_params = {2, learning_rate, opt_hyper_params, global_update};
       break;
     }
     default:
@@ -905,7 +911,6 @@ SolverParser::SolverParser(std::string configure_file) {
     }
     FIND_AND_ASSIGN_INT_KEY(eval_interval, j);
     FIND_AND_ASSIGN_INT_KEY(eval_batches, j);
-    //FIND_AND_ASSIGN_STRING_KEY(embedding_file, j);
     if(has_key_(j, "sparse_model_files")){
       auto j_embedding_files = get_json(j, "sparse_model_files");
       if(j_embedding_files.is_array()) {
