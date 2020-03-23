@@ -788,7 +788,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::update_params_per_thread(int
                     deltaw_hash_value_index_tensors_[tid]->get_ptr(),
                     deltaw_tensors_[tid]->get_ptr(), 
 		    hash_table_value_tensors_[tid]->get_ptr(),
-		    embedding_params_.scaler );
+		    embedding_params_.scaler
+	  );
                     
   // stream sync on single GPU
   CK_CUDA_THROW_(cudaStreamSynchronize((*Base::device_resources_)[tid]->get_stream()));

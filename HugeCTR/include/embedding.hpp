@@ -210,6 +210,7 @@ typedef struct OptParams_ {
   int optimizer;  // 0-adam, 1-momentum sgd, 2-nesterov
   float lr;
   OptHyperParams hyperparams;
+  bool global_update;
 } OptParams;
 
 typedef struct SparseEmbeddingHashParams_ {
