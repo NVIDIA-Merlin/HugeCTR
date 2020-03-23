@@ -269,8 +269,8 @@ Test environment:
 * V100 16GB: NVIDIA DGX1 servers
 
 Network:
-* `Wide Deep Learning`: 2x 1024-unit FC layers with ReLU and dropout, emb_dim: 16; Optimizer: Adam for both Linear and DNN models
-* `Deep Cross Network`: 2x 1024-unit FC layers with ReLU and dropout, emb_dim: 16, 6x cross layers; Optimizer: Adam for both Linear and DNN models
+* `Wide Deep Learning`: Nx 1024-unit FC layers with ReLU and dropout, emb_dim: 16; Optimizer: Adam for both Linear and DNN models
+* `Deep Cross Network`: Nx 1024-unit FC layers with ReLU and dropout, emb_dim: 16, 6x cross layers; Optimizer: Adam for both Linear and DNN models
 
 Data set:
 The data is provided by CriteoLabs [1]. The original training set contains 45,840,617 examples. Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features). 
@@ -280,23 +280,21 @@ Preprocessing:
 * TF: using TFRecord format for TF training benchmark
 
 ### HugeCTR
-The good scalability HugeCTR shows on multiple nodes is mainly because of the high efficient data exchange via NCCL and the three-stage processing pipeline. In this pipeline, we overlap the data reading from file, host to device data transaction (inter- and intra- node) and GPU training.  The following chart shows the scalability of HugeCTR with the configration of Batch Size=40960, Embedding Vector=64, Layers=12, MLP Output=1024, multi-hot=39 on DGX1 Servers.
+The good scalability HugeCTR shows on multiple nodes is mainly because of the high efficient data exchange and the three-stage processing pipeline. In this pipeline, we overlap the data reading from file, host to device data transaction (inter- and intra- node) and GPU training.  The following chart shows the scalability of HugeCTR with the configration of Batch Size=16384, Layers=7 on DGX1 Servers.
 <div align=center><img width = '500' height ='300' src ="user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
 <div align=center>Fig. 7 Multi-GPU Performance of HugeCTR</div>
 
 ### TensorFlow
-In the TensorFlow test case below, HugeCTR shows up to 44x speedup to a CPU server with TensorFlow with only one V100 GPU and almost the same loss curve.
+In the TensorFlow test case below, HugeCTR shows up to 114x speedup to a CPU server with TensorFlow with only one V100 GPU and almost the same loss curve.
 
 
-<div align=center><img width = '500' height ='300' src ="user_guide_src/fig13_performance_comparsion_tf.PNG"/></div>
-<div align=center>Fig. 8 Performance Comparison with TensorFlow 1.12</div>
+<div align=center><img width = '500' height ='300' src ="user_guide_src/WDL.JPG"/></div>
+<div align=center>Fig. 8 WDL performance and loss curve comparsion with TensorFlow v2.0 </div>
 
 
-<div align=center><img width = '500' height ='250' src ="user_guide_src/fig14_loss_curve_tf.png"/></div>
-<div align=center>Fig. 9 Loss curve HugeCTR vs Tensorflow</div>
+<div align=center><img width = '500' height ='250' src ="user_guide_src/DCN.JPG"/></div>
+<div align=center>Fig. 9 WDL performance and loss curve comparsion with TensorFlow v2.0</div>
 
-### More
-More performance and comparison will be released in our official account in wechat "英伟达NVIDIA企业解决方案".
 
 ## Reference
 
