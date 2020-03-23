@@ -7,13 +7,12 @@ Highlighted features of HugeCTR
 * GPU Hashtable and dynamic insertion
 * Multi-node training and very large embedding support
 * Mixed-precision training
-* Training data error check
 
 ## New Features in Version 2.1
 HugeCTR version 2.1 is a major update, which aims to provide a flexible, fast, scalable and reliable solution for CTR Training. Framework designers can take it as a reference design for good perforance. 
 
-* Supporting three important networks: Wide and Deep Learning (WDL)[1], Deep Cross Network (DCN)[2], DeepFM [3] 
-* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces memory transactions between GPUs and nodes by factor of #GPUs.
+* Supporting three important networks: Wide and Deep Learning (WDL)[1], Deep Cross Network (DCN)[2] and DeepFM [3] 
+* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces the memory transactions between GPUs and nodes by factor of #GPUs.
 * Supporting multiple Embeddings in one network
 * Supporting dense feature input
 * Supporting new layers like: Dropout / Split / Reshape / Multiply / FmOrder2 / MultCross / add
@@ -23,7 +22,7 @@ HugeCTR version 2.1 is a major update, which aims to provide a flexible, fast, s
 ## Architecture and Supported Networks
 To enable large embedding training, the embedding table in HugeCTR is model parallel and distributed across all the GPUs in a homogeneous cluster, which consists of multiple nodes and multiple GPUs. Meanwhile, the dense model is data parallel, which has one copy in each GPU (see Fig.1).
 
-HugeCTR supports Embedding + MLP like Networks e.g. WDL, DCN, DeepFM, in which Embedding has a three-stage workflow: table lookup, reducing the weights within a slot, concat the weights from different slots (see Fig.3). Operations and layers supported in HugeCTR are listed as follows:
+HugeCTR supports flexible and various CTR networks with Embeddings e.g. WDL, DCN, DeepFM, in which Embedding has a three-stage workflow: table lookup, reducing the weights within a slot, concat the weights from different slots (see Fig.3). Operations and layers supported in HugeCTR are listed as follows:
 * Multi-slot embedding: Sum / Mean
 * Layers: Fully Connected / ReLU / ELU / Dropout / Split / Reshape / Concat / BN / Multiply / FmOrder2 / MultCross / add
 * Optimizer: Adam/ Momentum SGD/ Nesterov
@@ -40,9 +39,9 @@ HugeCTR supports Embedding + MLP like Networks e.g. WDL, DCN, DeepFM, in which E
 
 ## Highlighted Features
 ### GPU hashtable and dynamic insertion
-GPU Hashtable makes the data preprocessing easier and enables dynamic insertion in HugeCTR 2.x. The input training data are hash values (64bit long long type) instead of original indices. Thus embedding initialization is not required before training and if you start a training from scratch, only an initialized dense model is needed (using –model-init). A pair of <key,value> (random small weight) will be inserted during runtime only when a new key appears in the training data and hashtable cannot find it. 
+GPU Hashtable makes the data preprocessing easier and enables dynamic insertion in HugeCTR 2.x. The input training data are hash values (64bit long long type) instead of original indices. Thus embedding initialization is not required before training. A pair of <key,value> (random small weight) will be inserted during runtime only when a new key appears in the training data and hashtable cannot find it. 
 ### Multi-node training and enabling large embedding
-Multi-node training is supported to enable very large embedding. Thus, an embedding table of arbitrary size can be trained in HugeCTR. In multi-node solution, sparse model or embedding is also distributed across the nodes, and dense model is in data parallel. In our implementation, HugeCTR leverages NCCL for high speed and scalable inner- and intra-node communication.
+Multi-node training is supported to enable very large embedding. Thus, an embedding table of arbitrary size can be trained in HugeCTR. In multi-node solution, sparse model or embedding is also distributed across the nodes, and dense model is in data parallel. In our implementation, HugeCTR leverages NCCL and gossip[4] for high speed and scalable inner- and intra-node communication.
 ### Mixed precision training
 Mixed-precision is an important feature in latest NVIDIA GPUs. On volta and Turing GPUs, fully connected layer can be configured to run on TensorCore with FP16. Please note that loss scaling will be applied to avoid arithmetic underflow (see Fig. 4).  Mixed-precision training can be enabled in cmake options (see README.md).
 
@@ -132,7 +131,7 @@ Data:
 Data set properties include file name of training and testing (evaluation) set, maximum elements (key) in a sample, and label dimensions (see fig. 5).
 * From v2.1, `Data` will be one of the layer in the layers list. So that the name of dense input and sparse input can be reference in the following layers. 
 * All the nodes will share the same file list in training.
-* `dense` and `sparse` should be configured, where `dense` refers to the dense input and `sparse` refers to the `sparse` input. `sparse` should be an array here, since we support multiple `embedding` and each one requires a `sparse` input.
+* `dense` and `sparse` should be configured (dense_dim should be 0 if no dense feature involved), where `dense` refers to the dense input and `sparse` refers to the `sparse` input. `sparse` should be an array here, since we support multiple `embedding` and each one requires a `sparse` input.
 * The `type` of sparse input should be consistent with the following Embeddings.
 * `slot_num` is the number of slots used in this training set. All the weight vectors get out of a slot will be reduced into one vector after embedding lookup (see Fig.3).
 * The sum of `slot_num` in each sparse input should be consistent with the slot number defined in the header of training file.  
@@ -163,16 +162,17 @@ Data set properties include file name of training and testing (evaluation) set, 
 ```
 
 Embedding:
-* Slots (tables or feature fields) are distributed in GPUs and nodes, so called model parallel.
-* `type`: two type of embedding are supported: `LocalizedSlotSparseEmbeddingHash`, `DistributedSlotSparseEmbeddingHash`.
-  * `LocalizedSlotSparseEmbeddingHash`: each individual slot will be located in each GPU in turn, and not shared. This type of embedding will has be best scalability.
+* Slots (tables or feature fields) are distributed in GPUs and nodes.
+* `type`: two types of embedding are supported: `LocalizedSlotSparseEmbeddingHash`, `DistributedSlotSparseEmbeddingHash`.
+  * `LocalizedSlotSparseEmbeddingHash`: each individual slot will be located in each GPU in turn, and not shared. This type of embedding has the best scalability.
     * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to:
   * `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when some of the slots are much bigger than the rest, and potentially has OOM issue.
+  * In single GPU training, for convenience please use `DistributedSlotSparseEmbeddingHash`.
 * `vocabulary_size`: the maximum possible size of embedding.
 * `load_factor`: as embedding is implemented with hashtable, `load_factor` is the ratio of loaded vocabulary to capacity of the hashtable.
 * `embedding_vec_size`: the vector size of an embedding weight (value). Then the memory used in this hashtable will be vocabulary_size*embedding_vec_size/load_factor.
 * `combiner`: 0 is sum and 1 is mean.
-* `optimizer`: (optional) from v2.1 HugeCTR supports different optimizer in dense and sparse model. You can specify your optimizer of this Embedding here. If not specified, HugeCTR will reuse the optimizer of dense model here.
+* `optimizer`: (optional) from v2.1 HugeCTR supports different optimizers in dense and sparse models. You can specify your optimizer of this Embedding here. If not specified, HugeCTR will reuse the optimizer of dense model here.
 ```json
     {
       "name": "sparse_embedding1",
@@ -326,7 +326,7 @@ Network:
 * `Deep Cross Network`: Nx 1024-unit FC layers with ReLU and dropout, emb_dim: 16, 6x cross layers; Optimizer: Adam for both Linear and DNN models
 
 Data set:
-The data is provided by CriteoLabs [1]. The original training set contains 45,840,617 examples. Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features). 
+The data is provided by CriteoLabs [5]. The original training set contains 45,840,617 examples. Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features). 
 
 Preprocessing:
 * HugeCTR: preprocessing with criteo2hugectr for format conversion
@@ -356,7 +356,9 @@ In the TensorFlow test case below, HugeCTR shows up to 114x speedup to a CPU ser
 
 [3] DeepFM: https://arxiv.org/abs/1703.04247 
 
-[4] CriteoLabs: http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/
+[4] Gossip: https://github.com/Funatiq/gossip
+
+[5] CriteoLabs: http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/
 
 
 
