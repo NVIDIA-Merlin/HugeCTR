@@ -106,21 +106,54 @@ Many different kinds of layers are supported in clause `layer`, which includes d
 
 Data:
 Data set properties include file name of training and testing (evaluation) set, maximum elements (key) in a sample, and label dimensions (see fig. 5).
-* From v2.1, data will be one of the layer in layers list. So that the name of dense input and sparse input can be reference in the following layers. 
+* From v2.1, `Data` will be one of the layer in the layers list. So that the name of dense input and sparse input can be reference in the following layers. 
 * All the nodes will share the same file list in training.
-* "slot_num” is the number of slots used in this training set. All the weight vectors get out of a slot will be reduced into one vector after embedding lookup (see Fig.3).
+* `dense` and `sparse` should be configured, where `dense` refers to the dense input and `sparse` refers to the `sparse` input. `sparse` should be an array here, since we support multiple `embedding` and each one requires a `sparse` input.
+* The `type` of sparse input should be consistent with the following Embeddings.
+* `slot_num` is the number of slots used in this training set. All the weight vectors get out of a slot will be reduced into one vector after embedding lookup (see Fig.3).
+* The sum of `slot_num` in each sparse input should be consistent with the slot number defined in the header of training file.  
+```json
+    {
+      "name": "data",
+      "type": "Data",
+      "source": "./file_list.txt",
+      "eval_source": "./file_list_test.txt",
+      "check": "Sum",
+      "label": {
+        "top": "label",
+        "label_dim": 1
+      },
+      "dense": {
+        "top": "dense",
+        "dense_dim": 13
+      },
+      "sparse": [
+        {
+          "top": "data1",
+          "type": "DistributedSlot",
+          "max_feature_num_per_sample": 30,
+          "slot_num": 26
+        }
+      ]
+    }
+```
 
 Embedding:
+* Slots (tables or feature fields) are distributed in GPUs and nodes, so called model parallel.
+* `type`: two type of embedding are supported: `LocalizedSlotSparseEmbeddingHash`, `DistributedSlotSparseEmbeddingHash`.
+** `LocalizedSlotSparseEmbeddingHash`: each individual slot will be located in each GPU in turn, and not shared. This type of embedding will has be best scalability.
+*** `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to:
+** `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when some of the slots are much bigger than the rest, and potentially has OOM issue.
 * `vocabulary_size`: the maximum possible size of embedding.
 * `load_factor`: as embedding is implemented with hashtable, `load_factor` is the ratio of loaded vocabulary to capacity of the hashtable.
 * `embedding_vec_size`: the vector size of an embedding weight (value). Then the memory used in this hashtable will be vocabulary_size*embedding_vec_size/load_factor.
 * `combiner`: 0 is sum and 1 is mean.
 
-ELU: the type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
 
-Fully Connected (`InnerProduct`): bias is supported in fully connected layer and `num_output` is the dimension of output.
-
-BatchNorm:  `is_training` should always be true in HugeCTR training. “Factor” in this context means “moving average” computation factor and eps is a small value to avoid divide-by-zero error.
+Others"
+* ELU: the type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
+* Fully Connected (`InnerProduct`): bias is supported in fully connected layer and `num_output` is the dimension of output.
+* BatchNorm:  `is_training` should always be true in HugeCTR training. “Factor” in this context means “moving average” computation factor and eps is a small value to avoid divide-by-zero error.
 ```json
 {
   "name": "elu1",
