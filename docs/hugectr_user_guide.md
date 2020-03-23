@@ -13,7 +13,7 @@ Highlighted features of HugeCTR
 HugeCTR version 2.1 is a major update, which aims to provide a flexible, fast, scalable and reliable solution for CTR Training. Framework designers can take it as a reference design for good perforance. 
 
 * Supporting three important networks: Wide and Deep Learning (WDL)[1], Deep Cross Network (DCN)[2], DeepFM [3] 
-* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces memory transactions between GPU and nodes by factor of #gpus.
+* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces memory transactions between GPUs and nodes by factor of #GPUs.
 * Supporting multiple Embeddings in one network
 * Supporting dense feature input
 * Supporting new layers like: Dropout / Split / Reshape / Multiply / FmOrder2 / MultCross / add
@@ -253,7 +253,7 @@ typedef struct Slot_{
 
 Data field often has a lot of samples. Each sample starts with the labels in integer type, followed by `nnz` (number of nonzero) and key in long long type (see Fig. 6).
 
-<div align=center><img width = '800' height ='100' src ="user_guide_src/fig10_data_field.png"/></div>
+<div align=center><img width = '1000' height ='150' src ="user_guide_src/fig10_data_field.png"/></div>
 <div align=center>Fig. 6 Data Field</div>
 
 ### No Trained Parameters
