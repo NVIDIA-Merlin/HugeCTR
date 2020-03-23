@@ -23,7 +23,7 @@ HugeCTR supports Embedding + MLP like Networks e.g. WDL, DCN, DeepFM, in which E
 <div align=center><img src ="user_guide_src/fig1_hugectr_arch.png" width = '800' height ='400'/></div>
 <div align=center>Fig.1 HugeCTR Architecture</div>
 
-<div align=center><img width = '300' height ='600' src ="user_guide_src/fig2_embedding_mlp.png"/></div>
+<div align=center><img width = '600' height ='400' src ="user_guide_src/fig2_embedding_mlp.png"/></div>
 <div align=center>Fig. 2 Embedding + MLP</div>
 
 <div align=center><img width = '800' height ='300' src ="user_guide_src/fig3_embedding_mech.png"/></div>
@@ -232,7 +232,7 @@ typedef struct Slot_{
 
 Data field often has a lot of samples. Each sample starts with the labels in integer type, followed by `nnz` (number of nonzero) and key in long long type (see Fig. 6).
 
-<div align=center><img width = '800' height ='150' src ="user_guide_src/fig10_data_field.png"/></div>
+<div align=center><img width = '800' height ='100' src ="user_guide_src/fig10_data_field.png"/></div>
 <div align=center>Fig. 6 Data Field</div>
 
 ### No Trained Parameters
