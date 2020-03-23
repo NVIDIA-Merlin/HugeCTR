@@ -14,7 +14,12 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * cuDNN >= 7.5
 * NCCL >= 2.0
 * Clang-Format 3.8
-* OpenMPI >= 4.0 (optional, if require multi-nodes training)
+* GCC >= 7.4.0
+* Compiler should have OpenMP support
+### Optional, if require multi-nodes training ###
+* OpenMPI >= 4.0
+* UCX library >= 1.6
+* HWLOC library >= 2.1.0
 
 ## Build ##
 ### Init Git ###
