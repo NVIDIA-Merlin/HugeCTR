@@ -129,11 +129,11 @@ A data file (binary) contains a header and data (many samples).
 Header Definition:
 ```c
 typedef struct DataSetHeader_ {
-  long long error_check;        //0: no error check; 1: check_num
+  long long error_check;        // 0: no error check; 1: check_num
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
-  long long dense_dim;          //dimension of dense feature
-  long long slot_num;           //slot_num for each embedding
+  long long dense_dim;          // dimension of dense feature
+  long long slot_num;           // slot_num for each embedding
   long long reserved[3];        // reserved for future use
 } DataSetHeader;
 
@@ -142,11 +142,11 @@ typedef struct DataSetHeader_ {
 Data Definition (each sample):
 ```c
 typedef struct Data_{
-  int length;                   //bytes in this sample (optional: only in check_sum mode )
+  int length;                   // bytes in this sample (optional: only in check_sum mode )
   float label[label_dim];       
   float dense[dense_dim];
   Slot slots[slot_num];          
-  char checkbits;                //checkbit for this sample (optional: only in checksum mode)
+  char checkbits;                // checkbit for this sample (optional: only in checksum mode)
 } Data;
 
 typedef struct Slot_{
