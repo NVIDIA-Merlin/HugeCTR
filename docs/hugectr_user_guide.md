@@ -200,10 +200,11 @@ Embedding:
 
 ```
 
-Others"
+The Others
 * ELU: the type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
 * Fully Connected (`InnerProduct`): bias is supported in fully connected layer and `num_output` is the dimension of output.
 * Loss: different from the other layers, you can specify which `regularization` will you use. This is optional. By default no regularization will be used.
+* For more details please refer to [**parser.cu**](HugeCTR/src/parser.cpp)
 ```json
 {
   "name": "elu1",
