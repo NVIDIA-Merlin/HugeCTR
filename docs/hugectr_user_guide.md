@@ -76,7 +76,7 @@ Solver clause contains the configuration to training resource and task, items in
 The optimizer used in both dense and sparse models. Adam/MomentumSGD/Nesterov are supported in v2.1. Note that different optimizers can be supported in dense model and each embeddings.
 To enable specific optimizers in embeddings, please just put the optimizer clause into the embedding layer. Otherwise, the embedding layer will use the same optimizer as dense model. 
 `global_update` can be specified in optimizer. By default optimizer will only update the hot columns of embedding in each iterations, but if you assign `true`, our optimizer will update all the columns.
-Note that `global_update` will not have as good performance as not.
+Note that `global_update` will not have as good speed as not using it.
 ```json
 "optimizer": {
   "type": "Adam",
@@ -98,7 +98,7 @@ Note that `global_update` will not have as good performance as not.
 },
 "optimizer": {
   "type": "Nesterov",
-  "global_update": ture,
+  "global_update": true,
   "nesterov_hparam": {
     "learning_rate": 0.005,
     "momentum_factor": 0.0
@@ -261,16 +261,23 @@ In HugeCTR such parameters will be written into a JSON format file along with we
 }
 ```
 ## Performance
-In this section, we test the scalability of HugeCTR and compare the performance and result with TensorFlow with V100 and P40 GPUs. It shows that we can achieve about 44x speedup to multi-threads TF on CPU server with only one V100 and have almost the same loss curve on both evaluation and training (see Fig. 9).
+In this section, we test the scalability of HugeCTR and compare the performance and result with TensorFlow with V100. It shows that we can achieve about 114x speedup to multi-threads TF on CPU server with only one V100 and have almost the same loss curve on both evaluation and training (see Fig. 9).
 
 Test environment:
-* CPU Server: two ways Intel(R) Xeon(R) CPU E5-2680 v2 @ 2.80GHz
-* TensorFlow version 1.12.0
-* V100: NVIDIA DGX1 servers
-* P40
+* CPU Server: Dual 20-core Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz
+* TensorFlow version 2.0.0
+* V100 16GB: NVIDIA DGX1 servers
 
 Network:
-* FC MLP network (see Fig.2) and embedding.
+* `Wide Deep Learning`: 2x 1024-unit FC layers with ReLU and dropout, emb_dim: 16; Optimizer: Adam for both Linear and DNN models
+* `Deep Cross Network`: 2x 1024-unit FC layers with ReLU and dropout, emb_dim: 16, 6x cross layers; Optimizer: Adam for both Linear and DNN models
+
+Data set:
+The data is provided by CriteoLabs [1]. The original training set contains 45,840,617 examples. Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features). 
+
+Preprocessing:
+* HugeCTR: preprocessing with criteo2hugectr for format conversion
+* TF: using TFRecord format for TF training benchmark
 
 ### HugeCTR
 The good scalability HugeCTR shows on multiple nodes is mainly because of the high efficient data exchange via NCCL and the three-stage processing pipeline. In this pipeline, we overlap the data reading from file, host to device data transaction (inter- and intra- node) and GPU training.  The following chart shows the scalability of HugeCTR with the configration of Batch Size=40960, Embedding Vector=64, Layers=12, MLP Output=1024, multi-hot=39 on DGX1 Servers.
@@ -280,11 +287,6 @@ The good scalability HugeCTR shows on multiple nodes is mainly because of the hi
 ### TensorFlow
 In the TensorFlow test case below, HugeCTR shows up to 44x speedup to a CPU server with TensorFlow with only one V100 GPU and almost the same loss curve.
 
-Data set:
-The data is provided by CriteoLabs [1]. The original training set contains 45,840,617 examples. Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features). The original test set doesn't contain labels, so it's not used. 
-
-Network:
-Embedding Vector=64, Layers=4, MLP Output=200, multi-hot=39, Optimizer=MomentumSGD，Loss = BinaryCrossEntropy. We use Batchsize = 40960 and BatchSize = 128 in the performance and loss curve test, respectively.
 
 <div align=center><img width = '500' height ='300' src ="user_guide_src/fig13_performance_comparsion_tf.PNG"/></div>
 <div align=center>Fig. 8 Performance Comparison with TensorFlow 1.12</div>
