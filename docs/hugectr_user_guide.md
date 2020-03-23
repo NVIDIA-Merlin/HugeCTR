@@ -141,9 +141,9 @@ Data set properties include file name of training and testing (evaluation) set, 
 Embedding:
 * Slots (tables or feature fields) are distributed in GPUs and nodes, so called model parallel.
 * `type`: two type of embedding are supported: `LocalizedSlotSparseEmbeddingHash`, `DistributedSlotSparseEmbeddingHash`.
-** `LocalizedSlotSparseEmbeddingHash`: each individual slot will be located in each GPU in turn, and not shared. This type of embedding will has be best scalability.
-*** `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to:
-** `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when some of the slots are much bigger than the rest, and potentially has OOM issue.
+  * `LocalizedSlotSparseEmbeddingHash`: each individual slot will be located in each GPU in turn, and not shared. This type of embedding will has be best scalability.
+    * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to:
+  * `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when some of the slots are much bigger than the rest, and potentially has OOM issue.
 * `vocabulary_size`: the maximum possible size of embedding.
 * `load_factor`: as embedding is implemented with hashtable, `load_factor` is the ratio of loaded vocabulary to capacity of the hashtable.
 * `embedding_vec_size`: the vector size of an embedding weight (value). Then the memory used in this hashtable will be vocabulary_size*embedding_vec_size/load_factor.
@@ -170,7 +170,6 @@ Others"
   "bottom": "fc1",
   "top": "bn1",
   "bn_param": {
-    "is_training": true,
     "factor": 0.999,
     "eps": 1e-5
   }
@@ -199,25 +198,33 @@ A data file (binary) contains a header and the following data (many samples).
 
 Header field:
 ```c
-typedef struct DataSetHeader_{
-  long long number_of_records; //the number of samples in this data file
-  long long label_dim; //dimension of label
-  long long slot_num; //the number of slots in each sample 
-  long long reserved; //reserved for future use
+typedef struct DataSetHeader_ {
+  long long error_check;        // 0: no error check; 1: check_num
+  long long number_of_records;  // the number of samples in this data file
+  long long label_dim;          // dimension of label
+  long long dense_dim;          // dimension of dense feature
+  long long slot_num;           // slot_num for each embedding
+  long long reserved[3];        // reserved for future use
 } DataSetHeader;
+
 ```
-Data field:
+
+Data Definition (each sample):
 ```c
 typedef struct Data_{
-  int label[label_dim];
-  Slot slots[slot_num];
+  int length;                   // bytes in this sample (optional: only in check_sum mode )
+  float label[label_dim];       
+  float dense[dense_dim];
+  Slot slots[slot_num];          
+  char checkbits;                // checkbit for this sample (optional: only in checksum mode)
 } Data;
 
 typedef struct Slot_{
   int nnz;
-  T*  keys; //long long or uint
+  long long*  keys; 
 } Slot;
 ```
+
 Data field often has a lot of samples. Each sample starts with the labels in integer type, followed by `nnz` (number of nonzero) and key in long long type (see Fig. 6).
 
 <div align=center><img width = '800' height ='200' src ="user_guide_src/fig10_data_field.png"/></div>
