@@ -20,10 +20,10 @@ HugeCTR supports Embedding + MLP like Networks e.g. WDL, DCN, DeepFM, in which E
 * Optimizer: Adam/ Momentum SGD/ Nesterov
 * Loss: CrossEngtropy/ BinaryCrossEntropy
 
-<div align=center><img src ="user_guide_src/fig1_hugectr_arch.png" width = '600' height ='300'/></div>
+<div align=center><img src ="user_guide_src/fig1_hugectr_arch.png" width = '800' height ='400'/></div>
 <div align=center>Fig.1 HugeCTR Architecture</div>
 
-<div align=center><img width = '200' height ='400' src ="user_guide_src/fig2_embedding_mlp.png"/></div>
+<div align=center><img width = '300' height ='600' src ="user_guide_src/fig2_embedding_mlp.png"/></div>
 <div align=center>Fig. 2 Embedding + MLP</div>
 
 <div align=center><img width = '800' height ='300' src ="user_guide_src/fig3_embedding_mech.png"/></div>
@@ -232,7 +232,7 @@ typedef struct Slot_{
 
 Data field often has a lot of samples. Each sample starts with the labels in integer type, followed by `nnz` (number of nonzero) and key in long long type (see Fig. 6).
 
-<div align=center><img width = '800' height ='200' src ="user_guide_src/fig10_data_field.png"/></div>
+<div align=center><img width = '800' height ='150' src ="user_guide_src/fig10_data_field.png"/></div>
 <div align=center>Fig. 6 Data Field</div>
 
 ### No Trained Parameters
@@ -281,18 +281,18 @@ Preprocessing:
 
 ### HugeCTR
 The good scalability HugeCTR shows on multiple nodes is mainly because of the high efficient data exchange and the three-stage processing pipeline. In this pipeline, we overlap the data reading from file, host to device data transaction (inter- and intra- node) and GPU training.  The following chart shows the scalability of HugeCTR with the configration of Batch Size=16384, Layers=7 on DGX1 Servers.
-<div align=center><img width = '500' height ='300' src ="user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
+<div align=center><img width = '800' height ='400' src ="user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
 <div align=center>Fig. 7 Multi-GPU Performance of HugeCTR</div>
 
 ### TensorFlow
 In the TensorFlow test case below, HugeCTR shows up to 114x speedup to a CPU server with TensorFlow with only one V100 GPU and almost the same loss curve.
 
 
-<div align=center><img width = '500' height ='300' src ="user_guide_src/WDL.JPG"/></div>
+<div align=center><img width = '800' height ='400' src ="user_guide_src/WDL.JPG"/></div>
 <div align=center>Fig. 8 WDL performance and loss curve comparsion with TensorFlow v2.0 </div>
 
 
-<div align=center><img width = '500' height ='250' src ="user_guide_src/DCN.JPG"/></div>
+<div align=center><img width = '800' height ='400' src ="user_guide_src/DCN.JPG"/></div>
 <div align=center>Fig. 9 WDL performance and loss curve comparsion with TensorFlow v2.0</div>
 
 
