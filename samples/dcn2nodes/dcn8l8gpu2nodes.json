@@ -2,19 +2,17 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 30000,
-    "gpu": [0],
-    "batchsize": 16384,
+    "max_iter": 1000,
+    "gpu": [[0,1,2,3,4,5,6,7],[0,1,2,3,4,5,6,7]],
+    "batchsize": 40960,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 20,
-    "mixed_precision": 256
+    "eval_batches": 20
   },
   
   "optimizer": {
     "type": "Adam",
-    "global_update": true,
     "adam_hparam": {
       "alpha": 0.001,
       "beta1": 0.9,
@@ -41,7 +39,7 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "DistributedSlot",
+          "type": "LocalizedSlot",
           "max_feature_num_per_sample": 30,
           "slot_num": 26
         }        
@@ -50,11 +48,12 @@
 
     {
       "name": "sparse_embedding1",
-      "type": "DistributedSlotSparseEmbeddingHash",
+      "type": "LocalizedSlotSparseEmbeddingHash",
       "bottom": "data1",
       "top": "sparse_embedding1",
+      "plan_file": ["all2all_plan_bi_1.json","all2all_plan_bi_1.json"],
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1737710,
+        "vocabulary_size": 3037710,
         "load_factor": 0.75,
         "embedding_vec_size": 16,
         "combiner": 0
@@ -145,19 +144,151 @@
       "bottom": "relu2",
       "top": "dropout2" 
     },
+
+
+    {
+      "name": "fc3",
+      "type": "InnerProduct",
+      "bottom": "dropout2",
+      "top": "fc3",
+       "fc_param": {
+        "num_output": 1024
+      }
+    },
+
+    {
+      "name": "relu3",
+      "type": "ReLU",
+      "bottom": "fc3",
+      "top": "relu3"
+     
+    },
     
+    {
+      "name": "dropout3",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu3",
+      "top": "dropout3" 
+    },
+
+    {
+      "name": "fc4",
+      "type": "InnerProduct",
+      "bottom": "dropout3",
+      "top": "fc4",
+       "fc_param": {
+        "num_output": 1024
+      }
+    },
+
+    {
+      "name": "relu4",
+      "type": "ReLU",
+      "bottom": "fc4",
+      "top": "relu4"
+     
+    },
+    
+    {
+      "name": "dropout4",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu4",
+      "top": "dropout4" 
+    },
+
+    {
+      "name": "fc5",
+      "type": "InnerProduct",
+      "bottom": "dropout4",
+      "top": "fc5",
+       "fc_param": {
+        "num_output": 1024
+      }
+    },
+
+    {
+      "name": "relu5",
+      "type": "ReLU",
+      "bottom": "fc5",
+      "top": "relu5"
+     
+    },
+    
+    {
+      "name": "dropout5",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu5",
+      "top": "dropout5" 
+    },
+
+    {
+      "name": "fc6",
+      "type": "InnerProduct",
+      "bottom": "dropout5",
+      "top": "fc6",
+       "fc_param": {
+        "num_output": 1024
+      }
+    },
+
+    {
+      "name": "relu6",
+      "type": "ReLU",
+      "bottom": "fc6",
+      "top": "relu6"
+     
+    },
+    
+    {
+      "name": "dropout6",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu6",
+      "top": "dropout6" 
+    },
+
+    {
+      "name": "fc7",
+      "type": "InnerProduct",
+      "bottom": "dropout6",
+      "top": "fc7",
+       "fc_param": {
+        "num_output": 1024
+      }
+    },
+
+    {
+      "name": "relu7",
+      "type": "ReLU",
+      "bottom": "fc7",
+      "top": "relu7"
+     
+    },
+    
+    {
+      "name": "dropout7",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu7",
+      "top": "dropout7" 
+    },
+
+
     {
       "name": "concat2",
       "type": "Concat",
-      "bottom": ["dropout2","multicross1"],
+      "bottom": ["dropout7","multicross1"],
       "top": "concat2"
     },
     
     {
-      "name": "fc4",
+      "name": "fc8",
       "type": "InnerProduct",
       "bottom": "concat2",
-      "top": "fc4",
+      "top": "fc8",
        "fc_param": {
         "num_output": 1
       }
@@ -166,7 +297,7 @@
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": ["fc4","label"],
+      "bottom": ["fc8","label"],
       "top": "loss"
     } 
   ]
