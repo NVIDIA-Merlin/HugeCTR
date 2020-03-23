@@ -24,7 +24,7 @@ Login to your GPU cluster and acquire two nodes. For example, if on a SLURM syst
 ```shell
 $ srun -N 2 --pty bash -i
 $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-$ mpirun python ../../tool/plan_generation/plan_from_topology_asynch.py all2all 0 dcn8l8gpu2nodes.json
+$ mpirun python ../../tools/plan_generation/plan_from_topology_asynch.py all2all 0 dcn8l8gpu2nodes.json
 ```
 
 ## Training with HugeCTR ##
