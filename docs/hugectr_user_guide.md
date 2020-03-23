@@ -3,20 +3,29 @@ HUGECTR 2.1 USER GUIDE
 ## Introduction
 HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training, which targets both high performance and easy usage. Following sections list the performance comparison, supported features and usage information. 
 
-HugeCTR version 2.1 is a major update, which aims to provide a reference design for framework designers and users who has requirements on high performance CTR training. 
-
 Highlighted features of HugeCTR
 * GPU Hashtable and dynamic insertion
 * Multi-node training and very large embedding support
 * Mixed-precision training
 * Training data error check
 
+## New Features in Version 2.1
+HugeCTR version 2.1 is a major update, which aims to provide a flexible, fast, scalable and reliable solution for CTR Training. Framework designers can take it as a reference design for good perforance. 
+
+* Supporting three important networks: Wide and Deep Learning (WDL)[1], Deep Cross Network (DCN)[2], DeepFM [3] 
+* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces memory transactions between GPU and nodes by factor of #gpus.
+* Supporting multiple Embeddings in one network
+* Supporting dense feature input
+* Supporting new layers like: Dropout / Split / Reshape / Multiply / FmOrder2 / MultCross / add
+* Check bits in data reader to enable data check and error skip.
+* L1 / L2 Regularization
+
 ## Architecture and Supported Networks
 To enable large embedding training, the embedding table in HugeCTR is model parallel and distributed across all the GPUs in a homogeneous cluster, which consists of multiple nodes and multiple GPUs. Meanwhile, the dense model is data parallel, which has one copy in each GPU (see Fig.1).
 
 HugeCTR supports Embedding + MLP like Networks e.g. WDL, DCN, DeepFM, in which Embedding has a three-stage workflow: table lookup, reducing the weights within a slot, concat the weights from different slots (see Fig.3). Operations and layers supported in HugeCTR are listed as follows:
 * Multi-slot embedding: Sum / Mean
-* Layers: Concat /  Fully Connected / Relu / BatchNorm / elu
+* Layers: Fully Connected / ReLU / ELU / Dropout / Split / Reshape / Concat / BN / Multiply / FmOrder2 / MultCross / add
 * Optimizer: Adam/ Momentum SGD/ Nesterov
 * Loss: CrossEngtropy/ BinaryCrossEntropy
 
@@ -53,11 +62,8 @@ To run with multiple node: HugeCTR should be built with OpenMPI (GPUDirect suppo
 ```shell
 $ mpirun -N2 ./huge_ctr --train config.json
 ```
-### Network Configurations
-Config file is in json format and has three clauses: “solver, optimizer, layers” (see Fig. 5).
-
-<div align=center><img width = '800' height ='600' src ="user_guide_src/fig5_sample_config_json.png"/></div>
-<div align=center>Fig. 5 Sample config.json File</div>
+## Network Configurations
+Please refer to [**sample configure file**](utest/simple_sparse_embedding.json)
 
 ### Solver
 Solver clause contains the configuration to training resource and task, items include:
@@ -68,10 +74,25 @@ Solver clause contains the configuration to training resource and task, items in
 * `snapshot`: intervals to save a checkpoint in file with the prefix of `snapshot_prefix`
 * `eval_interval`: intervals of evaluation on test set.
 * `eval_batches`: the number of batches will be used in loss calculation of evaluation. HugeCTR will print the average loss of the batches.
-* `dense model_file`: file of dense model (No need to config if train from scratch).
-* `sparse_model_file`: file of sparse models. In v2.1 multi-embeddings are supported in one model. Each embedding will have one model file (No need to config if train from scratch).
-* `mixed_precision`: enabling mixed precision training with the scaler specified here. Only 128/256/512/1024 are supported.
-
+* `dense model_file`: (optional: no need to config if train from scratch) file of dense model.
+* `sparse_model_file`: (optional: no need to config if train from scratch)file of sparse models. In v2.1 multi-embeddings are supported in one model. Each embedding will have one model file.
+* `mixed_precision`: (optional) enabling mixed precision training with the scaler specified here. Only 128/256/512/1024 are supported.
+```json
+ "solver": {
+    "lr_policy": "fixed",
+    "display": 1000,
+    "max_iter": 300000,
+    "gpu": [0],
+    "batchsize": 512,
+    "snapshot": 10000000,
+    "snapshot_prefix": "./",
+    "eval_interval": 1000,
+    "eval_batches": 60,
+    "mixed_precision": 256,
+    "dense model_file": "./dense_model.bin",
+    "sparse_model_file": ["./sparse_model1.bin","./sparse_model2.bin"]
+  }
+```
 ### Optimizer
 The optimizer used in both dense and sparse models. Adam/MomentumSGD/Nesterov are supported in v2.1. Note that different optimizers can be supported in dense model and each embeddings.
 To enable specific optimizers in embeddings, please just put the optimizer clause into the embedding layer. Otherwise, the embedding layer will use the same optimizer as dense model. 
@@ -87,7 +108,7 @@ Note that `global_update` will not have as good speed as not using it.
     "beta2": 0.999,
     "epsilon": 0.000001
   }
-},
+}
 "optimizer": {
   "type": "MomentumSGD",
   "global_update": false,
@@ -95,7 +116,7 @@ Note that `global_update` will not have as good speed as not using it.
     "learning_rate": 0.005,
     "momentum_factor": 0.0
   }
-},
+}
 "optimizer": {
   "type": "Nesterov",
   "global_update": true,
@@ -168,7 +189,7 @@ Others"
   "elu_param": {
     "alpha": 1.0
   }
-},
+}
 {
   "name": "bn1",
   "type": "BatchNorm",
@@ -297,8 +318,10 @@ In the TensorFlow test case below, HugeCTR shows up to 114x speedup to a CPU ser
 
 
 ## Reference
-
-[1] CriteoLabs: http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/
+[1] Wide and Deep Learning: https://arxiv.org/abs/1606.07792
+[2] Deep Cross Network: https://arxiv.org/abs/1708.05123
+[3] DeepFM: https://arxiv.org/abs/1703.04247 
+[4] CriteoLabs: http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/
 
 
 
