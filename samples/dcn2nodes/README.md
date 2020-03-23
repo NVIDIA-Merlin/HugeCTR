@@ -1,4 +1,4 @@
-# DCN CTR SAMPLE #
+# DCN MULTI-NODES SAMPLE #
 A sample of building and training Deep & Cross Network with HugeCTR on multi-nodes [(link)](https://arxiv.org/pdf/1708.05123.pdf).
 
 ## Dataset and preprocess ##
