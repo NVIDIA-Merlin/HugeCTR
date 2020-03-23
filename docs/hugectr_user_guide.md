@@ -33,7 +33,7 @@ HugeCTR supports Embedding + MLP like Networks e.g. WDL, DCN, DeepFM, in which E
 <div align=center>Fig.1 HugeCTR Architecture</div>
 
 <div align=center><img width = '600' height ='400' src ="user_guide_src/fig2_embedding_mlp.png"/></div>
-<div align=center>Fig. 2 Embedding + MLP</div>
+<div align=center>Fig. 2 Embedding Architecture</div>
 
 <div align=center><img width = '800' height ='300' src ="user_guide_src/fig3_embedding_mech.png"/></div>
 <div align=center>Fig. 3 Embedding Mechanism</div>
@@ -50,9 +50,7 @@ Mixed-precision is an important feature in latest NVIDIA GPUs. On volta and Turi
 <div align=center>Fig 4. Arithmetic Underflow</div>
 
 ## Usages
-One shot training:
-
-Training: load model and start training.
+Training with one-shoot instruction:
 ```shell
 $ huge_ctr –-train config.json
 ```
@@ -174,12 +172,38 @@ Embedding:
 * `load_factor`: as embedding is implemented with hashtable, `load_factor` is the ratio of loaded vocabulary to capacity of the hashtable.
 * `embedding_vec_size`: the vector size of an embedding weight (value). Then the memory used in this hashtable will be vocabulary_size*embedding_vec_size/load_factor.
 * `combiner`: 0 is sum and 1 is mean.
+* `optimizer`: (optional) from v2.1 HugeCTR supports different optimizer in dense and sparse model. You can specify your optimizer of this Embedding here. If not specified, HugeCTR will reuse the optimizer of dense model here.
+```json
+    {
+      "name": "sparse_embedding1",
+      "type": "LocalizedSlotSparseEmbeddingHash",
+      "bottom": "data1",
+      "top": "sparse_embedding1",
+      "plan_file": "all2all_plan_bi_1.json",
+      "sparse_embedding_hparam": {
+        "vocabulary_size": 1737710,
+        "load_factor": 0.75,
+        "embedding_vec_size": 16,
+        "combiner": 0
+      },
+      "optimizer": {
+        "type": "Adam",
+        "global_update": true,
+        "adam_hparam": {
+          "alpha": 0.005,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "epsilon": 0.000001
+        }
+      }
+    }
 
+```
 
 Others"
 * ELU: the type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
 * Fully Connected (`InnerProduct`): bias is supported in fully connected layer and `num_output` is the dimension of output.
-* BatchNorm:  `is_training` should always be true in HugeCTR training. “Factor” in this context means “moving average” computation factor and eps is a small value to avoid divide-by-zero error.
+* Loss: different from the other layers, you can specify which `regularization` will you use. This is optional. By default no regularization will be used.
 ```json
 {
   "name": "elu1",
@@ -191,15 +215,22 @@ Others"
   }
 }
 {
-  "name": "bn1",
-  "type": "BatchNorm",
-  "bottom": "fc1",
-  "top": "bn1",
-  "bn_param": {
-    "factor": 0.999,
-    "eps": 1e-5
+  "name": "fc8",
+  "type": "InnerProduct",
+  "bottom": "concat2",
+  "top": "fc8",
+  "fc_param": {
+    "num_output": 1
   }
 }
+{
+  "name": "loss",
+  "type": "BinaryCrossEntropyLoss",
+  "bottom": ["fc8","label"],
+  "regularizer": "L2",
+  "top": "loss"
+}
+
 ```
 ## Data Format
 A data set in HugeCTR includes an ASCII format file list and a set of data files in binary format to maximize the performance of data loading and minimize the storage. Note that data file is the minimum reading granularity for a reading thread, so at least 10 files in each file list are required for best performance.
@@ -319,8 +350,11 @@ In the TensorFlow test case below, HugeCTR shows up to 114x speedup to a CPU ser
 
 ## Reference
 [1] Wide and Deep Learning: https://arxiv.org/abs/1606.07792
+
 [2] Deep Cross Network: https://arxiv.org/abs/1708.05123
+
 [3] DeepFM: https://arxiv.org/abs/1703.04247 
+
 [4] CriteoLabs: http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/
 
 
