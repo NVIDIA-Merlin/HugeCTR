@@ -151,6 +151,6 @@ typedef struct Data_{
 
 typedef struct Slot_{
   int nnz;
-  T*  keys; //long long or uint
+  long long*  keys; 
 } Slot;
 ```
