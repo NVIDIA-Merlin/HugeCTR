@@ -99,8 +99,7 @@ Configuration file should be a json format file e.g. [simple_sparse_embedding.js
 There are four sessions in a configuration file: "solver", "optimizer", "data", "layers". The sequence of these sessions is not restricted.
 * You can specify the device (or devices), batchsize, model_file.. in `solver` session;
 * and the `optimizer` that will be used in every layer.
-* File list and data set related configurations will be specified under `data` session.
-* Finally, layers should be listed under `layers`. Note that embedders should always be the first layer.
+* Finally, layers should be listed under `layers`. Note that embedders should always be the first layers.
 
 ### Model File ###
 Model file is a binary file that will be loaded for weight initilization.
@@ -129,19 +128,25 @@ A data file (binary) contains a header and data (many samples).
 
 Header Definition:
 ```c
-typedef struct DataSetHeader_{
-  long long number_of_records; //the number of samples in this data file
-  long long label_dim; //dimension of label
-  long long slot_num; //the number of slots in each sample 
-  long long reserved; //reserved for future use
+typedef struct DataSetHeader_ {
+  long long error_check;        //0: no error check; 1: check_num
+  long long number_of_records;  // the number of samples in this data file
+  long long label_dim;          // dimension of label
+  long long dense_dim;          //dimension of dense feature
+  long long slot_num;           //slot_num for each embedding
+  long long reserved[3];        // reserved for future use
 } DataSetHeader;
+
 ```
 
 Data Definition (each sample):
 ```c
 typedef struct Data_{
-  int label[label_dim];
-  Slot slots[slot_num];
+  int length;                   //bytes in this sample (optional: only in check_sum mode )
+  float label[label_dim];       
+  float dense[dense_dim];
+  Slot slots[slot_num];          
+  char checkbits;                //checkbit for this sample (optional: only in checksum mode)
 } Data;
 
 typedef struct Slot_{
