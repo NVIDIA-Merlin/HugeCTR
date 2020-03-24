@@ -59,9 +59,8 @@ class HeapEx {
     int i = id%num_chunks_;
     // thread safe start
     //    std::cout << "free_chunk_checkout start" << tid << std::endl;
-    bool avail = false;
     while (loop_flag_) {
-      avail = ((lower_bits_ & (~higher_bits_)) >> i) & 1;
+      bool avail = ((lower_bits_ & (~higher_bits_)) >> i) & 1;
       if (avail) {
         lower_bits_ &= (~(1u << i));
         *chunk = &chunks_[i];
