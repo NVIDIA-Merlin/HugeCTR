@@ -91,7 +91,8 @@ if max_capacity > 2:
     print("topologies with more than 2 nvlinks at the same edge are not supported.")
     raise SystemExit()
 
-lengths = np.where(capacities <= max_capacity, max_capacity / capacities, 1)
+capacities_non_zero = np.where(capacities == 0, 1.0E-7, capacities)
+lengths = np.where(capacities <= max_capacity, max_capacity / capacities_non_zero, 1)
 # print("lengths:")
 # print(lengths)
 
