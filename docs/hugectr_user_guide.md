@@ -350,6 +350,15 @@ In the TensorFlow test case below, HugeCTR shows up to 114x speedup to a CPU ser
 
 ## Known Issues
 
+* The auto plan file generator doesn't support to generate plan file for 1 GPU system. In this case, user need to manually create the json plan file with the following content:
+` {"type": "all2all", "num_gpus": 1, "main_gpu": 0, "num_steps": 1, "num_chunks": 1, "plan": [[0, 0]], "chunks": [1]} ` and rename the json plan file to the name listed in the HugeCTR configuration file.
+* For 2 GPU system, if there are 2 NVLinks between GPUs, then the auto plan file generator will print some warnings `RuntimeWarning: divide by zero encountered in true_divide`. This will not affact the generated json plan file.
+* The current plan file generator doesn't suppprt the system that is only partially connected by NVLink. That is the system which has NVLink but exists 2 GPUs where data cannot travel through NVLink between them.
+    + Systems such as DGX-1 where some GPU pairs don't have direct NVLink between them are supported because all the GPUs can reach each other by NVLink directly(through NVLink between them) or indirectly(through NVLink from other GPUs).
+* If a system is not a fully-connected NVLink system which is a system where all GPU pairs has the same number of NVLink between them, then the maximum supported NVLinks between any two GPU is 2.
+* User need to set environment variable: `export CUDA_DEVICE_ORDER=PCI_BUS_ID` to ensure that CUDA runtime and driver have consistent ordering of GPUs.
+
+
 ## Reference
 [1] Wide and Deep Learning: https://arxiv.org/abs/1606.07792
 
