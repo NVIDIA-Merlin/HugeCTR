@@ -297,9 +297,9 @@ __global__ void opt_adam_kernel_global(const uint32_t hash_value_index_count_num
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
+      gi += wgrad[sample_index * embedding_vec_size + tid];
     }
-
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
@@ -333,8 +333,10 @@ __global__ void opt_momentum_sgd_kernel_global(uint32_t hash_value_index_count_n
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
+      gi += wgrad[sample_index * embedding_vec_size + tid];
     }
+
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
@@ -397,9 +399,9 @@ __global__ void nesterov_local_update_kernel_global(uint32_t hash_value_index_co
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
+      gi += wgrad[sample_index * embedding_vec_size + tid];
     }
-
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
@@ -419,7 +421,7 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
                                 const uint32_t *hash_value_index_count_offset, 
                                 const float *wgrad,
                                 TypeValueIndex *deltaw_hash_value_index, 
-                                float *deltaw) {
+                                float *deltaw, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -434,7 +436,7 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
       int sample_index = sample_id[offset + i];
       gi += wgrad[sample_index * embedding_vec_size + tid];
     }
-
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
@@ -465,7 +467,7 @@ __global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_nu
                                         const uint32_t *hash_value_index_count_offset, 
                                         const float *wgrad,
                                         TypeValueIndex *deltaw_hash_value_index, 
-                                        float *deltaw) {
+                                        float *deltaw, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -479,7 +481,7 @@ __global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_nu
       int sample_index = sample_id[offset + i];
       gi += wgrad[sample_index * embedding_vec_size + tid];
     }
-
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
@@ -507,7 +509,7 @@ __global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num,
                                     const uint32_t *hash_value_index_count_offset, 
                                     const float *wgrad,
                                     TypeValueIndex *deltaw_hash_value_index, 
-                                    float *deltaw) {
+                                    float *deltaw, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -522,7 +524,7 @@ __global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num,
       int sample_index = sample_id[offset + i];
       gi += wgrad[sample_index * embedding_vec_size + tid];
     }
-
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
