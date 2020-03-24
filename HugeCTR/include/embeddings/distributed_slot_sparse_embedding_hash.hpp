@@ -282,6 +282,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
       opt_params_.push_back(OptParams());
       opt_params_[id].optimizer = embedding_params_.opt_params.optimizer;
       opt_params_[id].lr = embedding_params_.opt_params.lr;
+      opt_params_[id].global_update = embedding_params_.opt_params.global_update;
       switch (embedding_params_.opt_params.optimizer) {
         case 0:  // adam
           opt_m_tensors_.emplace_back(
