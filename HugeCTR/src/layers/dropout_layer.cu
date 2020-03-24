@@ -33,7 +33,7 @@ namespace {
 __global__ void dropout_kernel(const float* in, const float* mask, float* out,
                                const int len, const float rate, const float scale) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
-    out[i] = ((1-mask[i]) >= rate) * in[i] * scale;
+    out[i] = ((1.f-mask[i]) >= rate) * in[i] * scale;
   }
 }
 
