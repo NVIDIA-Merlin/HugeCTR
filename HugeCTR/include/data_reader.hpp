@@ -349,10 +349,11 @@ DataReader<TypeKey>::~DataReader() {
     for (auto& data_reader : data_readers_) {
       data_reader->skip_read();
     }
+    data_collector_->stop();
+
     if (csr_heap_ != nullptr) {
       csr_heap_->break_and_return();
     }
-    data_collector_->stop();
 
     data_collector_thread_.join();
 
