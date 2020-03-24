@@ -58,7 +58,6 @@ endif()
 
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 
-option(USE_TENSORCORE "Use TensorCore for Mixed-Precision" OFF)
 option(VAL_MODE "Validation mode: set determined mode for data reader and csv format for loss print" OFF)
 if (VAL_MODE) 
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DVAL")
@@ -73,43 +72,15 @@ if (SM STREQUAL 75 OR
     SM STREQUAL 61 OR
     SM STREQUAL 60)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM},code=\\\"sm_${SM},compute_${SM}\\\" -rdc=true")
-  if (USE_TENSORCORE) 
-    if (SM STREQUAL 60 OR 
-	SM STREQUAL 61 OR 
-	SM STREQUAL 62)
-      message(FATAL_ERROR "TensorCore can only be used on GPU with SM >= 70")
-    endif()
-    if (NOT SCALER)
-      message(FATAL_ERROR "scaler must be set if USE_TENSORCORE is on.")
-    endif()
-    message(STATUS "Using TensorCore")
-    set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
-  endif()
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")	
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall")
   message(STATUS "-- Assign GPU architecture (sm=${SM})")
-else(USE_TENSORCORE)
+else()
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_60,code=\\\"sm_60,compute_60\\\" -rdc=true")
   message(WARNING "-- Unknown or unsupported GPU architecture (set sm=60)")
 endif()
 
-
-if (USE_TENSORCORE AND SCALER)
-  if (SCALER STREQUAL 128 OR
-      SCALER STREQUAL 256 OR
-      SCALER STREQUAL 512 OR
-      SCALER STREQUAL 1024)
-    set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSCALE_${SCALER}")
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DSCALE_${SCALER}")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DSCALE_${SCALER}")
-    message(STATUS "Setting scale ${SCALER}")
-  else()
-    message(FATAL_ERROR "scaler must be set 128/256/512/1024.")
-  endif()
-endif()
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")

@@ -19,20 +19,8 @@
 namespace {
 
 __global__ void adam_kernel(int len, float* weight, const float* wgrad, float* m, float* v,
-                            float alpha_t, float beta1, float beta2, float epsilon) {
+                            float alpha_t, float beta1, float beta2, float epsilon, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
   if (i < len) {
     float gi = wgrad[i] / scaler;
     float mi = beta1 * m[i] + (1 - beta1) * gi;
@@ -66,7 +54,7 @@ void AdamOptimizer::update(cudaStream_t stream) {
   ++t_;
   const float alpha_t = lr_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
   adam_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, m, v, alpha_t, beta1_, beta2_,
-                                                  epsilon_);
+                                                  epsilon_, scaler_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());

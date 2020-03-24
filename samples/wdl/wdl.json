@@ -2,18 +2,18 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 3000,
+    "max_iter": 30000,
     "gpu": [0],
     "batchsize": 16384,
     "snapshot": 1000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 20,
-    "dense_model_file": "./criteo.model"
+    "eval_batches": 20
   },
   
   "optimizer": {
     "type": "Adam",
+    "global_update": true,
     "adam_hparam": {
       "alpha": 0.001,
       "beta1": 0.9,

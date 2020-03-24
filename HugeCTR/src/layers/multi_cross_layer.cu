@@ -544,13 +544,13 @@ std::vector<float> MultiCrossLayer::get_initializer() {
   for (int i = 0; i < num_layers_; i++) {
     // setup weights
     size_t w_size = (weights_[2*i])->get_num_elements();
-    for(int j = 0; j < w_size; j++){
+    for(unsigned int j = 0; j < w_size; j++){
       initializer[w_size_accum + j] = fdata_sim.get_num();
     }
     w_size_accum += w_size;
     // setup bias
     w_size = (weights_[2*i+1])->get_num_elements();
-    for(int j = 0; j < w_size; j++){
+    for(unsigned int j = 0; j < w_size; j++){
       initializer[w_size_accum + j] = 0.f;
     }
     w_size_accum += w_size;

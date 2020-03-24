@@ -225,7 +225,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
     : embedding_params_(embedding_params),
       plan_file_(plan_file),
       Base(row_offsets_tensors, hash_key_tensors, embedding_params.batch_size,
-           embedding_params.slot_num, embedding_params.embedding_vec_size, gpu_resource_group) {
+           embedding_params.slot_num, embedding_params.embedding_vec_size, gpu_resource_group, embedding_params.scaler) {
   try {
     total_gpu_count_ = Base::device_resources_->get_total_gpu_count();
     local_gpu_count_ = Base::device_resources_->size();
@@ -251,7 +251,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 #endif
 
     // for hash_table_value initialization
-    HugeCTR::GaussianDataSimulator<float> fdata_sim(0, 0.05, -0.1, 0.1);
+    HugeCTR::UnifiedDataSimulator<float> fdata_sim(-0.05, 0.05);
     float *h_hash_table_value;
     CK_CUDA_THROW_(cudaMallocHost(
         &h_hash_table_value,
@@ -790,7 +790,9 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::update_params_per_thread(int
                     wgrad_tensors_[tid]->get_ptr(), 
                     deltaw_hash_value_index_tensors_[tid]->get_ptr(),
                     deltaw_tensors_[tid]->get_ptr(), 
-                    hash_table_value_tensors_[tid]->get_ptr());
+		    hash_table_value_tensors_[tid]->get_ptr(),
+		    embedding_params_.scaler
+	  );
                     
   // stream sync on single GPU
   CK_CUDA_THROW_(cudaStreamSynchronize((*Base::device_resources_)[tid]->get_stream()));
