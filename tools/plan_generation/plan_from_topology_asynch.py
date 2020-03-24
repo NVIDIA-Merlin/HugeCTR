@@ -10,21 +10,12 @@ import argparse
 from topology_parser import get_topology_matrix, parse_conf
 
 parser = argparse.ArgumentParser(description="create transfer plan.")
-parser.add_argument("mode", type=str, help="scatter, gather or all2all")
-parser.add_argument("main_gpu", type=int, help="source for scatter or target for gather")
 parser.add_argument("hugectr_conf", type=str, help="path to hugectr json file")
 args=parser.parse_args()
 
 modes = {"scatter":0, "gather":1, "all2all":2}
-if args.mode in modes.keys():
-    mode = args.mode
-else:
-    print("invalid mode")
-    parser.print_help()
-    raise SystemExit
-
-main_gpu = args.main_gpu
-
+mode = "all2all"
+main_gpu = 0
 
 # dgx1 volta: 6 nvlink per gpu
 gpu_list, plan_file = parse_conf(args.hugectr_conf)

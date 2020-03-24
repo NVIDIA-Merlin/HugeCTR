@@ -14,11 +14,13 @@ def parse_conf(conf_file):
             if layer["type"] == "LocalizedSlotSparseEmbeddingHash":
                 plan_files = layer["plan_file"]
                 break
-
-    assert(len(gpu_lists) == len(plan_files))
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    return gpu_lists[rank], plan_files[rank]
+    if isinstance(plan_files,list):
+        assert(len(gpu_lists) == len(plan_files))
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        return gpu_lists[rank], plan_files[rank]
+    else:
+        return gpu_lists, plan_files
 
 
 def normalize_nv_link(lines):
