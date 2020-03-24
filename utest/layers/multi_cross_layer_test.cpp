@@ -29,7 +29,7 @@ using namespace HugeCTR;
 
 class MultiCrossLayerTest {
  private:
-  const float eps = 2;
+  const float eps = 20;
   const int batchsize_;
   const int w_;
   const int layers_;
