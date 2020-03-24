@@ -55,7 +55,7 @@
       "sparse_embedding_hparam": {
         "vocabulary_size": 1737710,
         "load_factor": 0.75,
-        "embedding_vec_size": 17,
+        "embedding_vec_size": 11,
         "combiner": 0
       }
     },
@@ -65,14 +65,14 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 17
+      "leading_dim": 11
     },
 
     {
       "name": "slice1",
       "type": "Slice",
       "bottom": "reshape1",
-      "ranges": [[0,16], [16,17]],
+      "ranges": [[0,10], [10,11]],
       "top": ["slice11", "slice12"]
     },
 
@@ -81,7 +81,7 @@
       "type": "Reshape",
       "bottom": "slice11",
       "top": "reshape2",
-      "leading_dim": 416
+      "leading_dim": 260
     },
 
     {
@@ -104,7 +104,7 @@
       "name": "multiply1",
       "type": "Multiply",
       "bottom": "slice21",
-      "weight_dims": [13, 16],
+      "weight_dims": [13, 10],
       "top": "multiply1"
     },
 
@@ -127,7 +127,7 @@
       "name": "slice3",
       "type": "Slice",
       "bottom": "concat1",
-      "ranges": [[0,624], [0,624]],
+      "ranges": [[0,390], [0,390]],
       "top": ["slice31", "slice32"]
     },
 
@@ -137,7 +137,7 @@
       "bottom": "slice31",
       "top": "fc1",
        "fc_param": {
-        "num_output": 1024
+        "num_output": 400
       }
     },
 
@@ -147,7 +147,7 @@
       "bottom": "fc1",
       "top": "relu1" 
     },
-      
+
     {
       "name": "dropout1",
       "type": "Dropout",
@@ -162,7 +162,7 @@
       "bottom": "dropout1",
       "top": "fc2",
        "fc_param": {
-        "num_output": 1024
+        "num_output": 400
       }
     },
 
@@ -180,12 +180,37 @@
       "bottom": "relu2",
       "top": "dropout2" 
     },
-    
+
     {
       "name": "fc3",
       "type": "InnerProduct",
       "bottom": "dropout2",
       "top": "fc3",
+       "fc_param": {
+        "num_output": 400
+      }
+    },
+
+    {
+      "name": "relu3",
+      "type": "ReLU",
+      "bottom": "fc3",
+      "top": "relu3"     
+    },
+
+    {
+      "name": "dropout3",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu3",
+      "top": "dropout3" 
+    },
+
+    {
+      "name": "fc4",
+      "type": "InnerProduct",
+      "bottom": "dropout3",
+      "top": "fc4",
        "fc_param": {
         "num_output": 1
       }
@@ -196,7 +221,7 @@
      "name": "fmorder2",
      "type": "FmOrder2",
      "bottom": "slice32",
-     "out_dim": 16,
+     "out_dim": 10,
      "top": "fmorder2"
     },
 
@@ -228,7 +253,7 @@
     {
       "name": "add",
       "type": "Add",
-      "bottom": ["fc3", "reducesum1", "reducesum2"],
+      "bottom": ["fc4", "reducesum1", "reducesum2"],
       "top": "add"
     },
     
