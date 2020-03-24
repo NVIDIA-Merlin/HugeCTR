@@ -70,6 +70,11 @@ struct DataReaderSparseParam{
   int slot_num;
 };
 
+struct NameID{
+  std::string file_name;
+  unsigned int id;
+};
+
 /**
  * An internal exception to carry the error code.
  * This exception inherits std::runtime_error and

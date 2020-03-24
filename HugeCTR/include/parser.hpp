@@ -42,13 +42,15 @@ class Parser {
  private:
   nlohmann::json config_; /**< configure file. */
   int batch_size_;        /**< batch size. */
-
+  const bool use_mixed_precision_{false};
+  const float scaler_{1.f};
  public:
   /**
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
-  Parser(const std::string& configure_file, int batch_size) : batch_size_(batch_size) {
+  Parser(const std::string& configure_file, int batch_size, bool use_mixed_precision=false, 
+	 float scaler=1.f) : batch_size_(batch_size), use_mixed_precision_(use_mixed_precision), scaler_(scaler) {
     try {
       std::ifstream file(configure_file);
       if (!file.is_open()) {
@@ -101,6 +103,8 @@ struct SolverParser {
   std::vector<std::string> embedding_files;    /**< name of embedding file */
   std::vector<int> device_list;                /**< device_list */
   std::shared_ptr<const DeviceMap> device_map; /**< device map */
+  bool use_mixed_precision;
+  float scaler;
   SolverParser(std::string configure_file);
 };
 

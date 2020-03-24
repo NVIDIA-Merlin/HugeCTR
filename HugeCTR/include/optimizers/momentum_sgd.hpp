@@ -40,8 +40,8 @@ class MomentumSGD : public Optimizer {
    */
   MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight,
               const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
-              float learning_rate, float momentum_factor)
-      : Optimizer(weight, wgrad, device_id, learning_rate), momentum_factor_(momentum_factor) {
+              float learning_rate, float momentum_factor, float scaler = 1.f)
+    : Optimizer(weight, wgrad, device_id, learning_rate, scaler), momentum_factor_(momentum_factor) {
     momentum_.reset(new GeneralBuffer<float>(weight_->get_num_elements(), device_id_));
     momentum_->reset_sync();
   }

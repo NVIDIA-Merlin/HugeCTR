@@ -135,7 +135,7 @@ int main(int argc, char* argv[]){
       }
       std::vector<std::string> vec_string;
       split(line, ' ', vec_string);
-      if(vec_string.size() != KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim) //first one is label
+      if(vec_string.size() != (unsigned int)(KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim)) //first one is label
         {
           std::cerr << "vec_string.size() != KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim" << std::endl;
           std::cerr << line << std::endl;

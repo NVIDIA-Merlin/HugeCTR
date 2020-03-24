@@ -19,20 +19,8 @@
 namespace {
 
 __global__ void nesterov_kernel(int len, float* weight, const float* wgrad, float* accum, float lr,
-                                float mu) {
+                                float mu, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
   if (i < len) {
     float accum_old = accum[i];
     float accum_new = mu * accum_old - lr * wgrad[i] / scaler;
@@ -56,7 +44,7 @@ void NesterovOptimizer::update(cudaStream_t stream) {
   const float* wgrad = wgrad_->get_ptr_with_offset(0);
   float* accum = accum_.get_ptr_with_offset(0);
 
-  nesterov_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, accum, lr_, mu_);
+  nesterov_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, accum, lr_, mu_, scaler_);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
