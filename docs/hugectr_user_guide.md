@@ -348,6 +348,7 @@ In the TensorFlow test case below, HugeCTR shows up to 114x speedup to a CPU ser
 <div align=center><img width = '800' height ='400' src ="user_guide_src/DCN.JPG"/></div>
 <div align=center>Fig. 9 WDL performance and loss curve comparsion with TensorFlow v2.0</div>
 
+## Known Issues
 
 ## Reference
 [1] Wide and Deep Learning: https://arxiv.org/abs/1606.07792
