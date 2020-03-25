@@ -35,21 +35,24 @@ namespace {
 
 //---------------------------------------------------------------------------------------
 // global params for all testing 
-const std::vector<int> device_list = {0,1};
-// const std::vector<int> device_list = {0,1,2,3};
+const std::vector<int> device_list = {0};
+// const std::vector<int> device_list = {0,1};
 //const std::vector<int> device_list = {0,3};
+// const std::vector<int> device_list = {0,1,2,3};
 // const std::vector<int> device_list = {0,1,2,3,4,5,6,7};
-// const std::vector<int> device_list = {0};
-const int batch_num = 1;  // can not more than 32
-const int batchsize = 8192; // for testing on Prom cluster, the bs can not be less than 40960
+const int batch_num = 2;  // can not more than 32
+const int batchsize = 1024;
 const long long num_records = batchsize * batch_num;
-const int slot_num = 6; 
-const int max_nnz_per_slot = 1;
+const int slot_num = 26; 
+const int max_nnz_per_slot = 10;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
 const long long vocabulary_size = 100;
-const int embedding_vec_size = 4;
+const int embedding_vec_size = 16;
 const int combiner = 0;   // 0-sum, 1-mean
-const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
+const int optimizer = 2;  // 0-adam, 1-momentum_sgd, 2-nesterov
+const bool global_update = true; // true-embedding table global update; fase-embedding table local update 
+// const bool global_update = false;
+const float scaler = 1.0f; // used in mixed precision training 
 const float lr = 0.01;
 const long long label_dim = 1;
 const long long dense_dim = 0;
@@ -66,11 +69,12 @@ const int num_files = 1;
 const Check_t CHK = Check_t::Sum; // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
-//const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); // for device_list {0,3} testing
-const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json"); // for device_list {0,3} testing
+
+const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); // for device_list {0} testing
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json"); // for device_list {0,3} testing
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); // for device_list {0,3} testing
 // const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json"); // for device_list {0,3} testing
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); // for device_list {0} testing
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -510,16 +514,16 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
 
-  const OptParams opt_params = {optimizer, lr, hyper_params};
+  const OptParams opt_params = {optimizer, lr, hyper_params, global_update};
 
   const SparseEmbeddingHashParams embedding_params = {
       batchsize, vocabulary_size, load_factor, embedding_vec_size, 
-      max_feature_num, slot_num, combiner, opt_params};
+      max_feature_num, slot_num, combiner, opt_params, scaler};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
-#ifdef ENABLE_MPI
   test::mpi_init();
+#ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 #endif
@@ -562,7 +566,8 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   //                                                      embedding_params, plan_file, gpu_resource_group);
 
 
-  Embedding<T> *embedding = EmbeddingCreator::create_localized_sparse_embedding_hash(data_reader->get_row_offsets_tensors(),
+  Embedding<T> *embedding = EmbeddingCreator::create_localized_sparse_embedding_hash(
+                  data_reader->get_row_offsets_tensors(),
 								   data_reader->get_value_tensors(),
                    embedding_params, plan_file, gpu_resource_group);
 
@@ -610,7 +615,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   SparseEmbeddingHashCpu<T> *embedding_cpu = new SparseEmbeddingHashCpu<T>(
     batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, 
     label_dim, dense_dim, CHK, num_records, combiner, optimizer, lr, 
-    file_list_name, hash_table_file_name, SparseEmbedding_t::Localized);
+    file_list_name, hash_table_file_name, SparseEmbedding_t::Localized, global_update);
 
   float *embedding_feature_from_cpu = embedding_cpu->get_forward_results();
   float *wgrad_from_cpu = embedding_cpu->get_backward_results();
@@ -639,8 +644,6 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
     // GPU forward
     printf("Rank%d: embedding->forward()\n", pid);
     embedding->forward();
-
-    // while(1) {}
 
     // check the result of forward
     printf("Rank%d: embedding->get_forward_results()\n", pid);
@@ -747,6 +750,8 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
 
     printf("Rank%d: Round %d end:\n", pid, i);
   }
+
+  test::mpi_finialize();
 
   // release resources
   free(embedding_feature_from_gpu);
