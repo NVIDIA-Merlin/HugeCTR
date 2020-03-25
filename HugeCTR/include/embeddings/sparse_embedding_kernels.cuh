@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -258,7 +258,7 @@ __global__ void value_count_kernel_2(int nnz,
   }
 }
 
-__global__ void adam_update_kernel( const int embedding_vec_size,
+__global__ void adam_update_kernel_global( const int embedding_vec_size,
 				    const int table_size, //vocabulary size / factor
 				    const AdamOptHyperParams adam,
 				    float *hash_table_value) {
@@ -276,26 +276,15 @@ __global__ void adam_update_kernel( const int embedding_vec_size,
 
 // calculate weights update value(deltaw) by adam opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
-                                const int embedding_vec_size, 
-                                const AdamOptHyperParams adam,
-                                const TypeKey *sample_id,
-                                const TypeValueIndex *hash_value_index_sort,
-                                const uint32_t *hash_value_index_count_offset, 
-                                const float *wgrad) {
+__global__ void opt_adam_kernel_global(const uint32_t hash_value_index_count_num,
+				       const int embedding_vec_size, 
+				       const AdamOptHyperParams adam,
+				       const TypeKey *sample_id,
+				       const TypeValueIndex *hash_value_index_sort,
+				       const uint32_t *hash_value_index_count_offset, 
+				       const float *wgrad, 
+				       const float scaler) {
 
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -308,9 +297,9 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
+      gi += wgrad[sample_index * embedding_vec_size + tid];
     }
-
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
@@ -323,27 +312,15 @@ __global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
 
 // calculate weights update value(deltaw) by momentum_sgd opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num, 
-                                        int embedding_vec_size, 
-                                        float lr,
-                                        const MomentumSgdOptHyperParams momentum, 
-				        const TypeKey *sample_id,
-                                        const TypeValueIndex *hash_value_index_sort, 
-					const uint32_t *hash_value_index_count_offset,
-					const float *wgrad) {
-
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
+__global__ void opt_momentum_sgd_kernel_global(uint32_t hash_value_index_count_num, 
+					       int embedding_vec_size, 
+					       float lr,
+					       const MomentumSgdOptHyperParams momentum, 
+					       const TypeKey *sample_id,
+					       const TypeValueIndex *hash_value_index_sort, 
+					       const uint32_t *hash_value_index_count_offset,
+					       const float *wgrad,
+					       const float scaler) {
 
   int bid = blockIdx.x;
   int tid = threadIdx.x;
@@ -356,8 +333,10 @@ __global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num,
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
+      gi += wgrad[sample_index * embedding_vec_size + tid];
     }
+
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
@@ -366,10 +345,10 @@ __global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num,
   }
 }
 
-__global__ void momentum_sgd_update_kernel( const int embedding_vec_size,
-					    const int table_size, //vocabulary size / factor
-					    const MomentumSgdOptHyperParams momentum, 
-					    float *hash_table_value) {
+__global__ void momentum_sgd_update_kernel_global( const int embedding_vec_size,
+						   const int table_size, //vocabulary size / factor
+						   const MomentumSgdOptHyperParams momentum, 
+						   float *hash_table_value) {
   const int TILE_SIZE = blockDim.x*gridDim.x;
   for(  int feature_index = blockIdx.x*blockDim.x + threadIdx.x; 
 	feature_index < table_size*embedding_vec_size; feature_index += TILE_SIZE){
@@ -380,10 +359,10 @@ __global__ void momentum_sgd_update_kernel( const int embedding_vec_size,
 }
 
 
-__global__ void nesterov_global_update_kernel( const int embedding_vec_size,
-					const int table_size, //vocabulary size / factor
-					const NesterovOptHyperParams nesterov, 
-					float *hash_table_value) {
+__global__ void nesterov_global_update_kernel_global( const int embedding_vec_size,
+					       const int table_size, //vocabulary size / factor
+					       const NesterovOptHyperParams nesterov, 
+					       float *hash_table_value) {
   const int TILE_SIZE = blockDim.x*gridDim.x;
   for(  int feature_index = blockIdx.x*blockDim.x + threadIdx.x; 
 	feature_index < table_size*embedding_vec_size; feature_index += TILE_SIZE){
@@ -396,29 +375,17 @@ __global__ void nesterov_global_update_kernel( const int embedding_vec_size,
 
 // calculate weights update value(deltaw) by nesterov opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void nesterov_local_update_kernel(uint32_t hash_value_index_count_num, 
-					int embedding_vec_size, 
-					float lr,
-					const NesterovOptHyperParams nesterov, 
-					const TypeKey *sample_id,
-					const TypeValueIndex *hash_value_index_sort, 
-					const uint32_t *hash_value_index_count_offset, 
-					const float *wgrad,
-					float *hash_table_value) {
+__global__ void nesterov_local_update_kernel_global(uint32_t hash_value_index_count_num, 
+						    int embedding_vec_size, 
+						    float lr,
+						    const NesterovOptHyperParams nesterov, 
+						    const TypeKey *sample_id,
+						    const TypeValueIndex *hash_value_index_sort, 
+						    const uint32_t *hash_value_index_count_offset, 
+						    const float *wgrad,
+						    float *hash_table_value,
+						    const float scaler) {
   
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
-
 
   int bid = blockIdx.x;
   int tid = threadIdx.x;
@@ -432,9 +399,9 @@ __global__ void nesterov_local_update_kernel(uint32_t hash_value_index_count_num
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid] / scaler;
+      gi += wgrad[sample_index * embedding_vec_size + tid];
     }
-
+    gi = gi / scaler;
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
@@ -442,6 +409,160 @@ __global__ void nesterov_local_update_kernel(uint32_t hash_value_index_count_num
     hash_table_value[feature_index] -= (1+nesterov.mu)*(lr * gi);
   }
 }
+
+
+// calculate weights update value(deltaw) by adam opitimizer
+template <typename TypeKey, typename TypeValueIndex>
+__global__ void opt_adam_kernel(const uint32_t hash_value_index_count_num,
+                                const int embedding_vec_size, 
+                                const AdamOptHyperParams adam,
+                                const TypeKey *sample_id,
+                                const TypeValueIndex *hash_value_index_sort,
+                                const uint32_t *hash_value_index_count_offset, 
+                                const float *wgrad,
+                                TypeValueIndex *deltaw_hash_value_index, 
+                                float *deltaw, float scaler) {
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+
+  if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
+    //uint32_t sample_num = hash_value_index_count[bid];
+    uint32_t sample_num = hash_value_index_count_offset[bid+1] - hash_value_index_count_offset[bid];
+
+    // accumulate the wgrads for the corresponding embedding vector
+    float gi = 0.0f;
+    uint32_t offset = hash_value_index_count_offset[bid];
+    for (int i = 0; i < sample_num; i++) {
+      int sample_index = sample_id[offset + i];
+      gi += wgrad[sample_index * embedding_vec_size + tid];
+    }
+    gi = gi / scaler;
+    // compute the grad of the weights and update it
+    TypeValueIndex row_index = hash_value_index_sort[offset];
+    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    float mi = adam.beta1 * adam.m_ptr[feature_index] + (1.0f - adam.beta1) * gi;
+    float vi = adam.beta2 * adam.v_ptr[feature_index] + (1.0f - adam.beta2) * gi * gi;
+    adam.m_ptr[feature_index] = mi;
+    adam.v_ptr[feature_index] = vi;
+    float weight_diff = -adam.alpha_t * mi / (sqrtf(vi) + adam.epsilon);
+
+    // save weights diff
+    deltaw[bid * embedding_vec_size + tid] = weight_diff;
+
+    // save hash value_indexs(corresponding to deltaw)
+    if (tid == 0) {
+      deltaw_hash_value_index[bid] = row_index;
+    }
+  }
+}
+
+// calculate weights update value(deltaw) by momentum_sgd opitimizer
+template <typename TypeKey, typename TypeValueIndex>
+__global__ void opt_momentum_sgd_kernel(const uint32_t hash_value_index_count_num, 
+                                        const int embedding_vec_size, 
+                                        const float lr,
+                                        const MomentumSgdOptHyperParams momentum, 
+                                        const TypeKey *sample_id,
+                                        const TypeValueIndex *hash_value_index_sort, 
+                                        const uint32_t *hash_value_index_count_offset, 
+                                        const float *wgrad,
+                                        TypeValueIndex *deltaw_hash_value_index, 
+                                        float *deltaw, float scaler) {
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+
+  if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
+    //    uint32_t sample_num = hash_value_index_count[bid];
+    uint32_t sample_num = hash_value_index_count_offset[bid+1] - hash_value_index_count_offset[bid];
+    // accumulate the wgrads for the corresponding embedding vector
+    float gi = 0.0f;
+    uint32_t offset = hash_value_index_count_offset[bid];
+    for (int i = 0; i < sample_num; i++) {
+      int sample_index = sample_id[offset + i];
+      gi += wgrad[sample_index * embedding_vec_size + tid];
+    }
+    gi = gi / scaler;
+    // compute the grad of the weights and update it
+    TypeValueIndex row_index = hash_value_index_sort[offset];
+    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    float mo = momentum.factor * momentum.momentum_ptr[feature_index] - lr * gi;
+    momentum.momentum_ptr[feature_index] = mo;
+
+    // save weights diff
+    deltaw[bid * embedding_vec_size + tid] = mo;
+
+    // save hash value_indexs(corresponding to deltaw)
+    if (tid == 0) {
+      deltaw_hash_value_index[bid] = row_index;
+    }
+  }
+}
+
+// calculate weights update value(deltaw) by nesterov opitimizer
+template <typename TypeKey, typename TypeValueIndex>
+__global__ void opt_nesterov_kernel(const uint32_t hash_value_index_count_num, 
+                                    const int embedding_vec_size, 
+                                    const float lr,
+                                    const NesterovOptHyperParams nesterov, 
+                                    const TypeKey *sample_id,
+                                    const TypeValueIndex *hash_value_index_sort, 
+                                    const uint32_t *hash_value_index_count_offset, 
+                                    const float *wgrad,
+                                    TypeValueIndex *deltaw_hash_value_index, 
+                                    float *deltaw, float scaler) {
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+
+  if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
+    //    uint32_t sample_num = hash_value_index_count[bid];
+    uint32_t sample_num = hash_value_index_count_offset[bid+1] - hash_value_index_count_offset[bid];
+
+    // accumulate the wgrads for the corresponding embedding vector
+    float gi = 0.0f;
+    uint32_t offset = hash_value_index_count_offset[bid];
+    for (int i = 0; i < sample_num; i++) {
+      int sample_index = sample_id[offset + i];
+      gi += wgrad[sample_index * embedding_vec_size + tid];
+    }
+    gi = gi / scaler;
+    // compute the grad of the weights and update it
+    TypeValueIndex row_index = hash_value_index_sort[offset];
+    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    float accm_old = nesterov.accm_ptr[feature_index];
+    float accm_new = nesterov.mu * accm_old - lr * gi;
+    nesterov.accm_ptr[feature_index] = accm_new;
+    float weight_diff = -nesterov.mu * accm_old + (1.0f + nesterov.mu) * accm_new;
+
+    // save weights diff
+    deltaw[bid * embedding_vec_size + tid] = weight_diff;
+
+    // save hash value_indexs(corresponding to deltaw)
+    if (tid == 0) {
+      deltaw_hash_value_index[bid] = row_index;
+    }
+  }
+}
+
+// update embedding table(weights) by deltaw
+template <typename TypeValueIndex>
+__global__ void update_kernel(const uint32_t hash_value_index_count_num,
+                              const int embedding_vec_size,
+                              const TypeValueIndex *deltaw_hash_value_index, 
+                              const float *deltaw,
+                              float *hash_table_value) {
+  int tid = threadIdx.x;
+  int bid = blockIdx.x;
+
+  if ((bid < hash_value_index_count_num) && (tid < embedding_vec_size)) {
+    TypeValueIndex value_index = deltaw_hash_value_index[bid];
+    long long feature_index = value_index * embedding_vec_size + tid;
+    hash_table_value[feature_index] += deltaw[bid * embedding_vec_size + tid];
+  }
+}
+
+
+
+
 
 
 // memset liner data to the buffer

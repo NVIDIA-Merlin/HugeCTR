@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ class Embedding {
   const Tensors<TypeKey> value_tensors_;       /**< The value tensors of the input data. */
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< The GPU device resources. */
   const int batchsize_; /**< The batch size of the input data for the current training process. */
+  const float scaler_;
  public:
   /**
    * The constructor of Embedding class.
@@ -60,7 +61,7 @@ class Embedding {
    */
   Embedding(const Tensors<TypeKey>& row_offsets_tensors, const Tensors<TypeKey>& value_tensors,
             int batchsize, int slot_num, int embedding_vec_size,
-            const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+            const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, float scaler);
   /**
    * The declaration for indicating that there is no default copy construtor in this class.
    */
@@ -138,11 +139,13 @@ Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
                               int batchsize, 
                               int slot_num,
                               int embedding_vec_size,
-                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group)
+                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+			      float scaler)
     : row_offsets_tensors_(row_offsets_tensors),
       value_tensors_(value_tensors),
       device_resources_(gpu_resource_group),
-      batchsize_(batchsize) {
+      batchsize_(batchsize),
+      scaler_(scaler){
   try {
     // Error check
     if (batchsize < 1 || slot_num < 1 || embedding_vec_size < 1) {
@@ -207,6 +210,7 @@ typedef struct OptParams_ {
   int optimizer;  // 0-adam, 1-momentum sgd, 2-nesterov
   float lr;
   OptHyperParams hyperparams;
+  bool global_update;
 } OptParams;
 
 typedef struct SparseEmbeddingHashParams_ {
@@ -219,6 +223,7 @@ typedef struct SparseEmbeddingHashParams_ {
   int slot_num;            // slot number
   int combiner;            // 0-sum, 1-mean
   OptParams opt_params;    // optimizer params
+  float scaler;
 } SparseEmbeddingHashParams;
 
 // Embedding should be register here

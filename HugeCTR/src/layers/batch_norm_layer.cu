@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weig
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION),
       cudnn_handle_(cudnn_handle) {
+  CudaDeviceContext context(get_device_id());
   const auto& in_tensor_dim = in_tensor->get_dims();
   const auto& out_tensor_dim = out_tensor->get_dims();
   TensorFormat_t in_format = in_tensor->get_format();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]){
       }
       std::vector<std::string> vec_string;
       split(line, ' ', vec_string);
-      if(vec_string.size() != KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim) //first one is label
+      if(vec_string.size() != (unsigned int)(KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim)) //first one is label
         {
           std::cerr << "vec_string.size() != KEYS_WIDE_MODEL+KEYS_DENSE_MODEL+dense_dim+label_dim" << std::endl;
           std::cerr << line << std::endl;

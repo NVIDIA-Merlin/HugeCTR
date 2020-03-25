@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,8 @@ class Network {
   friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
 				 const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
                                  int batch_size,
-                                 int device_id, const std::shared_ptr<const GPUResource>& gpu_resource);
+                                 int device_id, const std::shared_ptr<const GPUResource>& gpu_resource, 
+				 bool use_mixed_precision, float scaler);
 
  private:
   Tensors<float> tensors_;                            /**< vector of tensors */
@@ -100,9 +101,9 @@ class Network {
   std::string get_no_trained_params_in_string();
 
   /**
-   * Read parameters from fstream.
+   * Read parameters from model_file.
    */
-  void upload_params_to_device(std::ifstream& params_stream);
+  void upload_params_to_device(const std::string& model_file);
 
   /**
    * Writting paramters to cpu buffer.
@@ -117,7 +118,12 @@ class Network {
   /**
    * Init parameters and write to fstream.
    */
-  void init_params(std::ofstream& out_stream);
+  void init_params(const std::string& dense_name);
+
+  /**
+   * Copy parameters from a network.
+   */
+  void copy_params(const Network& n);
 
   /**
    * Exchange wgrad between gpus.

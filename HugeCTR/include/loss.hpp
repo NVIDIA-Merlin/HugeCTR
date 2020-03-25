@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ class Loss {
    * @brief
    * Forward and backward passes are fused into one function.
    *
-   * When WMMA is turned on, the scaler set during the compiling process is multiplied to the loss
    * gradient values to prevent the overflow issue.
    *
    * @param stream CUDA stream where the fused_loss_computation is executed in

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -426,6 +426,7 @@ public:
    * @param deltaw_hash_value_index the pointer of deltaw's corresponding hash value_index
    * @param deltaw the pointer of deltaw, which is used to update the hash table value
    * @param hash_table_value the pointer of hash table value, which will be updated
+   * @param scaler scaler used in mixed precision training
    */
   template <typename TypeHashKey, typename TypeHashValueIndex>
   void update_params(cudaStream_t stream, 
@@ -457,7 +458,8 @@ public:
                     const float *wgrad,
                     TypeHashValueIndex *deltaw_hash_value_index, 
                     float *deltaw, 
-                    float *hash_table_value) {
+         	    float *hash_table_value,
+		    float scaler ) {
     try {
       // step1: expand sample IDs
       dim3 blockSize(64, 1, 1);
@@ -536,39 +538,80 @@ public:
       // deltaw_hash_value_index
       blockSize.x = embedding_vec_size;
       gridSize.x = max(1, hash_hash_value_index_count_num);
-      switch (opt_params.optimizer) {
+
+      if(opt_params.global_update){
+	switch (opt_params.optimizer) {
         case 0:  // adam
           opt_params.hyperparams.adam.alpha_t =
-              opt_params.lr *
-              sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
-              (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+	    opt_params.lr *
+	    sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
+	    (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
 	  //update target mi and vi
-          opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
-              hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-              sample_id_sort, hash_value_index_sort, 
-              hash_value_index_count_offset, wgrad);
+          opt_adam_kernel_global<<<gridSize, blockSize, 0, stream>>>(
+	    hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+	    sample_id_sort, hash_value_index_sort, 
+	    hash_value_index_count_offset, wgrad, scaler);
 	  //all update according to the mi vi
-	  adam_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam, hash_table_value);
+	  adam_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam, hash_table_value);
+          break;
+        case 1:  // momentum sgd
+          opt_momentum_sgd_kernel_global<<<gridSize, blockSize, 0, stream>>>(
+	    hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+	    opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
+	    hash_value_index_count_offset, wgrad, scaler);
+
+	  momentum_sgd_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum , hash_table_value);
+
+          break;
+        case 2:  // nesterov
+	  nesterov_global_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov, hash_table_value);
+          nesterov_local_update_kernel_global<<<gridSize, blockSize, 0, stream>>>(
+	    hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+	    opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
+	    hash_value_index_count_offset, wgrad, hash_table_value, scaler);
+          break;
+        default:
+          CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+	}
+      }
+      else{
+	switch (opt_params.optimizer) {
+        case 0:  // adam
+          opt_params.hyperparams.adam.alpha_t =
+	    opt_params.lr *
+	    sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
+	    (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+
+          opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
+	     hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+	     sample_id_sort, hash_value_index_sort, 
+	     hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw, scaler);
           break;
         case 1:  // momentum sgd
           opt_momentum_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
               opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
-              hash_value_index_count_offset, wgrad);
-
-	  momentum_sgd_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum , hash_table_value);
-
+              hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
+              (float *)deltaw, scaler);
           break;
         case 2:  // nesterov
-	  nesterov_global_update_kernel<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov, hash_table_value);
-          nesterov_local_update_kernel<<<gridSize, blockSize, 0, stream>>>(
+          opt_nesterov_kernel<<<gridSize, blockSize, 0, stream>>>(
 	      hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-              opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-              hash_value_index_count_offset, wgrad, hash_table_value);
+	      opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
+	      hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
+	      (float *)deltaw, scaler);
           break;
         default:
           CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
-      }
+	}
+
+	// step6: update hash_table_value by deltaw
+	blockSize.x = embedding_vec_size;
+	gridSize.x = max(1, hash_hash_value_index_count_num);
+	update_kernel<TypeHashValueIndex>
+          <<<gridSize, blockSize, 0, stream>>>(hash_hash_value_index_count_num, embedding_vec_size,
+					       deltaw_hash_value_index, deltaw, hash_table_value);
+      }//else
 
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;

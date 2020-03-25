@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<flo
                                          const std::shared_ptr<Tensor<float>>& in_tensor,
                                          const std::shared_ptr<Tensor<float>>& out_tensor,
                                          TensorFormat_t weight_format,
-                                         cublasHandle_t const& cublas_handle, int device_id)
-    : cublas_handle_(cublas_handle), Layer(device_id) {
+                                         cublasHandle_t const& cublas_handle, int device_id, bool use_mixed_precision)
+: cublas_handle_(cublas_handle), Layer(device_id), use_mixed_precision_(use_mixed_precision) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor->get_dims();
@@ -131,11 +131,12 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
   float alpha = 1.0f, beta = 0.0f;
 
   cublasGemmAlgo_t algo;
-#ifdef WMMA
-  algo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
-#else
-  algo = CUBLAS_GEMM_DEFAULT;
-#endif
+  if(use_mixed_precision_){
+    algo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
+  }
+  else{
+    algo = CUBLAS_GEMM_DEFAULT;
+  }
 
   if ((weights_[0])->get_format() == TensorFormat_t::HW &&
       in_tensor->get_format() == TensorFormat_t::HW &&
@@ -205,11 +206,12 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
   k = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
 
   cublasGemmAlgo_t algo;
-#ifdef WMMA
-  algo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
-#else
-  algo = CUBLAS_GEMM_DEFAULT;
-#endif
+  if(use_mixed_precision_){
+    algo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
+  }
+  else{
+    algo = CUBLAS_GEMM_DEFAULT;
+  }
 
   float alpha = 1.0f, beta_w = 1.0f, beta_x = 0.0f;
   // row-major

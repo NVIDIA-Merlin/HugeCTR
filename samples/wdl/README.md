@@ -42,8 +42,7 @@ $ cp ./huge_ctr ../../samples/wdl/
 
 3. Run huge_ctr
 ```shell
-$ ./huge_ctr --model-init ./wdl.json
-$ ./huge_ctr --train ./wdl.json
+$ ./huge_ctr --train ./dcn.json
 ```
 
 

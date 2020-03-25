@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,11 @@ public:
   virtual bool is_open() noexcept{
     return src_.is_open();
   }
+
+  unsigned int get_source_counter(){
+    return src_.get_counter();
+  }
+
 };
 
 } //namespace HugeCTR

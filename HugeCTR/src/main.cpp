@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@
 #endif
 
 static const std::string simple_help =
-    "usage: huge_ctr.exe [--train] [--model-init] [--help] [--version] config_file.json\n";
+    "usage: huge_ctr.exe [--train] [--help] [--version] config_file.json\n";
 
-enum class CmdOptions_t { Train, ModelInit, Version, Help };
+enum class CmdOptions_t { Train, Version, Help };
 
 int main(int argc, char* argv[]) {
   try {
@@ -50,7 +50,6 @@ int main(int argc, char* argv[]) {
 #endif
     const std::map<std::string, CmdOptions_t> CMD_OPTIONS_TYPE_MAP = {
         {"--train", CmdOptions_t::Train},
-        {"--model-init", CmdOptions_t::ModelInit},
         {"--help", CmdOptions_t::Help},
         {"--version", CmdOptions_t::Version}};
 
@@ -80,22 +79,6 @@ int main(int argc, char* argv[]) {
         }
         break;
       }
-      case CmdOptions_t::ModelInit: {
-        if (argc != 3 && pid == 0) {
-          std::cerr << "expect config file." << std::endl;
-          std::cerr << simple_help;
-          return -1;
-        }
-        std::string config_file(argv[2]);
-        if (pid == 0) {
-          std::cout << "Config file: " << config_file << std::endl;
-        }
-        HugeCTR::SolverParser solver_config(config_file);
-        HugeCTR::Session session_instance(solver_config.batchsize, config_file,
-                                          solver_config.device_map);
-        session_instance.init_params(solver_config.model_file);
-        break;
-      }
       case CmdOptions_t::Train: {
         if (argc != 3 && pid == 0) {
           std::cerr << "expect config file." << std::endl;
@@ -107,11 +90,8 @@ int main(int argc, char* argv[]) {
         if (pid == 0) {
           std::cout << "Config file: " << config_file << std::endl;
         }
-        HugeCTR::SolverParser solver_config(config_file);
-        HugeCTR::Session session_instance(solver_config.batchsize, solver_config.model_file,
-                                          solver_config.embedding_files, config_file,
-                                          solver_config.device_map);
-
+        HugeCTR::Session session_instance(config_file);
+	const HugeCTR::SolverParser& solver_config = session_instance.get_solver_config();
         HugeCTR::Timer timer;
         timer.start();
 

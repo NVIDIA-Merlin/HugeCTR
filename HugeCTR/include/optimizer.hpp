@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,8 +35,9 @@ class Optimizer {
    * @param learning_rate learning rate
    */
   Optimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
-            const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id, float learning_rate)
-      : device_id_(device_id), weight_(weight), wgrad_(wgrad), lr_(learning_rate) {
+            const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id, float learning_rate, 
+	    float scaler)
+    : device_id_(device_id), weight_(weight), wgrad_(wgrad), lr_(learning_rate), scaler_(scaler) {
     try {
       if (weight_->get_size() != wgrad_->get_size()) {
         CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
@@ -72,6 +73,7 @@ class Optimizer {
   std::shared_ptr<GeneralBuffer<float>> weight_;
   std::shared_ptr<GeneralBuffer<float>> wgrad_;
   float lr_;  // learning rate
+  const float scaler_;
 };
 
 }  // namespace HugeCTR
