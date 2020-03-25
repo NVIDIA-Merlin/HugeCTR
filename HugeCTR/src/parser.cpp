@@ -929,11 +929,11 @@ SolverParser::SolverParser(std::string configure_file) {
     }
     FIND_AND_ASSIGN_INT_KEY(eval_interval, j);
     FIND_AND_ASSIGN_INT_KEY(eval_batches, j);
-    if(has_key_(j, "sparse_model_files")){
-      auto j_embedding_files = get_json(j, "sparse_model_files");
+    if(has_key_(j, "sparse_model_file")){
+      auto j_embedding_files = get_json(j, "sparse_model_file");
       if(j_embedding_files.is_array()) {
-	for(unsigned int i = 0; i < j_embedding_files; i++){
-	  embedding_files.push_back(j_embedding_files[i].get<std::string>());
+	for(auto j_embedding_tmp: j_embedding_files){
+	  embedding_files.push_back(j_embedding_tmp.get<std::string>());
 	}
       } else {
 	embedding_files.push_back(get_value_from_json<std::string>(j, "sparse_model_file"));
