@@ -18,6 +18,7 @@ Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challen
 and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
 
 ```shell
+# The preprocessing can take 1-4 hours based on the system configuration.
 $ cd ../../tools/criteo_script/
 $ bash preprocess.sh dcn 1 0
 $ cd ../../samples/dcn/
