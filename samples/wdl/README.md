@@ -37,13 +37,12 @@ $ ./criteo2hugectr ../../tools/criteo_script/val criteo_test/sparse_embedding fi
 
 2. Copy huge_ctr to samples/criteo
 ```shell
-$ cd build/bin/
-$ cp ./huge_ctr ../../samples/wdl/
+$ cp ../../build/bin/huge_ctr ./
 ```
 
 3. Run huge_ctr
 ```shell
-$ ./huge_ctr --train ./dcn.json
+$ ./huge_ctr --train ./wdl.json
 ```
 
 
