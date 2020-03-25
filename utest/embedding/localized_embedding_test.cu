@@ -35,11 +35,11 @@ namespace {
 
 //---------------------------------------------------------------------------------------
 // global params for all testing 
-const std::vector<int> device_list = {0};
+// const std::vector<int> device_list = {0};
 // const std::vector<int> device_list = {0,1};
 //const std::vector<int> device_list = {0,3};
 // const std::vector<int> device_list = {0,1,2,3};
-// const std::vector<int> device_list = {0,1,2,3,4,5,6,7};
+const std::vector<int> device_list = {0,1,2,3,4,5,6,7};
 const int batch_num = 2;  // can not more than 32
 const int batchsize = 1024;
 const long long num_records = batchsize * batch_num;
@@ -49,7 +49,7 @@ const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in 
 const long long vocabulary_size = 100;
 const int embedding_vec_size = 16;
 const int combiner = 0;   // 0-sum, 1-mean
-const int optimizer = 2;  // 0-adam, 1-momentum_sgd, 2-nesterov
+const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
 const bool global_update = true; // true-embedding table global update; fase-embedding table local update 
 // const bool global_update = false;
 const float scaler = 1.0f; // used in mixed precision training 
@@ -70,11 +70,11 @@ const Check_t CHK = Check_t::Sum; // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
 
-const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); // for device_list {0} testing
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); // for device_list {0} testing
 // const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json"); // for device_list {0,3} testing
 // const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); // for device_list {0,3} testing
 // const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json"); // for device_list {0,3} testing
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
+const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -615,7 +615,8 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   SparseEmbeddingHashCpu<T> *embedding_cpu = new SparseEmbeddingHashCpu<T>(
     batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, 
     label_dim, dense_dim, CHK, num_records, combiner, optimizer, lr, 
-    file_list_name, hash_table_file_name, SparseEmbedding_t::Localized, global_update);
+    file_list_name, hash_table_file_name, SparseEmbedding_t::Localized, 
+    global_update, scaler);
 
   float *embedding_feature_from_cpu = embedding_cpu->get_forward_results();
   float *wgrad_from_cpu = embedding_cpu->get_backward_results();
