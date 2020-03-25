@@ -76,8 +76,8 @@ void fm_order2_bprop_cpu(const float * in,
 void fm_order2_test(int batch_size, int slot_num, int emb_vec_size)
 {
   std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>);
-  std::vector<int> in_dims = {batch_size, slot_num, emb_vec_size};
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buf, TensorFormat_t::HSW));
+  std::vector<int> in_dims = {batch_size, slot_num*emb_vec_size};
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buf, TensorFormat_t::HW));
   std::vector<int> out_dims = {batch_size, emb_vec_size};
   std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(out_dims, buf, TensorFormat_t::HW));
   buf->init(0);

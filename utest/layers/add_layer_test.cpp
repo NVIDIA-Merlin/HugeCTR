@@ -71,7 +71,7 @@ void add_test(int batch_size, int slot_num, int embedding_vec_size, int num) {
   std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims_out, in_out_buf, TensorFormat_t::HSW));
   in_out_buf->init(dev_id);
 
-  std::unique_ptr<float*[]> h_d_ins(new (float *[num]));
+  std::unique_ptr<float*[]> h_d_ins(new float *[num]);
   for(int i = 0; i < num; i++) {
     h_d_ins[i] = in_tensors[i]->get_ptr();
   }

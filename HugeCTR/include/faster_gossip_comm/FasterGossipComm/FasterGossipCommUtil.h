@@ -15,16 +15,15 @@
  */
 
 
-#ifndef NV_UTIL_H_
-#define NV_UTIL_H_
+#pragma once
+
 #include <exception>
 #include <string>
 #include "cuda_runtime_api.h"
 
+#define CUDA_CHECK(val) { FasterGossipCommUtil::cuda_check_((val), __FILE__, __LINE__); }
 
-#define CUDA_CHECK(val) { nv::cuda_check_((val), __FILE__, __LINE__); }
-
-namespace nv {
+namespace FasterGossipCommUtil {
 
 class CudaException: public std::runtime_error {
 public:
@@ -45,8 +44,6 @@ inline void cuda_check_(cudaError_t val, const char *file, int line) {
 }
 
 
-
-
 class CudaDeviceRestorer {
 public:
     CudaDeviceRestorer() {
@@ -59,31 +56,4 @@ private:
     int dev_;
 };
 
-
-
-inline int get_dev(const void* ptr) {
-    cudaPointerAttributes attr;
-    CUDA_CHECK(cudaPointerGetAttributes(&attr, ptr));
-    int dev = -1;
-
-#if CUDART_VERSION >= 10000
-    if (attr.type == cudaMemoryTypeDevice)
-#else
-    if (attr.memoryType == cudaMemoryTypeDevice)
-#endif
-    {
-        dev = attr.device;
-    }
-    return dev;
 }
-
-inline void switch_to_dev(const void* ptr) {
-    int dev = get_dev(ptr);
-    if (dev >= 0) {
-        CUDA_CHECK(cudaSetDevice(dev));
-    }
-}
-
-
-}
-#endif

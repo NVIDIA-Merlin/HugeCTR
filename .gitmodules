@@ -10,6 +10,6 @@
 [submodule "ctpl"]
 	path = ctpl
 	url = https://github.com/vit-vit/CTPL.git
-[submodule "HugeCTR/include/faster_gossip_comm/FasterGossipComm/gossip"]
-	path = HugeCTR/include/faster_gossip_comm/FasterGossipComm/gossip
+[submodule "gossip"]
+	path = gossip
 	url = https://github.com/Funatiq/gossip
