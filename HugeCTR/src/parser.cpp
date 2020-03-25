@@ -29,6 +29,8 @@
 #include "HugeCTR/include/layers/multiply_layer.hpp"
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
+#include "HugeCTR/include/layers/add_layer.hpp"
+#include "HugeCTR/include/layers/reduce_sum_layer.hpp"
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
@@ -290,8 +292,9 @@ create_regularizer(const nlohmann::json& j,
       {"Slice", Layer_t::Slice},
       {"Multiply", Layer_t::Multiply},
       {"FmOrder2", Layer_t::FmOrder2},
-      {"MultiCross", Layer_t::MultiCross},
       {"Add", Layer_t::Add},
+      {"ReduceSum", Layer_t::ReduceSum},
+      {"MultiCross", Layer_t::MultiCross}
   };
   const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
@@ -339,15 +342,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
     std::vector<TensorPair> output_tensor_pairs;
 
     switch (layer_type) {
-      case Layer_t::Add: {
-	const auto& add_in_tensors = input_output_info.input;
-	const auto& dims_out = input_output_info.input[0]->get_dims();
-	std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims_out, blobs_buff, TensorFormat_t::HW));
-	output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-	layers.emplace_back(new AddLayer(add_in_tensors, out_tensor, device_id));
-        break;
-      }
-
       case Layer_t::BatchNorm: {
         const auto& bn_in_tensor = input_output_info.input[0];
         // establish out tensor
@@ -560,19 +554,43 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Multiply: {
         const auto& in_tensor = input_output_info.input[0];
 
-        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
-            in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        std::vector<int> weight_dims;
+        auto dims = get_json(j, "weight_dims");
+        assert(dims.is_array());
+        for(auto dim : dims) {
+          weight_dims.emplace_back(dim.get<int>());
+        }
+
+        std::shared_ptr<Tensor<float>>  out_tensor;
+        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff, 
+          in_tensor, out_tensor, weight_dims, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, in_tensor, out_tensor, device_id));
         break;
       }
       case Layer_t::FmOrder2: {
         const auto& in_tensor = input_output_info.input[0];
+        auto out_dim = get_json(j, "out_dim").get<int>();
 
         std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
-            {batch_size, (in_tensor->get_dims())[2]}, blobs_buff, TensorFormat_t::HW));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+            {batch_size, out_dim}, blobs_buff, TensorFormat_t::HW));
         layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        break;
+      }
+      case Layer_t::Add: {
+        auto& in_tensors = input_output_info.input;
+        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+            in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
+        layers.emplace_back(new AddLayer(in_tensors, out_tensor, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        break;
+      }
+      case Layer_t::ReduceSum: {
+        auto& in_tensor = input_output_info.input[0];
+        std::shared_ptr<Tensor<float>> out_tensor;
+        int axis = get_json(j, "axis").get<int>();
+        layers.emplace_back(new ReduceSumLayer(in_tensor, out_tensor, blobs_buff, axis, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }
       default:

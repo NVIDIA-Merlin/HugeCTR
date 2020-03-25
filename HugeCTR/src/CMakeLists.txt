@@ -29,6 +29,7 @@ file(GLOB huge_ctr_src
   layers/multiply_layer.cu
   layers/multi_cross_layer.cu
   layers/add_layer.cu
+  layers/reduce_sum_layer.cu
   loss.cu
   network.cpp
   optimizers/adam_optimizer.cu
@@ -40,7 +41,7 @@ file(GLOB huge_ctr_src
   regularizers/no_regularizer.cu
   parser.cpp
   session.cpp
-  ../include/faster_gossip_comm/FasterGossipComm/gossip/include/plan_parser.cpp 
+  ../../gossip/include/plan_parser.cpp 
   embedding_creator.cu
   data_collector.cu
 )
