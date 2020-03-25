@@ -423,7 +423,7 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
 
   // release resources
   free(embedding_feature_from_gpu);
-  for (int i = 0; i < device_list.size(); i++) {
+  for (unsigned int i = 0; i < device_list.size(); i++) {
     free(wgrad_from_gpu[i]);
   }
   free(hash_table_value_from_gpu);

@@ -697,7 +697,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey>::forward() {
   //   context.set_device((*Base::device_resources_)[id]->get_device_id());
   //   cudaMemcpy(h_slot_id, hash_table_slot_id_tensors_[id]->get_ptr(), size * sizeof(TypeHashValueIndex), cudaMemcpyDeviceToHost);
 
-  //   std::cout << "gpu=" << id << ": max_vocabulary_size_per_gpu_: " \
+  //   std::cout << "gpu=" << id << ": max_vocabulary_size_per_gpu_: " 
   //             << max_vocabulary_size_per_gpu_ << "slot_id:" << std::endl;
   //   for(int i = 0; i < size; i++) {
   //     std::cout << h_slot_id[i] << ", ";

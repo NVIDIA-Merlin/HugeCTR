@@ -423,8 +423,8 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
                             gpu_resource_group, num_chunks, num_threads);
 
   // define object
-  // Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingHash<T>(\
-  //     data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), \
+  // Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingHash<T>(
+  //     data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), 
   //     embedding_params, plan_file, gpu_resource_group);
 
   Embedding<T> *embedding = EmbeddingCreator::create_localized_sparse_embedding_hash(data_reader->get_row_offsets_tensors(),
