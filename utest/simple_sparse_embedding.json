@@ -8,9 +8,7 @@
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 100,
-    "dense_model_file": "./criteo.model",
-    "sparse_model_file": ["./Sparse1.model", "./Sparse2.model"]
+    "eval_batches": 100
   },
 
   "optimizer": {
@@ -62,7 +60,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1603616,
+        "vocabulary_size": 2603616,
         "load_factor": 0.75,
         "embedding_vec_size": 64,
         "combiner": 1
@@ -76,7 +74,7 @@
       "bottom": "data2",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1603616,
+        "vocabulary_size": 2603616,
         "load_factor": 0.75,
         "embedding_vec_size": 64,
         "combiner": 1
