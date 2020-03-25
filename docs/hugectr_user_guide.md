@@ -12,7 +12,7 @@ Highlighted features of HugeCTR
 HugeCTR version 2.1 is a major update which aims to provide a flexible, fast, scalable and reliable solution for CTR Training. Framework designers can consider it as a high-performance reference design. 
 
 * Supporting three important networks: Wide and Deep Learning (WDL)[1], Deep Cross Network (DCN)[2] and DeepFM [3] 
-* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces the memory transactions across GPUs and nodes resilientlt to the number of GPUs.
+* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces the memory transactions across GPUs and nodes resiliently to the number of GPUs.
 * Supporting multiple Embeddings in one network
 * Supporting dense feature input, which doesn't need any embdding layer
 * Supporting new layers like: Dropout / Split / Reshape / Multiply / FmOrder2 / MultCross / Add
