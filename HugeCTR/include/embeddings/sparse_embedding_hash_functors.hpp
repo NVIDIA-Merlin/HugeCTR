@@ -561,7 +561,7 @@ public:
             opt_params.lr *
             sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
             (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
-            //update target mi and vi
+          //update target mi and vi
           opt_adam_kernel_global<<<gridSize, blockSize, 0, stream>>>(
             hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
             sample_id_sort, hash_value_index_sort, 
@@ -2436,6 +2436,7 @@ public:
   void get_forward_results(int memcpy_size,
                           const Tensors<float>& embedding_feature_tensors,
                           float * embedding_feature,
+                          Tensors<float>& temp_tensors,
                           const std::shared_ptr<GPUResourceGroup>& device_resources,
                           const CudaDeviceContext& context) {
     int local_gpu_count = device_resources->size();
@@ -2452,17 +2453,6 @@ public:
     }
 #else // support multi-node 
     if(total_gpu_count > 1) {
-      GeneralBuffers<float> temp_bufs;   
-      Tensors<float> temp_tensors;
-      for (int id = 0; id < local_gpu_count; id++) {
-        int cur_device = (*device_resources)[id]->get_device_id();
-        context.set_device(cur_device);
-        temp_bufs.emplace_back(new GeneralBuffer<float>());
-        temp_tensors.emplace_back(
-          new Tensor<float>({1, total_gpu_count * memcpy_size},
-                            temp_bufs.back(), TensorFormat_t::HW));
-        temp_bufs.back()->init(cur_device);
-      }
 
       // nccl allGather
       all_gather(memcpy_size,
@@ -2531,56 +2521,21 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void get_backward_results(int batch_size,
+  void get_backward_results(int batch_size_per_gpu,
                             int slot_num,
                             int embedding_vec_size,
                             const std::string& plan_file,
                             const Tensors<float>& wgrad_tensors,
                             float * wgrad,
+                            Tensors<float> all2all_tensors,
+                            Tensors<float> reorder_tensors,
+                            Tensors<float> temp_tensors,
+                            const std::unique_ptr<comm_handler>& all2all,
                             const std::shared_ptr<GPUResourceGroup>& device_resources,
                             const CudaDeviceContext& context) {
 
     int local_gpu_count = device_resources->size();
     int total_gpu_count = device_resources->get_total_gpu_count();
-
-    int batch_size_per_gpu = batch_size / total_gpu_count;
-
-    Tensors<float> all2all_tensors;
-    Tensors<float> reorder_tensors;
-    GeneralBuffers<float> float_bufs;
-
-    for (int id = 0; id < local_gpu_count; id++) { 
-      int cur_device = (*device_resources)[id]->get_device_id();
-      context.set_device(cur_device);
-      float_bufs.emplace_back(new GeneralBuffer<float>());
-      all2all_tensors.emplace_back(
-          new Tensor<float>({batch_size_per_gpu * slot_num,
-                            embedding_vec_size},
-                            float_bufs.back(), TensorFormat_t::HW));
-      reorder_tensors.emplace_back(
-          new Tensor<float>({batch_size_per_gpu * slot_num,
-                            embedding_vec_size},
-                            float_bufs.back(), TensorFormat_t::HW));    
-      float_bufs.back()->init(cur_device); 
-    }
-
-    // all2all
-    std::unique_ptr<comm_handler> all2all;
-#ifndef ENABLE_MPI
-    std::vector<int> v_slot_num_per_gpu; 
-    for (int id = 0; id < local_gpu_count; id++) { 
-      int slot_num_per_gpu = slot_num / total_gpu_count \
-          + ((id<(slot_num % total_gpu_count))? 1 : 0);
-      v_slot_num_per_gpu.push_back(slot_num_per_gpu);
-    }
-    all2all_init_forward(all2all, plan_file, batch_size_per_gpu, 
-                         v_slot_num_per_gpu, embedding_vec_size,
-                         wgrad_tensors, all2all_tensors, device_resources);
-#else 
-    all2all_init_forward(all2all, plan_file, batch_size_per_gpu, 
-                         slot_num, embedding_vec_size,
-                         wgrad_tensors, all2all_tensors, device_resources);
-#endif 
 
     all2all_exec(all2all);
 
@@ -2610,17 +2565,6 @@ public:
     }
 #else // multi node 
     if(total_gpu_count > 1) {
-      GeneralBuffers<float> temp_bufs;   
-      Tensors<float> temp_tensors;
-      for (int id = 0; id < local_gpu_count; id++) {
-        int cur_device = (*device_resources)[id]->get_device_id();
-        context.set_device(cur_device);
-        temp_bufs.emplace_back(new GeneralBuffer<float>());
-        temp_tensors.emplace_back(
-          new Tensor<float>({1, total_gpu_count * memcpy_size},
-                            temp_bufs.back(), TensorFormat_t::HW));
-        temp_bufs.back()->init(cur_device);
-      }
 
       // nccl gather 
       all_gather(memcpy_size,
