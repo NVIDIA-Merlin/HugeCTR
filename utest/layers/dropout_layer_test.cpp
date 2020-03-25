@@ -69,7 +69,7 @@ void dropout_test(int dim0, int dim1, float rate) {
   cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost);
   int cnt_zero_fprop = 0;
   for(int i = 0; i < len; i++) {
-    h_ref[i] = (h_mask[i] > rate) * h_in[i] * scale;
+    h_ref[i] = ((1.f-h_mask[i]) >= rate) * h_in[i] * scale;
     if(std::abs(h_ref[i] - 0.f) < 1e-6) {
       cnt_zero_fprop++;
     }
@@ -81,7 +81,7 @@ void dropout_test(int dim0, int dim1, float rate) {
   cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost);
   int cnt_zero_bprop = 0;
   for(int i = 0; i < len; i++) {
-    h_ref[i] = (h_mask[i] > rate) * h_out[i] * scale;
+    h_ref[i] = ((1.f-h_mask[i]) >= rate) * h_out[i] * scale;
     if(std::abs(h_ref[i] - 0.f) < 1e-6) {
       cnt_zero_bprop++;
     }

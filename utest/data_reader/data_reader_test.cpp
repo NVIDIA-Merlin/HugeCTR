@@ -40,7 +40,7 @@ const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
 const Check_t CHK = Check_t::Sum;
 
-#if 0
+
 TEST(data_reader_worker, data_reader_worker_test) {
   test::mpi_init();
   // data generation
@@ -147,7 +147,6 @@ TEST(data_reader_test, data_reader_localized_test) {
   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
   print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
-  while(1){}
 }
 
 
@@ -194,7 +193,7 @@ TEST(data_reader_test, data_reader_mixed_test) {
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
   
 }
-#endif
+
 
 TEST(data_reader_test, two_nodes_localized) {
   int batchsize = 2048;
@@ -244,7 +243,6 @@ TEST(data_reader_test, two_nodes_localized) {
     print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
     print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);  
 
-    while(1){}
   }
   std::cout << "Single Node 4 GPUs\n" << std::endl;
   if(pid == 0)

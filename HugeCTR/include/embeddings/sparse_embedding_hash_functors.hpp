@@ -598,21 +598,21 @@ public:
           opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
             hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
             sample_id_sort, hash_value_index_sort, 
-            hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw);
+            hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw, scaler);
           break;
         case 1:  // momentum sgd
           opt_momentum_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
               opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
               hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
-              (float *)deltaw);
+              (float *)deltaw, scaler);
           break;
         case 2:  // nesterov
           opt_nesterov_kernel<<<gridSize, blockSize, 0, stream>>>(
             hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
             opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
             hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
-            (float *)deltaw);
+            (float *)deltaw, scaler);
           break;
         default:
           CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
