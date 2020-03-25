@@ -177,18 +177,19 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
 template <typename TypeKey>
 void DataCollector<TypeKey>::collect() {
   std::unique_lock<std::mutex> lock(stat_mtx_);
-  while (stat_ != READY_TO_WRITE && stat_ != STOP) {
-    stat_cv_.wait(lock);
-  }
-  if (stat_ == STOP) {
-    return;
-  }
 
   // my turn
   CSRChunk<TypeKey>* chunk_tmp = nullptr;
 
   int total_device_count = device_resources_->get_total_gpu_count();
   csr_heap_->data_chunk_checkout(&chunk_tmp);
+
+  while (stat_ != READY_TO_WRITE && stat_ != STOP) {
+    stat_cv_.wait(lock);
+  }
+  if (stat_ == STOP) {
+    return;
+  }
 
 
   const auto& csr_cpu_buffers = chunk_tmp->get_csr_buffers();

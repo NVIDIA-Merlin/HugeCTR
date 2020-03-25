@@ -10,21 +10,12 @@ import argparse
 from topology_parser import get_topology_matrix, parse_conf
 
 parser = argparse.ArgumentParser(description="create transfer plan.")
-parser.add_argument("mode", type=str, help="scatter, gather or all2all")
-parser.add_argument("main_gpu", type=int, help="source for scatter or target for gather")
 parser.add_argument("hugectr_conf", type=str, help="path to hugectr json file")
 args=parser.parse_args()
 
 modes = {"scatter":0, "gather":1, "all2all":2}
-if args.mode in modes.keys():
-    mode = args.mode
-else:
-    print("invalid mode")
-    parser.print_help()
-    raise SystemExit
-
-main_gpu = args.main_gpu
-
+mode = "all2all"
+main_gpu = 0
 
 # dgx1 volta: 6 nvlink per gpu
 gpu_list, plan_file = parse_conf(args.hugectr_conf)
@@ -100,7 +91,8 @@ if max_capacity > 2:
     print("topologies with more than 2 nvlinks at the same edge are not supported.")
     raise SystemExit()
 
-lengths = np.where(capacities <= max_capacity, max_capacity / capacities, 1)
+capacities_non_zero = np.where(capacities == 0, 1.0E-7, capacities)
+lengths = np.where(capacities <= max_capacity, max_capacity / capacities_non_zero, 1)
 # print("lengths:")
 # print(lengths)
 

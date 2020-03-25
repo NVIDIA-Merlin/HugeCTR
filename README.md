@@ -20,6 +20,10 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * OpenMPI >= 4.0
 * UCX library >= 1.6
 * HWLOC library >= 2.1.0
+### Plan generation for LocalizedSlotEmbedding (pip install)
+* ortools
+* mpi4py
+
 
 ## Build ##
 ### Init Git ###
