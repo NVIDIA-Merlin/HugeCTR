@@ -6,7 +6,7 @@ Design Goals:
 * Dedicated: we consider everything you need in CTR training;
 * Easy: you can start your work now, no matter you are a data scientist, a learner, or a developer.
 
-Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs\`
+Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs/`
 
 ## Requirements ##
 * cuBLAS >= 9.1
