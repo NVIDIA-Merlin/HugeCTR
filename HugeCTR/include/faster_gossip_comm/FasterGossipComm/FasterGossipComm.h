@@ -13,7 +13,7 @@
 #include "../FasterComm.h"
 #include "FasterGossipCommTraits.h"
 #include "gossip/include/plan_parser.hpp"
-#include "HugeCTR/include/nv_util.h"
+#include "FasterGossipCommUtil.h"
 
 namespace FasterGossipComm{
 
@@ -66,7 +66,7 @@ public:
                     const std::vector<std::vector<size_t>>& table){
 
         // Device restorer
-        nv::CudaDeviceRestorer dev_restorer;
+        FasterGossipCommUtil::CudaDeviceRestorer dev_restorer;
 
         // Set user specific src and dst GPU buffers and partition table
         parameters_.set(src, dst, table);
@@ -100,7 +100,7 @@ public:
                                              const std::vector<std::vector<size_t>>& table){
 
         // Device restorer
-        nv::CudaDeviceRestorer dev_restorer;
+        FasterGossipCommUtil::CudaDeviceRestorer dev_restorer;
 
         // Set user specific src and dst GPU buffers and partition table
         parameters_.set(src, dst, table);
@@ -140,7 +140,7 @@ public:
     void reset(){
 
         // Device restorer
-        nv::CudaDeviceRestorer dev_restorer;
+        FasterGossipCommUtil::CudaDeviceRestorer dev_restorer;
 
         // Free local GPU temp buffers for communication
         for(gossip::gpu_id_t i = 0; i < num_gpu_; i++){

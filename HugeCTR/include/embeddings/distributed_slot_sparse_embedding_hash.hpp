@@ -47,7 +47,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
 
   using TypeHashValueIndex = TypeHashKey;  // use the hash key type as the hash value_index type(it
                                            // will be uint32 or int64)
-  using NvHashTable = nv::HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>;
+  using NvHashTable = HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>;
  
  private:
   SparseEmbeddingHashParams embedding_params_; /**< Sparse embedding hash params. */
