@@ -17,7 +17,7 @@
  * 
  * @subsection hashtable_ GPU hashtable and dynamic insertion
  *
- * GPU Hashtable makes the data preprocessing easier and enables dynamic insertion in HugeCTR 2.0. 
+ * GPU Hashtable makes the data preprocessing easier and enables dynamic insertion in HugeCTR 2.1. 
  * The input training data is hash values (64bit long long) instead of original indexes. 
  * Embedding’s initialization is not required before training and A pair of key,value (random small weight) 
  * will be inserted during runtime once a new key appears in the training data. 
