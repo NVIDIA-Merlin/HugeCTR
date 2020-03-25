@@ -25,8 +25,7 @@ $ ./criteo2hugectr_legacy 1 ../../tools/criteo_script_legacy/test.out criteo_tes
 
 2. Copy huge_ctr to samples/criteo
 ```shell
-$ cd build/bin/
-$ cp ./huge_ctr ../../samples/criteo/
+$ cp ../../build/bin/huge_ctr ./
 ```
 
 3. Run huge_ctr
