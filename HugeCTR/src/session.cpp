@@ -114,6 +114,7 @@ Session::Session(const std::string& json_name):solver_config_(json_name),
 	if (!embedding_stream.is_open()) {
 	  CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
 	}
+	std::cout << "Loading sparse model: " << embedding_file << std::endl;
 	embedding_[i]->upload_params_to_device(embedding_stream);
 	embedding_stream.close();
 	i++;
@@ -127,6 +128,8 @@ Session::Session(const std::string& json_name):solver_config_(json_name),
       std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
       model_stream.read(reinterpret_cast<char*>(weight.get()),
 			networks_[0]->get_params_num() * sizeof(float));
+
+      std::cout << "Loading dense model: " << model_file << std::endl;
       for (auto& network : networks_) {
 	network->upload_params_to_device(weight.get());
       }
