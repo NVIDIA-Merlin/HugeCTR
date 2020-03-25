@@ -50,7 +50,7 @@
 
     {
       "name": "sparse_embedding1",
-      "type": "DistributedSlotSparseEmbeddingHash",
+      "type": "DistributedSlotSparseEmbeddingHash",o
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
