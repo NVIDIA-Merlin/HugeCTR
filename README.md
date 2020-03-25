@@ -3,7 +3,7 @@ HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR)
 
 Design Goals:
 * Fast: it's a speed-of-light CTR training framework;
-* Dedicated: we consider every thing you need in CTR training;
+* Dedicated: we consider everything you need in CTR training;
 * Easy: you can start your work now, no matter you are a data scientist, a learner, or a developer.
 
 Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs\`
