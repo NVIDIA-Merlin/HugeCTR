@@ -1,5 +1,6 @@
 # HugeCTR #
 [![v21](docs/user_guide_src/v21.JPG)](docs/hugectr_user_guide.md#new-features-in-version-21)
+
 HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training.
 
 Design Goals:
