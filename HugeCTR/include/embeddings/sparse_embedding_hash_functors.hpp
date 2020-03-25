@@ -796,7 +796,7 @@ public:
     int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();    
+    int local_gpu_count =  (int)device_list.size();    
     if(local_gpu_count != plan_gpu_count) {
       std::cout << "local_gpu_count=" << local_gpu_count 
                 << ", plan_gpu_count=" << plan_gpu_count 
@@ -872,7 +872,7 @@ public:
     int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();    
+    int local_gpu_count =  (int)device_list.size();    
     if(local_gpu_count != plan_gpu_count) {
       std::cout << "local_gpu_count=" << local_gpu_count 
                 << ", plan_gpu_count=" << plan_gpu_count 
@@ -979,7 +979,7 @@ public:
     transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
     int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();    
+    int local_gpu_count =  (int)device_list.size();    
     int total_gpu_count = device_resources->get_total_gpu_count();
     if(local_gpu_count != plan_gpu_count) {
       std::cout << "local_gpu_count=" << local_gpu_count 
@@ -1116,7 +1116,7 @@ public:
     transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
     int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();    
+    int local_gpu_count =  (int)device_list.size();    
     int total_gpu_count = device_resources->get_total_gpu_count();
     if(local_gpu_count != plan_gpu_count) {
       std::cout << "local_gpu_count=" << local_gpu_count 

@@ -153,12 +153,12 @@ ReduceSumLayer::ReduceSumLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
         CK_THROW_(Error_t::WrongInput, "The input dims can not be 0");
       }
     }
-    if(axis >= in_dims.size() || axis < 0) {
+    if(axis >= (int)(in_dims.size()) || axis < 0) {
       CK_THROW_(Error_t::WrongInput, "The axis is overflow");
     }
 
     std::vector<int> out_dims(in_dims.size());
-    for(int i = 0; i < in_dims.size(); i++) {
+    for(int i = 0; i < (int)(in_dims.size()); i++) {
       if(i == axis) {
         out_dims[i] = 1;
       }
@@ -174,6 +174,9 @@ ReduceSumLayer::ReduceSumLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
     }
     else if(in_dims.size() == 3) {
       out_format = TensorFormat_t::HSW;
+    }
+    else {
+      CK_THROW_(Error_t::WrongInput, "The in_dims.size() must be 2 or 3");
     }
     out_tensor.reset(new Tensor<float>(out_dims, blobs_buff, out_format));
     out_tensors_.emplace_back(out_tensor);
