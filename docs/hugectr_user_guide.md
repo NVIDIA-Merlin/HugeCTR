@@ -1,7 +1,7 @@
 HUGECTR 2.1 USER GUIDE
 ===================================
 ## Introduction
-HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training, which targets both high performance and easy usage. Following sections list the performance comparison, supported features and usage information. 
+HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training, which targets both high performance and easy usage. The rest of this documentation is organized as follows. We first introduce the new features added in the version 2.1. We then describe HugeCTR architecture and what kinds of model it can support, whilst illustrating how to use it. In the final section, we compare its performance quantitatively with Tensorflow CPU/GPU.
 
 Highlighted features of HugeCTR
 * GPU Hashtable and dynamic insertion
@@ -9,18 +9,18 @@ Highlighted features of HugeCTR
 * Mixed-precision training
 
 ## New Features in Version 2.1
-HugeCTR version 2.1 is a major update, which aims to provide a flexible, fast, scalable and reliable solution for CTR Training. Framework designers can take it as a reference design for good perforance. 
+HugeCTR version 2.1 is a major update which aims to provide a flexible, fast, scalable and reliable solution for CTR Training. Framework designers can consider it as a high-performance reference design. 
 
 * Supporting three important networks: Wide and Deep Learning (WDL)[1], Deep Cross Network (DCN)[2] and DeepFM [3] 
-* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces the memory transactions between GPUs and nodes by factor of #GPUs.
+* A new embedding implementation `LocalizedSlotSparseEmbedding` which reduces the memory transactions across GPUs and nodes resiliently to the number of GPUs.
 * Supporting multiple Embeddings in one network
-* Supporting dense feature input
-* Supporting new layers like: Dropout / Split / Reshape / Multiply / FmOrder2 / MultCross / add
+* Supporting dense feature input, which doesn't need any embdding layer
+* Supporting new layers like: Dropout / Split / Reshape / Multiply / FmOrder2 / MultCross / Add
 * Check bits in data reader to enable data check and error skip.
 * L1 / L2 Regularization
 
 ## Architecture and Supported Networks
-To enable large embedding training, the embedding table in HugeCTR is model parallel and distributed across all the GPUs in a homogeneous cluster, which consists of multiple nodes and multiple GPUs. Meanwhile, the dense model is data parallel, which has one copy in each GPU (see Fig.1).
+To enable large embedding training, the embedding table in HugeCTR is model parallel and distributed across all the GPUs in a homogeneous cluster, which consists of multiple nodes and multiple GPUs. Meanwhile, the dense model such as DNN is data parallel, which has one copy in each GPU (see Fig.1).
 
 HugeCTR supports flexible and various CTR networks with Embeddings e.g. WDL, DCN, DeepFM, in which Embedding has a three-stage workflow: table lookup, reducing the weights within a slot, concat the weights from different slots (see Fig.3). Operations and layers supported in HugeCTR are listed as follows:
 * Multi-slot embedding: Sum / Mean
@@ -166,8 +166,8 @@ Embedding:
 * `type`: two types of embedding are supported: `LocalizedSlotSparseEmbeddingHash`, `DistributedSlotSparseEmbeddingHash`.
   * `LocalizedSlotSparseEmbeddingHash`: each individual slot will be located in each GPU in turn, and not shared. This type of embedding has the best scalability.
     * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to:
-  * `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when some of the slots are much bigger than the rest, and potentially has OOM issue.
-  * In single GPU training, for convenience please use `DistributedSlotSparseEmbeddingHash`.
+  * `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when there exists the load imbalance among slots and potentially has OOM issue.
+  * In single GPU training, for your convenience please use `DistributedSlotSparseEmbeddingHash`.
 * `vocabulary_size`: the maximum possible size of embedding.
 * `load_factor`: as embedding is implemented with hashtable, `load_factor` is the ratio of loaded vocabulary to capacity of the hashtable.
 * `embedding_vec_size`: the vector size of an embedding weight (value). Then the memory used in this hashtable will be vocabulary_size*embedding_vec_size/load_factor.
@@ -314,7 +314,7 @@ In HugeCTR such parameters will be written into a JSON format file along with we
 }
 ```
 ## Performance
-In this section, we test the scalability of HugeCTR and compare the performance and result with TensorFlow with V100. It shows that we can achieve about 114x speedup to multi-threads TF on CPU server with only one V100 and have almost the same loss curve on both evaluation and training (see Fig. 9).
+In this section, we test the scalability of HugeCTR and compare its performance and result with TensorFlow on NVIDIA V100 GPUs. In summary, we can achieve about 114x speedup over multi-thread Tensorflow CPU with only one V100 and generate almost the same loss curves for both evaluation and training (see Fig. 9).
 
 Test environment:
 * CPU Server: Dual 20-core Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz
@@ -329,11 +329,12 @@ Data set:
 The data is provided by CriteoLabs [5]. The original training set contains 45,840,617 examples. Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features). 
 
 Preprocessing:
-* HugeCTR: preprocessing with criteo2hugectr for format conversion
-* TF: using TFRecord format for TF training benchmark
+* Common: preprocessed by using the scripts available in tools/criteo_script
+* HugeCTR: converted to HugeCTR data format with criteo2hugectr
+* TF: converted to TFRecord format for the efficient training on Tensorflow
 
 ### HugeCTR
-The good scalability HugeCTR shows on multiple nodes is mainly because of the high efficient data exchange and the three-stage processing pipeline. In this pipeline, we overlap the data reading from file, host to device data transaction (inter- and intra- node) and GPU training.  The following chart shows the scalability of HugeCTR with the configration of Batch Size=16384, Layers=7 on DGX1 Servers.
+The good scalability of HugeCTR as the number of active GPUs is increased, is mainly because of the high efficient data exchange and the three-stage processing pipeline. In this pipeline, we overlap the data reading from file, host to device data transaction (inter- and intra- node) and GPU training.  The following chart shows the scalability of HugeCTR with the configration of Batch Size=16384, Layers=7 on DGX1 Servers.
 <div align=center><img width = '800' height ='400' src ="user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
 <div align=center>Fig. 7 Multi-GPU Performance of HugeCTR</div>
 
