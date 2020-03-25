@@ -44,7 +44,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
 
   using TypeHashValueIndex = TypeHashKey;  // use the hash key type as the hash value_index type(it
                                            // will be uint32 or int64)
-  using NvHashTable = nv::HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>;
+  using NvHashTable = HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>;
   
 #ifndef ENABLE_MPI
   using comm_handler_traits= FasterGossipComm::FasterGossipCommAll2AllTraits<float>;

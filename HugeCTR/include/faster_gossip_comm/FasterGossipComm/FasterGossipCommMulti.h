@@ -270,7 +270,7 @@ public:
                     const std::vector<std::vector<size_t>>& recv_table){
 
         // Device restorer
-        nv::CudaDeviceRestorer dev_restorer;
+        FasterGossipCommUtil::CudaDeviceRestorer dev_restorer;
 
         // record user provide data
         src_ = src;
@@ -607,7 +607,7 @@ public:
     void reset(){
 
         // Device restorer
-        nv::CudaDeviceRestorer dev_restorer;
+        FasterGossipCommUtil::CudaDeviceRestorer dev_restorer;
 
         // Free local_buffer and recv_buffer, ready for next multi-node all2all
         for(int i = 0; i < num_local_gpu_; i++){
