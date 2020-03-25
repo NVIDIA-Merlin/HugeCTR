@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@ class AdamOptimizer : public Optimizer {
    */
   AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
                 const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
-                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8)
-      : Optimizer(weight, wgrad, device_id, alpha),
+                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8, float scaler=1.f)
+    : Optimizer(weight, wgrad, device_id, alpha, scaler),
         m_(weight->get_num_elements(), device_id),
         v_(weight->get_num_elements(), device_id),
         t_(0),

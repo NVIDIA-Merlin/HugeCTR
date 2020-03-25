@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ namespace {
 __global__ void dropout_kernel(const float* in, const float* mask, float* out,
                                const int len, const float rate, const float scale) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
-    out[i] = ((1-mask[i]) >= rate) * in[i] * scale;
+    out[i] = ((1.f-mask[i]) >= rate) * in[i] * scale;
   }
 }
 
@@ -74,19 +74,11 @@ void DropoutLayer::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   CK_CURAND_THROW_(curandGenerateUniform(curand_generator_, mask_, in_tensors_[0]->get_num_elements()));
   prop_common(in_tensors_[0]->get_ptr(), out_tensors_[0]->get_ptr(), stream);
-  //print_cuda_buff_sum(mask_, in_tensors_[0]->get_num_elements());
-  // print_cuda_buff(mask_, in_tensors_[0]->get_num_elements()-1, in_tensors_[0]->get_num_elements()-11);
-  // print_tensor(*(in_tensors_[0]),in_tensors_[0]->get_num_elements()-1, in_tensors_[0]->get_num_elements()-11);
-  // print_tensor(*(out_tensors_[0]),in_tensors_[0]->get_num_elements()-1, in_tensors_[0]->get_num_elements()-11);
 }
 
 void DropoutLayer::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   prop_common(out_tensors_[0]->get_ptr(), in_tensors_[0]->get_ptr(), stream);
-  // print_cuda_buff(mask_, 0, 10);
-  // print_tensor(*(out_tensors_[0]),0,10);
-  // print_tensor(*(in_tensors_[0]),0,10);
-
 }
 
 void DropoutLayer::inference(cudaStream_t stream) {

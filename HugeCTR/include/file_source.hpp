@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,10 +67,11 @@ public:
       if (in_file_stream_.is_open()){
 	in_file_stream_.close();
       }
-      std::string file_name = file_list_.get_a_file();
-      in_file_stream_.open(file_name, std::ifstream::binary);
+      NameID name_id = file_list_.get_a_file_with_id();
+      counter_ = name_id.id;
+      in_file_stream_.open(name_id.file_name, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
-	CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
+	CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + name_id.file_name);
       }
       return Error_t::Success;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,19 +20,7 @@ namespace {
 
 __device__ __forceinline__ void momentumSGD_update_device(
     float* weight_ptr, float* momentum_ptr, float wgrad,
-    HugeCTR::MomentumSGDHyperParameters hyper_parameters) {
-  float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
+    HugeCTR::MomentumSGDHyperParameters hyper_parameters, float scaler) {
   momentum_ptr[0] =
       hyper_parameters.momentum_factor * momentum_ptr[0] - hyper_parameters.lr * wgrad / scaler;
   weight_ptr[0] += momentum_ptr[0];
@@ -41,11 +29,11 @@ __device__ __forceinline__ void momentumSGD_update_device(
 
 __global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr,
                                           const float* wgrad_ptr, int size,
-                                          HugeCTR::MomentumSGDHyperParameters hyper_parameters) {
+                                          HugeCTR::MomentumSGDHyperParameters hyper_parameters, float scaler) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < size) {
     momentumSGD_update_device(weight_ptr + idx, momentum_ptr + idx, wgrad_ptr[idx],
-                              hyper_parameters);
+                              hyper_parameters, scaler);
   }
   return;
 }
@@ -65,7 +53,7 @@ void MomentumSGD::update(cudaStream_t stream) {
 
   MomentumSGDHyperParameters hyper_parameters = {lr_, momentum_factor_};
   momentumSGD_update_kernel<<<grid_dim, block_dim, 0, stream>>>(
-      weight_ptr, momentum_ptr, wgrad_ptr, weight_->get_num_elements(), hyper_parameters);
+    weight_ptr, momentum_ptr, wgrad_ptr, weight_->get_num_elements(), hyper_parameters, scaler_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());

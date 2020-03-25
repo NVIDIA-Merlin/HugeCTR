@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -210,7 +210,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
     const std::shared_ptr<GPUResourceGroup> &gpu_resource_group)
     : embedding_params_(embedding_params),
       Base(row_offsets_tensors, hash_key_tensors, embedding_params.batch_size,
-           embedding_params.slot_num, embedding_params.embedding_vec_size, gpu_resource_group) {
+           embedding_params.slot_num, embedding_params.embedding_vec_size, gpu_resource_group, embedding_params.scaler) {
   try {
     int gpu_count = Base::device_resources_->size();
     CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
@@ -232,7 +232,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
 #endif
 
     // for hash_table_value initialization
-    HugeCTR::GaussianDataSimulator<float> fdata_sim(0, 0.05, -0.1, 0.1);
+    HugeCTR::UnifiedDataSimulator<float> fdata_sim(-0.05, 0.05);
     float *h_hash_table_value;
     CK_CUDA_THROW_(cudaMallocHost(
         &h_hash_table_value,
@@ -282,6 +282,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
       opt_params_.push_back(OptParams());
       opt_params_[id].optimizer = embedding_params_.opt_params.optimizer;
       opt_params_[id].lr = embedding_params_.opt_params.lr;
+      opt_params_[id].global_update = embedding_params_.opt_params.global_update;
       switch (embedding_params_.opt_params.optimizer) {
         case 0:  // adam
           opt_m_tensors_.emplace_back(
@@ -623,7 +624,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey>::update_params_per_thread(i
                     wgrad_tensors_[tid]->get_ptr(), 
                     deltaw_hash_value_index_tensors_[tid]->get_ptr(),
                     deltaw_tensors_[tid]->get_ptr(), 
-                    hash_table_value_tensors_[tid]->get_ptr());
+		    hash_table_value_tensors_[tid]->get_ptr(),
+                    embedding_params_.scaler);
                     
   // stream sync on single GPU
   CK_CUDA_THROW_(cudaStreamSynchronize((*Base::device_resources_)[tid]->get_stream()));

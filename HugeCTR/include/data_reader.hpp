@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,10 +86,10 @@ template <typename TypeKey>
 class DataReader {
  private:
   std::shared_ptr<FileList> file_list_; /**< file list of data set */
-  const int NumChunks{31};              /**< NumChunks will be used in Heap*/
-  const int NumThreads{20};             /**< number of threads for data reading */
+  const int NumChunks{31};              /**< NumChunks will be used in HeapEx*/
+  const int NumThreads{31};             /**< number of threads for data reading */
 
-  std::shared_ptr<Heap<CSRChunk<TypeKey>>> csr_heap_; /**< heap to cache the data set */
+  std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_; /**< heap to cache the data set */
   std::vector<std::shared_ptr<DataReaderWorker<TypeKey>>>
       data_readers_;                             /**< A vector of DataReaderWorker' pointer.*/
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
@@ -131,7 +131,7 @@ class DataReader {
     }      
 
     // init the heap
-    csr_heap_.reset(new Heap<CSRChunk<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_ + dense_dim_,
+    csr_heap_.reset(new HeapEx<CSRChunk<TypeKey>>(NumChunks, total_gpu_count, batchsize_, label_dim_ + dense_dim_,
 						  params_));
 
     assert(data_readers_.empty() && data_reader_threads_.empty());
@@ -169,9 +169,12 @@ class DataReader {
    * Reading a batch from cpu to gpu (embedding)
    */
   void read_a_batch_to_device();  // read data from csr to tensors
-
-
   
+  void read_a_batch_to_device_delay_release();
+
+  void ready_to_collect(){
+    data_collector_->set_ready_to_write();
+  }
 
   /**
    * Ctor
@@ -179,18 +182,10 @@ class DataReader {
   DataReader(const std::string& file_list_name, int batchsize, int label_dim, int dense_dim,
 	       Check_t check_type, std::vector<DataReaderSparseParam>& params,
 	       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-	       int num_chunks = 31, int num_threads = 20);
+	       int num_chunks = 31, int num_threads = 31);
 
   /**
-   * Slave process of evaluation will call this to create a new object of DataReader
-   */
-  DataReader* clone_eval_with_shared_output() {
-    DataReader* new_reader = new DataReader(*this);
-    return new_reader;
-  }
-
-  /**
-   * Slave process of evaluation will call this to create a new object of DataReader
+   * process of evaluation will call this to create a new object of DataReader
    */
   DataReader* clone_eval_with_shared_output(const std::string& file_list_name) {
     DataReader* new_reader = new DataReader(file_list_name, *this);
@@ -246,31 +241,6 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name,
 
   data_collector_.reset(
      new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_, device_resources_, csr_heap_));
-
-  data_collector_thread_ =
-      std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
-}
-
-template <typename TypeKey>
-DataReader<TypeKey>::DataReader(const DataReader<TypeKey>& prototype)
-    : label_dense_buffers_(prototype.label_dense_buffers_),
-      label_tensors_(prototype.label_tensors_),
-      dense_tensors_(prototype.dense_tensors_),
-      check_type_(prototype.check_type_),
-      csr_buffers_(prototype.csr_buffers_),
-      row_offsets_tensors_(prototype.row_offsets_tensors_),
-      value_tensors_(prototype.value_tensors_),
-      params_(prototype.params_),
-      device_resources_(prototype.device_resources_),
-      batchsize_(prototype.batchsize_),
-      label_dim_(prototype.label_dim_),
-      dense_dim_(prototype.dense_dim_)
-      {
-  shared_output_flag_ = true;
-  data_reader_loop_flag_ = 1;
-
-  data_collector_.reset(
-      new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_, device_resources_));
 
   data_collector_thread_ =
       std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
@@ -351,7 +321,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
   }
 
   data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_, device_resources_,
-						   csr_heap_, false));
+						   csr_heap_));
 
   data_collector_thread_ =
     std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
@@ -359,8 +329,15 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 }
 
 template <typename TypeKey>
-void DataReader<TypeKey>::read_a_batch_to_device() {
+void DataReader<TypeKey>:: read_a_batch_to_device_delay_release(){
   data_collector_->read_a_batch_to_device();
+  return;
+}
+
+template <typename TypeKey>
+void DataReader<TypeKey>::read_a_batch_to_device() {
+  read_a_batch_to_device_delay_release();
+  ready_to_collect();
   return;
 }
 
@@ -372,10 +349,11 @@ DataReader<TypeKey>::~DataReader() {
     for (auto& data_reader : data_readers_) {
       data_reader->skip_read();
     }
+    data_collector_->stop();
+
     if (csr_heap_ != nullptr) {
       csr_heap_->break_and_return();
     }
-    data_collector_->stop();
 
     data_collector_thread_.join();
 
