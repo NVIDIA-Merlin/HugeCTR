@@ -24,12 +24,12 @@ namespace HugeCTR {
 
 /**
  * Layer which does element-wise product by input tensor X and weight W. 
- * The input tensor X has dimention: [batch_size, slot_num, 1], while 
+ * The input tensor X has dimention: [batch_size, slot_num], while 
  * the input weight W has dimention: [slot_num, embedding_vec_size]. 
  * The MultiplyLayer will broadcast the value of W to "batch_size" dim 
  * and broadcast the value of X to embedding_vec_size dim automatically
  * when doing element-wise product with X. So, the output tensor has 
- * the dimention: [batch_size, slot_num, embedding_vec_size].
+ * the dimention: [batch_size, slot_num*embedding_vec_size].
  */
 class MultiplyLayer : public Layer {
  public:
@@ -41,8 +41,10 @@ class MultiplyLayer : public Layer {
    */
   MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
                 const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
+                const std::shared_ptr<GeneralBuffer<float>>& blob_buff,
                 const std::shared_ptr<Tensor<float>>& in_tensor,
-                const std::shared_ptr<Tensor<float>>& out_tensor,
+                std::shared_ptr<Tensor<float>>& out_tensor,
+                const std::vector<int>& weight_dims,
                 int device_id);
   ~MultiplyLayer() override {};
 
@@ -58,7 +60,14 @@ class MultiplyLayer : public Layer {
   void bprop(cudaStream_t stream) override;
 
  private:
-
+  /**
+   * Use Gaussian initialization.
+   */
+  std::vector<float> get_initializer() override;
+  
+  int batch_size_;
+  int slot_num_;
+  int embedding_vec_size_;
   std::shared_ptr<GeneralBuffer<float>> internal_buff_;
   std::unique_ptr<Tensor<float>> wgrad_tmp_trans_;
 };

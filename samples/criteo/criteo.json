@@ -8,8 +8,7 @@
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 100,
-    "dense_model_file": "./criteo.model"
+    "eval_batches": 100
   },
   
   "optimizer": {

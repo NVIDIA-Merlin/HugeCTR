@@ -18,12 +18,12 @@
 #define NV_HASHTABLE_H_
 #include <mutex>
 #include "cudf/concurrent_unordered_map.cuh"
-#include "../nv_util.h"
+#include "HugeCTR/include/common.hpp"
 #include "thrust/pair.h"
 //#define COUNTER_TYPE ValType
 
-namespace nv {
-
+namespace HugeCTR {
+  
 template <typename value_type>
 struct ReplaceOp {
   constexpr static value_type IDENTITY{0};
@@ -198,16 +198,21 @@ class HashTable {
     update_counter_ = 0;
     get_counter_ = 0;
     // Allocate device-side counter and copy user input to it
-    CUDA_CHECK(cudaMalloc((void**)&d_counter_, sizeof(*d_counter_)));
-    CUDA_CHECK(cudaMemcpy(d_counter_, &count, sizeof(*d_counter_), cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(cudaMalloc((void**)&d_counter_, sizeof(*d_counter_)));
+    CK_CUDA_THROW_(cudaMemcpy(d_counter_, &count, sizeof(*d_counter_), cudaMemcpyHostToDevice));
   }
   /**
    * The destructor of HashTable.
    */
   ~HashTable() {
-    delete table_;
-    // De-allocate device-side counter
-    CUDA_CHECK(cudaFree(d_counter_));
+    try {
+      delete table_;
+      // De-allocate device-side counter
+      CK_CUDA_THROW_(cudaFree(d_counter_));
+    } catch (const std::runtime_error& rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+    }
+
   }
   /**
    * The declaration for indicating that there is no default copy construtor in this class.
@@ -290,16 +295,16 @@ class HashTable {
 
     /* grid_size and allocating/initializing variable on dev, launching kernel*/
     const int grid_size = (hash_capacity - 1) / BLOCK_SIZE_ + 1;
-    CUDA_CHECK(cudaMalloc((void**)&d_table_size, sizeof(size_t)));
-    CUDA_CHECK(cudaMemset(d_table_size, 0, sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMalloc((void**)&d_table_size, sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMemset(d_table_size, 0, sizeof(size_t)));
     size_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(table_, hash_capacity, d_table_size,
                                                        empty_key);
-    CUDA_CHECK(
+    CK_CUDA_THROW_(
         cudaMemcpyAsync(&table_size, d_table_size, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CK_CUDA_THROW_(cudaStreamSynchronize(stream));
 
     /* Copy result back and do clean up*/
-    CUDA_CHECK(cudaFree(d_table_size));
+    CK_CUDA_THROW_(cudaFree(d_table_size));
     return table_size;
   }
   /**
@@ -315,7 +320,7 @@ class HashTable {
   void dump(KeyType* d_key, ValType* d_val, const size_t offset, const size_t search_length,
             size_t* d_dump_counter, cudaStream_t stream) {
     // Before we call the kernel, set the global counter to 0
-    CUDA_CHECK(cudaMemset(d_dump_counter, 0, sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMemset(d_dump_counter, 0, sizeof(size_t)));
     // grid size according to the searching length.
     const int grid_size = (search_length - 1) / BLOCK_SIZE_ + 1;
     // dump_kernel: dump bucket table_[offset, offset+search_length) to d_key and d_val, and report
@@ -335,7 +340,7 @@ class HashTable {
    */
   counter_type get_value_head() {
     counter_type counter;
-    CUDA_CHECK(cudaMemcpy(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost));
+    CK_CUDA_THROW_(cudaMemcpy(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost));
     return counter;
   }
   /**
@@ -343,7 +348,7 @@ class HashTable {
    * @param counter_value the new counter value to be set.
    */
   void set_value_head(counter_type counter_value) {
-    CUDA_CHECK(cudaMemcpy(d_counter_, &counter_value, sizeof(*d_counter_), cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(cudaMemcpy(d_counter_, &counter_value, sizeof(*d_counter_), cudaMemcpyHostToDevice));
   }
   /**
    * Add a number to the head of the value. This will add the given value to the
@@ -352,9 +357,9 @@ class HashTable {
    */
   counter_type add_value_head(counter_type counter_add) {
     counter_type counter;
-    CUDA_CHECK(cudaMemcpy(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost));
+    CK_CUDA_THROW_(cudaMemcpy(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost));
     counter += counter_add;
-    CUDA_CHECK(cudaMemcpy(d_counter_, &counter, sizeof(*d_counter_), cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(cudaMemcpy(d_counter_, &counter, sizeof(*d_counter_), cudaMemcpyHostToDevice));
     return counter;
   }
   /**

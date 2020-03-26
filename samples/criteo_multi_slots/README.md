@@ -33,8 +33,7 @@ $ ./criteo2hugectr_legacy 10 ../../tools/criteo_script_legacy/test.out criteo_te
 
 2. Copy huge_ctr to samples/criteo_multi_slots
 ```shell
-$ cd build/bin/
-$ cp ./huge_ctr ../../samples/criteo_multi_slots/
+$ cp ../../build/bin/huge_ctr ./
 ```
 
 3. Run huge_ctr

@@ -140,7 +140,7 @@ Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
                               int slot_num,
                               int embedding_vec_size,
                               const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-			      float scaler)
+                              float scaler)
     : row_offsets_tensors_(row_offsets_tensors),
       value_tensors_(value_tensors),
       device_resources_(gpu_resource_group),

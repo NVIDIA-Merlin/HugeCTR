@@ -53,7 +53,7 @@ Training with one-shoot instruction:
 ```shell
 $ huge_ctr –-train config.json
 ```
-To load a snapshot, you can just modify config.json (dense_model_file, sparse_model_files in solver clause) according to the name of the snapshot. 
+To load a snapshot, you can just modify config.json (`dense_model_file`, `sparse_model_file` in solver clause) according to the name of the snapshot. 
 
 To run with multiple node: HugeCTR should be built with OpenMPI (GPUDirect support is recommended for high performance), then the configure file and model files should be located in "Network File System" and be visible to each of the processes. A sample of runing in two nodes:
 ```shell

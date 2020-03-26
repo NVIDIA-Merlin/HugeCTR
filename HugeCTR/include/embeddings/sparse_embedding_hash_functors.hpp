@@ -91,7 +91,7 @@ public:
               int embedding_vec_size, 
               const Tensors<TypeHashKey>& row_offsets_tensors,
               const Tensors<TypeHashKey>& value_tensors,
-              const std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, TypeHashValueIndex,
+              const std::vector<std::unique_ptr<HashTable<TypeHashKey, TypeHashValueIndex,
                 std::numeric_limits<TypeHashKey>::max()>>>& hash_tables,
               const Tensors<float>& hash_table_value_tensors, 
               const Tensors<TypeHashValueIndex>& hash_value_index_tensors,
@@ -161,7 +161,7 @@ public:
               int combiner,
               const Tensors<TypeHashKey>& row_offsets_tensors,
               const Tensors<TypeHashKey>& value_tensors,
-              const std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, TypeHashValueIndex,
+              const std::vector<std::unique_ptr<HashTable<TypeHashKey, TypeHashValueIndex,
                 std::numeric_limits<TypeHashKey>::max()>>>& hash_tables,
               const Tensors<float>& hash_table_value_tensors, 
               const Tensors<TypeHashValueIndex>& hash_value_index_tensors,
@@ -174,6 +174,10 @@ public:
 
     // launch kernels on GPUs: do embedding lookup on multi GPUs
     for (int id = 0; id < local_gpu_count; id++) {
+      if(slot_num_per_gpu[id] == 0) {
+        continue;
+      }
+
       int cur_device = (*device_resources)[id]->get_device_id();
       context.set_device(cur_device);
 
@@ -188,16 +192,23 @@ public:
       try {
         // get hash_value_index from hash_table by hash_key
         size_t num;
-        CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num_per_gpu[id]], sizeof(TypeHashKey),
-                                      cudaMemcpyDeviceToHost, stream));
+        CK_CUDA_THROW_(cudaMemcpyAsync(&num, &row_offset[batch_size * slot_num_per_gpu[id]], 
+          sizeof(TypeHashKey), cudaMemcpyDeviceToHost, stream));
         hash_table->get_insert(hash_key, hash_value_index, num, stream);
 
 
-        // // just for debug
-        // TypeHashKey * h_hash_key = (TypeHashKey *)malloc(num * sizeof(TypeHashKey));
-        // cudaMemcpy(h_hash_key, hash_key, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
-        // std::cout << "gpu=" << id << ", hash_keys:" << std::endl;
-        // for(int i = 0; i < 20; i++) {
+//         // just for debug
+//         int numprocs = 1, pid = 0;
+//         std::vector<std::vector<int>> vvgpu;
+// #ifdef ENABLE_MPI
+//         MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+//         MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+// #endif
+//         TypeHashKey * h_hash_key = (TypeHashKey *)malloc(num * sizeof(TypeHashKey));
+//         cudaMemcpy(h_hash_key, hash_key, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
+//         std::cout << "rank" << pid  << ", gpu" << id << ", slot_num_per_gpu=" 
+//           << slot_num_per_gpu[id] << ", key_num=" << num << ", hash_keys:" << std::endl;
+        // for(int i = 0; i < num; i++) {
         //   std::cout << h_hash_key[i] << ", " << std::endl;
         // } 
         // std::cout << std::endl;
@@ -369,6 +380,10 @@ public:
     int local_gpu_count = device_resources->size();
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(slot_num_per_gpu[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
       const auto &stream = (*device_resources)[id]->get_stream();
       const auto &top_grad = embedding_feature_tensors[id]->get_ptr();
@@ -437,29 +452,30 @@ public:
                     OptParams& opt_params,
                     const TypeHashKey *row_offset, 
                     const TypeHashKey *hash_key,
-                    const nv::HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>
-                        *hash_table,
+                    const HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()> *hash_table,
                     TypeHashValueIndex *hash_value_index, 
                     TypeHashKey *sample_id, 
                     TypeHashKey *sample_id_sort,
                     TypeHashValueIndex *hash_value_index_sort, 
                     // uint32_t *hash_value_index_count,
-                    
                     uint32_t *hash_value_index_count_offset, 
                     uint32_t *new_hash_value_flag,
                     uint32_t *hash_value_flag_sumed, 
-
                     uint32_t *hash_value_index_count_counter,
                     void *temp_storage_sort, 
                     size_t temp_storage_sort_bytes, 
                     void *temp_storage_scan, 
                     size_t temp_storage_scan_bytes, 
-
                     const float *wgrad,
                     TypeHashValueIndex *deltaw_hash_value_index, 
                     float *deltaw, 
-         	    float *hash_table_value,
-		    float scaler ) {
+                    float *hash_table_value,
+                    float scaler ) {
+
+    if(slot_num == 0) {
+      return;
+    }
+
     try {
       // step1: expand sample IDs
       dim3 blockSize(64, 1, 1);
@@ -505,7 +521,6 @@ public:
       //   }
       // }
 
-
       // step3: sort by hash_value_index
       int end_bit = (int)log2((float)max_vocabulary_size_per_gpu) + 1;
       CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairs(
@@ -540,52 +555,50 @@ public:
       gridSize.x = max(1, hash_hash_value_index_count_num);
 
       if(opt_params.global_update){
-	switch (opt_params.optimizer) {
+        switch (opt_params.optimizer) {
         case 0:  // adam
           opt_params.hyperparams.adam.alpha_t =
-	    opt_params.lr *
-	    sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
-	    (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
-	  //update target mi and vi
+            opt_params.lr *
+            sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
+            (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+          //update target mi and vi
           opt_adam_kernel_global<<<gridSize, blockSize, 0, stream>>>(
-	    hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-	    sample_id_sort, hash_value_index_sort, 
-	    hash_value_index_count_offset, wgrad, scaler);
-	  //all update according to the mi vi
-	  adam_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam, hash_table_value);
+            hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+            sample_id_sort, hash_value_index_sort, 
+            hash_value_index_count_offset, wgrad, scaler);
+          //all update according to the mi vi
+          adam_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam, hash_table_value);
           break;
         case 1:  // momentum sgd
           opt_momentum_sgd_kernel_global<<<gridSize, blockSize, 0, stream>>>(
-	    hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-	    opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
-	    hash_value_index_count_offset, wgrad, scaler);
-
-	  momentum_sgd_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum , hash_table_value);
-
+            hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+            opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
+            hash_value_index_count_offset, wgrad, scaler);
+          momentum_sgd_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum , hash_table_value);
           break;
         case 2:  // nesterov
-	  nesterov_global_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov, hash_table_value);
+          nesterov_global_update_kernel_global<<<1024,256, 0, stream>>>(embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov, hash_table_value);
           nesterov_local_update_kernel_global<<<gridSize, blockSize, 0, stream>>>(
-	    hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-	    opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-	    hash_value_index_count_offset, wgrad, hash_table_value, scaler);
+            hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+            opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
+            hash_value_index_count_offset, wgrad, hash_table_value, scaler);
           break;
         default:
           CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
-	}
+        }
       }
       else{
-	switch (opt_params.optimizer) {
+        switch (opt_params.optimizer) {
         case 0:  // adam
           opt_params.hyperparams.adam.alpha_t =
-	    opt_params.lr *
-	    sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
-	    (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+            opt_params.lr *
+            sqrt(1 - pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
+            (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
 
           opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
-	     hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-	     sample_id_sort, hash_value_index_sort, 
-	     hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw, scaler);
+            hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+            sample_id_sort, hash_value_index_sort, 
+            hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw, scaler);
           break;
         case 1:  // momentum sgd
           opt_momentum_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
@@ -596,21 +609,21 @@ public:
           break;
         case 2:  // nesterov
           opt_nesterov_kernel<<<gridSize, blockSize, 0, stream>>>(
-	      hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-	      opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-	      hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
-	      (float *)deltaw, scaler);
+            hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+            opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
+            hash_value_index_count_offset, wgrad, deltaw_hash_value_index,
+            (float *)deltaw, scaler);
           break;
         default:
           CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
-	}
+	      }
 
-	// step6: update hash_table_value by deltaw
-	blockSize.x = embedding_vec_size;
-	gridSize.x = max(1, hash_hash_value_index_count_num);
-	update_kernel<TypeHashValueIndex>
-          <<<gridSize, blockSize, 0, stream>>>(hash_hash_value_index_count_num, embedding_vec_size,
-					       deltaw_hash_value_index, deltaw, hash_table_value);
+        // step6: update hash_table_value by deltaw
+        blockSize.x = embedding_vec_size;
+        gridSize.x = max(1, hash_hash_value_index_count_num);
+        update_kernel<TypeHashValueIndex>
+              <<<gridSize, blockSize, 0, stream>>>(hash_hash_value_index_count_num, embedding_vec_size,
+                      deltaw_hash_value_index, deltaw, hash_table_value);
       }//else
 
     } catch (const std::runtime_error &rt_err) {
@@ -783,7 +796,7 @@ public:
     int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();    
+    int local_gpu_count =  (int)device_list.size();    
     if(local_gpu_count != plan_gpu_count) {
       std::cout << "local_gpu_count=" << local_gpu_count 
                 << ", plan_gpu_count=" << plan_gpu_count 
@@ -859,7 +872,7 @@ public:
     int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();    
+    int local_gpu_count =  (int)device_list.size();    
     if(local_gpu_count != plan_gpu_count) {
       std::cout << "local_gpu_count=" << local_gpu_count 
                 << ", plan_gpu_count=" << plan_gpu_count 
@@ -966,7 +979,7 @@ public:
     transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
     int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();    
+    int local_gpu_count =  (int)device_list.size();    
     int total_gpu_count = device_resources->get_total_gpu_count();
     if(local_gpu_count != plan_gpu_count) {
       std::cout << "local_gpu_count=" << local_gpu_count 
@@ -1103,7 +1116,7 @@ public:
     transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
     int plan_gpu_count = transfer_plan->num_gpus(); // total number of GPUs in current node
     std::vector<int> device_list = device_resources->get_device_list();
-    size_t local_gpu_count =  device_list.size();    
+    int local_gpu_count =  (int)device_list.size();    
     int total_gpu_count = device_resources->get_total_gpu_count();
     if(local_gpu_count != plan_gpu_count) {
       std::cout << "local_gpu_count=" << local_gpu_count 
@@ -1393,7 +1406,7 @@ public:
                               int embedding_vec_size,
                               size_t max_vocabulary_size_per_gpu,
                               Tensors<float>& hash_table_value_tensors,
-                              std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
+                              std::vector<std::unique_ptr<HashTable<TypeHashKey, 
                                 TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>& 
                                 hash_tables,
                               const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -1681,7 +1694,7 @@ public:
                               size_t max_vocabulary_size_per_gpu,
                               Tensors<float>& hash_table_value_tensors,
                               Tensors<TypeHashValueIndex>&  hash_table_slot_id_tensors,
-                              std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
+                              std::vector<std::unique_ptr<HashTable<TypeHashKey, 
                                 TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>& 
                                 hash_tables,
                               const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -1838,6 +1851,10 @@ public:
 
       // do HashTable insert <key,value_index>
       for (int id = 0; id < local_gpu_count; id++) {
+        if(tile_counter_in_chunk_per_gpu[id] == 0) {
+          continue;
+        }
+
         context.set_device((*device_resources)[id]->get_device_id());
 
         size_t tile_count = tile_counter_in_chunk_per_gpu[id];
@@ -1869,6 +1886,10 @@ public:
 
       // memcpy hash_table_slot_id and hash_table_value from CPU to GPU
       for (int id = 0; id < local_gpu_count; id++) {
+        if(tile_counter_in_chunk_per_gpu[id] == 0) {
+          continue;
+        }
+        
         context.set_device((*device_resources)[id]->get_device_id());
 
         size_t slot_id_chunk_size = 
@@ -2040,7 +2061,7 @@ public:
                               int embedding_vec_size,
                               size_t max_vocabulary_size_per_gpu,
                               Tensors<float>& hash_table_value_tensors,
-                              std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
+                              std::vector<std::unique_ptr<HashTable<TypeHashKey, 
                                 TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>& 
                                 hash_tables,
                               const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -2082,6 +2103,10 @@ public:
     std::unique_ptr<float *[]> d_hash_table_value(new float *[local_gpu_count]);
     std::unique_ptr<size_t *[]> d_dump_counter(new size_t *[local_gpu_count]);
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -2096,6 +2121,10 @@ public:
 
     // dump hash table on GPU
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
@@ -2124,7 +2153,6 @@ public:
   #ifdef ENABLE_MPI
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
-
   #endif
 
     const int master_node = 0;
@@ -2176,6 +2204,10 @@ public:
   #endif
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
@@ -2208,7 +2240,7 @@ public:
                               size_t max_vocabulary_size_per_gpu,
                               Tensors<float>& hash_table_value_tensors,
                               Tensors<TypeHashValueIndex>& hash_table_slot_id_tensors,
-                              std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, 
+                              std::vector<std::unique_ptr<HashTable<TypeHashKey, 
                                 TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>& 
                                 hash_tables,
                               const std::shared_ptr<GPUResourceGroup>& device_resources,
@@ -2264,6 +2296,10 @@ public:
     std::unique_ptr<float *[]> d_hash_table_value(new float *[local_gpu_count]);
     std::unique_ptr<size_t *[]> d_dump_counter(new size_t *[local_gpu_count]);
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -2280,6 +2316,10 @@ public:
 
     // dump hash table on GPU
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       // // just for debug 
@@ -2366,6 +2406,10 @@ public:
   #endif
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
@@ -2392,6 +2436,7 @@ public:
   void get_forward_results(int memcpy_size,
                           const Tensors<float>& embedding_feature_tensors,
                           float * embedding_feature,
+                          Tensors<float>& temp_tensors,
                           const std::shared_ptr<GPUResourceGroup>& device_resources,
                           const CudaDeviceContext& context) {
     int local_gpu_count = device_resources->size();
@@ -2408,17 +2453,6 @@ public:
     }
 #else // support multi-node 
     if(total_gpu_count > 1) {
-      GeneralBuffers<float> temp_bufs;   
-      Tensors<float> temp_tensors;
-      for (int id = 0; id < local_gpu_count; id++) {
-        int cur_device = (*device_resources)[id]->get_device_id();
-        context.set_device(cur_device);
-        temp_bufs.emplace_back(new GeneralBuffer<float>());
-        temp_tensors.emplace_back(
-          new Tensor<float>({1, total_gpu_count * memcpy_size},
-                            temp_bufs.back(), TensorFormat_t::HW));
-        temp_bufs.back()->init(cur_device);
-      }
 
       // nccl allGather
       all_gather(memcpy_size,
@@ -2428,7 +2462,7 @@ public:
                 context);
       sync_all_gpus(device_resources, context);
 
-      // memcpy H2D
+      // memcpy D2H
       context.set_device((*device_resources)[0]->get_device_id());
       CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature, temp_tensors[0]->get_ptr(),
                                     total_gpu_count * memcpy_size * sizeof(float), 
@@ -2487,56 +2521,21 @@ public:
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void get_backward_results(int batch_size,
+  void get_backward_results(int batch_size_per_gpu,
                             int slot_num,
                             int embedding_vec_size,
                             const std::string& plan_file,
                             const Tensors<float>& wgrad_tensors,
                             float * wgrad,
+                            Tensors<float> all2all_tensors,
+                            Tensors<float> reorder_tensors,
+                            Tensors<float> temp_tensors,
+                            const std::unique_ptr<comm_handler>& all2all,
                             const std::shared_ptr<GPUResourceGroup>& device_resources,
                             const CudaDeviceContext& context) {
 
     int local_gpu_count = device_resources->size();
     int total_gpu_count = device_resources->get_total_gpu_count();
-
-    int batch_size_per_gpu = batch_size / total_gpu_count;
-
-    Tensors<float> all2all_tensors;
-    Tensors<float> reorder_tensors;
-    GeneralBuffers<float> float_bufs;
-
-    for (int id = 0; id < local_gpu_count; id++) { 
-      int cur_device = (*device_resources)[id]->get_device_id();
-      context.set_device(cur_device);
-      float_bufs.emplace_back(new GeneralBuffer<float>());
-      all2all_tensors.emplace_back(
-          new Tensor<float>({batch_size_per_gpu * slot_num,
-                            embedding_vec_size},
-                            float_bufs.back(), TensorFormat_t::HW));
-      reorder_tensors.emplace_back(
-          new Tensor<float>({batch_size_per_gpu * slot_num,
-                            embedding_vec_size},
-                            float_bufs.back(), TensorFormat_t::HW));    
-      float_bufs.back()->init(cur_device); 
-    }
-
-    // all2all
-    std::unique_ptr<comm_handler> all2all;
-#ifndef ENABLE_MPI
-    std::vector<int> v_slot_num_per_gpu; 
-    for (int id = 0; id < local_gpu_count; id++) { 
-      int slot_num_per_gpu = slot_num / total_gpu_count \
-          + ((id<(slot_num % total_gpu_count))? 1 : 0);
-      v_slot_num_per_gpu.push_back(slot_num_per_gpu);
-    }
-    all2all_init_forward(all2all, plan_file, batch_size_per_gpu, 
-                         v_slot_num_per_gpu, embedding_vec_size,
-                         wgrad_tensors, all2all_tensors, device_resources);
-#else 
-    all2all_init_forward(all2all, plan_file, batch_size_per_gpu, 
-                         slot_num, embedding_vec_size,
-                         wgrad_tensors, all2all_tensors, device_resources);
-#endif 
 
     all2all_exec(all2all);
 
@@ -2566,17 +2565,6 @@ public:
     }
 #else // multi node 
     if(total_gpu_count > 1) {
-      GeneralBuffers<float> temp_bufs;   
-      Tensors<float> temp_tensors;
-      for (int id = 0; id < local_gpu_count; id++) {
-        int cur_device = (*device_resources)[id]->get_device_id();
-        context.set_device(cur_device);
-        temp_bufs.emplace_back(new GeneralBuffer<float>());
-        temp_tensors.emplace_back(
-          new Tensor<float>({1, total_gpu_count * memcpy_size},
-                            temp_bufs.back(), TensorFormat_t::HW));
-        temp_bufs.back()->init(cur_device);
-      }
 
       // nccl gather 
       all_gather(memcpy_size,
@@ -2625,7 +2613,7 @@ public:
                                 int embedding_vec_size,
                                 size_t vocabulary_size,
                                 const Tensors<float>& hash_table_value_tensors,
-                                const std::vector<std::unique_ptr<nv::HashTable<TypeHashKey, TypeHashValueIndex,
+                                const std::vector<std::unique_ptr<HashTable<TypeHashKey, TypeHashValueIndex,
                                   std::numeric_limits<TypeHashKey>::max()>>>& hash_tables,
                                 TypeHashKey *hash_table_key,
                                 float *hash_table_value,
@@ -2646,10 +2634,14 @@ public:
       }
       total_count += count[id];
 
-  #ifndef NDEBUG
+#ifndef NDEBUG
       std::cout << "GPU[" << id << "]: number of <key,value> pairs:" << count[id] << std::endl;
-  #endif
+#endif
     }
+
+#ifndef NDEBUG
+    std::cout << "Total number of <key,value> pairs:" << total_count << std::endl;
+#endif
 
     if (total_count > (size_t)vocabulary_size) {
       CK_THROW_(Error_t::WrongInput,
@@ -2662,6 +2654,10 @@ public:
     std::unique_ptr<float *[]> d_hash_table_value(new float *[local_gpu_count]);
     std::unique_ptr<size_t *[]> d_dump_counter(new size_t *[local_gpu_count]);
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -2673,6 +2669,10 @@ public:
 
     // dump hash table on GPU
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
@@ -2691,6 +2691,10 @@ public:
     size_t key_offset = 0;
     size_t value_offset = 0;
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       CK_CUDA_THROW_(cudaMemcpy(hash_table_key + key_offset, d_hash_table_key[id],
@@ -2704,6 +2708,10 @@ public:
     }
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(count[id] == 0) {
+        continue;
+      }
+
       context.set_device((*device_resources)[id]->get_device_id());
 
       CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
@@ -2711,6 +2719,50 @@ public:
       CK_CUDA_THROW_(cudaFree(d_hash_table_value[id]));
       CK_CUDA_THROW_(cudaFree(d_dump_counter[id]));
     }
+
+  #ifdef ENABLE_MPI
+    int my_rank = 0;
+    int n_ranks = 1;
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
+
+    if(n_ranks > 1) {
+      std::unique_ptr<int> displs(new int(n_ranks));
+      std::unique_ptr<int> recv_count(new int(n_ranks));
+      MPI_Gather(&total_count, 1, MPI_INT, recv_count.get(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+      if(my_rank == 0) {
+        displs.get()[0] = 0;
+        for(int i = 1; i < n_ranks; i++) {
+          displs.get()[i] = displs.get()[i-1] + recv_count.get()[i-1]; 
+        }
+      }
+
+      std::unique_ptr<int> displs_key(new int(n_ranks));
+      std::unique_ptr<int> recv_count_key(new int(n_ranks));
+      if(my_rank == 0) {
+        for(int i = 0; i < n_ranks; i++) {
+          recv_count_key.get()[i] = recv_count.get()[i] * sizeof(TypeHashKey);
+          displs_key.get()[i] = displs.get()[i] * sizeof(TypeHashKey);
+        }
+      }
+
+      MPI_Gatherv(hash_table_key, total_count*sizeof(TypeHashKey), MPI_CHAR, 
+        hash_table_key, recv_count_key.get(), displs_key.get(), MPI_CHAR, 0, MPI_COMM_WORLD);
+
+      std::unique_ptr<int> displs_value(new int(n_ranks));
+      std::unique_ptr<int> recv_count_value(new int(n_ranks));
+      if(my_rank == 0) {
+        for(int i = 0; i < n_ranks; i++) {
+          recv_count_value.get()[i] = recv_count.get()[i] * embedding_vec_size * sizeof(float);
+          displs_value.get()[i] = displs.get()[i] * embedding_vec_size * sizeof(float);
+        }
+      } 
+
+      MPI_Gatherv(hash_table_value, total_count*embedding_vec_size*sizeof(float), MPI_CHAR, 
+        hash_table_value, recv_count_value.get(), displs_value.get(), MPI_CHAR, 0, MPI_COMM_WORLD);
+    }
+  #endif
 
     return;
   }
@@ -2738,6 +2790,10 @@ public:
     int total_gpu_count = device_resources->get_total_gpu_count();
 
     for (int id = 0; id < local_gpu_count; id++) {
+      if(slot_num_per_gpu[id] == 0) {
+        continue;
+      }
+
       int local_device_id = (*device_resources)[id]->get_device_id();
       int global_id = device_resources->get_global_id(local_device_id);
 
