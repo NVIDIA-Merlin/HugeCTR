@@ -64,7 +64,7 @@ typedef long long T;
 // eg: 1.25x of that.
 const float load_factor = 0.75;  // CAUSION: this is a very important param for performance
 
-const int num_chunk_threads = 1;   // must be 1 for CPU and GPU results comparation
+const int num_chunk_threads = 1;  // must be 1 for CPU and GPU results comparation
 const int num_files = 1;
 const Check_t CHK = Check_t::Sum;  // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");

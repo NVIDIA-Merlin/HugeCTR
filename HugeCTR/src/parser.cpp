@@ -190,7 +190,6 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
   bool global_update = false;
   global_update = get_value_from_json<bool>(j_optimizer, "global_update");
 
-
   switch (optimizer_type) {
     case Optimizer_t::Adam: {
       auto j_hparam = get_json(j_optimizer, "adam_hparam");

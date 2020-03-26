@@ -179,7 +179,8 @@ class DataReader {
    */
   DataReader(const std::string& file_list_name, int batchsize, int label_dim, int dense_dim,
              Check_t check_type, std::vector<DataReaderSparseParam>& params,
-             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, int num_chunk_threads = 31);
+             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+             int num_chunk_threads = 31);
 
   /**
    * process of evaluation will call this to create a new object of DataReader
