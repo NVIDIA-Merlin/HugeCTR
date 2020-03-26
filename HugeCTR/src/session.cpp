@@ -225,7 +225,6 @@ Error_t Session::eval() {
     }
     data_reader_eval_->ready_to_collect();
     if (networks_.size() > 1) {
-      // execute dense forward and backward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
         gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
             [this, i](int id) { network_eval_helper(id, networks_[i].get()); });
