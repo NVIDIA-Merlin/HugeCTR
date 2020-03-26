@@ -21,7 +21,13 @@ namespace HugeCTR {
 class Source {
 protected:
   unsigned int counter_{0};
+  const unsigned int offset_;
+  const unsigned int stride_;
+  
 public:
+
+  Source(unsigned int offset, unsigned int stride):offset_(offset), stride_(stride){}
+
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
    * @param ptr pointer to user located buffer
@@ -38,8 +44,6 @@ public:
   
   virtual bool is_open() noexcept = 0;
 
-  //id of data
-  unsigned int get_counter(){return counter_;}
 };
 
 } //namespace HugeCTR

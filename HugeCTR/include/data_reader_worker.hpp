@@ -30,6 +30,8 @@ namespace HugeCTR {
 template <class T>
 class DataReaderWorker {
 private:
+  const unsigned int worker_id_{0};
+  const unsigned int worker_num_{0};
   std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   DataSetHeader
       data_set_header_;               /**< the header of data set, which has main informations of a data file */
@@ -73,17 +75,21 @@ public:
   /**
    * Ctor
    */
-  DataReaderWorker(const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap, FileList& file_list, size_t buffer_length, 
-    Check_t check_type, const std::vector<DataReaderSparseParam>& params):
+  DataReaderWorker(unsigned int worker_id, unsigned int worker_num, const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap, FileList& file_list, size_t buffer_length, Check_t check_type, const std::vector<DataReaderSparseParam>& params):
+    worker_id_(worker_id),
+    worker_num_(worker_num),
     csr_heap_(csr_heap), buffer_length_(buffer_length), 
     check_type_(check_type), params_(params),
     feature_ids_(new T[buffer_length]())
   {
+    if(worker_id >= worker_num){
+      CK_THROW_(Error_t::BrokenFile, "DataReaderWorker: worker_id >= worker_num");
+    }
     slots_ = 0;
     for(auto& p: params){
       slots_+=p.slot_num;
     }
-    source_ = std::make_shared<FileSource>(file_list);
+    source_ = std::make_shared<FileSource>(worker_id, worker_num, file_list);
     switch(check_type_){
     case Check_t::Sum:
       checker_ = std::make_shared<CheckSum>(*source_);
@@ -133,10 +139,8 @@ void DataReaderWorker<T>::read_a_batch() {
     if(!checker_->is_open()){
       read_new_file();
     }
-    unsigned int key;
     CSRChunk<T>* csr_chunk = nullptr;
-    key = checker_->get_source_counter();
-    csr_heap_->free_chunk_checkout(&csr_chunk, key);
+    csr_heap_->free_chunk_checkout(&csr_chunk, worker_id_);
 
     if (!skip_read_) {
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
@@ -233,7 +237,7 @@ void DataReaderWorker<T>::read_a_batch() {
       //write the last index to row
       csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row); 
     }
-    csr_heap_->chunk_write_and_checkin(key);
+    csr_heap_->chunk_write_and_checkin(worker_id_);
   }
   catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

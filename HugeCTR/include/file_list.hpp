@@ -86,13 +86,9 @@ class FileList {
    * Get a file name from the list.
    * @return the file name and id.
    */
-  NameID get_a_file_with_id() {
-    unsigned int counter = counter_;
-    int current_file_idx = counter % num_of_files_;
-    while (!counter_.compare_exchange_weak(counter,counter + 1));
-
-    NameID name_id = {file_vector_[current_file_idx], counter};
-    return name_id;
+  std::string get_a_file_with_id(unsigned int id) {
+    int current_file_idx = id % num_of_files_;
+    return file_vector_[current_file_idx];
   }
 
 };
