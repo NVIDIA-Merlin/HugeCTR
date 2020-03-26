@@ -5,17 +5,23 @@ A sample of building and training DeepFM Network with HugeCTR [(link)](https://w
 The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).
 The original training set contains 45,840,617 examples.
 Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
-Because the original test set doesn't contain labels, it is not used.
+The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed acordingly.
+The original test set doesn't contain labels, so it's not used.
 
 ### Requirements ###
-Python >= 3.6.9
-Pandas 1.0.1
-Sklearn 0.22.1
+* Python >= 3.6.9
+* Pandas 1.0.1
+* Sklearn 0.22.1
 
 1. Download the dataset and preprocess
 
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
 and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
+The script `preprocess.sh` fills the missing values by mapping them to the unusned unique integer or category.
+It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
+Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
+In addition, it normalizes the integer feature values to the range [0, 1],
+but it doesn't create any feature crosses.
 
 ```shell
 # The preprocessing can take 1-4 hours based on the system configuration.
