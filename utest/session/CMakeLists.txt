@@ -20,4 +20,4 @@ file(GLOB session_test_src
 
 add_executable(session_test ${session_test_src})
 target_compile_features(session_test PUBLIC cxx_std_11)
-target_link_libraries(session_test PUBLIC huge_ctr_static gtest gtest_main cudart)
+target_link_libraries(session_test PUBLIC huge_ctr_static gtest gtest_main)
