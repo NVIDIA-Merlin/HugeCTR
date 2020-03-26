@@ -67,7 +67,6 @@ class Heap {
       }
       read_cv_.wait(lock);
     }
-    //if (!loop_flag_){ std::cout << "loop_flag2_" << std::endl;}
     // thread safe end
     return;
   }
@@ -114,7 +113,6 @@ class Heap {
       }
       write_cv_.wait(lock);
     }
-    //if (!loop_flag_){ std::cout << "loop_flag1_" << std::endl;}
     // thread safe end
     return;
   }

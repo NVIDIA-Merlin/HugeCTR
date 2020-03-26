@@ -49,11 +49,9 @@ private:
     for(int i=0; i<MAX_TRY; i++){
       checker_->next_source();
 
-      //      tmp_check(0, sizeof(DataSetHeader), "sizeof(DataSetHeader)");
       Error_t err = checker_->read(reinterpret_cast<char*>(&data_set_header_), 
 				   sizeof(DataSetHeader));
       current_record_index_ = 0;
-      //todo: check if file match our DataReader setting.
       if(!(data_set_header_.error_check == 0 && check_type_ == Check_t::None) 
 	 && !(data_set_header_.error_check == 1 && check_type_ == Check_t::Sum)){
 	ERROR_MESSAGE_("DataHeaderError");      

@@ -54,11 +54,9 @@ class HeapEx {
     if (chunk == nullptr) {
       CK_THROW_(Error_t::WrongInput, "chunk == nullptr");
     }
-    //    std::thread::id tid = std::this_thread::get_id();
     std::unique_lock<std::mutex> lock(mtx_);
     int i = id%num_chunks_;
     // thread safe start
-    //    std::cout << "free_chunk_checkout start" << tid << std::endl;
     while (loop_flag_) {
       bool avail = ((lower_bits_ & (~higher_bits_)) >> i) & 1;
       if (avail) {
@@ -68,7 +66,6 @@ class HeapEx {
       }
       read_cv_.wait(lock);
     }
-    //    std::cout << "free_chunk_checkout end " << loop_flag_ << " " << avail << " " << tid << std::endl;
     return;
   }
   
@@ -85,8 +82,6 @@ class HeapEx {
       // thread safe end
     }
     write_cv_.notify_all();
-    // std::thread::id tid = std::this_thread::get_id();
-    // std::cout << "chunk_write_and_checkin" << tid << std::endl;
     return;
   }
 
@@ -98,8 +93,6 @@ class HeapEx {
     if (chunk == nullptr) {
       CK_THROW_(Error_t::WrongInput, "chunk == nullptr");
     }
-    // std::thread::id tid = std::this_thread::get_id();
-    // std::cout << "data_chunk_checkout start" << tid << std::endl;
     std::unique_lock<std::mutex> lock(mtx_);
     int i = count_;
     // thread safe start
@@ -112,7 +105,6 @@ class HeapEx {
       }
       write_cv_.wait(lock);
     }
-    //    std::cout << "data_chunk_checkout end" << tid << std::endl;
     return;
   }
 
@@ -129,8 +121,6 @@ class HeapEx {
     }
     read_cv_.notify_all();
     count_ = (count_+1)%num_chunks_;
-    // std::thread::id tid = std::this_thread::get_id();
-    // std::cout << "chunk_free_and_checkin" << tid << std::endl;
     return;
   }
 
@@ -138,7 +128,6 @@ class HeapEx {
    * break the spin lock.
    */
   void break_and_return() {
-    //    std::cout << "call break_and_return()" << std::endl;
     loop_flag_ = false;
     write_cv_.notify_all();
     read_cv_.notify_all();

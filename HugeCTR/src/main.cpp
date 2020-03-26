@@ -43,7 +43,6 @@ int main(int argc, char* argv[]) {
     cudaSetDevice(0);
 #ifdef ENABLE_MPI
     int provided;
-    // CK_MPI_THROW__(MPI_Init(&argc, &argv));
     CK_MPI_THROW__(MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided));
     CK_MPI_THROW__(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
     CK_MPI_THROW__(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
