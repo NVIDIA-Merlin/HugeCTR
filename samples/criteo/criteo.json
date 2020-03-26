@@ -3,64 +3,81 @@
     "lr_policy": "fixed",
     "display": 200,
     "max_iter": 50000,
-    "gpu": [0],
+    "gpu": [0,1],
     "batchsize": 40960,
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 100,
-    "model_file": "./criteo.model"
+    "eval_batches": 100
   },
   
   "optimizer": {
     "type": "Adam",
+    "global_update": false,
     "adam_hparam": {
       "alpha": 0.005,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.000001
+      "epsilon": 0.00000001
     }
   },
 
-  "data": {
-    "source": "./file_list.txt",
-    "eval_source": "./file_list_test.txt",
-    "max_feature_num_per_sample": 100,
-    "label_dim": 1,
-    "slot_num": 1
-  },
-
   "layers": [ 
+  {
+      "name": "data",
+      "type": "Data",
+      "source": "./file_list.txt",
+      "eval_source": "./file_list_test.txt",
+      "check": "Sum",
+      "label": {
+        "top": "label",
+        "label_dim": 1
+      },
+      "dense": {
+        "top": "dense",
+        "dense_dim": 0
+      },
+      "sparse": [
+        {
+          "top": "data1",
+          "type": "DistributedSlot",
+          "max_feature_num_per_sample": 100,
+          "slot_num": 1
+        }        
+      ]
+    },
+    
+    
     {
       "name": "sparse_embedding1",
-      "type": "SparseEmbeddingHash",
+      "type": "DistributedSlotSparseEmbeddingHash",
+      "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "vocabulary_size": 1603616,
         "load_factor": 0.75,
-        "slot_num":1,
         "embedding_vec_size": 64,
         "combiner": 0
       }
     },
 
     {
-      "name": "concat1",
-      "type": "Concat",
+      "name": "reshape1",
+      "type": "Reshape",
       "bottom": "sparse_embedding1",
-      "top": "concat1"
+      "top": "reshape1",
+      "leading_dim": 64
     },
 
     {
       "name": "fc1",
       "type": "InnerProduct",
-      "bottom": "concat1",
+      "bottom": "reshape1",
       "top": "fc1",
        "fc_param": {
         "num_output": 200
       }
     },
-
     {
       "name": "relu1",
       "type": "ReLU",
@@ -68,7 +85,7 @@
       "top": "relu1"
      
     },
-
+      
     {
       "name": "fc2",
       "type": "InnerProduct",
@@ -114,12 +131,12 @@
         "num_output": 1
       }
     },
-    
+
     
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": "fc4",
+      "bottom": ["fc4","label"],
       "top": "loss"
     } 
   ]

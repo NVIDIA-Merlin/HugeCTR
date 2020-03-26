@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -20,4 +20,4 @@ file(GLOB parser_test_src
 
 add_executable(parser_test ${parser_test_src})
 target_compile_features(parser_test PUBLIC cxx_std_11)
-target_link_libraries(parser_test PUBLIC huge_ctr_static gtest gtest_main cudart)
+target_link_libraries(parser_test PUBLIC huge_ctr_static gtest gtest_main)

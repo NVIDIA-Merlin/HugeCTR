@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,13 +42,17 @@ class Parser {
  private:
   nlohmann::json config_; /**< configure file. */
   int batch_size_;        /**< batch size. */
+  const bool use_mixed_precision_{false};
+  const float scaler_{1.f};
 
  public:
   /**
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
-  Parser(const std::string& configure_file, int batch_size) : batch_size_(batch_size) {
+  Parser(const std::string& configure_file, int batch_size, bool use_mixed_precision = false,
+         float scaler = 1.f)
+      : batch_size_(batch_size), use_mixed_precision_(use_mixed_precision), scaler_(scaler) {
     try {
       std::ifstream file(configure_file);
       if (!file.is_open()) {
@@ -70,7 +74,7 @@ class Parser {
    */
   void create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                        std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
-                       std::unique_ptr<Embedding<TYPE_1>>& embedding,
+                       std::vector<std::unique_ptr<Embedding<TYPE_1>>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
@@ -79,7 +83,7 @@ class Parser {
    */
   void create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                        std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
-                       std::unique_ptr<Embedding<TYPE_2>>& embedding,
+                       std::vector<std::unique_ptr<Embedding<TYPE_2>>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 };
@@ -98,10 +102,23 @@ struct SolverParser {
   int eval_batches;                            /**< the number of batches for evaluations */
   int batchsize;                               /**< batchsize */
   std::string model_file;                      /**< name of model file */
-  std::string embedding_file;                  /**< name of embedding file */
+  std::vector<std::string> embedding_files;    /**< name of embedding file */
   std::vector<int> device_list;                /**< device_list */
   std::shared_ptr<const DeviceMap> device_map; /**< device map */
+  bool use_mixed_precision;
+  float scaler;
   SolverParser(std::string configure_file);
+};
+
+template <typename T>
+struct SparseInput {
+  Tensors<T> row;
+  Tensors<T> value;
+  int slot_num;
+  int max_feature_num_per_sample;
+  SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
+      : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
+  SparseInput() {}
 };
 
 }  // namespace HugeCTR

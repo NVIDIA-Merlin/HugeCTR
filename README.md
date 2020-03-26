@@ -1,11 +1,14 @@
 # HugeCTR #
+[![v21](docs/user_guide_src/v21.JPG)](docs/hugectr_user_guide.md#new-features-in-version-21)
+
 HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training.
 
 Design Goals:
-* Optimized for recommender system
-* Easy to be customized
+* Fast: it's a speed-of-light CTR training framework;
+* Dedicated: we consider everything you need in CTR training;
+* Easy: you can start your work now, no matter you are a data scientist, a learner, or a developer.
 
-Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs\`
+Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs/`
 
 ## Requirements ##
 * cuBLAS >= 9.1
@@ -14,13 +17,21 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * cuDNN >= 7.5
 * NCCL >= 2.0
 * Clang-Format 3.8
-* OpenMPI >= 4.0 (optional, if require multi-nodes training)
+* GCC >= 7.4.0
+* Compiler should have OpenMP support
+### Optional, if require multi-nodes training ###
+* OpenMPI >= 4.0
+* UCX library >= 1.6
+* HWLOC library >= 2.1.0
+### Plan generation for LocalizedSlotEmbedding (pip install)
+* ortools
+* mpi4py
+
 
 ## Build ##
 ### Init Git ###
 ```shell
-$ git submodule init
-$ git submodule update
+$ git submodule update --init --recursive
 ```
 
 ### Build with Release ###
@@ -40,16 +51,9 @@ $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=XX ..
 $ make
 ```
-### Build with Mixed Precision (TensorCore) Support ###
-To use mixed precision training, enable USE_WMMA and set SCALER to 128/256/512/1024 by:
-```shell
-$ mkdir -p build
-$ cd build
-$ cmake -DSM=XX -DUSE_TENSORCORE=ON -DSCALER=YYY ..
-```
 
-### Build with verification mode ###
-In this mode loss of trainig will be shown as the average of `eval_batches` result. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
+### Build with Validation Mode ###
+This mode is designed for framework validation. In this mode loss of trainig will be shown as the average of `eval_batches` results. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
 ```shell
 $ mkdir -p build
 $ cd build
@@ -102,8 +106,7 @@ Configuration file should be a json format file e.g. [simple_sparse_embedding.js
 There are four sessions in a configuration file: "solver", "optimizer", "data", "layers". The sequence of these sessions is not restricted.
 * You can specify the device (or devices), batchsize, model_file.. in `solver` session;
 * and the `optimizer` that will be used in every layer.
-* File list and data set related configurations will be specified under `data` session.
-* Finally, layers should be listed under `layers`. Note that embedders should always be the first layer.
+* Finally, layers should be listed under `layers`. Note that embedders should always be the first layers.
 
 ### Model File ###
 Model file is a binary file that will be loaded for weight initilization.
@@ -132,23 +135,29 @@ A data file (binary) contains a header and data (many samples).
 
 Header Definition:
 ```c
-typedef struct DataSetHeader_{
-  long long number_of_records; //the number of samples in this data file
-  long long label_dim; //dimension of label
-  long long slot_num; //the number of slots in each sample 
-  long long reserved; //reserved for future use
+typedef struct DataSetHeader_ {
+  long long error_check;        // 0: no error check; 1: check_num
+  long long number_of_records;  // the number of samples in this data file
+  long long label_dim;          // dimension of label
+  long long dense_dim;          // dimension of dense feature
+  long long slot_num;           // slot_num for each embedding
+  long long reserved[3];        // reserved for future use
 } DataSetHeader;
+
 ```
 
 Data Definition (each sample):
 ```c
 typedef struct Data_{
-  int label[label_dim];
-  Slot slots[slot_num];
+  int length;                   // bytes in this sample (optional: only in check_sum mode )
+  float label[label_dim];       
+  float dense[dense_dim];
+  Slot slots[slot_num];          
+  char checkbits;                // checkbit for this sample (optional: only in checksum mode)
 } Data;
 
 typedef struct Slot_{
   int nnz;
-  T*  keys; //long long or uint
+  long long*  keys; 
 } Slot;
 ```

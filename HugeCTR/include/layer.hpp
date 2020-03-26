@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,17 +63,25 @@ class Layer {
    * @param stream: the CUDA stream that the forward function will be executed on.
    */
   virtual void bprop(cudaStream_t stream) = 0;
+  /*
+   * Inference pass (most layers just call fprop but some layer like dropout should inherit it)
+   * @param stream: the CUDA stream that the forward function will be executed on.
+   */
+  virtual void inference(cudaStream_t stream) { fprop(stream); }
+
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
   void init_params(std::ofstream& out_stream);
   inline int get_device_id() const { return device_id_; }
-  // Layer(GeneralBuffer& weight_buff, GeneralBuffer& wgrad_buff, int device_id); need to implement
-  // this in children
   Layer(int device_id) : device_id_(device_id) {}
   Layer(const Layer& C) = delete;
   Layer& operator=(const Layer& C) = delete;
   virtual ~Layer() {}
 
  private:
+  /*
+   * Layer initializer. If a layer wants the specific weight initialization,
+   * Override this private function accordingly, e.g., BatchNormLayer
+   */
   virtual std::vector<float> get_initializer() { return std::vector<float>(); }
 };
 }  // namespace HugeCTR

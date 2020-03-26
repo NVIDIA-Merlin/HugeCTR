@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,11 +93,13 @@ class GaussianDataSimulator : public DataSimulator<T> {
     }
   }
   T get_num() final {
-    T tmp = static_cast<T>(dis_(gen_));
-    if (tmp <= max_ && tmp >= min_) return tmp;
-    if (tmp < min_) return min_;
-    if (tmp > max_) return max_;
-    ERROR_MESSAGE_("wrong path");
+    while (1) {
+      T tmp = static_cast<T>(dis_(gen_));
+      if (tmp <= max_ && tmp >= min_) return tmp;
+      if (tmp < min_) continue;
+      if (tmp > max_) continue;
+      ERROR_MESSAGE_("wrong path");
+    }
     return 0;
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,8 +67,8 @@ class Tensor {
         CK_THROW_(Error_t::WrongInput, "doesn't support dims != 2 and != 3");
       }
       for (auto iter = dims_.begin(); iter < dims_.end(); iter++) {
-        if (iter[0] <= 0)
-          CK_THROW_(Error_t::WrongInput, "dims vector cannot have 0 or smaller elements");
+        if (iter[0] < 0)
+          CK_THROW_(Error_t::WrongInput, "dims vector cannot have elements less than 0");
       }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -182,5 +182,8 @@ bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
 
 template <typename T>
 using Tensors = std::vector<std::shared_ptr<Tensor<T>>>;
+
+template <typename T>
+using TensorPtr = std::shared_ptr<Tensor<T>>;
 
 }  // namespace HugeCTR

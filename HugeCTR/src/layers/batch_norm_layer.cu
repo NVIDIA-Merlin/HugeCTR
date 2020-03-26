@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weig
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION),
       cudnn_handle_(cudnn_handle) {
+  CudaDeviceContext context(get_device_id());
   const auto& in_tensor_dim = in_tensor->get_dims();
   const auto& out_tensor_dim = out_tensor->get_dims();
   TensorFormat_t in_format = in_tensor->get_format();
@@ -63,8 +64,8 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weig
   CK_CUDNN_THROW_(cudnnSetTensor4dDescriptorEx(in_out_desc_, data_type, batch_size, 1, 1,
                                                num_feature, n_stride, 1, 1, w_stride));
 
-  in_tensors_.emplace_back(std::move(in_tensor));
-  out_tensors_.emplace_back(std::move(out_tensor));
+  in_tensors_.emplace_back(in_tensor);
+  out_tensors_.emplace_back(out_tensor);
 
   CK_CUDNN_THROW_(cudnnCreateTensorDescriptor(&gamma_beta_desc_));
 
@@ -113,6 +114,29 @@ BatchNormLayer::~BatchNormLayer() {
   }
 }
 
+void BatchNormLayer::inference(cudaStream_t stream) {
+  CudaDeviceContext context(get_device_id());
+  CK_CUDNN_THROW_(cudnnSetStream(cudnn_handle_, stream));
+  float one = 1.0f, zero = 0.0f;
+
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
+  float* in = in_tensor->get_ptr();
+  float* out = out_tensor->get_ptr();
+
+  float* gamma = gamma_->get_ptr();
+  float* beta = beta_->get_ptr();
+
+  float* result_running_mean = result_running_mean_->get_ptr();
+  float* result_running_var = result_running_var_->get_ptr();
+  float* result_save_mean = result_save_mean_->get_ptr();
+  float* result_save_inv_var = result_save_inv_var_->get_ptr();
+
+  CK_CUDNN_THROW_(cudnnBatchNormalizationForwardInference(
+      cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
+      gamma, beta, result_running_mean, result_running_var, params_.eps));
+}
+
 void BatchNormLayer::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
@@ -133,17 +157,10 @@ void BatchNormLayer::fprop(cudaStream_t stream) {
   float* result_save_mean = result_save_mean_->get_ptr();
   float* result_save_inv_var = result_save_inv_var_->get_ptr();
 
-  if (params_.is_training) {
-    CK_CUDNN_THROW_(cudnnBatchNormalizationForwardTraining(
-        cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
-        gamma, beta, params_.factor, result_running_mean, result_running_var, params_.eps,
-        result_save_mean, result_save_inv_var));
-
-  } else {
-    CK_CUDNN_THROW_(cudnnBatchNormalizationForwardInference(
-        cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
-        gamma, beta, result_running_mean, result_running_var, params_.eps));
-  }
+  CK_CUDNN_THROW_(cudnnBatchNormalizationForwardTraining(
+      cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
+      gamma, beta, params_.factor, result_running_mean, result_running_var, params_.eps,
+      result_save_mean, result_save_inv_var));
 }
 
 void BatchNormLayer::bprop(cudaStream_t stream) {

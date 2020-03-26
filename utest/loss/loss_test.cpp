@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,11 +25,11 @@ using namespace HugeCTR;
 using namespace HugeCTR::test;
 
 void transpose(float *a, int m, int n) {
-  float *tmp = (float *)malloc(sizeof(float) * m * n);
+  std::vector<float> tmp;
+  tmp.resize(m * n);
   for (int i = 0; i < m; ++i)
     for (int j = 0; j < n; ++j) tmp[j * m + i] = a[i * n + j];
   for (int i = 0; i < m * n; ++i) a[i] = tmp[i];
-  free(tmp);
 }
 void cross_entropy_loss(int batch_size, bool row_major) {
   int feature_dim = 2;
@@ -47,7 +47,7 @@ void cross_entropy_loss(int batch_size, bool row_major) {
       row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> loss_tensor(new Tensor<float>({1, 1}, loss_b, TensorFormat_t::HW));
 
-  CrossEntropyLoss cel(label_tensor, input_tensor, loss_tensor, 0);
+  CrossEntropyLoss cel(label_tensor, input_tensor, loss_tensor, nullptr, 0);
 
   input_b->init(0);
   label_b->init(0);
@@ -60,16 +60,6 @@ void cross_entropy_loss(int batch_size, bool row_major) {
   std::unique_ptr<float[]> h_input(new float[batch_size * feature_dim]);
   std::unique_ptr<float[]> h_label(new float[batch_size]);
 
-  /*
-    FILE *fd = fopen("input.out", "r");
-    for(int i = 0; i < batch_size * feature_dim; ++i)
-      fscanf(fd, "%f", &h_input[i]);
-    fclose(fd);
-    fd = fopen("label.out", "r");
-    for(int i = 0; i < batch_size; ++i)
-      fscanf(fd, "%f", &h_label[i]);
-    fclose(fd);
-  */
   srand(time(NULL));
   for (int i = 0; i < batch_size * feature_dim; ++i) h_input[i] = rand() % 100 * 0.01f;
   for (int i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
@@ -134,7 +124,7 @@ void binary_cross_entropy_loss(int batch_size, bool row_major) {
       row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> loss_tensor(new Tensor<float>({1, 1}, loss_b, TensorFormat_t::HW));
 
-  BinaryCrossEntropyLoss bce(label_tensor, input_tensor, loss_tensor, 0);
+  BinaryCrossEntropyLoss bce(label_tensor, input_tensor, loss_tensor, nullptr, 0);
 
   input_b->init(0);
   label_b->init(0);
@@ -146,16 +136,6 @@ void binary_cross_entropy_loss(int batch_size, bool row_major) {
 
   std::unique_ptr<float[]> h_input(new float[batch_size]);
   std::unique_ptr<float[]> h_label(new float[batch_size]);
-  /*
-    FILE *fd = fopen("bce_input.out", "r");
-    for(int i = 0; i < batch_size; ++i)
-      fscanf(fd, "%f", &h_input[i]);
-    fclose(fd);
-    fd = fopen("bce_label.out", "r");
-    for(int i = 0; i < batch_size; ++i)
-      fscanf(fd, "%f", &h_label[i]);
-    fclose(fd);
-  */
 
   srand(time(NULL));
   for (int i = 0; i < batch_size; ++i) h_input[i] = rand() % 100 * 0.01f;

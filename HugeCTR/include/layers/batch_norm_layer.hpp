@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,9 +36,8 @@ class BatchNormLayer : public Layer {
    * BatchNorm parameters
    */
   struct Params {
-    bool is_training; /**< if it is trained mode or not*/
-    float factor;     /**<  moving average computation factor*/
-    float eps;        /**< small value to avoid divide-by-zero error*/
+    float factor; /**<  moving average computation factor*/
+    float eps;    /**< small value to avoid divide-by-zero error*/
   };
 
   /**
@@ -68,6 +67,12 @@ class BatchNormLayer : public Layer {
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
+  /*
+   * Inference pass
+   * @param stream: the CUDA stream that the forward function will be executed on.
+   */
+  void inference(cudaStream_t stream) override;
+
   /**
    * A method to get mean and variance which are needed for inference as string.
    * Session is in charge of calling this method and store the contensts to file.

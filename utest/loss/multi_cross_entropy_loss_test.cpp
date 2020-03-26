@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ void multi_cross_entropy_loss(int label_dim, int batch_size) {
 
   const std::vector<float> target_weight(label_dim, 1.0);
 
-  MultiCrossEntropyLoss mel(label_tensor, input_tensor, loss_tensor, target_weight, 0);
+  MultiCrossEntropyLoss mel(label_tensor, input_tensor, loss_tensor, nullptr, target_weight, 0);
 
   std::unique_ptr<float[]> h_input(new float[batch_size * label_dim]);
   std::unique_ptr<float[]> h_label(new float[batch_size * label_dim]);

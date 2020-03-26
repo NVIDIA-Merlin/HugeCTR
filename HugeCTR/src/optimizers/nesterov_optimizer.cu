@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,25 +19,13 @@
 namespace {
 
 __global__ void nesterov_kernel(int len, float* weight, const float* wgrad, float* accum, float lr,
-                                float mu) {
+                                float mu, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int scaler = 1;
-#ifdef SCALE_128
-  scaler = 128;
-#elif SCALE_256
-  scaler = 256;
-#elif SCALE_512
-  scaler = 512;
-#elif SCALE_1024
-  scaler = 1024;
-#else
-  scaler = 1;
-#endif
   if (i < len) {
     float accum_old = accum[i];
-    float accum_new = mu * accum_old - lr * wgrad[i];
+    float accum_new = mu * accum_old - lr * wgrad[i] / scaler;
     accum[i] = accum_new;
-    weight[i] += (-mu * accum_old + (1 + mu) * accum_new) / scaler;
+    weight[i] += (-mu * accum_old + (1 + mu) * accum_new);
   }
 }
 
@@ -56,7 +44,7 @@ void NesterovOptimizer::update(cudaStream_t stream) {
   const float* wgrad = wgrad_->get_ptr_with_offset(0);
   float* accum = accum_.get_ptr_with_offset(0);
 
-  nesterov_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, accum, lr_, mu_);
+  nesterov_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, accum, lr_, mu_, scaler_);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

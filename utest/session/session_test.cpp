@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,40 +25,34 @@ using namespace HugeCTR;
 TEST(session_test, basic_session) {
   const int batchsize = 2048;
   const int label_dim = 1;
-  typedef long long TypeKey;
   test::mpi_init();
   {
     // generate data
     // note: the parameters should match <configure>.json file
+    const long long dense_dim = 64;
+    const int max_nnz = 30;
+    typedef long long T;
+    const int vocabulary_size = 1603616;
     const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
     const std::string file_list_name = prefix + "_file_list.txt";
-    const int num_files = 20;
+    const int num_files = 3;
     const long long num_records = batchsize * 5;
-    const long long slot_num = 10;
-    const int max_nnz = 100;
-    const int vocabulary_size = 550000;
-    HugeCTR::data_generation<TypeKey>(file_list_name, prefix, num_files, num_records, slot_num,
-                                      vocabulary_size, label_dim, max_nnz);
+    const long long slot_num = 20;
+    HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records,
+                                              slot_num, vocabulary_size, label_dim, dense_dim,
+                                              max_nnz);
   }
 
-  std::vector<int> device_list{0};
-  std::vector<std::vector<int>> vvgpu;
-  vvgpu.push_back(device_list);
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
-  std::string json_name = PROJECT_HOME_ + "utest/session/simple_sparse_embedding.json";
-  const std::string model_file("session_test_model_file.data");
-  Session session_instance(batchsize, json_name, device_map);
-  session_instance.init_params(model_file);
-  const std::string embedding_file;
-  session_instance.load_params(model_file, embedding_file);
-
+  std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
+  Session session_instance(json_name);
   cudaProfilerStart();
   for (int i = 0; i < 100; i++) {
     session_instance.train();
-  }
-  for (auto device : device_list) {
-    cudaSetDevice(device);
-    cudaDeviceSynchronize();
+    if (i % 10 == 0) {
+      float loss = 0;
+      session_instance.get_current_loss(&loss);
+      std::cout << "iter:" << i << "; loss: " << loss << std::endl;
+    }
   }
   cudaProfilerStop();
 }
