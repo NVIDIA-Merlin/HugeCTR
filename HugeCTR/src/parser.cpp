@@ -188,9 +188,8 @@ OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
   OptParams opt_params;
 
   bool global_update = false;
-  if (has_key_(j_optimizer, "global_update")) {
-    global_update = get_value_from_json<bool>(j_optimizer, "global_update");
-  }
+  global_update = get_value_from_json<bool>(j_optimizer, "global_update");
+
 
   switch (optimizer_type) {
     case Optimizer_t::Adam: {

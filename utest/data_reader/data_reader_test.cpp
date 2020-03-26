@@ -55,19 +55,15 @@ TEST(data_reader_worker, data_reader_worker_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  std::cout << "heap setup" << std::endl;
   constexpr size_t buffer_length = max_nnz;
   std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap(
       new HeapEx<CSRChunk<T>>(1, num_devices, batchsize, label_dim + dense_dim, params));
   
-  std::cout << "data_reader setup" << std::endl;
   // setup a data reader
   DataReaderWorker<T> data_reader(0, 1, csr_heap, file_list, buffer_length, CHK, params);
 
-  std::cout << "read a batch" << std::endl;
   // call read a batch
   data_reader.read_a_batch();
-  std::cout << "done" << std::endl;
 }
 
 TEST(data_reader_test, data_reader_simple_test) {
