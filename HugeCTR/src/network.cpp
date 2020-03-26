@@ -159,10 +159,6 @@ void Network::upload_params_to_device(float* params) {
   return;
 }
 
-// void Network::init_params(std::ofstream& out_stream) {
-//   for (auto& layer : layers_) layer->init_params(out_stream);
-// }
-
 void Network::init_params(const std::string& dense_name) {
   std::ofstream out_stream(dense_name, std::ofstream::binary);
   if (!out_stream.is_open()) {

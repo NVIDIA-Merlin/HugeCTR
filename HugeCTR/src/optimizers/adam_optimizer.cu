@@ -29,9 +29,6 @@ __global__ void adam_kernel(int len, float* weight, const float* wgrad, float* m
     v[i] = vi;
     weight[i] -= alpha_t * mi / (sqrt(vi) + epsilon);
 
-    // if(isnan(weight[i]) && (!isnan(wgrad[i]))){
-    //   printf("%f, %f?",mi,vi);
-    // }
   }
 }
 

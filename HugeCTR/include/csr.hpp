@@ -128,9 +128,6 @@ class CSR {
   int get_max_value_size() const { return max_value_size_; }
   const T* get_buffer() const { return row_offset_value_buffer_.get(); }
 
-  // ~CSR(){
-  //   std::cout << "~CSR()" << num_rows_ << std::endl;
-  // }
 
 };
 
