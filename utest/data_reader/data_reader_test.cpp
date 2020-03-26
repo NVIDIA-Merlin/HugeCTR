@@ -58,7 +58,7 @@ TEST(data_reader_worker, data_reader_worker_test) {
   constexpr size_t buffer_length = max_nnz;
   std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap(
       new HeapEx<CSRChunk<T>>(1, num_devices, batchsize, label_dim + dense_dim, params));
-  
+
   // setup a data reader
   DataReaderWorker<T> data_reader(0, 1, csr_heap, file_list, buffer_length, CHK, params);
 
@@ -89,7 +89,7 @@ TEST(data_reader_test, data_reader_simple_test) {
   params.push_back(param);
 
   DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group,1);
+                            gpu_resource_group, 1);
 
   data_reader.read_a_batch_to_device();
   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
