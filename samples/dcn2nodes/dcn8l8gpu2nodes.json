@@ -2,7 +2,7 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 1000,
+    "max_iter": 2000,
     "gpu": [[0,1,2,3,4,5,6,7],[0,1,2,3,4,5,6,7]],
     "batchsize": 40960,
     "snapshot": 10000000,
@@ -26,8 +26,8 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list.txt",
-      "eval_source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list_test.txt",
+      "source": "./file_list.txt",
+      "eval_source": "./file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",

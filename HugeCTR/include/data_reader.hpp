@@ -179,8 +179,7 @@ class DataReader {
    */
   DataReader(const std::string& file_list_name, int batchsize, int label_dim, int dense_dim,
              Check_t check_type, std::vector<DataReaderSparseParam>& params,
-             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, int num_chunks = 31,
-             int num_threads = 31);
+             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, int num_chunk_threads = 31);
 
   /**
    * process of evaluation will call this to create a new object of DataReader
@@ -247,10 +246,10 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
                                 int dense_dim, Check_t check_type,
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                                int num_chunks, int num_threads)
+                                int num_chunk_threads)
     : file_list_(new FileList(file_list_name)),
-      NumChunks(num_chunks),
-      NumThreads(num_threads),
+      NumChunks(num_chunk_threads),
+      NumThreads(num_chunk_threads),
       check_type_(check_type),
       params_(params),
       device_resources_(gpu_resource_group),

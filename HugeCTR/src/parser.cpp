@@ -684,7 +684,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
         data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                   check_type, data_reader_sparse_param_array,
-                                                  gpu_resource_group, 1, 1));
+                                                  gpu_resource_group, 1));
 #else
         data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                   check_type, data_reader_sparse_param_array,
