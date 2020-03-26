@@ -125,8 +125,9 @@ enum class Layer_t {
   Slice,
   Multiply,
   FmOrder2,
-  MultiCross,
-  Add
+  Add,
+  ReduceSum,
+  MultiCross
 };
 
 enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash };
