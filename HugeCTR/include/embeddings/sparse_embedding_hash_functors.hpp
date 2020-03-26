@@ -1425,8 +1425,8 @@ public:
     }
 
     int my_rank = 0;
-    int n_ranks = 1;
   #ifdef ENABLE_MPI
+    int n_ranks = 1;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
   #endif
@@ -1712,8 +1712,8 @@ public:
     }
 
     int my_rank = 0;
-    int n_ranks = 1;
   #ifdef ENABLE_MPI
+    int n_ranks = 1;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
   #endif
@@ -2149,14 +2149,16 @@ public:
     sync_all_gpus(device_resources, context);
 
     int my_rank = 0;
-    int n_ranks = 1;
   #ifdef ENABLE_MPI
+    int n_ranks = 1;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
   #endif
 
     const int master_node = 0;
+  #ifdef ENABLE_MPI
     const int base_tag = 0xed;
+  #endif 
     // TODO: could be optimized ???
     size_t max_size_in_B =
         max_count * (sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size);
@@ -2249,8 +2251,8 @@ public:
     int local_gpu_count = device_resources->size();
 
     int my_rank = 0;
-    int n_ranks = 1;
   #ifdef ENABLE_MPI
+    int n_ranks = 1;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
   #endif
@@ -2355,7 +2357,9 @@ public:
     sync_all_gpus(device_resources, context);
 
     const int master_node = 0;
+  #ifdef ENABLE_MPI
     const int base_tag = 0xed;
+  #endif 
     // TODO: could be optimized ???
     // one pair in the file includes <key,slot_id,value>
     size_t pair_size_in_B = sizeof(TypeHashKey) + sizeof(TypeHashValueIndex) + sizeof(float) * embedding_vec_size;

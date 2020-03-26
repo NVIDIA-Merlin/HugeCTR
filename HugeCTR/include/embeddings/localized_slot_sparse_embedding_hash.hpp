@@ -513,7 +513,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
                           all2all_tensors_, embedding_feature_tensors_, Base::device_resources_);
     functors_.all2all_init_forward(all2all_utest_, plan_file_,  batch_size_per_gpu_, 
                           slot_num_per_gpu_, embedding_params_.embedding_vec_size,
-                          wgrad_tensors, utest_all2all_tensors_, Base::device_resources_);
+                          wgrad_tensors_, utest_all2all_tensors_, Base::device_resources_);
 #else 
     functors_.all2all_init_forward(all2all_forward_, plan_file_,  batch_size_per_gpu_, 
                           embedding_params_.slot_num, embedding_params_.embedding_vec_size,
