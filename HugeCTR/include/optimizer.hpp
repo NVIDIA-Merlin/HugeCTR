@@ -35,9 +35,9 @@ class Optimizer {
    * @param learning_rate learning rate
    */
   Optimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
-            const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id, float learning_rate, 
-	    float scaler)
-    : device_id_(device_id), weight_(weight), wgrad_(wgrad), lr_(learning_rate), scaler_(scaler) {
+            const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id, float learning_rate,
+            float scaler)
+      : device_id_(device_id), weight_(weight), wgrad_(wgrad), lr_(learning_rate), scaler_(scaler) {
     try {
       if (weight_->get_size() != wgrad_->get_size()) {
         CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");

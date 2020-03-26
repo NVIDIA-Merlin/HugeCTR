@@ -29,7 +29,7 @@ namespace {
 
 template <typename T>
 __global__ void reshape_kernel(T* input, T* output, int batch_size, int n_slot, int vector_length,
-                              const int* const selected, int n_active_slot, bool forward) {
+                               const int* const selected, int n_active_slot, bool forward) {
   int base = blockIdx.x * blockDim.x + threadIdx.x;
   int input_vector_length = n_slot * vector_length;
   int output_vector_length = n_active_slot * vector_length;
@@ -50,10 +50,8 @@ __global__ void reshape_kernel(T* input, T* output, int batch_size, int n_slot, 
 
 }  // anonymous namespace
 
-
 ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                           std::shared_ptr<Tensor<float>>& out_tensor,
-                           int leading_dim,
+                           std::shared_ptr<Tensor<float>>& out_tensor, int leading_dim,
                            int device_id)
     : Layer(device_id),
       in_place_(true),
@@ -63,26 +61,23 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       n_active_slot_(0),
       selected_(nullptr),
       n_sms_(0) {
-
   try {
     CudaDeviceContext context(device_id);
 
     std::vector<int> in_dims = in_tensor->get_dims();
     int im_idx = in_dims.size() - 1;
-    if(leading_dim < in_dims[im_idx] || leading_dim % in_dims[im_idx] != 0) {
-        CK_THROW_(Error_t::WrongInput,
-            "leading_dim < in_dims[im_idx] or leading_dim % in_dims[2] != 0");
+    if (leading_dim < in_dims[im_idx] || leading_dim % in_dims[im_idx] != 0) {
+      CK_THROW_(Error_t::WrongInput,
+                "leading_dim < in_dims[im_idx] or leading_dim % in_dims[2] != 0");
     }
 
     int n_in_elems = in_tensor->get_num_elements();
-    if(leading_dim > n_in_elems) {
-        CK_THROW_(Error_t::WrongInput,
-            "leading_dim cannot be bigger than n_in_elems");
+    if (leading_dim > n_in_elems) {
+      CK_THROW_(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
     }
 
-    if(n_in_elems % leading_dim != 0) {
-        CK_THROW_(Error_t::WrongInput,
-            "n_in_elems % leading_dim != 0");
+    if (n_in_elems % leading_dim != 0) {
+      CK_THROW_(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
     }
 
     int trailing_dim = n_in_elems / leading_dim;
@@ -101,8 +96,7 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
 ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
                            std::shared_ptr<Tensor<float>>& out_tensor,
                            const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-                           std::vector<int>& selected,
-                           int device_id)
+                           std::vector<int>& selected, int device_id)
     : Layer(device_id),
       in_place_(selected.empty()),
       batch_size_(0),
@@ -119,17 +113,16 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
     }
 
     std::vector<int> in_dims = in_tensor->get_dims();
-    if(in_dims[1] < n_active_slot_) {
+    if (in_dims[1] < n_active_slot_) {
       CK_THROW_(Error_t::WrongInput, "selected is invalid");
     }
 
     int in_dims_1 = selected.empty() ? in_dims[1] : int(n_active_slot_);
     std::vector<int> out_dims = {in_dims[0], in_dims_1 * in_dims[2]};
 
-    if(in_place_) {
+    if (in_place_) {
       out_tensor.reset(new Tensor<float>(out_dims, *in_tensor, TensorFormat_t::HW));
-    }
-    else {
+    } else {
       out_tensor.reset(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
       unsigned int i = 0;
       for (; i < in_dims.size() - 2; i++) batch_size_ += in_dims[i];
@@ -152,20 +145,15 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
   }
 }
 
-
 ReshapeLayer::~ReshapeLayer() {
   if (selected_) {
     cudaFree(selected_);
   }
 }
 
-void ReshapeLayer::fprop(cudaStream_t stream) {
-  prop_common(true, stream);
-}
+void ReshapeLayer::fprop(cudaStream_t stream) { prop_common(true, stream); }
 
-void ReshapeLayer::bprop(cudaStream_t stream) {
-  prop_common(false, stream);
-}
+void ReshapeLayer::bprop(cudaStream_t stream) { prop_common(false, stream); }
 
 void ReshapeLayer::prop_common(bool forward, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
@@ -173,17 +161,16 @@ void ReshapeLayer::prop_common(bool forward, cudaStream_t stream) {
     int block_size = 128;
     int n_block = n_sms_ * 16;
     const auto& in_tensor = in_tensors_[0];
-    const auto&  out_tensor = out_tensors_[0];
+    const auto& out_tensor = out_tensors_[0];
     float* in = in_tensor->get_ptr();
     float* out = out_tensor->get_ptr();
-    reshape_kernel<<<n_block, block_size>>>(in, out, batch_size_, n_slot_, vector_length_, selected_,
-                                           n_active_slot_, forward);
+    reshape_kernel<<<n_block, block_size>>>(in, out, batch_size_, n_slot_, vector_length_,
+                                            selected_, n_active_slot_, forward);
   }
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
-
 
 }  // namespace HugeCTR

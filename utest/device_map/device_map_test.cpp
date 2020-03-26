@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/device_map.hpp"
 #include "gtest/gtest.h"
 

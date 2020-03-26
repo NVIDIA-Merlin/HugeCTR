@@ -54,23 +54,17 @@ enum class Error_t {
   UnspecificError
 };
 
-enum class Check_t {
-  Sum,
-  None
-};
+enum class Check_t { Sum, None };
 
-enum class DataReaderSparse_t {
-  Distributed,
-  Localized
-};
-  
-struct DataReaderSparseParam{
+enum class DataReaderSparse_t { Distributed, Localized };
+
+struct DataReaderSparseParam {
   DataReaderSparse_t type;
   int max_feature_num;
   int slot_num;
 };
 
-struct NameID{
+struct NameID {
   std::string file_name;
   unsigned int id;
 };
@@ -109,7 +103,7 @@ enum class LrPolicy_t { fixed };
 
 enum class Optimizer_t { Adam, MomentumSGD, Nesterov };
 
-enum class Regularizer_t {L1, L2};
+enum class Regularizer_t { L1, L2 };
 
 enum class Layer_t {
   BatchNorm,
@@ -133,14 +127,13 @@ enum class Layer_t {
 enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash };
 
 typedef struct DataSetHeader_ {
-  long long error_check;        //0: no error check; 1: check_num
+  long long error_check;        // 0: no error check; 1: check_num
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
-  long long dense_dim;          //dimension of dense feature
-  long long slot_num;           //slot_num for each embedding
-  long long reserved[3];  // reserved for future use
+  long long dense_dim;          // dimension of dense feature
+  long long slot_num;           // slot_num for each embedding
+  long long reserved[3];        // reserved for future use
 } DataSetHeader;
-
 
 #ifdef ENABLE_MPI
 #define CK_MPI_THROW_(cmd)                                                                       \
@@ -191,16 +184,15 @@ typedef struct DataSetHeader_ {
     }                                                                                           \
   } while (0)
 
-#define CK_RETURN_(x, msg)                                                                       \
-  do {                                                                                          \
-    Error_t retval = (x);                                                                       \
-    if (retval != Error_t::Success) {                                                           \
-      std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + \
-                                          ":" + std::to_string(__LINE__) + " \n";               \
-      return x;                                                                                 \
-    }                                                                                           \
+#define CK_RETURN_(x, msg)                                                         \
+  do {                                                                             \
+    Error_t retval = (x);                                                          \
+    if (retval != Error_t::Success) {                                              \
+      std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + ":" + \
+                       std::to_string(__LINE__) + " \n";                           \
+      return x;                                                                    \
+    }                                                                              \
   } while (0)
-
 
 #define MESSAGE_(msg)                                                                            \
   do {                                                                                           \
@@ -286,7 +278,7 @@ typedef struct DataSetHeader_ {
     ncclResult_t r = (cmd);                                                                        \
     if (r != ncclSuccess) {                                                                        \
       throw internal_runtime_error(Error_t::NcclError, std::string("Runtime error: NCCL Error ") + \
-                                                           std::string(ncclGetErrorString(r)) +  \
+                                                           std::string(ncclGetErrorString(r)) +    \
                                                            " " + __FILE__ + ":" +                  \
                                                            std::to_string(__LINE__) + " \n");      \
     }                                                                                              \
@@ -303,15 +295,14 @@ typedef struct DataSetHeader_ {
     }                                                                                             \
   } while (0)
 
-#define CK_CURAND_THROW_(cmd)                                                                     \
-  do {                                                                                            \
-    curandStatus_t retval = (cmd);                                                                \
-    if (retval !=CURAND_STATUS_SUCCESS) {                                                         \
-      throw internal_runtime_error(                                                               \
-          Error_t::CudnnError, std::string("CURAND Runtime error: ") +                            \
-                                   std::to_string(retval) + " " + __FILE__ + ":" +                \
-                                   std::to_string(__LINE__) + " \n");                             \
-    }                                                                                             \
+#define CK_CURAND_THROW_(cmd)                                                                   \
+  do {                                                                                          \
+    curandStatus_t retval = (cmd);                                                              \
+    if (retval != CURAND_STATUS_SUCCESS) {                                                      \
+      throw internal_runtime_error(                                                             \
+          Error_t::CudnnError, std::string("CURAND Runtime error: ") + std::to_string(retval) + \
+                                   " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
+    }                                                                                           \
   } while (0)
 
 }  // namespace HugeCTR

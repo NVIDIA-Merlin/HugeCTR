@@ -38,8 +38,9 @@ class AdamOptimizer : public Optimizer {
    */
   AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
                 const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
-                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8, float scaler=1.f)
-    : Optimizer(weight, wgrad, device_id, alpha, scaler),
+                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8,
+                float scaler = 1.f)
+      : Optimizer(weight, wgrad, device_id, alpha, scaler),
         m_(weight->get_num_elements(), device_id),
         v_(weight->get_num_elements(), device_id),
         t_(0),

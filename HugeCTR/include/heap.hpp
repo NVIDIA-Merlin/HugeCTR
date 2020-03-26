@@ -18,8 +18,8 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
-#include <vector>
 #include <thread>
+#include <vector>
 #include "HugeCTR/include/common.hpp"
 
 namespace HugeCTR {

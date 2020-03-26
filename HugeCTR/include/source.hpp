@@ -16,17 +16,18 @@
 
 #pragma once
 
+#include "HugeCTR/include/common.hpp"
+
 namespace HugeCTR {
 
 class Source {
-protected:
+ protected:
   unsigned int counter_{0};
   const unsigned int offset_;
   const unsigned int stride_;
-  
-public:
 
-  Source(unsigned int offset, unsigned int stride):offset_(offset), stride_(stride){}
+ public:
+  Source(unsigned int offset, unsigned int stride) : offset_(offset), stride_(stride) {}
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
@@ -35,15 +36,14 @@ public:
    * @return `DataCheckError` `OutOfBound` `Success` `UnspecificError`
    */
   virtual Error_t read(char* ptr, size_t bytes_to_read) noexcept = 0;
-  
+
   /**
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
   virtual Error_t next_source() noexcept = 0;
-  
-  virtual bool is_open() noexcept = 0;
 
+  virtual bool is_open() noexcept = 0;
 };
 
-} //namespace HugeCTR
+}  // namespace HugeCTR

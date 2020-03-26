@@ -55,8 +55,8 @@ class MultiCrossLayer : public Layer {
  private:
   const int num_layers_;
   GeneralBufferPtr<float> blobs_buff_; /**< internal blobs' general buffer */
-  Tensors<float> blob_tensors_;     /**< vector of internal blobs' tensors */
-  Tensors<float> vec_tensors_;      //[h,1]
+  Tensors<float> blob_tensors_;        /**< vector of internal blobs' tensors */
+  Tensors<float> vec_tensors_;         //[h,1]
 
   TensorPtr<float> tmp_mat_tensors_[3];  //[h,w]
   TensorPtr<float> tmp_vec_tensor_;      //[h,1]

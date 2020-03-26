@@ -40,6 +40,7 @@ class FileList {
   int num_of_files_;                     /**< num of files read from text file. */
   std::vector<std::string> file_vector_; /**< the vector of file names. */
   std::atomic<unsigned int> counter_{0};
+
  public:
   /*
    * Ctor
@@ -77,7 +78,8 @@ class FileList {
   std::string get_a_file() {
     unsigned int counter = counter_;
     int current_file_idx = counter % num_of_files_;
-    while (!counter_.compare_exchange_weak(counter,counter + 1));
+    while (!counter_.compare_exchange_weak(counter, counter + 1))
+      ;
 
     return file_vector_[current_file_idx];
   }
@@ -90,7 +92,6 @@ class FileList {
     int current_file_idx = id % num_of_files_;
     return file_vector_[current_file_idx];
   }
-
 };
 
 }  // namespace HugeCTR

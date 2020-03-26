@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#pragma once 
+#pragma once
 
+#include <stdio.h>
+#include <cmath>
+#include <fstream>
+#include <unordered_set>
 #include "HugeCTR/include/common.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
-#include <unordered_set>
-#include <stdio.h>
-#include <fstream>
-#include <cmath>
 
 namespace HugeCTR {
 
@@ -29,7 +29,7 @@ namespace embedding_test {
 
 const float EPSILON = 1e-4f;
 
-template<typename T>
+template <typename T>
 bool compare_element(T a, T b) {
   // compare absolute error
   if (fabs(a - b) < EPSILON) return true;
@@ -46,7 +46,7 @@ bool compare_element(T a, T b) {
     return false;
 }
 
-template<typename T>
+template <typename T>
 bool compare_array(size_t len, T *a, T *b) {
   bool rtn = true;
 
@@ -61,7 +61,7 @@ bool compare_array(size_t len, T *a, T *b) {
   return rtn;
 }
 
-template<typename T>
+template <typename T>
 bool compare_file(std::string file1, std::string file2) {
   std::ifstream file_stream1(file1);
   std::ifstream file_stream2(file2);
@@ -214,8 +214,7 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
 
   if (file_size1 != file_size2) {
     ERROR_MESSAGE_("Error: files size is not same");
-    std::cout << "file_size1=" << file_size1 << ", file_size2="\
-         << file_size2 << std::endl;
+    std::cout << "file_size1=" << file_size1 << ", file_size2=" << file_size2 << std::endl;
     file_stream1.close();
     file_stream2.close();
     return false;
@@ -229,8 +228,8 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
 
 #ifndef NDEBUG
   std::cout << "pair_size_in_B=" << pair_size_in_B << std::endl;
-  std::cout << "pair_num=" << pair_num << std::endl; 
-#endif 
+  std::cout << "pair_num=" << pair_num << std::endl;
+#endif
 
   // CAUSION: file_stream1 is ordered, while file_stream2 is unordered
   // So, firstly, we read <key,value> pairs from file_stream2, and insert it into a hash table.
@@ -244,7 +243,8 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
     file_stream2.read(buf, pair_size_in_B);
     key = (TypeHashKey *)buf;
     slot_id = (TypeSlotId *)(buf + sizeof(TypeHashKey));
-    value = (TypeHashValue *)(buf + sizeof(TypeHashKey) + sizeof(TypeSlotId)); // including slot_id and value
+    value = (TypeHashValue *)(buf + sizeof(TypeHashKey) +
+                              sizeof(TypeSlotId));  // including slot_id and value
     hash_table->insert(key, value, 1);
   }
   file_stream2.close();
@@ -267,7 +267,8 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
     file_stream1.read(buf, pair_size_in_B);
     key = (TypeHashKey *)buf;
     slot_id = (TypeSlotId *)(buf + sizeof(TypeHashKey));
-    value1 = (TypeHashValue *)(buf + sizeof(TypeHashKey) + sizeof(TypeSlotId)); // including slot_id and value
+    value1 = (TypeHashValue *)(buf + sizeof(TypeHashKey) +
+                               sizeof(TypeSlotId));  // including slot_id and value
 
     hash_table->get(key, value2, 1);
 
@@ -284,19 +285,16 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
 }
 
 inline bool compare_embedding_feature(int num, float *embedding_feature_from_gpu,
-                               float *embedding_feature_from_cpu) {
-
+                                      float *embedding_feature_from_cpu) {
   return compare_array(num, embedding_feature_from_gpu, embedding_feature_from_cpu);
 }
 
 inline bool compare_wgrad(int num, float *wgrad_from_gpu, float *wgrad_from_cpu) {
-  
   return compare_array(num, wgrad_from_gpu, wgrad_from_cpu);
 }
 
 inline bool compare_embedding_table(long long num, float *embedding_table_from_gpu,
-                             float *embedding_table_from_cpu) {
-
+                                    float *embedding_table_from_cpu) {
   return compare_array(num, embedding_table_from_gpu, embedding_table_from_cpu);
 }
 
@@ -307,11 +305,11 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
                         TypeHashValue *hash_table_value_from_cpu) {
   bool rtn = true;
 
-//   // just for debug
-//   for(long long i = 0; i < capacity; i++) {
-//     printf("i=%d, key_from_gpu=%d, key_from_cpu=%d \n", i, hash_table_key_from_gpu[i],
-//        hash_table_key_from_cpu[i]);
-//   }
+  //   // just for debug
+  //   for(long long i = 0; i < capacity; i++) {
+  //     printf("i=%d, key_from_gpu=%d, key_from_cpu=%d \n", i, hash_table_key_from_gpu[i],
+  //        hash_table_key_from_cpu[i]);
+  //   }
 
   // Since the <key1,value1> and <key2,value2> is not the same ordered, we need to insert <key1,
   // value1> into a hash_table, then compare value1=hash_table->get(key2) with value2
@@ -331,7 +329,8 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
 
     // // just for debug
     // for(int j=0; j < value_len; j++) {
-    //   std::cout << "value1(gpu)=" << ((float*)value1)[j] << ", value2(cpu)=" << ((float*)value2)[j]  << std::endl;
+    //   std::cout << "value1(gpu)=" << ((float*)value1)[j] << ", value2(cpu)=" <<
+    //   ((float*)value2)[j]  << std::endl;
     // }
 
     if (!compare_array(value_len, (float *)value1, (float *)value2)) {
@@ -378,6 +377,6 @@ class UnorderedKeyGenerator {
   std::uniform_int_distribution<T> dis_;
 };
 
-}
+}  // namespace embedding_test
 
-}
+}  // namespace HugeCTR

@@ -43,7 +43,7 @@ void concat_layer_test(int height, std::vector<int> widths) {
   int n_ins = widths.size();
 
   int new_width = 0;
-  for(int i = 0; i < n_ins; i++) {
+  for (int i = 0; i < n_ins; i++) {
     int width = widths[i];
     new_width += width;
     std::vector<int> in_dims = {height, width};
@@ -63,14 +63,14 @@ void concat_layer_test(int height, std::vector<int> widths) {
 
   // fprop
   std::vector<float> h_ref(out_tensor->get_num_elements(), 0.0);
-  for(int r = 0; r < height; r++) {
-    for(int c = 0; c < new_width; c++) {
+  for (int r = 0; r < height; r++) {
+    for (int c = 0; c < new_width; c++) {
       int out_idx = r * new_width + c;
       int in_no = 0;
       int c2 = c;
       int accum_width = 0;
-      for(int k = 0; k < n_ins; k++) {
-        if(c < accum_width + widths[k]) {
+      for (int k = 0; k < n_ins; k++) {
+        if (c < accum_width + widths[k]) {
           in_no = k;
           c2 -= accum_width;
           break;
@@ -82,7 +82,7 @@ void concat_layer_test(int height, std::vector<int> widths) {
     }
   }
 
-  for(int i = 0; i < n_ins; i++) {
+  for (int i = 0; i < n_ins; i++) {
     float* d_in = in_tensors[i]->get_ptr();
     std::vector<float>& h_in = h_ins[i];
     cudaMemcpy(d_in, &h_in.front(), in_tensors[i]->get_size(), cudaMemcpyHostToDevice);
@@ -94,8 +94,7 @@ void concat_layer_test(int height, std::vector<int> widths) {
   float* d_out = out_tensor->get_ptr();
   cudaMemcpy(&h_out.front(), d_out, out_tensor->get_size(), cudaMemcpyDeviceToHost);
 
-  ASSERT_TRUE(
-      test::compare_array_approx<float>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
+  ASSERT_TRUE(test::compare_array_approx<float>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
 
   // bprop
   concat_layer.bprop(cudaStreamDefault);
@@ -103,34 +102,21 @@ void concat_layer_test(int height, std::vector<int> widths) {
 
   cudaMemcpy(&h_out.front(), d_out, out_tensor->get_size(), cudaMemcpyDeviceToHost);
 
-  ASSERT_TRUE(
-      test::compare_array_approx<float>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
+  ASSERT_TRUE(test::compare_array_approx<float>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
 }
 
 }  // namespace
 
-TEST(concat_layer, 64x32_64x32) {
-  concat_layer_test(64, {32, 32});
-}
+TEST(concat_layer, 64x32_64x32) { concat_layer_test(64, {32, 32}); }
 
-TEST(concat_layer, 5x32_5x32) {
-  concat_layer_test(5, {32, 32});
-}
+TEST(concat_layer, 5x32_5x32) { concat_layer_test(5, {32, 32}); }
 
-TEST(concat_layer, 4096x640_4096x1280) {
-  concat_layer_test(4096, {640, 1280});
-}
+TEST(concat_layer, 4096x640_4096x1280) { concat_layer_test(4096, {640, 1280}); }
 
-TEST(concat_layer, 64x32_64x64_64x96) {
-  concat_layer_test(64, {32, 64, 96});
-}
+TEST(concat_layer, 64x32_64x64_64x96) { concat_layer_test(64, {32, 64, 96}); }
 
-TEST(concat_layer, 64x32_64x64_64x32_64x128) {
-  concat_layer_test(64, {32, 64, 32, 128});
-}
+TEST(concat_layer, 64x32_64x64_64x32_64x128) { concat_layer_test(64, {32, 64, 32, 128}); }
 
 TEST(concat_layer, 64x32_64x64_64x32_64x128_64x256) {
   concat_layer_test(64, {32, 64, 32, 128, 256});
 }
-
-

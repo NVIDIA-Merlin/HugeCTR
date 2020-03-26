@@ -35,10 +35,8 @@ class DropoutLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   DropoutLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-               const std::shared_ptr<Tensor<float>>& out_tensor,
-               float rate,
-               const curandGenerator_t& curand_generator,
-               int device_id);
+               const std::shared_ptr<Tensor<float>>& out_tensor, float rate,
+               const curandGenerator_t& curand_generator, int device_id);
 
   ~DropoutLayer() override;
 
@@ -57,7 +55,6 @@ class DropoutLayer : public Layer {
    * @param stream: the CUDA stream that the forward function will be executed on.
    */
   void inference(cudaStream_t stream) override;
-
 
   const float* mask() const { return mask_; }
 

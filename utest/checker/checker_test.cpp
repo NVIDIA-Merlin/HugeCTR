@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/check_sum.hpp"
+#include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/file_source.hpp"
 #include "gtest/gtest.h"
 
 using namespace HugeCTR;
 
 TEST(checker, CheckSum) {
-  auto func = [](std::string file, std::string str){
+  auto func = [](std::string file, std::string str) {
     int count = str.length();
     char sum = 0;
     std::ofstream out_stream(file, std::ofstream::binary);
-    for(int i = 0; i < count; i++){
+    for (int i = 0; i < count; i++) {
       sum += str[i];
     }
     out_stream.write(reinterpret_cast<char*>(&count), sizeof(int));
@@ -42,13 +42,13 @@ TEST(checker, CheckSum) {
     out_stream << "1\n" << file;
     out_stream.close();
   };
-  
+
   const int NUM_CHAR = 7;
   const char str[] = {"abcdefg"};
   func("file1.txt", str);
 
   FileList file_list("file_list.txt");
-  FileSource file_source(0,1,file_list);
+  FileSource file_source(0, 1, file_list);
   CheckSum check_sum(file_source);
   char tmp1[NUM_CHAR], tmp2[NUM_CHAR];
   check_sum.next_source();
@@ -56,11 +56,11 @@ TEST(checker, CheckSum) {
   // for(int i=0; i< NUM_CHAR; i++){
   //   std::cout << tmp1[i];
   // }
-  EXPECT_EQ(strncmp(tmp1,str,NUM_CHAR), 0);
+  EXPECT_EQ(strncmp(tmp1, str, NUM_CHAR), 0);
 
   EXPECT_EQ(check_sum.read(tmp2, NUM_CHAR), Error_t::Success);
   // for(int i=0; i< NUM_CHAR; i++){
   //   std::cout << tmp2[i];
   // }
-  EXPECT_EQ(strncmp(tmp1,str,NUM_CHAR), 0);
+  EXPECT_EQ(strncmp(tmp1, str, NUM_CHAR), 0);
 }

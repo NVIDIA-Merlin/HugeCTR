@@ -28,20 +28,16 @@ namespace HugeCTR {
 
 NoRegularizer::NoRegularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
                              const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-                             const int batch_size,
-                             const int device_id)
-    : Regularizer(weight_buff, wgrad_buff, batch_size, device_id) {
-}
+                             const int batch_size, const int device_id)
+    : Regularizer(weight_buff, wgrad_buff, batch_size, device_id) {}
 
-void NoRegularizer::do_compute_rterm(const float* weight, float* rterm,
-                                     int num_elements,
+void NoRegularizer::do_compute_rterm(const float* weight, float* rterm, int num_elements,
                                      cudaStream_t stream) {
   *rterm = 0.0f;
 }
 
-void NoRegularizer::do_initialize_wgrad(const float* weight, float* wgrad,
-                                      int num_elements,
-                                      cudaStream_t stream) {
+void NoRegularizer::do_initialize_wgrad(const float* weight, float* wgrad, int num_elements,
+                                        cudaStream_t stream) {
   int n_blocks = get_n_sms() * 4;
   int block_size = 512;
   initialize_array<<<n_blocks, block_size, 0, stream>>>(wgrad, num_elements, 0.0f);

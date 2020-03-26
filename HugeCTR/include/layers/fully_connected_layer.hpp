@@ -31,6 +31,7 @@ class FullyConnectedLayer : public Layer {
  private:
   const cublasHandle_t cublas_handle_;
   const bool use_mixed_precision_{false};
+
  public:
   /**
    * forward pass

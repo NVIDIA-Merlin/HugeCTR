@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/layer.hpp"
@@ -42,9 +41,7 @@ class ReshapeLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-               std::shared_ptr<Tensor<float>>& out_tensor,
-               int leading_dim,
-               int device_id);
+               std::shared_ptr<Tensor<float>>& out_tensor, int leading_dim, int device_id);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
    * @param in_tensor the input tensor
@@ -56,8 +53,7 @@ class ReshapeLayer : public Layer {
    */
   ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
                std::shared_ptr<Tensor<float>>& out_tensor,
-               const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-               std::vector<int>& selected,
+               const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, std::vector<int>& selected,
                int device_id);
   ~ReshapeLayer() override;
 

@@ -26,7 +26,7 @@ using namespace HugeCTR::test;
 
 void transpose(float *a, int m, int n) {
   std::vector<float> tmp;
-  tmp.resize(m*n);
+  tmp.resize(m * n);
   for (int i = 0; i < m; ++i)
     for (int j = 0; j < n; ++j) tmp[j * m + i] = a[i * n + j];
   for (int i = 0; i < m * n; ++i) a[i] = tmp[i];

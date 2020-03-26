@@ -23,7 +23,7 @@
 namespace HugeCTR {
 
 /**
- * Layer which does element-wise add by input tensors. 
+ * Layer which does element-wise add by input tensors.
  * All the input tensors should have the same shape.
  */
 class AddLayer : public Layer {
@@ -35,8 +35,7 @@ class AddLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   AddLayer(const std::vector<std::shared_ptr<Tensor<float>>>& in_tensors,
-          const std::shared_ptr<Tensor<float>>& out_tensor,
-          int device_id);
+           const std::shared_ptr<Tensor<float>>& out_tensor, int device_id);
   ~AddLayer();
 
   /**
@@ -51,11 +50,11 @@ class AddLayer : public Layer {
   void bprop(cudaStream_t stream) override;
 
  private:
-   int size_;
-   int num_;
-   float ** h_inputs_ = NULL;
-   float ** d_inputs_ = NULL;
-   bool initialized_{false};
+  int size_;
+  int num_;
+  float** h_inputs_ = NULL;
+  float** d_inputs_ = NULL;
+  bool initialized_{false};
 };
 
 }  // namespace HugeCTR

@@ -39,11 +39,9 @@ class ConcatLayer : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  ConcatLayer(Tensors<float>& in_tensors,
-              std::shared_ptr<Tensor<float>>& out_tensor,
-              const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-              int device_id);
-  ~ConcatLayer() override {};
+  ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<float>>& out_tensor,
+              const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, int device_id);
+  ~ConcatLayer() override{};
 
   /**
    * Concat's foward pass to gather data to the output tensor

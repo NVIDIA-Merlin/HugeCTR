@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #ifndef CPUV_HASHTABLE_H_
 #define CPUV_HASHTABLE_H_
 #include <unordered_map>

@@ -30,7 +30,6 @@ using namespace HugeCTR;
 
 namespace {
 
-
 const float eps = 1e-6;
 
 void dropout_test(int dim0, int dim1, float rate) {
@@ -42,7 +41,7 @@ void dropout_test(int dim0, int dim1, float rate) {
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, buf));
   std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims, buf));
   buf->init(0);
-  
+
   const int len = dim0 * dim1;
   const int n_bytes = len * sizeof(float);
   float* d_in = in_tensor->get_ptr();
@@ -65,12 +64,12 @@ void dropout_test(int dim0, int dim1, float rate) {
 
   // fprop test
   dropout_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(h_mask.get(), dropout_layer.mask(), n_bytes, cudaMemcpyDeviceToHost); 
+  cudaMemcpy(h_mask.get(), dropout_layer.mask(), n_bytes, cudaMemcpyDeviceToHost);
   cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost);
   int cnt_zero_fprop = 0;
-  for(int i = 0; i < len; i++) {
-    h_ref[i] = ((1.f-h_mask[i]) >= rate) * h_in[i] * scale;
-    if(std::abs(h_ref[i] - 0.f) < 1e-6) {
+  for (int i = 0; i < len; i++) {
+    h_ref[i] = ((1.f - h_mask[i]) >= rate) * h_in[i] * scale;
+    if (std::abs(h_ref[i] - 0.f) < 1e-6) {
       cnt_zero_fprop++;
     }
   }
@@ -80,9 +79,9 @@ void dropout_test(int dim0, int dim1, float rate) {
   dropout_layer.bprop(cudaStreamDefault);
   cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost);
   int cnt_zero_bprop = 0;
-  for(int i = 0; i < len; i++) {
-    h_ref[i] = ((1.f-h_mask[i]) >= rate) * h_out[i] * scale;
-    if(std::abs(h_ref[i] - 0.f) < 1e-6) {
+  for (int i = 0; i < len; i++) {
+    h_ref[i] = ((1.f - h_mask[i]) >= rate) * h_out[i] * scale;
+    if (std::abs(h_ref[i] - 0.f) < 1e-6) {
       cnt_zero_bprop++;
     }
   }
@@ -93,20 +92,12 @@ void dropout_test(int dim0, int dim1, float rate) {
   CK_CURAND_THROW_(curandDestroyGenerator(curand_generator));
 }
 
-TEST(dropout_layer, 32x320_25) {
-  dropout_test(32, 320, 0.25);
-}
+TEST(dropout_layer, 32x320_25) { dropout_test(32, 320, 0.25); }
 
-TEST(dropout_layer, 32x320_50) {
-  dropout_test(32, 320, 0.50);
-}
+TEST(dropout_layer, 32x320_50) { dropout_test(32, 320, 0.50); }
 
-TEST(dropout_layer, 32x320_75) {
-  dropout_test(32, 320, 0.75);
-}
+TEST(dropout_layer, 32x320_75) { dropout_test(32, 320, 0.75); }
 
-TEST(dropout_layer, 32x320_99) {
-  dropout_test(32, 320, 0.99);
-}
+TEST(dropout_layer, 32x320_99) { dropout_test(32, 320, 0.99); }
 
-} // end namespace
+}  // end namespace

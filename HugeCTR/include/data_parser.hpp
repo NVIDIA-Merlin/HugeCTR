@@ -93,7 +93,7 @@ class GaussianDataSimulator : public DataSimulator<T> {
     }
   }
   T get_num() final {
-    while(1){
+    while (1) {
       T tmp = static_cast<T>(dis_(gen_));
       if (tmp <= max_ && tmp >= min_) return tmp;
       if (tmp < min_) continue;

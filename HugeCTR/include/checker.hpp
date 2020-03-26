@@ -21,10 +21,11 @@
 namespace HugeCTR {
 
 class Checker {
-protected:
+ protected:
   Source& src_;
-public:
-  Checker(Source& src): src_(src){}
+
+ public:
+  Checker(Source& src) : src_(src) {}
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
    * Users don't need to manualy maintain the check bit offset, just specify
@@ -41,10 +42,7 @@ public:
    */
   virtual void next_source() = 0;
 
-  virtual bool is_open() noexcept{
-    return src_.is_open();
-  }
-  
+  virtual bool is_open() noexcept { return src_.is_open(); }
 };
 
-} //namespace HugeCTR
+}  // namespace HugeCTR

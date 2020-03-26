@@ -29,8 +29,9 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<flo
                                          const std::shared_ptr<Tensor<float>>& in_tensor,
                                          const std::shared_ptr<Tensor<float>>& out_tensor,
                                          TensorFormat_t weight_format,
-                                         cublasHandle_t const& cublas_handle, int device_id, bool use_mixed_precision)
-: cublas_handle_(cublas_handle), Layer(device_id), use_mixed_precision_(use_mixed_precision) {
+                                         cublasHandle_t const& cublas_handle, int device_id,
+                                         bool use_mixed_precision)
+    : cublas_handle_(cublas_handle), Layer(device_id), use_mixed_precision_(use_mixed_precision) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor->get_dims();
@@ -131,10 +132,9 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
   float alpha = 1.0f, beta = 0.0f;
 
   cublasGemmAlgo_t algo;
-  if(use_mixed_precision_){
+  if (use_mixed_precision_) {
     algo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
-  }
-  else{
+  } else {
     algo = CUBLAS_GEMM_DEFAULT;
   }
 
@@ -206,10 +206,9 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
   k = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
 
   cublasGemmAlgo_t algo;
-  if(use_mixed_precision_){
+  if (use_mixed_precision_) {
     algo = CUBLAS_GEMM_DEFAULT_TENSOR_OP;
-  }
-  else{
+  } else {
     algo = CUBLAS_GEMM_DEFAULT;
   }
 
@@ -253,11 +252,13 @@ std::vector<float> FullyConnectedLayer::get_initializer() {
   float in_dim = in_tensor->get_format() == TensorFormat_t::WH ? (in_tensor->get_dims())[0]
                                                                : (in_tensor->get_dims())[1];
   float out_dim = out_tensor->get_format() == TensorFormat_t::WH ? (out_tensor->get_dims())[0]
-                                                               : (out_tensor->get_dims())[1];
-  float limit = sqrt(6.f / (in_dim+out_dim));
-  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1*limit, limit);
-  for (size_t i = 0; i < (weights_[0])->get_num_elements(); i++) initializer[i] = fdata_sim.get_num();
-  for (size_t i = 0; i < (weights_[1])->get_num_elements(); i++) initializer[i+(weights_[0])->get_num_elements()] = 0.f;
+                                                                 : (out_tensor->get_dims())[1];
+  float limit = sqrt(6.f / (in_dim + out_dim));
+  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1 * limit, limit);
+  for (size_t i = 0; i < (weights_[0])->get_num_elements(); i++)
+    initializer[i] = fdata_sim.get_num();
+  for (size_t i = 0; i < (weights_[1])->get_num_elements(); i++)
+    initializer[i + (weights_[0])->get_num_elements()] = 0.f;
   return initializer;
 }
 

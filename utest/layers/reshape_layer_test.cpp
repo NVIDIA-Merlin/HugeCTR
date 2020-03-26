@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
@@ -32,8 +31,8 @@ namespace {
 
 void reshape_test(vector<int>& in_dims, int leading_dim) {
   std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buff,
-      (in_dims.size() == 3)? TensorFormat_t::HSW : TensorFormat_t::HW));
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(
+      in_dims, buff, (in_dims.size() == 3) ? TensorFormat_t::HSW : TensorFormat_t::HW));
   buff->init(0);
 
   std::shared_ptr<Tensor<float>> out_tensor;
@@ -45,8 +44,7 @@ void reshape_test(vector<int>& in_dims, int leading_dim) {
   int n_in_elems = in_tensor->get_num_elements();
   int n_out_elems = out_tensor->get_num_elements();
 
-  ASSERT_TRUE(out_dims.size() == 2 &&
-              n_in_elems == n_out_elems &&
+  ASSERT_TRUE(out_dims.size() == 2 && n_in_elems == n_out_elems &&
               leading_dim == out_dims[out_dims.size() - 1]);
 }
 
@@ -62,22 +60,12 @@ void reshape_3d_test(int dim0, int dim1, int dim2, int leading_dim) {
 
 }  // namespace
 
-TEST(reshape_layer, 32x320to8x1280) {
-  reshape_2d_test(8*4, 320, 4*320);
-}
+TEST(reshape_layer, 32x320to8x1280) { reshape_2d_test(8 * 4, 320, 4 * 320); }
 
-TEST(reshape_layer, 32x320to16x640) {
-  reshape_2d_test(8*4, 320, 2*320);
-}
+TEST(reshape_layer, 32x320to16x640) { reshape_2d_test(8 * 4, 320, 2 * 320); }
 
-TEST(reshape_layer, 8x4x320to8x1280) {
-  reshape_3d_test(8, 4, 320, 4*320);
-}
+TEST(reshape_layer, 8x4x320to8x1280) { reshape_3d_test(8, 4, 320, 4 * 320); }
 
-TEST(reshape_layer, 8x4x320to4x2560) {
-  reshape_3d_test(8, 4, 320, 8*320);
-}
+TEST(reshape_layer, 8x4x320to4x2560) { reshape_3d_test(8, 4, 320, 8 * 320); }
 
-TEST(reshape_layer, 8x4x320to32x2560) {
-  reshape_3d_test(8, 4, 320, 320);
-}
+TEST(reshape_layer, 8x4x320to32x2560) { reshape_3d_test(8, 4, 320, 320); }

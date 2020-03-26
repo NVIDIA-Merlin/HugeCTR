@@ -22,7 +22,6 @@
 
 using namespace HugeCTR;
 
-
 TEST(session_test, basic_session) {
   const int batchsize = 2048;
   const int label_dim = 1;
@@ -39,9 +38,9 @@ TEST(session_test, basic_session) {
     const int num_files = 3;
     const long long num_records = batchsize * 5;
     const long long slot_num = 20;
-    HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records, slot_num,
-      vocabulary_size, label_dim, dense_dim, max_nnz);
-
+    HugeCTR::data_generation<T, Check_t::Sum>(file_list_name, prefix, num_files, num_records,
+                                              slot_num, vocabulary_size, label_dim, dense_dim,
+                                              max_nnz);
   }
 
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
@@ -49,12 +48,11 @@ TEST(session_test, basic_session) {
   cudaProfilerStart();
   for (int i = 0; i < 100; i++) {
     session_instance.train();
-    if(i%10 == 0){
+    if (i % 10 == 0) {
       float loss = 0;
       session_instance.get_current_loss(&loss);
-      std::cout << "iter:" << i << "; loss: " << loss << std::endl; 
+      std::cout << "iter:" << i << "; loss: " << loss << std::endl;
     }
   }
   cudaProfilerStop();
 }
-

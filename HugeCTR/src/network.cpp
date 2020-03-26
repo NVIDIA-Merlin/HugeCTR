@@ -22,15 +22,14 @@
 
 namespace HugeCTR {
 
-
-Network::Network(int batch_size, int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
-                 bool disable_parser)
+Network::Network(int batch_size, int device_id,
+                 const std::shared_ptr<const GPUResource>& gpu_resource, bool disable_parser)
     : blobs_buff_(new GeneralBuffer<float>()),
       weight_buff_(new GeneralBuffer<float>()),
       wgrad_buff_(new GeneralBuffer<float>()),
       gpu_resource_(gpu_resource),
       device_id_(device_id),
-      batch_size_(batch_size){
+      batch_size_(batch_size) {
   return;
 }
 
@@ -75,7 +74,7 @@ void Network::eval() {
 #endif
   // forward
   for (auto& layer : layers_) {
-    //layer->fprop(gpu_resource_->get_stream());
+    // layer->fprop(gpu_resource_->get_stream());
     layer->inference(gpu_resource_->get_stream());
 #ifndef NDEBUG
     for (auto& tensor : tensors_) {
@@ -170,9 +169,10 @@ void Network::init_params(const std::string& dense_name) {
 
 void Network::copy_params(const Network& n) {
   assert(weight_buff_->get_size() == n.weight_buff_->get_size());
-  CK_CUDA_THROW_(cudaMemcpy(weight_buff_->get_ptr_with_offset(0), n.weight_buff_->get_ptr_with_offset(0), weight_buff_->get_size(),cudaMemcpyDeviceToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(weight_buff_->get_ptr_with_offset(0),
+                            n.weight_buff_->get_ptr_with_offset(0), weight_buff_->get_size(),
+                            cudaMemcpyDeviceToDevice));
 }
-
 
 float Network::get_loss() {
   float loss_host = 0.f;
