@@ -132,10 +132,10 @@ class GPUResourceGroup {
     int total_gpu_count = get_total_gpu_count();
     // if ther are multiple GPUs within a node or/and across nodes
     if (total_gpu_count > 1) {
-      int my_rank = 0;
-      int n_ranks = 1;
       comms_.reset(new ncclComm_t[local_gpu_count]());
 #ifdef ENABLE_MPI
+      int my_rank = 0;
+      int n_ranks = 1;
       CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
       CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
       ncclUniqueId nid;
