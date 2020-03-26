@@ -54,8 +54,9 @@ static void check_device(int device_id, int min_major, int min_minor) {
 Session::Session(const std::string& json_name):solver_config_(json_name),
   gpu_resource_group_(new GPUResourceGroup(solver_config_.device_map)){
   try {
-    int numprocs = 1, pid = 0;
-#ifdef ENABLE_MPI    
+    int pid = 0;
+#ifdef ENABLE_MPI   
+    int numprocs = 1; 
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
@@ -144,28 +145,6 @@ Session::Session(const std::string& json_name):solver_config_(json_name),
   }
   return Error_t::Success;
 }
-
-// Error_t Session::init_params(std::string model_file) {
-//   try {
-//     // model_file generation;
-//     std::ofstream out_stream(model_file, std::ofstream::binary);
-//     if (!out_stream.is_open()) {
-//       CK_THROW_(Error_t::WrongInput, "Cannot open model file");
-//     }
-//     // network init
-//     for (auto& network : networks_) {
-//       network->init_params(out_stream);
-//     }
-//     out_stream.close();
-//   } catch (const internal_runtime_error& rt_err) {
-//     std::cerr << rt_err.what() << std::endl;
-//     return rt_err.get_error();
-//   } catch (const std::exception& err) {
-//     std::cerr << err.what() << std::endl;
-//     return Error_t::UnspecificError;
-//   }
-//   return Error_t::Success;
-// }
 
 void network_train_helper(int id, Network* n) {
   try {
@@ -290,8 +269,9 @@ Error_t Session::eval() {
 	i++;
       }
     }
-    int numprocs = 1, pid = 0;
+    int pid = 0;
 #ifdef ENABLE_MPI
+    int numprocs = 1;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
@@ -322,8 +302,9 @@ Error_t Session::get_current_loss(float* loss) {
   try {
     float loss_sum = 0.f;
     float loss_reduced = 0.f;
-    int numprocs = 1, pid = 0;
+    int numprocs = 1;
 #ifdef ENABLE_MPI
+    int pid = 0;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
