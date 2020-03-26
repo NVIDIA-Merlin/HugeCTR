@@ -31,7 +31,8 @@ private:
   std::string file_name_;  /**< file name of current file */
 public:
 
-  FileSource(FileList& file_list): file_list_(file_list){}
+  FileSource(unsigned int offset, unsigned int stride, FileList& file_list): 
+    Source(offset, stride), file_list_(file_list){}
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
@@ -67,11 +68,11 @@ public:
       if (in_file_stream_.is_open()){
 	in_file_stream_.close();
       }
-      NameID name_id = file_list_.get_a_file_with_id();
-      counter_ = name_id.id;
-      in_file_stream_.open(name_id.file_name, std::ifstream::binary);
+      std::string file_name = file_list_.get_a_file_with_id(offset_ + counter_*stride_);
+      counter_++; // counter_ should be accum for every source.
+      in_file_stream_.open(file_name, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
-	CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + name_id.file_name);
+	CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
       }
       return Error_t::Success;
     }

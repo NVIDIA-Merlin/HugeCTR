@@ -25,8 +25,8 @@ namespace HugeCTR {
 class CheckSum: public Checker {
 private:
   const int MAX_TRY_{10};
-  int counter_; /**< */
-  char accum_; /**< */
+  int counter_; /**< once counter_==0 will do checksum */
+  char accum_; /**< sum of bytes */
 public:
   CheckSum(Source& src):  Checker(src), counter_(0), accum_(0){}
   /**

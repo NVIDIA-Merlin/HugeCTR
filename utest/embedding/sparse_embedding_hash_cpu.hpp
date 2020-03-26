@@ -334,7 +334,7 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
 
   // dataset filelist 
   file_list_ = new FileList(file_list_name);
-  source_ = std::make_shared<FileSource>(*file_list_);
+  source_ = std::make_shared<FileSource>(0,1,*file_list_);
   switch(check_sum_){
   case Check_t::Sum:
     checker_ = std::make_shared<CheckSum>(*source_);

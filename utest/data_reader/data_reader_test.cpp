@@ -62,7 +62,7 @@ TEST(data_reader_worker, data_reader_worker_test) {
       new HeapEx<CSRChunk<T>>(32, num_devices, batchsize, label_dim + dense_dim, params));
 
   // setup a data reader
-  DataReaderWorker<T> data_reader(csr_heap, file_list, buffer_length, CHK, params);
+  DataReaderWorker<T> data_reader(0, 1, csr_heap, file_list, buffer_length, CHK, params);
   // // call read a batch
   data_reader.read_a_batch();
   

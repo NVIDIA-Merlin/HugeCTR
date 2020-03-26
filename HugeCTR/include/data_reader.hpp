@@ -139,7 +139,7 @@ class DataReader {
     // create data reader
     for (int i = 0; i < NumThreads; i++) {
       std::shared_ptr<DataReaderWorker<TypeKey>> data_reader(
-       new DataReaderWorker<TypeKey>(csr_heap_, *file_list_, max_feature_num_per_sample, check_type_, params_));
+	new DataReaderWorker<TypeKey>(i, NumThreads, csr_heap_, *file_list_, max_feature_num_per_sample, check_type_, params_));
       data_readers_.push_back(data_reader);
       data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
 					&data_reader_loop_flag_);

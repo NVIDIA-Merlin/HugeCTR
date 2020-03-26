@@ -44,11 +44,7 @@ public:
   virtual bool is_open() noexcept{
     return src_.is_open();
   }
-
-  unsigned int get_source_counter(){
-    return src_.get_counter();
-  }
-
+  
 };
 
 } //namespace HugeCTR
