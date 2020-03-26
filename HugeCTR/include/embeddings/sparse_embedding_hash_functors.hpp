@@ -196,24 +196,6 @@ public:
           sizeof(TypeHashKey), cudaMemcpyDeviceToHost, stream));
         hash_table->get_insert(hash_key, hash_value_index, num, stream);
 
-
-//         // just for debug
-//         int numprocs = 1, pid = 0;
-//         std::vector<std::vector<int>> vvgpu;
-// #ifdef ENABLE_MPI
-//         MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-//         MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-// #endif
-//         TypeHashKey * h_hash_key = (TypeHashKey *)malloc(num * sizeof(TypeHashKey));
-//         cudaMemcpy(h_hash_key, hash_key, num * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
-//         std::cout << "rank" << pid  << ", gpu" << id << ", slot_num_per_gpu=" 
-//           << slot_num_per_gpu[id] << ", key_num=" << num << ", hash_keys:" << std::endl;
-        // for(int i = 0; i < num; i++) {
-        //   std::cout << h_hash_key[i] << ", " << std::endl;
-        // } 
-        // std::cout << std::endl;
-
-
         // do sum reduction
         dim3 blockSize(embedding_vec_size, 1,
                       1);  // each thread corresponds to one element in an embedding vector
@@ -231,11 +213,6 @@ public:
         else {
           CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
         }
-
-        // // just for debug
-        // cudaStreamSynchronize(stream);
-
-
 
       } catch (const std::runtime_error &rt_err) {
         std::cerr << rt_err.what() << std::endl;
@@ -290,7 +267,6 @@ public:
         throw;
       }
     }
-
 
     return;
   }
@@ -483,9 +459,6 @@ public:
       sample_id_expand_kernel<<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num, row_offset,
                                                                   sample_id);
 
-      // // just for debug
-      // std::cout << "sample_id number=" << batch_size * slot_num << std::endl;
-
       int nnz;
       // this async memcpy will not perform as a async operation because the host memory is not a
       // pinned memory
@@ -495,31 +468,6 @@ public:
       // TODO: OPT: just use the results from forward process
       // step2: get hash_value_index by hash_key
       hash_table->get_insert(hash_key, hash_value_index, nnz, stream);
-
-
-      // // just for debug
-      // TypeHashKey * h_hash_key = (TypeHashKey *)malloc(nnz * sizeof(TypeHashKey));
-      // cudaMemcpy(h_hash_key, hash_key, nnz * sizeof(TypeHashKey), cudaMemcpyDeviceToHost);
-      // std::cout << "in update_params hash_keys:" << " nnz=" << nnz << std::endl;
-      // for(int i = 0; i < nnz; i++) {
-      //   std::cout << h_hash_key[i] << ", ";
-      // } 
-      // std::cout << std::endl;
-
-      // int size= batch_size * slot_num * embedding_vec_size;
-      // float * h_wgrad = (float *)malloc(size * sizeof(float));
-      // cudaMemcpy(h_wgrad, wgrad, size*sizeof(float), cudaMemcpyDeviceToHost);
-      // std::cout << "wgrad: size=" << size << std::endl;
-      // for(int i = 0 ; i < batch_size; i++) {
-      //   std::cout << "batch=" << i << std::endl;
-      //   for(int j = 0; j < slot_num; j++) {
-      //     std::cout << "slot=" << j << ": ";
-      //     for(int k = 0; k < embedding_vec_size; k++) {
-      //       std::cout << "wgrad[" << k << "]=" << h_wgrad[i*slot_num*embedding_vec_size+j*embedding_vec_size+k];
-      //     }
-      //     std::cout << std::endl;
-      //   }
-      // }
 
       // step3: sort by hash_value_index
       int end_bit = (int)log2((float)max_vocabulary_size_per_gpu) + 1;
@@ -903,7 +851,6 @@ public:
     for(int i = 0; i < local_gpu_count; i++){
       size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu[i] * embedding_vec_size;
       for(int j = 0; j < local_gpu_count; j++){
-        //table[i][j] = element_per_send;
         table[j][i] = element_per_send;
       }
     }
@@ -957,23 +904,6 @@ public:
                             const Tensors<float>& send_tensors,
                             Tensors<float>& recv_tensors,
                             const std::shared_ptr<GPUResourceGroup>& device_resources) {
-
-    // /****Initialize MPI Environment and setup MPI variable*****/
-    // int thread_level = MPI_THREAD_MULTIPLE; // Important, MPI RT Environment will not auto support multi-thread.
-    // int provided_thread_level;
-    // int argc;
-    // char ** argv;
-    // MPI_Init_thread(&argc, &argv, thread_level, &provided_thread_level); // Init MPI RT Environment
-    
-    // int name_len;
-    // char processor_name[MPI_MAX_PROCESSOR_NAME];
-    // MPI_Get_processor_name(processor_name, &name_len); // The name of the host(or processor,implementation-specific) that this MPI process is running on
-    // if(provided_thread_level != MPI_THREAD_MULTIPLE){
-    //     std::cout << "The MPI runtime on node: " << processor_name << " does not support multi-thread! Quit!" << std::endl;
-    //     // Finalize MPI Environment, After this, no MPI API should be called
-    //     MPI_Finalize();
-    //     exit(-1);
-    // }
 
     using transfer_plan_t = comm_handler_traits::transfer_plan_t;
     transfer_plan_t * transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
@@ -1254,11 +1184,6 @@ public:
     dim3 gridSize(batch_size_per_gpu, 1, 1);
 
     for(int id = 0; id < local_gpu_count; id++) {
-
-      // // just for debug 
-      // std::cout << "gpu=" << id << ":" << std::endl;
-
-
       context.set_device((*device_resources)[id]->get_device_id());
       forward_reorder_kernel<float><<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(batch_size_per_gpu,
                                                                                         slot_num,
@@ -1266,9 +1191,6 @@ public:
                                                                                         total_gpu_count,
                                                                                         src_tensors[id]->get_ptr(),
                                                                                         dst_tensors[id]->get_ptr());
-      // // just for debug 
-      // cudaStreamSynchronize((*device_resources)[id]->get_stream());
-
     }
   }
 
@@ -1956,13 +1878,6 @@ public:
         int id = device_resources->get_local_id(gid); // local GPU ID (not gpu devie id)
         int dst_rank = device_resources->get_pid(gid); // node id
 
-        // // just for debug 
-        // std::cout << "i=" << i << ", remain_loop_num=" << remain_loop_num
-        //           << ", rank:" << my_rank << ", dst_rank=" << dst_rank 
-        //           << ", slot_id=" << slot_id 
-        //           << ", gid=" << gid 
-        //           << std::endl;
-
         if (my_rank == dst_rank) {
           context.set_device((*device_resources)[id]->get_device_id());
 
@@ -1987,16 +1902,6 @@ public:
                                   hash_table_key_tile_size,
                                   (*device_resources)[id]->get_stream());
           size_t value_head = hash_tables[id]->add_value_head(hash_table_key_tile_size);
-
-
-          // // just for debug 
-          // std::cout << "rank=" << my_rank
-          //           << ", i=" << i 
-          //           << ", slot_id=" << slot_id 
-          //           << ", key=" << *((TypeHashKey*)(src_buf-hash_table_key_tile_size_in_B)) 
-          //           << ", gid=" << gid 
-          //           << ", value_head=" << value_head
-          //           << std::endl;
 
           // memcpy hash_table_slot_id to corresponding GPU
           size_t slot_id_offset = tile_counter_per_gpu[id];
@@ -2271,9 +2176,6 @@ public:
       count[id] = count_tmp;
       max_count = max(max_count, count[id]);
       total_count += count[id];
-
-      // just for debug 
-      // printf("rank:%d, gpu:%d, count=%d\n", my_rank, id, count_tmp);
     }
 
   #ifdef ENABLE_MPI
@@ -2323,9 +2225,6 @@ public:
       }
 
       context.set_device((*device_resources)[id]->get_device_id());
-
-      // // just for debug 
-      // printf("gpu:%d, count=%d, max_vocabulary_size_per_gpu=%d\n", id, count[id], max_vocabulary_size_per_gpu);
 
       hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
                             max_vocabulary_size_per_gpu, d_dump_counter[id],
