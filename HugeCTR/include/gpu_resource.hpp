@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include "ctpl/ctpl_stl.h"
 
 #include <cudnn.h>
+#include <curand.h>
 #include <nccl.h>
 
 #ifdef ENABLE_MPI
@@ -40,6 +41,7 @@ class GPUResource {
   cudaStream_t stream_;           /**< cuda stream for computation */
   cudaStream_t data_copy_stream_; /**< cuda stream for data copy */
   cublasHandle_t cublas_handle_;
+  curandGenerator_t curand_generator_;
   cudnnHandle_t cudnn_handle_;
   const int device_id_;
   const ncclComm_t* comm_;
@@ -51,6 +53,7 @@ class GPUResource {
   GPUResource(int device_id, const ncclComm_t* comm) : device_id_(device_id), comm_(comm) {
     CudaDeviceContext context(device_id_);
     CK_CUBLAS_THROW_(cublasCreate(&cublas_handle_));
+    CK_CURAND_THROW_(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
     CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle_));
     CK_CUDA_THROW_(cudaStreamCreate(&stream_));
     CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_));
@@ -67,6 +70,7 @@ class GPUResource {
     try {
       CudaDeviceContext context(device_id_);
       CK_CUBLAS_THROW_(cublasDestroy(cublas_handle_));
+      CK_CURAND_THROW_(curandDestroyGenerator(curand_generator_));
       CK_CUDNN_THROW_(cudnnDestroy(cudnn_handle_));
       CK_CUDA_THROW_(cudaStreamDestroy(stream_));
       CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_));
@@ -79,6 +83,7 @@ class GPUResource {
   const cudaStream_t& get_stream() const { return stream_; }
   const cudaStream_t& get_data_copy_stream() const { return data_copy_stream_; }
   const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
+  const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t* get_nccl_ptr() const { return comm_; }
 };
@@ -94,6 +99,7 @@ class GPUResourceGroup {
   std::unique_ptr<ncclComm_t[]> comms_;
   std::shared_ptr<const DeviceMap> device_map_;
   std::vector<std::shared_ptr<const GPUResource>> gpu_resources_; /**< GPU resource vector */
+
  public:
   ctpl::thread_pool train_thread_pool; /**< cpu thread pool for training */
   std::vector<std::future<void>> results;
@@ -126,10 +132,10 @@ class GPUResourceGroup {
     int total_gpu_count = get_total_gpu_count();
     // if ther are multiple GPUs within a node or/and across nodes
     if (total_gpu_count > 1) {
-      int my_rank = 0;
-      int n_ranks = 1;
       comms_.reset(new ncclComm_t[local_gpu_count]());
 #ifdef ENABLE_MPI
+      int my_rank = 0;
+      int n_ranks = 1;
       CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
       CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
       ncclUniqueId nid;

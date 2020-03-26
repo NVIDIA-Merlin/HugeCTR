@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <functional>
 #include <vector>
 #include "HugeCTR/include/general_buffer.hpp"
+#include "HugeCTR/include/regularizer.hpp"
 #include "HugeCTR/include/tensor.hpp"
 
 namespace HugeCTR {
@@ -34,8 +35,29 @@ namespace HugeCTR {
  *
  */
 class Loss {
- private:
-  const int device_id_;
+ public:
+  /**
+   * @brief
+   * Forward and backward passes are fused into one function.
+   *
+   * gradient values to prevent the overflow issue.
+   *
+   * @param stream CUDA stream where the fused_loss_computation is executed in
+   */
+  virtual void fused_loss_computation(cudaStream_t stream);
+
+  /**
+   * @param device_id GPU device executed on
+   */
+  Loss(const std::shared_ptr<const Tensor<float>>& label_tensor,
+       const std::shared_ptr<Tensor<float>>& input_tensor,
+       const std::shared_ptr<Tensor<float>>& loss_tensor,
+       const std::shared_ptr<Regularizer> regularizer, int device_id);
+  Loss(const Loss& C) = delete;
+  Loss& operator=(const Loss& C) = delete;
+  virtual ~Loss() {}
+
+  int get_device_id() const { return device_id_; }
 
  protected:
   /**
@@ -56,41 +78,35 @@ class Loss {
    */
   std::vector<std::shared_ptr<Tensor<float>>> loss_tensors_;
 
- public:
-  /**
-   * @brief
-   * Forward and backward passes are fused into one function.
-   *
-   * When WMMA is turned on, the scaler set during the compiling process is multiplied to the loss
-   * gradient values to prevent the overflow issue.
-   *
-   * @param stream CUDA stream where the fused_loss_computation is executed in
-   */
-  virtual void fused_loss_computation(cudaStream_t stream) = 0;
-  /**
-   * @param device_id GPU device executed on
-   */
-  Loss(int device_id) : device_id_(device_id) {}
-  Loss(const Loss& C) = delete;
-  Loss& operator=(const Loss& C) = delete;
-  int get_device_id() const { return device_id_; }
-  virtual ~Loss() {}
+ private:
+  virtual void do_fused_loss_computation(float* input, const float* label, float* loss,
+                                         int batch_size, int feature_dim, float scaler, float rterm,
+                                         cudaStream_t stream) = 0;
+
+  std::shared_ptr<Regularizer> regularizer_;
+  const int device_id_;
 };
 
 class CrossEntropyLoss : public Loss {
  public:
-  void fused_loss_computation(cudaStream_t stream) final;
-  CrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensors,
-                   const std::shared_ptr<Tensor<float>>& input_tensors,
-                   const std::shared_ptr<Tensor<float>>& loss_tensors, int device_id);
+  void do_fused_loss_computation(float* input, const float* label, float* loss, int batch_size,
+                                 int feature_dim, float scaler, float rterm,
+                                 cudaStream_t stream) override final;
+  CrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
+                   const std::shared_ptr<Tensor<float>>& input_tensor,
+                   const std::shared_ptr<Tensor<float>>& loss_tensor,
+                   const std::shared_ptr<Regularizer> regularizer, int device_id);
 };
 
 class BinaryCrossEntropyLoss : public Loss {
  public:
-  void fused_loss_computation(cudaStream_t stream) final;
-  BinaryCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensors,
-                         const std::shared_ptr<Tensor<float>>& input_tensors,
-                         const std::shared_ptr<Tensor<float>>& loss_tensors, int device_id);
+  void do_fused_loss_computation(float* input, const float* label, float* loss, int batch_size,
+                                 int feature_dim, float scaler, float rterm,
+                                 cudaStream_t stream) override final;
+  BinaryCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
+                         const std::shared_ptr<Tensor<float>>& input_tensor,
+                         const std::shared_ptr<Tensor<float>>& loss_tensor,
+                         const std::shared_ptr<Regularizer> regularizer, int device_id);
 };
 
 class MultiCrossEntropyLoss : public Loss {
@@ -99,10 +115,13 @@ class MultiCrossEntropyLoss : public Loss {
   std::unique_ptr<Tensor<float>> target_weight_;
 
  public:
-  void fused_loss_computation(cudaStream_t stream) final;
+  void do_fused_loss_computation(float* input, const float* label, float* loss, int batch_size,
+                                 int feature_dim, float scaler, float rterm,
+                                 cudaStream_t stream) override final;
   MultiCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
                         const std::shared_ptr<Tensor<float>>& input_tensor,
                         const std::shared_ptr<Tensor<float>>& loss_tensor,
+                        const std::shared_ptr<Regularizer> regularizer,
                         const std::vector<float>& target_weight, int device_id);
 };
 

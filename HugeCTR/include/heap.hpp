@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <thread>
 #include <vector>
 #include "HugeCTR/include/common.hpp"
 
@@ -54,7 +55,6 @@ class Heap {
     if (chunk == nullptr || key == nullptr) {
       CK_THROW_(Error_t::WrongInput, "chunk == nullptr || key == nullptr");
     }
-
     std::unique_lock<std::mutex> lock(mtx_);
     // thread safe start
     while (loop_flag_) {

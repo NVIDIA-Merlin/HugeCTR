@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
   cudnnHandle_t cudnn_handle;
   CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle));
 
-  BatchNormLayer::Params params = {true, 1.0, eps};
+  BatchNormLayer::Params params = {1.0, eps};
   BatchNormLayer batch_norm_layer(wbuff, wgbuff, in_tensor, out_tensor, params, cudnn_handle, 0);
 
   wbuff->init(0);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <memory>
 
 namespace HugeCTR {
 
@@ -26,11 +27,14 @@ namespace HugeCTR {
  */
 template <typename T>
 class PinnedBuffer : public std::unique_ptr<T[]> {
+ private:
+  const size_t size_;
+
  public:
   /**
    * Ctor
    */
-  PinnedBuffer(size_t size) : std::unique_ptr<T[]>(new T[size]) {
+  PinnedBuffer(size_t size) : std::unique_ptr<T[]>(new T[size]), size_(size) {
     static_assert(std::is_pod<T>::value, "T must be a POD type.");
     // make sure these memory can be copy to GPU without synchronization
     CK_CUDA_THROW_(cudaHostRegister(this->get(), sizeof(T) * size, cudaHostRegisterDefault));
@@ -40,6 +44,7 @@ class PinnedBuffer : public std::unique_ptr<T[]> {
   PinnedBuffer& operator=(const PinnedBuffer&) = delete;
   PinnedBuffer(PinnedBuffer&&) = default;
 
+  size_t get_num_elements() const { return size_; }
   ~PinnedBuffer() noexcept(false) {
     if (this->get()) {
       CK_CUDA_THROW_(cudaHostUnregister(this->get()));

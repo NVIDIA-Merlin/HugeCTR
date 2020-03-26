@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,8 @@ class Embedding {
   const Tensors<TypeKey> value_tensors_;       /**< The value tensors of the input data. */
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< The GPU device resources. */
   const int batchsize_; /**< The batch size of the input data for the current training process. */
+  const float scaler_;
+
  public:
   /**
    * The constructor of Embedding class.
@@ -60,7 +62,7 @@ class Embedding {
    */
   Embedding(const Tensors<TypeKey>& row_offsets_tensors, const Tensors<TypeKey>& value_tensors,
             int batchsize, int slot_num, int embedding_vec_size,
-            const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+            const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, float scaler);
   /**
    * The declaration for indicating that there is no default copy construtor in this class.
    */
@@ -113,7 +115,7 @@ class Embedding {
    * @param embedding_feature the host pointer for storing the forward()
    * results.
    */
-  virtual float* get_embedding_feature_ptr(float* embedding_feature) = 0;
+  virtual void get_forward_results(float* embedding_feature) = 0;
   /**
    * Get the backward() results from GPUs and copy them to the host pointer
    * wgrad. The wgrad on each GPU should be the same. This function is only
@@ -121,7 +123,7 @@ class Embedding {
    * @param wgrad the host pointer for stroing the backward() results.
    * @param devIndex the GPU device id.
    */
-  virtual float* get_wgrad_ptr(float* wgrad, int devIndex) = 0;
+  virtual void get_backward_results(float* wgrad, int devIndex) = 0;
   /**
    * Get the update_params() results(the hash table, including hash_table_keys
    * and hash_table_values) from GPUs and copy them to the host pointers.
@@ -129,22 +131,29 @@ class Embedding {
    * @param hash_table_key the host pointer for stroing the hash table keys.
    * @param hash_table_value the host pointer for stroing the hash table values.
    */
-  virtual void get_hash_table_ptr(TypeKey* hash_table_key, float* hash_table_value) = 0;
+  virtual void get_update_params_results(TypeKey* hash_table_key, float* hash_table_value) = 0;
 };
 
 template <typename TypeKey>
 Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
                               const Tensors<TypeKey>& value_tensors, int batchsize, int slot_num,
                               int embedding_vec_size,
-                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group)
+                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                              float scaler)
     : row_offsets_tensors_(row_offsets_tensors),
       value_tensors_(value_tensors),
       device_resources_(gpu_resource_group),
-      batchsize_(batchsize) {
+      batchsize_(batchsize),
+      scaler_(scaler) {
   try {
     // Error check
     if (batchsize < 1 || slot_num < 1 || embedding_vec_size < 1) {
       CK_THROW_(Error_t::WrongInput, "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
+    }
+
+    if (embedding_vec_size > 1024) {
+      CK_THROW_(Error_t::WrongInput,
+                "the embedding_vec_size can not be more than 1024 in embedding layer");
     }
 
     const auto& device_list = device_resources_->get_device_list();
@@ -201,6 +210,7 @@ typedef struct OptParams_ {
   int optimizer;  // 0-adam, 1-momentum sgd, 2-nesterov
   float lr;
   OptHyperParams hyperparams;
+  bool global_update;
 } OptParams;
 
 typedef struct SparseEmbeddingHashParams_ {
@@ -213,6 +223,7 @@ typedef struct SparseEmbeddingHashParams_ {
   int slot_num;            // slot number
   int combiner;            // 0-sum, 1-mean
   OptParams opt_params;    // optimizer params
+  float scaler;
 } SparseEmbeddingHashParams;
 
 // Embedding should be register here
@@ -220,13 +231,24 @@ struct EmbeddingCreator {
   typedef long long TYPE_1;
   typedef unsigned int TYPE_2;
 
-  static Embedding<TYPE_1>* create_sparse_embedding_hash(
+  static Embedding<TYPE_1>* create_distributed_sparse_embedding_hash(
       const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
       SparseEmbeddingHashParams embedding_params,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
-  static Embedding<TYPE_2>* create_sparse_embedding_hash(
+
+  static Embedding<TYPE_2>* create_distributed_sparse_embedding_hash(
       const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
       SparseEmbeddingHashParams embedding_params,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_1>* create_localized_sparse_embedding_hash(
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      SparseEmbeddingHashParams embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_2>* create_localized_sparse_embedding_hash(
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      SparseEmbeddingHashParams embedding_params, const std::string plan_file,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 };
 

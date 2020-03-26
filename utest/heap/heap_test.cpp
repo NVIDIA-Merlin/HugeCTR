@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,9 +59,11 @@ TEST(heap, heap_csr_chunk_test) {
   const int batchsize = 2048;
   const int label_dim = 2;
   const int slot_num = 10;
-  const int max_value_size = 2048 * 20;
-  Heap<CSRChunk<long long>> csr_heap(32, num_devices, batchsize, label_dim, slot_num,
-                                     max_value_size);
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, slot_num, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+
+  Heap<CSRChunk<long long>> csr_heap(32, num_devices, batchsize, label_dim, params);
   unsigned int key = 0;
   CSRChunk<long long>* chunk_tmp = nullptr;
   csr_heap.free_chunk_checkout(&chunk_tmp, &key);

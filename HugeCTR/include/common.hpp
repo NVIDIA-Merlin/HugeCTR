@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,14 @@
 namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 2
-#define HUGECTR_VERSION_MINOR 0
+#define HUGECTR_VERSION_MINOR 1
+
+#define WARP_SIZE 32
 
 enum class Error_t {
   Success,
   FileCannotOpen,
+  BrokenFile,
   OutOfMemory,
   OutOfBound,
   WrongInput,
@@ -47,7 +50,23 @@ enum class Error_t {
   CudnnError,
   CudaError,
   NcclError,
+  DataCheckError,
   UnspecificError
+};
+
+enum class Check_t { Sum, None };
+
+enum class DataReaderSparse_t { Distributed, Localized };
+
+struct DataReaderSparseParam {
+  DataReaderSparse_t type;
+  int max_feature_num;
+  int slot_num;
+};
+
+struct NameID {
+  std::string file_name;
+  unsigned int id;
 };
 
 /**
@@ -84,24 +103,36 @@ enum class LrPolicy_t { fixed };
 
 enum class Optimizer_t { Adam, MomentumSGD, Nesterov };
 
+enum class Regularizer_t { L1, L2 };
+
 enum class Layer_t {
   BatchNorm,
   BinaryCrossEntropyLoss,
+  Reshape,
   Concat,
   CrossEntropyLoss,
+  Dropout,
   ELU,
   InnerProduct,
   MultiCrossEntropyLoss,
   ReLU,
+  Slice,
+  Multiply,
+  FmOrder2,
+  Add,
+  ReduceSum,
+  MultiCross
 };
 
-enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash };
+enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash };
 
 typedef struct DataSetHeader_ {
+  long long error_check;        // 0: no error check; 1: check_num
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
-  long long slot_num;
-  long long reserved;  // reserved for future use
+  long long dense_dim;          // dimension of dense feature
+  long long slot_num;           // slot_num for each embedding
+  long long reserved[3];        // reserved for future use
 } DataSetHeader;
 
 #ifdef ENABLE_MPI
@@ -151,6 +182,16 @@ typedef struct DataSetHeader_ {
       throw internal_runtime_error(x, std::string("Runtime error: ") + (msg) + " " + __FILE__ + \
                                           ":" + std::to_string(__LINE__) + " \n");              \
     }                                                                                           \
+  } while (0)
+
+#define CK_RETURN_(x, msg)                                                         \
+  do {                                                                             \
+    Error_t retval = (x);                                                          \
+    if (retval != Error_t::Success) {                                              \
+      std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + ":" + \
+                       std::to_string(__LINE__) + " \n";                           \
+      return x;                                                                    \
+    }                                                                              \
   } while (0)
 
 #define MESSAGE_(msg)                                                                            \
@@ -237,7 +278,7 @@ typedef struct DataSetHeader_ {
     ncclResult_t r = (cmd);                                                                        \
     if (r != ncclSuccess) {                                                                        \
       throw internal_runtime_error(Error_t::NcclError, std::string("Runtime error: NCCL Error ") + \
-                                                           std::string(ncclGetErrorString(cmd)) +  \
+                                                           std::string(ncclGetErrorString(r)) +    \
                                                            " " + __FILE__ + ":" +                  \
                                                            std::to_string(__LINE__) + " \n");      \
     }                                                                                              \
@@ -252,6 +293,16 @@ typedef struct DataSetHeader_ {
                                    std::string(cudnnGetErrorString(cmd)) + " " + __FILE__ + ":" + \
                                    std::to_string(__LINE__) + " \n");                             \
     }                                                                                             \
+  } while (0)
+
+#define CK_CURAND_THROW_(cmd)                                                                   \
+  do {                                                                                          \
+    curandStatus_t retval = (cmd);                                                              \
+    if (retval != CURAND_STATUS_SUCCESS) {                                                      \
+      throw internal_runtime_error(                                                             \
+          Error_t::CudnnError, std::string("CURAND Runtime error: ") + std::to_string(retval) + \
+                                   " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
+    }                                                                                           \
   } while (0)
 
 }  // namespace HugeCTR
