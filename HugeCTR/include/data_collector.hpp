@@ -50,7 +50,8 @@ struct ToMpiType<float> {
 
 #endif
 
-void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor, const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream );
+void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor,
+           const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream);
 
 /**
  * @brief A helper class of data reader.
@@ -88,13 +89,11 @@ class DataCollector {
    * @param csr_heap heap of data reader.
    */
 
-  DataCollector(const Tensors<float>& label_tensors,
-		const Tensors<float>& dense_tensors,
-		const GeneralBuffers<TypeKey>& csr_buffers,
-		const std::shared_ptr<GPUResourceGroup>& device_resources,
-		const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap = nullptr);
+  DataCollector(const Tensors<float>& label_tensors, const Tensors<float>& dense_tensors,
+                const GeneralBuffers<TypeKey>& csr_buffers,
+                const std::shared_ptr<GPUResourceGroup>& device_resources,
+                const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap = nullptr);
 
-  
   void set_ready_to_write();
 
   /**
@@ -128,7 +127,7 @@ class DataCollector {
 
 template <typename TypeKey>
 DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
-				      const Tensors<float>& dense_tensors,
+                                      const Tensors<float>& dense_tensors,
                                       const GeneralBuffers<TypeKey>& csr_buffers,
                                       const std::shared_ptr<GPUResourceGroup>& device_resources,
                                       const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap)
@@ -142,23 +141,24 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
     if (stat_ != READY_TO_WRITE) {
       CK_THROW_(Error_t::WrongInput, "stat_ != READY_TO_WRITE");
     }
-    if (label_tensors.size() != dense_tensors.size()){
+    if (label_tensors.size() != dense_tensors.size()) {
       CK_THROW_(Error_t::WrongInput, "label_tensors.size() != dense_tensors.size()");
     }
-    
+
     // create internal buffers
     auto& local_device_list = device_resources_->get_device_list();
-    for (unsigned int i=0; i < local_device_list.size(); i++){
+    for (unsigned int i = 0; i < local_device_list.size(); i++) {
       assert(local_device_list[i] == label_tensors_[i]->get_device_id());
       assert(local_device_list[i] == dense_tensors_[i]->get_device_id());
-      int buf_size = label_tensors_[i]->get_num_elements()+dense_tensors_[i]->get_num_elements();
-      label_dense_buffers_internal_.emplace_back(std::make_shared<GeneralBuffer<float>>(buf_size,local_device_list[i]));
+      int buf_size = label_tensors_[i]->get_num_elements() + dense_tensors_[i]->get_num_elements();
+      label_dense_buffers_internal_.emplace_back(
+          std::make_shared<GeneralBuffer<float>>(buf_size, local_device_list[i]));
     }
     for (auto& cb : csr_buffers_) {
       csr_buffers_internal_.emplace_back(
-	  new GeneralBuffer<TypeKey>(cb->get_num_elements(), cb->get_device_id()));
+          new GeneralBuffer<TypeKey>(cb->get_num_elements(), cb->get_device_id()));
     }
-    num_params_ = csr_buffers_.size()/local_device_list.size();
+    num_params_ = csr_buffers_.size() / local_device_list.size();
 
 #ifdef ENABLE_MPI
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid_));
@@ -191,11 +191,11 @@ void DataCollector<TypeKey>::collect() {
     return;
   }
 
-
   const auto& csr_cpu_buffers = chunk_tmp->get_csr_buffers();
   const auto& label_dense_buffers = chunk_tmp->get_label_buffers();
-  const int num_params = chunk_tmp->get_num_params(); //equal to the num of output of data reader in json
-  if(num_params_!= num_params){
+  const int num_params =
+      chunk_tmp->get_num_params();  // equal to the num of output of data reader in json
+  if (num_params_ != num_params) {
     CK_THROW_(Error_t::WrongInput, "job_ is ???");
   }
   assert(static_cast<int>(label_dense_buffers.size()) == total_device_count);
@@ -206,19 +206,19 @@ void DataCollector<TypeKey>::collect() {
     if (pid == pid_) {
       int local_id = device_resources_->get_local_id(i);
       CudaDeviceContext context(device_resources_->get_local_device_id(i));
-      for(int j = 0; j < num_params; j++){
-	int csr_copy_num = (csr_cpu_buffers[i*num_params + j].get_num_rows() +
-			    csr_cpu_buffers[i*num_params + j].get_sizeof_value() + 1);
-	CK_CUDA_THROW_(cudaMemcpyAsync(csr_buffers_internal_[local_id*num_params + j]->get_ptr_with_offset(0),
-				       csr_cpu_buffers[i*num_params + j].get_buffer(),
-				       csr_copy_num * sizeof(TypeKey), cudaMemcpyHostToDevice,
-				       (*device_resources_)[local_id]->get_data_copy_stream()));
+      for (int j = 0; j < num_params; j++) {
+        int csr_copy_num = (csr_cpu_buffers[i * num_params + j].get_num_rows() +
+                            csr_cpu_buffers[i * num_params + j].get_sizeof_value() + 1);
+        CK_CUDA_THROW_(cudaMemcpyAsync(
+            csr_buffers_internal_[local_id * num_params + j]->get_ptr_with_offset(0),
+            csr_cpu_buffers[i * num_params + j].get_buffer(), csr_copy_num * sizeof(TypeKey),
+            cudaMemcpyHostToDevice, (*device_resources_)[local_id]->get_data_copy_stream()));
       }
-      CK_CUDA_THROW_(cudaMemcpyAsync(label_dense_buffers_internal_[local_id]->get_ptr_with_offset(0),
-				     label_dense_buffers[i].get(), label_copy_num * sizeof(float),
-				     cudaMemcpyHostToDevice,
-				     (*device_resources_)[local_id]->get_data_copy_stream()));
-    } 
+      CK_CUDA_THROW_(cudaMemcpyAsync(
+          label_dense_buffers_internal_[local_id]->get_ptr_with_offset(0),
+          label_dense_buffers[i].get(), label_copy_num * sizeof(float), cudaMemcpyHostToDevice,
+          (*device_resources_)[local_id]->get_data_copy_stream()));
+    }
   }
   // sync
   for (int i = 0; i < total_device_count; i++) {
@@ -226,8 +226,7 @@ void DataCollector<TypeKey>::collect() {
     if (pid_ == pid) {
       int local_id = device_resources_->get_local_id(i);
       CudaDeviceContext context(device_resources_->get_local_device_id(i));
-      CK_CUDA_THROW_(
-		     cudaStreamSynchronize((*device_resources_)[local_id]->get_data_copy_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize((*device_resources_)[local_id]->get_data_copy_stream()));
     }
   }
 
@@ -249,18 +248,16 @@ void DataCollector<TypeKey>::read_a_batch_to_device() {
 
   for (unsigned int i = 0; i < device_resources_->size(); i++) {
     CudaDeviceContext context((*device_resources_)[i]->get_device_id());
-    for(int j = 0; j < num_params_; j++){
-      int csr_id = i*num_params_ + j;
+    for (int j = 0; j < num_params_; j++) {
+      int csr_id = i * num_params_ + j;
       CK_CUDA_THROW_(cudaMemcpyAsync(csr_buffers_[csr_id]->get_ptr_with_offset(0),
-				     csr_buffers_internal_[csr_id]->get_ptr_with_offset(0),
-				     csr_buffers_[csr_id]->get_size(), cudaMemcpyDeviceToDevice,
-				     (*device_resources_)[i]->get_stream()));
+                                     csr_buffers_internal_[csr_id]->get_ptr_with_offset(0),
+                                     csr_buffers_[csr_id]->get_size(), cudaMemcpyDeviceToDevice,
+                                     (*device_resources_)[i]->get_stream()));
     }
 
-    split(label_tensors_[i], dense_tensors_[i],
-	  label_dense_buffers_internal_[i],
-	  (*device_resources_)[i]->get_stream());
-
+    split(label_tensors_[i], dense_tensors_[i], label_dense_buffers_internal_[i],
+          (*device_resources_)[i]->get_stream());
   }
   for (unsigned int i = 0; i < device_resources_->size(); i++) {
     CudaDeviceContext context((*device_resources_)[i]->get_device_id());
@@ -273,6 +270,5 @@ void DataCollector<TypeKey>::set_ready_to_write() {
   stat_ = READY_TO_WRITE;
   stat_cv_.notify_all();
 }
-
 
 }  // namespace HugeCTR

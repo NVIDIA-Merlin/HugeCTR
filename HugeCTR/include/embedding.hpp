@@ -47,6 +47,7 @@ class Embedding {
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< The GPU device resources. */
   const int batchsize_; /**< The batch size of the input data for the current training process. */
   const float scaler_;
+
  public:
   /**
    * The constructor of Embedding class.
@@ -135,9 +136,7 @@ class Embedding {
 
 template <typename TypeKey>
 Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
-                              const Tensors<TypeKey>& value_tensors, 
-                              int batchsize, 
-                              int slot_num,
+                              const Tensors<TypeKey>& value_tensors, int batchsize, int slot_num,
                               int embedding_vec_size,
                               const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                               float scaler)
@@ -145,15 +144,16 @@ Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
       value_tensors_(value_tensors),
       device_resources_(gpu_resource_group),
       batchsize_(batchsize),
-      scaler_(scaler){
+      scaler_(scaler) {
   try {
     // Error check
     if (batchsize < 1 || slot_num < 1 || embedding_vec_size < 1) {
       CK_THROW_(Error_t::WrongInput, "batchsize < 1 || slot_num < 1 || embedding_vec_size < 1");
     }
 
-    if(embedding_vec_size > 1024) { 
-      CK_THROW_(Error_t::WrongInput, "the embedding_vec_size can not be more than 1024 in embedding layer");
+    if (embedding_vec_size > 1024) {
+      CK_THROW_(Error_t::WrongInput,
+                "the embedding_vec_size can not be more than 1024 in embedding layer");
     }
 
     const auto& device_list = device_resources_->get_device_list();
@@ -232,29 +232,23 @@ struct EmbeddingCreator {
   typedef unsigned int TYPE_2;
 
   static Embedding<TYPE_1>* create_distributed_sparse_embedding_hash(
-      const Tensors<TYPE_1>& row_offsets_tensors, 
-      const Tensors<TYPE_1>& value_tensors,
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
       SparseEmbeddingHashParams embedding_params,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
   static Embedding<TYPE_2>* create_distributed_sparse_embedding_hash(
-      const Tensors<TYPE_2>& row_offsets_tensors, 
-      const Tensors<TYPE_2>& value_tensors,
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
       SparseEmbeddingHashParams embedding_params,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
   static Embedding<TYPE_1>* create_localized_sparse_embedding_hash(
-      const Tensors<TYPE_1>& row_offsets_tensors, 
-      const Tensors<TYPE_1>& value_tensors,
-      SparseEmbeddingHashParams embedding_params,
-      const std::string plan_file,
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      SparseEmbeddingHashParams embedding_params, const std::string plan_file,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
-      
+
   static Embedding<TYPE_2>* create_localized_sparse_embedding_hash(
-      const Tensors<TYPE_2>& row_offsets_tensors, 
-      const Tensors<TYPE_2>& value_tensors,
-      SparseEmbeddingHashParams embedding_params,
-      const std::string plan_file,
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      SparseEmbeddingHashParams embedding_params, const std::string plan_file,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 };
 

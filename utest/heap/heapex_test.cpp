@@ -61,4 +61,3 @@ TEST(heapex, heapex_csr_chunk_test) {
   csr_heapex.free_chunk_checkout(&chunk_tmp, 0);
   chunk_tmp->get_csr_buffer(0).reset();
 }
-

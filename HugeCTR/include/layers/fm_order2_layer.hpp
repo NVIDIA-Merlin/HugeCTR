@@ -14,22 +14,21 @@
  * limitations under the License.
  */
 
-#pragma once 
+#pragma once
 
 #include "HugeCTR/include/layer.hpp"
 
-namespace HugeCTR
-{
+namespace HugeCTR {
 
 /**
- * The order2 expression in FM formular(reference paper: 
+ * The order2 expression in FM formular(reference paper:
  * https://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf).
- * The layer will be used in DeepFM model to implement the FM order2 
- * computation (reference code implemented in Tensorflow: line 92~104, 
+ * The layer will be used in DeepFM model to implement the FM order2
+ * computation (reference code implemented in Tensorflow: line 92~104,
  * https://github.com/ChenglongChen/tensorflow-DeepFM/blob/master/DeepFM.py).
  */
-class FmOrder2Layer: public Layer {
-public:
+class FmOrder2Layer : public Layer {
+ public:
   /**
    * Ctor of FmOrder2Layer.
    * @param in_tensor the input tensor
@@ -37,9 +36,7 @@ public:
    * @param device_id the id of GPU where this layer belongs
    */
   FmOrder2Layer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                const std::shared_ptr<Tensor<float>>& out_tensor,
-                const int device_id
-                );
+                const std::shared_ptr<Tensor<float>>& out_tensor, const int device_id);
 
   /**
    * A method of implementing the forward pass of FmOrder2
@@ -53,10 +50,10 @@ public:
    */
   void bprop(cudaStream_t stream);
 
-private:
+ private:
   int batch_size_;
   int slot_num_;
   int embedding_vec_size_;
 };
 
-}
+}  // namespace HugeCTR

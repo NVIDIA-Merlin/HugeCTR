@@ -20,17 +20,15 @@
 
 namespace HugeCTR {
 
-Loss::Loss(const std::shared_ptr<const Tensor<float>>& label_tensor,
-           const std::shared_ptr<Tensor<float>>& input_tensor,
-           const std::shared_ptr<Tensor<float>>& loss_tensor,
-           const std::shared_ptr<Regularizer> regularizer,
-           int device_id)
+Loss::Loss(const std::shared_ptr<const Tensor<float>> &label_tensor,
+           const std::shared_ptr<Tensor<float>> &input_tensor,
+           const std::shared_ptr<Tensor<float>> &loss_tensor,
+           const std::shared_ptr<Regularizer> regularizer, int device_id)
     : label_tensors_(1, label_tensor),
       input_tensors_(1, input_tensor),
       loss_tensors_(1, loss_tensor),
       regularizer_(regularizer),
-      device_id_(device_id) {
-}
+      device_id_(device_id) {}
 
 void Loss::fused_loss_computation(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
@@ -47,9 +45,9 @@ void Loss::fused_loss_computation(cudaStream_t stream) {
   int batch_size = row_major ? input_dim[0] : input_dim[1];
   int feature_dim = row_major ? input_dim[1] : input_dim[0];
 
-  float* input = input_tensor->get_ptr();
-  const float* label = label_tensor->get_ptr();
-  float* loss = loss_tensor->get_ptr();
+  float *input = input_tensor->get_ptr();
+  const float *label = label_tensor->get_ptr();
+  float *loss = loss_tensor->get_ptr();
 
   float scaler = 1.f;
 #ifdef SCALE_128
@@ -64,14 +62,14 @@ void Loss::fused_loss_computation(cudaStream_t stream) {
   scaler = 1.f;
 #endif
   float rterm = 0.0f;
-  if(regularizer_) {
+  if (regularizer_) {
     regularizer_->compute_rterm(stream);
     rterm = regularizer_->get_rterm();
   }
 
   do_fused_loss_computation(input, label, loss, batch_size, feature_dim, scaler, rterm, stream);
 
-  if(regularizer_) {
+  if (regularizer_) {
     regularizer_->initialize_wgrad(stream);
   }
 
@@ -84,8 +82,7 @@ void Loss::fused_loss_computation(cudaStream_t stream) {
 CrossEntropyLoss::CrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &label_tensor,
                                    const std::shared_ptr<Tensor<float>> &input_tensor,
                                    const std::shared_ptr<Tensor<float>> &loss_tensor,
-                                   const std::shared_ptr<Regularizer> regularizer,
-                                   int device_id)
+                                   const std::shared_ptr<Regularizer> regularizer, int device_id)
     : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id) {
   if (input_tensor->get_format() != label_tensor->get_format())
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
@@ -143,10 +140,9 @@ __global__ void CrossEntropy_Kernel(float *input, const float *label, float *cel
   }
 }
 
-void CrossEntropyLoss::do_fused_loss_computation(float* input, const float* label, float* loss,
+void CrossEntropyLoss::do_fused_loss_computation(float *input, const float *label, float *loss,
                                                  int batch_size, int feature_dim, float scaler,
-                                                 float rterm,
-                                                 cudaStream_t stream) {
+                                                 float rterm, cudaStream_t stream) {
   bool row_major = (input_tensors_[0]->get_format() == TensorFormat_t::HW);
   int block_size = min(batch_size, 1024);
   CrossEntropy_Kernel<<<1, block_size, block_size * sizeof(float), stream>>>(
@@ -154,15 +150,14 @@ void CrossEntropyLoss::do_fused_loss_computation(float* input, const float* labe
 }
 
 BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
-        const std::shared_ptr<const Tensor<float>> &label_tensor,
-        const std::shared_ptr<Tensor<float>> &input_tensor,
-        const std::shared_ptr<Tensor<float>> &loss_tensor,
-        const std::shared_ptr<Regularizer> regularizer,
-        int device_id)
+    const std::shared_ptr<const Tensor<float>> &label_tensor,
+    const std::shared_ptr<Tensor<float>> &input_tensor,
+    const std::shared_ptr<Tensor<float>> &loss_tensor,
+    const std::shared_ptr<Regularizer> regularizer, int device_id)
     : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id) {
   if (input_tensor->get_format() != label_tensor->get_format())
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
-  
+
   bool row_major = (input_tensor->get_format() == TensorFormat_t::HW);
   const auto &input_dim = input_tensor->get_dims();
   int feature_dim = row_major ? input_dim[1] : input_dim[0];
@@ -178,21 +173,18 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
   loss_s[tid] = 0.0f;
 
   for (int i = tid; i < batch_size; i += blockDim.x) {
-
     const float x = input[i];
 
     const float y = label[i];
-    if(x >= 0){
+    if (x >= 0) {
       float exp_neg_x = exp(-x);
-      loss_s[tid] += x*(1 - y) + log(1 + exp_neg_x);
-      input[i] = ((1 - y) - exp_neg_x/(1+exp_neg_x))*scaler/(float)batch_size;
-    }
-    else{
+      loss_s[tid] += x * (1 - y) + log(1 + exp_neg_x);
+      input[i] = ((1 - y) - exp_neg_x / (1 + exp_neg_x)) * scaler / (float)batch_size;
+    } else {
       float exp_x = exp(x);
-      loss_s[tid] += -x*y + log(1+exp_x);
-      input[i] = (-y + exp_x/(1+exp_x))*scaler /(float)batch_size;
+      loss_s[tid] += -x * y + log(1 + exp_x);
+      input[i] = (-y + exp_x / (1 + exp_x)) * scaler / (float)batch_size;
     }
-
   }
   __syncthreads();
 
@@ -203,9 +195,9 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
   }
 }
 
-void BinaryCrossEntropyLoss::do_fused_loss_computation(float* input, const float* label, float* loss,
-                                                       int batch_size, int feature_dim, float scaler,
-                                                       float rterm,
+void BinaryCrossEntropyLoss::do_fused_loss_computation(float *input, const float *label,
+                                                       float *loss, int batch_size, int feature_dim,
+                                                       float scaler, float rterm,
                                                        cudaStream_t stream) {
   int block_size = min(batch_size, 1024);
   BinaryCrossEntropy_Kernel<<<1, block_size, block_size * sizeof(float), stream>>>(
@@ -232,8 +224,7 @@ __forceinline__ __device__ __host__ float cross_entropy_loss_backward(float x, f
 
 __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
                                          const float *target_weight, float *bce_loss, int batchsize,
-                                         int labels_per_sample, float scaler,
-                                         float rterm) {
+                                         int labels_per_sample, float scaler, float rterm) {
   int tid = threadIdx.x + blockDim.x * blockIdx.x;
   int num_threads = blockDim.x * gridDim.x;
   float loss_s = 0.f;
@@ -251,16 +242,15 @@ __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
   }
 
   atomic_global_sum_div(-loss_s, bce_loss, size);
-  if(tid == 0) {
+  if (tid == 0) {
     atomicAdd(bce_loss, rterm);
   }
   return;
 }
 
-void MultiCrossEntropyLoss::do_fused_loss_computation(float* input, const float* label, float* loss,
+void MultiCrossEntropyLoss::do_fused_loss_computation(float *input, const float *label, float *loss,
                                                       int batch_size, int feature_dim, float scaler,
-                                                      float rterm,
-                                                      cudaStream_t stream) {
+                                                      float rterm, cudaStream_t stream) {
   int labels_per_sample = feature_dim;
   cudaMemsetAsync(loss, 0, loss_tensors_[0]->get_size(), stream);
 
@@ -271,12 +261,12 @@ void MultiCrossEntropyLoss::do_fused_loss_computation(float* input, const float*
       input, label, target_weight, loss, batch_size, labels_per_sample, scaler, rterm);
 }
 
-MultiCrossEntropyLoss::MultiCrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &label_tensor,
-                                             const std::shared_ptr<Tensor<float>> &input_tensor,
-                                             const std::shared_ptr<Tensor<float>> &loss_tensor,
-                                             const std::shared_ptr<Regularizer> regularizer,
-                                             const std::vector<float> &target_weight,
-                                             int device_id)
+MultiCrossEntropyLoss::MultiCrossEntropyLoss(
+    const std::shared_ptr<const Tensor<float>> &label_tensor,
+    const std::shared_ptr<Tensor<float>> &input_tensor,
+    const std::shared_ptr<Tensor<float>> &loss_tensor,
+    const std::shared_ptr<Regularizer> regularizer, const std::vector<float> &target_weight,
+    int device_id)
     : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id) {
   if (label_tensor->get_dims().size() != 2 || label_tensor->get_format() != TensorFormat_t::HW ||
       input_tensor->get_dims().size() != 2 || input_tensor->get_format() != TensorFormat_t::HW ||

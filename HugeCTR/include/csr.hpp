@@ -48,9 +48,10 @@ class CSR {
   int num_rows_{0}; /**< num rows. */
   int size_of_value_{0};      /**< num of values in this CSR buffer */
   int size_of_row_offset_{0}; /**< num of rows in this CSR buffer */
-  const int max_value_size_;  /**< number of element of value the CSR matrix will have for num_rows rows. */
-  int check_point_row_;   /**< check point of size_of_row_offset_. */    
-  int check_point_value_;   /**< check point of size_of_value__. */    
+  const int max_value_size_;  /**< number of element of value the CSR matrix will have for num_rows
+                                 rows. */
+  int check_point_row_;       /**< check point of size_of_row_offset_. */
+  int check_point_value_;     /**< check point of size_of_value__. */
  public:
   /**
    * Ctor
@@ -65,8 +66,9 @@ class CSR {
         max_value_size_(max_value_size) {
     static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                   "type not support");
-    //    std::cout << "num_rows: " << num_rows << ";max_value_size: " << max_value_size << std::endl;
-    if(max_value_size <= 0 && num_rows <= 0){
+    //    std::cout << "num_rows: " << num_rows << ";max_value_size: " << max_value_size <<
+    //    std::endl;
+    if (max_value_size <= 0 && num_rows <= 0) {
       CK_THROW_(Error_t::WrongInput, "max_value_size <= 0 && num_rows <= 0");
     }
   }
@@ -79,8 +81,9 @@ class CSR {
    * @param value the value to be pushed back.
    */
   void push_back(const T& value) {
-    if (size_of_value_ >= max_value_size_) 
-      CK_THROW_(Error_t::OutOfBound, "CSR out of bound " + std::to_string(max_value_size_) + "offset" + std::to_string(size_of_value_));
+    if (size_of_value_ >= max_value_size_)
+      CK_THROW_(Error_t::OutOfBound, "CSR out of bound " + std::to_string(max_value_size_) +
+                                         "offset" + std::to_string(size_of_value_));
     value_[size_of_value_] = value;
     size_of_value_++;
   }
@@ -127,8 +130,6 @@ class CSR {
   int get_num_rows() const { return num_rows_; }
   int get_max_value_size() const { return max_value_size_; }
   const T* get_buffer() const { return row_offset_value_buffer_.get(); }
-
-
 };
 
 }  // namespace HugeCTR

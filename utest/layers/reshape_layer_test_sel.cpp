@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
@@ -56,8 +55,7 @@ void reshape_layer_test(int batch_size, int n_slot, int vector_length, std::vect
   h_ref.resize(batch_size * n_active_slot * vector_length);
   if (selected.empty()) {
     h_ref = h_in;
-  }
-  else {
+  } else {
     for (int i = 0; i < batch_size; i++) {
       for (int j = 0; j < n_active_slot; j++) {
         for (int k = 0; k < vector_length; k++) {

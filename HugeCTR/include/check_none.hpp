@@ -21,11 +21,12 @@
 
 namespace HugeCTR {
 
-class CheckNone: public Checker {
-private:
+class CheckNone : public Checker {
+ private:
   const int MAX_TRY{10};
-public:
-  CheckNone(Source& src): Checker(src){}
+
+ public:
+  CheckNone(Source& src) : Checker(src) {}
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
    * Users don't need to manualy maintain the check bit offset, just specify
@@ -34,30 +35,28 @@ public:
    * @param bytes_to_read bytes to read
    * @return `DataCheckError` `OutOfBound` `Success` `UnspecificError`
    */
-  Error_t read(char* ptr, size_t bytes_to_read) noexcept{
-    try{
+  Error_t read(char* ptr, size_t bytes_to_read) noexcept {
+    try {
       Checker::src_.read(ptr, bytes_to_read);
       return Error_t::Success;
-    }
-    catch (const std::runtime_error& rt_err){
+    } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
       return Error_t::BrokenFile;
     }
-
   }
 
   /**
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
-  void next_source(){
-    for(int i = MAX_TRY; i > 0; i--){
-      if(Checker::src_.next_source() == Error_t::Success){
-	return;
+  void next_source() {
+    for (int i = MAX_TRY; i > 0; i--) {
+      if (Checker::src_.next_source() == Error_t::Success) {
+        return;
       }
     }
     CK_THROW_(Error_t::FileCannotOpen, "Checker::src_.next_source() == Error_t::Success failed");
   }
 };
 
-} //namespace HugeCTR
+}  // namespace HugeCTR

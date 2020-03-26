@@ -19,45 +19,45 @@
 #include "HugeCTR/include/general_buffer.hpp"
 #include "HugeCTR/include/tensor.hpp"
 
-
 namespace HugeCTR {
 
-__global__ void split_kernel__(int batchsize, float* label_ptr, int label_dim, 
-			       float* dense_ptr, int dense_dim, const float* label_dense){
-  
-  int idx = blockDim.x*blockIdx.x + threadIdx.x;
-  if(idx < batchsize*(label_dim+dense_dim)){
-    const int in_col = idx%(label_dim+dense_dim);
-    const int in_row = idx/(label_dim+dense_dim);
+__global__ void split_kernel__(int batchsize, float* label_ptr, int label_dim, float* dense_ptr,
+                               int dense_dim, const float* label_dense) {
+  int idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < batchsize * (label_dim + dense_dim)) {
+    const int in_col = idx % (label_dim + dense_dim);
+    const int in_row = idx / (label_dim + dense_dim);
     const int out_row = in_row;
-    if(in_col < label_dim){
+    if (in_col < label_dim) {
       const int out_col = in_col;
-      label_ptr[out_row*label_dim + out_col] = label_dense[idx];
-    }
-    else{
+      label_ptr[out_row * label_dim + out_col] = label_dense[idx];
+    } else {
       const int out_col = in_col - label_dim;
-      dense_ptr[out_row*dense_dim + out_col] = label_dense[idx];
+      dense_ptr[out_row * dense_dim + out_col] = label_dense[idx];
     }
   }
   return;
 }
 
-void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor, const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream ){
-  //check the input size
+void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor,
+           const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream) {
+  // check the input size
   assert(label_tensor->get_dims()[0] == dense_tensor->get_dims()[0]);
-  assert(label_tensor->get_num_elements() + dense_tensor->get_num_elements() == label_dense_buffer->get_num_elements());
-  
+  assert(label_tensor->get_num_elements() + dense_tensor->get_num_elements() ==
+         label_dense_buffer->get_num_elements());
+
   const int batchsize = label_tensor->get_dims()[0];
   const int label_dim = label_tensor->get_dims()[1];
   const int dense_dim = dense_tensor->get_dims()[1];
-  
+
   const int BLOCK_DIM = 256;
-  const int GRID_DIM = (label_dense_buffer->get_num_elements()-1)/BLOCK_DIM + 1;
+  const int GRID_DIM = (label_dense_buffer->get_num_elements() - 1) / BLOCK_DIM + 1;
   assert(dense_dim >= 0 || "dense_dim should be >= 0");
-  split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(batchsize, label_tensor->get_ptr(), label_dim, 
-    dense_tensor->get_ptr(), dense_dim, label_dense_buffer->get_ptr_with_offset(0));
+  split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(batchsize, label_tensor->get_ptr(), label_dim,
+                                                     dense_tensor->get_ptr(), dense_dim,
+                                                     label_dense_buffer->get_ptr_with_offset(0));
 
   return;
 }
 
-}
+}  // namespace HugeCTR

@@ -32,45 +32,41 @@ namespace HugeCTR {
  */
 class NoRegularizer : public Regularizer {
  public:
- /*
-  * Constructor of NoRegularizer
-  * @param weight_buff GeneralBuffer containing all the layers' weights
-  * @param wgrad_buff GeneralBuffer containing all the layers' wgrads
-  * @param batch_size Network batch size
-  * @param device_id Device to be used
-  */
+  /*
+   * Constructor of NoRegularizer
+   * @param weight_buff GeneralBuffer containing all the layers' weights
+   * @param wgrad_buff GeneralBuffer containing all the layers' wgrads
+   * @param batch_size Network batch size
+   * @param device_id Device to be used
+   */
   NoRegularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-                const int batch_size,
+                const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff, const int batch_size,
                 const int device_id);
 
- /*
-  * Destructor of NoRegularizer
-  */
+  /*
+   * Destructor of NoRegularizer
+   */
   ~NoRegularizer() override {}
 
  private:
- /*
-  * rterm is zero
-  * @param weight the device buffer of weight
-  * @param h_rterm the host pointer to the regularization term
-  * @param num_elements the number of weight values across layers
-  * @param stream CUDA Stream where the kernel is executed
-  */
-  void do_compute_rterm(const float* weight, float* h_rterm,
-                        int num_elements,
+  /*
+   * rterm is zero
+   * @param weight the device buffer of weight
+   * @param h_rterm the host pointer to the regularization term
+   * @param num_elements the number of weight values across layers
+   * @param stream CUDA Stream where the kernel is executed
+   */
+  void do_compute_rterm(const float* weight, float* h_rterm, int num_elements,
                         cudaStream_t stream) override;
- /*
-  * Initialize wgrad with zeros
-  * @param weight the device buffer of weight
-  * @param h_rterm the host pointer to the regularization term
-  * @param num_elements the number of weight values across layers
-  * @param stream CUDA Stream where the kernel is executed
-  */
-  void do_initialize_wgrad(const float* weight, float* wgrad,
-                         int num_elements,
-                         cudaStream_t stream) override;
-
+  /*
+   * Initialize wgrad with zeros
+   * @param weight the device buffer of weight
+   * @param h_rterm the host pointer to the regularization term
+   * @param num_elements the number of weight values across layers
+   * @param stream CUDA Stream where the kernel is executed
+   */
+  void do_initialize_wgrad(const float* weight, float* wgrad, int num_elements,
+                           cudaStream_t stream) override;
 };
 
 }  // namespace HugeCTR

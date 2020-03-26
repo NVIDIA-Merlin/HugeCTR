@@ -23,12 +23,12 @@
 namespace HugeCTR {
 
 /**
- * Layer which does element-wise product by input tensor X and weight W. 
- * The input tensor X has dimention: [batch_size, slot_num], while 
- * the input weight W has dimention: [slot_num, embedding_vec_size]. 
- * The MultiplyLayer will broadcast the value of W to "batch_size" dim 
+ * Layer which does element-wise product by input tensor X and weight W.
+ * The input tensor X has dimention: [batch_size, slot_num], while
+ * the input weight W has dimention: [slot_num, embedding_vec_size].
+ * The MultiplyLayer will broadcast the value of W to "batch_size" dim
  * and broadcast the value of X to embedding_vec_size dim automatically
- * when doing element-wise product with X. So, the output tensor has 
+ * when doing element-wise product with X. So, the output tensor has
  * the dimention: [batch_size, slot_num*embedding_vec_size].
  */
 class MultiplyLayer : public Layer {
@@ -43,10 +43,9 @@ class MultiplyLayer : public Layer {
                 const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
                 const std::shared_ptr<GeneralBuffer<float>>& blob_buff,
                 const std::shared_ptr<Tensor<float>>& in_tensor,
-                std::shared_ptr<Tensor<float>>& out_tensor,
-                const std::vector<int>& weight_dims,
+                std::shared_ptr<Tensor<float>>& out_tensor, const std::vector<int>& weight_dims,
                 int device_id);
-  ~MultiplyLayer() override {};
+  ~MultiplyLayer() override{};
 
   /**
    * MultiplyLayer's foward propagation to do element-wise production
@@ -64,7 +63,7 @@ class MultiplyLayer : public Layer {
    * Use Gaussian initialization.
    */
   std::vector<float> get_initializer() override;
-  
+
   int batch_size_;
   int slot_num_;
   int embedding_vec_size_;

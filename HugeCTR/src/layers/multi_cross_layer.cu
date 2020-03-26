@@ -536,21 +536,21 @@ std::vector<float> MultiCrossLayer::get_initializer() {
   float in_dim = in_tensor->get_dims()[1];
   float out_dim = out_tensor->get_dims()[1];
 
-  //glorot_uniform
-  float limit = sqrt( 6.f / (in_dim+out_dim));
-  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1*limit, limit);
-  
+  // glorot_uniform
+  float limit = sqrt(6.f / (in_dim + out_dim));
+  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1 * limit, limit);
+
   size_t w_size_accum = 0;
   for (int i = 0; i < num_layers_; i++) {
     // setup weights
-    size_t w_size = (weights_[2*i])->get_num_elements();
-    for(unsigned int j = 0; j < w_size; j++){
+    size_t w_size = (weights_[2 * i])->get_num_elements();
+    for (unsigned int j = 0; j < w_size; j++) {
       initializer[w_size_accum + j] = fdata_sim.get_num();
     }
     w_size_accum += w_size;
     // setup bias
-    w_size = (weights_[2*i+1])->get_num_elements();
-    for(unsigned int j = 0; j < w_size; j++){
+    w_size = (weights_[2 * i + 1])->get_num_elements();
+    for (unsigned int j = 0; j < w_size; j++) {
       initializer[w_size_accum + j] = 0.f;
     }
     w_size_accum += w_size;

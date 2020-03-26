@@ -28,14 +28,17 @@ namespace HugeCTR {
 namespace {
 
 template <size_t length, typename T>
-__device__ int array_length(T (&arr)[length]) { return length; }
+__device__ int array_length(T (&arr)[length]) {
+  return length;
+}
 
 template <typename T, typename... Args>
-__global__ void concat_kernel(bool forward, T* out, const int h, const int out_w, const Args... args) {
+__global__ void concat_kernel(bool forward, T* out, const int h, const int out_w,
+                              const Args... args) {
   const int gid_base = blockIdx.x * blockDim.x + threadIdx.x;
   const ConcatLayer::InParam<T> in_params[] = {args...};
   const int n_ins = array_length(in_params);
-  for(int gid = gid_base; gid < h * out_w; gid+= blockDim.x * gridDim.x) {
+  for (int gid = gid_base; gid < h * out_w; gid += blockDim.x * gridDim.x) {
     int row = gid / out_w;
     int out_col = gid % out_w;
     int out_idx = row * out_w + out_col;
@@ -43,8 +46,8 @@ __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w
     int in_no = 0;
     int in_col = out_col;
     int accum_width = 0;
-    for(int k = 0; k < n_ins; k++) {
-      if(out_col < accum_width + in_params[k].in_w) {
+    for (int k = 0; k < n_ins; k++) {
+      if (out_col < accum_width + in_params[k].in_w) {
         in_no = k;
         in_col -= accum_width;
         break;
@@ -54,10 +57,9 @@ __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w
     T* in = in_params[in_no].in;
     int in_idx = row * in_params[in_no].in_w + in_col;
 
-    if(forward) {
+    if (forward) {
       out[out_idx] = in[in_idx];
-    }
-    else {
+    } else {
       in[in_idx] = out[out_idx];
     }
   }
@@ -65,37 +67,34 @@ __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w
 
 }  // anonymous namespace
 
-ConcatLayer::ConcatLayer(Tensors<float>& in_tensors,
-                         std::shared_ptr<Tensor<float>>& out_tensor,
-                         const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-                         int device_id)
-    : Layer(device_id),
-      n_sms_(0) {
+ConcatLayer::ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<float>>& out_tensor,
+                         const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, int device_id)
+    : Layer(device_id), n_sms_(0) {
   try {
     CudaDeviceContext context(get_device_id());
 
-    if(in_tensors.empty()) {
+    if (in_tensors.empty()) {
       CK_THROW_(Error_t::WrongInput, "Empty input tensors");
     }
 
     int n_in_tensors = in_tensors.size();
-    int height  = 0;
+    int height = 0;
     int new_width = 0;
-    for(int i=0; i<n_in_tensors; i++) {
+    for (int i = 0; i < n_in_tensors; i++) {
       auto cur_in_dims = in_tensors[i]->get_dims();
-      if(i != 0) {
+      if (i != 0) {
         auto first_in_dims = in_tensors[0]->get_dims();
-        if(cur_in_dims[0] != first_in_dims[0]) {
+        if (cur_in_dims[0] != first_in_dims[0]) {
           CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same height");
         }
       }
-      if(cur_in_dims.size() != 2) {
+      if (cur_in_dims.size() != 2) {
         CK_THROW_(Error_t::WrongInput, "Only 2D tensors can be concatenated");
       }
-      if(in_tensors[i]->get_format() != TensorFormat_t::HW) {
+      if (in_tensors[i]->get_format() != TensorFormat_t::HW) {
         CK_THROW_(Error_t::WrongInput, "Only TensorFormat_t::HW is allowed");
       }
-      if(i == 0) {
+      if (i == 0) {
         height = cur_in_dims[0];
       }
       new_width += cur_in_dims[1];
@@ -104,7 +103,7 @@ ConcatLayer::ConcatLayer(Tensors<float>& in_tensors,
     std::vector<int> out_dims = {height, new_width};
     out_tensor.reset(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
 
-    for(auto& in_tensor : in_tensors) {
+    for (auto& in_tensor : in_tensors) {
       in_tensors_.emplace_back(in_tensor);
     }
     out_tensors_.emplace_back(out_tensor);
@@ -119,35 +118,28 @@ ConcatLayer::ConcatLayer(Tensors<float>& in_tensors,
   }
 }
 
-void ConcatLayer::fprop(cudaStream_t stream) {
-  prop_common(true, stream);
-}
+void ConcatLayer::fprop(cudaStream_t stream) { prop_common(true, stream); }
 
-void ConcatLayer::bprop(cudaStream_t stream) {
-  prop_common(false, stream);
-}
+void ConcatLayer::bprop(cudaStream_t stream) { prop_common(false, stream); }
 
 void ConcatLayer::prop_common(bool forward, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   int n_in_tensors = in_tensors_.size();
-  if(n_in_tensors == 2) {
+  if (n_in_tensors == 2) {
     std::vector<InParam<float>> in_params = set_in_params(2);
     kernel_launch(forward, stream, in_params[0], in_params[1]);
-  }
-  else if(n_in_tensors == 3) {
+  } else if (n_in_tensors == 3) {
     std::vector<InParam<float>> in_params = set_in_params(3);
     kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2]);
-  }
-  else if(n_in_tensors == 4) {
+  } else if (n_in_tensors == 4) {
     std::vector<InParam<float>> in_params = set_in_params(4);
     kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2], in_params[3]);
-  }
-  else if(n_in_tensors == 5) {
+  } else if (n_in_tensors == 5) {
     std::vector<InParam<float>> in_params = set_in_params(5);
-    kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2], in_params[3], in_params[4]);
-  }
-  else {
+    kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2], in_params[3],
+                  in_params[4]);
+  } else {
     CK_THROW_(Error_t::UnSupportedFormat, "Merging > 5 layers is not supported");
   }
 
@@ -159,7 +151,7 @@ void ConcatLayer::prop_common(bool forward, cudaStream_t stream) {
 
 std::vector<ConcatLayer::InParam<float>> ConcatLayer::set_in_params(int n) {
   std::vector<InParam<float>> in_params;
-  for(int i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     const auto& in_tensor = in_tensors_[i];
     float* in = in_tensor->get_ptr();
     int w = in_tensor->get_dims()[1];

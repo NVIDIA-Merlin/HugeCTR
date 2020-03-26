@@ -51,48 +51,50 @@ static void check_device(int device_id, int min_major, int min_minor) {
   return;
 }
 
-Session::Session(const std::string& json_name):solver_config_(json_name),
-  gpu_resource_group_(new GPUResourceGroup(solver_config_.device_map)){
+Session::Session(const std::string& json_name)
+    : solver_config_(json_name),
+      gpu_resource_group_(new GPUResourceGroup(solver_config_.device_map)) {
   try {
     int pid = 0;
-#ifdef ENABLE_MPI   
-    int numprocs = 1; 
+#ifdef ENABLE_MPI
+    int numprocs = 1;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
 
     for (auto dev : gpu_resource_group_->get_device_list()) {
-      if(solver_config_.use_mixed_precision){
-	check_device(dev, 7, 0);  // to support mixed precision training earliest supported device is CC=70
-      }
-      else{
-	check_device(dev, 6, 0);  // earliest supported device is CC=60
+      if (solver_config_.use_mixed_precision) {
+        check_device(dev, 7,
+                     0);  // to support mixed precision training earliest supported device is CC=70
+      } else {
+        check_device(dev, 6, 0);  // earliest supported device is CC=60
       }
     }
-    parser_.reset(new Parser(json_name, solver_config_.batchsize, solver_config_.use_mixed_precision, solver_config_.scaler));
+    parser_.reset(new Parser(json_name, solver_config_.batchsize,
+                             solver_config_.use_mixed_precision, solver_config_.scaler));
     parser_->create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_,
-			     gpu_resource_group_);
-  
-    //init networks.
+                             gpu_resource_group_);
+
+    // init networks.
     const std::string TMP_DENSE_NAME = "tmp_dense_model.bin";
-    if(pid == 0){
+    if (pid == 0) {
       networks_[0]->init_params(TMP_DENSE_NAME);
     }
-#ifdef ENABLE_MPI    
+#ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
-    for (auto& network: networks_){
+    for (auto& network : networks_) {
       network->upload_params_to_device(TMP_DENSE_NAME);
     }
-#ifdef ENABLE_MPI    
+#ifdef ENABLE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
-    if(pid == 0){
-      if(std::remove(TMP_DENSE_NAME.c_str())!=0){
-	CK_THROW_(Error_t::WrongInput, TMP_DENSE_NAME + " cannot be removed.");
+    if (pid == 0) {
+      if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
+        CK_THROW_(Error_t::WrongInput, TMP_DENSE_NAME + " cannot be removed.");
       }
     }
-    
+
     load_params_(solver_config_.model_file, solver_config_.embedding_files);
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -106,33 +108,34 @@ Session::Session(const std::string& json_name):solver_config_(json_name),
  * In model file, model should be saved as
  * the sequence as discribed in configure file.
  **/
-  Error_t Session::load_params_(const std::string& model_file, const std::vector<std::string>& embedding_files) {
+Error_t Session::load_params_(const std::string& model_file,
+                              const std::vector<std::string>& embedding_files) {
   try {
     if (!embedding_files.empty()) {
-      int i=0;
-      for(auto& embedding_file: embedding_files){
-	std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
-	if (!embedding_stream.is_open()) {
-	  CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
-	}
-	std::cout << "Loading sparse model: " << embedding_file << std::endl;
-	embedding_[i]->upload_params_to_device(embedding_stream);
-	embedding_stream.close();
-	i++;
+      int i = 0;
+      for (auto& embedding_file : embedding_files) {
+        std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
+        if (!embedding_stream.is_open()) {
+          CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
+        }
+        std::cout << "Loading sparse model: " << embedding_file << std::endl;
+        embedding_[i]->upload_params_to_device(embedding_stream);
+        embedding_stream.close();
+        i++;
       }
     }
     if (!model_file.empty()) {
       std::ifstream model_stream(model_file, std::ifstream::binary);
       if (!model_stream.is_open()) {
-	CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
+        CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
       }
       std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
       model_stream.read(reinterpret_cast<char*>(weight.get()),
-			networks_[0]->get_params_num() * sizeof(float));
+                        networks_[0]->get_params_num() * sizeof(float));
 
       std::cout << "Loading dense model: " << model_file << std::endl;
       for (auto& network : networks_) {
-	network->upload_params_to_device(weight.get());
+        network->upload_params_to_device(weight.get());
       }
       model_stream.close();
     }
@@ -160,7 +163,7 @@ void network_train_helper(int id, Network* n) {
 Error_t Session::train() {
   try {
     data_reader_->read_a_batch_to_device_delay_release();
-    for(auto& one_embedding: embedding_){
+    for (auto& one_embedding : embedding_) {
       one_embedding->forward();
     }
     data_reader_->ready_to_collect();
@@ -189,7 +192,7 @@ Error_t Session::train() {
     for (auto& network : networks_) {
       network->update_params();
     }
-    for(auto& one_embedding: embedding_){
+    for (auto& one_embedding : embedding_) {
       one_embedding->backward();
       one_embedding->update_params();
     }
@@ -217,7 +220,7 @@ Error_t Session::eval() {
   try {
     if (data_reader_eval_ == nullptr) return Error_t::NotInitialized;
     data_reader_eval_->read_a_batch_to_device_delay_release();
-    for(auto& one_embedding: embedding_){
+    for (auto& one_embedding : embedding_) {
       one_embedding->forward();
     }
     data_reader_eval_->ready_to_collect();
@@ -245,28 +248,30 @@ Error_t Session::eval() {
   return Error_t::Success;
 }
 
-  Error_t Session::download_params_to_files(std::string prefix, int iter) {
-    std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
-    std::vector<std::string> snapshot_sparse_names;
-    if(iter<=0){
-      return Error_t::WrongInput;
-    }
-
-    for(unsigned int i = 0; i < embedding_.size(); i++){
-      snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) + ".model");
-    }
-    return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
+Error_t Session::download_params_to_files(std::string prefix, int iter) {
+  std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
+  std::vector<std::string> snapshot_sparse_names;
+  if (iter <= 0) {
+    return Error_t::WrongInput;
   }
 
-  Error_t Session::download_params_to_files_(std::string weights_file, const std::vector<std::string>& embedding_files) {
+  for (unsigned int i = 0; i < embedding_.size(); i++) {
+    snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) +
+                                    ".model");
+  }
+  return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
+}
+
+Error_t Session::download_params_to_files_(std::string weights_file,
+                                           const std::vector<std::string>& embedding_files) {
   try {
     {
       int i = 0;
-      for(auto& embedding_file: embedding_files){
-	std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
-	embedding_[i]->download_params_to_host(out_stream_embedding);
-	out_stream_embedding.close();
-	i++;
+      for (auto& embedding_file : embedding_files) {
+        std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
+        embedding_[i]->download_params_to_host(out_stream_embedding);
+        out_stream_embedding.close();
+        i++;
       }
     }
     int pid = 0;

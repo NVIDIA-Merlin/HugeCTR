@@ -16,26 +16,21 @@
 
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
 
-namespace HugeCTR 
-{
+namespace HugeCTR {
 
-namespace 
-{
-__global__ void fm_order2_kernel(const float* in, 
-                                 float* out, 
-                                 int batch_size,
-                                 int slot_num,
+namespace {
+__global__ void fm_order2_kernel(const float* in, float* out, int batch_size, int slot_num,
                                  int emb_vec_size) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
 
-  if(tid < emb_vec_size && bid < batch_size) {
+  if (tid < emb_vec_size && bid < batch_size) {
     float emb_sum = 0.0f;
     float emb_sum_square = 0.0f;
     float emb_square_sum = 0.0f;
     int offset = bid * slot_num * emb_vec_size + tid;
 
-    for(int i = 0; i < slot_num; i++) {
+    for (int i = 0; i < slot_num; i++) {
       int index = offset + i * emb_vec_size;
       float temp = in[index];
       emb_sum += temp;
@@ -43,58 +38,54 @@ __global__ void fm_order2_kernel(const float* in,
     }
     emb_sum_square = emb_sum * emb_sum;
 
-    out[bid*emb_vec_size+tid] = 0.5f * (emb_sum_square - emb_square_sum);
+    out[bid * emb_vec_size + tid] = 0.5f * (emb_sum_square - emb_square_sum);
   }
 }
 
-__global__ void fm_order2_dgrad_kernel(const float* in,
-                                       const float* top_grad,
-                                       float * dgrad,
-                                       int batch_size,
-                                       int slot_num,
-                                       int emb_vec_size) {
+__global__ void fm_order2_dgrad_kernel(const float* in, const float* top_grad, float* dgrad,
+                                       int batch_size, int slot_num, int emb_vec_size) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
 
-  if(tid < emb_vec_size && bid < batch_size) {
+  if (tid < emb_vec_size && bid < batch_size) {
     float emb_sum = 0.0f;
     int offset = bid * slot_num * emb_vec_size + tid;
 
-    for(int i = 0; i < slot_num; i++) {
+    for (int i = 0; i < slot_num; i++) {
       int index = offset + i * emb_vec_size;
       emb_sum += in[index];
     }
-    float tgrad = top_grad[bid*emb_vec_size+tid];
-    for(int i = 0; i < slot_num; i++) {
+    float tgrad = top_grad[bid * emb_vec_size + tid];
+    for (int i = 0; i < slot_num; i++) {
       int index = offset + i * emb_vec_size;
       dgrad[index] = tgrad * (emb_sum - in[index]);
-    }  
+    }
   }
 }
 
-} // end of namespace
+}  // end of namespace
 
 FmOrder2Layer::FmOrder2Layer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                            const std::shared_ptr<Tensor<float>>& out_tensor,
-                            int device_id): Layer(device_id) {
+                             const std::shared_ptr<Tensor<float>>& out_tensor, int device_id)
+    : Layer(device_id) {
   try {
     auto in_dims = in_tensor->get_dims();
-    if(in_dims.size() != 2) {
+    if (in_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "only 2D tensors can be used as input for FmOrder2Layer");
     }
     TensorFormat_t in_format = in_tensor->get_format();
-    if(in_format != TensorFormat_t::HW) {
+    if (in_format != TensorFormat_t::HW) {
       CK_THROW_(Error_t::WrongInput, "only HW format can be used as input for FmOrder2Layer");
     }
     auto out_dims = out_tensor->get_dims();
-    if(out_dims.size() != 2) {
+    if (out_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "only 2D tensors can be used as output for FmOrder2Layer");
     }
     TensorFormat_t out_format = out_tensor->get_format();
-    if(out_format != TensorFormat_t::HW) {
+    if (out_format != TensorFormat_t::HW) {
       CK_THROW_(Error_t::WrongInput, "only HW tensors can be used as output for FmOrder2Layer");
     }
-    if((in_dims[1] % out_dims[1]) != 0) {
+    if ((in_dims[1] % out_dims[1]) != 0) {
       CK_THROW_(Error_t::WrongInput, "(in_dims[1] % out_dims[1]) != 0");
     }
 
@@ -105,42 +96,37 @@ FmOrder2Layer::FmOrder2Layer(const std::shared_ptr<Tensor<float>>& in_tensor,
     in_tensors_.emplace_back(in_tensor);
     out_tensors_.emplace_back(out_tensor);
 
-  } catch(const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
+  } catch (const std::runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    throw;
   }
 }
 
 void FmOrder2Layer::fprop(cudaStream_t stream) {
-
   CudaDeviceContext context(get_device_id());
-  
-  float * in = in_tensors_[0]->get_ptr();
-  float * out = out_tensors_[0]->get_ptr();
+
+  float* in = in_tensors_[0]->get_ptr();
+  float* out = out_tensors_[0]->get_ptr();
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 grdiSize(batch_size_, 1, 1);
-  fm_order2_kernel<<<grdiSize, blockSize, 0, stream>>>(in,
-                                                       out,
-                                                       batch_size_,
-                                                       slot_num_,
+  fm_order2_kernel<<<grdiSize, blockSize, 0, stream>>>(in, out, batch_size_, slot_num_,
                                                        embedding_vec_size_);
 }
 
 void FmOrder2Layer::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
-  
-  float * in = in_tensors_[0]->get_ptr();
-  float * out = out_tensors_[0]->get_ptr();
+
+  float* in = in_tensors_[0]->get_ptr();
+  float* out = out_tensors_[0]->get_ptr();
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 gridSize(batch_size_, 1, 1);
   fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(in,
-                                                            out, // top_grad
-                                                            in, // dgrad
-                                                            batch_size_,
-                                                            slot_num_,
-                                                            embedding_vec_size_);
+                                                             out,  // top_grad
+                                                             in,   // dgrad
+                                                             batch_size_, slot_num_,
+                                                             embedding_vec_size_);
 }
 
-} // end of namespace HugeCTR
+}  // end of namespace HugeCTR

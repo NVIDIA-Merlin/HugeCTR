@@ -52,8 +52,7 @@ class Loss {
   Loss(const std::shared_ptr<const Tensor<float>>& label_tensor,
        const std::shared_ptr<Tensor<float>>& input_tensor,
        const std::shared_ptr<Tensor<float>>& loss_tensor,
-       const std::shared_ptr<Regularizer> regularizer,
-       int device_id);
+       const std::shared_ptr<Regularizer> regularizer, int device_id);
   Loss(const Loss& C) = delete;
   Loss& operator=(const Loss& C) = delete;
   virtual ~Loss() {}
@@ -81,8 +80,7 @@ class Loss {
 
  private:
   virtual void do_fused_loss_computation(float* input, const float* label, float* loss,
-                                         int batch_size, int feature_dim, float scaler,
-                                         float rterm,
+                                         int batch_size, int feature_dim, float scaler, float rterm,
                                          cudaStream_t stream) = 0;
 
   std::shared_ptr<Regularizer> regularizer_;
@@ -91,28 +89,24 @@ class Loss {
 
 class CrossEntropyLoss : public Loss {
  public:
-  void do_fused_loss_computation(float* input, const float* label, float* loss,
-                                 int batch_size, int feature_dim, float scaler,
-                                 float rterm,
+  void do_fused_loss_computation(float* input, const float* label, float* loss, int batch_size,
+                                 int feature_dim, float scaler, float rterm,
                                  cudaStream_t stream) override final;
   CrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
                    const std::shared_ptr<Tensor<float>>& input_tensor,
                    const std::shared_ptr<Tensor<float>>& loss_tensor,
-                   const std::shared_ptr<Regularizer> regularizer,
-                   int device_id);
+                   const std::shared_ptr<Regularizer> regularizer, int device_id);
 };
 
 class BinaryCrossEntropyLoss : public Loss {
  public:
-  void do_fused_loss_computation(float* input, const float* label, float* loss,
-                                 int batch_size, int feature_dim, float scaler,
-                                 float rterm,
+  void do_fused_loss_computation(float* input, const float* label, float* loss, int batch_size,
+                                 int feature_dim, float scaler, float rterm,
                                  cudaStream_t stream) override final;
   BinaryCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
                          const std::shared_ptr<Tensor<float>>& input_tensor,
                          const std::shared_ptr<Tensor<float>>& loss_tensor,
-                         const std::shared_ptr<Regularizer> regularizer,
-                         int device_id);
+                         const std::shared_ptr<Regularizer> regularizer, int device_id);
 };
 
 class MultiCrossEntropyLoss : public Loss {
@@ -121,16 +115,14 @@ class MultiCrossEntropyLoss : public Loss {
   std::unique_ptr<Tensor<float>> target_weight_;
 
  public:
-  void do_fused_loss_computation(float* input, const float* label, float* loss,
-                                 int batch_size, int feature_dim, float scaler,
-                                 float rterm,
+  void do_fused_loss_computation(float* input, const float* label, float* loss, int batch_size,
+                                 int feature_dim, float scaler, float rterm,
                                  cudaStream_t stream) override final;
   MultiCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
                         const std::shared_ptr<Tensor<float>>& input_tensor,
                         const std::shared_ptr<Tensor<float>>& loss_tensor,
                         const std::shared_ptr<Regularizer> regularizer,
-                        const std::vector<float>& target_weight,
-                        int device_id);
+                        const std::vector<float>& target_weight, int device_id);
 };
 
 }  // namespace HugeCTR

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include "HugeCTR/include/layer.hpp"
@@ -39,12 +38,10 @@ class SliceLayer : public Layer {
    * @param ranges set of the slice ranges along columns
    * @param device_id the id of GPU where this layer belongs
    */
-  SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-             Tensors<float>& out_tensors,
+  SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor, Tensors<float>& out_tensors,
              const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-             std::vector<std::pair<int,int>>& ranges,
-             int device_id);
-  ~SliceLayer() override {};
+             std::vector<std::pair<int, int>>& ranges, int device_id);
+  ~SliceLayer() override{};
 
   /**
    * Slice's foward pass to gather data to the output tensor

@@ -17,13 +17,13 @@
 #ifndef NV_HASHTABLE_H_
 #define NV_HASHTABLE_H_
 #include <mutex>
-#include "cudf/concurrent_unordered_map.cuh"
 #include "HugeCTR/include/common.hpp"
+#include "cudf/concurrent_unordered_map.cuh"
 #include "thrust/pair.h"
 //#define COUNTER_TYPE ValType
 
 namespace HugeCTR {
-  
+
 template <typename value_type>
 struct ReplaceOp {
   constexpr static value_type IDENTITY{0};
@@ -212,7 +212,6 @@ class HashTable {
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
     }
-
   }
   /**
    * The declaration for indicating that there is no default copy construtor in this class.
@@ -348,7 +347,8 @@ class HashTable {
    * @param counter_value the new counter value to be set.
    */
   void set_value_head(counter_type counter_value) {
-    CK_CUDA_THROW_(cudaMemcpy(d_counter_, &counter_value, sizeof(*d_counter_), cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(
+        cudaMemcpy(d_counter_, &counter_value, sizeof(*d_counter_), cudaMemcpyHostToDevice));
   }
   /**
    * Add a number to the head of the value. This will add the given value to the
@@ -465,5 +465,5 @@ class HashTable {
   counter_type* d_counter_; /**< The device counter for value index. */
 };
 
-}  // namespace nv
+}  // namespace HugeCTR
 #endif

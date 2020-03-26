@@ -19,8 +19,8 @@
 #include <curand.h>
 #include <cmath>
 #include <cstdlib>
-#include <vector>
 #include <utility>
+#include <vector>
 #include "HugeCTR/include/general_buffer.hpp"
 #include "cublas_v2.h"
 #include "gtest/gtest.h"
@@ -30,7 +30,6 @@ using namespace std;
 using namespace HugeCTR;
 
 namespace {
-
 
 const float eps = 1e-5;
 
@@ -44,7 +43,7 @@ void l1_regularizer_test(int batch_size, std::vector<std::pair<int, int>> layers
   Tensors<float> weight_tensors;
   Tensors<float> wgrad_tensors;
 
-  for(auto& l : layers) {
+  for (auto& l : layers) {
     std::shared_ptr<Tensor<float>> weight(new Tensor<float>({l.first, l.second}, weight_buff));
     weight_tensors.push_back(weight);
     std::shared_ptr<Tensor<float>> wgrad(new Tensor<float>({l.first, l.second}, wgrad_buff));
@@ -56,14 +55,14 @@ void l1_regularizer_test(int batch_size, std::vector<std::pair<int, int>> layers
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -1.0, 1.0);
   std::vector<std::vector<float>> h_weights;
-  for(size_t i = 0; i < layers.size(); i++) {
+  for (size_t i = 0; i < layers.size(); i++) {
     auto& weight = weight_tensors[i];
 
     const size_t len = weight->get_num_elements();
     const size_t n_bytes = weight->get_size();
 
     std::vector<float> h_weight;
-    for(size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++) {
       h_weight.push_back(simulator.get_num());
     }
     cudaMemcpy(weight->get_ptr(), &h_weight.front(), n_bytes, cudaMemcpyHostToDevice);
@@ -77,8 +76,8 @@ void l1_regularizer_test(int batch_size, std::vector<std::pair<int, int>> layers
   float out_term = l1_regularizer.get_rterm();
 
   float ref_term = 0.0f;
-  for(const auto& h_weight : h_weights) {
-    for(auto& v : h_weight) {
+  for (const auto& h_weight : h_weights) {
+    for (auto& v : h_weight) {
       ref_term += fabs(v);
     }
   }
@@ -89,7 +88,7 @@ void l1_regularizer_test(int batch_size, std::vector<std::pair<int, int>> layers
 
   // initialize wgard with (lambda / m) * w
   l1_regularizer.initialize_wgrad(cudaStreamDefault);
-  for(size_t i = 0; i < layers.size(); i++) {
+  for (size_t i = 0; i < layers.size(); i++) {
     const auto& wgrad = wgrad_tensors[i];
     const size_t len = wgrad->get_num_elements();
     const size_t n_bytes = wgrad->get_size();
@@ -99,23 +98,20 @@ void l1_regularizer_test(int batch_size, std::vector<std::pair<int, int>> layers
     cudaMemcpy(&out_wgrad.front(), wgrad->get_ptr(), n_bytes, cudaMemcpyDeviceToHost);
 
     std::vector<float> ref_wgrad;
-    for(size_t j = 0; j < len; j++) {
-      float sign = (h_weights[i][j] > 0.0f)? 1.0f : -1.0f;
+    for (size_t j = 0; j < len; j++) {
+      float sign = (h_weights[i][j] > 0.0f) ? 1.0f : -1.0f;
       ref_wgrad.push_back((lambda / batch_size) * sign);
     }
     ASSERT_TRUE(test::compare_array_approx<float>(&out_wgrad.front(), &ref_wgrad.front(), 1, eps));
   }
 
   cublasDestroy(cublas_handle);
-
 }
 
-TEST(l1_regularizer_layer, 32x64_64x1) {
-  l1_regularizer_test(32, {{64, 1}}, 0.001);
-}
+TEST(l1_regularizer_layer, 32x64_64x1) { l1_regularizer_test(32, {{64, 1}}, 0.001); }
 
 TEST(l1_regularizer_layer, 1024x64_64x256_256x1) {
   l1_regularizer_test(1024, {{64, 256}, {256, 1}}, 0.001);
 }
 
-}
+}  // namespace

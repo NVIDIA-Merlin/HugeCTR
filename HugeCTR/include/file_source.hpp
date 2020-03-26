@@ -23,16 +23,14 @@
 
 namespace HugeCTR {
 
-
 class FileSource : public Source {
-private:
-  FileList& file_list_; /**< file list of data set */
+ private:
+  FileList& file_list_;          /**< file list of data set */
   std::ifstream in_file_stream_; /**< file stream of data set file */
-  std::string file_name_;  /**< file name of current file */
-public:
-
-  FileSource(unsigned int offset, unsigned int stride, FileList& file_list): 
-    Source(offset, stride), file_list_(file_list){}
+  std::string file_name_;        /**< file name of current file */
+ public:
+  FileSource(unsigned int offset, unsigned int stride, FileList& file_list)
+      : Source(offset, stride), file_list_(file_list) {}
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
@@ -40,53 +38,47 @@ public:
    * @param bytes_to_read bytes to read
    * @return `FileCannotOpen` `OutOfBound` `Success` `UnspecificError`
    */
-  Error_t read(char* ptr, size_t bytes_to_read) noexcept{
-    try{
-      if (!in_file_stream_.is_open()){
-	return Error_t::FileCannotOpen;
+  Error_t read(char* ptr, size_t bytes_to_read) noexcept {
+    try {
+      if (!in_file_stream_.is_open()) {
+        return Error_t::FileCannotOpen;
       }
-      if(bytes_to_read > 0 ){
-	in_file_stream_.read(ptr, bytes_to_read);
+      if (bytes_to_read > 0) {
+        in_file_stream_.read(ptr, bytes_to_read);
       }
-      if(in_file_stream_.gcount() != static_cast<int>(bytes_to_read)){
-	return Error_t::OutOfBound;
+      if (in_file_stream_.gcount() != static_cast<int>(bytes_to_read)) {
+        return Error_t::OutOfBound;
       }
       return Error_t::Success;
-    }
-    catch (const std::runtime_error& rt_err){
+    } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
-    }    
+    }
   }
 
   /**
    * Start a new file to read.
    * @return `Success`, `FileCannotOpen` or `UnspecificError`
    */
-  Error_t next_source() noexcept{
-    try{
-      if (in_file_stream_.is_open()){
-	in_file_stream_.close();
+  Error_t next_source() noexcept {
+    try {
+      if (in_file_stream_.is_open()) {
+        in_file_stream_.close();
       }
-      std::string file_name = file_list_.get_a_file_with_id(offset_ + counter_*stride_);
-      counter_++; // counter_ should be accum for every source.
+      std::string file_name = file_list_.get_a_file_with_id(offset_ + counter_ * stride_);
+      counter_++;  // counter_ should be accum for every source.
       in_file_stream_.open(file_name, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
-	CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
+        CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
       }
       return Error_t::Success;
-    }
-    catch (const std::runtime_error& rt_err){
+    } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
       return Error_t::UnspecificError;
     }
   }
 
-  bool is_open() noexcept{
-    return in_file_stream_.is_open();
-  }
-
-
+  bool is_open() noexcept { return in_file_stream_.is_open(); }
 };
 
-} //namespace HugeCTR
+}  // namespace HugeCTR

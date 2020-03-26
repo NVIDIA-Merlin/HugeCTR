@@ -18,8 +18,8 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
-#include <vector>
 #include <thread>
+#include <vector>
 #include "HugeCTR/include/common.hpp"
 
 namespace HugeCTR {
@@ -43,9 +43,8 @@ class HeapEx {
   std::condition_variable write_cv_, read_cv_;
   std::atomic<bool> loop_flag_{true};
   int count_{0};
- public:
-  
 
+ public:
   /**
    * will try to checkout the chunk id%#chunck
    * if not avaliable just hold
@@ -55,7 +54,7 @@ class HeapEx {
       CK_THROW_(Error_t::WrongInput, "chunk == nullptr");
     }
     std::unique_lock<std::mutex> lock(mtx_);
-    int i = id%num_chunks_;
+    int i = id % num_chunks_;
     // thread safe start
     while (loop_flag_) {
       bool avail = ((lower_bits_ & (~higher_bits_)) >> i) & 1;
@@ -68,14 +67,14 @@ class HeapEx {
     }
     return;
   }
-  
+
   /**
    * After writting, check in the chunk
    */
   void chunk_write_and_checkin(unsigned int id) {
     {
       std::lock_guard<std::mutex> lock(mtx_);
-      int i = id%num_chunks_;
+      int i = id % num_chunks_;
       // thread safe start
       lower_bits_ |= (1u << i);
       higher_bits_ |= (1u << i);
@@ -120,7 +119,7 @@ class HeapEx {
       // thread safe end
     }
     read_cv_.notify_all();
-    count_ = (count_+1)%num_chunks_;
+    count_ = (count_ + 1) % num_chunks_;
     return;
   }
 
@@ -134,13 +133,12 @@ class HeapEx {
     return;
   }
 
-
   /**
    * Ctor.
    * Make "num" copy of the chunks.
    */
   template <typename... Args>
-  HeapEx(int num, Args&&... args):num_chunks_(num) {
+  HeapEx(int num, Args&&... args) : num_chunks_(num) {
     if (num > static_cast<int>(sizeof(unsigned int) * 8)) {
       CK_THROW_(Error_t::OutOfBound, "num > sizeof(unsigned int) * 8");
     } else if (num <= 0) {

@@ -23,9 +23,9 @@
 namespace HugeCTR {
 
 /**
- * Layer which does reduce-sum operation by input tensor. 
- * The reduced axis(dimention) can be selected. The output 
- * tensor will keep the reduced dimention. 
+ * Layer which does reduce-sum operation by input tensor.
+ * The reduced axis(dimention) can be selected. The output
+ * tensor will keep the reduced dimention.
  */
 class ReduceSumLayer : public Layer {
  public:
@@ -33,15 +33,13 @@ class ReduceSumLayer : public Layer {
    * Ctor of ReduceSumLayer.
    * @param in_tensor the input tensor, could be 2D or 3D
    * @param out_tensor the resulting output tensor
-   * @param axis the reduced dimention, could be 0,1,2 
+   * @param axis the reduced dimention, could be 0,1,2
    * @param device_id the id of GPU where this layer belongs
    */
   ReduceSumLayer(const std::shared_ptr<Tensor<float>>& in_tensors,
-                std::shared_ptr<Tensor<float>>& out_tensor,
-                const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-                int axis,
-                int device_id);
-  ~ReduceSumLayer() {};
+                 std::shared_ptr<Tensor<float>>& out_tensor,
+                 const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, int axis, int device_id);
+  ~ReduceSumLayer(){};
 
   /**
    * ReduceSumLayer's foward propagation

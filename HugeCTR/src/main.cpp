@@ -90,17 +90,16 @@ int main(int argc, char* argv[]) {
           std::cout << "Config file: " << config_file << std::endl;
         }
         HugeCTR::Session session_instance(config_file);
-	const HugeCTR::SolverParser& solver_config = session_instance.get_solver_config();
+        const HugeCTR::SolverParser& solver_config = session_instance.get_solver_config();
         HugeCTR::Timer timer;
         timer.start();
-
 
         // train
         if (pid == 0) {
           std::cout << "HugeCTR training start:" << std::endl;
         }
 #ifndef VAL
-	for (int i = 0; i < solver_config.max_iter; i++) {
+        for (int i = 0; i < solver_config.max_iter; i++) {
           session_instance.train();
           if (i % solver_config.display == 0 && i != 0) {
             timer.stop();
@@ -134,19 +133,20 @@ int main(int argc, char* argv[]) {
             }
           }
         }
-#else 
-	float loss = 0;
-	bool start_test = false;
-	int loop = 0;
+#else
+        float loss = 0;
+        bool start_test = false;
+        int loop = 0;
         for (int i = 0; i < solver_config.max_iter; i++) {
           session_instance.train();
-	  if(start_test == true){
-	    float loss_tmp = 0;
+          if (start_test == true) {
+            float loss_tmp = 0;
             session_instance.get_current_loss(&loss_tmp);
-	    loss += loss_tmp;
+            loss += loss_tmp;
           }
-          if (i % solver_config.eval_interval == solver_config.eval_batches && i != solver_config.eval_batches) {
-	    loss = loss/solver_config.eval_batches;
+          if (i % solver_config.eval_interval == solver_config.eval_batches &&
+              i != solver_config.eval_batches) {
+            loss = loss / solver_config.eval_batches;
             float avg_loss = 0.f;
             for (int j = 0; j < solver_config.eval_batches; ++j) {
               session_instance.eval();
@@ -154,20 +154,20 @@ int main(int argc, char* argv[]) {
               session_instance.get_current_loss(&tmp_loss);
               avg_loss += tmp_loss;
             }
-	    avg_loss /= solver_config.eval_batches;
-	    start_test = false;
-	    std::cout << loop << " " << loss << " " << avg_loss << std::endl;
+            avg_loss /= solver_config.eval_batches;
+            start_test = false;
+            std::cout << loop << " " << loss << " " << avg_loss << std::endl;
           }
-	  if(i!=0 && i % solver_config.eval_interval == 0){
-	    start_test = true;
-	    loss = 0;
-	    loop = i;
-	  }
-      	}
-#endif	
+          if (i != 0 && i % solver_config.eval_interval == 0) {
+            start_test = true;
+            loss = 0;
+            loop = i;
+          }
+        }
+#endif
         break;
       }
-    default: { assert(!"Error: no such option && should never get here!"); }
+      default: { assert(!"Error: no such option && should never get here!"); }
     }
 #ifdef ENABLE_MPI
     CK_MPI_THROW__(MPI_Finalize());

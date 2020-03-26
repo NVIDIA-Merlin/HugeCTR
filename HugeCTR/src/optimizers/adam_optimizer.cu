@@ -28,7 +28,6 @@ __global__ void adam_kernel(int len, float* weight, const float* wgrad, float* m
     m[i] = mi;
     v[i] = vi;
     weight[i] -= alpha_t * mi / (sqrt(vi) + epsilon);
-
   }
 }
 
