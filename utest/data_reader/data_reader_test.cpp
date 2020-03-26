@@ -55,14 +55,19 @@ TEST(data_reader_worker, data_reader_worker_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
+  std::cout << "heap setup" << std::endl;
   constexpr size_t buffer_length = max_nnz;
   std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap(
-      new HeapEx<CSRChunk<T>>(32, num_devices, batchsize, label_dim + dense_dim, params));
-
+      new HeapEx<CSRChunk<T>>(1, num_devices, batchsize, label_dim + dense_dim, params));
+  
+  std::cout << "data_reader setup" << std::endl;
   // setup a data reader
   DataReaderWorker<T> data_reader(0, 1, csr_heap, file_list, buffer_length, CHK, params);
-  // // call read a batch
+
+  std::cout << "read a batch" << std::endl;
+  // call read a batch
   data_reader.read_a_batch();
+  std::cout << "done" << std::endl;
 }
 
 TEST(data_reader_test, data_reader_simple_test) {
@@ -88,7 +93,7 @@ TEST(data_reader_test, data_reader_simple_test) {
   params.push_back(param);
 
   DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 31, 1);
+                            gpu_resource_group,1);
 
   data_reader.read_a_batch_to_device();
   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
@@ -126,7 +131,7 @@ TEST(data_reader_test, data_reader_localized_test) {
   params.push_back(param);
 
   DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 31, 1);
+                            gpu_resource_group, 1);
 
   data_reader.read_a_batch_to_device();
   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
@@ -167,7 +172,7 @@ TEST(data_reader_test, data_reader_mixed_test) {
   params.push_back(param_distributed);
 
   DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 31, 1);
+                            gpu_resource_group, 1);
 
   data_reader.read_a_batch_to_device();
   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
@@ -220,7 +225,7 @@ TEST(data_reader_test, two_nodes_localized) {
     params.push_back(param_localized);
 
     DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                              gpu_resource_group, 1, 1);
+                              gpu_resource_group, 1);
 
     data_reader.read_a_batch_to_device();
     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
@@ -250,7 +255,7 @@ TEST(data_reader_test, two_nodes_localized) {
     params.push_back(param_localized);
 
     DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                              gpu_resource_group, 1, 1);
+                              gpu_resource_group, 1);
 
     data_reader.read_a_batch_to_device();
     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);

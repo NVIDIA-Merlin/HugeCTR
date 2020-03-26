@@ -5,7 +5,7 @@
     "max_iter": 30000,
     "gpu": [0],
     "batchsize": 16384,
-    "snapshot": 1000000,
+    "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "eval_batches": 20
@@ -26,8 +26,8 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "/gpfs/fs1/zehuanw/dataset/wdl/file_list.txt",
-      "eval_source": "/gpfs/fs1/zehuanw/dataset/wdl/file_list_test.txt",
+      "source": "./file_list.txt",
+      "eval_source": "./file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",
@@ -44,7 +44,7 @@
           "max_feature_num_per_sample": 30,
           "slot_num": 1
         },
-        {
+               {
           "top": "deep_data",
           "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,

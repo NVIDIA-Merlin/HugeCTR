@@ -64,8 +64,7 @@ typedef long long T;
 // eg: 1.25x of that.
 const float load_factor = 0.75;  // CAUSION: this is a very important param for performance
 
-const int num_chunks = 1;   // must be 1 for CPU and GPU results comparation
-const int num_threads = 1;  // must be 1 for CPU and GPU results comparation
+const int num_chunk_threads = 1;   // must be 1 for CPU and GPU results comparation
 const int num_files = 1;
 const Check_t CHK = Check_t::Sum;  // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
@@ -130,7 +129,7 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
   DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
-                            gpu_resource_group, num_chunks, num_threads);
+                            gpu_resource_group, num_chunk_threads);
 
   // define object
   // Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingHash<T>(
@@ -271,7 +270,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
   params.push_back(param);
   DataReader<T> *data_reader =
       new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                        gpu_resource_group, num_chunks, num_threads);
+                        gpu_resource_group, num_chunk_threads);
 
   // Embedding<T> *embedding = new
   // LocalizedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),

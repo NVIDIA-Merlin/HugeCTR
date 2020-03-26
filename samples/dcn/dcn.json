@@ -23,11 +23,11 @@
   },
 
   "layers": [ 
-    {
+o    {
       "name": "data",
       "type": "Data",
-      "source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list.txt",
-      "eval_source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list_test.txt",
+      "source": "./file_list.txt",
+      "eval_source": "./file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",
