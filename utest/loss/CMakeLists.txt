@@ -21,4 +21,4 @@ file(GLOB loss_test_src
 
 add_executable(loss_test ${loss_test_src})
 target_compile_features(loss_test PUBLIC cxx_std_11)
-target_link_libraries(loss_test PUBLIC huge_ctr_static gtest gtest_main cudart)
+target_link_libraries(loss_test PUBLIC huge_ctr_static gtest gtest_main)

@@ -560,11 +560,6 @@ __global__ void update_kernel(const uint32_t hash_value_index_count_num,
   }
 }
 
-
-
-
-
-
 // memset liner data to the buffer
 template <typename Type>
 __global__ void memset_liner_kernel(Type *data, 
@@ -644,10 +639,6 @@ __global__ void forward_reorder_kernel(int batch_size_per_gpu,
 
       int dst_addr = dst_offset + dst_stride * slot_id;
       output[dst_addr+tid] = input[src_addr+tid];
-
-      // // just for debug 
-      // printf("bid=%d, tid=%d, slot_id=%d, src_addr=%d, dst_addr=%d, input=%f, output=%f\n",
-      // bid, tid, slot_id, src_addr, dst_addr, input[src_addr+tid], output[dst_addr+tid]);
     }
   }
 }
