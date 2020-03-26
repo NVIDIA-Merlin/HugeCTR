@@ -44,7 +44,7 @@
           "max_feature_num_per_sample": 30,
           "slot_num": 1
         },
-               {
+        {
           "top": "deep_data",
           "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
