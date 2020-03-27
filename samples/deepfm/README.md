@@ -39,8 +39,6 @@ $ ./criteo2hugectr ../../tools/criteo_script/test.out criteo_test/sparse_embeddi
 
 ## Training with HugeCTR ##
 
-### Run HugeCTR from source code ###
-
 1. Build HugeCTR with the instructions on README.md under home directory.
 
 2. Copy huge_ctr to samples/deepfm
@@ -52,16 +50,3 @@ $ cp ../../build/bin/huge_ctr ./
 ```shell
 $ ./huge_ctr --train ./deepfm.json
 ```
-
-### Run HugeCTR from docker ###
-
-1. Build HugeCTR docker image with the instructions on README.md under home directory.
-
-2. Run HugeCTR with docker
-```shell
-$ docker run --runtime=nvidia --rm -v $(pwd):/dataset hugectr:latest huge_ctr --train /dataset/deepfm.json
-```
-
-
-
-

@@ -10,8 +10,7 @@ Design Goals:
 
 Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs/`
 
-## Build from source code ##
-### Requirements ###
+## Requirements ##
 * cuBLAS >= 9.1
 * Compute Capability >= 60 (P100)
 * CMake >= 3.8
@@ -20,13 +19,31 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * Clang-Format 3.8
 * GCC >= 7.4.0
 * Compiler should have OpenMP support
-#### Optional, if require multi-nodes training ####
+### Optional, if require multi-nodes training ###
 * OpenMPI >= 4.0
 * UCX library >= 1.6
 * HWLOC library >= 2.1.0
-#### Plan generation for LocalizedSlotEmbedding (pip install) ####
+### Plan generation for LocalizedSlotEmbedding (pip install) ###
 * ortools
 * mpi4py
+
+## Build ##
+### Building HugeCTR in docker container ###
+For a development environment where can build HugeCTR, you can use the provided Dockerfile
+
+To build docker image from the Dockerfile, run the command:
+
+```shell
+$ docker build -t hugectr:latest .
+```
+
+After building the docker image, you can enter the development environment by running a docker container
+
+```shell
+$ docker run --runtime=nvidia -it hugectr:latest bash
+```
+
+Then continue with the following steps
 
 ### Init Git ###
 ```shell
@@ -58,14 +75,6 @@ $ mkdir -p build
 $ cd build
 $ cmake -DVAL_MODE=ON ..
 $ make
-```
-
-## Developing with docker ##
-### Building a container from a Dockerfile ###
-If you'd like to build docker image and run HugeCTR in docker container, you can do so by running the Docker build command:
-
-```shell
-docker build -t hugectr:latest --build-arg SM_VERSION=XX .
 ```
 
 ## Run ##

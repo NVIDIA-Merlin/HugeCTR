@@ -1,5 +1,4 @@
 FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
-ARG SM_VERSION
 
 RUN apt-get update && \
     apt-get upgrade -y
@@ -37,14 +36,6 @@ RUN git clone --recursive https://github.com/open-mpi/ompi.git && \
     make clean
 
 WORKDIR /
-RUN git clone https://gitlab-master.nvidia.com/zehuanw/hugectr.git && \
-    cd hugectr && \
-    git submodule update --init --recursive
-
-WORKDIR /hugectr
-RUN mkdir -p build && \
-    cd build && \
-    cmake -DENABLE_MULTINODES=ON -DCMAKE_BUILD_TYPE=Release -DSM=${SM_VERSION} .. && \
-    make -j
-
-ENV PATH="/hugectr/build/bin:${PATH}"
+RUN rm -rf ucx && \
+    rm -rf hwloc && \
+    rm -rf ompi

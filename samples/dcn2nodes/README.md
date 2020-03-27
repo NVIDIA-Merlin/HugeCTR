@@ -47,8 +47,6 @@ $ mpirun python ../../tools/plan_generation/plan_from_topology_asynch.py dcn8l8g
 
 ## Training with HugeCTR ##
 
-### Run HugeCTR from source code ###
-
 1. Build HugeCTR with the instructions on README.md under home directory.
 
 2. Copy huge_ctr to samples/criteo
@@ -61,11 +59,8 @@ $ cp ../../build/bin/huge_ctr ./
 $ mpirun --bind-to none ./huge_ctr --train dcn8l8gpu2nodes.json
 ```
 
-### Run HugeCTR from docker ###
+4. If you use docker container as the development environment, for multi-node, you should build the HugeCTR inside a docker container, and create docker image from the docker container, then distribut the image to all nodes, then run hugectr commands through docker
 
-1. Build HugeCTR docker image and pull image for each node with the instructions on README.md under home directory.
-
-2. Run HugeCTR with docker
 ```shell
 $ mpirun --bind-to none docker run --runtime=nvidia --rm -v $(pwd):/dataset hugectr:latest huge_ctr --train /dataset/dcn8l8gpu2nodes.json
 ```

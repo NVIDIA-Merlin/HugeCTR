@@ -29,8 +29,6 @@ $ ./criteo2hugectr_legacy 10 ../../tools/criteo_script_legacy/test.out criteo_te
 
 ## Training with HugeCTR ##
 
-### Run HugeCTR from source code ###
-
 1. Build HugeCTR with the instructions on README.md under home directory.
 
 2. Copy huge_ctr to samples/criteo_multi_slots
@@ -41,13 +39,4 @@ $ cp ../../build/bin/huge_ctr ./
 3. Run huge_ctr
 ```shell
 $ ./huge_ctr --train ./criteo.json
-```
-
-### Run HugeCTR from docker ###
-
-1. Build HugeCTR docker image with the instructions on README.md under home directory.
-
-2. Run HugeCTR with docker
-```shell
-$ docker run --runtime=nvidia --rm -v $(pwd):/dataset hugectr:latest huge_ctr --train /dataset/criteo.json
 ```
