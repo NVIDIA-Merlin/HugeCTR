@@ -39,6 +39,8 @@ $ ./criteo2hugectr ../../tools/criteo_script/val criteo_test/sparse_embedding fi
 
 ## Training with HugeCTR ##
 
+### Run HugeCTR from source code ###
+
 1. Build HugeCTR with the instructions on README.md under home directory.
 
 2. Copy huge_ctr to samples/criteo
@@ -51,4 +53,11 @@ $ cp ../../build/bin/huge_ctr ./
 $ ./huge_ctr --train ./wdl.json
 ```
 
+### Run HugeCTR from docker ###
 
+1. Build HugeCTR docker image with the instructions on README.md under home directory.
+
+2. Run HugeCTR with docker
+```shell
+$ docker run --runtime=nvidia --rm -v $(pwd):/dataset hugectr:latest huge_ctr --train /dataset/wdl.json
+```
