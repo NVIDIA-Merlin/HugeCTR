@@ -41,7 +41,7 @@ $ ./criteo2hugectr ../../tools/criteo_script/dcn_data/val criteo_test/sparse_emb
 
 1. Build HugeCTR with the instructions on README.md under home directory.
 
-2. Copy huge_ctr to samples/criteo
+2. Copy huge_ctr to samples/dcn
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```

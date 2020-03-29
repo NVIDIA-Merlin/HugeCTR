@@ -26,15 +26,15 @@ but it doesn't create any feature crosses.
 ```shell
 # The preprocessing can take 1-4 hours based on the system configuration.
 $ cd ../../tools/criteo_script/
-$ bash preprocess.sh dcn 1 0
-$ cd ../../samples/dcn/
+$ bash preprocess.sh dcn2nodes 1 0
+$ cd ../../samples/dcn2nodes/
 ```
 
 2. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
-$ ./criteo2hugectr ../../tools/criteo_script/dcn_data/train criteo/sparse_embedding file_list.txt
-$ ./criteo2hugectr ../../tools/criteo_script/dcn_data/val criteo_test/sparse_embedding file_list_test.txt
+$ ./criteo2hugectr ../../tools/criteo_script/dcn2nodes_data/train criteo/sparse_embedding file_list.txt
+$ ./criteo2hugectr ../../tools/criteo_script/dcn2nodes_data/val criteo_test/sparse_embedding file_list_test.txt
 ```
 
 ## Plan file generation ##
@@ -49,7 +49,7 @@ $ mpirun python ../../tools/plan_generation/plan_from_topology_asynch.py dcn8l8g
 
 1. Build HugeCTR with the instructions on README.md under home directory.
 
-2. Copy huge_ctr to samples/criteo
+2. Copy huge_ctr to samples/dcn2nodes
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```
