@@ -1,10 +1,10 @@
 {
   "solver": {
     "lr_policy": "fixed",
-    "display": 1000,
+    "display": 200,
     "max_iter": 300000,
-    "gpu": [0],
-    "batchsize": 512,
+    "gpu": [0,1],
+    "batchsize": 16384,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
@@ -40,7 +40,7 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "DistributedSlot",
+          "type": "LocalizedSlot",
           "max_feature_num_per_sample": 30,
           "slot_num": 26
         }        
@@ -49,7 +49,8 @@
 
     {
       "name": "sparse_embedding1",
-      "type": "DistributedSlotSparseEmbeddingHash",
+      "type": "LocalizedSlotSparseEmbeddingHash",
+      "plan_file": "all2all_plan_0_1.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

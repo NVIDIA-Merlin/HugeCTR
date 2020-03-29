@@ -13,6 +13,7 @@
 
   "optimizer": {
     "type": "Adam",
+    "global_update": true,
     "adam_hparam": {
       "alpha": 0.005,
       "beta1": 0.9,

@@ -8,12 +8,12 @@
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 100,
-    "dense_model_file": "./criteo.model"
+    "eval_batches": 100
   },
   
   "optimizer": {
     "type": "Adam",
+    "global_update": false,
     "adam_hparam": {
       "alpha": 0.005,
       "beta1": 0.9,
@@ -27,8 +27,8 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "/gpfs/fs1/zehuanw/dataset/criteo_check_sum_10/file_list.txt",
-      "eval_source": "/gpfs/fs1/zehuanw/dataset/criteo_check_sum_10/file_list_test.txt",
+      "source": "./file_list.txt",
+      "eval_source": "./file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",
@@ -51,7 +51,6 @@
     {
       "name": "sparse_embedding1",
       "type": "DistributedSlotSparseEmbeddingHash",
-      "plan_file": "./all2all_plan.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

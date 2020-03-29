@@ -17,7 +17,7 @@ The original test set doesn't contain labels, so it's not used.
 
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
 and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
-The script `preprocess.sh` fills the missing values by mapping them to the unusned unique integer or category.
+The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
 It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
 Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
 In addition, it normalizes the integer feature values to the range [0, 1],
@@ -26,15 +26,15 @@ but it doesn't create any feature crosses.
 ```shell
 # The preprocessing can take 1-4 hours based on the system configuration.
 $ cd ../../tools/criteo_script/
-$ bash preprocess.sh dcn 1 0
-$ cd ../../samples/dcn/
+$ bash preprocess.sh deepfm 1 0
+$ cd ../../samples/deepfm/
 ```
 
 2. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
-$ ./criteo2hugectr ../../tools/criteo_script/train.out criteo/sparse_embedding file_list.txt
-$ ./criteo2hugectr ../../tools/criteo_script/test.out criteo_test/sparse_embedding file_list_test.txt
+$ ./criteo2hugectr ../../tools/criteo_script/deepfm_data/train criteo/sparse_embedding file_list.txt
+$ ./criteo2hugectr ../../tools/criteo_script/deepfm_data/test criteo_test/sparse_embedding file_list_test.txt
 ```
 
 ## Training with HugeCTR ##
@@ -50,5 +50,3 @@ $ cp ../../build/bin/huge_ctr ./
 ```shell
 $ ./huge_ctr --train ./deepfm.json
 ```
-
-
