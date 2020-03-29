@@ -51,4 +51,18 @@ $ cp ../../build/bin/huge_ctr ./
 $ ./huge_ctr --train ./dcn.json
 ```
 
+## Training with localized slot embedding ##
+
+1. Plan file generation
+```shell
+$ export CUDA_DEVICE_ORDER=PCI_BUS_ID
+$ python ../../tools/plan_generation/plan_generator_single_node.py dcn_localized_embedding.json
+```
+
+2. Run huge_ctr
+```shell
+$ ./huge_ctr --train dcn_localized_embedding.json
+```
+
+
 
