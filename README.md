@@ -18,13 +18,11 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * NCCL >= 2.0
 * Clang-Format 3.8
 * GCC >= 7.4.0
-* Compiler should have OpenMP support
+* ortools
 ### Optional, if require multi-nodes training ###
 * OpenMPI >= 4.0
 * UCX library >= 1.6
 * HWLOC library >= 2.1.0
-### Plan generation for LocalizedSlotEmbedding (pip install) ###
-* ortools
 * mpi4py
 
 ## Build ##
