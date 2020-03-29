@@ -56,7 +56,7 @@ $ ./huge_ctr --train ./dcn.json
 1. Plan file generation
 ```shell
 $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-$ python ../../tools/plan_generation/plan_generator_single_node.py dcn_localized_embedding.json
+$ python ../../tools/plan_generation_no_mpi/plan_generator_no_mpi.py dcn_localized_embedding.json
 ```
 
 2. Run huge_ctr
