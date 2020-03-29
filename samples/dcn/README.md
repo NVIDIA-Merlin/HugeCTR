@@ -64,5 +64,3 @@ $ python ../../tools/plan_generation/plan_generator_single_node.py dcn_localized
 $ ./huge_ctr --train dcn_localized_embedding.json
 ```
 
-
-

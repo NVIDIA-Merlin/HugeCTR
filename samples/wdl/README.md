@@ -50,5 +50,3 @@ $ cp ../../build/bin/huge_ctr ./
 ```shell
 $ ./huge_ctr --train ./wdl.json
 ```
-
-

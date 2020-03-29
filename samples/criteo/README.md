@@ -40,5 +40,3 @@ $ cp ../../build/bin/huge_ctr ./
 ```shell
 $ ./huge_ctr --train ./criteo.json
 ```
-
-

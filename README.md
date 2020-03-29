@@ -23,12 +23,28 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * OpenMPI >= 4.0
 * UCX library >= 1.6
 * HWLOC library >= 2.1.0
-### Plan generation for LocalizedSlotEmbedding (pip install)
+### Plan generation for LocalizedSlotEmbedding (pip install) ###
 * ortools
 * mpi4py
 
-
 ## Build ##
+### Building HugeCTR in docker container ###
+For a development environment where can build HugeCTR, you can use the provided Dockerfile
+
+To build docker image from the Dockerfile, run the command:
+
+```shell
+$ docker build -t hugectr:latest .
+```
+
+After building the docker image, you can enter the development environment by running a docker container
+
+```shell
+$ docker run --runtime=nvidia -it hugectr:latest bash
+```
+
+Then continue with the following steps
+
 ### Init Git ###
 ```shell
 $ git submodule update --init --recursive

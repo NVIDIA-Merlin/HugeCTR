@@ -40,4 +40,3 @@ $ cp ../../build/bin/huge_ctr ./
 ```shell
 $ ./huge_ctr --train ./criteo_multi_slots.json
 ```
-
