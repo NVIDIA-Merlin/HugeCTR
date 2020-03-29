@@ -27,16 +27,16 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 
 ## Build ##
 ### Building HugeCTR in docker container ###
-For a development environment where can build HugeCTR, you can use the provided Dockerfile
+You can choose using docker to simplify the environment setting up, otherwise please jump to [Init Git](README.md#init-git) directly.
+
+Ensure that you have [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) installed.
 
 To build docker image from the Dockerfile, run the command:
-
 ```shell
 $ docker build -t hugectr:latest .
 ```
 
 After building the docker image, you can enter the development environment by running a docker container
-
 ```shell
 $ docker run --runtime=nvidia -it hugectr:latest bash
 ```
