@@ -18,17 +18,31 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * NCCL >= 2.0
 * Clang-Format 3.8
 * GCC >= 7.4.0
-* Compiler should have OpenMP support
+* ortools
 ### Optional, if require multi-nodes training ###
 * OpenMPI >= 4.0
 * UCX library >= 1.6
 * HWLOC library >= 2.1.0
-### Plan generation for LocalizedSlotEmbedding (pip install)
-* ortools
 * mpi4py
 
-
 ## Build ##
+### Building HugeCTR in docker container ###
+You can choose using docker to simplify the environment setting up, otherwise please jump to [Init Git](README.md#init-git) directly.
+
+Ensure that you have [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) installed.
+
+To build docker image from the Dockerfile, run the command:
+```shell
+$ docker build -t hugectr:latest .
+```
+
+After building the docker image, you can enter the development environment by running a docker container
+```shell
+$ docker run --runtime=nvidia -it hugectr:latest bash
+```
+
+Then continue with the following steps
+
 ### Init Git ###
 ```shell
 $ git submodule update --init --recursive
