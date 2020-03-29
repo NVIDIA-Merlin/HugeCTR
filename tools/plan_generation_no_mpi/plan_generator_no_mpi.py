@@ -7,7 +7,7 @@ from ortools.linear_solver import pywraplp
 import json
 import argparse
 
-from topology_parser import get_topology_matrix, parse_conf
+from topology_parser_no_mpi import get_topology_matrix, parse_conf
 
 parser = argparse.ArgumentParser(description="create transfer plan.")
 parser.add_argument("hugectr_conf", type=str, help="path to hugectr json file")
