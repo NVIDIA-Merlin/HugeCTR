@@ -38,7 +38,6 @@ $ cp ../../build/bin/huge_ctr ./
 
 3. Run huge_ctr
 ```shell
-$ ./huge_ctr --train ./criteo.json
+$ ./huge_ctr --train ./criteo_multi_slots.json
 ```
-
 
