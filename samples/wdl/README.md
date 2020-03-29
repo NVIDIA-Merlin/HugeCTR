@@ -33,8 +33,8 @@ $ cd ../../samples/wdl/
 2. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
-$ ./criteo2hugectr ../../tools/criteo_script/train. criteo/sparse_embedding file_list.txt 2
-$ ./criteo2hugectr ../../tools/criteo_script/val criteo_test/sparse_embedding file_list_test.txt 2
+$ ./criteo2hugectr ../../tools/criteo_script/wdl_data/train criteo/sparse_embedding file_list.txt 2
+$ ./criteo2hugectr ../../tools/criteo_script/wdl_data/val criteo_test/sparse_embedding file_list_test.txt 2
 ```
 
 ## Training with HugeCTR ##
