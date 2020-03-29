@@ -33,15 +33,15 @@ $ cd ../../samples/dcn/
 2. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
-$ ./criteo2hugectr ../../tools/criteo_script/train. criteo/sparse_embedding file_list.txt
-$ ./criteo2hugectr ../../tools/criteo_script/val criteo_test/sparse_embedding file_list_test.txt
+$ ./criteo2hugectr ../../tools/criteo_script/dcn_data/train criteo/sparse_embedding file_list.txt
+$ ./criteo2hugectr ../../tools/criteo_script/dcn_data/val criteo_test/sparse_embedding file_list_test.txt
 ```
 
 ## Training with HugeCTR ##
 
 1. Build HugeCTR with the instructions on README.md under home directory.
 
-2. Copy huge_ctr to samples/criteo
+2. Copy huge_ctr to samples/dcn
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```
