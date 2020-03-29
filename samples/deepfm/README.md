@@ -26,15 +26,15 @@ but it doesn't create any feature crosses.
 ```shell
 # The preprocessing can take 1-4 hours based on the system configuration.
 $ cd ../../tools/criteo_script/
-$ bash preprocess.sh dcn 1 0
-$ cd ../../samples/dcn/
+$ bash preprocess.sh deepfm 1 0
+$ cd ../../samples/deepfm/
 ```
 
 2. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
-$ ./criteo2hugectr ../../tools/criteo_script/train.out criteo/sparse_embedding file_list.txt
-$ ./criteo2hugectr ../../tools/criteo_script/test.out criteo_test/sparse_embedding file_list_test.txt
+$ ./criteo2hugectr ../../tools/criteo_script/deepfm_data/train criteo/sparse_embedding file_list.txt
+$ ./criteo2hugectr ../../tools/criteo_script/deepfm_data/test criteo_test/sparse_embedding file_list_test.txt
 ```
 
 ## Training with HugeCTR ##
