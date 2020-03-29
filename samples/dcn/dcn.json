@@ -23,7 +23,7 @@
   },
 
   "layers": [ 
-o    {
+      {
       "name": "data",
       "type": "Data",
       "source": "./file_list.txt",
