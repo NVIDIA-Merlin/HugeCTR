@@ -47,8 +47,7 @@ TEST(checker, CheckSum) {
   const char str[] = {"abcdefg"};
   func("file1.txt", str);
 
-  FileList file_list("file_list.txt");
-  FileSource file_source(0, 1, file_list);
+  FileSource file_source(0, 1, "file_list.txt");
   CheckSum check_sum(file_source);
   char tmp1[NUM_CHAR], tmp2[NUM_CHAR];
   check_sum.next_source();
