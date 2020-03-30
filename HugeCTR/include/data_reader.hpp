@@ -85,7 +85,7 @@ static void data_collector_thread_func_(
 template <typename TypeKey>
 class DataReader {
  private:
-  std::shared_ptr<FileList> file_list_; /**< file list of data set */
+  std::string file_list_; /**< file list of data set */
   const int NumChunks{31};              /**< NumChunks will be used in HeapEx*/
   const int NumThreads{31};             /**< number of threads for data reading */
 
@@ -139,7 +139,7 @@ class DataReader {
     // create data reader
     for (int i = 0; i < NumThreads; i++) {
       std::shared_ptr<DataReaderWorker<TypeKey>> data_reader(new DataReaderWorker<TypeKey>(
-          i, NumThreads, csr_heap_, *file_list_, max_feature_num_per_sample, check_type_, params_));
+          i, NumThreads, csr_heap_, file_list_, max_feature_num_per_sample, check_type_, params_));
       data_readers_.push_back(data_reader);
       data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
                                         &data_reader_loop_flag_);
@@ -215,7 +215,7 @@ class DataReader {
 template <typename TypeKey>
 DataReader<TypeKey>::DataReader(const std::string& file_list_name,
                                 const DataReader<TypeKey>& prototype)
-    : file_list_(new FileList(file_list_name)),
+    : file_list_(file_list_name),
       NumChunks(prototype.NumChunks),
       NumThreads(prototype.NumChunks),
       label_dense_buffers_(prototype.label_dense_buffers_),
@@ -248,7 +248,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                                 int num_chunk_threads)
-    : file_list_(new FileList(file_list_name)),
+    : file_list_(file_list_name),
       NumChunks(num_chunk_threads),
       NumThreads(num_chunk_threads),
       check_type_(check_type),

@@ -25,12 +25,12 @@ namespace HugeCTR {
 
 class FileSource : public Source {
  private:
-  FileList& file_list_;          /**< file list of data set */
+  FileList file_list_;          /**< file list of data set */
   std::ifstream in_file_stream_; /**< file stream of data set file */
   std::string file_name_;        /**< file name of current file */
  public:
-  FileSource(unsigned int offset, unsigned int stride, FileList& file_list)
-      : Source(offset, stride), file_list_(file_list) {}
+  FileSource(unsigned int offset, unsigned int stride, const std::string& file_list)
+    : Source(offset, stride), file_list_(file_list) {}
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
