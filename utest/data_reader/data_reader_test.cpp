@@ -35,7 +35,7 @@ const int max_nnz = 30;
 typedef long long T;
 const int vocabulary_size = 511;
 // configurations for data_reader_worker
-const std::string file_list_name("sample_file_list.txt");
+const std::string file_list_name("data_reader_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
 const Check_t CHK = Check_t::Sum;
 
@@ -45,8 +45,6 @@ TEST(data_reader_worker, data_reader_worker_test) {
   HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
                                    vocabulary_size, label_dim, dense_dim, max_nnz);
 
-  // setup a file list
-  FileList file_list(file_list_name);
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
@@ -60,7 +58,7 @@ TEST(data_reader_worker, data_reader_worker_test) {
       new HeapEx<CSRChunk<T>>(1, num_devices, batchsize, label_dim + dense_dim, params));
 
   // setup a data reader
-  DataReaderWorker<T> data_reader(0, 1, csr_heap, file_list, buffer_length, CHK, params);
+  DataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length, CHK, params);
 
   // call read a batch
   data_reader.read_a_batch();
