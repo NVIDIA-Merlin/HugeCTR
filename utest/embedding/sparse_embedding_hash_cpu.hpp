@@ -81,7 +81,6 @@ class SparseEmbeddingHashCpu {
   long long num_records_;
   int current_record_index_{0};
   DataSetHeader data_set_header_;
-  FileList *file_list_;
   std::shared_ptr<Source> source_;   /**< source: can be file or network */
   std::shared_ptr<Checker> checker_; /**< checker aim to perform error check of the input data */
 
@@ -320,8 +319,7 @@ SparseEmbeddingHashCpu<TypeHashKey>::SparseEmbeddingHashCpu(
   hash_table_->insert(hash_table_key_, hash_table_value_index_, vocabulary_size_);
 
   // dataset filelist
-  file_list_ = new FileList(file_list_name);
-  source_ = std::make_shared<FileSource>(0, 1, *file_list_);
+  source_ = std::make_shared<FileSource>(0, 1, file_list_name);
   switch (check_sum_) {
     case Check_t::Sum:
       checker_ = std::make_shared<CheckSum>(*source_);
