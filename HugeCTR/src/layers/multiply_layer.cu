@@ -210,8 +210,6 @@ void MultiplyLayer::bprop(cudaStream_t stream) {
   float* input = in_tensors_[0]->get_ptr();
   float* output = out_tensors_[0]->get_ptr();
 
-  cudaMemsetAsync(wgrad, 0, wgrad_[0]->get_size(), stream);
-
   multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_, embedding_vec_size_,
                  stream);
 
