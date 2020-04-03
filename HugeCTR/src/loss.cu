@@ -205,20 +205,26 @@ void BinaryCrossEntropyLoss::do_fused_loss_computation(float *input, const float
 }
 
 __forceinline__ __device__ __host__ float cross_entropy_loss(float x, float y) {
-  const float MIN_ = 1e-6;
-  const float MIN_X = -707.f;
-  const double exp_neg_x = x < MIN_X ? exp((double)-MIN_X) : exp((double)-x);
-  const double val = 1.0f / (1.0f + exp_neg_x);
-  float loss = y * log(val + MIN_) + (1.0f - y) * log(1.0f - val + MIN_);
-  return loss;
+  float loss = 0.f;
+  if (x >= 0) {
+    float exp_neg_x = exp(-x);
+    loss = x * (1 - y) + log(1 + exp_neg_x);
+  } else {
+    float exp_x = exp(x);
+    loss = -x * y + log(1 + exp_x);
+  }
+  return -loss;
 }
 
 __forceinline__ __device__ __host__ float cross_entropy_loss_backward(float x, float y) {
-  const float MIN_ = 1e-6;
-  const float MIN_X = -707.f;
-  const double exp_neg_x = x < MIN_X ? exp((double)-MIN_X) : exp((double)-x);
-  const double val = 1.0f / (1.0f + exp_neg_x);
-  float grad = -1.0f * val * (y - val) * exp_neg_x / (1.0f - val + MIN_);
+  float grad = 0.f;
+  if (x >= 0) {
+    float exp_neg_x = exp(-x);
+    grad = ((1 - y) - exp_neg_x / (1 + exp_neg_x));
+  } else {
+    float exp_x = exp(x);
+    grad = (-y + exp_x / (1 + exp_x));
+  }
   return grad;
 }
 
