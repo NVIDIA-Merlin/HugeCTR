@@ -33,12 +33,12 @@ Ensure that you have [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker
 
 To build docker image from the Dockerfile, run the command:
 ```shell
-$ docker build -t hugectr:latest .
+$ docker build -t hugectr:devel .
 ```
 
 After building the docker image, you can enter the development environment by running a docker container
 ```shell
-$ docker run --runtime=nvidia -it hugectr:latest bash
+$ docker run --runtime=nvidia -it hugectr:devel bash
 ```
 
 Then continue with the following steps
