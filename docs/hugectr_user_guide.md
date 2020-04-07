@@ -199,6 +199,41 @@ Embedding:
     }
 
 ```
+Reshape: in v2.1 the first layer after embedding should be `Reshape` to reshape the tensor from 3D to 2D. Reshape is the only layer accept both 3D and 2D input and the output must be 2D.
+`leading_dim` in `Reshape` is the leading dimension of the output.
+
+Concat: you can `Concat` at most five tensors into one and list the name in `bottom` array. Note that the second dimension (usually batch size) should be the same.
+
+Slice: opposite to concat, we support slice layer to copy specific `ranges` of input tensor to named output tensors. In the sample below, we duplicate input tensor with `Slice` (0 is inclusive, 429 is exclusive). 
+
+```json
+
+    {
+      "name": "reshape1",
+      "type": "Reshape",
+      "bottom": "sparse_embedding1",
+      "top": "reshape1",
+      "leading_dim": 416
+    }
+
+
+    {
+      "name": "concat1",
+      "type": "Concat",
+      "bottom": ["reshape1","dense"],
+      "top": "concat1"
+    }
+
+    {
+      "name": "slice1",
+      "type": "Slice",
+      "bottom": "concat1",
+      "ranges": [[0,429], [0,429]],
+      "top": ["slice11", "slice12"]
+    }
+
+
+```
 
 The Others
 * ELU: the type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
