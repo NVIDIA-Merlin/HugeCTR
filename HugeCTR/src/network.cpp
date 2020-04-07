@@ -22,14 +22,13 @@
 
 namespace HugeCTR {
 
-Network::Network(int batch_size, int device_id,
+Network::Network(int device_id,
                  const std::shared_ptr<const GPUResource>& gpu_resource, bool disable_parser)
     : blobs_buff_(new GeneralBuffer<float>()),
       weight_buff_(new GeneralBuffer<float>()),
       wgrad_buff_(new GeneralBuffer<float>()),
       gpu_resource_(gpu_resource),
-      device_id_(device_id),
-      batch_size_(batch_size) {
+      device_id_(device_id){
   return;
 }
 
