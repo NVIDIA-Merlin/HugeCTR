@@ -204,7 +204,7 @@ Reshape: in v2.1 the first layer after embedding should be `Reshape` to reshape 
 
 Concat: you can `Concat` at most five tensors into one and list the name in `bottom` array. Note that the second dimension (usually batch size) should be the same.
 
-Slice: opposite to concat, we support slice layer to copy specific `ranges` of input tensor to named output tensors. In the sample below, we duplicate input tensor with `Slice` (0 is inclusive, 429 is exclusive). 
+Slice: opposite to concat, we support `Slice` layer to copy specific `ranges` of input tensor to named output tensors. In the example below, we duplicate input tensor with `Slice` (0 is inclusive, 429 is exclusive). 
 
 ```json
 
