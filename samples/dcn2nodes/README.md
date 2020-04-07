@@ -58,9 +58,3 @@ $ cp ../../build/bin/huge_ctr ./
 ```shell
 $ mpirun --bind-to none ./huge_ctr --train dcn8l8gpu2nodes.json
 ```
-
-4. If you use docker container as the development environment, for multi-node, you should build the HugeCTR inside a docker container, and create docker image from the docker container, then distribut the image to all nodes, then run hugectr commands through docker
-
-```shell
-$ mpirun --bind-to none docker run --runtime=nvidia --rm -v $(pwd):/dataset hugectr:latest huge_ctr --train /dataset/dcn8l8gpu2nodes.json
-```
