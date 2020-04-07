@@ -165,7 +165,7 @@ Embedding:
 * Slots (tables or feature fields) are distributed in GPUs and nodes.
 * `type`: two types of embedding are supported: `LocalizedSlotSparseEmbeddingHash`, `DistributedSlotSparseEmbeddingHash`.
   * `LocalizedSlotSparseEmbeddingHash`: each individual slot will be located in each GPU in turn, and not shared. This type of embedding has the best scalability.
-    * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to:
+    * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to the [**README**](samples/dcn/README.md) in dcn sample.
   * `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when there exists the load imbalance among slots and potentially has OOM issue.
   * In single GPU training, for your convenience please use `DistributedSlotSparseEmbeddingHash`.
 * `vocabulary_size`: the maximum possible size of embedding.
