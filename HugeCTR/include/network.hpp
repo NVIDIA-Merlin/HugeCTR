@@ -41,7 +41,7 @@ namespace HugeCTR {
 class Network {
   friend Network* create_network(
       const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-      const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in, int batch_size,
+      const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
       int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
       bool use_mixed_precision, float scaler);
 
@@ -53,19 +53,17 @@ class Network {
   std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;  /**< weight gradient general buffer */
   std::shared_ptr<const GPUResource> gpu_resource_;   /**< gpu resource */
   int device_id_;                                     /**< device id */
-  int batch_size_;                                    /**< batch size */
   std::unique_ptr<Optimizer> optimizer_;              /**< optimizer */
   std::unique_ptr<Loss> loss_;                        /**< loss */
   std::shared_ptr<Tensor<float>> loss_tensor_;        /**< loss tensor */
  public:
   /**
    * Ctor.
-   * @param batch_size batch size.
    * @param device_id device id.
    * @param gpu_resource gpu resource for local gpu.
    * @param disable_parser only for unit test.
    */
-  Network(int batch_size, int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
+  Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
           bool disable_parser = true);
   Network(const Network& C) = delete;
   Network& operator=(const Network&) = delete;

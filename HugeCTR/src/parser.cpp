@@ -284,10 +284,10 @@ const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
  */
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
-                        int batch_size, int device_id,
+                        int device_id,
                         const std::shared_ptr<const GPUResource>& gpu_resource,
                         bool use_mixed_precision, float scaler) {
-  std::unique_ptr<Network> network(new Network(batch_size, device_id, gpu_resource, false));
+  std::unique_ptr<Network> network(new Network(device_id, gpu_resource, false));
   std::map<std::string, std::shared_ptr<Tensor<float>>> tensor_list(tensor_list_in);
 
   auto& tensors = network->tensors_;
@@ -320,7 +320,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         const auto& bn_in_tensor = input_output_info.input[0];
         // establish out tensor
         std::shared_ptr<Tensor<float>> bn_out_tensor(new Tensor<float>(
-            {batch_size, (bn_in_tensor->get_dims())[1]}, blobs_buff, TensorFormat_t::HW));
+	  bn_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({bn_out_tensor, input_output_info.output[0]});
 
         // get BN params
@@ -343,7 +343,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         loss.reset(new BinaryCrossEntropyLoss(
             label_tensor, binary_cross_entropy_loss_in_tensor, loss_tensor,
-            create_regularizer(j, weight_buff, wgrad_buff, batch_size,
+            create_regularizer(j, weight_buff, wgrad_buff, (binary_cross_entropy_loss_in_tensor->get_dims())[0],
                                gpu_resource->get_cublas_handle(), device_id),
             device_id));
         break;
@@ -364,9 +364,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         loss.reset(
             new CrossEntropyLoss(label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
-                                 create_regularizer(j, weight_buff, wgrad_buff, batch_size,
-                                                    gpu_resource->get_cublas_handle(), device_id),
-                                 device_id));
+                                 create_regularizer(j, weight_buff, wgrad_buff, (cross_entropy_loss_in_tensor->get_dims())[0],
+                                                    gpu_resource->get_cublas_handle(), device_id), device_id));
         break;
       }
       case Layer_t::Dropout: {
@@ -374,7 +373,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         // establish out tensor
         std::shared_ptr<Tensor<float>> do_out_tensor(new Tensor<float>(
-            {batch_size, (do_in_tensor->get_dims())[1]}, blobs_buff, TensorFormat_t::HW));
+            do_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
         // get ELU params
         auto rate_it = j.find("rate");
@@ -389,7 +388,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         // establish out tensor
         std::shared_ptr<Tensor<float>> elu_out_tensor(new Tensor<float>(
-            {batch_size, (elu_in_tensor->get_dims())[1]}, blobs_buff, TensorFormat_t::HW));
+          elu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({elu_out_tensor, input_output_info.output[0]});
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
@@ -404,7 +403,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto j_fc_param = get_json(j, "fc_param");
         auto output = get_value_from_json<int>(j_fc_param, "num_output");
         std::shared_ptr<Tensor<float>> out_tensor(
-            new Tensor<float>({batch_size, output}, blobs_buff, TensorFormat_t::HW));
+	  new Tensor<float>({(fc_in_tensor->get_dims())[0], output}, blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         // establish layer
         Layer* fc_layer = new FullyConnectedLayer(
@@ -444,7 +443,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
         loss.reset(new MultiCrossEntropyLoss(
             label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
-            create_regularizer(j, weight_buff, wgrad_buff, batch_size,
+            create_regularizer(j, weight_buff, wgrad_buff, (multi_cross_entropy_loss_in_tensor->get_dims())[0],
                                gpu_resource->get_cublas_handle(), device_id),
             target_weight_vec, device_id));
         break;
@@ -454,7 +453,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         // establish out tensor
         std::shared_ptr<Tensor<float>> relu_out_tensor(new Tensor<float>(
-            {batch_size, (relu_in_tensor->get_dims())[1]}, blobs_buff, TensorFormat_t::HW));
+            relu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
         layers.emplace_back(new ReluLayer(relu_in_tensor, relu_out_tensor, device_id));
         break;
@@ -529,8 +528,11 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         const auto& in_tensor = input_output_info.input[0];
         auto out_dim = get_json(j, "out_dim").get<int>();
 
+        // std::shared_ptr<Tensor<float>> out_tensor(
+        //     new Tensor<float>({batch_size, out_dim}, blobs_buff, TensorFormat_t::HW));
         std::shared_ptr<Tensor<float>> out_tensor(
-            new Tensor<float>({batch_size, out_dim}, blobs_buff, TensorFormat_t::HW));
+          new Tensor<float>({(in_tensor->get_dims())[0], out_dim}, blobs_buff, TensorFormat_t::HW));
+	
         layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
@@ -817,7 +819,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       const auto& device_list = gpu_resource_group->get_device_list();
       for (auto device_id : device_list) {
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i],
-                                            batch_size / total_gpu_count, device_id,
+                                            device_id,
                                             (*gpu_resource_group)[i], use_mixed_precision, scaler));
         i++;
       }
