@@ -215,15 +215,12 @@ Slice: opposite to concat, we support `Slice` layer to copy specific `ranges` of
       "top": "reshape1",
       "leading_dim": 416
     }
-
-
     {
       "name": "concat1",
       "type": "Concat",
       "bottom": ["reshape1","dense"],
       "top": "concat1"
     }
-
     {
       "name": "slice1",
       "type": "Slice",
