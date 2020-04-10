@@ -49,20 +49,28 @@ $ git submodule update --init --recursive
 ```
 
 ### Build with Release ###
-Compute Capability can be specified by `-DSM=XX`, which is SM=60 by default. Only one Compute Capability is avaliable to be set.
+Compute Capability can be specified by `-DSM=[Compute Compatibility]`, which is SM=60 by default (Tesla P100). Only one Compute Capability is avaliable to be set.
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=XX ..
+$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. #using Tesla V100
 $ make
 ```
+Supported Compatibility and Tesla GPUs:
+
+|Compute Compatibility|Telsa GPU|
+|----|----|
+|60|P100|
+|61|P40, P4, P6|
+|70|V100|
+|75|T4|
 
 ### Build with Debug ###
-Compute Capability can be specified by `-DSM=XX`, which is SM=60 by default. Only one Compute Capability is avaliable to be set.
+Compute Capability can be specified by `-DSM=[Compute Compatibility]`, which is SM=60 by default (Tesla P100). Only one Compute Capability is avaliable to be set.
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=XX ..
+$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=70 .. #using Telsa V100
 $ make
 ```
 
