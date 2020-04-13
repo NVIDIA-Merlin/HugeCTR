@@ -32,7 +32,7 @@ Under the home directory of HugeCTR:
 $ git submodule update --init --recursive
 ```
 
-### Building HugeCTR in docker container ###
+### Use Docker Container ###
 You can choose using docker to simplify the environment setting up, otherwise please jump to the next paragraph directly.
 
 Ensure that you have [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) installed.
