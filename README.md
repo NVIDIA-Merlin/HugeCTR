@@ -27,6 +27,7 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 
 ## Build ##
 ### Init Git ###
+Under the home directory of HugeCTR:
 ```shell
 $ git submodule update --init --recursive
 ```
@@ -56,7 +57,7 @@ Compute Capability can be specified by `-DSM=[Compute Compatibility]`, which is 
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. #using Tesla V100
-$ make
+$ make -j
 ```
 Supported Compatibility and Tesla GPUs:
 
@@ -73,7 +74,7 @@ Compute Capability can be specified by `-DSM=[Compute Compatibility]`, which is 
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=70 .. #using Telsa V100
-$ make
+$ make -j
 ```
 
 ### Build with Validation Mode ###
@@ -82,7 +83,16 @@ This mode is designed for framework validation. In this mode loss of trainig wil
 $ mkdir -p build
 $ cd build
 $ cmake -DVAL_MODE=ON ..
-$ make
+$ make -j
+```
+
+### Build with Multi-Nodes Training Supported ###
+To run with multi-nodes please build in this way and run HugeCTR with `mpirun`. For more details plese refer to `samples/dcn2nodes`
+```shell
+$ mkdir -p build
+$ cd build
+$ cmake -DENABLE_MULTINODES=ON ..
+$ make -j
 ```
 
 ## Run ##
