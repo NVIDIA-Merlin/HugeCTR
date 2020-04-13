@@ -12,7 +12,7 @@ The original test set doesn't contain labels, so it's not used.
 
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
 and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script_legacy/".
-The script `usage.sh` fills the missing values by mapping them to the unused unique integer or category.
+The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
 It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
 Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
 
