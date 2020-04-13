@@ -16,3 +16,5 @@ RUN python3 -m pip install --upgrade pip && \
     pandas \
     sklearn \
     ortools
+
+RUN echo 'export PS1="\s \w\$ "' >>/etc/bash.bashrc
