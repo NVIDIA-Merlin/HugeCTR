@@ -30,7 +30,7 @@ $ bash preprocess.sh dcn2nodes 1 0
 $ cd ../../samples/dcn2nodes/
 ```
 
-2. Build HugeCTR with the instructions on README.md under home directory.
+2. Build HugeCTR with **multi-nodes training supported** (refer to the README in home directory).
 
 3. Convert the dataset to HugeCTR format
 ```shell
