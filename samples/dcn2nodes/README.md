@@ -30,7 +30,9 @@ $ bash preprocess.sh dcn2nodes 1 0
 $ cd ../../samples/dcn2nodes/
 ```
 
-2. Convert the dataset to HugeCTR format
+2. Build HugeCTR with the instructions on README.md under home directory.
+
+3. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
 $ ./criteo2hugectr ../../tools/criteo_script/dcn2nodes_data/train criteo/sparse_embedding file_list.txt
@@ -42,19 +44,17 @@ Login to your GPU cluster and acquire two nodes. For example, if on a SLURM syst
 ```shell
 $ srun -N 2 --pty bash -i
 $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-$ mpirun python ../../tools/plan_generation/plan_generator.py dcn8l8gpu2nodes.json
+$ mpirun python3 ../../tools/plan_generation/plan_generator.py dcn8l8gpu2nodes.json
 ```
 
 ## Training with HugeCTR ##
 
-1. Build HugeCTR with the instructions on README.md under home directory.
-
-2. Copy huge_ctr to samples/dcn2nodes
+1. Copy huge_ctr to samples/dcn2nodes
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```
 
-3. Run huge_ctr
+2. Run huge_ctr
 ```shell
 $ mpirun --bind-to none ./huge_ctr --train dcn8l8gpu2nodes.json
 ```
