@@ -26,8 +26,13 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * mpi4py
 
 ## Build ##
+### Init Git ###
+```shell
+$ git submodule update --init --recursive
+```
+
 ### Building HugeCTR in docker container ###
-You can choose using docker to simplify the environment setting up, otherwise please jump to [Init Git](README.md#init-git) directly.
+You can choose using docker to simplify the environment setting up, otherwise please jump to the next paragraph directly.
 
 Ensure that you have [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) installed.
 
@@ -36,17 +41,14 @@ To build docker image from the Dockerfile, run the command:
 $ docker build -t hugectr:devel .
 ```
 
-After building the docker image, you can enter the development environment by running a docker container
+After building the docker image, for ease of use, you can push it to your docker registry
+
+Now, you can enter the development environment by running a HugeCTR docker container, you need to mount your dataset into docker container as well
 ```shell
-$ docker run --runtime=nvidia -it hugectr:devel bash
+$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
 ```
 
 Then continue with the following steps
-
-### Init Git ###
-```shell
-$ git submodule update --init --recursive
-```
 
 ### Build with Release ###
 Compute Capability can be specified by `-DSM=[Compute Compatibility]`, which is SM=60 by default (Tesla P100). Only one Compute Capability is avaliable to be set.

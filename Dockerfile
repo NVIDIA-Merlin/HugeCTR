@@ -6,4 +6,13 @@ RUN apt-get update && \
 RUN apt-get install -y \
     git \
     cmake \
-    mpich
+    vim \
+    wget \
+    python3-pip
+
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install --no-cache-dir \
+    numpy \
+    pandas \
+    sklearn \
+    ortools

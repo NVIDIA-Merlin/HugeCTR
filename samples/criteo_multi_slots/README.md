@@ -17,10 +17,14 @@ It also replaces unique values which appear less than six times across the entir
 Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
 
 ```shell
-$ cd ../../tools/criteo_script_legacy/ && bash usage.sh && cd ../../samples/criteo_multi_slots/
+$ cd ../../tools/criteo_script_legacy/
+$ bash preprocess.sh
+$ cd ../../samples/criteo_multi_slots/
 ```
 
-2. Translate the dataset to HugeCTR format
+2. Build HugeCTR with the instructions on README.md under home directory.
+
+3. Translate the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr_legacy ./
 $ ./criteo2hugectr_legacy 10 ../../tools/criteo_script_legacy/train.out criteo/sparse_embedding file_list.txt
@@ -29,14 +33,12 @@ $ ./criteo2hugectr_legacy 10 ../../tools/criteo_script_legacy/test.out criteo_te
 
 ## Training with HugeCTR ##
 
-1. Build HugeCTR with the instructions on README.md under home directory.
-
-2. Copy huge_ctr to samples/criteo_multi_slots
+1. Copy huge_ctr to samples/criteo_multi_slots
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```
 
-3. Run huge_ctr
+2. Run huge_ctr
 ```shell
 $ ./huge_ctr --train ./criteo_multi_slots.json
 ```

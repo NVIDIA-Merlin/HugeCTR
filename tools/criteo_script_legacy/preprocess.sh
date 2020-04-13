@@ -9,7 +9,7 @@ head -n 4584062 valtest > val
 tail -n 4584062 valtest > test
 
 # will produce train.out val.out test.out
-./preprocess.pl train val test
+perl preprocess.pl train val test
 
 
 # may need to shuffle train.out & val.out
