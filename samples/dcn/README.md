@@ -30,7 +30,9 @@ $ bash preprocess.sh dcn 1 0
 $ cd ../../samples/dcn/
 ```
 
-2. Convert the dataset to HugeCTR format
+2. Build HugeCTR with the instructions on README.md under home directory.
+
+3. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
 $ ./criteo2hugectr ../../tools/criteo_script/dcn_data/train criteo/sparse_embedding file_list.txt
@@ -39,14 +41,12 @@ $ ./criteo2hugectr ../../tools/criteo_script/dcn_data/val criteo_test/sparse_emb
 
 ## Training with HugeCTR ##
 
-1. Build HugeCTR with the instructions on README.md under home directory.
-
-2. Copy huge_ctr to samples/dcn
+1. Copy huge_ctr to samples/dcn
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```
 
-3. Run huge_ctr
+2. Run huge_ctr
 ```shell
 $ ./huge_ctr --train ./dcn.json
 ```
@@ -56,7 +56,7 @@ $ ./huge_ctr --train ./dcn.json
 1. Plan file generation
 ```shell
 $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-$ python ../../tools/plan_generation_no_mpi/plan_generator_no_mpi.py dcn_localized_embedding.json
+$ python3 ../../tools/plan_generation_no_mpi/plan_generator_no_mpi.py dcn_localized_embedding.json
 ```
 
 2. Run huge_ctr

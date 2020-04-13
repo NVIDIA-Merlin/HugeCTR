@@ -30,7 +30,9 @@ $ bash preprocess.sh deepfm 1 0
 $ cd ../../samples/deepfm/
 ```
 
-2. Convert the dataset to HugeCTR format
+2. Build HugeCTR with the instructions on README.md under home directory.
+
+3. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
 $ ./criteo2hugectr ../../tools/criteo_script/deepfm_data/train criteo/sparse_embedding file_list.txt
@@ -39,14 +41,12 @@ $ ./criteo2hugectr ../../tools/criteo_script/deepfm_data/test criteo_test/sparse
 
 ## Training with HugeCTR ##
 
-1. Build HugeCTR with the instructions on README.md under home directory.
-
-2. Copy huge_ctr to samples/deepfm
+1. Copy huge_ctr to samples/deepfm
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```
 
-3. Run huge_ctr
+2. Run huge_ctr
 ```shell
 $ ./huge_ctr --train ./deepfm.json
 ```
