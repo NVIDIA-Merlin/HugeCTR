@@ -16,12 +16,11 @@ import math
 import time
 import logging
 import concurrent.futures as cf
+from traceback import print_exc
 
 import numpy as np
 import pandas as pd
 import sklearn.preprocessing as skp
-
-MAX_NUM_WORKERS = 16
 
 logging.basicConfig(format='%(asctime)s %(message)s')
 logging.root.setLevel(logging.NOTSET)
@@ -29,6 +28,8 @@ logging.root.setLevel(logging.NOTSET)
 NUM_INTEGER_COLUMNS = 13
 NUM_CATEGORICAL_COLUMNS = 26
 NUM_TOTAL_COLUMNS = 1 + NUM_INTEGER_COLUMNS + NUM_CATEGORICAL_COLUMNS
+
+MAX_NUM_WORKERS = NUM_TOTAL_COLUMNS
 
 INT_NAN_VALUE = np.iinfo(np.int32).min
 CAT_NAN_VALUE = '80000000'
@@ -45,7 +46,6 @@ def _fill_missing_features_and_split(chunk, series_list_dict):
         series_list_dict[col].append(result_series)
 
 def _merge_and_transform_series(src_series_list, col, dense_cols,
-                                dst_series_list, min_max,
                                 normalize_dense):
     result_series = pd.concat(src_series_list)
 
@@ -76,11 +76,11 @@ def _merge_and_transform_series(src_series_list, col, dense_cols,
 
     result_series.columns = [col]
 
-    min_max[col] = (np.int64(result_series[col].min()), np.int64(result_series[col].max()))
+    min_max = (np.int64(result_series[col].min()), np.int64(result_series[col].max()))
     if col != 'label':
-        logging.info('column {} [{}, {}]'.format(col, str(min_max[col][0]),str(min_max[col][1])))
+        logging.info('column {} [{}, {}]'.format(col, str(min_max[0]),str(min_max[1])))
 
-    dst_series_list.append(result_series)
+    return [result_series, min_max]
 
 def _merge_columns_and_feature_cross(series_list, min_max, feature_pairs,
                                      feature_cross):
@@ -122,7 +122,7 @@ def _merge_columns_and_feature_cross(series_list, min_max, feature_pairs,
             offset += crossed_column_max_val
 
     return df
-    
+
 def _wait_futures_and_reset(futures):
     for future in futures:
         result = future.result()
@@ -141,20 +141,22 @@ def _process_chunks(executor, chunks_to_process, op, *argv):
     _wait_futures_and_reset(futures)
 
 def preprocess(src_txt_name, dst_txt_name, normalize_dense, feature_cross):
+    cols = [idx2key(idx) for idx in range(0, NUM_TOTAL_COLUMNS)]
+    series_list_dict = dict()
+
     with cf.ThreadPoolExecutor(max_workers=MAX_NUM_WORKERS) as executor:
-        cols = [idx2key(idx) for idx in range(0, NUM_TOTAL_COLUMNS)]
         logging.info('read a CSV file')
         reader = pd.read_csv(src_txt_name, sep='\t',
                              names=cols,
                              chunksize=131072)
 
         logging.info('_fill_missing_features_and_split')
-        series_list_dict = dict()
         for col in cols:
             series_list_dict[col] = list()
         _process_chunks(executor, reader, _fill_missing_features_and_split,
                         series_list_dict)
 
+    with cf.ProcessPoolExecutor(max_workers=MAX_NUM_WORKERS) as executor:
         logging.info('_merge_and_transform_series')
         futures = list()
         dense_cols = [idx2key(idx+1) for idx in range(NUM_INTEGER_COLUMNS)]
@@ -163,15 +165,31 @@ def preprocess(src_txt_name, dst_txt_name, normalize_dense, feature_cross):
         for col, src_series_list in series_list_dict.items():
             future = executor.submit(_merge_and_transform_series,
                                      src_series_list, col, dense_cols,
-                                     dst_series_list, min_max,
                                      normalize_dense)
             futures.append(future)
-        _wait_futures_and_reset(futures)
+
+        for future in futures:
+            col = None
+            for idx, ret in enumerate(future.result()):
+                try:
+                    if idx == 0:
+                        col = ret.columns[0]
+                        dst_series_list.append(ret)
+                    else:
+                        min_max[col] = ret
+                except:
+                    print_exc()
+        futures = list()
 
         logging.info('_merge_columns_and_feature_cross')
         feature_pairs = [('C1', 'C2'), ('C3', 'C4')]
         df = _merge_columns_and_feature_cross(dst_series_list, min_max, feature_pairs,
                                               feature_cross)
+
+        
+        logging.info('_convert_to_string')
+        df = pd.DataFrame(df.values.astype(str))
+
         logging.info('write to a CSV file')
         df.to_csv(dst_txt_name, sep=' ', header=False, index=False)
 
