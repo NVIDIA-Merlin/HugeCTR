@@ -82,6 +82,9 @@ def _merge_and_transform_series(src_series_list, col, dense_cols,
 
     return [result_series, min_max]
 
+def _convert_to_string(series):
+    return series.astype(str)
+
 def _merge_columns_and_feature_cross(series_list, min_max, feature_pairs,
                                      feature_cross):
     name_to_series = dict()
@@ -188,7 +191,24 @@ def preprocess(src_txt_name, dst_txt_name, normalize_dense, feature_cross):
 
         
         logging.info('_convert_to_string')
-        df = pd.DataFrame(df.values.astype(str))
+        futures = dict()
+        for col in cols:
+            future = executor.submit(_convert_to_string, df[col])
+            futures[col] = future
+        if feature_cross != 0:
+            for pair in feature_pairs:
+                col = pair[0] + '_' + pair[1]
+                future = executor.submit(_convert_to_string, df[col])
+                futures[col] = future
+
+        logging.info('_store_to_df')
+        for col, future in futures.items():
+            ret = future.result()
+            try:
+                df[col] = ret
+            except:
+                print_exc()
+        futures = dict()
 
         logging.info('write to a CSV file')
         df.to_csv(dst_txt_name, sep=' ', header=False, index=False)
