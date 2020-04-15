@@ -24,7 +24,7 @@ In addition, it normalizes the integer feature values to the range [0, 1],
 but it doesn't create any feature crosses.
 
 ```shell
-# The preprocessing can take 1-4 hours based on the system configuration.
+# The preprocessing can take 40 minutes to 1 hour based on the system configuration.
 $ cd ../../tools/criteo_script/
 $ bash preprocess.sh deepfm 1 0
 $ cd ../../samples/deepfm/
