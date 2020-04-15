@@ -24,7 +24,7 @@ In addition, it doesn't only normalize the integer feature values to the range [
 but it also creates the two feature crosses.
 
 ```shell
-# The preprocessing can take 1-4 hours based on the system configuration.
+# The preprocessing can take 40 minutes to 1 hour based on the system configuration.
 $ cd ../../tools/criteo_script/
 $ bash preprocess.sh wdl 1 1
 $ cd ../../samples/wdl/
