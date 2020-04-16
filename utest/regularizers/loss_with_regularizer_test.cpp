@@ -37,7 +37,7 @@ using namespace HugeCTR;
 
 namespace {
 
-float get_ref_term(Regularizer_t type, std::vector<float>& h_weight, float lambda, int batch_size) {
+float get_ref_term(Regularizer_t type, std::vector<float>& h_weight, float lambda, size_t batch_size) {
   float ref_term = 0.0f;
   switch (type) {
     case Regularizer_t::L1: {
@@ -64,7 +64,7 @@ float get_ref_term(Regularizer_t type, std::vector<float>& h_weight, float lambd
 }
 
 void get_ref_grad(Regularizer_t type, const std::vector<float>& h_weight,
-                  std::vector<float>& h_wgrad, float lambda, int batch_size) {
+                  std::vector<float>& h_wgrad, float lambda, size_t batch_size) {
   switch (type) {
     case Regularizer_t::L1: {
       for (size_t i = 0; i < h_wgrad.size(); i++) {
@@ -88,7 +88,7 @@ void get_ref_grad(Regularizer_t type, const std::vector<float>& h_weight,
 std::shared_ptr<Regularizer> create_regularizer(Regularizer_t type,
                                                 std::shared_ptr<GeneralBuffer<float>> weight_buff,
                                                 std::shared_ptr<GeneralBuffer<float>> wgrad_buff,
-                                                int batch_size, float lambda,
+                                                size_t batch_size, float lambda,
                                                 cublasHandle_t cublas_handle) {
   std::shared_ptr<Regularizer> reg;
   switch (type) {
@@ -107,7 +107,7 @@ std::shared_ptr<Regularizer> create_regularizer(Regularizer_t type,
 
 const float eps = 1e-5;
 
-void loss_with_regularizer_test(Regularizer_t type, int batch_size, int num_features,
+void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t num_features,
                                 float lambda) {
   cublasHandle_t cublas_handle;
   cublasCreate(&cublas_handle);

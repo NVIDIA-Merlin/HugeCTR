@@ -63,19 +63,19 @@ void fm_order2_bprop_cpu(const float* in, const float* top_grad, float* dgrad, i
   }
 }
 
-void fm_order2_test(int batch_size, int slot_num, int emb_vec_size) {
+void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
   std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>);
-  std::vector<int> in_dims = {batch_size, slot_num * emb_vec_size};
+  std::vector<size_t> in_dims = {batch_size, slot_num * emb_vec_size};
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buf, TensorFormat_t::HW));
-  std::vector<int> out_dims = {batch_size, emb_vec_size};
+  std::vector<size_t> out_dims = {batch_size, emb_vec_size};
   std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(out_dims, buf, TensorFormat_t::HW));
   buf->init(0);
 
   float* d_in = in_tensor->get_ptr();
   float* d_out = out_tensor->get_ptr();
 
-  const int in_len = batch_size * slot_num * emb_vec_size;
-  const int out_len = batch_size * emb_vec_size;
+  const size_t in_len = batch_size * slot_num * emb_vec_size;
+  const size_t out_len = batch_size * emb_vec_size;
   std::unique_ptr<float[]> h_in(new float[in_len]);
   std::unique_ptr<float[]> h_out(new float[out_len]);
   std::unique_ptr<float[]> h_expected(new float[out_len]);
@@ -84,7 +84,7 @@ void fm_order2_test(int batch_size, int slot_num, int emb_vec_size) {
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
   FmOrder2Layer fm_order2_layer(in_tensor, out_tensor, 0);
 
-  for (int i = 0; i < in_len; i++) {
+  for (size_t i = 0; i < in_len; i++) {
     h_in[i] = simulator.get_num();
   }
 
@@ -95,11 +95,11 @@ void fm_order2_test(int batch_size, int slot_num, int emb_vec_size) {
   fm_order2_fprop_cpu(h_in.get(), h_expected.get(), batch_size, slot_num, emb_vec_size);
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), out_len, eps));
 
-  for (int i = 0; i < in_len; i++) {
+  for (size_t i = 0; i < in_len; i++) {
     h_in[i] = simulator.get_num();
     h_expected_dgrad[i] = h_in[i];
   }
-  for (int i = 0; i < out_len; i++) {
+  for (size_t i = 0; i < out_len; i++) {
     h_out[i] = simulator.get_num();
   }
 

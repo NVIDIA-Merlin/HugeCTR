@@ -43,7 +43,7 @@ class MultiplyLayer : public Layer {
                 const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
                 const std::shared_ptr<GeneralBuffer<float>>& blob_buff,
                 const std::shared_ptr<Tensor<float>>& in_tensor,
-                std::shared_ptr<Tensor<float>>& out_tensor, const std::vector<int>& weight_dims,
+                std::shared_ptr<Tensor<float>>& out_tensor, const std::vector<size_t>& weight_dims,
                 int device_id);
   ~MultiplyLayer() override{};
 
@@ -64,9 +64,9 @@ class MultiplyLayer : public Layer {
    */
   std::vector<float> get_initializer() override;
 
-  int batch_size_;
-  int slot_num_;
-  int embedding_vec_size_;
+  size_t batch_size_;
+  size_t slot_num_;
+  size_t embedding_vec_size_;
   std::shared_ptr<GeneralBuffer<float>> internal_buff_;
   std::unique_ptr<Tensor<float>> wgrad_tmp_trans_;
 };

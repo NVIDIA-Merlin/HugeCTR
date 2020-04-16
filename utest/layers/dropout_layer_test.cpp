@@ -32,12 +32,12 @@ namespace {
 
 const float eps = 1e-6;
 
-void dropout_test(int dim0, int dim1, float rate) {
+void dropout_test(size_t dim0, size_t dim1, float rate) {
   curandGenerator_t curand_generator;
   CK_CURAND_THROW_(curandCreateGenerator(&curand_generator, CURAND_RNG_PSEUDO_DEFAULT));
 
   std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>());
-  vector<int> dims = {dim0, dim1};
+  vector<size_t> dims = {dim0, dim1};
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, buf));
   std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims, buf));
   buf->init(0);

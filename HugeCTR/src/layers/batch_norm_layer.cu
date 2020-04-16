@@ -54,7 +54,7 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weig
 
   bool is_column_major = (in_format == TensorFormat_t::WH);
 
-  int num_feature = is_column_major ? in_tensor_dim[0] : in_tensor_dim[1];
+  size_t num_feature = is_column_major ? in_tensor_dim[0] : in_tensor_dim[1];
   int batch_size = is_column_major ? in_tensor_dim[1] : in_tensor_dim[0];
 
   cudnnDataType_t data_type = CUDNN_DATA_FLOAT;
@@ -72,7 +72,7 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weig
   CK_CUDNN_THROW_(cudnnDeriveBNTensorDescriptor(gamma_beta_desc_, in_out_desc_, mode_));
 
   auto gamma_format = TensorFormat_t::WH;
-  std::vector<int> gamma_dim = {num_feature, 1};
+  std::vector<size_t> gamma_dim = {num_feature, 1};
 
   // gamma & beta
   gamma_.reset(new Tensor<float>(gamma_dim, weight_buff, gamma_format));

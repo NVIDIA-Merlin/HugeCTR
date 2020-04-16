@@ -50,17 +50,6 @@ void Loss::fused_loss_computation(cudaStream_t stream) {
   float *loss = loss_tensor->get_ptr();
 
   float scaler = 1.f;
-#ifdef SCALE_128
-  scaler = 128.f;
-#elif SCALE_256
-  scaler = 256.f;
-#elif SCALE_512
-  scaler = 512.f;
-#elif SCALE_1024
-  scaler = 1024.f;
-#else
-  scaler = 1.f;
-#endif
   float rterm = 0.0f;
   if (regularizer_) {
     regularizer_->compute_rterm(stream);
@@ -281,13 +270,13 @@ MultiCrossEntropyLoss::MultiCrossEntropyLoss(
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
   }
   // verify the length of target_weight
-  if ((int)target_weight.size() != input_tensor->get_dims()[1]) {
+  if (target_weight.size() != input_tensor->get_dims()[1]) {
     CK_THROW_(Error_t::WrongInput, "target_weight.size() != input_tensor.get_dims()[0]");
   }
 
   // load target_weight to internal Tensor
   internal_buff_.reset(new GeneralBuffer<float>());
-  std::vector<int> twdim = {1, label_tensor->get_dims()[1]};
+  std::vector<size_t> twdim = {1, label_tensor->get_dims()[1]};
   target_weight_.reset(new Tensor<float>(twdim, internal_buff_, TensorFormat_t::HW));
   internal_buff_->init(device_id);
   CudaDeviceContext context(device_id);

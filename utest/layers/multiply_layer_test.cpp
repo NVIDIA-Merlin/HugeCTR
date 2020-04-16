@@ -71,14 +71,14 @@ void multiply_dgrad_cpu(const T* top_grad, const T* weight, T* dgrad, int batch_
   }
 }
 
-void multiply_test(int batch_size, int slot_num, int embedding_vec_size) {
-  int dev_id = 0;
+void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size) {
+  size_t dev_id = 0;
   std::shared_ptr<GeneralBuffer<float>> in_out_buf(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> weight_buf(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> wgrad_buf(new GeneralBuffer<float>());
 
-  vector<int> in_dims = {batch_size, slot_num};
-  vector<int> weight_dims = {slot_num, embedding_vec_size};
+  vector<size_t> in_dims = {batch_size, slot_num};
+  vector<size_t> weight_dims = {slot_num, embedding_vec_size};
 
   std::shared_ptr<Tensor<float>> in_tensor(
       new Tensor<float>(in_dims, in_out_buf, TensorFormat_t::HW));
@@ -95,9 +95,9 @@ void multiply_test(int batch_size, int slot_num, int embedding_vec_size) {
   float* d_weight = weight_buf->get_ptr_with_offset(0);
   float* d_wgrad = wgrad_buf->get_ptr_with_offset(0);
 
-  const int len_in = batch_size * slot_num;
-  const int len_out = batch_size * slot_num * embedding_vec_size;
-  const int len_w = slot_num * embedding_vec_size;
+  const size_t len_in = batch_size * slot_num;
+  const size_t len_out = batch_size * slot_num * embedding_vec_size;
+  const size_t len_w = slot_num * embedding_vec_size;
   float* d_in = in_tensor->get_ptr();
   float* d_out = out_tensor->get_ptr();
   std::unique_ptr<float[]> h_in(new float[len_in]);
@@ -108,10 +108,10 @@ void multiply_test(int batch_size, int slot_num, int embedding_vec_size) {
   std::unique_ptr<float[]> h_expected_wgrad(new float[len_w]);
 
   // fprop
-  for (int i = 0; i < len_in; ++i) {
+  for (size_t i = 0; i < len_in; ++i) {
     h_in[i] = simulator.get_num();
   }
-  for (int i = 0; i < len_w; ++i) {
+  for (size_t i = 0; i < len_w; ++i) {
     h_weight[i] = simulator.get_num();
   }
   cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice);
@@ -124,14 +124,14 @@ void multiply_test(int batch_size, int slot_num, int embedding_vec_size) {
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len_out, eps));
 
   // bprop
-  for (int i = 0; i < len_in; ++i) {
+  for (size_t i = 0; i < len_in; ++i) {
     h_in[i] = simulator.get_num();
     h_expected[i] = h_in[i];
   }
-  for (int i = 0; i < len_out; i++) {
+  for (size_t i = 0; i < len_out; i++) {
     h_out[i] = simulator.get_num();  // top_grad
   }
-  for (int i = 0; i < len_w; ++i) {
+  for (size_t i = 0; i < len_w; ++i) {
     h_weight[i] = simulator.get_num();
   }
   cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice);

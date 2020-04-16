@@ -117,7 +117,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
 
   std::vector<size_t> temp_storage_scan_bytes_; /**< The temp variable for CUB lib scaning API. */
 
-  int max_vocabulary_size_per_gpu_; /**< Max vocabulary size for each GPU. */
+  size_t max_vocabulary_size_per_gpu_; /**< Max vocabulary size for each GPU. */
 
   SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
 
@@ -224,9 +224,8 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
     // int embedding_rows_per_gpu = (int)ceil((double)embedding_params_.vocabulary_size /
     // (double)gpu_count); int embedding_rows_per_gpu = (int)embedding_params_.vocabulary_size;
     max_vocabulary_size_per_gpu_ =
-        (int)((float)embedding_params_.vocabulary_size /
+        (size_t)((float)embedding_params_.vocabulary_size /
               Base::device_resources_->get_total_gpu_count() / embedding_params_.load_factor);
-
 #ifndef NDEBUG
     std::cout << "max_vocabulary_size_per_gpu_:" << max_vocabulary_size_per_gpu_ << std::endl;
 #endif
@@ -237,8 +236,8 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
     CK_CUDA_THROW_(cudaMallocHost(
         &h_hash_table_value,
         max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size * sizeof(float)));
-    for (long long i = 0;
-         i < ((long long)max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size);
+    for (size_t i = 0;
+         i < (max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size);
          i++) {
       h_hash_table_value[i] = fdata_sim.get_num();
     }
@@ -258,7 +257,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
 
       // new hash table value vectors
       hash_table_value_tensors_.emplace_back(
-          new Tensor<float>({max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
+	new Tensor<float>({max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
                             float_bufs_.back(), TensorFormat_t::HW));
 
       // new hash table value_index that get() from HashTable
@@ -289,7 +288,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
               {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
               float_bufs_.back(), TensorFormat_t::HW));
           opt_v_tensors_.emplace_back(new Tensor<float>(
-              {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
+	      {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
               float_bufs_.back(), TensorFormat_t::HW));
           break;
 
@@ -356,7 +355,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
             (TypeHashKey *)NULL, (TypeHashKey *)NULL,
             embedding_params_.batch_size * embedding_params_.max_feature_num);
         temp_storage_sort_bytes_.push_back(temp);
-        int size = (int)ceil((float)temp_storage_sort_bytes_[id] / sizeof(TypeHashKey));
+        size_t size = (size_t)ceil((float)temp_storage_sort_bytes_[id] / sizeof(TypeHashKey));
 
         // new temp storage tensors for CUB radix sort
         temp_storage_sort_tensors_.emplace_back(

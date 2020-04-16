@@ -33,7 +33,7 @@ namespace {
 
 const float eps = 1e-5;
 
-void l2_regularizer_test(int batch_size, std::vector<std::pair<int, int>> layers, float lambda) {
+void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t>> layers, float lambda) {
   cublasHandle_t cublas_handle;
   cublasCreate(&cublas_handle);
 

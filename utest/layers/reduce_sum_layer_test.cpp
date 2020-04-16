@@ -30,24 +30,24 @@ namespace {
 
 const float eps = 1e-5f;
 
-void reduce_sum_cpu(const float* input, float* output, std::vector<int> dims, int axis) {
+void reduce_sum_cpu(const float* input, float* output, std::vector<size_t> dims, size_t axis) {
   if (axis == 0) {
     if (dims.size() == 1) {
-      for (int i = 0; i < dims[0]; i++) {
+      for (size_t i = 0; i < dims[0]; i++) {
         output[0] = input[i];
       }
     } else if (dims.size() == 2) {
-      for (int k = 0; k < dims[1]; k++) {
+      for (size_t k = 0; k < dims[1]; k++) {
         output[k] = 0;
-        for (int i = 0; i < dims[0]; i++) {
+        for (size_t i = 0; i < dims[0]; i++) {
           output[k] += input[i * dims[1] + k];
         }
       }
     } else if (dims.size() == 3) {
-      for (int j = 0; j < dims[1]; j++) {
-        for (int k = 0; k < dims[2]; k++) {
+      for (size_t j = 0; j < dims[1]; j++) {
+        for (size_t k = 0; k < dims[2]; k++) {
           output[j * dims[2] + k] = 0;
-          for (int i = 0; i < dims[0]; i++) {
+          for (size_t i = 0; i < dims[0]; i++) {
             output[j * dims[2] + k] += input[i * dims[1] * dims[2] + j * dims[2] + k];
           }
         }
@@ -55,27 +55,27 @@ void reduce_sum_cpu(const float* input, float* output, std::vector<int> dims, in
     }
   } else if (axis == 1) {
     if (dims.size() == 2) {
-      for (int i = 0; i < dims[0]; i++) {
+      for (size_t i = 0; i < dims[0]; i++) {
         output[i] = 0;
-        for (int j = 0; j < dims[1]; j++) {
+        for (size_t j = 0; j < dims[1]; j++) {
           output[i] += input[i * dims[1] + j];
         }
       }
     } else if (dims.size() == 3) {
-      for (int i = 0; i < dims[0]; i++) {
-        for (int k = 0; k < dims[2]; k++) {
+      for (size_t i = 0; i < dims[0]; i++) {
+        for (size_t k = 0; k < dims[2]; k++) {
           output[i * dims[2] + k] = 0;
-          for (int j = 0; j < dims[1]; j++) {
+          for (size_t j = 0; j < dims[1]; j++) {
             output[i * dims[2] + k] += input[i * dims[1] * dims[2] + j * dims[2] + k];
           }
         }
       }
     }
   } else if (axis == 2) {
-    for (int i = 0; i < dims[0]; i++) {
-      for (int j = 0; j < dims[1]; j++) {
+    for (size_t i = 0; i < dims[0]; i++) {
+      for (size_t j = 0; j < dims[1]; j++) {
         output[i * dims[1] + j] = 0;
-        for (int k = 0; k < dims[2]; k++) {
+        for (size_t k = 0; k < dims[2]; k++) {
           output[i * dims[1] + j] += input[i * dims[1] * dims[2] + j * dims[2] + k];
         }
       }
@@ -83,18 +83,18 @@ void reduce_sum_cpu(const float* input, float* output, std::vector<int> dims, in
   }
 }
 
-void reduce_sum_dgrad_cpu(const float* top_grad, float* dgrad, std::vector<int> dims, int axis) {
+void reduce_sum_dgrad_cpu(const float* top_grad, float* dgrad, std::vector<size_t> dims, size_t axis) {
   if (axis == 0) {
     if (dims.size() == 2) {
-      for (int j = 0; j < dims[1]; j++) {
-        for (int i = 0; i < dims[0]; i++) {
+      for (size_t j = 0; j < dims[1]; j++) {
+        for (size_t i = 0; i < dims[0]; i++) {
           dgrad[i * dims[1] + j] = top_grad[j];
         }
       }
     } else if (dims.size() == 3) {
-      for (int j = 0; j < dims[1]; j++) {
-        for (int k = 0; k < dims[2]; k++) {
-          for (int i = 0; i < dims[0]; i++) {
+      for (size_t j = 0; j < dims[1]; j++) {
+        for (size_t k = 0; k < dims[2]; k++) {
+          for (size_t i = 0; i < dims[0]; i++) {
             dgrad[i * dims[1] * dims[2] + j * dims[2] + k] = top_grad[j * dims[2] + k];
           }
         }
@@ -102,24 +102,24 @@ void reduce_sum_dgrad_cpu(const float* top_grad, float* dgrad, std::vector<int> 
     }
   } else if (axis == 1) {
     if (dims.size() == 2) {
-      for (int i = 0; i < dims[0]; i++) {
-        for (int j = 0; j < dims[1]; j++) {
+      for (size_t i = 0; i < dims[0]; i++) {
+        for (size_t j = 0; j < dims[1]; j++) {
           dgrad[i * dims[1] + j] = top_grad[i];
         }
       }
     } else if (dims.size() == 3) {
-      for (int i = 0; i < dims[0]; i++) {
-        for (int k = 0; k < dims[2]; k++) {
-          for (int j = 0; j < dims[1]; j++) {
+      for (size_t i = 0; i < dims[0]; i++) {
+        for (size_t k = 0; k < dims[2]; k++) {
+          for (size_t j = 0; j < dims[1]; j++) {
             dgrad[i * dims[1] * dims[2] + j * dims[2] + k] = top_grad[i * dims[2] + k];
           }
         }
       }
     }
   } else if (axis == 2) {
-    for (int i = 0; i < dims[0]; i++) {
-      for (int j = 0; j < dims[1]; j++) {
-        for (int k = 0; k < dims[2]; k++) {
+    for (size_t i = 0; i < dims[0]; i++) {
+      for (size_t j = 0; j < dims[1]; j++) {
+        for (size_t k = 0; k < dims[2]; k++) {
           dgrad[i * dims[1] * dims[2] + j * dims[2] + k] = top_grad[i * dims[1] + j];
         }
       }
@@ -127,12 +127,12 @@ void reduce_sum_dgrad_cpu(const float* top_grad, float* dgrad, std::vector<int> 
   }
 }
 
-void reduce_sum_test(int batch_size, int slot_num, int embedding_vec_size, int axis) {
-  int dev_id = 0;
+void reduce_sum_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, size_t axis) {
+  size_t dev_id = 0;
   std::shared_ptr<GeneralBuffer<float>> in_out_buf(new GeneralBuffer<float>());
 
-  vector<int> in_dims = {batch_size, slot_num, embedding_vec_size};  // 3D
-  // vector<int> in_dims = {batch_size, slot_num}; // 2D
+  vector<size_t> in_dims = {batch_size, slot_num, embedding_vec_size};  // 3D
+  // vector<size_t> in_dims = {batch_size, slot_num}; // 2D
   TensorFormat_t in_format;
   if (in_dims.size() == 2) {
     in_format = TensorFormat_t::HW;
@@ -147,12 +147,12 @@ void reduce_sum_test(int batch_size, int slot_num, int embedding_vec_size, int a
 
   in_out_buf->init(dev_id);
 
-  int in_size = 1;
+  size_t in_size = 1;
   for (auto dim : in_dims) {
     in_size *= dim;
   }
   auto out_dims = out_tensor->get_dims();
-  int out_size = 1;
+  size_t out_size = 1;
   for (auto dim : out_dims) {
     out_size *= dim;
   }
@@ -165,21 +165,21 @@ void reduce_sum_test(int batch_size, int slot_num, int embedding_vec_size, int a
   std::unique_ptr<float[]> h_gpu_dgrad(new float[in_size]);
 
   // fprop
-  for (int i = 0; i < in_size; i++) {
+  for (size_t i = 0; i < in_size; i++) {
     h_in[i] = simulator.get_num();
   }
 
   // if(in_dims.size() == 2) {
-  //   for(int i = 0; i < in_dims[0]; i++) {
-  //     for(int j = 0; j < in_dims[1]; j++) {
+  //   for(size_t i = 0; i < in_dims[0]; i++) {
+  //     for(size_t j = 0; j < in_dims[1]; j++) {
   //       h_in[i*in_dims[1]+j] = i;
   //     }
   //   }
   // }
   // else if(in_dims.size() == 3) {
-  //   for(int i = 0; i < in_dims[0]; i++) {
-  //     for(int j = 0; j < in_dims[1]; j++) {
-  //       for(int k = 0; k < in_dims[2]; k++) {
+  //   for(size_t i = 0; i < in_dims[0]; i++) {
+  //     for(size_t j = 0; j < in_dims[1]; j++) {
+  //       for(size_t k = 0; k < in_dims[2]; k++) {
   //         h_in[i*in_dims[1]*in_dims[2]+j*in_dims[2]+k] = i*in_dims[1]+j;
   //       }
   //     }
@@ -189,17 +189,17 @@ void reduce_sum_test(int batch_size, int slot_num, int embedding_vec_size, int a
   // std::cout << "axis=" << axis << std::endl;
   // std::cout << "data in:" << std::endl;
   // if(in_dims.size() == 2) {
-  //   for(int i = 0; i < in_dims[0]; i++) {
-  //     for(int j = 0; j < in_dims[1]; j++) {
+  //   for(size_t i = 0; i < in_dims[0]; i++) {
+  //     for(size_t j = 0; j < in_dims[1]; j++) {
   //         std::cout << h_in[i*in_dims[1]+j] << " ";
   //     }
   //     std::cout << std::endl;
   //   }
   // }
   // if(in_dims.size() == 3) {
-  //   for(int i = 0; i < in_dims[0]; i++) {
-  //     for(int j = 0; j < in_dims[1]; j++) {
-  //       for(int k = 0; k < in_dims[2]; k++) {
+  //   for(size_t i = 0; i < in_dims[0]; i++) {
+  //     for(size_t j = 0; j < in_dims[1]; j++) {
+  //       for(size_t k = 0; k < in_dims[2]; k++) {
   //         std::cout << h_in[i*in_dims[1]*in_dims[2]+j*in_dims[2]+k] << " ";
   //       }
   //       std::cout << std::endl;
@@ -214,17 +214,17 @@ void reduce_sum_test(int batch_size, int slot_num, int embedding_vec_size, int a
 
   // std::cout << "gpu out:" << std::endl;
   // if(out_dims.size() == 2) {
-  //   for(int i = 0; i  < out_dims[0]; i++) {
-  //     for(int j = 0; j < out_dims[1]; j++) {
+  //   for(size_t i = 0; i  < out_dims[0]; i++) {
+  //     for(size_t j = 0; j < out_dims[1]; j++) {
   //       std::cout << h_out[i*out_dims[1]+j] << " ";
   //     }
   //     std::cout << std::endl;
   //   }
   // }
   // else if(out_dims.size() == 3) {
-  //   for(int i = 0; i  < out_dims[0]; i++) {
-  //     for(int j = 0; j < out_dims[1]; j++) {
-  //       for(int k = 0; k < out_dims[2]; k++) {
+  //   for(size_t i = 0; i  < out_dims[0]; i++) {
+  //     for(size_t j = 0; j < out_dims[1]; j++) {
+  //       for(size_t k = 0; k < out_dims[2]; k++) {
   //         std::cout << h_out[i*out_dims[1]*out_dims[2]+j*out_dims[2]+k] << " ";
   //       }
   //       std::cout << std::endl;
@@ -237,17 +237,17 @@ void reduce_sum_test(int batch_size, int slot_num, int embedding_vec_size, int a
 
   // std::cout << "cpu out:" << std::endl;
   // if(out_dims.size() == 2) {
-  //   for(int i = 0; i < out_dims[0]; i++) {
-  //     for(int j = 0; j < out_dims[1]; j++) {
+  //   for(size_t i = 0; i < out_dims[0]; i++) {
+  //     for(size_t j = 0; j < out_dims[1]; j++) {
   //         std::cout << h_cpu_out[i*out_dims[1]+j] << " ";
   //     }
   //     std::cout << std::endl;
   //   }
   // }
   // else if(out_dims.size() == 3) {
-  //   for(int i = 0; i < out_dims[0]; i++) {
-  //     for(int j = 0; j < out_dims[1]; j++) {
-  //       for(int k = 0; k < out_dims[2]; k++) {
+  //   for(size_t i = 0; i < out_dims[0]; i++) {
+  //     for(size_t j = 0; j < out_dims[1]; j++) {
+  //       for(size_t k = 0; k < out_dims[2]; k++) {
   //         std::cout << h_cpu_out[i*out_dims[1]*out_dims[2]+j*out_dims[2]+k] << " ";
   //       }
   //       std::cout << std::endl;
@@ -259,7 +259,7 @@ void reduce_sum_test(int batch_size, int slot_num, int embedding_vec_size, int a
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_cpu_out.get(), out_size, eps));
 
   // bprop
-  for (int i = 0; i < out_size; i++) {
+  for (size_t i = 0; i < out_size; i++) {
     h_out[i] = simulator.get_num();  // top_grad
   }
   cudaMemcpy(d_out, h_out.get(), out_size * sizeof(float), cudaMemcpyHostToDevice);

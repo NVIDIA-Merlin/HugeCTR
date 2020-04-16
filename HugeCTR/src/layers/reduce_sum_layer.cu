@@ -37,7 +37,7 @@ __device__ int array_length(T (&arr)[length]) {
 // this kernel can support dims_size=1/2/3
 template <typename... Args>
 __global__ void reduce_sum_kernel(const float* input, float* output, int axis, Args... args) {
-  int in_dims[] = {args...};
+  size_t in_dims[] = {args...};
   int dims_size = array_length(in_dims);
   float local_sum = 0.0f;
 
@@ -84,7 +84,7 @@ template <typename... Args>
 __global__ void reduce_sum_dgrad_kernel(const float* top_grad, float* dgrad, int axis,
                                         Args... args) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
-  int in_dims[] = {args...};
+  size_t in_dims[] = {args...};
   int dims_size = array_length(in_dims);
 
   if (axis == 0) {
@@ -143,7 +143,7 @@ ReduceSumLayer::ReduceSumLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       CK_THROW_(Error_t::WrongInput, "The axis is overflow");
     }
 
-    std::vector<int> out_dims(in_dims.size());
+    std::vector<size_t> out_dims(in_dims.size());
     for (int i = 0; i < (int)(in_dims.size()); i++) {
       if (i == axis) {
         out_dims[i] = 1;

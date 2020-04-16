@@ -132,7 +132,7 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
                              const std::shared_ptr<GeneralBuffer<float>>& blob_buff,
                              const std::shared_ptr<Tensor<float>>& in_tensor,
                              std::shared_ptr<Tensor<float>>& out_tensor,
-                             const std::vector<int>& weight_dims, int device_id)
+                             const std::vector<size_t>& weight_dims, int device_id)
     : Layer(device_id) {
   try {
     CudaDeviceContext context(get_device_id());
@@ -155,7 +155,7 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     slot_num_ = weight_dims[0];
     embedding_vec_size_ = weight_dims[1];
 
-    std::vector<int> out_dims{batch_size_, slot_num_ * embedding_vec_size_};
+    std::vector<size_t> out_dims{batch_size_, slot_num_ * embedding_vec_size_};
     out_tensor.reset(new Tensor<float>(out_dims, blob_buff, in_tensor->get_format()));
     in_tensors_.emplace_back(in_tensor);
     out_tensors_.emplace_back(out_tensor);

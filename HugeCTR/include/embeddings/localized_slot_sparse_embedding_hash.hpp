@@ -123,7 +123,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey> {
   std::vector<size_t> temp_storage_sort_bytes_; /**< The temp variable for CUB lib sorting API. */
   std::vector<size_t> temp_storage_scan_bytes_; /**< The temp variable for CUB lib scaning API. */
 
-  int max_vocabulary_size_per_gpu_;   /**< Max vocabulary size for each GPU. */
+  size_t max_vocabulary_size_per_gpu_;   /**< Max vocabulary size for each GPU. */
   int batch_size_per_gpu_;            /*< batch_size per GPU */
   std::vector<int> slot_num_per_gpu_; /* slot_num per GPU */
 
@@ -244,7 +244,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
     // to set the param "load_factor"(load_factor<1). The size of
     // max_vocabulary_size_per_gpu_=vocabulary_size/total_gpu_count/load_factor, which should be
     // more than vocabulary_size/total_gpu_count.
-    max_vocabulary_size_per_gpu_ = (int)((float)embedding_params_.vocabulary_size /
+    max_vocabulary_size_per_gpu_ = (size_t)((float)embedding_params_.vocabulary_size /
                                          total_gpu_count_ / embedding_params_.load_factor);
 
     // TODO: how to cal this value when slot_num%gpu_count!=0 ???
@@ -258,11 +258,12 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 
     // for hash_table_value initialization
     HugeCTR::UnifiedDataSimulator<float> fdata_sim(-0.05, 0.05);
+    //std::cout << (long long) max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size * sizeof(float) << "Byte = " << max_vocabulary_size_per_gpu_ << "*" << embedding_params_.embedding_vec_size << std::endl;
     float *h_hash_table_value;
     CK_CUDA_THROW_(cudaMallocHost(
         &h_hash_table_value,
         max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size * sizeof(float)));
-    for (long long i = 0; i < (max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size);
+    for (size_t i = 0; i < (max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size);
          i++) {
       h_hash_table_value[i] = fdata_sim.get_num();
     }
@@ -287,7 +288,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 
       // new hash table value vectors
       hash_table_value_tensors_.emplace_back(
-          new Tensor<float>({max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
+        new Tensor<float>({max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
                             float_bufs_.back(), TensorFormat_t::HW));
 
       // new hash table value_index that get() from HashTable
@@ -322,7 +323,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 
         case 1:  // momentum_sgd
           opt_momentum_tensors_.emplace_back(new Tensor<float>(
-              {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
+	      {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
               float_bufs_.back(), TensorFormat_t::HW));
           break;
 
@@ -384,7 +385,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
             embedding_params_.batch_size * embedding_params_.max_feature_num);
         temp_storage_sort_bytes_.push_back(temp);
 
-        int size = (int)ceil((float)temp_storage_sort_bytes_[id] / sizeof(TypeHashKey));
+        size_t size = (size_t)ceil((float)temp_storage_sort_bytes_[id] / sizeof(TypeHashKey));
 
         // new temp storage tensors for CUB radix sort
         temp_storage_sort_tensors_.emplace_back(
@@ -445,7 +446,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
       // do hash table value initialization
       CK_CUDA_THROW_(cudaMemcpy(
           hash_table_value_tensors_[id]->get_ptr(), h_hash_table_value,
-          max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size * sizeof(float),
+          (size_t) max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size * sizeof(float),
           cudaMemcpyHostToDevice));
 
       switch (embedding_params_.opt_params.optimizer) {
