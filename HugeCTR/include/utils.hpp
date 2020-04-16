@@ -105,7 +105,7 @@ class CudaDeviceContext {
 /**
  * Get total product from dims.
  */
-inline size_t get_size_from_dims(const std::vector<int>& dims) {
+inline size_t get_size_from_dims(const std::vector<size_t>& dims) {
   size_t matrix_size = 1;
   for (auto iter = dims.begin(); iter != dims.end(); iter++) {
     matrix_size = matrix_size * iter[0];

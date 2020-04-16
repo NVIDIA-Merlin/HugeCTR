@@ -112,9 +112,9 @@ class DataReader {
                                       output data, which is sharing output tensor with train. */
 
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< gpu resource used in this data reader*/
-  const int batchsize_;                                /**< batch size */
-  const int label_dim_;       /**< dimention of label e.g. 1 for BinaryCrossEntropy */
-  const int dense_dim_;       /**< dimention of dense */
+  const size_t batchsize_;                                /**< batch size */
+  const size_t label_dim_;       /**< dimention of label e.g. 1 for BinaryCrossEntropy */
+  const size_t dense_dim_;       /**< dimention of dense */
   int data_reader_loop_flag_; /**< p_loop_flag a flag to control the loop */
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
 
@@ -177,7 +177,7 @@ class DataReader {
   /**
    * Ctor
    */
-  DataReader(const std::string& file_list_name, int batchsize, int label_dim, int dense_dim,
+  DataReader(const std::string& file_list_name, int batchsize, size_t label_dim, int dense_dim,
              Check_t check_type, std::vector<DataReaderSparseParam>& params,
              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
              int num_chunk_threads = 31);
@@ -243,7 +243,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name,
 }
 
 template <typename TypeKey>
-DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize, int label_dim,
+DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize, size_t label_dim,
                                 int dense_dim, Check_t check_type,
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
@@ -273,7 +273,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
   auto& device_list = device_resources_->get_device_list();
 
   // create label and dense tensor
-  int batch_size_per_device = batchsize_ / total_gpu_count;
+  size_t batch_size_per_device = batchsize_ / total_gpu_count;
   for (auto device_id : device_list) {
     std::shared_ptr<GeneralBuffer<float>> tmp_label_dense_buff(new GeneralBuffer<float>());
     label_tensors_.emplace_back(new Tensor<float>({batch_size_per_device, label_dim_},
@@ -301,10 +301,10 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
         }
       }
       std::shared_ptr<GeneralBuffer<TypeKey>> tmp_buffer(new GeneralBuffer<TypeKey>());
-      std::vector<int> num_rows_dim = {1, batchsize_ * slots + 1};
+      std::vector<size_t> num_rows_dim = {1, batchsize_ * slots + 1};
       Tensor<TypeKey>* tmp_row_offset =
           new Tensor<TypeKey>(num_rows_dim, tmp_buffer, TensorFormat_t::HW);
-      std::vector<int> num_max_value_dim = {1, param.max_feature_num * batchsize_};
+      std::vector<size_t> num_max_value_dim = {1, param.max_feature_num * batchsize_};
       Tensor<TypeKey>* tmp_value =
           new Tensor<TypeKey>(num_max_value_dim, tmp_buffer, TensorFormat_t::HW);
       tmp_buffer->init(device_id);

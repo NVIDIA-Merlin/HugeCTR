@@ -61,7 +61,7 @@ class Embedding {
    * @param gpu_resource_group the GPU device resource group
    */
   Embedding(const Tensors<TypeKey>& row_offsets_tensors, const Tensors<TypeKey>& value_tensors,
-            int batchsize, int slot_num, int embedding_vec_size,
+            size_t batchsize, size_t slot_num, size_t embedding_vec_size,
             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, float scaler);
   /**
    * The declaration for indicating that there is no default copy construtor in this class.
@@ -136,8 +136,8 @@ class Embedding {
 
 template <typename TypeKey>
 Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
-                              const Tensors<TypeKey>& value_tensors, int batchsize, int slot_num,
-                              int embedding_vec_size,
+                              const Tensors<TypeKey>& value_tensors, size_t batchsize, size_t slot_num,
+                              size_t embedding_vec_size,
                               const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                               float scaler)
     : row_offsets_tensors_(row_offsets_tensors),
@@ -166,8 +166,8 @@ Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
     assert(output_buffers_.empty());
     for (size_t i = 0; i < gpu_count; i++) {
       std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
-      const int batchsize_per_device = batchsize / device_resources_->get_total_gpu_count();
-      std::vector<int> output_dims = {batchsize_per_device, slot_num, embedding_vec_size};
+      const size_t batchsize_per_device = batchsize / device_resources_->get_total_gpu_count();
+      std::vector<size_t> output_dims = {batchsize_per_device, slot_num, embedding_vec_size};
       output_tensors_.emplace_back(new Tensor<float>(output_dims, buff, TensorFormat_t::HSW));
       buff->init(device_list[i]);
       output_buffers_.emplace_back(buff);
@@ -214,13 +214,13 @@ typedef struct OptParams_ {
 } OptParams;
 
 typedef struct SparseEmbeddingHashParams_ {
-  int batch_size;             // batch size
+  size_t batch_size;             // batch size
   long long vocabulary_size;  // row number of hash table
   float load_factor;       // row number of hash table for each GPU = (vocabulary_size / gpu_count /
                            // load_factor)
-  int embedding_vec_size;  // col number of hash table value
-  int max_feature_num;     // max feature number of all input samples of all slots
-  int slot_num;            // slot number
+  size_t embedding_vec_size;  // col number of hash table value
+  size_t max_feature_num;     // max feature number of all input samples of all slots
+  size_t slot_num;            // slot number
   int combiner;            // 0-sum, 1-mean
   OptParams opt_params;    // optimizer params
   float scaler;

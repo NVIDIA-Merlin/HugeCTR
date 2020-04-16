@@ -106,12 +106,12 @@ void batch_norm_bprop_cpu(const float* gamma, const float* out, float* in, bool 
   }
 }
 
-void batch_norm_test(bool row_major, int batch_size, int num_feature) {
+void batch_norm_test(bool row_major, size_t batch_size, size_t num_feature) {
   std::shared_ptr<GeneralBuffer<float>> wbuff(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> wgbuff(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> blobs(new GeneralBuffer<float>());
 
-  vector<int> dims = {row_major ? batch_size : num_feature, row_major ? num_feature : batch_size};
+  vector<size_t> dims = {row_major ? batch_size : num_feature, row_major ? num_feature : batch_size};
   TensorFormat_t format = row_major ? TensorFormat_t::HW : TensorFormat_t::WH;
 
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, blobs, format));
@@ -127,7 +127,7 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
   wgbuff->init(0);
   blobs->init(0);
 
-  const int len = batch_size * num_feature;
+  const size_t len = batch_size * num_feature;
 
   float* d_in = in_tensor->get_ptr();
   float* d_out = out_tensor->get_ptr();
@@ -141,7 +141,7 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
   GaussianDataSimulator<float> simulator(0.0, 1.0, -100.0, 100.0);
 
   // standard normall distribution is assumed
-  for (int j = 0; j < num_feature; j++) {
+  for (size_t j = 0; j < num_feature; j++) {
     h_gamma[j] = 1.0;
     h_beta[j] = 0.0;
   }
@@ -151,8 +151,8 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
   cudaMemcpy(d_gamma, h_gamma.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(d_beta, h_beta.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice);
 
-  for (int i = 0; i < batch_size; i++) {
-    for (int j = 0; j < num_feature; j++) {
+  for (size_t i = 0; i < batch_size; i++) {
+    for (size_t j = 0; j < num_feature; j++) {
       int idx = row_major ? i * num_feature + j : j * batch_size + i;
       h_in[idx] = simulator.get_num();
     }
@@ -167,8 +167,8 @@ void batch_norm_test(bool row_major, int batch_size, int num_feature) {
 
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len, eps));
 
-  for (int i = 0; i < batch_size; i++) {
-    for (int j = 0; j < num_feature; j++) {
+  for (size_t i = 0; i < batch_size; i++) {
+    for (size_t j = 0; j < num_feature; j++) {
       int idx = row_major ? i * num_feature + j : j * batch_size + i;
       h_out[idx] = simulator.get_num();
     }

@@ -235,11 +235,11 @@ __global__ void value_count_kernel_2(int nnz, const uint32_t *new_hash_value_fla
   }
 }
 
-__global__ void adam_update_kernel_global(const int embedding_vec_size,
-                                          const int table_size,  // vocabulary size / factor
+__global__ void adam_update_kernel_global(int embedding_vec_size,
+                                          size_t table_size,  // vocabulary size / factor
                                           const AdamOptHyperParams adam, float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
-  for (int feature_index = blockIdx.x * blockDim.x + threadIdx.x;
+  for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
     float mi = adam.m_ptr[feature_index];
     float vi = adam.v_ptr[feature_index];
@@ -317,12 +317,12 @@ __global__ void opt_momentum_sgd_kernel_global(uint32_t hash_value_index_count_n
   }
 }
 
-__global__ void momentum_sgd_update_kernel_global(const int embedding_vec_size,
-                                                  const int table_size,  // vocabulary size / factor
+__global__ void momentum_sgd_update_kernel_global(int embedding_vec_size,
+                                                  size_t table_size,  // vocabulary size / factor
                                                   const MomentumSgdOptHyperParams momentum,
                                                   float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
-  for (int feature_index = blockIdx.x * blockDim.x + threadIdx.x;
+  for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
     float mo = momentum.momentum_ptr[feature_index];
     hash_table_value[feature_index] += mo;
@@ -331,11 +331,11 @@ __global__ void momentum_sgd_update_kernel_global(const int embedding_vec_size,
 }
 
 __global__ void nesterov_global_update_kernel_global(
-    const int embedding_vec_size,
-    const int table_size,  // vocabulary size / factor
+    int embedding_vec_size,
+    size_t table_size,  // vocabulary size / factor
     const NesterovOptHyperParams nesterov, float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
-  for (int feature_index = blockIdx.x * blockDim.x + threadIdx.x;
+  for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
     nesterov.accm_ptr[feature_index] *= nesterov.mu;
     float accm = nesterov.accm_ptr[feature_index];

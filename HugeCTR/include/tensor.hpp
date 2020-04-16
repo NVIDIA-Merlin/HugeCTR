@@ -32,7 +32,7 @@ namespace HugeCTR {
 template <typename T>
 class Tensor {
  private:
-  std::vector<int>
+  std::vector<size_t>
       dims_; /**< Dimensions of tensor, and the last element is the leading dimension */
   std::shared_ptr<GeneralBuffer<T>>
       buff_; /**< GeneralBuffer used in this tensor (the real memory allocator) */
@@ -45,7 +45,7 @@ class Tensor {
    * @param buffer GeneralBuffer used in this tensor (the real memory allocator).
    * @param format Format of the tensor.
    */
-  Tensor(const std::vector<int>& dims, const std::shared_ptr<GeneralBuffer<T>>& buffer,
+  Tensor(const std::vector<size_t> dims, const std::shared_ptr<GeneralBuffer<T>>& buffer,
          TensorFormat_t format = TensorFormat_t::WH)
       : dims_(dims),
         buff_(buffer),
@@ -66,10 +66,10 @@ class Tensor {
       if (dims_.size() != 2 && dims_.size() != 3) {
         CK_THROW_(Error_t::WrongInput, "doesn't support dims != 2 and != 3");
       }
-      for (auto iter = dims_.begin(); iter < dims_.end(); iter++) {
-        if (iter[0] < 0)
-          CK_THROW_(Error_t::WrongInput, "dims vector cannot have elements less than 0");
-      }
+      // for (auto iter = dims_.begin(); iter < dims_.end(); iter++) {
+      //   if (iter[0] < 0)
+      //     CK_THROW_(Error_t::WrongInput, "dims vector cannot have elements less than 0");
+      // }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
       throw;
@@ -85,7 +85,7 @@ class Tensor {
    * @param C the input tensor or prototype.
    * @param new_format the new format.
    */
-  Tensor(const std::vector<int>& new_dims, const Tensor& C, TensorFormat_t new_format)
+  Tensor(const std::vector<size_t> new_dims, const Tensor& C, TensorFormat_t new_format)
       : dims_(new_dims), buff_(C.buff_), format_(new_format), mem_offset_(C.mem_offset_) {
     try {
       if (format_ != TensorFormat_t::WH && format_ != TensorFormat_t::HW && dims_.size() == 2) {
@@ -119,7 +119,7 @@ class Tensor {
   int get_device_id() const { return buff_->get_device_id(); }
   const T* get_ptr() const { return buff_->get_ptr_with_offset(mem_offset_); }
   T* get_ptr() { return buff_->get_ptr_with_offset(mem_offset_); }
-  const std::vector<int>& get_dims() const { return dims_; }
+  const std::vector<size_t>& get_dims() const { return dims_; }
   size_t get_num_elements() const {
     size_t tensor_size = 1;
     for (auto dim : dims_) {

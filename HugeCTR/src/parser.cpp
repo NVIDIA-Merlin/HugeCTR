@@ -401,7 +401,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         const auto& fc_in_tensor = input_output_info.input[0];
         // establish out tensor
         auto j_fc_param = get_json(j, "fc_param");
-        auto output = get_value_from_json<int>(j_fc_param, "num_output");
+        auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
         std::shared_ptr<Tensor<float>> out_tensor(
 	  new Tensor<float>({(fc_in_tensor->get_dims())[0], output}, blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
@@ -511,11 +511,11 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Multiply: {
         const auto& in_tensor = input_output_info.input[0];
 
-        std::vector<int> weight_dims;
+        std::vector<size_t> weight_dims;
         auto dims = get_json(j, "weight_dims");
         assert(dims.is_array());
         for (auto dim : dims) {
-          weight_dims.emplace_back(dim.get<int>());
+          weight_dims.emplace_back(dim.get<size_t>());
         }
 
         std::shared_ptr<Tensor<float>> out_tensor;
@@ -526,7 +526,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
       case Layer_t::FmOrder2: {
         const auto& in_tensor = input_output_info.input[0];
-        auto out_dim = get_json(j, "out_dim").get<int>();
+        auto out_dim = get_json(j, "out_dim").get<size_t>();
 
         // std::shared_ptr<Tensor<float>> out_tensor(
         //     new Tensor<float>({batch_size, out_dim}, blobs_buff, TensorFormat_t::HW));
@@ -729,7 +729,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
           auto j_hparam = get_json(j, "sparse_embedding_hparam");
           auto vocabulary_size = get_value_from_json<int>(j_hparam, "vocabulary_size");
-          auto embedding_vec_size = get_value_from_json<int>(j_hparam, "embedding_vec_size");
+          auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
           auto combiner = get_value_from_json<int>(j_hparam, "combiner");
 
           SparseInput<TypeKey> sparse_input;

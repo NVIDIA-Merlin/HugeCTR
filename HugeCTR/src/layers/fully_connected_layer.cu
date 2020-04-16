@@ -45,17 +45,17 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<flo
            in_tensor->get_format() == TensorFormat_t::HW);
     assert(out_tensor->get_format() == TensorFormat_t::WH ||
            out_tensor->get_format() == TensorFormat_t::HW);
-    int m = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
-    int n = out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
-    int k = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
-    int m_ck =
+    size_t m = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
+    size_t n = out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
+    size_t k = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
+    size_t m_ck =
         out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[1] : out_tensor_dim[0];
     if (m != m_ck) {
       CK_THROW_(Error_t::WrongInput, "size of input / output tensor doesn't match");
     }
 
-    std::vector<int> weight_dim;
-    std::vector<int> bias_dim;
+    std::vector<size_t> weight_dim;
+    std::vector<size_t> bias_dim;
     if (weight_format == TensorFormat_t::WH) {
       weight_dim = {n, k};
       bias_dim = {n, 1};

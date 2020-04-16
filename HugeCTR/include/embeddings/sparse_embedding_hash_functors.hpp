@@ -2438,6 +2438,7 @@ class SparseEmbeddingHashFunctors {
                             max_vocabulary_size_per_gpu, d_dump_counter[id],
                             (*device_resources)[id]->get_stream());
 
+      
       get_hash_value((*device_resources)[id]->get_stream(), count[id], embedding_vec_size,
                      d_hash_table_value_index[id], hash_table_value_tensors[id]->get_ptr(),
                      d_hash_table_value[id]);

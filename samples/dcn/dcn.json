@@ -3,7 +3,7 @@
     "lr_policy": "fixed",
     "display": 1000,
     "max_iter": 300000,
-    "gpu": [0],
+    "gpu": [0,1,2,3],
     "batchsize": 512,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
@@ -26,8 +26,8 @@
       {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
+      "source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list.txt",
+      "eval_source": "/gpfs/fs1/zehuanw/dataset/dcn/file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",

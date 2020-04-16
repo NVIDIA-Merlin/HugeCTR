@@ -64,7 +64,7 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
   try {
     CudaDeviceContext context(device_id);
 
-    std::vector<int> in_dims = in_tensor->get_dims();
+    std::vector<size_t> in_dims = in_tensor->get_dims();
     int im_idx = in_dims.size() - 1;
     if (leading_dim < in_dims[im_idx] || leading_dim % in_dims[im_idx] != 0) {
       CK_THROW_(Error_t::WrongInput,
@@ -80,8 +80,8 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       CK_THROW_(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
     }
 
-    int trailing_dim = n_in_elems / leading_dim;
-    std::vector<int> out_dims = {trailing_dim, leading_dim};
+    size_t trailing_dim = n_in_elems / leading_dim;
+    std::vector<size_t> out_dims = {trailing_dim, leading_dim};
     out_tensor.reset(new Tensor<float>(out_dims, *in_tensor, TensorFormat_t::HW));
 
     in_tensors_.emplace_back(in_tensor);
@@ -112,13 +112,13 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
       CK_THROW_(Error_t::WrongInput, "Input format is invalid");
     }
 
-    std::vector<int> in_dims = in_tensor->get_dims();
+    std::vector<size_t> in_dims = in_tensor->get_dims();
     if (in_dims[1] < n_active_slot_) {
       CK_THROW_(Error_t::WrongInput, "selected is invalid");
     }
 
-    int in_dims_1 = selected.empty() ? in_dims[1] : int(n_active_slot_);
-    std::vector<int> out_dims = {in_dims[0], in_dims_1 * in_dims[2]};
+    size_t in_dims_1 = selected.empty() ? in_dims[1] : int(n_active_slot_);
+    std::vector<size_t> out_dims = {in_dims[0], in_dims_1 * in_dims[2]};
 
     if (in_place_) {
       out_tensor.reset(new Tensor<float>(out_dims, *in_tensor, TensorFormat_t::HW));

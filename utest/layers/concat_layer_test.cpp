@@ -32,7 +32,7 @@ namespace {
 
 const float eps = 1e-5;
 
-void concat_layer_test(int height, std::vector<int> widths) {
+void concat_layer_test(size_t height, std::vector<size_t> widths) {
   std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   TensorFormat_t in_format = TensorFormat_t::HW;
   Tensors<float> in_tensors;
@@ -42,11 +42,11 @@ void concat_layer_test(int height, std::vector<int> widths) {
 
   int n_ins = widths.size();
 
-  int new_width = 0;
+  size_t new_width = 0;
   for (int i = 0; i < n_ins; i++) {
-    int width = widths[i];
+    size_t width = widths[i];
     new_width += width;
-    std::vector<int> in_dims = {height, width};
+    std::vector<size_t> in_dims = {height, width};
     in_tensors.emplace_back(new Tensor<float>(in_dims, buff, in_format));
 
     std::vector<float> h_in(height * width, 0.0);
@@ -63,12 +63,12 @@ void concat_layer_test(int height, std::vector<int> widths) {
 
   // fprop
   std::vector<float> h_ref(out_tensor->get_num_elements(), 0.0);
-  for (int r = 0; r < height; r++) {
-    for (int c = 0; c < new_width; c++) {
+  for (size_t r = 0; r < height; r++) {
+    for (size_t c = 0; c < new_width; c++) {
       int out_idx = r * new_width + c;
       int in_no = 0;
       int c2 = c;
-      int accum_width = 0;
+      size_t accum_width = 0;
       for (int k = 0; k < n_ins; k++) {
         if (c < accum_width + widths[k]) {
           in_no = k;
