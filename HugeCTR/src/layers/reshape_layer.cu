@@ -51,7 +51,7 @@ __global__ void reshape_kernel(T* input, T* output, int batch_size, int n_slot, 
 }  // anonymous namespace
 
 ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                           std::shared_ptr<Tensor<float>>& out_tensor, int leading_dim,
+                           std::shared_ptr<Tensor<float>>& out_tensor, size_t leading_dim,
                            int device_id)
     : Layer(device_id),
       in_place_(true),
@@ -71,7 +71,7 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
                 "leading_dim < in_dims[im_idx] or leading_dim % in_dims[2] != 0");
     }
 
-    int n_in_elems = in_tensor->get_num_elements();
+    size_t n_in_elems = in_tensor->get_num_elements();
     if (leading_dim > n_in_elems) {
       CK_THROW_(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
     }
@@ -113,7 +113,7 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
     }
 
     std::vector<size_t> in_dims = in_tensor->get_dims();
-    if (in_dims[1] < n_active_slot_) {
+    if ((int)in_dims[1] < n_active_slot_) {
       CK_THROW_(Error_t::WrongInput, "selected is invalid");
     }
 

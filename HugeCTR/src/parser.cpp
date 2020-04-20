@@ -609,7 +609,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                                      std::vector<std::unique_ptr<Embedding<TypeKey>>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
                                      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                                     nlohmann::json config, int batch_size,
+                                     nlohmann::json config, size_t batch_size,
                                      bool use_mixed_precision, float scaler) {
   try {
     int num_procs = 1, pid = 0;

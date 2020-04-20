@@ -369,7 +369,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
             embedding_params_.batch_size * embedding_params_.max_feature_num);
         temp_storage_scan_bytes_.push_back(temp);
 
-        int size = (int)ceil((float)temp_storage_scan_bytes_[id] / sizeof(uint32_t));
+        size_t size = (size_t)ceil((float)temp_storage_scan_bytes_[id] / sizeof(uint32_t));
 
         temp_storage_scan_tensors_.emplace_back(
             new Tensor<uint32_t>({1, size}, uint32_bufs_.back(), TensorFormat_t::HW));

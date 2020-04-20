@@ -274,7 +274,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 
       int gid = Base::device_resources_->get_global_id(cur_device);
       int slot_num_per_gpu = embedding_params_.slot_num / total_gpu_count_ +
-                             ((gid < (embedding_params_.slot_num % total_gpu_count_)) ? 1 : 0);
+	((gid < (int)(embedding_params_.slot_num % total_gpu_count_)) ? 1 : 0);
       slot_num_per_gpu_.push_back(slot_num_per_gpu);
 
       // construct HashTable object: used to store hash table <key, value_index>
@@ -399,7 +399,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
             embedding_params_.batch_size * embedding_params_.max_feature_num);
         temp_storage_scan_bytes_.push_back(temp);
 
-        int size = (int)ceil((float)temp_storage_scan_bytes_[id] / sizeof(uint32_t));
+        size_t size = (size_t)ceil((float)temp_storage_scan_bytes_[id] / sizeof(uint32_t));
 
         temp_storage_scan_tensors_.emplace_back(
             new Tensor<uint32_t>({1, size}, uint32_bufs_.back(), TensorFormat_t::HW));

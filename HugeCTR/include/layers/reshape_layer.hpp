@@ -41,7 +41,7 @@ class ReshapeLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-               std::shared_ptr<Tensor<float>>& out_tensor, int leading_dim, int device_id);
+               std::shared_ptr<Tensor<float>>& out_tensor, size_t leading_dim, int device_id);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
    * @param in_tensor the input tensor
