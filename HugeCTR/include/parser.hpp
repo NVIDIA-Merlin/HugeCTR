@@ -41,7 +41,7 @@ namespace HugeCTR {
 class Parser {
  private:
   nlohmann::json config_; /**< configure file. */
-  int batch_size_;        /**< batch size. */
+  size_t batch_size_;        /**< batch size. */
   const bool use_mixed_precision_{false};
   const float scaler_{1.f};
 
@@ -50,7 +50,7 @@ class Parser {
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
-  Parser(const std::string& configure_file, int batch_size, bool use_mixed_precision = false,
+  Parser(const std::string& configure_file, size_t batch_size, bool use_mixed_precision = false,
          float scaler = 1.f)
       : batch_size_(batch_size), use_mixed_precision_(use_mixed_precision), scaler_(scaler) {
     try {
@@ -114,8 +114,8 @@ template <typename T>
 struct SparseInput {
   Tensors<T> row;
   Tensors<T> value;
-  int slot_num;
-  int max_feature_num_per_sample;
+  size_t slot_num;
+  size_t max_feature_num_per_sample;
   SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
       : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
   SparseInput() {}
