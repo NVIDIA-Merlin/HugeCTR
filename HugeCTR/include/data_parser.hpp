@@ -68,7 +68,7 @@ class UnifiedDataSimulator<long long> : public DataSimulator<long long> {
 template <>
 class UnifiedDataSimulator<int> : public DataSimulator<int> {
  public:
-  UnifiedDataSimulator(int min, int max)
+  UnifiedDataSimulator(int min, int max) //both included
       : DataSimulator<int>(DistributeType::Unified), rd_(), gen_(rd_()), dis_(min, max) {}
   int get_num() final { return dis_(gen_); }
 

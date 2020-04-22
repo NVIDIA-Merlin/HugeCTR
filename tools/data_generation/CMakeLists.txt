@@ -14,6 +14,12 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-add_subdirectory(criteo_script)
-add_subdirectory(criteo_script_legacy)
-add_subdirectory(data_generation)
+file(GLOB data_generation_src
+  data_generation.cpp
+)
+
+add_executable(data_generation ${data_generation_src})
+target_compile_features(data_generation PUBLIC cxx_std_11)
+target_link_libraries(data_generation PUBLIC huge_ctr_static)
+
+
