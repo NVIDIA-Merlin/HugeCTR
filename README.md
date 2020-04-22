@@ -132,7 +132,7 @@ $ doxygen
 ```
 
 ## Benchmark ##
-Random data can be generated according to your JSON network config file (`your_config.json`) with `data_generator` for easy benchmark. Usage:
+Random data set can be generated according to your JSON network config file (`your_config.json`) with `data_generator` for easy benchmark. Usage:
 ```shell
 $ ./data_generator your_config.json data_folder vocabulary_size max_nnz [option:#files] [option:#samples per file]
 $ ./huge_ctr --train your_config.json
@@ -140,7 +140,9 @@ $ ./huge_ctr --train your_config.json
 Arguments:
 * `data_folder`: You have to specify the folder for the generated data
 * `vocabulary_size`: Vocabulary size of your target data set
-* `max_nnz`: [1,max_nnz] values will be generated for each feature (slot) in the data set. 
+* `max_nnz`: [1,max_nnz] values will be generated for each feature (slot) in the data set. Note that max_nnz * #slot should be less than the `max_feature_num` in your data layer.
+* `#files`: number of data file will be generated.
+* `#samples per file`: number of samples per file. 
 
 
 ## File Format ##
