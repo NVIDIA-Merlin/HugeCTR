@@ -131,6 +131,18 @@ Within project `home` directory
 $ doxygen
 ```
 
+## Benchmark ##
+Random data can be generated according to your JSON network config file (`your_config.json`) with `data_generator` for easy benchmark. Usage:
+```shell
+$ ./data_generator your_config.json data_folder vocabulary_size max_nnz [option:#files] [option:#samples per file]
+$ ./huge_ctr --train your_config.json
+```
+Arguments:
+* `data_folder`: You have to specify the folder for the generated data
+* `vocabulary_size`: Vocabulary size of your target data set
+* `max_nnz`: [1,max_nnz] values will be generated for each feature (slot) in the data set. 
+
+
 ## File Format ##
 Totally three kinds of files will be used as input of HugeCTR Training: configuration file (.json), model file, data set.
 
