@@ -115,7 +115,7 @@ TEST(localized_sparse_embedding_hash_test, upload_and_download_params) {
     }
 #endif 
     // data generation: key's corresponding slot_id=(key%slot_num)
-    HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
         vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
   }
 
@@ -253,7 +253,7 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
     }
 #endif
     // data generation: key's corresponding slot_id=(key%slot_num)
-    HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files,
+    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files,
                                                         num_records, slot_num, vocabulary_size,
                                                         label_dim, dense_dim, max_nnz_per_slot);
   }

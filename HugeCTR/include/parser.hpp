@@ -86,6 +86,7 @@ class Parser {
                        std::vector<std::unique_ptr<Embedding<TYPE_2>>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
 };
 
 /**
@@ -120,5 +121,17 @@ struct SparseInput {
       : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
   SparseInput() {}
 };
+
+void parse_data_layer_helper(
+        const nlohmann::json& j,
+	int& label_dim, int& dense_dim,
+	Check_t& check_type,
+	std::string& source_data,
+	std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
+        std::string& eval_source,
+	std::string& top_strs_label, std::string& top_strs_dense,
+	std::vector<std::string>& sparse_names,
+	std::map<std::string, SparseInput<long long>>& sparse_input_map
+);
 
 }  // namespace HugeCTR

@@ -200,69 +200,13 @@ class DataWriter {
   }
 };
 
-template <typename T, Check_t CK_T>
-void data_generation(std::string file_list_name, std::string data_prefix, int num_files,
-                     int num_records_per_file, int slot_num, int vocabulary_size, int label_dim,
-                     int dense_dim, int max_nnz) {
-  if (file_exist(file_list_name)) {
-    return;
-  }
-  std::string directory;
-  const size_t last_slash_idx = data_prefix.rfind('/');
-  if (std::string::npos != last_slash_idx) {
-    directory = data_prefix.substr(0, last_slash_idx);
-  }
-  check_make_dir(directory);
-
-  std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-  file_list_stream << (std::to_string(num_files) + "\n");
-  for (int k = 0; k < num_files; k++) {
-    std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
-    file_list_stream << (tmp_file_name + "\n");
-
-    // data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-
-    DataWriter<CK_T> data_writer(out_stream);
-
-    DataSetHeader header = {
-        Checker_Traits<CK_T>::ID(), num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
-
-    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
-    data_writer.write();
-
-    for (int i = 0; i < num_records_per_file; i++) {
-      UnifiedDataSimulator<int> idata_sim(1, max_nnz);  // for nnz
-      UnifiedDataSimulator<float> fdata_sim(0, 1);
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);
-      for (int j = 0; j < label_dim + dense_dim; j++) {
-        float label_dense = fdata_sim.get_num();
-        data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
-      }
-      for (int k = 0; k < slot_num; k++) {
-        int nnz = idata_sim.get_num();
-        data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
-        //        out_stream.write(reinterpret_cast<char*>(&nnz), sizeof(int));
-        for (int j = 0; j < nnz; j++) {
-          T value = ldata_sim.get_num();
-          data_writer.append(reinterpret_cast<char*>(&value), sizeof(T));
-          //          out_stream.write(reinterpret_cast<char*>(&value), sizeof(T));
-        }
-      }
-      data_writer.write();
-    }
-    out_stream.close();
-  }
-  file_list_stream.close();
-  return;
-}
 
 // Add a new data_generation function for LocalizedSparseEmbedding testing
 // In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
 template <typename T, Check_t CK_T>
-void data_generation_for_localized_test(std::string file_list_name, std::string data_prefix,
+void data_generation(std::string file_list_name, std::string data_prefix,
                                         int num_files, int num_records_per_file, int slot_num,
-                                        int vocabulary_size, int label_dim, int dense_dim,
+                                        size_t vocabulary_size, int label_dim, int dense_dim,
                                         int max_nnz) {
   if (file_exist(file_list_name)) {
     return;
@@ -279,13 +223,14 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
   for (int k = 0; k < num_files; k++) {
     std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
     file_list_stream << (tmp_file_name + "\n");
-
+    std::cout << tmp_file_name << std::endl;
     // data generation;
     std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
 
     DataWriter<CK_T> data_writer(out_stream);
 
-    DataSetHeader header = {1, num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
+    DataSetHeader header = {
+        Checker_Traits<CK_T>::ID(), num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
 
     data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
     data_writer.write();
@@ -314,6 +259,7 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
     out_stream.close();
   }
   file_list_stream.close();
+  std::cout << file_list_name << " done!" << std::endl;
   return;
 }
 
