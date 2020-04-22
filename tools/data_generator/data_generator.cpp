@@ -26,7 +26,7 @@
 
 using namespace HugeCTR;
 
-static std::string usage_str = "usage: ./data_generation your_config.json data_folder vocabulary_size max_nnz [option:#files] [option:#samples per file]"; 
+static std::string usage_str = "usage: ./data_generator your_config.json data_folder vocabulary_size max_nnz [option:#files] [option:#samples per file]"; 
 static int NUM_FILES = 128;
 static int NUM_SAMPLES_PER_FILE = 40960;
 

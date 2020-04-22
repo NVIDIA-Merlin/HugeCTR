@@ -14,12 +14,12 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-file(GLOB data_generation_src
-  data_generation.cpp
+file(GLOB data_generator_src
+  data_generator.cpp
 )
 
-add_executable(data_generation ${data_generation_src})
-target_compile_features(data_generation PUBLIC cxx_std_11)
-target_link_libraries(data_generation PUBLIC huge_ctr_static)
+add_executable(data_generator ${data_generator_src})
+target_compile_features(data_generator PUBLIC cxx_std_11)
+target_link_libraries(data_generator PUBLIC huge_ctr_static)
 
 
