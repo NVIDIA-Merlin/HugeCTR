@@ -79,6 +79,9 @@ int main(int argc, char* argv[]){
     }
     num_slot+=param.slot_num;
   }
+
+  check_make_dir(data_folder);
+
   if(check_type == Check_t::Sum){
     data_generation<long long, Check_t::Sum>(source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot, vocabulary_size, label_dim, dense_dim, max_nnz);
     data_generation<long long, Check_t::Sum>(eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot, vocabulary_size, label_dim, dense_dim, max_nnz);

@@ -209,6 +209,7 @@ void data_generation(std::string file_list_name, std::string data_prefix,
                                         size_t vocabulary_size, int label_dim, int dense_dim,
                                         int max_nnz) {
   if (file_exist(file_list_name)) {
+    std::cout << "File (" + file_list_name + ") exist. To generate new dataset plesae remove this file." << std::endl;
     return;
   }
   std::string directory;
