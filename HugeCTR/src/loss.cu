@@ -23,12 +23,12 @@ namespace HugeCTR {
 Loss::Loss(const std::shared_ptr<const Tensor<float>> &label_tensor,
            const std::shared_ptr<Tensor<float>> &input_tensor,
            const std::shared_ptr<Tensor<float>> &loss_tensor,
-           const std::shared_ptr<Regularizer> regularizer, int device_id)
+           const std::shared_ptr<Regularizer> regularizer, int device_id, float scaler)
     : label_tensors_(1, label_tensor),
       input_tensors_(1, input_tensor),
       loss_tensors_(1, loss_tensor),
       regularizer_(regularizer),
-      device_id_(device_id) {}
+      device_id_(device_id), scaler_(scaler) {}
 
 void Loss::fused_loss_computation(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
@@ -49,14 +49,13 @@ void Loss::fused_loss_computation(cudaStream_t stream) {
   const float *label = label_tensor->get_ptr();
   float *loss = loss_tensor->get_ptr();
 
-  float scaler = 1.f;
   float rterm = 0.0f;
   if (regularizer_) {
     regularizer_->compute_rterm(stream);
     rterm = regularizer_->get_rterm();
   }
 
-  do_fused_loss_computation(input, label, loss, batch_size, feature_dim, scaler, rterm, stream);
+  do_fused_loss_computation(input, label, loss, batch_size, feature_dim, scaler_, rterm, stream);
 
   if (regularizer_) {
     regularizer_->initialize_wgrad(stream);
@@ -71,8 +70,8 @@ void Loss::fused_loss_computation(cudaStream_t stream) {
 CrossEntropyLoss::CrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &label_tensor,
                                    const std::shared_ptr<Tensor<float>> &input_tensor,
                                    const std::shared_ptr<Tensor<float>> &loss_tensor,
-                                   const std::shared_ptr<Regularizer> regularizer, int device_id)
-    : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id) {
+                                   const std::shared_ptr<Regularizer> regularizer, int device_id, float scaler)
+  : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, scaler) {
   if (input_tensor->get_format() != label_tensor->get_format())
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
 
@@ -142,8 +141,8 @@ BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
     const std::shared_ptr<const Tensor<float>> &label_tensor,
     const std::shared_ptr<Tensor<float>> &input_tensor,
     const std::shared_ptr<Tensor<float>> &loss_tensor,
-    const std::shared_ptr<Regularizer> regularizer, int device_id)
-    : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id) {
+    const std::shared_ptr<Regularizer> regularizer, int device_id, float scaler)
+  : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, scaler) {
   if (input_tensor->get_format() != label_tensor->get_format())
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
 
@@ -168,11 +167,11 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
     if (x >= 0) {
       float exp_neg_x = exp(-x);
       loss_s[tid] += x * (1 - y) + log(1 + exp_neg_x);
-      input[i] = ((1 - y) - exp_neg_x / (1 + exp_neg_x)) * scaler / (float)batch_size;
+      input[i] = ((1.f - y) - exp_neg_x / (1.f + exp_neg_x)) * scaler / (float)batch_size / 8.f;
     } else {
       float exp_x = exp(x);
       loss_s[tid] += -x * y + log(1 + exp_x);
-      input[i] = (-y + exp_x / (1 + exp_x)) * scaler / (float)batch_size;
+      input[i] = (-y + exp_x / (1.f + exp_x)) * scaler / (float)batch_size / 8.f;
     }
   }
   __syncthreads();
@@ -261,8 +260,8 @@ MultiCrossEntropyLoss::MultiCrossEntropyLoss(
     const std::shared_ptr<Tensor<float>> &input_tensor,
     const std::shared_ptr<Tensor<float>> &loss_tensor,
     const std::shared_ptr<Regularizer> regularizer, const std::vector<float> &target_weight,
-    int device_id)
-    : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id) {
+    int device_id, float scaler)
+  : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, scaler) {
   if (label_tensor->get_dims().size() != 2 || label_tensor->get_format() != TensorFormat_t::HW ||
       input_tensor->get_dims().size() != 2 || input_tensor->get_format() != TensorFormat_t::HW ||
       label_tensor->get_dims()[0] != input_tensor->get_dims()[0] ||

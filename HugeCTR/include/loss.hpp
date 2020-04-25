@@ -52,7 +52,7 @@ class Loss {
   Loss(const std::shared_ptr<const Tensor<float>>& label_tensor,
        const std::shared_ptr<Tensor<float>>& input_tensor,
        const std::shared_ptr<Tensor<float>>& loss_tensor,
-       const std::shared_ptr<Regularizer> regularizer, int device_id);
+       const std::shared_ptr<Regularizer> regularizer, int device_id, float scaler = 1.0);
   Loss(const Loss& C) = delete;
   Loss& operator=(const Loss& C) = delete;
   virtual ~Loss() {}
@@ -82,7 +82,7 @@ class Loss {
   virtual void do_fused_loss_computation(float* input, const float* label, float* loss,
                                          int batch_size, int feature_dim, float scaler, float rterm,
                                          cudaStream_t stream) = 0;
-
+  float scaler_;
   std::shared_ptr<Regularizer> regularizer_;
   const int device_id_;
 };
@@ -95,7 +95,7 @@ class CrossEntropyLoss : public Loss {
   CrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
                    const std::shared_ptr<Tensor<float>>& input_tensor,
                    const std::shared_ptr<Tensor<float>>& loss_tensor,
-                   const std::shared_ptr<Regularizer> regularizer, int device_id);
+                   const std::shared_ptr<Regularizer> regularizer, int device_id, float scaler = 1.f);
 };
 
 class BinaryCrossEntropyLoss : public Loss {
@@ -106,7 +106,7 @@ class BinaryCrossEntropyLoss : public Loss {
   BinaryCrossEntropyLoss(const std::shared_ptr<const Tensor<float>>& label_tensor,
                          const std::shared_ptr<Tensor<float>>& input_tensor,
                          const std::shared_ptr<Tensor<float>>& loss_tensor,
-                         const std::shared_ptr<Regularizer> regularizer, int device_id);
+                         const std::shared_ptr<Regularizer> regularizer, int device_id, float scaler = 1.f);
 };
 
 class MultiCrossEntropyLoss : public Loss {
@@ -122,7 +122,7 @@ class MultiCrossEntropyLoss : public Loss {
                         const std::shared_ptr<Tensor<float>>& input_tensor,
                         const std::shared_ptr<Tensor<float>>& loss_tensor,
                         const std::shared_ptr<Regularizer> regularizer,
-                        const std::vector<float>& target_weight, int device_id);
+                        const std::vector<float>& target_weight, int device_id, float scaler = 1.f);
 };
 
 }  // namespace HugeCTR
