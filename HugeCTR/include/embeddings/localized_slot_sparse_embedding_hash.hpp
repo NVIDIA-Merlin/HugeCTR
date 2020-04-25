@@ -257,7 +257,9 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey>::LocalizedSlotSparseEmbeddingHash(
 #endif
 
     // for hash_table_value initialization
+
     HugeCTR::UnifiedDataSimulator<float> fdata_sim(-0.05, 0.05);
+
     //std::cout << (long long) max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size * sizeof(float) << "Byte = " << max_vocabulary_size_per_gpu_ << "*" << embedding_params_.embedding_vec_size << std::endl;
     float *h_hash_table_value;
     CK_CUDA_THROW_(cudaMallocHost(

@@ -345,7 +345,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             label_tensor, binary_cross_entropy_loss_in_tensor, loss_tensor,
             create_regularizer(j, weight_buff, wgrad_buff, (binary_cross_entropy_loss_in_tensor->get_dims())[0],
                                gpu_resource->get_cublas_handle(), device_id),
-            device_id));
+            device_id, scaler));
         break;
       }
       case Layer_t::Concat: {
@@ -364,8 +364,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         loss.reset(
             new CrossEntropyLoss(label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
-                                 create_regularizer(j, weight_buff, wgrad_buff, (cross_entropy_loss_in_tensor->get_dims())[0],
-                                                    gpu_resource->get_cublas_handle(), device_id), device_id));
+                                 create_regularizer(j, weight_buff, wgrad_buff, (cross_entropy_loss_in_tensor->get_dims())[0], gpu_resource->get_cublas_handle(), device_id), device_id, scaler));
         break;
       }
       case Layer_t::Dropout: {
@@ -445,7 +444,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
             create_regularizer(j, weight_buff, wgrad_buff, (multi_cross_entropy_loss_in_tensor->get_dims())[0],
                                gpu_resource->get_cublas_handle(), device_id),
-            target_weight_vec, device_id));
+            target_weight_vec, device_id, scaler));
         break;
       }
       case Layer_t::ReLU: {
