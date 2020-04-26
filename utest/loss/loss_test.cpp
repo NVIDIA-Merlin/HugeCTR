@@ -47,7 +47,7 @@ void cross_entropy_loss(size_t batch_size, bool row_major) {
       row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> loss_tensor(new Tensor<float>({1, 1}, loss_b, TensorFormat_t::HW));
 
-  CrossEntropyLoss cel(label_tensor, input_tensor, loss_tensor, nullptr, 0);
+  CrossEntropyLoss cel(label_tensor, input_tensor, loss_tensor, nullptr, 0, 1);
 
   input_b->init(0);
   label_b->init(0);
@@ -124,7 +124,7 @@ void binary_cross_entropy_loss(size_t batch_size, bool row_major) {
       row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> loss_tensor(new Tensor<float>({1, 1}, loss_b, TensorFormat_t::HW));
 
-  BinaryCrossEntropyLoss bce(label_tensor, input_tensor, loss_tensor, nullptr, 0);
+  BinaryCrossEntropyLoss bce(label_tensor, input_tensor, loss_tensor, nullptr, 0, 1);
 
   input_b->init(0);
   label_b->init(0);

@@ -143,12 +143,12 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   BinaryCrossEntropyLoss loss_no(label_tensor, out_tensor, loss_tensor_no,
                                  std::shared_ptr<NoRegularizer>(new NoRegularizer(
                                      weight_buff_no, wgrad_buff_no, batch_size, 0)),
-                                 0);
+                                 0, 1);
 
   BinaryCrossEntropyLoss loss_re(
       label_tensor, out_tensor, loss_tensor_re,
       create_regularizer(type, weight_buff_re, wgrad_buff_re, batch_size, lambda, cublas_handle),
-      0);
+      0, 1);
 
   weight_buff_no->init(0);
   weight_buff_re->init(0);
