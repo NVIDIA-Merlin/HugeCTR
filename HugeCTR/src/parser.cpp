@@ -284,7 +284,7 @@ const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
  */
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
-                        int device_id,
+                        int device_id, int num_networks_in_global,
                         const std::shared_ptr<const GPUResource>& gpu_resource,
                         bool use_mixed_precision, float scaler) {
   std::unique_ptr<Network> network(new Network(device_id, gpu_resource, false));
@@ -345,7 +345,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             label_tensor, binary_cross_entropy_loss_in_tensor, loss_tensor,
             create_regularizer(j, weight_buff, wgrad_buff, (binary_cross_entropy_loss_in_tensor->get_dims())[0],
                                gpu_resource->get_cublas_handle(), device_id),
-            device_id, scaler));
+            device_id, num_networks_in_global ,scaler));
         break;
       }
       case Layer_t::Concat: {
@@ -364,7 +364,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         loss.reset(
             new CrossEntropyLoss(label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
-                                 create_regularizer(j, weight_buff, wgrad_buff, (cross_entropy_loss_in_tensor->get_dims())[0], gpu_resource->get_cublas_handle(), device_id), device_id, scaler));
+                                 create_regularizer(j, weight_buff, wgrad_buff, (cross_entropy_loss_in_tensor->get_dims())[0], gpu_resource->get_cublas_handle(), device_id), device_id,  num_networks_in_global, scaler));
         break;
       }
       case Layer_t::Dropout: {
@@ -444,7 +444,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
             create_regularizer(j, weight_buff, wgrad_buff, (multi_cross_entropy_loss_in_tensor->get_dims())[0],
                                gpu_resource->get_cublas_handle(), device_id),
-            target_weight_vec, device_id, scaler));
+            target_weight_vec, device_id,  num_networks_in_global, scaler));
         break;
       }
       case Layer_t::ReLU: {
@@ -858,7 +858,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       const auto& device_list = gpu_resource_group->get_device_list();
       for (auto device_id : device_list) {
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i],
-                                            device_id,
+                                            device_id, total_gpu_count,
                                             (*gpu_resource_group)[i], use_mixed_precision, scaler));
         i++;
       }
