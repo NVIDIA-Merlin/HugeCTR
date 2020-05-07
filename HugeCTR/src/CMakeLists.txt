@@ -58,6 +58,7 @@ endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
 target_compile_features(huge_ctr_static PUBLIC cxx_std_11)
+set_target_properties(huge_ctr_static PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 add_executable(huge_ctr main.cpp)
 target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
