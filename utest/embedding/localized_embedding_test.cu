@@ -44,10 +44,10 @@ const int batch_num = 2;  // can not more than 32
 const int batchsize = 1024;
 const long long num_records = batchsize * batch_num;
 const int slot_num = 26;
-const int max_nnz_per_slot = 10;
+const int max_nnz_per_slot = 4;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
-const long long vocabulary_size = 100;
-const int embedding_vec_size = 16;
+const long long vocabulary_size = 10000;
+const int embedding_vec_size = 64;
 const int combiner = 0;   // 0-sum, 1-mean
 const int optimizer = 0;  // 0-adam, 1-momentum_sgd, 2-nesterov
 const bool global_update =
@@ -70,13 +70,15 @@ const Check_t CHK = Check_t::Sum;  // Check_t::Sum
 const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
 
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); // for
-// device_list {0} testing const std::string plan_file(PROJECT_HOME_ +
-// "utest/all2all_plan_dgx_{0,1}.json"); // for device_list {0,3} testing const std::string
-// plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); // for device_list {0,3} testing
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json"); // for
-// device_list {0,3} testing
+#ifndef NCCl_A2A
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); 
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json"); 
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); 
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json"); 
 const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
+#else
+const std::string plan_file = "";
+#endif 
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
