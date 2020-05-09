@@ -4,11 +4,14 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 from dump import DumpToTF, struct
 from hugectr_layers import *
 
-def read_a_sample(slot_num=26):
+import argparse
+
+
+def read_a_sample(args, slot_num=26):
     """
     read a sample from criteo dataset.
     """
-    with open("./sparse_embedding0.data", 'rb') as file:
+    with open(os.path.join(args.dataset_path, "sparse_embedding0.data"), 'rb') as file:
         # skip data_header
         file.seek(4 + 64 + 1, 0)
 
@@ -39,7 +42,7 @@ def read_a_sample(slot_num=26):
 
     return label, dense, keys
 
-def dcn_model():
+def dcn_model(args):
     """
     this function build "dcn" computing-graph with tf.
     and initialize the weights with values dumped from
@@ -51,10 +54,10 @@ def dcn_model():
 
     dense_dim = 13
 
-    samples_dir = r'/workspace/hugectr/samples/'
+    samples_dir = r'../../samples/'
     model_json = os.path.join(samples_dir, r'dcn/dcn.json')
 
-    model_path = r'./hugectr_model_file/'
+    model_path = args.model_file_path
     sparse_model_names = [os.path.join(model_path, r'dcn_model0_sparse_200000.model')]
     dense_model_name = os.path.join(model_path, r'dcn_model_dense_200000.model')
 
@@ -160,7 +163,7 @@ def dcn_model():
         sess.run(init_op)
 
         # check inference output
-        label, dense, keys = read_a_sample()
+        label, dense, keys = read_a_sample(args)
         keys[keys == -1] = vocabulary_size # map -1 to invalid zeros embedding feature
         output = sess.run(fc4, feed_dict={dense_input: dense,
                                           sparse_input: keys})
@@ -172,4 +175,11 @@ def dcn_model():
 
 
 if __name__ == "__main__":
-    dcn_model()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dataset_path", type=str,
+                        help="where to find criteo dataset.")
+    parser.add_argument("model_file_path", type=str, 
+                        help="where to find model files.")
+    args = parser.parse_args()
+
+    dcn_model(args)
