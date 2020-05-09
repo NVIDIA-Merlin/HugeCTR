@@ -804,7 +804,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
             case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
               auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
-
+#ifndef NCCL_A2A
               auto j_plan = get_json(j, "plan_file");
               std::string plan_file;
               if (j_plan.is_array()) {
@@ -824,7 +824,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
               if (!ifs) {
                 CK_THROW_(Error_t::WrongInput, "plan file " + plan_file + " can bot be open");
               }
-
+#else 
+              std::string plan_file = "";
+#endif 
               const SparseEmbeddingHashParams embedding_params = {
                   batch_size,
                   vocabulary_size,
