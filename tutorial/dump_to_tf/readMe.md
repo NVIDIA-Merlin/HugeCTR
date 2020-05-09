@@ -107,9 +107,10 @@ For simplicity, the ```input keys``` are directly used as the ```row-index``` of
 [dump.py](./dump.py) is used to parse parameters from binary model files. Each parameter is parsed in order as described above. The parsed values can be used to initialize parameters defined in TensorFlow's layers.
 
 4. Save it as TensorFlow checkpoint. <br>
-After completing the above steps, you can run the following command to run this demo:
+After completing the above steps, you can run the following commands to run this demo:
     ```
-    python3 main.py
+    $ cd hugectr/tutorial/dump_to_tf
+    $ python3 main.py
     ```
     The computing-graph will be saved as TensorFlow chekcpoint. Then you can convert this checkpoint to other formats you need, such as ```.pb, .onnx```.
 
