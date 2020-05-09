@@ -1,5 +1,5 @@
 # Dump Model To TensorFlow
-A demo of dumping HugeCTR's model to TensorFlow.
+A tutorial of dumping HugeCTR's model to TensorFlow.
 
 ## Model File Names
 There are two kind of binary model files dumped from HugeCTR: sparse model file (embedding) and dense model file. After training, HugeCTR will:
@@ -38,7 +38,7 @@ Dense model's weights will be stored in the order of layers in configuration fil
   Weights in Layer2,
   ...
   ```
-  The [non-training parameters](https://gitlab-master.nvidia.com/zehuanw/hugectr/-/blob/master/docs/hugectr_user_guide.md#no-trained-parameters) will be saved to a json file, such as ```moving-mean``` and ```moving-var``` in BatchNorm layer. <br>
+  The [non-training parameters](../../docs/hugectr_user_guide.md#no-trained-parameters) will be saved to a json file, such as ```moving-mean``` and ```moving-var``` in BatchNorm layer. <br>
 
   So far, the following layers have parameters needed to be saved, and the parameters in each layer are stored in the order in which the variables appear:
   1. BatchNorm <br>
@@ -79,15 +79,15 @@ Take criteo dataset and DCN model as an example to demonstrate the steps.
 + Python >= 3.6
 + TensorFlow 1.x or TensorFlow 2.x
 + numpy
-+ struct
-+ json
++ struct (python package)
++ json (python package)
 
 ### Steps
 1. Train with HugeCTR to get model files.<br>
-Follow the [instructions](https://gitlab-master.nvidia.com/zehuanw/hugectr/-/tree/master/samples%2Fdcn) to get binary model files. You may need to modify ```"snapshot_prefix"``` in model configuration json file.
+Follow the [instructions](../../samples/dcn/README.md) to get binary model files. You may need to modify ```"snapshot_prefix"``` in model configuration json file.
 
 2. According to model configuration json file, manually build the same computing-graph using TensorFlow.<br>
-As shown in [main.py](./main.py), use Tensorflow to build each layer according to [model json file](https://gitlab-master.nvidia.com/zehuanw/hugectr/-/blob/master/samples/dcn/dcn.json). TensorFlow layers equivalent to those used in HugeCTR can be found in [hugectr_layers.py](./hugectr_layers.py). <br><br>
+As shown in [main.py](./main.py), use Tensorflow to build each layer according to [model json file](../../samples/dcn/dcn.json). TensorFlow layers equivalent to those used in HugeCTR can be found in [hugectr_layers.py](./hugectr_layers.py). <br><br>
 For simplicity, the ```input keys``` are directly used as the ```row-index``` of embedding-table to look up ```embedding features```. Therefore input keys have shape ```[batchsize, slot_num, max_nnz_per_slot]```. 
     ```
     For example:
@@ -110,7 +110,7 @@ For simplicity, the ```input keys``` are directly used as the ```row-index``` of
 After completing the above steps, you can run the following commands to run this demo:
     ```
     $ cd hugectr/tutorial/dump_to_tf
-    $ python3 main.py
+    $ python3 main.py ../../samples/dcn/criteo/ ../../samples/dcn/ # dataset_path, model_file_path
     ```
     The computing-graph will be saved as TensorFlow chekcpoint. Then you can convert this checkpoint to other formats you need, such as ```.pb, .onnx```.
 
