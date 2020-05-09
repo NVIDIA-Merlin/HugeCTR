@@ -31,7 +31,7 @@ For localized embedding, HugeCTR stores keys, slot ids and embedding features in
       Each pair of **<key, slot_id, embedding_feature>** has size in bytes = **sizeof(TypeHashKey) + sizeof(TypeHashValueIndex) + sizeof(float) \* embedding_vec_size**.
 
 + Dense model file <br>
-Dense model's weights will be stored in the order of layers in configuration file. All weight values are of type `float`.
+Dense model's weights will be stored in the order of layers in configuration file. All values are of type `float`.
   ```
   Weights in Layer0,
   Weights in Layer1, 
