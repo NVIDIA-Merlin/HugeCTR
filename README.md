@@ -158,7 +158,9 @@ There are four sessions in a configuration file: "solver", "optimizer", "data", 
 
 ### Model File ###
 Model file is a binary file that will be loaded for weight initilization.
-In model file weight will be stored in the order of layers in configuration file.
+In model file weight will be stored in the order of layers in configuration file. 
+
+[This](./tutorial/dump_to_tf/readMe.md) is a tutorial of ```dumping models to TensorFlow```, and more detailed infomation about the ```model format```.
 
 ### Data Set ###
 A data set includes a ASCII format file list and a set of data in binary format.
