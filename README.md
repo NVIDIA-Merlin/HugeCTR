@@ -95,6 +95,15 @@ $ cmake -DENABLE_MULTINODES=ON ..
 $ make -j
 ```
 
+### Build with NCCL All2All Supported ###
+The default collection communication library used in LocalizedSlotSparseEmbedding is [Gossip](https://github.com/Funatiq/gossip). [NCCL all2all](https://github.com/NVIDIA/nccl/tree/p2p) is also supported in HugeCTR. If you want to run with NCCL all2all, please turn on the NCCL_A2A switch in cmake.
+```shell
+$ mkdir -p build
+$ cd build
+$ cmake -DNCCL_A2A=ON ..
+$ make -j
+```
+
 ## Run ##
 Please refer to samples/*
 
