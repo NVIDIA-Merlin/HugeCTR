@@ -41,6 +41,7 @@ $ ./criteo2hugectr ../../tools/criteo_script/dcn2nodes_data/val criteo_test/spar
 
 ## Plan file generation ##
 If gossip communication library is used, a plan file is needed to be generated first as below. If NCCL communication library is used, there is no need to generate a plan file, just skip this step. 
+
 Login to your GPU cluster and acquire two nodes. For example, if on a SLURM system:  
 ```shell
 $ srun -N 2 --pty bash -i
