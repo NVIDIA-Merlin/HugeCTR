@@ -1,0 +1,58 @@
+
+1.	Does HugeCTR support TensorFlow?
+No, HugeCTR v2.1 can’t support TensorFlow. But we plan to support TensorFlow in HugeCTR v3.0.
+2.	Does HugeCTR support inference?
+No. HugeCTR v2.1 only supports CTR model training. But we plan to support inference deployment in HugeCTR v3.0.
+3.	Which models can be supported in HugeCTR?
+HugeCTR v2.1 is very flexible. We support DNN / WDL / DCN / DeepFM models which are widely used in industrial recommender systems. The users can find usage samples from “samples” folder of HugeCTR 
+4.	Does HugeCTR support multiple nodes CTR training?
+Yes. HugeCTR supports single-gpu, or multi-gpu single-node, or multi-gpu multi-node for CTR training. Please refer to samples/dcn2node for more details.
+5.	How to deal with the huge embedding table that cannot be stored in a single GPU memory?
+Embedding table in HugeCTR is model-parallel stored across GPUs and nodes.  So if you have very large size of embedding table, just use as many GPUs as you need to store it. That’s why we have the name “HugeCTR”. Suppose you have 1TB embedding table and 16xV100-32GB in a GPU server node, you can take 2 nodes for such case (ignore other required memory space). 
+6.	Which GPUs are supported in HugeCTR?
+HugeCTR supports GPUs with Compute Compatibility > 6.0, for example P100, P4, P40, P6, V100, T4.
+7.	Is DGX the only GPU server that is required in HugeCTR?
+DGX is not required, but recommended, because the performance of CTR training highly relies on the performance of inter-GPUs transactions. DGX has NVLink and NVSwitch inside, so that you can expect 150GB/s per direction per GPU. It’s 9.3x to PCI-E 3.0.
+8.	Can HugeCTR run without InfiniBand?
+For multi-node training, InfiniBand is recommended but not required. InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.
+9.	Is there any requirement of CPU configuration for HugeCTR execution?
+HugeCTR has very low CPU requirements, because it offload almost all the computation to GPUs where CPU is only used for file reading.
+10.	What is the specific format of files as input in HugeCTR?
+We have specific file format support. Please refer to README in HugeCTR.
+11.	Does HugeCTR support Python interface?
+Not currently. We will consider to add Python interface in the future version.
+12.	Does HugeCTR do synchronous training or asynchronous training？
+HugeCTR only supports synchronous training.
+13.	Does HugeCTR support stream training? How does it do preprocessing?
+
+14.	What is a “slot” in HugeCTR?
+In HugeCTR, a slot is corresponding to a feature field. The features in a slot can be one-hot or multi-hot, and different slots have different number of features. There are slot_num of slots in one sample of training dataset.  
+15.	What are the differences between LocalizedSlotEmbedding and DistributedSlotEmbedding?
+There are two sub-classes of Embedding layer, LocalizedSlotEmbedding and DistributedSlotEmbedding. They are distinguished by different method of distributing embedding table on multiple GPUs as model parallelism. For LocalizedSlotEmbedding, the features in the same slot will be stored in one GPU (that is why we call it “localized slot”), and different slots may be stored in different GPUs according to the index number of the slot; For DistributedSlotEmbedding, all the features are distributed to different GPUs according to the index number of the feature, regardless of the index number of the slot. That means the features in the same slot may be stored in different GPUs (that is why we call it “distributed slot”).
+16.	For multi-node，is  DataReader required to read the same batch of data on each node for each step? 
+Each Node has a DataReader object, and the DataReader objects broadcast their data to all the nodes in turn. Then all the nodes are on the same page as expected.  
+17.	As model parallelism in embedding layer, how does it get all the embedding lookup features from multi-node / multi-gpu?
+After embedding lookup, the embedding features in one slot need to be combined (or reduced) into one embedding vector. There are 2 steps to achieve this target: 1) do local reduction in single GPU. This is done in forward kernel function; 2) do global reduction across multi-node / multi-gpu. This is done by collective communications libraries such as NCCL. 
+18.	How to set data clauses, if there are two embeddings needed? 
+There should only be one source where the "sparse" is an array. Suppose there are 26 features (slots), first 13 features belong to the first embedding and the last 13 features belong to the second embedding, you can have two elements in "sparse" array as below: 
+```
+"sparse": [
+{
+ "top": "data1",
+ "type": "DistributedSlot",
+ "max_feature_num_per_sample": 30,
+ "slot_num": 13
+},
+{
+ "top": "data2",
+ "type": "DistributedSlot",
+ "max_feature_num_per_sample": 30,
+ "slot_num": 13
+}
+]
+```
+19.	How to save and load model in HugeCTR? 
+In HugeCTR, the model is saved in binary raw format. For model saving, you can set the “snapshot” in .json file to set the intervals of saving a checkpoint in file with the prefix of “snapshot_prefix”; For model loading, you can just modify the “dense_model_file”, “sparse_model_file” in .json file (in solver clause) according to the name of the snapshot.
+20.	Could the post training model from HugeCTR be imported into other frameworks such as TensorFlow for inference deployment? 
+Yes. The training model in HugeCTR is saved in raw format, and you can import it to other frameworks by writing some scripts . We provide a tutorial to demonstrate how to import HugeCTR post training model to TensorFlow. Please refer to “HugeCTR/tutorial/dump_to_tf”.
+
