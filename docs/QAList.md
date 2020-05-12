@@ -58,4 +58,10 @@ There should only be one source where the "sparse" is an array. Suppose there ar
 In HugeCTR, the model is saved in binary raw format. For model saving, you can set the “snapshot” in .json file to set the intervals of saving a checkpoint in file with the prefix of “snapshot_prefix”; For model loading, you can just modify the “dense_model_file”, “sparse_model_file” in .json file (in solver clause) according to the name of the snapshot.
 ### 20.	Could the post training model from HugeCTR be imported into other frameworks such as TensorFlow for inference deployment? ### 
 Yes. The training model in HugeCTR is saved in raw format, and you can import it to other frameworks by writing some scripts . We provide a tutorial to demonstrate how to import HugeCTR post training model to TensorFlow. Please refer to the [tutorial](../tutorial/dump_to_tf) .
-
+### 21. Does HugeCTR support overlap between different slots? ###
+No features in different slots should have no overlap. You may want to preprocess the data if you have overlaps e.g. offset or use hash function.
+### 22. What if there's no value in a slot? ###
+nnz=0 is supported in HugeCTR input. That means no features will be looked up.
+### 23. How can I benchmark my network? ###
+Firstly, you should construct your own configure file. You can refer to our [User Guide](hugectr_user_guide.md) and samples. Secondly, using our `data_generator` to generate a random dataset. Seeing [introductions](../README.md#benchmark).
+Thirdly, run with `./huge_ctr --train ./your_config.json`
