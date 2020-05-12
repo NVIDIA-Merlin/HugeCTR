@@ -3,10 +3,10 @@
 ### 1. Who are the target users of HugeCTR? ###
 We are trying to provide a fast and dedicated framework to the industry users who requires high-efficiency solution of their online or offline CTR training. 
 HugeCTR is also a reference design for the framework developers to help them enhance their current GPU CTR training solutions.
-### 2. Does HugeCTR support TensorFlow? ###
-Trained Model in HugeCTR v2.1 is compatible with TensorFlow. It's encouraged to deploy the trained model to TensorFlow for inference. See more details in [tutorial](../tutorial/dump_to_tf) 
-### 3. Which models can be supported in HugeCTR? ###
+### 2. Which models can be supported in HugeCTR? ###
 HugeCTR v2.1 is flexible. We support DNN / WDL / DCN / DeepFM models which are widely used in industrial recommender systems. The users can find useful samples from “samples” [folder](../samples) of HugeCTR 
+### 3. Does HugeCTR support TensorFlow? ###
+HugeCTR v2.1 has no TF interface, but the Trained model is compatible with TensorFlow. It's encouraged to deploy the trained model to TensorFlow for inference. See more details in [tutorial](../tutorial/dump_to_tf) 
 ### 4. Does HugeCTR support multiple nodes CTR training? ###
 Yes. HugeCTR supports single-gpu, or multi-gpu single-node, or multi-gpu multi-node for CTR training. Please refer to samples/dcn2node for more details.
 ### 5. How to deal with the huge embedding table that cannot be stored in a single GPU memory? ###
@@ -23,7 +23,7 @@ HugeCTR has very low CPU requirements, because it offload almost all the computa
 We have specific file format support. Please refer to the [tutorial](../tutorial/dump_to_tf) in HugeCTR.
 ### 11.	Does HugeCTR support Python interface? ###
 Not currently. We will consider to add Python interface in the future version.
-### 12. Does HugeCTR do synchronous training or asynchronous training？###
+### 12. Does HugeCTR do synchronous training or asynchronous training? ###
 HugeCTR only supports synchronous training.
 ### 13.	Does HugeCTR support stream training? ###
 Yes, hashtable based embedding in HugeCTR supports dynamic insertion, which is designed for stream training. New features can be added into embedding in runtime. 
@@ -33,7 +33,7 @@ In HugeCTR, slot is feature field or table. The features in a slot can be one-ho
 ### 15.	What are the differences between LocalizedSlotEmbedding and DistributedSlotEmbedding? ###
 There are two sub-classes of Embedding layer, LocalizedSlotEmbedding and DistributedSlotEmbedding. They are distinguished by different method of distributing embedding table on multiple GPUs as model parallelism. For LocalizedSlotEmbedding, the features in the same slot will be stored in one GPU (that is why we call it “localized slot”), and different slots may be stored in different GPUs according to the index number of the slot; For DistributedSlotEmbedding, all the features are distributed to different GPUs according to the index number of the feature, regardless of the index number of the slot. That means the features in the same slot may be stored in different GPUs (that is why we call it “distributed slot”).
 ### 16. For multi-node，is DataReader required to read the same batch of data on each node for each step? ### 
-Yes, each node in training will read the same data in each iteration.
+Yes, each node in training will read the same data in each iteration. 
 ### 17.	As model parallelism in embedding layer, how does it get all the embedding lookup features from multi-node / multi-gpu? ###
 After embedding lookup, the embedding features in one slot need to be combined (or reduced) into one embedding vector. There are 2 steps: 1) local reduction in single GPU in forward kernel function; 2) global reduction across multi-node / multi-gpu by collective communications libraries such as NCCL. 
 ### 18.	How to set data clauses, if there are two embeddings needed? ### 
