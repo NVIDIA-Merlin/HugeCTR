@@ -54,6 +54,8 @@ $ ./huge_ctr --train ./dcn.json
 ## Training with localized slot embedding ##
 
 1. Plan file generation
+
+If gossip communication library is used, a plan file is needed to be generated first as below. If NCCL communication library is used, there is no need to generate a plan file, just go to step 2. 
 ```shell
 $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
 $ python3 ../../tools/plan_generation_no_mpi/plan_generator_no_mpi.py dcn_localized_embedding.json
