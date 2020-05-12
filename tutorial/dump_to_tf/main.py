@@ -11,7 +11,7 @@ def read_a_sample_for_dcn(args, slot_num=26):
     """
     read a sample from criteo dataset.
     """
-    with open(os.path.join(args.dataset_path, "sparse_embedding0.data"), 'rb') as file:
+    with open(args.dataset, 'rb') as file:
         # skip data_header
         file.seek(4 + 64 + 1, 0)
 
@@ -57,9 +57,8 @@ def dcn_model(args):
     samples_dir = r'../../samples/'
     model_json = os.path.join(samples_dir, r'dcn/dcn.json')
 
-    model_path = args.model_file_path
-    sparse_model_names = [os.path.join(model_path, r'dcn_model0_sparse_200000.model')]
-    dense_model_name = os.path.join(model_path, r'dcn_model_dense_200000.model')
+    sparse_model_names = args.sparse_models
+    dense_model_name = args.dense_model
 
     dump = DumpToTF(sparse_model_names = sparse_model_names,
                          dense_model_name = dense_model_name,
@@ -181,7 +180,7 @@ def read_a_sample_for_criteo(args, slot_num=1):
     """
     read a sample from criteo dataset
     """
-    with open(os.path.join(args.dataset_path, "sparse_embedding0.data"), 'rb') as file:
+    with open(args.dataset, 'rb') as file:
         # skip data_header
         file.seek(4 + 64 + 1, 0)
 
@@ -227,9 +226,8 @@ def criteo_model(args):
     samples_dir = r'../../samples/'
     model_json = os.path.join(samples_dir, r'criteo/criteo.json')
 
-    model_path = args.model_file_path
-    sparse_model_names = [os.path.join(model_path, r'criteo_model0_sparse_40000.model')]
-    dense_model_name = os.path.join(model_path, r'criteo_model_dense_40000.model')
+    sparse_model_names = args.sparse_models
+    dense_model_name = args.dense_model
 
     dump = DumpToTF(sparse_model_names = sparse_model_names,
                          dense_model_name = dense_model_name,
@@ -332,13 +330,16 @@ def criteo_model(args):
 
 
 if __name__ == "__main__":
+    # Usage python3 main.py dataset dense_model sparse_model0, sparse_model1, ..., [-m]
     parser = argparse.ArgumentParser()
-    parser.add_argument("dataset_path", type=str,
+    parser.add_argument("dataset", type=str,
                         help="where to find criteo dataset.")
-    parser.add_argument("model_file_path", type=str, 
-                        help="where to find model files.")
-    parser.add_argument("--model", "-m", type=str, default="dcn", 
-                        help="decide to run what model, must be 'dcn' or 'criteo'.")
+    parser.add_argument("dense_model", type=str, 
+                        help="where to find dense model file.")
+    parser.add_argument("sparse_models", nargs="+", type=str,
+                        help="where to find sparse model files.")
+    parser.add_argument("--model", "-m", type=str, default="dcn", choices=['dcn', 'criteo'],
+                        help="decide to run which model, must be 'dcn' or 'criteo'.")
                     
     args = parser.parse_args()
 
@@ -350,3 +351,4 @@ if __name__ == "__main__":
         criteo_model(args)
     else:
         raise ValueError("You must use dcn or criteo model.")
+

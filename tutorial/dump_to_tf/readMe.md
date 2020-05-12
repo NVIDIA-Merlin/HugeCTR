@@ -82,9 +82,27 @@ Take criteo dataset and DCN model as an example to demonstrate the steps.
 + struct (python package)
 + json (python package)
 
+You can use these commands to run this demo:
+```
+$ cd hugectr/tutorial/dump_to_tf
+$ python3 main.py \
+../../samples/dcn/criteo/sparse_embedding0.data \
+../../samples/dcn/_dense_20000.model \
+../../samples/dcn/0_sparse_20000.model
+```
+
+**Usage** 
+```
+python3 main.py dataset dense_model sparse_model0 sparse_model1 ...
+```
+Arguments: <br>
+```dataset```: data file used in HugeCTR training <br>
+```dense_model```: HugeCTR's dense model file <br>
+```sparse_model```: HugeCTR's sparse model file(s). Specify sparse model(s) in the order of embedding(s) in model json file.
+
 ### Steps
 1. Train with HugeCTR to get model files.<br>
-Follow the [instructions](../../samples/dcn/README.md) to get binary model files. You may need to modify ```"snapshot_prefix"``` in model configuration json file.
+Follow the [instructions](../../samples/dcn/README.md) to get binary model files. 
 
 2. According to model configuration json file, manually build the same computing-graph using TensorFlow.<br>
 As shown in [main.py](./main.py), use Tensorflow to build each layer according to [model json file](../../samples/dcn/dcn.json). TensorFlow layers equivalent to those used in HugeCTR can be found in [hugectr_layers.py](./hugectr_layers.py). <br><br>
@@ -107,11 +125,6 @@ For simplicity, the ```input keys``` are directly used as the ```row-index``` of
 [dump.py](./dump.py) is used to parse parameters from binary model files. Each parameter is parsed in order as described above. The parsed values can be used to initialize parameters defined in TensorFlow's layers.
 
 4. Save it as TensorFlow checkpoint. <br>
-After completing the above steps, you can run the following commands to run this demo:
-    ```
-    $ cd hugectr/tutorial/dump_to_tf
-    $ python3 main.py ../../samples/dcn/criteo/ ../../samples/dcn/ # dataset_path, model_file_path
-    ```
-    The computing-graph will be saved as TensorFlow chekcpoint. Then you can convert this checkpoint to other formats you need, such as ```.pb, .onnx```.
+After completing the above steps, the computing-graph will be saved as TensorFlow chekcpoint. Then you can convert this checkpoint to other formats you need, such as ```.pb, .onnx```.
 
 
