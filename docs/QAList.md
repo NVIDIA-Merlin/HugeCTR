@@ -65,3 +65,5 @@ nnz=0 is supported in HugeCTR input. That means no features will be looked up.
 ### 23. How can I benchmark my network? ###
 Firstly, you should construct your own configure file. You can refer to our [User Guide](hugectr_user_guide.md) and samples. Secondly, using our `data_generator` to generate a random dataset. Seeing [introductions](../README.md#benchmark).
 Thirdly, run with `./huge_ctr --train ./your_config.json`
+### 24. What is "plan_file"? How to provide it?  ###
+Plan_file is used by Gossip communication library. In this file, the GPUs topology and connection in the server is defined. Gossip needs the plan_file as input to optimize the collection communication efficiency among GPUs. We provide a plan_file generator [tool](../tools/plan_generation) for the user to generate plan_file easily based on your server configuration. And there are samples of how to use the tool to generate plan_file, please refer to [dcn](../samples/dcn) or [dcn2nodes](../samples/dcn2nodes).
