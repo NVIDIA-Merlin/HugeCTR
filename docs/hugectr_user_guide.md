@@ -60,7 +60,7 @@ To run with multiple node: HugeCTR should be built with OpenMPI (GPUDirect suppo
 $ mpirun -N2 ./huge_ctr --train config.json
 ```
 ## Network Configurations
-Please refer to [**sample configure file**](utest/simple_sparse_embedding.json)
+Please refer to [**sample configure file**](../utest/simple_sparse_embedding.json)
 
 ### Solver
 Solver clause contains the configuration to training resource and task, items include:
@@ -165,7 +165,7 @@ Embedding:
 * Slots (tables or feature fields) are distributed in GPUs and nodes.
 * `type`: two types of embedding are supported: `LocalizedSlotSparseEmbeddingHash`, `DistributedSlotSparseEmbeddingHash`.
   * `LocalizedSlotSparseEmbeddingHash`: each individual slot will be located in each GPU in turn, and not shared. This type of embedding has the best scalability.
-    * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to the [**README**](samples/dcn/README.md) in dcn sample.
+    * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to the [**README**](../samples/dcn/README.md) in dcn sample.
   * `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when there exists the load imbalance among slots and potentially has OOM issue.
   * In single GPU training, for your convenience please use `DistributedSlotSparseEmbeddingHash`.
 * `vocabulary_size`: the maximum possible size of embedding.
@@ -236,7 +236,7 @@ The Others
 * ELU: the type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
 * Fully Connected (`InnerProduct`): bias is supported in fully connected layer and `num_output` is the dimension of output.
 * Loss: different from the other layers, you can specify which `regularization` will you use. This is optional. By default no regularization will be used.
-* For more details please refer to [**parser.cu**](HugeCTR/src/parser.cpp)
+* For more details please refer to [**parser.cu**](../HugeCTR/src/parser.cpp)
 ```json
 {
   "name": "elu1",
