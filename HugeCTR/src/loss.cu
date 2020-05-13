@@ -23,12 +23,15 @@ namespace HugeCTR {
 Loss::Loss(const std::shared_ptr<const Tensor<float>> &label_tensor,
            const std::shared_ptr<Tensor<float>> &input_tensor,
            const std::shared_ptr<Tensor<float>> &loss_tensor,
-           const std::shared_ptr<Regularizer> regularizer, int device_id, int total_gpu_count, float scaler)
+           const std::shared_ptr<Regularizer> regularizer, int device_id, int total_gpu_count,
+           float scaler)
     : label_tensors_(1, label_tensor),
       input_tensors_(1, input_tensor),
       loss_tensors_(1, loss_tensor),
       regularizer_(regularizer),
-      device_id_(device_id), total_gpu_count_(total_gpu_count), scaler_(scaler) {}
+      device_id_(device_id),
+      total_gpu_count_(total_gpu_count),
+      scaler_(scaler) {}
 
 void Loss::fused_loss_computation(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
@@ -70,8 +73,10 @@ void Loss::fused_loss_computation(cudaStream_t stream) {
 CrossEntropyLoss::CrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &label_tensor,
                                    const std::shared_ptr<Tensor<float>> &input_tensor,
                                    const std::shared_ptr<Tensor<float>> &loss_tensor,
-                                   const std::shared_ptr<Regularizer> regularizer, int device_id, int total_gpu_count,  float scaler)
-  : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, total_gpu_count, scaler) {
+                                   const std::shared_ptr<Regularizer> regularizer, int device_id,
+                                   int total_gpu_count, float scaler)
+    : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, total_gpu_count,
+           scaler) {
   if (input_tensor->get_format() != label_tensor->get_format())
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
 
@@ -90,8 +95,8 @@ CrossEntropyLoss::CrossEntropyLoss(const std::shared_ptr<const Tensor<float>> &l
 
 // Suppose we use one thread to calculate one sample
 __global__ void CrossEntropy_Kernel(float *input, const float *label, float *cel_loss,
-                                    int batch_size, int total_gpu_count, int feature_dim, bool row_major, float scaler,
-                                    float rterm) {
+                                    int batch_size, int total_gpu_count, int feature_dim,
+                                    bool row_major, float scaler, float rterm) {
   int tid = threadIdx.x;
   extern __shared__ float loss_s[];
 
@@ -134,15 +139,17 @@ void CrossEntropyLoss::do_fused_loss_computation(float *input, const float *labe
   bool row_major = (input_tensors_[0]->get_format() == TensorFormat_t::HW);
   int block_size = min(batch_size, 1024);
   CrossEntropy_Kernel<<<1, block_size, block_size * sizeof(float), stream>>>(
-    input, label, loss, batch_size, total_gpu_count_, feature_dim, row_major, scaler, rterm);
+      input, label, loss, batch_size, total_gpu_count_, feature_dim, row_major, scaler, rterm);
 }
 
 BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
     const std::shared_ptr<const Tensor<float>> &label_tensor,
     const std::shared_ptr<Tensor<float>> &input_tensor,
     const std::shared_ptr<Tensor<float>> &loss_tensor,
-    const std::shared_ptr<Regularizer> regularizer, int device_id, int total_gpu_count, float scaler)
-  : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, total_gpu_count, scaler) {
+    const std::shared_ptr<Regularizer> regularizer, int device_id, int total_gpu_count,
+    float scaler)
+    : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, total_gpu_count,
+           scaler) {
   if (input_tensor->get_format() != label_tensor->get_format())
     CK_THROW_(Error_t::WrongInput, "Format of input tensor and label tensor don't match");
 
@@ -155,7 +162,8 @@ BinaryCrossEntropyLoss::BinaryCrossEntropyLoss(
 
 // Suppose we use one thread to calculate one sample
 __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, float *bce_loss,
-                                          float scaler, int batch_size, int total_gpu_count, float rterm) {
+                                          float scaler, int batch_size, int total_gpu_count,
+                                          float rterm) {
   int tid = threadIdx.x;
   extern __shared__ float loss_s[];
   loss_s[tid] = 0.0f;
@@ -167,7 +175,8 @@ __global__ void BinaryCrossEntropy_Kernel(float *input, const float *label, floa
     if (x >= 0) {
       float exp_neg_x = exp(-x);
       loss_s[tid] += x * (1 - y) + log(1 + exp_neg_x);
-      input[i] = ((1.f - y) - exp_neg_x / (1.f + exp_neg_x)) * scaler / (float)batch_size / total_gpu_count;
+      input[i] = ((1.f - y) - exp_neg_x / (1.f + exp_neg_x)) * scaler / (float)batch_size /
+                 total_gpu_count;
     } else {
       float exp_x = exp(x);
       loss_s[tid] += -x * y + log(1 + exp_x);
@@ -189,7 +198,7 @@ void BinaryCrossEntropyLoss::do_fused_loss_computation(float *input, const float
                                                        cudaStream_t stream) {
   int block_size = min(batch_size, 1024);
   BinaryCrossEntropy_Kernel<<<1, block_size, block_size * sizeof(float), stream>>>(
-    input, label, loss, scaler, batch_size, total_gpu_count_, rterm);
+      input, label, loss, scaler, batch_size, total_gpu_count_, rterm);
 }
 
 __forceinline__ __device__ __host__ float cross_entropy_loss(float x, float y) {
@@ -217,9 +226,9 @@ __forceinline__ __device__ __host__ float cross_entropy_loss_backward(float x, f
 }
 
 __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
-                                         const float *target_weight, float *bce_loss, int batchsize, 
-					 int total_gpu_count,
-                                         int labels_per_sample, float scaler, float rterm) {
+                                         const float *target_weight, float *bce_loss, int batchsize,
+                                         int total_gpu_count, int labels_per_sample, float scaler,
+                                         float rterm) {
   int tid = threadIdx.x + blockDim.x * blockIdx.x;
   int num_threads = blockDim.x * gridDim.x;
   float loss_s = 0.f;
@@ -231,9 +240,10 @@ __global__ void MultiCrossEntropy_Kernel(float *input, const float *label,
     float loss =
         (label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] * cross_entropy_loss(x, y));
     loss_s += loss;
-    input[i] = (label[i] < -0.5) ? 0.f
-                                 : (target_weight[target_weight_idx] *
-                                    cross_entropy_loss_backward(x, y) / size * scaler / total_gpu_count);
+    input[i] = (label[i] < -0.5)
+                   ? 0.f
+                   : (target_weight[target_weight_idx] * cross_entropy_loss_backward(x, y) / size *
+                      scaler / total_gpu_count);
   }
 
   atomic_global_sum_div(-loss_s, bce_loss, size);
@@ -252,8 +262,9 @@ void MultiCrossEntropyLoss::do_fused_loss_computation(float *input, const float 
   const int BLOCK_SIZE = 256;
   const int GRID_SIZE = min(40, (batch_size * labels_per_sample - 1) / BLOCK_SIZE);
   float *target_weight = target_weight_->get_ptr();
-  MultiCrossEntropy_Kernel<<<GRID_SIZE, BLOCK_SIZE, 0, stream>>>(
-    input, label, target_weight, loss, batch_size, total_gpu_count_, labels_per_sample, scaler, rterm);
+  MultiCrossEntropy_Kernel<<<GRID_SIZE, BLOCK_SIZE, 0, stream>>>(input, label, target_weight, loss,
+                                                                 batch_size, total_gpu_count_,
+                                                                 labels_per_sample, scaler, rterm);
 }
 
 MultiCrossEntropyLoss::MultiCrossEntropyLoss(
@@ -262,7 +273,8 @@ MultiCrossEntropyLoss::MultiCrossEntropyLoss(
     const std::shared_ptr<Tensor<float>> &loss_tensor,
     const std::shared_ptr<Regularizer> regularizer, const std::vector<float> &target_weight,
     int device_id, int total_gpu_count, float scaler)
-  : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, total_gpu_count, scaler) {
+    : Loss(label_tensor, input_tensor, loss_tensor, regularizer, device_id, total_gpu_count,
+           scaler) {
   if (label_tensor->get_dims().size() != 2 || label_tensor->get_format() != TensorFormat_t::HW ||
       input_tensor->get_dims().size() != 2 || input_tensor->get_format() != TensorFormat_t::HW ||
       label_tensor->get_dims()[0] != input_tensor->get_dims()[0] ||

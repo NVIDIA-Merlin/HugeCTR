@@ -200,16 +200,16 @@ class DataWriter {
   }
 };
 
-
 // Add a new data_generation function for LocalizedSparseEmbedding testing
 // In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
 template <typename T, Check_t CK_T>
-void data_generation(std::string file_list_name, std::string data_prefix,
-                                        int num_files, int num_records_per_file, int slot_num,
-                                        size_t vocabulary_size, int label_dim, int dense_dim,
-                                        int max_nnz) {
+void data_generation(std::string file_list_name, std::string data_prefix, int num_files,
+                     int num_records_per_file, int slot_num, size_t vocabulary_size, int label_dim,
+                     int dense_dim, int max_nnz) {
   if (file_exist(file_list_name)) {
-    std::cout << "File (" + file_list_name + ") exist. To generate new dataset plesae remove this file." << std::endl;
+    std::cout << "File (" + file_list_name +
+                     ") exist. To generate new dataset plesae remove this file."
+              << std::endl;
     return;
   }
   std::string directory;

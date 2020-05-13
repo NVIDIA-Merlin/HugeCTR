@@ -225,7 +225,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
     // (double)gpu_count); int embedding_rows_per_gpu = (int)embedding_params_.vocabulary_size;
     max_vocabulary_size_per_gpu_ =
         (size_t)((float)embedding_params_.vocabulary_size /
-              Base::device_resources_->get_total_gpu_count() / embedding_params_.load_factor);
+                 Base::device_resources_->get_total_gpu_count() / embedding_params_.load_factor);
 #ifndef NDEBUG
     std::cout << "max_vocabulary_size_per_gpu_:" << max_vocabulary_size_per_gpu_ << std::endl;
 #endif
@@ -236,8 +236,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
     CK_CUDA_THROW_(cudaMallocHost(
         &h_hash_table_value,
         max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size * sizeof(float)));
-    for (size_t i = 0;
-         i < (max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size);
+    for (size_t i = 0; i < (max_vocabulary_size_per_gpu_ * embedding_params_.embedding_vec_size);
          i++) {
       h_hash_table_value[i] = fdata_sim.get_num();
     }
@@ -257,7 +256,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
 
       // new hash table value vectors
       hash_table_value_tensors_.emplace_back(
-	new Tensor<float>({max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
+          new Tensor<float>({max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
                             float_bufs_.back(), TensorFormat_t::HW));
 
       // new hash table value_index that get() from HashTable
@@ -288,7 +287,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey>::DistributedSlotSparseEmbeddingH
               {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
               float_bufs_.back(), TensorFormat_t::HW));
           opt_v_tensors_.emplace_back(new Tensor<float>(
-	      {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
+              {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
               float_bufs_.back(), TensorFormat_t::HW));
           break;
 

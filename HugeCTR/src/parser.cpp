@@ -319,8 +319,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::BatchNorm: {
         const auto& bn_in_tensor = input_output_info.input[0];
         // establish out tensor
-        std::shared_ptr<Tensor<float>> bn_out_tensor(new Tensor<float>(
-	  bn_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        std::shared_ptr<Tensor<float>> bn_out_tensor(
+            new Tensor<float>(bn_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({bn_out_tensor, input_output_info.output[0]});
 
         // get BN params
@@ -343,9 +343,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         loss.reset(new BinaryCrossEntropyLoss(
             label_tensor, binary_cross_entropy_loss_in_tensor, loss_tensor,
-            create_regularizer(j, weight_buff, wgrad_buff, (binary_cross_entropy_loss_in_tensor->get_dims())[0],
+            create_regularizer(j, weight_buff, wgrad_buff,
+                               (binary_cross_entropy_loss_in_tensor->get_dims())[0],
                                gpu_resource->get_cublas_handle(), device_id),
-            device_id, num_networks_in_global ,scaler));
+            device_id, num_networks_in_global, scaler));
         break;
       }
       case Layer_t::Concat: {
@@ -364,15 +365,18 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         loss.reset(
             new CrossEntropyLoss(label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
-                                 create_regularizer(j, weight_buff, wgrad_buff, (cross_entropy_loss_in_tensor->get_dims())[0], gpu_resource->get_cublas_handle(), device_id), device_id,  num_networks_in_global, scaler));
+                                 create_regularizer(j, weight_buff, wgrad_buff,
+                                                    (cross_entropy_loss_in_tensor->get_dims())[0],
+                                                    gpu_resource->get_cublas_handle(), device_id),
+                                 device_id, num_networks_in_global, scaler));
         break;
       }
       case Layer_t::Dropout: {
         const auto& do_in_tensor = input_output_info.input[0];
 
         // establish out tensor
-        std::shared_ptr<Tensor<float>> do_out_tensor(new Tensor<float>(
-            do_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        std::shared_ptr<Tensor<float>> do_out_tensor(
+            new Tensor<float>(do_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
         // get ELU params
         auto rate_it = j.find("rate");
@@ -386,8 +390,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         const auto& elu_in_tensor = input_output_info.input[0];
 
         // establish out tensor
-        std::shared_ptr<Tensor<float>> elu_out_tensor(new Tensor<float>(
-          elu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        std::shared_ptr<Tensor<float>> elu_out_tensor(
+            new Tensor<float>(elu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({elu_out_tensor, input_output_info.output[0]});
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
@@ -401,8 +405,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // establish out tensor
         auto j_fc_param = get_json(j, "fc_param");
         auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
-        std::shared_ptr<Tensor<float>> out_tensor(
-	  new Tensor<float>({(fc_in_tensor->get_dims())[0], output}, blobs_buff, TensorFormat_t::HW));
+        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+            {(fc_in_tensor->get_dims())[0], output}, blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         // establish layer
         Layer* fc_layer = new FullyConnectedLayer(
@@ -442,17 +446,18 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
         loss.reset(new MultiCrossEntropyLoss(
             label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
-            create_regularizer(j, weight_buff, wgrad_buff, (multi_cross_entropy_loss_in_tensor->get_dims())[0],
+            create_regularizer(j, weight_buff, wgrad_buff,
+                               (multi_cross_entropy_loss_in_tensor->get_dims())[0],
                                gpu_resource->get_cublas_handle(), device_id),
-            target_weight_vec, device_id,  num_networks_in_global, scaler));
+            target_weight_vec, device_id, num_networks_in_global, scaler));
         break;
       }
       case Layer_t::ReLU: {
         const auto& relu_in_tensor = input_output_info.input[0];
 
         // establish out tensor
-        std::shared_ptr<Tensor<float>> relu_out_tensor(new Tensor<float>(
-            relu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+        std::shared_ptr<Tensor<float>> relu_out_tensor(
+            new Tensor<float>(relu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
         layers.emplace_back(new ReluLayer(relu_in_tensor, relu_out_tensor, device_id));
         break;
@@ -529,9 +534,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         // std::shared_ptr<Tensor<float>> out_tensor(
         //     new Tensor<float>({batch_size, out_dim}, blobs_buff, TensorFormat_t::HW));
-        std::shared_ptr<Tensor<float>> out_tensor(
-          new Tensor<float>({(in_tensor->get_dims())[0], out_dim}, blobs_buff, TensorFormat_t::HW));
-	
+        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+            {(in_tensor->get_dims())[0], out_dim}, blobs_buff, TensorFormat_t::HW));
+
         layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
@@ -602,22 +607,15 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   return network.release();
 }
 
-
-
-template<typename TypeKey>
-void parse_data_layer(
-        const nlohmann::json& j,
-	int& label_dim, int& dense_dim,
-	Check_t& check_type,
-	std::string& source_data,
-	std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-        std::string& eval_source,
-	std::string& top_strs_label, std::string& top_strs_dense,
-	std::vector<std::string>& sparse_names,
-	std::map<std::string, SparseInput<TypeKey>>& sparse_input_map
-){
+template <typename TypeKey>
+void parse_data_layer(const nlohmann::json& j, int& label_dim, int& dense_dim, Check_t& check_type,
+                      std::string& source_data,
+                      std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
+                      std::string& eval_source, std::string& top_strs_label,
+                      std::string& top_strs_dense, std::vector<std::string>& sparse_names,
+                      std::map<std::string, SparseInput<TypeKey>>& sparse_input_map) {
   source_data = get_value_from_json<std::string>(j, "source");
-  
+
   auto j_label = get_json(j, "label");
   top_strs_label = get_value_from_json<std::string>(j_label, "top");
   label_dim = get_value_from_json<int>(j_label, "label_dim");
@@ -627,7 +625,7 @@ void parse_data_layer(
   dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
 
   const std::map<std::string, Check_t> CHECK_TYPE_MAP = {{"Sum", Check_t::Sum},
-							 {"None", Check_t::None}};
+                                                         {"None", Check_t::None}};
 
   const auto check_str = get_value_from_json<std::string>(j, "check");
   if (!find_item_in_map(check_type, check_str, CHECK_TYPE_MAP)) {
@@ -635,10 +633,9 @@ void parse_data_layer(
   }
 
   const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
-    {"DistributedSlot", DataReaderSparse_t::Distributed},
-    {"LocalizedSlot", DataReaderSparse_t::Localized},
+      {"DistributedSlot", DataReaderSparse_t::Distributed},
+      {"LocalizedSlot", DataReaderSparse_t::Localized},
   };
-
 
   auto j_sparse = get_json(j, "sparse");
   for (unsigned int i = 0; i < j_sparse.size(); i++) {
@@ -660,22 +657,15 @@ void parse_data_layer(
   FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
 }
 
-void parse_data_layer_helper(
-        const nlohmann::json& j,
-	int& label_dim, int& dense_dim,
-	Check_t& check_type,
-	std::string& source_data,
-	std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-        std::string& eval_source,
-	std::string& top_strs_label, std::string& top_strs_dense,
-	std::vector<std::string>& sparse_names,
-	std::map<std::string, SparseInput<long long>>& sparse_input_map
-){
+void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense_dim,
+                             Check_t& check_type, std::string& source_data,
+                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
+                             std::string& eval_source, std::string& top_strs_label,
+                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
+                             std::map<std::string, SparseInput<long long>>& sparse_input_map) {
   parse_data_layer(j, label_dim, dense_dim, check_type, source_data, data_reader_sparse_param_array,
-		   eval_source, top_strs_label, top_strs_dense, sparse_names, sparse_input_map);
-
+                   eval_source, top_strs_label, top_strs_dense, sparse_names, sparse_input_map);
 }
-
 
 template <typename TypeKey>
 static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_reader,
@@ -704,23 +694,22 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
       // Create Data Reader
       {
-
-	const nlohmann::json& j = j_layers_array[0];
-	const auto layer_type_name = get_value_from_json<std::string>(j, "type");
-	if (layer_type_name.compare("Data") != 0) {
-	  CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
-	}
-	int label_dim = 0, dense_dim = 0;
-	Check_t check_type;
-	std::string source_data;
-	std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
+        const nlohmann::json& j = j_layers_array[0];
+        const auto layer_type_name = get_value_from_json<std::string>(j, "type");
+        if (layer_type_name.compare("Data") != 0) {
+          CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
+        }
+        int label_dim = 0, dense_dim = 0;
+        Check_t check_type;
+        std::string source_data;
+        std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
         std::string eval_source;
-	std::string top_strs_label, top_strs_dense;
-	std::vector<std::string> sparse_names;
+        std::string top_strs_label, top_strs_dense;
+        std::vector<std::string> sparse_names;
 
-	
-	parse_data_layer(j, label_dim, dense_dim, check_type, source_data, data_reader_sparse_param_array,
-			 eval_source, top_strs_label, top_strs_dense, sparse_names, sparse_input_map);
+        parse_data_layer(j, label_dim, dense_dim, check_type, source_data,
+                         data_reader_sparse_param_array, eval_source, top_strs_label,
+                         top_strs_dense, sparse_names, sparse_input_map);
 
 #ifdef VAL
         data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
@@ -736,7 +725,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           tensor_maps[i].emplace(top_strs_label, (data_reader->get_label_tensors())[i]);
           tensor_maps[i].emplace(top_strs_dense, (data_reader->get_dense_tensors())[i]);
         }
-	auto j_sparse = get_json(j, "sparse");
+        auto j_sparse = get_json(j, "sparse");
         for (unsigned int i = 0; i < j_sparse.size(); i++) {
           const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
           sparse_input->second.row = data_reader->get_row_offsets_tensors(i);
@@ -824,9 +813,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
               if (!ifs) {
                 CK_THROW_(Error_t::WrongInput, "plan file " + plan_file + " can bot be open");
               }
-#else 
+#else
               std::string plan_file = "";
-#endif 
+#endif
               const SparseEmbeddingHashParams embedding_params = {
                   batch_size,
                   vocabulary_size,
@@ -859,9 +848,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       }
       const auto& device_list = gpu_resource_group->get_device_list();
       for (auto device_id : device_list) {
-        network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i],
-                                            device_id, total_gpu_count,
-                                            (*gpu_resource_group)[i], use_mixed_precision, scaler));
+        network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i], device_id,
+                                            total_gpu_count, (*gpu_resource_group)[i],
+                                            use_mixed_precision, scaler));
         i++;
       }
     }

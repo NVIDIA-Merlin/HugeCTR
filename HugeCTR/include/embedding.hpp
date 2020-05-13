@@ -136,8 +136,8 @@ class Embedding {
 
 template <typename TypeKey>
 Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
-                              const Tensors<TypeKey>& value_tensors, size_t batchsize, size_t slot_num,
-                              size_t embedding_vec_size,
+                              const Tensors<TypeKey>& value_tensors, size_t batchsize,
+                              size_t slot_num, size_t embedding_vec_size,
                               const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                               float scaler)
     : row_offsets_tensors_(row_offsets_tensors),
@@ -214,15 +214,15 @@ typedef struct OptParams_ {
 } OptParams;
 
 typedef struct SparseEmbeddingHashParams_ {
-  size_t batch_size;             // batch size
+  size_t batch_size;          // batch size
   long long vocabulary_size;  // row number of hash table
-  float load_factor;       // row number of hash table for each GPU = (vocabulary_size / gpu_count /
-                           // load_factor)
+  float load_factor;  // row number of hash table for each GPU = (vocabulary_size / gpu_count /
+                      // load_factor)
   size_t embedding_vec_size;  // col number of hash table value
   size_t max_feature_num;     // max feature number of all input samples of all slots
   size_t slot_num;            // slot number
-  int combiner;            // 0-sum, 1-mean
-  OptParams opt_params;    // optimizer params
+  int combiner;               // 0-sum, 1-mean
+  OptParams opt_params;       // optimizer params
   float scaler;
 } SparseEmbeddingHashParams;
 

@@ -41,8 +41,8 @@ namespace HugeCTR {
 class Network {
   friend Network* create_network(
       const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-      const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
-      int device_id, int num_networks_in_global, const std::shared_ptr<const GPUResource>& gpu_resource,
+      const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in, int device_id,
+      int num_networks_in_global, const std::shared_ptr<const GPUResource>& gpu_resource,
       bool use_mixed_precision, float scaler);
 
  private:

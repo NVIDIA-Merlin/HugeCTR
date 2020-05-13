@@ -330,10 +330,10 @@ __global__ void momentum_sgd_update_kernel_global(int embedding_vec_size,
   }
 }
 
-__global__ void nesterov_global_update_kernel_global(
-    int embedding_vec_size,
-    size_t table_size,  // vocabulary size / factor
-    const NesterovOptHyperParams nesterov, float *hash_table_value) {
+__global__ void nesterov_global_update_kernel_global(int embedding_vec_size,
+                                                     size_t table_size,  // vocabulary size / factor
+                                                     const NesterovOptHyperParams nesterov,
+                                                     float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
