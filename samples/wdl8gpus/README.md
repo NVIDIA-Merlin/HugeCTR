@@ -27,7 +27,7 @@ but it also creates the two feature crosses.
 # The preprocessing can take 40 minutes to 1 hour based on the system configuration.
 $ cd ../../tools/criteo_script/
 $ bash preprocess.sh wdl 1 1
-$ cd ../../samples/wdl/
+$ cd ../../samples/wdl8gpus/
 ```
 
 2. Build HugeCTR with the instructions on README.md under home directory.
