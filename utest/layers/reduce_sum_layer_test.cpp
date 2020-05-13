@@ -83,7 +83,8 @@ void reduce_sum_cpu(const float* input, float* output, std::vector<size_t> dims,
   }
 }
 
-void reduce_sum_dgrad_cpu(const float* top_grad, float* dgrad, std::vector<size_t> dims, size_t axis) {
+void reduce_sum_dgrad_cpu(const float* top_grad, float* dgrad, std::vector<size_t> dims,
+                          size_t axis) {
   if (axis == 0) {
     if (dims.size() == 2) {
       for (size_t j = 0; j < dims[1]; j++) {

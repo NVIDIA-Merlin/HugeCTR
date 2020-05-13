@@ -85,9 +85,9 @@ static void data_collector_thread_func_(
 template <typename TypeKey>
 class DataReader {
  private:
-  std::string file_list_; /**< file list of data set */
-  const int NumChunks{31};              /**< NumChunks will be used in HeapEx*/
-  const int NumThreads{31};             /**< number of threads for data reading */
+  std::string file_list_;   /**< file list of data set */
+  const int NumChunks{31};  /**< NumChunks will be used in HeapEx*/
+  const int NumThreads{31}; /**< number of threads for data reading */
 
   std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_; /**< heap to cache the data set */
   std::vector<std::shared_ptr<DataReaderWorker<TypeKey>>>
@@ -112,9 +112,9 @@ class DataReader {
                                       output data, which is sharing output tensor with train. */
 
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< gpu resource used in this data reader*/
-  const size_t batchsize_;                                /**< batch size */
-  const size_t label_dim_;       /**< dimention of label e.g. 1 for BinaryCrossEntropy */
-  const size_t dense_dim_;       /**< dimention of dense */
+  const size_t batchsize_;                             /**< batch size */
+  const size_t label_dim_;    /**< dimention of label e.g. 1 for BinaryCrossEntropy */
+  const size_t dense_dim_;    /**< dimention of dense */
   int data_reader_loop_flag_; /**< p_loop_flag a flag to control the loop */
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
 

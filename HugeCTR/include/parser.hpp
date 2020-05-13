@@ -41,7 +41,7 @@ namespace HugeCTR {
 class Parser {
  private:
   nlohmann::json config_; /**< configure file. */
-  size_t batch_size_;        /**< batch size. */
+  size_t batch_size_;     /**< batch size. */
   const bool use_mixed_precision_{false};
   const float scaler_{1.f};
 
@@ -86,7 +86,6 @@ class Parser {
                        std::vector<std::unique_ptr<Embedding<TYPE_2>>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
-
 };
 
 /**
@@ -122,16 +121,11 @@ struct SparseInput {
   SparseInput() {}
 };
 
-void parse_data_layer_helper(
-        const nlohmann::json& j,
-	int& label_dim, int& dense_dim,
-	Check_t& check_type,
-	std::string& source_data,
-	std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-        std::string& eval_source,
-	std::string& top_strs_label, std::string& top_strs_dense,
-	std::vector<std::string>& sparse_names,
-	std::map<std::string, SparseInput<long long>>& sparse_input_map
-);
+void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense_dim,
+                             Check_t& check_type, std::string& source_data,
+                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
+                             std::string& eval_source, std::string& top_strs_label,
+                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
+                             std::map<std::string, SparseInput<long long>>& sparse_input_map);
 
 }  // namespace HugeCTR

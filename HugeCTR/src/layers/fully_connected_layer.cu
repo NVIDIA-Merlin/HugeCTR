@@ -46,7 +46,8 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<flo
     assert(out_tensor->get_format() == TensorFormat_t::WH ||
            out_tensor->get_format() == TensorFormat_t::HW);
     size_t m = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[1] : in_tensor_dim[0];
-    size_t n = out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
+    size_t n =
+        out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[0] : out_tensor_dim[1];
     size_t k = in_tensor->get_format() == TensorFormat_t::WH ? in_tensor_dim[0] : in_tensor_dim[1];
     size_t m_ck =
         out_tensor->get_format() == TensorFormat_t::WH ? out_tensor_dim[1] : out_tensor_dim[0];

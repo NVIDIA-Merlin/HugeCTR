@@ -71,14 +71,14 @@ const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
 
 #ifndef NCCl_A2A
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); 
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json"); 
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); 
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json"); 
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json");
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json");
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json");
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json");
 const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
 #else
 const std::string plan_file = "";
-#endif 
+#endif
 
 const char *hash_table_file_name = "localized_hash_table.bin";
 bool init_hash_table = true;  // true: init hash_table and upload_to_device
@@ -255,9 +255,8 @@ TEST(localized_sparse_embedding_hash_test, training_correctness) {
     }
 #endif
     // data generation: key's corresponding slot_id=(key%slot_num)
-    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files,
-                                                        num_records, slot_num, vocabulary_size,
-                                                        label_dim, dense_dim, max_nnz_per_slot);
+    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
+                                     vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
   }
 
 #ifdef ENABLE_MPI
