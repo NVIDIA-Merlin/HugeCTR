@@ -59,7 +59,7 @@ In HugeCTR, the model is saved in binary raw format. For model saving, you can s
 ### 20.	Could the post training model from HugeCTR be imported into other frameworks such as TensorFlow for inference deployment? ### 
 Yes. The training model in HugeCTR is saved in raw format, and you can import it to other frameworks by writing some scripts . We provide a tutorial to demonstrate how to import HugeCTR post training model to TensorFlow. Please refer to the [tutorial](../tutorial/dump_to_tf) .
 ### 21. Does HugeCTR support overlap between different slots? ###
-No features in different slots should have no overlap. You may want to preprocess the data if you have overlaps e.g. offset or use hash function.
+Features in different slots must be unique (no overlap). You may want to preprocess the data if you have overlaps e.g. offset or use hash function.
 ### 22. What if there's no value in a slot? ###
 nnz=0 is supported in HugeCTR input. That means no features will be looked up.
 ### 23. How can I benchmark my network? ###
