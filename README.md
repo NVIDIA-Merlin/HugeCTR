@@ -158,12 +158,12 @@ Arguments:
 Totally three kinds of files will be used as input of HugeCTR Training: configuration file (.json), model file, data set.
 
 ### Configuration File ###
-Configuration file should be a json format file e.g. [simple_sparse_embedding.json](utest/session/simple_sparse_embedding.json)
+Configuration file should be a json format file e.g. [simple_sparse_embedding.json](utest/simple_sparse_embedding.json)
 
-There are four sessions in a configuration file: "solver", "optimizer", "data", "layers". The sequence of these sessions is not restricted.
+There are three sessions in a configuration file: "solver", "optimizer", "layers". The sequence of these sessions is not restricted.
 * You can specify the device (or devices), batchsize, model_file.. in `solver` session;
 * and the `optimizer` that will be used in every layer.
-* Finally, layers should be listed under `layers`. Note that embedders should always be the first layers.
+* Finally, layers should be listed under `layers`. Note that data layer should always be the first layer and embeddings should be the second.
 
 ### Model File ###
 Model file is a binary file that will be loaded for weight initilization.
