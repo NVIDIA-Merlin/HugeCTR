@@ -37,6 +37,7 @@
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
+#include "HugeCTR/include/layers/dot_product_layer.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -273,7 +274,8 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"FmOrder2", Layer_t::FmOrder2},
     {"Add", Layer_t::Add},
     {"ReduceSum", Layer_t::ReduceSum},
-    {"MultiCross", Layer_t::MultiCross}};
+    {"MultiCross", Layer_t::MultiCross},
+    {"DotProduct", Layer_t::DotProduct}};
 const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
     {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash}};
@@ -554,6 +556,14 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         std::shared_ptr<Tensor<float>> out_tensor;
         int axis = get_json(j, "axis").get<int>();
         layers.emplace_back(new ReduceSumLayer(in_tensor, out_tensor, blobs_buff, axis, device_id));
+        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        break;
+      }
+      case Layer_t::DotProduct: {
+        auto& in_tensors = input_output_info.input;
+        std::shared_ptr<Tensor<float>> out_tensor(
+            new Tensor<float>(in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
+        layers.emplace_back(new DotProductLayer(in_tensors, out_tensor, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }
