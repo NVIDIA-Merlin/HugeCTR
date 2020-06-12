@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 
 #include "HugeCTR/include/layer.hpp"
 
@@ -31,21 +30,6 @@ void Layer::init_params(std::ofstream& out_stream) {
 
   size_t size_in_byte = initializer.size() * sizeof(float);
   out_stream.write(reinterpret_cast<char*>(&initializer.front()), size_in_byte);
-}
-
-Layer::~Layer() {
-  try {
-    int o_device = -1;
-    CK_CUDA_THROW_(get_set_device(get_device_id(), &o_device));
-    for (auto weight : weights_) {
-      delete weight;
-    }
-    for (auto wgrad : wgrad_) {
-      delete wgrad;
-    }
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  }
 }
 
 }  // namespace HugeCTR

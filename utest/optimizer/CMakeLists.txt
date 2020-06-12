@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -18,8 +18,9 @@ file(GLOB optimizer_test_src
   adam_optimizer_test.cpp
   momentum_sgd_test.cpp
   nesterov_optimizer_test.cpp
+  sgd_optimizer_test.cpp
 )
 
 add_executable(optimizer_test ${optimizer_test_src})
-target_compile_features(optimizer_test PUBLIC cxx_std_11)
-target_link_libraries(optimizer_test PUBLIC huge_ctr_static gtest gtest_main cudart)
+target_compile_features(optimizer_test PUBLIC cxx_std_14)
+target_link_libraries(optimizer_test PUBLIC huge_ctr_static gtest gtest_main)

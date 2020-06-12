@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,12 +33,17 @@ class NesterovOptimizer : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor the momentum factor
    */
-  NesterovOptimizer(GeneralBuffer<float>& weight, GeneralBuffer<float>& wgrad, int device_id,
-                    float learning_rate, float momentum_factor)
-      : Optimizer(weight, wgrad, device_id, learning_rate),
-        accum_(weight.get_num_elements(), device_id),
-        mu_(momentum_factor) {
+  NesterovOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
+                    const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
+                    float learning_rate, float momentum_factor, float scaler = 1.f)
+      : Optimizer(weight, device_id, learning_rate, scaler),
+        accum_(weight->get_num_elements(), device_id),
+        mu_(momentum_factor), wgrad_(wgrad) {
     accum_.reset_sync();
+    if (weight_->get_size() != wgrad_->get_size()) {
+      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
+    }
+
   }
 
   /**
@@ -50,6 +55,7 @@ class NesterovOptimizer : public Optimizer {
  private:
   GeneralBuffer<float> accum_;  // accumulation
   const float mu_;              // momentum factor
+  std::shared_ptr<GeneralBuffer<float>> wgrad_;
 };
 
 }  // namespace HugeCTR

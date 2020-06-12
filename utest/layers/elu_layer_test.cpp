@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 
 #include "HugeCTR/include/layers/elu_layer.hpp"
 
@@ -44,19 +43,19 @@ void elu_bprop_cpu(const float* d_out, float* d_in, int len, float alpha) {
   }
 }
 
-void elu_test(int dim0, int dim1, float alpha) {
-  GeneralBuffer<float> buf;
-  vector<int> dims = {dim0, dim1};
-  Tensor<float> in_tensor(dims, buf);
-  Tensor<float> out_tensor(dims, buf);
-  buf.init(0);
+void elu_test(size_t dim0, size_t dim1, float alpha) {
+  std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>());
+  vector<size_t> dims = {dim0, dim1};
+  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, buf));
+  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims, buf));
+  buf->init(0);
 
   const int len = dim0 * dim1;
-  float* d_in = in_tensor.get_ptr();
-  float* d_out = out_tensor.get_ptr();
-  float* h_in = (float*)malloc(len * sizeof(float));
-  float* h_out = (float*)malloc(len * sizeof(float));
-  float* h_expected = (float*)malloc(len * sizeof(float));
+  float* d_in = in_tensor->get_ptr();
+  float* d_out = out_tensor->get_ptr();
+  std::unique_ptr<float[]> h_in(new float[len]);
+  std::unique_ptr<float[]> h_out(new float[len]);
+  std::unique_ptr<float[]> h_expected(new float[len]);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
   EluLayer elu_layer(in_tensor, out_tensor, alpha, 0);
@@ -65,12 +64,12 @@ void elu_test(int dim0, int dim1, float alpha) {
   for (int i = 0; i < len; ++i) {
     h_in[i] = simulator.get_num();
   }
-  cudaMemcpy(d_in, h_in, len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
   elu_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(h_out, d_out, len * sizeof(float), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_out.get(), d_out, len * sizeof(float), cudaMemcpyDeviceToHost);
 
-  elu_cpu(h_in, h_expected, len, alpha);
-  ASSERT_TRUE(test::compare_array_approx<float>(h_out, h_expected, len, eps));
+  elu_cpu(h_in.get(), h_expected.get(), len, alpha);
+  ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len, eps));
 
   // bprop
   for (int i = 0; i < len; ++i) {
@@ -78,17 +77,13 @@ void elu_test(int dim0, int dim1, float alpha) {
     h_out[i] = simulator.get_num();
     h_expected[i] = h_in[i];
   }
-  cudaMemcpy(d_in, h_in, len * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_out, h_out, len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_out, h_out.get(), len * sizeof(float), cudaMemcpyHostToDevice);
   elu_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in, d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
 
-  elu_bprop_cpu(h_out, h_expected, len, alpha);
-  ASSERT_TRUE(test::compare_array_approx<float>(h_in, h_expected, len, eps));
-
-  free(h_in);
-  free(h_out);
-  free(h_expected);
+  elu_bprop_cpu(h_out.get(), h_expected.get(), len, alpha);
+  ASSERT_TRUE(test::compare_array_approx<float>(h_in.get(), h_expected.get(), len, eps));
 }
 
 }  // namespace

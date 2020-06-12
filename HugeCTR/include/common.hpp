@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,19 +22,28 @@
 #include <exception>
 #include <iostream>
 #include "HugeCTR/include/config.hpp"
+#include <initializer_list>
+#include <iomanip>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
 
+#define PYTORCH_INIT
+
 namespace HugeCTR {
 
-#define HUGECTR_VERSION_MAJOR 1
-#define HUGECTR_VERSION_MINOR 2
+#define HUGECTR_VERSION_MAJOR 2
+#define HUGECTR_VERSION_MINOR 1
+
+#define WARP_SIZE 32
+
+  //#define DATA_READING_TEST
 
 enum class Error_t {
   Success,
   FileCannotOpen,
+  BrokenFile,
   OutOfMemory,
   OutOfBound,
   WrongInput,
@@ -47,7 +56,28 @@ enum class Error_t {
   CudnnError,
   CudaError,
   NcclError,
+  DataCheckError,
   UnspecificError
+};
+
+enum class Check_t { Sum, None };
+
+enum class Tensor_t { FP32, FP16, LONGLONG, UINT };
+
+enum class DataReaderSparse_t { Distributed, Localized };
+
+enum class DataReaderType_t { Norm, Raw };
+
+struct DataReaderSparseParam {
+  DataReaderSparse_t type;
+  int max_feature_num;
+  int max_nnz;
+  int slot_num;
+};
+
+struct NameID {
+  std::string file_name;
+  unsigned int id;
 };
 
 /**
@@ -82,26 +112,42 @@ enum class TensorFormat_t {
 
 enum class LrPolicy_t { fixed };
 
-enum class Optimizer_t { Adam, MomentumSGD, Nesterov };
+enum class Optimizer_t { Adam, MomentumSGD, Nesterov, SGD };
+
+enum class Regularizer_t { L1, L2 };
 
 enum class Layer_t {
   BatchNorm,
   BinaryCrossEntropyLoss,
+  Reshape,
   Concat,
   CrossEntropyLoss,
+  Dropout,
   ELU,
   InnerProduct,
+  FusedInnerProduct,
+  Interaction,
   MultiCrossEntropyLoss,
   ReLU,
+  ReLUHalf,
+  Slice,
+  Multiply,
+  FmOrder2,
+  Add,
+  ReduceSum,
+  MultiCross,
+  Cast
 };
 
-enum class Embedding_t { SparseEmbedding, SparseEmbeddingHash };
+enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingOneHot };
 
 typedef struct DataSetHeader_ {
+  long long error_check;        // 0: no error check; 1: check_num
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
-  long long slot_num;
-  long long reserved;  // reserved for future use
+  long long dense_dim;          // dimension of dense feature
+  long long slot_num;           // slot_num for each embedding
+  long long reserved[3];        // reserved for future use
 } DataSetHeader;
 
 #ifdef ENABLE_MPI
@@ -153,14 +199,27 @@ typedef struct DataSetHeader_ {
     }                                                                                           \
   } while (0)
 
+#define CK_RETURN_(x, msg)                                                         \
+  do {                                                                             \
+    Error_t retval = (x);                                                          \
+    if (retval != Error_t::Success) {                                              \
+      std::cerr << std::string("Runtime error: ") + (msg) + " " + __FILE__ + ":" + \
+                       std::to_string(__LINE__) + " \n";                           \
+      return x;                                                                    \
+    }                                                                              \
+  } while (0)
+
 #define MESSAGE_(msg)                                                                            \
   do {                                                                                           \
     std::time_t time_instance = std::time(0);                                                    \
     std::tm* time_now = std::localtime(&time_instance);                                          \
     std::string str = (msg);                                                                     \
-    std::cout << "[" << time_now->tm_mday << "d" << time_now->tm_hour << "h" << time_now->tm_min \
-              << "m" << time_now->tm_sec << "s"                                                  \
-              << "][HUGECTR][INFO]: " << str << std::endl;                                       \
+    std::cout.fill('0');        \
+    std::cout << "[" << std::setw(2) << time_now->tm_mday \
+              << "d" << std::setw(2) << time_now->tm_hour \
+              << "h" << std::setw(2) << time_now->tm_min \
+              << "m" << std::setw(2) << time_now->tm_sec << "s" \
+              << "][HUGECTR][INFO]: " << str << std::endl; \
   } while (0)
 
 #define CK_CUDA_THROW_(x)                                                                          \
@@ -237,7 +296,7 @@ typedef struct DataSetHeader_ {
     ncclResult_t r = (cmd);                                                                        \
     if (r != ncclSuccess) {                                                                        \
       throw internal_runtime_error(Error_t::NcclError, std::string("Runtime error: NCCL Error ") + \
-                                                           std::string(ncclGetErrorString(cmd)) +  \
+                                                           std::string(ncclGetErrorString(r)) +    \
                                                            " " + __FILE__ + ":" +                  \
                                                            std::to_string(__LINE__) + " \n");      \
     }                                                                                              \
@@ -253,5 +312,31 @@ typedef struct DataSetHeader_ {
                                    std::to_string(__LINE__) + " \n");                             \
     }                                                                                             \
   } while (0)
+
+#define CK_CURAND_THROW_(cmd)                                                                   \
+  do {                                                                                          \
+    curandStatus_t retval = (cmd);                                                              \
+    if (retval != CURAND_STATUS_SUCCESS) {                                                      \
+      throw internal_runtime_error(                                                             \
+          Error_t::CudnnError, std::string("CURAND Runtime error: ") + std::to_string(retval) + \
+                                   " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
+    }                                                                                           \
+  } while (0)
+
+
+template <typename T>
+inline void print_func(T& t){
+  std::cout << t << ", ";
+  return;
+}
+
+template <typename... Args>
+inline void LOG(const Args&... args){
+  std::cout << "[";
+  std::initializer_list<char>{(print_func(args), 'a')...};
+  std::cout << "\b\b]" << std::endl;
+
+  return;
+}
 
 }  // namespace HugeCTR

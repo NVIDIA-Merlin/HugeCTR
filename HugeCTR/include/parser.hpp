@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,14 +41,19 @@ namespace HugeCTR {
 class Parser {
  private:
   nlohmann::json config_; /**< configure file. */
-  int batch_size_;        /**< batch size. */
+  size_t batch_size_;     /**< batch size. */
+  size_t batch_size_eval_;     /**< batch size. */
+  const bool use_mixed_precision_{false};
+  const float scaler_{1.f};
 
  public:
   /**
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
-  Parser(const std::string& configure_file, int batch_size) : batch_size_(batch_size) {
+  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval, bool use_mixed_precision = false,
+         float scaler = 1.0f)
+    : batch_size_(batch_size), batch_size_eval_(batch_size_eval), use_mixed_precision_(use_mixed_precision), scaler_(scaler) {
     try {
       std::ifstream file(configure_file);
       if (!file.is_open()) {
@@ -68,35 +73,142 @@ class Parser {
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(DataReader<TYPE_1>** data_reader, Embedding<TYPE_1>** embedding,
-                       std::vector<Network*>* network, GPUResourceGroup& gpu_resource_group);
+  void create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
+                       std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
+                       std::vector<std::unique_ptr<IEmbedding>>& embedding,
+		       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                       std::vector<std::unique_ptr<Network>>& network,
+		       std::vector<std::unique_ptr<Network>>& network_eval,
+                       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(DataReader<TYPE_2>** data_reader, Embedding<TYPE_2>** embedding,
-                       std::vector<Network*>* network, GPUResourceGroup& gpu_resource_group);
+  void create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
+                       std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
+                       std::vector<std::unique_ptr<IEmbedding>>& embedding,
+		       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                       std::vector<std::unique_ptr<Network>>& network,
+		       std::vector<std::unique_ptr<Network>>& network_eval,
+                       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
 };
+
+
+
+std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(const std::string configure_file);
 
 /**
  * Solver Parser.
  * This class is designed to parse the solver clause of the configure file.
  */
 struct SolverParser {
-  LrPolicy_t lr_policy;         /**< the only fixed lr is supported now. */
-  int display;                  /**< the interval of loss display. */
-  int max_iter;                 /**< the number of iterations for training */
-  int snapshot;                 /**< the number of iterations for a snapshot */
-  std::string snapshot_prefix;  /**< naming prefix of snapshot file */
-  int eval_interval;            /**< the interval of evaluations */
-  int eval_batches;             /**< the number of batches for evaluations */
-  int batchsize;                /**< batchsize */
-  std::string model_file;       /**< name of model file */
-  std::string embedding_file;   /**< name of embedding file */
-  std::vector<int> device_list; /**< device_list */
-  DeviceMap* device_map;        /**< device map */
+  unsigned int seed;                           /**< seed of data simulator */
+  LrPolicy_t lr_policy;                        /**< the only fixed lr is supported now. */
+  int display;                                 /**< the interval of loss display. */
+  int max_iter;                                /**< the number of iterations for training */
+  int snapshot;                                /**< the number of iterations for a snapshot */
+  std::string snapshot_prefix;                 /**< naming prefix of snapshot file */
+  int eval_interval;                           /**< the interval of evaluations */
+  int eval_batches;                            /**< the number of batches for evaluations */
+  int batchsize_eval;                               /**< batchsize for eval */
+  int batchsize;                               /**< batchsize */
+  std::string model_file;                      /**< name of model file */
+  std::vector<std::string> embedding_files;    /**< name of embedding file */
+  std::vector<int> device_list;                /**< device_list */
+  std::shared_ptr<const DeviceMap> device_map; /**< device map */
+  bool use_mixed_precision;
+  float scaler;
   SolverParser(std::string configure_file);
-  ~SolverParser() { delete device_map; }
 };
+
+template <typename T>
+struct SparseInput {
+  Tensors<T> row;
+  Tensors<T> value;
+  Tensors<T> row_eval;
+  Tensors<T> value_eval;
+  size_t slot_num;
+  size_t max_feature_num_per_sample;
+  SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
+      : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
+  SparseInput() {}
+};
+
+#define HAS_KEY_(j_in, key_in)                                          \
+  do {                                                                  \
+    const nlohmann::json& j__ = (j_in);                                 \
+    const std::string& key__ = (key_in);                                \
+    if (j__.find(key__) == j__.end())                                   \
+      CK_THROW_(Error_t::WrongInput, "[Parser] No Such Key: " + key__); \
+  } while (0)
+
+#define CK_SIZE_(j_in, j_size)                                                                  \
+  do {                                                                                          \
+    const nlohmann::json& j__ = (j_in);                                                         \
+    if (j__.size() != (j_size)) CK_THROW_(Error_t::WrongInput, "[Parser] Array size is wrong"); \
+  } while (0)
+
+#define FIND_AND_ASSIGN_INT_KEY(out, json)      \
+  do {                                          \
+    out = 0;                                    \
+    if (json.find(#out) != json.end()) {        \
+      out = json.find(#out).value().get<int>(); \
+    }                                           \
+  } while (0)
+
+#define FIND_AND_ASSIGN_STRING_KEY(out, json)           \
+  do {                                                  \
+    out.clear();                                        \
+    if (json.find(#out) != json.end()) {                \
+      out = json.find(#out).value().get<std::string>(); \
+    }                                                   \
+  } while (0)
+
+static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
+    {"Adam", Optimizer_t::Adam},
+    {"MomentumSGD", Optimizer_t::MomentumSGD},
+    {"Nesterov", Optimizer_t::Nesterov},
+    {"SGD", Optimizer_t::SGD}};
+
+static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
+    {"L1", Regularizer_t::L1},
+    {"L2", Regularizer_t::L2},
+};
+
+inline bool has_key_(const nlohmann::json& j_in, const std::string& key_in) {
+  if (j_in.find(key_in) == j_in.end()) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+inline const nlohmann::json& get_json(const nlohmann::json& json, const std::string key) {
+  HAS_KEY_(json, key);
+  return json.find(key).value();
+}
+
+template <typename T>
+inline T get_value_from_json(const nlohmann::json& json, const std::string key) {
+  HAS_KEY_(json, key);
+  auto value = json.find(key).value();
+  CK_SIZE_(value, 1);
+  return value.get<T>();
+}
+
+template <typename T>
+inline T get_value_from_json_soft(const nlohmann::json& json, const std::string key, T B) {
+  if(has_key_(json, key)){
+    auto value = json.find(key).value();
+    CK_SIZE_(value, 1);
+    return value.get<T>();
+  }
+  else{
+    MESSAGE_(key + " is not specified using default: " + std::to_string(B));
+    return B;
+  }
+}
+
 
 }  // namespace HugeCTR

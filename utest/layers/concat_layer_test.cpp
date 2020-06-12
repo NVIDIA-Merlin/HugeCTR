@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 
 #include "HugeCTR/include/layers/concat_layer.hpp"
 
@@ -33,88 +32,91 @@ namespace {
 
 const float eps = 1e-5;
 
-void concat_layer_test(int n_batch, int n_slot, int vector_length, std::vector<int> selected) {
-  GeneralBuffer<float> buf;
-  TensorFormat_t in_format = TensorFormat_t::HSW;
-  TensorFormat_t out_format = TensorFormat_t::HW;
-  int n_active_slot = selected.empty() ? n_slot : int(selected.size());
-  std::vector<int> in_dims = {n_batch, n_slot, vector_length};
-  std::vector<int> out_dims = {n_batch, n_active_slot * vector_length};
-  std::unique_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buf, in_format));
-  std::unique_ptr<Tensor<float>> out_tensor(
-      selected.empty() ? new Tensor<float>(out_dims, *(in_tensor.get()), out_format)
-                       : new Tensor<float>(out_dims, buf, out_format));
+void concat_layer_test(size_t height, std::vector<size_t> widths) {
+  std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
+  TensorFormat_t in_format = TensorFormat_t::HW;
+  Tensors<float> in_tensors;
 
-  ConcatLayer concat_layer(*(in_tensor.get()), *(out_tensor.get()), selected, 0);
-
-  buf.init(0);
-
-  std::vector<float> h_in;
-  h_in.resize(in_tensor->get_num_elements());
   GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
-  for (unsigned int i = 0; i < h_in.size(); i++) h_in[i] = data_sim.get_num();
+  std::vector<std::vector<float>> h_ins;
+
+  int n_ins = widths.size();
+
+  size_t new_width = 0;
+  for (int i = 0; i < n_ins; i++) {
+    size_t width = widths[i];
+    new_width += width;
+    std::vector<size_t> in_dims = {height, width};
+    in_tensors.emplace_back(new Tensor<float>(in_dims, buff, in_format));
+
+    std::vector<float> h_in(height * width, 0.0);
+    for (unsigned int i = 0; i < h_in.size(); i++) {
+      h_in[i] = data_sim.get_num();
+    }
+    h_ins.push_back(h_in);
+  }
+
+  std::shared_ptr<Tensor<float>> out_tensor;
+  ConcatLayer concat_layer(in_tensors, out_tensor, buff, 0);
+
+  buff->init(0);
 
   // fprop
-  std::vector<float> h_ref;
-  h_ref.resize(n_batch * n_active_slot * vector_length);
-  if (selected.empty()) {
-    h_ref = h_in;
-  } else {
-    for (int i = 0; i < n_batch; i++) {
-      for (int j = 0; j < n_active_slot; j++) {
-        for (int k = 0; k < vector_length; k++) {
-          int in_idx = i * (n_slot * vector_length) + selected[j] * vector_length + k;
-          int out_idx = i * (n_active_slot * vector_length) + j * vector_length + k;
-          h_ref[out_idx] = h_in[in_idx];
+  std::vector<float> h_ref(out_tensor->get_num_elements(), 0.0);
+  for (size_t r = 0; r < height; r++) {
+    for (size_t c = 0; c < new_width; c++) {
+      int out_idx = r * new_width + c;
+      int in_no = 0;
+      int c2 = c;
+      size_t accum_width = 0;
+      for (int k = 0; k < n_ins; k++) {
+        if (c < accum_width + widths[k]) {
+          in_no = k;
+          c2 -= accum_width;
+          break;
         }
+        accum_width += widths[k];
       }
+      int in_idx = r * widths[in_no] + c2;
+      h_ref[out_idx] = h_ins[in_no][in_idx];
     }
   }
 
-  float* d_in = in_tensor->get_ptr();
-  cudaMemcpy(d_in, &h_in.front(), in_tensor->get_size(), cudaMemcpyHostToDevice);
+  for (int i = 0; i < n_ins; i++) {
+    float* d_in = in_tensors[i]->get_ptr();
+    std::vector<float>& h_in = h_ins[i];
+    cudaMemcpy(d_in, &h_in.front(), in_tensors[i]->get_size(), cudaMemcpyHostToDevice);
+  }
 
   concat_layer.fprop(cudaStreamDefault);
 
-  std::vector<float> h_result;
-  h_result.resize(n_batch * n_active_slot * vector_length);
+  std::vector<float> h_out(out_tensor->get_num_elements(), 0.0);
   float* d_out = out_tensor->get_ptr();
-  cudaMemcpy(&h_result.front(), d_out, out_tensor->get_size(), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&h_out.front(), d_out, out_tensor->get_size(), cudaMemcpyDeviceToHost);
 
-  ASSERT_TRUE(
-      test::compare_array_approx<float>(&h_result.front(), &h_ref.front(), h_result.size(), eps));
+  ASSERT_TRUE(test::compare_array_approx<float>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
 
   // bprop
-  h_ref.resize(n_batch * n_slot * vector_length);
-  h_ref = h_in;
-
   concat_layer.bprop(cudaStreamDefault);
+  concat_layer.fprop(cudaStreamDefault);
 
-  h_result.resize(n_batch * n_slot * vector_length);
-  cudaMemcpy(&h_result.front(), d_in, in_tensor->get_size(), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&h_out.front(), d_out, out_tensor->get_size(), cudaMemcpyDeviceToHost);
 
-  ASSERT_TRUE(
-      test::compare_array_approx<float>(&h_result.front(), &h_in.front(), h_result.size(), eps));
+  ASSERT_TRUE(test::compare_array_approx<float>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
 }
 
 }  // namespace
 
-TEST(concat_layer, fprop_and_bprop) {
-  concat_layer_test(2, 80, 48, {});
-  concat_layer_test(2, 80, 48, {0, 1, 2});
-  concat_layer_test(2, 80, 48, {0, 1, 3});
-  concat_layer_test(2, 80, 48, {1, 8});
-  concat_layer_test(2, 80, 48, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+TEST(concat_layer, 64x32_64x32) { concat_layer_test(64, {32, 32}); }
 
-  concat_layer_test(2, 81, 48, {});
-  concat_layer_test(2, 81, 48, {0, 1, 2});
-  concat_layer_test(2, 81, 48, {0, 1, 3});
-  concat_layer_test(2, 81, 48, {1, 8});
-  concat_layer_test(2, 81, 48, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+TEST(concat_layer, 5x32_5x32) { concat_layer_test(5, {32, 32}); }
 
-  concat_layer_test(2, 80, 49, {});
-  concat_layer_test(2, 80, 49, {0, 1, 2});
-  concat_layer_test(2, 80, 49, {0, 1, 3});
-  concat_layer_test(2, 80, 49, {1, 8});
-  concat_layer_test(2, 80, 49, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+TEST(concat_layer, 4096x640_4096x1280) { concat_layer_test(4096, {640, 1280}); }
+
+TEST(concat_layer, 64x32_64x64_64x96) { concat_layer_test(64, {32, 64, 96}); }
+
+TEST(concat_layer, 64x32_64x64_64x32_64x128) { concat_layer_test(64, {32, 64, 32, 128}); }
+
+TEST(concat_layer, 64x32_64x64_64x32_64x128_64x256) {
+  concat_layer_test(64, {32, 64, 32, 128, 256});
 }

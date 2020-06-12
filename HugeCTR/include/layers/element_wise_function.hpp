@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 
 #pragma once
 
@@ -78,8 +77,7 @@ class ElementWiseFunctor {
   template <typename Fop>
   void forward_evaluate(const Tensor<float>& in_tensor, Tensor<float>& out_tensor, int device_id,
                         Fop fop, cudaStream_t stream) {
-    int old_device = -1;
-    CK_CUDA_THROW_(get_set_device(device_id, &old_device));
+    CudaDeviceContext context(device_id);
 
     const float* in = in_tensor.get_ptr();
     float* out = out_tensor.get_ptr();
@@ -92,7 +90,6 @@ class ElementWiseFunctor {
     cudaDeviceSynchronize();
     CK_CUDA_THROW_(cudaGetLastError());
 #endif
-    CK_CUDA_THROW_(get_set_device(old_device));
   }
 
   /**
@@ -107,8 +104,7 @@ class ElementWiseFunctor {
   template <typename Bop>
   void backward_evaluate(Tensor<float>& in_tensor, const Tensor<float>& out_tensor, int device_id,
                          Bop bop, cudaStream_t stream) {
-    int old_device = -1;
-    CK_CUDA_THROW_(get_set_device(device_id, &old_device));
+    CudaDeviceContext context(device_id);
 
     float* d_in = in_tensor.get_ptr();
     const float* d_out = out_tensor.get_ptr();
@@ -121,7 +117,6 @@ class ElementWiseFunctor {
     cudaDeviceSynchronize();
     CK_CUDA_THROW_(cudaGetLastError());
 #endif
-    CK_CUDA_THROW_(get_set_device(old_device));
   }
 };
 

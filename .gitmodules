@@ -10,3 +10,6 @@
 [submodule "ctpl"]
 	path = ctpl
 	url = https://github.com/vit-vit/CTPL.git
+[submodule "gossip"]
+	path = gossip
+	url = https://github.com/Funatiq/gossip

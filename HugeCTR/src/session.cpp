@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/session.hpp"
 #include <nvToolsExt.h>
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/utils.hpp"
+
+// #define DATA_READING_TEST
 
 namespace HugeCTR {
 
@@ -35,8 +36,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
   if (device_id >= device_count) {
     CK_THROW_(Error_t::WrongInput, "device is not avaliable");
   }
-  int o_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id, &o_device));
+  CudaDeviceContext context(device_id);
   cudaDeviceProp deviceProp;
   if (cudaGetDeviceProperties(&deviceProp, device_id) != cudaSuccess) {
     CK_THROW_(Error_t::InvalidEnv, "Invalid device:" + std::to_string(device_id));
@@ -50,26 +50,70 @@ static void check_device(int device_id, int min_major, int min_minor) {
   } else if (major == min_major && minor < min_minor) {
     CK_THROW_(Error_t::InvalidEnv, "Device Compute Compacity is low");
   }
-  CK_CUDA_THROW_(get_set_device(o_device));
   return;
 }
 
-Session::Session(int batch_size, const std::string& json_name, const DeviceMap& device_map)
-    : gpu_resource_group_(device_map) {
-  try {
-    for (auto dev : gpu_resource_group_.get_device_list()) {
-      check_device(dev, 6, 0);  // lowest supported device is CC=60
+Session::Session(const std::string& json_name)
+    : solver_config_(json_name),
+      gpu_resource_group_(new GPUResourceGroup(solver_config_.device_map)) {
+    int pid = 0;
+#ifdef ENABLE_MPI
+    int numprocs = 1;
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+#endif
+
+    for (auto dev : gpu_resource_group_->get_device_list()) {
+      if (solver_config_.use_mixed_precision) {
+        check_device(dev, 7,
+                     0);  // to support mixed precision training earliest supported device is CC=70
+      } else {
+        check_device(dev, 6, 0);  // earliest supported device is CC=60
+      }
     }
-    parser_ = new Parser(json_name, batch_size);
-    DataReader<TypeKey>* data_reader_array[2];
-    parser_->create_pipeline(data_reader_array, &embedding_, &networks_, gpu_resource_group_);
-    data_reader_ = data_reader_array[0];
-    data_reader_eval_ = data_reader_array[1];
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
-  }
+
+    RandomEngine::get().set_seed(solver_config_.seed);
+    parser_.reset(new Parser(json_name, solver_config_.batchsize, solver_config_.batchsize_eval,
+                             solver_config_.use_mixed_precision, solver_config_.scaler));
+
+    parser_->create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_, networks_, networks_eval_,
+                             gpu_resource_group_);
+
+    // init networks.
+    const std::string TMP_DENSE_NAME = std::tmpnam(nullptr);
+    if (pid == 0) {
+      networks_[0]->init_params(TMP_DENSE_NAME);
+    }
+#ifdef ENABLE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif
+    for (auto& network : networks_) {
+      network->upload_params_to_device(TMP_DENSE_NAME);
+    }
+#ifdef ENABLE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif
+    if (pid == 0) {
+      if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
+        CK_THROW_(Error_t::WrongInput, TMP_DENSE_NAME + " cannot be removed. (reason: " + std::strerror(errno) + ")");
+      }
+    }
+
+    load_params_(solver_config_.model_file, solver_config_.embedding_files);
+
+    int num_local_gpus = gpu_resource_group_->get_device_list().size();
+    //metrics_.emplace_back(new metrics::AverageLoss<float>(num_local_gpus));
+    if (solver_config_.use_mixed_precision) {
+      metrics_.emplace_back(new metrics::AUC<__half>(
+          solver_config_.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
+          solver_config_.eval_batches, gpu_resource_group_->get_device_list()[0],
+          num_local_gpus, gpu_resource_group_));
+    } else {
+      metrics_.emplace_back(new metrics::AUC<float>(
+          solver_config_.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
+          solver_config_.eval_batches, gpu_resource_group_->get_device_list()[0],
+          num_local_gpus, gpu_resource_group_));
+    }
 }
 
 /**
@@ -77,25 +121,37 @@ Session::Session(int batch_size, const std::string& json_name, const DeviceMap& 
  * In model file, model should be saved as
  * the sequence as discribed in configure file.
  **/
-Error_t Session::load_params(const std::string& model_file, const std::string& embedding_file) {
+Error_t Session::load_params_(const std::string& model_file,
+                              const std::vector<std::string>& embedding_files) {
   try {
-    float* weight = new float[networks_[0]->get_params_num()]();
-    std::ifstream model_stream(model_file, std::ifstream::binary);
-    if (!embedding_file.empty()) {
-      std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
-      if (!embedding_stream.is_open()) {
-        CK_THROW_(Error_t::WrongInput, "Cannot open model file");
+    if (!embedding_files.empty()) {
+      int i = 0;
+      for (auto& embedding_file : embedding_files) {
+        std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
+        if (!embedding_stream.is_open()) {
+          CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
+        }
+        std::cout << "Loading sparse model: " << embedding_file << std::endl;
+        embedding_[i]->upload_params_to_device(embedding_stream);
+        embedding_stream.close();
+        i++;
       }
-      embedding_->upload_params_to_device(embedding_stream);
-      embedding_stream.close();
     }
-    model_stream.read(reinterpret_cast<char*>(weight),
-                      networks_[0]->get_params_num() * sizeof(float));
-    for (auto network : networks_) {
-      network->upload_params_to_device(weight);
+    if (!model_file.empty()) {
+      std::ifstream model_stream(model_file, std::ifstream::binary);
+      if (!model_stream.is_open()) {
+        CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
+      }
+      std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
+      model_stream.read(reinterpret_cast<char*>(weight.get()),
+                        networks_[0]->get_params_num() * sizeof(float));
+
+      std::cout << "Loading dense model: " << model_file << std::endl;
+      for (auto& network : networks_) {
+        network->upload_params_to_device(weight.get());
+      }
+      model_stream.close();
     }
-    delete[] weight;
-    model_stream.close();
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -106,72 +162,52 @@ Error_t Session::load_params(const std::string& model_file, const std::string& e
   return Error_t::Success;
 }
 
-Error_t Session::init_params(std::string model_file) {
-  try {
-    // model_file generation;
-    std::ofstream out_stream(model_file, std::ofstream::binary);
-    if (!out_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Cannot open model file");
-    }
-    // network init
-    for (auto network : networks_) {
-      network->init_params(out_stream);
-    }
-    out_stream.close();
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    return rt_err.get_error();
-  } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
-    return Error_t::UnspecificError;
-  }
-  return Error_t::Success;
-}
 
 void network_train_helper(int id, Network* n) {
   try {
     n->train();
+    n->exchange_wgrad();
+    n->update_params();
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
+    throw;
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
+    throw;
   }
   return;
 }
 
 Error_t Session::train() {
   try {
-    data_reader_->read_a_batch_to_device();
-    embedding_->forward();
-
+#ifndef DATA_READING_TEST
+    data_reader_->read_a_batch_to_device_delay_release();
+    for (auto& one_embedding : embedding_) {
+      one_embedding->forward();
+    }
+    data_reader_->ready_to_collect();
     if (networks_.size() > 1) {
       // execute dense forward and backward with multi-cpu threads
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_.results[i] = gpu_resource_group_.train_thread_pool.push(
-            std::ref(network_train_helper), networks_[i]);
+        gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
+            [this, i](int id) { network_train_helper(id, networks_[i].get()); });
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_.results[i].get();
+        gpu_resource_group_->results[i].get();
       }
     } else if (networks_.size() == 1) {
       networks_[0]->train();
+      networks_[0]->update_params();
     } else {
       assert(!"networks_.size() should not less than 1.");
     }
-    // wgrad exchange
-    if (networks_.size() > 1) {
-      CK_NCCL_THROW_(ncclGroupStart());
-      for (auto network : networks_) {
-        network->exchange_wgrad();
-      }
-      CK_NCCL_THROW_(ncclGroupEnd());
+    for (auto& one_embedding : embedding_) {
+      one_embedding->backward();
+      one_embedding->update_params();
     }
-    for (auto network : networks_) {
-      network->update_params();
-    }
-
-    embedding_->backward();
-    embedding_->update_params();
+#else
+    data_reader_->read_a_batch_to_device();
+#endif
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -182,9 +218,13 @@ Error_t Session::train() {
   return Error_t::Success;
 }
 
-void network_eval_helper(int id, Network* n) {
+void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
   try {
     n->eval();
+
+    for(auto& metric : metrics) {
+      metric->local_reduce(n->get_raw_metrics());
+    }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   } catch (const std::exception& err) {
@@ -195,23 +235,35 @@ void network_eval_helper(int id, Network* n) {
 Error_t Session::eval() {
   try {
     if (data_reader_eval_ == nullptr) return Error_t::NotInitialized;
-    data_reader_eval_->read_a_batch_to_device();
-    embedding_->forward();
-
-    if (networks_.size() > 1) {
-      // execute dense forward and backward with multi-cpu threads
-      for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_.results[i] = gpu_resource_group_.train_thread_pool.push(
-            std::ref(network_train_helper), networks_[i]);
-      }
-      for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_.results[i].get();
-      }
-    } else if (networks_.size() == 1) {
-      networks_[0]->eval();
-    } else {
-      assert(!"networks_.size() should not less than 1.");
+    long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
+    for(auto& metric : metrics_) {
+      metric->set_current_batch_size(current_batchsize);
     }
+
+#ifndef DATA_READING_TEST
+    for (auto& one_embedding : embedding_eval_) {
+      one_embedding->forward();
+    }
+
+    if (networks_eval_.size() > 1) {
+      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
+        gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
+            [this, i](int id) { network_eval_helper(id, networks_eval_[i].get(), metrics_); });
+      }
+      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
+        gpu_resource_group_->results[i].get();
+      }
+    } else if (networks_eval_.size() == 1) {
+      networks_eval_[0]->eval();
+    } else {
+      assert(!"networks_eval_.size() should not less than 1.");
+    }
+#endif
+
+    for(auto& metric : metrics_) {
+      metric->global_reduce(networks_eval_.size());
+    }
+
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -219,15 +271,64 @@ Error_t Session::eval() {
     std::cerr << err.what() << std::endl;
     return Error_t::UnspecificError;
   }
+
+  // for(auto& metric : metrics_) {
+  //   try {
+  //     // TODO: enable to get batch_size from read_a_batch_to_device_delay_release();
+  //     metric->set_current_batch_size(current_batchsize);
+  //     for (auto& network : networks_) {
+  //       metric->local_reduce(network->get_raw_metrics());
+  //     }
+  //     metric->global_reduce(networks_.size());
+  //   } catch (const internal_runtime_error& rt_err) {
+  //     std::cerr << rt_err.what() << std::endl;
+  //     return rt_err.get_error();
+  //   } catch (const std::exception& err) {
+  //     std::cerr << err.what() << std::endl;
+  //     return Error_t::UnspecificError;
+  //   }
+  // }
+
   return Error_t::Success;
 }
 
-Error_t Session::download_params_to_file(std::string weights_file, std::string embedding_file) {
+std::vector<std::pair<std::string, float>> Session::get_eval_metrics() {
+  std::vector<std::pair<std::string, float>> metrics;
+  for (auto& metric : metrics_) {
+    metrics.push_back(std::make_pair(metric->name(), metric->finalize_metric()));
+  }
+  return metrics;
+}
+
+Error_t Session::download_params_to_files(std::string prefix, int iter) {
+  std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
+  std::vector<std::string> snapshot_sparse_names;
+  if (iter <= 0) {
+    return Error_t::WrongInput;
+  }
+
+  for (unsigned int i = 0; i < embedding_.size(); i++) {
+    snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) +
+                                    ".model");
+  }
+  return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
+}
+
+Error_t Session::download_params_to_files_(std::string weights_file,
+                                           const std::vector<std::string>& embedding_files) {
   try {
-    std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
-    embedding_->download_params_to_host(out_stream_embedding);
-    int numprocs = 1, pid = 0;
+    {
+      int i = 0;
+      for (auto& embedding_file : embedding_files) {
+        std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
+        embedding_[i]->download_params_to_host(out_stream_embedding);
+        out_stream_embedding.close();
+        i++;
+      }
+    }
+    int pid = 0;
 #ifdef ENABLE_MPI
+    int numprocs = 1;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
@@ -243,7 +344,7 @@ Error_t Session::download_params_to_file(std::string weights_file, std::string e
       }
       out_stream_weight.close();
     }
-    out_stream_embedding.close();
+
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -258,13 +359,14 @@ Error_t Session::get_current_loss(float* loss) {
   try {
     float loss_sum = 0.f;
     float loss_reduced = 0.f;
-    int numprocs = 1, pid = 0;
+    int numprocs = 1;
 #ifdef ENABLE_MPI
+    int pid = 0;
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
     // Collect all the loss from every network and average
-    for (auto network : networks_) {
+    for (auto& network : networks_) {
       loss_sum += network->get_loss();
     }
     if (numprocs > 1) {
@@ -287,21 +389,11 @@ Error_t Session::get_current_loss(float* loss) {
 
 Session::~Session() {
   try {
-    for (auto device : gpu_resource_group_.get_device_list()) {
-      int o_device = -1;
-      CK_CUDA_THROW_(get_set_device(device, &o_device));
+    for (auto device : gpu_resource_group_->get_device_list()) {
+      CudaDeviceContext context(device);
       CK_CUDA_THROW_(cudaDeviceSynchronize());
-      CK_CUDA_THROW_(get_set_device(o_device));
     }
 
-    for (auto network : networks_) {
-      assert(network != nullptr);
-      delete network;
-    }
-
-    delete embedding_;
-    delete data_reader_;
-    delete parser_;
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   } catch (const std::exception& err) {

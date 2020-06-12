@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,39 +14,36 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
 
 namespace {
 
+__device__ int debug_counter;
+
 __device__ __forceinline__ void momentumSGD_update_device(
     float* weight_ptr, float* momentum_ptr, float wgrad,
-    HugeCTR::MomentumSGDHyperParameters hyper_parameters) {
-  int scaler = 1;
-#ifdef SCALE_128
-  scaler = 128;
-#elif SCALE_256
-  scaler = 256;
-#elif SCALE_512
-  scaler = 512;
-#elif SCALE_1024
-  scaler = 1024;
-#else
-  scaler = 1;
-#endif
+    HugeCTR::MomentumSGDHyperParameters hyper_parameters, float scaler) {
   momentum_ptr[0] =
-      hyper_parameters.momentum_factor * momentum_ptr[0] - hyper_parameters.lr * wgrad;
-  weight_ptr[0] += momentum_ptr[0] / scaler;
+      hyper_parameters.momentum_factor * momentum_ptr[0] - hyper_parameters.lr * wgrad / scaler;
+  weight_ptr[0] += momentum_ptr[0];
+  
+  // if(isnan(weight_ptr[0])){
+  //   int count = atomicAdd(&debug_counter, 1);
+  //   if(count < 10)
+  //     printf("%f;", wgrad);
+  // }
+
   return;
 }
 
 __global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr,
                                           const float* wgrad_ptr, int size,
-                                          HugeCTR::MomentumSGDHyperParameters hyper_parameters) {
+                                          HugeCTR::MomentumSGDHyperParameters hyper_parameters,
+                                          float scaler) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < size) {
     momentumSGD_update_device(weight_ptr + idx, momentum_ptr + idx, wgrad_ptr[idx],
-                              hyper_parameters);
+                              hyper_parameters, scaler);
   }
   return;
 }
@@ -56,24 +53,21 @@ __global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr
 namespace HugeCTR {
 
 void MomentumSGD::update(cudaStream_t stream) {
-  int old_device = -1;
-  CK_CUDA_THROW_(get_set_device(device_id_, &old_device));
+  CudaDeviceContext context(device_id_);
 
   constexpr int block_dim = 256;
-  int grid_dim = (weight_.get_num_elements() + block_dim - 1) / block_dim;
-  float* weight_ptr = weight_.get_ptr_with_offset(0);
-  const float* wgrad_ptr = wgrad_.get_ptr_with_offset(0);
+  int grid_dim = (weight_->get_num_elements() + block_dim - 1) / block_dim;
+  float* weight_ptr = weight_->get_ptr_with_offset(0);
+  const float* wgrad_ptr = wgrad_->get_ptr_with_offset(0);
   float* momentum_ptr = momentum_->get_ptr_with_offset(0);
-
+  
   MomentumSGDHyperParameters hyper_parameters = {lr_, momentum_factor_};
   momentumSGD_update_kernel<<<grid_dim, block_dim, 0, stream>>>(
-      weight_ptr, momentum_ptr, wgrad_ptr, weight_.get_num_elements(), hyper_parameters);
+      weight_ptr, momentum_ptr, wgrad_ptr, weight_->get_num_elements(), hyper_parameters, scaler_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
-  CK_CUDA_THROW_(get_set_device(old_device));
 }
 
 }  // namespace HugeCTR

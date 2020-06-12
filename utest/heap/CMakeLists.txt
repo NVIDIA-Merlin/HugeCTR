@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,9 +15,10 @@
 
 cmake_minimum_required(VERSION 3.8)
 file(GLOB heap_test_src
+  heapex_test.cpp
   heap_test.cpp
 )
 
 add_executable(heap_test ${heap_test_src})
-target_compile_features(heap_test PUBLIC cxx_std_11)
+target_compile_features(heap_test PUBLIC cxx_std_14)
 target_link_libraries(heap_test PUBLIC huge_ctr_static gtest gtest_main)

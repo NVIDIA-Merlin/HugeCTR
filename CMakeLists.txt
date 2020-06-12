@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -38,12 +38,29 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
+option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" ON)
+if (NCCL_A2A) 
+  message(STATUS "-- NCCL_A2A is ON")
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DNCCL_A2A")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DNCCL_A2A")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNCCL_A2A")
+endif()
+
 find_package(CUDA REQUIRED)
 find_package(CUDNN REQUIRED)
 find_package(NCCL REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(Threads)
+
+option(ENABLE_MULTINODES "Enable multi-nodes training" OFF)
+if(ENABLE_MULTINODES)
+message(STATUS "Multi Node Enabled")
 find_package(MPI)
+find_package(UCX)
+find_package(HWLOC)
+endif()
+
+set(CUDA_SEPARABLE_COMPILATION ON) 
 
 if (OPENMP_FOUND)
 message(STATUS "OPENMP FOUND")
@@ -54,53 +71,40 @@ endif()
 
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 
-option(USE_WMMA "Use Mixed-Precision" OFF)
+option(VAL_MODE "Validation mode: set determined mode for data reader and csv format for loss print" OFF)
+if (VAL_MODE) 
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DVAL")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DVAL")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DVAL")
+endif()
+
 # setting compiler flags
-if (SM STREQUAL 75 OR 
-    SM STREQUAL 70 OR
-    SM STREQUAL 62 OR
-    SM STREQUAL 61 OR
-    SM STREQUAL 60)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM},code=\\\"sm_${SM},compute_${SM}\\\" -rdc=true")
-   if (USE_WMMA) 
-        set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
-        set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
-        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
-   endif()
+foreach(arch_name ${SM})
+    if (arch_name STREQUAL 80 OR 
+        arch_name STREQUAL 75 OR 
+        arch_name STREQUAL 70 OR
+        arch_name STREQUAL 61 OR
+        arch_name STREQUAL 60)
+        list(APPEND cuda_arch_list ${arch_name})
+        message(STATUS "-- Assign GPU architecture (sm=${arch_name})")
+    else()
+        message(WARNING "-- Unknown or unsupported GPU architecture (set sm=60)")
+    endif()
+endforeach()
+
+list(LENGTH cuda_arch_list cuda_arch_list_length)
+if(${cuda_arch_list_length} EQUAL 0)
+    list(APPEND cuda_arch_list "60")
+endif()
+list(REMOVE_DUPLICATES cuda_arch_list)
+
+foreach(arch_name ${cuda_arch_list})
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
+endforeach()
+
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")	
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall")
-    message(STATUS "-- Assign GPU architecture (sm=${SM})")
-else()
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_60,code=\\\"sm_60,compute_60\\\" -rdc=true")
-    message(WARNING "-- Unknown or unsupported GPU architecture (set sm=60)")
-endif()
-
-if (USE_WMMA)
-  if (SM STREQUAL 60 OR 
-      SM STREQUAL 61 OR 
-      SM STREQUAL 62)
-    message(FATAL_ERROR "WMMA can only be used on GPU with SM >= 70")
-  endif()
-endif()
-
-if (USE_WMMA AND NOT SCALER)
-  message(FATAL_ERROR "scaler must be set if USE_WMMA is on.")
-endif()
-
-if (USE_WMMA AND SCALER)
-  if (SCALER STREQUAL 128 OR
-      SCALER STREQUAL 256 OR
-      SCALER STREQUAL 512 OR
-      SCALER STREQUAL 1024)
-    set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSCALE_${SCALER}")
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DSCALE_${SCALER}")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DSCALE_${SCALER}")
-    message(STATUS "setting scale ${SCALER}")
-  else()
-    message(FATAL_ERROR "scaler must be set 128/256/512/1024.")
-  endif()
-endif()
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall")
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")
@@ -122,15 +126,28 @@ include_directories(${PROJECT_SOURCE_DIR}/googletest/googletest/include)
 include_directories(${PROJECT_SOURCE_DIR}/json/single_include)
 include_directories(${CUDNN_INC_PATHS})
 include_directories(${NCCL_INC_PATHS})
-if(MPI_FOUND)
+include_directories(${HWLOC_INC_PATHS})
+include_directories(${UCX_INC_PATHS})
+if(ENABLE_MULTINODES)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_MPI")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_MPI")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_MPI")
   include_directories(${MPI_INCLUDE_PATH})
+  include_directories(${HWLOC_INC_PATHS})
+  include_directories(${UCX_INC_PATHS})
+endif()
+if(OPENMP_FOUND)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
+  message(STATUS "add -fopenmp to compiler")
+else()
+  message(FATAL_ERROR "without openmp the multi-node all2all will fail")
 endif()
 link_directories(${CUDNN_LIB_PATHS})
 link_directories(${NCCL_LIB_PATHS})
+link_directories(${HWLOC_LIB_PATHS})
+link_directories(${UCX_LIB_PATHS})
 add_subdirectory(HugeCTR/src)
 add_subdirectory(googletest)
 add_subdirectory(json)
 add_subdirectory(utest)
+add_subdirectory(tools)

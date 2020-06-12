@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include <functional>
@@ -27,11 +26,32 @@ namespace HugeCTR {
 /**
  * @brief
  * This class implements the fully connected layer.
- * WMMA is used in the GEMM calculation when SM >= 70 and the WMMA option is turned on.
  */
 class FullyConnectedLayer : public Layer {
  private:
-  cublasHandle_t const& cublas_handle_;
+  const cublasHandle_t cublas_handle_;
+  const bool use_mixed_precision_{false};
+  // Optimized cublasGemmEx algorithm selection
+  cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
+  cublasGemmAlgo_t balgo_W_{CUBLAS_GEMM_DEFAULT};
+  cublasGemmAlgo_t balgo_Xn_{CUBLAS_GEMM_DEFAULT};
+
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors<float> weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
 
  public:
   /**
@@ -42,6 +62,10 @@ class FullyConnectedLayer : public Layer {
    * backward pass
    */
   void bprop(cudaStream_t stream) final;
+  /*
+   * algorithm search for cublasGemmEx
+   */
+  void optimize() final;
   /**
    * This is the constructor of the FullyConnectedLayer.
    * It will check whether the format combination of all tensors is supported or not.
@@ -55,10 +79,12 @@ class FullyConnectedLayer : public Layer {
    * @param weight_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  FullyConnectedLayer(GeneralBuffer<float>& weight_buff, GeneralBuffer<float>& wgrad_buff,
-                      Tensor<float>& in_tensor, Tensor<float>& out_tensor,
+  FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                      const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
+                      const std::shared_ptr<Tensor<float>>& in_tensor,
+                      const std::shared_ptr<Tensor<float>>& out_tensor,
                       TensorFormat_t weight_format, cublasHandle_t const& cublas_handle,
-                      int device_id);
+                      int device_id, bool use_mixed_precision = false);
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);
 

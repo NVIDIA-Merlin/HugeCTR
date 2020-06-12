@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,20 +64,20 @@ void compare_array(const float* a, const float* b, int len) {
 
 void nesterov_test(int len, int num_update) {
   const int device_id = 0;
-  GeneralBuffer<float> weight(len, device_id);
-  GeneralBuffer<float> wgrad(len, device_id);
+  std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>(len, device_id));
+  std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>(len, device_id));
 
-  float* h_weight = (float*)malloc(len * sizeof(float));
-  float* h_wgrad = (float*)malloc(len * sizeof(float));
-  float* h_weight_expected = (float*)malloc(len * sizeof(float));
-  float* d_weight = weight.get_ptr_with_offset(0);
-  float* d_wgrad = wgrad.get_ptr_with_offset(0);
+  std::unique_ptr<float[]> h_weight(new float[len]);
+  std::unique_ptr<float[]> h_wgrad(new float[len]);
+  std::unique_ptr<float[]> h_weight_expected(new float[len]);
+  float* d_weight = weight->get_ptr_with_offset(0);
+  float* d_wgrad = wgrad->get_ptr_with_offset(0);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
   for (int i = 0; i < len; ++i) {
     h_weight_expected[i] = h_weight[i] = simulator.get_num();
   }
-  cudaMemcpy(d_weight, h_weight, len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
   NesterovOptimizer nesterov(weight, wgrad, device_id, 0.01, 0.9);
   NesterovCPU nesterov_cpu(len, 0.01, 0.9);
@@ -85,18 +85,14 @@ void nesterov_test(int len, int num_update) {
     for (int i = 0; i < len; ++i) {
       h_wgrad[i] = simulator.get_num();
     }
-    cudaMemcpy(d_wgrad, h_wgrad, len * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
     nesterov.update(cudaStreamDefault);
-    nesterov_cpu.update(h_weight_expected, h_wgrad);
+    nesterov_cpu.update(h_weight_expected.get(), h_wgrad.get());
   }
 
-  cudaMemcpy(h_weight, d_weight, len * sizeof(float), cudaMemcpyDeviceToHost);
-  compare_array(h_weight, h_weight_expected, len);
-
-  free(h_weight);
-  free(h_wgrad);
-  free(h_weight_expected);
+  cudaMemcpy(h_weight.get(), d_weight, len * sizeof(float), cudaMemcpyDeviceToHost);
+  compare_array(h_weight.get(), h_weight_expected.get(), len);
 }
 
 }  // namespace

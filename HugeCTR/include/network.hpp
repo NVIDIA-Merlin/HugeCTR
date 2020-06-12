@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
 #include <cublas_v2.h>
@@ -27,6 +26,7 @@
 #include "HugeCTR/include/gpu_resource.hpp"
 #include "HugeCTR/include/layer.hpp"
 #include "HugeCTR/include/loss.hpp"
+#include "HugeCTR/include/metrics.hpp"
 #include "HugeCTR/include/optimizer.hpp"
 #include "HugeCTR/include/tensor.hpp"
 #include "nlohmann/json.hpp"
@@ -40,39 +40,67 @@ namespace HugeCTR {
  * forward/backward/loss/update of the dense layers.
  */
 class Network {
-  friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-                                 Tensor<float>& in_tensor, const Tensor<float>& label_tensor,
-                                 int batch_size, int device_id, const GPUResource* gpu_resource);
+  friend Network* create_network(
+      const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
+      const std::map<std::string, std::shared_ptr<ITensor>>& tensor_list_in, int device_id,
+      int num_networks_in_global, const std::shared_ptr<const GPUResource>& gpu_resource,
+      bool use_mixed_precision, float scaler);
 
  private:
-  std::vector<Tensor<float>*> tensors_; /**< vector of tensors */
-  std::vector<Layer*> layers_;          /**< vector of layers */
-  GeneralBuffer<float> blobs_buff_;     /**< blobs' general buffer */
-  GeneralBuffer<float> weight_buff_;    /**< weight (param) general buffer */
-  GeneralBuffer<float> wgrad_buff_;     /**< weight gradient general buffer */
-  const GPUResource& gpu_resource_;     /**< gpu resource */
-  int device_id_;                       /**< device id */
-  int batchsize_;                       /**< batch size */
-  Optimizer* optimizer_{nullptr};       /**< optimizer */
-  Loss* loss_{nullptr};                 /**< loss */
-  Tensor<float>& in_tensor_;            /**< input tensor of this network (from embedding) */
-  const Tensor<float>& label_tensor_;   /**< label tensor of this network (from data reader) */
-  Tensor<float>* loss_tensor_{nullptr}; /**< loss tensor */
+  //  Tensors<float> tensors_;
+  std::vector<std::unique_ptr<Layer>> layers_;              /**< vector of layers */
+  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;        /**< blobs' general buffer */
+  std::shared_ptr<GeneralBuffer<__half>> blobs_buff_half_;  /**< blobs' general buffer */
+  std::shared_ptr<GeneralBuffer<float>> weight_buff_;       /**< weight (param) general buffer */
+  std::shared_ptr<GeneralBuffer<__half>> weight_buff_half_; /**< weight (param) general buffer */
+  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;        /**< weight gradient general buffer */
+  std::shared_ptr<GeneralBuffer<__half>> wgrad_buff_half_;  /**< weight gradient general buffer */
+  std::shared_ptr<const GPUResource> gpu_resource_;         /**< gpu resource */
+  int device_id_;                                           /**< device id */
+  std::unique_ptr<Optimizer> optimizer_;                    /**< optimizer */
+  std::unique_ptr<ILoss> loss_;                             /**< loss */
+  std::shared_ptr<Tensor<float>> loss_tensor_;              /**< loss tensor */
+  bool full_fp16_{false};
+  int n_sms_{0};
+  void conv_weight_();
+  metrics::RawMetricMap raw_metrics_;
+
+  bool eval_graph_created_;
+  cudaGraph_t eval_graph_;
+  cudaGraphExec_t eval_instance_;
+
  public:
   /**
    * Ctor.
-   * @param in_tensor input tensor of this network (from embedding).
-   * @param label_tensor label tensor of this network (from data reader).
-   * @param batchsize batch size.
    * @param device_id device id.
    * @param gpu_resource gpu resource for local gpu.
    * @param disable_parser only for unit test.
    */
-  Network(Tensor<float>& in_tensor, const Tensor<float>& label_tensor, int batchsize, int device_id,
-          const GPUResource* gpu_resource, bool disable_parser = true);
+  Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
+          bool full_fp16 = false);
   Network(const Network& C) = delete;
   Network& operator=(const Network&) = delete;
-  ~Network();
+
+
+  std::shared_ptr<GeneralBuffer<float>>& get_weight(){
+    return weight_buff_;
+  }
+
+  std::shared_ptr<GeneralBuffer<__half>>& get_weight_half(){
+    return weight_buff_half_;
+  }
+
+  void set_weight(std::shared_ptr<GeneralBuffer<float>>& weight_buff){
+    weight_buff_->replace_buffer_with(*weight_buff);
+    return;
+  }
+
+  void set_weight_half(std::shared_ptr<GeneralBuffer<__half>>& wgrad_buff_half){
+    weight_buff_half_->replace_buffer_with(*wgrad_buff_half);
+    return;
+  }
+
+
 
   /**
    * Forward, backward and update the network.
@@ -89,10 +117,12 @@ class Network {
    */
   float get_loss();
 
+  metrics::RawMetricMap get_raw_metrics() const;
+
   /**
    * Get number of parameters in this network.
    */
-  size_t get_params_num() { return weight_buff_.get_num_elements(); }
+  size_t get_params_num() const { return weight_buff_->get_num_elements(); }
 
   /**
    * Writting paramters to fstream.
@@ -105,9 +135,9 @@ class Network {
   std::string get_no_trained_params_in_string();
 
   /**
-   * Read parameters from fstream.
+   * Read parameters from model_file.
    */
-  void upload_params_to_device(std::ifstream& params_stream);
+  void upload_params_to_device(const std::string& model_file);
 
   /**
    * Writting paramters to cpu buffer.
@@ -122,7 +152,12 @@ class Network {
   /**
    * Init parameters and write to fstream.
    */
-  void init_params(std::ofstream& out_stream);
+  void init_params(const std::string& model_file_name);
+
+  /**
+   * Copy parameters from a network.
+   */
+  void copy_params(const Network& n);
 
   /**
    * Exchange wgrad between gpus.
@@ -138,6 +173,15 @@ class Network {
    * reset the learning rate to lr.
    */
   void set_learning_rate(float lr) { optimizer_->set_learning_rate(lr); }
+
+  /**
+   * optimize layer by layer
+   */
+  void optimize() {
+    for (auto& n : layers_) {
+      n->optimize();
+    }
+  }
 };
 
 }  // namespace HugeCTR

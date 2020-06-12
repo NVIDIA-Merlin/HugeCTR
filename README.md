@@ -1,11 +1,50 @@
+# HugeCTR A100 PREVIEW #
+[![v21](docs/user_guide_src/v21.JPG)](docs/hugectr_user_guide.md#new-features-in-version-21)
+
+To demonstrate the performance of HugeCTR on A100, we introduce this preview version. We support new features like full fp16 pipeline / algorithm search / AUC calculation and many of these features will be available in the next release soon. 
+
+## Intention ##
+HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training, and the new released NVIDIA A100 GPU has excellent acceleration on various scales for AI, data analysis and high performance computing (HPC), and meet extremely severe computing challenges. To demonstrate HugeCTR’s performance on A100 GPU, this version is developed to leverage new features of the latest GPU.
+
+In order to get better performance and flexibility, new features have been added in this version.
+
+## New features ##
++ **Algorithm Search** : Support algorithm selection in fully connected layers for better performance.
+
++ **AUC** : Support AUC calculation for accuracy evaluation.
+
++ **Batch shuffle and last batch in eval** : Support batch shuffle and the last batch during 	evaluation won’t be dropped.
+
++ **Different batch size in training and evaluation** : Support this for best performance in evaluation.
+
++ **Full FP16 pipeline** : In order to be able to process more data simultaneously and obtain better performance, Full FP16 pipeline is supported in this version.
+
++ **Fused fully connected layer** : Fused bias adding and relu activation into a single layer.
+
++ **Caching evaluation data on device** : For the GPUs with large memory like A100, we can use caching data for small evaluation data sets.
+
++ **Interaction layer** : Support this famous layer used in CTR estimation.
+
++ **Optimized data reader for raw format** : Each sample has 40 32bits integers, where the first integer is label, the next 13 integers are dense feature and the following 26 integers are category feature.
+
++ **Deep Learning Recommendation Model (DLRM)** : DLRM support please find more details in [samples/dlrm](samples/dlrm/README.md).
+
++ **Learning rate scheduling** : Support different learning rate scheduling. <br>
+<div align=center><img width = '500' src ="docs/user_guide_src/learning_rate_scheduling.png"/></div>
+<div align=center>Fig 1. Learning rate scheduling</div>
+
+ 
 # HugeCTR #
+
 HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training.
 
 Design Goals:
-* Optimized for recommender system
-* Easy to be customized
+* Fast: it's a speed-of-light CTR training framework;
+* Dedicated: we consider everything you need in CTR training;
+* Easy: you can start your work now, no matter you are a data scientist, a learner, or a developer.
 
-Please find more introductions in our "HugeCTR User Guide" and doxygen files in directory `docs\`
+Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs/`
+
 
 ## Requirements ##
 * cuBLAS >= 9.1
@@ -14,38 +53,72 @@ Please find more introductions in our "HugeCTR User Guide" and doxygen files in 
 * cuDNN >= 7.5
 * NCCL >= 2.0
 * Clang-Format 3.8
-* OpenMPI >= 4.0 (optional, if require multi-nodes training)
+* GCC >= 7.4.0
+* ortools
+### Optional, if require multi-nodes training ###
+* OpenMPI >= 4.0
+* UCX library >= 1.6
+* HWLOC library >= 2.1.0
+* mpi4py
 
 ## Build ##
+### Building HugeCTR in docker container ###
+You can choose using docker to simplify the environment setting up, otherwise please jump to [Init Git](README.md#init-git) directly.
+
+Ensure that you have [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) installed.
+
+To build docker image from the Dockerfile, run the command:
+```shell
+$ docker build -t hugectr:devel .
+```
+
+After building the docker image, you can enter the development environment by running a docker container
+```shell
+$ docker run --runtime=nvidia -it hugectr:devel bash
+```
+
+Then continue with the following steps
+
 ### Init Git ###
 ```shell
-$ git submodule init
-$ git submodule update
+$ git submodule update --init --recursive
 ```
 
 ### Build with Release ###
-Compute Capability can be specified by `-DSM=XX`, which is SM=60 by default. Only one Compute Capability is avaliable to be set.
+Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM60 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=XX ..
+$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. #using Tesla V100
 $ make
 ```
 
+Supported Compatibility and Tesla GPUs:
+
+|Compute Compatibility|GPU|
+|----|----|
+|60|Tesla P100|
+|61|Tesla P40, Tesla P4, Tesla P6|
+|70|Tesla V100|
+|75|Tesla T4|
+|80|Tesla A100|
+
 ### Build with Debug ###
-Compute Capability can be specified by `-DSM=XX`, which is SM=60 by default. Only one Compute Capability is avaliable to be set.
+Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM60 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=XX ..
+$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=70 .. #using Telsa V100
 $ make
 ```
-### Build with Mixed Precision (WMMA) Support ###
-To use mixed precision training, enable USE_WMMA and set SCALER to 128/256/512/1024 by:
+
+### Build with Validation Mode ###
+This mode is designed for framework validation. In this mode loss of trainig will be shown as the average of `eval_batches` results. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DSM=XX -DUSE_WMMA=ON -DSCALER=YYY ..
+$ cmake -DVAL_MODE=ON ..
+$ make
 ```
 
 ## Run ##
@@ -88,13 +161,12 @@ $ doxygen
 Totally three kinds of files will be used as input of HugeCTR Training: configuration file (.json), model file, data set.
 
 ### Configuration File ###
-Configuration file should be a json format file e.g. [simple_sparse_embedding.json](https://gitlab-master.nvidia.com/zehuanw/HugeCTR/blob/master/utest/session/simple_sparse_embedding.json)
+Configuration file should be a json format file e.g. [simple_sparse_embedding.json](utest/session/simple_sparse_embedding.json)
 
 There are four sessions in a configuration file: "solver", "optimizer", "data", "layers". The sequence of these sessions is not restricted.
 * You can specify the device (or devices), batchsize, model_file.. in `solver` session;
 * and the `optimizer` that will be used in every layer.
-* File list and data set related configurations will be specified under `data` session.
-* Finally, layers should be listed under `layers`. Note that embedders should always be the first layer.
+* Finally, layers should be listed under `layers`. Note that embedders should always be the first layers.
 
 ### Model File ###
 Model file is a binary file that will be loaded for weight initilization.
@@ -123,23 +195,29 @@ A data file (binary) contains a header and data (many samples).
 
 Header Definition:
 ```c
-typedef struct DataSetHeader_{
-  long long number_of_records; //the number of samples in this data file
-  long long label_dim; //dimension of label
-  long long slot_num; //the number of slots in each sample 
-  long long reserved; //reserved for future use
+typedef struct DataSetHeader_ {
+  long long error_check;        // 0: no error check; 1: check_num
+  long long number_of_records;  // the number of samples in this data file
+  long long label_dim;          // dimension of label
+  long long dense_dim;          // dimension of dense feature
+  long long slot_num;           // slot_num for each embedding
+  long long reserved[3];        // reserved for future use
 } DataSetHeader;
+
 ```
 
 Data Definition (each sample):
 ```c
 typedef struct Data_{
-  int label[label_dim];
-  Slot slots[slot_num];
+  int length;                   // bytes in this sample (optional: only in check_sum mode )
+  float label[label_dim];       
+  float dense[dense_dim];
+  Slot slots[slot_num];          
+  char checkbits;                // checkbit for this sample (optional: only in checksum mode)
 } Data;
 
 typedef struct Slot_{
   int nnz;
-  T*  keys; //long long or uint
+  long long*  keys; 
 } Slot;
 ```

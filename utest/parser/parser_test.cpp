@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-
 #include "HugeCTR/include/parser.hpp"
 #include <cuda_profiler_api.h>
+#include <fstream>
+#include <iostream>
 #include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -27,34 +28,59 @@
 
 using namespace HugeCTR;
 typedef long long TypeKey;
+typedef float TypeEmbeddingComp;
+// typedef __half TypeEmbeddingComp;
 
 template <typename TypeKey>
 void test_parser(std::string& json_name) {
-  std::vector<int> device_list = {0};
+  std::vector<int> device_list{0, 1};
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  DeviceMap device_map(vvgpu, 0);
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
   int batch_size = 4096;
-  Parser p(json_name, batch_size);
-  DataReader<TypeKey>* data_reader;
-  Embedding<TypeKey>* embedding;
-  std::vector<Network*> networks;
-  GPUResourceGroup gpu_resource_group(device_map);
+  Parser p(json_name, batch_size, batch_size);
+  std::unique_ptr<DataReader<TypeKey>> data_reader;
+  std::unique_ptr<DataReader<TypeKey>> data_reader_eval;
+  std::vector<std::unique_ptr<IEmbedding>> embedding;
+  std::vector<std::unique_ptr<IEmbedding>> embedding_eval;
+  std::vector<std::unique_ptr<Network>> networks;
+  std::vector<std::unique_ptr<Network>> networks_eval;
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
-  p.create_pipeline(&data_reader, &embedding, &networks, gpu_resource_group);
-
-  for (auto network : networks) {
-    assert(network != nullptr);
-    delete network;
-  }
-  delete data_reader;
-  delete embedding;
+  p.create_pipeline(data_reader, data_reader_eval, embedding, embedding_eval, networks, networks_eval, gpu_resource_group);
   return;
 }
 
+const long long label_dim = 1;
+const long long dense_dim = 64;
+const int max_nnz = 10;
+typedef long long T;
+const int vocabulary_size = 1603616;
+const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
+const std::string file_list_name = prefix + "_file_list.txt";
+const int num_files = 3;
+const long long num_records = 4096 * 3;
+const long long slot_num = 20;
+const Check_t CHK = Check_t::Sum;
+
 TEST(parser_test, simple_sparse_embedding) {
   test::mpi_init();
-  std::string json_name = PROJECT_HOME_ + "utest/parser/simple_sparse_embedding.json";
+  HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records,
+                                            slot_num, vocabulary_size, label_dim, dense_dim,
+                                            max_nnz);
+
+  // std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
+  std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding_sgd.json";
+  std::string plan_name = PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json";
+  std::ifstream src;
+  std::ofstream dst;
+
+  src.open(plan_name, std::ios::in);
+  dst.open("./all2all_plan.json", std::ofstream::out);
+  std::filebuf* inbuf = src.rdbuf();
+  dst << inbuf;
+  src.close();
+  dst.close();
   test_parser<long long>(json_name);
 }
 

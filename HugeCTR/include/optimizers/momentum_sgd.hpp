@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 
 #pragma once
 
@@ -39,21 +38,15 @@ class MomentumSGD : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor momentum factor
    */
-  MomentumSGD(GeneralBuffer<float>& weight, GeneralBuffer<float>& wgrad, int device_id,
-              float learning_rate, float momentum_factor)
-      : Optimizer(weight, wgrad, device_id, learning_rate), momentum_factor_(momentum_factor) {
-    momentum_ = new GeneralBuffer<float>(weight_.get_num_elements(), device_id_);
+  MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight,
+              const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
+              float learning_rate, float momentum_factor, float scaler = 1.f)
+      : Optimizer(weight, device_id, learning_rate, scaler),
+        momentum_factor_(momentum_factor), wgrad_(wgrad) {
+    momentum_.reset(new GeneralBuffer<float>(weight_->get_num_elements(), device_id_));
     momentum_->reset_sync();
-  }
-
-  /**
-   * destructor of MomentumSGD
-   */
-  ~MomentumSGD() {
-    try {
-      delete momentum_;
-    } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
+    if (weight_->get_size() != wgrad_->get_size()) {
+      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
     }
   }
 
@@ -64,8 +57,9 @@ class MomentumSGD : public Optimizer {
   void update(cudaStream_t stream) final;
 
  private:
-  GeneralBuffer<float>* momentum_;
+  std::unique_ptr<GeneralBuffer<float>> momentum_;
   float momentum_factor_;
+  std::shared_ptr<GeneralBuffer<float>> wgrad_;
 };
 
 }  // namespace HugeCTR

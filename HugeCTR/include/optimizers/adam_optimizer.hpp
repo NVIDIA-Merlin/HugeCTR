@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 
 #pragma once
 
@@ -37,17 +36,23 @@ class AdamOptimizer : public Optimizer {
    * @param beta2 beta2 in Adam paper
    * @param epsilon epsilon in Adam paper
    */
-  AdamOptimizer(GeneralBuffer<float>& weight, GeneralBuffer<float>& wgrad, int device_id,
-                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8)
-      : Optimizer(weight, wgrad, device_id, alpha),
-        m_(weight.get_num_elements(), device_id),
-        v_(weight.get_num_elements(), device_id),
+  AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
+                const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
+                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8,
+                float scaler = 1.f)
+      : Optimizer(weight, device_id, alpha, scaler),
+        m_(weight->get_num_elements(), device_id),
+        v_(weight->get_num_elements(), device_id),
         t_(0),
         beta1_(beta1),
         beta2_(beta2),
-        epsilon_(epsilon) {
+        epsilon_(epsilon), wgrad_(wgrad) {
     m_.reset_sync();
     v_.reset_sync();
+    if (weight_->get_size() != wgrad_->get_size()) {
+      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
+    }
+
   }
 
   /**
@@ -65,6 +70,7 @@ class AdamOptimizer : public Optimizer {
   const float beta1_;
   const float beta2_;
   const float epsilon_;
+  std::shared_ptr<GeneralBuffer<float>> wgrad_;
 };
 
 }  // namespace HugeCTR
