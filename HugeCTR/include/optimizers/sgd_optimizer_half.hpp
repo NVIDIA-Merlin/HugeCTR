@@ -36,11 +36,13 @@ class SgdOptimizerHalf : public Optimizer {
    */
   SgdOptimizerHalf(const std::shared_ptr<GeneralBuffer<float>>& weight,
 		   const std::shared_ptr<GeneralBuffer<__half>>& wgrad, 
+		   const std::shared_ptr<GeneralBuffer<__half>>& weight_half, 
 		   int device_id, float lr = 0.001f, 
 		   float scaler = 1.f)
-    : Optimizer(weight,device_id, lr, scaler), wgrad_(wgrad) {
-      if (weight_->get_num_elements() != wgrad_->get_num_elements()) {
-        CK_THROW_(Error_t::WrongInput, "weight_.get_num_elements() != wgrad_.get_num_elements(): " + std::to_string(weight_->get_num_elements()) + " vs " + std::to_string(wgrad_->get_num_elements()));
+    : Optimizer(weight,device_id, lr, scaler), wgrad_(wgrad), weight_half_(weight_half) {
+      if (weight_->get_num_elements() != wgrad_->get_num_elements() || 
+	  wgrad_->get_num_elements() != weight_half_->get_num_elements()) {
+        CK_THROW_(Error_t::WrongInput, "weight_.get_num_elements() != wgrad_.get_num_elements() or wgrad_->get_num_elements() != weight_half_->get_num_elements()" );
       }
   }
 
@@ -52,6 +54,7 @@ class SgdOptimizerHalf : public Optimizer {
 
  private:
   std::shared_ptr<GeneralBuffer<__half>> wgrad_;
+  std::shared_ptr<GeneralBuffer<__half>> weight_half_;
 };
 
 }  // namespace HugeCTR

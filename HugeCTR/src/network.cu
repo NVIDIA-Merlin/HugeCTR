@@ -66,8 +66,9 @@ void Network::train() {
 
 #endif
   // forward
-  if (full_fp16_) {
+  if (full_fp16_ && first_iter_) {
     conv_weight_();
+    first_iter_ = false;
   }
   for (auto& layer : layers_) {
     layer->fprop(gpu_resource_->get_stream());

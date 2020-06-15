@@ -68,6 +68,7 @@ class Network {
   bool eval_graph_created_;
   cudaGraph_t eval_graph_;
   cudaGraphExec_t eval_instance_;
+  bool first_iter_{true};
 
  public:
   /**

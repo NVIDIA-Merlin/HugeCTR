@@ -709,7 +709,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       auto learning_rate = opt_param.lr;
       if (use_mixed_precision) {
         network->optimizer_.reset(
-            new SgdOptimizerHalf(weight_buff, wgrad_buff_half, device_id, learning_rate, scaler));
+	  new SgdOptimizerHalf(weight_buff, wgrad_buff_half, weight_buff_half, device_id, learning_rate, scaler));
       } else {
         network->optimizer_.reset(
             new SgdOptimizer(weight_buff, wgrad_buff, device_id, learning_rate, scaler));
