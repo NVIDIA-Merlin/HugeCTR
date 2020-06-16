@@ -964,7 +964,7 @@ __global__ void get_hash_value_kernel(long long count, int embedding_vec_size,
                                       const TypeValueIndex *value_index,
                                       const float *hash_table_value, float *value_retrieved) {
   int tid = threadIdx.x;
-  int bid = blockIdx.x;
+  size_t bid = blockIdx.x;
 
   if (bid < count && tid < embedding_vec_size) {
     size_t index = value_index[bid];  // row number in the hash_table_value matrix
