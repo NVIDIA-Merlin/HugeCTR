@@ -378,7 +378,7 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
   return;
 }
 
-inline void data_generation_for_raw(std::string file_name, int num_samples, int label_dim = 1, int dense_dim = 13, int sparse_dim = 26){
+  inline void data_generation_for_raw(std::string file_name, int num_samples, int label_dim = 1, int dense_dim = 13, int sparse_dim = 26, const std::vector<long long> slot_size = std::vector<long long>()){
   std::ofstream out_stream(file_name, std::ofstream::binary);
   for(int i = 0; i<num_samples; i++){
     for(int j = 0; j < label_dim; j++){
@@ -390,7 +390,13 @@ inline void data_generation_for_raw(std::string file_name, int num_samples, int 
       out_stream.write(reinterpret_cast<char*>(&dense), sizeof(int));
     }
     for(int j = 0; j < sparse_dim; j++){
-      int sparse = j;
+      int sparse = 0;
+      if(slot_size.size() != 0){
+        sparse = slot_size[j] - 1;
+      }
+      else{
+	sparse = j;
+      }
       out_stream.write(reinterpret_cast<char*>(&sparse), sizeof(int));
     }
   }

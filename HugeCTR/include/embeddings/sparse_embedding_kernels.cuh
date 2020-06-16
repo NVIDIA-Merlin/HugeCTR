@@ -66,7 +66,7 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
 
       // reduce in a slot
       for (int j = 0; j < feature_num; j++) {
-        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        size_t value_index = hash_value_index[value_offset + j];
         sum += hash_table_value[value_index * embedding_vec_size + tid];
       }
 
@@ -98,7 +98,7 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
       // use float type to do accumulation
       float2 sum2 = {0.0f, 0.0f}; 
       for (int j = 0; j < feature_num; j++) {
-        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        size_t value_index = hash_value_index[value_offset + j];
         sum2.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
         sum2.y += hash_table_value2[value_index * embedding_vec_size + tid].y;
       }
@@ -136,7 +136,7 @@ __global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size
 
         float sum = 0.0f; 
         for (int j = 0; j < feature_num; j++) {
-          TypeValueIndex value_index = hash_value_index[value_offset + j];
+          size_t value_index = hash_value_index[value_offset + j];
           sum += hash_table_value[value_index * embedding_vec_size + tid];
         }
 
@@ -180,7 +180,7 @@ __global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size
         // use float type to do accumulation
         float2 sum2 = {0.0f, 0.0f}; 
         for (int j = 0; j < feature_num; j++) {
-          TypeValueIndex value_index = hash_value_index[value_offset + j];
+          size_t value_index = hash_value_index[value_offset + j];
           sum2.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
           sum2.y += hash_table_value2[value_index * embedding_vec_size + tid].y;
         }
@@ -268,7 +268,7 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
 
       // reduce in a slot
       for (int j = 0; j < feature_num; j++) {
-        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        size_t value_index = hash_value_index[value_offset + j];
         sum += hash_table_value[value_index * embedding_vec_size + tid];
       }
 
@@ -305,7 +305,7 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
       // use float to do accumulation
       float2 sum = {0.0f, 0.0f}; 
       for (int j = 0; j < feature_num; j++) {
-        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        size_t value_index = hash_value_index[value_offset + j];
         sum.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
         sum.y += hash_table_value2[value_index * embedding_vec_size + tid].y;
       }
@@ -454,7 +454,7 @@ __global__ void backward_mean_kernel(int batch_size, int slot_num, int embedding
 
     for (int i = 0; i < slot_num; i++) {
       int feature_row_index = bid * slot_num + i;
-      TypeKey value_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
+      size_t value_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
 
       __half2 scaler = __float2half2_rn(1.0f);
       if (value_num > 1) {
@@ -558,7 +558,7 @@ __global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num,
     gi = gi / scaler;
     
     // update 
-    TypeValueIndex value_index = hash_value_index_sort[offset];
+    size_t value_index = hash_value_index_sort[offset];
     long long feature_index = value_index * embedding_vec_size + tid;
     hash_table_value[feature_index] -= lr * gi;
   }
@@ -905,7 +905,7 @@ __global__ void opt_sgd_atomic_kernel(int nnz,
       float deltaw = -lr_scale * (float)(wgrad[sample_id * embedding_vec_size + tid]);
 
       // atomic update 
-      TypeValueIndex value_index = hash_value_index[key_id];
+      size_t value_index = hash_value_index[key_id];
       long long feature_index = value_index * embedding_vec_size + tid;
       atomicAdd(&hash_table_value[feature_index], deltaw);
     }
@@ -930,7 +930,7 @@ __global__ void opt_sgd_atomic_kernel(int nnz,
       float deltaw = -lr_scale * (float)(wgrad[key_id * embedding_vec_size + tid]);
 
       // atomic update 
-      TypeValueIndex value_index = hash_value_index[key_id];
+      size_t value_index = hash_value_index[key_id];
       size_t feature_index = value_index * embedding_vec_size + tid;
       atomicAdd(&hash_table_value[feature_index], deltaw);
     }
@@ -964,10 +964,10 @@ __global__ void get_hash_value_kernel(long long count, int embedding_vec_size,
                                       const TypeValueIndex *value_index,
                                       const float *hash_table_value, float *value_retrieved) {
   int tid = threadIdx.x;
-  int bid = blockIdx.x;
+  size_t bid = blockIdx.x;
 
   if (bid < count && tid < embedding_vec_size) {
-    TypeValueIndex index = value_index[bid];  // row number in the hash_table_value matrix
+    size_t index = value_index[bid];  // row number in the hash_table_value matrix
     value_retrieved[bid * embedding_vec_size + tid] =
         hash_table_value[index * embedding_vec_size + tid];
   }
