@@ -541,18 +541,18 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
   CudaDeviceContext context((*Base::device_resources_)[tid]->get_device_id()); // set device
 
 
-  functors_.forward_per_gpu(embedding_params_.batch_size, slot_num_per_gpu_[tid],
-                            embedding_params_.embedding_vec_size, embedding_params_.combiner,
-                            Base::row_offsets_tensors_[tid]->get_ptr(), Base::value_tensors_[tid]->get_ptr(), 
-                            nnz_num_per_batch_[tid].get(), mapping_offsets_per_gpu_tensors_[tid]->get_ptr(), 
-                            hash_table_value_tensors_[tid]->get_ptr(), hash_value_index_tensors_[tid]->get_ptr(),
-                            embedding_feature_tensors_[tid]->get_ptr(), (*Base::device_resources_)[tid]->get_stream());
-
-  // // for forward_fuse method 
-  // functors_.forward_mapping_per_gpu(embedding_params_.batch_size, slot_num_per_gpu_[tid],
+  // functors_.forward_per_gpu(embedding_params_.batch_size, slot_num_per_gpu_[tid],
+  //                           embedding_params_.embedding_vec_size, embedding_params_.combiner,
   //                           Base::row_offsets_tensors_[tid]->get_ptr(), Base::value_tensors_[tid]->get_ptr(), 
   //                           nnz_num_per_batch_[tid].get(), mapping_offsets_per_gpu_tensors_[tid]->get_ptr(), 
-  //                           hash_value_index_tensors_[tid]->get_ptr(), (*Base::device_resources_)[tid]->get_stream());
+  //                           hash_table_value_tensors_[tid]->get_ptr(), hash_value_index_tensors_[tid]->get_ptr(),
+  //                           embedding_feature_tensors_[tid]->get_ptr(), (*Base::device_resources_)[tid]->get_stream());
+
+  // for forward_fuse method 
+  functors_.forward_mapping_per_gpu(embedding_params_.batch_size, slot_num_per_gpu_[tid],
+                            Base::row_offsets_tensors_[tid]->get_ptr(), Base::value_tensors_[tid]->get_ptr(), 
+                            nnz_num_per_batch_[tid].get(), mapping_offsets_per_gpu_tensors_[tid]->get_ptr(), 
+                            hash_value_index_tensors_[tid]->get_ptr(), (*Base::device_resources_)[tid]->get_stream());
   return;
 }
 
@@ -580,36 +580,36 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
         std::string("[HCDEBUG][ERROR] Runtime error: local_gpu_count <= 0 \n"));
   }
 
-  // do all-to-all
-#ifdef NCCL_A2A
-  if(total_gpu_count_ > 1) {
-    functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_, 
-                              embedding_params_.embedding_vec_size,
-                              embedding_feature_tensors_, all2all_tensors_,
-                              Base::device_resources_);
-  }
-  else {
-    CK_CUDA_THROW_(cudaMemcpyAsync(all2all_tensors_[0]->get_ptr(), embedding_feature_tensors_[0]->get_ptr(),
-                                    (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size * \
-                                    sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToDevice,
-                                    (*Base::device_resources_)[0]->get_stream()));
-  }                     
-#else
-   // sync: guarantee the data is ready for all2all
-  functors_.sync_all_gpus(Base::device_resources_, context);     
-  functors_.all2all_exec<TypeEmbeddingComp>(all2all_forward_);
-#endif 
+//   // do all-to-all
+// #ifdef NCCL_A2A
+//   if(total_gpu_count_ > 1) {
+//     functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_, 
+//                               embedding_params_.embedding_vec_size,
+//                               embedding_feature_tensors_, all2all_tensors_,
+//                               Base::device_resources_);
+//   }
+//   else {
+//     CK_CUDA_THROW_(cudaMemcpyAsync(all2all_tensors_[0]->get_ptr(), embedding_feature_tensors_[0]->get_ptr(),
+//                                     (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size * \
+//                                     sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToDevice,
+//                                     (*Base::device_resources_)[0]->get_stream()));
+//   }                     
+// #else
+//    // sync: guarantee the data is ready for all2all
+//   functors_.sync_all_gpus(Base::device_resources_, context);     
+//   functors_.all2all_exec<TypeEmbeddingComp>(all2all_forward_);
+// #endif 
 
-  // reorder
-  functors_.forward_reorder(batch_size_per_gpu_, embedding_params_.slot_num,
-                            embedding_params_.embedding_vec_size, all2all_tensors_,
-                            Base::output_tensors_, Base::device_resources_, context);
+//   // reorder
+//   functors_.forward_reorder(batch_size_per_gpu_, embedding_params_.slot_num,
+//                             embedding_params_.embedding_vec_size, all2all_tensors_,
+//                             Base::output_tensors_, Base::device_resources_, context);
 
-  // // fuse forward+all2all+reorder into one kernel 
-  // functors_.forward_fuse(embedding_params_.batch_size, embedding_params_.slot_num, 
-  //     slot_num_per_gpu_, embedding_params_.embedding_vec_size, embedding_params_.combiner, 
-  //     Base::row_offsets_tensors_, hash_table_value_tensors_, hash_value_index_tensors_, 
-  //     embedding_features_, Base::device_resources_);
+  // fuse forward+all2all+reorder into one kernel 
+  functors_.forward_fuse(embedding_params_.batch_size, embedding_params_.slot_num, 
+      slot_num_per_gpu_, embedding_params_.embedding_vec_size, embedding_params_.combiner, 
+      Base::row_offsets_tensors_, hash_table_value_tensors_, hash_value_index_tensors_, 
+      embedding_features_, Base::device_resources_);
 
   return;
 }
@@ -618,36 +618,36 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::backward() {
   // Read dgrad from output_tensors -> compute wgrad
 
-  CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
+//   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-  // reorder
-  functors_.backward_reorder(batch_size_per_gpu_, embedding_params_.slot_num,
-                             embedding_params_.embedding_vec_size, Base::output_tensors_,
-                             all2all_tensors_, Base::device_resources_, context);
+//   // reorder
+//   functors_.backward_reorder(batch_size_per_gpu_, embedding_params_.slot_num,
+//                              embedding_params_.embedding_vec_size, Base::output_tensors_,
+//                              all2all_tensors_, Base::device_resources_, context);
 
-  // do all2all
-#ifdef NCCL_A2A
-  if(total_gpu_count_ > 1) {
-    functors_.all2all_backward(batch_size_per_gpu_, slot_num_per_gpu_, 
-                              embedding_params_.embedding_vec_size,
-                              all2all_tensors_, wgrad_tensors_,
-                              Base::device_resources_);
-  }
-  else {
-    CK_CUDA_THROW_(cudaMemcpyAsync(wgrad_tensors_[0]->get_ptr(), all2all_tensors_[0]->get_ptr(),
-                                    (size_t)batch_size_per_gpu_ *  slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size * \
-                                    sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToDevice,
-                                    (*Base::device_resources_)[0]->get_stream()));
-  }
-#else
-  // do not support gossip 
-  MESSAGE_("Error: Not support gossip in backward for one-hot");
-#endif 
+//   // do all2all
+// #ifdef NCCL_A2A
+//   if(total_gpu_count_ > 1) {
+//     functors_.all2all_backward(batch_size_per_gpu_, slot_num_per_gpu_, 
+//                               embedding_params_.embedding_vec_size,
+//                               all2all_tensors_, wgrad_tensors_,
+//                               Base::device_resources_);
+//   }
+//   else {
+//     CK_CUDA_THROW_(cudaMemcpyAsync(wgrad_tensors_[0]->get_ptr(), all2all_tensors_[0]->get_ptr(),
+//                                     (size_t)batch_size_per_gpu_ *  slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size * \
+//                                     sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToDevice,
+//                                     (*Base::device_resources_)[0]->get_stream()));
+//   }
+// #else
+//   // do not support gossip 
+//   MESSAGE_("Error: Not support gossip in backward for one-hot");
+// #endif 
 
-  // // fuse reorder+all2all+backward into one kernel 
-  // functors_.backward_fuse(embedding_params_.batch_size, (int)embedding_params_.slot_num, 
-  //     slot_num_per_gpu_, (int)embedding_params_.embedding_vec_size, embedding_params_.combiner, 
-  //     embedding_features_, wgrad_tensors_, Base::device_resources_);
+  // fuse reorder+all2all+backward into one kernel 
+  functors_.backward_fuse(embedding_params_.batch_size, (int)embedding_params_.slot_num, 
+      slot_num_per_gpu_, (int)embedding_params_.embedding_vec_size, embedding_params_.combiner, 
+      embedding_features_, wgrad_tensors_, Base::device_resources_);
 
   return;
 }  // end of backward()
