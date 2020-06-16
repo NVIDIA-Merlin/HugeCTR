@@ -64,6 +64,8 @@ void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<f
 template <typename TypeKey>
 class DataCollector {
  private:
+  static int id_;
+
   enum STATUS { READY_TO_WRITE, READY_TO_READ, STOP };
   std::atomic<STATUS> stat_{READY_TO_WRITE};
   std::mutex stat_mtx_;
@@ -97,6 +99,8 @@ class DataCollector {
   };
 
   std::vector<std::shared_ptr<InternalBuffer_>> internal_buffers_;
+
+  bool reverse_;
 
 
   void collect_blank_();
@@ -150,6 +154,10 @@ class DataCollector {
   }
 };
 
+
+template <typename TypeKey>
+int DataCollector<TypeKey>::id_ = 0;
+
 template <typename TypeKey>
 DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
                                       const Tensors<float>& dense_tensors,
@@ -165,7 +173,8 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
       device_resources_(device_resources),
       pre_nnz_(csr_buffers.size(), 0),
       one_hot_(one_hot),
-      cache_size_(cache_size)
+      cache_size_(cache_size),
+      reverse_(false)
 {
   try {
     // input check
@@ -217,6 +226,8 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
+
+  id_++;
 }
 
 
@@ -284,7 +295,9 @@ void DataCollector<TypeKey>::collect_() {
   auto& internal_buffer = internal_buffers_[counter_%internal_buffers_.size()];
   internal_buffer->current_batchsize = chunk_tmp->get_current_batchsize();
 
-  for (int i = 0; i < total_device_count; i++) {
+  for (int ix = 0; ix < total_device_count; ix++) {
+    int i = ((id_ == 0 && !reverse_) || (id_ == 1 && reverse_))?
+        ix : (total_device_count - 1 - ix);
     int pid = device_resources_->get_pid(i);
     int label_copy_num = (label_dense_buffers[0]).get_num_elements();
     if (pid == pid_) {
@@ -301,7 +314,7 @@ void DataCollector<TypeKey>::collect_() {
 	  CK_CUDA_THROW_(cudaMemcpyAsync(
    	    internal_buffer->csr_buffers_internal[local_id * num_params + j]->get_ptr_with_offset(0),
 	    csr_cpu_buffers[i * num_params + j].get_buffer(), csr_copy_num * sizeof(TypeKey),
-	    cudaMemcpyHostToDevice, (*device_resources_)[local_id]->get_data_copy_stream()));
+	    cudaMemcpyHostToDevice, (*device_resources_)[local_id]->get_data_copy_stream(id_)));
 	}
 	else{
 	  unsigned int offset = csr_cpu_buffers[i * num_params + j].get_num_rows() + 1;
@@ -309,13 +322,13 @@ void DataCollector<TypeKey>::collect_() {
 	  CK_CUDA_THROW_(cudaMemcpyAsync(
    	    internal_buffer->csr_buffers_internal[local_id * num_params + j]->get_ptr_with_offset(0)+offset,
 	    csr_cpu_buffers[i * num_params + j].get_buffer()+offset, csr_copy_num * sizeof(TypeKey),
-	    cudaMemcpyHostToDevice, (*device_resources_)[local_id]->get_data_copy_stream()));
+	    cudaMemcpyHostToDevice, (*device_resources_)[local_id]->get_data_copy_stream(id_)));
 	}
       }
       CK_CUDA_THROW_(cudaMemcpyAsync(
           internal_buffer->label_dense_buffers_internal[local_id]->get_ptr_with_offset(0),
           label_dense_buffers[i].get(), label_copy_num * sizeof(float), cudaMemcpyHostToDevice,
-          (*device_resources_)[local_id]->get_data_copy_stream()));
+          (*device_resources_)[local_id]->get_data_copy_stream(id_)));
       // for(int j = 0; j < 10; j++){
       // 	std::cout << (label_dense_buffers[i].get())[j] << ";;";
       // }
@@ -323,14 +336,18 @@ void DataCollector<TypeKey>::collect_() {
     }
   }
   // sync
-  for (int i = 0; i < total_device_count; i++) {
+  for (int ix = 0; ix < total_device_count; ix++) {
+    int i = ((id_ == 0 && !reverse_) || (id_ == 1 && reverse_))?
+        ix : (total_device_count - 1 - ix);
     int pid = device_resources_->get_pid(i);
     if (pid_ == pid) {
       int local_id = device_resources_->get_local_id(i);
       CudaDeviceContext context(device_resources_->get_local_device_id(i));
-      CK_CUDA_THROW_(cudaStreamSynchronize((*device_resources_)[local_id]->get_data_copy_stream()));
+      CK_CUDA_THROW_(cudaStreamSynchronize((*device_resources_)[local_id]->get_data_copy_stream(id_)));
     }
   }
+
+  reverse_ = !reverse_;
 
   csr_heap_->chunk_free_and_checkin();
 
