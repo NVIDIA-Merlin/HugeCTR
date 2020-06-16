@@ -490,8 +490,8 @@ class SparseEmbeddingHashFunctors {
    * @param embedding_vec_size embedding vector size.
    * @param combiner 0-sum; 1-mean
    * @param row_offsets_tensors row_offset (CSR format of input sparse tensors)
-   * @param hash_table_value_tensors hash table value, which represents embedding vector
    * @param hash_value_index_tensors hash table value_index(row index of embedding) 
+   * @param hash_table_value_tensors hash table value, which represents embedding vector
    * @param embedding_features embedding features of all gpus (output)
    * @param device_resources device resources
    */
@@ -500,9 +500,9 @@ class SparseEmbeddingHashFunctors {
       size_t batch_size, int slot_num,
       const std::vector<int> &slot_num_per_gpu, 
       int embedding_vec_size, int combiner, 
-      const Tensors<TypeHashKey> &row_offsets_tensors, 
+      const Tensors<TypeHashKey> &row_offsets_tensors,
+      const Tensors<TypeHashValueIndex> &hash_value_index_tensors, 
       const Tensors<float> &hash_table_value_tensors,
-      const Tensors<TypeHashValueIndex> &hash_value_index_tensors,
       TypeEmbeddingComp** embedding_features,
       const std::shared_ptr<GPUResourceGroup> &device_resources) {
 
@@ -592,7 +592,111 @@ class SparseEmbeddingHashFunctors {
     try {
       if (combiner == 0) {
         CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(params, local_gpu_count, 
-            cudaCooperativeLaunchMultiDeviceNoPreSync)); // no pre-sync but has post-sync
+            cudaCooperativeLaunchMultiDeviceNoPreSync | cudaCooperativeLaunchMultiDeviceNoPostSync));
+        
+        // post-sync
+        CudaDeviceContext context((*device_resources)[0]->get_device_id());
+        sync_all_gpus(device_resources, context);
+      } else {
+        CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+      }
+    } catch (const std::runtime_error &rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+      throw;
+    }
+
+    return;
+  }
+
+  /**
+   * forward propagation for LocalizedSlotSparseEmbeddingOneHot (per GPU).
+   * fuse (forward_sum_kernel + all2all + forward_reorder) into one kernel.
+   * Only support single node currently. 
+   * @param id local gpu id
+   * @param local_gpu_count local gpu count 
+   * @param batch_size batch size for the current mini-batch computation
+   * @param batch_size_per_gpu batchsize per gpu
+   * @param slot_num total slots number 
+   * @param slot_num_per_gpu the number of slots for each GPU
+   * @param embedding_vec_size embedding vector size.
+   * @param combiner 0-sum; 1-mean
+   * @param row_offsets row_offset (CSR format of input sparse tensors)
+   * @param hash_value_index hash table value_index(row index of embedding) 
+   * @param hash_table_value hash table value, which represents embedding vector
+   * @param embedding_features embedding features of all gpus (output)
+   * @param stream cuda stream
+   */
+  template <typename TypeHashKey, typename TypeHashValueIndex, typename TypeEmbeddingComp>
+  void forward_fuse_per_gpu(int id, int local_gpu_count, 
+                            size_t batch_size, size_t batch_size_per_gpu, 
+                            int slot_num, int slot_num_per_gpu, 
+                            int embedding_vec_size, int combiner, 
+                            const TypeHashKey * row_offset,
+                            const TypeHashValueIndex * hash_value_index, 
+                            const float * hash_table_value,
+                            TypeEmbeddingComp** embedding_features,
+                            cudaStream_t stream) {
+
+    // need to know the Type
+    switch (sizeof(TypeEmbeddingComp)) {
+      case 2: // fp16
+        embedding_vec_size = embedding_vec_size/2; // use __half2 
+        break;
+      case 4: // fp32
+        embedding_vec_size = embedding_vec_size;
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+    }
+
+    dim3 blockSize(embedding_vec_size, 1, 1);
+    int maxActiveBlocks;
+    switch (sizeof(TypeEmbeddingComp)) {
+      case 2: // fp16
+        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, 
+            forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>, blockSize.x, 0));
+        break;
+      case 4: // fp32
+        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, 
+            forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>, blockSize.x, 0));
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+    }
+    dim3 gridSize(min((int)batch_size, (sm_count_ * maxActiveBlocks)), 1, 1);
+
+    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_ 
+    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x 
+    //     << std::endl;
+
+    void* func;
+    switch (sizeof(TypeEmbeddingComp)) {
+      case 2: // fp16
+        func = (void *)forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>;
+        break;
+      case 4: // fp32
+        func = (void *)forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>;
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+    }
+    
+    void * kargs[11];
+    kargs[0] = (void*)&id;
+    kargs[1] = (void*)&local_gpu_count;
+    kargs[2] = (void*)&batch_size;
+    kargs[3] = (void*)&batch_size_per_gpu;
+    kargs[4] = (void*)&slot_num;
+    kargs[5] = (void*)&slot_num_per_gpu;
+    kargs[6] = (void*)&embedding_vec_size;
+    kargs[7] = (void*)&row_offset;
+    kargs[8] = (void*)&hash_value_index;
+    kargs[9] = (void*)&hash_table_value;
+    kargs[10] = (void*)&embedding_features;
+
+    try {
+      if (combiner == 0) {
+        CK_CUDA_THROW_(cudaLaunchKernel(func, gridSize, blockSize, kargs, 0, stream)); 
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -888,12 +992,107 @@ class SparseEmbeddingHashFunctors {
 
     try {
       if (combiner == 0) {
-
+        // pre-sync
         CudaDeviceContext context((*device_resources)[0]->get_device_id());
         sync_all_gpus(device_resources, context);
 
         CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(params, local_gpu_count, 
           (cudaCooperativeLaunchMultiDeviceNoPreSync | cudaCooperativeLaunchMultiDeviceNoPostSync)));
+      } else {
+        CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+      }
+    } catch (const std::runtime_error &rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+      throw;
+    }
+
+    return;
+  }
+
+  /**
+   * backward propagation for LocalizedSlotSparseEmbeddingOneHot (per gpu).
+   * fuse (backward_reorder + all2all + backward_xxx_kernel) into one kernel.
+   * Only support single node currently. 
+   * @param id local gpu id
+   * @param local_gpu_count local gpu count 
+   * @param batch_size batch size for the current mini-batch computation
+   * @param batch_size_per_gpu batchsize per gpu
+   * @param slot_num total slots number 
+   * @param slot_num_per_gpu the number of slots for each GPU
+   * @param embedding_vec_size embedding vector size.
+   * @param combiner 0-sum; 1-mean
+   * @param embedding_features embedding features of all gpus (output)
+   * @param wgrad wgrad, the output of this function.
+   * @param stream cuda stream
+   */
+  template <typename TypeEmbeddingComp>
+  void backward_fuse_per_gpu(int id, int local_gpu_count, 
+                            size_t batch_size, size_t batch_size_per_gpu, 
+                            int slot_num, int slot_num_per_gpu, 
+                            int embedding_vec_size, int combiner, 
+                            TypeEmbeddingComp** embedding_features,
+                            TypeEmbeddingComp * wgrad,
+                            cudaStream_t stream) {
+
+    // need to know the Type
+    switch (sizeof(TypeEmbeddingComp)) {
+      case 2: // fp16
+        embedding_vec_size = embedding_vec_size/2; // use __half2 
+        break;
+      case 4: // fp32
+        embedding_vec_size = embedding_vec_size;
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+    }
+
+    dim3 blockSize(embedding_vec_size, 1, 1);
+    int maxActiveBlocks;
+    switch (sizeof(TypeEmbeddingComp)) {
+      case 2: // fp16
+        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, 
+            backward_sum_fuse_kernel_fp16, blockSize.x, 0));
+        break;
+      case 4: // fp32
+        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, 
+            backward_sum_fuse_kernel_fp32, blockSize.x, 0));
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+    }
+    dim3 gridSize(min((int)batch_size, (sm_count_ * maxActiveBlocks)), 1, 1);
+
+    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_ 
+    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x 
+    //     << std::endl;
+
+
+    void* func;
+    switch (sizeof(TypeEmbeddingComp)) {
+      case 2: // fp16
+        func = (void *)backward_sum_fuse_kernel_fp16;
+        break;
+      case 4: // fp32
+        func = (void *)backward_sum_fuse_kernel_fp32;
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+    }
+    
+    void * kargs[9];
+    kargs[0] = (void*)&id;
+    kargs[1] = (void*)&local_gpu_count;
+    kargs[2] = (void*)&batch_size;
+    kargs[3] = (void*)&batch_size_per_gpu;
+    kargs[4] = (void*)&slot_num;
+    kargs[5] = (void*)&slot_num_per_gpu;
+    kargs[6] = (void*)&embedding_vec_size;
+    kargs[7] = (void*)&embedding_features;
+    kargs[8] = (void*)&wgrad;
+
+    try {
+      if (combiner == 0) {
+        CK_CUDA_THROW_(cudaLaunchKernel(func, gridSize, blockSize, kargs, 0, stream)); 
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }

@@ -88,6 +88,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
   Tensors<uint32_t> mapping_offsets_per_gpu_tensors_;
 
+  std::vector<cudaEvent_t> events;
+
   /**
    * The constructor of LocalizedSlotSparseEmbeddingOneHot.
    * This ctor is only used when you already have a instant of LocalizedSlotSparseEmbeddingOneHot 
@@ -153,6 +155,12 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * The forward propagation of embedding layer.
    */
   void forward() override;
+  /**
+   * The first stage of backward propagation of embedding layer,
+   * which computes the wgrad by the dgrad from the top layer.
+   * @param tid the CPU thread id.
+   */
+  void backward_per_thread(int tid);
   /**
    * The first stage of backward propagation of embedding layer,
    * which computes the wgrad by the dgrad from the top layer.
@@ -348,6 +356,9 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::LocalizedSlo
       key_bufs_.back()->init(cur_device);
       value_index_bufs_.back()->init(cur_device);
 
+      cudaEvent_t event; 
+      CK_CUDA_THROW_(cudaEventCreate(&event));
+      events.push_back(event);
     }  // end of for(int id = 0; id < local_gpu_count_; id++)
 
     // sync
@@ -422,15 +433,15 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::LocalizedSlo
       embedding_features_[id] = Base::output_tensors_[id]->get_ptr();
     }
 
-// warm up for nccl all2all
-#ifdef NCCL_A2A
-    if(total_gpu_count_ > 1) {
-      functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_, 
-                                embedding_params_.embedding_vec_size,
-                                embedding_feature_tensors_, all2all_tensors_,
-                                Base::device_resources_);
-    }
-#endif
+// // warm up for nccl all2all
+// #ifdef NCCL_A2A
+//     if(total_gpu_count_ > 1) {
+//       functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_, 
+//                                 embedding_params_.embedding_vec_size,
+//                                 embedding_feature_tensors_, all2all_tensors_,
+//                                 Base::device_resources_);
+//     }
+// #endif
 
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -550,16 +561,35 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
 
   // for forward_fuse method 
   functors_.forward_mapping_per_gpu(embedding_params_.batch_size, slot_num_per_gpu_[tid],
-                            Base::row_offsets_tensors_[tid]->get_ptr(), Base::value_tensors_[tid]->get_ptr(), 
-                            nnz_num_per_batch_[tid].get(), mapping_offsets_per_gpu_tensors_[tid]->get_ptr(), 
-                            hash_value_index_tensors_[tid]->get_ptr(), (*Base::device_resources_)[tid]->get_stream());
+                                    Base::row_offsets_tensors_[tid]->get_ptr(), Base::value_tensors_[tid]->get_ptr(), 
+                                    nnz_num_per_batch_[tid].get(), mapping_offsets_per_gpu_tensors_[tid]->get_ptr(), 
+                                    hash_value_index_tensors_[tid]->get_ptr(), (*Base::device_resources_)[tid]->get_stream());
+
+  // fuse forward+all2all+reorder into one kernel 
+  functors_.forward_fuse_per_gpu(tid, local_gpu_count_, embedding_params_.batch_size, batch_size_per_gpu_, 
+                                embedding_params_.slot_num, slot_num_per_gpu_[tid], 
+                                embedding_params_.embedding_vec_size, embedding_params_.combiner, 
+                                Base::row_offsets_tensors_[tid]->get_ptr(), 
+                                hash_value_index_tensors_[tid]->get_ptr(),
+                                hash_table_value_tensors_[tid]->get_ptr(),
+                                embedding_features_,
+                                (*Base::device_resources_)[tid]->get_stream());
+
+  // post-sync
+  CK_CUDA_THROW_(cudaEventRecord(events[tid], (*Base::device_resources_)[tid]->get_stream()));
+  for(int id = 0; id < local_gpu_count_; id++) {
+    if(tid != id) {
+      CK_CUDA_THROW_(cudaStreamWaitEvent((*Base::device_resources_)[tid]->get_stream(), events[id], 0));
+    }
+  }
+
   return;
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward() {
 
-  CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
+  // CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
   // use multiple CPU threads to launch tasks on multiple GPUs
   if (local_gpu_count_ > 1) {  
@@ -578,7 +608,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
   } else {
     throw std::runtime_error(
         std::string("[HCDEBUG][ERROR] Runtime error: local_gpu_count <= 0 \n"));
-  }
+  } 
 
 //   // do all-to-all
 // #ifdef NCCL_A2A
@@ -590,7 +620,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
 //   }
 //   else {
 //     CK_CUDA_THROW_(cudaMemcpyAsync(all2all_tensors_[0]->get_ptr(), embedding_feature_tensors_[0]->get_ptr(),
-//                                     (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size * \
+//                                     (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size *
 //                                     sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToDevice,
 //                                     (*Base::device_resources_)[0]->get_stream()));
 //   }                     
@@ -605,14 +635,39 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
 //                             embedding_params_.embedding_vec_size, all2all_tensors_,
 //                             Base::output_tensors_, Base::device_resources_, context);
 
-  // fuse forward+all2all+reorder into one kernel 
-  functors_.forward_fuse(embedding_params_.batch_size, embedding_params_.slot_num, 
-      slot_num_per_gpu_, embedding_params_.embedding_vec_size, embedding_params_.combiner, 
-      Base::row_offsets_tensors_, hash_table_value_tensors_, hash_value_index_tensors_, 
-      embedding_features_, Base::device_resources_);
+  // // fuse forward+all2all+reorder into one kernel 
+  // functors_.forward_fuse(embedding_params_.batch_size, embedding_params_.slot_num, 
+  //     slot_num_per_gpu_, embedding_params_.embedding_vec_size, embedding_params_.combiner, 
+  //     Base::row_offsets_tensors_, hash_value_index_tensors_, hash_table_value_tensors_, 
+  //     embedding_features_, Base::device_resources_);
 
   return;
 }
+
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::backward_per_thread(int tid) {
+  // Read dgrad from output_tensors -> compute wgrad
+
+  CudaDeviceContext context((*Base::device_resources_)[tid]->get_device_id());
+
+  // pre-sync
+  CK_CUDA_THROW_(cudaEventRecord(events[tid], (*Base::device_resources_)[tid]->get_stream()));
+  for(int id = 0; id < local_gpu_count_; id++) {
+    if(tid != id) {
+      CK_CUDA_THROW_(cudaStreamWaitEvent((*Base::device_resources_)[tid]->get_stream(), events[id], 0));;
+    }
+  }
+
+  functors_.backward_fuse_per_gpu(tid, local_gpu_count_, embedding_params_.batch_size, 
+                                  batch_size_per_gpu_, embedding_params_.slot_num, 
+                                  slot_num_per_gpu_[tid], embedding_params_.embedding_vec_size, 
+                                  embedding_params_.combiner, 
+                                  embedding_features_,
+                                  wgrad_tensors_[tid]->get_ptr(),
+                                  (*Base::device_resources_)[tid]->get_stream());
+
+  return;
+}  // end of backward()
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::backward() {
@@ -635,7 +690,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::backwar
 //   }
 //   else {
 //     CK_CUDA_THROW_(cudaMemcpyAsync(wgrad_tensors_[0]->get_ptr(), all2all_tensors_[0]->get_ptr(),
-//                                     (size_t)batch_size_per_gpu_ *  slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size * \
+//                                     (size_t)batch_size_per_gpu_ *  slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size *
 //                                     sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToDevice,
 //                                     (*Base::device_resources_)[0]->get_stream()));
 //   }
@@ -644,10 +699,30 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::backwar
 //   MESSAGE_("Error: Not support gossip in backward for one-hot");
 // #endif 
 
-  // fuse reorder+all2all+backward into one kernel 
-  functors_.backward_fuse(embedding_params_.batch_size, (int)embedding_params_.slot_num, 
-      slot_num_per_gpu_, (int)embedding_params_.embedding_vec_size, embedding_params_.combiner, 
-      embedding_features_, wgrad_tensors_, Base::device_resources_);
+  // // fuse reorder+all2all+backward into one kernel 
+  // functors_.backward_fuse(embedding_params_.batch_size, (int)embedding_params_.slot_num, 
+  //                         slot_num_per_gpu_, (int)embedding_params_.embedding_vec_size, 
+  //                         embedding_params_.combiner, embedding_features_, wgrad_tensors_, 
+  //                         Base::device_resources_);
+
+  // use multiple CPU threads to launch tasks on multiple GPUs
+  if (local_gpu_count_ > 1) {  
+    // launch threads
+    for (int id = 0; id < local_gpu_count_; id++) {
+      Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
+          [this, id](int i) { this->backward_per_thread(id); });
+    }
+
+    // wait for threads completion
+    for (int id = 0; id < local_gpu_count_; id++) {
+      Base::device_resources_->results[id].get();
+    }
+  } else if (local_gpu_count_ == 1) {  // use current main thread to launch task on one GPU
+    backward_per_thread(0);
+  } else {
+    throw std::runtime_error(
+        std::string("[HCDEBUG][ERROR] Runtime error: local_gpu_count <= 0 \n"));
+  } 
 
   return;
 }  // end of backward()
