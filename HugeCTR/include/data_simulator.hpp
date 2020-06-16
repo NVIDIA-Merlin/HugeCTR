@@ -90,6 +90,17 @@ class UnifiedDataSimulator<int> : public DataSimulator<int> {
   std::uniform_int_distribution<int> dis_;
 };
 
+template <>
+class UnifiedDataSimulator<unsigned int> : public DataSimulator<unsigned int> {
+ public:
+  UnifiedDataSimulator(unsigned int min, unsigned int max) : dis_(min, max) {}
+
+  unsigned int get_num() final { return RandomEngine::get().get_num(dis_); }
+
+ private:
+  std::uniform_int_distribution<unsigned int> dis_;
+};
+
 template <typename T>
 class GaussianDataSimulator : public DataSimulator<T> {
  public:
