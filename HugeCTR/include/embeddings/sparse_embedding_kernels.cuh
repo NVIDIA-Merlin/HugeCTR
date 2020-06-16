@@ -66,7 +66,7 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
 
       // reduce in a slot
       for (int j = 0; j < feature_num; j++) {
-        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        size_t value_index = hash_value_index[value_offset + j];
         sum += hash_table_value[value_index * embedding_vec_size + tid];
       }
 
@@ -98,7 +98,7 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
       // use float type to do accumulation
       float2 sum2 = {0.0f, 0.0f}; 
       for (int j = 0; j < feature_num; j++) {
-        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        size_t value_index = hash_value_index[value_offset + j];
         sum2.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
         sum2.y += hash_table_value2[value_index * embedding_vec_size + tid].y;
       }
@@ -136,7 +136,7 @@ __global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size
 
         float sum = 0.0f; 
         for (int j = 0; j < feature_num; j++) {
-          TypeValueIndex value_index = hash_value_index[value_offset + j];
+          size_t value_index = hash_value_index[value_offset + j];
           sum += hash_table_value[value_index * embedding_vec_size + tid];
         }
 
@@ -180,7 +180,7 @@ __global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size
         // use float type to do accumulation
         float2 sum2 = {0.0f, 0.0f}; 
         for (int j = 0; j < feature_num; j++) {
-          TypeValueIndex value_index = hash_value_index[value_offset + j];
+          size_t value_index = hash_value_index[value_offset + j];
           sum2.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
           sum2.y += hash_table_value2[value_index * embedding_vec_size + tid].y;
         }
@@ -205,9 +205,9 @@ __global__ void forward_scale_kernel(int batch_size, int slot_num, int embedding
 
   if (bid < batch_size && tid < embedding_vec_size) {
     for (int i = 0; i < slot_num; i++) {
-      int feature_row_index = bid * slot_num + i;
+      size_t feature_row_index = bid * slot_num + i;
       int feature_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
-      int feature_index = feature_row_index * embedding_vec_size + tid;
+      size_t feature_index = feature_row_index * embedding_vec_size + tid;
       float feature = embedding_feature[feature_index];
       float scaler = 1.0f;
       if (feature_num > 1) {
@@ -231,9 +231,9 @@ __global__ void forward_scale_kernel(int batch_size, int slot_num, int embedding
     __half2 * embedding_feature2 = reinterpret_cast<__half2*>(embedding_feature);
 
     for (int i = 0; i < slot_num; i++) {
-      int feature_row_index = bid * slot_num + i;
+      size_t feature_row_index = bid * slot_num + i;
       int feature_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
-      int feature_index = feature_row_index * embedding_vec_size + tid;
+      size_t feature_index = feature_row_index * embedding_vec_size + tid;
       __half2 feature2 = embedding_feature2[feature_index];
 
       float scaler = 1.0f;
@@ -261,14 +261,14 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
     for (int i = 0; i < slot_num; i++) {
       int feature_row_index = bid * slot_num + i;
       TypeKey value_offset = row_offset[feature_row_index];
-      TypeKey feature_num =
+      int feature_num =
           row_offset[feature_row_index + 1] - value_offset;  // number of hash values in one slot
 
       float sum = 0.0f;
 
       // reduce in a slot
       for (int j = 0; j < feature_num; j++) {
-        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        size_t value_index = hash_value_index[value_offset + j];
         sum += hash_table_value[value_index * embedding_vec_size + tid];
       }
 
@@ -299,13 +299,13 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
     for (int i = 0; i < slot_num; i++) {
       int feature_row_index = bid * slot_num + i;
       TypeKey value_offset = row_offset[feature_row_index];
-      TypeKey feature_num =
+      int feature_num =
           row_offset[feature_row_index + 1] - value_offset;  // number of hash values in one slot
 
       // use float to do accumulation
       float2 sum = {0.0f, 0.0f}; 
       for (int j = 0; j < feature_num; j++) {
-        TypeValueIndex value_index = hash_value_index[value_offset + j];
+        size_t value_index = hash_value_index[value_offset + j];
         sum.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
         sum.y += hash_table_value2[value_index * embedding_vec_size + tid].y;
       }
@@ -427,14 +427,14 @@ __global__ void backward_mean_kernel(int batch_size, int slot_num, int embedding
 
   if (bid < batch_size && tid < embedding_vec_size) {
     for (int i = 0; i < slot_num; i++) {
-      int feature_row_index = bid * slot_num + i;
-      TypeKey value_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
+      size_t feature_row_index = bid * slot_num + i;
+      int value_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
       float scaler = 1.0f;
       if (value_num > 1) {
         scaler = 1.0f / value_num;  // partial derivatice of MEAN
       }
 
-      int feature_index = feature_row_index * embedding_vec_size + tid;
+      size_t feature_index = feature_row_index * embedding_vec_size + tid;
       wgrad[feature_index] = scaler * top_grad[feature_index];
     }
   }
@@ -453,15 +453,15 @@ __global__ void backward_mean_kernel(int batch_size, int slot_num, int embedding
     __half2 * wgrad2 = reinterpret_cast<__half2*>(wgrad);
 
     for (int i = 0; i < slot_num; i++) {
-      int feature_row_index = bid * slot_num + i;
-      TypeKey value_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
+      size_t feature_row_index = bid * slot_num + i;
+      int value_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
 
       __half2 scaler = __float2half2_rn(1.0f);
       if (value_num > 1) {
         scaler = __float2half2_rn(1.0f / (float)value_num);  // partial derivatice of MEAN
       }
 
-      int feature_index = feature_row_index * embedding_vec_size + tid;
+      size_t feature_index = feature_row_index * embedding_vec_size + tid;
       wgrad2[feature_index] = __hmul2(scaler, top_grad2[feature_index]);
     }
   }
@@ -558,8 +558,8 @@ __global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num,
     gi = gi / scaler;
     
     // update 
-    TypeValueIndex value_index = hash_value_index_sort[offset];
-    long long feature_index = value_index * embedding_vec_size + tid;
+    size_t value_index = hash_value_index_sort[offset];
+    size_t feature_index = value_index * embedding_vec_size + tid;
     hash_table_value[feature_index] -= lr * gi;
   }
 }
@@ -604,8 +604,8 @@ __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num,
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
-    TypeValueIndex row_index = hash_value_index_sort[offset];
-    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    size_t row_index = hash_value_index_sort[offset];
+    size_t feature_index = row_index * embedding_vec_size + tid;
     float mi = adam.m_ptr[feature_index] + (1.0f - adam.beta1) * gi;
     float vi = adam.v_ptr[feature_index] + (1.0f - adam.beta2) * gi * gi;
     adam.m_ptr[feature_index] = mi;
@@ -639,8 +639,8 @@ __global__ void opt_momentum_sgd_kernel_global(uint32_t hash_value_index_count_n
 
     gi = gi / scaler;
     // compute the grad of the weights and update it
-    TypeValueIndex row_index = hash_value_index_sort[offset];
-    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    size_t row_index = hash_value_index_sort[offset];
+    size_t feature_index = row_index * embedding_vec_size + tid;
     float mo = momentum.momentum_ptr[feature_index] - lr * gi;
     momentum.momentum_ptr[feature_index] = mo;
   }
@@ -696,8 +696,8 @@ __global__ void nesterov_local_update_kernel_global(
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
-    TypeValueIndex row_index = hash_value_index_sort[offset];
-    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    size_t row_index = hash_value_index_sort[offset];
+    size_t feature_index = row_index * embedding_vec_size + tid;
     nesterov.accm_ptr[feature_index] -= lr * gi;
     hash_table_value[feature_index] -= (1 + nesterov.mu) * (lr * gi);
   }
@@ -771,8 +771,8 @@ __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num,
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
-    TypeValueIndex row_index = hash_value_index_sort[offset];
-    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    size_t row_index = hash_value_index_sort[offset];
+    size_t feature_index = row_index * embedding_vec_size + tid;
     float mi = adam.beta1 * adam.m_ptr[feature_index] + (1.0f - adam.beta1) * gi;
     float vi = adam.beta2 * adam.v_ptr[feature_index] + (1.0f - adam.beta2) * gi * gi;
     adam.m_ptr[feature_index] = mi;
@@ -812,8 +812,8 @@ __global__ void opt_momentum_sgd_kernel(
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
-    TypeValueIndex row_index = hash_value_index_sort[offset];
-    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    size_t row_index = hash_value_index_sort[offset];
+    size_t feature_index = row_index * embedding_vec_size + tid;
     float mo = momentum.factor * momentum.momentum_ptr[feature_index] - lr * gi;
     momentum.momentum_ptr[feature_index] = mo;
 
@@ -853,8 +853,8 @@ __global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num,
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
-    TypeValueIndex row_index = hash_value_index_sort[offset];
-    TypeValueIndex feature_index = row_index * embedding_vec_size + tid;
+    size_t row_index = hash_value_index_sort[offset];
+    size_t feature_index = row_index * embedding_vec_size + tid;
     float accm_old = nesterov.accm_ptr[feature_index];
     float accm_new = nesterov.mu * accm_old - lr * gi;
     nesterov.accm_ptr[feature_index] = accm_new;
@@ -881,8 +881,8 @@ __global__ void update_kernel(uint32_t hash_value_index_count_num,
   int bid = blockIdx.x;
 
   if ((bid < hash_value_index_count_num) && (tid < embedding_vec_size)) {
-    TypeValueIndex value_index = deltaw_hash_value_index[bid];
-    long long feature_index = value_index * embedding_vec_size + tid;
+    size_t value_index = deltaw_hash_value_index[bid];
+    size_t feature_index = value_index * embedding_vec_size + tid;
     hash_table_value[feature_index] += deltaw[bid * embedding_vec_size + tid];
   }
 }
@@ -905,8 +905,8 @@ __global__ void opt_sgd_atomic_kernel(int nnz,
       float deltaw = -lr_scale * (float)(wgrad[sample_id * embedding_vec_size + tid]);
 
       // atomic update 
-      TypeValueIndex value_index = hash_value_index[key_id];
-      long long feature_index = value_index * embedding_vec_size + tid;
+      size_t value_index = hash_value_index[key_id];
+      size_t feature_index = value_index * embedding_vec_size + tid;
       atomicAdd(&hash_table_value[feature_index], deltaw);
     }
   }
@@ -930,7 +930,7 @@ __global__ void opt_sgd_atomic_kernel(int nnz,
       float deltaw = -lr_scale * (float)(wgrad[key_id * embedding_vec_size + tid]);
 
       // atomic update 
-      TypeValueIndex value_index = hash_value_index[key_id];
+      size_t value_index = hash_value_index[key_id];
       size_t feature_index = value_index * embedding_vec_size + tid;
       atomicAdd(&hash_table_value[feature_index], deltaw);
     }
@@ -940,18 +940,18 @@ __global__ void opt_sgd_atomic_kernel(int nnz,
 // memset liner data to the buffer
 template <typename Type>
 __global__ void memset_liner_kernel(Type *data, const Type start_value, const Type stride_value,
-                                    long long n) {
-  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+                                    size_t n) {
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (gid < n) {
-    data[gid] = start_value + (Type)gid * stride_value;
+    data[gid] = start_value + gid * stride_value;
   }
 }
 
 // memset constant data to the buffer
 template <typename Type>
 __global__ void memset_const_kernel(Type *data, const Type value, long long n) {
-  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (gid < n) {
     data[gid] = value;
@@ -967,7 +967,7 @@ __global__ void get_hash_value_kernel(long long count, int embedding_vec_size,
   int bid = blockIdx.x;
 
   if (bid < count && tid < embedding_vec_size) {
-    TypeValueIndex index = value_index[bid];  // row number in the hash_table_value matrix
+    size_t index = value_index[bid];  // row number in the hash_table_value matrix
     value_retrieved[bid * embedding_vec_size + tid] =
         hash_table_value[index * embedding_vec_size + tid];
   }
@@ -975,10 +975,10 @@ __global__ void get_hash_value_kernel(long long count, int embedding_vec_size,
 
 // get slot_id from hash_table_slot_id vector by value_index
 template <typename TypeValueIndex>
-__global__ void get_hash_slot_id_kernel(int count, const TypeValueIndex *value_index,
+__global__ void get_hash_slot_id_kernel(size_t count, const TypeValueIndex *value_index,
                                         const TypeValueIndex *hash_table_slot_id,
                                         TypeValueIndex *slot_id) {
-  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (gid < count) {
     TypeValueIndex index = value_index[gid];
@@ -1140,15 +1140,14 @@ __global__ void backward_reorder_kernel(int batch_size_per_gpu, int slot_num,
 
 // store slot_id by row_offset and value_index
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void store_slot_id_kernel(int batch_size,
+__global__ void store_slot_id_kernel(size_t batch_size,
                                      int slot_num,  // total slot number in hash table
                                      int slot_num_per_gpu,
                                      int gpu_num,  // total gpu number
                                      int gpu_id,   // global gpu device id
                                      const TypeKey *row_offset, const TypeValueIndex *value_index,
                                      TypeValueIndex *slot_id) {
-  int gid = blockIdx.x * blockDim.x + threadIdx.x;
-  // int slot_num_per_gpu = (slot_num + gpu_num - 1) / gpu_num;
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (gid < (batch_size * slot_num_per_gpu)) {
     int sid = gid % slot_num_per_gpu;
@@ -1167,12 +1166,12 @@ __global__ void store_slot_id_kernel(int batch_size,
 
 // for one-hot, the value_index mapping is linear (no need to use hashtable)
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void hash_key_value_index_mapping_kernel(int nnz, 
+__global__ void hash_key_value_index_mapping_kernel(size_t nnz, 
                                                     int slot_num, 
                                                     const uint32_t * mapping_offsets,
                                                     const TypeKey * hash_key,
                                                     TypeValueIndex * hash_value_index){
-  int gid = blockIdx.x * blockDim.x + threadIdx.x;
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
   if(gid < nnz) {
     int slot_id = gid % slot_num;
     hash_value_index[gid] = hash_key[gid] - mapping_offsets[slot_id];
