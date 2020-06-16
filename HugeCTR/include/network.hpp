@@ -65,9 +65,15 @@ class Network {
   void conv_weight_();
   metrics::RawMetricMap raw_metrics_;
 
-  bool eval_graph_created_, train_graph_created_;
-  cudaGraph_t eval_graph_, train_graph_;
-  cudaGraphExec_t eval_instance_, train_instance_;
+  bool eval_graph_created_;
+  bool train_fprop_graph_created_;
+  bool train_bprop_graph_created_;
+  cudaGraph_t eval_graph_;
+  cudaGraph_t train_fprop_graph_;
+  cudaGraph_t train_bprop_graph_;
+  cudaGraphExec_t eval_instance_;
+  cudaGraphExec_t train_fprop_instance_;
+  cudaGraphExec_t train_bprop_instance_;
 
   bool first_iter_{true};
 
