@@ -55,7 +55,8 @@ const bool global_update =
 // const bool global_update = false;
 const long long label_dim = 1;
 const long long dense_dim = 0;
-typedef long long T;
+// typedef long long T;
+typedef unsigned int T;
 // typedef float TypeEmbeddingComp;
 typedef __half TypeEmbeddingComp;
 
@@ -145,7 +146,7 @@ TEST(localized_sparse_embedding_one_hot_test, init_embedding) {
   DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
                             gpu_resource_group, num_chunk_threads);
   
-  Embedding<T, float> *embedding = EmbeddingCreator::create_localized_sparse_embedding_one_hot(data_reader->get_row_offsets_tensors(),
+  Embedding<T, TypeEmbeddingComp> *embedding = EmbeddingCreator::create_localized_sparse_embedding_one_hot(data_reader->get_row_offsets_tensors(),
         data_reader->get_value_tensors(), embedding_params, plan_file, gpu_resource_group, slot_sizes);
 
 #ifdef ENABLE_MPI
