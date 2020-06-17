@@ -119,15 +119,17 @@ void train(std::string config_file) {
             size_t train_samples =
                 static_cast<size_t>(i + 1) * static_cast<size_t>(solver_config.batchsize);
             HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
+	    
+	    std::string epoch_num_str = std::to_string(float(i) / solver_config.max_iter);
 
             std::cout << "Hit target accuracy AUC 0.8025 at epoch " +
-                             std::to_string(float(i) / solver_config.max_iter) + " with batchsize: "
+                             epoch_num_str + " with batchsize: "
                       << solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
                       << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
                       << float(i) * solver_config.batchsize / timer.elapsedSeconds()
                       << " records/s." << std::endl;
 
-            HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", 1);
+            HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", epoch_num_str);
 
             HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
 
