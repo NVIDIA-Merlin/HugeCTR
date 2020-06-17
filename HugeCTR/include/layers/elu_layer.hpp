@@ -41,7 +41,6 @@ class EluLayer : public Layer {
    */
   std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
 
-
  public:
   /**
    * Ctor of ReluLayer.

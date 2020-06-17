@@ -49,8 +49,8 @@ TEST(data_reader_worker, data_reader_worker_test) {
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num,
-                                       max_nnz, slot_num};
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
+                                       slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
@@ -82,8 +82,8 @@ TEST(data_reader_test, data_reader_simple_test) {
   auto device_map = std::make_shared<DeviceMap>(vvgpu, pid);
   auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
 
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num,
-                                       max_nnz, slot_num};
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
+                                       slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
@@ -121,7 +121,8 @@ TEST(data_reader_test, data_reader_localized_test) {
   auto device_map = std::make_shared<DeviceMap>(vvgpu, pid);
   auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
 
-  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz * slot_num, max_nnz, slot_num};
+  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz * slot_num, max_nnz,
+                                       slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
@@ -161,7 +162,8 @@ TEST(data_reader_test, data_reader_mixed_test) {
 
   const DataReaderSparseParam param_localized = {DataReaderSparse_t::Localized,
                                                  max_nnz * (slot_num - 5), max_nnz, slot_num - 5};
-  const DataReaderSparseParam param_distributed = {DataReaderSparse_t::Distributed, max_nnz * 5, max_nnz, 5};
+  const DataReaderSparseParam param_distributed = {DataReaderSparse_t::Distributed, max_nnz * 5,
+                                                   max_nnz, 5};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param_localized);
   params.push_back(param_distributed);

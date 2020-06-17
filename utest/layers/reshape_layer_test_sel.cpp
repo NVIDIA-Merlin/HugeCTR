@@ -32,7 +32,8 @@ namespace {
 
 const float eps = 1e-5;
 
-void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length, std::vector<int> selected) {
+void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
+                        std::vector<int> selected) {
   std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   TensorFormat_t in_format = TensorFormat_t::HSW;
   int n_active_slot = selected.empty() ? n_slot : int(selected.size());

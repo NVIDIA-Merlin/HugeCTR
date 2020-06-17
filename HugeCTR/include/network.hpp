@@ -89,26 +89,19 @@ class Network {
   Network(const Network& C) = delete;
   Network& operator=(const Network&) = delete;
 
+  std::shared_ptr<GeneralBuffer<float>>& get_weight() { return weight_buff_; }
 
-  std::shared_ptr<GeneralBuffer<float>>& get_weight(){
-    return weight_buff_;
-  }
+  std::shared_ptr<GeneralBuffer<__half>>& get_weight_half() { return weight_buff_half_; }
 
-  std::shared_ptr<GeneralBuffer<__half>>& get_weight_half(){
-    return weight_buff_half_;
-  }
-
-  void set_weight(std::shared_ptr<GeneralBuffer<float>>& weight_buff){
+  void set_weight(std::shared_ptr<GeneralBuffer<float>>& weight_buff) {
     weight_buff_->replace_buffer_with(*weight_buff);
     return;
   }
 
-  void set_weight_half(std::shared_ptr<GeneralBuffer<__half>>& wgrad_buff_half){
+  void set_weight_half(std::shared_ptr<GeneralBuffer<__half>>& wgrad_buff_half) {
     weight_buff_half_->replace_buffer_with(*wgrad_buff_half);
     return;
   }
-
-
 
   /**
    * Forward, backward and update the network.

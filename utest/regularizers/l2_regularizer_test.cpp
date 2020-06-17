@@ -33,7 +33,8 @@ namespace {
 
 const float eps = 1e-5;
 
-void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t>> layers, float lambda) {
+void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t>> layers,
+                         float lambda) {
   cublasHandle_t cublas_handle;
   cublasCreate(&cublas_handle);
 
@@ -69,7 +70,8 @@ void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t
     h_weights.push_back(h_weight);
   }
 
-  L2Regularizer<float> l2_regularizer(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0);
+  L2Regularizer<float> l2_regularizer(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle,
+                                      0);
 
   // compute the regularization term
   l2_regularizer.compute_rterm(cudaStreamDefault);

@@ -26,12 +26,9 @@ namespace {
 
 class SgdCPU {
  public:
-  SgdCPU(int len, float lr = 0.001)
-      : len_(len),
-        lr_(lr) {}
+  SgdCPU(int len, float lr = 0.001) : len_(len), lr_(lr) {}
 
   void update(float* w, const float* g) {
-
     int scaler = 1;
 #ifdef SCALE_128
     scaler = 128;

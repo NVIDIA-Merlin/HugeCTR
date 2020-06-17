@@ -38,13 +38,14 @@ class GeneralBuffer {
   int device_id_{-1};        /**< gpu id */
   bool initialized_{false};  /**< whether the gpu memory has been allocated */
   bool shared_buff_{false};
+
  public:
   /**
    * Ctor
    */
   GeneralBuffer() {
     static_assert(std::is_same<T, float>::value || std::is_same<T, long long>::value ||
-		  std::is_same<T, unsigned int>::value || std::is_same<T, __half>::value,
+                      std::is_same<T, unsigned int>::value || std::is_same<T, __half>::value,
                   "Type not support");  // check the template parameters
   }
   GeneralBuffer(const GeneralBuffer& C) = delete;
@@ -78,21 +79,20 @@ class GeneralBuffer {
     CK_CUDA_THROW_(cudaDeviceSynchronize());
   }
 
-
   void replace_buffer_with(GeneralBuffer& buff) {
     try {
-      //Note: risk here, if buff released, the buffer here will be also failed without error message.
+      // Note: risk here, if buff released, the buffer here will be also failed without error
+      // message.
       if (initialized_ == true && current_offset_ > 0 && shared_buff_ == false) {
         CudaDeviceContext context(device_id_);
         CK_CUDA_THROW_(cudaFree(ptr_));
       }
-      if (current_offset_ == buff.get_num_elements()){
-	ptr_ = buff.get_ptr_with_offset(0);
-	initialized_ = true;
-	shared_buff_ = true;
-      }
-      else{
-	CK_THROW_(Error_t::WrongInput, "current_offset_ != buff.get_num_elements()");
+      if (current_offset_ == buff.get_num_elements()) {
+        ptr_ = buff.get_ptr_with_offset(0);
+        initialized_ = true;
+        shared_buff_ = true;
+      } else {
+        CK_THROW_(Error_t::WrongInput, "current_offset_ != buff.get_num_elements()");
       }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -133,8 +133,7 @@ class GeneralBuffer {
     try {
       if (initialized_ != true)
         CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is not initialized");
-      if (ptr_ == nullptr)
-	CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is empty");
+      if (ptr_ == nullptr) CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is empty");
       assert(ptr_ != nullptr);
       return ptr_ + offset;
     } catch (const std::runtime_error& rt_err) {
@@ -153,8 +152,7 @@ class GeneralBuffer {
     try {
       if (initialized_ != true)
         CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is not initialized");
-      if (ptr_ == nullptr)
-	CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is empty");
+      if (ptr_ == nullptr) CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is empty");
       assert(ptr_ != nullptr);
       return ptr_ + offset;
     } catch (const std::runtime_error& rt_err) {
@@ -250,7 +248,6 @@ inline bool print_buffer(const GeneralBuffer<__half>& buffer, int begin, int end
   std::cout << std::endl;
   return true;
 }
-
 
 template <typename T>
 using GeneralBuffers = std::vector<std::shared_ptr<GeneralBuffer<T>>>;

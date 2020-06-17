@@ -309,7 +309,7 @@ void FullyConnectedLayer::optimize() {
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      //printf("The algorithms %d is not supported for fprop, skipped.\n", testAlgo);
+      // printf("The algorithms %d is not supported for fprop, skipped.\n", testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -351,7 +351,7 @@ void FullyConnectedLayer::optimize() {
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      //printf("The algorithms %d is not supported for bprop_W, skipped.\n", testAlgo);
+      // printf("The algorithms %d is not supported for bprop_W, skipped.\n", testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -393,7 +393,7 @@ void FullyConnectedLayer::optimize() {
     time = time / repeat_num;
     // Skip if the algorithm is supported for fprop configuration
     if (status != CUBLAS_STATUS_SUCCESS) {
-      //printf("The algorithms %d is not supported for bprop_Xn, skipped.\n", testAlgo);
+      // printf("The algorithms %d is not supported for bprop_Xn, skipped.\n", testAlgo);
       continue;
     }
     // Record the optimal time and algorithm
@@ -404,11 +404,11 @@ void FullyConnectedLayer::optimize() {
   }
 
   // Print selection information
-  //printf("The algorithm selection for fprop, bprop_W and bprop_Xn are: %d, %d and %d.\n",
+  // printf("The algorithm selection for fprop, bprop_W and bprop_Xn are: %d, %d and %d.\n",
   //       (int)falgo_, (int)balgo_W_, (int)balgo_Xn_);
 
   // Output msg
-  //MESSAGE_("The fully-connected layer has finished choosing the algorithm for cublas Gemm.");
+  // MESSAGE_("The fully-connected layer has finished choosing the algorithm for cublas Gemm.");
   // Clean-up
   CK_CUDA_THROW_(cudaEventDestroy(start));
   CK_CUDA_THROW_(cudaEventDestroy(stop));

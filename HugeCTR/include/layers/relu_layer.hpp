@@ -24,7 +24,6 @@ namespace HugeCTR {
  * Relu activation function as a derived class of Layer
  */
 class ReluLayer : public Layer {
-
   /*
    * stores the weight tensors of this layer.
    */
@@ -41,7 +40,6 @@ class ReluLayer : public Layer {
    * stores the references to the output tensors of this layer.
    */
   std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
-
 
  public:
   /**

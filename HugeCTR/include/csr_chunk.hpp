@@ -39,13 +39,12 @@ class CSRChunk {
   int num_params_;
   int num_devices_;
   long long current_batchsize_;
+
  public:
-  void set_current_batchsize(long long current_batchsize){
+  void set_current_batchsize(long long current_batchsize) {
     current_batchsize_ = current_batchsize;
   }
-  long long get_current_batchsize(){
-    return current_batchsize_;
-  }
+  long long get_current_batchsize() { return current_batchsize_; }
   /**
    * Ctor of CSRChunk.
    * Create and initialize the CSRChunk

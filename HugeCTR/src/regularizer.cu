@@ -24,10 +24,10 @@
 
 namespace HugeCTR {
 
-template<typename T>
+template <typename T>
 Regularizer<T>::Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                         const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff,
-                         const int batch_size, const int device_id)
+                            const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff,
+                            const int batch_size, const int device_id)
     : weight_buff_(weight_buff),
       wgrad_buff_(wgrad_buff),
       batch_size_(batch_size),
@@ -37,7 +37,7 @@ Regularizer<T>::Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_
   CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device_id_));
 }
 
-template<typename T>
+template <typename T>
 void Regularizer<T>::compute_rterm(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
@@ -50,7 +50,7 @@ void Regularizer<T>::compute_rterm(cudaStream_t stream) {
 #endif
 }
 
-template<typename T>
+template <typename T>
 void Regularizer<T>::initialize_wgrad(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 

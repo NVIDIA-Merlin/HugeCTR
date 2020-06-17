@@ -14,39 +14,37 @@
  * limitations under the License.
  */
 
- #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
+#include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
 
- namespace {
- 
- __global__ void sgd_kernel(int len, float* weight, const float* wgrad, 
-                             float lr, float scaler) {
-   const int i = blockIdx.x * blockDim.x + threadIdx.x;
-   if (i < len) {
-     float gi = wgrad[i] / scaler;
-     weight[i] -= lr * gi;
-   }
- }
- 
- }  // namespace
- 
- namespace HugeCTR {
- 
- void SgdOptimizer::update(cudaStream_t stream) {
-   CudaDeviceContext context(device_id_);
- 
-   const int len = weight_->get_num_elements();
-   const int block_dim = 256;
-   const int grid_dim = (len - 1) / block_dim + 1;
- 
-   float* weight = weight_->get_ptr_with_offset(0);
-   const float* wgrad = wgrad_->get_ptr_with_offset(0);
- 
-   sgd_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, lr_, scaler_);
- #ifndef NDEBUG
-   cudaDeviceSynchronize();
-   CK_CUDA_THROW_(cudaGetLastError());
- #endif
- }
- 
- }  // namespace HugeCTR
- 
+namespace {
+
+__global__ void sgd_kernel(int len, float* weight, const float* wgrad, float lr, float scaler) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < len) {
+    float gi = wgrad[i] / scaler;
+    weight[i] -= lr * gi;
+  }
+}
+
+}  // namespace
+
+namespace HugeCTR {
+
+void SgdOptimizer::update(cudaStream_t stream) {
+  CudaDeviceContext context(device_id_);
+
+  const int len = weight_->get_num_elements();
+  const int block_dim = 256;
+  const int grid_dim = (len - 1) / block_dim + 1;
+
+  float* weight = weight_->get_ptr_with_offset(0);
+  const float* wgrad = wgrad_->get_ptr_with_offset(0);
+
+  sgd_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, lr_, scaler_);
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
+}
+
+}  // namespace HugeCTR

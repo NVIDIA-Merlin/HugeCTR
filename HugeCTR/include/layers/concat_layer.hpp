@@ -31,7 +31,6 @@ namespace HugeCTR {
  *       to (batch_size, (a + b) * vector_length)
  */
 class ConcatLayer : public Layer {
-
   /*
    * stores the weight tensors of this layer.
    */
@@ -48,7 +47,6 @@ class ConcatLayer : public Layer {
    * stores the references to the output tensors of this layer.
    */
   std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
-
 
  public:
   /**

@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <random>
 #include <algorithm>
+#include <random>
 
 namespace HugeCTR {
 

@@ -26,9 +26,8 @@ namespace HugeCTR {
  * @brief Base class for all optimizers
  */
 
-
-class LearningRateScheduler{
-  const float base_lr_; 
+class LearningRateScheduler {
+  const float base_lr_;
   const size_t warmup_steps_;
   const size_t decay_start_;
   const size_t decay_steps_;
@@ -37,47 +36,46 @@ class LearningRateScheduler{
   size_t step_{0};
   float current_lr_{0.f};
 
-public:
-  //decay_start means no decay will be used.
-  LearningRateScheduler(float base_lr, size_t warmup_steps=1, size_t decay_start=0, size_t decay_steps=1, float decay_power=2.f, float end_lr=0.f):
-    base_lr_(base_lr), warmup_steps_(warmup_steps), decay_start_(decay_start), decay_steps_(decay_steps), decay_power_(decay_power), end_lr_(end_lr){
-    if(base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0f || end_lr < 0.f){
-      CK_THROW_(Error_t::WrongInput, "base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0 || end_lr < 0.f");
+ public:
+  // decay_start means no decay will be used.
+  LearningRateScheduler(float base_lr, size_t warmup_steps = 1, size_t decay_start = 0,
+                        size_t decay_steps = 1, float decay_power = 2.f, float end_lr = 0.f)
+      : base_lr_(base_lr),
+        warmup_steps_(warmup_steps),
+        decay_start_(decay_start),
+        decay_steps_(decay_steps),
+        decay_power_(decay_power),
+        end_lr_(end_lr) {
+    if (base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0f || end_lr < 0.f) {
+      CK_THROW_(Error_t::WrongInput,
+                "base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0 || end_lr "
+                "< 0.f");
     }
   }
-  
 
-  float get_next(){
+  float get_next() {
     step_++;
-    if(step_ <= warmup_steps_){
-      current_lr_ = step_*base_lr_/warmup_steps_;
-    }
-    else{
-      if(decay_start_ != 0){
-	if (step_ <= decay_start_){
-	  current_lr_ = base_lr_;
-	}
-	else{
-	  float lr_factor = pow(((decay_start_ + decay_steps_ - step_)/((float)decay_steps_)), decay_power_);
-	  current_lr_ = base_lr_*lr_factor > end_lr_ ? base_lr_*lr_factor : end_lr_;
-	}
-      }
-      else{
-	current_lr_ = base_lr_;
+    if (step_ <= warmup_steps_) {
+      current_lr_ = step_ * base_lr_ / warmup_steps_;
+    } else {
+      if (decay_start_ != 0) {
+        if (step_ <= decay_start_) {
+          current_lr_ = base_lr_;
+        } else {
+          float lr_factor =
+              pow(((decay_start_ + decay_steps_ - step_) / ((float)decay_steps_)), decay_power_);
+          current_lr_ = base_lr_ * lr_factor > end_lr_ ? base_lr_ * lr_factor : end_lr_;
+        }
+      } else {
+        current_lr_ = base_lr_;
       }
     }
     return current_lr_;
   }
-  float get_lr() const {
-    return current_lr_;
-  }
+  float get_lr() const { return current_lr_; }
 
-  size_t get_step() const {
-    return step_;
-  }
+  size_t get_step() const { return step_; }
 };
-
-
 
 class Optimizer {
  public:
@@ -88,8 +86,7 @@ class Optimizer {
    * @param device_id the id of GPU where update kernel is launched
    * @param learning_rate learning rate
    */
-  Optimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
-            int device_id, float learning_rate,
+  Optimizer(const std::shared_ptr<GeneralBuffer<float>>& weight, int device_id, float learning_rate,
             float scaler)
       : device_id_(device_id), weight_(weight), lr_(learning_rate), scaler_(scaler) {
     try {

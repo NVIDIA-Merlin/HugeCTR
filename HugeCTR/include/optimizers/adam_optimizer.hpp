@@ -46,13 +46,13 @@ class AdamOptimizer : public Optimizer {
         t_(0),
         beta1_(beta1),
         beta2_(beta2),
-        epsilon_(epsilon), wgrad_(wgrad) {
+        epsilon_(epsilon),
+        wgrad_(wgrad) {
     m_.reset_sync();
     v_.reset_sync();
     if (weight_->get_size() != wgrad_->get_size()) {
       CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
     }
-
   }
 
   /**

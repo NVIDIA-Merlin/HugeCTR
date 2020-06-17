@@ -35,15 +35,16 @@ class SgdOptimizerHalf : public Optimizer {
    # @param scaler scaler factor for mixed precision
    */
   SgdOptimizerHalf(const std::shared_ptr<GeneralBuffer<float>>& weight,
-		   const std::shared_ptr<GeneralBuffer<__half>>& wgrad, 
-		   const std::shared_ptr<GeneralBuffer<__half>>& weight_half, 
-		   int device_id, float lr = 0.001f, 
-		   float scaler = 1.f)
-    : Optimizer(weight,device_id, lr, scaler), wgrad_(wgrad), weight_half_(weight_half) {
-      if (weight_->get_num_elements() != wgrad_->get_num_elements() || 
-	  wgrad_->get_num_elements() != weight_half_->get_num_elements()) {
-        CK_THROW_(Error_t::WrongInput, "weight_.get_num_elements() != wgrad_.get_num_elements() or wgrad_->get_num_elements() != weight_half_->get_num_elements()" );
-      }
+                   const std::shared_ptr<GeneralBuffer<__half>>& wgrad,
+                   const std::shared_ptr<GeneralBuffer<__half>>& weight_half, int device_id,
+                   float lr = 0.001f, float scaler = 1.f)
+      : Optimizer(weight, device_id, lr, scaler), wgrad_(wgrad), weight_half_(weight_half) {
+    if (weight_->get_num_elements() != wgrad_->get_num_elements() ||
+        wgrad_->get_num_elements() != weight_half_->get_num_elements()) {
+      CK_THROW_(Error_t::WrongInput,
+                "weight_.get_num_elements() != wgrad_.get_num_elements() or "
+                "wgrad_->get_num_elements() != weight_half_->get_num_elements()");
+    }
   }
 
   /**

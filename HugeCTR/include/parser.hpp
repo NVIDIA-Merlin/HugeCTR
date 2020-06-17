@@ -40,9 +40,9 @@ namespace HugeCTR {
  */
 class Parser {
  private:
-  nlohmann::json config_; /**< configure file. */
-  size_t batch_size_;     /**< batch size. */
-  size_t batch_size_eval_;     /**< batch size. */
+  nlohmann::json config_;  /**< configure file. */
+  size_t batch_size_;      /**< batch size. */
+  size_t batch_size_eval_; /**< batch size. */
   const bool use_mixed_precision_{false};
   const float scaler_{1.f};
 
@@ -51,9 +51,12 @@ class Parser {
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
-  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval, bool use_mixed_precision = false,
-         float scaler = 1.0f)
-    : batch_size_(batch_size), batch_size_eval_(batch_size_eval), use_mixed_precision_(use_mixed_precision), scaler_(scaler) {
+  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
+         bool use_mixed_precision = false, float scaler = 1.0f)
+      : batch_size_(batch_size),
+        batch_size_eval_(batch_size_eval),
+        use_mixed_precision_(use_mixed_precision),
+        scaler_(scaler) {
     try {
       std::ifstream file(configure_file);
       if (!file.is_open()) {
@@ -76,9 +79,9 @@ class Parser {
   void create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                        std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
-		       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                        std::vector<std::unique_ptr<Network>>& network,
-		       std::vector<std::unique_ptr<Network>>& network_eval,
+                       std::vector<std::unique_ptr<Network>>& network_eval,
                        const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
   /**
@@ -87,16 +90,14 @@ class Parser {
   void create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                        std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
-		       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                        std::vector<std::unique_ptr<Network>>& network,
-		       std::vector<std::unique_ptr<Network>>& network_eval,
+                       std::vector<std::unique_ptr<Network>>& network_eval,
                        const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
-
 };
 
-
-
-std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(const std::string configure_file);
+std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
+    const std::string configure_file);
 
 /**
  * Solver Parser.
@@ -111,7 +112,7 @@ struct SolverParser {
   std::string snapshot_prefix;                 /**< naming prefix of snapshot file */
   int eval_interval;                           /**< the interval of evaluations */
   int eval_batches;                            /**< the number of batches for evaluations */
-  int batchsize_eval;                               /**< batchsize for eval */
+  int batchsize_eval;                          /**< batchsize for eval */
   int batchsize;                               /**< batchsize */
   std::string model_file;                      /**< name of model file */
   std::vector<std::string> embedding_files;    /**< name of embedding file */
@@ -199,16 +200,14 @@ inline T get_value_from_json(const nlohmann::json& json, const std::string key) 
 
 template <typename T>
 inline T get_value_from_json_soft(const nlohmann::json& json, const std::string key, T B) {
-  if(has_key_(json, key)){
+  if (has_key_(json, key)) {
     auto value = json.find(key).value();
     CK_SIZE_(value, 1);
     return value.get<T>();
-  }
-  else{
+  } else {
     MESSAGE_(key + " is not specified using default: " + std::to_string(B));
     return B;
   }
 }
-
 
 }  // namespace HugeCTR
