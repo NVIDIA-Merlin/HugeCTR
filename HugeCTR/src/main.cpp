@@ -74,7 +74,7 @@ void train(std::string config_file){
     std::cout << "HugeCTR training start:" << std::endl;
   }
 #ifndef VAL
-  HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 1); // just 1 epoch
+  HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0); // just 1 epoch
 
   for (int i = 0; i < solver_config.max_iter; i++) {
 
@@ -102,7 +102,7 @@ void train(std::string config_file){
     }
 
     if ((solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0)) {
-      HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start", 1); // just 1 epoch
+      HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start", float(i)/solver_config.max_iter);
       timer_eval.start();
       for (int j = 0; j < solver_config.eval_batches; ++j) {
      	session_instance.eval();
@@ -128,9 +128,9 @@ void train(std::string config_file){
 	    std::cout << "Hit target accuracy AUC 0.8025 at epoch " + std::to_string(float(i)/solver_config.max_iter) + " with batchsize: " <<  solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed) << std::setprecision(2) << timer.elapsedSeconds() 
 		      << " s. Average speed " << float(i)*solver_config.batchsize/timer.elapsedSeconds() <<" records/s." << std::endl;
 	    
-	    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", 1); // just 1 epoch
+	    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", 1);
 
-	    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1); // just 1 epoch
+	    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1); 
 
 	    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
 	    timer_log.stop();
@@ -147,7 +147,7 @@ void train(std::string config_file){
          std::to_string(solver_config.eval_batches) + " iters: " +
          std::to_string(timer_eval.elapsedSeconds()) + "s");
 
-    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", 1); // use iteration to calculate it's in which epoch
+    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", float(i)/solver_config.max_iter); // use iteration to calculate it's in which epoch
 
     }
   }
@@ -158,7 +158,7 @@ void train(std::string config_file){
 #endif
 
 
-  HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1); // just 1 epoch
+  HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
 
   HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
   timer_log.stop();

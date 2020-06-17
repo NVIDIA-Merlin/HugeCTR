@@ -423,14 +423,14 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::LocalizedSlo
     }
 
 // warm up for nccl all2all
-#ifdef NCCL_A2A
-    if(total_gpu_count_ > 1) {
-      functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_, 
-                                embedding_params_.embedding_vec_size,
-                                embedding_feature_tensors_, all2all_tensors_,
-                                Base::device_resources_);
-    }
-#endif
+// #ifdef NCCL_A2A
+//     if(total_gpu_count_ > 1) {
+//       functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_, 
+//                                 embedding_params_.embedding_vec_size,
+//                                 embedding_feature_tensors_, all2all_tensors_,
+//                                 Base::device_resources_);
+//     }
+// #endif
 
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;

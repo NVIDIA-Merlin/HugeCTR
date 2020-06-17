@@ -334,7 +334,7 @@ template <typename... Args>
 inline void LOG(const Args&... args){
   std::cout << "[";
   std::initializer_list<char>{(print_func(args), 'a')...};
-  std::cout << "\b\b]" << std::endl;
+  std::cout << "]" << std::endl;
 
   return;
 }

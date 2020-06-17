@@ -20,7 +20,9 @@
       "learning_rate": 24.0,
       "warmup_steps": 8000,
       "decay_start": 48000,
-      "decay_steps": 24000
+      "decay_steps": 24000,
+      "decay_power": 2.0,
+      "end_lr": 0.0
     }
   },
 
