@@ -22,50 +22,40 @@
 
 namespace HugeCTR {
 
-
-template<typename T>
+template <typename T>
 struct TensorTypeFunc;
 
-template<>
+template <>
 struct TensorTypeFunc<float> {
-  static Tensor_t type(){
-    return Tensor_t::FP32;
-  }
+  static Tensor_t type() { return Tensor_t::FP32; }
 };
 
-template<>
+template <>
 struct TensorTypeFunc<__half> {
-  static Tensor_t type(){
-    return Tensor_t::FP16;
-  }
+  static Tensor_t type() { return Tensor_t::FP16; }
 };
 
-template<>
+template <>
 struct TensorTypeFunc<long long> {
-  static Tensor_t type(){
-    return Tensor_t::LONGLONG;
-  }
+  static Tensor_t type() { return Tensor_t::LONGLONG; }
 };
 
-template<>
+template <>
 struct TensorTypeFunc<unsigned int> {
-  static Tensor_t type(){
-    return Tensor_t::UINT;
-  }
+  static Tensor_t type() { return Tensor_t::UINT; }
 };
-
 
 class ITensor {
-protected:
+ protected:
   Tensor_t type_;
-public:
+
+ public:
   virtual int get_device_id() const = 0;
   virtual const std::vector<size_t>& get_dims() const = 0;
   virtual size_t get_num_elements() const = 0;
   virtual size_t get_size() const = 0;
   virtual TensorFormat_t get_format() const = 0;
 };
-
 
 /**
  * @brief A simple class to implement Tensor in network, for example: gradients, parameters, blobs.
@@ -75,7 +65,7 @@ public:
  * same order as TensorFormat_t.
  */
 template <typename T>
-class Tensor: public ITensor {
+class Tensor : public ITensor {
  private:
   std::vector<size_t>
       dims_; /**< Dimensions of tensor, and the last element is the leading dimension */
@@ -97,7 +87,7 @@ class Tensor: public ITensor {
         format_(format),
         mem_offset_(buffer->reserve(get_size_from_dims(dims))) {
     static_assert(std::is_same<T, float>::value || std::is_same<T, long long>::value ||
-		  std::is_same<T, unsigned int>::value || std::is_same<T, half>::value,
+                      std::is_same<T, unsigned int>::value || std::is_same<T, half>::value,
                   "type not support");
     try {
       // verify dims == 2
@@ -133,7 +123,7 @@ class Tensor: public ITensor {
    * @param new_format the new format.
    */
   Tensor(const std::vector<size_t> new_dims, const Tensor& C, TensorFormat_t new_format)
-    : dims_(new_dims), buff_(C.buff_), format_(new_format), mem_offset_(C.mem_offset_){
+      : dims_(new_dims), buff_(C.buff_), format_(new_format), mem_offset_(C.mem_offset_) {
     try {
       if (format_ != TensorFormat_t::WH && format_ != TensorFormat_t::HW && dims_.size() == 2) {
         CK_THROW_(Error_t::WrongInput, "input dims doesn't match format");
@@ -165,17 +155,17 @@ class Tensor: public ITensor {
   }
   typedef T TYPE;
   int get_device_id() const { return buff_->get_device_id(); }
-  const T* get_ptr() const { 
-    if(type_ != TensorTypeFunc<T>::type()){
+  const T* get_ptr() const {
+    if (type_ != TensorTypeFunc<T>::type()) {
       CK_THROW_(Error_t::WrongInput, "type_ != TensorTypeFunc<T>::type()");
     }
-    return buff_->get_ptr_with_offset(mem_offset_); 
+    return buff_->get_ptr_with_offset(mem_offset_);
   }
-  T* get_ptr() { 
-    if(type_ != TensorTypeFunc<T>::type()){
+  T* get_ptr() {
+    if (type_ != TensorTypeFunc<T>::type()) {
       CK_THROW_(Error_t::WrongInput, "type_ != TensorTypeFunc<T>::type()");
     }
-    return buff_->get_ptr_with_offset(mem_offset_); 
+    return buff_->get_ptr_with_offset(mem_offset_);
   }
   const std::vector<size_t>& get_dims() const { return dims_; }
   size_t get_num_elements() const {
@@ -188,7 +178,6 @@ class Tensor: public ITensor {
   size_t get_size() const { return get_num_elements() * sizeof(T); }
   TensorFormat_t get_format() const { return format_; }
 };
-
 
 /**
  * To print the tensor from begin to end.
@@ -238,7 +227,6 @@ inline bool print_tensor(const Tensor<T>& tensor, int begin, int end) {
   std::cout << std::endl;
   return true;
 }
-
 
 template <>
 inline bool print_tensor(const Tensor<__half>& tensor, int begin, int end) {

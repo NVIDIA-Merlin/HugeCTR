@@ -56,64 +56,65 @@ static void check_device(int device_id, int min_major, int min_minor) {
 Session::Session(const std::string& json_name)
     : solver_config_(json_name),
       gpu_resource_group_(new GPUResourceGroup(solver_config_.device_map)) {
-    int pid = 0;
+  int pid = 0;
 #ifdef ENABLE_MPI
-    int numprocs = 1;
-    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+  int numprocs = 1;
+  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
 
-    for (auto dev : gpu_resource_group_->get_device_list()) {
-      if (solver_config_.use_mixed_precision) {
-        check_device(dev, 7,
-                     0);  // to support mixed precision training earliest supported device is CC=70
-      } else {
-        check_device(dev, 6, 0);  // earliest supported device is CC=60
-      }
-    }
-
-    RandomEngine::get().set_seed(solver_config_.seed);
-    parser_.reset(new Parser(json_name, solver_config_.batchsize, solver_config_.batchsize_eval,
-                             solver_config_.use_mixed_precision, solver_config_.scaler));
-
-    parser_->create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_, networks_, networks_eval_,
-                             gpu_resource_group_);
-
-    // init networks.
-    const std::string TMP_DENSE_NAME = std::tmpnam(nullptr);
-    if (pid == 0) {
-      networks_[0]->init_params(TMP_DENSE_NAME);
-    }
-#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
-    for (auto& network : networks_) {
-      network->upload_params_to_device(TMP_DENSE_NAME);
-    }
-#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
-    if (pid == 0) {
-      if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
-        CK_THROW_(Error_t::WrongInput, TMP_DENSE_NAME + " cannot be removed. (reason: " + std::strerror(errno) + ")");
-      }
-    }
-
-    load_params_(solver_config_.model_file, solver_config_.embedding_files);
-
-    int num_local_gpus = gpu_resource_group_->get_device_list().size();
-    //metrics_.emplace_back(new metrics::AverageLoss<float>(num_local_gpus));
+  for (auto dev : gpu_resource_group_->get_device_list()) {
     if (solver_config_.use_mixed_precision) {
-      metrics_.emplace_back(new metrics::AUC<__half>(
-          solver_config_.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
-          solver_config_.eval_batches, gpu_resource_group_->get_device_list()[0],
-          num_local_gpus, gpu_resource_group_));
+      check_device(dev, 7,
+                   0);  // to support mixed precision training earliest supported device is CC=70
     } else {
-      metrics_.emplace_back(new metrics::AUC<float>(
-          solver_config_.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
-          solver_config_.eval_batches, gpu_resource_group_->get_device_list()[0],
-          num_local_gpus, gpu_resource_group_));
+      check_device(dev, 6, 0);  // earliest supported device is CC=60
     }
+  }
+
+  RandomEngine::get().set_seed(solver_config_.seed);
+  parser_.reset(new Parser(json_name, solver_config_.batchsize, solver_config_.batchsize_eval,
+                           solver_config_.use_mixed_precision, solver_config_.scaler));
+
+  parser_->create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_, networks_,
+                           networks_eval_, gpu_resource_group_);
+
+  // init networks.
+  const std::string TMP_DENSE_NAME = std::tmpnam(nullptr);
+  if (pid == 0) {
+    networks_[0]->init_params(TMP_DENSE_NAME);
+  }
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+  for (auto& network : networks_) {
+    network->upload_params_to_device(TMP_DENSE_NAME);
+  }
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+  if (pid == 0) {
+    if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
+      CK_THROW_(Error_t::WrongInput,
+                TMP_DENSE_NAME + " cannot be removed. (reason: " + std::strerror(errno) + ")");
+    }
+  }
+
+  load_params_(solver_config_.model_file, solver_config_.embedding_files);
+
+  int num_local_gpus = gpu_resource_group_->get_device_list().size();
+  // metrics_.emplace_back(new metrics::AverageLoss<float>(num_local_gpus));
+  if (solver_config_.use_mixed_precision) {
+    metrics_.emplace_back(new metrics::AUC<__half>(
+        solver_config_.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
+        solver_config_.eval_batches, gpu_resource_group_->get_device_list()[0], num_local_gpus,
+        gpu_resource_group_));
+  } else {
+    metrics_.emplace_back(new metrics::AUC<float>(
+        solver_config_.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
+        solver_config_.eval_batches, gpu_resource_group_->get_device_list()[0], num_local_gpus,
+        gpu_resource_group_));
+  }
 }
 
 /**
@@ -161,7 +162,6 @@ Error_t Session::load_params_(const std::string& model_file,
   }
   return Error_t::Success;
 }
-
 
 void network_train_helper(int id, Network* n) {
   try {
@@ -222,7 +222,7 @@ void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
   try {
     n->eval();
 
-    for(auto& metric : metrics) {
+    for (auto& metric : metrics) {
       metric->local_reduce(n->get_raw_metrics());
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -236,7 +236,7 @@ Error_t Session::eval() {
   try {
     if (data_reader_eval_ == nullptr) return Error_t::NotInitialized;
     long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
-    for(auto& metric : metrics_) {
+    for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
     }
 
@@ -260,7 +260,7 @@ Error_t Session::eval() {
     }
 #endif
 
-    for(auto& metric : metrics_) {
+    for (auto& metric : metrics_) {
       metric->global_reduce(networks_eval_.size());
     }
 

@@ -30,7 +30,7 @@ namespace HugeCTR {
 /**
  * @brief L2 Regularizer
  */
-template<typename T>
+template <typename T>
 class L2Regularizer : public Regularizer<T> {
  public:
   /*

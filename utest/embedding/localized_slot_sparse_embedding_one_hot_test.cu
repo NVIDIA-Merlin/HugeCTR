@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/data_reader.hpp"
 #include <sys/time.h>
 #include <fstream>
 #include <functional>
+#include "HugeCTR/include/data_parser.hpp"
+#include "HugeCTR/include/data_reader.hpp"
 #include "HugeCTR/include/embedding.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
@@ -46,11 +46,11 @@ const long long num_records = batchsize * batch_num;
 const int slot_num = 26;
 const int max_nnz_per_slot = 1;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
-// const long long vocabulary_size = 187767399;   // for cretio dataset 
-const long long vocabulary_size = slot_num*100; 
+// const long long vocabulary_size = 187767399;   // for cretio dataset
+const long long vocabulary_size = slot_num * 100;
 const int embedding_vec_size = 128;
-const int combiner = 0;   // 0-sum, 1-mean
-const Optimizer_t optimizer = Optimizer_t::SGD; // only support SGD in one-hot
+const int combiner = 0;                          // 0-sum, 1-mean
+const Optimizer_t optimizer = Optimizer_t::SGD;  // only support SGD in one-hot
 const bool global_update =
     true;  // true-embedding table global update; fase-embedding table local update
 // const bool global_update = false;
@@ -76,27 +76,32 @@ const std::string file_list_name("sample_file_list.txt");
 const std::string prefix("./data_reader_test_data/temp_dataset_");
 
 #ifndef NCCl_A2A
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json"); 
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json"); 
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json"); 
-// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json"); 
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0}.json");
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json");
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,3}.json");
+// const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3}.json");
 const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
 #else
 const std::string plan_file = "";
-#endif 
+#endif
 
 const char *hash_table_file_name = "localized_hash_table.bin";
-bool init_hash_table = true;  // true: init hash_table and upload_to_device
-                              // false: don't init hash_table or upload_to_device, just use an
-                              //        empty hash_table to train
-                              // CAUSION: for training_correctness checking, must set this flag to true
-       
-// std::vector<size_t> slot_sizes; // null means use vocabulary_size/gpu_count/load_factor as max_vocabulary_size_per_gpu
+bool init_hash_table =
+    true;  // true: init hash_table and upload_to_device
+           // false: don't init hash_table or upload_to_device, just use an
+           //        empty hash_table to train
+           // CAUSION: for training_correctness checking, must set this flag to true
+
+// std::vector<size_t> slot_sizes; // null means use vocabulary_size/gpu_count/load_factor as
+// max_vocabulary_size_per_gpu
 
 // CAUSION: must match vocabulary_size
 // std::vector<size_t> slot_sizes = {39884406,39043,17289,7420,20263,3,7120,1543,63,38532951,
-//   2953546,403346,10,2208,11938,155,4,976,14,39979771,25641295,39664984,585935,12972,108,36}; // for cretio dataset                           
-std::vector<size_t> slot_sizes = {100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100}; // just for verify
+//   2953546,403346,10,2208,11938,155,4,976,14,39979771,25641295,39664984,585935,12972,108,36}; //
+//   for cretio dataset
+std::vector<size_t> slot_sizes = {100, 100, 100, 100, 100, 100, 100, 100, 100,
+                                  100, 100, 100, 100, 100, 100, 100, 100, 100,
+                                  100, 100, 100, 100, 100, 100, 100, 100};  // just for verify
 
 //-----------------------------------------------------------------------------------------
 #if 0  // init embedding in LocalizedEmbedding ctor
@@ -152,9 +157,9 @@ TEST(localized_sparse_embedding_one_hot_test, init_embedding) {
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
-#endif 
+#endif
 
-#if 0 // just for verify
+#if 0  // just for verify
   // download data from device to host
   std::ofstream o_weight_stream("hash_table_init.bin");
   printf("start download_params_to_host()\n");
@@ -194,7 +199,7 @@ TEST(localized_sparse_embedding_one_hot_test, init_embedding) {
     }
     std::cout << "]" << std::endl;
   } 
-  i_weight_stream.close(); 
+  i_weight_stream.close();
 #endif 
 }
 
@@ -265,8 +270,8 @@ TEST(localized_sparse_embedding_one_hot_test, init_embedding) {
 //   MPI_Barrier(MPI_COMM_WORLD);
 // #endif 
 // }
-// #endif 
-#endif 
+// #endif
+#endif
 
 #if 0
 // localized_sparse_embedding_hash upload_params() and download_params() testing
@@ -402,11 +407,12 @@ TEST(localized_sparse_embedding_one_hot_test, upload_and_download_params) {
 // localized_sparse_embedding_hash correctness testing: forward->backward->update_params
 TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
   OptHyperParams hyper_params;
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
+  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update,
+                                                   scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
-      combiner,  opt_params};
+      batchsize,       vocabulary_size, load_factor, embedding_vec_size,
+      max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -433,14 +439,16 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
     }
 #endif
     // data generation: key's corresponding slot_id=(key%slot_num)
-    if(slot_sizes.size() > 0) {
-      HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files,
-        num_records, slot_num, vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
-    }
-    else {
+    if (slot_sizes.size() > 0) {
+      HugeCTR::data_generation_for_localized_test<T, CHK>(
+          file_list_name, prefix, num_files, num_records, slot_num, vocabulary_size, label_dim,
+          dense_dim, max_nnz_per_slot, slot_sizes);
+    } else {
       // HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files,
       //   num_records, slot_num, vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
-      CK_THROW_(Error_t::WrongInput, "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
+      CK_THROW_(
+          Error_t::WrongInput,
+          "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
     }
   }
 
@@ -464,9 +472,10 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
   //                                                      embedding_params, plan_file,
   //                                                      gpu_resource_group);
 
-  Embedding<T, TypeEmbeddingComp> *embedding = EmbeddingCreator::create_localized_sparse_embedding_one_hot(
-      data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params,
-      plan_file, gpu_resource_group, slot_sizes);
+  Embedding<T, TypeEmbeddingComp> *embedding =
+      EmbeddingCreator::create_localized_sparse_embedding_one_hot(
+          data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
+          embedding_params, plan_file, gpu_resource_group, slot_sizes);
 
   if (init_hash_table) {
     // generate hashtable
@@ -487,15 +496,16 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
         // 2) there are no repeated keys
         weight_stream.write((char *)&key, sizeof(T));
         T slot_id;
-        if(slot_sizes.size() == 0) {
+        if (slot_sizes.size() == 0) {
           // slot_id = key % slot_num;  // CAUSION: need to dedicate the slot_id for each key for
           //                            // correctness verification
-          CK_THROW_(Error_t::WrongInput, "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
-        }
-        else {
+          CK_THROW_(Error_t::WrongInput,
+                    "Must set slot_sizes since there is no hashtable in "
+                    "LocalizedSlotSpasrseEmbeddingOneHot");
+        } else {
           size_t offset = 0;
-          for(size_t j = 0; j < slot_sizes.size(); j++) {
-            if((key >= offset) && (key < (offset+slot_sizes[j]))) {
+          for (size_t j = 0; j < slot_sizes.size(); j++) {
+            if ((key >= offset) && (key < (offset + slot_sizes[j]))) {
               slot_id = (T)j;
               break;
             }
@@ -536,10 +546,10 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
   float *hash_table_value_from_cpu = embedding_cpu->get_hash_table_value_ptr();
 
   // for results check
-  TypeEmbeddingComp *embedding_feature_from_gpu =
-      (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
-  TypeEmbeddingComp *wgrad_from_gpu =
-      (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
+  TypeEmbeddingComp *embedding_feature_from_gpu = (TypeEmbeddingComp *)malloc(
+      batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
+  TypeEmbeddingComp *wgrad_from_gpu = (TypeEmbeddingComp *)malloc(
+      batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
   T *hash_table_key_from_gpu = (T *)malloc(vocabulary_size * sizeof(T));
   float *hash_table_value_from_gpu =
       (float *)malloc(vocabulary_size * (long long)embedding_vec_size * sizeof(float));
@@ -604,13 +614,14 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
     printf("Rank%d: embedding->update_params()\n", pid);
     embedding->update_params();
 
-#if 1 // can not check update_params since one-hot has no hashtable // TODO: need to modify get_update_params_results()
+#if 1  // can not check update_params since one-hot has no hashtable // TODO: need to modify
+       // get_update_params_results()
     if (pid == 0) {
       // CPU update_params
       printf("Rank0: embedding_cpu->update_params()\n");
       embedding_cpu->update_params();
     }
-#else 
+#else
     // check the results of update params
     printf("Rank%d: embedding->get_update_params_results()\n", pid);
     embedding->get_update_params_results(hash_table_key_from_gpu,
@@ -632,7 +643,7 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-#endif 
+#endif
 
     printf("Rank%d: Round %d end:\n", pid, i);
   }
@@ -650,11 +661,12 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
 #if 1
 TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
   OptHyperParams hyper_params;
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
+  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update,
+                                                   scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
-      combiner,  opt_params};
+      batchsize,       vocabulary_size, load_factor, embedding_vec_size,
+      max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -681,14 +693,16 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
     }
 #endif
     // data generation: key's corresponding slot_id=(key%slot_num)
-    if(slot_sizes.size() > 0) {
-      HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files,
-        num_records, slot_num, vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
-    }
-    else {
+    if (slot_sizes.size() > 0) {
+      HugeCTR::data_generation_for_localized_test<T, CHK>(
+          file_list_name, prefix, num_files, num_records, slot_num, vocabulary_size, label_dim,
+          dense_dim, max_nnz_per_slot, slot_sizes);
+    } else {
       // HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files,
       //   num_records, slot_num, vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
-      CK_THROW_(Error_t::WrongInput, "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
+      CK_THROW_(
+          Error_t::WrongInput,
+          "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
     }
   }
 
@@ -712,10 +726,10 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
   //                                                      embedding_params, plan_file,
   //                                                      gpu_resource_group);
 
-  Embedding<T, TypeEmbeddingComp> *embedding = EmbeddingCreator::create_localized_sparse_embedding_one_hot(
-      data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params,
-      plan_file, gpu_resource_group, slot_sizes);
-
+  Embedding<T, TypeEmbeddingComp> *embedding =
+      EmbeddingCreator::create_localized_sparse_embedding_one_hot(
+          data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
+          embedding_params, plan_file, gpu_resource_group, slot_sizes);
 
   if (init_hash_table) {
     // generate hashtable
@@ -736,15 +750,16 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
         // 2) there are no repeated keys
         weight_stream.write((char *)&key, sizeof(T));
         T slot_id;
-        if(slot_sizes.size() == 0) {
+        if (slot_sizes.size() == 0) {
           // slot_id = key % slot_num;  // CAUSION: need to dedicate the slot_id for each key for
           //                            // correctness verification
-          CK_THROW_(Error_t::WrongInput, "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
-        }
-        else {
+          CK_THROW_(Error_t::WrongInput,
+                    "Must set slot_sizes since there is no hashtable in "
+                    "LocalizedSlotSpasrseEmbeddingOneHot");
+        } else {
           size_t offset = 0;
-          for(int j = 0; j < slot_sizes.size(); j++) {
-            if((key >= offset) && (key < (offset+slot_sizes[j]))) {
+          for (int j = 0; j < slot_sizes.size(); j++) {
+            if ((key >= offset) && (key < (offset + slot_sizes[j]))) {
               slot_id = (T)j;
               break;
             }
@@ -785,10 +800,10 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
   float *hash_table_value_from_cpu = embedding_cpu->get_hash_table_value_ptr();
 
   // for results check
-  TypeEmbeddingComp *embedding_feature_from_gpu =
-      (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
-  TypeEmbeddingComp *wgrad_from_gpu =
-      (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
+  TypeEmbeddingComp *embedding_feature_from_gpu = (TypeEmbeddingComp *)malloc(
+      batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
+  TypeEmbeddingComp *wgrad_from_gpu = (TypeEmbeddingComp *)malloc(
+      batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
   T *hash_table_key_from_gpu = (T *)malloc(vocabulary_size * sizeof(T));
   float *hash_table_value_from_gpu =
       (float *)malloc(vocabulary_size * (long long)embedding_vec_size * sizeof(float));
@@ -800,24 +815,23 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // create new obj for eval()
   DataReader<T> *data_reader_eval =
-    new DataReader<T>(file_list_name, batchsize_eval, label_dim, dense_dim, CHK, params,
-                          gpu_resource_group, num_chunk_threads);
-  Embedding<T, TypeEmbeddingComp> *embedding_eval = embedding->clone_eval(data_reader_eval->get_row_offsets_tensors(), 
-      data_reader_eval->get_value_tensors(), batchsize_eval, gpu_resource_group);
+      new DataReader<T>(file_list_name, batchsize_eval, label_dim, dense_dim, CHK, params,
+                        gpu_resource_group, num_chunk_threads);
+  Embedding<T, TypeEmbeddingComp> *embedding_eval = embedding->clone_eval(
+      data_reader_eval->get_row_offsets_tensors(), data_reader_eval->get_value_tensors(),
+      batchsize_eval, gpu_resource_group);
 
   // for SparseEmbeddingCpu eval
   SparseEmbeddingHashCpu<T> *embedding_cpu_eval = new SparseEmbeddingHashCpu<T>(
-    batchsize_eval, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, label_dim,
-    dense_dim, CHK, num_records, combiner, optimizer, lr, file_list_name, hash_table_file_name,
-    SparseEmbedding_t::Localized, global_update, scaler);
+      batchsize_eval, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, label_dim,
+      dense_dim, CHK, num_records, combiner, optimizer, lr, file_list_name, hash_table_file_name,
+      SparseEmbedding_t::Localized, global_update, scaler);
 
   float *embedding_feature_from_cpu_eval = embedding_cpu_eval->get_forward_results();
 
   // for results check
-  TypeEmbeddingComp *embedding_feature_from_gpu_eval =
-      (TypeEmbeddingComp *)malloc(batchsize_eval * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
-
-
+  TypeEmbeddingComp *embedding_feature_from_gpu_eval = (TypeEmbeddingComp *)malloc(
+      batchsize_eval * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
 
   for (int i = 0; i < batch_num; i++) {
     printf("Rank%d: Round %d start training:\n", pid, i);
@@ -871,43 +885,44 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-/* do not do update_params since cpu code can not support eval mode (2 embedding obj share one hashtable)
+    /* do not do update_params since cpu code can not support eval mode (2 embedding obj share one
+    hashtable)
 
-    // GPU update_params
-    printf("Rank%d: embedding->update_params()\n", pid);
-    embedding->update_params();
+        // GPU update_params
+        printf("Rank%d: embedding->update_params()\n", pid);
+        embedding->update_params();
 
-#if 1 // can not check update_params since one-hot has no hashtable
-    if (pid == 0) {
-      // CPU update_params
-      printf("Rank0: embedding_cpu->update_params()\n");
-      embedding_cpu->update_params();
-    }
-#else 
-    // check the results of update params
-    printf("Rank%d: embedding->get_update_params_results()\n", pid);
-    embedding->get_update_params_results(hash_table_key_from_gpu,
-                                         hash_table_value_from_gpu);  // memcpy from GPU to CPU
+    #if 1 // can not check update_params since one-hot has no hashtable
+        if (pid == 0) {
+          // CPU update_params
+          printf("Rank0: embedding_cpu->update_params()\n");
+          embedding_cpu->update_params();
+        }
+    #else
+        // check the results of update params
+        printf("Rank%d: embedding->get_update_params_results()\n", pid);
+        embedding->get_update_params_results(hash_table_key_from_gpu,
+                                             hash_table_value_from_gpu);  // memcpy from GPU to CPU
 
-    if (pid == 0) {
-      // CPU update_params
-      printf("Rank0: embedding_cpu->update_params()\n");
-      embedding_cpu->update_params();
+        if (pid == 0) {
+          // CPU update_params
+          printf("Rank0: embedding_cpu->update_params()\n");
+          embedding_cpu->update_params();
 
-      printf("Rank0: check update_params results\n");
-      bool rtn = compare_hash_table<T, TypeHashValue>(
-          vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue *)hash_table_value_from_gpu,
-          (T *)hash_table_key_from_cpu, (TypeHashValue *)hash_table_value_from_cpu);
-      ASSERT_EQ(true, rtn);
-    }
+          printf("Rank0: check update_params results\n");
+          bool rtn = compare_hash_table<T, TypeHashValue>(
+              vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue
+    *)hash_table_value_from_gpu, (T *)hash_table_key_from_cpu, (TypeHashValue
+    *)hash_table_value_from_cpu); ASSERT_EQ(true, rtn);
+        }
 
-#endif 
+    #endif
 
-#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
+    #ifdef ENABLE_MPI
+        MPI_Barrier(MPI_COMM_WORLD);
+    #endif
 
-*/
+    */
 
     /////////////////////////////////////////////////////////////////////////////////////////////
     // eval
@@ -931,9 +946,9 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
       embedding_cpu_eval->forward();
 
       printf("Rank0: check forward results\n");
-      ASSERT_EQ(true,
-                compare_embedding_feature(batchsize_eval * slot_num * embedding_vec_size,
-                                          embedding_feature_from_gpu_eval, embedding_feature_from_cpu_eval));
+      ASSERT_EQ(true, compare_embedding_feature(batchsize_eval * slot_num * embedding_vec_size,
+                                                embedding_feature_from_gpu_eval,
+                                                embedding_feature_from_cpu_eval));
     }
 
 #ifdef ENABLE_MPI

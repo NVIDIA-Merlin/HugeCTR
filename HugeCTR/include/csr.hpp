@@ -75,9 +75,8 @@ class CSR {
   CSR(const CSR&) = delete;
   CSR& operator=(const CSR&) = delete;
   CSR(CSR&&) = default;
-  
 
-  inline void push_back_new_row(const T& value){
+  inline void push_back_new_row(const T& value) {
     row_offset_[size_of_row_offset_] = static_cast<T>(size_of_value_);
     size_of_row_offset_++;
     value_[size_of_value_] = value;

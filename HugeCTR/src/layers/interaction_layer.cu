@@ -50,29 +50,14 @@ struct __align__(8) half4 {
   half2 vals[2];
 };
 
-template <uint WARPS_PER_BLOCK,
-          uint THREADBLOCK_SIZE,
-          uint M_BLOCKS,
-          uint K_BLOCKS,
-          uint SMEM_STRIDE,
-          uint SMEM_STRIDE_ACC,
-          uint THREADS_IN_WARP,
-          uint THREADS_IN_WARP_LOG_2,
-          uint TILE_DIM,
-          uint TILE_DIM_LOG_2>
-__launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNonAligned(const __half *__restrict bottom_mlp_input,
-                                                                                        const __half *__restrict emb_input,
-                                                                                        __half *__restrict output,
-                                                                                        uint batch_size,
-                                                                                        uint num_rows,
-                                                                                        uint num_cols,
-                                                                                        uint num_rows_after_padding,
-                                                                                        uint num_cols_after_padding,
-                                                                                        uint smem_elems_per_warp,
-                                                                                        uint smem_rows_per_warp,
-                                                                                        uint output_size,
-                                                                                        uint num_row_steps,
-                                                                                        uint num_col_steps) {
+template <uint WARPS_PER_BLOCK, uint THREADBLOCK_SIZE, uint M_BLOCKS, uint K_BLOCKS,
+          uint SMEM_STRIDE, uint SMEM_STRIDE_ACC, uint THREADS_IN_WARP, uint THREADS_IN_WARP_LOG_2,
+          uint TILE_DIM, uint TILE_DIM_LOG_2>
+__launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNonAligned(
+    const __half *__restrict bottom_mlp_input, const __half *__restrict emb_input,
+    __half *__restrict output, uint batch_size, uint num_rows, uint num_cols,
+    uint num_rows_after_padding, uint num_cols_after_padding, uint smem_elems_per_warp,
+    uint smem_rows_per_warp, uint output_size, uint num_row_steps, uint num_col_steps) {
   uint warp_id = (threadIdx.x >> THREADS_IN_WARP_LOG_2);
   int sample_id = blockIdx.x * WARPS_PER_BLOCK + warp_id;
   if (sample_id >= batch_size) {
@@ -92,7 +77,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNon
     for (uint idx = lane_id; idx < num_cols; idx += THREADS_IN_WARP) {
       (shmem + i * SMEM_STRIDE)[idx] = sample_input[idx];
     }
-    sample_input = (i == 0)? sample_emp_input : (sample_input + num_cols);
+    sample_input = (i == 0) ? sample_emp_input : (sample_input + num_cols);
   }
 
   uint idx = lane_id + num_cols;
@@ -159,7 +144,8 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNon
     }
     if (lane_id < i) {
       uint offset = (i * (i - 1)) >> 1;
-      gmem_interact_output[offset + lane_id] = __float2half(shmem_store[srcLine * SMEM_STRIDE_ACC + lane_id]);
+      gmem_interact_output[offset + lane_id] =
+          __float2half(shmem_store[srcLine * SMEM_STRIDE_ACC + lane_id]);
     }
   }
   // Padding
@@ -168,29 +154,16 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNon
   }
 }
 
-template <uint WARPS_PER_BLOCK,
-          uint THREADBLOCK_SIZE,
-          uint M_BLOCKS,
-          uint K_BLOCKS,
-          uint SMEM_STRIDE,
-          uint SMEM_STRIDE_ACC,
-          uint THREADS_IN_WARP,
-          uint THREADS_IN_WARP_LOG_2,
-          uint TILE_DIM,
-          uint TILE_DIM_LOG_2>
-__launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernel(const __half *__restrict bottom_mlp_input,
-                                                                              const __half *__restrict emb_input,
-                                                                              __half *__restrict output,
-                                                                              uint batch_size,
-                                                                              uint num_rows,
-                                                                              uint num_cols,
-                                                                              uint num_rows_after_padding,
-                                                                              uint num_cols_after_padding,
-                                                                              uint smem_elems_per_warp,
-                                                                              uint smem_rows_per_warp,
-                                                                              uint output_size,
-                                                                              uint num_row_steps,
-                                                                              uint num_col_steps) {
+template <uint WARPS_PER_BLOCK, uint THREADBLOCK_SIZE, uint M_BLOCKS, uint K_BLOCKS,
+          uint SMEM_STRIDE, uint SMEM_STRIDE_ACC, uint THREADS_IN_WARP, uint THREADS_IN_WARP_LOG_2,
+          uint TILE_DIM, uint TILE_DIM_LOG_2>
+__launch_bounds__(THREADBLOCK_SIZE) __global__
+    void dotBasedInteractFwdKernel(const __half *__restrict bottom_mlp_input,
+                                   const __half *__restrict emb_input, __half *__restrict output,
+                                   uint batch_size, uint num_rows, uint num_cols,
+                                   uint num_rows_after_padding, uint num_cols_after_padding,
+                                   uint smem_elems_per_warp, uint smem_rows_per_warp,
+                                   uint output_size, uint num_row_steps, uint num_col_steps) {
   uint warp_id = (threadIdx.x >> THREADS_IN_WARP_LOG_2);
   int sample_id = blockIdx.x * WARPS_PER_BLOCK + warp_id;
   if (sample_id >= batch_size) {
@@ -209,7 +182,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernel(co
     // for (int i = 0; i < num_rows; ++i, sample_input += num_cols) {
     for (int i = 0; i < num_rows; ++i) {
       ((float2 *)(shmem + i * SMEM_STRIDE))[lane_id] = ((float2 *)sample_input)[lane_id];
-      sample_input = (i == 0)? sample_emp_input : (sample_input + num_cols);
+      sample_input = (i == 0) ? sample_emp_input : (sample_input + num_cols);
     }
   }
 
@@ -276,7 +249,8 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernel(co
     }
     if (lane_id < i) {
       uint offset = (i * (i - 1)) >> 1;
-      gmem_interact_output[offset + lane_id] = __float2half(shmem_store[srcLine * SMEM_STRIDE_ACC + lane_id]);
+      gmem_interact_output[offset + lane_id] =
+          __float2half(shmem_store[srcLine * SMEM_STRIDE_ACC + lane_id]);
     }
   }
   // Padding
@@ -285,34 +259,17 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernel(co
   }
 }
 
-template <uint WARPS_PER_BLOCK,
-          uint THREADBLOCK_SIZE,
-          uint ROW_TILES_PER_STEP,
-          uint COL_TILES_PER_STEP,
-          uint THREADS_IN_WARP,
-          uint THREADS_IN_WARP_LOG_2,
-          uint TILE_DIM,
+template <uint WARPS_PER_BLOCK, uint THREADBLOCK_SIZE, uint ROW_TILES_PER_STEP,
+          uint COL_TILES_PER_STEP, uint THREADS_IN_WARP, uint THREADS_IN_WARP_LOG_2, uint TILE_DIM,
           uint TILE_DIM_LOG_2>
-__launch_bounds__(THREADBLOCK_SIZE) __global__
-    void dotBasedInteractBwdKernelNonAligned(const __half *__restrict upstream_grad,
-                                             half __restrict *bottom_mlp_grad,
-                                             half __restrict *emb_grad,
-                                             uint batch_size,
-                                             uint num_rows,
-                                             uint num_cols,
-                                             uint num_rows_after_padding,
-                                             uint num_cols_after_padding,
-                                             uint sample_size,
-                                             uint interaction_ugrad_size,
-                                             uint interaction_ugrad_size_with_padding,
-                                             uint interaction_ugrad_2D_size_elems,
-                                             uint interaction_ugrad_2D_stride,
-                                             uint input_size_elems,
-                                             uint input_stride,
-                                             uint num_row_steps,
-                                             uint num_col_steps,
-                                             uint row_tiles_per_step,
-                                             uint shared_mem_per_warp_size_byte) {
+__launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernelNonAligned(
+    const __half *__restrict upstream_grad, half __restrict *bottom_mlp_grad,
+    half __restrict *emb_grad, uint batch_size, uint num_rows, uint num_cols,
+    uint num_rows_after_padding, uint num_cols_after_padding, uint sample_size,
+    uint interaction_ugrad_size, uint interaction_ugrad_size_with_padding,
+    uint interaction_ugrad_2D_size_elems, uint interaction_ugrad_2D_stride, uint input_size_elems,
+    uint input_stride, uint num_row_steps, uint num_col_steps, uint row_tiles_per_step,
+    uint shared_mem_per_warp_size_byte) {
   extern __shared__ half shared_mem[];
   uint warp_id = (threadIdx.x >> THREADS_IN_WARP_LOG_2);
   uint sample_id = blockIdx.x * WARPS_PER_BLOCK + warp_id;
@@ -384,7 +341,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
     half *smem_row_ptr = &smem_in[row * input_stride];
     // const half *gmem_row_ptr = &gmem_input[row * num_cols];
     const half *gmem_row_ptr =
-        (row == 0)? gmem_bottom_mlp_input : &gmem_emb_input[(row - 1) * num_cols];
+        (row == 0) ? gmem_bottom_mlp_input : &gmem_emb_input[(row - 1) * num_cols];
     for (uint idx = lane_id; idx < num_cols; idx += THREADS_IN_WARP) {
       smem_row_ptr[idx] = gmem_row_ptr[idx];
     }
@@ -403,8 +360,8 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
   }
   __syncwarp();
 
-  wmma::fragment<wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major> a[ROW_TILES_PER_STEP]
-                                                                                       [ROW_TILES_PER_STEP];
+  wmma::fragment<wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major>
+      a[ROW_TILES_PER_STEP][ROW_TILES_PER_STEP];
   for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
     for (uint j = 0; j < ROW_TILES_PER_STEP; j++) {
       const half *tile_ptr = smem_temp + ((i * interaction_ugrad_2D_stride + j) << TILE_DIM_LOG_2);
@@ -413,7 +370,8 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
   }
 
   wmma::fragment<wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[ROW_TILES_PER_STEP];
-  wmma::fragment<wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major> b[ROW_TILES_PER_STEP];
+  wmma::fragment<wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major>
+      b[ROW_TILES_PER_STEP];
   for (int col_step = 0; col_step < num_col_steps; col_step++) {
     for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
       const half *tile_ptr = smem_in + ((i * input_stride + col_step) << TILE_DIM_LOG_2);
@@ -433,11 +391,12 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
     uint gmem_grad_col = (col_step << TILE_DIM_LOG_2) + lane_id;
     if (gmem_grad_col < num_cols) {
       for (uint i = 0; i < num_rows; i++) {
-        // gmem_grad[i * num_cols + gmem_grad_col] = __float2half(smem_out[(i << TILE_DIM_LOG_2) + lane_id]);
-        half *gmem_grad = (i == 0)? gmem_bottom_mlp_grad : gmem_emb_grad;
-        uint idx = (i == 0)? gmem_grad_col : ((i - 1) * num_cols + gmem_grad_col);
+        // gmem_grad[i * num_cols + gmem_grad_col] = __float2half(smem_out[(i << TILE_DIM_LOG_2) +
+        // lane_id]);
+        half *gmem_grad = (i == 0) ? gmem_bottom_mlp_grad : gmem_emb_grad;
+        uint idx = (i == 0) ? gmem_grad_col : ((i - 1) * num_cols + gmem_grad_col);
         half val = __float2half(smem_out[(i << TILE_DIM_LOG_2) + lane_id]);
-        gmem_grad[idx] = (i == 0)? (val + gmem_ugrad[idx]) : val;
+        gmem_grad[idx] = (i == 0) ? (val + gmem_ugrad[idx]) : val;
       }
     }
   }
@@ -447,33 +406,20 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
   // }
 }
 
-template <uint WARPS_PER_BLOCK,
-          uint THREADBLOCK_SIZE,
-          uint ROW_TILES_PER_STEP,
-          uint COL_TILES_PER_STEP,
-          uint THREADS_IN_WARP,
-          uint THREADS_IN_WARP_LOG_2,
-          uint TILE_DIM,
+template <uint WARPS_PER_BLOCK, uint THREADBLOCK_SIZE, uint ROW_TILES_PER_STEP,
+          uint COL_TILES_PER_STEP, uint THREADS_IN_WARP, uint THREADS_IN_WARP_LOG_2, uint TILE_DIM,
           uint TILE_DIM_LOG_2>
-__launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernel(const __half *__restrict upstream_grad,
-                                                                              half __restrict *bottom_mlp_grad,
-                                                                              half __restrict *emb_grad,
-                                                                              uint batch_size,
-                                                                              uint num_rows,
-                                                                              uint num_cols,
-                                                                              uint num_rows_after_padding,
-                                                                              uint num_cols_after_padding,
-                                                                              uint sample_size,
-                                                                              uint interaction_ugrad_size,
-                                                                              uint interaction_ugrad_size_with_padding,
-                                                                              uint interaction_ugrad_2D_size_elems,
-                                                                              uint interaction_ugrad_2D_stride,
-                                                                              uint input_size_elems,
-                                                                              uint input_stride,
-                                                                              uint num_row_steps,
-                                                                              uint num_col_steps,
-                                                                              uint row_tiles_per_step,
-                                                                              uint shared_mem_per_warp_size_byte) {
+__launch_bounds__(THREADBLOCK_SIZE) __global__
+    void dotBasedInteractBwdKernel(const __half *__restrict upstream_grad,
+                                   half __restrict *bottom_mlp_grad, half __restrict *emb_grad,
+                                   uint batch_size, uint num_rows, uint num_cols,
+                                   uint num_rows_after_padding, uint num_cols_after_padding,
+                                   uint sample_size, uint interaction_ugrad_size,
+                                   uint interaction_ugrad_size_with_padding,
+                                   uint interaction_ugrad_2D_size_elems,
+                                   uint interaction_ugrad_2D_stride, uint input_size_elems,
+                                   uint input_stride, uint num_row_steps, uint num_col_steps,
+                                   uint row_tiles_per_step, uint shared_mem_per_warp_size_byte) {
   extern __shared__ half shared_mem[];
   uint warp_id = (threadIdx.x >> THREADS_IN_WARP_LOG_2);
   uint sample_id = blockIdx.x * WARPS_PER_BLOCK + warp_id;
@@ -550,7 +496,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernel(co
       half *smem_row_ptr = &smem_in[row * input_stride];
       // const half *gmem_row_ptr = &gmem_input[row * num_cols];
       const half *gmem_row_ptr =
-          (row == 0)? gmem_bottom_mlp_input : &gmem_emb_input[(row - 1) * num_cols];
+          (row == 0) ? gmem_bottom_mlp_input : &gmem_emb_input[(row - 1) * num_cols];
       ((float2 *)smem_row_ptr)[lane_id] = ((float2 *)gmem_row_ptr)[lane_id];
     }
   }
@@ -577,8 +523,8 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernel(co
   }
   __syncwarp();
 
-  wmma::fragment<wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major> a[ROW_TILES_PER_STEP]
-                                                                                       [ROW_TILES_PER_STEP];
+  wmma::fragment<wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major>
+      a[ROW_TILES_PER_STEP][ROW_TILES_PER_STEP];
   for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
     for (uint j = 0; j < ROW_TILES_PER_STEP; j++) {
       const half *tile_ptr = smem_temp + ((i * interaction_ugrad_2D_stride + j) << TILE_DIM_LOG_2);
@@ -587,7 +533,8 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernel(co
   }
 
   wmma::fragment<wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[ROW_TILES_PER_STEP];
-  wmma::fragment<wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major> b[ROW_TILES_PER_STEP];
+  wmma::fragment<wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major>
+      b[ROW_TILES_PER_STEP];
   for (int col_step = 0; col_step < num_col_steps; col_step++) {
     for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
       const half *tile_ptr = smem_in + ((i * input_stride + col_step) << TILE_DIM_LOG_2);
@@ -608,20 +555,21 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernel(co
     uint gmem_grad_col = gmem_grad_col_base + lane_id;
     if (gmem_grad_col < num_cols) {
       if (lane_id < 8) {
-      ((__half2 *)(gmem_bottom_mlp_grad + gmem_grad_col_base))[lane_id] =
-              __hadd2(__float22half2_rn(((float2 *)smem_out)[lane_id]),
-                      ((__half2 *)(gmem_ugrad + gmem_grad_col_base))[lane_id]);
+        ((__half2 *)(gmem_bottom_mlp_grad + gmem_grad_col_base))[lane_id] =
+            __hadd2(__float22half2_rn(((float2 *)smem_out)[lane_id]),
+                    ((__half2 *)(gmem_ugrad + gmem_grad_col_base))[lane_id]);
       }
       for (uint i = 0; i < num_rows - 1; i++) {
-        half val = __float2half(smem_out[((i+1) << TILE_DIM_LOG_2) + lane_id]);
+        half val = __float2half(smem_out[((i + 1) << TILE_DIM_LOG_2) + lane_id]);
         gmem_emb_grad[i * num_cols + gmem_grad_col] = val;
       }
     }
   }
 }
 
-inline void dotBasedInteractFwd(
-    const void *bottom_mlp_input, const void *emb_input, void *output, uint batch_size, uint num_rows, uint num_cols, cudaStream_t stream) {
+inline void dotBasedInteractFwd(const void *bottom_mlp_input, const void *emb_input, void *output,
+                                uint batch_size, uint num_rows, uint num_cols,
+                                cudaStream_t stream) {
   const uint kWarpSize = 32;
   const uint kWarpSizeLog2 = Log2<kWarpSize>::value;
   const uint kTileDim = 16;
@@ -647,79 +595,43 @@ inline void dotBasedInteractFwd(
   const uint M_BLOCKS = 2;
   const uint SKEW_HALF = ((K_BLOCKS % 2) == 0) ? 8 : 0;
   const uint SMEM_STRIDE = (K_BLOCKS * 16 + SKEW_HALF);
-  // multiple of 2 to guarantee 256-bit alignment for start of the row, at least 16 to safeload a tile
+  // multiple of 2 to guarantee 256-bit alignment for start of the row, at least 16 to safeload a
+  // tile
   const uint smem_rows_per_warp = M_BLOCKS << 4;
   const uint smem_elems_per_warp_mat = smem_rows_per_warp * SMEM_STRIDE;
   const uint SKEW_HALF_ACC = ((M_BLOCKS % 2) == 0) ? 8 : 0;
   const uint SMEM_STRIDE_ACC = (M_BLOCKS * 16 + SKEW_HALF_ACC);
   const uint smem_elems_per_warp_acc = M_BLOCKS * 16 * SMEM_STRIDE_ACC * 2;  // output in FP32
-  const uint smem_elems_per_warp =
-      (smem_elems_per_warp_mat > smem_elems_per_warp_acc) ? smem_elems_per_warp_mat : smem_elems_per_warp_acc;
+  const uint smem_elems_per_warp = (smem_elems_per_warp_mat > smem_elems_per_warp_acc)
+                                       ? smem_elems_per_warp_mat
+                                       : smem_elems_per_warp_acc;
   uint output_size = num_cols + (num_rows * (num_rows - 1) >> 1) + kPaddingSize;
 
   bool float4_predicate = !((num_cols & 7) || (output_size & 7));
 
   if (float4_predicate) {
-    dotBasedInteractFwdKernel<warps_per_threadblock,
-                              threadblock_size,
-                              M_BLOCKS,
-                              K_BLOCKS,
-                              SMEM_STRIDE,
-                              SMEM_STRIDE_ACC,
-                              kWarpSize,
-                              kWarpSizeLog2,
-                              kTileDim,
+    dotBasedInteractFwdKernel<warps_per_threadblock, threadblock_size, M_BLOCKS, K_BLOCKS,
+                              SMEM_STRIDE, SMEM_STRIDE_ACC, kWarpSize, kWarpSizeLog2, kTileDim,
                               kTileDimLog2>
-        <<<(batch_size + warps_per_threadblock - 1) / warps_per_threadblock,
-           threadblock_size,
-           warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>((const __half *)bottom_mlp_input,
-                                                                                   (const __half *)emb_input,
-                                                                                   (half *)output,
-                                                                                   batch_size,
-                                                                                   num_rows,
-                                                                                   num_cols,
-                                                                                   num_rows_after_padding,
-                                                                                   num_cols_after_padding,
-                                                                                   smem_elems_per_warp,
-                                                                                   smem_rows_per_warp,
-                                                                                   output_size,
-                                                                                   num_row_steps,
-                                                                                   num_col_steps);
+        <<<(batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
+           warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
+            (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
+            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
+            smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
   } else {
-    dotBasedInteractFwdKernelNonAligned<warps_per_threadblock,
-                                        threadblock_size,
-                                        M_BLOCKS,
-                                        K_BLOCKS,
-                                        SMEM_STRIDE,
-                                        SMEM_STRIDE_ACC,
-                                        kWarpSize,
-                                        kWarpSizeLog2,
-                                        kTileDim,
-                                        kTileDimLog2>
-        <<<(batch_size + warps_per_threadblock - 1) / warps_per_threadblock,
-           threadblock_size,
-           warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>((const __half *)bottom_mlp_input,
-                                                                                   (const __half *)emb_input,
-                                                                                   (half *)output,
-                                                                                   batch_size,
-                                                                                   num_rows,
-                                                                                   num_cols,
-                                                                                   num_rows_after_padding,
-                                                                                   num_cols_after_padding,
-                                                                                   smem_elems_per_warp,
-                                                                                   smem_rows_per_warp,
-                                                                                   output_size,
-                                                                                   num_row_steps,
-                                                                                   num_col_steps);
+    dotBasedInteractFwdKernelNonAligned<warps_per_threadblock, threadblock_size, M_BLOCKS, K_BLOCKS,
+                                        SMEM_STRIDE, SMEM_STRIDE_ACC, kWarpSize, kWarpSizeLog2,
+                                        kTileDim, kTileDimLog2>
+        <<<(batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
+           warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
+            (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
+            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
+            smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
   }
 }
 
-inline void dotBasedInteractBwd(void *upstream_grad,
-                                void *bottom_mlp_grad,
-                                void *emb_grad,
-                                uint batch_size,
-                                uint num_rows,
-                                uint num_cols,
+inline void dotBasedInteractBwd(void *upstream_grad, void *bottom_mlp_grad, void *emb_grad,
+                                uint batch_size, uint num_rows, uint num_cols,
                                 cudaStream_t stream) {
   const uint kWarpSize = 32;
   const uint kWarpSizeLog2 = Log2<kWarpSize>::value;
@@ -765,95 +677,58 @@ inline void dotBasedInteractBwd(void *upstream_grad,
   uint output_size_bytes = output_size_elems * sizeof(float);
 
   // staging area size
-  uint staging_area_size_bytes =
-      output_size_bytes > interaction_ugrad_2D_size_bytes ? output_size_bytes : interaction_ugrad_2D_size_bytes;
+  uint staging_area_size_bytes = output_size_bytes > interaction_ugrad_2D_size_bytes
+                                     ? output_size_bytes
+                                     : interaction_ugrad_2D_size_bytes;
 
   // Shared memory size
   uint shared_mem_per_warp_size_byte = input_size_bytes + staging_area_size_bytes;
   uint shared_mem_size_bytes = kWarpsPerBlock * shared_mem_per_warp_size_byte;
 
   uint num_blocks = (batch_size + kWarpsPerBlock - 1) >> kWarpsPerBlockLog2;
-  uint num_row_steps = num_row_tiles / row_tiles_per_step; 
+  uint num_row_steps = num_row_tiles / row_tiles_per_step;
   uint num_col_steps = num_col_tiles / kColTilesPerStep;
 
   bool float4_predicate = !((interaction_ugrad_size_with_padding & 7) || (num_cols & 7));
   if (float4_predicate) {
-    dotBasedInteractBwdKernel<kWarpsPerBlock,
-                              kNumThreads,
-                              kRowTilesPerStep,
-                              kColTilesPerStep,
-                              kWarpSize,
-                              kWarpSizeLog2,
-                              kTileDim,
-                              kTileDimLog2>
-        <<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>((const half *)upstream_grad,
-                                                                     (half *)bottom_mlp_grad,
-                                                                     (half *)emb_grad,
-                                                                     batch_size,
-                                                                     num_rows,
-                                                                     num_cols,
-                                                                     num_rows_after_padding,
-                                                                     num_cols_after_padding,
-                                                                     sample_size,
-                                                                     interaction_ugrad_size,
-                                                                     interaction_ugrad_size_with_padding,
-                                                                     interaction_ugrad_2D_size_elems,
-                                                                     interaction_ugrad_2D_stride,
-                                                                     input_size_elems,
-                                                                     input_stride,
-                                                                     num_row_steps,
-                                                                     num_col_steps,
-                                                                     row_tiles_per_step,
-                                                                     shared_mem_per_warp_size_byte);
+    dotBasedInteractBwdKernel<kWarpsPerBlock, kNumThreads, kRowTilesPerStep, kColTilesPerStep,
+                              kWarpSize, kWarpSizeLog2, kTileDim, kTileDimLog2>
+        <<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
+            (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
+            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
+            interaction_ugrad_size, interaction_ugrad_size_with_padding,
+            interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
+            input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
+            shared_mem_per_warp_size_byte);
   } else {
-    dotBasedInteractBwdKernelNonAligned<kWarpsPerBlock,
-                                        kNumThreads,
-                                        kRowTilesPerStep,
-                                        kColTilesPerStep,
-                                        kWarpSize,
-                                        kWarpSizeLog2,
-                                        kTileDim,
+    dotBasedInteractBwdKernelNonAligned<kWarpsPerBlock, kNumThreads, kRowTilesPerStep,
+                                        kColTilesPerStep, kWarpSize, kWarpSizeLog2, kTileDim,
                                         kTileDimLog2>
-        <<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>((const half *)upstream_grad,
-                                                                     (half *)bottom_mlp_grad,
-                                                                     (half *)emb_grad,
-                                                                     batch_size,
-                                                                     num_rows,
-                                                                     num_cols,
-                                                                     num_rows_after_padding,
-                                                                     num_cols_after_padding,
-                                                                     sample_size,
-                                                                     interaction_ugrad_size,
-                                                                     interaction_ugrad_size_with_padding,
-                                                                     interaction_ugrad_2D_size_elems,
-                                                                     interaction_ugrad_2D_stride,
-                                                                     input_size_elems,
-                                                                     input_stride,
-                                                                     num_row_steps,
-                                                                     num_col_steps,
-                                                                     row_tiles_per_step,
-                                                                     shared_mem_per_warp_size_byte);
+        <<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
+            (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
+            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
+            interaction_ugrad_size, interaction_ugrad_size_with_padding,
+            interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
+            input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
+            shared_mem_per_warp_size_byte);
   }
 }
 
 template <typename T>
-__global__ void concat_kernel(bool forward,
-                              T* out, T* in_mlp, T* in_emb,
-                              const int h, const int out_w,
-                              const int in_w, const int n_emb) {
+__global__ void concat_kernel(bool forward, T *out, T *in_mlp, T *in_emb, const int h,
+                              const int out_w, const int in_w, const int n_emb) {
   const int n_ins = 1 + n_emb;
   if (blockIdx.x < n_ins) {
-    T* in = (blockIdx.x == 0)? in_mlp : in_emb + (blockIdx.x - 1) * in_w;
+    T *in = (blockIdx.x == 0) ? in_mlp : in_emb + (blockIdx.x - 1) * in_w;
     for (int bid = blockIdx.y; bid < h; bid += gridDim.y) {
-      int in_idx_base = (blockIdx.x == 0)? bid * in_w : bid * in_w * n_emb;
+      int in_idx_base = (blockIdx.x == 0) ? bid * in_w : bid * in_w * n_emb;
       for (int tid = threadIdx.x; tid < in_w; tid += blockDim.x) {
         int in_idx = in_idx_base + tid;
         int out_idx = bid * out_w + blockIdx.x * in_w + tid;
         if (forward) {
           out[out_idx] = in[in_idx];
-        }
-        else {
-          in[in_idx] = (blockIdx.x == 0)? (in[in_idx] + out[out_idx]) : out[out_idx];
+        } else {
+          in[in_idx] = (blockIdx.x == 0) ? (in[in_idx] + out[out_idx]) : out[out_idx];
         }
       }
     }
@@ -861,14 +736,14 @@ __global__ void concat_kernel(bool forward,
 }
 
 template <typename T>
-__global__ void gather_concat_fprop_kernel(T* out, const T* in0, const T* mat,
-                                         const int h, const int n_ins, const int w) {
+__global__ void gather_concat_fprop_kernel(T *out, const T *in0, const T *mat, const int h,
+                                           const int n_ins, const int w) {
   extern __shared__ T s_buf[];
-  for(int bid = blockIdx.x; bid < h; bid += gridDim.x) {
+  for (int bid = blockIdx.x; bid < h; bid += gridDim.x) {
     int g_in_idx_base = bid * n_ins * n_ins;
-    for(int row = threadIdx.y; row < n_ins; row += blockDim.y) {
-      for(int col = threadIdx.x; col < n_ins; col += blockDim.x) {
-        if(col > row) {
+    for (int row = threadIdx.y; row < n_ins; row += blockDim.y) {
+      for (int col = threadIdx.x; col < n_ins; col += blockDim.x) {
+        if (col > row) {
           int idx_in_blk = row * n_ins + col;
           int g_in_idx = g_in_idx_base + idx_in_blk;
           int s_idx = (col * (col - 1) / 2) + row;
@@ -880,9 +755,9 @@ __global__ void gather_concat_fprop_kernel(T* out, const T* in0, const T* mat,
     int tid_base = threadIdx.y * blockDim.x + threadIdx.x;
     int out_len = w + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
     int g_out_idx_base = bid * out_len;
-    for(int tid = tid_base; tid < out_len - 1; tid += blockDim.y * blockDim.x) {
+    for (int tid = tid_base; tid < out_len - 1; tid += blockDim.y * blockDim.x) {
       int g_out_idx = g_out_idx_base + tid;
-      T value = (tid < w)? in0[bid * w + tid] : s_buf[tid - w];
+      T value = (tid < w) ? in0[bid * w + tid] : s_buf[tid - w];
       out[g_out_idx] = value;
     }
     __syncthreads();
@@ -890,20 +765,19 @@ __global__ void gather_concat_fprop_kernel(T* out, const T* in0, const T* mat,
 }
 
 template <typename T>
-__global__ void transpose_and_add(const T* src, T* dst,
-                                  const int h, const int n_ins) {
+__global__ void transpose_and_add(const T *src, T *dst, const int h, const int n_ins) {
   extern __shared__ T s_buf[];
-  for(int bid = blockIdx.z; bid < h; bid += gridDim.z) {
+  for (int bid = blockIdx.z; bid < h; bid += gridDim.z) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int gid = bid * n_ins * n_ins + y * n_ins + x;
     int sid_n = threadIdx.y * blockDim.x + threadIdx.x;
     int sid_t = threadIdx.x * blockDim.y + threadIdx.y;
-    if(x < n_ins && y < n_ins) {
+    if (x < n_ins && y < n_ins) {
       s_buf[sid_n] = src[gid];
     }
     __syncthreads();
-    if(x < n_ins && y < n_ins) {
+    if (x < n_ins && y < n_ins) {
       dst[gid] = s_buf[sid_n] + s_buf[sid_t];
     }
     __syncthreads();
@@ -911,32 +785,31 @@ __global__ void transpose_and_add(const T* src, T* dst,
 }
 
 template <typename T>
-__global__ void gather_concat_bprop_kernel(const T* out, T* in0, T* mat,
-                                           const int h, const int n_ins, const int w) {
+__global__ void gather_concat_bprop_kernel(const T *out, T *in0, T *mat, const int h,
+                                           const int n_ins, const int w) {
   extern __shared__ T s_buf[];
-  for(int bid = blockIdx.x; bid < h; bid += gridDim.x) {
+  for (int bid = blockIdx.x; bid < h; bid += gridDim.x) {
     int tid_base = threadIdx.y * blockDim.x + threadIdx.x;
     int out_len = w + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
     int g_out_idx_base = bid * out_len;
-    for(int tid = tid_base; tid < out_len - 1; tid += blockDim.y * blockDim.x) {
+    for (int tid = tid_base; tid < out_len - 1; tid += blockDim.y * blockDim.x) {
       int g_out_idx = g_out_idx_base + tid;
       T val = out[g_out_idx];
-      if(tid < w) {
+      if (tid < w) {
         in0[bid * w + tid] = val;
-      }
-      else {
+      } else {
         s_buf[tid - w] = val;
       }
     }
     __syncthreads();
 
     int g_in_idx_base = bid * n_ins * n_ins;
-    for(int row = threadIdx.y; row < n_ins; row += blockDim.y) {
-      for(int col = threadIdx.x; col < n_ins; col += blockDim.x) {
+    for (int row = threadIdx.y; row < n_ins; row += blockDim.y) {
+      for (int col = threadIdx.x; col < n_ins; col += blockDim.x) {
         int idx_in_blk = row * n_ins + col;
         int g_in_idx = g_in_idx_base + idx_in_blk;
         int s_idx = (col * (col - 1) / 2) + row;
-        mat[g_in_idx] = (col > row)? s_buf[s_idx] : T(0);
+        mat[g_in_idx] = (col > row) ? s_buf[s_idx] : T(0);
       }
     }
     __syncthreads();
@@ -947,12 +820,11 @@ __global__ void gather_concat_bprop_kernel(const T* out, T* in0, T* mat,
 
 template <typename T>
 InteractionLayer<T>::InteractionLayer(std::shared_ptr<Tensor<T>> in_bottom_mlp_tensor,
-        std::shared_ptr<Tensor<T>> in_embeddings,
-        std::shared_ptr<Tensor<T>>& out_tensor,
-        const std::shared_ptr<GeneralBuffer<T>>& blobs_buff,
-        cublasHandle_t cublas_handle,
-        bool use_mixed_precision,
-        int device_id)
+                                      std::shared_ptr<Tensor<T>> in_embeddings,
+                                      std::shared_ptr<Tensor<T>> &out_tensor,
+                                      const std::shared_ptr<GeneralBuffer<T>> &blobs_buff,
+                                      cublasHandle_t cublas_handle, bool use_mixed_precision,
+                                      int device_id)
     : cublas_handle_(cublas_handle),
       use_mixed_precision_(use_mixed_precision),
       n_sms_(0),
@@ -997,9 +869,7 @@ InteractionLayer<T>::InteractionLayer(std::shared_ptr<Tensor<T>> in_bottom_mlp_t
     }
 
     int concat_len = n_ins * (n_ins + 1) / 2 - n_ins;
-    std::vector<size_t> out_dims = {
-      first_in_dims[0],
-      first_in_dims[1] + concat_len + 1};
+    std::vector<size_t> out_dims = {first_in_dims[0], first_in_dims[1] + concat_len + 1};
     out_tensor.reset(new Tensor<T>(out_dims, blobs_buff, format));
 
     in_tensors_.emplace_back(in_bottom_mlp_tensor);
@@ -1010,14 +880,14 @@ InteractionLayer<T>::InteractionLayer(std::shared_ptr<Tensor<T>> in_bottom_mlp_t
     CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device));
     assert(n_sms_ > 0);
 
-  } catch (const std::runtime_error& rt_err) {
+  } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
 }
 
 template <typename T>
-InteractionLayer<T>::~InteractionLayer() {};
+InteractionLayer<T>::~InteractionLayer(){};
 
 template <typename T>
 void InteractionLayer<T>::fprop(cudaStream_t stream) {
@@ -1025,9 +895,9 @@ void InteractionLayer<T>::fprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   // phase 0: concat
-  T* concat = internal_tensors_[0]->get_ptr();
-  T* in_mlp = in_tensors_[0]->get_ptr();
-  T* in_emb = in_tensors_[1]->get_ptr();
+  T *concat = internal_tensors_[0]->get_ptr();
+  T *in_mlp = in_tensors_[0]->get_ptr();
+  T *in_emb = in_tensors_[1]->get_ptr();
   const int h = internal_tensors_[0]->get_dims()[0];
   const int out_w = internal_tensors_[0]->get_dims()[1];
   const int in_w = in_tensors_[0]->get_dims()[1];
@@ -1035,14 +905,12 @@ void InteractionLayer<T>::fprop(cudaStream_t stream) {
   const int n_ins = 1 + n_emb;
 
   dim3 grid0(n_ins, n_sms_, 1);
-  dim3 block0(((in_w <= 128)? 128 : ((in_w <= 256)? 256 : 512)), 1, 1);
-  concat_kernel<<<grid0, block0, 0, stream>>>(true, concat, in_mlp, in_emb,
-                                              h, out_w,
-                                              in_w, n_emb);
+  dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
+  concat_kernel<<<grid0, block0, 0, stream>>>(true, concat, in_mlp, in_emb, h, out_w, in_w, n_emb);
 
   // phase 1: matmul
   const int batch_count = h;
-  T* mat = internal_tensors_[1]->get_ptr();
+  T *mat = internal_tensors_[1]->get_ptr();
   const int m = n_ins;
   const int n = n_ins;
   const int k = in_w;
@@ -1056,42 +924,23 @@ void InteractionLayer<T>::fprop(cudaStream_t stream) {
   cudaDataType_t c_type = CUDA_R_32F;
   cudaDataType_t compute_type = CUDA_R_32F;
 
-  cublasGemmAlgo_t algo = use_mixed_precision_? 
-    CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
+  cublasGemmAlgo_t algo =
+      use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
 
-  CK_CUBLAS_THROW_(cublasGemmStridedBatchedEx(cublas_handle_,
-                                              CUBLAS_OP_T,
-                                              CUBLAS_OP_N,
-                                              m, n, k,
-                                              &alpha,
-                                              concat,
-                                              a_type,
-                                              k,
-                                              stride_a,
-                                              concat,
-                                              b_type,
-                                              k,
-                                              stride_b,
-                                              &beta,
-                                              mat,
-                                              c_type,
-                                              n,
-                                              stride_c,
-                                              batch_count,
-                                              compute_type,
-                                              algo));
-
-
+  CK_CUBLAS_THROW_(cublasGemmStridedBatchedEx(cublas_handle_, CUBLAS_OP_T, CUBLAS_OP_N, m, n, k,
+                                              &alpha, concat, a_type, k, stride_a, concat, b_type,
+                                              k, stride_b, &beta, mat, c_type, n, stride_c,
+                                              batch_count, compute_type, algo));
 
   // phase 2: gather & concat
-  T* in0 = in_tensors_[0]->get_ptr();
-  T* gather = out_tensors_[0]->get_ptr();
+  T *in0 = in_tensors_[0]->get_ptr();
+  T *gather = out_tensors_[0]->get_ptr();
 
   dim3 grid1(n_sms_ * 8, 1, 1);
   dim3 block1(16, 16, 1);
   size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-  gather_concat_fprop_kernel<<<grid1, block1, smem_size, stream>>>(gather, in0, mat,
-                                                                   h, n_ins, in_w);
+  gather_concat_fprop_kernel<<<grid1, block1, smem_size, stream>>>(gather, in0, mat, h, n_ins,
+                                                                   in_w);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -1105,9 +954,9 @@ void InteractionLayer<__half>::fprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   // __half* concat = internal_tensors_[0]->get_ptr();
-  __half* in_mlp = in_tensors_[0]->get_ptr();
-  __half* in_emb = in_tensors_[1]->get_ptr();
-  __half* output = out_tensors_[0]->get_ptr();
+  __half *in_mlp = in_tensors_[0]->get_ptr();
+  __half *in_emb = in_tensors_[1]->get_ptr();
+  __half *output = out_tensors_[0]->get_ptr();
   const int h = in_tensors_[0]->get_dims()[0];
   // const int out_w = internal_tensors_[0]->get_dims()[1];
   const int in_w = in_tensors_[0]->get_dims()[1];
@@ -1120,13 +969,7 @@ void InteractionLayer<__half>::fprop(cudaStream_t stream) {
   //                                             h, out_w,
   //                                             in_w, n_emb);
 
-  dotBasedInteractFwd(in_mlp,
-                      in_emb,
-                      output,
-                      h,
-                      n_ins,
-                      in_w,
-                      stream);
+  dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, stream);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -1140,9 +983,9 @@ void InteractionLayer<T>::bprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   // phase 0:
-  T* gather = out_tensors_[0]->get_ptr();
-  T* in0 = in_tensors_[0]->get_ptr();
-  T* mat = internal_tensors_[1]->get_ptr();
+  T *gather = out_tensors_[0]->get_ptr();
+  T *in0 = in_tensors_[0]->get_ptr();
+  T *mat = internal_tensors_[1]->get_ptr();
   const int h = internal_tensors_[0]->get_dims()[0];
   const int n_ins = 1 + in_tensors_[1]->get_dims()[1];
   const int in_w = in_tensors_[0]->get_dims()[1];
@@ -1150,13 +993,13 @@ void InteractionLayer<T>::bprop(cudaStream_t stream) {
   dim3 grid1(n_sms_ * 8, 1, 1);
   dim3 block1(16, 16, 1);
   size_t smem_size = sizeof(T) * (n_ins * (n_ins + 1) / 2 - n_ins);
-  gather_concat_bprop_kernel<<<grid1, block1, smem_size, stream>>>(gather, in0, mat,
-                                                                   h, n_ins, in_w);
+  gather_concat_bprop_kernel<<<grid1, block1, smem_size, stream>>>(gather, in0, mat, h, n_ins,
+                                                                   in_w);
 
   // phase 1:
   const int batch_count = h;
-  T* concat = internal_tensors_[0]->get_ptr();
-  T* concat_tmp = internal_tensors_[2]->get_ptr();
+  T *concat = internal_tensors_[0]->get_ptr();
+  T *concat_tmp = internal_tensors_[2]->get_ptr();
   const int m = n_ins;
   const int n = in_w;
   const int k = n_ins;
@@ -1170,9 +1013,8 @@ void InteractionLayer<T>::bprop(cudaStream_t stream) {
   cudaDataType_t c_type = CUDA_R_32F;
   cudaDataType_t compute_type = CUDA_R_32F;
 
-  cublasGemmAlgo_t algo = use_mixed_precision_? 
-    CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
-
+  cublasGemmAlgo_t algo =
+      use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
 
   // mat = mat + T(mat)
   {
@@ -1182,40 +1024,21 @@ void InteractionLayer<T>::bprop(cudaStream_t stream) {
     transpose_and_add<<<grid, block, smem_size, stream>>>(mat, mat, h, n_ins);
   }
 
-  CK_CUBLAS_THROW_(cublasGemmStridedBatchedEx(cublas_handle_,
-                                              CUBLAS_OP_N,
-                                              CUBLAS_OP_N,
-                                              n, m, k,
-                                              &alpha,
-                                              concat,
-                                              a_type,
-                                              n,
-                                              stride_a,
-                                              mat,
-                                              b_type,
-                                              k,
-                                              stride_b,
-                                              &beta,
-                                              concat_tmp,
-                                              c_type,
-                                              n,
-                                              stride_c,
-                                              batch_count,
-                                              compute_type,
-                                              algo));
+  CK_CUBLAS_THROW_(cublasGemmStridedBatchedEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+                                              &alpha, concat, a_type, n, stride_a, mat, b_type, k,
+                                              stride_b, &beta, concat_tmp, c_type, n, stride_c,
+                                              batch_count, compute_type, algo));
 
   // phase 2:
-  T* in_mlp = in_tensors_[0]->get_ptr();
-  T* in_emb = in_tensors_[1]->get_ptr();
+  T *in_mlp = in_tensors_[0]->get_ptr();
+  T *in_emb = in_tensors_[1]->get_ptr();
   const int out_w = internal_tensors_[0]->get_dims()[1];
   const int n_emb = in_tensors_[1]->get_dims()[1];
 
   dim3 grid0(n_ins, n_sms_, 1);
-  dim3 block0(((in_w <= 128)? 128 : ((in_w <= 256)? 256 : 512)), 1, 1);
-  concat_kernel<<<grid0, block0, 0, stream>>>(false, concat_tmp, in_mlp, in_emb,
-                                              h, out_w,
-                                              in_w, n_emb);
-
+  dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
+  concat_kernel<<<grid0, block0, 0, stream>>>(false, concat_tmp, in_mlp, in_emb, h, out_w, in_w,
+                                              n_emb);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -1228,9 +1051,9 @@ void InteractionLayer<__half>::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
-  __half* up_grad = out_tensors_[0]->get_ptr();
-  __half* mlp_grad = in_tensors_[0]->get_ptr();
-  __half* emb_grad = in_tensors_[1]->get_ptr();
+  __half *up_grad = out_tensors_[0]->get_ptr();
+  __half *mlp_grad = in_tensors_[0]->get_ptr();
+  __half *emb_grad = in_tensors_[1]->get_ptr();
   // __half* out_grad  = internal_tensors_[2]->get_ptr();
   const int h = in_tensors_[0]->get_dims()[0];
   const int n_emb = in_tensors_[1]->get_dims()[1];
@@ -1238,13 +1061,7 @@ void InteractionLayer<__half>::bprop(cudaStream_t stream) {
   const int in_w = in_tensors_[0]->get_dims()[1];
   // const int out_w = internal_tensors_[0]->get_dims()[1];
 
-  dotBasedInteractBwd(up_grad,
-                      mlp_grad,
-                      emb_grad,
-                      h,
-                      n_ins,
-                      in_w,
-                      stream);
+  dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, stream);
 
   // dim3 grid0(n_ins, n_sms_, 1);
   // dim3 block0(((in_w <= 128)? 128 : ((in_w <= 256)? 256 : 512)), 1, 1);

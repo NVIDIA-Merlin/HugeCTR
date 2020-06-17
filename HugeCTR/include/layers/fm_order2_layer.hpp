@@ -28,7 +28,6 @@ namespace HugeCTR {
  * https://github.com/ChenglongChen/tensorflow-DeepFM/blob/master/DeepFM.py).
  */
 class FmOrder2Layer : public Layer {
-
   /*
    * stores the weight tensors of this layer.
    */
@@ -45,7 +44,6 @@ class FmOrder2Layer : public Layer {
    * stores the references to the output tensors of this layer.
    */
   std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
-
 
  public:
   /**

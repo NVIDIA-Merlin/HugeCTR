@@ -29,7 +29,6 @@ namespace HugeCTR {
  * [0:40) and (50:90). It is possible those ranges overlap, e.g., [0:100) and [50:200).
  */
 class SliceLayer : public Layer {
-
   /*
    * stores the weight tensors of this layer.
    */

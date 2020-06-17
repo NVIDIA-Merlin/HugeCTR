@@ -240,7 +240,6 @@ const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},
     {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot}};
 
-
 /*
  * Create single network
  *
@@ -269,8 +268,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
     const nlohmann::json& j = j_array[i];
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
     Layer_t layer_type;
-    
-    const auto& layer_map = use_mixed_precision? LAYER_TYPE_MAP_MP: LAYER_TYPE_MAP;
+
+    const auto& layer_map = use_mixed_precision ? LAYER_TYPE_MAP_MP : LAYER_TYPE_MAP;
 
     if (!find_item_in_map(layer_type, layer_type_name, layer_map)) {
       Embedding_t embedding_type;
@@ -279,7 +278,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
       continue;
     }
-    
 
     std::vector<TensorPair> output_tensor_pairs;
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_list);
@@ -708,8 +706,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
     case Optimizer_t::SGD: {
       auto learning_rate = opt_param.lr;
       if (use_mixed_precision) {
-        network->optimizer_.reset(
-	  new SgdOptimizerHalf(weight_buff, wgrad_buff_half, weight_buff_half, device_id, learning_rate, scaler));
+        network->optimizer_.reset(new SgdOptimizerHalf(
+            weight_buff, wgrad_buff_half, weight_buff_half, device_id, learning_rate, scaler));
       } else {
         network->optimizer_.reset(
             new SgdOptimizer(weight_buff, wgrad_buff, device_id, learning_rate, scaler));
@@ -739,12 +737,13 @@ template <typename TypeKey>
 static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_reader,
                                      std::unique_ptr<DataReader<TypeKey>>& data_reader_eval,
                                      std::vector<std::unique_ptr<IEmbedding>>& embedding,
-				     std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                                     std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                                      std::vector<std::unique_ptr<Network>>& network,
-				     std::vector<std::unique_ptr<Network>>& network_eval,
+                                     std::vector<std::unique_ptr<Network>>& network_eval,
                                      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-				     nlohmann::json config, size_t batch_size, size_t batch_size_eval,
-                                     bool use_mixed_precision, float scaler) {
+                                     nlohmann::json config, size_t batch_size,
+                                     size_t batch_size_eval, bool use_mixed_precision,
+                                     float scaler) {
   try {
     int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
@@ -782,7 +781,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           }
         }
 
-	auto cache_eval_data = get_value_from_json_soft<bool>(j, "cache_eval_data", false);
+        auto cache_eval_data = get_value_from_json_soft<bool>(j, "cache_eval_data", false);
 
         std::string source_data = get_value_from_json<std::string>(j, "source");
 
@@ -849,17 +848,17 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #endif
 
 #ifdef VAL
-            data_reader_eval.reset(new DataReader<TypeKey>(eval_source, batch_size_eval, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 1));
+            data_reader_eval.reset(new DataReader<TypeKey>(
+                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
+                data_reader_sparse_param_array, gpu_resource_group, 1));
 #else
-            data_reader_eval.reset(new DataReader<TypeKey>(eval_source, batch_size_eval, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group));
+            data_reader_eval.reset(new DataReader<TypeKey>(
+                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
+                data_reader_sparse_param_array, gpu_resource_group));
 
-#endif	      
+#endif
 
-	    //            }
+            //            }
 
             break;
           }
@@ -894,23 +893,23 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
 #endif
 
-	    //            if (eval_source.empty() == false) {
-              // data_reader_eval.reset(
-              //     data_reader->clone_eval_with_shared_output(eval_source, eval_num_samples));
+            //            if (eval_source.empty() == false) {
+            // data_reader_eval.reset(
+            //     data_reader->clone_eval_with_shared_output(eval_source, eval_num_samples));
 #ifdef VAL
-            data_reader_eval.reset(new DataReader<TypeKey>(eval_source, batch_size_eval, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 1, format, eval_num_samples,
-					              slot_offset, cache_eval_data, false, false));
+            data_reader_eval.reset(new DataReader<TypeKey>(
+                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
+                data_reader_sparse_param_array, gpu_resource_group, 1, format, eval_num_samples,
+                slot_offset, cache_eval_data, false, false));
 #else
-            data_reader_eval.reset(new DataReader<TypeKey>(eval_source, batch_size_eval, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 12, format, eval_num_samples,
-						      slot_offset, cache_eval_data, false, false));
+            data_reader_eval.reset(new DataReader<TypeKey>(
+                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
+                data_reader_sparse_param_array, gpu_resource_group, 12, format, eval_num_samples,
+                slot_offset, cache_eval_data, false, false));
 
 #endif
 
-	    //            }
+            //            }
 
             break;
           }
@@ -921,18 +920,17 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           tensor_maps[i].emplace(top_strs_label, (data_reader->get_label_tensors())[i]);
           tensor_maps[i].emplace(top_strs_dense, (data_reader->get_dense_tensors())[i]);
 
-	  //todo should be replaced to data_reader_eval then
+          // todo should be replaced to data_reader_eval then
           tensor_maps_eval[i].emplace(top_strs_label, (data_reader_eval->get_label_tensors())[i]);
           tensor_maps_eval[i].emplace(top_strs_dense, (data_reader_eval->get_dense_tensors())[i]);
-
         }
 
         for (unsigned int i = 0; i < j_sparse.size(); i++) {
           const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
           sparse_input->second.row = data_reader->get_row_offsets_tensors(i);
           sparse_input->second.value = data_reader->get_value_tensors(i);
-	  sparse_input->second.row_eval = data_reader_eval->get_row_offsets_tensors(i);
-	  sparse_input->second.value_eval = data_reader_eval->get_value_tensors(i);
+          sparse_input->second.row_eval = data_reader_eval->get_row_offsets_tensors(i);
+          sparse_input->second.value_eval = data_reader_eval->get_value_tensors(i);
         }
       }
 
@@ -945,7 +943,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           Embedding_t embedding_type;
           if (!find_item_in_map(embedding_type, embedding_name, EMBEDDING_TYPE_MAP)) {
             Layer_t layer_type;
-            if (!find_item_in_map(layer_type, embedding_name, LAYER_TYPE_MAP) && !find_item_in_map(layer_type, embedding_name, LAYER_TYPE_MAP_MP)) {
+            if (!find_item_in_map(layer_type, embedding_name, LAYER_TYPE_MAP) &&
+                !find_item_in_map(layer_type, embedding_name, LAYER_TYPE_MAP_MP)) {
               CK_THROW_(Error_t::WrongInput, "No such layer: " + embedding_name);
             }
             break;
@@ -986,11 +985,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     combiner,  // combiner: 0-sum, 1-mean
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_distributed_sparse_embedding_hash(
-                              sparse_input.row, sparse_input.value, embedding_params, gpu_resource_group);
+                    sparse_input.row, sparse_input.value, embedding_params, gpu_resource_group);
                 embedding.emplace_back(emb_ptr);
-                //todo:
-                embedding_eval.emplace_back(EmbeddingCreator::clone_eval( sparse_input.row_eval, 
-                    sparse_input.value_eval, batch_size_eval, gpu_resource_group, emb_ptr));
+                // todo:
+                embedding_eval.emplace_back(
+                    EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
+                                                 batch_size_eval, gpu_resource_group, emb_ptr));
 
                 break;
               }
@@ -1038,14 +1038,16 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     combiner,  // combiner: 0-sum, 1-mean
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_hash(
-                  sparse_input.row, sparse_input.value, embedding_params, plan_file, gpu_resource_group, slot_sizes);
+                    sparse_input.row, sparse_input.value, embedding_params, plan_file,
+                    gpu_resource_group, slot_sizes);
                 embedding.emplace_back(emb_ptr);
-                embedding_eval.emplace_back(EmbeddingCreator::clone_eval( sparse_input.row_eval, 
-                  sparse_input.value_eval, batch_size_eval, gpu_resource_group, emb_ptr));
+                embedding_eval.emplace_back(
+                    EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
+                                                 batch_size_eval, gpu_resource_group, emb_ptr));
 
                 break;
               }
-             case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
+              case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
                 auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 std::string plan_file = "";
                 std::vector<size_t> slot_sizes;
@@ -1067,17 +1069,20 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     combiner,  // combiner: 0-sum, 1-mean
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_one_hot(
-                  sparse_input.row, sparse_input.value, embedding_params, plan_file, gpu_resource_group, slot_sizes);
+                    sparse_input.row, sparse_input.value, embedding_params, plan_file,
+                    gpu_resource_group, slot_sizes);
                 embedding.emplace_back(emb_ptr);
-                embedding_eval.emplace_back(EmbeddingCreator::clone_eval( sparse_input.row_eval, 
-                  sparse_input.value_eval, batch_size_eval, gpu_resource_group, emb_ptr));
+                embedding_eval.emplace_back(
+                    EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
+                                                 batch_size_eval, gpu_resource_group, emb_ptr));
 
                 break;
               }
             }  // switch
             for (unsigned int i = 0; i < gpu_resource_group->size(); i++) {
               tensor_maps[i].emplace(top_name, (embedding.back()->get_output_tensors())[i]);
-	      tensor_maps_eval[i].emplace(top_name, (embedding_eval.back()->get_output_tensors())[i]);
+              tensor_maps_eval[i].emplace(top_name,
+                                          (embedding_eval.back()->get_output_tensors())[i]);
             }
 
           }  //	  if(use_mixed_precision)
@@ -1105,8 +1110,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                 auto emb_ptr = EmbeddingCreator::create_distributed_sparse_embedding_hash(
                     sparse_input.row, sparse_input.value, embedding_params, gpu_resource_group);
                 embedding.emplace_back(emb_ptr);
-                embedding_eval.emplace_back(EmbeddingCreator::clone_eval( sparse_input.row_eval, 
-                  sparse_input.value_eval, batch_size_eval, gpu_resource_group, emb_ptr));
+                embedding_eval.emplace_back(
+                    EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
+                                                 batch_size_eval, gpu_resource_group, emb_ptr));
 
                 break;
               }
@@ -1154,12 +1160,13 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     combiner,  // combiner: 0-sum, 1-mean
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_hash(
-                  sparse_input.row, sparse_input.value, embedding_params, plan_file,
-                  gpu_resource_group, slot_sizes);
+                    sparse_input.row, sparse_input.value, embedding_params, plan_file,
+                    gpu_resource_group, slot_sizes);
                 embedding.emplace_back(emb_ptr);
-                embedding_eval.emplace_back(EmbeddingCreator::clone_eval( sparse_input.row_eval, 
-                    sparse_input.value_eval, batch_size_eval, gpu_resource_group, emb_ptr));
-		
+                embedding_eval.emplace_back(
+                    EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
+                                                 batch_size_eval, gpu_resource_group, emb_ptr));
+
                 break;
               }
               case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
@@ -1184,21 +1191,23 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     combiner,  // combiner: 0-sum, 1-mean
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_one_hot(
-                  sparse_input.row, sparse_input.value, embedding_params, plan_file,
-                  gpu_resource_group, slot_sizes);
+                    sparse_input.row, sparse_input.value, embedding_params, plan_file,
+                    gpu_resource_group, slot_sizes);
                 embedding.emplace_back(emb_ptr);
-                embedding_eval.emplace_back(EmbeddingCreator::clone_eval( sparse_input.row_eval, 
-                    sparse_input.value_eval, batch_size_eval, gpu_resource_group, emb_ptr));
-		
+                embedding_eval.emplace_back(
+                    EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
+                                                 batch_size_eval, gpu_resource_group, emb_ptr));
+
                 break;
               }
             }  // switch
             for (unsigned int i = 0; i < gpu_resource_group->size(); i++) {
               tensor_maps[i].emplace(top_name, (embedding.back()->get_output_tensors())[i]);
 
-	      //should be replaced with embedding_eval then
-              //tensor_maps_eval[i].emplace(top_name, (embedding.back()->get_output_tensors())[i]);
-             tensor_maps_eval[i].emplace(top_name, (embedding_eval.back()->get_output_tensors())[i]);
+              // should be replaced with embedding_eval then
+              // tensor_maps_eval[i].emplace(top_name, (embedding.back()->get_output_tensors())[i]);
+              tensor_maps_eval[i].emplace(top_name,
+                                          (embedding_eval.back()->get_output_tensors())[i]);
             }
           }  //    if(!use_mixed_precision)
         }    // for ()
@@ -1215,13 +1224,14 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i], device_id,
                                             total_gpu_count, (*gpu_resource_group)[i],
                                             use_mixed_precision, scaler));
-        network_eval.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps_eval[i], device_id,
-						 total_gpu_count, (*gpu_resource_group)[i],
-						 use_mixed_precision, scaler));
-             if(use_mixed_precision) {
-	network_eval.back()->set_weight_half(network.back()->get_weight_half());
-             }
-	network_eval.back()->set_weight(network.back()->get_weight()); //to do: should be unnecessary
+        network_eval.emplace_back(
+            create_network(j_layers_array, j_optimizer, tensor_maps_eval[i], device_id,
+                           total_gpu_count, (*gpu_resource_group)[i], use_mixed_precision, scaler));
+        if (use_mixed_precision) {
+          network_eval.back()->set_weight_half(network.back()->get_weight_half());
+        }
+        network_eval.back()->set_weight(
+            network.back()->get_weight());  // to do: should be unnecessary
         i++;
       }
     }
@@ -1235,28 +1245,25 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                              std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
-			     std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                             std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                              std::vector<std::unique_ptr<Network>>& network,
-			     std::vector<std::unique_ptr<Network>>& network_eval,
+                             std::vector<std::unique_ptr<Network>>& network_eval,
                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
-  create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, embedding_eval, network, network_eval,
-                                   gpu_resource_group, config_, batch_size_, batch_size_eval_, use_mixed_precision_,
-                                   scaler_);
-
+  create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, embedding_eval,
+                                   network, network_eval, gpu_resource_group, config_, batch_size_,
+                                   batch_size_eval_, use_mixed_precision_, scaler_);
 }
 
 void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                              std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
-			     std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                             std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                              std::vector<std::unique_ptr<Network>>& network,
-			     std::vector<std::unique_ptr<Network>>& network_eval,
+                             std::vector<std::unique_ptr<Network>>& network_eval,
                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
-  create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, embedding_eval, network, network_eval,
-                                   gpu_resource_group, config_, batch_size_, batch_size_eval_, use_mixed_precision_,
-                                   scaler_);
-
+  create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, embedding_eval,
+                                   network, network_eval, gpu_resource_group, config_, batch_size_,
+                                   batch_size_eval_, use_mixed_precision_, scaler_);
 }
-
 
 }  // namespace HugeCTR

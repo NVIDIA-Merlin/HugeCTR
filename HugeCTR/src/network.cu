@@ -34,7 +34,9 @@ Network::Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_re
       gpu_resource_(gpu_resource),
       device_id_(device_id),
       full_fp16_(full_fp16),
-      eval_graph_created_(false) {
+      eval_graph_created_(false),
+      train_fprop_graph_created_(false),
+      train_bprop_graph_created_(false) {
   CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device_id));
   return;
 }
@@ -70,14 +72,36 @@ void Network::train() {
     conv_weight_();
     first_iter_ = false;
   }
-  for (auto& layer : layers_) {
-    layer->fprop(gpu_resource_->get_stream());
+
+  if (!train_fprop_graph_created_) {
+    CK_CUDA_THROW_(
+        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+
+    for (auto& layer : layers_) {
+      layer->fprop(gpu_resource_->get_stream());
+    }
+    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_fprop_graph_));
+    CK_CUDA_THROW_(cudaGraphInstantiate(&train_fprop_instance_, train_fprop_graph_, NULL, NULL, 0));
+    train_fprop_graph_created_ = true;
   }
+  CK_CUDA_THROW_(cudaGraphLaunch(train_fprop_instance_, gpu_resource_->get_stream()));
+
   loss_->compute(true, gpu_resource_->get_stream());
-  // backward
-  for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
-    (*it)->bprop(gpu_resource_->get_stream());
+
+  if (!train_bprop_graph_created_) {
+    CK_CUDA_THROW_(
+        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+
+    // backward
+    for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
+      (*it)->bprop(gpu_resource_->get_stream());
+    }
+    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_bprop_graph_));
+    CK_CUDA_THROW_(cudaGraphInstantiate(&train_bprop_instance_, train_bprop_graph_, NULL, NULL, 0));
+    train_bprop_graph_created_ = true;
   }
+  CK_CUDA_THROW_(cudaGraphLaunch(train_bprop_instance_, gpu_resource_->get_stream()));
+
   return;
 }
 
@@ -90,16 +114,17 @@ void Network::eval() {
 
 #endif
   if (!eval_graph_created_) {
-    cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed);
+    CK_CUDA_THROW_(
+        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
     // forward
     for (auto& layer : layers_) {
       layer->inference(gpu_resource_->get_stream());
     }
-    cudaStreamEndCapture(gpu_resource_->get_stream(), &eval_graph_);
-    cudaGraphInstantiate(&eval_instance_, eval_graph_, NULL, NULL, 0);
+    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &eval_graph_));
+    CK_CUDA_THROW_(cudaGraphInstantiate(&eval_instance_, eval_graph_, NULL, NULL, 0));
     eval_graph_created_ = true;
   }
-  cudaGraphLaunch(eval_instance_, gpu_resource_->get_stream());
+  CK_CUDA_THROW_(cudaGraphLaunch(eval_instance_, gpu_resource_->get_stream()));
   loss_->compute(false, gpu_resource_->get_stream());
 
   return;
@@ -141,7 +166,8 @@ std::string Network::get_no_trained_params_in_string() {
 void Network::upload_params_to_device(const std::string& model_file) {
   std::ifstream model_stream(model_file, std::ifstream::binary);
   if (!model_stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput, std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
+    CK_THROW_(Error_t::WrongInput,
+              std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
   }
   CudaDeviceContext context(device_id_);
 

@@ -36,11 +36,11 @@ namespace HugeCTR {
  */
 class Session {
  private:
-  typedef unsigned int TypeKey;                        /**< type of input key in dataset. */
-  //typedef long long TypeKey;                        /**< type of input key in dataset. */
-  std::vector<std::unique_ptr<Network>> networks_;     /**< networks (dense) used in training. */
-  std::vector<std::unique_ptr<IEmbedding>> embedding_; /**< embedding */
-  std::vector<std::unique_ptr<Network>> networks_eval_;     /**< networks (dense) used in eval. */
+  typedef unsigned int TypeKey; /**< type of input key in dataset. */
+  // typedef long long TypeKey;                        /**< type of input key in dataset. */
+  std::vector<std::unique_ptr<Network>> networks_;      /**< networks (dense) used in training. */
+  std::vector<std::unique_ptr<IEmbedding>> embedding_;  /**< embedding */
+  std::vector<std::unique_ptr<Network>> networks_eval_; /**< networks (dense) used in eval. */
   std::vector<std::unique_ptr<IEmbedding>> embedding_eval_; /**< embedding in eval*/
 
   std::unique_ptr<DataReader<TypeKey>>
@@ -69,7 +69,6 @@ class Session {
 
   const SolverParser get_solver_config() const { return solver_config_; }
 
-
   /**
    * Dtor of Session.
    */
@@ -91,7 +90,7 @@ class Session {
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
-  void start_data_reading(){
+  void start_data_reading() {
     data_reader_->start();
     data_reader_eval_->start();
   }

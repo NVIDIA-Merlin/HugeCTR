@@ -62,7 +62,6 @@ class Embedding : public IEmbedding {
   const int batchsize_; /**< The batch size of the input data for the current training process. */
   const TypeEmbeddingComp scaler_;
 
-
  public:
   /**
    * The constructor of Embedding class.
@@ -80,10 +79,9 @@ class Embedding : public IEmbedding {
             size_t batchsize, size_t slot_num, size_t embedding_vec_size,
             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, TypeEmbeddingComp scaler);
 
-  virtual Embedding* clone_eval(const Tensors<TypeKey>& row_offsets_tensors, 
-      const Tensors<TypeKey>& value_tensors, size_t batchsize, 
-      const std::shared_ptr<GPUResourceGroup> &gpu_resource_group){
-
+  virtual Embedding* clone_eval(const Tensors<TypeKey>& row_offsets_tensors,
+                                const Tensors<TypeKey>& value_tensors, size_t batchsize,
+                                const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
     return nullptr;
   }
 
@@ -347,9 +345,6 @@ struct EmbeddingCreator {
       const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
       size_t batchsize, const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
       Embedding<TYPE_2, float>* embedding);
-
-
-
 };
 
 }  // namespace HugeCTR

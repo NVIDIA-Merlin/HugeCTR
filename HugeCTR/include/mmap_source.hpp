@@ -16,33 +16,28 @@
 
 #pragma once
 
-#include "HugeCTR/include/source.hpp"
 #include "HugeCTR/include/mmap_offset_list.hpp"
-
+#include "HugeCTR/include/source.hpp"
 
 namespace HugeCTR {
-class MmapSource: public Source{
-private:
+class MmapSource : public Source {
+ private:
   std::shared_ptr<MmapOffsetList> mmap_offset_list_;
   MmapOffset offset_;
   int worker_id_;
   long long round_{0};
-public:
-  MmapSource(std::shared_ptr<MmapOffsetList> mmap_offset_list, int worker_id): 
-    mmap_offset_list_(mmap_offset_list), worker_id_(worker_id){
-  }
 
-  char* get_ptr() {
-    return offset_.offset;
-  }
+ public:
+  MmapSource(std::shared_ptr<MmapOffsetList> mmap_offset_list, int worker_id)
+      : mmap_offset_list_(mmap_offset_list), worker_id_(worker_id) {}
 
-  //no use here
-  bool is_open() noexcept {
-    return true;
-  }
+  char* get_ptr() { return offset_.offset; }
+
+  // no use here
+  bool is_open() noexcept { return true; }
 
   Error_t next_source() noexcept {
-    try{
+    try {
       offset_ = mmap_offset_list_->get_offset(round_, worker_id_);
       round_++;
       return Error_t::Success;
@@ -52,9 +47,6 @@ public:
     }
   }
 
-  long long get_num_of_items_in_source(){
-    return offset_.samples;
-  }
-
+  long long get_num_of_items_in_source() { return offset_.samples; }
 };
-}
+}  // namespace HugeCTR

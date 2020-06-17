@@ -24,7 +24,8 @@ class CastLayer : public Layer {
   TensorPtr<__half> top_tensor_;
 
  public:
-  CastLayer(const TensorPtr<float>& bottom_tensor, const TensorPtr<__half>& top_tensor, int device_id);
+  CastLayer(const TensorPtr<float>& bottom_tensor, const TensorPtr<__half>& top_tensor,
+            int device_id);
   void fprop(cudaStream_t stream) override;
   void bprop(cudaStream_t stream) override;
 };

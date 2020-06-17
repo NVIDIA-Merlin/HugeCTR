@@ -20,10 +20,10 @@
 #include <cublas_v2.h>
 #include <ctime>
 #include <exception>
-#include <iostream>
-#include "HugeCTR/include/config.hpp"
 #include <initializer_list>
 #include <iomanip>
+#include <iostream>
+#include "HugeCTR/include/config.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -38,7 +38,7 @@ namespace HugeCTR {
 
 #define WARP_SIZE 32
 
-  //#define DATA_READING_TEST
+//#define DATA_READING_TEST
 
 enum class Error_t {
   Success,
@@ -139,7 +139,11 @@ enum class Layer_t {
   Cast
 };
 
-enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingOneHot };
+enum class Embedding_t {
+  DistributedSlotSparseEmbeddingHash,
+  LocalizedSlotSparseEmbeddingHash,
+  LocalizedSlotSparseEmbeddingOneHot
+};
 
 typedef struct DataSetHeader_ {
   long long error_check;        // 0: no error check; 1: check_num
@@ -209,17 +213,16 @@ typedef struct DataSetHeader_ {
     }                                                                              \
   } while (0)
 
-#define MESSAGE_(msg)                                                                            \
-  do {                                                                                           \
-    std::time_t time_instance = std::time(0);                                                    \
-    std::tm* time_now = std::localtime(&time_instance);                                          \
-    std::string str = (msg);                                                                     \
-    std::cout.fill('0');        \
-    std::cout << "[" << std::setw(2) << time_now->tm_mday \
-              << "d" << std::setw(2) << time_now->tm_hour \
-              << "h" << std::setw(2) << time_now->tm_min \
-              << "m" << std::setw(2) << time_now->tm_sec << "s" \
-              << "][HUGECTR][INFO]: " << str << std::endl; \
+#define MESSAGE_(msg)                                                                \
+  do {                                                                               \
+    std::time_t time_instance = std::time(0);                                        \
+    std::tm* time_now = std::localtime(&time_instance);                              \
+    std::string str = (msg);                                                         \
+    std::cout.fill('0');                                                             \
+    std::cout << "[" << std::setw(2) << time_now->tm_mday << "d" << std::setw(2)     \
+              << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m" \
+              << std::setw(2) << time_now->tm_sec << "s"                             \
+              << "][HUGECTR][INFO]: " << str << std::endl;                           \
   } while (0)
 
 #define CK_CUDA_THROW_(x)                                                                          \
@@ -323,18 +326,17 @@ typedef struct DataSetHeader_ {
     }                                                                                           \
   } while (0)
 
-
 template <typename T>
-inline void print_func(T& t){
+inline void print_func(T& t) {
   std::cout << t << ", ";
   return;
 }
 
 template <typename... Args>
-inline void LOG(const Args&... args){
+inline void LOG(const Args&... args) {
   std::cout << "[";
   std::initializer_list<char>{(print_func(args), 'a')...};
-  std::cout << "\b\b]" << std::endl;
+  std::cout << "]" << std::endl;
 
   return;
 }

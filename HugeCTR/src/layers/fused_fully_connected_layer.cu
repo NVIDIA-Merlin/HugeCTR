@@ -368,7 +368,7 @@ void FusedFullyConnectedLayer::optimize() {
   //        (int)balgo_x_ - CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 
   // Output msg
-  //MESSAGE_("The fully-connected layer has finished choosing the algorithm for cublas Gemm.");
+  // MESSAGE_("The fully-connected layer has finished choosing the algorithm for cublas Gemm.");
   // Clean-up
   CK_CUDA_THROW_(cudaEventDestroy(start));
   CK_CUDA_THROW_(cudaEventDestroy(stop));

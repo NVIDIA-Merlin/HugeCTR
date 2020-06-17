@@ -43,7 +43,6 @@ class Checker {
   virtual void next_source() = 0;
 
   virtual bool is_open() noexcept { return src_.is_open(); }
-
 };
 
 }  // namespace HugeCTR

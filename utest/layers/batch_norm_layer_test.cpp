@@ -111,7 +111,8 @@ void batch_norm_test(bool row_major, size_t batch_size, size_t num_feature) {
   std::shared_ptr<GeneralBuffer<float>> wgbuff(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> blobs(new GeneralBuffer<float>());
 
-  vector<size_t> dims = {row_major ? batch_size : num_feature, row_major ? num_feature : batch_size};
+  vector<size_t> dims = {row_major ? batch_size : num_feature,
+                         row_major ? num_feature : batch_size};
   TensorFormat_t format = row_major ? TensorFormat_t::HW : TensorFormat_t::WH;
 
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, blobs, format));

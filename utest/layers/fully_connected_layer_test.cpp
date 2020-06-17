@@ -83,7 +83,8 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
   wgrad->init(0);
   blobs->init(0);
   fully_connected_layer.optimize();
-  // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect of optimize)
+  // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
+  // of optimize)
   weight->reset_sync();
   wgrad->reset_sync();
   blobs->reset_sync();
