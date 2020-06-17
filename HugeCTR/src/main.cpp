@@ -111,7 +111,7 @@ void train(std::string config_file) {
         for (auto& eval_metric : eval_metrics) {
           MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
 
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second, 1, i);
+          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second, float(i) / solver_config.max_iter, i);
 
           // early stop doesn't support multinodes
           if (!eval_metric.first.compare("auc") && eval_metric.second >= 0.8025) {
