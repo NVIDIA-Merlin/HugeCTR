@@ -26,7 +26,7 @@ __device__ __forceinline__ void momentumSGD_update_device(
   momentum_ptr[0] =
       hyper_parameters.momentum_factor * momentum_ptr[0] - hyper_parameters.lr * wgrad / scaler;
   weight_ptr[0] += momentum_ptr[0];
-  
+
   // if(isnan(weight_ptr[0])){
   //   int count = atomicAdd(&debug_counter, 1);
   //   if(count < 10)
@@ -60,7 +60,7 @@ void MomentumSGD::update(cudaStream_t stream) {
   float* weight_ptr = weight_->get_ptr_with_offset(0);
   const float* wgrad_ptr = wgrad_->get_ptr_with_offset(0);
   float* momentum_ptr = momentum_->get_ptr_with_offset(0);
-  
+
   MomentumSGDHyperParameters hyper_parameters = {lr_, momentum_factor_};
   momentumSGD_update_kernel<<<grid_dim, block_dim, 0, stream>>>(
       weight_ptr, momentum_ptr, wgrad_ptr, weight_->get_num_elements(), hyper_parameters, scaler_);

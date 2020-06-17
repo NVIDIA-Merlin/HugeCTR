@@ -46,8 +46,7 @@ template <typename TypeKey>
 static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& data_reader,
                                      int* p_loop_flag) {
   try {
-
-    while ((*p_loop_flag) == 0){
+    while ((*p_loop_flag) == 0) {
       usleep(2);
     }
 
@@ -71,7 +70,7 @@ template <typename TypeKey>
 static void data_collector_thread_func_(
     const std::shared_ptr<DataCollector<TypeKey>>& data_collector, int* p_loop_flag) {
   try {
-    while ((*p_loop_flag) == 0){
+    while ((*p_loop_flag) == 0) {
       usleep(2);
     }
 
@@ -98,9 +97,9 @@ static int core_offset_ = 0;
 template <typename TypeKey>
 class DataReader {
  private:
-  std::string file_list_; /**< file list of data set */
-  const int NumChunks{12};              /**< NumChunks will be used in HeapEx*/
-  const int NumThreads{12};             /**< number of threads for data reading */
+  std::string file_list_;   /**< file list of data set */
+  const int NumChunks{12};  /**< NumChunks will be used in HeapEx*/
+  const int NumThreads{12}; /**< number of threads for data reading */
 
   std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_; /**< heap to cache the data set */
   std::vector<std::shared_ptr<IDataReaderWorker>>
@@ -125,11 +124,11 @@ class DataReader {
                                       output data, which is sharing output tensor with train. */
 
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< gpu resource used in this data reader*/
-  const size_t batchsize_;                                /**< batch size */
-  const size_t label_dim_;       /**< dimention of label e.g. 1 for BinaryCrossEntropy */
-  const size_t dense_dim_;       /**< dimention of dense */
-  const DataReaderType_t type_;                     /**< type of data reader "Norm or Raw "*/  
-  const long long num_samples_;     /**< only used in Raw*/
+  const size_t batchsize_;                             /**< batch size */
+  const size_t label_dim_;      /**< dimention of label e.g. 1 for BinaryCrossEntropy */
+  const size_t dense_dim_;      /**< dimention of dense */
+  const DataReaderType_t type_; /**< type of data reader "Norm or Raw "*/
+  const long long num_samples_; /**< only used in Raw*/
   const std::vector<long long> slot_offset_;
   int data_reader_loop_flag_{0}; /**< p_loop_flag a flag to control the loop */
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
@@ -155,51 +154,45 @@ class DataReader {
 
     assert(data_readers_.empty() && data_reader_threads_.empty());
 
-
     // create data reader
 
     switch (type_) {
-    case DataReaderType_t::Norm: {
-      for (int i = 0; i < NumThreads; i++) {
-	std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorker<TypeKey>(
-	  i, NumThreads, csr_heap_, file_list_, max_feature_num_per_sample, check_type_, params_));
-	data_readers_.push_back(data_reader);
-	data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
-					  &data_reader_loop_flag_);
+      case DataReaderType_t::Norm: {
+        for (int i = 0; i < NumThreads; i++) {
+          std::shared_ptr<IDataReaderWorker> data_reader(
+              new DataReaderWorker<TypeKey>(i, NumThreads, csr_heap_, file_list_,
+                                            max_feature_num_per_sample, check_type_, params_));
+          data_readers_.push_back(data_reader);
+          data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
+                                            &data_reader_loop_flag_);
+        }
+        break;
       }
-      break;
-    }
-    case DataReaderType_t::Raw: {
-      {
-	int slots = 0;
-	for (auto& param : params_) {
-	  slots+=param.slot_num;
-	}
-	file_offset_list_.reset(new MmapOffsetList(file_list_, num_samples_, (label_dim_ + dense_dim_ + slots)*sizeof(int)
-						   , batchsize_, data_shuffle_ , NumThreads));
-      }
+      case DataReaderType_t::Raw: {
+        {
+          int slots = 0;
+          for (auto& param : params_) {
+            slots += param.slot_num;
+          }
+          file_offset_list_.reset(new MmapOffsetList(
+              file_list_, num_samples_, (label_dim_ + dense_dim_ + slots) * sizeof(int), batchsize_,
+              data_shuffle_, NumThreads));
+        }
 
-      for (int i = 0; i < NumThreads; i++) {
-	std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorkerRaw<TypeKey>(i, NumThreads, file_offset_list_, csr_heap_, file_list_, params_, slot_offset_, label_dim_ ));
-	data_readers_.push_back(data_reader);
-	data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
-					  &data_reader_loop_flag_);
-        // if (core_offset_  == 0) {
-        //   // set_affinity(data_reader_threads_.back(), {}, false);
-        //   set_affinity(data_reader_threads_.back(), get_core_id(i));
-        //   std::cout << i << " to " << get_core_id(i) << std::endl;
-        // }
-        // else {
+        for (int i = 0; i < NumThreads; i++) {
+          std::shared_ptr<IDataReaderWorker> data_reader(
+              new DataReaderWorkerRaw<TypeKey>(i, NumThreads, file_offset_list_, csr_heap_,
+                                               file_list_, params_, slot_offset_, label_dim_));
+          data_readers_.push_back(data_reader);
+          data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
+                                            &data_reader_loop_flag_);
           set_affinity(data_reader_threads_.back(), {}, true);
-        // }
+        }
+        break;
       }
-      break;
+      default: { CK_THROW_(Error_t::WrongInput, "No such data reader type"); }
     }
-    default: { CK_THROW_(Error_t::WrongInput, "No such data reader type"); }
-    }
-      //      set_affinity(data_reader_threads_.back(), 2*i + 50);
   }
-
 
  public:
   /**
@@ -210,20 +203,19 @@ class DataReader {
   long long read_a_batch_to_device_delay_release();
 
   void ready_to_collect() { data_collector_->set_ready_to_write(); }
-  
-  void start() {
-    data_reader_loop_flag_ = 1;
-  }
+
+  void start() { data_reader_loop_flag_ = 1; }
 
   /**
    * Ctor
    */
   DataReader(const std::string& file_list_name, int batchsize, size_t label_dim, int dense_dim,
              Check_t check_type, std::vector<DataReaderSparseParam>& params,
-             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, 
-             int num_chunk_threads = 31, DataReaderType_t type = DataReaderType_t::Norm, 
-	     long long num_samples = 0, std::vector<long long> slot_size = std::vector<long long>(), bool cache_data = false, bool start_reading_from_beginning = true, bool data_shuffle = false);
-
+             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+             int num_chunk_threads = 31, DataReaderType_t type = DataReaderType_t::Norm,
+             long long num_samples = 0, std::vector<long long> slot_size = std::vector<long long>(),
+             bool cache_data = false, bool start_reading_from_beginning = true,
+             bool data_shuffle = false);
 
   const Tensors<float>& get_label_tensors() const { return label_tensors_; }
   const Tensors<float>& get_dense_tensors() const { return dense_tensors_; }
@@ -247,16 +239,14 @@ class DataReader {
   ~DataReader();
 };
 
-
-
 template <typename TypeKey>
 DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize, size_t label_dim,
                                 int dense_dim, Check_t check_type,
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                                int num_chunk_threads, DataReaderType_t type, 
-				long long num_samples, std::vector<long long> slot_offset, bool cache_data,
-				bool start_reading_from_beginning, bool data_shuffle)
+                                int num_chunk_threads, DataReaderType_t type, long long num_samples,
+                                std::vector<long long> slot_offset, bool cache_data,
+                                bool start_reading_from_beginning, bool data_shuffle)
     : file_list_(file_list_name),
       NumChunks(num_chunk_threads),
       NumThreads(num_chunk_threads),
@@ -269,10 +259,8 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       type_(type),
       num_samples_(num_samples),
       slot_offset_(slot_offset),
-      data_shuffle_(data_shuffle)
-{
-
-  if(start_reading_from_beginning){
+      data_shuffle_(data_shuffle) {
+  if (start_reading_from_beginning) {
     data_reader_loop_flag_ = 1;
   }
 
@@ -322,11 +310,12 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       std::vector<size_t> num_rows_dim = {1, batchsize_ * slots + 1};
       Tensor<TypeKey>* tmp_row_offset =
           new Tensor<TypeKey>(num_rows_dim, tmp_buffer, TensorFormat_t::HW);
-      
 
-      size_t num_max_value = (param.max_nnz * slots) <= param.max_feature_num ? (param.max_nnz * slots * batchsize_) : (param.max_feature_num * batchsize_);
+      size_t num_max_value = (param.max_nnz * slots) <= param.max_feature_num
+                                 ? (param.max_nnz * slots * batchsize_)
+                                 : (param.max_feature_num * batchsize_);
 
-      std::vector<size_t> num_max_value_dim = {1, num_max_value}; 
+      std::vector<size_t> num_max_value_dim = {1, num_max_value};
 
       Tensor<TypeKey>* tmp_value =
           new Tensor<TypeKey>(num_max_value_dim, tmp_buffer, TensorFormat_t::HW);
@@ -337,16 +326,16 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       csr_buffers_.emplace_back(tmp_buffer);
     }
   }
-  
+
   bool one_hot = type_ == DataReaderType_t::Raw ? true : false;
 
-  if(cache_data){
+  if (cache_data) {
     data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
-						     device_resources_, csr_heap_, one_hot, (num_samples-1)/batchsize_+1));
-  }
-  else{
+                                                     device_resources_, csr_heap_, one_hot,
+                                                     (num_samples - 1) / batchsize_ + 1));
+  } else {
     data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
-						     device_resources_, csr_heap_, one_hot));
+                                                     device_resources_, csr_heap_, one_hot));
   }
   data_collector_thread_ =
       std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);

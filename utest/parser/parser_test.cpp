@@ -47,7 +47,8 @@ void test_parser(std::string& json_name) {
   std::vector<std::unique_ptr<Network>> networks_eval;
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
-  p.create_pipeline(data_reader, data_reader_eval, embedding, embedding_eval, networks, networks_eval, gpu_resource_group);
+  p.create_pipeline(data_reader, data_reader_eval, embedding, embedding_eval, networks,
+                    networks_eval, gpu_resource_group);
   return;
 }
 

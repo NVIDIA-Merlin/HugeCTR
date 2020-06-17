@@ -29,7 +29,6 @@ namespace HugeCTR {
  * If the input tensor is 3D, you can choose which slots participate by calling the different Ctor
  */
 class ReshapeLayer : public Layer {
-
   /*
    * stores the weight tensors of this layer.
    */
@@ -46,7 +45,6 @@ class ReshapeLayer : public Layer {
    * stores the references to the output tensors of this layer.
    */
   std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
-
 
  public:
   /**

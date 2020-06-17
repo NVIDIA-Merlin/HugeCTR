@@ -18,20 +18,21 @@
 
 namespace HugeCTR {
 
-std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler__(const nlohmann::json& j_hparam, float base_lr){
+std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler__(const nlohmann::json& j_hparam,
+                                                                     float base_lr) {
   auto warmup_steps = get_value_from_json_soft<size_t>(j_hparam, "warmup_steps", 1);
   auto decay_start = get_value_from_json_soft<size_t>(j_hparam, "decay_start", 0);
   auto decay_steps = get_value_from_json_soft<size_t>(j_hparam, "decay_steps", 1);
   auto decay_power = get_value_from_json_soft<float>(j_hparam, "decay_power", 2.f);
   auto end_lr = get_value_from_json_soft<float>(j_hparam, "end_lr", 0.f);
-  std::unique_ptr<LearningRateScheduler> lr_sch(new LearningRateScheduler(base_lr, warmup_steps, decay_start, decay_steps, decay_power, end_lr));
-  
-  return lr_sch; 
+  std::unique_ptr<LearningRateScheduler> lr_sch(new LearningRateScheduler(
+      base_lr, warmup_steps, decay_start, decay_steps, decay_power, end_lr));
+
+  return lr_sch;
 }
 
-
-std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(const std::string configure_file){
-
+std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
+    const std::string configure_file) {
   int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
@@ -59,32 +60,29 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(const std::st
   float lr = 0;
   nlohmann::json j_hparam;
   switch (optimizer_type) {
-  case Optimizer_t::Adam: {
-    j_hparam = get_json(j_optimizer, "adam_hparam");
-    lr = get_value_from_json<float>(j_hparam, "alpha");
-
-  }
-  case Optimizer_t::MomentumSGD: {
-    j_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
-    lr = get_value_from_json<float>(j_hparam, "learning_rate");
-    break;
-  }
-  case Optimizer_t::Nesterov: {
-    j_hparam = get_json(j_optimizer, "nesterov_hparam");
-    lr = get_value_from_json<float>(j_hparam, "learning_rate");
-    break;
-  }
-  case Optimizer_t::SGD: {
-    j_hparam = get_json(j_optimizer, "sgd_hparam");
-    lr = get_value_from_json<float>(j_hparam, "learning_rate");
-    break;
-  }
-  default:
-    assert(!"Error: no such optimizer && should never get here!");
+    case Optimizer_t::Adam: {
+      j_hparam = get_json(j_optimizer, "adam_hparam");
+      lr = get_value_from_json<float>(j_hparam, "alpha");
+    }
+    case Optimizer_t::MomentumSGD: {
+      j_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
+      lr = get_value_from_json<float>(j_hparam, "learning_rate");
+      break;
+    }
+    case Optimizer_t::Nesterov: {
+      j_hparam = get_json(j_optimizer, "nesterov_hparam");
+      lr = get_value_from_json<float>(j_hparam, "learning_rate");
+      break;
+    }
+    case Optimizer_t::SGD: {
+      j_hparam = get_json(j_optimizer, "sgd_hparam");
+      lr = get_value_from_json<float>(j_hparam, "learning_rate");
+      break;
+    }
+    default:
+      assert(!"Error: no such optimizer && should never get here!");
   }
   return get_learning_rate_scheduler__(j_hparam, lr);
-  
 }
 
-
-} //namespace HugeCTR
+}  // namespace HugeCTR

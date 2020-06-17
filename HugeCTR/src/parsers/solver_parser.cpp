@@ -18,7 +18,6 @@
 
 namespace HugeCTR {
 
-
 SolverParser::SolverParser(std::string configure_file) {
   try {
     int num_procs = 1, pid = 0;
@@ -57,7 +56,7 @@ SolverParser::SolverParser(std::string configure_file) {
     max_iter = get_value_from_json<int>(j, "max_iter");
     snapshot = get_value_from_json<int>(j, "snapshot");
     batchsize = get_value_from_json<int>(j, "batchsize");
-    //batchsize_eval = get_value_from_json<int>(j, "batchsize_eval");
+    // batchsize_eval = get_value_from_json<int>(j, "batchsize_eval");
     batchsize_eval = get_value_from_json_soft<int>(j, "batchsize_eval", batchsize);
     snapshot_prefix = get_value_from_json<std::string>(j, "snapshot_prefix");
     if (has_key_(j, "dense_model_file")) {
@@ -139,4 +138,4 @@ SolverParser::SolverParser(std::string configure_file) {
   }
 }
 
-} //namespace HugeCTR
+}  // namespace HugeCTR

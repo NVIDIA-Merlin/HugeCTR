@@ -18,8 +18,8 @@
 
 namespace HugeCTR {
 class IDataReaderWorker {
-public:
+ public:
   virtual void read_a_batch() = 0;
   virtual void skip_read() = 0;
 };
-}
+}  // namespace HugeCTR

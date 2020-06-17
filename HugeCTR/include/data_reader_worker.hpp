@@ -74,8 +74,8 @@ class DataReaderWorker : public IDataReaderWorker {
    * Ctor
    */
   DataReaderWorker(unsigned int worker_id, unsigned int worker_num,
-                   const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap, const std::string& file_list,
-                   size_t buffer_length, Check_t check_type,
+                   const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
+                   const std::string& file_list, size_t buffer_length, Check_t check_type,
                    const std::vector<DataReaderSparseParam>& params)
       : worker_id_(worker_id),
         worker_num_(worker_num),

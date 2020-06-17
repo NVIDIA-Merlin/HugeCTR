@@ -17,22 +17,18 @@
 #pragma once
 
 #include <map>
-#include <string>
 #include <memory>
+#include <string>
 #include <vector>
-#include "HugeCTR/include/utils.hpp"
-#include "HugeCTR/include/tensor.hpp"
 #include "HugeCTR/include/gpu_resource.hpp"
+#include "HugeCTR/include/tensor.hpp"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 
 namespace metrics {
 
-enum class RawType {
-  Loss = 0,
-  Pred = 1,
-  Label = 2
-};
+enum class RawType { Loss = 0, Pred = 1, Label = 2 };
 
 using RawMetricMap = std::map<RawType, std::shared_ptr<ITensor>>;
 
@@ -45,6 +41,7 @@ class Metric {
   virtual float finalize_metric() = 0;
   virtual std::string name() const = 0;
   void set_current_batch_size(int batch_size) { current_batch_size_ = batch_size; }
+
  protected:
   int num_procs_;
   int pid_;
@@ -113,6 +110,6 @@ class AUC : public Metric {
   std::shared_ptr<GPUResourceGroup> gpu_resource_group_;
 };
 
-} // namespace metrics
+}  // namespace metrics
 
 }  // namespace HugeCTR

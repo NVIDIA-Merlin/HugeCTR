@@ -45,7 +45,6 @@ namespace HugeCTR {
  * by deltaw, calling update_kernel()
  */
 
-
 // forward kernel funcion: for both combiner=sum and combiner=mean
 template <typename TypeKey, typename TypeValueIndex>
 __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_vec_size,
@@ -86,8 +85,8 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
   if (bid < batch_size && tid < embedding_vec_size) {
-    const float2 * hash_table_value2 = reinterpret_cast<const float2*>(hash_table_value);
-    __half2 * embedding_feature2 = reinterpret_cast<__half2*>(embedding_feature);
+    const float2 *hash_table_value2 = reinterpret_cast<const float2 *>(hash_table_value);
+    __half2 *embedding_feature2 = reinterpret_cast<__half2 *>(embedding_feature);
 
     for (int i = 0; i < slot_num; i++) {
       int feature_row_index = bid * slot_num + i;
@@ -96,7 +95,7 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
           row_offset[feature_row_index + 1] - value_offset;  // number of hash values in one slot
 
       // use float type to do accumulation
-      float2 sum2 = {0.0f, 0.0f}; 
+      float2 sum2 = {0.0f, 0.0f};
       for (int j = 0; j < feature_num; j++) {
         size_t value_index = hash_value_index[value_offset + j];
         sum2.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
@@ -112,21 +111,24 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
 
 // fuse foward_sum_kernel + all2all + forward_reorder into one kernel
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size_t batch_size, 
-                                            size_t batch_size_per_gpu, int slot_num, int slot_num_per_gpu, 
-                                            int embedding_vec_size, const TypeKey *row_offset, 
-                                            const TypeValueIndex *hash_value_index,
-                                            const float *hash_table_value, float **embedding_features) {
+__global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size_t batch_size,
+                                             size_t batch_size_per_gpu, int slot_num,
+                                             int slot_num_per_gpu, int embedding_vec_size,
+                                             const TypeKey *row_offset,
+                                             const TypeValueIndex *hash_value_index,
+                                             const float *hash_table_value,
+                                             float **embedding_features) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
-  //for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
+  // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
   int offset = (local_gpu_id + 1) * batch_size_per_gpu;
-  for(int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset); bid_offset += gridDim.x) {
+  for (int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset);
+       bid_offset += gridDim.x) {
     int bid = bid_offset % batch_size;
 
     if (tid < embedding_vec_size) {
-      int gpu_id = bid / batch_size_per_gpu; // target gpu id
-      int sample_id = bid % batch_size_per_gpu; // sample id on target gpu
+      int gpu_id = bid / batch_size_per_gpu;     // target gpu id
+      int sample_id = bid % batch_size_per_gpu;  // sample id on target gpu
 
       for (int i = 0; i < slot_num_per_gpu; i++) {
         int feature_row_index = bid * slot_num_per_gpu + i;
@@ -134,14 +136,15 @@ __global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size
         TypeKey feature_num =
             row_offset[feature_row_index + 1] - value_offset;  // number of hash values in one slot
 
-        float sum = 0.0f; 
+        float sum = 0.0f;
         for (int j = 0; j < feature_num; j++) {
           size_t value_index = hash_value_index[value_offset + j];
           sum += hash_table_value[value_index * embedding_vec_size + tid];
         }
 
-        int slot_id = i * gpu_num + local_gpu_id; // slot id on target gpu (for localizedSlotEmbedding)
-        size_t feature_id = sample_id * slot_num + slot_id; // feature id on target gpu
+        int slot_id =
+            i * gpu_num + local_gpu_id;  // slot id on target gpu (for localizedSlotEmbedding)
+        size_t feature_id = sample_id * slot_num + slot_id;  // feature id on target gpu
 
         // store the embedding vector
         embedding_features[gpu_id][feature_id * embedding_vec_size + tid] = sum;
@@ -152,24 +155,27 @@ __global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size
 
 // overload for fp16
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size_t batch_size, 
-                                            size_t batch_size_per_gpu, int slot_num, int slot_num_per_gpu, 
-                                            int embedding_vec_size, const TypeKey *row_offset, 
-                                            const TypeValueIndex *hash_value_index,
-                                            const float *hash_table_value, __half **embedding_features) {
+__global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size_t batch_size,
+                                             size_t batch_size_per_gpu, int slot_num,
+                                             int slot_num_per_gpu, int embedding_vec_size,
+                                             const TypeKey *row_offset,
+                                             const TypeValueIndex *hash_value_index,
+                                             const float *hash_table_value,
+                                             __half **embedding_features) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
-  //for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
+  // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
   int offset = (local_gpu_id + 1) * batch_size_per_gpu;
-  for(int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset); bid_offset += gridDim.x) {
+  for (int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset);
+       bid_offset += gridDim.x) {
     int bid = bid_offset % batch_size;
-    
-    if (tid < embedding_vec_size) {
-      const float2 * hash_table_value2 = reinterpret_cast<const float2*>(hash_table_value);
-      __half2 ** embedding_features2 = reinterpret_cast<__half2**>(embedding_features);
 
-      int gpu_id = bid / batch_size_per_gpu; // target gpu id
-      int sample_id = bid % batch_size_per_gpu; // sample id on target gpu
+    if (tid < embedding_vec_size) {
+      const float2 *hash_table_value2 = reinterpret_cast<const float2 *>(hash_table_value);
+      __half2 **embedding_features2 = reinterpret_cast<__half2 **>(embedding_features);
+
+      int gpu_id = bid / batch_size_per_gpu;     // target gpu id
+      int sample_id = bid % batch_size_per_gpu;  // sample id on target gpu
 
       for (int i = 0; i < slot_num_per_gpu; i++) {
         int feature_row_index = bid * slot_num_per_gpu + i;
@@ -178,7 +184,7 @@ __global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size
             row_offset[feature_row_index + 1] - value_offset;  // number of hash values in one slot
 
         // use float type to do accumulation
-        float2 sum2 = {0.0f, 0.0f}; 
+        float2 sum2 = {0.0f, 0.0f};
         for (int j = 0; j < feature_num; j++) {
           size_t value_index = hash_value_index[value_offset + j];
           sum2.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
@@ -186,8 +192,9 @@ __global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size
         }
         __half2 sum = __float22half2_rn(sum2);
 
-        int slot_id = i * gpu_num + local_gpu_id; // slot id on target gpu (for localizedSlotEmbedding)
-        size_t feature_id = sample_id * slot_num + slot_id; // feature id on target gpu
+        int slot_id =
+            i * gpu_num + local_gpu_id;  // slot id on target gpu (for localizedSlotEmbedding)
+        size_t feature_id = sample_id * slot_num + slot_id;  // feature id on target gpu
 
         // store the embedding vector
         embedding_features2[gpu_id][feature_id * embedding_vec_size + tid] = sum;
@@ -196,7 +203,8 @@ __global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size
   }
 }
 
-// forward kernel function: this is an additional function for combiner=mean (only for Distributed Embedding)
+// forward kernel function: this is an additional function for combiner=mean (only for Distributed
+// Embedding)
 template <typename TypeKey>
 __global__ void forward_scale_kernel(int batch_size, int slot_num, int embedding_vec_size,
                                      const TypeKey *row_offset, float *embedding_feature) {
@@ -227,8 +235,7 @@ __global__ void forward_scale_kernel(int batch_size, int slot_num, int embedding
   int tid = threadIdx.x;
 
   if (bid < batch_size && tid < embedding_vec_size) {
-
-    __half2 * embedding_feature2 = reinterpret_cast<__half2*>(embedding_feature);
+    __half2 *embedding_feature2 = reinterpret_cast<__half2 *>(embedding_feature);
 
     for (int i = 0; i < slot_num; i++) {
       size_t feature_row_index = bid * slot_num + i;
@@ -293,8 +300,8 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
   if (bid < batch_size && tid < embedding_vec_size) {
-    const float2 * hash_table_value2 = reinterpret_cast<const float2*>(hash_table_value);
-    __half2 * embedding_feature2 = reinterpret_cast<__half2*>(embedding_feature);
+    const float2 *hash_table_value2 = reinterpret_cast<const float2 *>(hash_table_value);
+    __half2 *embedding_feature2 = reinterpret_cast<__half2 *>(embedding_feature);
 
     for (int i = 0; i < slot_num; i++) {
       int feature_row_index = bid * slot_num + i;
@@ -303,7 +310,7 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
           row_offset[feature_row_index + 1] - value_offset;  // number of hash values in one slot
 
       // use float to do accumulation
-      float2 sum = {0.0f, 0.0f}; 
+      float2 sum = {0.0f, 0.0f};
       for (int j = 0; j < feature_num; j++) {
         size_t value_index = hash_value_index[value_offset + j];
         sum.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
@@ -346,8 +353,8 @@ __global__ void backward_sum_kernel(int batch_size, int slot_num, int embedding_
   int bid = blockIdx.x;
 
   if (bid < batch_size && tid < embedding_vec_size) {
-    const __half2 * top_grad2 = reinterpret_cast<const __half2*>(top_grad);
-    __half2 * wgrad2 = reinterpret_cast<__half2*>(wgrad);
+    const __half2 *top_grad2 = reinterpret_cast<const __half2 *>(top_grad);
+    __half2 *wgrad2 = reinterpret_cast<__half2 *>(wgrad);
 
     for (int i = 0; i < slot_num; i++) {
       size_t feature_index = (size_t)(bid * slot_num + i) * embedding_vec_size + tid;
@@ -357,24 +364,26 @@ __global__ void backward_sum_kernel(int batch_size, int slot_num, int embedding_
 }
 
 // fuse backward_reorder_kernel + all2all + backward_sum_kernel into one kernel
-__global__ void backward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size_t batch_size, 
-                                              size_t batch_size_per_gpu, int slot_num, 
-                                              int slot_num_per_gpu, int embedding_vec_size, 
+__global__ void backward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size_t batch_size,
+                                              size_t batch_size_per_gpu, int slot_num,
+                                              int slot_num_per_gpu, int embedding_vec_size,
                                               float **embedding_features, float *wgrad) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
-  //for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
+  // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
   int offset = (local_gpu_id + 1) * batch_size_per_gpu;
-  for(int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset); bid_offset += gridDim.x) {
+  for (int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset);
+       bid_offset += gridDim.x) {
     int bid = bid_offset % batch_size;
 
     if (tid < embedding_vec_size) {
-      int gpu_id = bid / batch_size_per_gpu; // source gpu id
-      int sample_id = bid % batch_size_per_gpu; // sample id on source gpu
+      int gpu_id = bid / batch_size_per_gpu;     // source gpu id
+      int sample_id = bid % batch_size_per_gpu;  // sample id on source gpu
 
       for (int i = 0; i < slot_num_per_gpu; i++) {
-        int slot_id = i * gpu_num + local_gpu_id; // slot id on source gpu (for localizedSlotEmbedding)
-        size_t feature_id = sample_id * slot_num + slot_id; // feature id on source gpu
+        int slot_id =
+            i * gpu_num + local_gpu_id;  // slot id on source gpu (for localizedSlotEmbedding)
+        size_t feature_id = sample_id * slot_num + slot_id;  // feature id on source gpu
 
         // load dgrad from multi-gpu and store the wgrad in local gpu
         size_t src_feature_index = feature_id * embedding_vec_size + tid;
@@ -386,27 +395,29 @@ __global__ void backward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, siz
 }
 
 // overload for fp16
-__global__ void backward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size_t batch_size, 
-                                            size_t batch_size_per_gpu, int slot_num, 
-                                            int slot_num_per_gpu, int embedding_vec_size, 
-                                            __half **embedding_features, __half *wgrad) {
+__global__ void backward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size_t batch_size,
+                                              size_t batch_size_per_gpu, int slot_num,
+                                              int slot_num_per_gpu, int embedding_vec_size,
+                                              __half **embedding_features, __half *wgrad) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
-  //for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
+  // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
   int offset = (local_gpu_id + 1) * batch_size_per_gpu;
-  for(int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset); bid_offset += gridDim.x) {
+  for (int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset);
+       bid_offset += gridDim.x) {
     int bid = bid_offset % batch_size;
 
     if (tid < embedding_vec_size) {
-      __half2 ** embedding_features2 = reinterpret_cast<__half2**>(embedding_features);
-      __half2 * wgrad2 = reinterpret_cast<__half2*>(wgrad);
+      __half2 **embedding_features2 = reinterpret_cast<__half2 **>(embedding_features);
+      __half2 *wgrad2 = reinterpret_cast<__half2 *>(wgrad);
 
-      int gpu_id = bid / batch_size_per_gpu; // target gpu id
-      int sample_id = bid % batch_size_per_gpu; // sample id on target gpu
+      int gpu_id = bid / batch_size_per_gpu;     // target gpu id
+      int sample_id = bid % batch_size_per_gpu;  // sample id on target gpu
 
       for (int i = 0; i < slot_num_per_gpu; i++) {
-        int slot_id = i * gpu_num + local_gpu_id; // slot id on source gpu (for localizedSlotEmbedding)
-        size_t feature_id = sample_id * slot_num + slot_id; // feature id on source gpu
+        int slot_id =
+            i * gpu_num + local_gpu_id;  // slot id on source gpu (for localizedSlotEmbedding)
+        size_t feature_id = sample_id * slot_num + slot_id;  // feature id on source gpu
 
         // load dgrad from multi-gpu and store the wgrad in local gpu
         size_t src_feature_index = feature_id * embedding_vec_size + tid;
@@ -449,8 +460,8 @@ __global__ void backward_mean_kernel(int batch_size, int slot_num, int embedding
   int tid = threadIdx.x;
 
   if (bid < batch_size && tid < embedding_vec_size) {
-    const __half2 * top_grad2 = reinterpret_cast<const __half2*>(top_grad);
-    __half2 * wgrad2 = reinterpret_cast<__half2*>(wgrad);
+    const __half2 *top_grad2 = reinterpret_cast<const __half2 *>(top_grad);
+    __half2 *wgrad2 = reinterpret_cast<__half2 *>(wgrad);
 
     for (int i = 0; i < slot_num; i++) {
       size_t feature_row_index = bid * slot_num + i;
@@ -531,15 +542,11 @@ __global__ void value_count_kernel_2(int nnz, const uint32_t *new_hash_value_fla
 }
 
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num,
-                                      int embedding_vec_size, 
-                                      float lr,
-                                      const TypeKey *sample_id,
+__global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                                      float lr, const TypeKey *sample_id,
                                       const TypeValueIndex *hash_value_index_sort,
-                                      const uint32_t *hash_value_index_count_offset, 
-                                      const float *wgrad,
-                                      float *hash_table_value,
-                                      float scaler) {
+                                      const uint32_t *hash_value_index_count_offset,
+                                      const float *wgrad, float *hash_table_value, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -556,8 +563,8 @@ __global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num,
       gi += wgrad[sample_index * embedding_vec_size + tid];
     }
     gi = gi / scaler;
-    
-    // update 
+
+    // update
     size_t value_index = hash_value_index_sort[offset];
     size_t feature_index = value_index * embedding_vec_size + tid;
     hash_table_value[feature_index] -= lr * gi;
@@ -581,9 +588,8 @@ __global__ void adam_update_kernel_global(int embedding_vec_size,
 
 // calculate weights update value(deltaw) by adam opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num,
-                                       int embedding_vec_size, const AdamOptHyperParams adam,
-                                       const TypeKey *sample_id,
+__global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                                       const AdamOptHyperParams adam, const TypeKey *sample_id,
                                        const TypeValueIndex *hash_value_index_sort,
                                        const uint32_t *hash_value_index_count_offset,
                                        const float *wgrad, float scaler) {
@@ -659,10 +665,10 @@ __global__ void momentum_sgd_update_kernel_global(int embedding_vec_size,
   }
 }
 
-__global__ void nesterov_global_update_kernel_global(
-    int embedding_vec_size,
-    size_t table_size,  // vocabulary size / factor
-    const NesterovOptHyperParams nesterov, float *hash_table_value) {
+__global__ void nesterov_global_update_kernel_global(int embedding_vec_size,
+                                                     size_t table_size,  // vocabulary size / factor
+                                                     const NesterovOptHyperParams nesterov,
+                                                     float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
@@ -704,16 +710,12 @@ __global__ void nesterov_local_update_kernel_global(
 }
 
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num,
-                              int embedding_vec_size, 
-                              float lr,
-                              const TypeKey *sample_id,
-                              const TypeValueIndex *hash_value_index_sort,
-                              const uint32_t *hash_value_index_count_offset, 
-                              const float *wgrad,
-                              TypeValueIndex *deltaw_hash_value_index, 
-                              float *deltaw,
-                              float scaler) {
+__global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                               float lr, const TypeKey *sample_id,
+                               const TypeValueIndex *hash_value_index_sort,
+                               const uint32_t *hash_value_index_count_offset, const float *wgrad,
+                               TypeValueIndex *deltaw_hash_value_index, float *deltaw,
+                               float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -730,7 +732,7 @@ __global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num,
       gi += wgrad[sample_index * embedding_vec_size + tid];
     }
     gi = gi / scaler;
-    
+
     // compute the grad of the weights and update it
     TypeValueIndex row_index = hash_value_index_sort[offset];
     float weight_diff = -lr * gi;
@@ -747,9 +749,8 @@ __global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num,
 
 // calculate weights update value(deltaw) by adam opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_adam_kernel(uint32_t hash_value_index_count_num,
-                                int embedding_vec_size, const AdamOptHyperParams adam,
-                                const TypeKey *sample_id,
+__global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                                const AdamOptHyperParams adam, const TypeKey *sample_id,
                                 const TypeValueIndex *hash_value_index_sort,
                                 const uint32_t *hash_value_index_count_offset, const float *wgrad,
                                 TypeValueIndex *deltaw_hash_value_index, float *deltaw,
@@ -791,11 +792,13 @@ __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num,
 
 // calculate weights update value(deltaw) by momentum_sgd opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_momentum_sgd_kernel(
-    uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
-    const MomentumSgdOptHyperParams momentum, const TypeKey *sample_id,
-    const TypeValueIndex *hash_value_index_sort, const uint32_t *hash_value_index_count_offset,
-    const float *wgrad, TypeValueIndex *deltaw_hash_value_index, float *deltaw, float scaler) {
+__global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                                        float lr, const MomentumSgdOptHyperParams momentum,
+                                        const TypeKey *sample_id,
+                                        const TypeValueIndex *hash_value_index_sort,
+                                        const uint32_t *hash_value_index_count_offset,
+                                        const float *wgrad, TypeValueIndex *deltaw_hash_value_index,
+                                        float *deltaw, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -819,7 +822,7 @@ __global__ void opt_momentum_sgd_kernel(
 
     // save weights diff
     deltaw[bid * embedding_vec_size + tid] = mo;
-    
+
     // save hash value_indexs(corresponding to deltaw)
     if (tid == 0) {
       deltaw_hash_value_index[bid] = row_index;
@@ -829,9 +832,9 @@ __global__ void opt_momentum_sgd_kernel(
 
 // calculate weights update value(deltaw) by nesterov opitimizer
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num,
-                                    int embedding_vec_size, float lr,
-                                    const NesterovOptHyperParams nesterov, const TypeKey *sample_id,
+__global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                                    float lr, const NesterovOptHyperParams nesterov,
+                                    const TypeKey *sample_id,
                                     const TypeValueIndex *hash_value_index_sort,
                                     const uint32_t *hash_value_index_count_offset,
                                     const float *wgrad, TypeValueIndex *deltaw_hash_value_index,
@@ -872,10 +875,8 @@ __global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num,
 
 // update embedding table(weights) by deltaw
 template <typename TypeValueIndex>
-__global__ void update_kernel(uint32_t hash_value_index_count_num,
-                              int embedding_vec_size,
-                              const TypeValueIndex *deltaw_hash_value_index, 
-                              const float *deltaw,
+__global__ void update_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                              const TypeValueIndex *deltaw_hash_value_index, const float *deltaw,
                               float *hash_table_value) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
@@ -888,23 +889,19 @@ __global__ void update_kernel(uint32_t hash_value_index_count_num,
 }
 
 template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
-__global__ void opt_sgd_atomic_kernel(int nnz,
-                                      int embedding_vec_size, 
-                                      float lr_scale,
+__global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_scale,
                                       const TypeValueIndex *hash_value_index,
-                                      const TypeKey *sample_ids, 
-                                      const TypeEmbeddingComp *wgrad,
+                                      const TypeKey *sample_ids, const TypeEmbeddingComp *wgrad,
                                       float *hash_table_value) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
-  if (tid < embedding_vec_size && bid < nnz) { 
-
-    for(int key_id = bid; key_id < nnz; key_id += gridDim.x) {
-      int sample_id = sample_ids[key_id]; 
+  if (tid < embedding_vec_size && bid < nnz) {
+    for (int key_id = bid; key_id < nnz; key_id += gridDim.x) {
+      int sample_id = sample_ids[key_id];
       float deltaw = -lr_scale * (float)(wgrad[sample_id * embedding_vec_size + tid]);
 
-      // atomic update 
+      // atomic update
       size_t value_index = hash_value_index[key_id];
       size_t feature_index = value_index * embedding_vec_size + tid;
       atomicAdd(&hash_table_value[feature_index], deltaw);
@@ -914,22 +911,18 @@ __global__ void opt_sgd_atomic_kernel(int nnz,
 
 // only support LocalizedSlotSparseEmbeddingOneHot
 template <typename TypeValueIndex, typename TypeEmbeddingComp>
-__global__ void opt_sgd_atomic_kernel(int nnz,
-                                      int embedding_vec_size, 
-                                      float lr_scale,
+__global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_scale,
                                       const TypeValueIndex *hash_value_index,
-                                      const TypeEmbeddingComp *wgrad,
-                                      float *hash_table_value) {
+                                      const TypeEmbeddingComp *wgrad, float *hash_table_value) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
-  if (tid < embedding_vec_size && bid < nnz) { 
-
-    for(int key_id = bid; key_id < nnz; key_id += gridDim.x) {
+  if (tid < embedding_vec_size && bid < nnz) {
+    for (int key_id = bid; key_id < nnz; key_id += gridDim.x) {
       // for one-hot, the max_feature_per_slot is 1, so sample_id is equal to key_id
       float deltaw = -lr_scale * (float)(wgrad[key_id * embedding_vec_size + tid]);
 
-      // atomic update 
+      // atomic update
       size_t value_index = hash_value_index[key_id];
       size_t feature_index = value_index * embedding_vec_size + tid;
       atomicAdd(&hash_table_value[feature_index], deltaw);
@@ -1166,13 +1159,12 @@ __global__ void store_slot_id_kernel(size_t batch_size,
 
 // for one-hot, the value_index mapping is linear (no need to use hashtable)
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void hash_key_value_index_mapping_kernel(size_t nnz, 
-                                                    int slot_num, 
-                                                    const uint32_t * mapping_offsets,
-                                                    const TypeKey * hash_key,
-                                                    TypeValueIndex * hash_value_index){
+__global__ void hash_key_value_index_mapping_kernel(size_t nnz, int slot_num,
+                                                    const uint32_t *mapping_offsets,
+                                                    const TypeKey *hash_key,
+                                                    TypeValueIndex *hash_value_index) {
   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
-  if(gid < nnz) {
+  if (gid < nnz) {
     int slot_id = gid % slot_num;
     hash_value_index[gid] = hash_key[gid] - mapping_offsets[slot_id];
   }

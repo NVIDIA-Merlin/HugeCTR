@@ -48,7 +48,7 @@ const int max_nnz_per_slot = 1;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
 const long long vocabulary_size = 100000;
 const int embedding_vec_size = 64;
-const int combiner = 0;   // 0-sum, 1-mean
+const int combiner = 0;  // 0-sum, 1-mean
 const Optimizer_t optimizer = Optimizer_t::SGD;
 // const Optimizer_t optimizer = Optimizer_t::Adam;
 const bool global_update =
@@ -211,11 +211,12 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
 
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
+  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update,
+                                                   scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
-      combiner,  opt_params};
+      batchsize,       vocabulary_size, load_factor, embedding_vec_size,
+      max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -239,8 +240,9 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
     }
 #endif
     // data generation
-    HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-                                     vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+    HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records,
+                                              slot_num, vocabulary_size, label_dim, dense_dim,
+                                              max_nnz_per_slot);
   }
 
 #ifdef ENABLE_MPI
@@ -249,8 +251,8 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
 #endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot * slot_num, 
-                                      max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot * slot_num,
+                                       max_nnz_per_slot, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
   DataReader<T> *data_reader =
@@ -262,9 +264,10 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   //                                                      data_reader->get_value_tensors(),
   //                                                      embedding_params, gpu_resource_group);
 
-  Embedding<T, TypeEmbeddingComp> *embedding = EmbeddingCreator::create_distributed_sparse_embedding_hash(
-      data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params,
-      gpu_resource_group);
+  Embedding<T, TypeEmbeddingComp> *embedding =
+      EmbeddingCreator::create_distributed_sparse_embedding_hash(
+          data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
+          embedding_params, gpu_resource_group);
 
   // init hash table file
   if (init_hash_table) {
@@ -308,12 +311,13 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
       SparseEmbedding_t::Distributed, global_update, scaler);
 
   // for results check
-  TypeEmbeddingComp *embedding_feature_from_gpu =
-      (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
+  TypeEmbeddingComp *embedding_feature_from_gpu = (TypeEmbeddingComp *)malloc(
+      batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
   float *embedding_feature_from_cpu = embedding_cpu->get_forward_results();
   TypeEmbeddingComp *wgrad_from_gpu[device_list.size()];
   for (unsigned int i = 0; i < device_list.size(); i++) {
-    wgrad_from_gpu[i] = (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
+    wgrad_from_gpu[i] = (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size *
+                                                    sizeof(TypeEmbeddingComp));
   }
   float *wgrad_from_cpu = embedding_cpu->get_backward_results();
   T *hash_table_key_from_gpu = (T *)malloc(vocabulary_size * sizeof(T));
@@ -425,11 +429,12 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
 
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
+  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update,
+                                                   scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
-      combiner,  opt_params};
+      batchsize,       vocabulary_size, load_factor, embedding_vec_size,
+      max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -453,8 +458,9 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
     }
 #endif
     // data generation
-    HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-                                     vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+    HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records,
+                                              slot_num, vocabulary_size, label_dim, dense_dim,
+                                              max_nnz_per_slot);
   }
 
 #ifdef ENABLE_MPI
@@ -463,8 +469,8 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
 #endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot * slot_num, 
-                                      max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot * slot_num,
+                                       max_nnz_per_slot, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
   DataReader<T> *data_reader =
@@ -476,9 +482,10 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
   //                                                      data_reader->get_value_tensors(),
   //                                                      embedding_params, gpu_resource_group);
 
-  Embedding<T, TypeEmbeddingComp> *embedding = EmbeddingCreator::create_distributed_sparse_embedding_hash(
-      data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params,
-      gpu_resource_group);
+  Embedding<T, TypeEmbeddingComp> *embedding =
+      EmbeddingCreator::create_distributed_sparse_embedding_hash(
+          data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
+          embedding_params, gpu_resource_group);
 
   // init hash table file
   if (init_hash_table) {
@@ -522,12 +529,13 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
       SparseEmbedding_t::Distributed, global_update, scaler);
 
   // for results check
-  TypeEmbeddingComp *embedding_feature_from_gpu =
-      (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
+  TypeEmbeddingComp *embedding_feature_from_gpu = (TypeEmbeddingComp *)malloc(
+      batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
   float *embedding_feature_from_cpu = embedding_cpu->get_forward_results();
   TypeEmbeddingComp *wgrad_from_gpu[device_list.size()];
   for (unsigned int i = 0; i < device_list.size(); i++) {
-    wgrad_from_gpu[i] = (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
+    wgrad_from_gpu[i] = (TypeEmbeddingComp *)malloc(batchsize * slot_num * embedding_vec_size *
+                                                    sizeof(TypeEmbeddingComp));
   }
   float *wgrad_from_cpu = embedding_cpu->get_backward_results();
   T *hash_table_key_from_gpu = (T *)malloc(vocabulary_size * sizeof(T));
@@ -543,24 +551,23 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // create new obj for eval()
   DataReader<T> *data_reader_eval =
-    new DataReader<T>(file_list_name, batchsize_eval, label_dim, dense_dim, CHK, params,
-                          gpu_resource_group, num_chunk_threads);
-  Embedding<T, TypeEmbeddingComp> *embedding_eval = embedding->clone_eval(data_reader_eval->get_row_offsets_tensors(), 
-      data_reader_eval->get_value_tensors(), batchsize_eval, gpu_resource_group);
+      new DataReader<T>(file_list_name, batchsize_eval, label_dim, dense_dim, CHK, params,
+                        gpu_resource_group, num_chunk_threads);
+  Embedding<T, TypeEmbeddingComp> *embedding_eval = embedding->clone_eval(
+      data_reader_eval->get_row_offsets_tensors(), data_reader_eval->get_value_tensors(),
+      batchsize_eval, gpu_resource_group);
 
   // for SparseEmbeddingCpu eval
   SparseEmbeddingHashCpu<T> *embedding_cpu_eval = new SparseEmbeddingHashCpu<T>(
-    batchsize_eval, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, label_dim,
-    dense_dim, CHK, num_records, combiner, optimizer, lr, file_list_name, hash_table_file_name,
-    SparseEmbedding_t::Distributed, global_update, scaler);
+      batchsize_eval, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, label_dim,
+      dense_dim, CHK, num_records, combiner, optimizer, lr, file_list_name, hash_table_file_name,
+      SparseEmbedding_t::Distributed, global_update, scaler);
 
   float *embedding_feature_from_cpu_eval = embedding_cpu_eval->get_forward_results();
 
   // for results check
-  TypeEmbeddingComp *embedding_feature_from_gpu_eval =
-      (TypeEmbeddingComp *)malloc(batchsize_eval * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
-
-
+  TypeEmbeddingComp *embedding_feature_from_gpu_eval = (TypeEmbeddingComp *)malloc(
+      batchsize_eval * slot_num * embedding_vec_size * sizeof(TypeEmbeddingComp));
 
   for (int i = 0; i < batch_num; i++) {
     printf("Rank%d: Round %d start training:\n", pid, i);
@@ -614,43 +621,44 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-/* do not do update_params since cpu code can not support eval mode (2 embedding obj share one hashtable)
+    /* do not do update_params since cpu code can not support eval mode (2 embedding obj share one
+    hashtable)
 
-    // GPU update_params
-    printf("Rank%d: embedding->update_params()\n", pid);
-    embedding->update_params();
+        // GPU update_params
+        printf("Rank%d: embedding->update_params()\n", pid);
+        embedding->update_params();
 
-#if 1 // can not check update_params since one-hot has no hashtable
-    if (pid == 0) {
-      // CPU update_params
-      printf("Rank0: embedding_cpu->update_params()\n");
-      embedding_cpu->update_params();
-    }
-#else 
-    // check the results of update params
-    printf("Rank%d: embedding->get_update_params_results()\n", pid);
-    embedding->get_update_params_results(hash_table_key_from_gpu,
-                                         hash_table_value_from_gpu);  // memcpy from GPU to CPU
+    #if 1 // can not check update_params since one-hot has no hashtable
+        if (pid == 0) {
+          // CPU update_params
+          printf("Rank0: embedding_cpu->update_params()\n");
+          embedding_cpu->update_params();
+        }
+    #else
+        // check the results of update params
+        printf("Rank%d: embedding->get_update_params_results()\n", pid);
+        embedding->get_update_params_results(hash_table_key_from_gpu,
+                                             hash_table_value_from_gpu);  // memcpy from GPU to CPU
 
-    if (pid == 0) {
-      // CPU update_params
-      printf("Rank0: embedding_cpu->update_params()\n");
-      embedding_cpu->update_params();
+        if (pid == 0) {
+          // CPU update_params
+          printf("Rank0: embedding_cpu->update_params()\n");
+          embedding_cpu->update_params();
 
-      printf("Rank0: check update_params results\n");
-      bool rtn = compare_hash_table<T, TypeHashValue>(
-          vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue *)hash_table_value_from_gpu,
-          (T *)hash_table_key_from_cpu, (TypeHashValue *)hash_table_value_from_cpu);
-      ASSERT_EQ(true, rtn);
-    }
+          printf("Rank0: check update_params results\n");
+          bool rtn = compare_hash_table<T, TypeHashValue>(
+              vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue
+    *)hash_table_value_from_gpu, (T *)hash_table_key_from_cpu, (TypeHashValue
+    *)hash_table_value_from_cpu); ASSERT_EQ(true, rtn);
+        }
 
-#endif 
+    #endif
 
-#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
+    #ifdef ENABLE_MPI
+        MPI_Barrier(MPI_COMM_WORLD);
+    #endif
 
-*/
+    */
 
     /////////////////////////////////////////////////////////////////////////////////////////////
     // eval
@@ -674,9 +682,9 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
       embedding_cpu_eval->forward();
 
       printf("Rank0: check forward results\n");
-      ASSERT_EQ(true,
-                compare_embedding_feature(batchsize_eval * slot_num * embedding_vec_size,
-                                          embedding_feature_from_gpu_eval, embedding_feature_from_cpu_eval));
+      ASSERT_EQ(true, compare_embedding_feature(batchsize_eval * slot_num * embedding_vec_size,
+                                                embedding_feature_from_gpu_eval,
+                                                embedding_feature_from_cpu_eval));
     }
 
 #ifdef ENABLE_MPI
@@ -782,6 +790,6 @@ TEST(distributed_sparse_embedding_hash_test, profile) {
   }
 
 }
-#endif 
+#endif
 
 }  // namespace

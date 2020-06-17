@@ -42,7 +42,8 @@ class MomentumSGD : public Optimizer {
               const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
               float learning_rate, float momentum_factor, float scaler = 1.f)
       : Optimizer(weight, device_id, learning_rate, scaler),
-        momentum_factor_(momentum_factor), wgrad_(wgrad) {
+        momentum_factor_(momentum_factor),
+        wgrad_(wgrad) {
     momentum_.reset(new GeneralBuffer<float>(weight_->get_num_elements(), device_id_));
     momentum_->reset_sync();
     if (weight_->get_size() != wgrad_->get_size()) {

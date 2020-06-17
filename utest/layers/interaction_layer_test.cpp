@@ -57,11 +57,10 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
     std::vector<size_t> dims;
     if (ni == 0) {
       dims = {height, in_width};
-    }
-    else {
+    } else {
       dims = {height, n_emb, in_width};
     }
-    TensorFormat_t in_format = (ni == 0)? TensorFormat_t::HW : TensorFormat_t::HSW;
+    TensorFormat_t in_format = (ni == 0) ? TensorFormat_t::HW : TensorFormat_t::HSW;
     std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(dims, buff, in_format));
     in_tensors.push_back(in_tensor);
 
@@ -84,19 +83,17 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
   auto concat_op = [&](bool fprop) {
     for (size_t ni = 0; ni < n_ins; ni++) {
       for (size_t h = 0; h < height; h++) {
-        size_t in_idx_base = (ni == 0)? h * in_width : h * in_width * n_emb;
+        size_t in_idx_base = (ni == 0) ? h * in_width : h * in_width * n_emb;
         for (size_t w = 0; w < in_width; w++) {
           size_t in_idx = in_idx_base + w;
           size_t out_idx = h * out_width + ni * in_width + w;
           if (fprop) {
-            h_concat[out_idx] = (ni == 0)?
-              h_in_mlp[in_idx] : h_in_emb[(ni - 1) * in_width + in_idx];
-          }
-          else {
+            h_concat[out_idx] =
+                (ni == 0) ? h_in_mlp[in_idx] : h_in_emb[(ni - 1) * in_width + in_idx];
+          } else {
             if (ni == 0) {
               h_in_mlp[in_idx] = h_in_mlp[in_idx] + h_concat[out_idx];
-            }
-            else {
+            } else {
               h_in_emb[in_idx + (ni - 1) * in_width] = h_concat[out_idx];
             }
           }
@@ -106,18 +103,16 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
   };
 
   std::shared_ptr<Tensor<T>> out_tensor;
-  InteractionLayer<T> interaction_layer(in_mlp_tensor, in_emb_tensor, out_tensor,
-                                        buff, cublas_handle, false, 0);
+  InteractionLayer<T> interaction_layer(in_mlp_tensor, in_emb_tensor, out_tensor, buff,
+                                        cublas_handle, false, 0);
 
   buff->init(0);
 
   // device fprop
   T* d_in_mlp = in_mlp_tensor->get_ptr();
-  cudaMemcpy(d_in_mlp, &h_in_mlp.front(), in_mlp_tensor->get_size(),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy(d_in_mlp, &h_in_mlp.front(), in_mlp_tensor->get_size(), cudaMemcpyHostToDevice);
   T* d_in_emb = in_emb_tensor->get_ptr();
-  cudaMemcpy(d_in_emb, &h_in_emb.front(), in_emb_tensor->get_size(),
-             cudaMemcpyHostToDevice);
+  cudaMemcpy(d_in_emb, &h_in_emb.front(), in_emb_tensor->get_size(), cudaMemcpyHostToDevice);
   interaction_layer.fprop(cudaStreamDefault);
 
   // host fprop
@@ -131,7 +126,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
       for (size_t n = 0; n < n_ins; n++) {
         float accum = 0.0f;
         for (size_t k = 0; k < in_width; k++) {
-          accum += h_concat[concat_stride + m * in_width + k] * 
+          accum += h_concat[concat_stride + m * in_width + k] *
                    h_concat[concat_stride + n * in_width + k];
         }
         h_mat[mat_stride + m * n_ins + n] = accum;
@@ -139,20 +134,20 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
     }
   }
 
-	size_t out_len = in_width + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
+  size_t out_len = in_width + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
   std::vector<T> h_ref(height * out_len, 0.0);
   for (size_t p = 0; p < height; p++) {
-		size_t cur_idx = 0;
-		size_t out_stride = p * out_len;
-		size_t mat_stride = p * n_ins * n_ins;
+    size_t cur_idx = 0;
+    size_t out_stride = p * out_len;
+    size_t mat_stride = p * n_ins * n_ins;
     for (size_t i = 0; i < in_width; i++) {
-			h_ref[out_stride + cur_idx++] = h_in_mlp[p * in_width + i];
-		}
+      h_ref[out_stride + cur_idx++] = h_in_mlp[p * in_width + i];
+    }
     for (size_t n = 0; n < n_ins; n++) {
       for (size_t m = 0; m < n_ins; m++) {
-				if(n > m) {
-					h_ref[out_stride + cur_idx++] = h_mat[mat_stride + m * n_ins + n];
-				}
+        if (n > m) {
+          h_ref[out_stride + cur_idx++] = h_mat[mat_stride + m * n_ins + n];
+        }
       }
     }
   }
@@ -161,24 +156,24 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
   T* d_out = out_tensor->get_ptr();
   cudaMemcpy(&h_out.front(), d_out, out_tensor->get_size(), cudaMemcpyDeviceToHost);
 
-  ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(),
-                                            h_out.size(), convert<T>(eps)));
+  ASSERT_TRUE(
+      test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), convert<T>(eps)));
 
   // device bprop
   interaction_layer.bprop(cudaStreamDefault);
 
   // host bprop
   for (size_t p = 0; p < height; p++) {
-		size_t cur_idx = 0;
-		size_t out_stride = p * out_len;
-		size_t mat_stride = p * n_ins * n_ins;
+    size_t cur_idx = 0;
+    size_t out_stride = p * out_len;
+    size_t mat_stride = p * n_ins * n_ins;
     for (size_t i = 0; i < in_width; i++) {
-			h_in_mlp[p * in_width + i] = h_ref[out_stride + cur_idx++];
-		}
+      h_in_mlp[p * in_width + i] = h_ref[out_stride + cur_idx++];
+    }
     for (size_t n = 0; n < n_ins; n++) {
       for (size_t m = 0; m < n_ins; m++) {
         h_mat[mat_stride + m * n_ins + n] =
-            (n > m)? h_ref[out_stride + cur_idx++] : convert<T>(0.0f);
+            (n > m) ? h_ref[out_stride + cur_idx++] : convert<T>(0.0f);
       }
     }
   }
@@ -191,9 +186,8 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
       for (size_t n = 0; n < in_width; n++) {
         float accum = 0.0f;
         for (size_t k = 0; k < n_ins; k++) {
-          accum +=
-            (h_mat[mat_stride + m * n_ins + k] + h_mat[mat_stride + k * n_ins + m]) * 
-             h_concat_tmp[concat_stride + k * in_width + n];
+          accum += (h_mat[mat_stride + m * n_ins + k] + h_mat[mat_stride + k * n_ins + m]) *
+                   h_concat_tmp[concat_stride + k * in_width + n];
         }
         h_concat[concat_stride + m * in_width + n] = 1.0f * accum;
       }
@@ -216,7 +210,5 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
 
 }  // namespace
 
-TEST(interaction_layer, fp32_512x479) {
-  interaction_layer_test<float>(512, 26, 128); }
-TEST(interaction_layer, fp16_512x479) {
-  interaction_layer_test<__half>(512, 26, 128); }
+TEST(interaction_layer, fp32_512x479) { interaction_layer_test<float>(512, 26, 128); }
+TEST(interaction_layer, fp16_512x479) { interaction_layer_test<__half>(512, 26, 128); }

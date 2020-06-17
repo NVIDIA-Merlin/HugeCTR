@@ -28,7 +28,7 @@ namespace HugeCTR {
 /**
  * @brief Abstract base class of Regularizer
  */
-template<typename T = float>
+template <typename T = float>
 class Regularizer {
  public:
   /*

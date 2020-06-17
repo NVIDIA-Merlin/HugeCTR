@@ -37,7 +37,8 @@ using namespace HugeCTR;
 
 namespace {
 
-float get_ref_term(Regularizer_t type, std::vector<float>& h_weight, float lambda, size_t batch_size) {
+float get_ref_term(Regularizer_t type, std::vector<float>& h_weight, float lambda,
+                   size_t batch_size) {
   float ref_term = 0.0f;
   switch (type) {
     case Regularizer_t::L1: {
@@ -85,18 +86,19 @@ void get_ref_grad(Regularizer_t type, const std::vector<float>& h_weight,
   }
 }
 
-std::shared_ptr<Regularizer<float>> create_regularizer(Regularizer_t type,
-                                                std::shared_ptr<GeneralBuffer<float>> weight_buff,
-                                                std::shared_ptr<GeneralBuffer<float>> wgrad_buff,
-                                                size_t batch_size, float lambda,
-                                                cublasHandle_t cublas_handle) {
+std::shared_ptr<Regularizer<float>> create_regularizer(
+    Regularizer_t type, std::shared_ptr<GeneralBuffer<float>> weight_buff,
+    std::shared_ptr<GeneralBuffer<float>> wgrad_buff, size_t batch_size, float lambda,
+    cublasHandle_t cublas_handle) {
   std::shared_ptr<Regularizer<float>> reg;
   switch (type) {
     case Regularizer_t::L1:
-      reg.reset(new L1Regularizer<float>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0));
+      reg.reset(
+          new L1Regularizer<float>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0));
       break;
     case Regularizer_t::L2:
-      reg.reset(new L2Regularizer<float>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0));
+      reg.reset(
+          new L2Regularizer<float>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0));
       break;
     default:
       assert(!"Error: no such optimizer && should never get here!");
@@ -140,15 +142,16 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   std::shared_ptr<Tensor<float>> label_tensor(
       new Tensor<float>({batch_size, 1}, label_buff, TensorFormat_t::HW));
 
-  BinaryCrossEntropyLoss<float> loss_no(label_tensor, out_tensor, loss_tensor_no,
-                                 std::shared_ptr<NoRegularizer<float>>(new NoRegularizer<float>(
-                                     weight_buff_no, wgrad_buff_no, batch_size, 0)),
-                                 0, 1);
+  BinaryCrossEntropyLoss<float> loss_no(
+      label_tensor, out_tensor, loss_tensor_no,
+      std::shared_ptr<NoRegularizer<float>>(
+          new NoRegularizer<float>(weight_buff_no, wgrad_buff_no, batch_size, 0)),
+      0, 1);
 
   BinaryCrossEntropyLoss<float> loss_re(
       label_tensor, out_tensor, loss_tensor_re,
-      create_regularizer(type, weight_buff_re, wgrad_buff_re, batch_size, lambda, cublas_handle),
-      0, 1);
+      create_regularizer(type, weight_buff_re, wgrad_buff_re, batch_size, lambda, cublas_handle), 0,
+      1);
 
   weight_buff_no->init(0);
   weight_buff_re->init(0);

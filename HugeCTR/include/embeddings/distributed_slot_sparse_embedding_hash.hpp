@@ -51,10 +51,12 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
       HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>;
 
  private:
-  SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params_; /**< Sparse embedding hash params. */
-  std::vector<OptParams<TypeEmbeddingComp>> opt_params_;                     /**< Optimizer params. */
+  SparseEmbeddingHashParams<TypeEmbeddingComp>
+      embedding_params_;                                  /**< Sparse embedding hash params. */
+  std::vector<OptParams<TypeEmbeddingComp>> opt_params_;  /**< Optimizer params. */
   std::vector<std::shared_ptr<NvHashTable>> hash_tables_; /**< Hash table.  */
-  std::vector<PinnedBuffer<TypeHashKey>> nnz_num_per_batch_; /**< non-zero feature number in one batch */
+  std::vector<PinnedBuffer<TypeHashKey>>
+      nnz_num_per_batch_; /**< non-zero feature number in one batch */
 
   // define tensors
   Tensors<float> hash_table_value_tensors_; /**< Hash table value. */
@@ -104,11 +106,13 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   Tensors<TypeHashValueIndex>
       deltaw_hash_value_index_tensors_; /**< The temp memory to store the hash table indexes of
                                            deltaw in update_params(). */
-  Tensors<TypeEmbeddingComp> deltaw_tensors_; /**< The temp memory to store the deltaw in update_params(). */
+  Tensors<TypeEmbeddingComp>
+      deltaw_tensors_; /**< The temp memory to store the deltaw in update_params(). */
 
   // define GeneralBuffers
-  GeneralBuffers<float> float_bufs_;     /**< float type general buffer. */
-  GeneralBuffers<TypeEmbeddingComp> fp_bufs_; /**< TypeEmbeddingComp(fp32 or fp16) type general buffer. */
+  GeneralBuffers<float> float_bufs_; /**< float type general buffer. */
+  GeneralBuffers<TypeEmbeddingComp>
+      fp_bufs_; /**< TypeEmbeddingComp(fp32 or fp16) type general buffer. */
   GeneralBuffers<uint32_t> uint32_bufs_; /**< uint32 type general buffer. */
   GeneralBuffers<TypeHashKey> key_bufs_; /**< TypeHashKey type general buffer. */
   GeneralBuffers<TypeHashValueIndex>
@@ -118,8 +122,8 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   std::vector<size_t> temp_storage_scan_bytes_; /**< The temp variable for CUB lib scaning API. */
 
   size_t max_vocabulary_size_per_gpu_; /**< Max vocabulary size for each GPU. */
-  size_t max_hash_table_size_per_gpu_;   /**< equal to max_vocabulary_size_per_gpu_ / load_factor. */
-  int batch_size_per_gpu_;            /*< batch_size per GPU */
+  size_t max_hash_table_size_per_gpu_; /**< equal to max_vocabulary_size_per_gpu_ / load_factor. */
+  int batch_size_per_gpu_;             /*< batch_size per GPU */
   SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
 
   Tensors<TypeEmbeddingComp> utest_forward_temp_tensors_;
@@ -127,9 +131,9 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   int total_gpu_count_;
   int local_gpu_count_;
 
- /**
+  /**
    * The constructor of DistributedSlotSparseEmbeddingHash.
-   * This ctor is only used when you already have a instant of DistributedSlotSparseEmbeddingHash 
+   * This ctor is only used when you already have a instant of DistributedSlotSparseEmbeddingHash
    * and you want to reuse the hash_table/embedding_table for evaluation.
    * @param row_offsets_tensors row offsets of the input tensor(refer to row offset vector in sparse
    * matrix CSR format).
@@ -139,14 +143,12 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param gpu_resource_group the GPU resource group.
    * @param obj the current DistributedSlotSparseEmbeddingHash class object.
    */
-  DistributedSlotSparseEmbeddingHash(const Tensors<TypeHashKey>& row_offsets_tensors, 
-      const Tensors<TypeHashKey>& value_tensors, size_t batchsize, 
-      const std::shared_ptr<GPUResourceGroup> &gpu_resource_group, 
-      const DistributedSlotSparseEmbeddingHash& obj);
+  DistributedSlotSparseEmbeddingHash(const Tensors<TypeHashKey> &row_offsets_tensors,
+                                     const Tensors<TypeHashKey> &value_tensors, size_t batchsize,
+                                     const std::shared_ptr<GPUResourceGroup> &gpu_resource_group,
+                                     const DistributedSlotSparseEmbeddingHash &obj);
 
-  
  public:
-
   /**
    * Clone the embedding object for evaluation.
    * @param row_offsets_tensors row offsets of the input tensor(refer to row offset vector in sparse
@@ -156,16 +158,15 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param batchsize batsize. The batchsize for eval and train may be different.
    * @param gpu_resource_group the GPU resource group.
    */
-  Embedding<TypeHashKey, TypeEmbeddingComp>* clone_eval(const Tensors<TypeHashKey>& row_offsets_tensors, 
-      const Tensors<TypeHashKey>& value_tensors, size_t batchsize,
-      const std::shared_ptr<GPUResourceGroup> &gpu_resource_group){
-
-    Embedding<TypeHashKey, TypeEmbeddingComp>* new_embedding = new 
-        DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>(
-        row_offsets_tensors, value_tensors, batchsize, gpu_resource_group, *this);
+  Embedding<TypeHashKey, TypeEmbeddingComp> *clone_eval(
+      const Tensors<TypeHashKey> &row_offsets_tensors, const Tensors<TypeHashKey> &value_tensors,
+      size_t batchsize, const std::shared_ptr<GPUResourceGroup> &gpu_resource_group) {
+    Embedding<TypeHashKey, TypeEmbeddingComp> *new_embedding =
+        new DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>(
+            row_offsets_tensors, value_tensors, batchsize, gpu_resource_group, *this);
     return new_embedding;
   }
-  
+
   /**
    * The constructor of DistributedSlotSparseEmbeddingHash.
    * @param row_offsets_tensors row offsets of the input tensor(refer to row offset vector in sparse
@@ -254,10 +255,12 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 };  // end of class DistributedSlotSparseEmbeddingHash
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedSlotSparseEmbeddingHash(
-    const Tensors<TypeHashKey> &row_offsets_tensors, const Tensors<TypeHashKey> &hash_key_tensors,
-    SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params,
-    const std::shared_ptr<GPUResourceGroup> &gpu_resource_group)
+DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
+    DistributedSlotSparseEmbeddingHash(
+        const Tensors<TypeHashKey> &row_offsets_tensors,
+        const Tensors<TypeHashKey> &hash_key_tensors,
+        SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params,
+        const std::shared_ptr<GPUResourceGroup> &gpu_resource_group)
     : embedding_params_(embedding_params),
       Base(row_offsets_tensors, hash_key_tensors, embedding_params.batch_size,
            embedding_params.slot_num, embedding_params.embedding_vec_size, gpu_resource_group,
@@ -270,7 +273,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
     // CAUSION: can not decide how many <key,value> pairs in each GPU, because the GPU distribution
     // is computed by (key%gpu_count). In order to not allocate the total size of hash table on each
     // GPU, meanwhile get a better performance by a unfull hash table, the users need to set the
-    // param "load_factor"(load_factor<1). 
+    // param "load_factor"(load_factor<1).
     max_vocabulary_size_per_gpu_ =
         (size_t)(ceil((float)embedding_params_.vocabulary_size / total_gpu_count_));
     max_hash_table_size_per_gpu_ = max_vocabulary_size_per_gpu_ / embedding_params_.load_factor;
@@ -298,7 +301,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
 
       // new hash table value vectors
       hash_table_value_tensors_.emplace_back(
-	        new Tensor<float>({max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
+          new Tensor<float>({max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
                             float_bufs_.back(), TensorFormat_t::HW));
 
       // new hash table value_index that get() from HashTable
@@ -309,14 +312,14 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
       // new embedding features reduced by hash table values(results of forward)
       embedding_feature_tensors_.emplace_back(
           new Tensor<TypeEmbeddingComp>({embedding_params_.batch_size * embedding_params_.slot_num,
-                             embedding_params_.embedding_vec_size},
-                            fp_bufs_.back(), TensorFormat_t::HW));
+                                         embedding_params_.embedding_vec_size},
+                                        fp_bufs_.back(), TensorFormat_t::HW));
 
       // new wgrad used by backward
       wgrad_tensors_.emplace_back(
           new Tensor<TypeEmbeddingComp>({embedding_params_.batch_size * embedding_params_.slot_num,
-                             embedding_params_.embedding_vec_size},
-                            fp_bufs_.back(), TensorFormat_t::HW));
+                                         embedding_params_.embedding_vec_size},
+                                        fp_bufs_.back(), TensorFormat_t::HW));
 
       // new optimizer params used by update_params
       opt_params_.push_back(OptParams<TypeEmbeddingComp>());
@@ -330,7 +333,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
               {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
               float_bufs_.back(), TensorFormat_t::HW));
           opt_v_tensors_.emplace_back(new Tensor<float>(
-	      {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
+              {max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size},
               float_bufs_.back(), TensorFormat_t::HW));
           break;
 
@@ -387,10 +390,10 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
       deltaw_hash_value_index_tensors_.emplace_back(new Tensor<TypeHashValueIndex>(
           {1, embedding_params_.batch_size * embedding_params_.max_feature_num},
           value_index_bufs_.back(), TensorFormat_t::HW));
-      deltaw_tensors_.emplace_back(
-          new Tensor<TypeEmbeddingComp>({embedding_params_.batch_size * embedding_params_.max_feature_num,
-                             embedding_params_.embedding_vec_size},
-                            fp_bufs_.back(), TensorFormat_t::HW));
+      deltaw_tensors_.emplace_back(new Tensor<TypeEmbeddingComp>(
+          {embedding_params_.batch_size * embedding_params_.max_feature_num,
+           embedding_params_.embedding_vec_size},
+          fp_bufs_.back(), TensorFormat_t::HW));
       {
         // cal the temp storage bytes for CUB radix sort
         size_t temp = 0;
@@ -421,7 +424,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
 
       utest_forward_temp_tensors_.emplace_back(
           new Tensor<TypeEmbeddingComp>({embedding_params_.batch_size * embedding_params_.slot_num,
-                                        embedding_params_.embedding_vec_size},
+                                         embedding_params_.embedding_vec_size},
                                         fp_bufs_.back(), TensorFormat_t::HW));
 
       // init GenenralBuffers to do real allocation
@@ -508,12 +511,11 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
 
 // Ctor only used for eval
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedSlotSparseEmbeddingHash(
-    const Tensors<TypeHashKey>& row_offsets_tensors, 
-    const Tensors<TypeHashKey>& value_tensors, 
-    size_t batchsize, 
-    const std::shared_ptr<GPUResourceGroup> &gpu_resource_group, 
-    const DistributedSlotSparseEmbeddingHash& obj)
+DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
+    DistributedSlotSparseEmbeddingHash(const Tensors<TypeHashKey> &row_offsets_tensors,
+                                       const Tensors<TypeHashKey> &value_tensors, size_t batchsize,
+                                       const std::shared_ptr<GPUResourceGroup> &gpu_resource_group,
+                                       const DistributedSlotSparseEmbeddingHash &obj)
     : embedding_params_(obj.embedding_params_),
 #ifndef NCCL_A2A
       plan_file_(obj.plan_file),
@@ -524,12 +526,10 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
       max_hash_table_size_per_gpu_(obj.max_hash_table_size_per_gpu_),
       hash_tables_(obj.hash_tables_),
       hash_table_value_tensors_(obj.hash_table_value_tensors_),
-      Base(row_offsets_tensors, value_tensors, batchsize,
-           obj.embedding_params_.slot_num, obj.embedding_params_.embedding_vec_size, gpu_resource_group,
-           obj.embedding_params_.opt_params.scaler)
-{
- try {
-
+      Base(row_offsets_tensors, value_tensors, batchsize, obj.embedding_params_.slot_num,
+           obj.embedding_params_.embedding_vec_size, gpu_resource_group,
+           obj.embedding_params_.opt_params.scaler) {
+  try {
     CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
     embedding_params_.batch_size = batchsize;
@@ -552,10 +552,10 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::DistributedS
           value_index_bufs_.back(), TensorFormat_t::HW));
 
       // new embedding features reduced by hash table values(results of forward)
-      embedding_feature_tensors_.emplace_back(new Tensor<TypeEmbeddingComp>(
-          {embedding_params_.batch_size * embedding_params_.slot_num, 
-          embedding_params_.embedding_vec_size},
-          fp_bufs_.back(), TensorFormat_t::HW));
+      embedding_feature_tensors_.emplace_back(
+          new Tensor<TypeEmbeddingComp>({embedding_params_.batch_size * embedding_params_.slot_num,
+                                         embedding_params_.embedding_vec_size},
+                                        fp_bufs_.back(), TensorFormat_t::HW));
 
       utest_forward_temp_tensors_.emplace_back(
           new Tensor<TypeEmbeddingComp>({embedding_params_.batch_size * embedding_params_.slot_num,
@@ -606,19 +606,21 @@ size_t DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_p
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::forward_per_thread(int tid) {
+void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::forward_per_thread(
+    int tid) {
 #ifndef NDEBUG
   MESSAGE_("forward_per_thread: this is thread: " + std::to_string(tid));
 #endif
 
-  CudaDeviceContext context((*Base::device_resources_)[tid]->get_device_id()); // set device
+  CudaDeviceContext context((*Base::device_resources_)[tid]->get_device_id());  // set device
 
   // do update params operation
-  functors_.forward_per_gpu(embedding_params_.batch_size, embedding_params_.slot_num, embedding_params_.embedding_vec_size,
-                            Base::row_offsets_tensors_[tid]->get_ptr(), Base::value_tensors_[tid]->get_ptr(), 
-                            nnz_num_per_batch_[tid].get(), hash_tables_[tid].get(),
-                            hash_table_value_tensors_[tid]->get_ptr(), hash_value_index_tensors_[tid]->get_ptr(),
-                            embedding_feature_tensors_[tid]->get_ptr(), (*Base::device_resources_)[tid]->get_stream());
+  functors_.forward_per_gpu(
+      embedding_params_.batch_size, embedding_params_.slot_num,
+      embedding_params_.embedding_vec_size, Base::row_offsets_tensors_[tid]->get_ptr(),
+      Base::value_tensors_[tid]->get_ptr(), nnz_num_per_batch_[tid].get(), hash_tables_[tid].get(),
+      hash_table_value_tensors_[tid]->get_ptr(), hash_value_index_tensors_[tid]->get_ptr(),
+      embedding_feature_tensors_[tid]->get_ptr(), (*Base::device_resources_)[tid]->get_stream());
 
   return;
 }
@@ -630,7 +632,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::forward
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
   // use multiple CPU threads to launch tasks on multiple GPUs
-  if (local_gpu_count_ > 1) {  
+  if (local_gpu_count_ > 1) {
     // launch threads
     for (int id = 0; id < local_gpu_count_; id++) {
       Base::device_resources_->results[id] = Base::device_resources_->train_thread_pool.push(
@@ -691,7 +693,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::backwar
 }  // end of backward()
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::update_params_per_thread(int tid) {
+void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::update_params_per_thread(
+    int tid) {
 #ifndef NDEBUG
   MESSAGE_("update_params_per_thread: this is thread: " + std::to_string(tid));
 #endif
@@ -704,10 +707,11 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::update_
   // do update params operation
   functors_.update_params(
       (*Base::device_resources_)[tid]->get_stream(), embedding_params_.batch_size,
-      embedding_params_.slot_num, embedding_params_.embedding_vec_size, max_vocabulary_size_per_gpu_, 
-      opt_params_[tid], (int)nnz_num_per_batch_[tid].get()[0], Base::row_offsets_tensors_[tid]->get_ptr(),
-      hash_value_index_tensors_[tid]->get_ptr(), sample_id_tensors_[tid]->get_ptr(),
-      sample_id_sort_tensors_[tid]->get_ptr(), hash_value_index_sort_tensors_[tid]->get_ptr(),
+      embedding_params_.slot_num, embedding_params_.embedding_vec_size,
+      max_vocabulary_size_per_gpu_, opt_params_[tid], (int)nnz_num_per_batch_[tid].get()[0],
+      Base::row_offsets_tensors_[tid]->get_ptr(), hash_value_index_tensors_[tid]->get_ptr(),
+      sample_id_tensors_[tid]->get_ptr(), sample_id_sort_tensors_[tid]->get_ptr(),
+      hash_value_index_sort_tensors_[tid]->get_ptr(),
       hash_value_index_count_offset_tensors_[tid]->get_ptr(),
       new_hash_value_flag_tensors_[tid]->get_ptr(), hash_value_flag_sumed_tensors_[tid]->get_ptr(),
       hash_value_index_count_counter_tensors_[tid]->get_ptr(),
@@ -721,7 +725,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::update_
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::update_params() {
-
   if (local_gpu_count_ > 1) {  // use multiple CPU threads to launch tasks on multiple GPUs
     // launch threads
     for (int id = 0; id < local_gpu_count_; id++) {
@@ -800,8 +803,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_for
 // only used for results check: copy backward() results from wgrad_tensors_ to wgrad(input CPU
 // buffer)
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_backward_results(TypeEmbeddingComp *wgrad,
-                                                                           int devId) {
+void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_backward_results(
+    TypeEmbeddingComp *wgrad, int devId) {
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
   // wgard shuld be the same on multi-gpus after backward()
@@ -830,8 +833,8 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_upd
 }  // end of get_update_params_results()
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::set_learning_rate(float lr)
-{
+void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::set_learning_rate(
+    float lr) {
   for (int id = 0; id < local_gpu_count_; id++) {
     opt_params_[id].lr = lr;
   }

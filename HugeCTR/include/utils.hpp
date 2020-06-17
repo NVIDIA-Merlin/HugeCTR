@@ -23,8 +23,8 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include <set>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -204,8 +204,8 @@ class DataWriter {
 
 template <typename T, Check_t CK_T>
 void data_generation_for_test(std::string file_list_name, std::string data_prefix, int num_files,
-                     int num_records_per_file, int slot_num, int vocabulary_size, int label_dim,
-                     int dense_dim, int max_nnz) {
+                              int num_records_per_file, int slot_num, int vocabulary_size,
+                              int label_dim, int dense_dim, int max_nnz) {
   if (file_exist(file_list_name)) {
     return;
   }
@@ -321,7 +321,7 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
 
 template <typename T, Check_t CK_T>
 void data_generation_for_localized_test(std::string file_list_name, std::string data_prefix,
-                                        int num_files, int num_records_per_file, int slot_num, 
+                                        int num_files, int num_records_per_file, int slot_num,
                                         int vocabulary_size, int label_dim, int dense_dim,
                                         int max_nnz, const std::vector<size_t> slot_sizes) {
   if (file_exist(file_list_name)) {
@@ -351,16 +351,16 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
     data_writer.write();
 
     for (int i = 0; i < num_records_per_file; i++) {
-      UnifiedDataSimulator<int> idata_sim(1, max_nnz);            // for nnz per slot
-      UnifiedDataSimulator<float> fdata_sim(0, 1);                // for lable and dense
+      UnifiedDataSimulator<int> idata_sim(1, max_nnz);  // for nnz per slot
+      UnifiedDataSimulator<float> fdata_sim(0, 1);      // for lable and dense
       for (int j = 0; j < label_dim + dense_dim; j++) {
         float label_dense = fdata_sim.get_num();
         data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
       }
       size_t offset = 0;
       for (int k = 0; k < slot_num; k++) {
-        //int nnz = idata_sim.get_num();
-        int nnz = max_nnz; // for test
+        // int nnz = idata_sim.get_num();
+        int nnz = max_nnz;  // for test
         data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
         size_t slot_size = slot_sizes[k];
         UnifiedDataSimulator<T> ldata_sim(0, slot_size - 1);  // for key
@@ -378,24 +378,25 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
   return;
 }
 
-  inline void data_generation_for_raw(std::string file_name, int num_samples, int label_dim = 1, int dense_dim = 13, int sparse_dim = 26, const std::vector<long long> slot_size = std::vector<long long>()){
+inline void data_generation_for_raw(
+    std::string file_name, int num_samples, int label_dim = 1, int dense_dim = 13,
+    int sparse_dim = 26, const std::vector<long long> slot_size = std::vector<long long>()) {
   std::ofstream out_stream(file_name, std::ofstream::binary);
-  for(int i = 0; i<num_samples; i++){
-    for(int j = 0; j < label_dim; j++){
-      int label = i%2;
+  for (int i = 0; i < num_samples; i++) {
+    for (int j = 0; j < label_dim; j++) {
+      int label = i % 2;
       out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
     }
-    for(int j = 0; j < dense_dim; j++){
+    for (int j = 0; j < dense_dim; j++) {
       int dense = j;
       out_stream.write(reinterpret_cast<char*>(&dense), sizeof(int));
     }
-    for(int j = 0; j < sparse_dim; j++){
+    for (int j = 0; j < sparse_dim; j++) {
       int sparse = 0;
-      if(slot_size.size() != 0){
+      if (slot_size.size() != 0) {
         sparse = slot_size[j] - 1;
-      }
-      else{
-	sparse = j;
+      } else {
+        sparse = j;
       }
       out_stream.write(reinterpret_cast<char*>(&sparse), sizeof(int));
     }
@@ -404,7 +405,6 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
   return;
 }
 
-  
 /**
  * Find the item from a map according to str and pass by opt.
  * @return true: found / false: not found
@@ -443,36 +443,30 @@ void print_cuda_buff_sum(T* buf, int num) {
   std::cout << "Cuda Buff Sum: " << sum << " size:" << num << std::endl;
 }
 
-template<typename TIN, typename TOUT>
-std::vector<std::shared_ptr<TOUT>> sp_vec_dynamic_cast(std::vector<std::shared_ptr<TIN>>& vin){
+template <typename TIN, typename TOUT>
+std::vector<std::shared_ptr<TOUT>> sp_vec_dynamic_cast(std::vector<std::shared_ptr<TIN>>& vin) {
   std::vector<std::shared_ptr<TOUT>> vout;
-  for(auto& i : vin){
+  for (auto& i : vin) {
     vout.emplace_back(std::dynamic_pointer_cast<TOUT>(i));
   }
   return vout;
 }
 
-inline void set_affinity(std::thread& t, int core){
+inline void set_affinity(std::thread& t, int core) {
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
   CPU_SET(core, &cpuset);
-  int rc = pthread_setaffinity_np(t.native_handle(),
-				  sizeof(cpu_set_t), &cpuset);
-  if(rc != 0){
+  int rc = pthread_setaffinity_np(t.native_handle(), sizeof(cpu_set_t), &cpuset);
+  if (rc != 0) {
     CK_THROW_(Error_t::WrongInput, "Error calling pthread_setaffinity_np: " + std::to_string(rc));
   }
   return;
 }
 
-inline int get_core_id(int i) {
-  // return (i%8)*16 + (i/8);
-  // return (i%4)*16 + (i/4);
-  return (i%8)*16 + (i/8)%2 + (i/16)*128;
-}
-
 inline void set_affinity(std::thread& t, std::set<int> set, bool excluded) {
   if (set.empty()) {
-    for(int i = 0; i < 31; i++) {
+    auto get_core_id = [](int i) { return (i % 8) * 16 + (i / 8) % 2 + (i / 16) * 128; };
+    for (int i = 0; i < 31; i++) {
       int core = get_core_id(i);
       set.insert(core);
     }
@@ -480,25 +474,22 @@ inline void set_affinity(std::thread& t, std::set<int> set, bool excluded) {
 
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
-  for(int core = 0; core < 256; core++) {
-    if(excluded) {
-      if(set.find(core) == set.end()) {
+  for (int core = 0; core < 256; core++) {
+    if (excluded) {
+      if (set.find(core) == set.end()) {
         CPU_SET(core, &cpuset);
       }
-    }
-    else {
-      if(set.find(core) != set.end()) {
+    } else {
+      if (set.find(core) != set.end()) {
         CPU_SET(core, &cpuset);
       }
     }
   }
-  int rc = pthread_setaffinity_np(t.native_handle(),
-				  sizeof(cpu_set_t), &cpuset);
-  if(rc != 0){
+  int rc = pthread_setaffinity_np(t.native_handle(), sizeof(cpu_set_t), &cpuset);
+  if (rc != 0) {
     CK_THROW_(Error_t::WrongInput, "Error calling pthread_setaffinity_np: " + std::to_string(rc));
   }
   return;
 }
-
 
 }  // namespace HugeCTR

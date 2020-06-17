@@ -110,8 +110,8 @@ class SparseEmbeddingHashCpu {
  public:
   SparseEmbeddingHashCpu(int batchsize, int max_feature_num, int vocabulary_size,
                          int embedding_vec_size, int slot_num, int label_dim, int dense_dim,
-                         Check_t check_sum, long long num_records, int combiner, Optimizer_t optimizer,
-                         float lr, const std::string &file_list_name,
+                         Check_t check_sum, long long num_records, int combiner,
+                         Optimizer_t optimizer, float lr, const std::string &file_list_name,
                          const std::string &hash_table_file, const SparseEmbedding_t emb_type,
                          bool global_update, float scaler);
   ~SparseEmbeddingHashCpu();
@@ -187,11 +187,10 @@ class SparseEmbeddingHashCpu {
                               int vocabulary_size, bool global_update, float scaler);
 
   void cpu_optimizer_sgd(int feature_num_undup, int embedding_vec_size,
-                        const TypeHashValueIndex *hash_value_index_undup,
-                        const TypeHashValueIndex *hash_value_index_undup_offset,
-                        const TypeHashKey *sample_id, const float *wgrad,
-                        float *hash_table_value, float lr,
-                        int vocabulary_size, float scaler);
+                         const TypeHashValueIndex *hash_value_index_undup,
+                         const TypeHashValueIndex *hash_value_index_undup_offset,
+                         const TypeHashKey *sample_id, const float *wgrad, float *hash_table_value,
+                         float lr, int vocabulary_size, float scaler);
 
   // only used for results check
   float *get_forward_results() { return embedding_feature_; }
@@ -761,9 +760,7 @@ template <typename TypeHashKey>
 void SparseEmbeddingHashCpu<TypeHashKey>::cpu_optimizer_sgd(
     int feature_num_undup, int embedding_vec_size, const TypeHashValueIndex *hash_value_index_undup,
     const TypeHashValueIndex *hash_value_index_undup_offset, const TypeHashKey *sample_id,
-    const float *wgrad, float *hash_table_value, float lr,
-    int vocabulary_size, float scaler) {
-
+    const float *wgrad, float *hash_table_value, float lr, int vocabulary_size, float scaler) {
   for (int i = 0; i < feature_num_undup; i++) {
     TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
     TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
@@ -808,39 +805,38 @@ void SparseEmbeddingHashCpu<TypeHashKey>::update_params() {
   cpu_csr_sort(feature_num_undup, hash_value_index_undup_, hash_value_index_undup_offset_);
 
   // step6: update params
-  switch(optimizer_) {
+  switch (optimizer_) {
     case Optimizer_t::Adam: {
-    times_++;
-    const float alpha_t =
-        lr_ * sqrt(1.0f - pow(adam_beta2_, times_)) / (1.0f - pow(adam_beta1_, times_));
-    cpu_optimizer_adam(feature_num_undup, embedding_vec_size_, hash_value_index_undup_,
-                       hash_value_index_undup_offset_, sample_id_, wgrad_, hash_table_value_,
-                       opt_m_, opt_v_, alpha_t, adam_beta1_, adam_beta2_, adam_epsilon_,
-                       vocabulary_size_, global_update_, scaler_);
-    break;
+      times_++;
+      const float alpha_t =
+          lr_ * sqrt(1.0f - pow(adam_beta2_, times_)) / (1.0f - pow(adam_beta1_, times_));
+      cpu_optimizer_adam(feature_num_undup, embedding_vec_size_, hash_value_index_undup_,
+                         hash_value_index_undup_offset_, sample_id_, wgrad_, hash_table_value_,
+                         opt_m_, opt_v_, alpha_t, adam_beta1_, adam_beta2_, adam_epsilon_,
+                         vocabulary_size_, global_update_, scaler_);
+      break;
     }
     case Optimizer_t::MomentumSGD: {
-    cpu_optimizer_momentum(feature_num_undup, embedding_vec_size_, hash_value_index_undup_,
-                           hash_value_index_undup_offset_, sample_id_, wgrad_, hash_table_value_,
-                           opt_momentum_, momentum_factor_, lr_, vocabulary_size_, global_update_,
-                           scaler_);
-    break;
+      cpu_optimizer_momentum(feature_num_undup, embedding_vec_size_, hash_value_index_undup_,
+                             hash_value_index_undup_offset_, sample_id_, wgrad_, hash_table_value_,
+                             opt_momentum_, momentum_factor_, lr_, vocabulary_size_, global_update_,
+                             scaler_);
+      break;
     }
     case Optimizer_t::Nesterov: {
-    cpu_optimizer_nesterov(feature_num_undup, embedding_vec_size_, hash_value_index_undup_,
-                           hash_value_index_undup_offset_, sample_id_, wgrad_, hash_table_value_,
-                           opt_accm_, nesterov_mu_, lr_, vocabulary_size_, global_update_, scaler_);
-    break;
+      cpu_optimizer_nesterov(feature_num_undup, embedding_vec_size_, hash_value_index_undup_,
+                             hash_value_index_undup_offset_, sample_id_, wgrad_, hash_table_value_,
+                             opt_accm_, nesterov_mu_, lr_, vocabulary_size_, global_update_,
+                             scaler_);
+      break;
     }
     case Optimizer_t::SGD: {
-    cpu_optimizer_sgd(feature_num_undup, embedding_vec_size_, hash_value_index_undup_,
-                      hash_value_index_undup_offset_, sample_id_, wgrad_, hash_table_value_,
-                      lr_, vocabulary_size_, scaler_);
-    break;
+      cpu_optimizer_sgd(feature_num_undup, embedding_vec_size_, hash_value_index_undup_,
+                        hash_value_index_undup_offset_, sample_id_, wgrad_, hash_table_value_, lr_,
+                        vocabulary_size_, scaler_);
+      break;
     }
-    default: {
-    printf("Error: optimizer not support in CPU version\n");
-    }
+    default: { printf("Error: optimizer not support in CPU version\n"); }
   }
 
   return;

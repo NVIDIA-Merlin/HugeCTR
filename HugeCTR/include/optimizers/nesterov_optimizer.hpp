@@ -38,12 +38,12 @@ class NesterovOptimizer : public Optimizer {
                     float learning_rate, float momentum_factor, float scaler = 1.f)
       : Optimizer(weight, device_id, learning_rate, scaler),
         accum_(weight->get_num_elements(), device_id),
-        mu_(momentum_factor), wgrad_(wgrad) {
+        mu_(momentum_factor),
+        wgrad_(wgrad) {
     accum_.reset_sync();
     if (weight_->get_size() != wgrad_->get_size()) {
       CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
     }
-
   }
 
   /**
