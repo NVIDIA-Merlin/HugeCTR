@@ -45,6 +45,7 @@ class GPUResource {
   cudnnHandle_t cudnn_handle_;
   const int device_id_;
   const ncclComm_t* comm_;
+  cudaEvent_t event_;
 
  public:
   /**
@@ -56,6 +57,7 @@ class GPUResource {
     CK_CURAND_THROW_(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
     CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle_));
     CK_CUDA_THROW_(cudaStreamCreate(&stream_));
+    CK_CUDA_THROW_(cudaEventCreate(&event_));
     CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_[0]));
     CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_[1]));
     return;
@@ -74,6 +76,7 @@ class GPUResource {
       CK_CURAND_THROW_(curandDestroyGenerator(curand_generator_));
       CK_CUDNN_THROW_(cudnnDestroy(cudnn_handle_));
       CK_CUDA_THROW_(cudaStreamDestroy(stream_));
+      CK_CUDA_THROW_(cudaEventDestroy(event_));
       CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_[0]));
       CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_[1]));
     } catch (const std::runtime_error& rt_err) {
@@ -88,6 +91,7 @@ class GPUResource {
   const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t* get_nccl_ptr() const { return comm_; }
+  const cudaEvent_t& get_event() const {return event_; }
 };
 
 /**
