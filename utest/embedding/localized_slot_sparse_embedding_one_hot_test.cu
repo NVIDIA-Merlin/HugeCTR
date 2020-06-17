@@ -25,6 +25,7 @@
 #include "utest/embedding/embedding_test_utils.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/test_utils.h"
+#include <cuda_profiler_api.h>
 
 using namespace HugeCTR;
 using namespace embedding_test;
@@ -38,8 +39,8 @@ namespace {
 // const std::vector<int> device_list = {0,3};
 // const std::vector<int> device_list = {0,1,2,3};
 const std::vector<int> device_list = {0, 1, 2, 3, 4, 5, 6, 7};
-const int batch_num = 2;  // can not more than 32
-const int batchsize = 4096;
+const int batch_num = 10;  // can not more than 32
+const int batchsize = 1024;
 const int batchsize_eval = 2048;
 const long long num_records = batchsize * batch_num;
 const int slot_num = 26;
@@ -55,8 +56,8 @@ const bool global_update =
 // const bool global_update = false;
 const long long label_dim = 1;
 const long long dense_dim = 0;
-// typedef long long T;
-typedef unsigned int T;
+typedef long long T;
+// typedef unsigned int T;
 // typedef float TypeEmbeddingComp;
 typedef __half TypeEmbeddingComp;
 
@@ -956,13 +957,6 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
 #if 0
 TEST(localized_sparse_embedding_one_hot_test, profile) {
   OptHyperParams hyper_params;
-  hyper_params.adam.alpha_t = (TypeEmbeddingComp)0.0f;
-  hyper_params.adam.beta1 = (TypeEmbeddingComp)0.9f;
-  hyper_params.adam.beta2 = (TypeEmbeddingComp)0.999f;
-  hyper_params.adam.epsilon = (TypeEmbeddingComp)1e-8f;
-  hyper_params.momentum.factor = (TypeEmbeddingComp)0.9f;
-  hyper_params.nesterov.mu = (TypeEmbeddingComp)0.9f;
-
   const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
@@ -994,9 +988,15 @@ TEST(localized_sparse_embedding_one_hot_test, profile) {
     }
 #endif
     // data generation: key's corresponding slot_id=(key%slot_num)
-    HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files,
-                                                        num_records, slot_num, vocabulary_size,
-                                                        label_dim, dense_dim, max_nnz_per_slot);
+    if(slot_sizes.size() > 0) {
+      HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files,
+        num_records, slot_num, vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
+    }
+    else {
+      // HugeCTR::data_generation_for_localized_test<T, CHK>(file_list_name, prefix, num_files,
+      //   num_records, slot_num, vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+      CK_THROW_(Error_t::WrongInput, "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
+    }
   }
 
 #ifdef ENABLE_MPI
@@ -1025,6 +1025,8 @@ TEST(localized_sparse_embedding_one_hot_test, profile) {
 
   HugeCTR::Timer timer;
 
+  cudaProfilerStart();
+
   for (int i = 0; i < batch_num; i++) {
 
     data_reader->read_a_batch_to_device();
@@ -1038,6 +1040,8 @@ TEST(localized_sparse_embedding_one_hot_test, profile) {
     timer.stop();
     std::cout << "Time per iter: " << timer.elapsedSeconds() << "s" << std::endl;
   }
+
+  cudaProfilerStop();
 
   test::mpi_finialize();
 }

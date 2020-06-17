@@ -88,8 +88,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
   Tensors<uint32_t> mapping_offsets_per_gpu_tensors_;
 
-  std::vector<cudaEvent_t> events;
-
   /**
    * The constructor of LocalizedSlotSparseEmbeddingOneHot.
    * This ctor is only used when you already have a instant of LocalizedSlotSparseEmbeddingOneHot 
@@ -355,10 +353,6 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::LocalizedSlo
       uint32_bufs_.back()->init(cur_device);
       key_bufs_.back()->init(cur_device);
       value_index_bufs_.back()->init(cur_device);
-
-      cudaEvent_t event; 
-      CK_CUDA_THROW_(cudaEventCreate(&event));
-      events.push_back(event);
     }  // end of for(int id = 0; id < local_gpu_count_; id++)
 
     // sync
@@ -575,13 +569,11 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
                                 embedding_features_,
                                 (*Base::device_resources_)[tid]->get_stream());
 
-  // post-sync
-  CK_CUDA_THROW_(cudaEventRecord(events[tid], (*Base::device_resources_)[tid]->get_stream()));
-  for(int id = 0; id < local_gpu_count_; id++) {
-    if(tid != id) {
-      CK_CUDA_THROW_(cudaStreamWaitEvent((*Base::device_resources_)[tid]->get_stream(), events[id], 0));
-    }
-  }
+  // // post-sync
+  // CK_CUDA_THROW_(cudaEventRecord((*Base::device_resources_)[tid]->get_event(), (*Base::device_resources_)[tid]->get_stream()));
+  // for(int id = 0; id < local_gpu_count_; id++) {
+  //   CK_CUDA_THROW_(cudaStreamWaitEvent((*Base::device_resources_)[tid]->get_stream(), (*Base::device_resources_)[id]->get_event(), 0));
+  // }
 
   return;
 }
@@ -589,7 +581,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward() {
 
-  // CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
+  CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
   // use multiple CPU threads to launch tasks on multiple GPUs
   if (local_gpu_count_ > 1) {  
@@ -609,6 +601,10 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::forward
     throw std::runtime_error(
         std::string("[HCDEBUG][ERROR] Runtime error: local_gpu_count <= 0 \n"));
   } 
+
+  // just for test
+  // post-sync
+  functors_.sync_all_gpus(Base::device_resources_, context); 
 
 //   // do all-to-all
 // #ifdef NCCL_A2A
@@ -650,13 +646,11 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::backwar
 
   CudaDeviceContext context((*Base::device_resources_)[tid]->get_device_id());
 
-  // pre-sync
-  CK_CUDA_THROW_(cudaEventRecord(events[tid], (*Base::device_resources_)[tid]->get_stream()));
-  for(int id = 0; id < local_gpu_count_; id++) {
-    if(tid != id) {
-      CK_CUDA_THROW_(cudaStreamWaitEvent((*Base::device_resources_)[tid]->get_stream(), events[id], 0));;
-    }
-  }
+  // // pre-sync
+  // CK_CUDA_THROW_(cudaEventRecord((*Base::device_resources_)[tid]->get_event(), (*Base::device_resources_)[tid]->get_stream()));
+  // for(int id = 0; id < local_gpu_count_; id++) {
+  //   CK_CUDA_THROW_(cudaStreamWaitEvent((*Base::device_resources_)[tid]->get_stream(), (*Base::device_resources_)[id]->get_event(), 0));;
+  // }
 
   functors_.backward_fuse_per_gpu(tid, local_gpu_count_, embedding_params_.batch_size, 
                                   batch_size_per_gpu_, embedding_params_.slot_num, 
@@ -704,6 +698,11 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::backwar
   //                         slot_num_per_gpu_, (int)embedding_params_.embedding_vec_size, 
   //                         embedding_params_.combiner, embedding_features_, wgrad_tensors_, 
   //                         Base::device_resources_);
+
+  // just for test
+  // pre-sync
+  CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
+  functors_.sync_all_gpus(Base::device_resources_, context);     
 
   // use multiple CPU threads to launch tasks on multiple GPUs
   if (local_gpu_count_ > 1) {  

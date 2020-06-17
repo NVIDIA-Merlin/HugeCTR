@@ -191,11 +191,6 @@ __global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size
 
         // store the embedding vector
         embedding_features2[gpu_id][feature_id * embedding_vec_size + tid] = sum;
-
-        // // just for debug 
-        // if(gpu_id == 1 && sample_id == 0) {
-        //   printf("bid=%d, tid=%d, gpu_id=%d, sample_id=%d, feature_id=%d, embedding_feature=%f\n", bid, tid, gpu_id, sample_id, feature_id, sum.x);
-        // }
       }
     }
   }

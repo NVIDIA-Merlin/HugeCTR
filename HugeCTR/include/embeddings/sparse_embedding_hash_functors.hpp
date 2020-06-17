@@ -592,11 +592,7 @@ class SparseEmbeddingHashFunctors {
     try {
       if (combiner == 0) {
         CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(params, local_gpu_count, 
-            cudaCooperativeLaunchMultiDeviceNoPreSync | cudaCooperativeLaunchMultiDeviceNoPostSync));
-        
-        // post-sync
-        CudaDeviceContext context((*device_resources)[0]->get_device_id());
-        sync_all_gpus(device_resources, context);
+            cudaCooperativeLaunchMultiDeviceNoPreSync));
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -992,12 +988,8 @@ class SparseEmbeddingHashFunctors {
 
     try {
       if (combiner == 0) {
-        // pre-sync
-        CudaDeviceContext context((*device_resources)[0]->get_device_id());
-        sync_all_gpus(device_resources, context);
-
         CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(params, local_gpu_count, 
-          (cudaCooperativeLaunchMultiDeviceNoPreSync | cudaCooperativeLaunchMultiDeviceNoPostSync)));
+          cudaCooperativeLaunchMultiDeviceNoPostSync));
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
