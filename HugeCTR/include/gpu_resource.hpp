@@ -39,7 +39,7 @@ namespace HugeCTR {
 class GPUResource {
  private:
   cudaStream_t stream_;           /**< cuda stream for computation */
-  cudaStream_t data_copy_stream_; /**< cuda stream for data copy */
+  cudaStream_t data_copy_stream_[2]; /**< cuda stream for data copy */
   cublasHandle_t cublas_handle_;
   curandGenerator_t curand_generator_;
   cudnnHandle_t cudnn_handle_;
@@ -56,7 +56,8 @@ class GPUResource {
     CK_CURAND_THROW_(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
     CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle_));
     CK_CUDA_THROW_(cudaStreamCreate(&stream_));
-    CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_));
+    CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_[0]));
+    CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_[1]));
     return;
   }
 
@@ -73,7 +74,8 @@ class GPUResource {
       CK_CURAND_THROW_(curandDestroyGenerator(curand_generator_));
       CK_CUDNN_THROW_(cudnnDestroy(cudnn_handle_));
       CK_CUDA_THROW_(cudaStreamDestroy(stream_));
-      CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_));
+      CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_[0]));
+      CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_[1]));
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
     }
@@ -81,7 +83,7 @@ class GPUResource {
   }
   int get_device_id() const { return device_id_; }
   const cudaStream_t& get_stream() const { return stream_; }
-  const cudaStream_t& get_data_copy_stream() const { return data_copy_stream_; }
+  const cudaStream_t& get_data_copy_stream(int id) const { return data_copy_stream_[0]; }
   const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
   const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
