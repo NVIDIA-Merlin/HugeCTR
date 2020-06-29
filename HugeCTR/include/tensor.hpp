@@ -102,7 +102,9 @@ class Tensor : public ITensor {
         CK_THROW_(Error_t::WrongInput, "doesn't support dims != 2 and != 3");
       }
 
+
       type_ = TensorTypeFunc<T>::type();
+
       // for (auto iter = dims_.begin(); iter < dims_.end(); iter++) {
       //   if (iter[0] < 0)
       //     CK_THROW_(Error_t::WrongInput, "dims vector cannot have elements less than 0");
@@ -155,6 +157,7 @@ class Tensor : public ITensor {
   }
   typedef T TYPE;
   int get_device_id() const { return buff_->get_device_id(); }
+
   const T* get_ptr() const {
     if (type_ != TensorTypeFunc<T>::type()) {
       CK_THROW_(Error_t::WrongInput, "type_ != TensorTypeFunc<T>::type()");

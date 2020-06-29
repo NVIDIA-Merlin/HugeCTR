@@ -61,6 +61,7 @@ static void transpose(float *a, int m, int n) {
   for (int i = 0; i < m * n; ++i) a[i] = tmp[i];
 }
 
+
 static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_t k) {
   std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>());

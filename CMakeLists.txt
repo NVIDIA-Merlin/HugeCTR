@@ -38,6 +38,7 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
+
 option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" ON)
 if (NCCL_A2A) 
   message(STATUS "-- NCCL_A2A is ON")
@@ -120,14 +121,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
 
 # building
-include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${CUDA_INCLUDE_DIRS})
-include_directories(${PROJECT_SOURCE_DIR}/googletest/googletest/include)
-include_directories(${PROJECT_SOURCE_DIR}/json/single_include)
-include_directories(${CUDNN_INC_PATHS})
-include_directories(${NCCL_INC_PATHS})
-include_directories(${HWLOC_INC_PATHS})
-include_directories(${UCX_INC_PATHS})
+include_directories(
+  ${PROJECT_SOURCE_DIR}
+  ${CUDA_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/googletest/googletest/include
+  ${PROJECT_SOURCE_DIR}/json/single_include
+  ${CUDNN_INC_PATHS}
+  ${NCCL_INC_PATHS}
+  ${HWLOC_INC_PATHS}
+  ${UCX_INC_PATHS}
+  $ENV{CONDA_PREFIX}/include)
+
 if(ENABLE_MULTINODES)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_MPI")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_MPI")
@@ -136,16 +140,21 @@ if(ENABLE_MULTINODES)
   include_directories(${HWLOC_INC_PATHS})
   include_directories(${UCX_INC_PATHS})
 endif()
+
 if(OPENMP_FOUND)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
   message(STATUS "add -fopenmp to compiler")
 else()
   message(FATAL_ERROR "without openmp the multi-node all2all will fail")
 endif()
-link_directories(${CUDNN_LIB_PATHS})
-link_directories(${NCCL_LIB_PATHS})
-link_directories(${HWLOC_LIB_PATHS})
-link_directories(${UCX_LIB_PATHS})
+
+link_directories(
+  ${CUDNN_LIB_PATHS}
+  ${NCCL_LIB_PATHS}
+  ${HWLOC_LIB_PATHS}
+  ${UCX_LIB_PATHS}
+  $ENV{CONDA_PREFIX}/lib)
+
 add_subdirectory(HugeCTR/src)
 add_subdirectory(googletest)
 add_subdirectory(json)

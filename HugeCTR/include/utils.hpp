@@ -204,9 +204,12 @@ class DataWriter {
 
 template <typename T, Check_t CK_T>
 void data_generation_for_test(std::string file_list_name, std::string data_prefix, int num_files,
-                              int num_records_per_file, int slot_num, int vocabulary_size,
-                              int label_dim, int dense_dim, int max_nnz) {
+		     int num_records_per_file, int slot_num, int vocabulary_size,
+		     int label_dim, int dense_dim, int max_nnz) {
   if (file_exist(file_list_name)) {
+    std::cout << "File (" + file_list_name +
+                     ") exist. To generate new dataset plesae remove this file."
+              << std::endl;
     return;
   }
   std::string directory;
@@ -221,7 +224,7 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
   for (int k = 0; k < num_files; k++) {
     std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
     file_list_stream << (tmp_file_name + "\n");
-
+    std::cout << tmp_file_name << std::endl;
     // data generation;
     std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
 
@@ -234,9 +237,9 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
     data_writer.write();
 
     for (int i = 0; i < num_records_per_file; i++) {
-      UnifiedDataSimulator<int> idata_sim(1, max_nnz);  // for nnz
-      UnifiedDataSimulator<float> fdata_sim(0, 1);
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);
+      UnifiedDataSimulator<int> idata_sim(1, max_nnz);            // for nnz
+      UnifiedDataSimulator<float> fdata_sim(0, 1);                // for lable and dense
+      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);  // for key
       for (int j = 0; j < label_dim + dense_dim; j++) {
         float label_dense = fdata_sim.get_num();
         data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
@@ -244,11 +247,12 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
       for (int k = 0; k < slot_num; k++) {
         int nnz = idata_sim.get_num();
         data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
-        //        out_stream.write(reinterpret_cast<char*>(&nnz), sizeof(int));
         for (int j = 0; j < nnz; j++) {
-          T value = ldata_sim.get_num();
-          data_writer.append(reinterpret_cast<char*>(&value), sizeof(T));
-          //          out_stream.write(reinterpret_cast<char*>(&value), sizeof(T));
+          T key = ldata_sim.get_num();
+          while ((key % slot_num) != k) {  // guarantee the key belongs to the current slot_id(=k)
+            key = ldata_sim.get_num();
+          }
+          data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
         }
       }
       data_writer.write();
@@ -256,9 +260,14 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
     out_stream.close();
   }
   file_list_stream.close();
+  std::cout << file_list_name << " done!" << std::endl;
   return;
 }
 
+
+
+// Add a new data_generation function for LocalizedSparseEmbedding testing
+// In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
 // Add a new data_generation function for LocalizedSparseEmbedding testing
 // In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
 template <typename T, Check_t CK_T>
@@ -318,6 +327,7 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
   file_list_stream.close();
   return;
 }
+
 
 template <typename T, Check_t CK_T>
 void data_generation_for_localized_test(std::string file_list_name, std::string data_prefix,

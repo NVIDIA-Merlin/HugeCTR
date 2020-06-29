@@ -98,6 +98,7 @@ template <typename TypeKey>
 class DataReader {
  private:
   std::string file_list_;   /**< file list of data set */
+
   const int NumChunks{12};  /**< NumChunks will be used in HeapEx*/
   const int NumThreads{12}; /**< number of threads for data reading */
 
@@ -125,12 +126,14 @@ class DataReader {
 
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< gpu resource used in this data reader*/
   const size_t batchsize_;                             /**< batch size */
+
   const size_t label_dim_;      /**< dimention of label e.g. 1 for BinaryCrossEntropy */
   const size_t dense_dim_;      /**< dimention of dense */
   const DataReaderType_t type_; /**< type of data reader "Norm or Raw "*/
   const long long num_samples_; /**< only used in Raw*/
   const std::vector<long long> slot_offset_;
   int data_reader_loop_flag_{0}; /**< p_loop_flag a flag to control the loop */
+
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
   std::shared_ptr<MmapOffsetList> file_offset_list_;
 
@@ -310,6 +313,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       std::vector<size_t> num_rows_dim = {1, batchsize_ * slots + 1};
       Tensor<TypeKey>* tmp_row_offset =
           new Tensor<TypeKey>(num_rows_dim, tmp_buffer, TensorFormat_t::HW);
+
 
       size_t num_max_value = (param.max_nnz * slots) <= param.max_feature_num
                                  ? (param.max_nnz * slots * batchsize_)

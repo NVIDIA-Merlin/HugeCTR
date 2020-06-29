@@ -1,5 +1,5 @@
-# DCN MULTI-NODES SAMPLE #
-A sample of building and training Deep & Cross Network with HugeCTR on multi-nodes [(link)](https://arxiv.org/pdf/1708.05123.pdf).
+# Multi-GPU WDL CTR SAMPLE #
+A sample of building and training Wide & Deep Network with HugeCTR [(link)](https://arxiv.org/abs/1606.07792) on a 8-GPU machine, e.g., DGX-1.
 
 ## Dataset and preprocess ##
 The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).
@@ -20,43 +20,43 @@ and download kaggle-display dataset into the folder "${project_home}/tools/crite
 The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
 It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
 Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
-In addition, it normalizes the integer feature values to the range [0, 1],
-but it doesn't create any feature crosses.
+In addition, it doesn't only normalize the integer feature values to the range [0, 1],
+but it also creates the two feature crosses.
 
 ```shell
 # The preprocessing can take 40 minutes to 1 hour based on the system configuration.
 $ cd ../../tools/criteo_script/
-$ bash preprocess.sh dcn2nodes 1 0
-$ cd ../../samples/dcn2nodes/
+$ bash preprocess.sh wdl 1 1
+$ cd ../../samples/wdl8gpus/
 ```
 
-2. Build HugeCTR with **multi-nodes training supported** (refer to the README in home directory).
+2. Build HugeCTR with the instructions on README.md under home directory.
 
 3. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
-$ ./criteo2hugectr ../../tools/criteo_script/dcn2nodes_data/train criteo/sparse_embedding file_list.txt
-$ ./criteo2hugectr ../../tools/criteo_script/dcn2nodes_data/val criteo_test/sparse_embedding file_list_test.txt
-```
-
-## Plan file generation ##
-If gossip communication library is used, a plan file is needed to be generated first as below. If NCCL communication library is used, there is no need to generate a plan file, just skip this step. 
-
-Login to your GPU cluster and acquire two nodes. For example, if on a SLURM system:  
-```shell
-$ srun -N 2 --pty bash -i
-$ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-$ mpirun python3 ../../tools/plan_generation/plan_generator.py dcn8l8gpu2nodes.json
+$ ./criteo2hugectr ../../tools/criteo_script/wdl_data/train criteo/sparse_embedding file_list.txt 2
+$ ./criteo2hugectr ../../tools/criteo_script/wdl_data/val criteo_test/sparse_embedding file_list_test.txt 2
 ```
 
 ## Training with HugeCTR ##
 
-1. Copy huge_ctr to samples/dcn2nodes
+1. Copy huge_ctr to samples/wdl
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```
 
-2. Run huge_ctr
+2. Generate a plan file
+
+To exploit Gossip library for inter-GPU communication, a plan file must be generated like below.
+If you change the number of GPUs in the json config file (`"gpu"` in `"solver"`),
+It must be regenerated.
 ```shell
-$ mpirun --bind-to none ./huge_ctr --train dcn8l8gpu2nodes.json
+$ export CUDA_DEVICE_ORDER=PCI_BUS_ID
+$ python3 ../../tools/plan_generation_no_mpi/plan_generator_no_mpi.py wdl8gpu.json
+```
+
+3. Run huge_ctr
+```shell
+$ ./huge_ctr --train ./wdl8gpu.json
 ```

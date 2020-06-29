@@ -122,6 +122,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   std::vector<size_t> temp_storage_scan_bytes_; /**< The temp variable for CUB lib scaning API. */
 
   size_t max_vocabulary_size_per_gpu_; /**< Max vocabulary size for each GPU. */
+
   size_t max_hash_table_size_per_gpu_; /**< equal to max_vocabulary_size_per_gpu_ / load_factor. */
   int batch_size_per_gpu_;             /*< batch_size per GPU */
   SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
@@ -275,6 +276,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
     // GPU, meanwhile get a better performance by a unfull hash table, the users need to set the
     // param "load_factor"(load_factor<1).
     max_vocabulary_size_per_gpu_ =
+
         (size_t)(ceil((float)embedding_params_.vocabulary_size / total_gpu_count_));
     max_hash_table_size_per_gpu_ = max_vocabulary_size_per_gpu_ / embedding_params_.load_factor;
 

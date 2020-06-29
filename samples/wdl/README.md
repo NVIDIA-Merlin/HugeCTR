@@ -24,13 +24,15 @@ In addition, it doesn't only normalize the integer feature values to the range [
 but it also creates the two feature crosses.
 
 ```shell
-# The preprocessing can take 1-4 hours based on the system configuration.
+# The preprocessing can take 40 minutes to 1 hour based on the system configuration.
 $ cd ../../tools/criteo_script/
 $ bash preprocess.sh wdl 1 1
 $ cd ../../samples/wdl/
 ```
 
-2. Convert the dataset to HugeCTR format
+2. Build HugeCTR with the instructions on README.md under home directory.
+
+3. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
 $ ./criteo2hugectr ../../tools/criteo_script/wdl_data/train criteo/sparse_embedding file_list.txt 2
@@ -39,14 +41,12 @@ $ ./criteo2hugectr ../../tools/criteo_script/wdl_data/val criteo_test/sparse_emb
 
 ## Training with HugeCTR ##
 
-1. Build HugeCTR with the instructions on README.md under home directory.
-
-2. Copy huge_ctr to samples/wdl
+1. Copy huge_ctr to samples/wdl
 ```shell
 $ cp ../../build/bin/huge_ctr ./
 ```
 
-3. Run huge_ctr
+2. Run huge_ctr
 ```shell
 $ ./huge_ctr --train ./wdl.json
 ```

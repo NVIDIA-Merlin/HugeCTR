@@ -86,6 +86,7 @@ void get_ref_grad(Regularizer_t type, const std::vector<float>& h_weight,
   }
 }
 
+
 std::shared_ptr<Regularizer<float>> create_regularizer(
     Regularizer_t type, std::shared_ptr<GeneralBuffer<float>> weight_buff,
     std::shared_ptr<GeneralBuffer<float>> wgrad_buff, size_t batch_size, float lambda,
@@ -141,6 +142,7 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
 
   std::shared_ptr<Tensor<float>> label_tensor(
       new Tensor<float>({batch_size, 1}, label_buff, TensorFormat_t::HW));
+
 
   BinaryCrossEntropyLoss<float> loss_no(
       label_tensor, out_tensor, loss_tensor_no,

@@ -43,7 +43,7 @@ Design Goals:
 * Dedicated: we consider everything you need in CTR training;
 * Easy: you can start your work now, no matter you are a data scientist, a learner, or a developer.
 
-Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs/`
+Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and [**Questions and Answers**](docs/QAList.md) in directory `docs/`
 
 
 ## Requirements ##
@@ -62,8 +62,14 @@ Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user
 * mpi4py
 
 ## Build ##
-### Building HugeCTR in docker container ###
-You can choose using docker to simplify the environment setting up, otherwise please jump to [Init Git](README.md#init-git) directly.
+### Init Git ###
+Under the home directory of HugeCTR:
+```shell
+$ git submodule update --init --recursive
+```
+
+### Use Docker Container ###
+You can choose using docker to simplify the environment setting up, otherwise please jump to the next paragraph directly.
 
 Ensure that you have [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) installed.
 
@@ -72,17 +78,14 @@ To build docker image from the Dockerfile, run the command:
 $ docker build -t hugectr:devel .
 ```
 
-After building the docker image, you can enter the development environment by running a docker container
+After building the docker image, for ease of use, you can push it to your docker registry
+
+Now, you can enter the development environment by running a HugeCTR docker container, you need to mount your dataset into docker container as well
 ```shell
-$ docker run --runtime=nvidia -it hugectr:devel bash
+$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
 ```
 
 Then continue with the following steps
-
-### Init Git ###
-```shell
-$ git submodule update --init --recursive
-```
 
 ### Build with Release ###
 Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM60 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
@@ -90,7 +93,7 @@ Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which i
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. #using Tesla V100
-$ make
+$ make -j
 ```
 
 Supported Compatibility and Tesla GPUs:
@@ -109,7 +112,7 @@ Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which i
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=70 .. #using Telsa V100
-$ make
+$ make -j
 ```
 
 ### Build with Validation Mode ###
@@ -118,7 +121,25 @@ This mode is designed for framework validation. In this mode loss of trainig wil
 $ mkdir -p build
 $ cd build
 $ cmake -DVAL_MODE=ON ..
-$ make
+$ make -j
+```
+
+### Build with Multi-Nodes Training Supported ###
+To run with multi-nodes please build in this way and run HugeCTR with `mpirun`. For more details plese refer to `samples/dcn2nodes`
+```shell
+$ mkdir -p build
+$ cd build
+$ cmake -DENABLE_MULTINODES=ON ..
+$ make -j
+```
+
+### Build with NCCL All2All Supported ###
+The default collection communication library used in LocalizedSlotSparseEmbedding is [Gossip](https://github.com/Funatiq/gossip). [NCCL all2all](https://github.com/NVIDIA/nccl/tree/p2p) is also supported in HugeCTR. If you want to run with NCCL all2all, please turn on the NCCL_A2A switch in cmake. 
+```shell
+$ mkdir -p build
+$ cd build
+$ cmake -DNCCL_A2A=ON ..
+$ make -j
 ```
 
 ## Run ##
@@ -157,6 +178,20 @@ Within project `home` directory
 $ doxygen
 ```
 
+## Benchmark ##
+Random data set can be generated according to your JSON network config file (`your_config.json`) with `data_generator` for easy benchmark. Usage:
+```shell
+$ ./data_generator your_config.json data_folder vocabulary_size max_nnz [option:#files] [option:#samples per file]
+$ ./huge_ctr --train your_config.json
+```
+Arguments:
+* `data_folder`: You have to specify the folder for the generated data
+* `vocabulary_size`: Vocabulary size of your target data set
+* `max_nnz`: [1,max_nnz] values will be generated for each feature (slot) in the data set. Note that max_nnz * #slot should be less than the `max_feature_num` in your data layer.
+* `#files`: number of data file will be generated.
+* `#samples per file`: number of samples per file. 
+
+
 ## File Format ##
 Totally three kinds of files will be used as input of HugeCTR Training: configuration file (.json), model file, data set.
 
@@ -170,7 +205,9 @@ There are four sessions in a configuration file: "solver", "optimizer", "data", 
 
 ### Model File ###
 Model file is a binary file that will be loaded for weight initilization.
-In model file weight will be stored in the order of layers in configuration file.
+In model file weight will be stored in the order of layers in configuration file. 
+
+[**Here**](./tutorial/dump_to_tf/readMe.md) we provide a tutorial of ```dumping models to TensorFlow```, and explain more details about the ```model format```.
 
 ### Data Set ###
 A data set includes a ASCII format file list and a set of data in binary format.

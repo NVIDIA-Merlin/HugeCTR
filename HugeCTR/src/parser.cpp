@@ -770,6 +770,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
         }
 
+
+	
         const std::map<std::string, DataReaderType_t> DATA_READER_MAP = {
             {"Norm", DataReaderType_t::Norm}, {"Raw", DataReaderType_t::Raw}};
 
