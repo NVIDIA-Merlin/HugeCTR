@@ -541,6 +541,7 @@ __global__ void value_count_kernel_2(int nnz, const uint32_t *new_hash_value_fla
   }
 }
 
+
 template <typename TypeKey, typename TypeValueIndex>
 __global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num, int embedding_vec_size,
                                       float lr, const TypeKey *sample_id,

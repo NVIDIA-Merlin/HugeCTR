@@ -1,9 +1,10 @@
 #!/bin/bash
 
 if [[ $# -ne 3 ]]; then
-  echo "usage: adv_prep.sh [NAME] [NORMALIZE_DENSE] [FEATURE_CROSS]"
+  echo "usage: preprocess.sh [NAME] [NORMALIZE_DENSE] [FEATURE_CROSS]"
   exit 2
 fi
+
 
 tar zxvf dac.tar.gz && \
 mkdir $1_data && \

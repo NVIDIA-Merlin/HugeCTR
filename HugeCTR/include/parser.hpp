@@ -40,6 +40,7 @@ namespace HugeCTR {
  */
 class Parser {
  private:
+
   nlohmann::json config_;  /**< configure file. */
   size_t batch_size_;      /**< batch size. */
   size_t batch_size_eval_; /**< batch size. */
@@ -51,6 +52,7 @@ class Parser {
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
+
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
          bool use_mixed_precision = false, float scaler = 1.0f)
       : batch_size_(batch_size),
@@ -135,6 +137,7 @@ struct SparseInput {
       : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
   SparseInput() {}
 };
+
 
 #define HAS_KEY_(j_in, key_in)                                          \
   do {                                                                  \

@@ -41,6 +41,7 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
 
   const std::vector<float> target_weight(label_dim, 1.0);
 
+
   MultiCrossEntropyLoss<float> mel(label_tensor, input_tensor, loss_tensor, nullptr, target_weight,
                                    0, 1);
 

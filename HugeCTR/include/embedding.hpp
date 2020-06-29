@@ -164,6 +164,7 @@ class Embedding : public IEmbedding {
   virtual void set_learning_rate(float lr) = 0;
 };
 
+
 template <typename TypeKey, typename TypeEmbeddingComp>
 Embedding<TypeKey, TypeEmbeddingComp>::Embedding(
     const Tensors<TypeKey>& row_offsets_tensors, const Tensors<TypeKey>& value_tensors,
@@ -247,6 +248,7 @@ struct OptParams {
   float scaler;
   TypeEmbeddingComp unused;
 };
+
 
 template <typename TypeEmbeddingComp>
 struct SparseEmbeddingHashParams {
