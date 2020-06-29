@@ -62,7 +62,7 @@ TEST(data_parser, ParameterParser) {
 
 TEST(data_parser, InputParserll) {
   // setup DataSimulator and InputParser
-  InputParser iParser("gltemp.data", new GaussianDataSimulator<long long>(0, 20, 0, 100));
+  InputParser iParser("gltemp.data", new UnifiedDataSimulator<long long>(0, 20));
   const int N(16);
   // write data into file
   iParser.write(N);

@@ -28,6 +28,8 @@
 
 using namespace HugeCTR;
 typedef long long TypeKey;
+typedef float TypeEmbeddingComp;
+// typedef __half TypeEmbeddingComp;
 
 template <typename TypeKey>
 void test_parser(std::string& json_name) {
@@ -36,14 +38,17 @@ void test_parser(std::string& json_name) {
   vvgpu.push_back(device_list);
   std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
   int batch_size = 4096;
-  Parser p(json_name, batch_size);
+  Parser p(json_name, batch_size, batch_size);
   std::unique_ptr<DataReader<TypeKey>> data_reader;
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval;
-  std::vector<std::unique_ptr<Embedding<TypeKey>>> embedding;
+  std::vector<std::unique_ptr<IEmbedding>> embedding;
+  std::vector<std::unique_ptr<IEmbedding>> embedding_eval;
   std::vector<std::unique_ptr<Network>> networks;
+  std::vector<std::unique_ptr<Network>> networks_eval;
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
-  p.create_pipeline(data_reader, data_reader_eval, embedding, networks, gpu_resource_group);
+  p.create_pipeline(data_reader, data_reader_eval, embedding, embedding_eval, networks,
+                    networks_eval, gpu_resource_group);
   return;
 }
 
@@ -61,10 +66,12 @@ const Check_t CHK = Check_t::Sum;
 
 TEST(parser_test, simple_sparse_embedding) {
   test::mpi_init();
-  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-                                   vocabulary_size, label_dim, dense_dim, max_nnz);
+  HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records,
+                                            slot_num, vocabulary_size, label_dim, dense_dim,
+                                            max_nnz);
 
-  std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
+  // std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding.json";
+  std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding_sgd.json";
   std::string plan_name = PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json";
   std::ifstream src;
   std::ofstream dst;

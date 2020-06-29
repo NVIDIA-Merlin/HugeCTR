@@ -57,7 +57,7 @@ __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int nu
 
 }  // end of namespace
 
-AddLayer::AddLayer(const std::vector<std::shared_ptr<Tensor<float>>>& in_tensors,
+AddLayer::AddLayer(const std::vector<std::shared_ptr<Tensor<float>>> in_tensors,
                    const std::shared_ptr<Tensor<float>>& out_tensor, int device_id)
     : Layer(device_id) {
   try {

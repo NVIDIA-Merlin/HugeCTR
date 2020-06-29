@@ -18,8 +18,9 @@ file(GLOB optimizer_test_src
   adam_optimizer_test.cpp
   momentum_sgd_test.cpp
   nesterov_optimizer_test.cpp
+  sgd_optimizer_test.cpp
 )
 
 add_executable(optimizer_test ${optimizer_test_src})
-target_compile_features(optimizer_test PUBLIC cxx_std_11)
+target_compile_features(optimizer_test PUBLIC cxx_std_14)
 target_link_libraries(optimizer_test PUBLIC huge_ctr_static gtest gtest_main)

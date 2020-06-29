@@ -30,7 +30,8 @@ namespace HugeCTR {
 /**
  * @brief L2 Regularizer
  */
-class L2Regularizer : public Regularizer {
+template <typename T>
+class L2Regularizer : public Regularizer<T> {
  public:
   /*
    * Constructor of L2Regularizer
@@ -42,7 +43,7 @@ class L2Regularizer : public Regularizer {
    * @param device_id Device to be used
    */
   L2Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff, const int batch_size,
+                const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff, const int batch_size,
                 const float lambda, cublasHandle_t cublas_handle, const int device_id);
 
   /*
@@ -67,7 +68,7 @@ class L2Regularizer : public Regularizer {
    * @param num_elements the number of weight values across layers
    * @param stream CUDA Stream where the kernel is executed
    */
-  void do_initialize_wgrad(const float* weight, float* wgrad, int num_elements,
+  void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
                            cudaStream_t stream) override;
 
   const float lambda_;

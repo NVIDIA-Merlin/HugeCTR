@@ -24,7 +24,7 @@
 using namespace std;
 using namespace HugeCTR;
 
-bool check_cpu_gpu(float *cpu_p, float *gpu_p, int len) {
+static bool check_cpu_gpu(float *cpu_p, float *gpu_p, int len) {
   float *cpu_tmp = (float *)malloc(sizeof(float) * len);
   cudaMemcpy(cpu_tmp, gpu_p, sizeof(float) * len, cudaMemcpyDeviceToHost);
   float max_diff = fabs(cpu_p[0] - cpu_tmp[0]);
@@ -37,7 +37,7 @@ bool check_cpu_gpu(float *cpu_p, float *gpu_p, int len) {
   return flag;
 }
 
-void cpu_mm(float *a, float *b, float *c, int m, int k, int n) {
+static void cpu_mm(float *a, float *b, float *c, int m, int k, int n) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
       c[i * n + j] = 0.0f;
@@ -46,30 +46,31 @@ void cpu_mm(float *a, float *b, float *c, int m, int k, int n) {
   }
 }
 
-void cpu_add_bias(float *out, float *bias, int m, int n) {
+static void cpu_add_bias(float *out, float *bias, int m, int n) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
       out[i * n + j] += bias[j];
     }
   }
 }
-void transpose(float *a, int m, int n) {
+
+static void transpose(float *a, int m, int n) {
   std::unique_ptr<float[]> tmp(new float[m * n]);
   for (int i = 0; i < m; ++i)
     for (int j = 0; j < n; ++j) tmp[j * m + i] = a[i * n + j];
   for (int i = 0; i < m * n; ++i) a[i] = tmp[i];
 }
 
-void fully_connected_layer_test(bool row_major, int m, int n, int k) {
+static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_t k) {
   std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> blobs(new GeneralBuffer<float>());
 
   std::shared_ptr<Tensor<float>> in_tensor(
-      new Tensor<float>((std::vector<int>){row_major ? m : k, row_major ? k : m}, blobs,
+      new Tensor<float>((std::vector<size_t>){row_major ? m : k, row_major ? k : m}, blobs,
                         row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> out_tensor(
-      new Tensor<float>((std::vector<int>){row_major ? m : n, row_major ? n : m}, blobs,
+      new Tensor<float>((std::vector<size_t>){row_major ? m : n, row_major ? n : m}, blobs,
                         row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
 
   cublasHandle_t cublas_handle;
@@ -77,9 +78,16 @@ void fully_connected_layer_test(bool row_major, int m, int n, int k) {
   FullyConnectedLayer fully_connected_layer(weight, wgrad, in_tensor, out_tensor,
                                             row_major ? TensorFormat_t::HW : TensorFormat_t::WH,
                                             cublas_handle, 0);
+  // Initialize tensors to 0 and choose cublas algorithms
   weight->init(0);
   wgrad->init(0);
   blobs->init(0);
+  fully_connected_layer.optimize();
+  // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
+  // of optimize)
+  weight->reset_sync();
+  wgrad->reset_sync();
+  blobs->reset_sync();
   // TODO: result check
   float *d_weight = weight->get_ptr_with_offset(0);
   float *d_weight_grad = wgrad->get_ptr_with_offset(0);
@@ -94,9 +102,9 @@ void fully_connected_layer_test(bool row_major, int m, int n, int k) {
   std::unique_ptr<float[]> h_bias(new float[n]);
 
   srand(time(NULL));
-  for (int i = 0; i < k * n; ++i) h_weight[i] = (float)(rand() % 100);
-  for (int i = 0; i < m * k; ++i) h_in[i] = (float)(rand() % 100);
-  for (int i = 0; i < n; ++i) h_bias[i] = (float)i * 0.001;
+  for (size_t i = 0; i < k * n; ++i) h_weight[i] = (float)(rand() % 100);
+  for (size_t i = 0; i < m * k; ++i) h_in[i] = (float)(rand() % 100);
+  for (size_t i = 0; i < n; ++i) h_bias[i] = (float)i * 0.001;
 
   // cpu fprop
   cpu_mm(h_in.get(), h_weight.get(), h_out.get(), m, k, n);
@@ -117,11 +125,11 @@ void fully_connected_layer_test(bool row_major, int m, int n, int k) {
   ASSERT_EQ(true, check_cpu_gpu(h_out.get(), d_out, m * n))
       << "fprop cross_check result fail" << endl;
 
-  for (int i = 0; i < m * n; ++i) h_out[i] = (float)(rand() % 100);
+  for (size_t i = 0; i < m * n; ++i) h_out[i] = (float)(rand() % 100);
 
-  for (int i = 0; i < n; ++i) h_bias_grad[i] = 0.0f;
-  for (int i = 0; i < m; ++i) {
-    for (int j = 0; j < n; ++j) h_bias_grad[j] += h_out[i * n + j];
+  for (size_t i = 0; i < n; ++i) h_bias_grad[i] = 0.0f;
+  for (size_t i = 0; i < m; ++i) {
+    for (size_t j = 0; j < n; ++j) h_bias_grad[j] += h_out[i * n + j];
   }
   // CPU bprop
   if (row_major) {
@@ -172,7 +180,7 @@ TEST(layers_test, fully_connected_layer_HW) {
 }
 
 TEST(layers_test, fully_connected_layer_HWHWWH) {
-  const int m = 256, n = 512, k = 1024;
+  const size_t m = 256, n = 512, k = 1024;
   std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> blobs(new GeneralBuffer<float>());
@@ -189,7 +197,7 @@ TEST(layers_test, fully_connected_layer_HWHWWH) {
 }
 
 TEST(layers_test, fully_connected_layer_WHWHHW) {
-  const int m = 256, n = 512, k = 1024;
+  const size_t m = 256, n = 512, k = 1024;
 
   std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>());

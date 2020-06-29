@@ -16,10 +16,12 @@
 
 #pragma once
 #include <thread>
+#include <utility>
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_reader_worker.hpp"
 #include "HugeCTR/include/device_map.hpp"
 #include "HugeCTR/include/embedding.hpp"
+#include "HugeCTR/include/metrics.hpp"
 #include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/parser.hpp"
 #include "ctpl/ctpl_stl.h"
@@ -34,9 +36,13 @@ namespace HugeCTR {
  */
 class Session {
  private:
-  typedef long long TypeKey;                       /**< type of input key in dataset. */
-  std::vector<std::unique_ptr<Network>> networks_; /**< networks (dense) used in training. */
-  std::vector<std::unique_ptr<Embedding<TypeKey>>> embedding_; /**< embedding */
+  typedef unsigned int TypeKey; /**< type of input key in dataset. */
+  // typedef long long TypeKey;                        /**< type of input key in dataset. */
+  std::vector<std::unique_ptr<Network>> networks_;      /**< networks (dense) used in training. */
+  std::vector<std::unique_ptr<IEmbedding>> embedding_;  /**< embedding */
+  std::vector<std::unique_ptr<Network>> networks_eval_; /**< networks (dense) used in eval. */
+  std::vector<std::unique_ptr<IEmbedding>> embedding_eval_; /**< embedding in eval*/
+
   std::unique_ptr<DataReader<TypeKey>>
       data_reader_; /**< data reader to reading data from data set to embedding. */
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval_; /**< data reader for evaluation. */
@@ -47,6 +53,8 @@ class Session {
 
   Error_t download_params_to_files_(std::string weights_file,
                                     const std::vector<std::string>& embedding_files);
+
+  metrics::Metrics metrics_;
 
   /**
    * A method loading trained parameters of both dense and sparse model.
@@ -79,6 +87,14 @@ class Session {
    * This method processes one forward of evaluation.
    */
   Error_t eval();
+
+  std::vector<std::pair<std::string, float>> get_eval_metrics();
+
+  void start_data_reading() {
+    data_reader_->start();
+    data_reader_eval_->start();
+  }
+
   /**
    * Get current loss from the loss tensor.
    * @return loss in float
@@ -96,6 +112,9 @@ class Session {
    * @param lr learning rate.
    */
   Error_t set_learning_rate(float lr) {
+    for (auto& embedding : embedding_) {
+      embedding->set_learning_rate(lr);
+    }
     for (auto& network : networks_) {
       network->set_learning_rate(lr);
     }

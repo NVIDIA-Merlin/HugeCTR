@@ -18,11 +18,16 @@ file(GLOB huge_ctr_src
   data_reader.cpp
   layer.cpp
   layers/batch_norm_layer.cu
+  layers/cast_layer.cu
   layers/concat_layer.cu
   layers/dropout_layer.cu
   layers/elu_layer.cu
   layers/fully_connected_layer.cu
+  layers/fully_connected_layer_half.cu
+  layers/fused_fully_connected_layer.cu
+  layers/interaction_layer.cu
   layers/relu_layer.cu
+  layers/relu_layer_half.cu
   layers/reshape_layer.cu
   layers/slice_layer.cu
   layers/fm_order2_layer.cu
@@ -31,15 +36,20 @@ file(GLOB huge_ctr_src
   layers/add_layer.cu
   layers/reduce_sum_layer.cu
   loss.cu
-  network.cpp
+  network.cu
+  metrics.cu
   optimizers/adam_optimizer.cu
   optimizers/momentum_sgd.cu
   optimizers/nesterov_optimizer.cu
+  optimizers/sgd_optimizer.cu
+  optimizers/sgd_optimizer_half.cu
   regularizer.cu
   regularizers/l1_regularizer.cu
   regularizers/l2_regularizer.cu
   regularizers/no_regularizer.cu
   parser.cpp
+  parsers/solver_parser.cpp
+  parsers/learning_rate_scheduler_parser.cpp
   session.cpp
   ../../gossip/include/plan_parser.cpp 
   embedding_creator.cu
@@ -57,8 +67,8 @@ else()
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
-target_compile_features(huge_ctr_static PUBLIC cxx_std_11)
+target_compile_features(huge_ctr_static PUBLIC cxx_std_14)
 
 add_executable(huge_ctr main.cpp)
 target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
-target_compile_features(huge_ctr PUBLIC cxx_std_11)
+target_compile_features(huge_ctr PUBLIC cxx_std_14)

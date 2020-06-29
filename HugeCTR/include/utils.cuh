@@ -26,64 +26,82 @@ struct TypeFunc;
 
 template <>
 struct TypeFunc<float> {
-  static __forceinline__ __device__ __host__ float zero() { return 0.f; }
+  static __forceinline__ __device__ float zero() { return 0.f; }
+  static __forceinline__ __device__ float add(float a, float b) { return a + b; }
 };
 
 template <>
 struct TypeFunc<int> {
-  static __forceinline__ __device__ __host__ float zero() { return 0; }
+  static __forceinline__ __device__ float zero() { return 0; }
+  static __forceinline__ __device__ float add(int a, int b) { return a + b; }
+};
+
+template <>
+struct TypeFunc<__half> {
+  static __forceinline__ __device__ __half zero() { return __float2half(0.0f); }
+  static __forceinline__ __device__ __half add(__half a, __half b) { return __hadd(a, b); }
+};
+
+template <>
+struct TypeFunc<__half2> {
+  static __forceinline__ __device__ __half2 zero() { return __float2half2_rn(0.0f); }
+  static __forceinline__ __device__ __half2 add(__half2 a, __half2 b) { return __hadd2(a, b); }
+};
+
+template <typename TOUT, typename TIN>
+struct TypeConvertFunc;
+
+template <>
+struct TypeConvertFunc<__half, float> {
+  static __forceinline__ __device__ __half convert(float val) { return __float2half(val); }
 };
 
 template <typename T>
-__forceinline__ __device__ void atomic_global_sum_div(T x, T* acc, float div) {
-  // warp reduce
+__inline__ __device__ T warpReduceSum(T val) {
   const unsigned int FULL_MASK = 0xffffffff;
-  const int WARP_DIM = 32;
-  for (int i = WARP_DIM / 2; i > 0; i /= 2) {
-    x += __shfl_down_sync(FULL_MASK, x, i);
-  }
-  if (threadIdx.x % WARP_DIM == 0) {
-    atomicAdd(acc, (T)(x / div));
-  }
-  return;
-}
-
-template <typename T>
-__forceinline__ __device__ void atomic_global_sum(T x, T* acc) {
-  // warp reduce
-  const unsigned int FULL_MASK = 0xffffffff;
-  const int WARP_DIM = 32;
-  for (int i = WARP_DIM / 2; i > 0; i /= 2) {
-    x += __shfl_down_sync(FULL_MASK, x, i);
-  }
-  if (threadIdx.x % WARP_DIM == 0) {
-    atomicAdd(acc, x);
-  }
-  return;
-}
-
-__inline__ __device__ float warpReduceSum(float val) {
-  const unsigned int FINAL_MASK = 0xffffffff;
-  for (int mask = 16; mask > 0; mask >>= 1) val += __shfl_xor_sync(FINAL_MASK, val, mask, 32);
+  for (int i = warpSize / 2; i > 0; i >>= 1)
+    val = TypeFunc<T>::add(val, __shfl_xor_sync(FULL_MASK, val, i));
   return val;
 }
 
 /* Calculate the sum of all elements in a block */
-__inline__ __device__ float blockReduceSum(float val) {
-  static __shared__ float shared[32];
+/* Note that the max block size to use this function is 1024 */
+template <typename T>
+__inline__ __device__ T blockReduceSum(T val) {
+  static __shared__ T shared[32];
   int lane = threadIdx.x & 0x1f;
   int wid = threadIdx.x >> 5;
 
   val = warpReduceSum(val);
 
-  if (lane == 0) shared[wid] = val;
+  if (blockDim.x > warpSize) {
+    if (lane == 0) shared[wid] = val;
 
-  __syncthreads();
+    __syncthreads();
 
-  val = (threadIdx.x < (blockDim.x >> 5)) ? shared[lane] : 0;
-  val = warpReduceSum(val);
+    val = (threadIdx.x < ((blockDim.x - 1) >> 5) + 1) ? shared[lane] : TypeFunc<T>::zero();
+    val = warpReduceSum(val);
+  }
 
   return val;
+}
+
+template <typename T>
+__forceinline__ __device__ void atomic_global_sum_div(T val, T* acc, float div) {
+  val = warpReduceSum(val);
+  if (threadIdx.x % warpSize == 0) {
+    atomicAdd(acc, (T)(val / div));
+  }
+  return;
+}
+
+template <typename T>
+__forceinline__ __device__ void atomic_global_sum(T val, T* acc) {
+  val = warpReduceSum(val);
+  if (threadIdx.x % warpSize == 0) {
+    atomicAdd(acc, val);
+  }
+  return;
 }
 
 template <typename T>
@@ -95,12 +113,21 @@ __global__ void initialize_array(T* array, int num_elements, T value) {
   }
 }
 
-template <typename T, typename Lambda>
-__global__ void transform_array(const T* in, T* out, int num_elements, Lambda op) {
+template <typename TIN, typename TOUT, typename Lambda>
+__global__ void transform_array(const TIN* in, TOUT* out, int num_elements, Lambda op) {
   const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;
   const int num_threads = blockDim.x * gridDim.x;
   for (int tid = tid_base; tid < num_elements; tid += num_threads) {
     out[tid] = op(in[tid]);
+  }
+}
+
+template <typename TIN, typename TOUT>
+__global__ void convert_array(TOUT* out, const TIN* in, int num_elements) {
+  const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;
+  const int num_threads = blockDim.x * gridDim.x;
+  for (int tid = tid_base; tid < num_elements; tid += num_threads) {
+    out[tid] = TypeConvertFunc<TOUT, TIN>::convert(__ldg(in + tid));
   }
 }
 
@@ -117,28 +144,6 @@ __device__ __forceinline__ bool isnan(T val) {
     return true;
   }
   return false;
-}
-
-template <typename T>
-void print_cuda_buff(T* buf, int start, int end) {
-  T h_buf[end - start];
-  cudaMemcpy(h_buf, buf, (end - start) * sizeof(T), cudaMemcpyDeviceToHost);
-  std::cout << "Cuda Buff Print " << start << "-" << end << ": " << std::endl;
-  for (int i = 0; i < (end - start); i++) {
-    std::cout << h_buf[i] << ",";
-  }
-  std::cout << std::endl;
-}
-
-template <typename T>
-void print_cuda_buff_sum(T* buf, int num) {
-  T sum;
-  T h_buf[num];
-  cudaMemcpy(h_buf, buf, (num) * sizeof(T), cudaMemcpyDeviceToHost);
-  for (int i = 0; i < num; i++) {
-    sum += h_buf[i];
-  }
-  std::cout << "Cuda Buff Sum: " << sum << " size:" << num << std::endl;
 }
 
 }  // namespace HugeCTR

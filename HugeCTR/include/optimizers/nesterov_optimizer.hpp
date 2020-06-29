@@ -36,10 +36,14 @@ class NesterovOptimizer : public Optimizer {
   NesterovOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
                     const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
                     float learning_rate, float momentum_factor, float scaler = 1.f)
-      : Optimizer(weight, wgrad, device_id, learning_rate, scaler),
+      : Optimizer(weight, device_id, learning_rate, scaler),
         accum_(weight->get_num_elements(), device_id),
-        mu_(momentum_factor) {
+        mu_(momentum_factor),
+        wgrad_(wgrad) {
     accum_.reset_sync();
+    if (weight_->get_size() != wgrad_->get_size()) {
+      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
+    }
   }
 
   /**
@@ -51,6 +55,7 @@ class NesterovOptimizer : public Optimizer {
  private:
   GeneralBuffer<float> accum_;  // accumulation
   const float mu_;              // momentum factor
+  std::shared_ptr<GeneralBuffer<float>> wgrad_;
 };
 
 }  // namespace HugeCTR

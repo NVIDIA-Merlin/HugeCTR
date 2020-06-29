@@ -119,7 +119,7 @@ void multiply_wgrad(const T* top_grad, const T* input, T* wgrad, T* wgrad_tmp_tr
 template <typename T>
 void multiply_dgrad(const T* top_grad, const T* weight, T* dgrad, int batch_size, int slot_num,
                     int embedding_vec_size, cudaStream_t stream) {
-  dim3 blockSize(embedding_vec_size, 1, 1);
+  dim3 blockSize(embedding_vec_size, 1, 1);  // note that embedding_vec_size should be < 1024
   dim3 gridSize(batch_size, 1, 1);
   multiply_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(top_grad, weight, dgrad, batch_size,
                                                             slot_num, embedding_vec_size);
@@ -132,7 +132,7 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
                              const std::shared_ptr<GeneralBuffer<float>>& blob_buff,
                              const std::shared_ptr<Tensor<float>>& in_tensor,
                              std::shared_ptr<Tensor<float>>& out_tensor,
-                             const std::vector<int>& weight_dims, int device_id)
+                             const std::vector<size_t>& weight_dims, int device_id)
     : Layer(device_id) {
   try {
     CudaDeviceContext context(get_device_id());
@@ -155,7 +155,7 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
     slot_num_ = weight_dims[0];
     embedding_vec_size_ = weight_dims[1];
 
-    std::vector<int> out_dims{batch_size_, slot_num_ * embedding_vec_size_};
+    std::vector<size_t> out_dims{batch_size_, slot_num_ * embedding_vec_size_};
     out_tensor.reset(new Tensor<float>(out_dims, blob_buff, in_tensor->get_format()));
     in_tensors_.emplace_back(in_tensor);
     out_tensors_.emplace_back(out_tensor);

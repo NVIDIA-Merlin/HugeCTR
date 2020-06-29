@@ -431,15 +431,15 @@ MultiCrossLayer::MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
         CK_THROW_(Error_t::WrongInput, "input and output tensor doesn't match");
       }
     }
-    int vec_length = in_tensor_dim[1];
-    int batchsize = in_tensor_dim[0];
+    size_t vec_length = in_tensor_dim[1];
+    size_t batchsize = in_tensor_dim[0];
 
     // check num_lyaers
     if (num_layers < 1) {
       CK_THROW_(Error_t::WrongInput, "num_layers < 1");
     }
 
-    std::vector<int> weight_bias_dim = {1, vec_length};
+    std::vector<size_t> weight_bias_dim = {1, vec_length};
     for (int i = 0; i < num_layers; i++) {
       // setup weights
       weights_.emplace_back(new Tensor<float>(weight_bias_dim, weight_buff, TensorFormat_t::HW));
@@ -454,7 +454,7 @@ MultiCrossLayer::MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
     in_tensors_.emplace_back(in_tensor);
     out_tensors_.emplace_back(out_tensor);
     // setup blobs
-    std::vector<int> blob_dim = {batchsize, vec_length};
+    std::vector<size_t> blob_dim = {batchsize, vec_length};
     blob_tensors_.emplace_back(in_tensor);
     for (int i = 0; i < num_layers - 1; i++) {
       blob_tensors_.emplace_back(new Tensor<float>(blob_dim, blobs_buff_, TensorFormat_t::HW));
@@ -464,7 +464,7 @@ MultiCrossLayer::MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
     for (int i = 0; i < 3; i++) {
       tmp_mat_tensors_[i].reset(new Tensor<float>(blob_dim, blobs_buff_, TensorFormat_t::HW));
     }
-    std::vector<int> tmp_vec_dim = {batchsize, 1};
+    std::vector<size_t> tmp_vec_dim = {batchsize, 1};
     tmp_vec_tensor_.reset(new Tensor<float>(tmp_vec_dim, blobs_buff_, TensorFormat_t::HW));
     for (int i = 0; i < num_layers; i++) {
       vec_tensors_.emplace_back(new Tensor<float>(tmp_vec_dim, blobs_buff_, TensorFormat_t::HW));

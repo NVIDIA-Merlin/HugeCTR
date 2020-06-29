@@ -42,13 +42,14 @@ const Check_t CHK = Check_t::Sum;
 TEST(data_reader_worker, data_reader_worker_test) {
   test::mpi_init();
   // data generation
-  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-                                   vocabulary_size, label_dim, dense_dim, max_nnz);
+  HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records,
+                                            slot_num, vocabulary_size, label_dim, dense_dim,
+                                            max_nnz);
 
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num,
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
@@ -81,7 +82,7 @@ TEST(data_reader_test, data_reader_simple_test) {
   auto device_map = std::make_shared<DeviceMap>(vvgpu, pid);
   auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
 
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num,
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
@@ -120,7 +121,8 @@ TEST(data_reader_test, data_reader_localized_test) {
   auto device_map = std::make_shared<DeviceMap>(vvgpu, pid);
   auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
 
-  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz * slot_num, slot_num};
+  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz * slot_num, max_nnz,
+                                       slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
@@ -159,8 +161,9 @@ TEST(data_reader_test, data_reader_mixed_test) {
   auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
 
   const DataReaderSparseParam param_localized = {DataReaderSparse_t::Localized,
-                                                 max_nnz * (slot_num - 5), slot_num - 5};
-  const DataReaderSparseParam param_distributed = {DataReaderSparse_t::Distributed, max_nnz * 5, 5};
+                                                 max_nnz * (slot_num - 5), max_nnz, slot_num - 5};
+  const DataReaderSparseParam param_distributed = {DataReaderSparse_t::Distributed, max_nnz * 5,
+                                                   max_nnz, 5};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param_localized);
   params.push_back(param_distributed);
@@ -188,8 +191,9 @@ TEST(data_reader_test, data_reader_mixed_test) {
 TEST(data_reader_test, two_nodes_localized) {
   int batchsize = 2048;
   int numprocs = 1, pid = 0;
-  HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-                                   vocabulary_size, label_dim, dense_dim, max_nnz);
+  HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records,
+                                            slot_num, vocabulary_size, label_dim, dense_dim,
+                                            max_nnz);
 
 #ifdef ENABLE_MPI
   test::mpi_init();
@@ -214,7 +218,7 @@ TEST(data_reader_test, two_nodes_localized) {
     auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
 
     const DataReaderSparseParam param_localized = {DataReaderSparse_t::Localized,
-                                                   max_nnz * (slot_num), slot_num};
+                                                   max_nnz * (slot_num), max_nnz, slot_num};
     std::vector<DataReaderSparseParam> params;
     params.push_back(param_localized);
 
@@ -244,7 +248,7 @@ TEST(data_reader_test, two_nodes_localized) {
     auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
 
     const DataReaderSparseParam param_localized = {DataReaderSparse_t::Localized,
-                                                   max_nnz * (slot_num), slot_num};
+                                                   max_nnz * (slot_num), max_nnz, slot_num};
     std::vector<DataReaderSparseParam> params;
     params.push_back(param_localized);
 

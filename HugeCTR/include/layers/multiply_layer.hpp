@@ -32,6 +32,23 @@ namespace HugeCTR {
  * the dimention: [batch_size, slot_num*embedding_vec_size].
  */
 class MultiplyLayer : public Layer {
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors<float> weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+
  public:
   /**
    * Ctor of MultiplyLayer.
@@ -43,7 +60,7 @@ class MultiplyLayer : public Layer {
                 const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
                 const std::shared_ptr<GeneralBuffer<float>>& blob_buff,
                 const std::shared_ptr<Tensor<float>>& in_tensor,
-                std::shared_ptr<Tensor<float>>& out_tensor, const std::vector<int>& weight_dims,
+                std::shared_ptr<Tensor<float>>& out_tensor, const std::vector<size_t>& weight_dims,
                 int device_id);
   ~MultiplyLayer() override{};
 
@@ -64,9 +81,9 @@ class MultiplyLayer : public Layer {
    */
   std::vector<float> get_initializer() override;
 
-  int batch_size_;
-  int slot_num_;
-  int embedding_vec_size_;
+  size_t batch_size_;
+  size_t slot_num_;
+  size_t embedding_vec_size_;
   std::shared_ptr<GeneralBuffer<float>> internal_buff_;
   std::unique_ptr<Tensor<float>> wgrad_tmp_trans_;
 };

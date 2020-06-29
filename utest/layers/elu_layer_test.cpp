@@ -43,9 +43,9 @@ void elu_bprop_cpu(const float* d_out, float* d_in, int len, float alpha) {
   }
 }
 
-void elu_test(int dim0, int dim1, float alpha) {
+void elu_test(size_t dim0, size_t dim1, float alpha) {
   std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>());
-  vector<int> dims = {dim0, dim1};
+  vector<size_t> dims = {dim0, dim1};
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, buf));
   std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims, buf));
   buf->init(0);

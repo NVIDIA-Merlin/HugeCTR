@@ -21,27 +21,30 @@
 namespace HugeCTR {
 
 class Source {
- protected:
-  unsigned int counter_{0};
-  const unsigned int offset_;
-  const unsigned int stride_;
-
  public:
-  Source(unsigned int offset, unsigned int stride) : offset_(offset), stride_(stride) {}
-
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
    * @param ptr pointer to user located buffer
    * @param bytes_to_read bytes to read
    * @return `DataCheckError` `OutOfBound` `Success` `UnspecificError`
    */
-  virtual Error_t read(char* ptr, size_t bytes_to_read) noexcept = 0;
+  virtual Error_t read(char* ptr, size_t bytes_to_read) {
+    CK_THROW_(Error_t::BrokenFile, "Invalid Call");
+    return Error_t::Success;
+  }
+
+  virtual char* get_ptr() {
+    CK_THROW_(Error_t::BrokenFile, "Invalid Call");
+    return nullptr;
+  }
 
   /**
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
   virtual Error_t next_source() noexcept = 0;
+
+  virtual long long get_num_of_items_in_source() { return 0; }
 
   virtual bool is_open() noexcept = 0;
 };

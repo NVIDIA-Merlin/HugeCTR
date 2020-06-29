@@ -24,30 +24,30 @@ using namespace std;
 using namespace HugeCTR;
 using namespace HugeCTR::test;
 
-void transpose(float *a, int m, int n) {
+void transpose(float *a, size_t m, size_t n) {
   std::vector<float> tmp;
   tmp.resize(m * n);
-  for (int i = 0; i < m; ++i)
-    for (int j = 0; j < n; ++j) tmp[j * m + i] = a[i * n + j];
-  for (int i = 0; i < m * n; ++i) a[i] = tmp[i];
+  for (size_t i = 0; i < m; ++i)
+    for (size_t j = 0; j < n; ++j) tmp[j * m + i] = a[i * n + j];
+  for (size_t i = 0; i < m * n; ++i) a[i] = tmp[i];
 }
-void cross_entropy_loss(int batch_size, bool row_major) {
-  int feature_dim = 2;
+void cross_entropy_loss(size_t batch_size, bool row_major) {
+  size_t feature_dim = 2;
 
   std::shared_ptr<GeneralBuffer<float>> input_b(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> label_b(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> loss_b(new GeneralBuffer<float>());
 
   std::shared_ptr<Tensor<float>> input_tensor(
-      new Tensor<float>(row_major ? std::vector<int>{batch_size, feature_dim}
-                                  : std::vector<int>{feature_dim, batch_size},
+      new Tensor<float>(row_major ? std::vector<size_t>{batch_size, feature_dim}
+                                  : std::vector<size_t>{feature_dim, batch_size},
                         input_b, row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> label_tensor(new Tensor<float>(
-      row_major ? std::vector<int>{batch_size, 1} : std::vector<int>{1, batch_size}, label_b,
+      row_major ? std::vector<size_t>{batch_size, 1} : std::vector<size_t>{1, batch_size}, label_b,
       row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> loss_tensor(new Tensor<float>({1, 1}, loss_b, TensorFormat_t::HW));
 
-  CrossEntropyLoss cel(label_tensor, input_tensor, loss_tensor, nullptr, 0);
+  CrossEntropyLoss<float> cel(label_tensor, input_tensor, loss_tensor, nullptr, 0, 1);
 
   input_b->init(0);
   label_b->init(0);
@@ -61,15 +61,15 @@ void cross_entropy_loss(int batch_size, bool row_major) {
   std::unique_ptr<float[]> h_label(new float[batch_size]);
 
   srand(time(NULL));
-  for (int i = 0; i < batch_size * feature_dim; ++i) h_input[i] = rand() % 100 * 0.01f;
-  for (int i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
+  for (size_t i = 0; i < batch_size * feature_dim; ++i) h_input[i] = rand() % 100 * 0.01f;
+  for (size_t i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
 
   // GPU
   if (!row_major) transpose(h_input.get(), batch_size, feature_dim);
   cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size * feature_dim,
              cudaMemcpyHostToDevice);
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
-  cel.fused_loss_computation(cudaStreamDefault);
+  cel.compute(true, cudaStreamDefault);
 
   if (!row_major) transpose(h_input.get(), feature_dim, batch_size);
   // CPU
@@ -86,7 +86,7 @@ void cross_entropy_loss(int batch_size, bool row_major) {
 #elif SCALE_1024
   scaler = 1024;
 #endif
-  for (int i = 0; i < batch_size; ++i) {
+  for (size_t i = 0; i < batch_size; ++i) {
     z0_exp = exp(h_input[i * feature_dim]);
     z1_exp = exp(h_input[i * feature_dim + 1]);
 
@@ -111,20 +111,20 @@ TEST(loss_test, CrossEntropyLoss_2048_col_major) { cross_entropy_loss(2048, fals
 TEST(loss_test, CrossEntropyLoss_64_row_major) { cross_entropy_loss(64, true); }
 TEST(loss_test, CrossEntropyLoss_64_col_major) { cross_entropy_loss(64, false); }
 
-void binary_cross_entropy_loss(int batch_size, bool row_major) {
+void binary_cross_entropy_loss(size_t batch_size, bool row_major) {
   std::shared_ptr<GeneralBuffer<float>> input_b(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> label_b(new GeneralBuffer<float>());
   std::shared_ptr<GeneralBuffer<float>> loss_b(new GeneralBuffer<float>());
 
   std::shared_ptr<Tensor<float>> input_tensor(new Tensor<float>(
-      row_major ? std::vector<int>{batch_size, 1} : std::vector<int>{1, batch_size}, input_b,
+      row_major ? std::vector<size_t>{batch_size, 1} : std::vector<size_t>{1, batch_size}, input_b,
       row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> label_tensor(new Tensor<float>(
-      row_major ? std::vector<int>{batch_size, 1} : std::vector<int>{1, batch_size}, label_b,
+      row_major ? std::vector<size_t>{batch_size, 1} : std::vector<size_t>{1, batch_size}, label_b,
       row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> loss_tensor(new Tensor<float>({1, 1}, loss_b, TensorFormat_t::HW));
 
-  BinaryCrossEntropyLoss bce(label_tensor, input_tensor, loss_tensor, nullptr, 0);
+  BinaryCrossEntropyLoss<float> bce(label_tensor, input_tensor, loss_tensor, nullptr, 0, 1);
 
   input_b->init(0);
   label_b->init(0);
@@ -138,12 +138,12 @@ void binary_cross_entropy_loss(int batch_size, bool row_major) {
   std::unique_ptr<float[]> h_label(new float[batch_size]);
 
   srand(time(NULL));
-  for (int i = 0; i < batch_size; ++i) h_input[i] = rand() % 100 * 0.01f;
-  for (int i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
+  for (size_t i = 0; i < batch_size; ++i) h_input[i] = rand() % 100 * 0.01f;
+  for (size_t i = 0; i < batch_size; ++i) h_label[i] = rand() % 2;
   // GPU
   cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
-  bce.fused_loss_computation(cudaStreamDefault);
+  bce.compute(true, cudaStreamDefault);
 
   float cpu_loss = 0.0f;
   float x, val, y;
@@ -157,7 +157,7 @@ void binary_cross_entropy_loss(int batch_size, bool row_major) {
 #elif SCALE_1024
   scaler = 1024;
 #endif
-  for (int i = 0; i < batch_size; ++i) {
+  for (size_t i = 0; i < batch_size; ++i) {
     x = h_input[i];
     val = 1 / (1 + exp(-h_input[i]));
     y = h_label[i];

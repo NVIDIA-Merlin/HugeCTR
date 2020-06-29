@@ -22,13 +22,14 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/csr.hpp"
 #include "HugeCTR/include/csr_chunk.hpp"
+#include "HugeCTR/include/data_reader_worker_interface.hpp"
 #include "HugeCTR/include/file_list.hpp"
 #include "HugeCTR/include/file_source.hpp"
 #include "HugeCTR/include/heapex.hpp"
 
 namespace HugeCTR {
 template <class T>
-class DataReaderWorker {
+class DataReaderWorker : public IDataReaderWorker {
  private:
   const unsigned int worker_id_{0};
   const unsigned int worker_num_{0};
@@ -73,8 +74,8 @@ class DataReaderWorker {
    * Ctor
    */
   DataReaderWorker(unsigned int worker_id, unsigned int worker_num,
-                   const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap, const std::string& file_list,
-                   size_t buffer_length, Check_t check_type,
+                   const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
+                   const std::string& file_list, size_t buffer_length, Check_t check_type,
                    const std::vector<DataReaderSparseParam>& params)
       : worker_id_(worker_id),
         worker_num_(worker_num),
@@ -140,6 +141,7 @@ void DataReaderWorker<T>::read_a_batch() {
     csr_heap_->free_chunk_checkout(&csr_chunk, worker_id_);
 
     if (!skip_read_) {
+      csr_chunk->set_current_batchsize(csr_chunk->get_batchsize());
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
       const int label_dense_dim = csr_chunk->get_label_dense_dim();
       if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)

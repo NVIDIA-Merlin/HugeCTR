@@ -3,7 +3,7 @@
     "lr_policy": "fixed",
     "display": 1000,
     "max_iter": 300000,
-    "gpu": [0],
+    "gpu": [0,1,2,3],
     "batchsize": 512,
     "snapshot": 10000000,
     "snapshot_prefix": "./",

@@ -19,6 +19,8 @@
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/utils.hpp"
 
+// #define DATA_READING_TEST
+
 namespace HugeCTR {
 
 /**
@@ -54,52 +56,64 @@ static void check_device(int device_id, int min_major, int min_minor) {
 Session::Session(const std::string& json_name)
     : solver_config_(json_name),
       gpu_resource_group_(new GPUResourceGroup(solver_config_.device_map)) {
-  try {
-    int pid = 0;
+  int pid = 0;
 #ifdef ENABLE_MPI
-    int numprocs = 1;
-    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+  int numprocs = 1;
+  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
 
-    for (auto dev : gpu_resource_group_->get_device_list()) {
-      if (solver_config_.use_mixed_precision) {
-        check_device(dev, 7,
-                     0);  // to support mixed precision training earliest supported device is CC=70
-      } else {
-        check_device(dev, 6, 0);  // earliest supported device is CC=60
-      }
+  for (auto dev : gpu_resource_group_->get_device_list()) {
+    if (solver_config_.use_mixed_precision) {
+      check_device(dev, 7,
+                   0);  // to support mixed precision training earliest supported device is CC=70
+    } else {
+      check_device(dev, 6, 0);  // earliest supported device is CC=60
     }
-    parser_.reset(new Parser(json_name, solver_config_.batchsize,
-                             solver_config_.use_mixed_precision, solver_config_.scaler));
-    parser_->create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_,
-                             gpu_resource_group_);
+  }
 
-    // init networks.
-    const std::string TMP_DENSE_NAME = "tmp_dense_model.bin";
-    if (pid == 0) {
-      networks_[0]->init_params(TMP_DENSE_NAME);
-    }
-#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
-    for (auto& network : networks_) {
-      network->upload_params_to_device(TMP_DENSE_NAME);
-    }
-#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
-    if (pid == 0) {
-      if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
-        CK_THROW_(Error_t::WrongInput, TMP_DENSE_NAME + " cannot be removed.");
-      }
-    }
+  RandomEngine::get().set_seed(solver_config_.seed);
+  parser_.reset(new Parser(json_name, solver_config_.batchsize, solver_config_.batchsize_eval,
+                           solver_config_.use_mixed_precision, solver_config_.scaler));
 
-    load_params_(solver_config_.model_file, solver_config_.embedding_files);
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+  parser_->create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_, networks_,
+                           networks_eval_, gpu_resource_group_);
+
+  // init networks.
+  const std::string TMP_DENSE_NAME = std::tmpnam(nullptr);
+  if (pid == 0) {
+    networks_[0]->init_params(TMP_DENSE_NAME);
+  }
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+  for (auto& network : networks_) {
+    network->upload_params_to_device(TMP_DENSE_NAME);
+  }
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+  if (pid == 0) {
+    if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
+      CK_THROW_(Error_t::WrongInput,
+                TMP_DENSE_NAME + " cannot be removed. (reason: " + std::strerror(errno) + ")");
+    }
+  }
+
+  load_params_(solver_config_.model_file, solver_config_.embedding_files);
+
+  int num_local_gpus = gpu_resource_group_->get_device_list().size();
+  // metrics_.emplace_back(new metrics::AverageLoss<float>(num_local_gpus));
+  if (solver_config_.use_mixed_precision) {
+    metrics_.emplace_back(new metrics::AUC<__half>(
+        solver_config_.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
+        solver_config_.eval_batches, gpu_resource_group_->get_device_list()[0], num_local_gpus,
+        gpu_resource_group_));
+  } else {
+    metrics_.emplace_back(new metrics::AUC<float>(
+        solver_config_.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
+        solver_config_.eval_batches, gpu_resource_group_->get_device_list()[0], num_local_gpus,
+        gpu_resource_group_));
   }
 }
 
@@ -152,16 +166,21 @@ Error_t Session::load_params_(const std::string& model_file,
 void network_train_helper(int id, Network* n) {
   try {
     n->train();
+    n->exchange_wgrad();
+    n->update_params();
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
+    throw;
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
+    throw;
   }
   return;
 }
 
 Error_t Session::train() {
   try {
+#ifndef DATA_READING_TEST
     data_reader_->read_a_batch_to_device_delay_release();
     for (auto& one_embedding : embedding_) {
       one_embedding->forward();
@@ -178,24 +197,17 @@ Error_t Session::train() {
       }
     } else if (networks_.size() == 1) {
       networks_[0]->train();
+      networks_[0]->update_params();
     } else {
       assert(!"networks_.size() should not less than 1.");
-    }
-    // wgrad exchange
-    if (gpu_resource_group_->get_total_gpu_count() > 1) {
-      CK_NCCL_THROW_(ncclGroupStart());
-      for (auto& network : networks_) {
-        network->exchange_wgrad();
-      }
-      CK_NCCL_THROW_(ncclGroupEnd());
-    }
-    for (auto& network : networks_) {
-      network->update_params();
     }
     for (auto& one_embedding : embedding_) {
       one_embedding->backward();
       one_embedding->update_params();
     }
+#else
+    data_reader_->read_a_batch_to_device();
+#endif
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -206,9 +218,13 @@ Error_t Session::train() {
   return Error_t::Success;
 }
 
-void network_eval_helper(int id, Network* n) {
+void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
   try {
     n->eval();
+
+    for (auto& metric : metrics) {
+      metric->local_reduce(n->get_raw_metrics());
+    }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   } catch (const std::exception& err) {
@@ -219,24 +235,35 @@ void network_eval_helper(int id, Network* n) {
 Error_t Session::eval() {
   try {
     if (data_reader_eval_ == nullptr) return Error_t::NotInitialized;
-    data_reader_eval_->read_a_batch_to_device_delay_release();
-    for (auto& one_embedding : embedding_) {
+    long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
+    for (auto& metric : metrics_) {
+      metric->set_current_batch_size(current_batchsize);
+    }
+
+#ifndef DATA_READING_TEST
+    for (auto& one_embedding : embedding_eval_) {
       one_embedding->forward();
     }
-    data_reader_eval_->ready_to_collect();
-    if (networks_.size() > 1) {
-      for (unsigned int i = 0; i < networks_.size(); i++) {
+
+    if (networks_eval_.size() > 1) {
+      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
         gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
-            [this, i](int id) { network_eval_helper(id, networks_[i].get()); });
+            [this, i](int id) { network_eval_helper(id, networks_eval_[i].get(), metrics_); });
       }
-      for (unsigned int i = 0; i < networks_.size(); i++) {
+      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
         gpu_resource_group_->results[i].get();
       }
-    } else if (networks_.size() == 1) {
-      networks_[0]->eval();
+    } else if (networks_eval_.size() == 1) {
+      networks_eval_[0]->eval();
     } else {
-      assert(!"networks_.size() should not less than 1.");
+      assert(!"networks_eval_.size() should not less than 1.");
     }
+#endif
+
+    for (auto& metric : metrics_) {
+      metric->global_reduce(networks_eval_.size());
+    }
+
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -244,7 +271,33 @@ Error_t Session::eval() {
     std::cerr << err.what() << std::endl;
     return Error_t::UnspecificError;
   }
+
+  // for(auto& metric : metrics_) {
+  //   try {
+  //     // TODO: enable to get batch_size from read_a_batch_to_device_delay_release();
+  //     metric->set_current_batch_size(current_batchsize);
+  //     for (auto& network : networks_) {
+  //       metric->local_reduce(network->get_raw_metrics());
+  //     }
+  //     metric->global_reduce(networks_.size());
+  //   } catch (const internal_runtime_error& rt_err) {
+  //     std::cerr << rt_err.what() << std::endl;
+  //     return rt_err.get_error();
+  //   } catch (const std::exception& err) {
+  //     std::cerr << err.what() << std::endl;
+  //     return Error_t::UnspecificError;
+  //   }
+  // }
+
   return Error_t::Success;
+}
+
+std::vector<std::pair<std::string, float>> Session::get_eval_metrics() {
+  std::vector<std::pair<std::string, float>> metrics;
+  for (auto& metric : metrics_) {
+    metrics.push_back(std::make_pair(metric->name(), metric->finalize_metric()));
+  }
+  return metrics;
 }
 
 Error_t Session::download_params_to_files(std::string prefix, int iter) {

@@ -1,5 +1,40 @@
-# HugeCTR #
+# HugeCTR A100 PREVIEW #
 [![v21](docs/user_guide_src/v21.JPG)](docs/hugectr_user_guide.md#new-features-in-version-21)
+
+To demonstrate the performance of HugeCTR on A100, we introduce this preview version. We support new features like full fp16 pipeline / algorithm search / AUC calculation and many of these features will be available in the next release soon. 
+
+## Intention ##
+HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training, and the new released NVIDIA A100 GPU has excellent acceleration on various scales for AI, data analysis and high performance computing (HPC), and meet extremely severe computing challenges. To demonstrate HugeCTR’s performance on A100 GPU, this version is developed to leverage new features of the latest GPU.
+
+In order to get better performance and flexibility, new features have been added in this version.
+
+## New features ##
++ **Algorithm Search** : Support algorithm selection in fully connected layers for better performance.
+
++ **AUC** : Support AUC calculation for accuracy evaluation.
+
++ **Batch shuffle and last batch in eval** : Support batch shuffle and the last batch during 	evaluation won’t be dropped.
+
++ **Different batch size in training and evaluation** : Support this for best performance in evaluation.
+
++ **Full FP16 pipeline** : In order to be able to process more data simultaneously and obtain better performance, Full FP16 pipeline is supported in this version.
+
++ **Fused fully connected layer** : Fused bias adding and relu activation into a single layer.
+
++ **Caching evaluation data on device** : For the GPUs with large memory like A100, we can use caching data for small evaluation data sets.
+
++ **Interaction layer** : Support this famous layer used in CTR estimation.
+
++ **Optimized data reader for raw format** : Each sample has 40 32bits integers, where the first integer is label, the next 13 integers are dense feature and the following 26 integers are category feature.
+
++ **Deep Learning Recommendation Model (DLRM)** : DLRM support please find more details in [samples/dlrm](samples/dlrm/README.md).
+
++ **Learning rate scheduling** : Support different learning rate scheduling. <br>
+<div align=center><img width = '500' src ="docs/user_guide_src/learning_rate_scheduling.png"/></div>
+<div align=center>Fig 1. Learning rate scheduling</div>
+
+ 
+# HugeCTR #
 
 HugeCTR is a high-efficiency GPU framework designed for Click-Through-Rate (CTR) estimation training.
 
@@ -9,6 +44,7 @@ Design Goals:
 * Easy: you can start your work now, no matter you are a data scientist, a learner, or a developer.
 
 Please find more introductions in our [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and doxygen files in directory `docs/`
+
 
 ## Requirements ##
 * cuBLAS >= 9.1
@@ -49,24 +85,26 @@ $ git submodule update --init --recursive
 ```
 
 ### Build with Release ###
-Compute Capability can be specified by `-DSM=[Compute Compatibility]`, which is SM=60 by default (Tesla P100). Only one Compute Capability is avaliable to be set.
+Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM60 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
 ```shell
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. #using Tesla V100
 $ make
 ```
+
 Supported Compatibility and Tesla GPUs:
 
-|Compute Compatibility|Telsa GPU|
+|Compute Compatibility|GPU|
 |----|----|
-|60|P100|
-|61|P40, P4, P6|
-|70|V100|
-|75|T4|
+|60|Tesla P100|
+|61|Tesla P40, Tesla P4, Tesla P6|
+|70|Tesla V100|
+|75|Tesla T4|
+|80|Tesla A100|
 
 ### Build with Debug ###
-Compute Capability can be specified by `-DSM=[Compute Compatibility]`, which is SM=60 by default (Tesla P100). Only one Compute Capability is avaliable to be set.
+Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM60 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
 ```shell
 $ mkdir -p build
 $ cd build

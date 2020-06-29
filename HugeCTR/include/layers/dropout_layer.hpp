@@ -26,6 +26,23 @@ namespace HugeCTR {
  * Dropout layer which selects an arbitrary fraction of inputs to 0
  */
 class DropoutLayer : public Layer {
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors<float> weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+
  public:
   /**
    * Ctor of DropoutLayer.
