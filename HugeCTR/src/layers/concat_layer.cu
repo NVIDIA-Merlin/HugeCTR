@@ -67,7 +67,7 @@ __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w
 
 }  // anonymous namespace
 
-ConcatLayer::ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<float>>& out_tensor,
+ConcatLayer::ConcatLayer(Tensors<float> in_tensors, std::shared_ptr<Tensor<float>>& out_tensor,
                          const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, int device_id)
     : Layer(device_id), n_sms_(0) {
   try {
@@ -78,8 +78,8 @@ ConcatLayer::ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<floa
     }
 
     int n_in_tensors = in_tensors.size();
-    int height = 0;
-    int new_width = 0;
+    size_t height = 0;
+    size_t new_width = 0;
     for (int i = 0; i < n_in_tensors; i++) {
       auto cur_in_dims = in_tensors[i]->get_dims();
       if (i != 0) {
@@ -100,7 +100,7 @@ ConcatLayer::ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<floa
       new_width += cur_in_dims[1];
     }
 
-    std::vector<int> out_dims = {height, new_width};
+    std::vector<size_t> out_dims = {height, new_width};
     out_tensor.reset(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
 
     for (auto& in_tensor : in_tensors) {

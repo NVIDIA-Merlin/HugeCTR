@@ -40,15 +40,19 @@ class AdamOptimizer : public Optimizer {
                 const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
                 float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8,
                 float scaler = 1.f)
-      : Optimizer(weight, wgrad, device_id, alpha, scaler),
+      : Optimizer(weight, device_id, alpha, scaler),
         m_(weight->get_num_elements(), device_id),
         v_(weight->get_num_elements(), device_id),
         t_(0),
         beta1_(beta1),
         beta2_(beta2),
-        epsilon_(epsilon) {
+        epsilon_(epsilon),
+        wgrad_(wgrad) {
     m_.reset_sync();
     v_.reset_sync();
+    if (weight_->get_size() != wgrad_->get_size()) {
+      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
+    }
   }
 
   /**
@@ -66,6 +70,7 @@ class AdamOptimizer : public Optimizer {
   const float beta1_;
   const float beta2_;
   const float epsilon_;
+  std::shared_ptr<GeneralBuffer<float>> wgrad_;
 };
 
 }  // namespace HugeCTR

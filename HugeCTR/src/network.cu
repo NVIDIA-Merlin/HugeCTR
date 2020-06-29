@@ -14,26 +14,48 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
+#include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
+#include "HugeCTR/include/utils.cuh"
 
 namespace HugeCTR {
 
-Network::Network(int device_id,
-                 const std::shared_ptr<const GPUResource>& gpu_resource, bool disable_parser)
+Network::Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
+                 bool full_fp16)
     : blobs_buff_(new GeneralBuffer<float>()),
       weight_buff_(new GeneralBuffer<float>()),
       wgrad_buff_(new GeneralBuffer<float>()),
+      blobs_buff_half_(new GeneralBuffer<__half>()),
+      weight_buff_half_(new GeneralBuffer<__half>()),
+      wgrad_buff_half_(new GeneralBuffer<__half>()),
       gpu_resource_(gpu_resource),
-      device_id_(device_id){
+      device_id_(device_id),
+      full_fp16_(full_fp16),
+      eval_graph_created_(false),
+      train_fprop_graph_created_(false),
+      train_bprop_graph_created_(false) {
+  CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device_id));
   return;
 }
 
 void Network::update_params() {
   optimizer_->update(gpu_resource_->get_stream());
+  return;
+}
+
+void Network::conv_weight_() {
+  CudaDeviceContext context(device_id_);
+  size_t elems = weight_buff_half_->get_num_elements();
+  if (weight_buff_half_->get_num_elements() != weight_buff_->get_num_elements())
+    CK_THROW_(Error_t::WrongInput, "weight_buff_half_ != weight_buff");
+  const int BLOCK = 256;
+  int GRID = (elems - 1) / BLOCK + 1;
+  GRID = GRID > 10 * n_sms_ ? 10 * n_sms_ : GRID;
+  convert_array<<<GRID, BLOCK, 0, gpu_resource_->get_stream()>>>(
+      weight_buff_half_->get_ptr_with_offset(0), weight_buff_->get_ptr_with_offset(0), elems);
   return;
 }
 
@@ -44,19 +66,42 @@ void Network::train() {
   print_buffer(*wgrad_buff_, 18, 38);
   print_buffer(*wgrad_buff_, -20, -1);
 
-  for (auto& tensor : tensors_) {
-    print_tensor(*tensor, -10, -1);
-  }
 #endif
   // forward
-  for (auto& layer : layers_) {
-    layer->fprop(gpu_resource_->get_stream());
+  if (full_fp16_ && first_iter_) {
+    conv_weight_();
+    first_iter_ = false;
   }
-  loss_->fused_loss_computation(gpu_resource_->get_stream());
-  // backward
-  for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
-    (*it)->bprop(gpu_resource_->get_stream());
+
+  if (!train_fprop_graph_created_) {
+    CK_CUDA_THROW_(
+        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+
+    for (auto& layer : layers_) {
+      layer->fprop(gpu_resource_->get_stream());
+    }
+    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_fprop_graph_));
+    CK_CUDA_THROW_(cudaGraphInstantiate(&train_fprop_instance_, train_fprop_graph_, NULL, NULL, 0));
+    train_fprop_graph_created_ = true;
   }
+  CK_CUDA_THROW_(cudaGraphLaunch(train_fprop_instance_, gpu_resource_->get_stream()));
+
+  loss_->compute(true, gpu_resource_->get_stream());
+
+  if (!train_bprop_graph_created_) {
+    CK_CUDA_THROW_(
+        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+
+    // backward
+    for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
+      (*it)->bprop(gpu_resource_->get_stream());
+    }
+    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_bprop_graph_));
+    CK_CUDA_THROW_(cudaGraphInstantiate(&train_bprop_instance_, train_bprop_graph_, NULL, NULL, 0));
+    train_bprop_graph_created_ = true;
+  }
+  CK_CUDA_THROW_(cudaGraphLaunch(train_bprop_instance_, gpu_resource_->get_stream()));
+
   return;
 }
 
@@ -67,26 +112,20 @@ void Network::eval() {
   print_buffer(*wgrad_buff_, 18, 38);
   print_buffer(*wgrad_buff_, -20, -1);
 
-  for (auto& tensor : tensors_) {
-    print_tensor(*tensor, -10, -1);
-  }
 #endif
-  // forward
-  for (auto& layer : layers_) {
-    // layer->fprop(gpu_resource_->get_stream());
-    layer->inference(gpu_resource_->get_stream());
-#ifndef NDEBUG
-    for (auto& tensor : tensors_) {
-      print_tensor(*tensor, -10, -1);
+  if (!eval_graph_created_) {
+    CK_CUDA_THROW_(
+        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+    // forward
+    for (auto& layer : layers_) {
+      layer->inference(gpu_resource_->get_stream());
     }
-#endif
+    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &eval_graph_));
+    CK_CUDA_THROW_(cudaGraphInstantiate(&eval_instance_, eval_graph_, NULL, NULL, 0));
+    eval_graph_created_ = true;
   }
-  loss_->fused_loss_computation(gpu_resource_->get_stream());
-#ifndef NDEBUG
-  for (auto& tensor : tensors_) {
-    print_tensor(*tensor, -10, -1);
-  }
-#endif
+  CK_CUDA_THROW_(cudaGraphLaunch(eval_instance_, gpu_resource_->get_stream()));
+  loss_->compute(false, gpu_resource_->get_stream());
 
   return;
 }
@@ -127,7 +166,8 @@ std::string Network::get_no_trained_params_in_string() {
 void Network::upload_params_to_device(const std::string& model_file) {
   std::ifstream model_stream(model_file, std::ifstream::binary);
   if (!model_stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
+    CK_THROW_(Error_t::WrongInput,
+              std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
   }
   CudaDeviceContext context(device_id_);
 
@@ -157,8 +197,8 @@ void Network::upload_params_to_device(float* params) {
   return;
 }
 
-void Network::init_params(const std::string& dense_name) {
-  std::ofstream out_stream(dense_name, std::ofstream::binary);
+void Network::init_params(const std::string& model_file_name) {
+  std::ofstream out_stream(model_file_name, std::ofstream::binary);
   if (!out_stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
   }
@@ -184,14 +224,22 @@ float Network::get_loss() {
   return loss_host;
 }
 
+metrics::RawMetricMap Network::get_raw_metrics() const { return raw_metrics_; }
+
 void Network::exchange_wgrad() {
   if (gpu_resource_->get_nccl_ptr() != nullptr) {
     CudaDeviceContext context(device_id_);
-
-    CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_buff_->get_ptr_with_offset(0),
-                                 (void*)wgrad_buff_->get_ptr_with_offset(0),
-                                 wgrad_buff_->get_num_elements(), ncclFloat, ncclSum,
-                                 *(gpu_resource_->get_nccl_ptr()), gpu_resource_->get_stream()));
+    if (full_fp16_) {
+      CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_buff_half_->get_ptr_with_offset(0),
+                                   (void*)wgrad_buff_half_->get_ptr_with_offset(0),
+                                   wgrad_buff_half_->get_num_elements(), ncclHalf, ncclSum,
+                                   *(gpu_resource_->get_nccl_ptr()), gpu_resource_->get_stream()));
+    } else {
+      CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_buff_->get_ptr_with_offset(0),
+                                   (void*)wgrad_buff_->get_ptr_with_offset(0),
+                                   wgrad_buff_->get_num_elements(), ncclFloat, ncclSum,
+                                   *(gpu_resource_->get_nccl_ptr()), gpu_resource_->get_stream()));
+    }
   } else {
     CK_THROW_(Error_t::IllegalCall, "cannot call exchange_wgrad with single GPU");
   }

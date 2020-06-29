@@ -30,8 +30,8 @@ using namespace HugeCTR;
 class MultiCrossLayerTest {
  private:
   const float eps = 20;
-  const int batchsize_;
-  const int w_;
+  const size_t batchsize_;
+  const size_t w_;
   const int layers_;
   GeneralBufferPtr<float> blob_buf_;
   std::shared_ptr<GeneralBuffer<float>> weight_buf_;
@@ -111,77 +111,77 @@ class MultiCrossLayerTest {
     }
   }
 
-  void matrix_vec_mul(float* out, const float* in_m, const float* in_v, int h, int w) {
-    for (int j = 0; j < h; j++) {
+  void matrix_vec_mul(float* out, const float* in_m, const float* in_v, size_t h, size_t w) {
+    for (size_t j = 0; j < h; j++) {
       out[j] = 0.0f;
-      for (int i = 0; i < w; i++) {
-        int k = j * w + i;
+      for (size_t i = 0; i < w; i++) {
+        size_t k = j * w + i;
         out[j] += in_m[k] * in_v[i];
       }
     }
   }
 
-  void row_scaling(float* out, const float* in_m, const float* in_v, int h, int w) {
-    for (int j = 0; j < h; j++) {
-      for (int i = 0; i < w; i++) {
-        int k = j * w + i;
+  void row_scaling(float* out, const float* in_m, const float* in_v, size_t h, size_t w) {
+    for (size_t j = 0; j < h; j++) {
+      for (size_t i = 0; i < w; i++) {
+        size_t k = j * w + i;
         out[k] = in_m[k] * in_v[j];
       }
     }
   }
 
-  void matrix_add(float* out, const float* in_m_1, const float* in_m_2, int h, int w) {
-    for (int j = 0; j < h; j++) {
-      for (int i = 0; i < w; i++) {
-        int k = j * w + i;
+  void matrix_add(float* out, const float* in_m_1, const float* in_m_2, size_t h, size_t w) {
+    for (size_t j = 0; j < h; j++) {
+      for (size_t i = 0; i < w; i++) {
+        size_t k = j * w + i;
         out[k] = in_m_1[k] + in_m_2[k];
       }
     }
   }
 
-  void matrix_vec_add(float* out, const float* in_m, const float* in_v, int h, int w) {
-    for (int j = 0; j < h; j++) {
-      for (int i = 0; i < w; i++) {
-        int k = j * w + i;
+  void matrix_vec_add(float* out, const float* in_m, const float* in_v, size_t h, size_t w) {
+    for (size_t j = 0; j < h; j++) {
+      for (size_t i = 0; i < w; i++) {
+        size_t k = j * w + i;
         out[k] = in_m[k] + in_v[i];
       }
     }
   }
 
-  void matrix_pair_mul(float* out, const float* in_m_1, const float* in_m_2, int h, int w) {
-    for (int j = 0; j < h; j++) {
+  void matrix_pair_mul(float* out, const float* in_m_1, const float* in_m_2, size_t h, size_t w) {
+    for (size_t j = 0; j < h; j++) {
       out[j] = 0.0f;
-      for (int i = 0; i < w; i++) {
-        int k = j * w + i;
+      for (size_t i = 0; i < w; i++) {
+        size_t k = j * w + i;
         out[j] += in_m_1[k] * in_m_2[k];
       }
     }
   }
 
-  void row_scaling_sum(float* out, const float* in_m, const float* in_v, int h, int w) {
-    for (int i = 0; i < w; i++) {
+  void row_scaling_sum(float* out, const float* in_m, const float* in_v, size_t h, size_t w) {
+    for (size_t i = 0; i < w; i++) {
       out[i] = 0.0f;
-      for (int j = 0; j < h; j++) {
-        int k = j * w + i;
+      for (size_t j = 0; j < h; j++) {
+        size_t k = j * w + i;
         out[i] += in_m[k] * in_v[j];
       }
     }
   }
 
-  void rows_sum(float* out, const float* in_m, int h, int w) {
-    for (int i = 0; i < w; i++) {
+  void rows_sum(float* out, const float* in_m, size_t h, size_t w) {
+    for (size_t i = 0; i < w; i++) {
       out[i] = 0.0f;
-      for (int j = 0; j < h; j++) {
-        int k = j * w + i;
+      for (size_t j = 0; j < h; j++) {
+        size_t k = j * w + i;
         out[i] += in_m[k];
       }
     }
   }
 
-  void out_product(float* out, const float* in_v_1, const float* in_v_2, int h, int w) {
-    for (int j = 0; j < h; j++) {
-      for (int i = 0; i < w; i++) {
-        int k = j * w + i;
+  void out_product(float* out, const float* in_v_1, const float* in_v_2, size_t h, size_t w) {
+    for (size_t j = 0; j < h; j++) {
+      for (size_t i = 0; i < w; i++) {
+        size_t k = j * w + i;
         out[k] = in_v_1[j] * in_v_2[i];
       }
     }
@@ -208,7 +208,6 @@ class MultiCrossLayerTest {
     std::vector<float> tmp_mat_0(batchsize_ * w_);
     std::vector<float> tmp_mat_1(batchsize_ * w_);
     std::vector<float> tmp_vec(batchsize_);
-
     memset(h_input_grad_.data(), 0, h_input_grad_.size() * sizeof(float));
     for (int i = layers_ - 1; i >= 0; i--) {
       row_scaling(tmp_mat_0.data(), i == layers_ - 1 ? h_output_grad_.data() : tmp_mat_1.data(),
@@ -279,7 +278,7 @@ class MultiCrossLayerTest {
   }
 
  public:
-  MultiCrossLayerTest(int batchsize, int w, int layers)
+  MultiCrossLayerTest(size_t batchsize, size_t w, int layers)
       : batchsize_(batchsize),
         w_(w),
         layers_(layers),

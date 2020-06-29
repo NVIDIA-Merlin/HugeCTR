@@ -41,10 +41,14 @@ class MomentumSGD : public Optimizer {
   MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight,
               const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
               float learning_rate, float momentum_factor, float scaler = 1.f)
-      : Optimizer(weight, wgrad, device_id, learning_rate, scaler),
-        momentum_factor_(momentum_factor) {
+      : Optimizer(weight, device_id, learning_rate, scaler),
+        momentum_factor_(momentum_factor),
+        wgrad_(wgrad) {
     momentum_.reset(new GeneralBuffer<float>(weight_->get_num_elements(), device_id_));
     momentum_->reset_sync();
+    if (weight_->get_size() != wgrad_->get_size()) {
+      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
+    }
   }
 
   /**
@@ -56,6 +60,7 @@ class MomentumSGD : public Optimizer {
  private:
   std::unique_ptr<GeneralBuffer<float>> momentum_;
   float momentum_factor_;
+  std::shared_ptr<GeneralBuffer<float>> wgrad_;
 };
 
 }  // namespace HugeCTR

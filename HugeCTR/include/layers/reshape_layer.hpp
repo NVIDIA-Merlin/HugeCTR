@@ -29,6 +29,23 @@ namespace HugeCTR {
  * If the input tensor is 3D, you can choose which slots participate by calling the different Ctor
  */
 class ReshapeLayer : public Layer {
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors<float> weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+
  public:
   /**
    * General Purpose Ctor of ReshapeLayer.
@@ -41,7 +58,7 @@ class ReshapeLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-               std::shared_ptr<Tensor<float>>& out_tensor, int leading_dim, int device_id);
+               std::shared_ptr<Tensor<float>>& out_tensor, size_t leading_dim, int device_id);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
    * @param in_tensor the input tensor

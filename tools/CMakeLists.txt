@@ -15,4 +15,5 @@
 
 cmake_minimum_required(VERSION 3.8)
 add_subdirectory(criteo_script)
+add_subdirectory(raw_script)
 add_subdirectory(criteo_script_legacy)

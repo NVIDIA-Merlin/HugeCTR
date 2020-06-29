@@ -37,13 +37,15 @@ class GeneralBuffer {
   size_t current_offset_{0}; /**< memory registered */
   int device_id_{-1};        /**< gpu id */
   bool initialized_{false};  /**< whether the gpu memory has been allocated */
+  bool shared_buff_{false};
+
  public:
   /**
    * Ctor
    */
   GeneralBuffer() {
     static_assert(std::is_same<T, float>::value || std::is_same<T, long long>::value ||
-                      std::is_same<T, unsigned int>::value,
+                      std::is_same<T, unsigned int>::value || std::is_same<T, __half>::value,
                   "Type not support");  // check the template parameters
   }
   GeneralBuffer(const GeneralBuffer& C) = delete;
@@ -77,6 +79,25 @@ class GeneralBuffer {
     CK_CUDA_THROW_(cudaDeviceSynchronize());
   }
 
+  void replace_buffer_with(GeneralBuffer& buff) {
+    try {
+      // Note: risk here, if buff released, the buffer here will be also failed without error
+      // message.
+      if (initialized_ == true && current_offset_ > 0 && shared_buff_ == false) {
+        CudaDeviceContext context(device_id_);
+        CK_CUDA_THROW_(cudaFree(ptr_));
+      }
+      if (current_offset_ == buff.get_num_elements()) {
+        ptr_ = buff.get_ptr_with_offset(0);
+        initialized_ = true;
+        shared_buff_ = true;
+      } else {
+        CK_THROW_(Error_t::WrongInput, "current_offset_ != buff.get_num_elements()");
+      }
+    } catch (const std::runtime_error& rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+    }
+  }
   /**
    * Ctor.
    * Allocate specific size of buffer on device when constructing.
@@ -112,6 +133,7 @@ class GeneralBuffer {
     try {
       if (initialized_ != true)
         CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is not initialized");
+      if (ptr_ == nullptr) CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is empty");
       assert(ptr_ != nullptr);
       return ptr_ + offset;
     } catch (const std::runtime_error& rt_err) {
@@ -130,6 +152,7 @@ class GeneralBuffer {
     try {
       if (initialized_ != true)
         CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is not initialized");
+      if (ptr_ == nullptr) CK_THROW_(Error_t::NotInitialized, "GeneralBuffer is empty");
       assert(ptr_ != nullptr);
       return ptr_ + offset;
     } catch (const std::runtime_error& rt_err) {
@@ -153,7 +176,7 @@ class GeneralBuffer {
    */
   ~GeneralBuffer() {
     try {
-      if (initialized_ == true && current_offset_ > 0) {
+      if (initialized_ == true && current_offset_ > 0 && shared_buff_ == false) {
         CudaDeviceContext context(device_id_);
         CK_CUDA_THROW_(cudaFree(ptr_));
       }
@@ -173,7 +196,7 @@ class GeneralBuffer {
  * @endverbatim
  */
 template <typename T>
-bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
+inline bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
   int begin_;
   int end_;
   if (begin >= 0 && end <= static_cast<int>(buffer.get_num_elements()) && end > begin) {
@@ -194,6 +217,33 @@ bool print_buffer(const GeneralBuffer<T>& buffer, int begin, int end) {
   std::cout << "begin: " << begin_ << " end: " << end_ << std::endl;
   for (int i = 0; i < end_ - begin_; i++) {
     std::cout << host_buff[i] << ",";
+  }
+  std::cout << std::endl;
+  return true;
+}
+
+template <>
+inline bool print_buffer(const GeneralBuffer<__half>& buffer, int begin, int end) {
+  int begin_;
+  int end_;
+  if (begin >= 0 && end <= static_cast<int>(buffer.get_num_elements()) && end > begin) {
+    begin_ = begin;
+    end_ = end;
+  } else if (end < 0 && -begin <= static_cast<int>(buffer.get_num_elements()) && end > begin) {
+    begin_ = buffer.get_num_elements() + begin;
+    end_ = buffer.get_num_elements() + end;
+  } else {
+    return false;
+  }
+  CudaDeviceContext context(buffer.get_device_id());
+  cudaDeviceSynchronize();
+  __half host_buff[end_ - begin_];
+  cudaMemcpy(host_buff, buffer.get_ptr_with_offset(begin_), (end_ - begin_) * sizeof(__half),
+             cudaMemcpyDeviceToHost);
+  std::cout << "Buffer: " << buffer.get_num_elements() << std::endl;
+  std::cout << "begin: " << begin_ << " end: " << end_ << std::endl;
+  for (int i = 0; i < end_ - begin_; i++) {
+    std::cout << __half2float(host_buff[i]) << ",";
   }
   std::cout << std::endl;
   return true;

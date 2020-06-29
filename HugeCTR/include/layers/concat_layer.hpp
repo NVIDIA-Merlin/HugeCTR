@@ -31,6 +31,23 @@ namespace HugeCTR {
  *       to (batch_size, (a + b) * vector_length)
  */
 class ConcatLayer : public Layer {
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors<float> weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+
  public:
   /**
    * Ctor of ConcatLayer.
@@ -39,7 +56,7 @@ class ConcatLayer : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<float>>& out_tensor,
+  ConcatLayer(Tensors<float> in_tensors, std::shared_ptr<Tensor<float>>& out_tensor,
               const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, int device_id);
   ~ConcatLayer() override{};
 

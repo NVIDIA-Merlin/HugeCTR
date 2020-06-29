@@ -29,7 +29,7 @@ using namespace HugeCTR;
 
 namespace {
 
-void reshape_test(vector<int>& in_dims, int leading_dim) {
+void reshape_test(vector<size_t>& in_dims, size_t leading_dim) {
   std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(
       in_dims, buff, (in_dims.size() == 3) ? TensorFormat_t::HSW : TensorFormat_t::HW));
@@ -40,21 +40,21 @@ void reshape_test(vector<int>& in_dims, int leading_dim) {
 
   ASSERT_TRUE(out_tensor);
 
-  std::vector<int> out_dims = out_tensor->get_dims();
-  int n_in_elems = in_tensor->get_num_elements();
-  int n_out_elems = out_tensor->get_num_elements();
+  std::vector<size_t> out_dims = out_tensor->get_dims();
+  size_t n_in_elems = in_tensor->get_num_elements();
+  size_t n_out_elems = out_tensor->get_num_elements();
 
   ASSERT_TRUE(out_dims.size() == 2 && n_in_elems == n_out_elems &&
               leading_dim == out_dims[out_dims.size() - 1]);
 }
 
-void reshape_2d_test(int dim0, int dim1, int leading_dim) {
-  vector<int> in_dims = {dim0, dim1};
+void reshape_2d_test(size_t dim0, size_t dim1, size_t leading_dim) {
+  vector<size_t> in_dims = {dim0, dim1};
   reshape_test(in_dims, leading_dim);
 }
 
-void reshape_3d_test(int dim0, int dim1, int dim2, int leading_dim) {
-  vector<int> in_dims = {dim0, dim1, dim2};
+void reshape_3d_test(size_t dim0, size_t dim1, size_t dim2, size_t leading_dim) {
+  vector<size_t> in_dims = {dim0, dim1, dim2};
   reshape_test(in_dims, leading_dim);
 }
 

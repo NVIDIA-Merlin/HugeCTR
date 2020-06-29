@@ -37,7 +37,8 @@ using namespace HugeCTR;
 
 namespace {
 
-float get_ref_term(Regularizer_t type, std::vector<float>& h_weight, float lambda, int batch_size) {
+float get_ref_term(Regularizer_t type, std::vector<float>& h_weight, float lambda,
+                   size_t batch_size) {
   float ref_term = 0.0f;
   switch (type) {
     case Regularizer_t::L1: {
@@ -64,7 +65,7 @@ float get_ref_term(Regularizer_t type, std::vector<float>& h_weight, float lambd
 }
 
 void get_ref_grad(Regularizer_t type, const std::vector<float>& h_weight,
-                  std::vector<float>& h_wgrad, float lambda, int batch_size) {
+                  std::vector<float>& h_wgrad, float lambda, size_t batch_size) {
   switch (type) {
     case Regularizer_t::L1: {
       for (size_t i = 0; i < h_wgrad.size(); i++) {
@@ -85,18 +86,19 @@ void get_ref_grad(Regularizer_t type, const std::vector<float>& h_weight,
   }
 }
 
-std::shared_ptr<Regularizer> create_regularizer(Regularizer_t type,
-                                                std::shared_ptr<GeneralBuffer<float>> weight_buff,
-                                                std::shared_ptr<GeneralBuffer<float>> wgrad_buff,
-                                                int batch_size, float lambda,
-                                                cublasHandle_t cublas_handle) {
-  std::shared_ptr<Regularizer> reg;
+std::shared_ptr<Regularizer<float>> create_regularizer(
+    Regularizer_t type, std::shared_ptr<GeneralBuffer<float>> weight_buff,
+    std::shared_ptr<GeneralBuffer<float>> wgrad_buff, size_t batch_size, float lambda,
+    cublasHandle_t cublas_handle) {
+  std::shared_ptr<Regularizer<float>> reg;
   switch (type) {
     case Regularizer_t::L1:
-      reg.reset(new L1Regularizer(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0));
+      reg.reset(
+          new L1Regularizer<float>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0));
       break;
     case Regularizer_t::L2:
-      reg.reset(new L2Regularizer(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0));
+      reg.reset(
+          new L2Regularizer<float>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle, 0));
       break;
     default:
       assert(!"Error: no such optimizer && should never get here!");
@@ -107,7 +109,7 @@ std::shared_ptr<Regularizer> create_regularizer(Regularizer_t type,
 
 const float eps = 1e-5;
 
-void loss_with_regularizer_test(Regularizer_t type, int batch_size, int num_features,
+void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t num_features,
                                 float lambda) {
   cublasHandle_t cublas_handle;
   cublasCreate(&cublas_handle);
@@ -140,15 +142,16 @@ void loss_with_regularizer_test(Regularizer_t type, int batch_size, int num_feat
   std::shared_ptr<Tensor<float>> label_tensor(
       new Tensor<float>({batch_size, 1}, label_buff, TensorFormat_t::HW));
 
-  BinaryCrossEntropyLoss loss_no(label_tensor, out_tensor, loss_tensor_no,
-                                 std::shared_ptr<NoRegularizer>(new NoRegularizer(
-                                     weight_buff_no, wgrad_buff_no, batch_size, 0)),
-                                 0);
+  BinaryCrossEntropyLoss<float> loss_no(
+      label_tensor, out_tensor, loss_tensor_no,
+      std::shared_ptr<NoRegularizer<float>>(
+          new NoRegularizer<float>(weight_buff_no, wgrad_buff_no, batch_size, 0)),
+      0, 1);
 
-  BinaryCrossEntropyLoss loss_re(
+  BinaryCrossEntropyLoss<float> loss_re(
       label_tensor, out_tensor, loss_tensor_re,
-      create_regularizer(type, weight_buff_re, wgrad_buff_re, batch_size, lambda, cublas_handle),
-      0);
+      create_regularizer(type, weight_buff_re, wgrad_buff_re, batch_size, lambda, cublas_handle), 0,
+      1);
 
   weight_buff_no->init(0);
   weight_buff_re->init(0);
@@ -184,7 +187,7 @@ void loss_with_regularizer_test(Regularizer_t type, int batch_size, int num_feat
              cudaMemcpyHostToDevice);
 
   fc_layer_no.fprop(cudaStreamDefault);
-  loss_no.fused_loss_computation(cudaStreamDefault);
+  loss_no.compute(true, cudaStreamDefault);
   std::unique_ptr<float> loss_no_val(new float);
   cudaMemcpy(loss_no_val.get(), loss_tensor_no->get_ptr(), loss_tensor_no->get_size(),
              cudaMemcpyDeviceToHost);
@@ -193,7 +196,7 @@ void loss_with_regularizer_test(Regularizer_t type, int batch_size, int num_feat
   *loss_no_val += ref_term;
 
   fc_layer_re.fprop(cudaStreamDefault);
-  loss_re.fused_loss_computation(cudaStreamDefault);
+  loss_re.compute(true, cudaStreamDefault);
   std::unique_ptr<float> loss_re_val(new float);
   cudaMemcpy(loss_re_val.get(), loss_tensor_re->get_ptr(), loss_tensor_re->get_size(),
              cudaMemcpyDeviceToHost);

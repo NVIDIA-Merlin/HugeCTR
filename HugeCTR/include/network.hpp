@@ -26,6 +26,7 @@
 #include "HugeCTR/include/gpu_resource.hpp"
 #include "HugeCTR/include/layer.hpp"
 #include "HugeCTR/include/loss.hpp"
+#include "HugeCTR/include/metrics.hpp"
 #include "HugeCTR/include/optimizer.hpp"
 #include "HugeCTR/include/tensor.hpp"
 #include "nlohmann/json.hpp"
@@ -41,21 +42,41 @@ namespace HugeCTR {
 class Network {
   friend Network* create_network(
       const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-      const std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list_in,
-      int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
+      const std::map<std::string, std::shared_ptr<ITensor>>& tensor_list_in, int device_id,
+      int num_networks_in_global, const std::shared_ptr<const GPUResource>& gpu_resource,
       bool use_mixed_precision, float scaler);
 
  private:
-  Tensors<float> tensors_;                            /**< vector of tensors */
-  std::vector<std::unique_ptr<Layer>> layers_;        /**< vector of layers */
-  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;  /**< blobs' general buffer */
-  std::shared_ptr<GeneralBuffer<float>> weight_buff_; /**< weight (param) general buffer */
-  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;  /**< weight gradient general buffer */
-  std::shared_ptr<const GPUResource> gpu_resource_;   /**< gpu resource */
-  int device_id_;                                     /**< device id */
-  std::unique_ptr<Optimizer> optimizer_;              /**< optimizer */
-  std::unique_ptr<Loss> loss_;                        /**< loss */
-  std::shared_ptr<Tensor<float>> loss_tensor_;        /**< loss tensor */
+  //  Tensors<float> tensors_;
+  std::vector<std::unique_ptr<Layer>> layers_;              /**< vector of layers */
+  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;        /**< blobs' general buffer */
+  std::shared_ptr<GeneralBuffer<__half>> blobs_buff_half_;  /**< blobs' general buffer */
+  std::shared_ptr<GeneralBuffer<float>> weight_buff_;       /**< weight (param) general buffer */
+  std::shared_ptr<GeneralBuffer<__half>> weight_buff_half_; /**< weight (param) general buffer */
+  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;        /**< weight gradient general buffer */
+  std::shared_ptr<GeneralBuffer<__half>> wgrad_buff_half_;  /**< weight gradient general buffer */
+  std::shared_ptr<const GPUResource> gpu_resource_;         /**< gpu resource */
+  int device_id_;                                           /**< device id */
+  std::unique_ptr<Optimizer> optimizer_;                    /**< optimizer */
+  std::unique_ptr<ILoss> loss_;                             /**< loss */
+  std::shared_ptr<Tensor<float>> loss_tensor_;              /**< loss tensor */
+  bool full_fp16_{false};
+  int n_sms_{0};
+  void conv_weight_();
+  metrics::RawMetricMap raw_metrics_;
+
+  bool eval_graph_created_;
+  bool train_fprop_graph_created_;
+  bool train_bprop_graph_created_;
+  cudaGraph_t eval_graph_;
+  cudaGraph_t train_fprop_graph_;
+  cudaGraph_t train_bprop_graph_;
+  cudaGraphExec_t eval_instance_;
+  cudaGraphExec_t train_fprop_instance_;
+  cudaGraphExec_t train_bprop_instance_;
+
+  bool first_iter_{true};
+
  public:
   /**
    * Ctor.
@@ -64,9 +85,23 @@ class Network {
    * @param disable_parser only for unit test.
    */
   Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
-          bool disable_parser = true);
+          bool full_fp16 = false);
   Network(const Network& C) = delete;
   Network& operator=(const Network&) = delete;
+
+  std::shared_ptr<GeneralBuffer<float>>& get_weight() { return weight_buff_; }
+
+  std::shared_ptr<GeneralBuffer<__half>>& get_weight_half() { return weight_buff_half_; }
+
+  void set_weight(std::shared_ptr<GeneralBuffer<float>>& weight_buff) {
+    weight_buff_->replace_buffer_with(*weight_buff);
+    return;
+  }
+
+  void set_weight_half(std::shared_ptr<GeneralBuffer<__half>>& wgrad_buff_half) {
+    weight_buff_half_->replace_buffer_with(*wgrad_buff_half);
+    return;
+  }
 
   /**
    * Forward, backward and update the network.
@@ -82,6 +117,8 @@ class Network {
    * Get current loss and return.
    */
   float get_loss();
+
+  metrics::RawMetricMap get_raw_metrics() const;
 
   /**
    * Get number of parameters in this network.
@@ -116,7 +153,7 @@ class Network {
   /**
    * Init parameters and write to fstream.
    */
-  void init_params(const std::string& dense_name);
+  void init_params(const std::string& model_file_name);
 
   /**
    * Copy parameters from a network.
@@ -137,6 +174,15 @@ class Network {
    * reset the learning rate to lr.
    */
   void set_learning_rate(float lr) { optimizer_->set_learning_rate(lr); }
+
+  /**
+   * optimize layer by layer
+   */
+  void optimize() {
+    for (auto& n : layers_) {
+      n->optimize();
+    }
+  }
 };
 
 }  // namespace HugeCTR

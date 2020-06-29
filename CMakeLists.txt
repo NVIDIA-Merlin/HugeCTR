@@ -38,6 +38,14 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
+option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" ON)
+if (NCCL_A2A) 
+  message(STATUS "-- NCCL_A2A is ON")
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DNCCL_A2A")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DNCCL_A2A")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNCCL_A2A")
+endif()
+
 find_package(CUDA REQUIRED)
 find_package(CUDNN REQUIRED)
 find_package(NCCL REQUIRED)
@@ -71,21 +79,32 @@ if (VAL_MODE)
 endif()
 
 # setting compiler flags
-if (SM STREQUAL 75 OR 
-    SM STREQUAL 70 OR
-    SM STREQUAL 62 OR
-    SM STREQUAL 61 OR
-    SM STREQUAL 60)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM},code=\\\"sm_${SM},compute_${SM}\\\" -rdc=true")
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")	
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall")
-  message(STATUS "-- Assign GPU architecture (sm=${SM})")
-else()
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_60,code=\\\"sm_60,compute_60\\\" -rdc=true")
-  message(WARNING "-- Unknown or unsupported GPU architecture (set sm=60)")
-endif()
+foreach(arch_name ${SM})
+    if (arch_name STREQUAL 80 OR 
+        arch_name STREQUAL 75 OR 
+        arch_name STREQUAL 70 OR
+        arch_name STREQUAL 61 OR
+        arch_name STREQUAL 60)
+        list(APPEND cuda_arch_list ${arch_name})
+        message(STATUS "-- Assign GPU architecture (sm=${arch_name})")
+    else()
+        message(WARNING "-- Unknown or unsupported GPU architecture (set sm=60)")
+    endif()
+endforeach()
 
+list(LENGTH cuda_arch_list cuda_arch_list_length)
+if(${cuda_arch_list_length} EQUAL 0)
+    list(APPEND cuda_arch_list "60")
+endif()
+list(REMOVE_DUPLICATES cuda_arch_list)
+
+foreach(arch_name ${cuda_arch_list})
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
+endforeach()
+
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")	
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall")
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")

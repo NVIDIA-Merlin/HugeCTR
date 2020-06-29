@@ -18,12 +18,21 @@
 
 namespace {
 
+__device__ int debug_counter;
+
 __device__ __forceinline__ void momentumSGD_update_device(
     float* weight_ptr, float* momentum_ptr, float wgrad,
     HugeCTR::MomentumSGDHyperParameters hyper_parameters, float scaler) {
   momentum_ptr[0] =
       hyper_parameters.momentum_factor * momentum_ptr[0] - hyper_parameters.lr * wgrad / scaler;
   weight_ptr[0] += momentum_ptr[0];
+
+  // if(isnan(weight_ptr[0])){
+  //   int count = atomicAdd(&debug_counter, 1);
+  //   if(count < 10)
+  //     printf("%f;", wgrad);
+  // }
+
   return;
 }
 

@@ -28,6 +28,7 @@ namespace HugeCTR {
 /**
  * @brief Abstract base class of Regularizer
  */
+template <typename T = float>
 class Regularizer {
  public:
   /*
@@ -38,7 +39,7 @@ class Regularizer {
    * @param device_id Device to be used
    */
   Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-              const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff, const int batch_size,
+              const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff, const int batch_size,
               const int device_id);
 
   /*
@@ -87,11 +88,11 @@ class Regularizer {
    * @param num_elements the number of weight values across layers
    * @param stream CUDA Stream where the kernel is executed
    */
-  virtual void do_initialize_wgrad(const float* weight, float* wgrad, int num_elements,
+  virtual void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
                                    cudaStream_t stream) = 0;
 
   std::shared_ptr<GeneralBuffer<float>> weight_buff_;
-  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;
+  std::shared_ptr<GeneralBuffer<T>> wgrad_buff_;
   int batch_size_;
   int device_id_;
   int n_sms_;

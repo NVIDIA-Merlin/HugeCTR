@@ -33,9 +33,9 @@ namespace {
 
 const float eps = 1e-5;
 
-void slice_layer_test(int height, int width, std::vector<std::pair<int, int>> ranges) {
+void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, int>> ranges) {
   std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
-  std::vector<int> in_dims = {height, width};
+  std::vector<size_t> in_dims = {height, width};
   TensorFormat_t in_format = TensorFormat_t::HW;
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buff, in_format));
 
@@ -48,13 +48,13 @@ void slice_layer_test(int height, int width, std::vector<std::pair<int, int>> ra
   Tensors<float> out_tensors;
   SliceLayer slice_layer(in_tensor, out_tensors, buff, ranges, 0);
 
-  int n_outs = out_tensors.size();
+  size_t n_outs = out_tensors.size();
 
   buff->init(0);
 
   // fprop
   std::vector<std::vector<float>> h_refs;
-  for (int i = 0; i < n_outs; i++) {
+  for (size_t i = 0; i < n_outs; i++) {
     std::vector<float> h_ref(out_tensors[i]->get_num_elements(), 0.0);
     h_refs.push_back(h_ref);
   }
@@ -62,7 +62,7 @@ void slice_layer_test(int height, int width, std::vector<std::pair<int, int>> ra
   int i = 0;
   for (auto& range : ranges) {
     int out_width = range.second - range.first;
-    for (int r = 0; r < height; r++) {
+    for (size_t r = 0; r < height; r++) {
       for (int c = range.first; c < range.second; c++) {
         int in_idx = r * width + c;
         int out_idx = r * out_width + c - range.first;
@@ -77,7 +77,7 @@ void slice_layer_test(int height, int width, std::vector<std::pair<int, int>> ra
 
   slice_layer.fprop(cudaStreamDefault);
 
-  for (int i = 0; i < n_outs; i++) {
+  for (size_t i = 0; i < n_outs; i++) {
     std::vector<float> h_out(out_tensors[i]->get_num_elements(), 0.0);
     float* d_out = out_tensors[i]->get_ptr();
     cudaMemcpy(&h_out.front(), d_out, out_tensors[i]->get_size(), cudaMemcpyDeviceToHost);
@@ -94,7 +94,7 @@ void slice_layer_test(int height, int width, std::vector<std::pair<int, int>> ra
   i = 0;
   for (auto& range : ranges) {
     int out_width = range.second - range.first;
-    for (int r = 0; r < height; r++) {
+    for (size_t r = 0; r < height; r++) {
       for (int c = range.first; c < range.second; c++) {
         int in_idx = r * width + c;
         int out_idx = r * out_width + c - range.first;

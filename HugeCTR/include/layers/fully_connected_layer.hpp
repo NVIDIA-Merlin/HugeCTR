@@ -31,6 +31,27 @@ class FullyConnectedLayer : public Layer {
  private:
   const cublasHandle_t cublas_handle_;
   const bool use_mixed_precision_{false};
+  // Optimized cublasGemmEx algorithm selection
+  cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
+  cublasGemmAlgo_t balgo_W_{CUBLAS_GEMM_DEFAULT};
+  cublasGemmAlgo_t balgo_Xn_{CUBLAS_GEMM_DEFAULT};
+
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors<float> weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
 
  public:
   /**
@@ -41,6 +62,10 @@ class FullyConnectedLayer : public Layer {
    * backward pass
    */
   void bprop(cudaStream_t stream) final;
+  /*
+   * algorithm search for cublasGemmEx
+   */
+  void optimize() final;
   /**
    * This is the constructor of the FullyConnectedLayer.
    * It will check whether the format combination of all tensors is supported or not.

@@ -32,12 +32,13 @@ namespace {
 
 const float eps = 1e-5;
 
-void reshape_layer_test(int batch_size, int n_slot, int vector_length, std::vector<int> selected) {
+void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
+                        std::vector<int> selected) {
   std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
   TensorFormat_t in_format = TensorFormat_t::HSW;
   int n_active_slot = selected.empty() ? n_slot : int(selected.size());
-  std::vector<int> in_dims = {batch_size, n_slot, vector_length};
-  std::vector<int> out_dims = {batch_size, n_active_slot * vector_length};
+  std::vector<size_t> in_dims = {batch_size, n_slot, vector_length};
+  std::vector<size_t> out_dims = {batch_size, n_active_slot * vector_length};
 
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buff, in_format));
   std::shared_ptr<Tensor<float>> out_tensor;
@@ -56,9 +57,9 @@ void reshape_layer_test(int batch_size, int n_slot, int vector_length, std::vect
   if (selected.empty()) {
     h_ref = h_in;
   } else {
-    for (int i = 0; i < batch_size; i++) {
+    for (size_t i = 0; i < batch_size; i++) {
       for (int j = 0; j < n_active_slot; j++) {
-        for (int k = 0; k < vector_length; k++) {
+        for (size_t k = 0; k < vector_length; k++) {
           int in_idx = i * (n_slot * vector_length) + selected[j] * vector_length + k;
           int out_idx = i * (n_active_slot * vector_length) + j * vector_length + k;
           h_ref[out_idx] = h_in[in_idx];

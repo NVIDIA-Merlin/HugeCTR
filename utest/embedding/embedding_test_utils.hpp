@@ -46,13 +46,27 @@ bool compare_element(T a, T b) {
     return false;
 }
 
-template <typename T>
-bool compare_array(size_t len, T *a, T *b) {
+inline bool compare_array(size_t len, float *a, float *b) {
   bool rtn = true;
 
   for (size_t i = 0; i < len; i++) {
     if (compare_element(a[i], b[i]) != true) {
       printf("Error in compare_array: i=%d, a=%.8f, b=%.8f\n", (int)i, a[i], b[i]);
+      rtn = false;
+      break;
+    }
+  }
+
+  return rtn;
+}
+
+// overload for fp16 on GPU
+inline bool compare_array(size_t len, __half *a, float *b) {
+  bool rtn = true;
+
+  for (size_t i = 0; i < len; i++) {
+    if (compare_element((float)(a[i]), b[i]) != true) {
+      printf("Error in compare_array: i=%d, a=%.8f, b=%.8f\n", (int)i, (float)a[i], b[i]);
       rtn = false;
       break;
     }
@@ -207,9 +221,9 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
   long long end_pos = file_stream1.tellg();
   long long file_size1 = end_pos - start_pos;
 
-  file_stream2.seekg(0, file_stream2.beg);
   start_pos = file_stream2.tellg();
   file_stream2.seekg(0, file_stream2.end);
+  end_pos = file_stream1.tellg();
   long long file_size2 = end_pos - start_pos;
 
   if (file_size1 != file_size2) {
@@ -289,7 +303,18 @@ inline bool compare_embedding_feature(int num, float *embedding_feature_from_gpu
   return compare_array(num, embedding_feature_from_gpu, embedding_feature_from_cpu);
 }
 
+// overload for fp16 on GPU
+inline bool compare_embedding_feature(int num, __half *embedding_feature_from_gpu,
+                                      float *embedding_feature_from_cpu) {
+  return compare_array(num, embedding_feature_from_gpu, embedding_feature_from_cpu);
+}
+
 inline bool compare_wgrad(int num, float *wgrad_from_gpu, float *wgrad_from_cpu) {
+  return compare_array(num, wgrad_from_gpu, wgrad_from_cpu);
+}
+
+// overlaod for fp16 on GPU
+inline bool compare_wgrad(int num, __half *wgrad_from_gpu, float *wgrad_from_cpu) {
   return compare_array(num, wgrad_from_gpu, wgrad_from_cpu);
 }
 

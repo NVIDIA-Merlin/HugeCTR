@@ -20,7 +20,11 @@ file(GLOB layers_test_src
   dropout_layer_test.cpp
   elu_layer_test.cpp
   fully_connected_layer_test.cpp
+  fully_connected_layer_half_test.cpp
+  fused_fully_connected_layer_test.cpp
+  interaction_layer_test.cpp
   relu_layer_test.cpp
+  relu_layer_half_test.cpp
   slice_layer_test.cpp
   reshape_layer_test.cpp
   reshape_layer_test_sel.cpp
@@ -32,5 +36,5 @@ file(GLOB layers_test_src
 )
 
 add_executable(layers_test ${layers_test_src})
-target_compile_features(layers_test PUBLIC cxx_std_11)
+target_compile_features(layers_test PUBLIC cxx_std_14)
 target_link_libraries(layers_test PUBLIC huge_ctr_static gtest gtest_main)

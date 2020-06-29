@@ -85,7 +85,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor, Tensors<
       CK_THROW_(Error_t::WrongInput, "Only TensorFormat_t::HW is allowed");
     }
 
-    int height = in_dims[0];
+    size_t height = in_dims[0];
     int in_w = in_dims[1];
     int prev_min = -1;
     int prev_max = 0;
@@ -104,8 +104,8 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor, Tensors<
       if (cur_min >= in_w || cur_max > in_w) {
         CK_THROW_(Error_t::WrongInput, "Ranges cannot be bigger than the input width");
       }
-      int out_w = cur_max - cur_min;
-      std::vector<int> out_dims = {height, out_w};
+      size_t out_w = cur_max - cur_min;
+      std::vector<size_t> out_dims = {height, out_w};
       out_tensors.emplace_back(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
       sts_.push_back(cur_min);
       virt_w_ += out_w;

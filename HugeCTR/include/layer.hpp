@@ -34,24 +34,6 @@ class Layer {
    */
   const int device_id_;
 
- protected:
-  /*
-   * stores the weight tensors of this layer.
-   */
-  Tensors<float> weights_;
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors<float> wgrad_;
-  /*
-   * stores the references to the input tensors of this layer.
-   */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
-  /*
-   * stores the references to the output tensors of this layer.
-   */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
-
  public:
   /*
    * Forward pass
@@ -76,6 +58,10 @@ class Layer {
   Layer(const Layer& C) = delete;
   Layer& operator=(const Layer& C) = delete;
   virtual ~Layer() {}
+  /*
+   * Some of the layers requires algorithm search like fully connected layer
+   */
+  virtual void optimize() {}
 
  private:
   /*
