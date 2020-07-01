@@ -28,7 +28,7 @@ static std::string usage_str = "usage: ./criteo2hugectr_legacy <num slots> in.tx
 
 static const int N = 40960; //number of samples per data file
 static const int KEYS_PER_SAMPLE = 39;
-typedef long long T;
+typedef unsigned int T;
 static const long long label_dim = 1;
 static const int voc_size = 1603616;
 

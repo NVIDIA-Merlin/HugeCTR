@@ -375,6 +375,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         layers.emplace_back(new DropoutLayer(std::dynamic_pointer_cast<Tensor<float>>(do_in_tensor),
                                              do_out_tensor, rate,
                                              gpu_resource->get_curand_generator(), device_id));
+        network->enable_cuda_graph_ = false;
 
         break;
       }

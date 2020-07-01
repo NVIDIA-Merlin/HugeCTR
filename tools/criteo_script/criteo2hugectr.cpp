@@ -29,7 +29,7 @@ static const int N = 40960; //number of samples per data file
 static int KEYS_WIDE_MODEL = 0;
 static const int KEYS_DENSE_MODEL = 26;
 static const int dense_dim = 13;
-typedef long long T;
+typedef unsigned int T;
 static const long long label_dim = 1;
 static int SLOT_NUM = 26;
 const int RANGE[] = {0,1460,2018,337396,549106,549411,549431,561567,562200,562203,613501,618803,951403,954582,954609,966800,1268011,1268021,1272862,1274948,1274952,1599225,1599242,1599257,1678991,1679087,1737709};

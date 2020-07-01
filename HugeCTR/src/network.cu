@@ -34,6 +34,7 @@ Network::Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_re
       gpu_resource_(gpu_resource),
       device_id_(device_id),
       full_fp16_(full_fp16),
+      enable_cuda_graph_(true),
       eval_graph_created_(false),
       train_fprop_graph_created_(false),
       train_bprop_graph_created_(false) {
@@ -73,34 +74,48 @@ void Network::train() {
     first_iter_ = false;
   }
 
-  if (!train_fprop_graph_created_) {
-    CK_CUDA_THROW_(
-        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
-
+  if (enable_cuda_graph_) {
+    if (!train_fprop_graph_created_) {
+      CK_CUDA_THROW_(
+          cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+      for (auto& layer : layers_) {
+        layer->fprop(gpu_resource_->get_stream());
+      }
+      CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_fprop_graph_));
+      CK_CUDA_THROW_(
+          cudaGraphInstantiate(&train_fprop_instance_, train_fprop_graph_, NULL, NULL, 0));
+      train_fprop_graph_created_ = true;
+    }
+    CK_CUDA_THROW_(cudaGraphLaunch(train_fprop_instance_, gpu_resource_->get_stream()));
+  } else {
     for (auto& layer : layers_) {
       layer->fprop(gpu_resource_->get_stream());
     }
-    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_fprop_graph_));
-    CK_CUDA_THROW_(cudaGraphInstantiate(&train_fprop_instance_, train_fprop_graph_, NULL, NULL, 0));
-    train_fprop_graph_created_ = true;
   }
-  CK_CUDA_THROW_(cudaGraphLaunch(train_fprop_instance_, gpu_resource_->get_stream()));
 
   loss_->compute(true, gpu_resource_->get_stream());
 
-  if (!train_bprop_graph_created_) {
-    CK_CUDA_THROW_(
-        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+  if (enable_cuda_graph_) {
+    if (!train_bprop_graph_created_) {
+      CK_CUDA_THROW_(
+          cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
 
+      // backward
+      for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
+        (*it)->bprop(gpu_resource_->get_stream());
+      }
+      CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_bprop_graph_));
+      CK_CUDA_THROW_(
+          cudaGraphInstantiate(&train_bprop_instance_, train_bprop_graph_, NULL, NULL, 0));
+      train_bprop_graph_created_ = true;
+    }
+    CK_CUDA_THROW_(cudaGraphLaunch(train_bprop_instance_, gpu_resource_->get_stream()));
+  } else {
     // backward
     for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
       (*it)->bprop(gpu_resource_->get_stream());
     }
-    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_bprop_graph_));
-    CK_CUDA_THROW_(cudaGraphInstantiate(&train_bprop_instance_, train_bprop_graph_, NULL, NULL, 0));
-    train_bprop_graph_created_ = true;
   }
-  CK_CUDA_THROW_(cudaGraphLaunch(train_bprop_instance_, gpu_resource_->get_stream()));
 
   return;
 }
@@ -113,18 +128,25 @@ void Network::eval() {
   print_buffer(*wgrad_buff_, -20, -1);
 
 #endif
-  if (!eval_graph_created_) {
-    CK_CUDA_THROW_(
-        cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+  if (enable_cuda_graph_) {
+    if (!eval_graph_created_) {
+      CK_CUDA_THROW_(
+          cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+      // forward
+      for (auto& layer : layers_) {
+        layer->inference(gpu_resource_->get_stream());
+      }
+      CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &eval_graph_));
+      CK_CUDA_THROW_(cudaGraphInstantiate(&eval_instance_, eval_graph_, NULL, NULL, 0));
+      eval_graph_created_ = true;
+    }
+    CK_CUDA_THROW_(cudaGraphLaunch(eval_instance_, gpu_resource_->get_stream()));
+  } else {
     // forward
     for (auto& layer : layers_) {
       layer->inference(gpu_resource_->get_stream());
     }
-    CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &eval_graph_));
-    CK_CUDA_THROW_(cudaGraphInstantiate(&eval_instance_, eval_graph_, NULL, NULL, 0));
-    eval_graph_created_ = true;
   }
-  CK_CUDA_THROW_(cudaGraphLaunch(eval_instance_, gpu_resource_->get_stream()));
   loss_->compute(false, gpu_resource_->get_stream());
 
   return;
