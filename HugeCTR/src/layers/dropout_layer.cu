@@ -70,6 +70,7 @@ DropoutLayer::~DropoutLayer() {
 
 void DropoutLayer::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
+  CK_CURAND_THROW_(curandSetStream(curand_generator_, stream));
   CK_CURAND_THROW_(
       curandGenerateUniform(curand_generator_, mask_, in_tensors_[0]->get_num_elements()));
   prop_common(in_tensors_[0]->get_ptr(), out_tensors_[0]->get_ptr(), stream);

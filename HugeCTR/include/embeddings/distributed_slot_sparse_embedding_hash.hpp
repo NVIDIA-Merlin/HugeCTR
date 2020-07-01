@@ -560,6 +560,10 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
                                          embedding_params_.embedding_vec_size},
                                         fp_bufs_.back(), TensorFormat_t::HW));
 
+      row_offset_allreduce_tensors_.emplace_back(new Tensor<TypeHashKey>(
+          {1, embedding_params_.batch_size * embedding_params_.slot_num + 1}, key_bufs_.back(),
+          TensorFormat_t::HW));
+
       utest_forward_temp_tensors_.emplace_back(
           new Tensor<TypeEmbeddingComp>({embedding_params_.batch_size * embedding_params_.slot_num,
                                          embedding_params_.embedding_vec_size},
