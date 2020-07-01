@@ -10,7 +10,7 @@ RUN apt-get install -y \
     wget \
     python3-pip
 
-RUN python3 -m pip install --upgrade pip && \
+RUN python3 -m pip install --upgrade pip setuptools six && \
     python3 -m pip install --no-cache-dir \
     numpy \
     pandas \
