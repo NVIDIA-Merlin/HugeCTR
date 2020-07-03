@@ -37,6 +37,7 @@ file(GLOB huge_ctr_src
   layers/reduce_sum_layer.cu
   loss.cu
   network.cu
+  network.cpp
   metrics.cu
   optimizers/adam_optimizer.cu
   optimizers/momentum_sgd.cu

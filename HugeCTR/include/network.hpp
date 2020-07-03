@@ -50,11 +50,13 @@ class Network {
   //  Tensors<float> tensors_;
   std::vector<std::unique_ptr<Layer>> layers_;              /**< vector of layers */
   std::shared_ptr<GeneralBuffer<float>> blobs_buff_;        /**< blobs' general buffer */
-  std::shared_ptr<GeneralBuffer<__half>> blobs_buff_half_;  /**< blobs' general buffer */
   std::shared_ptr<GeneralBuffer<float>> weight_buff_;       /**< weight (param) general buffer */
-  std::shared_ptr<GeneralBuffer<__half>> weight_buff_half_; /**< weight (param) general buffer */
   std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;        /**< weight gradient general buffer */
+
+  std::shared_ptr<GeneralBuffer<__half>> blobs_buff_half_;  /**< blobs' general buffer */
+  std::shared_ptr<GeneralBuffer<__half>> weight_buff_half_; /**< weight (param) general buffer */
   std::shared_ptr<GeneralBuffer<__half>> wgrad_buff_half_;  /**< weight gradient general buffer */
+
   std::shared_ptr<const GPUResource> gpu_resource_;         /**< gpu resource */
   int device_id_;                                           /**< device id */
   std::unique_ptr<Optimizer> optimizer_;                    /**< optimizer */
