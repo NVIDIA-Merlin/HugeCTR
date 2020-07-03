@@ -299,8 +299,8 @@ void DataCollector<TypeKey>::collect_() {
         unsigned int nnz = csr_cpu_buffers[i * num_params + j]
                                .get_buffer()[csr_cpu_buffers[i * num_params + j].get_num_rows()];
 
-        if (pre_nnz_[i * num_params + j] != nnz || cache_size_ != 0 || !one_hot_) {
-          pre_nnz_[i * num_params + j] = nnz;
+        if (pre_nnz_[local_id * num_params + j] != nnz || cache_size_ != 0 || !one_hot_) {
+          pre_nnz_[local_id * num_params + j] = nnz;
           int csr_copy_num = (csr_cpu_buffers[i * num_params + j].get_num_rows() +
                               csr_cpu_buffers[i * num_params + j].get_sizeof_value() + 1);
           CK_CUDA_THROW_(cudaMemcpyAsync(

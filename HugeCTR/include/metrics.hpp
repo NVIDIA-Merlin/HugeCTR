@@ -95,6 +95,8 @@ class AUC : public Metric {
   float* fpr() const { return (float*)temp3_; }
   float* d_auc() const { return (float*)temp0_; }
 
+  void num_active_gpu_and_r(int& num_active_gpu, int& r);
+
   int batch_size_per_gpu_;
   int n_batches_;
   int root_device_id_;

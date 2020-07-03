@@ -191,9 +191,16 @@ void AverageLoss<T>::global_reduce(int n_nets) {
 template <typename T>
 float AverageLoss<T>::finalize_metric() {
   float ret = 0.0f;
-  if (n_batches_) {
-    ret = loss_global_ / n_batches_;
+  if (pid_ == 0) {
+    if (n_batches_) {
+      ret = loss_global_ / n_batches_;
+    }
   }
+#ifdef ENABLE_MPI
+  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+  CK_MPI_THROW_(MPI_Bcast(&ret, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
+#endif
+
   loss_global_ = 0.0f;
   for (auto& loss_local : loss_local_) {
     loss_local = 0.0f;
@@ -222,10 +229,11 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int root_device_id, int num_g
   int num_elems = batch_size_per_gpu_ * n_batches_ * num_gpus_;
 #ifdef ENABLE_MPI
   if (num_procs_ > 1 && pid_ == 0) {
-    buffer_size *= num_procs_;
+    num_elems *= num_procs_;
   }
 #endif
   size_t buffer_size = num_elems * sizeof(float);
+
   CudaDeviceContext context(root_device_id);
   CK_CUDA_THROW_(cudaMallocManaged(&temp0_, buffer_size));
   CK_CUDA_THROW_(cudaMallocManaged(&temp1_, buffer_size));
@@ -261,13 +269,17 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int root_device_id, int num_g
   // Enable Peer Access from root GPUs to other GPU
   for (int dev = 0; dev < num_gpus_; dev++) {
     if (dev != root_device_id_) {
-      cudaError_t ret = cudaDeviceEnablePeerAccess(dev, 0);
-      if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
-        CK_CUDA_THROW_(ret);
-      } else {
-        // cudaErrorPeerAccessAlreadyEnabled must not be handled as an error
-        // so we reset it to cudaSuccess here
-        cudaGetLastError();
+      int can_access_peer = 0;
+      CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, root_device_id_, dev));
+      if (can_access_peer) {
+        cudaError_t ret = cudaDeviceEnablePeerAccess(dev, 0);
+        if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
+          CK_CUDA_THROW_(ret);
+        } else {
+          // cudaErrorPeerAccessAlreadyEnabled must not be handled as an error
+          // so we reset it to cudaSuccess here
+          cudaGetLastError();
+        }
       }
     }
   }
@@ -276,13 +288,17 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int root_device_id, int num_g
   for (int dev = 0; dev < num_gpus_; dev++) {
     if (dev != root_device_id_) {
       CudaDeviceContext context(dev);
-      cudaError_t ret = cudaDeviceEnablePeerAccess(root_device_id_, 0);
-      if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
-        CK_CUDA_THROW_(ret);
-      } else {
-        // cudaErrorPeerAccessAlreadyEnabled must not be handled as an error
-        // so we reset it to cudaSuccess here
-        cudaGetLastError();
+      int can_access_peer = 0;
+      CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, dev, root_device_id_));
+      if (can_access_peer) {
+        cudaError_t ret = cudaDeviceEnablePeerAccess(root_device_id_, 0);
+        if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
+          CK_CUDA_THROW_(ret);
+        } else {
+          // cudaErrorPeerAccessAlreadyEnabled must not be handled as an error
+          // so we reset it to cudaSuccess here
+          cudaGetLastError();
+        }
       }
     }
   }
@@ -313,41 +329,32 @@ void AUC<T>::local_reduce(RawMetricMap raw_metrics) {
   int current_device_id = pred_tensor->get_device_id();
 
   CudaDeviceContext context(current_device_id);
-  int num_active_gpu = current_batch_size_ / batch_size_per_gpu_;
-  int r = current_batch_size_ % batch_size_per_gpu_;
+  int num_active_gpu = 0;
+  int r = 0;
+  num_active_gpu_and_r(num_active_gpu, r);
   if (r) {
     num_active_gpu += 1;
   }
-  // std::cout << " current_device_id: " << current_device_id
-  //           << " num_active_gpu: " << num_active_gpu
-  //           << " r: " << r
-  //           << " current_batch_size_: " << current_batch_size_
-  //           << std::endl;
 
   if (current_device_id < num_active_gpu) {
     int num_elems = (r && current_device_id == num_active_gpu - 1) ? r : batch_size_per_gpu_;
 
     size_t offset = offset_ + batch_size_per_gpu_ * current_device_id;
 
-    // copy_all<T>(d_pred() + offset_,
-    //             d_label() + offset_,
     copy_all<T>(d_pred() + offset, d_label() + offset, pred_tensor->get_ptr(),
                 label_tensor->get_ptr(), num_elems, num_sms_,
                 (*gpu_resource_group_)[current_device_id]->get_stream());
-    // offset_ += num_elems;
   }
 }
 
 template <typename T>
 void AUC<T>::global_reduce(int n_nets) {
-  int num_active_gpu = current_batch_size_ / batch_size_per_gpu_;
-  int r = current_batch_size_ % batch_size_per_gpu_;
+  int num_active_gpu = 0;
+  int r = 0;
+  num_active_gpu_and_r(num_active_gpu, r);
   offset_ += (batch_size_per_gpu_ * num_active_gpu + r);
 
-  // std::cout << " offset_: " << offset_
-  //           << std::endl;
-
-#ifdef ENABLE_MPI
+  #ifdef ENABLE_MPI
   if (num_procs_ > 1) {
     int cnt = offset_;
     CK_MPI_THROW_(MPI_Gather((pid_ == 0) ? MPI_IN_PLACE : d_pred(), cnt, MPI_FLOAT, d_pred(), cnt,
@@ -360,49 +367,51 @@ void AUC<T>::global_reduce(int n_nets) {
 
 template <typename T>
 float AUC<T>::finalize_metric() {
-  // std::cout << " start finalize_metric "  << std::endl;
-
-  if (pid_ != 0) {
-    CK_THROW_(Error_t::MpiError, "finalize_metric() is called in non-root process");
-  }
-
   CudaDeviceContext context(root_device_id_);
 
-  int num_elems = offset_ * num_procs_;
-  CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairsDescending(workspace_, temp_storage_bytes_,
-                                                           d_pred(), d_pred_sort(), d_label(),
-                                                           d_label_sort(), num_elems, 0));
-  int* d_num_selected_out = ((int*)workspace_) + temp_storage_bytes_ / sizeof(int);
-  char* d_flag = ((char*)workspace_) + temp_storage_bytes_ + sizeof(int);
+  if (pid_ == 0) {
+    int num_elems = offset_ * num_procs_;
+    CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairsDescending(workspace_, temp_storage_bytes_,
+                                                             d_pred(), d_pred_sort(), d_label(),
+                                                             d_label_sort(), num_elems, 0));
+    int* d_num_selected_out = ((int*)workspace_) + temp_storage_bytes_ / sizeof(int);
+    char* d_flag = ((char*)workspace_) + temp_storage_bytes_ + sizeof(int);
 
-  dim3 grid(160, 1, 1);
-  dim3 block(1024, 1, 1);
-  unique_flag_kernel<<<grid, block>>>(d_pred_sort(), d_flag, num_elems);
+    dim3 grid(160, 1, 1);
+    dim3 block(1024, 1, 1);
+    unique_flag_kernel<<<grid, block>>>(d_pred_sort(), d_flag, num_elems);
 
-  CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(workspace_, temp_storage_bytes_, d_label_sort(),
-                                               d_inc_sum(), num_elems));
+    CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(workspace_, temp_storage_bytes_, d_label_sort(),
+                                                 d_inc_sum(), num_elems));
 
-  CK_CUDA_THROW_(cub::DeviceSelect::Flagged(workspace_, temp_storage_bytes_, d_inc_sum(), d_flag,
-                                            tpr(), d_num_selected_out, num_elems));
+    CK_CUDA_THROW_(cub::DeviceSelect::Flagged(workspace_, temp_storage_bytes_, d_inc_sum(), d_flag,
+                                              tpr(), d_num_selected_out, num_elems));
 
-  int num_selected = 0;
-  CK_CUDA_THROW_(
-      cudaMemcpy(&num_selected, d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost));
+    int num_selected = 0;
+    CK_CUDA_THROW_(
+        cudaMemcpy(&num_selected, d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost));
 
-  CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(workspace_, temp_storage_bytes_, d_flag,
-                                               d_flag_inc_sum(), num_elems));
+    CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(workspace_, temp_storage_bytes_, d_flag,
+                                                 d_flag_inc_sum(), num_elems));
 
-  unique_index_kernel<<<grid, block>>>(d_flag, d_flag_inc_sum(), d_unique_index(), num_elems);
+    unique_index_kernel<<<grid, block>>>(d_flag, d_flag_inc_sum(), d_unique_index(), num_elems);
 
-  create_fpr_kernel<<<grid, block>>>(tpr(), d_unique_index(), fpr(), num_selected, num_elems);
+    create_fpr_kernel<<<grid, block>>>(tpr(), d_unique_index(), fpr(), num_selected, num_elems);
 
-  initialize_array<<<grid, block>>>(d_auc(), 1, 0.0f);
-  trapz_kernel<<<grid, block>>>(tpr(), fpr(), d_auc(), num_selected);
+    initialize_array<<<grid, block>>>(d_auc(), 1, 0.0f);
 
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+    trapz_kernel<<<grid, block>>>(tpr(), fpr(), d_auc(), num_selected);
 
+    CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  }
   offset_ = 0;
-  // std::cout << " end finalize_metric "  << std::endl;
+
+#ifdef ENABLE_MPI
+  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+  CK_MPI_THROW_(MPI_Bcast(d_auc(), 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
+#endif
+
   return *d_auc();
 }
 
@@ -410,6 +419,12 @@ template <typename T>
 void AUC<T>::set_max_temp_storage_bytes(size_t& new_val) {
   temp_storage_bytes_ = (new_val > temp_storage_bytes_) ? new_val : temp_storage_bytes_;
   new_val = 0;
+}
+
+template <typename T>
+void AUC<T>::num_active_gpu_and_r(int& num_active_gpu, int& r) {
+  num_active_gpu = current_batch_size_ / (batch_size_per_gpu_ * num_procs_);
+  r = current_batch_size_ % (batch_size_per_gpu_ * num_procs_);
 }
 
 template class AverageLoss<float>;
