@@ -19,9 +19,34 @@
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/utils.hpp"
 
+
+#include <algorithm>
+#include <random>
+#include <string>
+
 // #define DATA_READING_TEST
 
 namespace HugeCTR {
+
+namespace {
+
+std::string generate_random_file_name() {
+  std::string ch_set("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+
+  std::random_device rd;
+  std::mt19937 rng(rd());
+  std::uniform_int_distribution<> ch_dist(0, ch_set.size()-1);
+  std::uniform_int_distribution<> len_dist(ch_set.size()/5, ch_set.size()/3);
+
+  int length = len_dist(rng);
+  auto get_ch = [&ch_set, &ch_dist, &rng]() { return ch_set[ch_dist(rng)]; };
+
+  std::string ret(length, 0);
+  std::generate_n(ret.begin(), length, get_ch);
+  return ret;
+}
+
+}
 
 /**
  * check if device is avaliable.
@@ -80,12 +105,20 @@ Session::Session(const std::string& json_name)
                            networks_eval_, gpu_resource_group_);
 
   // init networks.
-  const std::string TMP_DENSE_NAME = std::tmpnam(nullptr);
+  std::string TMP_DENSE_NAME;
   if (pid == 0) {
+    TMP_DENSE_NAME = "./" + generate_random_file_name();
     networks_[0]->init_params(TMP_DENSE_NAME);
   }
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
+  int length = (pid == 0)? TMP_DENSE_NAME.length() : 0;
+  MPI_Bcast(&length, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  if (pid != 0) {
+    TMP_DENSE_NAME.resize(length);
+  }
+  MPI_Bcast(const_cast<char*>(TMP_DENSE_NAME.data()), length, MPI_CHAR, 0, MPI_COMM_WORLD);
+  MESSAGE_("tmp dense file name: " + TMP_DENSE_NAME);
 #endif
   for (auto& network : networks_) {
     network->upload_params_to_device(TMP_DENSE_NAME);

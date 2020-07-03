@@ -36,8 +36,8 @@ namespace HugeCTR {
  */
 class Session {
  private:
-  typedef unsigned int TypeKey; /**< type of input key in dataset. */
-  // typedef long long TypeKey;                        /**< type of input key in dataset. */
+  // typedef unsigned int TypeKey; /**< type of input key in dataset. */
+  typedef long long TypeKey;                        /**< type of input key in dataset. */
   std::vector<std::unique_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::unique_ptr<IEmbedding>> embedding_;  /**< embedding */
   std::vector<std::unique_ptr<Network>> networks_eval_; /**< networks (dense) used in eval. */
