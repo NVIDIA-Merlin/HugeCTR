@@ -140,9 +140,9 @@ class GPUResourceGroup {
     if (device_map->get_device_list().size() != local_gpu_count) {
       CK_THROW_(Error_t::WrongInput, "device_map->get_device_list().size() != local_gpu_count");
     }
-    // int total_gpu_count = get_total_gpu_count();
+    int total_gpu_count = get_total_gpu_count();
     // if ther are multiple GPUs within a node or/and across nodes
-    // if (total_gpu_count > 1) {
+    if (total_gpu_count > 1) {
     comms_.reset(new ncclComm_t[local_gpu_count]());
 #ifdef ENABLE_MPI
     int my_rank = 0;
@@ -163,7 +163,7 @@ class GPUResourceGroup {
 #else
     CK_NCCL_THROW_(ncclCommInitAll(comms_.get(), device_list.size(), device_list.data()));
 #endif
-    //}
+    }
     for (size_t i = 0; i < local_gpu_count; i++) {
       gpu_resources_.emplace_back(new GPUResource(device_list[i], comms_.get() + i));
     }
