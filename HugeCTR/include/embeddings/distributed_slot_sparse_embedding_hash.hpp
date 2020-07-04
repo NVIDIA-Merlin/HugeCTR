@@ -519,9 +519,6 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
                                        const std::shared_ptr<GPUResourceGroup> &gpu_resource_group,
                                        const DistributedSlotSparseEmbeddingHash &obj)
     : embedding_params_(obj.embedding_params_),
-#ifndef NCCL_A2A
-      plan_file_(obj.plan_file),
-#endif
       total_gpu_count_(obj.total_gpu_count_),
       local_gpu_count_(obj.local_gpu_count_),
       max_vocabulary_size_per_gpu_(obj.max_vocabulary_size_per_gpu_),

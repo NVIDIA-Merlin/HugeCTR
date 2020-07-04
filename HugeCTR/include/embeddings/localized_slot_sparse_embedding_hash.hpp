@@ -616,11 +616,13 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 
 // warm up for nccl all2all
 #ifdef NCCL_A2A
+    MESSAGE_("All2All Warmup Start");
     if (total_gpu_count_ > 1) {
       functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_,
                                 embedding_params_.embedding_vec_size, embedding_feature_tensors_,
                                 all2all_tensors_, Base::device_resources_);
     }
+    MESSAGE_("All2All Warmup End");
 #endif
 
   } catch (const std::runtime_error &rt_err) {
@@ -639,7 +641,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
     const LocalizedSlotSparseEmbeddingHash &obj)
     : embedding_params_(obj.embedding_params_),
 #ifndef NCCL_A2A
-      plan_file_(obj.plan_file),
+      plan_file_(obj.plan_file_),
 #endif
       total_gpu_count_(obj.total_gpu_count_),
       local_gpu_count_(obj.local_gpu_count_),
