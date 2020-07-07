@@ -18,6 +18,10 @@
 #include <vector>
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 #include "HugeCTR/include/utils.cuh"
+#include <linalg/binary_op.cuh>
+#include <linalg/reduce.cuh>
+#include <linalg/matrix_vector_op.cuh>
+
 
 namespace HugeCTR {
 
@@ -78,7 +82,7 @@ void matrix_vec_mul(Tensor<float>& out, const Tensor<float>& mat, const Tensor<f
  * @param o_mat: hxw
  * @param mat: hxw
  * @param vec: hx1
- */
+
 __global__ void row_scaling_kenrel(float* o_mat, const float* mat, int h, int w, const float* vec) {
   const int tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid < h * w) {
@@ -86,6 +90,7 @@ __global__ void row_scaling_kenrel(float* o_mat, const float* mat, int h, int w,
     o_mat[tid] = mat[tid] * vec[row];
   }
 }
+*/
 
 void row_scaling(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<float>& vec,
                  cudaStream_t stream) {
@@ -102,10 +107,14 @@ void row_scaling(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<fl
   const int h = dim[0];
   const int w = dim[1];
 
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
+  //const int BLOCK_DIM = 256;
+  //const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
 
-  row_scaling_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
+  //row_scaling_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
+
+  MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, true,
+          [] __device__(float a, float b) { return a * b; }, stream);
+
 }
 
 /**
@@ -114,7 +123,7 @@ void row_scaling(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<fl
  * @param o_mat: hxw
  * @param mat: hxw
  * @param vec: 1xw
- */
+
 __global__ void matrix_vec_add_kenrel(float* o_mat, const float* mat, int h, int w,
                                       const float* vec) {
   const int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -123,6 +132,7 @@ __global__ void matrix_vec_add_kenrel(float* o_mat, const float* mat, int h, int
     o_mat[tid] = mat[tid] + vec[col];
   }
 }
+*/
 
 void matrix_vec_add(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<float>& vec,
                     cudaStream_t stream) {
@@ -139,15 +149,19 @@ void matrix_vec_add(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor
   const int h = dim[0];
   const int w = dim[1];
 
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
+  //const int BLOCK_DIM = 256;
+  //const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
 
-  matrix_vec_add_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
+  //matrix_vec_add_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
+
+  MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, false,
+            [] __device__(float a, float b) { return a + b; }, stream);
+
 }
 
 /**
  * Pointwise adding
- */
+
 __global__ void matrix_add_kenrel(float* o_mat, const float* mat_a, int h, int w,
                                   const float* mat_b) {
   const int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -155,6 +169,7 @@ __global__ void matrix_add_kenrel(float* o_mat, const float* mat_a, int h, int w
     o_mat[tid] = mat_a[tid] + mat_b[tid];
   }
 }
+*/
 
 void matrix_add(Tensor<float>& out_mat, const Tensor<float>& mat_a, const Tensor<float>& mat_b,
                 cudaStream_t stream) {
@@ -171,9 +186,13 @@ void matrix_add(Tensor<float>& out_mat, const Tensor<float>& mat_a, const Tensor
   const int h = dim[0];
   const int w = dim[1];
 
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
-  matrix_add_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat_a, h, w, pmat_b);
+  //const int BLOCK_DIM = 256;
+  //const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
+  //matrix_add_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat_a, h, w, pmat_b);
+
+  MLCommon::LinAlg::binaryOp(pout, pmat_a, pmat_b, h * w,
+            [] __device__(float a, float b) { return a + b; }, stream);
+
 }
 
 /**
@@ -299,7 +318,7 @@ void row_scaling_sum(Tensor<float>& out, const Tensor<float>& mat, const Tensor<
  * Accum across rows
  * @param o_mat: 1xw
  * @param mat: hxw
- */
+
 __global__ void row_sum_kernel(float* out, const float* mat, int h, int w) {
   const int tid = blockDim.x * blockIdx.x + threadIdx.x;
   const int wtid = tid % WARP_SIZE;  // thread id in warp
@@ -317,6 +336,7 @@ __global__ void row_sum_kernel(float* out, const float* mat, int h, int w) {
     }
   }
 }
+*/
 
 void rows_sum(Tensor<float>& out, const Tensor<float>& mat, cudaStream_t stream) {
   float* pout = out.get_ptr();
@@ -330,10 +350,14 @@ void rows_sum(Tensor<float>& out, const Tensor<float>& mat, cudaStream_t stream)
   const int h = idim[0];
   const int w = idim[1];
 
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(w * WARP_SIZE, BLOCK_DIM);  // each col one warp
+  //const int BLOCK_DIM = 256;
+  //const int GRID_DIM = calc_grid(w * WARP_SIZE, BLOCK_DIM);  // each col one warp
 
-  row_sum_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w);
+  //row_sum_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w);
+
+  MLCommon::LinAlg::reduce(pout, pmat, h, w, (float)0, false, true, stream, false,
+          [] __device__(float in, int i) { return in; });
+
 }
 
 }  // namespace

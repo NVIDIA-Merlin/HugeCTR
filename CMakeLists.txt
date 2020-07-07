@@ -123,6 +123,9 @@ include_directories(
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/test
   ${CUDA_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/submodules/cuml/cpp/include
+  ${PROJECT_SOURCE_DIR}/submodules/cuml/cpp/src_prims
+  ${PROJECT_SOURCE_DIR}/cub
   ${PROJECT_SOURCE_DIR}/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/json/single_include
   ${CUDNN_INC_PATHS}
