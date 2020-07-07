@@ -13,3 +13,6 @@
 [submodule "gossip"]
 	path = gossip
 	url = https://github.com/Funatiq/gossip
+[submodule "submodules/cuml"]
+	path = submodules/cuml
+	url = https://github.com/rapidsai/cuml.git
