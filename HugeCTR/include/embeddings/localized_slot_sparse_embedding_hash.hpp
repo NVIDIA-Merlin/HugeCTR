@@ -617,11 +617,19 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 // warm up for nccl all2all
 #ifdef NCCL_A2A
     MESSAGE_("All2All Warmup Start");
+#ifndef ENABLE_MPI
     if (total_gpu_count_ > 1) {
       functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_,
                                 embedding_params_.embedding_vec_size, embedding_feature_tensors_,
                                 all2all_tensors_, Base::device_resources_);
     }
+#else
+    if (total_gpu_count_ > 1) {
+      functors_.all2all_forward(batch_size_per_gpu_, embedding_params_.slot_num,
+                                embedding_params_.embedding_vec_size, embedding_feature_tensors_,
+                                all2all_tensors_, Base::device_resources_);
+    }
+#endif
     MESSAGE_("All2All Warmup End");
 #endif
 
@@ -793,6 +801,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::forward()
 
   // do all-to-all
 #ifdef NCCL_A2A
+
+#ifndef ENABLE_MPI
   if (total_gpu_count_ > 1) {
     functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_,
                               embedding_params_.embedding_vec_size, embedding_feature_tensors_,
@@ -804,6 +814,20 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::forward()
                             embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
                         cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
   }
+#else
+  if (total_gpu_count_ > 1) {
+    functors_.all2all_forward(batch_size_per_gpu_, embedding_params_.slot_num,
+                              embedding_params_.embedding_vec_size, embedding_feature_tensors_,
+                              all2all_tensors_, Base::device_resources_);
+  } else {
+    CK_CUDA_THROW_(
+        cudaMemcpyAsync(all2all_tensors_[0]->get_ptr(), embedding_feature_tensors_[0]->get_ptr(),
+                        (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
+                            embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
+                        cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
+  }
+#endif
+
 #else
   // sync: guarantee the data is ready for all2all
   functors_.sync_all_gpus(Base::device_resources_, context);
@@ -836,6 +860,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::backward(
 
   // do all2all
 #ifdef NCCL_A2A
+
+#ifndef ENABLE_MPI
   if (total_gpu_count_ > 1) {
     functors_.all2all_backward(batch_size_per_gpu_, slot_num_per_gpu_,
                                embedding_params_.embedding_vec_size, all2all_tensors_,
@@ -847,6 +873,20 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::backward(
                             embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
                         cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
   }
+#else
+  if (total_gpu_count_ > 1) {
+    functors_.all2all_backward(batch_size_per_gpu_, embedding_params_.slot_num,
+                               embedding_params_.embedding_vec_size, all2all_tensors_,
+                               embedding_feature_tensors_, Base::device_resources_);
+  } else {
+    CK_CUDA_THROW_(
+        cudaMemcpyAsync(embedding_feature_tensors_[0]->get_ptr(), all2all_tensors_[0]->get_ptr(),
+                        (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
+                            embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
+                        cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
+  }
+#endif
+
 #else
   // sync: guarantee the data is ready for all2all
   functors_.sync_all_gpus(Base::device_resources_, context);
@@ -985,6 +1025,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_backw
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
 #ifdef NCCL_A2A
+
+#ifndef ENABLE_MPI
   if (total_gpu_count_ > 1) {
     functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_,
                               embedding_params_.embedding_vec_size, wgrad_tensors_,
@@ -996,6 +1038,19 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_backw
                             embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
                         cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
   }
+#else
+  if (total_gpu_count_ > 1) {
+    functors_.all2all_forward(batch_size_per_gpu_, embedding_params_.slot_num,
+                              embedding_params_.embedding_vec_size, wgrad_tensors_,
+                              utest_all2all_tensors_, Base::device_resources_);
+  } else {
+    CK_CUDA_THROW_(
+        cudaMemcpyAsync(utest_all2all_tensors_[0]->get_ptr(), wgrad_tensors_[0]->get_ptr(),
+                        (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
+                            embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
+                        cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
+  }
+#endif
 
 #else
   // sync: guarantee the data is ready for all2all
