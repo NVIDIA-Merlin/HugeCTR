@@ -18,6 +18,7 @@
 #include "HugeCTR/include/layers/multiply_layer.hpp"
 #include "HugeCTR/include/utils.cuh"
 #include "HugeCTR/include/utils.hpp"
+#include <linalg/reduce.cuh>
 
 #include <algorithm>
 #include <functional>
@@ -110,10 +111,12 @@ void multiply_wgrad(const T* top_grad, const T* input, T* wgrad, T* wgrad_tmp_tr
   multiply_transpose_fuse_kernel<<<gridSize1, blockSize1, 0, stream>>>(
       batch_size, slot_num, embedding_vec_size, top_grad, input, wgrad_tmp_trans);
 
-  dim3 blockSize2(256, 1, 1);
-  dim3 gridSize2(slot_num * embedding_vec_size, 1, 1);
-  sum_reduce_batch_kernel<<<gridSize2, blockSize2, 0, stream>>>(slot_num * embedding_vec_size,
-                                                                batch_size, wgrad_tmp_trans, wgrad);
+  //dim3 blockSize2(256, 1, 1);
+  //dim3 gridSize2(slot_num * embedding_vec_size, 1, 1);
+  //sum_reduce_batch_kernel<<<gridSize2, blockSize2, 0, stream>>>(slot_num * embedding_vec_size,
+  //                                                              batch_size, wgrad_tmp_trans, wgrad);
+
+  MLCommon::LinAlg::reduce(wgrad, wgrad_tmp_trans, batch_size, slot_num * embedding_vec_size, float(0), true, true, stream, true);
 }
 
 template <typename T>
