@@ -83,19 +83,17 @@ endif()
 foreach(arch_name ${SM})
     if (arch_name STREQUAL 80 OR 
         arch_name STREQUAL 75 OR 
-        arch_name STREQUAL 70 OR
-        arch_name STREQUAL 61 OR
-        arch_name STREQUAL 60)
+        arch_name STREQUAL 70)
         list(APPEND cuda_arch_list ${arch_name})
         message(STATUS "-- Assign GPU architecture (sm=${arch_name})")
     else()
-        message(WARNING "-- Unknown or unsupported GPU architecture (set sm=60)")
+        message(FATAL_ERROR "-- Unknown or unsupported GPU architecture (set sm=70)")
     endif()
 endforeach()
 
 list(LENGTH cuda_arch_list cuda_arch_list_length)
 if(${cuda_arch_list_length} EQUAL 0)
-    list(APPEND cuda_arch_list "60")
+    list(APPEND cuda_arch_list "70")
 endif()
 list(REMOVE_DUPLICATES cuda_arch_list)
 
