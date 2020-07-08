@@ -88,7 +88,7 @@ $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -
 Then continue with the following steps
 
 ### Build with Release ###
-Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM60 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
+Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM70 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
 ```shell
 $ mkdir -p build
 $ cd build
@@ -100,14 +100,12 @@ Supported Compatibility and Tesla GPUs:
 
 |Compute Compatibility|GPU|
 |----|----|
-|60|Tesla P100|
-|61|Tesla P40, Tesla P4, Tesla P6|
 |70|Tesla V100|
 |75|Tesla T4|
 |80|Tesla A100|
 
 ### Build with Debug ###
-Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM60 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
+Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM70 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
 ```shell
 $ mkdir -p build
 $ cd build
