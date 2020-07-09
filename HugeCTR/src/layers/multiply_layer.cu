@@ -19,6 +19,7 @@
 #include "HugeCTR/include/utils.cuh"
 #include "HugeCTR/include/utils.hpp"
 #include <linalg/reduce.cuh>
+#include <linalg/matrix_vector_op.cuh>
 
 #include <algorithm>
 #include <functional>
@@ -69,6 +70,7 @@ __global__ void multiply_transpose_fuse_kernel(int batch_size, int slot_num, int
   }
 }
 
+/*
 // sum reduce computation in one block
 template <typename T>
 __global__ void sum_reduce_batch_kernel(int row,  // row=gridDim.x
@@ -84,6 +86,7 @@ __global__ void sum_reduce_batch_kernel(int row,  // row=gridDim.x
     output[blockIdx.x] += local_sum;
   }
 }
+*/
 
 template <typename T>
 __global__ void multiply_dgrad_kernel(const T* top_grad, const T* weight, T* dgrad, int batch_size,
