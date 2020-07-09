@@ -839,6 +839,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::get_bac
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
 #ifdef NCCL_A2A
+
+#ifndef ENABLE_MPI
   if (total_gpu_count_ > 1) {
     functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_,
                               embedding_params_.embedding_vec_size, wgrad_tensors_,
@@ -850,6 +852,20 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::get_bac
                             embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
                         cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
   }
+#else
+  if (total_gpu_count_ > 1) {
+    functors_.all2all_forward(batch_size_per_gpu_, embedding_params_.slot_num,
+                              embedding_params_.embedding_vec_size, wgrad_tensors_,
+                              utest_all2all_tensors_, Base::device_resources_);
+  } else {
+    CK_CUDA_THROW_(
+        cudaMemcpyAsync(utest_all2all_tensors_[0]->get_ptr(), wgrad_tensors_[0]->get_ptr(),
+                        (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
+                            embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
+                        cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
+  }
+#endif
+
 #else
   // do not support gossip
   MESSAGE_("Error: Not support gossip in backward for one-hot");
