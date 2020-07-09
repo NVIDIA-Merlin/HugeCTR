@@ -15,8 +15,8 @@
  */
 
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
-
 #include "HugeCTR/include/utils.cuh"
+#include <linalg/matrix_vector_op.cuh>
 
 #include <math.h>
 #include <vector>
@@ -82,6 +82,8 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<flo
     throw;
   }
 }
+
+/*
 void __global__ add_bias_kernel_row(float* data, const float* bias, const int m, const int n) {
   int offset = blockIdx.x * n;
   for (int tid = threadIdx.x; tid < n; tid += blockDim.x) {
@@ -111,6 +113,7 @@ void add_bias(float* data, const float* bias, const int m, const int n, bool row
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+*/
 
 void FullyConnectedLayer::fprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
@@ -140,15 +143,19 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
       out_tensor->get_format() == TensorFormat_t::HW) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, weight,
                                   CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out, CUDA_R_32F, n,
-                                  CUDA_R_32F, falgo_));
-    add_bias(out, bias, m, n, true, stream);
+                                  CUDA_R_32F, algo));
+    //add_bias(out, bias, m, n, true, stream);
+    MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, true, true,
+                  [] __device__(float a, float b) { return a + b; }, stream);
   } else if ((weights_[0])->get_format() == TensorFormat_t::WH &&
              in_tensor->get_format() == TensorFormat_t::WH &&
              out_tensor->get_format() == TensorFormat_t::WH) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, in,
                                   CUDA_R_32F, m, weight, CUDA_R_32F, k, &beta, out, CUDA_R_32F, m,
-                                  CUDA_R_32F, falgo_));
-    add_bias(out, bias, m, n, false, stream);
+                                  CUDA_R_32F, algo));
+    //add_bias(out, bias, m, n, false, stream);
+    MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, false, true,
+              [] __device__(float a, float b) { return a + b; }, stream);
   } else
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
 }
