@@ -210,6 +210,12 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    */
   void update_params() override;
   /**
+   * Initialize the embedding table
+   */
+  void init_params() override {
+    functors_.init_embedding(max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size, hash_table_value_tensors_, Base::device_resources_);
+  }
+  /**
    * Read the hash table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
    * @param weight_stream the host file stream for reading data from.
@@ -499,9 +505,6 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
     }  // end of for(int id = 0; id < local_gpu_count_; id++)
 
     functors_.sync_all_gpus(Base::device_resources_, context);
-
-    functors_.init_embedding(max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size,
-                             hash_table_value_tensors_, Base::device_resources_);
 
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
