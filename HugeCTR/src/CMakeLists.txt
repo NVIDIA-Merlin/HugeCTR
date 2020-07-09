@@ -14,6 +14,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 file(GLOB huge_ctr_src
+  gpu_resource.cpp
   data_parser.cpp
   data_reader.cpp
   layer.cpp
