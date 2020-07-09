@@ -31,6 +31,7 @@ class IEmbedding {
   virtual void forward() = 0;
   virtual void backward() = 0;
   virtual void update_params() = 0;
+  virtual void init_params() = 0;
   virtual void upload_params_to_device(std::ifstream& weight_stream) = 0;
   virtual void download_params_to_host(std::ofstream& weight_stream) = 0;
   virtual void set_learning_rate(float lr) = 0;
@@ -108,6 +109,10 @@ class Embedding : public IEmbedding {
    * optimizer.
    */
   virtual void update_params() = 0;
+  /**
+   * Initialize the embedding table
+   */
+  virtual void init_params() = 0;
   /**
    * Read the embedding table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
