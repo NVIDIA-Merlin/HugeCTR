@@ -120,7 +120,6 @@ __global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size
                                              float **embedding_features) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
-  // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
   int offset = (local_gpu_id + 1) * batch_size_per_gpu;
   for (int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset);
        bid_offset += gridDim.x) {
@@ -164,7 +163,6 @@ __global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size
                                              __half **embedding_features) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
-  // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
   int offset = (local_gpu_id + 1) * batch_size_per_gpu;
   for (int bid_offset = (blockIdx.x + offset); bid_offset < (batch_size + offset);
        bid_offset += gridDim.x) {

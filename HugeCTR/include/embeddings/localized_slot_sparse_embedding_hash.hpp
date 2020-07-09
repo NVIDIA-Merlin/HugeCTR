@@ -139,6 +139,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   std::vector<int> slot_num_per_gpu_;  /* slot_num per GPU */
 
   SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
+  std::vector<size_t> slot_sizes_;
 
 #ifndef NCCL_A2A
   std::string plan_file_;                          /**< plan file for all2all */
@@ -207,7 +208,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                                    SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params,
                                    const std::string plan_file,
                                    const std::shared_ptr<GPUResourceGroup> &gpu_resource_group,
-                                   std::vector<size_t> slot_sizes);
+                                   const std::vector<size_t>& slot_sizes);
   /**
    * This function is used for implementing CPU multi-threads when doing
    * forward() on multi-GPUs. In this case, each CPU thread corresponding
@@ -236,6 +237,36 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * updates the hash table by wgrad(from backward()) and optimizer.
    */
   void update_params() override;
+  /**
+   * Initialize the embedding table
+   */
+  void init_params() override {
+    // do hash table value initialization
+    if (slot_sizes_.size() == 0) {  // if no slot_sizes provided, use the old method to init
+      functors_.init_embedding(max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size,
+                               hash_table_value_tensors_, Base::device_resources_);
+
+    } else {
+      if (slot_sizes_.size() == embedding_params_.slot_num) {
+        size_t total = 0;
+        for (auto slot_size : slot_sizes_) {
+          total += slot_size;
+        }
+        if (total != embedding_params_.vocabulary_size) {
+          throw std::runtime_error(std::string(
+              "[HCDEBUG][ERROR] Runtime error: the total sum of slot_sizes != vocabulary_size\n"));
+        }
+#ifndef DATA_READING_TEST
+        functors_.init_embedding(slot_sizes_, embedding_params_.embedding_vec_size,
+                                 hash_table_value_tensors_, hash_tables_,
+                                 hash_table_slot_id_tensors_, Base::device_resources_);
+#endif
+      } else {
+        throw std::runtime_error(
+            std::string("[HCDEBUG][ERROR] Runtime error: the size of slot_sizes != slot_num\n"));
+      }
+    }
+  }
   /**
    * Read the hash table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
@@ -286,8 +317,9 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotSparseEmbeddingHash(
     const Tensors<TypeHashKey> &row_offsets_tensors, const Tensors<TypeHashKey> &hash_key_tensors,
     SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params, const std::string plan_file,
-    const std::shared_ptr<GPUResourceGroup> &gpu_resource_group, std::vector<size_t> slot_sizes)
+    const std::shared_ptr<GPUResourceGroup> &gpu_resource_group, const std::vector<size_t>& slot_sizes)
     : embedding_params_(embedding_params),
+    slot_sizes_(slot_sizes),
 #ifndef NCCL_A2A
       plan_file_(plan_file),
 #endif
@@ -588,32 +620,6 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 
 #endif
 
-    // do hash table value initialization
-    if (slot_sizes.size() == 0) {  // if no slot_sizes provided, use the old method to init
-      functors_.init_embedding(max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size,
-                               hash_table_value_tensors_, Base::device_resources_);
-
-    } else {
-      if (slot_sizes.size() == embedding_params_.slot_num) {
-        size_t total = 0;
-        for (auto slot_size : slot_sizes) {
-          total += slot_size;
-        }
-        if (total != embedding_params_.vocabulary_size) {
-          throw std::runtime_error(std::string(
-              "[HCDEBUG][ERROR] Runtime error: the total sum of slot_sizes != vocabulary_size\n"));
-        }
-#ifndef DATA_READING_TEST
-        functors_.init_embedding(slot_sizes, embedding_params_.embedding_vec_size,
-                                 hash_table_value_tensors_, hash_tables_,
-                                 hash_table_slot_id_tensors_, Base::device_resources_);
-#endif
-      } else {
-        throw std::runtime_error(
-            std::string("[HCDEBUG][ERROR] Runtime error: the size of slot_sizes != slot_num\n"));
-      }
-    }
-
 // warm up for nccl all2all
 #ifdef NCCL_A2A
     MESSAGE_("All2All Warmup Start");
@@ -659,6 +665,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
       hash_tables_(obj.hash_tables_),
       hash_table_value_tensors_(obj.hash_table_value_tensors_),
       hash_table_slot_id_tensors_(obj.hash_table_slot_id_tensors_),
+      slot_sizes_(obj.slot_sizes_),
       Base(row_offsets_tensors, value_tensors, batchsize, obj.embedding_params_.slot_num,
            obj.embedding_params_.embedding_vec_size, gpu_resource_group,
            obj.embedding_params_.opt_params.scaler) {
