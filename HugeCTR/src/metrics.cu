@@ -266,43 +266,6 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int root_device_id, int num_g
 
   CK_CUDA_THROW_(cudaDeviceGetAttribute(&num_sms_, cudaDevAttrMultiProcessorCount, root_device_id));
 
-  // Enable Peer Access from root GPUs to other GPU
-  for (int dev = 0; dev < num_gpus_; dev++) {
-    if (dev != root_device_id_) {
-      int can_access_peer = 0;
-      CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, root_device_id_, dev));
-      if (can_access_peer) {
-        cudaError_t ret = cudaDeviceEnablePeerAccess(dev, 0);
-        if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
-          CK_CUDA_THROW_(ret);
-        } else {
-          // cudaErrorPeerAccessAlreadyEnabled must not be handled as an error
-          // so we reset it to cudaSuccess here
-          cudaGetLastError();
-        }
-      }
-    }
-  }
-
-  // Enable Peer Access from other GPUs to root GPU
-  for (int dev = 0; dev < num_gpus_; dev++) {
-    if (dev != root_device_id_) {
-      CudaDeviceContext context(dev);
-      int can_access_peer = 0;
-      CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, dev, root_device_id_));
-      if (can_access_peer) {
-        cudaError_t ret = cudaDeviceEnablePeerAccess(root_device_id_, 0);
-        if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
-          CK_CUDA_THROW_(ret);
-        } else {
-          // cudaErrorPeerAccessAlreadyEnabled must not be handled as an error
-          // so we reset it to cudaSuccess here
-          cudaGetLastError();
-        }
-      }
-    }
-  }
-
   for (int b = 0; b < n_batches_; b++) {
     for (int g = 0; g < num_gpus_; g++) {
       int offset = (g + b * num_gpus_) * batch_size_per_gpu_;
