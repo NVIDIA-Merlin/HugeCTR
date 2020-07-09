@@ -133,7 +133,8 @@ Session::Session(const std::string& json_name)
     }
   }
 
-  load_params_(solver_config_.model_file, solver_config_.embedding_files);
+  load_params_for_dense_(solver_config_.model_file);
+  init_or_load_params_for_sparse_(solver_config_.embedding_files);
 
   int num_local_gpus = gpu_resource_group_->get_device_list().size();
   // metrics_.emplace_back(new metrics::AverageLoss<float>(num_local_gpus));
@@ -152,25 +153,10 @@ Session::Session(const std::string& json_name)
 
 /**
  * load the model (binary) from model_file.
- * In model file, model should be saved as
- * the sequence as discribed in configure file.
+ * In model file, model should be saved as the sequence as discribed in configure file.
  **/
-Error_t Session::load_params_(const std::string& model_file,
-                              const std::vector<std::string>& embedding_files) {
+Error_t Session::load_params_for_dense_(const std::string& model_file) {
   try {
-    if (!embedding_files.empty()) {
-      int i = 0;
-      for (auto& embedding_file : embedding_files) {
-        std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
-        if (!embedding_stream.is_open()) {
-          CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
-        }
-        std::cout << "Loading sparse model: " << embedding_file << std::endl;
-        embedding_[i]->upload_params_to_device(embedding_stream);
-        embedding_stream.close();
-        i++;
-      }
-    }
     if (!model_file.empty()) {
       std::ifstream model_stream(model_file, std::ifstream::binary);
       if (!model_stream.is_open()) {
@@ -185,6 +171,36 @@ Error_t Session::load_params_(const std::string& model_file,
         network->upload_params_to_device(weight.get());
       }
       model_stream.close();
+    }
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;  
+}
+
+/**
+ * load the model (binary) from model_file.
+ * In model file, model should be saved as
+ * the sequence as discribed in configure file.
+ **/
+Error_t Session::init_or_load_params_for_sparse_(const std::vector<std::string>& embedding_model_files) {
+  try {
+    for(size_t i = 0; i < embedding_.size(); i++) {
+      if(i < embedding_model_files.size()) {
+        std::ifstream embedding_stream(embedding_model_files[i], std::ifstream::binary);
+        if (!embedding_stream.is_open()) {
+          CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
+          }
+          std::cout << "Loading sparse model: " << embedding_model_files[i] << std::endl;
+          embedding_[i]->upload_params_to_device(embedding_stream);
+          embedding_stream.close();
+      } else {
+        embedding_[i]->init_params();
+      }
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
