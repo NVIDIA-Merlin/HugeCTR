@@ -31,7 +31,7 @@ TEST(session_test, basic_session) {
     // note: the parameters should match <configure>.json file
     const long long dense_dim = 64;
     const int max_nnz = 30;
-    typedef unsigned int T;
+    typedef long long T;
     const int vocabulary_size = 1603616;
     const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
     const std::string file_list_name = prefix + "_file_list.txt";
