@@ -34,11 +34,7 @@ namespace {
 
 //---------------------------------------------------------------------------------------
 // global params for all testing
-// const std::vector<int> device_list = {0};
-// const std::vector<int> device_list = {0,1};
-// const std::vector<int> device_list = {0,3};
-// const std::vector<int> device_list = {0,1,2,3};
-const std::vector<int> device_list = {0, 1, 2, 3, 4, 5, 6, 7};
+const std::vector<int> device_list = {0, 1, 2, 3};
 const int batch_num = 10;  // can not more than 32
 const int batchsize = 1024;
 const int batchsize_eval = 2048;

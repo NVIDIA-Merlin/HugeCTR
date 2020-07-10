@@ -188,6 +188,7 @@ TEST(data_reader_test, data_reader_mixed_test) {
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
 }
 
+#ifdef ENABLE_MPI
 TEST(data_reader_test, two_nodes_localized) {
   int batchsize = 2048;
   int numprocs = 1, pid = 0;
@@ -195,11 +196,10 @@ TEST(data_reader_test, two_nodes_localized) {
                                             slot_num, vocabulary_size, label_dim, dense_dim,
                                             max_nnz);
 
-#ifdef ENABLE_MPI
   test::mpi_init();
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-#endif
+
   if (numprocs != 2) {
     std::cout << "numprocs != 2" << std::endl;
     ASSERT_TRUE(false);
@@ -267,3 +267,4 @@ TEST(data_reader_test, two_nodes_localized) {
     print_tensor(*data_reader.get_row_offsets_tensors()[3], 0, 10);
   }
 }
+#endif
