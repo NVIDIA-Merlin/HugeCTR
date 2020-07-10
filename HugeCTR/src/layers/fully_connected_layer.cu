@@ -17,6 +17,7 @@
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/utils.cuh"
 #include <linalg/matrix_vector_op.cuh>
+#include <linalg/reduce.cuh>
 
 #include <math.h>
 #include <vector>
@@ -160,6 +161,7 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
 }
 
+/*
 void __global__ cal_bias_grad_kernel_col(float* out, float* bias_grad, int m, int n,
                                          bool row_major) {
   float local_sum = 0.0f;
@@ -175,6 +177,8 @@ void __global__ cal_bias_grad_kernel_col(float* out, float* bias_grad, int m, in
     bias_grad[blockIdx.x] += local_sum;
   }
 }
+
+
 void cal_bias_grad(float* out, float* bias_grad, int m, int n, bool row_major,
                    cudaStream_t stream) {
   dim3 grid(n);
@@ -185,6 +189,7 @@ void cal_bias_grad(float* out, float* bias_grad, int m, int n, bool row_major,
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+*/
 
 void FullyConnectedLayer::bprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
@@ -221,8 +226,9 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
     // gradient respect to Xn
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_T, CUBLAS_OP_N, k, m, n, &alpha, weight,
                                   CUDA_R_32F, n, out, CUDA_R_32F, n, &beta_x, in, CUDA_R_32F, k,
-                                  CUDA_R_32F, balgo_Xn_));
-    cal_bias_grad(out, bias_grad, m, n, true, stream);
+                                  CUDA_R_32F, algo));
+    //cal_bias_grad(out, bias_grad, m, n, true, stream);
+    MLCommon::LinAlg::reduce(bias_grad, out, m, n, float(0), false, true, stream, true);
   }
   // Col-major
   else if ((weights_[0])->get_format() == TensorFormat_t::WH &&
@@ -235,8 +241,9 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
     // gradient respect to Xn
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_T, m, k, n, &alpha, out,
                                   CUDA_R_32F, m, weight, CUDA_R_32F, k, &beta_x, in, CUDA_R_32F, m,
-                                  CUDA_R_32F, balgo_Xn_));
-    cal_bias_grad(out, bias_grad, m, n, false, stream);
+                                  CUDA_R_32F, algo));
+    //cal_bias_grad(out, bias_grad, m, n, false, stream);
+    MLCommon::LinAlg::reduce(bias_grad, out, m, n, float(0), true, true, stream, true);
   } else
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
 }
