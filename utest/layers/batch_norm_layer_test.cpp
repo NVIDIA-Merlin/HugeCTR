@@ -31,7 +31,7 @@ using namespace HugeCTR;
 
 namespace {
 
-const float eps = 1e-5;
+const float eps = 1e-4;
 
 void batch_norm_fprop_cpu(const float* gamma, const float* beta, const float* in, float* out,
                           bool row_major, int batch_size, int num_feature) {
