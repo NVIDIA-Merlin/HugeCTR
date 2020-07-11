@@ -153,6 +153,9 @@ link_directories(
   ${UCX_LIB_PATHS}
   $ENV{CONDA_PREFIX}/lib)
 
+#setting binary files install path
+install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
+
 add_subdirectory(HugeCTR/src)
 add_subdirectory(googletest)
 add_subdirectory(json)

@@ -73,9 +73,14 @@ You can choose using docker to simplify the environment setting up, otherwise pl
 
 Ensure that you have [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) installed.
 
-To build docker image from the Dockerfile, run the command:
+To build docker image of development environment from the Dockerfile, run the command:
 ```shell
-$ docker build -t hugectr:devel .
+$ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
+```
+
+To build docker image of production environment from the Dockerfile, run the command:
+```shell
+$ docker build -t hugectr:devel -f ./tools/dockerfiles/build.Dockerfile .
 ```
 
 After building the docker image, for ease of use, you can push it to your docker registry
@@ -85,7 +90,7 @@ Now, you can enter the development environment by running a HugeCTR docker conta
 $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
 ```
 
-Then continue with the following steps
+Then continue with the following steps for developemnt environment setup
 
 ### Build with Release ###
 Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM70 by default (Tesla P100). One or more Compute Capabilities are avaliable to be set. E.g. `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
