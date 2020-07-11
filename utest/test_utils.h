@@ -14,59 +14,72 @@
  * limitations under the License.
  */
 
-
 #pragma once
 
-#include "gtest/gtest.h"
-#include <memory>
 #include <stdlib.h>
+#include <memory>
+#include "gtest/gtest.h"
 
 namespace HugeCTR {
-  
+
 namespace test {
 
 template <typename T>
 T abs(const T& val) {
-  return val > T(0)? val : -val;
+  return val > T(0) ? val : -val;
 }
 
 template <typename T>
-::testing::AssertionResult compare_array_approx(const T* h_out, const T* h_exp,
-                                                int len, T eps) {
+::testing::AssertionResult compare_array_approx(const T* h_out, const T* h_exp, int len, T eps) {
   for (int i = 0; i < len; ++i) {
     auto output = h_out[i];
     auto expected = h_exp[i];
     T diff = abs(output - expected);
-    if(diff > eps)  {
+    if (diff > eps) {
       return ::testing::AssertionFailure()
-          << "output: " << output << " != expected: " << expected << " at idx " << i;
+             << "output: " << output << " != expected: " << expected << " at idx " << i;
     }
   }
   return ::testing::AssertionSuccess();
 }
 
 template <typename T>
-::testing::AssertionResult compare_array_approx(const T* h_out, const T expected,
-                                                int len, T eps) {
+::testing::AssertionResult compare_array_approx(const T* h_out, const T expected, int len, T eps) {
   for (int i = 0; i < len; ++i) {
     auto output = h_out[i];
     T diff = abs(output - expected);
-    if(diff > eps)  {
+    if (diff > eps) {
       return ::testing::AssertionFailure()
-          << "output: " << output << " != expected: " << expected << " at idx " << i;
+             << "output: " << output << " != expected: " << expected << " at idx " << i;
     }
   }
   return ::testing::AssertionSuccess();
 }
 
-__forceinline__ bool cpu_gpu_cmp(float *cpu_p, float *gpu_p, int len)
-{
-  float *gpu_tmp = (float*)malloc(sizeof(float) * len);
+template <typename T>
+::testing::AssertionResult compare_array_approx_with_ratio(const T* h_out, const T* h_exp, int len,
+                                                           T eps, float ratio) {
+  int mismatch_tolerable_len = len * ratio;
+  for (int i = 0; i < len && mismatch_tolerable_len > 0; ++i) {
+    auto output = h_out[i];
+    auto expected = h_exp[i];
+    T diff = abs(output - expected);
+    if (diff > eps) mismatch_tolerable_len--;
+  }
+  if (mismatch_tolerable_len == 0) {
+    return ::testing::AssertionFailure() << "Mismatch ratio is larger than tolerance";
+  } else {
+    return ::testing::AssertionSuccess();
+  }
+}
+
+__forceinline__ bool cpu_gpu_cmp(float* cpu_p, float* gpu_p, int len) {
+  float* gpu_tmp = (float*)malloc(sizeof(float) * len);
   cudaMemcpy(gpu_tmp, gpu_p, sizeof(float) * len, cudaMemcpyDeviceToHost);
   bool flag = true;
-  for(int i = 0; i < len; ++i){
-    if(fabs(gpu_tmp[i] - cpu_p[i]) >= 1e-5){
-      printf("gpu_tmp(%f) - cpu_p(%f) >= 1e-5 when i = %d\n",gpu_tmp[i], cpu_p[i], i);
+  for (int i = 0; i < len; ++i) {
+    if (fabs(gpu_tmp[i] - cpu_p[i]) >= 1e-5) {
+      printf("gpu_tmp(%f) - cpu_p(%f) >= 1e-5 when i = %d\n", gpu_tmp[i], cpu_p[i], i);
       flag = false;
       break;
     }
@@ -75,25 +88,23 @@ __forceinline__ bool cpu_gpu_cmp(float *cpu_p, float *gpu_p, int len)
   return flag;
 }
 
-
-__forceinline__ void mpi_init(){
+__forceinline__ void mpi_init() {
 #ifdef ENABLE_MPI
   int flag = 0;
-  MPI_Initialized( &flag );
-  if(!flag){
+  MPI_Initialized(&flag);
+  if (!flag) {
     int provided;
     MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &provided);
   }
-#endif 
+#endif
 }
 
-__forceinline__ void mpi_finialize(){
+__forceinline__ void mpi_finialize() {
 #ifdef ENABLE_MPI
   MPI_Finalize();
-#endif 
+#endif
 }
 
- 
-} // end namespace test
+}  // end namespace test
 
-} // end namespace HugeCTRTest
+}  // namespace HugeCTR

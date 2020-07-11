@@ -29,7 +29,7 @@ using namespace HugeCTR;
 
 class MultiCrossLayerTest {
  private:
-  const float eps = 20;
+  const float eps = 1;
   const size_t batchsize_;
   const size_t w_;
   const int layers_;
@@ -240,8 +240,8 @@ class MultiCrossLayerTest {
                               cudaMemcpyDeviceToHost));
 
     // todo compare
-    ASSERT_TRUE(test::compare_array_approx<float>(d2h_output.data(), h_outputs_.back().data(),
-                                                  h_outputs_.back().size(), eps));
+    ASSERT_TRUE(test::compare_array_approx_with_ratio<float>(
+        d2h_output.data(), h_outputs_.back().data(), h_outputs_.back().size(), eps, 0.05f));
   }
 
   void compare_backward_() {
@@ -267,13 +267,15 @@ class MultiCrossLayerTest {
       p += w_;
     }
 
-    ASSERT_TRUE(test::compare_array_approx<float>(d2h_input_grad.data(), h_input_grad_.data(),
-                                                  h_input_grad_.size(), eps));
+    ASSERT_TRUE(test::compare_array_approx_with_ratio<float>(
+        d2h_input_grad.data(), h_input_grad_.data(), h_input_grad_.size(), eps, 0.05f));
     for (int i = 0; i < layers_; i++) {
-      ASSERT_TRUE(test::compare_array_approx<float>(
-          d2h_kernel_grads_[i].data(), h_kernel_grads_[i].data(), h_kernel_grads_[i].size(), eps));
-      ASSERT_TRUE(test::compare_array_approx<float>(
-          d2h_bias_grads_[i].data(), h_bias_grads_[i].data(), h_bias_grads_[i].size(), eps));
+      ASSERT_TRUE(test::compare_array_approx_with_ratio<float>(
+          d2h_kernel_grads_[i].data(), h_kernel_grads_[i].data(), h_kernel_grads_[i].size(),
+          eps * 10, 0.40f));
+      ASSERT_TRUE(test::compare_array_approx_with_ratio<float>(
+          d2h_bias_grads_[i].data(), h_bias_grads_[i].data(), h_bias_grads_[i].size(), eps * 10,
+          0.20f));
     }
   }
 
