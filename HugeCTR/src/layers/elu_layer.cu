@@ -25,10 +25,6 @@
 #include <iostream>
 #endif
 
-#include <linalg/binary_op.cuh>
-#include <linalg/unary_op.cuh>
-
-
 namespace HugeCTR {
 
 EluLayer::EluLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
@@ -47,9 +43,8 @@ void EluLayer::fprop(cudaStream_t stream) {
   float alpha = alpha_;
   auto fop = [alpha] __device__(float in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
   
-  //internal::ElementWiseFunctor functor;
-  //functor.forward_evaluate(*in_tensor, *out_tensor, get_device_id(), fop, stream);
-  MLCommon::LinAlg::unaryOp(out_tensor->get_ptr(), in_tensor->get_ptr(), in_tensor->get_num_elements(), fop, stream);
+  internal::ElementWiseFunctor functor;
+  functor.forward_evaluate(*in_tensor, *out_tensor, get_device_id(), fop, stream);
 }
 
 void EluLayer::bprop(cudaStream_t stream) {
@@ -61,10 +56,8 @@ void EluLayer::bprop(cudaStream_t stream) {
     return (d_in < 0) ? alpha * expf(d_in) * d_out : d_out;
   };
   
-  //internal::ElementWiseFunctor functor;
-  //functor.backward_evaluate(*in_tensor, *out_tensor, get_device_id(), bop, stream);
-  
-  MLCommon::LinAlg::binaryOp(in_tensor->get_ptr(), out_tensor->get_ptr(), in_tensor->get_ptr(), in_tensor->get_num_elements(), bop, stream);
+  internal::ElementWiseFunctor functor;
+  functor.backward_evaluate(*in_tensor, *out_tensor, get_device_id(), bop, stream);
 }
 
 }  // namespace HugeCTR

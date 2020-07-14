@@ -25,12 +25,16 @@
 #include <iostream>
 #endif
 
+#include <linalg/binary_op.cuh>
+#include <linalg/unary_op.cuh>
+
 namespace HugeCTR {
 namespace internal {
 
 const int BLOCK_SIZE = 512;
 const int MAX_GRID_SIZE = 1024;
 
+/*
 template <typename Fop>
 __global__ void forward_element_wise_kernel(const float* in, float* out, int len, Fop fop) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
@@ -44,6 +48,7 @@ __global__ void backward_element_wise_kernel(const float* d_out, float* d_in, in
     d_in[i] = bop(d_out[i], d_in[i]);
   }
 }
+*/
 
 /**
  * Common implementation for the element wise layers such as Relu and Elu.
@@ -83,8 +88,9 @@ class ElementWiseFunctor {
     float* out = out_tensor.get_ptr();
 
     const int len = get_size_from_dims(in_tensor.get_dims());
-    const int grid_size = std::min((len - 1) / BLOCK_SIZE + 1, MAX_GRID_SIZE);
-    forward_element_wise_kernel<<<grid_size, BLOCK_SIZE, 0, stream>>>(in, out, len, fop);
+    //const int grid_size = std::min((len - 1) / BLOCK_SIZE + 1, MAX_GRID_SIZE);
+    //forward_element_wise_kernel<<<grid_size, BLOCK_SIZE, 0, stream>>>(in, out, len, fop);
+    MLCommon::LinAlg::unaryOp(out, in, len, fop, stream);
 
 #ifndef NDEBUG
     cudaDeviceSynchronize();
@@ -110,8 +116,9 @@ class ElementWiseFunctor {
     const float* d_out = out_tensor.get_ptr();
 
     const int len = get_size_from_dims(in_tensor.get_dims());
-    const int grid_size = std::min((len - 1) / BLOCK_SIZE + 1, MAX_GRID_SIZE);
-    backward_element_wise_kernel<<<grid_size, BLOCK_SIZE, 0, stream>>>(d_out, d_in, len, bop);
+    //const int grid_size = std::min((len - 1) / BLOCK_SIZE + 1, MAX_GRID_SIZE);
+    //backward_element_wise_kernel<<<grid_size, BLOCK_SIZE, 0, stream>>>(d_out, d_in, len, bop);
+    MLCommon::LinAlg::binaryOp(d_in, d_out, d_in, len, bop, stream);
 
 #ifndef NDEBUG
     cudaDeviceSynchronize();

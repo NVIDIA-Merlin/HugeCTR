@@ -39,8 +39,8 @@ ReluLayer<T>::ReluLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
   out_tensors_.emplace_back(out_tensor);
 }
 
-template <T>
-void ReluLayer<float>::fprop(cudaStream_t stream) {
+template <typename T>
+void ReluLayer<T>::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   int len = in_tensors_[0]->get_num_elements();
@@ -55,8 +55,8 @@ void ReluLayer<float>::fprop(cudaStream_t stream) {
 #endif
 }
 
-template <T>
-void ReluLayer<float>::bprop(cudaStream_t stream) {
+template <typename T>
+void ReluLayer<T>::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   int len = in_tensors_[0]->get_num_elements();
