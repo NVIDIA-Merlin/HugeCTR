@@ -103,7 +103,7 @@ void DropoutLayer<T>::prop_common(const T* in, T* out, cudaStream_t stream) {
   float r = rate_;
   float s = scale_;
   MLCommon::LinAlg::binaryOp(out, in, mask_, len,
-              [r, s] __device__(T a, T b) { return ((T(1.0) - b) >= r) * a * s; }, stream);
+              [r, s] __device__(T a, T b) { return ((T(1) - b) >= r) * a * s; }, stream);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
