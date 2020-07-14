@@ -156,7 +156,7 @@ class Tensor : public ITensor {
     }
   }
   typedef T TYPE;
-  int get_device_id() const { return buff_->get_device_id(); }
+  int get_device_id() const override { return buff_->get_device_id(); }
 
   const T* get_ptr() const {
     if (type_ != TensorTypeFunc<T>::type()) {
@@ -170,16 +170,16 @@ class Tensor : public ITensor {
     }
     return buff_->get_ptr_with_offset(mem_offset_);
   }
-  const std::vector<size_t>& get_dims() const { return dims_; }
-  size_t get_num_elements() const {
+  const std::vector<size_t>& get_dims() const override { return dims_; }
+  size_t get_num_elements() const override {
     size_t tensor_size = 1;
     for (auto dim : dims_) {
       tensor_size *= dim;
     }
     return tensor_size;
   }
-  size_t get_size() const { return get_num_elements() * sizeof(T); }
-  TensorFormat_t get_format() const { return format_; }
+  size_t get_size() const override { return get_num_elements() * sizeof(T); }
+  TensorFormat_t get_format() const override { return format_; }
 };
 
 /**

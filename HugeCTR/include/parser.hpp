@@ -106,6 +106,7 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
  * This class is designed to parse the solver clause of the configure file.
  */
 struct SolverParser {
+  std::string configure_file;
   unsigned int seed;                           /**< seed of data simulator */
   LrPolicy_t lr_policy;                        /**< the only fixed lr is supported now. */
   int display;                                 /**< the interval of loss display. */
@@ -122,7 +123,8 @@ struct SolverParser {
   std::shared_ptr<const DeviceMap> device_map; /**< device map */
   bool use_mixed_precision;
   float scaler;
-  SolverParser(std::string configure_file);
+  bool i64_input_key;
+  SolverParser(const std::string& file);
 };
 
 template <typename T>
