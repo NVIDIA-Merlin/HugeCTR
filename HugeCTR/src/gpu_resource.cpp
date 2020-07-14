@@ -122,33 +122,51 @@ GPUResourceGroup::~GPUResourceGroup() {
   }
 }
 
+bool GPUResourceGroup::p2p_enabled(int src_dev, int dst_dev) const {
+  const auto it = p2p_enabled_.find(src_dev);
+  if (it == p2p_enabled_.end()) {
+    return false;
+  }
+
+  const auto& p2p_enabled_src = it->second;
+  const auto& dst = p2p_enabled_src.find(dst_dev);
+  if (dst == p2p_enabled_src.end()) {
+    return false;
+  }
+  return dst->second;
+}
+
 bool GPUResourceGroup::all_p2p_enabled() const {
-  for (int src_dev = 0; src_dev < (int)p2p_enabled_.size(); src_dev++) {
-    for (int dst_dev = 0; dst_dev < (int)p2p_enabled_[src_dev].size(); dst_dev++) {
-      bool enabled = (dst_dev == src_dev) || p2p_enabled_[src_dev][dst_dev];
-      if (!enabled) {
-        return false;
+  int num_gpus = get_local_gpu_count();
+  if (num_gpus == 1) {
+    return false;
+  }
+
+  int n_enabled = 0;
+  for (const auto& src: p2p_enabled_) {
+    const auto& src_dev = src.first;
+    const auto& p2p_enabled_src = src.second;
+    for (const auto& dst: p2p_enabled_src) {
+      const auto& dst_dev = dst.first;
+      const auto& enabled = dst.second;
+      if (dst_dev != src_dev && enabled) {
+        n_enabled++;
       }
     }
   }
-  return true;
+
+  return (n_enabled == num_gpus * num_gpus - num_gpus);
 }
 
 void GPUResourceGroup::enable_all_peer_accesses() {
   assert(!empty());
 
-  int num_gpus = get_local_gpu_count();
-
-  p2p_enabled_.resize(num_gpus);
-  for (int dev = 0; dev < num_gpus; dev++) {
-    p2p_enabled_[dev].resize(num_gpus, false);
-  }
-
-  for (int src_dev = 0; src_dev < num_gpus; src_dev++) {
+  const auto& dev_list = get_device_list();
+  for (auto& src_dev: dev_list) {
     CudaDeviceContext context(src_dev);
-    for (int dst_dev = 0; dst_dev < num_gpus; dst_dev++) {
+    for (auto& dst_dev: dev_list) {
+      int can_access_peer = 0;
       if (dst_dev != src_dev) {
-        int can_access_peer = 0;
         CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, src_dev, dst_dev));
         if (can_access_peer) {
           cudaError_t ret = cudaDeviceEnablePeerAccess(dst_dev, 0);
@@ -160,8 +178,8 @@ void GPUResourceGroup::enable_all_peer_accesses() {
             cudaGetLastError();
           }
         }
-        p2p_enabled_[src_dev][dst_dev] = (bool)can_access_peer;
       }
+      p2p_enabled_[src_dev][dst_dev] = (bool)can_access_peer;
     }
   }
 }
