@@ -18,7 +18,8 @@
 
 namespace HugeCTR {
 
-SolverParser::SolverParser(std::string configure_file) {
+SolverParser::SolverParser(const std::string& file)
+    : configure_file(file) {
   try {
     int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
@@ -132,6 +133,21 @@ SolverParser::SolverParser(std::string configure_file) {
 
     device_map.reset(new DeviceMap(vvgpu, pid));
     device_list = device_map->get_device_list();
+
+    if (has_key_(j, "input_key_type")) {
+      auto str = get_value_from_json<std::string>(j, "input_key_type");
+      if (str.compare("I64") == 0) {
+        i64_input_key = true;
+      }
+      else if (str.compare("I32") == 0) {
+        i64_input_key = false;
+      }
+      else {
+        CK_THROW_(Error_t::WrongInput, "input_key_type is I64 or I32");
+      }
+    } else {
+      i64_input_key = false;
+    }
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
