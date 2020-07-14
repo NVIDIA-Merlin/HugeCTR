@@ -19,9 +19,9 @@
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 #include "HugeCTR/include/utils.cuh"
 #include <linalg/binary_op.cuh>
-#include <linalg/reduce.cuh>
+#include <linalg/gemv.h>
 #include <linalg/matrix_vector_op.cuh>
-
+#include <linalg/reduce.cuh>
 
 namespace HugeCTR {
 
@@ -36,7 +36,7 @@ inline int calc_grid(int t, int b) { return (t - 1) / b + 1; }
  * @param out: hx1
  * @param mat: hxw
  * @param vec: 1xw
- */
+  
 __global__ void matrix_vec_mul_kernel(float* out, const float* mat, int h, int w,
                                       const float* vec) {
   const int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -54,6 +54,7 @@ __global__ void matrix_vec_mul_kernel(float* out, const float* mat, int h, int w
     }
   }
 }
+*/
 
 void matrix_vec_mul(Tensor<float>& out, const Tensor<float>& mat, const Tensor<float>& vec,
                     cudaStream_t stream) {
@@ -69,11 +70,16 @@ void matrix_vec_mul(Tensor<float>& out, const Tensor<float>& mat, const Tensor<f
 
   const int h = idim[0];
   const int w = idim[1];
-
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * WARP_SIZE, BLOCK_DIM);
-
-  matrix_vec_mul_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
+  
+  //const int BLOCK_DIM = 256;
+  //const int GRID_DIM = calc_grid(h * WARP_SIZE, BLOCK_DIM);
+  //matrix_vec_mul_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
+  
+  // TODO: Get cublas handler out of the function 
+  cublasHandle_t handle;
+  CUBLAS_CHECK(cublasCreate(&handle));
+  MLCommon::LinAlg::gemv<float>(pmat, w, h, pvec, pout, true, 1.f, 0.f, handle, stream);
+  CUBLAS_CHECK(cublasDestroy(handle));
 }
 
 /**
