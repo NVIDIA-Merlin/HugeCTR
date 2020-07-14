@@ -296,7 +296,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         BatchNormLayer::Params params = {factor, eps};
         layers.emplace_back(new BatchNormLayer(
-            weight_buff, wgrad_buff, std::dynamic_pointer_cast<Tensor<float>>(bn_in_tensor),
+            weight_buff, wgrad_buff, dynamic_tensor_cast<float>(bn_in_tensor),
             bn_out_tensor, params, gpu_resource->get_cudnn_handle(), device_id));
         break;
       }
@@ -309,8 +309,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         if (use_mixed_precision) {
           loss.reset(new BinaryCrossEntropyLoss<__half>(
-              std::dynamic_pointer_cast<Tensor<float>>(label_tensor),
-              std::dynamic_pointer_cast<Tensor<__half>>(binary_cross_entropy_loss_in_tensor),
+	      dynamic_tensor_cast<float>(label_tensor),
+              dynamic_tensor_cast<__half>(binary_cross_entropy_loss_in_tensor),
               loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff_half,
                                  (binary_cross_entropy_loss_in_tensor->get_dims())[0],
@@ -318,8 +318,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               device_id, num_networks_in_global, scaler));
         } else {
           loss.reset(new BinaryCrossEntropyLoss<float>(
-              std::dynamic_pointer_cast<Tensor<float>>(label_tensor),
-              std::dynamic_pointer_cast<Tensor<float>>(binary_cross_entropy_loss_in_tensor),
+              dynamic_tensor_cast<float>(label_tensor),
+              dynamic_tensor_cast<float>(binary_cross_entropy_loss_in_tensor),
               loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff,
                                  (binary_cross_entropy_loss_in_tensor->get_dims())[0],
@@ -331,7 +331,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Concat: {
         auto& in_tensors = input_output_info.input;
         std::shared_ptr<Tensor<float>> out_tensor;
-        layers.emplace_back(new ConcatLayer(sp_vec_dynamic_cast<ITensor, Tensor<float>>(in_tensors),
+        layers.emplace_back(new ConcatLayer(tensor_vec_dynamic_cast<float>(in_tensors),
                                             out_tensor, blobs_buff, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
@@ -345,16 +345,16 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         if (use_mixed_precision) {
           loss.reset(new CrossEntropyLoss<__half>(
-              std::dynamic_pointer_cast<Tensor<float>>(label_tensor),
-              std::dynamic_pointer_cast<Tensor<__half>>(cross_entropy_loss_in_tensor), loss_tensor,
+	      dynamic_tensor_cast<float>(label_tensor),
+              dynamic_tensor_cast<__half>(cross_entropy_loss_in_tensor), loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff_half,
                                  (cross_entropy_loss_in_tensor->get_dims())[0],
                                  gpu_resource->get_cublas_handle(), device_id),
               device_id, num_networks_in_global, scaler));
         } else {
           loss.reset(new CrossEntropyLoss<float>(
-              std::dynamic_pointer_cast<Tensor<float>>(label_tensor),
-              std::dynamic_pointer_cast<Tensor<float>>(cross_entropy_loss_in_tensor), loss_tensor,
+              dynamic_tensor_cast<float>(label_tensor),
+              dynamic_tensor_cast<float>(cross_entropy_loss_in_tensor), loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff,
                                  (cross_entropy_loss_in_tensor->get_dims())[0],
                                  gpu_resource->get_cublas_handle(), device_id),
@@ -372,7 +372,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // get ELU params
         auto rate_it = j.find("rate");
         auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-        layers.emplace_back(new DropoutLayer(std::dynamic_pointer_cast<Tensor<float>>(do_in_tensor),
+        layers.emplace_back(new DropoutLayer(dynamic_tensor_cast<float>(do_in_tensor),
                                              do_out_tensor, rate,
                                              gpu_resource->get_curand_generator(), device_id));
         network->enable_cuda_graph_ = false;
@@ -389,7 +389,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
         auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
-        layers.emplace_back(new EluLayer(std::dynamic_pointer_cast<Tensor<float>>(elu_in_tensor),
+        layers.emplace_back(new EluLayer(dynamic_tensor_cast<float>(elu_in_tensor),
                                          elu_out_tensor, alpha, device_id));
 
         break;
@@ -408,7 +408,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           Layer* fc_layer = new FusedFullyConnectedLayer(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, blobs_buff_half,
-              std::dynamic_pointer_cast<Tensor<__half>>(fc_in_tensor), out_tensor,
+              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor,
               TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id);
           layers.emplace_back(fc_layer);
         } else {
@@ -423,7 +423,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           std::shared_ptr<Tensor<__half>> out_tensor(
               new Tensor<__half>(in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-          layers.emplace_back(new CastLayer(std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+          layers.emplace_back(new CastLayer(dynamic_tensor_cast<float>(in_tensor),
                                             out_tensor, device_id));
         } else {
           CK_THROW_(Error_t::WrongInput, "Cast supports half only");
@@ -443,7 +443,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           Layer* fc_layer = new FullyConnectedLayerHalf(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff_half,
-              std::dynamic_pointer_cast<Tensor<__half>>(fc_in_tensor), out_tensor,
+              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor,
               TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id);
           layers.emplace_back(fc_layer);
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
@@ -452,7 +452,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               {(fc_in_tensor->get_dims())[0], output}, blobs_buff, TensorFormat_t::HW));
           // establish layer
           Layer* fc_layer = new FullyConnectedLayer(
-              weight_buff, wgrad_buff, std::dynamic_pointer_cast<Tensor<float>>(fc_in_tensor),
+              weight_buff, wgrad_buff, dynamic_tensor_cast<float>(fc_in_tensor),
               out_tensor, TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id,
               use_mixed_precision);
           layers.emplace_back(fc_layer);
@@ -469,8 +469,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         if (use_mixed_precision) {
           std::shared_ptr<Tensor<__half>> out_tensor;
           layers.emplace_back(new InteractionLayer<__half>(
-              std::dynamic_pointer_cast<Tensor<__half>>(in_mlp_tensor),
-              std::dynamic_pointer_cast<Tensor<__half>>(in_emb_tensor), out_tensor,
+	      dynamic_tensor_cast<__half>(in_mlp_tensor),
+              dynamic_tensor_cast<__half>(in_emb_tensor), out_tensor,
               blobs_buff_half,  // todo cannot use this blobs_buff here need half
               gpu_resource->get_cublas_handle(), use_mixed_precision, device_id));
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
@@ -478,8 +478,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         } else {
           std::shared_ptr<Tensor<float>> out_tensor;
           layers.emplace_back(new InteractionLayer<float>(
-              std::dynamic_pointer_cast<Tensor<float>>(in_mlp_tensor),
-              std::dynamic_pointer_cast<Tensor<float>>(in_emb_tensor), out_tensor, blobs_buff,
+              dynamic_tensor_cast<float>(in_mlp_tensor),
+              dynamic_tensor_cast<float>(in_emb_tensor), out_tensor, blobs_buff,
               gpu_resource->get_cublas_handle(), use_mixed_precision, device_id));
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         }
@@ -496,7 +496,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         // establish layer
         Layer* mc_layer = new MultiCrossLayer(
-            weight_buff, wgrad_buff, std::dynamic_pointer_cast<Tensor<float>>(mc_in_tensor),
+            weight_buff, wgrad_buff, dynamic_tensor_cast<float>(mc_in_tensor),
             out_tensor, num_layers, device_id);
         layers.emplace_back(mc_layer);
         break;
@@ -519,8 +519,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         if (use_mixed_precision) {
           loss.reset(new MultiCrossEntropyLoss<__half>(
-              std::dynamic_pointer_cast<Tensor<float>>(label_tensor),
-              std::dynamic_pointer_cast<Tensor<__half>>(multi_cross_entropy_loss_in_tensor),
+              dynamic_tensor_cast<float>(label_tensor),
+              dynamic_tensor_cast<__half>(multi_cross_entropy_loss_in_tensor),
               loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff_half,
                                  (multi_cross_entropy_loss_in_tensor->get_dims())[0],
@@ -528,8 +528,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               target_weight_vec, device_id, num_networks_in_global, scaler));
         } else {
           loss.reset(new MultiCrossEntropyLoss<float>(
-              std::dynamic_pointer_cast<Tensor<float>>(label_tensor),
-              std::dynamic_pointer_cast<Tensor<float>>(multi_cross_entropy_loss_in_tensor),
+              dynamic_tensor_cast<float>(label_tensor),
+              dynamic_tensor_cast<float>(multi_cross_entropy_loss_in_tensor),
               loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff,
                                  (multi_cross_entropy_loss_in_tensor->get_dims())[0],
@@ -545,7 +545,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           std::shared_ptr<Tensor<__half>> relu_out_tensor(
               new Tensor<__half>(relu_in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
           layers.emplace_back(
-              new ReluLayerHalf(std::dynamic_pointer_cast<Tensor<__half>>(relu_in_tensor),
+              new ReluLayerHalf(dynamic_tensor_cast<__half>(relu_in_tensor),
                                 relu_out_tensor, device_id));
           output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
         } else {
@@ -553,7 +553,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           std::shared_ptr<Tensor<float>> relu_out_tensor(
               new Tensor<float>(relu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
           layers.emplace_back(
-              new ReluLayer(std::dynamic_pointer_cast<Tensor<float>>(relu_in_tensor),
+              new ReluLayer(dynamic_tensor_cast<float>(relu_in_tensor),
                             relu_out_tensor, device_id));
           output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
         }
@@ -574,7 +574,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             if (slot_id < 0) CK_THROW_(Error_t::WrongInput, "slot_id < 0");
             selected.push_back(slot_id);
           }
-          layers.emplace_back(new ReshapeLayer(std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+          layers.emplace_back(new ReshapeLayer(dynamic_tensor_cast<float>(in_tensor),
                                                out_tensor, blobs_buff, selected, device_id));
         }
         // general purpose reshape
@@ -585,7 +585,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           int leading_dim = (leading_dim_it != j.end())
                                 ? (*leading_dim_it).get<int>()
                                 : in_tensor->get_num_elements() / in_dims[0];
-          layers.emplace_back(new ReshapeLayer(std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+          layers.emplace_back(new ReshapeLayer(dynamic_tensor_cast<float>(in_tensor),
                                                out_tensor, leading_dim, device_id));
         }
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
@@ -604,7 +604,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
 
         Tensors<float> out_tensors;
-        layers.emplace_back(new SliceLayer(std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+        layers.emplace_back(new SliceLayer(dynamic_tensor_cast<float>(in_tensor),
                                            out_tensors, blobs_buff, ranges, device_id));
         for (size_t i = 0; i < out_tensors.size(); i++) {
           output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
@@ -623,7 +623,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         std::shared_ptr<Tensor<float>> out_tensor;
         layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff,
-                                              std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+                                              dynamic_tensor_cast<float>(in_tensor),
                                               out_tensor, weight_dims, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
@@ -637,7 +637,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
             {(in_tensor->get_dims())[0], out_dim}, blobs_buff, TensorFormat_t::HW));
 
-        layers.emplace_back(new FmOrder2Layer(std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+        layers.emplace_back(new FmOrder2Layer(dynamic_tensor_cast<float>(in_tensor),
                                               out_tensor, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
@@ -646,7 +646,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto& in_tensors = input_output_info.input;
         std::shared_ptr<Tensor<float>> out_tensor(
             new Tensor<float>(in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
-        layers.emplace_back(new AddLayer(sp_vec_dynamic_cast<ITensor, Tensor<float>>(in_tensors),
+        layers.emplace_back(new AddLayer(tensor_vec_dynamic_cast<float>(in_tensors),
                                          out_tensor, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
@@ -655,7 +655,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto& in_tensor = input_output_info.input[0];
         std::shared_ptr<Tensor<float>> out_tensor;
         int axis = get_json(j, "axis").get<int>();
-        layers.emplace_back(new ReduceSumLayer(std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+        layers.emplace_back(new ReduceSumLayer(dynamic_tensor_cast<float>(in_tensor),
                                                out_tensor, blobs_buff, axis, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
