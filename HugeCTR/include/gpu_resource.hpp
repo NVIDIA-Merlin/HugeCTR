@@ -99,7 +99,7 @@ class GPUResourceGroup {
   int get_node_count() const { return device_map_->num_nodes(); }
   int get_pid(int global_id) const { return device_map_->get_pid(global_id); }
 
-  bool p2p_enabled(int src_dev, int dst_dev) const { return p2p_enabled_[src_dev][dst_dev]; }
+  bool p2p_enabled(int src_dev, int dst_dev) const;
   bool all_p2p_enabled() const;
 
  private:
@@ -108,7 +108,7 @@ class GPUResourceGroup {
   std::unique_ptr<ncclComm_t[]> comms_;
   std::shared_ptr<const DeviceMap> device_map_;
   std::vector<std::shared_ptr<const GPUResource>> gpu_resources_; /**< GPU resource vector */
-  std::vector<std::vector<bool>> p2p_enabled_;
+  std::map<int, std::map<int, bool>> p2p_enabled_;
 
  public:
   ctpl::thread_pool train_thread_pool; /**< cpu thread pool for training */
