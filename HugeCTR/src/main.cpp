@@ -50,8 +50,8 @@ void train(std::string config_file) {
   CK_MPI_THROW__(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
 
-  HugeCTR::Session session_instance(config_file);
-  const HugeCTR::SolverParser& solver_config = session_instance.get_solver_config();
+  const HugeCTR::SolverParser solver_config(config_file);
+  std::shared_ptr<HugeCTR::Session> session_instance = HugeCTR::Session::Create(solver_config);
   std::unique_ptr<HugeCTR::LearningRateScheduler> lr_sch =
       HugeCTR::get_learning_rate_scheduler(config_file);
 
@@ -63,7 +63,7 @@ void train(std::string config_file) {
   HugeCTR::Timer timer_train;
   HugeCTR::Timer timer_eval;
   timer_train.start();
-  session_instance.start_data_reading();
+  session_instance->start_data_reading();
 #ifdef DATA_READING_TEST
   HugeCTR::Timer timer_data_reading;
   timer_data_reading.start();
@@ -78,14 +78,14 @@ void train(std::string config_file) {
 
   for (int i = 0; i < solver_config.max_iter; i++) {
     float lr = lr_sch->get_next();
-    session_instance.set_learning_rate(lr);
+    session_instance->set_learning_rate(lr);
 
-    session_instance.train();
+    session_instance->train();
     if (i % solver_config.display == 0 && i != 0) {
       timer_train.stop();
       // display
       float loss = 0;
-      session_instance.get_current_loss(&loss);
+      session_instance->get_current_loss(&loss);
       if (pid == 0) {
         MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
                  " iters): " + std::to_string(timer_train.elapsedSeconds()) +
@@ -95,7 +95,7 @@ void train(std::string config_file) {
     }
     if (i % solver_config.snapshot == 0 && i != 0) {
       // snapshot
-      session_instance.download_params_to_files(solver_config.snapshot_prefix, i);
+      session_instance->download_params_to_files(solver_config.snapshot_prefix, i);
     }
 
     if ((solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0)) {
@@ -103,10 +103,10 @@ void train(std::string config_file) {
                    float(i) / solver_config.max_iter);
       timer_eval.start();
       for (int j = 0; j < solver_config.eval_batches; ++j) {
-        session_instance.eval();
+        session_instance->eval();
       }
 
-      auto eval_metrics = session_instance.get_eval_metrics();
+      auto eval_metrics = session_instance->get_eval_metrics();
       for (auto& eval_metric : eval_metrics) {
         MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
 
@@ -165,23 +165,23 @@ void train(std::string config_file) {
   int loop = 0;
   for (int i = 0; i < solver_config.max_iter; i++) {
     float lr = lr_sch->get_next();
-    session_instance.set_learning_rate(lr(i));
+    session_instance->set_learning_rate(lr(i));
 
-    session_instance.train();
+    session_instance->train();
     if (start_test == true) {
       float loss_tmp = 0;
-      session_instance.get_current_loss(&loss_tmp);
+      session_instance->get_current_loss(&loss_tmp);
       loss += loss_tmp;
     }
     if (i % solver_config.eval_interval == solver_config.eval_batches &&
         i != solver_config.eval_batches) {
       loss = loss / solver_config.eval_batches;
       for (int j = 0; j < solver_config.eval_batches; ++j) {
-        session_instance.eval();
+        session_instance->eval();
       }
       if (pid == 0) {
         std::cout << loop << " ";
-        auto eval_metrics = session_instance.get_eval_metrics();
+        auto eval_metrics = session_instance->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
           std::cout << eval_metric.second << " ";
         }
