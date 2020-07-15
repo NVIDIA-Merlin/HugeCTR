@@ -1424,6 +1424,7 @@ class SparseEmbeddingHashFunctors {
                       const std::shared_ptr<GPUResourceGroup> &device_resources,
                       const CudaDeviceContext &context) {
     int local_gpu_count = device_resources->size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
     // need to know the type of TypeHashKey here
     ncclDataType_t type;
@@ -1438,15 +1439,27 @@ class SparseEmbeddingHashFunctors {
         CK_THROW_(Error_t::WrongInput, "Error: TypeHashKey not support by now");
     }
 
-    CK_NCCL_THROW_(ncclGroupStart());
-    for (int id = 0; id < local_gpu_count; id++) {
-      CK_NCCL_THROW_(ncclReduceScatter(send_tensors[id]->get_ptr(),  // send buf
-                                       recv_tensors[id]->get_ptr(),  // recv buff
-                                       recv_count, type, ncclSum,
-                                       *(*device_resources)[id]->get_nccl_ptr(),
-                                       (*device_resources)[id]->get_stream()));
+    // for multi GPUs, use NCCL to do Reduce-Scatter(supporting multi-node GPU servers)
+    if (total_gpu_count > 1) {
+      CK_NCCL_THROW_(ncclGroupStart());
+      for (int id = 0; id < local_gpu_count; id++) {
+        CK_NCCL_THROW_(ncclReduceScatter(send_tensors[id]->get_ptr(),  // send buf
+                                         recv_tensors[id]->get_ptr(),  // recv buff
+                                         recv_count, type, ncclSum,
+                                         *(*device_resources)[id]->get_nccl_ptr(),
+                                         (*device_resources)[id]->get_stream()));
+      }
+      CK_NCCL_THROW_(ncclGroupEnd());
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
+    // for single GPU, just do memcpyD2D
+    else {  // total_gpu_count == 1
+      context.set_device((*device_resources)[0]->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), 
+                                     send_tensors[0]->get_ptr(),
+                                     recv_count * sizeof(Type), 
+                                     cudaMemcpyDeviceToDevice,
+                                     (*device_resources)[0]->get_stream()));
+    }
 
     return;
   }
@@ -1464,6 +1477,7 @@ class SparseEmbeddingHashFunctors {
                   const std::shared_ptr<GPUResourceGroup> &device_resources,
                   const CudaDeviceContext &context) {
     int local_gpu_count = device_resources->size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
     // need to know the type of Type here
     ncclDataType_t type;
@@ -1478,13 +1492,27 @@ class SparseEmbeddingHashFunctors {
         CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
     }
 
-    CK_NCCL_THROW_(ncclGroupStart());
-    for (int id = 0; id < local_gpu_count; id++) {
-      CK_NCCL_THROW_(ncclAllReduce(
-          send_tensors[id]->get_ptr(), recv_tensors[id]->get_ptr(), send_count, type, ncclSum,
-          *(*device_resources)[id]->get_nccl_ptr(), (*device_resources)[id]->get_stream()));
+    // for multi GPUs, use NCCL to do all_reduce (supporting multi-node GPU servers)
+    if (total_gpu_count > 1) {
+      CK_NCCL_THROW_(ncclGroupStart());
+      for (int id = 0; id < local_gpu_count; id++) {
+        CK_NCCL_THROW_(ncclAllReduce(send_tensors[id]->get_ptr(), 
+                                     recv_tensors[id]->get_ptr(), 
+                                     send_count, type, ncclSum,
+                                     *(*device_resources)[id]->get_nccl_ptr(), 
+                                     (*device_resources)[id]->get_stream()));
+      }
+      CK_NCCL_THROW_(ncclGroupEnd());
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
+    // for single GPU, just do memcpyD2D
+    else {  // total_gpu_count == 1
+      context.set_device((*device_resources)[0]->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), 
+                                     send_tensors[0]->get_ptr(),
+                                     send_count * sizeof(Type), 
+                                     cudaMemcpyDeviceToDevice,
+                                     (*device_resources)[0]->get_stream()));
+    }
 
     return;
   }
@@ -1502,6 +1530,7 @@ class SparseEmbeddingHashFunctors {
                   const std::shared_ptr<GPUResourceGroup> &device_resources,
                   const CudaDeviceContext &context) {
     int local_gpu_count = device_resources->size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
     // need to know the Type
     ncclDataType_t type;
@@ -1516,14 +1545,27 @@ class SparseEmbeddingHashFunctors {
         CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
     }
 
-    CK_NCCL_THROW_(ncclGroupStart());
-    for (int id = 0; id < local_gpu_count; id++) {
-      CK_NCCL_THROW_(ncclAllGather(send_tensors[id]->get_ptr(),  // send buff
-                                   recv_tensors[id]->get_ptr(),  // recv buff
-                                   send_count, type, *(*device_resources)[id]->get_nccl_ptr(),
-                                   (*device_resources)[id]->get_stream()));
+    // for multi GPUs, use NCCL to do All-Gather
+    if (total_gpu_count > 1) {
+      CK_NCCL_THROW_(ncclGroupStart());
+      for (int id = 0; id < local_gpu_count; id++) {
+        CK_NCCL_THROW_(ncclAllGather(send_tensors[id]->get_ptr(),  // send buff
+                                     recv_tensors[id]->get_ptr(),  // recv buff
+                                     send_count, type,
+                                     *(*device_resources)[id]->get_nccl_ptr(),
+                                     (*device_resources)[id]->get_stream()));
+      }
+      CK_NCCL_THROW_(ncclGroupEnd());
     }
-    CK_NCCL_THROW_(ncclGroupEnd());
+    // for single GPU, just do memcpyD2D
+    else {  // total_gpu_count == 1
+      context.set_device((*device_resources)[0]->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), 
+                                     send_tensors[0]->get_ptr(),
+                                     send_count * sizeof(Type), 
+                                     cudaMemcpyDeviceToDevice,
+                                     (*device_resources)[0]->get_stream()));
+    }
 
     return;
   }
