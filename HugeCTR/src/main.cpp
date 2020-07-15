@@ -113,28 +113,31 @@ void train(std::string config_file) {
         HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second, float(i) / solver_config.max_iter, i);
 
         // early stop doesn't support multinodes
-        if (!eval_metric.first.compare("auc") && eval_metric.second >= 0.8025) {
-          timer.stop();
-          size_t train_samples =
-              static_cast<size_t>(i + 1) * static_cast<size_t>(solver_config.batchsize);
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
-    
-    std::string epoch_num_str = std::to_string(float(i) / solver_config.max_iter);
+        if (!eval_metric.first.compare("AUC")) {
+          const auto auc_threshold = const_cast<HugeCTR::SolverParser&>(solver_config).metrics_spec[HugeCTR::metrics::Type::AUC];
+          if (eval_metric.second >= auc_threshold) {
+            timer.stop();
+            size_t train_samples =
+                static_cast<size_t>(i + 1) * static_cast<size_t>(solver_config.batchsize);
+            HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
 
-          std::cout << "Hit target accuracy AUC 0.8025 at epoch " +
-                           epoch_num_str + " with batchsize: "
-                    << solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
-                    << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
-                    << float(i) * solver_config.batchsize / timer.elapsedSeconds()
-                    << " records/s." << std::endl;
+            std::string epoch_num_str = std::to_string(float(i) / solver_config.max_iter);
 
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", epoch_num_str);
+            std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) +
+                         " at epoch " + epoch_num_str + " with batchsize: "
+                      << solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                      << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
+                      << float(i) * solver_config.batchsize / timer.elapsedSeconds()
+                      << " records/s." << std::endl;
 
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+            HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", epoch_num_str);
 
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
-          timer_log.stop();
-          return;
+            HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+
+            HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
+            timer_log.stop();
+            return;
+          }
         }
       }
 

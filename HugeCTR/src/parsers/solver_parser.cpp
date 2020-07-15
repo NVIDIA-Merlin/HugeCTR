@@ -134,6 +134,57 @@ SolverParser::SolverParser(const std::string& file)
     device_map.reset(new DeviceMap(vvgpu, pid));
     device_list = device_map->get_device_list();
 
+    const std::map<std::string, metrics::Type> metrics_map = {
+      {"AverageLoss", metrics::Type::AverageLoss},
+      {"AUC", metrics::Type::AUC}
+    };
+
+    auto eval_metrics = get_json(j, "eval_metrics");
+    if (!eval_metrics.empty()) {
+      if (eval_metrics.is_array()) {
+        for(auto metric: eval_metrics) {
+          std::stringstream ss(metric.get<std::string>());
+          std::string elem;
+          std::vector<std::string> metric_strs;
+          while (std::getline(ss, elem, ':')) {
+            metric_strs.push_back(std::move(elem));
+          }
+          auto it = metrics_map.find(metric_strs[0]);
+          if (it != metrics_map.end()) {
+            auto type = it->second;
+            switch (type) {
+              case metrics::Type::AverageLoss: {
+                metrics_spec[metrics::Type::AverageLoss] = 0.f;
+                break;
+              }
+              case metrics::Type::AUC: {
+                float val = std::stof(metric_strs[1]);
+                if (val < 0.0 || val > 1.0) {
+                  CK_THROW_(Error_t::WrongInput, "0 <= AUC threshold <= 1 is not true");
+                }
+                metrics_spec[metrics::Type::AUC] = val;
+                break;
+              }
+              default: {
+                CK_THROW_(Error_t::WrongInput, "Unreachable");
+                break;
+              }
+            }
+          }
+          else {
+            CK_THROW_(Error_t::WrongInput, metric_strs[0] + " is a unsupported metric");
+          }
+        }
+      }
+      else {
+        CK_THROW_(Error_t::WrongInput, "metrics must be in the form of list");
+      }
+    }
+    else {
+      // Default is AUC without the threshold
+      metrics_spec[metrics::Type::AUC] = 1.f;
+    }
+
     if (has_key_(j, "input_key_type")) {
       auto str = get_value_from_json<std::string>(j, "input_key_type");
       if (str.compare("I64") == 0) {

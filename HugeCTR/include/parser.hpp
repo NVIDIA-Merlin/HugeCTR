@@ -22,6 +22,7 @@
 #include "HugeCTR/include/device_map.hpp"
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/gpu_resource.hpp"
+#include "HugeCTR/include/metrics.hpp"
 #include "HugeCTR/include/network.hpp"
 #include "nlohmann/json.hpp"
 
@@ -123,6 +124,7 @@ struct SolverParser {
   std::shared_ptr<const DeviceMap> device_map; /**< device map */
   bool use_mixed_precision;
   float scaler;
+  std::map<metrics::Type, float> metrics_spec;
   bool i64_input_key;
   SolverParser(const std::string& file);
 };
