@@ -29,11 +29,15 @@ namespace HugeCTR {
 namespace metrics {
 
 enum class RawType { Loss = 0, Pred = 1, Label = 2 };
+enum class Type { AUC = 0, AverageLoss = 1 };
 
 using RawMetricMap = std::map<RawType, std::shared_ptr<ITensor>>;
 
 class Metric {
  public:
+  static std::unique_ptr<Metric> Create(const Type type, bool use_mixed_precision,
+                                 int batch_size_eval, int n_batches,
+                                 std::shared_ptr<GPUResourceGroup> gpu_resource_group);
   Metric();
   virtual ~Metric();
   virtual void local_reduce(RawMetricMap raw_metrics) = 0;
@@ -60,7 +64,7 @@ class AverageLoss : public Metric {
   void local_reduce(RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
-  std::string name() const override { return "average_loss"; };
+  std::string name() const override { return "AverageLoss"; };
 
  private:
   std::vector<float> loss_local_;
@@ -80,7 +84,7 @@ class AUC : public Metric {
   void local_reduce(RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
-  std::string name() const override { return "auc"; };
+  std::string name() const override { return "AUC"; };
 
  private:
   void set_max_temp_storage_bytes(size_t& new_val);
