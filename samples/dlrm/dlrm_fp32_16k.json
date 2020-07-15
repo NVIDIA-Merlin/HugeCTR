@@ -8,7 +8,8 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 5000,
-    "eval_batches": 5441
+    "eval_batches": 5441,
+    "eval_metrics": ["AUC:0.8025"]
   },
   
   "optimizer": {
