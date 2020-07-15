@@ -138,18 +138,14 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
   load_params_for_dense_(solver_config.model_file);
   init_or_load_params_for_sparse_(solver_config.embedding_files);
 
-  int num_local_gpus = gpu_resource_group_->get_device_list().size();
-  // metrics_.emplace_back(new metrics::AverageLoss<float>(num_local_gpus));
-  if (solver_config.use_mixed_precision) {
-    metrics_.emplace_back(new metrics::AUC<__half>(
-        solver_config.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
-        solver_config.eval_batches, gpu_resource_group_->get_device_list()[0], num_local_gpus,
-        gpu_resource_group_));
-  } else {
-    metrics_.emplace_back(new metrics::AUC<float>(
-        solver_config.batchsize_eval / gpu_resource_group_->get_total_gpu_count(),
-        solver_config.eval_batches, gpu_resource_group_->get_device_list()[0], num_local_gpus,
-        gpu_resource_group_));
+  int num_total_gpus = gpu_resource_group_->get_total_gpu_count();
+  for (const auto& metric: solver_config.metrics_spec) {
+    metrics_.emplace_back(
+        std::move(metrics::Metric::Create(metric.first,
+                  solver_config.use_mixed_precision,
+                  solver_config.batchsize_eval / num_total_gpus,
+                  solver_config.eval_batches,
+                  gpu_resource_group_)));
   }
 }
 

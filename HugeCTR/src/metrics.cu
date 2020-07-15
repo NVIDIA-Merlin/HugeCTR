@@ -141,6 +141,31 @@ void copy_all<__half>(float* y_pred, float* y_label, __half* x_pred, float* x_la
 
 }  // namespace
 
+std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision,
+                                int batch_size_eval, int n_batches,
+                                std::shared_ptr<GPUResourceGroup> gpu_resource_group) {
+
+  int root_gpu = gpu_resource_group->get_device_list()[0];
+  int num_local_gpus = gpu_resource_group->get_device_list().size();
+  std::unique_ptr<Metric> ret;
+  switch(type) {
+    case Type::AUC:
+      if (use_mixed_precision) {
+        ret.reset(new AUC<__half>(batch_size_eval, n_batches, root_gpu, num_local_gpus,
+                                  gpu_resource_group));
+      }
+      else {
+        ret.reset(new AUC<float>(batch_size_eval, n_batches, root_gpu, num_local_gpus,
+                                 gpu_resource_group));
+      }
+      break;
+    case Type::AverageLoss:
+      ret.reset(new AverageLoss<float>(num_local_gpus));
+      break;
+  }
+  return ret;
+}
+
 Metric::Metric() : num_procs_(1), pid_(0), current_batch_size_(0) {
 #ifdef ENABLE_MPI
   CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid_));
