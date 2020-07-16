@@ -11,6 +11,20 @@ before_script:
   - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 -DNCCL_INCLUDE_DIR=/usr/local/cuda-11.0/targets/x86_64-linux/include -DNCCL_LIBRARIES=/usr/local/cuda-11.0/targets/x86_64-linux/lib ..
   - make -j
 
+wdl:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/wdl
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/wdl/wdl.json
+
+wdl8gpu:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/wdl
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/wdl8gpus/wdl8gpu.json
+
 unit_tests:
   tags:
     - hugectr
