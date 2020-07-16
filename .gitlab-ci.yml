@@ -39,6 +39,13 @@ wdl8gpu:
     - cd /dataset/criteo_kaggle/wdl
     - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/wdl8gpus/wdl8gpu.json
 
+deepfm:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/deepfm
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/deepfm/deepfm.json
+
 unit_tests:
   tags:
     - hugectr
