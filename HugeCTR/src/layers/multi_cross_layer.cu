@@ -270,13 +270,13 @@ void out_product(Tensor<float>& out_mat, const Tensor<float>& vec_a, const Tenso
 
   assert(h == vec_a.get_dims()[0] && w == vec_b.get_dims()[1] && vec_a.get_dims()[1] == 1 &&
          vec_b.get_dims()[0] == 1);
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
-  out_product_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pvec_a, h, pvec_b, w);
-  //cublasHandle_t handle;
-  //CUBLAS_CHECK(cublasCreate(&handle));
-  //MLCommon::LinAlg::gemm<float>(pvec_a, h, 1, pvec_b, pout, h, w, CUBLAS_OP_N, CUBLAS_OP_N, 1.f, 0.f, handle, stream);
-  //CUBLAS_CHECK(cublasDestroy(handle));
+  //const int BLOCK_DIM = 256;
+  //const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
+  //out_product_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pvec_a, h, pvec_b, w);
+  cublasHandle_t handle;
+  CUBLAS_CHECK(cublasCreate(&handle));
+  MLCommon::LinAlg::gemm<float>(pvec_b, w, 1, pvec_a, pout, w, h, CUBLAS_OP_N, CUBLAS_OP_N, 1.f, 0.f, handle, stream);
+  CUBLAS_CHECK(cublasDestroy(handle));
 }
 
 /**
