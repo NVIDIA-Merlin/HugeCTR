@@ -22,19 +22,25 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * out product of two vectors
- * @param out_mat: hxw
- * @param vec_a: hx1
- * @param vec_b: 1xw
+ * @brief Compute outer product of two vectors
+ *
+ * @tparam InType the data type of the 2 input vectors
+ * @tparam OutType the data type of the output matrix
+ * @param out_mat the output matric of the vectors outer produt
+ * @param vec_a the first input vector (hx1)
+ * @param h size of vector [vec_a]
+ * @param vec_b the second input vector (1xw)
+ * @param w size of vector [vec_b]
  */
- __global__ void mm_1d(float* out_mat, const float* vec_a, int h, const float* vec_b,
+ template <typename InType, typename OutType>
+ __global__ void mm_1d(OutType *out_mat, const InType *vec_a, int h, const float* vec_b,
   int w) {
-const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-if (tid < h * w) {
-const int col = tid % w;
-const int row = tid / w;
-out_mat[tid] = vec_a[row] * vec_b[col];
-}
+  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
+  if (tid < h * w) {
+    const int col = tid % w;
+    const int row = tid / w;
+    out_mat[tid] = vec_a[row] * vec_b[col];
+  }
 }
 
 };  // end namespace LinAlg
