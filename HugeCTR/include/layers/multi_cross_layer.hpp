@@ -41,7 +41,7 @@ struct MultiCrossBackwardFunctor {
   MultiCrossBackwardFunctor(const MultiCrossBackwardFunctor&) = delete;
   MultiCrossBackwardFunctor& operator=(const MultiCrossBackwardFunctor&) = delete;
 
-  void operator()(cudaStream_t stream, cublasHandle_t cublas_handle,
+  void operator()(cudaStream_t stream,
                   const Tensor<float>& input_tensor,
                   const std::vector<const Tensor<float>*>& kernel_tensors,
                   const std::vector<const Tensor<float>*>& layer_output_tensors,
