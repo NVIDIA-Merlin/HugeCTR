@@ -139,8 +139,8 @@ SolverParser::SolverParser(const std::string& file)
       {"AUC", metrics::Type::AUC}
     };
 
+    if (has_key_(j, "eval_metrics")) {
     auto eval_metrics = get_json(j, "eval_metrics");
-    if (!eval_metrics.empty()) {
       if (eval_metrics.is_array()) {
         for(auto metric: eval_metrics) {
           std::stringstream ss(metric.get<std::string>());
@@ -182,6 +182,7 @@ SolverParser::SolverParser(const std::string& file)
     }
     else {
       // Default is AUC without the threshold
+      MESSAGE_("Default evaluation metric is AUC without threshold value");
       metrics_spec[metrics::Type::AUC] = 1.f;
     }
 
