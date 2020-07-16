@@ -60,7 +60,7 @@
       "bottom": "wide_data",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1603616,
+        "vocabulary_size": 2322444,
         "load_factor": 0.75,
         "embedding_vec_size": 1,
         "combiner": 0
@@ -74,7 +74,7 @@
       "bottom": "deep_data",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1603616,
+        "vocabulary_size": 2322444,
         "load_factor": 0.75,
         "embedding_vec_size": 16,
         "combiner": 0
