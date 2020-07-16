@@ -168,7 +168,7 @@ void train(std::string config_file) {
   int loop = 0;
   for (int i = 0; i < solver_config.max_iter; i++) {
     float lr = lr_sch->get_next();
-    session_instance->set_learning_rate(lr(i));
+    session_instance->set_learning_rate(lr);
 
     session_instance->train();
     if (start_test == true) {
@@ -183,7 +183,7 @@ void train(std::string config_file) {
         session_instance->eval();
       }
       if (pid == 0) {
-        std::cout << loop << " ";
+        std::cout << loop << " " << loss << " ";
         auto eval_metrics = session_instance->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
           std::cout << eval_metric.second << " ";
