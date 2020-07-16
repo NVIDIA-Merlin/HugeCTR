@@ -16,8 +16,6 @@
 
 #include "HugeCTR/include/layers/elu_layer.hpp"
 
-//#include "HugeCTR/include/layers/element_wise_function.hpp"
-
 #include <linalg/binary_op.cuh>
 #include <linalg/unary_op.cuh>
 
@@ -49,9 +47,6 @@ void EluLayer::fprop(cudaStream_t stream) {
 
   float alpha = alpha_;
   auto fop = [alpha] __device__(float in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
-  
-  //internal::ElementWiseFunctor functor;
-  //functor.forward_evaluate(*in_tensor, *out_tensor, get_device_id(), fop, stream);
 
   MLCommon::LinAlg::unaryOp(out_tensor->get_ptr(), in_tensor->get_ptr(), len, fop, stream);
 }
@@ -69,8 +64,6 @@ void EluLayer::bprop(cudaStream_t stream) {
     return (d_in < 0) ? alpha * expf(d_in) * d_out : d_out;
   };
 
-  //internal::ElementWiseFunctor functor;
-  //functor.backward_evaluate(*in_tensor, *out_tensor, get_device_id(), bop, stream);
   MLCommon::LinAlg::binaryOp(in_tensor->get_ptr(), out_tensor->get_ptr(), in_tensor->get_ptr(), len, bop, stream);
 }
 

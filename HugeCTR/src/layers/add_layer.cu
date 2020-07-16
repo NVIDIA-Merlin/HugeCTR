@@ -32,21 +32,6 @@ namespace {
 
 #define BLOCK_DIM_SIZE 32
 
-/*
-template <typename T>
-__global__ void add_kernel(T** inputs, T* output, int size, int num) {
-  int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if (tid < size) {
-    T tmp = 0;
-    for (int i = 0; i < num; i++) {
-      tmp += inputs[i][tid];
-    }
-    output[tid] = tmp;
-  }
-}
-*/
-
 template <typename T>
 __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int num) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -126,10 +111,6 @@ void AddLayer<T>::fprop(cudaStream_t stream) {
     initialized_ = true;
   }
   T* output = out_tensors_[0]->get_ptr();
-
-  //dim3 blockSize(256, 1, 1);
-  //dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
-  //add_kernel<<<gridSize, blockSize, 0, stream>>>(d_inputs_, output, size_, num_);
 
   MLCommon::LinAlg::reduce(output, d_inputs_, size_, num_, (float)0, false, false, stream, false,
           [] __device__(float in, int i) { return in; });
