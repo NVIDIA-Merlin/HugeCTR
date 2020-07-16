@@ -15,13 +15,13 @@
  */
 
 #include "HugeCTR/include/layers/relu_layer.hpp"
-
-#include "HugeCTR/include/layers/element_wise_function.hpp"
 #include "HugeCTR/include/utils.cuh"
+
+#include <linalg/binary_op.cuh>
+#include <linalg/unary_op.cuh>
 
 #include <algorithm>
 #include <functional>
-#include "HugeCTR/include/utils.hpp"
 #ifndef NDEBUG
 #include <iostream>
 #endif
