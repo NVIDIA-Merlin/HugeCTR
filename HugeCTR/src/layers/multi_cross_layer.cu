@@ -18,7 +18,9 @@
 #include <vector>
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 #include "HugeCTR/include/utils.cuh"
+
 #include <linalg/binary_op.cuh>
+#include <linalg/gemm.cuh>
 #include <linalg/gemv.h>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/reduce.cuh>
@@ -271,6 +273,10 @@ void out_product(Tensor<float>& out_mat, const Tensor<float>& vec_a, const Tenso
   const int BLOCK_DIM = 256;
   const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
   out_product_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pvec_a, h, pvec_b, w);
+  //cublasHandle_t handle;
+  //CUBLAS_CHECK(cublasCreate(&handle));
+  //MLCommon::LinAlg::gemm<float>(pvec_a, h, 1, pvec_b, pout, h, w, CUBLAS_OP_N, CUBLAS_OP_N, 1.f, 0.f, handle, stream);
+  //CUBLAS_CHECK(cublasDestroy(handle));
 }
 
 /**
