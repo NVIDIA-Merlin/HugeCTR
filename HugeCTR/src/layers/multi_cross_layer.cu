@@ -34,32 +34,6 @@ namespace {
 
 inline int calc_grid(int t, int b) { return (t - 1) / b + 1; }
 
-/**
- * Each row in `mat`dot product with vec, length of vec should be w. Then adding bias for each of
- * the rows
- * @param out: hx1
- * @param mat: hxw
- * @param vec: 1xw
-  
-__global__ void matrix_vec_mul_kernel(float* out, const float* mat, int h, int w,
-                                      const float* vec) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  const int wtid = tid % WARP_SIZE;  // thread id in warp
-  const int wid = tid / WARP_SIZE;   // warp id
-  const float* mat_with_offset = mat + wid * w;
-  if (wid < h) {
-    float accum = 0.;
-    for (int i = wtid; i < w; i += WARP_SIZE) {
-      accum += mat_with_offset[i] * vec[i];
-    }
-    float val = warpReduceSum(accum);
-    if (wtid == 0) {
-      out[wid] = val;
-    }
-  }
-}
-*/
-
 void matrix_vec_mul(Tensor<float>& out, const Tensor<float>& mat, const Tensor<float>& vec,
                     cublasHandle_t cublas_handle, cudaStream_t stream) {
   float* pout = out.get_ptr();
@@ -75,32 +49,8 @@ void matrix_vec_mul(Tensor<float>& out, const Tensor<float>& mat, const Tensor<f
   const int h = idim[0];
   const int w = idim[1];
   
-  //const int BLOCK_DIM = 256;
-  //const int GRID_DIM = calc_grid(h * WARP_SIZE, BLOCK_DIM);
-  //matrix_vec_mul_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
-  
-  // TODO: Get cublas handler out of the function 
-  // cublasHandle_t handle;
-  // CUBLAS_CHECK(cublasCreate(&handle));
   MLCommon::LinAlg::gemv<float>(pmat, w, h, pvec, pout, true, 1.f, 0.f, cublas_handle, stream);
-  //CUBLAS_CHECK(cublasDestroy(handle));
 }
-
-/**
- * Each row in `mat` scale with the coresponding element in vec.
- * The length of vec should be h.
- * @param o_mat: hxw
- * @param mat: hxw
- * @param vec: hx1
-
-__global__ void row_scaling_kenrel(float* o_mat, const float* mat, int h, int w, const float* vec) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < h * w) {
-    const int row = tid / w;
-    o_mat[tid] = mat[tid] * vec[row];
-  }
-}
-*/
 
 void row_scaling(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<float>& vec,
                  cudaStream_t stream) {
@@ -117,32 +67,10 @@ void row_scaling(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<fl
   const int h = dim[0];
   const int w = dim[1];
 
-  //const int BLOCK_DIM = 256;
-  //const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
-
-  //row_scaling_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
-
   MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, true,
           [] __device__(float a, float b) { return a * b; }, stream);
 
 }
-
-/**
- * Each row in `mat` sum with  vec.
- * The length of vec should be w.
- * @param o_mat: hxw
- * @param mat: hxw
- * @param vec: 1xw
-
-__global__ void matrix_vec_add_kenrel(float* o_mat, const float* mat, int h, int w,
-                                      const float* vec) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < h * w) {
-    const int col = tid % w;
-    o_mat[tid] = mat[tid] + vec[col];
-  }
-}
-*/
 
 void matrix_vec_add(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<float>& vec,
                     cudaStream_t stream) {
@@ -159,27 +87,10 @@ void matrix_vec_add(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor
   const int h = dim[0];
   const int w = dim[1];
 
-  //const int BLOCK_DIM = 256;
-  //const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
-
-  //matrix_vec_add_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
-
   MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, false,
             [] __device__(float a, float b) { return a + b; }, stream);
 
 }
-
-/**
- * Pointwise adding
-
-__global__ void matrix_add_kenrel(float* o_mat, const float* mat_a, int h, int w,
-                                  const float* mat_b) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < h * w) {
-    o_mat[tid] = mat_a[tid] + mat_b[tid];
-  }
-}
-*/
 
 void matrix_add(Tensor<float>& out_mat, const Tensor<float>& mat_a, const Tensor<float>& mat_b,
                 cudaStream_t stream) {
@@ -195,10 +106,6 @@ void matrix_add(Tensor<float>& out_mat, const Tensor<float>& mat_a, const Tensor
 
   const int h = dim[0];
   const int w = dim[1];
-
-  //const int BLOCK_DIM = 256;
-  //const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
-  //matrix_add_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat_a, h, w, pmat_b);
 
   MLCommon::LinAlg::binaryOp(pout, pmat_a, pmat_b, h * w,
             [] __device__(float a, float b) { return a + b; }, stream);
@@ -310,30 +217,6 @@ void row_scaling_sum(Tensor<float>& out, const Tensor<float>& mat, const Tensor<
   row_scaling_sum_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
 }
 
-/**
- * Accum across rows
- * @param o_mat: 1xw
- * @param mat: hxw
-
-__global__ void row_sum_kernel(float* out, const float* mat, int h, int w) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  const int wtid = tid % WARP_SIZE;  // thread id in warp
-  const int wid = tid / WARP_SIZE;   // warp id
-  if (wid < w) {
-    float accum = 0.f;
-    for (int i = wtid; i < h; i += WARP_SIZE) {
-      const int col = wid;
-      const int idx = i * w + col;
-      accum += mat[idx];
-    }
-    float val = warpReduceSum(accum);
-    if (wtid == 0) {
-      out[wid] += val;  // using += here to enable regularization
-    }
-  }
-}
-*/
-
 void rows_sum(Tensor<float>& out, const Tensor<float>& mat, cudaStream_t stream) {
   float* pout = out.get_ptr();
   const float* pmat = mat.get_ptr();
@@ -345,11 +228,6 @@ void rows_sum(Tensor<float>& out, const Tensor<float>& mat, cudaStream_t stream)
 
   const int h = idim[0];
   const int w = idim[1];
-
-  //const int BLOCK_DIM = 256;
-  //const int GRID_DIM = calc_grid(w * WARP_SIZE, BLOCK_DIM);  // each col one warp
-
-  //row_sum_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w);
 
   MLCommon::LinAlg::reduce(pout, pmat, h, w, (float)0, false, true, stream, false,
           [] __device__(float in, int i) { return in; });

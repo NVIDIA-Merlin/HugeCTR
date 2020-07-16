@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/element_wise_function.hpp"
 #include "HugeCTR/include/layers/multiply_layer.hpp"
 #include "HugeCTR/include/utils.cuh"
 #include "HugeCTR/include/utils.hpp"
@@ -70,24 +69,6 @@ __global__ void multiply_transpose_fuse_kernel(int batch_size, int slot_num, int
   }
 }
 
-/*
-// sum reduce computation in one block
-template <typename T>
-__global__ void sum_reduce_batch_kernel(int row,  // row=gridDim.x
-                                        int col, const T* input, T* output) {
-  float local_sum = 0.0f;
-  for (int tid = threadIdx.x; tid < col; tid += blockDim.x) {
-    local_sum += input[blockIdx.x * col + tid];
-  }
-  __syncthreads();
-
-  local_sum = blockReduceSum(local_sum);
-  if (threadIdx.x == 0) {
-    output[blockIdx.x] += local_sum;
-  }
-}
-*/
-
 template <typename T>
 __global__ void multiply_dgrad_kernel(const T* top_grad, const T* weight, T* dgrad, int batch_size,
                                       int slot_num, int embedding_vec_size) {
@@ -113,11 +94,6 @@ void multiply_wgrad(const T* top_grad, const T* input, T* wgrad, T* wgrad_tmp_tr
                  (batch_size + blockSize1.y - 1) / blockSize1.y, 1);
   multiply_transpose_fuse_kernel<<<gridSize1, blockSize1, 0, stream>>>(
       batch_size, slot_num, embedding_vec_size, top_grad, input, wgrad_tmp_trans);
-
-  //dim3 blockSize2(256, 1, 1);
-  //dim3 gridSize2(slot_num * embedding_vec_size, 1, 1);
-  //sum_reduce_batch_kernel<<<gridSize2, blockSize2, 0, stream>>>(slot_num * embedding_vec_size,
-  //                                                              batch_size, wgrad_tmp_trans, wgrad);
 
   MLCommon::LinAlg::reduce(wgrad, wgrad_tmp_trans, batch_size, slot_num * embedding_vec_size, float(0), true, true, stream, true);
 }
