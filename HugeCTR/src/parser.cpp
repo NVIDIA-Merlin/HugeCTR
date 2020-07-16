@@ -849,8 +849,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                                      size_t batch_size_eval, bool use_mixed_precision,
                                      float scaler) {
   try {
-    int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
+    int num_procs = 1, pid = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &pid);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 #endif

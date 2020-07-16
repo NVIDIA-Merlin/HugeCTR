@@ -501,7 +501,7 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
         } else {
           size_t offset = 0;
           for (size_t j = 0; j < slot_sizes.size(); j++) {
-            if ((key >= offset) && (key < (offset + slot_sizes[j]))) {
+            if ((key >= static_cast<T>(offset)) && (key < static_cast<T>(offset + slot_sizes[j]))) {
               slot_id = (T)j;
               break;
             }
@@ -754,8 +754,8 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
                     "LocalizedSlotSpasrseEmbeddingOneHot");
         } else {
           size_t offset = 0;
-          for (int j = 0; j < slot_sizes.size(); j++) {
-            if ((key >= offset) && (key < (offset + slot_sizes[j]))) {
+          for (size_t j = 0; j < slot_sizes.size(); j++) {
+            if ((key >= static_cast<T>(offset)) && (key < static_cast<T>(offset + slot_sizes[j]))) {
               slot_id = (T)j;
               break;
             }
