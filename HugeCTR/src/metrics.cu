@@ -85,12 +85,12 @@ __global__ void trapz_kernel(float* y, float* x, float* auc, int num_selected) {
   }
 }
 
-__global__ void half2float_kernel(float* y, const __half* x, int num_elems) {
+/* __global__ void half2float_kernel(float* y, const __half* x, int num_elems) {
   int gid_base = blockIdx.x * blockDim.x + threadIdx.x;
   for (int gid = gid_base; gid < num_elems; gid += blockDim.x * gridDim.x) {
     y[gid] = __half2float(x[gid]);
   }
-}
+} */
 
 __global__ void copy_all_kernel(float* y_pred, float* y_label, const __half* x_pred,
                                 const float* x_label, int num_elems) {
@@ -112,12 +112,12 @@ void copy_pred<float>(float* y, float* x, int num_elems, int num_sms, cudaStream
       cudaMemcpyAsync(y, x, num_elems * sizeof(float), cudaMemcpyDeviceToDevice, stream));
 }
 
-template <>
+/* template <>
 void copy_pred<__half>(float* y, __half* x, int num_elems, int num_sms, cudaStream_t stream) {
   dim3 grid(num_sms * 2, 1, 1);
   dim3 block(1024, 1, 1);
   half2float_kernel<<<grid, block, 0, stream>>>(y, x, num_elems);
-}
+} */
 
 template <typename PredType>
 void copy_all(float* y_pred, float* y_label, PredType* x_pred, float* x_label, int num_elems,

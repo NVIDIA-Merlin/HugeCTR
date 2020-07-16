@@ -249,7 +249,7 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
         data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
         for (int j = 0; j < nnz; j++) {
           T key = ldata_sim.get_num();
-          while ((key % slot_num) != k) {  // guarantee the key belongs to the current slot_id(=k)
+          while ((key % static_cast<T>(slot_num)) != static_cast<T>(k)) {  // guarantee the key belongs to the current slot_id(=k)
             key = ldata_sim.get_num();
           }
           data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));

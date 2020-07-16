@@ -168,7 +168,7 @@ int main(int argc, char* argv[]){
 	data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
 	data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
 	if(KEYS_WIDE_MODEL == 0){
-	  if(key < RANGE[j-dense_dim-label_dim] || key > RANGE[j+1-dense_dim-label_dim]){
+	  if(key < static_cast<T>(RANGE[j-dense_dim-label_dim]) || key > static_cast<T>(RANGE[j+1-dense_dim-label_dim])){
 	    std::cout << key << " in feature:" << j << " our of range:" << RANGE[j] << "," << RANGE[j+1] << std::endl;
 	  }
 	}
