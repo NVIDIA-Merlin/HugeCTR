@@ -17,7 +17,9 @@
 #include <math.h>
 #include <vector>
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
+#include "HugeCTR/include/prims/linalg/matrix_multiplication.cuh"
 #include "HugeCTR/include/utils.cuh"
+
 
 #include <linalg/binary_op.cuh>
 #include <linalg/gemm.cuh>
@@ -243,25 +245,8 @@ void matrix_pair_mul(Tensor<float>& o_vec, const Tensor<float>& mat_a, const Ten
   matrix_pair_mul_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat_a, h, w, pmat_b);
 }
 
-/*
- * out product of two vectors
- * @param out_mat: hxw
- * @param vec_a: hx1
- * @param vec_b: 1xw
-
-__global__ void out_product_kernel(float* out_mat, const float* vec_a, int h, const float* vec_b,
-                                   int w) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < h * w) {
-    const int col = tid % w;
-    const int row = tid / w;
-    out_mat[tid] = vec_a[row] * vec_b[col];
-  }
-}
-*/
-
 void out_product(Tensor<float>& out_mat, const Tensor<float>& vec_a, const Tensor<float>& vec_b,
-                 cublasHandle_t cublas_handle, cudaStream_t stream) {
+                 cudaStream_t stream) {
   float* pout = out_mat.get_ptr();
   const float* pvec_a = vec_a.get_ptr();
   const float* pvec_b = vec_b.get_ptr();
@@ -272,13 +257,10 @@ void out_product(Tensor<float>& out_mat, const Tensor<float>& vec_a, const Tenso
 
   assert(h == vec_a.get_dims()[0] && w == vec_b.get_dims()[1] && vec_a.get_dims()[1] == 1 &&
          vec_b.get_dims()[0] == 1);
-  //const int BLOCK_DIM = 256;
-  //const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
-  //out_product_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pvec_a, h, pvec_b, w);
-  //cublasHandle_t handle;
-  //CUBLAS_CHECK(cublasCreate(&handle));
-  MLCommon::LinAlg::gemm<float>(pvec_b, w, 1, pvec_a, pout, w, h, CUBLAS_OP_N, CUBLAS_OP_N, 1.f, 0.f, cublas_handle, stream);
-  //CUBLAS_CHECK(cublasDestroy(handle));
+  
+  const int BLOCK_DIM = 256;
+  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
+  MLCommon::LinAlg::mm_1d<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pvec_a, h, pvec_b, w);
 }
 
 /**
@@ -428,8 +410,7 @@ def backward(x, k, y, h, dy, layers):
  *
  */
 void MultiCrossBackwardFunctor::operator()(
-    cudaStream_t stream, cublasHandle_t cublas_handle,
-    const Tensor<float>& input_tensor,
+    cudaStream_t stream, const Tensor<float>& input_tensor,
     const std::vector<const Tensor<float>*>& kernel_tensors,
     const std::vector<const Tensor<float>*>& layer_output_tensors,
     const std::vector<const Tensor<float>*>& layer_hidden_tensors, const Tensor<float>& grad_tensor,
@@ -447,7 +428,7 @@ void MultiCrossBackwardFunctor::operator()(
                     tmp_vec_tensor, stream);
     rows_sum(*bias_output_tensors[i], i == num_layers - 1 ? grad_tensor : *tmp_mat_tensors[1],
              stream);
-    out_product(*tmp_mat_tensors[0], tmp_vec_tensor, *kernel_tensors[i], cublas_handle, stream);
+    out_product(*tmp_mat_tensors[0], tmp_vec_tensor, *kernel_tensors[i], stream);
     matrix_add(*tmp_mat_tensors[1], i == num_layers - 1 ? grad_tensor : *tmp_mat_tensors[1],
                *tmp_mat_tensors[0], stream);
   }
@@ -564,7 +545,7 @@ void MultiCrossLayer::bprop(cudaStream_t stream) {
   }
 
   MultiCrossBackwardFunctor()(
-      stream, cublas_handle_, *blob_tensors_[0], kernel_tensors, forward_output_tensors, forward_hidden_tensors,
+      stream, *blob_tensors_[0], kernel_tensors, forward_output_tensors, forward_hidden_tensors,
       *blob_tensors_[num_layers_], *blob_tensors_[0], kernel_output_tensors, bias_output_tensors,
       *tmp_vec_tensor_,
       {tmp_mat_tensors_[0].get(), tmp_mat_tensors_[1].get(), tmp_mat_tensors_[2].get()},
