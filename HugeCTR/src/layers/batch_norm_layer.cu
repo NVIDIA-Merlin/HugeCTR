@@ -32,8 +32,9 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weig
                                const std::shared_ptr<Tensor<float>>& in_tensor,
                                const std::shared_ptr<Tensor<float>>& out_tensor,
                                const Params& params, cudnnHandle_t const& cudnn_handle,
-                               int device_id)
-    : Layer(device_id),
+                               int device_id,
+                               std::vector<Initializer_t> initializer_types)
+    : Layer(device_id, initializer_types),
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION),
       cudnn_handle_(cudnn_handle) {
@@ -222,15 +223,19 @@ std::string BatchNormLayer::get_no_trained_params_in_string() {
   return result;
 }
 
-std::vector<float> BatchNormLayer::get_initializer() {
-  std::vector<float> initializer;
-  size_t gamma_len = gamma_->get_num_elements();
-  size_t beta_len = beta_->get_num_elements();
-  initializer.resize(gamma_len + beta_len);
+std::unique_ptr<DataSimulator<float>> BatchNormLayer::get_default_initializer(const int index) {
+  std::unique_ptr<DataSimulator<float>> simu(nullptr);
+  if (0 == index) {
+    auto ones_init = [] {return static_cast<float>(1); };
+    simu.reset(new SingleDataSimulator<float>(ones_init));
+  } else if (1 == index) {
+    auto zeros_init = [] {return static_cast<float>(0); };
+    simu.reset(new SingleDataSimulator<float>(zeros_init));
+  } else {
+    CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
+  }
 
-  for (unsigned int i = 0; i < gamma_len; i++) initializer[i] = 1.0f;
-  for (unsigned int i = 0; i < beta_len; i++) initializer[gamma_len + i] = 0.0f;
-  return initializer;
+  return simu;
 }
 
 }  // namespace HugeCTR

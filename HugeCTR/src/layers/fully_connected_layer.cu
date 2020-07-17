@@ -30,8 +30,9 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<flo
                                          const std::shared_ptr<Tensor<float>>& out_tensor,
                                          TensorFormat_t weight_format,
                                          cublasHandle_t const& cublas_handle, int device_id,
-                                         bool use_mixed_precision)
-    : cublas_handle_(cublas_handle), Layer(device_id), use_mixed_precision_(use_mixed_precision) {
+                                         bool use_mixed_precision,
+                                         std::vector<Initializer_t> initializer_types)
+    : cublas_handle_(cublas_handle), Layer(device_id, initializer_types), use_mixed_precision_(use_mixed_precision) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor->get_dims();
@@ -415,35 +416,64 @@ void FullyConnectedLayer::optimize() {
   CK_CUDA_THROW_(cudaStreamDestroy(stream));
 }
 
-std::vector<float> FullyConnectedLayer::get_initializer() {
-  std::vector<float> initializer;
-  initializer.resize((weights_[0])->get_num_elements() + (weights_[1])->get_num_elements());
+std::unique_ptr<DataSimulator<float>> FullyConnectedLayer::get_uniform_initializer(const int index) {
   const auto& in_tensor = in_tensors_[0];
   const auto& out_tensor = out_tensors_[0];
-  float in_dim = in_tensor->get_format() == TensorFormat_t::WH ? (in_tensor->get_dims())[0]
+  float bottom_dim = in_tensor->get_format() == TensorFormat_t::WH ? (in_tensor->get_dims())[0]
                                                                : (in_tensor->get_dims())[1];
-  float out_dim = out_tensor->get_format() == TensorFormat_t::WH ? (out_tensor->get_dims())[0]
+  float top_dim = out_tensor->get_format() == TensorFormat_t::WH ? (out_tensor->get_dims())[0]
                                                                  : (out_tensor->get_dims())[1];
-#ifdef PYTORCH_INIT
-  float stddev = sqrt(2.f / (in_dim + out_dim));
-  HugeCTR::GaussianDataSimulator<float> fdata_sim(0, stddev, -2 * stddev, 2 * stddev);
-  for (size_t i = 0; i < (weights_[0])->get_num_elements(); i++)
-    initializer[i] = fdata_sim.get_num();
-  float stddev2 = sqrt(1.f / out_dim);
-  HugeCTR::GaussianDataSimulator<float> fdata_sim2(0, stddev2, -2 * stddev2, 2 * stddev2);
-  for (size_t i = 0; i < (weights_[1])->get_num_elements(); i++)
-    initializer[i + (weights_[0])->get_num_elements()] = fdata_sim2.get_num();
 
-#else
-  float limit = sqrt(6.f / (in_dim + out_dim));
-  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1 * limit, limit);
-  for (size_t i = 0; i < (weights_[0])->get_num_elements(); i++)
-    initializer[i] = fdata_sim.get_num();
-  for (size_t i = 0; i < (weights_[1])->get_num_elements(); i++)
-    initializer[i + (weights_[0])->get_num_elements()] = 0.f;
+  float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
+  return std::unique_ptr<DataSimulator<float>>(new UnifiedDataSimulator<float>(-1 * limit, limit));
+}
 
-#endif
-  return initializer;
+std::unique_ptr<DataSimulator<float>> FullyConnectedLayer::get_xavier_uniform_initializer(const int index) {
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
+  float bottom_dim = in_tensor->get_format() == TensorFormat_t::WH ? (in_tensor->get_dims())[0]
+                                                               : (in_tensor->get_dims())[1];
+  float top_dim = out_tensor->get_format() == TensorFormat_t::WH ? (out_tensor->get_dims())[0]
+                                                                 : (out_tensor->get_dims())[1];
+
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
+            data_simu::Distribution_t::Uniform,
+            0 == index ? bottom_dim : 0, top_dim));
+}
+
+std::unique_ptr<DataSimulator<float>> FullyConnectedLayer::get_xavier_norm_initializer(const int index) {
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
+  float bottom_dim = in_tensor->get_format() == TensorFormat_t::WH ? (in_tensor->get_dims())[0]
+                                                               : (in_tensor->get_dims())[1];
+  float top_dim = out_tensor->get_format() == TensorFormat_t::WH ? (out_tensor->get_dims())[0]
+                                                                 : (out_tensor->get_dims())[1];
+
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
+            data_simu::Distribution_t::Norm,
+            0 == index ? bottom_dim : 0, top_dim));
+}
+
+std::unique_ptr<DataSimulator<float>> FullyConnectedLayer::get_default_initializer(const int index) {
+  const auto& in_tensor = in_tensors_[0];
+  const auto& out_tensor = out_tensors_[0];
+  float bottom_dim = in_tensor->get_format() == TensorFormat_t::WH ? (in_tensor->get_dims())[0]
+                                                               : (in_tensor->get_dims())[1];
+  float top_dim = out_tensor->get_format() == TensorFormat_t::WH ? (out_tensor->get_dims())[0]
+                                                                 : (out_tensor->get_dims())[1];
+
+  std::unique_ptr<DataSimulator<float>> simu(nullptr);
+  if (0 == index) {
+    simu.reset(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm,
+            bottom_dim, top_dim));
+  } else if (1 == index) {
+    float stddev = sqrt(1.f / top_dim);
+    simu.reset(new GaussianDataSimulator<float>(0, stddev, -2 * stddev, 2 * stddev));
+  } else {
+    CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
+  }
+
+  return simu;
 }
 
 }  // namespace HugeCTR
