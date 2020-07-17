@@ -230,10 +230,13 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"MultiCross", Layer_t::MultiCross}};
 const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
+    {"Concat", Layer_t::Concat},
     {"Cast", Layer_t::Cast},
     {"InnerProduct", Layer_t::InnerProduct},
     {"FusedInnerProduct", Layer_t::FusedInnerProduct},
     {"Interaction", Layer_t::Interaction},
+    {"Reshape", Layer_t::Reshape},
+    {"Slice", Layer_t::Slice},
     {"ReLU", Layer_t::ReLU}};
 const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
@@ -355,10 +358,17 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
       case Layer_t::Concat: {
         auto& in_tensors = input_output_info.input;
-        std::shared_ptr<Tensor<float>> out_tensor;
-        layers.emplace_back(new ConcatLayer(tensor_vec_dynamic_cast<float>(in_tensors),
-                                            out_tensor, blobs_buff, device_id));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        if (use_mixed_precision) {
+          std::shared_ptr<Tensor<__half>> out_tensor;
+          layers.emplace_back(new ConcatLayer<__half>(tensor_vec_dynamic_cast<__half>(in_tensors),
+                                              out_tensor, blobs_buff_half, device_id));
+          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        } else {
+          std::shared_ptr<Tensor<float>> out_tensor;
+          layers.emplace_back(new ConcatLayer<float>(tensor_vec_dynamic_cast<float>(in_tensors),
+                                              out_tensor, blobs_buff, device_id));
+          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        }
         break;
       }
       case Layer_t::CrossEntropyLoss: {
@@ -454,7 +464,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           Layer* fc_layer = new FusedFullyConnectedLayer(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, blobs_buff_half,
-              std::dynamic_pointer_cast<Tensor<__half>>(fc_in_tensor), out_tensor,
+              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor,
               TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id, initializer_types);
           layers.emplace_back(fc_layer);
         } else {
@@ -511,7 +521,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           Layer* fc_layer = new FullyConnectedLayerHalf(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff_half,
-              std::dynamic_pointer_cast<Tensor<__half>>(fc_in_tensor), out_tensor,
+              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor,
               TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id, initializer_types);
           layers.emplace_back(fc_layer);
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
@@ -586,7 +596,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         // establish layer
         Layer* mc_layer = new MultiCrossLayer(
-            weight_buff, wgrad_buff, std::dynamic_pointer_cast<Tensor<float>>(mc_in_tensor),
+            weight_buff, wgrad_buff, dynamic_tensor_cast<float>(mc_in_tensor),
             out_tensor, num_layers, device_id, initializer_types);
         layers.emplace_back(mc_layer);
         break;
@@ -652,7 +662,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
       case Layer_t::Reshape: {
         const auto& in_tensor = input_output_info.input[0];
-        std::shared_ptr<Tensor<float>> out_tensor;
 
         auto selected_it = j.find("selected");
         // selective reshape
@@ -664,8 +673,18 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             if (slot_id < 0) CK_THROW_(Error_t::WrongInput, "slot_id < 0");
             selected.push_back(slot_id);
           }
-          layers.emplace_back(new ReshapeLayer(dynamic_tensor_cast<float>(in_tensor),
-                                               out_tensor, blobs_buff, selected, device_id));
+
+          if (use_mixed_precision) {
+            std::shared_ptr<Tensor<__half>> out_tensor;
+            layers.emplace_back(new ReshapeLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
+                                                 out_tensor, blobs_buff_half, selected, device_id));
+            output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          } else {
+            std::shared_ptr<Tensor<float>> out_tensor;
+            layers.emplace_back(new ReshapeLayer<float>(dynamic_tensor_cast<float>(in_tensor),
+                                                 out_tensor, blobs_buff, selected, device_id));
+            output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          }
         }
         // general purpose reshape
         else {
@@ -675,11 +694,18 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           int leading_dim = (leading_dim_it != j.end())
                                 ? (*leading_dim_it).get<int>()
                                 : in_tensor->get_num_elements() / in_dims[0];
-          layers.emplace_back(new ReshapeLayer(dynamic_tensor_cast<float>(in_tensor),
-                                               out_tensor, leading_dim, device_id));
+          if (use_mixed_precision) {
+            std::shared_ptr<Tensor<__half>> out_tensor;
+            layers.emplace_back(new ReshapeLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
+                                                 out_tensor, leading_dim, device_id));
+            output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          } else {
+            std::shared_ptr<Tensor<float>> out_tensor;
+            layers.emplace_back(new ReshapeLayer<float>(dynamic_tensor_cast<float>(in_tensor),
+                                                 out_tensor, leading_dim, device_id));
+            output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          }
         }
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-
         break;
       }
       case Layer_t::Slice: {
@@ -693,11 +719,21 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           ranges.emplace_back(std::make_pair(j_range[0].get<int>(), j_range[1].get<int>()));
         }
 
-        Tensors<float> out_tensors;
-        layers.emplace_back(new SliceLayer(dynamic_tensor_cast<float>(in_tensor),
-                                           out_tensors, blobs_buff, ranges, device_id));
-        for (size_t i = 0; i < out_tensors.size(); i++) {
-          output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
+        if (use_mixed_precision) {
+          Tensors<__half> out_tensors;
+          layers.emplace_back(new SliceLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
+                                             out_tensors, blobs_buff_half, ranges, device_id));
+          for (size_t i = 0; i < out_tensors.size(); i++) {
+            output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
+          }
+        } else {
+          Tensors<float> out_tensors;
+          layers.emplace_back(new SliceLayer<float>(dynamic_tensor_cast<float>(in_tensor),
+                                             out_tensors, blobs_buff, ranges, device_id));
+          for (size_t i = 0; i < out_tensors.size(); i++) {
+            output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
+          }
+
         }
         break;
       }
@@ -725,7 +761,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         std::shared_ptr<Tensor<float>> out_tensor;
         Layer* mul_layer = new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff,
-                                              std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+                                              dynamic_tensor_cast<float>(in_tensor),
                                               out_tensor, weight_dims, device_id, initializer_types);
         layers.emplace_back(mul_layer);
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
