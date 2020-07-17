@@ -11,6 +11,20 @@ before_script:
   - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 -DNCCL_INCLUDE_DIR=/usr/local/cuda-11.0/targets/x86_64-linux/include -DNCCL_LIBRARIES=/usr/local/cuda-11.0/targets/x86_64-linux/lib ..
   - make -j
 
+criteo:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/criteo
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/criteo/criteo.json
+
+criteo_multi_slots:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/criteo_multi_slots
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/criteo_multi_slots/criteo_multi_slots.json
+
 wdl:
   tags:
     - hugectr
@@ -31,13 +45,13 @@ unit_tests:
   script:
     - cd ${CI_PROJECT_DIR}/build/bin
     - ./session_test
+    - ./layers_test
     - ./checker_test
     - ./data_parser_test
     - ./data_reader_test
     - ./device_map_test
     - ./embedding_test
     - ./heap_test
-    - ./layers_test
     - ./loss_test
     - ./optimizer_test
     - ./parser_test
