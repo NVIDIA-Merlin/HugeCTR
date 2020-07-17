@@ -2,7 +2,7 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 50000,
+    "max_iter": 10000,
     "gpu": [0,1],
     "batchsize": 40960,
     "snapshot": 10000,
