@@ -64,7 +64,7 @@ class MultiCrossLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
@@ -90,14 +90,12 @@ class MultiCrossLayer : public Layer {
 
   MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
                   const GeneralBufferPtr<float>& wgrad_buff, const TensorPtr<float>& in_tensor,
-                  const TensorPtr<float>& out_tensor, int num_layers, int device_id);
+                  const TensorPtr<float>& out_tensor, int num_layers, int device_id,
+                  std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   MultiCrossLayer(const MultiCrossLayer&) = delete;
   MultiCrossLayer& operator=(const MultiCrossLayer&) = delete;
 
  private:
-  /**
-   * Use Gaussian initialization.
-   */
-  std::vector<float> get_initializer() override;
+  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
 };
 }  // namespace HugeCTR

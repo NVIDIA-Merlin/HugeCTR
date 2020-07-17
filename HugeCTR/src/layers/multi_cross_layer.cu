@@ -415,8 +415,9 @@ void MultiCrossBackwardFunctor::operator()(
 MultiCrossLayer::MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
                                  const GeneralBufferPtr<float>& wgrad_buff,
                                  const TensorPtr<float>& in_tensor,
-                                 const TensorPtr<float>& out_tensor, int num_layers, int device_id)
-    : Layer(device_id), num_layers_(num_layers), blobs_buff_(new GeneralBuffer<float>()) {
+                                 const TensorPtr<float>& out_tensor, int num_layers, int device_id,
+                                 std::vector<Initializer_t> initializer_types)
+    : Layer(device_id, initializer_types), num_layers_(num_layers), blobs_buff_(new GeneralBuffer<float>()) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor->get_dims();
@@ -524,38 +525,24 @@ void MultiCrossLayer::bprop(cudaStream_t stream) {
       num_layers_);
 }
 
-std::vector<float> MultiCrossLayer::get_initializer() {
-  std::vector<float> initializer;
-  size_t weight_size = 0;
-  for (const auto& w : weights_) {
-    weight_size += w->get_num_elements();
-  }
-  initializer.resize(weight_size);
+std::unique_ptr<DataSimulator<float>> MultiCrossLayer::get_default_initializer(const int index) {
   const auto& in_tensor = in_tensors_[0];
   const auto& out_tensor = out_tensors_[0];
-  float in_dim = in_tensor->get_dims()[1];
-  float out_dim = out_tensor->get_dims()[1];
+  float bottom_dim = in_tensor->get_dims()[1];
+  float top_dim = out_tensor->get_dims()[1];
 
-  // glorot_uniform
-  float limit = sqrt(6.f / (in_dim + out_dim));
-  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-1 * limit, limit);
-
-  size_t w_size_accum = 0;
-  for (int i = 0; i < num_layers_; i++) {
-    // setup weights
-    size_t w_size = (weights_[2 * i])->get_num_elements();
-    for (unsigned int j = 0; j < w_size; j++) {
-      initializer[w_size_accum + j] = fdata_sim.get_num();
-    }
-    w_size_accum += w_size;
-    // setup bias
-    w_size = (weights_[2 * i + 1])->get_num_elements();
-    for (unsigned int j = 0; j < w_size; j++) {
-      initializer[w_size_accum + j] = 0.f;
-    }
-    w_size_accum += w_size;
+  std::unique_ptr<DataSimulator<float>> simu(nullptr);
+  if (0 == index) {
+    simu.reset(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform,
+            bottom_dim, top_dim));
+  } else if (1 == index) {
+    auto zero_init = [] {return static_cast<float>(0); };
+    simu.reset(new SingleDataSimulator<float>(zero_init));
+  } else {
+    CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
   }
-  return initializer;
+
+  return simu;
 }
 
 }  // namespace HugeCTR
