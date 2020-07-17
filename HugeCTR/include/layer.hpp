@@ -34,6 +34,16 @@ class Layer {
    */
   const int device_id_;
 
+ protected:
+  /*
+   * stores the initializer types of this layer.
+   */
+  std::vector<Initializer_t> initializer_types_;
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors<float> weights_;
+
  public:
   /*
    * Forward pass
@@ -54,7 +64,8 @@ class Layer {
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
   void init_params(std::ofstream& out_stream);
   inline int get_device_id() const { return device_id_; }
-  Layer(int device_id) : device_id_(device_id) {}
+  Layer(int device_id, std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>()) 
+    : device_id_(device_id), initializer_types_(initializer_types) {}
   Layer(const Layer& C) = delete;
   Layer& operator=(const Layer& C) = delete;
   virtual ~Layer() {}
@@ -63,11 +74,32 @@ class Layer {
    */
   virtual void optimize() {}
 
+  std::vector<float> get_initializer();
+
  private:
-  /*
-   * Layer initializer. If a layer wants the specific weight initialization,
-   * Override this private function accordingly, e.g., BatchNormLayer
-   */
-  virtual std::vector<float> get_initializer() { return std::vector<float>(); }
+ 
+/*
+* Layer initializer. If a layer wants the specific weight initialization,
+* Override each private function accordingly, e.g., BatchNormLayer
+*/
+  std::unique_ptr<DataSimulator<float>> get_zero_initializer(const int index) {
+    auto zero_init = [] {return static_cast<float>(0); };
+    return std::unique_ptr<DataSimulator<float>>(new SingleDataSimulator<float>(zero_init));
+  }
+  
+  virtual std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) {
+    return std::move(get_default_initializer(index));
+  }
+  virtual std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) {
+    return std::move(get_default_initializer(index));
+  }
+  virtual std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) {
+    return std::move(get_default_initializer(index));
+  }
+  virtual std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) {
+    return std::move(get_zero_initializer(index));
+  }
+  
+
 };
 }  // namespace HugeCTR
