@@ -93,8 +93,9 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
     const GeneralBufferPtr<__half>& weights_buff, const GeneralBufferPtr<__half>& weights_grad_buff,
     const GeneralBufferPtr<float>& blobs_buff, const GeneralBufferPtr<__half>& blobs_half_buff,
     const TensorPtr<__half>& bottom_tensor, const TensorPtr<__half>& top_tensor,
-    TensorFormat_t weight_tensor_format, cublasHandle_t const& cublas_handle, int device_id)
-    : Layer(device_id),
+    TensorFormat_t weight_tensor_format, cublasHandle_t const& cublas_handle, int device_id,
+    std::vector<Initializer_t> initializer_types)
+    : Layer(device_id, initializer_types),
       cublas_handle_(cublas_handle),
       falgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -123,13 +124,13 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
   std::vector<size_t> kernel_dim = {k, n};
   std::vector<size_t> bias_dim = {1, n};
 
-  master_weights_.emplace_back(
+  weights_.emplace_back(
       new Tensor<float>(kernel_dim, master_weights_buff, weight_tensor_format));
-  master_weights_.emplace_back(
+  weights_.emplace_back(
       new Tensor<float>(bias_dim, master_weights_buff, weight_tensor_format));
 
-  weights_.emplace_back(new Tensor<__half>(kernel_dim, weights_buff, weight_tensor_format));
-  weights_.emplace_back(new Tensor<__half>(bias_dim, weights_buff, weight_tensor_format));
+  weights_half_.emplace_back(new Tensor<__half>(kernel_dim, weights_buff, weight_tensor_format));
+  weights_half_.emplace_back(new Tensor<__half>(bias_dim, weights_buff, weight_tensor_format));
 
   weights_grad_.emplace_back(
       new Tensor<__half>(kernel_dim, weights_grad_buff, weight_tensor_format));
@@ -146,8 +147,8 @@ void FusedFullyConnectedLayer::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
-  const __half* kernel = weights_[0]->get_ptr();
-  const __half* bias = weights_[1]->get_ptr();
+  const __half* kernel = weights_half_[0]->get_ptr();
+  const __half* bias = weights_half_[1]->get_ptr();
   const __half* bottom = bottom_tensor_->get_ptr();
   __half* middle = middle_tensor_->get_ptr();
   __half* top = top_tensor_->get_ptr();
@@ -181,7 +182,7 @@ void FusedFullyConnectedLayer::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
-  const __half* kernel = weights_[0]->get_ptr();
+  const __half* kernel = weights_half_[0]->get_ptr();
   const __half* top = top_tensor_->get_ptr();
   __half* kernel_grad = weights_grad_[0]->get_ptr();
   __half* bias_grad = weights_grad_[1]->get_ptr();
@@ -237,8 +238,8 @@ void FusedFullyConnectedLayer::optimize() {
   // Device Tensors to be used
   __half* bottom = bottom_tensor_->get_ptr();
   __half* top = top_tensor_->get_ptr();
-  __half* kernel = weights_[0]->get_ptr();
-  __half* bias = weights_[1]->get_ptr();
+  __half* kernel = weights_half_[0]->get_ptr();
+  __half* bias = weights_half_[1]->get_ptr();
   __half* kernel_grad = weights_grad_[0]->get_ptr();
   __half* bias_grad = weights_grad_[1]->get_ptr();
 
@@ -375,31 +376,48 @@ void FusedFullyConnectedLayer::optimize() {
   CK_CUDA_THROW_(cudaStreamDestroy(stream));
 }  // namespace HugeCTR
 
-std::vector<float> FusedFullyConnectedLayer::get_initializer() {
-  const size_t kernel_elements = weights_[0]->get_num_elements();
-  const size_t bias_elements = weights_[1]->get_num_elements();
+std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_uniform_initializer(const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
-  std::vector<float> buffer(kernel_elements + bias_elements, 0.0f);
+  float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
+  return std::unique_ptr<DataSimulator<float>>(new UnifiedDataSimulator<float>(-1 * limit, limit));
+}
 
-  {
-    float stddev = sqrtf(2.0f / (bottom_dim + top_dim));
-    HugeCTR::GaussianDataSimulator<float> simulator(0, stddev, -10 * stddev, 10 * stddev);
-    for (size_t i = 0; i < kernel_elements; i++) {
-      buffer[i] = simulator.get_num();
-    }
+std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_xavier_uniform_initializer(const int index) {
+  size_t bottom_dim = bottom_tensor_->get_dims()[1];
+  size_t top_dim = top_tensor_->get_dims()[1];
+
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
+            data_simu::Distribution_t::Uniform,
+            0 == index ? bottom_dim : 0, top_dim));
+}
+
+std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_xavier_norm_initializer(const int index) {
+  size_t bottom_dim = bottom_tensor_->get_dims()[1];
+  size_t top_dim = top_tensor_->get_dims()[1];
+
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
+            data_simu::Distribution_t::Norm,
+            0 == index ? bottom_dim : 0, top_dim));
+}
+
+std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_default_initializer(const int index) {
+  size_t bottom_dim = bottom_tensor_->get_dims()[1];
+  size_t top_dim = top_tensor_->get_dims()[1];
+
+  std::unique_ptr<DataSimulator<float>> simu(nullptr);
+  if (0 == index) {
+    simu.reset(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm,
+            bottom_dim, top_dim));
+  } else if (1 == index) {
+    float stddev = sqrt(1.f / top_dim);
+    simu.reset(new GaussianDataSimulator<float>(0, stddev, -2 * stddev, 2 * stddev));
+  } else {
+    CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
   }
 
-  {
-    float stddev = sqrtf(1.0f / top_dim);
-    HugeCTR::GaussianDataSimulator<float> simulator(0, stddev, -10 * stddev, 10 * stddev);
-    for (size_t i = 0; i < bias_elements; i++) {
-      buffer[i + kernel_elements] = simulator.get_num();
-    }
-  }
-
-  return buffer;
+  return simu;
 }
 
 }  // namespace HugeCTR

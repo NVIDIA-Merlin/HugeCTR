@@ -239,6 +239,11 @@ const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
     {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},
     {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot}};
+const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
+    {"Uniform", Initializer_t::Uniform},
+    {"XavierNorm", Initializer_t::XavierNorm},
+    {"XavierUniform", Initializer_t::XavierUniform},
+    {"Zero", Initializer_t::Zero}};
 
 /*
  * Create single network
@@ -293,11 +298,31 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto j_bn_hparam = get_json(j, "bn_param");
         auto factor = get_value_from_json<float>(j_bn_hparam, "factor");
         auto eps = get_value_from_json<float>(j_bn_hparam, "eps");
+        // establish initializer
+        std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
+        if (has_key_(j_bn_hparam, "gamma_init")){
+          const auto gamma_init_name = get_value_from_json<std::string>(j_bn_hparam, "gamma_init");
+          Initializer_t gamma_init_type;
+          if (!find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
+          } else {
+            initializer_types[0] = gamma_init_type;
+          }
+        }
+        if (has_key_(j_bn_hparam, "beta_init")){
+          const auto beta_init_name = get_value_from_json<std::string>(j_bn_hparam, "beta_init");
+          Initializer_t beta_init_type;
+          if (!find_item_in_map(beta_init_type, beta_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + beta_init_name);
+          } else {
+            initializer_types[1] = beta_init_type;
+          }
+        }
 
         BatchNormLayer::Params params = {factor, eps};
         layers.emplace_back(new BatchNormLayer(
             weight_buff, wgrad_buff, dynamic_tensor_cast<float>(bn_in_tensor),
-            bn_out_tensor, params, gpu_resource->get_cudnn_handle(), device_id));
+            bn_out_tensor, params, gpu_resource->get_cudnn_handle(), device_id, initializer_types));
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
@@ -397,8 +422,29 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
       case Layer_t::FusedInnerProduct: {
         const auto& fc_in_tensor = input_output_info.input[0];
-        // establish out tensor
+
         auto j_fc_param = get_json(j, "fc_param");
+        // establish initializer
+        std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
+        if (has_key_(j_fc_param, "weight_init")){
+          const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
+          Initializer_t weight_init_type;
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          } else {
+            initializer_types[0] = weight_init_type;
+          }
+        }
+        if (has_key_(j_fc_param, "bias_init")){
+          const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
+          Initializer_t bias_init_type;
+          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          } else {
+            initializer_types[1] = bias_init_type;
+          }
+        }
+        // establish out tensor
         auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
         if (use_mixed_precision) {
           std::shared_ptr<Tensor<__half>> out_tensor(new Tensor<__half>(
@@ -408,8 +454,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           Layer* fc_layer = new FusedFullyConnectedLayer(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, blobs_buff_half,
-              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor,
-              TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id);
+              std::dynamic_pointer_cast<Tensor<__half>>(fc_in_tensor), out_tensor,
+              TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id, initializer_types);
           layers.emplace_back(fc_layer);
         } else {
           CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
@@ -433,8 +479,30 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
       case Layer_t::InnerProduct: {
         const auto& fc_in_tensor = input_output_info.input[0];
-        // establish out tensor
+
         auto j_fc_param = get_json(j, "fc_param");
+        // establish initializer
+        std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
+        if (has_key_(j_fc_param, "weight_init")){
+          const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
+          Initializer_t weight_init_type;
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          } else {
+            initializer_types[0] = weight_init_type;
+          }
+        }
+        if (has_key_(j_fc_param, "bias_init")){
+          const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
+          Initializer_t bias_init_type;
+          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          } else {
+            initializer_types[1] = bias_init_type;
+          }
+        }
+
+        // establish out tensor
         auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
 
         if (use_mixed_precision) {
@@ -443,8 +511,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           Layer* fc_layer = new FullyConnectedLayerHalf(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff_half,
-              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor,
-              TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id);
+              std::dynamic_pointer_cast<Tensor<__half>>(fc_in_tensor), out_tensor,
+              TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id, initializer_types);
           layers.emplace_back(fc_layer);
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         } else {
@@ -454,7 +522,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           Layer* fc_layer = new FullyConnectedLayer(
               weight_buff, wgrad_buff, dynamic_tensor_cast<float>(fc_in_tensor),
               out_tensor, TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id,
-              use_mixed_precision);
+              use_mixed_precision, initializer_types);
           layers.emplace_back(fc_layer);
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         }
@@ -488,16 +556,38 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
       case Layer_t::MultiCross: {
         auto& mc_in_tensor = input_output_info.input[0];
-        // establish out tensor
+
         auto j_mc_param = get_json(j, "mc_param");
+        // establish initializer
+        std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
+        if (has_key_(j_mc_param, "weight_init")){
+          const auto weight_init_name = get_value_from_json<std::string>(j_mc_param, "weight_init");
+          Initializer_t weight_init_type;
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          } else {
+            initializer_types[0] = weight_init_type;
+          }
+        }
+        if (has_key_(j_mc_param, "bias_init")){
+          const auto bias_init_name = get_value_from_json<std::string>(j_mc_param, "bias_init");
+          Initializer_t bias_init_type;
+          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          } else {
+            initializer_types[1] = bias_init_type;
+          }
+        }
+
+        // establish out tensor
         auto num_layers = get_value_from_json<int>(j_mc_param, "num_layers");
         std::shared_ptr<Tensor<float>> out_tensor(
             new Tensor<float>(mc_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         // establish layer
         Layer* mc_layer = new MultiCrossLayer(
-            weight_buff, wgrad_buff, dynamic_tensor_cast<float>(mc_in_tensor),
-            out_tensor, num_layers, device_id);
+            weight_buff, wgrad_buff, std::dynamic_pointer_cast<Tensor<float>>(mc_in_tensor),
+            out_tensor, num_layers, device_id, initializer_types);
         layers.emplace_back(mc_layer);
         break;
       }
@@ -621,10 +711,23 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           weight_dims.emplace_back(dim.get<size_t>());
         }
 
+        // establish initializer
+        std::vector<Initializer_t> initializer_types(1, Initializer_t::Default);
+        if (has_key_(j, "weight_init")){
+          const auto weight_init_name = get_value_from_json<std::string>(j, "weight_init");
+          Initializer_t weight_init_type;
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)){
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          } else {
+            initializer_types[0] = weight_init_type;
+          }
+        }
+
         std::shared_ptr<Tensor<float>> out_tensor;
-        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff,
-                                              dynamic_tensor_cast<float>(in_tensor),
-                                              out_tensor, weight_dims, device_id));
+        Layer* mul_layer = new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff,
+                                              std::dynamic_pointer_cast<Tensor<float>>(in_tensor),
+                                              out_tensor, weight_dims, device_id, initializer_types);
+        layers.emplace_back(mul_layer);
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }

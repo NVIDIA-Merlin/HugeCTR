@@ -39,7 +39,7 @@ class FullyConnectedLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
@@ -84,14 +84,18 @@ class FullyConnectedLayer : public Layer {
                       const std::shared_ptr<Tensor<float>>& in_tensor,
                       const std::shared_ptr<Tensor<float>>& out_tensor,
                       TensorFormat_t weight_format, cublasHandle_t const& cublas_handle,
-                      int device_id, bool use_mixed_precision = false);
+                      int device_id, bool use_mixed_precision = false,
+                      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);
 
  private:
-  /**
-   * Use Gaussian initialization.
-   */
-  std::vector<float> get_initializer() override;
+  /*
+  * initializers for this layer.
+  */
+  std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
 };
 }  // namespace HugeCTR
