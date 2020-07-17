@@ -28,23 +28,24 @@ namespace HugeCTR {
  * e.g., (batch_size * n_slots, vector_size) to (batch_size, n_slots * vector_size),
  * If the input tensor is 3D, you can choose which slots participate by calling the different Ctor
  */
+template <typename T>
 class ReshapeLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  Tensors<T> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
 
  public:
   /**
@@ -57,8 +58,8 @@ class ReshapeLayer : public Layer {
    * e.g., batch_size * n_slots * vector_size % leading_dim == 0
    * @param device_id the id of GPU where this layer belongs
    */
-  ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-               std::shared_ptr<Tensor<float>>& out_tensor, size_t leading_dim, int device_id);
+  ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
+               std::shared_ptr<Tensor<T>>& out_tensor, size_t leading_dim, int device_id);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
    * @param in_tensor the input tensor
@@ -68,9 +69,9 @@ class ReshapeLayer : public Layer {
    * Othewise, the only selected slots are concatenated in newly assigned tensor.
    * @param device_id the id of GPU where this layer belongs
    */
-  ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-               std::shared_ptr<Tensor<float>>& out_tensor,
-               const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, std::vector<int>& selected,
+  ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
+               std::shared_ptr<Tensor<T>>& out_tensor,
+               const std::shared_ptr<GeneralBuffer<T>>& blobs_buff, std::vector<int>& selected,
                int device_id);
   ~ReshapeLayer() override;
 

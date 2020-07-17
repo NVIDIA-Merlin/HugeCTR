@@ -29,14 +29,15 @@ using namespace HugeCTR;
 
 namespace {
 
+template <typename T>
 void reshape_test(vector<size_t>& in_dims, size_t leading_dim) {
-  std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(
+  std::shared_ptr<GeneralBuffer<T>> buff(new GeneralBuffer<T>());
+  std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(
       in_dims, buff, (in_dims.size() == 3) ? TensorFormat_t::HSW : TensorFormat_t::HW));
   buff->init(0);
 
-  std::shared_ptr<Tensor<float>> out_tensor;
-  ReshapeLayer reshape_layer(in_tensor, out_tensor, leading_dim, 0);
+  std::shared_ptr<Tensor<T>> out_tensor;
+  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, leading_dim, 0);
 
   ASSERT_TRUE(out_tensor);
 
@@ -48,24 +49,56 @@ void reshape_test(vector<size_t>& in_dims, size_t leading_dim) {
               leading_dim == out_dims[out_dims.size() - 1]);
 }
 
+template <typename T>
 void reshape_2d_test(size_t dim0, size_t dim1, size_t leading_dim) {
   vector<size_t> in_dims = {dim0, dim1};
-  reshape_test(in_dims, leading_dim);
+  reshape_test<T>(in_dims, leading_dim);
 }
 
+template <typename T>
 void reshape_3d_test(size_t dim0, size_t dim1, size_t dim2, size_t leading_dim) {
   vector<size_t> in_dims = {dim0, dim1, dim2};
-  reshape_test(in_dims, leading_dim);
+  reshape_test<T>(in_dims, leading_dim);
 }
 
 }  // namespace
 
-TEST(reshape_layer, 32x320to8x1280) { reshape_2d_test(8 * 4, 320, 4 * 320); }
+TEST(reshape_layer, fp32_32x320to8x1280) { 
+  reshape_2d_test<float>(8 * 4, 320, 4 * 320); 
+}
 
-TEST(reshape_layer, 32x320to16x640) { reshape_2d_test(8 * 4, 320, 2 * 320); }
+TEST(reshape_layer, fp32_32x320to16x640) { 
+  reshape_2d_test<float>(8 * 4, 320, 2 * 320); 
+}
 
-TEST(reshape_layer, 8x4x320to8x1280) { reshape_3d_test(8, 4, 320, 4 * 320); }
+TEST(reshape_layer, fp32_8x4x320to8x1280) { 
+  reshape_3d_test<float>(8, 4, 320, 4 * 320); 
+}
 
-TEST(reshape_layer, 8x4x320to4x2560) { reshape_3d_test(8, 4, 320, 8 * 320); }
+TEST(reshape_layer, fp32_8x4x320to4x2560) { 
+  reshape_3d_test<float>(8, 4, 320, 8 * 320); 
+}
 
-TEST(reshape_layer, 8x4x320to32x2560) { reshape_3d_test(8, 4, 320, 320); }
+TEST(reshape_layer, fp32_8x4x320to32x2560) { 
+  reshape_3d_test<float>(8, 4, 320, 320); 
+}
+
+TEST(reshape_layer, fp16_32x320to8x1280) { 
+  reshape_2d_test<__half>(8 * 4, 320, 4 * 320); 
+}
+
+TEST(reshape_layer, fp16_32x320to16x640) { 
+  reshape_2d_test<__half>(8 * 4, 320, 2 * 320); 
+}
+
+TEST(reshape_layer, fp16_8x4x320to8x1280) { 
+  reshape_3d_test<__half>(8, 4, 320, 4 * 320); 
+}
+
+TEST(reshape_layer, fp16_8x4x320to4x2560) { 
+  reshape_3d_test<__half>(8, 4, 320, 8 * 320); 
+}
+
+TEST(reshape_layer, fp16_8x4x320to32x2560) { 
+  reshape_3d_test<__half>(8, 4, 320, 320); 
+}
