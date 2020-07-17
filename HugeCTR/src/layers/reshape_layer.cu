@@ -50,8 +50,9 @@ __global__ void reshape_kernel(T* input, T* output, int batch_size, int n_slot, 
 
 }  // anonymous namespace
 
-ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                           std::shared_ptr<Tensor<float>>& out_tensor, size_t leading_dim,
+template <typename T>
+ReshapeLayer<T>::ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
+                           std::shared_ptr<Tensor<T>>& out_tensor, size_t leading_dim,
                            int device_id)
     : Layer(device_id),
       in_place_(true),
@@ -82,7 +83,7 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
 
     size_t trailing_dim = n_in_elems / leading_dim;
     std::vector<size_t> out_dims = {trailing_dim, leading_dim};
-    out_tensor.reset(new Tensor<float>(out_dims, *in_tensor, TensorFormat_t::HW));
+    out_tensor.reset(new Tensor<T>(out_dims, *in_tensor, TensorFormat_t::HW));
 
     in_tensors_.emplace_back(in_tensor);
     out_tensors_.emplace_back(out_tensor);
@@ -93,9 +94,10 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
   }
 }
 
-ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                           std::shared_ptr<Tensor<float>>& out_tensor,
-                           const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
+template <typename T>
+ReshapeLayer<T>::ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
+                           std::shared_ptr<Tensor<T>>& out_tensor,
+                           const std::shared_ptr<GeneralBuffer<T>>& blobs_buff,
                            std::vector<int>& selected, int device_id)
     : Layer(device_id),
       in_place_(selected.empty()),
@@ -121,9 +123,9 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
     std::vector<size_t> out_dims = {in_dims[0], in_dims_1 * in_dims[2]};
 
     if (in_place_) {
-      out_tensor.reset(new Tensor<float>(out_dims, *in_tensor, TensorFormat_t::HW));
+      out_tensor.reset(new Tensor<T>(out_dims, *in_tensor, TensorFormat_t::HW));
     } else {
-      out_tensor.reset(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
+      out_tensor.reset(new Tensor<T>(out_dims, blobs_buff, TensorFormat_t::HW));
       unsigned int i = 0;
       for (; i < in_dims.size() - 2; i++) batch_size_ += in_dims[i];
       n_slot_ = in_dims[i++];
@@ -145,25 +147,29 @@ ReshapeLayer::ReshapeLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
   }
 }
 
-ReshapeLayer::~ReshapeLayer() {
+template <typename T>
+ReshapeLayer<T>::~ReshapeLayer() {
   if (selected_) {
     cudaFree(selected_);
   }
 }
 
-void ReshapeLayer::fprop(cudaStream_t stream) { prop_common(true, stream); }
+template <typename T>
+void ReshapeLayer<T>::fprop(cudaStream_t stream) { prop_common(true, stream); }
 
-void ReshapeLayer::bprop(cudaStream_t stream) { prop_common(false, stream); }
+template <typename T>
+void ReshapeLayer<T>::bprop(cudaStream_t stream) { prop_common(false, stream); }
 
-void ReshapeLayer::prop_common(bool forward, cudaStream_t stream) {
+template <typename T>
+void ReshapeLayer<T>::prop_common(bool forward, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   if (!in_place_) {
     int block_size = 128;
     int n_block = n_sms_ * 16;
     const auto& in_tensor = in_tensors_[0];
     const auto& out_tensor = out_tensors_[0];
-    float* in = in_tensor->get_ptr();
-    float* out = out_tensor->get_ptr();
+    T* in = in_tensor->get_ptr();
+    T* out = out_tensor->get_ptr();
     reshape_kernel<<<n_block, block_size>>>(in, out, batch_size_, n_slot_, vector_length_,
                                             selected_, n_active_slot_, forward);
   }
@@ -172,5 +178,8 @@ void ReshapeLayer::prop_common(bool forward, cudaStream_t stream) {
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+
+template class ReshapeLayer<float>;
+template class ReshapeLayer<__half>;
 
 }  // namespace HugeCTR
