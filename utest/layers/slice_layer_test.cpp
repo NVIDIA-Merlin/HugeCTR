@@ -33,29 +33,30 @@ namespace {
 
 const float eps = 1e-5;
 
+template <typename T>
 void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, int>> ranges) {
-  std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer<T>> buff(new GeneralBuffer<T>());
   std::vector<size_t> in_dims = {height, width};
   TensorFormat_t in_format = TensorFormat_t::HW;
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buff, in_format));
+  std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(in_dims, buff, in_format));
 
   GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
-  std::vector<float> h_in(in_tensor->get_num_elements(), 0.0);
+  std::vector<T> h_in(in_tensor->get_num_elements(), 0.0);
   for (unsigned int i = 0; i < h_in.size(); i++) {
     h_in[i] = data_sim.get_num();
   }
 
-  Tensors<float> out_tensors;
-  SliceLayer slice_layer(in_tensor, out_tensors, buff, ranges, 0);
+  Tensors<T> out_tensors;
+  SliceLayer<T> slice_layer(in_tensor, out_tensors, buff, ranges, 0);
 
   size_t n_outs = out_tensors.size();
 
   buff->init(0);
 
   // fprop
-  std::vector<std::vector<float>> h_refs;
+  std::vector<std::vector<T>> h_refs;
   for (size_t i = 0; i < n_outs; i++) {
-    std::vector<float> h_ref(out_tensors[i]->get_num_elements(), 0.0);
+    std::vector<T> h_ref(out_tensors[i]->get_num_elements(), 0.0);
     h_refs.push_back(h_ref);
   }
 
@@ -72,17 +73,17 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
     i++;
   }
 
-  float* d_in = in_tensor->get_ptr();
+  T* d_in = in_tensor->get_ptr();
   cudaMemcpy(d_in, &h_in.front(), in_tensor->get_size(), cudaMemcpyHostToDevice);
 
   slice_layer.fprop(cudaStreamDefault);
 
   for (size_t i = 0; i < n_outs; i++) {
-    std::vector<float> h_out(out_tensors[i]->get_num_elements(), 0.0);
-    float* d_out = out_tensors[i]->get_ptr();
+    std::vector<T> h_out(out_tensors[i]->get_num_elements(), 0.0);
+    T* d_out = out_tensors[i]->get_ptr();
     cudaMemcpy(&h_out.front(), d_out, out_tensors[i]->get_size(), cudaMemcpyDeviceToHost);
     ASSERT_TRUE(
-        test::compare_array_approx<float>(&h_out.front(), &h_refs[i].front(), h_out.size(), eps));
+        test::compare_array_approx<T>(&h_out.front(), &h_refs[i].front(), h_out.size(), eps));
   }
 
   // bprop
@@ -98,60 +99,106 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
       for (int c = range.first; c < range.second; c++) {
         int in_idx = r * width + c;
         int out_idx = r * out_width + c - range.first;
-        h_in[in_idx] += h_refs[i][out_idx];
+        h_in[in_idx] = h_in[in_idx] + h_refs[i][out_idx];
       }
     }
     i++;
   }
-  std::vector<float> h_out(in_tensor->get_num_elements(), 0.0);
+  std::vector<T> h_out(in_tensor->get_num_elements(), 0.0);
   cudaMemcpy(&h_out.front(), d_in, in_tensor->get_size(), cudaMemcpyDeviceToHost);
-  ASSERT_TRUE(test::compare_array_approx<float>(&h_out.front(), &h_in.front(), h_out.size(), eps));
+  ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_in.front(), h_out.size(), eps));
 }
 
 }  // namespace
 
-TEST(slice_layer, 64x128_0_48_32_64) {
+TEST(slice_layer, fp32_64x128_0_48_32_64) {
   std::vector<std::pair<int, int>> ranges;
   ranges.push_back(std::make_pair(0, 48));
   ranges.push_back(std::make_pair(32, 64));
-  slice_layer_test(64, 128, ranges);
+  slice_layer_test<float>(64, 128, ranges);
 }
 
-TEST(slice_layer, 64x128_0_32_32_64) {
+TEST(slice_layer, fp32_64x128_0_32_32_64) {
   std::vector<std::pair<int, int>> ranges;
   ranges.push_back(std::make_pair(0, 32));
   ranges.push_back(std::make_pair(32, 64));
-  slice_layer_test(64, 128, ranges);
+  slice_layer_test<float>(64, 128, ranges);
 }
 
-TEST(slice_layer, 64x100_0_40_50_90) {
+TEST(slice_layer, fp32_64x100_0_40_50_90) {
   std::vector<std::pair<int, int>> ranges;
   ranges.push_back(std::make_pair(0, 40));
   ranges.push_back(std::make_pair(50, 90));
-  slice_layer_test(64, 100, ranges);
+  slice_layer_test<float>(64, 100, ranges);
 }
 
-TEST(slice_layer, 64x100_0_50_40_90) {
+TEST(slice_layer, fp32_64x100_0_50_40_90) {
   std::vector<std::pair<int, int>> ranges;
   ranges.push_back(std::make_pair(0, 50));
   ranges.push_back(std::make_pair(40, 90));
-  slice_layer_test(64, 100, ranges);
+  slice_layer_test<float>(64, 100, ranges);
 }
 
-TEST(slice_layer, 64x256_0_50_40_90_80_130) {
+TEST(slice_layer, fp32_64x256_0_50_40_90_80_130) {
   std::vector<std::pair<int, int>> ranges;
   ranges.push_back(std::make_pair(0, 50));
   ranges.push_back(std::make_pair(40, 90));
   ranges.push_back(std::make_pair(80, 130));
-  slice_layer_test(64, 256, ranges);
+  slice_layer_test<float>(64, 256, ranges);
 }
 
-TEST(slice_layer, 64x256_0_32_64_80_96_128_128_160_192_256) {
+TEST(slice_layer, fp32_64x256_0_32_64_80_96_128_128_160_192_256) {
   std::vector<std::pair<int, int>> ranges;
   ranges.push_back(std::make_pair(0, 32));
   ranges.push_back(std::make_pair(64, 80));
   ranges.push_back(std::make_pair(96, 128));
   ranges.push_back(std::make_pair(128, 160));
   ranges.push_back(std::make_pair(192, 256));
-  slice_layer_test(64, 256, ranges);
+  slice_layer_test<float>(64, 256, ranges);
+}
+
+TEST(slice_layer, fp16_64x128_0_48_32_64) {
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0, 48));
+  ranges.push_back(std::make_pair(32, 64));
+  slice_layer_test<__half>(64, 128, ranges);
+}
+
+TEST(slice_layer, fp16_64x128_0_32_32_64) {
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0, 32));
+  ranges.push_back(std::make_pair(32, 64));
+  slice_layer_test<__half>(64, 128, ranges);
+}
+
+TEST(slice_layer, fp16_64x100_0_40_50_90) {
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0, 40));
+  ranges.push_back(std::make_pair(50, 90));
+  slice_layer_test<__half>(64, 100, ranges);
+}
+
+TEST(slice_layer, fp16_64x100_0_50_40_90) {
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0, 50));
+  ranges.push_back(std::make_pair(40, 90));
+  slice_layer_test<__half>(64, 100, ranges);
+}
+
+TEST(slice_layer, fp16_64x256_0_50_40_90_80_130) {
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0, 50));
+  ranges.push_back(std::make_pair(40, 90));
+  ranges.push_back(std::make_pair(80, 130));
+  slice_layer_test<__half>(64, 256, ranges);
+}
+
+TEST(slice_layer, fp16_64x256_0_32_64_80_96_128_128_160_192_256) {
+  std::vector<std::pair<int, int>> ranges;
+  ranges.push_back(std::make_pair(0, 32));
+  ranges.push_back(std::make_pair(64, 80));
+  ranges.push_back(std::make_pair(96, 128));
+  ranges.push_back(std::make_pair(128, 160));
+  ranges.push_back(std::make_pair(192, 256));
+  slice_layer_test<__half>(64, 256, ranges);
 }
