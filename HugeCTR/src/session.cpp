@@ -305,7 +305,7 @@ Error_t SessionImpl<TypeKey>::eval() {
         gpu_resource_group_->results[i].get();
       }
     } else if (networks_eval_.size() == 1) {
-      networks_eval_[0]->eval();
+      network_eval_helper(0, networks_eval_[0].get(), metrics_);
     } else {
       assert(!"networks_eval_.size() should not less than 1.");
     }
