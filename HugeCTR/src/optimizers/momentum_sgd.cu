@@ -18,8 +18,6 @@
 
 namespace {
 
-__device__ int debug_counter;
-
 __device__ __forceinline__ void momentumSGD_update_device(
     float* weight_ptr, float* momentum_ptr, float wgrad,
     HugeCTR::MomentumSGDHyperParameters hyper_parameters, float scaler) {

@@ -44,8 +44,9 @@ enum class CmdOptions_t { Train, Version, Help };
 HugeCTR::Timer timer_log;
 
 void train(std::string config_file) {
-  int numprocs = 1, pid = 0;
+  int pid = 0;
 #ifdef ENABLE_MPI
+  int numprocs = 1;
   CK_MPI_THROW__(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
   CK_MPI_THROW__(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
@@ -206,10 +207,11 @@ int main(int argc, char* argv[]) {
   try {
     timer_log.start();
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "init_start");
-    int numprocs = 1, pid = 0;
     cudaSetDevice(0);
+    int pid = 0;
 #ifdef ENABLE_MPI
     int provided;
+    int numprocs = 1;
     CK_MPI_THROW__(MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided));
     CK_MPI_THROW__(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
     CK_MPI_THROW__(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));

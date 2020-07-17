@@ -55,7 +55,6 @@ TEST(data_reader_raw, data_reader_worker_raw_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  constexpr size_t buffer_length = max_nnz;
   std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap(
       new HeapEx<CSRChunk<T>>(1, num_devices, batchsize, label_dim + dense_dim, params));
 

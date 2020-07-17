@@ -33,8 +33,8 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler__(const nlohm
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
     const std::string configure_file) {
-  int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
+  int num_procs = 1, pid = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 #endif
