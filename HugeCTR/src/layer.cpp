@@ -40,7 +40,7 @@ std::vector<float> Layer::get_initializer() {
   std::vector<float> initializer(elements, 0.f);
 
   std::vector<std::unique_ptr<DataSimulator<float>>> simulators;
-  for (int index = 0; index < initializer_types_.size(); ++index) {
+  for (int index = 0; index < static_cast<int>(initializer_types_.size()); ++index) {
     switch (initializer_types_[index]) {
       case Initializer_t::Uniform : {
         simulators.push_back(get_uniform_initializer(index));

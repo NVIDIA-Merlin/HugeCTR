@@ -53,7 +53,7 @@ file(GLOB huge_ctr_src
   parsers/solver_parser.cpp
   parsers/learning_rate_scheduler_parser.cpp
   session.cpp
-  ../../gossip/include/plan_parser.cpp 
+  plan_parser.cpp 
   embedding_creator.cu
   data_collector.cu
 )
