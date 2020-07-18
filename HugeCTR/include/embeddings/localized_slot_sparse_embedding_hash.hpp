@@ -133,13 +133,13 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   std::vector<size_t> temp_storage_sort_bytes_; /**< The temp variable for CUB lib sorting API. */
   std::vector<size_t> temp_storage_scan_bytes_; /**< The temp variable for CUB lib scaning API. */
 
+  size_t max_vocabulary_size_;
   size_t max_vocabulary_size_per_gpu_; /**< Max vocabulary size for each GPU. */
   size_t max_hash_table_size_per_gpu_; /**< equal to max_vocabulary_size_per_gpu_ / load_factor. */
   int batch_size_per_gpu_;             /*< batch_size per GPU */
   std::vector<int> slot_num_per_gpu_;  /* slot_num per GPU */
 
   SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
-  std::vector<size_t> slot_sizes_;
 
 #ifndef NCCL_A2A
   std::string plan_file_;                          /**< plan file for all2all */
@@ -207,8 +207,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                                    const Tensors<TypeHashKey> &hash_key_tensors,
                                    SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params,
                                    const std::string plan_file,
-                                   const std::shared_ptr<GPUResourceGroup> &gpu_resource_group,
-                                   const std::vector<size_t>& slot_sizes);
+                                   const std::shared_ptr<GPUResourceGroup> &gpu_resource_group);
   /**
    * This function is used for implementing CPU multi-threads when doing
    * forward() on multi-GPUs. In this case, each CPU thread corresponding
@@ -242,22 +241,14 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    */
   void init_params() override {
     // do hash table value initialization
-    if (slot_sizes_.size() == 0) {  // if no slot_sizes provided, use the old method to init
+    if (embedding_params_.slot_size_array.empty()) {  // if no slot_sizes provided, use the old method to init
       functors_.init_embedding(max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size,
                                hash_table_value_tensors_, Base::device_resources_);
 
     } else {
-      if (slot_sizes_.size() == embedding_params_.slot_num) {
-        size_t total = 0;
-        for (auto slot_size : slot_sizes_) {
-          total += slot_size;
-        }
-        if (total != embedding_params_.vocabulary_size) {
-          throw std::runtime_error(std::string(
-              "[HCDEBUG][ERROR] Runtime error: the total sum of slot_sizes != vocabulary_size\n"));
-        }
+      if (embedding_params_.slot_size_array.size() == embedding_params_.slot_num) {
 #ifndef DATA_READING_TEST
-        functors_.init_embedding(slot_sizes_, embedding_params_.embedding_vec_size,
+        functors_.init_embedding(embedding_params_.slot_size_array, embedding_params_.embedding_vec_size,
                                  hash_table_value_tensors_, hash_tables_,
                                  hash_table_slot_id_tensors_, Base::device_resources_);
 #endif
@@ -317,9 +308,8 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotSparseEmbeddingHash(
     const Tensors<TypeHashKey> &row_offsets_tensors, const Tensors<TypeHashKey> &hash_key_tensors,
     SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params, const std::string plan_file,
-    const std::shared_ptr<GPUResourceGroup> &gpu_resource_group, const std::vector<size_t>& slot_sizes)
+    const std::shared_ptr<GPUResourceGroup> &gpu_resource_group)
     : embedding_params_(embedding_params),
-    slot_sizes_(slot_sizes),
 #ifndef NCCL_A2A
       plan_file_(plan_file),
 #endif
@@ -331,17 +321,18 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
     local_gpu_count_ = Base::device_resources_->size();
     CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-    if (slot_sizes.size() == 0) {
-      // CAUSION: The users need to gaurantee the given vocabulary size is big enough since
-      // the embedding table is ditrubuted by slot and the size of the slot maybe non-uniform.
-      float scaler = (ceil((float)embedding_params_.slot_num / total_gpu_count_) /
-                      floor((float)embedding_params_.slot_num / total_gpu_count_));
-      max_vocabulary_size_per_gpu_ =
-          (size_t)(ceil((float)embedding_params_.vocabulary_size / total_gpu_count_ * scaler));
+    if (embedding_params_.slot_size_array.empty()) {
+      max_vocabulary_size_per_gpu_ = embedding_params_.max_vocabulary_size_per_gpu;
+      max_vocabulary_size_ = embedding_params_.max_vocabulary_size_per_gpu * total_gpu_count_;
     } else {
       max_vocabulary_size_per_gpu_ = functors_.cal_max_voc_size_per_gpu(
-          total_gpu_count_, local_gpu_count_, slot_sizes, Base::device_resources_);
+          total_gpu_count_, local_gpu_count_, embedding_params_.slot_size_array, Base::device_resources_);
+      max_vocabulary_size_ = 0;
+      for(size_t slot_size : embedding_params_.slot_size_array) {
+        max_vocabulary_size_ += slot_size;
+      }
     }
+
     max_hash_table_size_per_gpu_ = max_vocabulary_size_per_gpu_ / embedding_params_.load_factor;
 
     MESSAGE_("max_vocabulary_size_per_gpu_=" + std::to_string(max_vocabulary_size_per_gpu_));
@@ -659,13 +650,13 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 #endif
       total_gpu_count_(obj.total_gpu_count_),
       local_gpu_count_(obj.local_gpu_count_),
+      max_vocabulary_size_(obj.max_vocabulary_size_),
       max_vocabulary_size_per_gpu_(obj.max_vocabulary_size_per_gpu_),
       max_hash_table_size_per_gpu_(obj.max_hash_table_size_per_gpu_),
       slot_num_per_gpu_(obj.slot_num_per_gpu_),
       hash_tables_(obj.hash_tables_),
       hash_table_value_tensors_(obj.hash_table_value_tensors_),
       hash_table_slot_id_tensors_(obj.hash_table_slot_id_tensors_),
-      slot_sizes_(obj.slot_sizes_),
       Base(row_offsets_tensors, value_tensors, batchsize, obj.embedding_params_.slot_num,
            obj.embedding_params_.embedding_vec_size, gpu_resource_group,
            obj.embedding_params_.opt_params.scaler) {
@@ -745,8 +736,6 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 size_t LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_params_num() {
-  //  return ((long long)embedding_params_.embedding_vec_size * embedding_params_.vocabulary_size);
-
   // Read data from input_buffers_ -> look up -> write to output_tensors
 
   size_t total_size = 0;
@@ -981,7 +970,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_pa
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
   functors_.upload_params_to_device<TypeHashKey, TypeHashValueIndex>(
-      weight_stream, embedding_params_.vocabulary_size, embedding_params_.embedding_vec_size,
+      weight_stream, max_vocabulary_size_, embedding_params_.embedding_vec_size,
       max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_table_slot_id_tensors_,
       hash_tables_, Base::device_resources_, context);
 
@@ -1001,7 +990,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::download_
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
   functors_.download_params_to_host(
-      weight_stream, embedding_params_.vocabulary_size, embedding_params_.embedding_vec_size,
+      weight_stream, max_vocabulary_size_, embedding_params_.embedding_vec_size,
       max_hash_table_size_per_gpu_, hash_table_value_tensors_, hash_table_slot_id_tensors_,
       hash_tables_, Base::device_resources_, context);
 
@@ -1096,7 +1085,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_updat
 
   functors_.get_update_params_results(
       max_hash_table_size_per_gpu_, embedding_params_.embedding_vec_size,
-      embedding_params_.vocabulary_size, hash_table_value_tensors_, hash_tables_, hash_table_key,
+      max_vocabulary_size_, hash_table_value_tensors_, hash_tables_, hash_table_key,
       hash_table_value, Base::device_resources_, context);
 
   return;
