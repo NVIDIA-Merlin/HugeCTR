@@ -359,7 +359,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
           int device_id = (*Base::device_resources_)[id]->get_device_id();
           int global_id = Base::device_resources_->get_global_id(device_id);
           size_t slot_size = embedding_params_.slot_size_array[i];
-          if ((i % total_gpu_count_) == global_id) {
+          if (static_cast<int>(i % total_gpu_count_) == global_id) {
             uint32_t mapping_offset = slot_sizes_prefix_sum - slot_sizes_prefix_sum_local;
             CK_CUDA_THROW_(
                 cudaMemcpy(&((mapping_offsets_per_gpu_tensors_[id]->get_ptr())[slot_num]),
