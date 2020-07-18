@@ -440,6 +440,13 @@ Error_t SessionImpl<TypeKey>::get_current_loss(float* loss) {
 }
 
 template <typename TypeKey>
+void SessionImpl<TypeKey>::check_overflow() const {
+  for (auto& one_embedding : embedding_) {
+    one_embedding->check_overflow();
+  }
+}
+
+template <typename TypeKey>
 SessionImpl<TypeKey>::~SessionImpl() {
   try {
     for (auto device : gpu_resource_group_->get_device_list()) {

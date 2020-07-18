@@ -63,7 +63,6 @@ const float lr = 0.01f;
 // In order to not allocate the total size of hash table on each GPU, the users need to set the
 // size of max_vocabulary_size_per_gpu, which should be more than vocabulary_size/gpu_count,
 // eg: 1.25x of that.
-const float load_factor = 0.75f;  // CAUSION: this is a very important param for performance
 
 const int num_chunk_threads = 1;  // must be 1 for CPU and GPU results comparation
 const int num_files = 1;
@@ -106,7 +105,7 @@ TEST(localized_sparse_embedding_one_hot_test, init_embedding) {
   OptHyperParams hyper_params;
   const OptParams<float> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
   const SparseEmbeddingHashParams<float> embedding_params = {
-      batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
+      batchsize, 0, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
       combiner,  opt_params};
 
   int numprocs = 1, pid = 0;
@@ -205,7 +204,7 @@ TEST(localized_sparse_embedding_one_hot_test, init_embedding) {
   // OptHyperParams hyper_params;
   // const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
   // const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-  //     batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
+  //     batchsize, vocabulary_size, embedding_vec_size, max_feature_num, slot_num,
   //     combiner,  opt_params};
 
 //   int numprocs = 1, pid = 0;
@@ -277,7 +276,7 @@ TEST(localized_sparse_embedding_one_hot_test, upload_and_download_params) {
   const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
+      batchsize, 0, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
       combiner,  opt_params};
 
   int numprocs = 1, pid = 0;
@@ -407,7 +406,7 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       0, 0, slot_sizes, load_factor, embedding_vec_size,
+      batchsize,       0, 0, slot_sizes, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -661,7 +660,7 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       0, 0, slot_sizes, load_factor, embedding_vec_size,
+      batchsize,       0, 0, slot_sizes, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -971,7 +970,7 @@ TEST(localized_sparse_embedding_one_hot_test, profile) {
   const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, load_factor, embedding_vec_size, max_feature_num, slot_num,
+      batchsize, 0, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
       combiner,  opt_params};
 
   int numprocs = 1, pid = 0;

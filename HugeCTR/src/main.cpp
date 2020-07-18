@@ -103,6 +103,7 @@ void train(std::string config_file) {
       HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
                    float(i) / solver_config.max_iter);
       timer_eval.start();
+      session_instance->check_overflow();
       for (int j = 0; j < solver_config.eval_batches; ++j) {
         session_instance->eval();
       }
@@ -179,6 +180,7 @@ void train(std::string config_file) {
     }
     if (i % solver_config.eval_interval == solver_config.eval_batches &&
         i != solver_config.eval_batches) {
+      session_instance->check_overflow();
       loss = loss / solver_config.eval_batches;
       for (int j = 0; j < solver_config.eval_batches; ++j) {
         session_instance->eval();

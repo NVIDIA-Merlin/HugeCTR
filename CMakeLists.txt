@@ -121,6 +121,7 @@ configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOU
 # building
 include_directories(
   ${PROJECT_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/test
   ${CUDA_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/json/single_include
@@ -159,5 +160,5 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 add_subdirectory(HugeCTR/src)
 add_subdirectory(googletest)
 add_subdirectory(json)
-add_subdirectory(utest)
+add_subdirectory(test/utest)
 add_subdirectory(tools)
