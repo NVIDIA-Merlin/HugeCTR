@@ -16,35 +16,32 @@ criteo:
     - hugectr
   script:
     - cd /dataset/criteo_kaggle/criteo
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/criteo/criteo.json
-
-criteo_multi_slots:
-  tags:
-    - hugectr
-  script:
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_8gpu.json
     - cd /dataset/criteo_kaggle/criteo_multi_slots
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/criteo_multi_slots/criteo_multi_slots.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_8gpu.json
 
-wdl:
+dcn:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/dcn
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_8gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_8gpu.json
+
+wdl_deepfm:
   tags:
     - hugectr
   script:
     - cd /dataset/criteo_kaggle/wdl
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/wdl/wdl.json
-
-wdl8gpu:
-  tags:
-    - hugectr
-  script:
-    - cd /dataset/criteo_kaggle/wdl
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/wdl8gpus/wdl8gpu.json
-
-deepfm:
-  tags:
-    - hugectr
-  script:
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_8gpu.json
     - cd /dataset/criteo_kaggle/deepfm
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/samples/deepfm/deepfm.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_8gpu.json
 
 unit_tests:
   tags:

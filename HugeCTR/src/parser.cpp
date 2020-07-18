@@ -1125,13 +1125,11 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
             switch (embedding_type) {
               case Embedding_t::DistributedSlotSparseEmbeddingHash: {
-                auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 const SparseEmbeddingHashParams<__half> embedding_params = {
                     batch_size,
                     max_vocabulary_size,
                     0,
                     {},
-                    load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
                     sparse_input.slot_num,
@@ -1148,7 +1146,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                 break;
               }
               case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-                auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
 #ifndef NCCL_A2A
                 auto j_plan = get_json(j, "plan_file");
                 std::string plan_file;
@@ -1186,7 +1183,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     0,
                     max_vocabulary_size_per_gpu,
                     slot_size_array,
-                    load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
                     sparse_input.slot_num,
@@ -1203,7 +1199,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                 break;
               }
               case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-                auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 std::string plan_file = "";
                 std::vector<size_t> slot_size_array;
                 auto slots = get_json(j_hparam, "slot_size_array");
@@ -1217,7 +1212,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     0,
                     0,
                     slot_size_array,
-                    load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
                     sparse_input.slot_num,
@@ -1252,13 +1246,11 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
             switch (embedding_type) {
               case Embedding_t::DistributedSlotSparseEmbeddingHash: {
-                auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 const SparseEmbeddingHashParams<float> embedding_params = {
                     batch_size,
                     max_vocabulary_size,
                     0,
                     {},
-                    load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
                     sparse_input.slot_num,
@@ -1274,7 +1266,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                 break;
               }
               case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-                auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
 #ifndef NCCL_A2A
                 auto j_plan = get_json(j, "plan_file");
                 std::string plan_file;
@@ -1312,7 +1303,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     0,
                     max_vocabulary_size_per_gpu,
                     slot_size_array,
-                    load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
                     sparse_input.slot_num,
@@ -1329,7 +1319,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                 break;
               }
               case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-                auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 std::string plan_file = "";
                 std::vector<size_t> slot_size_array;
                 auto slots = get_json(j_hparam, "slot_size_array");
@@ -1343,7 +1332,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     0,
                     0,
                     slot_size_array,
-                    load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
                     sparse_input.slot_num,

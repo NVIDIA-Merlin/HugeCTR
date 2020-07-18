@@ -2,13 +2,13 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 10000,
-    "gpu": [0,1],
-    "batchsize": 16384,
+    "max_iter": 18000,
+    "gpu": [0],
+    "batchsize": 2048,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 60
+    "eval_batches": 2048
   },
   
   "optimizer": {
@@ -40,7 +40,7 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "LocalizedSlot",
+          "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
           "slot_num": 26
         }        
@@ -49,12 +49,11 @@
 
     {
       "name": "sparse_embedding1",
-      "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "all2all_plan_0_1.json",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1041275,
+        "max_vocabulary_size": 1737709,
         "embedding_vec_size": 16,
         "combiner": 0
       }
