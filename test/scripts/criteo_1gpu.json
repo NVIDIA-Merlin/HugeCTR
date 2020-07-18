@@ -2,20 +2,20 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 10000,
-    "gpu": [0,1],
-    "batchsize": 16384,
+    "max_iter": 18000,
+    "gpu": [0],
+    "batchsize": 2048,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 60
+    "eval_batches": 2048
   },
   
   "optimizer": {
     "type": "Adam",
-    "global_update": true,
+    "global_update": false,
     "adam_hparam": {
-      "alpha": 0.001,
+      "alpha": 0.005,
       "beta1": 0.9,
       "beta2": 0.999,
       "epsilon": 0.00000001
@@ -23,7 +23,7 @@
   },
 
   "layers": [ 
-      {
+  {
       "name": "data",
       "type": "Data",
       "source": "./file_list.txt",
@@ -35,27 +35,27 @@
       },
       "dense": {
         "top": "dense",
-        "dense_dim": 13
+        "dense_dim": 0
       },
       "sparse": [
         {
           "top": "data1",
-          "type": "LocalizedSlot",
-          "max_feature_num_per_sample": 30,
-          "slot_num": 26
+          "type": "DistributedSlot",
+          "max_feature_num_per_sample": 100,
+          "slot_num": 1
         }        
       ]
     },
-
+    
+    
     {
       "name": "sparse_embedding1",
-      "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "all2all_plan_0_1.json",
+      "type": "DistributedSlotSparseEmbeddingHash",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1041275,
-        "embedding_vec_size": 16,
+        "max_vocabulary_size": 1603609,
+        "embedding_vec_size": 64,
         "combiner": 0
       }
     },
@@ -65,68 +65,33 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 416
-    },
-
-
-    {
-      "name": "concat1",
-      "type": "Concat",
-      "bottom": ["reshape1","dense"],
-      "top": "concat1"
-    },
-
-    {
-      "name": "slice1",
-      "type": "Slice",
-      "bottom": "concat1",
-      "ranges": [[0,429], [0,429]],
-      "top": ["slice11", "slice12"]
-    },
-
-
-    {
-      "name": "multicross1",
-      "type": "MultiCross",
-      "bottom": "slice11",
-      "top": "multicross1",
-      "mc_param": {
-        "num_layers": 6
-      }
+      "leading_dim": 64
     },
 
     {
       "name": "fc1",
       "type": "InnerProduct",
-      "bottom": "slice12",
+      "bottom": "reshape1",
       "top": "fc1",
        "fc_param": {
-        "num_output": 1024
+        "num_output": 200
       }
     },
-
     {
       "name": "relu1",
       "type": "ReLU",
       "bottom": "fc1",
-      "top": "relu1" 
+      "top": "relu1"
+     
     },
       
     {
-      "name": "dropout1",
-      "type": "Dropout",
-      "rate": 0.5,
-      "bottom": "relu1",
-      "top": "dropout1" 
-    },
-
-    {
       "name": "fc2",
       "type": "InnerProduct",
-      "bottom": "dropout1",
+      "bottom": "relu1",
       "top": "fc2",
        "fc_param": {
-        "num_output": 1024
+        "num_output": 200
       }
     },
 
@@ -134,33 +99,38 @@
       "name": "relu2",
       "type": "ReLU",
       "bottom": "fc2",
-      "top": "relu2"     
+      "top": "relu2"
+     
+    },
+    
+    {
+      "name": "fc3",
+      "type": "InnerProduct",
+      "bottom": "relu2",
+      "top": "fc3",
+       "fc_param": {
+        "num_output": 200
+      }
     },
 
     {
-      "name": "dropout2",
-      "type": "Dropout",
-      "rate": 0.5,
-      "bottom": "relu2",
-      "top": "dropout2" 
+      "name": "relu3",
+      "type": "ReLU",
+      "bottom": "fc3",
+      "top": "relu3"
+     
     },
-    
-    {
-      "name": "concat2",
-      "type": "Concat",
-      "bottom": ["dropout2","multicross1"],
-      "top": "concat2"
-    },
-    
+
     {
       "name": "fc4",
       "type": "InnerProduct",
-      "bottom": "concat2",
+      "bottom": "relu3",
       "top": "fc4",
        "fc_param": {
         "num_output": 1
       }
     },
+
     
     {
       "name": "loss",

@@ -3356,7 +3356,6 @@ class SparseEmbeddingHashFunctors {
    * @param weight_stream weight file stream to write.
    * @param vocabulary_size the total row number of hash table.
    * @param embedding_vec_size embedding vector size.
-   * @param max_hash_table_size_per_gpu max vocabulary size for each GPU
    * @param hash_table_value_tensors the tensors of hash table value on multi GPUs.
    * @param hash_tables the hash tables on multi GPUs
    * @param device_resources all gpus device resources.
@@ -3365,7 +3364,7 @@ class SparseEmbeddingHashFunctors {
   template <typename TypeHashKey, typename TypeHashValueIndex>
   void download_params_to_host(
       std::ofstream &weight_stream, size_t vocabulary_size, int embedding_vec_size,
-      size_t max_hash_table_size_per_gpu, Tensors<float> &hash_table_value_tensors,
+      Tensors<float> &hash_table_value_tensors,
       std::vector<std::shared_ptr<HashTable<TypeHashKey, TypeHashValueIndex,
                                             std::numeric_limits<TypeHashKey>::max()>>> &hash_tables,
       const std::shared_ptr<GPUResourceGroup> &device_resources, const CudaDeviceContext &context) {
@@ -3437,9 +3436,8 @@ class SparseEmbeddingHashFunctors {
 
       context.set_device((*device_resources)[id]->get_device_id());
 
-      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
-                            max_hash_table_size_per_gpu, d_dump_counter[id],
-                            (*device_resources)[id]->get_stream());
+      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id],
+                            d_dump_counter[id], (*device_resources)[id]->get_stream());
 
       CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key[id], d_hash_table_key[id],
                                      count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
@@ -3542,7 +3540,6 @@ class SparseEmbeddingHashFunctors {
    * @param weight_stream weight file stream to write.
    * @param vocabulary_size the total row number of hash table.
    * @param embedding_vec_size embedding vector size.
-   * @param max_hash_table_size_per_gpu max vocabulary size for each GPU
    * @param hash_table_value_tensors the hash table value on multi-GPU.
    * @param hash_table_slot_id_tensors the hash table slot_ids on multi-GPU
    * @param hash_tables the hash tables on multi GPUs
@@ -3552,7 +3549,7 @@ class SparseEmbeddingHashFunctors {
   template <typename TypeHashKey, typename TypeHashValueIndex>
   void download_params_to_host(
       std::ofstream &weight_stream, size_t vocabulary_size, int embedding_vec_size,
-      size_t max_hash_table_size_per_gpu, Tensors<float> &hash_table_value_tensors,
+      Tensors<float> &hash_table_value_tensors,
       Tensors<TypeHashValueIndex> &hash_table_slot_id_tensors,
       std::vector<std::shared_ptr<HashTable<TypeHashKey, TypeHashValueIndex,
                                             std::numeric_limits<TypeHashKey>::max()>>> &hash_tables,
@@ -3633,9 +3630,8 @@ class SparseEmbeddingHashFunctors {
 
       context.set_device((*device_resources)[id]->get_device_id());
 
-      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
-                            max_hash_table_size_per_gpu, d_dump_counter[id],
-                            (*device_resources)[id]->get_stream());
+      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id],
+                            d_dump_counter[id], (*device_resources)[id]->get_stream());
 
       CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key[id], d_hash_table_key[id],
                                      count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
@@ -3818,7 +3814,6 @@ class SparseEmbeddingHashFunctors {
 
   /**
    * get update_params results from GPU to CPU. This functin is just used for utest.
-   * @param max_hash_table_size_per_gpu max vocabulary size for each GPU.
    * @param embedding_vec_size embedding vector size.
    * @param vocabulary_size the total number of rows in hash table
    * @param hash_table_value_tensors the tensors of hash table value on multi GPUs
@@ -3830,7 +3825,7 @@ class SparseEmbeddingHashFunctors {
    */
   template <typename TypeHashKey, typename TypeHashValueIndex>
   void get_update_params_results(
-      size_t max_hash_table_size_per_gpu, int embedding_vec_size, size_t vocabulary_size,
+      int embedding_vec_size, size_t vocabulary_size,
       const Tensors<float> &hash_table_value_tensors,
       const std::vector<std::shared_ptr<
           HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>
@@ -3894,9 +3889,8 @@ class SparseEmbeddingHashFunctors {
 
       context.set_device((*device_resources)[id]->get_device_id());
 
-      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], 0,
-                            max_hash_table_size_per_gpu, d_dump_counter[id],
-                            (*device_resources)[id]->get_stream());
+      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id],
+                            d_dump_counter[id], (*device_resources)[id]->get_stream());
 
       get_hash_value((*device_resources)[id]->get_stream(), count[id], embedding_vec_size,
                      d_hash_table_value_index[id], hash_table_value_tensors[id]->get_ptr(),

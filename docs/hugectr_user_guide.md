@@ -196,8 +196,7 @@ Embedding:
     * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to the [**README**](../samples/dcn/README.md) in dcn sample.
   * `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when there exists the load imbalance among slots and potentially has OOM issue.
   * In single GPU training, for your convenience please use `DistributedSlotSparseEmbeddingHash`.
-* `vocabulary_size_per_gpu`: the maximum possible size of embedding for one gpu.
-* `load_factor`: as embedding is implemented with hashtable, `load_factor` is the ratio of loaded vocabulary to capacity of the hashtable.
+* `max_vocabulary_size_per_gpu`: the maximum possible size of embedding for one gpu.
 * `embedding_vec_size`: the vector size of an embedding weight (value). Then the memory used in this hashtable will be vocabulary_size*embedding_vec_size/load_factor.
 * `combiner`: 0 is sum and 1 is mean.
 * `optimizer`: (optional) from v2.1 HugeCTR supports different optimizers in dense and sparse models. You can specify your optimizer of this Embedding here. If not specified, HugeCTR will reuse the optimizer of dense model here.
@@ -209,8 +208,7 @@ Embedding:
       "top": "sparse_embedding1",
       "plan_file": "all2all_plan_bi_1.json",
       "sparse_embedding_hparam": {
-        "vocabulary_size_per_gpu": 1737710,
-        "load_factor": 0.75,
+        "max_vocabulary_size_per_gpu": 1737710,
         "embedding_vec_size": 16,
         "combiner": 0
       },

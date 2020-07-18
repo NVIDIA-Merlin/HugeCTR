@@ -2,13 +2,13 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 10000,
+    "max_iter": 3000,
     "gpu": [0,1,2,3,4,5,6,7],
     "batchsize": 16384,
-    "snapshot": 1000000,
+    "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 20
+    "eval_batches": 2048
   },
   
   "optimizer": {
@@ -74,7 +74,7 @@
       "top": "sparse_embedding1",
       "plan_file": "all2all_plan_bi_1.json",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 828103,
+        "max_vocabulary_size_per_gpu": 808103,
         "embedding_vec_size": 16,
         "combiner": 0
       }
