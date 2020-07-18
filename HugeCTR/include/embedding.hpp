@@ -37,6 +37,7 @@ class IEmbedding {
   virtual void set_learning_rate(float lr) = 0;
   virtual size_t get_params_num() = 0;
   virtual const ITensors get_output_tensors() const = 0;
+  virtual void check_overflow() const = 0;
 };
 
 /**
@@ -261,8 +262,6 @@ struct SparseEmbeddingHashParams {
   size_t max_vocabulary_size;  // max row number of hash table
   size_t max_vocabulary_size_per_gpu; // max row number of hash table for each gpu
   std::vector<size_t> slot_size_array; // max row number for each slot
-  float load_factor;       // row number of hash table for each GPU = (vocabulary_size / gpu_count /
-                           // load_factor)
   size_t embedding_vec_size;                // col number of hash table value
   size_t max_feature_num;                   // max feature number of all input samples of all slots
   size_t slot_num;                          // slot number

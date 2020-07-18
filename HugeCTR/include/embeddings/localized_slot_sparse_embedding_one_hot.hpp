@@ -74,7 +74,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
   size_t max_vocabulary_size_;
   size_t max_vocabulary_size_per_gpu_; /**< Max vocabulary size for each GPU. */
-  size_t max_hash_table_size_per_gpu_; /**< equal to max_vocabulary_size_per_gpu_ / load_factor. */
   int batch_size_per_gpu_;             /*< batch_size per GPU */
   std::vector<int> slot_num_per_gpu_;  /* slot_num per GPU */
   int total_gpu_count_;
@@ -111,7 +110,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
         local_gpu_count_(obj.local_gpu_count_),
         max_vocabulary_size_(obj.max_vocabulary_size_),
         max_vocabulary_size_per_gpu_(obj.max_vocabulary_size_per_gpu_),
-        max_hash_table_size_per_gpu_(obj.max_hash_table_size_per_gpu_),
         slot_num_per_gpu_(obj.slot_num_per_gpu_),
         hash_tables_(obj.hash_tables_),
         hash_table_value_tensors_(obj.hash_table_value_tensors_),
@@ -230,13 +228,13 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
       max_vocabulary_size_ = 0;
-      for(size_t slot_size : embedding_params_.slot_size_array) {
+      for (size_t slot_size : embedding_params_.slot_size_array) {
         max_vocabulary_size_ += slot_size;
       }
 
-        max_vocabulary_size_per_gpu_ = functors_.cal_max_voc_size_per_gpu(
-            total_gpu_count_, local_gpu_count_, embedding_params_.slot_size_array, Base::device_resources_);
-      max_hash_table_size_per_gpu_ = max_vocabulary_size_per_gpu_ / embedding_params_.load_factor;
+      max_vocabulary_size_per_gpu_ = functors_.cal_max_voc_size_per_gpu(
+          total_gpu_count_, local_gpu_count_, embedding_params_.slot_size_array,
+          Base::device_resources_);
 
       MESSAGE_("max_vocabulary_size_per_gpu_=" + std::to_string(max_vocabulary_size_per_gpu_));
 
@@ -256,7 +254,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
         nnz_num_per_batch_.push_back(PinnedBuffer<TypeHashKey>(1));
 
         // construct HashTable object: used to store hash table <key, value_index>
-        hash_tables_.emplace_back(new NvHashTable(max_hash_table_size_per_gpu_));
+        hash_tables_.emplace_back(new NvHashTable(max_vocabulary_size_per_gpu_));
 
         // new GeneralBuffer objects
         float_bufs_.emplace_back(new GeneralBuffer<float>());
@@ -560,15 +558,17 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    */
   void init_params() override {
     // do hash table value initialization
-    if (embedding_params_.slot_size_array.empty()) {  // if no slot_sizes provided, use the old method to init
+    if (embedding_params_.slot_size_array
+            .empty()) {  // if no slot_sizes provided, use the old method to init
       functors_.init_embedding(max_vocabulary_size_per_gpu_, embedding_params_.embedding_vec_size,
                                hash_table_value_tensors_, Base::device_resources_);
 
     } else {
       if (embedding_params_.slot_size_array.size() == embedding_params_.slot_num) {
-        functors_.init_embedding(embedding_params_.slot_size_array, embedding_params_.embedding_vec_size,
-                                 hash_table_value_tensors_, hash_tables_,
-                                 hash_table_slot_id_tensors_, Base::device_resources_);
+        functors_.init_embedding(embedding_params_.slot_size_array,
+                                 embedding_params_.embedding_vec_size, hash_table_value_tensors_,
+                                 hash_tables_, hash_table_slot_id_tensors_,
+                                 Base::device_resources_);
       } else {
         throw std::runtime_error(
             std::string("[HCDEBUG][ERROR] Runtime error: the size of slot_sizes != slot_num\n"));
@@ -611,10 +611,10 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
     CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
     // Note: not verify (without hashtable for one-hot)
-    functors_.download_params_to_host(
-        weight_stream, max_vocabulary_size_, embedding_params_.embedding_vec_size,
-        max_hash_table_size_per_gpu_, hash_table_value_tensors_, hash_table_slot_id_tensors_,
-        hash_tables_, Base::device_resources_, context);
+    functors_.download_params_to_host(weight_stream, max_vocabulary_size_,
+                                      embedding_params_.embedding_vec_size,
+                                      hash_table_value_tensors_, hash_table_slot_id_tensors_,
+                                      hash_tables_, Base::device_resources_, context);
 
     return;
   }
@@ -657,34 +657,34 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 #ifdef NCCL_A2A
 
 #ifndef ENABLE_MPI
-  if (total_gpu_count_ > 1) {
-    functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_,
-                              embedding_params_.embedding_vec_size, wgrad_tensors_,
-                              utest_all2all_tensors_, Base::device_resources_);
-  } else {
-    CK_CUDA_THROW_(
-        cudaMemcpyAsync(utest_all2all_tensors_[0]->get_ptr(), wgrad_tensors_[0]->get_ptr(),
-                        (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
-                            embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
-                        cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
-  }
+    if (total_gpu_count_ > 1) {
+      functors_.all2all_forward(batch_size_per_gpu_, slot_num_per_gpu_,
+                                embedding_params_.embedding_vec_size, wgrad_tensors_,
+                                utest_all2all_tensors_, Base::device_resources_);
+    } else {
+      CK_CUDA_THROW_(
+          cudaMemcpyAsync(utest_all2all_tensors_[0]->get_ptr(), wgrad_tensors_[0]->get_ptr(),
+                          (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
+                              embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
+                          cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
+    }
 #else
-  if (total_gpu_count_ > 1) {
-    functors_.all2all_forward(batch_size_per_gpu_, embedding_params_.slot_num,
-                              embedding_params_.embedding_vec_size, wgrad_tensors_,
-                              utest_all2all_tensors_, Base::device_resources_);
-  } else {
-    CK_CUDA_THROW_(
-        cudaMemcpyAsync(utest_all2all_tensors_[0]->get_ptr(), wgrad_tensors_[0]->get_ptr(),
-                        (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
-                            embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
-                        cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
-  }
+    if (total_gpu_count_ > 1) {
+      functors_.all2all_forward(batch_size_per_gpu_, embedding_params_.slot_num,
+                                embedding_params_.embedding_vec_size, wgrad_tensors_,
+                                utest_all2all_tensors_, Base::device_resources_);
+    } else {
+      CK_CUDA_THROW_(
+          cudaMemcpyAsync(utest_all2all_tensors_[0]->get_ptr(), wgrad_tensors_[0]->get_ptr(),
+                          (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
+                              embedding_params_.embedding_vec_size * sizeof(TypeEmbeddingComp),
+                          cudaMemcpyDeviceToDevice, (*Base::device_resources_)[0]->get_stream()));
+    }
 #endif
 
 #else
-  // do not support gossip
-  MESSAGE_("Error: Not support gossip in backward for one-hot");
+    // do not support gossip
+    MESSAGE_("Error: Not support gossip in backward for one-hot");
 #endif
 
     // reorder
@@ -721,10 +721,9 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
     CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
     // Note: not verify (without hashtable for one-hot)
-    functors_.get_update_params_results(
-        max_hash_table_size_per_gpu_, embedding_params_.embedding_vec_size,
-        max_vocabulary_size_, hash_table_value_tensors_, hash_tables_, hash_table_key,
-        hash_table_value, Base::device_resources_, context);
+    functors_.get_update_params_results(embedding_params_.embedding_vec_size, max_vocabulary_size_,
+                                        hash_table_value_tensors_, hash_tables_, hash_table_key,
+                                        hash_table_value, Base::device_resources_, context);
 
     return;
   }
@@ -734,6 +733,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       opt_params_[id].lr = lr;
     }
   }
+
+  void check_overflow() const override {}
 
 };  // end of class LocalizedSlotSparseEmbeddingOneHot
 

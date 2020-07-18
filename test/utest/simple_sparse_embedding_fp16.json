@@ -8,14 +8,18 @@
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 100
+    "eval_batches": 100,
+    "mixed_precision": 1024
   },
 
   "optimizer": {
-    "type": "SGD",
+    "type": "Adam",
     "global_update": true,
-    "sgd_hparam": {
-      "learning_rate": 0.001
+    "adam_hparam": {
+      "alpha": 0.005,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "epsilon": 0.00000001
     }
   },
 
@@ -59,7 +63,6 @@
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "max_vocabulary_size": 2603616,
-        "load_factor": 0.75,
         "embedding_vec_size": 64,
         "combiner": 1
       }
@@ -121,34 +124,10 @@
     },
 
     {
-      "name": "multiply1",
-      "type": "Multiply",
-      "bottom": "relu1",
-      "weight_dims": [200, 10],
-      "top": "multiply1"
-    },
-
-    {
-      "name": "fmorder2_1",
-      "type": "FmOrder2",
-      "bottom": "reshape1",
-      "out_dim": 64,
-      "top": "fmorder2_1"
-    },
-
-    {
-      "name": "reducesum1",
-      "type": "ReduceSum",
-      "bottom": "fmorder2_1",
-      "axis": 1,
-      "top": "reducesum1"
-    },
-
-    {
       "name": "slice1",
       "type": "Slice",
-      "bottom": "concat1",
-      "ranges": [[0,200], [300,400]],
+      "bottom": "relu1",
+      "ranges": [[0,50], [100,200]],
       "top": ["slice11", "slice12"]
     },
 
@@ -158,68 +137,14 @@
       "bottom": "slice11",
       "top": "fc2",
        "fc_param": {
-        "num_output": 200
-      }
-    },
-
-    {
-      "name": "relu2",
-      "type": "ReLU",
-      "bottom": "fc2",
-      "top": "relu2"
-     
-    },
-
-    {
-      "name": "multicross1",
-      "type": "MultiCross",
-      "bottom": "relu2",
-      "top": "multicross1",
-      "mc_param": {
-        "num_layers": 2
-      }
-    },
-    
-    {
-      "name": "fc3",
-      "type": "InnerProduct",
-      "bottom": "multicross1",
-      "top": "fc3",
-       "fc_param": {
-        "num_output": 200
-      }
-    },
-
-    {
-      "name": "relu3",
-      "type": "ReLU",
-      "bottom": "fc3",
-      "top": "relu3"
-     
-    },
-
-    {
-      "name": "fc4",
-      "type": "InnerProduct",
-      "bottom": "relu3",
-      "top": "fc4",
-       "fc_param": {
         "num_output": 1
       }
     },
 
     {
-      "name": "add",
-      "type": "Add",
-      "bottom": ["fc4", "reducesum1"],
-      "top": "add"
-    },
-    
-    
-    {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": ["add","label"],
+      "bottom": ["fc2","label"],
       "regularizer": "L2",
       "lambda": 0.0005,
       "top": "loss"

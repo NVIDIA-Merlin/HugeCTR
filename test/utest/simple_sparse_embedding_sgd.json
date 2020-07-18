@@ -12,13 +12,10 @@
   },
 
   "optimizer": {
-    "type": "Adam",
+    "type": "SGD",
     "global_update": true,
-    "adam_hparam": {
-      "alpha": 0.005,
-      "beta1": 0.9,
-      "beta2": 0.999,
-      "epsilon": 0.00000001
+    "sgd_hparam": {
+      "learning_rate": 0.001
     }
   },
 
@@ -62,7 +59,6 @@
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "max_vocabulary_size": 2603616,
-        "load_factor": 0.75,
         "embedding_vec_size": 64,
         "combiner": 1
       }
@@ -76,7 +72,6 @@
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
         "max_vocabulary_size_per_gpu": 1301808,
-        "load_factor": 0.75,
         "embedding_vec_size": 64,
         "combiner": 1
       }

@@ -20,7 +20,6 @@
 #include "HugeCTR/include/common.hpp"
 #include "cudf/concurrent_unordered_map.cuh"
 #include "thrust/pair.h"
-//#define COUNTER_TYPE ValType
 
 namespace HugeCTR {
 
@@ -84,10 +83,9 @@ __global__ void search_kernel(Table* table, const typename Table::key_type* cons
   }
 }
 
-template <typename Table, typename counter_type>
+template <typename Table>
 __global__ void get_insert_kernel(Table* table, const typename Table::key_type* const keys,
-                                  typename Table::mapped_type* const vals, size_t len,
-                                  counter_type* d_counter) {
+                                  typename Table::mapped_type* const vals, size_t len, size_t* d_counter) {
   ReplaceOp<typename Table::mapped_type> op;
   const size_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
@@ -182,8 +180,7 @@ __global__ void dump_kernel(KeyType* d_key, ValType* d_val, const Table* table, 
  * In this class, we implement the GPU version of the common used operations of hash table,
  * such as insert() / get() / set() / dump()...
  */
-template <typename KeyType, typename ValType, KeyType empty_key,
-          typename counter_type = unsigned long long int>
+template <typename KeyType, typename ValType, KeyType empty_key>
 class HashTable {
  public:
   /**
@@ -191,10 +188,10 @@ class HashTable {
    * @param capacity the number of <key,value> pairs in the hash table.
    * @param count the existed number of <key,value> pairs in the hash table.
    */
-  HashTable(size_t capacity, counter_type count = 0) {
+  HashTable(size_t capacity, size_t count = 0): capacity_(capacity) {
     // assert(capacity <= std::numeric_limits<ValType>::max() && "error: Table is too large for the
     // value type");
-    table_ = new Table(capacity, std::numeric_limits<ValType>::max());
+    table_ = new Table(static_cast<size_t>(capacity / LOAD_FACTOR), std::numeric_limits<ValType>::max());
     update_counter_ = 0;
     get_counter_ = 0;
     // Allocate device-side counter and copy user input to it
@@ -307,6 +304,17 @@ class HashTable {
     return table_size;
   }
   /**
+   * Get the current size of the hash table. Size is also known as the number
+   * of <key,value> pairs.
+   * @param stream the cuda stream for this operation.
+   */
+   size_t get_count(cudaStream_t stream) const {
+    size_t count;
+    CK_CUDA_THROW_(cudaMemcpyAsync(&count, d_counter_, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
+    CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+    return count;
+   }
+  /**
    * The dump function for hash table. "dump" means getting some of the <key,value>
    * pairs from the hash table and copying them to the corresponding memory buffer.
    * @param d_keys the device pointers for the keys.
@@ -316,17 +324,17 @@ class HashTable {
    * @param d_dump_counter a temp device pointer to store the dump counter.
    * @param stream the cuda stream for this operation.
    */
-  void dump(KeyType* d_key, ValType* d_val, const size_t offset, const size_t search_length,
-            size_t* d_dump_counter, cudaStream_t stream) {
+  void dump(KeyType* d_key, ValType* d_val, size_t* d_dump_counter, cudaStream_t stream) {
+    size_t search_length = static_cast<size_t>(capacity_ / LOAD_FACTOR);
     // Before we call the kernel, set the global counter to 0
     CK_CUDA_THROW_(cudaMemset(d_dump_counter, 0, sizeof(size_t)));
     // grid size according to the searching length.
     const int grid_size = (search_length - 1) / BLOCK_SIZE_ + 1;
-    // dump_kernel: dump bucket table_[offset, offset+search_length) to d_key and d_val, and report
+    // dump_kernel: dump bucket table_[0, search_length) to d_key and d_val, and report
     // how many buckets are dumped in d_dump_counter.
     size_t shared_size = sizeof(*d_key) * BLOCK_SIZE_ + sizeof(*d_val) * BLOCK_SIZE_;
     dump_kernel<<<grid_size, BLOCK_SIZE_, shared_size, stream>>>(
-        d_key, d_val, table_, offset, search_length, d_dump_counter, empty_key);
+        d_key, d_val, table_, 0, search_length, d_dump_counter, empty_key);
   }
   /**
    * Get the capacity of the hash table. "capacity" is known as the number of
@@ -337,8 +345,8 @@ class HashTable {
    * Get the head of the value from the device counter. It's equal to the
    * number of the <key,value> pairs in the hash table.
    */
-  counter_type get_value_head() {
-    counter_type counter;
+   size_t get_value_head() {
+    size_t counter;
     CK_CUDA_THROW_(cudaMemcpy(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost));
     return counter;
   }
@@ -346,7 +354,7 @@ class HashTable {
    * Set the head of the value. This will reset a new value to the device counter.
    * @param counter_value the new counter value to be set.
    */
-  void set_value_head(counter_type counter_value) {
+  void set_value_head(size_t counter_value) {
     CK_CUDA_THROW_(
         cudaMemcpy(d_counter_, &counter_value, sizeof(*d_counter_), cudaMemcpyHostToDevice));
   }
@@ -355,8 +363,8 @@ class HashTable {
    * current value of the device counter.
    * @param counter_add the new counter value to be added.
    */
-  counter_type add_value_head(counter_type counter_add) {
-    counter_type counter;
+   size_t add_value_head(size_t counter_add) {
+    size_t counter;
     CK_CUDA_THROW_(cudaMemcpy(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost));
     counter += counter_add;
     CK_CUDA_THROW_(cudaMemcpy(d_counter_, &counter, sizeof(*d_counter_), cudaMemcpyHostToDevice));
@@ -396,8 +404,7 @@ class HashTable {
       return;
     }
     const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
-    get_insert_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(table_, d_keys, d_vals, len,
-                                                             d_counter_);
+    get_insert_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(table_, d_keys, d_vals, len, d_counter_);
   }
   /**
    * Before any get API is called, call this function to check and update counter.
@@ -450,6 +457,9 @@ class HashTable {
   static const int BLOCK_SIZE_ =
       256; /**< The block size of the CUDA kernels. The default value is 256. */
   using Table = concurrent_unordered_map<KeyType, ValType, empty_key>;
+  const float LOAD_FACTOR = 0.75f;
+
+  size_t capacity_;
 
   Table* table_; /**< The object of the Table class which is defined in the concurrent_unordered_map
                     class. */
@@ -462,7 +472,7 @@ class HashTable {
                                    on this GPU's hash table. */
 
   // Counter for value index
-  counter_type* d_counter_; /**< The device counter for value index. */
+  size_t* d_counter_; /**< The device counter for value index. */
 };
 
 }  // namespace HugeCTR

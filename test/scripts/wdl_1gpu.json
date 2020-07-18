@@ -2,13 +2,13 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 10000,
-    "gpu": [0,1],
-    "batchsize": 16384,
+    "max_iter": 18000,
+    "gpu": [0],
+    "batchsize": 2048,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 60
+    "eval_batches": 2048
   },
   
   "optimizer": {
@@ -23,7 +23,7 @@
   },
 
   "layers": [ 
-      {
+    {
       "name": "data",
       "type": "Data",
       "source": "./file_list.txt",
@@ -38,23 +38,42 @@
         "dense_dim": 13
       },
       "sparse": [
+	{
+          "top": "wide_data",
+          "type": "DistributedSlot",
+          "max_feature_num_per_sample": 30,
+          "slot_num": 1
+        },
         {
-          "top": "data1",
-          "type": "LocalizedSlot",
+          "top": "deep_data",
+          "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
           "slot_num": 26
-        }        
+        }
       ]
     },
 
+
+    {
+      "name": "sparse_embedding2",
+      "type": "DistributedSlotSparseEmbeddingHash",
+      "bottom": "wide_data",
+      "top": "sparse_embedding2",
+      "sparse_embedding_hparam": {
+        "max_vocabulary_size": 2322444,
+        "embedding_vec_size": 1,
+        "combiner": 0
+      }
+    },
+
+
     {
       "name": "sparse_embedding1",
-      "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "all2all_plan_0_1.json",
-      "bottom": "data1",
+      "type": "DistributedSlotSparseEmbeddingHash",
+      "bottom": "deep_data",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1041275,
+        "max_vocabulary_size": 2322444,
         "embedding_vec_size": 16,
         "combiner": 0
       }
@@ -68,6 +87,14 @@
       "leading_dim": 416
     },
 
+    {
+      "name": "reshape2",
+      "type": "Reshape",
+      "bottom": "sparse_embedding2",
+      "top": "reshape2",
+      "leading_dim": 1
+    },
+
 
     {
       "name": "concat1",
@@ -76,42 +103,24 @@
       "top": "concat1"
     },
 
-    {
-      "name": "slice1",
-      "type": "Slice",
-      "bottom": "concat1",
-      "ranges": [[0,429], [0,429]],
-      "top": ["slice11", "slice12"]
-    },
-
-
-    {
-      "name": "multicross1",
-      "type": "MultiCross",
-      "bottom": "slice11",
-      "top": "multicross1",
-      "mc_param": {
-        "num_layers": 6
-      }
-    },
 
     {
       "name": "fc1",
       "type": "InnerProduct",
-      "bottom": "slice12",
+      "bottom": "concat1",
       "top": "fc1",
        "fc_param": {
         "num_output": 1024
       }
     },
-
     {
       "name": "relu1",
       "type": "ReLU",
       "bottom": "fc1",
-      "top": "relu1" 
+      "top": "relu1"
+     
     },
-      
+
     {
       "name": "dropout1",
       "type": "Dropout",
@@ -134,9 +143,10 @@
       "name": "relu2",
       "type": "ReLU",
       "bottom": "fc2",
-      "top": "relu2"     
+      "top": "relu2"
+     
     },
-
+    
     {
       "name": "dropout2",
       "type": "Dropout",
@@ -144,28 +154,28 @@
       "bottom": "relu2",
       "top": "dropout2" 
     },
-    
-    {
-      "name": "concat2",
-      "type": "Concat",
-      "bottom": ["dropout2","multicross1"],
-      "top": "concat2"
-    },
-    
+
     {
       "name": "fc4",
       "type": "InnerProduct",
-      "bottom": "concat2",
+      "bottom": "dropout2",
       "top": "fc4",
-       "fc_param": {
+	"fc_param": {
         "num_output": 1
       }
     },
-    
+
+    {
+      "name": "add1",
+      "type": "Add",
+      "bottom": ["fc4","reshape2"],
+      "top": "add1"
+    },
+
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": ["fc4","label"],
+      "bottom": ["add1","label"],
       "top": "loss"
     } 
   ]

@@ -39,6 +39,7 @@ class Session {
   virtual Error_t get_current_loss(float* loss) = 0;
   virtual Error_t download_params_to_files(std::string prefix, int iter) = 0;
   virtual Error_t set_learning_rate(float lr) = 0;
+  virtual void check_overflow() const = 0;
 };
 
 /**
@@ -117,6 +118,8 @@ class SessionImpl : public Session {
     }
     return static_cast<long long>(networks_[0]->get_params_num()) + size;
   }
+
+  void check_overflow() const override;
 
  private:
   // typedef unsigned int TypeKey; /**< type of input key in dataset. */
