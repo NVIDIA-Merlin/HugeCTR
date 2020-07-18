@@ -407,7 +407,7 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       vocabulary_size, load_factor, embedding_vec_size,
+      batchsize,       0, 0, slot_sizes, load_factor, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -471,7 +471,7 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
   Embedding<T, TypeEmbeddingComp> *embedding =
       EmbeddingCreator::create_localized_sparse_embedding_one_hot(
           data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
-          embedding_params, plan_file, gpu_resource_group, slot_sizes);
+          embedding_params, plan_file, gpu_resource_group);
 
   if (init_hash_table) {
     // generate hashtable
@@ -661,7 +661,7 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       vocabulary_size, load_factor, embedding_vec_size,
+      batchsize,       0, 0, slot_sizes, load_factor, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -725,7 +725,7 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
   Embedding<T, TypeEmbeddingComp> *embedding =
       EmbeddingCreator::create_localized_sparse_embedding_one_hot(
           data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
-          embedding_params, plan_file, gpu_resource_group, slot_sizes);
+          embedding_params, plan_file, gpu_resource_group);
 
   if (init_hash_table) {
     // generate hashtable
