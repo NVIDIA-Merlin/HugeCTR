@@ -196,7 +196,7 @@ Embedding:
     * `plan_file`: a plan file should be specified when use `LocalizedSlotSparseEmbeddingHash`. To generate a plan file please refer to the [**README**](../samples/dcn/README.md) in dcn sample.
   * `DistributedSlotSparseEmbeddingHash`: Each GPU will has a portion of a slot. This type of embedding is useful when there exists the load imbalance among slots and potentially has OOM issue.
   * In single GPU training, for your convenience please use `DistributedSlotSparseEmbeddingHash`.
-* `vocabulary_size`: the maximum possible size of embedding.
+* `vocabulary_size_per_gpu`: the maximum possible size of embedding for one gpu.
 * `load_factor`: as embedding is implemented with hashtable, `load_factor` is the ratio of loaded vocabulary to capacity of the hashtable.
 * `embedding_vec_size`: the vector size of an embedding weight (value). Then the memory used in this hashtable will be vocabulary_size*embedding_vec_size/load_factor.
 * `combiner`: 0 is sum and 1 is mean.
@@ -209,7 +209,7 @@ Embedding:
       "top": "sparse_embedding1",
       "plan_file": "all2all_plan_bi_1.json",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1737710,
+        "vocabulary_size_per_gpu": 1737710,
         "load_factor": 0.75,
         "embedding_vec_size": 16,
         "combiner": 0
@@ -373,7 +373,7 @@ To use raw format, you need to specify the number of train samples and the numbe
 ```json
 "format": "Raw",
 "num_samples": 4195155968,
-"slot_size": [39884406,    39043,    17289,     7420,    20263,    3,  7120,     1543,  63, 38532951,  2953546,   403346, 10,     2208,    11938,      155,        4,      976, 14, 39979771, 25641295, 39664984,   585935,    12972,  108,  36],
+"slot_size_array": [39884406,    39043,    17289,     7420,    20263,    3,  7120,     1543,  63, 38532951,  2953546,   403346, 10,     2208,    11938,      155,        4,      976, 14, 39979771, 25641295, 39664984,   585935,    12972,  108,  36],
 "eval_num_samples": 89137319,
 ```
 

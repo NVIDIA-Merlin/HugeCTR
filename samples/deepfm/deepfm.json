@@ -53,7 +53,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1737709,
+        "max_vocabulary_size": 1737709,
         "load_factor": 0.75,
         "embedding_vec_size": 11,
         "combiner": 0
