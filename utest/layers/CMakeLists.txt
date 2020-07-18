@@ -24,7 +24,6 @@ file(GLOB layers_test_src
   fused_fully_connected_layer_test.cpp
   interaction_layer_test.cpp
   relu_layer_test.cpp
-  relu_layer_half_test.cpp
   slice_layer_test.cpp
   reshape_layer_test.cpp
   reshape_layer_test_sel.cpp

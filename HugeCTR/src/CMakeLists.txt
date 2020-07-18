@@ -28,7 +28,6 @@ file(GLOB huge_ctr_src
   layers/fused_fully_connected_layer.cu
   layers/interaction_layer.cu
   layers/relu_layer.cu
-  layers/relu_layer_half.cu
   layers/reshape_layer.cu
   layers/slice_layer.cu
   layers/fm_order2_layer.cu
@@ -44,7 +43,6 @@ file(GLOB huge_ctr_src
   optimizers/momentum_sgd.cu
   optimizers/nesterov_optimizer.cu
   optimizers/sgd_optimizer.cu
-  optimizers/sgd_optimizer_half.cu
   regularizer.cu
   regularizers/l1_regularizer.cu
   regularizers/l2_regularizer.cu

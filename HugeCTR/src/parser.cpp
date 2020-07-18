@@ -32,7 +32,6 @@
 #include "HugeCTR/include/layers/multiply_layer.hpp"
 #include "HugeCTR/include/layers/reduce_sum_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
-#include "HugeCTR/include/layers/relu_layer_half.hpp"
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 #include "HugeCTR/include/layers/slice_layer.hpp"
 #include "HugeCTR/include/loss.hpp"
@@ -41,7 +40,6 @@
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
 #include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
-#include "HugeCTR/include/optimizers/sgd_optimizer_half.hpp"
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
@@ -645,7 +643,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           std::shared_ptr<Tensor<__half>> relu_out_tensor(
               new Tensor<__half>(relu_in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
           layers.emplace_back(
-              new ReluLayerHalf(dynamic_tensor_cast<__half>(relu_in_tensor),
+              new ReluLayer<__half>(std::dynamic_pointer_cast<Tensor<__half>>(relu_in_tensor),
                                 relu_out_tensor, device_id));
           output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
         } else {
@@ -653,7 +651,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           std::shared_ptr<Tensor<float>> relu_out_tensor(
               new Tensor<float>(relu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
           layers.emplace_back(
-              new ReluLayer(dynamic_tensor_cast<float>(relu_in_tensor),
+              new ReluLayer<float>(std::dynamic_pointer_cast<Tensor<float>>(relu_in_tensor),
                             relu_out_tensor, device_id));
           output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
         }
@@ -846,11 +844,11 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
     case Optimizer_t::SGD: {
       auto learning_rate = opt_param.lr;
       if (use_mixed_precision) {
-        network->optimizer_.reset(new SgdOptimizerHalf(
+        network->optimizer_.reset(new SgdOptimizer<__half>(
             weight_buff, wgrad_buff_half, weight_buff_half, device_id, learning_rate, scaler));
       } else {
         network->optimizer_.reset(
-            new SgdOptimizer(weight_buff, wgrad_buff, device_id, learning_rate, scaler));
+            new SgdOptimizer<float>(weight_buff, wgrad_buff, nullptr, device_id, learning_rate, scaler));
       }
       break;
     }
