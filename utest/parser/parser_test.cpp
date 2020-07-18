@@ -27,9 +27,6 @@
  */
 
 using namespace HugeCTR;
-typedef long long TypeKey;
-typedef float TypeEmbeddingComp;
-// typedef __half TypeEmbeddingComp;
 
 template <typename TypeKey>
 void test_parser(std::string& json_name) {
@@ -52,20 +49,23 @@ void test_parser(std::string& json_name) {
   return;
 }
 
-const long long label_dim = 1;
-const long long dense_dim = 64;
-const int max_nnz = 10;
-typedef long long T;
-const int vocabulary_size = 1603616;
-const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
-const std::string file_list_name = prefix + "_file_list.txt";
-const int num_files = 3;
-const long long num_records = 4096 * 3;
-const long long slot_num = 20;
-const Check_t CHK = Check_t::Sum;
-
+template <typename T>
 void simple_sparse_embedding_test(std::string json_name) {
+  const long long label_dim = 1;
+  const long long dense_dim = 64;
+  const int max_nnz = 10;
+  const int vocabulary_size = 1603616;
+  const std::string prefix("./simple_sparse_embedding/simple_sparse_embedding");
+  const std::string file_list_name = prefix + "_file_list.txt";
+  const int num_files = 3;
+  const long long num_records = 4096 * 3;
+  const long long slot_num = 20;
+  const Check_t CHK = Check_t::Sum;
+
   test::mpi_init();
+  if (file_exist(file_list_name)) {
+    std::remove(file_list_name.c_str());
+  }
   HugeCTR::data_generation_for_test<T, CHK>(file_list_name, prefix, num_files, num_records,
                                             slot_num, vocabulary_size, label_dim, dense_dim,
                                             max_nnz);
@@ -80,24 +80,20 @@ void simple_sparse_embedding_test(std::string json_name) {
   dst << inbuf;
   src.close();
   dst.close();
-  test_parser<long long>(json_name);
+  test_parser<T>(json_name);
 }
 
 TEST(parser_test, simple_sparse_embedding_fp32) {
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding_fp32.json";
-  simple_sparse_embedding_test(json_name);
+  simple_sparse_embedding_test<unsigned int>(json_name);
 }
 
 TEST(parser_test, simple_sparse_embedding_fp16) {
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding_fp16.json";
-  simple_sparse_embedding_test(json_name);
+  simple_sparse_embedding_test<unsigned int>(json_name);
 }
 
 TEST(parser_test, simple_sparse_embedding_sgd) {
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding_sgd.json";
-  simple_sparse_embedding_test(json_name);
+  simple_sparse_embedding_test<unsigned int>(json_name);
 }
-
-// TEST(parser_test, basic_parser2) { std::string json_name("basic_parser2.json"); }
-
-// TEST(parser_test, basic_parser3) { std::string json_name("basic_parser3.json"); }
