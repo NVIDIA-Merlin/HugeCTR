@@ -23,10 +23,11 @@ namespace HugeCTR {
 /**
  * Adam optimizer
  */
+template <typename T>
 class SgdOptimizer : public Optimizer {
  public:
   /**
-   * Constructor of SgdOptimizer.
+   * Constructor of SgdOptimizerHalf.
    * names of hyper-parameters are the same as in Algorithm 1 of Adam paper (arXiv:1412.6980)
    * @param weight weights to be updated
    * @param wgrad gradient for weights
@@ -35,11 +36,21 @@ class SgdOptimizer : public Optimizer {
    # @param scaler scaler factor for mixed precision
    */
   SgdOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
-               const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id, float lr = 0.001f,
-               float scaler = 1.f)
-      : Optimizer(weight, device_id, lr, scaler), wgrad_(wgrad) {
-    if (weight_->get_size() != wgrad_->get_size()) {
-      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
+               const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+               const std::shared_ptr<GeneralBuffer<T>>& weight_tmp, int device_id,
+               float lr = 0.001f, float scaler = 1.f)
+      : Optimizer(weight, device_id, lr, scaler), wgrad_(wgrad), weight_tmp_(nullptr) {
+
+    if (std::is_same<T, __half>::value) {
+      weight_tmp_ = weight_tmp; 
+      if (wgrad_->get_num_elements() != weight_tmp_->get_num_elements()) {
+        CK_THROW_(Error_t::WrongInput,
+                  "wgrad_->get_num_elements() != weight_tmp_->get_num_elements()");
+      }
+    } 
+    if (weight_->get_num_elements() != wgrad_->get_num_elements()) {
+      CK_THROW_(Error_t::WrongInput,
+                "weight_.get_num_elements() != wgrad_.get_num_elements()");
     }
   }
 
@@ -50,7 +61,9 @@ class SgdOptimizer : public Optimizer {
   void update(cudaStream_t stream) override;
 
  private:
-  std::shared_ptr<GeneralBuffer<float>> wgrad_;
+  std::shared_ptr<GeneralBuffer<T>> wgrad_;
+  std::shared_ptr<GeneralBuffer<T>> weight_tmp_;
 };
 
 }  // namespace HugeCTR
+

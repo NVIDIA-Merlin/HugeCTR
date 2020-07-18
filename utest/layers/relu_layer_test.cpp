@@ -30,45 +30,56 @@ namespace {
 
 const float eps = 1e-6;
 
-void relu_cpu(const float* in, float* out, int len) {
+template <typename T>
+void relu_cpu(const T* in, T* out, int len) {
   for (int i = 0; i < len; ++i) {
-    out[i] = (in[i] < 0) ? 0 : in[i];
+    if (in[i] < 0) {
+      out[i] = 0.0f;
+    } else {
+      out[i] = in[i];
+    }
   }
 }
 
-void relu_bprop_cpu(const float* d_out, float* d_in, int len) {
+template <typename T>
+void relu_bprop_cpu(const T* d_out, T* d_in, int len) {
   for (int i = 0; i < len; ++i) {
-    d_in[i] = (d_in[i] < 0) ? 0 : d_out[i];
+    if (d_in[i] < 0) {
+      d_in[i] = 0.f;
+    } else {
+      d_in[i] = d_out[i];
+    }
   }
 }
 
+template <typename T>
 void relu_test(size_t dim0, size_t dim1) {
-  std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer<T>> buf(new GeneralBuffer<T>());
   vector<size_t> dims = {dim0, dim1};
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, buf));
-  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims, buf));
+  std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(dims, buf));
+  std::shared_ptr<Tensor<T>> out_tensor(new Tensor<T>(dims, buf));
   buf->init(0);
 
   const int len = dim0 * dim1;
-  float* d_in = in_tensor->get_ptr();
-  float* d_out = out_tensor->get_ptr();
-  std::unique_ptr<float[]> h_in(new float[len]);
-  std::unique_ptr<float[]> h_out(new float[len]);
-  std::unique_ptr<float[]> h_expected(new float[len]);
+  T* d_in = in_tensor->get_ptr();
+  T* d_out = out_tensor->get_ptr();
+  std::unique_ptr<T[]> h_in(new T[len]);
+  std::unique_ptr<T[]> h_out(new T[len]);
+  std::unique_ptr<T[]> h_expected(new T[len]);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  ReluLayer relu_layer(in_tensor, out_tensor, 0);
+  ReluLayer<T> relu_layer(in_tensor, out_tensor, 0);
 
   // fprop
   for (int i = 0; i < len; ++i) {
     h_in[i] = simulator.get_num();
   }
-  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice);
   relu_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, len * sizeof(float), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_out.get(), d_out, len * sizeof(T), cudaMemcpyDeviceToHost);
 
-  relu_cpu(h_in.get(), h_expected.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len, eps));
+  relu_cpu<T>(h_in.get(), h_expected.get(), len);
+  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_expected.get(), len, eps));
 
   // bprop
   for (int i = 0; i < len; ++i) {
@@ -76,19 +87,25 @@ void relu_test(size_t dim0, size_t dim1) {
     h_out[i] = simulator.get_num();
     h_expected[i] = h_in[i];
   }
-  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_out, h_out.get(), len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_out, h_out.get(), len * sizeof(T), cudaMemcpyHostToDevice);
   relu_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_in.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost);
 
-  relu_bprop_cpu(h_out.get(), h_expected.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<float>(h_in.get(), h_expected.get(), len, eps));
+  relu_bprop_cpu<T>(h_out.get(), h_expected.get(), len);
+  ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_expected.get(), len, eps));
 }
 
 }  // namespace
 
-TEST(relu_layer, fprop_and_bprop) {
-  relu_test(10, 20);
-  relu_test(10, 500);
-  relu_test(512, 1024 * 2);
+TEST(relu_layer, fp32_fprop_and_bprop) {
+  relu_test<float>(10, 20);
+  relu_test<float>(10, 500);
+  relu_test<float>(512, 1024 * 2);
+}
+
+TEST(relu_layer, fp16_fprop_and_bprop) {
+  relu_test<__half>(10, 20);
+  relu_test<__half>(10, 500);
+  relu_test<__half>(512, 1024 * 2);
 }
