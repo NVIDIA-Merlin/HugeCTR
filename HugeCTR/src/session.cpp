@@ -228,7 +228,7 @@ void network_train_helper(int id, Network* n) {
 }
 
 template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::train() {
+void SessionImpl<TypeKey>::train() {
   try {
 #ifndef DATA_READING_TEST
     data_reader_->read_a_batch_to_device_delay_release();
@@ -258,14 +258,13 @@ Error_t SessionImpl<TypeKey>::train() {
 #else
     data_reader_->read_a_batch_to_device();
 #endif
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    return rt_err.get_error();
+  } catch (const internal_runtime_error& err) {
+    std::cerr << err.what() << std::endl;
+    throw err;
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
-    return Error_t::UnspecificError;
+    throw err;
   }
-  return Error_t::Success;
 }
 
 void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
@@ -283,9 +282,9 @@ void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
 }
 
 template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::eval() {
+void SessionImpl<TypeKey>::eval() {
   try {
-    if (data_reader_eval_ == nullptr) return Error_t::NotInitialized;
+    if (data_reader_eval_ == nullptr) return;
     long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
@@ -315,12 +314,12 @@ Error_t SessionImpl<TypeKey>::eval() {
       metric->global_reduce(networks_eval_.size());
     }
 
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    return rt_err.get_error();
+  } catch (const internal_runtime_error& err) {
+    std::cerr << err.what() << std::endl;
+    throw err;
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
-    return Error_t::UnspecificError;
+    throw err;
   }
 
   // for(auto& metric : metrics_) {
@@ -339,8 +338,6 @@ Error_t SessionImpl<TypeKey>::eval() {
   //     return Error_t::UnspecificError;
   //   }
   // }
-
-  return Error_t::Success;
 }
 
 template <typename TypeKey>

@@ -1008,8 +1008,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
             const auto num_samples = get_value_from_json<long long>(j, "num_samples");
             const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
             std::vector<long long> slot_offset;
-            if (has_key_(j, "slot_size")) {
-              auto slot_size_array = get_json(j, "slot_size");
+            if (has_key_(j, "slot_size_array")) {
+              auto slot_size_array = get_json(j, "slot_size_array");
               if (!slot_size_array.is_array()) {
                 CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
               }
@@ -1096,7 +1096,18 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           auto top_name = get_value_from_json<std::string>(j, "top");
 
           auto j_hparam = get_json(j, "sparse_embedding_hparam");
-          auto vocabulary_size = get_value_from_json<size_t>(j_hparam, "vocabulary_size");
+          size_t max_vocabulary_size = 0;
+          size_t max_vocabulary_size_per_gpu = 0;
+          if(embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
+            max_vocabulary_size = get_value_from_json<size_t>(j_hparam, "max_vocabulary_size");
+          } else if(embedding_type == Embedding_t::LocalizedSlotSparseEmbeddingHash) {
+	    if (has_key_(j_hparam, "max_vocabulary_size_per_gpu")) {
+	      max_vocabulary_size_per_gpu = get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
+	    }
+	    else if(!has_key_(j_hparam, "slot_size_array")){
+	      CK_THROW_(Error_t::WrongInput, "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_name);
+	    }
+          }
           auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
           auto combiner = get_value_from_json<int>(j_hparam, "combiner");
 
@@ -1119,7 +1130,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                 auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 const SparseEmbeddingHashParams<__half> embedding_params = {
                     batch_size,
-                    vocabulary_size,
+                    max_vocabulary_size,
+                    0,
+                    {},
                     load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
@@ -1161,18 +1174,20 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #else
                 std::string plan_file = "";
 #endif
-                std::vector<size_t> slot_sizes;
-                if (has_key_(j, "slot_size")) {
-                  auto slots = get_json(j, "slot_size");
+                std::vector<size_t> slot_size_array;
+                if (has_key_(j_hparam, "slot_size_array")) {
+                  auto slots = get_json(j_hparam, "slot_size_array");
                   assert(slots.is_array());
                   for (auto slot : slots) {
-                    slot_sizes.emplace_back(slot.get<size_t>());
+                    slot_size_array.emplace_back(slot.get<size_t>());
                   }
                 }
 
                 const SparseEmbeddingHashParams<__half> embedding_params = {
                     batch_size,
-                    vocabulary_size,
+                    0,
+                    max_vocabulary_size_per_gpu,
+                    slot_size_array,
                     load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
@@ -1181,7 +1196,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_hash(
                     sparse_input.row, sparse_input.value, embedding_params, plan_file,
-                    gpu_resource_group, slot_sizes);
+                    gpu_resource_group);
                 embedding.emplace_back(emb_ptr);
                 embedding_eval.emplace_back(
                     EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
@@ -1192,18 +1207,18 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
               case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
                 auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 std::string plan_file = "";
-                std::vector<size_t> slot_sizes;
-                if (has_key_(j, "slot_size")) {
-                  auto slots = get_json(j, "slot_size");
-                  assert(slots.is_array());
-                  for (auto slot : slots) {
-                    slot_sizes.emplace_back(slot.get<size_t>());
-                  }
+                std::vector<size_t> slot_size_array;
+                auto slots = get_json(j_hparam, "slot_size_array");
+                assert(slots.is_array());
+                for (auto slot : slots) {
+                  slot_size_array.emplace_back(slot.get<size_t>());
                 }
 
                 const SparseEmbeddingHashParams<__half> embedding_params = {
                     batch_size,
-                    vocabulary_size,
+                    0,
+                    0,
+                    slot_size_array,
                     load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
@@ -1212,7 +1227,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_one_hot(
                     sparse_input.row, sparse_input.value, embedding_params, plan_file,
-                    gpu_resource_group, slot_sizes);
+                    gpu_resource_group);
                 embedding.emplace_back(emb_ptr);
                 embedding_eval.emplace_back(
                     EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
@@ -1242,7 +1257,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                 auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 const SparseEmbeddingHashParams<float> embedding_params = {
                     batch_size,
-                    vocabulary_size,
+                    max_vocabulary_size,
+                    0,
+                    {},
                     load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
@@ -1283,18 +1300,20 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #else
                 std::string plan_file = "";
 #endif
-                std::vector<size_t> slot_sizes;
-                if (has_key_(j, "slot_size")) {
-                  auto slots = get_json(j, "slot_size");
+                std::vector<size_t> slot_size_array;
+                if (has_key_(j_hparam, "slot_size_array")) {
+                  auto slots = get_json(j_hparam, "slot_size_array");
                   assert(slots.is_array());
                   for (auto slot : slots) {
-                    slot_sizes.emplace_back(slot.get<size_t>());
+                    slot_size_array.emplace_back(slot.get<size_t>());
                   }
                 }
 
                 const SparseEmbeddingHashParams<float> embedding_params = {
                     batch_size,
-                    vocabulary_size,
+                    0,
+                    max_vocabulary_size_per_gpu,
+                    slot_size_array,
                     load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
@@ -1303,7 +1322,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_hash(
                     sparse_input.row, sparse_input.value, embedding_params, plan_file,
-                    gpu_resource_group, slot_sizes);
+                    gpu_resource_group);
                 embedding.emplace_back(emb_ptr);
                 embedding_eval.emplace_back(
                     EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
@@ -1314,18 +1333,18 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
               case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
                 auto load_factor = get_value_from_json<float>(j_hparam, "load_factor");
                 std::string plan_file = "";
-                std::vector<size_t> slot_sizes;
-                if (has_key_(j, "slot_size")) {
-                  auto slots = get_json(j, "slot_size");
-                  assert(slots.is_array());
-                  for (auto slot : slots) {
-                    slot_sizes.emplace_back(slot.get<size_t>());
-                  }
+                std::vector<size_t> slot_size_array;
+                auto slots = get_json(j_hparam, "slot_size_array");
+                assert(slots.is_array());
+                for (auto slot : slots) {
+                  slot_size_array.emplace_back(slot.get<size_t>());
                 }
 
                 const SparseEmbeddingHashParams<float> embedding_params = {
                     batch_size,
-                    vocabulary_size,
+                    0,
+                    0,
+                    slot_size_array,
                     load_factor,
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
@@ -1334,7 +1353,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                     embedding_opt_params};
                 auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_one_hot(
                     sparse_input.row, sparse_input.value, embedding_params, plan_file,
-                    gpu_resource_group, slot_sizes);
+                    gpu_resource_group);
                 embedding.emplace_back(emb_ptr);
                 embedding_eval.emplace_back(
                     EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,

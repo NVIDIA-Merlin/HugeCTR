@@ -32,8 +32,8 @@ class Session {
  public:
   static std::shared_ptr<Session> Create(const SolverParser& solver_config);
 
-  virtual Error_t train() = 0;
-  virtual Error_t eval() = 0;
+  virtual void train() = 0;
+  virtual void eval() = 0;
   virtual std::vector<std::pair<std::string, float>> get_eval_metrics() = 0;
   virtual void start_data_reading() =0;
   virtual Error_t get_current_loss(float* loss) = 0;
@@ -63,12 +63,12 @@ class SessionImpl : public Session {
    * This method processes one iteration of a training, including one forward, one backward and
    * parameter update
    */
-  Error_t train() override;
+  void train() override;
   /**
    * The all in one evaluation method.
    * This method processes one forward of evaluation.
    */
-  Error_t eval() override;
+  void eval() override;
 
   std::vector<std::pair<std::string, float>> get_eval_metrics() override;
 

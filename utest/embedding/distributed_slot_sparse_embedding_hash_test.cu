@@ -215,7 +215,7 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       vocabulary_size, load_factor, embedding_vec_size,
+      batchsize,       vocabulary_size, 0, {}, load_factor, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -433,7 +433,7 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       vocabulary_size, load_factor, embedding_vec_size,
+      batchsize,       vocabulary_size, 0, {}, load_factor, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;

@@ -60,7 +60,7 @@
       "bottom": "wide_data",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 2322444,
+        "max_vocabulary_size": 2322444,
         "load_factor": 0.75,
         "embedding_vec_size": 1,
         "combiner": 0
@@ -75,7 +75,7 @@
       "top": "sparse_embedding1",
       "plan_file": "all2all_plan_bi_1.json",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 6624824,
+        "max_vocabulary_size_per_gpu": 828103,
         "load_factor": 0.75,
         "embedding_vec_size": 16,
         "combiner": 0

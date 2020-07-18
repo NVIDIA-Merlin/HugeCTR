@@ -54,7 +54,7 @@
       "top": "sparse_embedding1",
       "plan_file": ["all2all_plan_bi_1.json","all2all_plan_bi_1.json"],
       "sparse_embedding_hparam": {
-        "vocabulary_size": 3037710,
+        "max_vocabulary_size_per_gpu": 337464,
         "load_factor": 0.75,
         "embedding_vec_size": 16,
         "combiner": 0
