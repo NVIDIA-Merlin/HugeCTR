@@ -179,11 +179,20 @@ class Network {
   void set_learning_rate(float lr) { optimizer_->set_learning_rate(lr); }
 
   /**
-   * optimize layer by layer
+   * initialize layer by layer
    */
-  void optimize() {
+  void initialize() {
     for (auto& n : layers_) {
-      n->optimize();
+      n->initialize();
+    }
+  }
+
+  /**
+   * search_algorithm layer by layer
+   */
+  void search_algorithm() {
+    for (auto& n : layers_) {
+      n->search_algorithm();
     }
   }
 };

@@ -232,7 +232,7 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
 }
 
-void FullyConnectedLayer::optimize() {
+void FullyConnectedLayer::search_algorithm() {
   // Set to the CUDA device where this layer assigned to
   CudaDeviceContext context(get_device_id());
   const int repeat_num = 5;

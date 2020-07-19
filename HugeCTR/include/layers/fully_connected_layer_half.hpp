@@ -77,9 +77,13 @@ class FullyConnectedLayerHalf : public Layer {
    */
   void bprop(cudaStream_t stream) final;
   /*
+   * initialize for cublasGemmEx
+   */
+  void initialize() final;
+  /*
    * algorithm search for cublasGemmEx
    */
-  void optimize() final;
+  void search_algorithm() final;
   /**
    * This is the constructor of the FullyConnectedLayer.
    * It will check whether the format combination of all tensors is supported or not.

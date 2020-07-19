@@ -865,7 +865,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   }
 
 #ifndef DATA_READING_TEST
-  network->optimize();
+  network->initialize();
+  network->search_algorithm();
 #endif
 
   return network.release();
