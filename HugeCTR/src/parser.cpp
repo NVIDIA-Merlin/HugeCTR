@@ -823,22 +823,54 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       auto beta1 = opt_param.hyperparams.adam.beta1;
       auto beta2 = opt_param.hyperparams.adam.beta2;
       auto epsilon = opt_param.hyperparams.adam.epsilon;
-      network->optimizer_.reset(new AdamOptimizer(weight_buff, wgrad_buff, device_id, alpha, beta1,
-                                                  beta2, epsilon, scaler));
+      if (use_mixed_precision) {
+        network->optimizer_.reset(new AdamOptimizer<__half>(weight_buff, wgrad_buff_half,
+                                                            device_id,
+                                                            alpha,
+                                                            beta1, beta2,
+                                                            epsilon, scaler));
+      }
+      else {
+        network->optimizer_.reset(new AdamOptimizer<float>(weight_buff, wgrad_buff,
+                                                           device_id,
+                                                           alpha,
+                                                           beta1, beta2,
+                                                           epsilon, scaler));
+      }
       break;
     }
     case Optimizer_t::MomentumSGD: {
       auto learning_rate = opt_param.lr;
       auto momentum_factor = opt_param.hyperparams.momentum.factor;
-      network->optimizer_.reset(new MomentumSGD(weight_buff, wgrad_buff, device_id, learning_rate,
-                                                momentum_factor, scaler));
+      if (use_mixed_precision) {
+        network->optimizer_.reset(new MomentumSGD<__half>(weight_buff, wgrad_buff_half,
+                                                          device_id,
+                                                          learning_rate,
+                                                          momentum_factor, scaler));
+      }
+      else {
+        network->optimizer_.reset(new MomentumSGD<float>(weight_buff, wgrad_buff,
+                                                         device_id,
+                                                         learning_rate,
+                                                         momentum_factor, scaler));
+      }
       break;
     }
     case Optimizer_t::Nesterov: {
       auto learning_rate = opt_param.lr;
       auto momentum_factor = opt_param.hyperparams.nesterov.mu;
-      network->optimizer_.reset(new NesterovOptimizer(weight_buff, wgrad_buff, device_id,
-                                                      learning_rate, momentum_factor, scaler));
+      if (use_mixed_precision) {
+        network->optimizer_.reset(new NesterovOptimizer<__half>(weight_buff, wgrad_buff_half,
+                                                                device_id,
+                                                                learning_rate, momentum_factor,
+                                                                scaler));
+      }
+      else {
+        network->optimizer_.reset(new NesterovOptimizer<float>(weight_buff, wgrad_buff,
+                                                               device_id,
+                                                               learning_rate, momentum_factor,
+                                                               scaler));
+      }
       break;
     }
     case Optimizer_t::SGD: {
