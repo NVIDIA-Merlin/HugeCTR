@@ -54,10 +54,8 @@ FullyConnectedLayerHalf::FullyConnectedLayerHalf(const GeneralBufferPtr<float>& 
   std::vector<size_t> bias_dim = {1, n};
   std::vector<size_t> identity_dim = {1, m};
 
-  weights_.emplace_back(
-      new Tensor<float>(kernel_dim, master_weights_buff, weight_tensor_format));
-  weights_.emplace_back(
-      new Tensor<float>(bias_dim, master_weights_buff, weight_tensor_format));
+  weights_.emplace_back(new Tensor<float>(kernel_dim, master_weights_buff, weight_tensor_format));
+  weights_.emplace_back(new Tensor<float>(bias_dim, master_weights_buff, weight_tensor_format));
 
   weights_half_.emplace_back(new Tensor<__half>(kernel_dim, weights_buff, weight_tensor_format));
   weights_half_.emplace_back(new Tensor<__half>(bias_dim, weights_buff, weight_tensor_format));
@@ -148,7 +146,24 @@ void FullyConnectedLayerHalf::bprop(cudaStream_t stream) {
 #endif
 }
 
-void FullyConnectedLayerHalf::optimize() {
+void FullyConnectedLayerHalf::initialize() {
+  CudaDeviceContext context(get_device_id());
+
+  // CUDA stream to be used for cublas on this device
+  cudaStream_t stream;
+  CK_CUDA_THROW_(cudaStreamCreate(&stream));
+
+  __half* identity = identity_tensor_->get_ptr();
+  const auto& bottom_tensor_dim = bottom_tensor_->get_dims();
+  size_t m = bottom_tensor_dim[0];
+
+  // Initialize identity vector
+  initialize_array<<<(m - 1) / 1024 + 1, 1024, 0, stream>>>(identity, m, __float2half(1.0f));
+
+  CK_CUDA_THROW_(cudaStreamDestroy(stream));
+}
+
+void FullyConnectedLayerHalf::search_algorithm() {
   // Set to the CUDA device where this layer assigned to
   CudaDeviceContext context(get_device_id());
   const size_t repeat_num = 100;
@@ -376,7 +391,8 @@ void FullyConnectedLayerHalf::optimize() {
   CK_CUDA_THROW_(cudaStreamDestroy(stream));
 }  // namespace HugeCTR
 
-std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_uniform_initializer(const int index) {
+std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_uniform_initializer(
+    const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
@@ -384,32 +400,35 @@ std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_uniform_initi
   return std::unique_ptr<DataSimulator<float>>(new UnifiedDataSimulator<float>(-1 * limit, limit));
 }
 
-std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_xavier_uniform_initializer(const int index) {
+std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_xavier_uniform_initializer(
+    const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
-            data_simu::Distribution_t::Uniform,
-            0 == index ? bottom_dim : 0, top_dim));
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
+      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform,
+      0 == index ? bottom_dim : 0, top_dim));
 }
 
-std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_xavier_norm_initializer(const int index) {
+std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_xavier_norm_initializer(
+    const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
-            data_simu::Distribution_t::Norm,
-            0 == index ? bottom_dim : 0, top_dim));
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
+      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm, 0 == index ? bottom_dim : 0,
+      top_dim));
 }
 
-std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_default_initializer(const int index) {
+std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_default_initializer(
+    const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
   std::unique_ptr<DataSimulator<float>> simu(nullptr);
   if (0 == index) {
-    simu.reset(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm,
-            bottom_dim, top_dim));
+    simu.reset(new VarianceScalingSimulator<float>(
+        1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm, bottom_dim, top_dim));
   } else if (1 == index) {
     float stddev = sqrt(1.f / top_dim);
     simu.reset(new GaussianDataSimulator<float>(0, stddev, -2 * stddev, 2 * stddev));
