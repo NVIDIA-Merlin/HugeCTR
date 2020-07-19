@@ -16,27 +16,26 @@
 
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
 
+namespace HugeCTR {
+
 namespace {
 
-__device__ __forceinline__ void momentumSGD_update_device(
-    float* weight_ptr, float* momentum_ptr, float wgrad,
-    HugeCTR::MomentumSGDHyperParameters hyper_parameters, float scaler) {
-  momentum_ptr[0] =
-      hyper_parameters.momentum_factor * momentum_ptr[0] - hyper_parameters.lr * wgrad / scaler;
-  weight_ptr[0] += momentum_ptr[0];
-
-  // if(isnan(weight_ptr[0])){
-  //   int count = atomicAdd(&debug_counter, 1);
-  //   if(count < 10)
-  //     printf("%f;", wgrad);
-  // }
-
+__forceinline__
+__device__ void momentumSGD_update_device(float* weight_ptr, float* momentum_ptr,
+                                          float wgrad,
+                                          MomentumSGDHyperParameters hyper_parameters,
+                                          float scaler) {
+  float mv = hyper_parameters.momentum_factor * static_cast<float>(momentum_ptr[0]) - 
+             hyper_parameters.lr * wgrad / scaler;
+  momentum_ptr[0] = mv;
+  weight_ptr[0] += mv;
   return;
 }
 
+template <typename T>
 __global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr,
-                                          const float* wgrad_ptr, int size,
-                                          HugeCTR::MomentumSGDHyperParameters hyper_parameters,
+                                          const T* wgrad_ptr, int size,
+                                          MomentumSGDHyperParameters hyper_parameters,
                                           float scaler) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < size) {
@@ -48,15 +47,29 @@ __global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr
 
 }  // namespace
 
-namespace HugeCTR {
+template <typename T>
+MomentumSGD<T>::MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight,
+                            const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+                            int device_id,
+                            float learning_rate, float momentum_factor, float scaler)
+    : Optimizer(weight, device_id, learning_rate, scaler),
+      momentum_factor_(momentum_factor),
+      wgrad_(wgrad) {
+  momentum_.reset(new GeneralBuffer<float>(weight_->get_num_elements(), device_id_));
+  momentum_->reset_sync();
+  if (weight_->get_num_elements() != wgrad_->get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput, "weight_ and wgrad_ have different lengths");
+  }
+}
 
-void MomentumSGD::update(cudaStream_t stream) {
+template <typename T>
+void MomentumSGD<T>::update(cudaStream_t stream) {
   CudaDeviceContext context(device_id_);
 
   constexpr int block_dim = 256;
   int grid_dim = (weight_->get_num_elements() + block_dim - 1) / block_dim;
   float* weight_ptr = weight_->get_ptr_with_offset(0);
-  const float* wgrad_ptr = wgrad_->get_ptr_with_offset(0);
+  const T* wgrad_ptr = wgrad_->get_ptr_with_offset(0);
   float* momentum_ptr = momentum_->get_ptr_with_offset(0);
 
   MomentumSGDHyperParameters hyper_parameters = {lr_, momentum_factor_};
@@ -67,5 +80,8 @@ void MomentumSGD::update(cudaStream_t stream) {
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+
+template class MomentumSGD<float>;
+template class MomentumSGD<__half>;
 
 }  // namespace HugeCTR

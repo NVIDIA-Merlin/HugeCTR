@@ -16,15 +16,20 @@
 
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
 
+namespace HugeCTR {
+
 namespace {
 
-__global__ void adam_kernel(int len, float* weight, const float* wgrad, float* m, float* v,
-                            float alpha_t, float beta1, float beta2, float epsilon, float scaler) {
+template <typename T>
+__global__ void adam_kernel(int len, float* weight, const T* wgrad,
+                            T* m, T* v,
+                            float alpha_t, float beta1, float beta2,
+                            float epsilon, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
-    float gi = wgrad[i] / scaler;
-    float mi = beta1 * m[i] + (1 - beta1) * gi;
-    float vi = beta2 * v[i] + (1 - beta2) * gi * gi;
+    float gi = static_cast<float>(wgrad[i]) / scaler;
+    float mi = beta1 * static_cast<float>(m[i]) + (1.f - beta1) * gi;
+    float vi = beta2 * static_cast<float>(v[i]) + (1.f - beta2) * gi * gi;
     m[i] = mi;
     v[i] = vi;
     weight[i] -= alpha_t * mi / (sqrt(vi) + epsilon);
@@ -33,9 +38,30 @@ __global__ void adam_kernel(int len, float* weight, const float* wgrad, float* m
 
 }  // namespace
 
-namespace HugeCTR {
+template <typename T>
+AdamOptimizer<T>::AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
+                                const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+                                int device_id,
+                                float alpha,
+                                float beta1, float beta2,
+                                float epsilon, float scaler)
+    : Optimizer(weight, device_id, alpha, scaler),
+      m_(weight->get_num_elements(), device_id),
+      v_(weight->get_num_elements(), device_id),
+      t_(0),
+      beta1_(beta1),
+      beta2_(beta2),
+      epsilon_(epsilon),
+      wgrad_(wgrad) {
+  m_.reset_sync();
+  v_.reset_sync();
+  if (weight_->get_num_elements() != wgrad_->get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput, "weight_ and wgrad_ have different lengths");
+  }
+}
 
-void AdamOptimizer::update(cudaStream_t stream) {
+template <typename T>
+void AdamOptimizer<T>::update(cudaStream_t stream) {
   CudaDeviceContext context(device_id_);
 
   const int len = weight_->get_num_elements();
@@ -43,18 +69,22 @@ void AdamOptimizer::update(cudaStream_t stream) {
   const int grid_dim = (len - 1) / block_dim + 1;
 
   float* weight = weight_->get_ptr_with_offset(0);
-  const float* wgrad = wgrad_->get_ptr_with_offset(0);
-  float* m = m_.get_ptr_with_offset(0);
-  float* v = v_.get_ptr_with_offset(0);
+  const T* wgrad = wgrad_->get_ptr_with_offset(0);
+  T* m = m_.get_ptr_with_offset(0);
+  T* v = v_.get_ptr_with_offset(0);
 
   ++t_;
   const float alpha_t = lr_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
-  adam_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, m, v, alpha_t, beta1_, beta2_,
+  adam_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, m, v,
+                                                  alpha_t, beta1_, beta2_,
                                                   epsilon_, scaler_);
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+
+template class AdamOptimizer<float>;
+template class AdamOptimizer<__half>;
 
 }  // namespace HugeCTR
