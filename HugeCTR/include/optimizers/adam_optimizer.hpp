@@ -23,6 +23,7 @@ namespace HugeCTR {
 /**
  * Adam optimizer
  */
+template <typename T>
 class AdamOptimizer : public Optimizer {
  public:
   /**
@@ -37,23 +38,11 @@ class AdamOptimizer : public Optimizer {
    * @param epsilon epsilon in Adam paper
    */
   AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
-                const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
-                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8,
-                float scaler = 1.f)
-      : Optimizer(weight, device_id, alpha, scaler),
-        m_(weight->get_num_elements(), device_id),
-        v_(weight->get_num_elements(), device_id),
-        t_(0),
-        beta1_(beta1),
-        beta2_(beta2),
-        epsilon_(epsilon),
-        wgrad_(wgrad) {
-    m_.reset_sync();
-    v_.reset_sync();
-    if (weight_->get_size() != wgrad_->get_size()) {
-      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
-    }
-  }
+                const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+                int device_id,
+                float alpha = 0.001,
+                float beta1 = 0.9, float beta2 = 0.999,
+                float epsilon = 1e-8, float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -64,13 +53,13 @@ class AdamOptimizer : public Optimizer {
  private:
   // named as in Algorithm 1 of Adam paper (arXiv:1412.6980)
   // except that alpha is lr_ in class Optimizer
-  GeneralBuffer<float> m_;
-  GeneralBuffer<float> v_;
+  GeneralBuffer<T> m_;
+  GeneralBuffer<T> v_;
   uint64_t t_;
   const float beta1_;
   const float beta2_;
   const float epsilon_;
-  std::shared_ptr<GeneralBuffer<float>> wgrad_;
+  std::shared_ptr<GeneralBuffer<T>> wgrad_;
 };
 
 }  // namespace HugeCTR
