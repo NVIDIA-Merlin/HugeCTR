@@ -1095,17 +1095,16 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           auto top_name = get_value_from_json<std::string>(j, "top");
 
           auto j_hparam = get_json(j, "sparse_embedding_hparam");
-          size_t max_vocabulary_size = 0;
           size_t max_vocabulary_size_per_gpu = 0;
           if(embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
-            max_vocabulary_size = get_value_from_json<size_t>(j_hparam, "max_vocabulary_size");
+            max_vocabulary_size_per_gpu = get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
           } else if(embedding_type == Embedding_t::LocalizedSlotSparseEmbeddingHash) {
-	    if (has_key_(j_hparam, "max_vocabulary_size_per_gpu")) {
-	      max_vocabulary_size_per_gpu = get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
-	    }
-	    else if(!has_key_(j_hparam, "slot_size_array")){
-	      CK_THROW_(Error_t::WrongInput, "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_name);
-	    }
+            if (has_key_(j_hparam, "max_vocabulary_size_per_gpu")) {
+              max_vocabulary_size_per_gpu = get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
+            }
+            else if(!has_key_(j_hparam, "slot_size_array")){
+              CK_THROW_(Error_t::WrongInput, "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_name);
+            }
           }
           auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
           auto combiner = get_value_from_json<int>(j_hparam, "combiner");
@@ -1128,8 +1127,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
               case Embedding_t::DistributedSlotSparseEmbeddingHash: {
                 const SparseEmbeddingHashParams<__half> embedding_params = {
                     batch_size,
-                    max_vocabulary_size,
-                    0,
+                    max_vocabulary_size_per_gpu,
                     {},
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
@@ -1181,7 +1179,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
                 const SparseEmbeddingHashParams<__half> embedding_params = {
                     batch_size,
-                    0,
                     max_vocabulary_size_per_gpu,
                     slot_size_array,
                     embedding_vec_size,
@@ -1210,7 +1207,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
                 const SparseEmbeddingHashParams<__half> embedding_params = {
                     batch_size,
-                    0,
                     0,
                     slot_size_array,
                     embedding_vec_size,
@@ -1249,8 +1245,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
               case Embedding_t::DistributedSlotSparseEmbeddingHash: {
                 const SparseEmbeddingHashParams<float> embedding_params = {
                     batch_size,
-                    max_vocabulary_size,
-                    0,
+                    max_vocabulary_size_per_gpu,
                     {},
                     embedding_vec_size,
                     sparse_input.max_feature_num_per_sample,
@@ -1301,7 +1296,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
                 const SparseEmbeddingHashParams<float> embedding_params = {
                     batch_size,
-                    0,
                     max_vocabulary_size_per_gpu,
                     slot_size_array,
                     embedding_vec_size,
@@ -1330,7 +1324,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
                 const SparseEmbeddingHashParams<float> embedding_params = {
                     batch_size,
-                    0,
                     0,
                     slot_size_array,
                     embedding_vec_size,

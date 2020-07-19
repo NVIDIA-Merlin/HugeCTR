@@ -121,6 +121,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   std::vector<size_t> temp_storage_sort_bytes_; /**< The temp variable for CUB lib sorting API. */
   std::vector<size_t> temp_storage_scan_bytes_; /**< The temp variable for CUB lib scaning API. */
 
+  size_t max_vocabulary_size_; /**< Max vocabulary size for each GPU. */
   size_t max_vocabulary_size_per_gpu_;   /**< Max vocabulary size for each GPU. */
   int batch_size_per_gpu_;               /*< batch_size per GPU */
   SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
@@ -297,8 +298,8 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
     // is computed by (key%gpu_count). In order to not allocate the total size of hash table on each
     // GPU, meanwhile get a better performance by a unfull hash table, the users need to set the
     // param "load_factor"(load_factor<1).
-    max_vocabulary_size_per_gpu_ =
-        (size_t)(ceil((float)embedding_params_.max_vocabulary_size / total_gpu_count_));
+    max_vocabulary_size_per_gpu_ = embedding_params_.max_vocabulary_size_per_gpu;
+    max_vocabulary_size_ = max_vocabulary_size_per_gpu_ * total_gpu_count_;
 
     MESSAGE_("max_vocabulary_size_per_gpu_=" + std::to_string(max_vocabulary_size_per_gpu_));
 
@@ -538,6 +539,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
     : embedding_params_(obj.embedding_params_),
       total_gpu_count_(obj.total_gpu_count_),
       local_gpu_count_(obj.local_gpu_count_),
+      max_vocabulary_size_(obj.max_vocabulary_size_),
       max_vocabulary_size_per_gpu_(obj.max_vocabulary_size_per_gpu_),
       hash_tables_(obj.hash_tables_),
       hash_table_value_tensors_(obj.hash_table_value_tensors_),
@@ -777,7 +779,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
   functors_.upload_params_to_device<TypeHashKey, TypeHashValueIndex>(
-      weight_stream, embedding_params_.max_vocabulary_size, embedding_params_.embedding_vec_size,
+      weight_stream, max_vocabulary_size_, embedding_params_.embedding_vec_size,
       max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_,
       Base::device_resources_, context);
 
@@ -796,7 +798,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::downloa
 
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-  functors_.download_params_to_host(weight_stream, embedding_params_.max_vocabulary_size,
+  functors_.download_params_to_host(weight_stream, max_vocabulary_size_,
                                     embedding_params_.embedding_vec_size, hash_table_value_tensors_,
                                     hash_tables_, Base::device_resources_, context);
 
@@ -842,7 +844,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::get_upd
   CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
   functors_.get_update_params_results(embedding_params_.embedding_vec_size,
-                                      embedding_params_.max_vocabulary_size,
+                                      max_vocabulary_size_,
                                       hash_table_value_tensors_, hash_tables_, hash_table_key,
                                       hash_table_value, Base::device_resources_, context);
 
