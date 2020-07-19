@@ -26,7 +26,7 @@ using namespace HugeCTR;
 
 static bool check_cpu_gpu(float *cpu_p, float *gpu_p, int len) {
   float *cpu_tmp = (float *)malloc(sizeof(float) * len);
-  cudaMemcpy(cpu_tmp, gpu_p, sizeof(float) * len, cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(cpu_tmp, gpu_p, sizeof(float) * len, cudaMemcpyDeviceToHost));
   float max_diff = fabs(cpu_p[0] - cpu_tmp[0]);
   bool flag = true;
   for (int i = 0; i < len; ++i) {
@@ -75,7 +75,7 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
                         row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
 
   cublasHandle_t cublas_handle;
-  cublasCreate(&cublas_handle);
+  CK_CUBLAS_THROW_(cublasCreate(&cublas_handle));
   FullyConnectedLayer fully_connected_layer(weight, wgrad, in_tensor, out_tensor,
                                             row_major ? TensorFormat_t::HW : TensorFormat_t::WH,
                                             cublas_handle, 0);
@@ -83,7 +83,8 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
   weight->init(0);
   wgrad->init(0);
   blobs->init(0);
-  fully_connected_layer.optimize();
+  fully_connected_layer.initialize();
+  //fully_connected_layer.search_algorithm();
   // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
   // of optimize)
   weight->reset_sync();
@@ -115,9 +116,9 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
     transpose(h_weight.get(), k, n);
     transpose(h_in.get(), m, k);
   }
-  cudaMemcpy(d_weight, h_weight.get(), sizeof(float) * k * n, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_weight + k * n, h_bias.get(), sizeof(float) * n, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_in, h_in.get(), sizeof(float) * m * k, cudaMemcpyHostToDevice);
+  CK_CUDA_THROW_(cudaMemcpy(d_weight, h_weight.get(), sizeof(float) * k * n, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_weight + k * n, h_bias.get(), sizeof(float) * n, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), sizeof(float) * m * k, cudaMemcpyHostToDevice));
 
   fully_connected_layer.fprop(cudaStreamDefault);
 
@@ -141,7 +142,7 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
   cpu_mm(h_out.get(), h_weight.get(), h_in.get(), m, n, k);
 
   if (!row_major) transpose(h_out.get(), m, n);
-  cudaMemcpy(d_out, h_out.get(), sizeof(float) * m * n, cudaMemcpyHostToDevice);
+  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), sizeof(float) * m * n, cudaMemcpyHostToDevice));
   fully_connected_layer.bprop(cudaStreamDefault);
 
   if (!row_major) {
@@ -154,6 +155,8 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
       << " bprop cross_check weight_grad fail" << endl;
   ASSERT_EQ(true, check_cpu_gpu(h_bias_grad.get(), d_weight_grad + k * n, n))
       << " bprop cross_check bias_grad fail" << endl;
+
+  CK_CUBLAS_THROW_(cublasDestroy(cublas_handle));
 }
 
 TEST(layers_test, fully_connected_layer_WH) {
@@ -188,13 +191,15 @@ TEST(layers_test, fully_connected_layer_HWHWWH) {
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>({m, k}, blobs, TensorFormat_t::HW));
   std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>({m, n}, blobs, TensorFormat_t::HW));
   cublasHandle_t cublas_handle;
-  cublasCreate(&cublas_handle);
+  CK_CUBLAS_THROW_(cublasCreate(&cublas_handle));
   FullyConnectedLayer fully_connected_layer(weight, wgrad, in_tensor, out_tensor,
                                             TensorFormat_t::WH, cublas_handle, 0);
   weight->init(0);
   wgrad->init(0);
   blobs->init(0);
   // TODO: result check
+
+  CK_CUBLAS_THROW_(cublasDestroy(cublas_handle));
 }
 
 TEST(layers_test, fully_connected_layer_WHWHHW) {
@@ -206,11 +211,13 @@ TEST(layers_test, fully_connected_layer_WHWHHW) {
   std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>({k, m}, blobs, TensorFormat_t::WH));
   std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>({n, m}, blobs, TensorFormat_t::WH));
   cublasHandle_t cublas_handle;
-  cublasCreate(&cublas_handle);
+  CK_CUBLAS_THROW_(cublasCreate(&cublas_handle));
   FullyConnectedLayer fully_connected_layer(weight, wgrad, in_tensor, out_tensor,
                                             TensorFormat_t::HW, cublas_handle, 0);
   weight->init(0);
   wgrad->init(0);
   blobs->init(0);
   // TODO: result check
+
+  CK_CUBLAS_THROW_(cublasDestroy(cublas_handle));
 }

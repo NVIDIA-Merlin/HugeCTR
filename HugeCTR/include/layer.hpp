@@ -69,10 +69,15 @@ class Layer {
   Layer(const Layer& C) = delete;
   Layer& operator=(const Layer& C) = delete;
   virtual ~Layer() {}
+
+  /*
+   * Some of the layers requires initialize like fully connected layer
+   */
+  virtual void initialize() {}
   /*
    * Some of the layers requires algorithm search like fully connected layer
    */
-  virtual void optimize() {}
+  virtual void search_algorithm() {}
 
   std::vector<float> get_initializer();
 

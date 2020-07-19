@@ -84,7 +84,7 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
       new Tensor<__half>((std::vector<size_t>){m, n}, blobs, TensorFormat_t::HW));
 
   cublasHandle_t cublas_handle;
-  cublasCreate(&cublas_handle);
+  CK_CUBLAS_THROW_(cublasCreate(&cublas_handle));
   FullyConnectedLayerHalf fully_connected_layer(master_weights, weights, weights_grad, blobs,
                                                 bottom_tensor, top_tensor, TensorFormat_t::HW,
                                                 cublas_handle, 0);
@@ -93,7 +93,8 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   weights->init(0);
   weights_grad->init(0);
   blobs->init(0);
-  fully_connected_layer.optimize();
+  fully_connected_layer.initialize();
+  //fully_connected_layer.search_algorithm();
   // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
   // of optimize)
   weights->reset_sync();
@@ -127,20 +128,20 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   cpu_mm(h_top.get(), h_bottom.get(), false, h_kernel.get(), false, m, k, n);
   cpu_add_bias(h_top.get(), h_bias.get(), m, n);
 
-  cudaMemcpy(d_kernel, h_kernel.get(), sizeof(__half) * k * n, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_bias, h_bias.get(), sizeof(__half) * n, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_bottom, h_bottom.get(), sizeof(__half) * m * k, cudaMemcpyHostToDevice);
+  CK_CUDA_THROW_(cudaMemcpy(d_kernel, h_kernel.get(), sizeof(__half) * k * n, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_bias, h_bias.get(), sizeof(__half) * n, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_bottom, h_bottom.get(), sizeof(__half) * m * k, cudaMemcpyHostToDevice));
 
   fully_connected_layer.fprop(cudaStreamDefault);
 
-  cudaMemcpy(d2h_top.get(), d_top, sizeof(__half) * m * n, cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d2h_top.get(), d_top, sizeof(__half) * m * n, cudaMemcpyDeviceToHost));
 
   ASSERT_LT(compare_array(h_top.get(), d2h_top.get(), m * n, 1e-1), 0.01f)
       << "fprop cross_check result fail" << endl;
 
   for (size_t i = 0; i < m * n; ++i) h_top[i] = simulator.get_num();
 
-  cudaMemcpy(d_top, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice);
+  CK_CUDA_THROW_(cudaMemcpy(d_top, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
 
   cpu_reverse_add_bias(h_bias_grad.get(), h_top.get(), m, n);
 
@@ -149,9 +150,9 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
 
   fully_connected_layer.bprop(cudaStreamDefault);
 
-  cudaMemcpy(d2h_bottom.get(), d_bottom, sizeof(__half) * m * k, cudaMemcpyDeviceToHost);
-  cudaMemcpy(d2h_kernel_grad.get(), d_kernel_grad, sizeof(__half) * k * n, cudaMemcpyDeviceToHost);
-  cudaMemcpy(d2h_bias_grad.get(), d_bias_grad, sizeof(__half) * n, cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d2h_bottom.get(), d_bottom, sizeof(__half) * m * k, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(d2h_kernel_grad.get(), d_kernel_grad, sizeof(__half) * k * n, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(d2h_bias_grad.get(), d_bias_grad, sizeof(__half) * n, cudaMemcpyDeviceToHost));
 
   ASSERT_LT(compare_array(h_bottom.get(), d2h_bottom.get(), m * k, 1e-1), 0.01f)
       << " bprop cross_check input_grad fail" << endl;
@@ -159,6 +160,8 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
       << " bprop cross_check weight_grad fail" << endl;
   ASSERT_LT(compare_array(h_bias_grad.get(), d2h_bias_grad.get(), n, 1e-5), 0.01f)
       << " bprop cross_check bias_grad fail" << endl;
+
+  CK_CUBLAS_THROW_(cublasDestroy(cublas_handle));
 }
 
 TEST(layers_test, fully_connected_layer_half) {
