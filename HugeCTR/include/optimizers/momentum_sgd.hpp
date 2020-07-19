@@ -20,14 +20,15 @@
 
 namespace HugeCTR {
 
-typedef struct MomentumSGDHyperParameters_ {
+struct MomentumSGDHyperParameters {
   float lr;
   float momentum_factor;
-} MomentumSGDHyperParameters;
+};
 
 /**
  * SGD optimizer with Momentum
  */
+template <typename T>
 class MomentumSGD : public Optimizer {
  public:
   /**
@@ -39,17 +40,9 @@ class MomentumSGD : public Optimizer {
    * @param momentum_factor momentum factor
    */
   MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight,
-              const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
-              float learning_rate, float momentum_factor, float scaler = 1.f)
-      : Optimizer(weight, device_id, learning_rate, scaler),
-        momentum_factor_(momentum_factor),
-        wgrad_(wgrad) {
-    momentum_.reset(new GeneralBuffer<float>(weight_->get_num_elements(), device_id_));
-    momentum_->reset_sync();
-    if (weight_->get_size() != wgrad_->get_size()) {
-      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
-    }
-  }
+              const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+              int device_id,
+              float learning_rate, float momentum_factor, float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -60,7 +53,7 @@ class MomentumSGD : public Optimizer {
  private:
   std::unique_ptr<GeneralBuffer<float>> momentum_;
   float momentum_factor_;
-  std::shared_ptr<GeneralBuffer<float>> wgrad_;
+  std::shared_ptr<GeneralBuffer<T>> wgrad_;
 };
 
 }  // namespace HugeCTR

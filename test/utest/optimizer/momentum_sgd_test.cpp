@@ -24,11 +24,12 @@ using namespace HugeCTR;
 
 namespace {
 
+template <typename T>
 class SgdCPU {
  public:
   SgdCPU(int len, float lr, float mu) : accum_(len), len_(len), lr_(lr), mu_(mu) {}
 
-  void update(float* w, const float* g) {
+  void update(float* w, const T* g) {
     int scaler = 1;
 #ifdef SCALE_128
     scaler = 128;
@@ -42,34 +43,41 @@ class SgdCPU {
     scaler = 1;
 #endif
     for (int i = 0; i < len_; ++i) {
-      accum_[i] = mu_ * accum_[i] - lr_ * g[i];
-      w[i] += accum_[i] / scaler;
+      float acc = mu_ * static_cast<float>(accum_[i]) - lr_ * g[i] / scaler;
+      accum_[i] = acc;
+      w[i] += accum_[i];
     }
   }
 
  private:
-  vector<float> accum_;
+  vector<T> accum_;
   int len_;
   const float lr_;
   const float mu_;
 };
 
+template <typename T>
 void compare_array(const float* a, const float* b, int len) {
+  float eps = 1e-6;
+  if (std::is_same<T, __half>::value) {
+    eps = 1e-3;
+  }
   for (int i = 0; i < len; ++i) {
-    ASSERT_NEAR(a[i], b[i], 1e-6) << "array differ at index " << i;
+    ASSERT_NEAR(a[i], b[i], eps) << "array differ at index " << i;
   }
 }
 
+template <typename T>
 void sgd_test(int len, int num_update) {
   const int device_id = 0;
   std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>(len, device_id));
-  std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>(len, device_id));
+  std::shared_ptr<GeneralBuffer<T>> wgrad(new GeneralBuffer<T>(len, device_id));
 
   std::unique_ptr<float[]> h_weight(new float[len]);
-  std::unique_ptr<float[]> h_wgrad(new float[len]);
+  std::unique_ptr<T[]> h_wgrad(new T[len]);
   std::unique_ptr<float[]> h_weight_expected(new float[len]);
   float* d_weight = weight->get_ptr_with_offset(0);
-  float* d_wgrad = wgrad->get_ptr_with_offset(0);
+  T* d_wgrad = wgrad->get_ptr_with_offset(0);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
   for (int i = 0; i < len; ++i) {
@@ -77,25 +85,30 @@ void sgd_test(int len, int num_update) {
   }
   cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
-  MomentumSGD sgd(weight, wgrad, device_id, 0.01, 0.9);
-  SgdCPU sgd_cpu(len, 0.01, 0.9);
+  MomentumSGD<T> sgd(weight, wgrad, device_id, 0.01, 0.9);
+  SgdCPU<T> sgd_cpu(len, 0.01, 0.9);
   for (int i = 0; i < num_update; ++i) {
     for (int i = 0; i < len; ++i) {
       h_wgrad[i] = simulator.get_num();
     }
-    cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(T), cudaMemcpyHostToDevice);
 
     sgd.update(cudaStreamDefault);
     sgd_cpu.update(h_weight_expected.get(), h_wgrad.get());
   }
 
   cudaMemcpy(h_weight.get(), d_weight, len * sizeof(float), cudaMemcpyDeviceToHost);
-  compare_array(h_weight.get(), h_weight_expected.get(), len);
+  compare_array<T>(h_weight.get(), h_weight_expected.get(), len);
 }
 
 }  // namespace
 
-TEST(optimizer_test, momonetumSGD) {
-  sgd_test(1024, 5);
-  sgd_test(10240, 5);
+TEST(optimizer_test, fp32_momonetumSGD) {
+  sgd_test<float>(1024, 5);
+  sgd_test<float>(10240, 5);
+}
+
+TEST(optimizer_test, fp16_momonetumSGD) {
+  sgd_test<__half>(1024, 5);
+  sgd_test<__half>(10240, 5);
 }

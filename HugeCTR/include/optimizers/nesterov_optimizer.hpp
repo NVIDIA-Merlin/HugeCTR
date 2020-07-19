@@ -23,6 +23,7 @@ namespace HugeCTR {
 /**
  * SGD optimizer with Nesterov Momentum
  */
+template <typename T>
 class NesterovOptimizer : public Optimizer {
  public:
   /**
@@ -34,17 +35,10 @@ class NesterovOptimizer : public Optimizer {
    * @param momentum_factor the momentum factor
    */
   NesterovOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
-                    const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
-                    float learning_rate, float momentum_factor, float scaler = 1.f)
-      : Optimizer(weight, device_id, learning_rate, scaler),
-        accum_(weight->get_num_elements(), device_id),
-        mu_(momentum_factor),
-        wgrad_(wgrad) {
-    accum_.reset_sync();
-    if (weight_->get_size() != wgrad_->get_size()) {
-      CK_THROW_(Error_t::WrongInput, "weight_.get_size() != wgrad_.get_size()");
-    }
-  }
+                    const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+                    int device_id,
+                    float learning_rate, float momentum_factor,
+                    float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -55,7 +49,7 @@ class NesterovOptimizer : public Optimizer {
  private:
   GeneralBuffer<float> accum_;  // accumulation
   const float mu_;              // momentum factor
-  std::shared_ptr<GeneralBuffer<float>> wgrad_;
+  std::shared_ptr<GeneralBuffer<T>> wgrad_;
 };
 
 }  // namespace HugeCTR
