@@ -61,7 +61,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size": 2603616,
+        "max_vocabulary_size_per_gpu": 2603616,
         "embedding_vec_size": 64,
         "combiner": 1
       }
