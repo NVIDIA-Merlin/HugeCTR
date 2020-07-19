@@ -84,7 +84,7 @@ bool init_hash_table = true;  // true: init hash_table and upload_to_device
 TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, 0, {}, embedding_vec_size, 
+      batchsize, vocabulary_size, {}, embedding_vec_size, 
       max_feature_num, slot_num, 0, 0, 1.f};
 
   int numprocs = 1, pid = 0;
@@ -214,7 +214,7 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       vocabulary_size, 0, {}, embedding_vec_size,
+      batchsize,       vocabulary_size, {}, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -432,7 +432,7 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       vocabulary_size, 0, {}, embedding_vec_size,
+      batchsize,       vocabulary_size, {}, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -719,7 +719,7 @@ TEST(distributed_sparse_embedding_hash_test, profile) {
   const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, 0, {}, embedding_vec_size, max_feature_num, slot_num,
+      batchsize, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
       combiner,  opt_params};
 
   int numprocs = 1, pid = 0;

@@ -259,7 +259,6 @@ struct OptParams {
 template <typename TypeEmbeddingComp>
 struct SparseEmbeddingHashParams {
   size_t batch_size;       // batch size
-  size_t max_vocabulary_size;  // max row number of hash table
   size_t max_vocabulary_size_per_gpu; // max row number of hash table for each gpu
   std::vector<size_t> slot_size_array; // max row number for each slot
   size_t embedding_vec_size;                // col number of hash table value

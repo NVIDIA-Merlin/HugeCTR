@@ -105,7 +105,7 @@ TEST(localized_sparse_embedding_one_hot_test, init_embedding) {
   OptHyperParams hyper_params;
   const OptParams<float> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
   const SparseEmbeddingHashParams<float> embedding_params = {
-      batchsize, 0, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
+      batchsize, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
       combiner,  opt_params};
 
   int numprocs = 1, pid = 0;
@@ -276,7 +276,7 @@ TEST(localized_sparse_embedding_one_hot_test, upload_and_download_params) {
   const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, 0, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
+      batchsize, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
       combiner,  opt_params};
 
   int numprocs = 1, pid = 0;
@@ -406,7 +406,7 @@ TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       0, 0, slot_sizes, embedding_vec_size,
+      batchsize,       0, slot_sizes, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -660,7 +660,7 @@ TEST(localized_sparse_embedding_one_hot_test, train_eval_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       0, 0, slot_sizes, embedding_vec_size,
+      batchsize,       0, slot_sizes, embedding_vec_size,
       max_feature_num, slot_num,        combiner,    opt_params};
 
   int numprocs = 1, pid = 0;
@@ -970,7 +970,7 @@ TEST(localized_sparse_embedding_one_hot_test, profile) {
   const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, 0, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
+      batchsize, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
       combiner,  opt_params};
 
   int numprocs = 1, pid = 0;
