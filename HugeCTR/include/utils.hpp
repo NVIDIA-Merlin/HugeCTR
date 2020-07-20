@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
+#include <limits>
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_parser.hpp"
 
@@ -389,10 +390,10 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
 }
 
 inline void data_generation_for_raw(
-    std::string file_name, int num_samples, int label_dim = 1, int dense_dim = 13,
+    std::string file_name, long long num_samples, int label_dim = 1, int dense_dim = 13,
     int sparse_dim = 26, const std::vector<long long> slot_size = std::vector<long long>()) {
   std::ofstream out_stream(file_name, std::ofstream::binary);
-  for (int i = 0; i < num_samples; i++) {
+  for (long long i = 0; i < num_samples; i++) {
     for (int j = 0; j < label_dim; j++) {
       int label = i % 2;
       out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
@@ -404,7 +405,9 @@ inline void data_generation_for_raw(
     for (int j = 0; j < sparse_dim; j++) {
       int sparse = 0;
       if (slot_size.size() != 0) {
-        sparse = slot_size[j] - 1;
+        UnifiedDataSimulator<long long> temp_sim(0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1)); // range = [0, slot_size[j])
+        long long num_ = temp_sim.get_num();
+        sparse = num_ > std::numeric_limits<int>::max() ? std::numeric_limits<int>::max() : num_; 
       } else {
         sparse = j;
       }
