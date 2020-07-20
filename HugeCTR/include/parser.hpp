@@ -217,4 +217,13 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
   }
 }
 
+
+void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense_dim,
+                             Check_t& check_type, std::string& source_data,
+                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
+                             std::string& eval_source, std::string& top_strs_label,
+                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
+                             std::map<std::string, SparseInput<long long>>& sparse_input_map);
+
+
 }  // namespace HugeCTR
