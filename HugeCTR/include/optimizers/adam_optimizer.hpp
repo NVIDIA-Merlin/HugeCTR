@@ -23,7 +23,6 @@ namespace HugeCTR {
 /**
  * Adam optimizer
  */
-template <typename T>
 class AdamOptimizer : public Optimizer {
  public:
   /**
@@ -38,12 +37,10 @@ class AdamOptimizer : public Optimizer {
    * @param epsilon epsilon in Adam paper
    */
   AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
-                const std::shared_ptr<GeneralBuffer<T>>& wgrad,
-                const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
-                int device_id,
-                float alpha = 0.001,
-                float beta1 = 0.9, float beta2 = 0.999,
-                float epsilon = 1e-8, float scaler = 1.f);
+                const GeneralBufferPtr<float>& fp32_wgrad,
+                const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
+                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8,
+                float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -54,14 +51,14 @@ class AdamOptimizer : public Optimizer {
  private:
   // named as in Algorithm 1 of Adam paper (arXiv:1412.6980)
   // except that alpha is lr_ in class Optimizer
-  GeneralBuffer<T> m_;
-  GeneralBuffer<T> v_;
+  GeneralBuffer<float> fp32_m_;
+  GeneralBuffer<float> fp32_v_;
+  GeneralBuffer<__half> fp16_m_;
+  GeneralBuffer<__half> fp16_v_;
   uint64_t t_;
   const float beta1_;
   const float beta2_;
   const float epsilon_;
-  std::shared_ptr<GeneralBuffer<T>> wgrad_;
-  std::shared_ptr<GeneralBuffer<T>> weight_sub_;
 };
 
 }  // namespace HugeCTR

@@ -480,21 +480,19 @@ class SparseEmbeddingHashFunctors {
    * @param embedding_vec_size embedding vector size.
    * @param combiner 0-sum; 1-mean
    * @param row_offsets_tensors row_offset (CSR format of input sparse tensors)
-   * @param hash_value_index_tensors hash table value_index(row index of embedding) 
+   * @param hash_value_index_tensors hash table value_index(row index of embedding)
    * @param hash_table_value_tensors hash table value, which represents embedding vector
    * @param embedding_features embedding features of all gpus (output)
    * @param device_resources device resources
    */
   template <typename TypeHashKey, typename TypeHashValueIndex, typename TypeEmbeddingComp>
-  void forward_fuse(size_t batch_size, int slot_num,
-                    const std::vector<int> &slot_num_per_gpu, 
-                    int embedding_vec_size, int combiner, 
+  void forward_fuse(size_t batch_size, int slot_num, const std::vector<int> &slot_num_per_gpu,
+                    int embedding_vec_size, int combiner,
                     const Tensors<TypeHashKey> &row_offsets_tensors,
-                    const Tensors<TypeHashValueIndex> &hash_value_index_tensors, 
+                    const Tensors<TypeHashValueIndex> &hash_value_index_tensors,
                     const Tensors<float> &hash_table_value_tensors,
-                    TypeEmbeddingComp** embedding_features,
+                    TypeEmbeddingComp **embedding_features,
                     const std::shared_ptr<GPUResourceGroup> &device_resources) {
-
     int local_gpu_count = device_resources->size();
     size_t batch_size_per_gpu = batch_size / local_gpu_count;
 
@@ -582,8 +580,8 @@ class SparseEmbeddingHashFunctors {
 
     try {
       if (combiner == 0) {
-        CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(params, local_gpu_count, 
-            cudaCooperativeLaunchMultiDeviceNoPreSync));
+        CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(
+            params, local_gpu_count, cudaCooperativeLaunchMultiDeviceNoPreSync));
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -598,38 +596,34 @@ class SparseEmbeddingHashFunctors {
   /**
    * forward propagation for LocalizedSlotSparseEmbeddingOneHot (per GPU).
    * fuse (forward_sum_kernel + all2all + forward_reorder) into one kernel.
-   * Only support single node currently. 
+   * Only support single node currently.
    * @param id local gpu id
-   * @param local_gpu_count local gpu count 
+   * @param local_gpu_count local gpu count
    * @param batch_size batch size for the current mini-batch computation
    * @param batch_size_per_gpu batchsize per gpu
-   * @param slot_num total slots number 
+   * @param slot_num total slots number
    * @param slot_num_per_gpu the number of slots for each GPU
    * @param embedding_vec_size embedding vector size.
    * @param combiner 0-sum; 1-mean
    * @param row_offsets row_offset (CSR format of input sparse tensors)
-   * @param hash_value_index hash table value_index(row index of embedding) 
+   * @param hash_value_index hash table value_index(row index of embedding)
    * @param hash_table_value hash table value, which represents embedding vector
    * @param embedding_features embedding features of all gpus (output)
    * @param stream cuda stream
    */
   template <typename TypeHashKey, typename TypeHashValueIndex, typename TypeEmbeddingComp>
-  void forward_fuse_per_gpu(int id, int local_gpu_count, 
-                            size_t batch_size, size_t batch_size_per_gpu, 
-                            int slot_num, int slot_num_per_gpu, 
-                            int embedding_vec_size, int combiner, 
-                            const TypeHashKey * row_offset,
-                            const TypeHashValueIndex * hash_value_index, 
-                            const float * hash_table_value,
-                            TypeEmbeddingComp** embedding_features,
+  void forward_fuse_per_gpu(int id, int local_gpu_count, size_t batch_size,
+                            size_t batch_size_per_gpu, int slot_num, int slot_num_per_gpu,
+                            int embedding_vec_size, int combiner, const TypeHashKey *row_offset,
+                            const TypeHashValueIndex *hash_value_index,
+                            const float *hash_table_value, TypeEmbeddingComp **embedding_features,
                             cudaStream_t stream) {
-
     // need to know the Type
     switch (sizeof(TypeEmbeddingComp)) {
-      case 2: // fp16
-        embedding_vec_size = embedding_vec_size/2; // use __half2 
+      case 2:                                         // fp16
+        embedding_vec_size = embedding_vec_size / 2;  // use __half2
         break;
-      case 4: // fp32
+      case 4:  // fp32
         embedding_vec_size = embedding_vec_size;
         break;
       default:
@@ -639,51 +633,53 @@ class SparseEmbeddingHashFunctors {
     dim3 blockSize(embedding_vec_size, 1, 1);
     int maxActiveBlocks;
     switch (sizeof(TypeEmbeddingComp)) {
-      case 2: // fp16
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, 
-            forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>, blockSize.x, 0));
+      case 2:  // fp16
+        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &maxActiveBlocks, forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>,
+            blockSize.x, 0));
         break;
-      case 4: // fp32
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, 
-            forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>, blockSize.x, 0));
+      case 4:  // fp32
+        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &maxActiveBlocks, forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>,
+            blockSize.x, 0));
         break;
       default:
         CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
     }
     dim3 gridSize(min((int)batch_size, (sm_count_ * maxActiveBlocks)), 1, 1);
 
-    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_ 
-    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x 
+    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_
+    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x
     //     << std::endl;
 
-    void* func;
+    void *func;
     switch (sizeof(TypeEmbeddingComp)) {
-      case 2: // fp16
+      case 2:  // fp16
         func = (void *)forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>;
         break;
-      case 4: // fp32
+      case 4:  // fp32
         func = (void *)forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>;
         break;
       default:
         CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
     }
-    
-    void * kargs[11];
-    kargs[0] = (void*)&id;
-    kargs[1] = (void*)&local_gpu_count;
-    kargs[2] = (void*)&batch_size;
-    kargs[3] = (void*)&batch_size_per_gpu;
-    kargs[4] = (void*)&slot_num;
-    kargs[5] = (void*)&slot_num_per_gpu;
-    kargs[6] = (void*)&embedding_vec_size;
-    kargs[7] = (void*)&row_offset;
-    kargs[8] = (void*)&hash_value_index;
-    kargs[9] = (void*)&hash_table_value;
-    kargs[10] = (void*)&embedding_features;
+
+    void *kargs[11];
+    kargs[0] = (void *)&id;
+    kargs[1] = (void *)&local_gpu_count;
+    kargs[2] = (void *)&batch_size;
+    kargs[3] = (void *)&batch_size_per_gpu;
+    kargs[4] = (void *)&slot_num;
+    kargs[5] = (void *)&slot_num_per_gpu;
+    kargs[6] = (void *)&embedding_vec_size;
+    kargs[7] = (void *)&row_offset;
+    kargs[8] = (void *)&hash_value_index;
+    kargs[9] = (void *)&hash_table_value;
+    kargs[10] = (void *)&embedding_features;
 
     try {
       if (combiner == 0) {
-        CK_CUDA_THROW_(cudaLaunchKernel(func, gridSize, blockSize, kargs, 0, stream)); 
+        CK_CUDA_THROW_(cudaLaunchKernel(func, gridSize, blockSize, kargs, 0, stream));
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -975,8 +971,8 @@ class SparseEmbeddingHashFunctors {
 
     try {
       if (combiner == 0) {
-        CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(params, local_gpu_count, 
-          cudaCooperativeLaunchMultiDeviceNoPostSync));
+        CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(
+            params, local_gpu_count, cudaCooperativeLaunchMultiDeviceNoPostSync));
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -991,12 +987,12 @@ class SparseEmbeddingHashFunctors {
   /**
    * backward propagation for LocalizedSlotSparseEmbeddingOneHot (per gpu).
    * fuse (backward_reorder + all2all + backward_xxx_kernel) into one kernel.
-   * Only support single node currently. 
+   * Only support single node currently.
    * @param id local gpu id
-   * @param local_gpu_count local gpu count 
+   * @param local_gpu_count local gpu count
    * @param batch_size batch size for the current mini-batch computation
    * @param batch_size_per_gpu batchsize per gpu
-   * @param slot_num total slots number 
+   * @param slot_num total slots number
    * @param slot_num_per_gpu the number of slots for each GPU
    * @param embedding_vec_size embedding vector size.
    * @param combiner 0-sum; 1-mean
@@ -1005,20 +1001,17 @@ class SparseEmbeddingHashFunctors {
    * @param stream cuda stream
    */
   template <typename TypeEmbeddingComp>
-  void backward_fuse_per_gpu(int id, int local_gpu_count, 
-                            size_t batch_size, size_t batch_size_per_gpu, 
-                            int slot_num, int slot_num_per_gpu, 
-                            int embedding_vec_size, int combiner, 
-                            TypeEmbeddingComp** embedding_features,
-                            TypeEmbeddingComp * wgrad,
-                            cudaStream_t stream) {
-
+  void backward_fuse_per_gpu(int id, int local_gpu_count, size_t batch_size,
+                             size_t batch_size_per_gpu, int slot_num, int slot_num_per_gpu,
+                             int embedding_vec_size, int combiner,
+                             TypeEmbeddingComp **embedding_features, TypeEmbeddingComp *wgrad,
+                             cudaStream_t stream) {
     // need to know the Type
     switch (sizeof(TypeEmbeddingComp)) {
-      case 2: // fp16
-        embedding_vec_size = embedding_vec_size/2; // use __half2 
+      case 2:                                         // fp16
+        embedding_vec_size = embedding_vec_size / 2;  // use __half2
         break;
-      case 4: // fp32
+      case 4:  // fp32
         embedding_vec_size = embedding_vec_size;
         break;
       default:
@@ -1028,50 +1021,49 @@ class SparseEmbeddingHashFunctors {
     dim3 blockSize(embedding_vec_size, 1, 1);
     int maxActiveBlocks;
     switch (sizeof(TypeEmbeddingComp)) {
-      case 2: // fp16
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, 
-            backward_sum_fuse_kernel_fp16, blockSize.x, 0));
+      case 2:  // fp16
+        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &maxActiveBlocks, backward_sum_fuse_kernel_fp16, blockSize.x, 0));
         break;
-      case 4: // fp32
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, 
-            backward_sum_fuse_kernel_fp32, blockSize.x, 0));
+      case 4:  // fp32
+        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &maxActiveBlocks, backward_sum_fuse_kernel_fp32, blockSize.x, 0));
         break;
       default:
         CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
     }
     dim3 gridSize(min((int)batch_size, (sm_count_ * maxActiveBlocks)), 1, 1);
 
-    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_ 
-    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x 
+    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_
+    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x
     //     << std::endl;
 
-
-    void* func;
+    void *func;
     switch (sizeof(TypeEmbeddingComp)) {
-      case 2: // fp16
+      case 2:  // fp16
         func = (void *)backward_sum_fuse_kernel_fp16;
         break;
-      case 4: // fp32
+      case 4:  // fp32
         func = (void *)backward_sum_fuse_kernel_fp32;
         break;
       default:
         CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
     }
-    
-    void * kargs[9];
-    kargs[0] = (void*)&id;
-    kargs[1] = (void*)&local_gpu_count;
-    kargs[2] = (void*)&batch_size;
-    kargs[3] = (void*)&batch_size_per_gpu;
-    kargs[4] = (void*)&slot_num;
-    kargs[5] = (void*)&slot_num_per_gpu;
-    kargs[6] = (void*)&embedding_vec_size;
-    kargs[7] = (void*)&embedding_features;
-    kargs[8] = (void*)&wgrad;
+
+    void *kargs[9];
+    kargs[0] = (void *)&id;
+    kargs[1] = (void *)&local_gpu_count;
+    kargs[2] = (void *)&batch_size;
+    kargs[3] = (void *)&batch_size_per_gpu;
+    kargs[4] = (void *)&slot_num;
+    kargs[5] = (void *)&slot_num_per_gpu;
+    kargs[6] = (void *)&embedding_vec_size;
+    kargs[7] = (void *)&embedding_features;
+    kargs[8] = (void *)&wgrad;
 
     try {
       if (combiner == 0) {
-        CK_CUDA_THROW_(cudaLaunchKernel(func, gridSize, blockSize, kargs, 0, stream)); 
+        CK_CUDA_THROW_(cudaLaunchKernel(func, gridSize, blockSize, kargs, 0, stream));
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -1110,44 +1102,45 @@ class SparseEmbeddingHashFunctors {
    * @param deltaw the pointer of deltaw, which is used to update the hash table value
    * @param hash_table_value the pointer of hash table value, which will be updated
    */
-  template <typename TypeHashKey, typename TypeHashValueIndex>
+  template <typename TypeHashKey, typename TypeHashValueIndex, typename TypeEmbeddingComp>
   void update_params(cudaStream_t stream, int batch_size, int slot_num, int embedding_vec_size,
-                     size_t max_vocabulary_size_per_gpu, OptParams<float> &opt_params, int nnz,
-                     const TypeHashKey *row_offset, TypeHashValueIndex *hash_value_index,
+                     size_t max_vocabulary_size_per_gpu, OptParams<TypeEmbeddingComp> &opt_params,
+                     int nnz, const TypeHashKey *row_offset, TypeHashValueIndex *hash_value_index,
                      TypeHashKey *sample_id, TypeHashKey *sample_id_sort,
                      TypeHashValueIndex *hash_value_index_sort,
-                     // uint32_t *hash_value_index_count,
                      uint32_t *hash_value_index_count_offset, uint32_t *new_hash_value_flag,
                      uint32_t *hash_value_flag_sumed, uint32_t *hash_value_index_count_counter,
                      void *temp_storage_sort, size_t temp_storage_sort_bytes,
-                     void *temp_storage_scan, size_t temp_storage_scan_bytes, const float *wgrad,
-                     TypeHashValueIndex *deltaw_hash_value_index, float *deltaw,
-                     float *hash_table_value) {
+                     void *temp_storage_scan, size_t temp_storage_scan_bytes,
+                     const TypeEmbeddingComp *wgrad, TypeHashValueIndex *deltaw_hash_value_index,
+                     float *deltaw, float *hash_table_value) {
     if (slot_num == 0) {
       return;
     }
 
+    size_t block_size, grid_size;
+
     try {
       // step1: expand sample IDs
-      dim3 blockSize(64, 1, 1);
-      dim3 gridSize((batch_size * slot_num + blockSize.x - 1) / blockSize.x, 1, 1);
-      sample_id_expand_kernel<<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num, row_offset,
-                                                                  sample_id);
+      block_size = 64;
+      grid_size = (batch_size * slot_num - 1) / block_size + 1;
+      sample_id_expand_kernel<<<grid_size, block_size, 0, stream>>>(batch_size, slot_num,
+                                                                    row_offset, sample_id);
 
 #ifdef SGD_ATOMIC
       if (opt_params.optimizer == Optimizer_t::SGD) {  // for SGD, do atomic update
-        dim3 gridSize(min(max(1, nnz), sm_count_ * 32), 1, 1);
-        dim3 blockSize(embedding_vec_size, 1, 1);
+        const size_t block_size = embedding_vec_size;
+        const size_t grid_size = min(max(1, nnz), sm_count_ * 32);
 
-        float lr_scale = (float)opt_params.lr / (float)opt_params.scaler;
-        opt_sgd_atomic_kernel<<<gridSize, blockSize, 0, stream>>>(nnz, embedding_vec_size, lr_scale,
-                                                                  hash_value_index, sample_id,
-                                                                  wgrad, hash_table_value);
+        float lr_scale = opt_params.lr / opt_params.scaler;
+        opt_sgd_atomic_kernel<<<grid_size, block_size, 0, stream>>>(
+            nnz, embedding_vec_size, lr_scale, hash_value_index, sample_id, wgrad,
+            hash_table_value);
       } else
 #endif
       {
         // step3: sort by hash_value_index
-        int end_bit = (int)log2((float)max_vocabulary_size_per_gpu) + 1;
+        int end_bit = static_cast<int>(log2(static_cast<float>(max_vocabulary_size_per_gpu))) + 1;
         CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairs(
             (void *)temp_storage_sort, temp_storage_sort_bytes, hash_value_index,
             hash_value_index_sort, sample_id, sample_id_sort, nnz, 0, end_bit, stream, false));
@@ -1155,19 +1148,20 @@ class SparseEmbeddingHashFunctors {
         // step4: count the number for each unduplicated hash_value_index
         CK_CUDA_THROW_(
             cudaMemsetAsync(hash_value_index_count_counter, 0, sizeof(uint32_t), stream));
-        blockSize.x = 256;
-        const int target_grid_size = (nnz + (blockSize.x - 1)) / blockSize.x;
-        const int MAX_GRID = 384;
-        gridSize.x = target_grid_size < MAX_GRID ? target_grid_size : MAX_GRID;
-        value_count_kernel_1<<<gridSize, blockSize, 0, stream>>>(nnz, hash_value_index_sort,
-                                                                 new_hash_value_flag);
+
+        constexpr size_t max_grid_size = 384;
+        block_size = 256;
+        grid_size = min(max_grid_size, (nnz - 1) / block_size + 1);
+
+        value_count_kernel_1<<<grid_size, block_size, 0, stream>>>(nnz, hash_value_index_sort,
+                                                                   new_hash_value_flag);
 
         // prefix_sum
         CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum((void *)temp_storage_scan,
                                                      temp_storage_scan_bytes, new_hash_value_flag,
                                                      hash_value_flag_sumed, nnz, stream));
 
-        value_count_kernel_2<<<gridSize, blockSize, 0, stream>>>(
+        value_count_kernel_2<<<grid_size, block_size, 0, stream>>>(
             nnz, new_hash_value_flag, hash_value_flag_sumed, hash_value_index_count_offset,
             hash_value_index_count_counter);
 
@@ -1180,8 +1174,8 @@ class SparseEmbeddingHashFunctors {
 
         // step5: use optimizer method to compute deltaw, and record corresponding
         // deltaw_hash_value_index
-        blockSize.x = embedding_vec_size;
-        gridSize.x = max(1, hash_hash_value_index_count_num);
+        block_size = embedding_vec_size;
+        grid_size = max(1, hash_hash_value_index_count_num);
 
         if (opt_params.global_update) {
           switch (opt_params.optimizer) {
@@ -1192,7 +1186,7 @@ class SparseEmbeddingHashFunctors {
                        pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
                   (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
               // update target mi and vi
-              opt_adam_kernel_global<<<gridSize, blockSize, 0, stream>>>(
+              opt_adam_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
                   sample_id_sort, hash_value_index_sort, hash_value_index_count_offset, wgrad,
                   opt_params.scaler);
@@ -1202,7 +1196,7 @@ class SparseEmbeddingHashFunctors {
                   hash_table_value);
               break;
             case Optimizer_t::MomentumSGD:  // momentum sgd
-              opt_momentum_sgd_kernel_global<<<gridSize, blockSize, 0, stream>>>(
+              opt_momentum_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
                   hash_value_index_count_offset, wgrad, opt_params.scaler);
@@ -1214,14 +1208,14 @@ class SparseEmbeddingHashFunctors {
               nesterov_global_update_kernel_global<<<1024, 256, 0, stream>>>(
                   embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov,
                   hash_table_value);
-              nesterov_local_update_kernel_global<<<gridSize, blockSize, 0, stream>>>(
+              nesterov_local_update_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
                   hash_value_index_count_offset, wgrad, hash_table_value, opt_params.scaler);
               break;
 #ifndef SGD_ATOMIC
             case Optimizer_t::SGD:
-              opt_sgd_kernel_global<<<gridSize, blockSize, 0, stream>>>(
+              opt_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   sample_id_sort, hash_value_index_sort, hash_value_index_count_offset, wgrad,
                   hash_table_value, opt_params.scaler);
@@ -1239,31 +1233,31 @@ class SparseEmbeddingHashFunctors {
                        pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
                   (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
 
-              opt_adam_kernel<<<gridSize, blockSize, 0, stream>>>(
+              opt_adam_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
                   sample_id_sort, hash_value_index_sort, hash_value_index_count_offset, wgrad,
-                  deltaw_hash_value_index, (float *)deltaw, opt_params.scaler);
+                  deltaw_hash_value_index, deltaw, opt_params.scaler);
               break;
             case Optimizer_t::MomentumSGD:  // momentum sgd
-              opt_momentum_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
+              opt_momentum_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
-                  hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw,
+                  hash_value_index_count_offset, wgrad, deltaw_hash_value_index, deltaw,
                   opt_params.scaler);
               break;
             case Optimizer_t::Nesterov:  // nesterov
-              opt_nesterov_kernel<<<gridSize, blockSize, 0, stream>>>(
+              opt_nesterov_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-                  hash_value_index_count_offset, wgrad, deltaw_hash_value_index, (float *)deltaw,
+                  hash_value_index_count_offset, wgrad, deltaw_hash_value_index, deltaw,
                   opt_params.scaler);
               break;
 #ifndef SGD_ATOMIC
             case Optimizer_t::SGD:
-              opt_sgd_kernel<<<gridSize, blockSize, 0, stream>>>(
+              opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   sample_id_sort, hash_value_index_sort, hash_value_index_count_offset, wgrad,
-                  deltaw_hash_value_index, (float *)deltaw, opt_params.scaler);
+                  deltaw_hash_value_index, deltaw, opt_params.scaler);
               break;
 #endif
             default:
@@ -1271,93 +1265,14 @@ class SparseEmbeddingHashFunctors {
           }
 
           // step6: update hash_table_value by deltaw
-          blockSize.x = embedding_vec_size;
-          gridSize.x = max(1, hash_hash_value_index_count_num);
-          update_kernel<TypeHashValueIndex><<<gridSize, blockSize, 0, stream>>>(
+          block_size = embedding_vec_size;
+          grid_size = max(1, hash_hash_value_index_count_num);
+          update_kernel<TypeHashValueIndex><<<grid_size, block_size, 0, stream>>>(
               hash_hash_value_index_count_num, embedding_vec_size, deltaw_hash_value_index, deltaw,
               hash_table_value);
         }  // else
 
       }  // else
-
-    } catch (const std::runtime_error &rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
-    }
-
-    return;
-  }
-
-  /**
-   * overload for fp16. Only support atmoic SGD currently.
-   * The second step of backward propagation: update embedding tables(weights)
-   * @param stream cuda stream corresponding to the current GPU.
-   * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num the number of slots for the current gpu.
-   * @param embedding_vec_size embedding vector size.
-   * @param max_vocabulary_size_per_gpu the max row number of hash table for each GPU.
-   * @param opt_params optimizer params.
-   * @param nnz non-zero feature number in one batch
-   * @param row_offset the pointer of row_offset
-   * @param hash_value_index the pointer of hash value_index
-   * @param sample_id the pointer of sample ids
-   * @param sample_id_sort the pointer of sorted sample ids
-   * @param hash_value_index_sort the pointer of sorted hash table value_index
-   * @param hash_value_index_count the pointer of the count of each hash value_index
-   * @param hash_value_index_count_offset the pointer of the offset for each count of hash
-   * value_index
-   * @param hash_value_index_count_counter the pointer of the counter of hash value_index count
-   * @param temp_storage_sort the pointer of the temp buffer for the CUB lib sorting API
-   * @param temp_storage_sort_bytes the bytes of the temp buffer for the CUB lib sorting API
-   * @param temp_storage_scan the pointer of the temp buffer for the CUB lib scaning API
-   * @param temp_storage_scan_bytes the bytes of the temp buffer for the CUB lib scaning API
-   * @param wgrad the pointer of wgrad
-   * @param deltaw_hash_value_index the pointer of deltaw's corresponding hash value_index
-   * @param deltaw the pointer of deltaw, which is used to update the hash table value
-   * @param hash_table_value the pointer of hash table value, which will be updated
-   */
-  template <typename TypeHashKey, typename TypeHashValueIndex>
-  void update_params(cudaStream_t stream, int batch_size, int slot_num, int embedding_vec_size,
-                     size_t max_vocabulary_size_per_gpu, OptParams<__half> &opt_params, int nnz,
-                     const TypeHashKey *row_offset, TypeHashValueIndex *hash_value_index,
-                     TypeHashKey *sample_id, TypeHashKey *sample_id_sort,
-                     TypeHashValueIndex *hash_value_index_sort,
-                     // uint32_t *hash_value_index_count,
-                     uint32_t *hash_value_index_count_offset, uint32_t *new_hash_value_flag,
-                     uint32_t *hash_value_flag_sumed, uint32_t *hash_value_index_count_counter,
-                     void *temp_storage_sort, size_t temp_storage_sort_bytes,
-                     void *temp_storage_scan, size_t temp_storage_scan_bytes, const __half *wgrad,
-                     TypeHashValueIndex *deltaw_hash_value_index, __half *deltaw,
-                     float *hash_table_value) {
-    if (slot_num == 0) {
-      return;
-    }
-
-    try {
-      // step1: expand sample IDs
-      {
-        dim3 blockSize(64, 1, 1);
-        dim3 gridSize((batch_size * slot_num + blockSize.x - 1) / blockSize.x, 1, 1);
-        sample_id_expand_kernel<<<gridSize, blockSize, 0, stream>>>(batch_size, slot_num,
-                                                                    row_offset, sample_id);
-      }
-
-#ifdef SGD_ATOMIC
-      if (opt_params.optimizer == Optimizer_t::SGD) {  // for SGD, do atomic update
-        dim3 gridSize(min(max(1, nnz), sm_count_ * 32), 1, 1);
-        dim3 blockSize(embedding_vec_size, 1, 1);
-
-        float lr_scale = (float)opt_params.lr / (float)opt_params.scaler;
-
-        opt_sgd_atomic_kernel<<<gridSize, blockSize, 0, stream>>>(nnz, embedding_vec_size, lr_scale,
-                                                                  hash_value_index, sample_id,
-                                                                  wgrad, hash_table_value);
-      } else {
-        CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
-      }
-#else
-      CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer/method pattern");
-#endif
 
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -1454,10 +1369,8 @@ class SparseEmbeddingHashFunctors {
     // for single GPU, just do memcpyD2D
     else {  // total_gpu_count == 1
       context.set_device((*device_resources)[0]->get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), 
-                                     send_tensors[0]->get_ptr(),
-                                     recv_count * sizeof(Type), 
-                                     cudaMemcpyDeviceToDevice,
+      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), send_tensors[0]->get_ptr(),
+                                     recv_count * sizeof(Type), cudaMemcpyDeviceToDevice,
                                      (*device_resources)[0]->get_stream()));
     }
 
@@ -1496,21 +1409,17 @@ class SparseEmbeddingHashFunctors {
     if (total_gpu_count > 1) {
       CK_NCCL_THROW_(ncclGroupStart());
       for (int id = 0; id < local_gpu_count; id++) {
-        CK_NCCL_THROW_(ncclAllReduce(send_tensors[id]->get_ptr(), 
-                                     recv_tensors[id]->get_ptr(), 
-                                     send_count, type, ncclSum,
-                                     *(*device_resources)[id]->get_nccl_ptr(), 
-                                     (*device_resources)[id]->get_stream()));
+        CK_NCCL_THROW_(ncclAllReduce(
+            send_tensors[id]->get_ptr(), recv_tensors[id]->get_ptr(), send_count, type, ncclSum,
+            *(*device_resources)[id]->get_nccl_ptr(), (*device_resources)[id]->get_stream()));
       }
       CK_NCCL_THROW_(ncclGroupEnd());
     }
     // for single GPU, just do memcpyD2D
     else {  // total_gpu_count == 1
       context.set_device((*device_resources)[0]->get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), 
-                                     send_tensors[0]->get_ptr(),
-                                     send_count * sizeof(Type), 
-                                     cudaMemcpyDeviceToDevice,
+      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), send_tensors[0]->get_ptr(),
+                                     send_count * sizeof(Type), cudaMemcpyDeviceToDevice,
                                      (*device_resources)[0]->get_stream()));
     }
 
@@ -1551,8 +1460,7 @@ class SparseEmbeddingHashFunctors {
       for (int id = 0; id < local_gpu_count; id++) {
         CK_NCCL_THROW_(ncclAllGather(send_tensors[id]->get_ptr(),  // send buff
                                      recv_tensors[id]->get_ptr(),  // recv buff
-                                     send_count, type,
-                                     *(*device_resources)[id]->get_nccl_ptr(),
+                                     send_count, type, *(*device_resources)[id]->get_nccl_ptr(),
                                      (*device_resources)[id]->get_stream()));
       }
       CK_NCCL_THROW_(ncclGroupEnd());
@@ -1560,10 +1468,8 @@ class SparseEmbeddingHashFunctors {
     // for single GPU, just do memcpyD2D
     else {  // total_gpu_count == 1
       context.set_device((*device_resources)[0]->get_device_id());
-      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), 
-                                     send_tensors[0]->get_ptr(),
-                                     send_count * sizeof(Type), 
-                                     cudaMemcpyDeviceToDevice,
+      CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), send_tensors[0]->get_ptr(),
+                                     send_count * sizeof(Type), cudaMemcpyDeviceToDevice,
                                      (*device_resources)[0]->get_stream()));
     }
 
@@ -1801,7 +1707,7 @@ class SparseEmbeddingHashFunctors {
 
 #else  // for mpirun (for single node or multiple node)
 
-/**
+  /**
    * nccl all2all communication for forward.
    * @param batch_size_per_gpu batch size per GPU
    * @param slot_num slot number
@@ -1811,133 +1717,132 @@ class SparseEmbeddingHashFunctors {
    * @param device_resources all gpus device resources.
    */
   template <typename Type>
-  void all2all_forward(int batch_size_per_gpu, int slot_num,
-                       int embedding_vec_size, const Tensors<Type> &send_tensors,
-                       Tensors<Type> &recv_tensors,
+  void all2all_forward(int batch_size_per_gpu, int slot_num, int embedding_vec_size,
+                       const Tensors<Type> &send_tensors, Tensors<Type> &recv_tensors,
                        const std::shared_ptr<GPUResourceGroup> &device_resources) {
-  std::vector<int> device_list = device_resources->get_device_list();
-  int local_gpu_count = (int)device_list.size();
-  int total_gpu_count = device_resources->get_total_gpu_count();
+    std::vector<int> device_list = device_resources->get_device_list();
+    int local_gpu_count = (int)device_list.size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
-  int total_rank = 1;
-  int my_rank = 0;
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
-  int num_proc = device_resources->get_node_count();
-  if (num_proc != total_rank) {
-    CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
+    int total_rank = 1;
+    int my_rank = 0;
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
+    int num_proc = device_resources->get_node_count();
+    if (num_proc != total_rank) {
+      CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
     }
-  if (total_gpu_count != (total_rank * local_gpu_count)) {
-    CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
-  }
-
-  std::vector<Type *> src(local_gpu_count);
-  std::vector<Type *> dst(local_gpu_count);
-  for (int id = 0; id < local_gpu_count; id++) {
-    src[id] = send_tensors[id]->get_ptr();
-    dst[id] = recv_tensors[id]->get_ptr();
-  }
-
-  std::vector<std::vector<size_t>> send_table(local_gpu_count,
-                                              std::vector<size_t>(total_gpu_count));
-  std::vector<std::vector<size_t>> recv_table(local_gpu_count,
-                                              std::vector<size_t>(total_gpu_count));
-
-  // Fill in sending partition table, ith Topo GPU send to jth global GPU
-  for (int i = 0; i < local_gpu_count; i++) {
-    int device_id = (*device_resources)[i]->get_device_id();
-    int global_id = device_resources->get_global_id(device_id);
-    int slot_num_per_gpu =
-        slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
-    size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
-
-    for (int j = 0; j < total_gpu_count; j++) {
-      send_table[i][j] = element_per_send;
+    if (total_gpu_count != (total_rank * local_gpu_count)) {
+      CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
     }
-  }
 
-  // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
-  for (int j = 0; j < total_gpu_count; j++) {
-    int global_id = j;
-    int slot_num_per_gpu =
-        slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
-    size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
+    std::vector<Type *> src(local_gpu_count);
+    std::vector<Type *> dst(local_gpu_count);
+    for (int id = 0; id < local_gpu_count; id++) {
+      src[id] = send_tensors[id]->get_ptr();
+      dst[id] = recv_tensors[id]->get_ptr();
+    }
 
+    std::vector<std::vector<size_t>> send_table(local_gpu_count,
+                                                std::vector<size_t>(total_gpu_count));
+    std::vector<std::vector<size_t>> recv_table(local_gpu_count,
+                                                std::vector<size_t>(total_gpu_count));
+
+    // Fill in sending partition table, ith Topo GPU send to jth global GPU
     for (int i = 0; i < local_gpu_count; i++) {
-      recv_table[i][j] = element_per_recv;
-    }
-  }
+      int device_id = (*device_resources)[i]->get_device_id();
+      int global_id = device_resources->get_global_id(device_id);
+      int slot_num_per_gpu =
+          slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
+      size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
 
-  std::vector<std::vector<Type *>> src_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
-  std::vector<std::vector<Type *>> dst_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
-  // Calculate the src offset pointer from each GPU to each other
-  for (int i = 0; i < local_gpu_count; i++) {
-    size_t src_offset = 0;
-    for (int j = 0; j < total_gpu_count; j++) {
-      src_pos[i][j] = src[i] + src_offset;
-      src_offset += send_table[i][j];
+      for (int j = 0; j < total_gpu_count; j++) {
+        send_table[i][j] = element_per_send;
+      }
     }
-  }
-  // Calculate the dst offset pointer from each GPU to each other
-  for (int i = 0; i < local_gpu_count; i++) {
-    size_t dst_offset = 0;
+
+    // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
     for (int j = 0; j < total_gpu_count; j++) {
-      dst_pos[i][j] = dst[i] + dst_offset;
-      dst_offset += recv_table[i][j];
+      int global_id = j;
+      int slot_num_per_gpu =
+          slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
+      size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
+
+      for (int i = 0; i < local_gpu_count; i++) {
+        recv_table[i][j] = element_per_recv;
+      }
     }
-  }
+
+    std::vector<std::vector<Type *>> src_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
+    std::vector<std::vector<Type *>> dst_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
+    // Calculate the src offset pointer from each GPU to each other
+    for (int i = 0; i < local_gpu_count; i++) {
+      size_t src_offset = 0;
+      for (int j = 0; j < total_gpu_count; j++) {
+        src_pos[i][j] = src[i] + src_offset;
+        src_offset += send_table[i][j];
+      }
+    }
+    // Calculate the dst offset pointer from each GPU to each other
+    for (int i = 0; i < local_gpu_count; i++) {
+      size_t dst_offset = 0;
+      for (int j = 0; j < total_gpu_count; j++) {
+        dst_pos[i][j] = dst[i] + dst_offset;
+        dst_offset += recv_table[i][j];
+      }
+    }
 
 #ifndef NDEBUG
-  std::cout << "nccl all2all forward src_pos:" << std::endl;
-  for (int i = 0; i < local_gpu_count; i++) {
-    for (int j = 0; j < total_gpu_count; j++) {
-      std::cout << src_pos[i][j] << ", ";
+    std::cout << "nccl all2all forward src_pos:" << std::endl;
+    for (int i = 0; i < local_gpu_count; i++) {
+      for (int j = 0; j < total_gpu_count; j++) {
+        std::cout << src_pos[i][j] << ", ";
+      }
+      std::cout << std::endl;
     }
     std::cout << std::endl;
-  }
-  std::cout << std::endl;
 
-  std::cout << "nccl all2all forward dst_pos:" << std::endl;
-  for (int i = 0; i < local_gpu_count; i++) {
-    for (int j = 0; j < total_gpu_count; j++) {
-      std::cout << dst_pos[i][j] << ", ";
+    std::cout << "nccl all2all forward dst_pos:" << std::endl;
+    for (int i = 0; i < local_gpu_count; i++) {
+      for (int j = 0; j < total_gpu_count; j++) {
+        std::cout << dst_pos[i][j] << ", ";
+      }
+      std::cout << std::endl;
     }
     std::cout << std::endl;
-  }
-  std::cout << std::endl;
 #endif
 
-  // need to know the Type
-  ncclDataType_t type;
-  switch (sizeof(Type)) {
-    case 2:
-      type = ncclHalf;
-      break;
-    case 4:
-      type = ncclFloat;
-      break;
-    default:
-      CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-  }
-
-  // Do the all2all transfer
-  CK_NCCL_THROW_(ncclGroupStart());
-  for (int i = 0; i < local_gpu_count; i++) {
-    for (int j = 0; j < total_gpu_count; j++) {
-      CK_NCCL_THROW_(ncclSend(src_pos[i][j], send_table[i][j], type, j,
-                              *(*device_resources)[i]->get_nccl_ptr(),
-                              (*device_resources)[i]->get_stream()));
-      CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j,
-                              *(*device_resources)[i]->get_nccl_ptr(),
-                              (*device_resources)[i]->get_stream()));
+    // need to know the Type
+    ncclDataType_t type;
+    switch (sizeof(Type)) {
+      case 2:
+        type = ncclHalf;
+        break;
+      case 4:
+        type = ncclFloat;
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
     }
+
+    // Do the all2all transfer
+    CK_NCCL_THROW_(ncclGroupStart());
+    for (int i = 0; i < local_gpu_count; i++) {
+      for (int j = 0; j < total_gpu_count; j++) {
+        CK_NCCL_THROW_(ncclSend(src_pos[i][j], send_table[i][j], type, j,
+                                *(*device_resources)[i]->get_nccl_ptr(),
+                                (*device_resources)[i]->get_stream()));
+        CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j,
+                                *(*device_resources)[i]->get_nccl_ptr(),
+                                (*device_resources)[i]->get_stream()));
+      }
+    }
+    CK_NCCL_THROW_(ncclGroupEnd());
+
+    return;
   }
-  CK_NCCL_THROW_(ncclGroupEnd());
 
-  return;
-}
-
-/**
+  /**
    * nccl all2all communication for backward
    * @param batch_size_per_gpu batch size per GPU
    * @param slot_num slot number
@@ -1947,132 +1852,131 @@ class SparseEmbeddingHashFunctors {
    * @param device_resources all gpus device resources.
    */
   template <typename Type>
-  void all2all_backward(int batch_size_per_gpu, int slot_num,
-                        int embedding_vec_size, const Tensors<Type> &send_tensors,
-                        Tensors<Type> &recv_tensors,
+  void all2all_backward(int batch_size_per_gpu, int slot_num, int embedding_vec_size,
+                        const Tensors<Type> &send_tensors, Tensors<Type> &recv_tensors,
                         const std::shared_ptr<GPUResourceGroup> &device_resources) {
-  std::vector<int> device_list = device_resources->get_device_list();
-  int local_gpu_count = (int)device_list.size();
-  int total_gpu_count = device_resources->get_total_gpu_count();
+    std::vector<int> device_list = device_resources->get_device_list();
+    int local_gpu_count = (int)device_list.size();
+    int total_gpu_count = device_resources->get_total_gpu_count();
 
-  int total_rank = 1;
-  int my_rank = 0;
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
+    int total_rank = 1;
+    int my_rank = 0;
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
 
-  int num_proc = device_resources->get_node_count();
-  if (num_proc != total_rank) {
-    CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
-  }
-  if (total_gpu_count != (total_rank * local_gpu_count)) {
-    CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
-  }
-
-  std::vector<Type *> src(local_gpu_count);
-  std::vector<Type *> dst(local_gpu_count);
-  for (int id = 0; id < local_gpu_count; id++) {
-    src[id] = send_tensors[id]->get_ptr();
-    dst[id] = recv_tensors[id]->get_ptr();
-  }
-
-  std::vector<std::vector<size_t>> send_table(local_gpu_count,
-                                                std::vector<size_t>(total_gpu_count));
-  std::vector<std::vector<size_t>> recv_table(local_gpu_count,
-                                                std::vector<size_t>(total_gpu_count));
-
-  // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
-  for (int i = 0; i < local_gpu_count; i++) {
-    int device_id = (*device_resources)[i]->get_device_id();
-    int global_id = device_resources->get_global_id(device_id);
-    int slot_num_per_gpu =
-        slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
-    size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
-
-    for (int j = 0; j < total_gpu_count; j++) {
-      recv_table[i][j] = element_per_recv;
+    int num_proc = device_resources->get_node_count();
+    if (num_proc != total_rank) {
+      CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
     }
-  }
+    if (total_gpu_count != (total_rank * local_gpu_count)) {
+      CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
+    }
 
-  // Fill in sending partition table, ith Topo GPU send to jth global GPU
-  for (int j = 0; j < total_gpu_count; j++) {
-    int global_id = j;
-    int slot_num_per_gpu =
-        slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
-    size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
+    std::vector<Type *> src(local_gpu_count);
+    std::vector<Type *> dst(local_gpu_count);
+    for (int id = 0; id < local_gpu_count; id++) {
+      src[id] = send_tensors[id]->get_ptr();
+      dst[id] = recv_tensors[id]->get_ptr();
+    }
 
+    std::vector<std::vector<size_t>> send_table(local_gpu_count,
+                                                std::vector<size_t>(total_gpu_count));
+    std::vector<std::vector<size_t>> recv_table(local_gpu_count,
+                                                std::vector<size_t>(total_gpu_count));
+
+    // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
     for (int i = 0; i < local_gpu_count; i++) {
-      send_table[i][j] = element_per_send;
-    }
-  }
+      int device_id = (*device_resources)[i]->get_device_id();
+      int global_id = device_resources->get_global_id(device_id);
+      int slot_num_per_gpu =
+          slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
+      size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
 
-  std::vector<std::vector<Type *>> src_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
-  std::vector<std::vector<Type *>> dst_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
-  // Calculate the src offset pointer from each GPU to each other
-  for (int i = 0; i < local_gpu_count; i++) {
-    size_t src_offset = 0;
-    for (int j = 0; j < total_gpu_count; j++) {
-      src_pos[i][j] = src[i] + src_offset;
-      src_offset += send_table[i][j];
+      for (int j = 0; j < total_gpu_count; j++) {
+        recv_table[i][j] = element_per_recv;
+      }
     }
-  }
-  // Calculate the dst offset pointer from each GPU to each other
-  for (int i = 0; i < local_gpu_count; i++) {
-    size_t dst_offset = 0;
+
+    // Fill in sending partition table, ith Topo GPU send to jth global GPU
     for (int j = 0; j < total_gpu_count; j++) {
-      dst_pos[i][j] = dst[i] + dst_offset;
-      dst_offset += recv_table[i][j];
+      int global_id = j;
+      int slot_num_per_gpu =
+          slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
+      size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
+
+      for (int i = 0; i < local_gpu_count; i++) {
+        send_table[i][j] = element_per_send;
+      }
     }
-  }
+
+    std::vector<std::vector<Type *>> src_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
+    std::vector<std::vector<Type *>> dst_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
+    // Calculate the src offset pointer from each GPU to each other
+    for (int i = 0; i < local_gpu_count; i++) {
+      size_t src_offset = 0;
+      for (int j = 0; j < total_gpu_count; j++) {
+        src_pos[i][j] = src[i] + src_offset;
+        src_offset += send_table[i][j];
+      }
+    }
+    // Calculate the dst offset pointer from each GPU to each other
+    for (int i = 0; i < local_gpu_count; i++) {
+      size_t dst_offset = 0;
+      for (int j = 0; j < total_gpu_count; j++) {
+        dst_pos[i][j] = dst[i] + dst_offset;
+        dst_offset += recv_table[i][j];
+      }
+    }
 
 #ifndef NDEBUG
-  std::cout << "nccl all2all backward src_pos:" << std::endl;
-  for (int i = 0; i < local_gpu_count; i++) {
-    for (int j = 0; j < total_gpu_count; j++) {
-      std::cout << src_pos[i][j] << ", ";
+    std::cout << "nccl all2all backward src_pos:" << std::endl;
+    for (int i = 0; i < local_gpu_count; i++) {
+      for (int j = 0; j < total_gpu_count; j++) {
+        std::cout << src_pos[i][j] << ", ";
+      }
+      std::cout << std::endl;
     }
     std::cout << std::endl;
-  }
-  std::cout << std::endl;
 
-  std::cout << "nccl all2all backward dst_pos:" << std::endl;
-  for (int i = 0; i < local_gpu_count; i++) {
-    for (int j = 0; j < total_gpu_count; j++) {
-      std::cout << dst_pos[i][j] << ", ";
+    std::cout << "nccl all2all backward dst_pos:" << std::endl;
+    for (int i = 0; i < local_gpu_count; i++) {
+      for (int j = 0; j < total_gpu_count; j++) {
+        std::cout << dst_pos[i][j] << ", ";
+      }
+      std::cout << std::endl;
     }
     std::cout << std::endl;
-  }
-  std::cout << std::endl;
 #endif
 
-  // need to know the Type
-  ncclDataType_t type;
-  switch (sizeof(Type)) {
-    case 2:
-      type = ncclHalf;
-      break;
-    case 4:
-      type = ncclFloat;
-      break;
-    default:
-      CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-  }
-
-  // Do the all2all transfer
-  CK_NCCL_THROW_(ncclGroupStart());
-  for (int i = 0; i < local_gpu_count; i++) {
-    for (int j = 0; j < total_gpu_count; j++) {
-      CK_NCCL_THROW_(ncclSend(src_pos[i][j], send_table[i][j], type, j,
-                              *(*device_resources)[i]->get_nccl_ptr(),
-                              (*device_resources)[i]->get_stream()));
-      CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j,
-                              *(*device_resources)[i]->get_nccl_ptr(),
-                              (*device_resources)[i]->get_stream()));
+    // need to know the Type
+    ncclDataType_t type;
+    switch (sizeof(Type)) {
+      case 2:
+        type = ncclHalf;
+        break;
+      case 4:
+        type = ncclFloat;
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
     }
-  }
-  CK_NCCL_THROW_(ncclGroupEnd());
 
-  return;
-}
+    // Do the all2all transfer
+    CK_NCCL_THROW_(ncclGroupStart());
+    for (int i = 0; i < local_gpu_count; i++) {
+      for (int j = 0; j < total_gpu_count; j++) {
+        CK_NCCL_THROW_(ncclSend(src_pos[i][j], send_table[i][j], type, j,
+                                *(*device_resources)[i]->get_nccl_ptr(),
+                                (*device_resources)[i]->get_stream()));
+        CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j,
+                                *(*device_resources)[i]->get_nccl_ptr(),
+                                (*device_resources)[i]->get_stream()));
+      }
+    }
+    CK_NCCL_THROW_(ncclGroupEnd());
+
+    return;
+  }
 
 #endif
 
@@ -2663,7 +2567,8 @@ class SparseEmbeddingHashFunctors {
    * get hash table value by value_index
    * @param stream cuda stream.
    * @param count total count of value which will be get from hash table.
-   * @param embedding_vec_size embedding vector size, each value has the dim of embedding_vec_size.
+   * @param embedding_vec_size embedding vector size, each value has the dim of
+   * embedding_vec_size.
    * @param value_index the pointer of value_index.
    * @param hash_table_value the pointer of hash table value.
    * @param value_retrieved the pointer of the retrived value.
@@ -2749,8 +2654,8 @@ class SparseEmbeddingHashFunctors {
     // define size
     int local_gpu_count = device_resources->size();
     int chunk_loop = 1000;
-    int tile_size = 1;  // must be 1, because we need to cal (key&local_gpu_count) to decide gpu_id
-                        // for each <key,value>
+    int tile_size = 1;  // must be 1, because we need to cal (key&local_gpu_count) to decide
+                        // gpu_id for each <key,value>
     int hash_table_key_tile_size = tile_size;
     int hash_table_key_tile_size_in_B = hash_table_key_tile_size * sizeof(TypeHashKey);
     int hash_table_key_chunk_size = hash_table_key_tile_size * chunk_loop;
@@ -2762,8 +2667,8 @@ class SparseEmbeddingHashFunctors {
     int hash_table_tile_size_in_B = hash_table_key_tile_size_in_B + hash_table_value_tile_size_in_B;
     int hash_table_chunk_size_in_B = hash_table_tile_size_in_B * chunk_loop;
 
-    // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory for
-    // each GPU allocate GPU memory for hash_table_value_index
+    // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
+    // for each GPU allocate GPU memory for hash_table_value_index
     std::unique_ptr<size_t[]> tile_counter_per_gpu(
         new size_t[local_gpu_count]);  // <= hash_table_value_index_per_gpu_size
     memset(tile_counter_per_gpu.get(), 0, sizeof(size_t) * local_gpu_count);
@@ -2784,8 +2689,8 @@ class SparseEmbeddingHashFunctors {
     // sync wait
     sync_all_gpus(device_resources, context);
 
-    // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory for
-    // each GPU allocate CPU/GPU memory for hash_table/key/value chunk
+    // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
+    // for each GPU allocate CPU/GPU memory for hash_table/key/value chunk
     char *hash_table_chunk;
     CK_CUDA_THROW_(cudaMallocHost(&hash_table_chunk, hash_table_chunk_size_in_B));
     std::unique_ptr<TypeHashKey *[]> h_hash_table_key_chunk_per_gpu(
@@ -3016,7 +2921,8 @@ class SparseEmbeddingHashFunctors {
     weight_stream.seekg(0, weight_stream.beg);
     // size_t hash_table_size_in_B =
     //     vocabulary_size * (sizeof(TypeHashKey) + sizeof(TypeHashValueIndex) +
-    //                        (size_t)embedding_vec_size * sizeof(float));  // key+ slot_id + value
+    //                        (size_t)embedding_vec_size * sizeof(float));  // key+ slot_id +
+    //                        value
     // if (file_size_in_B > hash_table_size_in_B) {
     //   CK_THROW_(Error_t::WrongInput,
     //             "Error: hash table file size " + std::to_string(file_size_in_B) +
@@ -3034,8 +2940,8 @@ class SparseEmbeddingHashFunctors {
     // define size
     int local_gpu_count = device_resources->size();
     int chunk_loop = 1000;
-    int tile_size = 1;  // must be 1, because we need to cal (key&local_gpu_count) to decide gpu_id
-                        // for each <key,value>
+    int tile_size = 1;  // must be 1, because we need to cal (key&local_gpu_count) to decide
+                        // gpu_id for each <key,value>
     int hash_table_key_tile_size = tile_size;
     int hash_table_key_tile_size_in_B = hash_table_key_tile_size * sizeof(TypeHashKey);
     int hash_table_key_chunk_size = hash_table_key_tile_size * chunk_loop;
@@ -3056,8 +2962,8 @@ class SparseEmbeddingHashFunctors {
     int hash_table_chunk_size_in_B = hash_table_tile_size_in_B * chunk_loop;
     int total_gpu_count = device_resources->get_total_gpu_count();
 
-    // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory for
-    // each GPU allocate GPU memory for hash_table_value_index
+    // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
+    // for each GPU allocate GPU memory for hash_table_value_index
     std::unique_ptr<size_t[]> tile_counter_per_gpu(
         new size_t[local_gpu_count]);  // <= hash_table_value_index_per_gpu_size
     memset(tile_counter_per_gpu.get(), 0, sizeof(size_t) * local_gpu_count);
@@ -3078,8 +2984,8 @@ class SparseEmbeddingHashFunctors {
     // sync wait
     sync_all_gpus(device_resources, context);
 
-    // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory for
-    // each GPU allocate CPU/GPU memory for hash_table/key/value chunk
+    // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
+    // for each GPU allocate CPU/GPU memory for hash_table/key/value chunk
     char *hash_table_chunk;
     CK_CUDA_THROW_(cudaMallocHost(&hash_table_chunk, hash_table_chunk_size_in_B));
     std::unique_ptr<TypeHashKey *[]> h_hash_table_key_chunk_per_gpu(
@@ -3436,8 +3342,8 @@ class SparseEmbeddingHashFunctors {
 
       context.set_device((*device_resources)[id]->get_device_id());
 
-      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id],
-                            d_dump_counter[id], (*device_resources)[id]->get_stream());
+      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], d_dump_counter[id],
+                            (*device_resources)[id]->get_stream());
 
       CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key[id], d_hash_table_key[id],
                                      count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
@@ -3630,8 +3536,8 @@ class SparseEmbeddingHashFunctors {
 
       context.set_device((*device_resources)[id]->get_device_id());
 
-      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id],
-                            d_dump_counter[id], (*device_resources)[id]->get_stream());
+      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], d_dump_counter[id],
+                            (*device_resources)[id]->get_stream());
 
       CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key[id], d_hash_table_key[id],
                                      count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
@@ -3889,8 +3795,8 @@ class SparseEmbeddingHashFunctors {
 
       context.set_device((*device_resources)[id]->get_device_id());
 
-      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id],
-                            d_dump_counter[id], (*device_resources)[id]->get_stream());
+      hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], d_dump_counter[id],
+                            (*device_resources)[id]->get_stream());
 
       get_hash_value((*device_resources)[id]->get_stream(), count[id], embedding_vec_size,
                      d_hash_table_value_index[id], hash_table_value_tensors[id]->get_ptr(),
@@ -3985,8 +3891,8 @@ class SparseEmbeddingHashFunctors {
    * store slot ids. This function is only used by LocalizedSparseEmbeddingHash.
    * @param batch_size batch size for the current mini-batch computation.
    * @param slot_num total slot number in hash table.
-   * @param row_offsets_tensors row_offsets tensors of mulitple GPUs (CSR format of input sparse
-   * tensors)
+   * @param row_offsets_tensors row_offsets tensors of mulitple GPUs (CSR format of input
+   * sparse tensors)
    * @param value_index_tensors hash value index tensors of multi GPUs
    * @param slot_id_tensors slot id tensors for multi GPUs
    * @param device_resources all gpus device resources.
@@ -4113,8 +4019,8 @@ class SparseEmbeddingHashFunctors {
   }
 
   /**
-   * Initialize the hash table and embedding table on local GPUs. This function is only used by
-   * LocalizedSparseEmbeddingHash.
+   * Initialize the hash table and embedding table on local GPUs. This function is only used
+   * by LocalizedSparseEmbeddingHash.
    * @param slot_sizes an array which stores the size of the slots to be intialized.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors embedding table tensors.

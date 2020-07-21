@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
+#include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
 #include <vector>
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/general_buffer.hpp"
@@ -24,10 +24,10 @@ using namespace HugeCTR;
 
 namespace {
 
-class NesterovCPU {
+class SGDCPU {
  public:
-  NesterovCPU(int len, float* w, const float* g, const __half* g_half, bool mixed_precision,
-              float lr, float mu)
+  SGDCPU(int len, float* w, float* g, __half* g_half, bool mixed_precision, float lr = 0.01,
+         float mu = 0.9)
       : w_(w),
         g_(g),
         g_half_(g_half),
@@ -35,7 +35,7 @@ class NesterovCPU {
         mixed_precision_(mixed_precision),
         lr_(lr),
         mu_(mu) {
-    if (mixed_precision) {
+    if (mixed_precision_) {
       accum_half_.resize(len);
     } else {
       accum_.resize(len);
@@ -55,18 +55,15 @@ class NesterovCPU {
 #else
     scaler = 1;
 #endif
-
     for (int i = 0; i < len_; ++i) {
       if (mixed_precision_) {
-        float accum_old = __half2float(accum_half_[i]);
-        float accum_new = mu_ * accum_old - lr_ * __half2float(g_half_[i]) / scaler;
-        accum_half_[i] = __float2half(accum_new);
-        w_[i] += (-mu_ * accum_old + (1 + mu_) * accum_new);
+        float acc = mu_ * __half2float(accum_half_[i]) - lr_ * __half2float(g_half_[i]) / scaler;
+        accum_half_[i] = __float2half(acc);
+        w_[i] += acc;
       } else {
-        float accum_old = accum_[i];
-        float accum_new = mu_ * accum_old - lr_ * g_[i] / scaler;
-        accum_[i] = accum_new;
-        w_[i] += (-mu_ * accum_old + (1 + mu_) * accum_new);
+        float acc = mu_ * accum_[i] - lr_ * g_[i] / scaler;
+        accum_[i] = acc;
+        w_[i] += acc;
       }
     }
   }
@@ -89,7 +86,7 @@ void compare_array(const float* a, const float* b, int len, float eps) {
   }
 }
 
-void nesterov_test(int len, int num_update, bool mixed_precision) {
+void sgd_test(int len, int num_update, bool mixed_precision) {
   const int device_id = 0;
   std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>(len, device_id));
   std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>(len, device_id));
@@ -109,9 +106,10 @@ void nesterov_test(int len, int num_update, bool mixed_precision) {
   }
   cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
-  NesterovOptimizer nesterov(weight, wgrad, wgrad_half, mixed_precision, device_id, 0.01, 0.9);
-  NesterovCPU nesterov_cpu(len, h_weight_expected.get(), h_wgrad.get(), h_wgrad_half.get(),
-                           mixed_precision, 0.01, 0.9);
+
+  MomentumSGDOptimizer sgd(weight, wgrad, wgrad_half, mixed_precision, device_id, 0.01, 0.9);
+  SGDCPU sgd_cpu(len, h_weight_expected.get(), h_wgrad.get(), h_wgrad_half.get(), mixed_precision,
+                 0.01, 0.9);
   for (int i = 0; i < num_update; ++i) {
     for (int i = 0; i < len; ++i) {
       float val = simulator.get_num();
@@ -128,12 +126,11 @@ void nesterov_test(int len, int num_update, bool mixed_precision) {
       cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
     }
 
-    nesterov.update(cudaStreamDefault);
-    nesterov_cpu.update();
+    sgd.update(cudaStreamDefault);
+    sgd_cpu.update();
   }
 
   cudaMemcpy(h_weight.get(), d_weight, len * sizeof(float), cudaMemcpyDeviceToHost);
-
   if (mixed_precision) {
     compare_array(h_weight.get(), h_weight_expected.get(), len, 1e-3);
   } else {
@@ -143,12 +140,12 @@ void nesterov_test(int len, int num_update, bool mixed_precision) {
 
 }  // namespace
 
-TEST(nesterov, fp32_nesterov) {
-  nesterov_test(1024, 5, false);
-  nesterov_test(10240, 5, false);
+TEST(optimizer_test, fp32_momonetum_sgd) {
+  sgd_test(1024, 5, false);
+  sgd_test(10240, 5, false);
 }
 
-TEST(nesterov, fp16_nesterov) {
-  nesterov_test(1024, 5, true);
-  nesterov_test(10240, 5, true);
+TEST(optimizer_test, fp16_momonetum_sgd) {
+  sgd_test(1024, 5, true);
+  sgd_test(10240, 5, true);
 }

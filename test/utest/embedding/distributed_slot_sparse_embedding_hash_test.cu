@@ -79,131 +79,9 @@ bool init_hash_table = true;  // true: init hash_table and upload_to_device
                               // empty hash_table to train
 //-----------------------------------------------------------------------------------------
 
-#if 0
-// distributed_sparse_embedding_hash upload_params() and download_params() testing
-TEST(distributed_sparse_embedding_hash_test, upload_and_download_params) {
-
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, {}, embedding_vec_size, 
-      max_feature_num, slot_num, 0, 0, 1.f};
-
-  int numprocs = 1, pid = 0;
-  std::vector<std::vector<int>> vvgpu;
-#ifdef ENABLE_MPI
-  test::mpi_init();
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-#endif
-  for (int i = 0; i < numprocs; i++) {
-    vvgpu.push_back(device_list);
-  }
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
-  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
-
-  if(pid == 0) {
-#if 1
-    // re-generate the dataset files 
-    std::ifstream file(file_list_name);
-    if(file.good()) {
-      std::remove(file_list_name.c_str());
-    }
-#endif 
-    // data generation
-    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
-  }
-
-#ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-  std::cout << "This is rank: " << pid << std::endl;
-#endif 
-
-  //setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot*slot_num, 
-                                      max_nnz_per_slot, slot_num};
-  std::vector<DataReaderSparseParam> params;
-  params.push_back(param);
-  DataReader<T> * data_reader = new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params, 
-                            gpu_resource_group, num_chunk_threads);
-
-  // define object
-  // Embedding<T>* embedding = new DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params, gpu_resource_group);
-
-  Embedding<T> *embedding = EmbeddingCreator::create_distributed_sparse_embedding_hash(
-                                data_reader->get_row_offsets_tensors(),
-                                data_reader->get_value_tensors(),
-                                embedding_params, gpu_resource_group);
-
-  const std::string hash_table_upload("distributed_hash_table_upload.bin");
-  const std::string hash_table_download("distributed_hash_table_download.bin");         
-
-  if(pid == 0) {
-    // init hash table file
-    std::ofstream weight_stream(hash_table_upload);
-    if(!weight_stream.is_open()) {
-      ERROR_MESSAGE_("Error: file not open for writing");
-    }
-    UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size-1);
-    UnifiedDataSimulator<float> fdata_sim(0, vocabulary_size-1);
-    T * p_key = (T *)malloc(vocabulary_size * sizeof(T));
-    UnorderedKeyGenerator<T> unorderedKey;
-    unorderedKey.fill_unique(p_key, vocabulary_size);
-    for(int i = 0; i < vocabulary_size; i++) {
-      //T key = (T)i;
-      //T key = ldata_sim.get_num(); // CAUSION: can not get correct results when testing by the case with duplicated keys
-      //weight_stream.write((char *)&key, sizeof(T));
-      weight_stream.write((char *)&p_key[i], sizeof(T));
-      //float val = (float)i;
-      float val = fdata_sim.get_num();
-      for(int j = 0; j < embedding_vec_size; j++) {
-        weight_stream.write((char *)&val, sizeof(float));
-      }
-    }
-    weight_stream.close();
-    free(p_key);
-  }
-
-#ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-  std::cout << "This is rank: " << pid << std::endl;
-#endif 
-
-  // upload data from host to device
-  std::ifstream i_weight_stream(hash_table_upload);
-  printf("start updaload_params_to_device()\n");
-  embedding->upload_params_to_device(i_weight_stream);
-  i_weight_stream.close();
-
-#ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-  std::cout << "This is rank: " << pid << std::endl;
-#endif 
-
-  // download data from device to host
-  std::ofstream o_weight_stream(hash_table_download);
-  printf("start download_params_to_host()\n");
-  embedding->download_params_to_host(o_weight_stream);
-  o_weight_stream.close();
-
-#ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-#endif 
-
-  // comapre the read file with the written file
-  typedef struct TypeHashValue_{
-  	float data[embedding_vec_size];
-  } TypeHashValue;
-
-  printf("start compare_distributed_hash_table_files()\n");
-  bool rtn = compare_distributed_hash_table_files<T, TypeHashValue>(hash_table_upload, hash_table_download);
-  ASSERT_EQ(true, rtn);
-}
-#endif
-
-#if 1
 // distributed_sparse_embedding_hash correctness testing: forward->backward->update_params
 TEST(distributed_sparse_embedding_hash_test, training_correctness) {
-  OptHyperParams hyper_params;
+  OptHyperParams<TypeEmbeddingComp> hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
   hyper_params.adam.epsilon = 1e-8f;
@@ -214,8 +92,8 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       vocabulary_size, {}, embedding_vec_size,
-      max_feature_num, slot_num,        combiner,    opt_params};
+      batchsize,       vocabulary_size, {},       embedding_vec_size,
+      max_feature_num, slot_num,        combiner, opt_params};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -417,11 +295,9 @@ TEST(distributed_sparse_embedding_hash_test, training_correctness) {
   free(hash_table_value_from_gpu);
   free(hash_table_key_from_gpu);
 }
-#endif
 
-#if 1
 TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
-  OptHyperParams hyper_params;
+  OptHyperParams<TypeEmbeddingComp> hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
   hyper_params.adam.epsilon = 1e-8f;
@@ -432,8 +308,8 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
                                                    scaler};
 
   const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize,       vocabulary_size, {}, embedding_vec_size,
-      max_feature_num, slot_num,        combiner,    opt_params};
+      batchsize,       vocabulary_size, {},       embedding_vec_size,
+      max_feature_num, slot_num,        combiner, opt_params};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -620,45 +496,6 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-    /* do not do update_params since cpu code can not support eval mode (2 embedding obj share one
-    hashtable)
-
-        // GPU update_params
-        printf("Rank%d: embedding->update_params()\n", pid);
-        embedding->update_params();
-
-    #if 1 // can not check update_params since one-hot has no hashtable
-        if (pid == 0) {
-          // CPU update_params
-          printf("Rank0: embedding_cpu->update_params()\n");
-          embedding_cpu->update_params();
-        }
-    #else
-        // check the results of update params
-        printf("Rank%d: embedding->get_update_params_results()\n", pid);
-        embedding->get_update_params_results(hash_table_key_from_gpu,
-                                             hash_table_value_from_gpu);  // memcpy from GPU to CPU
-
-        if (pid == 0) {
-          // CPU update_params
-          printf("Rank0: embedding_cpu->update_params()\n");
-          embedding_cpu->update_params();
-
-          printf("Rank0: check update_params results\n");
-          bool rtn = compare_hash_table<T, TypeHashValue>(
-              vocabulary_size, (T *)hash_table_key_from_gpu, (TypeHashValue
-    *)hash_table_value_from_gpu, (T *)hash_table_key_from_cpu, (TypeHashValue
-    *)hash_table_value_from_cpu); ASSERT_EQ(true, rtn);
-        }
-
-    #endif
-
-    #ifdef ENABLE_MPI
-        MPI_Barrier(MPI_COMM_WORLD);
-    #endif
-
-    */
-
     /////////////////////////////////////////////////////////////////////////////////////////////
     // eval
     printf("\nRank%d: Round %d start eval:\n", pid, i);
@@ -704,91 +541,5 @@ TEST(distributed_sparse_embedding_hash_test, train_eval_correctness) {
   free(hash_table_key_from_gpu);
   free(embedding_feature_from_gpu_eval);
 }
-#endif
-
-#if 0
-// distributed_sparse_embedding_hash correctness testing: forward->backward->update_params
-TEST(distributed_sparse_embedding_hash_test, profile) {
-  OptHyperParams hyper_params;
-  hyper_params.adam.beta1 = 0.9f;
-  hyper_params.adam.beta2 = 0.999f;
-  hyper_params.adam.epsilon = 1e-8f;
-  hyper_params.momentum.factor = 0.9f;
-  hyper_params.nesterov.mu = 0.9f;
-
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update, scaler};
-
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
-      batchsize, vocabulary_size, {}, embedding_vec_size, max_feature_num, slot_num,
-      combiner,  opt_params};
-
-  int numprocs = 1, pid = 0;
-  std::vector<std::vector<int>> vvgpu;
-#ifdef ENABLE_MPI
-  test::mpi_init();
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-#endif
-  for (int i = 0; i < numprocs; i++) {
-    vvgpu.push_back(device_list);
-  }
-
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
-  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
-
-  if (pid == 0) {
-#if 0
-    // re-generate the dataset files
-    std::ifstream file(file_list_name);
-    if (file.good()) {
-      std::remove(file_list_name.c_str());
-    }
-#endif
-    // data generation
-    HugeCTR::data_generation<T, CHK>(file_list_name, prefix, num_files, num_records, slot_num,
-                                     vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
-  }
-
-#ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-  std::cout << "This is rank: " << pid << std::endl;
-#endif
-
-  // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot * slot_num, 
-                                      max_nnz_per_slot, slot_num};
-  std::vector<DataReaderSparseParam> params;
-  params.push_back(param);
-  DataReader<T> *data_reader =
-      new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                        gpu_resource_group, num_chunk_threads);
-
-  // Embedding<T> *embedding = new
-  // DistributedSlotSparseEmbeddingHash<T>(data_reader->get_row_offsets_tensors(),
-  //                                                      data_reader->get_value_tensors(),
-  //                                                      embedding_params, gpu_resource_group);
-
-  Embedding<T, TypeEmbeddingComp> *embedding = EmbeddingCreator::create_distributed_sparse_embedding_hash(
-      data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(), embedding_params,
-      gpu_resource_group);
-
-  HugeCTR::Timer timer;
-
-  for (int i = 0; i < batch_num; i++) {
-
-    data_reader->read_a_batch_to_device();
-
-    timer.start();
-  
-    embedding->forward();
-    embedding->backward();
-    embedding->update_params();
-
-    timer.stop();
-    std::cout << "Time per iter: " << timer.elapsedSeconds() << "s" << std::endl;
-  }
-
-}
-#endif
 
 }  // namespace
