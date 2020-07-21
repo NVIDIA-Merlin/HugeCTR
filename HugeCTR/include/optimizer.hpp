@@ -18,13 +18,10 @@
 
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/general_buffer.hpp"
+#include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
-
-/**
- * @brief Base class for all optimizers
- */
 
 class LearningRateScheduler {
   const float base_lr_;
@@ -77,18 +74,36 @@ class LearningRateScheduler {
   size_t get_step() const { return step_; }
 };
 
+/**
+ * @brief Base class for all optimizers
+ */
 class Optimizer {
  public:
   /**
+   * Helper to create a speicifed Optimizer object
+   */
+  template <typename T>
+  static std::unique_ptr<Optimizer>
+  Create(const OptParams<float>& params,
+         const std::shared_ptr<GeneralBuffer<float>>& weight_main,
+         const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+         const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
+         const float scaler,
+         int device_id);
+
+  /**
    * Constructor of Optimizer.
-   * @param weight weights to be updated
+   * @param weight_main weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
    * @param learning_rate learning rate
    */
-  Optimizer(const std::shared_ptr<GeneralBuffer<float>>& weight, int device_id, float learning_rate,
-            float scaler)
-      : device_id_(device_id), weight_(weight), lr_(learning_rate), scaler_(scaler) {
+  Optimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
+            int device_id, float learning_rate, float scaler)
+      : device_id_(device_id),
+        weight_main_(weight_main),
+        lr_(learning_rate),
+        scaler_(scaler) {
     try {
       if (lr_ <= 0) {
         CK_THROW_(Error_t::WrongInput, "lr <= 0");
@@ -118,8 +133,7 @@ class Optimizer {
 
  protected:
   int device_id_;
-  std::shared_ptr<GeneralBuffer<float>> weight_;
-  //  std::shared_ptr<GeneralBuffer<float>> wgrad_;
+  std::shared_ptr<GeneralBuffer<float>> weight_main_;
   float lr_;  // learning rate
   const float scaler_;
 };

@@ -29,7 +29,7 @@ class AdamOptimizer : public Optimizer {
   /**
    * Constructor of AdamOptimizer.
    * names of hyper-parameters are the same as in Algorithm 1 of Adam paper (arXiv:1412.6980)
-   * @param weight weights to be updated
+   * @param weight_main weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
    * @param alpha learning rate, alpha in Adam paper
@@ -37,8 +37,9 @@ class AdamOptimizer : public Optimizer {
    * @param beta2 beta2 in Adam paper
    * @param epsilon epsilon in Adam paper
    */
-  AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
+  AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
                 const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+                const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
                 int device_id,
                 float alpha = 0.001,
                 float beta1 = 0.9, float beta2 = 0.999,
@@ -60,6 +61,7 @@ class AdamOptimizer : public Optimizer {
   const float beta2_;
   const float epsilon_;
   std::shared_ptr<GeneralBuffer<T>> wgrad_;
+  std::shared_ptr<GeneralBuffer<T>> weight_sub_;
 };
 
 }  // namespace HugeCTR

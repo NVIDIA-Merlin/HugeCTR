@@ -16,30 +16,32 @@
 
 #include "HugeCTR/include/optimizers/momentum_sgd.hpp"
 
+#include "HugeCTR/include/utils.cuh"
+
 namespace HugeCTR {
 
 namespace {
 
 __forceinline__
-__device__ void momentumSGD_update_device(float* weight_ptr, float* momentum_ptr,
+__device__ void momentumSGD_update_device(float* weight_main, float* momuntum,
                                           float wgrad,
                                           MomentumSGDHyperParameters hyper_parameters,
                                           float scaler) {
-  float mv = hyper_parameters.momentum_factor * static_cast<float>(momentum_ptr[0]) - 
+  float mv = hyper_parameters.momentum_factor * static_cast<float>(momuntum[0]) - 
              hyper_parameters.lr * wgrad / scaler;
-  momentum_ptr[0] = mv;
-  weight_ptr[0] += mv;
+  momuntum[0] = mv;
+  weight_main[0] += mv;
   return;
 }
 
 template <typename T>
-__global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr,
-                                          const T* wgrad_ptr, int size,
+__global__ void momentumSGD_update_kernel(float* weight_main, float* momuntum,
+                                          const T* wgrad, int size,
                                           MomentumSGDHyperParameters hyper_parameters,
                                           float scaler) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < size) {
-    momentumSGD_update_device(weight_ptr + idx, momentum_ptr + idx, wgrad_ptr[idx],
+    momentumSGD_update_device(weight_main + idx, momuntum + idx, wgrad[idx],
                               hyper_parameters, scaler);
   }
   return;
@@ -48,17 +50,19 @@ __global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr
 }  // namespace
 
 template <typename T>
-MomentumSGD<T>::MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight,
+MomentumSGD<T>::MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
                             const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+                            const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
                             int device_id,
                             float learning_rate, float momentum_factor, float scaler)
-    : Optimizer(weight, device_id, learning_rate, scaler),
+    : Optimizer(weight_main, device_id, learning_rate, scaler),
       momentum_factor_(momentum_factor),
-      wgrad_(wgrad) {
-  momentum_.reset(new GeneralBuffer<float>(weight_->get_num_elements(), device_id_));
+      wgrad_(wgrad),
+      weight_sub_(weight_sub) {
+  momentum_.reset(new GeneralBuffer<float>(weight_main_->get_num_elements(), device_id_));
   momentum_->reset_sync();
-  if (weight_->get_num_elements() != wgrad_->get_num_elements()) {
-    CK_THROW_(Error_t::WrongInput, "weight_ and wgrad_ have different lengths");
+  if (weight_main_->get_num_elements() != wgrad_->get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput, "weight_main_ and wgrad_ have different lengths");
   }
 }
 
@@ -67,14 +71,20 @@ void MomentumSGD<T>::update(cudaStream_t stream) {
   CudaDeviceContext context(device_id_);
 
   constexpr int block_dim = 256;
-  int grid_dim = (weight_->get_num_elements() + block_dim - 1) / block_dim;
-  float* weight_ptr = weight_->get_ptr_with_offset(0);
-  const T* wgrad_ptr = wgrad_->get_ptr_with_offset(0);
-  float* momentum_ptr = momentum_->get_ptr_with_offset(0);
+  int grid_dim = (weight_main_->get_num_elements() + block_dim - 1) / block_dim;
+  float* weight_main = weight_main_->get_ptr_with_offset(0);
+  const T* wgrad = wgrad_->get_ptr_with_offset(0);
+  float* momuntum = momentum_->get_ptr_with_offset(0);
+  const int len = weight_main_->get_num_elements();
 
   MomentumSGDHyperParameters hyper_parameters = {lr_, momentum_factor_};
   momentumSGD_update_kernel<<<grid_dim, block_dim, 0, stream>>>(
-      weight_ptr, momentum_ptr, wgrad_ptr, weight_->get_num_elements(), hyper_parameters, scaler_);
+      weight_main, momuntum, wgrad, len, hyper_parameters, scaler_);
+
+  if (weight_sub_) {
+    T* weight_sub = weight_sub_->get_ptr_with_offset(0);
+    convert_array<<<grid_dim, block_dim, 0, stream>>>(weight_sub, weight_main, len);
+  }
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
