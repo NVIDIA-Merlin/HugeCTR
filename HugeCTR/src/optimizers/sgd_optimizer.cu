@@ -15,7 +15,6 @@
  */
 
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
-
 #include "HugeCTR/include/utils.cuh"
 
 namespace HugeCTR {
@@ -23,54 +22,37 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void sgd_kernel(int len, float* weight_main, const T* wgrad, float lr,
-                           float scaler) {
+__global__ void sgd_update_kernel(int len, float* weight, const T* wgrad, float lr, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
-    float gi = (float)wgrad[i] / scaler;
-    weight_main[i] -= lr * gi;
+    float gi = TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
+    weight[i] -= lr * gi;
   }
 }
 
 }  // namespace
 
-template <typename T>
-SgdOptimizer<T>::SgdOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
-                              const std::shared_ptr<GeneralBuffer<T>>& wgrad,
-                              const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
-                              int device_id,
-                              float lr, float scaler)
-    : Optimizer(weight_main, device_id, lr, scaler),
-      wgrad_(wgrad),
-      weight_sub_(weight_sub) {
+SGDOptimizer::SGDOptimizer(const GeneralBufferPtr<float>& weight_main,
+                           const GeneralBufferPtr<float>& fp32_wgrad,
+                           const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision,
+                           int device_id, float lr, float scaler)
+    : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, device_id, lr, scaler) {}
 
-  if (weight_sub_ != nullptr &&
-      wgrad_->get_num_elements() != weight_sub_->get_num_elements()) {
-    CK_THROW_(Error_t::WrongInput,
-              "wgrad_->get_num_elements() != weight_sub_->get_num_elements()");
-  }
-  if (weight_main_->get_num_elements() != wgrad_->get_num_elements()) {
-    CK_THROW_(Error_t::WrongInput,
-              "weight_main_.get_num_elements() != wgrad_.get_num_elements()");
-  }
-}
-
-template <typename T>
-void SgdOptimizer<T>::update(cudaStream_t stream) {
+void SGDOptimizer::update(cudaStream_t stream) {
   CudaDeviceContext context(device_id_);
 
-  const int len = weight_main_->get_num_elements();
-  const int block_dim = 256;
-  const int grid_dim = (len - 1) / block_dim + 1;
+  const size_t len = weight_main_->get_num_elements();
+  constexpr size_t block_dim = 256;
+  const size_t grid_dim = (len - 1) / block_dim + 1;
 
-  float* weight_main = weight_main_->get_ptr_with_offset(0);
-  const T* wgrad = wgrad_->get_ptr_with_offset(0);
+  float* weight = weight_main_->get_ptr_with_offset(0);
 
-  sgd_kernel<T><<<grid_dim, block_dim, 0, stream>>>(len, weight_main, wgrad, lr_, scaler_);
-
-  if (weight_sub_) {
-    T* weight_sub = weight_sub_->get_ptr_with_offset(0);
-    convert_array<<<grid_dim, block_dim, 0, stream>>>(weight_sub, weight_main, len);
+  if (mixed_precision_) {
+    const __half* fp16_wgrad = fp16_wgrad_->get_ptr_with_offset(0);
+    sgd_update_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, fp16_wgrad, lr_, scaler_);
+  } else {
+    const float* fp32_wgrad = fp32_wgrad_->get_ptr_with_offset(0);
+    sgd_update_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, fp32_wgrad, lr_, scaler_);
   }
 
 #ifndef NDEBUG
@@ -79,8 +61,4 @@ void SgdOptimizer<T>::update(cudaStream_t stream) {
 #endif
 }
 
-template class SgdOptimizer<float>;
-template class SgdOptimizer<__half>;
-
 }  // namespace HugeCTR
-

@@ -17,7 +17,6 @@
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
 #include "HugeCTR/include/network.hpp"
-#include "HugeCTR/include/optimizers/momentum_sgd.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
 
 namespace HugeCTR {
@@ -73,9 +72,8 @@ void Network::train() {
 
 #endif
   // forward
-  if (full_fp16_ && first_iter_) {
+  if (full_fp16_) {
     conv_weight_();
-    first_iter_ = false;
   }
 
   if (enable_cuda_graph_) {

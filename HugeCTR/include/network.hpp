@@ -78,8 +78,6 @@ class Network {
   cudaGraphExec_t train_fprop_instance_;
   cudaGraphExec_t train_bprop_instance_;
 
-  bool first_iter_{true};
-
  public:
   /**
    * Ctor.

@@ -16,7 +16,7 @@
 cmake_minimum_required(VERSION 3.8)
 file(GLOB optimizer_test_src
   adam_optimizer_test.cpp
-  momentum_sgd_test.cpp
+  momentum_sgd_optimizer_test.cpp
   nesterov_optimizer_test.cpp
   sgd_optimizer_test.cpp
 )

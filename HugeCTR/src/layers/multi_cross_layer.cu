@@ -24,6 +24,8 @@ namespace HugeCTR {
 // kernels
 namespace {
 
+inline int calc_grid(int t, int b) { return (t - 1) / b + 1; }
+
 /**
  * Each row in `mat`dot product with vec, length of vec should be w. Then adding bias for each of
  * the rows
@@ -417,7 +419,9 @@ MultiCrossLayer::MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
                                  const TensorPtr<float>& in_tensor,
                                  const TensorPtr<float>& out_tensor, int num_layers, int device_id,
                                  std::vector<Initializer_t> initializer_types)
-    : Layer(device_id, initializer_types), num_layers_(num_layers), blobs_buff_(new GeneralBuffer<float>()) {
+    : Layer(device_id, initializer_types),
+      num_layers_(num_layers),
+      blobs_buff_(new GeneralBuffer<float>()) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor->get_dims();
@@ -533,10 +537,10 @@ std::unique_ptr<DataSimulator<float>> MultiCrossLayer::get_default_initializer(c
 
   std::unique_ptr<DataSimulator<float>> simu(nullptr);
   if (0 == index) {
-    simu.reset(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform,
-            bottom_dim, top_dim));
+    simu.reset(new VarianceScalingSimulator<float>(
+        1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform, bottom_dim, top_dim));
   } else if (1 == index) {
-    auto zero_init = [] {return static_cast<float>(0); };
+    auto zero_init = [] { return static_cast<float>(0); };
     simu.reset(new SingleDataSimulator<float>(zero_init));
   } else {
     CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
