@@ -43,6 +43,7 @@ file(GLOB huge_ctr_src
   optimizers/momentum_sgd.cu
   optimizers/nesterov_optimizer.cu
   optimizers/sgd_optimizer.cu
+  optimizer.cpp
   regularizer.cu
   regularizers/l1_regularizer.cu
   regularizers/l2_regularizer.cu

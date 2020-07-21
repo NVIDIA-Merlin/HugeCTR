@@ -29,30 +29,17 @@ class SgdOptimizer : public Optimizer {
   /**
    * Constructor of SgdOptimizerHalf.
    * names of hyper-parameters are the same as in Algorithm 1 of Adam paper (arXiv:1412.6980)
-   * @param weight weights to be updated
+   * @param weight_main weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
    * @param lr learning rate
    # @param scaler scaler factor for mixed precision
    */
-  SgdOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
+  SgdOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
                const std::shared_ptr<GeneralBuffer<T>>& wgrad,
-               const std::shared_ptr<GeneralBuffer<T>>& weight_tmp, int device_id,
-               float lr = 0.001f, float scaler = 1.f)
-      : Optimizer(weight, device_id, lr, scaler), wgrad_(wgrad), weight_tmp_(nullptr) {
-
-    if (std::is_same<T, __half>::value) {
-      weight_tmp_ = weight_tmp; 
-      if (wgrad_->get_num_elements() != weight_tmp_->get_num_elements()) {
-        CK_THROW_(Error_t::WrongInput,
-                  "wgrad_->get_num_elements() != weight_tmp_->get_num_elements()");
-      }
-    } 
-    if (weight_->get_num_elements() != wgrad_->get_num_elements()) {
-      CK_THROW_(Error_t::WrongInput,
-                "weight_.get_num_elements() != wgrad_.get_num_elements()");
-    }
-  }
+               const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
+               int device_id,
+               float lr = 0.001f, float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -62,7 +49,7 @@ class SgdOptimizer : public Optimizer {
 
  private:
   std::shared_ptr<GeneralBuffer<T>> wgrad_;
-  std::shared_ptr<GeneralBuffer<T>> weight_tmp_;
+  std::shared_ptr<GeneralBuffer<T>> weight_sub_;
 };
 
 }  // namespace HugeCTR

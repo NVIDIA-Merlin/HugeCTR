@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
+
 #include <vector>
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/general_buffer.hpp"
@@ -39,7 +40,7 @@ class AdamCPU {
         epsilon_(epsilon) {}
 
 
-  void update(float* w, const T* g) {
+  void update(float* w, const T* g, T* w_tmp) {
     ++t_;
     const float alpha_t = alpha_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
 
@@ -63,6 +64,8 @@ class AdamCPU {
       m_[i] = mi;
       v_[i] = vi;
       w[i] -= alpha_t * mi / (sqrt(vi) + epsilon_) / scaler;
+      if (w_tmp != nullptr)
+        w_tmp[i] = w[i];
     }
   }
 
@@ -79,11 +82,7 @@ class AdamCPU {
 };
 
 template <typename T>
-void compare_array(const float* a, const float* b, int len) {
-  float eps = 1e-6;
-  if (std::is_same<T, __half>::value) {
-    eps = 1e-3;
-  }
+void compare_array(const T* a, const T* b, int len, float eps) {
   for (int i = 0; i < len; ++i) {
     ASSERT_NEAR(a[i], b[i], eps) << "array differ at index " << i;
   }
@@ -92,22 +91,31 @@ void compare_array(const float* a, const float* b, int len) {
 template <typename T>
 void adam_test(int len, int num_update) {
   const int device_id = 0;
-  std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>(len, device_id));
+  std::shared_ptr<GeneralBuffer<float>> weight_main(new GeneralBuffer<float>(len, device_id));
+  std::shared_ptr<GeneralBuffer<T>> weight_sub;
+  if (std::is_same<T, float>::value == false) {
+    weight_sub.reset(new GeneralBuffer<T>(len, device_id));
+  }
   std::shared_ptr<GeneralBuffer<T>> wgrad(new GeneralBuffer<T>(len, device_id));
 
-  std::unique_ptr<float[]> h_weight(new float[len]);
+  std::unique_ptr<float[]> h_weight_main(new float[len]);
+  std::unique_ptr<T[]> h_weight_sub;
+  if (weight_sub != nullptr) {
+    h_weight_sub.reset(new T[len]);
+  }
   std::unique_ptr<T[]> h_wgrad(new T[len]);
   std::unique_ptr<float[]> h_weight_expected(new float[len]);
-  float* d_weight = weight->get_ptr_with_offset(0);
+  float* d_weight_main = weight_main->get_ptr_with_offset(0);
+  T* d_weight_sub = (weight_sub != nullptr)? weight_sub->get_ptr_with_offset(0) : nullptr;
   T* d_wgrad = wgrad->get_ptr_with_offset(0);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
   for (int i = 0; i < len; ++i) {
-    h_weight_expected[i] = h_weight[i] = simulator.get_num();
+    h_weight_expected[i] = h_weight_main[i] = simulator.get_num();
   }
-  cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_weight_main, h_weight_main.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
-  AdamOptimizer<T> adam(weight, wgrad, device_id);
+  AdamOptimizer<T> adam(weight_main, wgrad, weight_sub, device_id);
   AdamCPU<T> adam_cpu(len);
   for (int i = 0; i < num_update; ++i) {
     for (int i = 0; i < len; ++i) {
@@ -116,11 +124,22 @@ void adam_test(int len, int num_update) {
     cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(T), cudaMemcpyHostToDevice);
 
     adam.update(cudaStreamDefault);
-    adam_cpu.update(h_weight_expected.get(), h_wgrad.get());
+    adam_cpu.update(h_weight_expected.get(), h_wgrad.get(), h_weight_sub.get());
   }
 
-  cudaMemcpy(h_weight.get(), d_weight, len * sizeof(float), cudaMemcpyDeviceToHost);
-  compare_array<T>(h_weight.get(), h_weight_expected.get(), len);
+  float eps = 1e-6;
+  if (std::is_same<T, __half>::value) {
+    eps = 1e-3;
+  }
+
+  if (weight_sub != nullptr) {
+    std::unique_ptr<T[]> d2h_weight_sub(new T[len]);
+    cudaMemcpy(d2h_weight_sub.get(), d_weight_sub, len * sizeof(T), cudaMemcpyDeviceToHost);
+    compare_array<T>(d2h_weight_sub.get(), h_weight_sub.get(), len, eps);
+  } 
+
+  cudaMemcpy(h_weight_main.get(), d_weight_main, len * sizeof(float), cudaMemcpyDeviceToHost);
+  compare_array<float>(h_weight_main.get(), h_weight_expected.get(), len, eps);
 }
 
 }  // namespace

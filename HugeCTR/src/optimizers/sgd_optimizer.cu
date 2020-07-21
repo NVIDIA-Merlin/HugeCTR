@@ -16,56 +16,61 @@
 
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
 
+#include "HugeCTR/include/utils.cuh"
+
+namespace HugeCTR {
+
 namespace {
 
 template <typename T>
-__global__ void sgd_kernel(int len, float* weight, const T* wgrad, T* weight_tmp,
-                           float lr, float scaler); 
-
-template <>
-__global__ void sgd_kernel<float>(int len, float* weight, const float* wgrad, float* weight_tmp,
-                                  float lr, float scaler) {
+__global__ void sgd_kernel(int len, float* weight_main, const T* wgrad, float lr,
+                           float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     float gi = (float)wgrad[i] / scaler;
-    weight[i] -= lr * gi;
-  }
-}
-
-template <>
-__global__ void sgd_kernel<__half>(int len, float* weight, const __half* wgrad, __half* weight_tmp,
-                                   float lr, float scaler) {
-  const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < len) {
-    float gi = (float)wgrad[i] / scaler;
-    weight[i] -= lr * gi;
-    weight_tmp[i] = weight[i];
+    weight_main[i] -= lr * gi;
   }
 }
 
 }  // namespace
 
-namespace HugeCTR {
+template <typename T>
+SgdOptimizer<T>::SgdOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
+                              const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+                              const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
+                              int device_id,
+                              float lr, float scaler)
+    : Optimizer(weight_main, device_id, lr, scaler),
+      wgrad_(wgrad),
+      weight_sub_(weight_sub) {
+
+  if (weight_sub_ != nullptr &&
+      wgrad_->get_num_elements() != weight_sub_->get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput,
+              "wgrad_->get_num_elements() != weight_sub_->get_num_elements()");
+  }
+  if (weight_main_->get_num_elements() != wgrad_->get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput,
+              "weight_main_.get_num_elements() != wgrad_.get_num_elements()");
+  }
+}
 
 template <typename T>
 void SgdOptimizer<T>::update(cudaStream_t stream) {
   CudaDeviceContext context(device_id_);
 
-  const int len = weight_->get_num_elements();
+  const int len = weight_main_->get_num_elements();
   const int block_dim = 256;
   const int grid_dim = (len - 1) / block_dim + 1;
 
-  float* weight = weight_->get_ptr_with_offset(0);
+  float* weight_main = weight_main_->get_ptr_with_offset(0);
   const T* wgrad = wgrad_->get_ptr_with_offset(0);
 
-  if (std::is_same<T, __half>::value) {
-    T* weight_tmp = weight_tmp_->get_ptr_with_offset(0);
-    sgd_kernel<T><<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, weight_tmp, lr_,
-                                                        scaler_);
-  } else {
-    T* weight_tmp = nullptr; 
-    sgd_kernel<T><<<grid_dim, block_dim, 0, stream>>>(len, weight, wgrad, weight_tmp, lr_,
-                                                        scaler_);
+  sgd_kernel<T><<<grid_dim, block_dim, 0, stream>>>(len, weight_main, wgrad, lr_, scaler_);
+
+  if (weight_sub_) {
+    T* weight_sub = weight_sub_->get_ptr_with_offset(0);
+    convert_array<<<grid_dim, block_dim, 0, stream>>>(weight_sub, weight_main, len);
   }
 
 #ifndef NDEBUG
