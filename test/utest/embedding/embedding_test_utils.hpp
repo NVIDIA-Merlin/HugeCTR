@@ -249,14 +249,12 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
   // So, firstly, we read <key,value> pairs from file_stream2, and insert it into a hash table.
   char *buf = (char *)malloc(pair_size_in_B);
   TypeHashKey *key;
-  TypeSlotId *slot_id;
   TypeHashValue *value;
   HashTableCpu<TypeHashKey, TypeHashValue> *hash_table =
       new HashTableCpu<TypeHashKey, TypeHashValue>();
   while (file_stream2.peek() != EOF) {
     file_stream2.read(buf, pair_size_in_B);
     key = (TypeHashKey *)buf;
-    slot_id = (TypeSlotId *)(buf + sizeof(TypeHashKey));
     value = (TypeHashValue *)(buf + sizeof(TypeHashKey) +
                               sizeof(TypeSlotId));  // including slot_id and value
     hash_table->insert(key, value, 1);
@@ -280,7 +278,6 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
   while (file_stream1.peek() != EOF) {
     file_stream1.read(buf, pair_size_in_B);
     key = (TypeHashKey *)buf;
-    slot_id = (TypeSlotId *)(buf + sizeof(TypeHashKey));
     value1 = (TypeHashValue *)(buf + sizeof(TypeHashKey) +
                                sizeof(TypeSlotId));  // including slot_id and value
 
