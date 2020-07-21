@@ -37,7 +37,7 @@
 #include "HugeCTR/include/loss.hpp"
 #include "HugeCTR/include/metrics.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
-#include "HugeCTR/include/optimizers/momentum_sgd.hpp"
+#include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
 #include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
@@ -127,7 +127,7 @@ OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
     CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_name);
   }
 
-  OptHyperParams opt_hyper_params;
+  OptHyperParams<Type> opt_hyper_params;
   memset(&opt_hyper_params, 0, sizeof(opt_hyper_params));
   OptParams<Type> opt_params;
 
@@ -817,23 +817,13 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   // create optimizer
   auto opt_param = get_optimizer_param<float>(j_optimizer);
 
-  if (use_mixed_precision) {
-    network->optimizer_ = std::move(Optimizer::Create<__half>(opt_param,
-                                                              weight_buff,
-                                                              wgrad_buff_half,
-                                                              weight_buff_half,
-                                                              scaler,
-                                                              device_id));
-  }
-  else {
-    network->optimizer_ = std::move(Optimizer::Create<float>(opt_param,
-                                                             weight_buff,
-                                                             wgrad_buff,
-                                                             nullptr,
-                                                             scaler,
-                                                             device_id));
-  }
-
+  network->optimizer_ = std::move(Optimizer::Create(opt_param,
+                                                    weight_buff,
+                                                    wgrad_buff,
+                                                    wgrad_buff_half,
+                                                    use_mixed_precision,
+                                                    scaler,
+                                                    device_id));
   weight_buff->init(device_id);
   wgrad_buff->init(device_id);
   blobs_buff->init(device_id);

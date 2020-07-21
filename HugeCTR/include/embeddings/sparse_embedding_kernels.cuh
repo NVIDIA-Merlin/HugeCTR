@@ -17,6 +17,7 @@
 #pragma once
 
 #include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/utils.cuh"
 
 //#include <cooperative_groups.h>
 // using namespace cooperative_groups;
@@ -491,20 +492,9 @@ __global__ void sample_id_expand_kernel(int batch_size, int slot_num, const Type
   }
 }
 
-// template <typename TypeKey>
-// __device__ __forceinline__ void swap(TypeKey &a, TypeKey &b) {
-//   TypeKey temp = a;
-//   a = b;
-//   b = temp;
-// }
-
 template <typename TypeValueIndex>
 __global__ void value_count_kernel_1(int nnz, const TypeValueIndex *hash_value_index_sort,
-                                     uint32_t *new_hash_value_flag)
-// uint32_t *hash_value_index_count,
-// uint32_t *hash_value_index_count_offset,
-// uint32_t *hash_value_index_count_counter) {
-{
+                                     uint32_t *new_hash_value_flag) {
   for (int gid = blockIdx.x * blockDim.x + threadIdx.x; gid < nnz; gid += blockDim.x * gridDim.x) {
     TypeValueIndex cur_value = hash_value_index_sort[gid];
     if (gid > 0) {
@@ -539,13 +529,13 @@ __global__ void value_count_kernel_2(int nnz, const uint32_t *new_hash_value_fla
   }
 }
 
-
-template <typename TypeKey, typename TypeValueIndex>
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
 __global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num, int embedding_vec_size,
                                       float lr, const TypeKey *sample_id,
                                       const TypeValueIndex *hash_value_index_sort,
                                       const uint32_t *hash_value_index_count_offset,
-                                      const float *wgrad, float *hash_table_value, float scaler) {
+                                      const TypeEmbeddingComp *wgrad, float *hash_table_value,
+                                      float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -559,7 +549,8 @@ __global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num, int e
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
     }
     gi = gi / scaler;
 
@@ -570,28 +561,31 @@ __global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num, int e
   }
 }
 
+template <typename TypeEmbeddingComp>
 __global__ void adam_update_kernel_global(int embedding_vec_size,
                                           size_t table_size,  // vocabulary size / factor
-                                          const AdamOptHyperParams adam, float *hash_table_value) {
+                                          const AdamOptHyperParams<TypeEmbeddingComp> adam,
+                                          float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
-    float mi = adam.m_ptr[feature_index];
-    float vi = adam.v_ptr[feature_index];
+    float mi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.m_ptr[feature_index]);
+    float vi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.v_ptr[feature_index]);
     float weight_diff = -adam.alpha_t * mi / (sqrtf(vi) + adam.epsilon);
     hash_table_value[feature_index] += weight_diff;
-    adam.m_ptr[feature_index] = adam.beta1 * mi;
-    adam.v_ptr[feature_index] = adam.beta2 * vi;
+    adam.m_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(adam.beta1 * mi);
+    adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(adam.beta2 * vi);
   }
 }
 
 // calculate weights update value(deltaw) by adam opitimizer
-template <typename TypeKey, typename TypeValueIndex>
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                       const AdamOptHyperParams adam, const TypeKey *sample_id,
+                                       const AdamOptHyperParams<TypeEmbeddingComp> adam,
+                                       const TypeKey *sample_id,
                                        const TypeValueIndex *hash_value_index_sort,
                                        const uint32_t *hash_value_index_count_offset,
-                                       const float *wgrad, float scaler) {
+                                       const TypeEmbeddingComp *wgrad, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -605,28 +599,29 @@ __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int 
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float mi = adam.m_ptr[feature_index] + (1.0f - adam.beta1) * gi;
-    float vi = adam.v_ptr[feature_index] + (1.0f - adam.beta2) * gi * gi;
-    adam.m_ptr[feature_index] = mi;
-    adam.v_ptr[feature_index] = vi;
+    float mi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.m_ptr[feature_index]) +
+               (1.0f - adam.beta1) * gi;
+    float vi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.v_ptr[feature_index]) +
+               (1.0f - adam.beta2) * gi * gi;
+    adam.m_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mi);
+    adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
   }
 }
 
 // calculate weights update value(deltaw) by momentum_sgd opitimizer
-template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_momentum_sgd_kernel_global(uint32_t hash_value_index_count_num,
-                                               int embedding_vec_size, float lr,
-                                               const MomentumSgdOptHyperParams momentum,
-                                               const TypeKey *sample_id,
-                                               const TypeValueIndex *hash_value_index_sort,
-                                               const uint32_t *hash_value_index_count_offset,
-                                               const float *wgrad, float scaler) {
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
+__global__ void opt_momentum_sgd_kernel_global(
+    uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
+    const MomentumSGDOptHyperParams<TypeEmbeddingComp> momentum, const TypeKey *sample_id,
+    const TypeValueIndex *hash_value_index_sort, const uint32_t *hash_value_index_count_offset,
+    const TypeEmbeddingComp *wgrad, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -639,51 +634,60 @@ __global__ void opt_momentum_sgd_kernel_global(uint32_t hash_value_index_count_n
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
     }
 
     gi = gi / scaler;
     // compute the grad of the weights and update it
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float mo = momentum.momentum_ptr[feature_index] - lr * gi;
-    momentum.momentum_ptr[feature_index] = mo;
+    float mo =
+        TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum.momentum_ptr[feature_index]) -
+        lr * gi;
+    momentum.momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
   }
 }
 
-__global__ void momentum_sgd_update_kernel_global(int embedding_vec_size,
-                                                  size_t table_size,  // vocabulary size / factor
-                                                  const MomentumSgdOptHyperParams momentum,
-                                                  float *hash_table_value) {
+template <typename TypeEmbeddingComp>
+__global__ void momentum_sgd_update_kernel_global(
+    int embedding_vec_size,
+    size_t table_size,  // vocabulary size / factor
+    const MomentumSGDOptHyperParams<TypeEmbeddingComp> momentum, float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
-    float mo = momentum.momentum_ptr[feature_index];
+    float mo =
+        TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum.momentum_ptr[feature_index]);
     hash_table_value[feature_index] += mo;
-    momentum.momentum_ptr[feature_index] = mo * momentum.factor;
+    momentum.momentum_ptr[feature_index] =
+        TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo * momentum.factor);
   }
 }
 
-__global__ void nesterov_global_update_kernel_global(int embedding_vec_size,
-                                                     size_t table_size,  // vocabulary size / factor
-                                                     const NesterovOptHyperParams nesterov,
-                                                     float *hash_table_value) {
+template <typename TypeEmbeddingComp>
+__global__ void nesterov_global_update_kernel_global(
+    int embedding_vec_size,
+    size_t table_size,  // vocabulary size / factor
+    const NesterovOptHyperParams<TypeEmbeddingComp> nesterov, float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
-    nesterov.accm_ptr[feature_index] *= nesterov.mu;
-    float accm = nesterov.accm_ptr[feature_index];
+    float accm =
+        TypeConvertFunc<float, TypeEmbeddingComp>::convert(nesterov.accm_ptr[feature_index]);
+    accm *= nesterov.mu;
+    nesterov.accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm);
     hash_table_value[feature_index] += accm * nesterov.mu;
   }
 }
 
 // calculate weights update value(deltaw) by nesterov opitimizer
-template <typename TypeKey, typename TypeValueIndex>
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
 __global__ void nesterov_local_update_kernel_global(
     uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
-    const NesterovOptHyperParams nesterov, const TypeKey *sample_id,
+    const NesterovOptHyperParams<TypeEmbeddingComp> nesterov, const TypeKey *sample_id,
     const TypeValueIndex *hash_value_index_sort, const uint32_t *hash_value_index_count_offset,
-    const float *wgrad, float *hash_table_value, float scaler) {
+    const TypeEmbeddingComp *wgrad, float *hash_table_value, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -697,22 +701,27 @@ __global__ void nesterov_local_update_kernel_global(
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    nesterov.accm_ptr[feature_index] -= lr * gi;
+    float accm =
+        TypeConvertFunc<float, TypeEmbeddingComp>::convert(nesterov.accm_ptr[feature_index]);
+    accm -= lr * gi;
+    nesterov.accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm);
     hash_table_value[feature_index] -= (1 + nesterov.mu) * (lr * gi);
   }
 }
 
-template <typename TypeKey, typename TypeValueIndex>
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
 __global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
                                float lr, const TypeKey *sample_id,
                                const TypeValueIndex *hash_value_index_sort,
-                               const uint32_t *hash_value_index_count_offset, const float *wgrad,
+                               const uint32_t *hash_value_index_count_offset,
+                               const TypeEmbeddingComp *wgrad,
                                TypeValueIndex *deltaw_hash_value_index, float *deltaw,
                                float scaler) {
   int bid = blockIdx.x;
@@ -728,7 +737,8 @@ __global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num, int embeddin
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
     }
     gi = gi / scaler;
 
@@ -747,11 +757,13 @@ __global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num, int embeddin
 }
 
 // calculate weights update value(deltaw) by adam opitimizer
-template <typename TypeKey, typename TypeValueIndex>
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                const AdamOptHyperParams adam, const TypeKey *sample_id,
+                                const AdamOptHyperParams<TypeEmbeddingComp> adam,
+                                const TypeKey *sample_id,
                                 const TypeValueIndex *hash_value_index_sort,
-                                const uint32_t *hash_value_index_count_offset, const float *wgrad,
+                                const uint32_t *hash_value_index_count_offset,
+                                const TypeEmbeddingComp *wgrad,
                                 TypeValueIndex *deltaw_hash_value_index, float *deltaw,
                                 float scaler) {
   int bid = blockIdx.x;
@@ -767,16 +779,21 @@ __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embeddi
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float mi = adam.beta1 * adam.m_ptr[feature_index] + (1.0f - adam.beta1) * gi;
-    float vi = adam.beta2 * adam.v_ptr[feature_index] + (1.0f - adam.beta2) * gi * gi;
-    adam.m_ptr[feature_index] = mi;
-    adam.v_ptr[feature_index] = vi;
+    float mi =
+        adam.beta1 * TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.m_ptr[feature_index]) +
+        (1.0f - adam.beta1) * gi;
+    float vi =
+        adam.beta2 * TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.v_ptr[feature_index]) +
+        (1.0f - adam.beta2) * gi * gi;
+    adam.m_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mi);
+    adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
     float weight_diff = -adam.alpha_t * mi / (sqrtf(vi) + adam.epsilon);
 
     // save weights diff
@@ -790,14 +807,13 @@ __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embeddi
 }
 
 // calculate weights update value(deltaw) by momentum_sgd opitimizer
-template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                        float lr, const MomentumSgdOptHyperParams momentum,
-                                        const TypeKey *sample_id,
-                                        const TypeValueIndex *hash_value_index_sort,
-                                        const uint32_t *hash_value_index_count_offset,
-                                        const float *wgrad, TypeValueIndex *deltaw_hash_value_index,
-                                        float *deltaw, float scaler) {
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
+__global__ void opt_momentum_sgd_kernel(
+    uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
+    const MomentumSGDOptHyperParams<TypeEmbeddingComp> momentum, const TypeKey *sample_id,
+    const TypeValueIndex *hash_value_index_sort, const uint32_t *hash_value_index_count_offset,
+    const TypeEmbeddingComp *wgrad, TypeValueIndex *deltaw_hash_value_index, float *deltaw,
+    float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -810,14 +826,17 @@ __global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num, int
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float mo = momentum.factor * momentum.momentum_ptr[feature_index] - lr * gi;
-    momentum.momentum_ptr[feature_index] = mo;
+    float mo = momentum.factor * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+                                     momentum.momentum_ptr[feature_index]) -
+               lr * gi;
+    momentum.momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
 
     // save weights diff
     deltaw[bid * embedding_vec_size + tid] = mo;
@@ -830,14 +849,13 @@ __global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num, int
 }
 
 // calculate weights update value(deltaw) by nesterov opitimizer
-template <typename TypeKey, typename TypeValueIndex>
-__global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                    float lr, const NesterovOptHyperParams nesterov,
-                                    const TypeKey *sample_id,
-                                    const TypeValueIndex *hash_value_index_sort,
-                                    const uint32_t *hash_value_index_count_offset,
-                                    const float *wgrad, TypeValueIndex *deltaw_hash_value_index,
-                                    float *deltaw, float scaler) {
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
+__global__ void opt_nesterov_kernel(
+    uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
+    const NesterovOptHyperParams<TypeEmbeddingComp> nesterov, const TypeKey *sample_id,
+    const TypeValueIndex *hash_value_index_sort, const uint32_t *hash_value_index_count_offset,
+    const TypeEmbeddingComp *wgrad, TypeValueIndex *deltaw_hash_value_index, float *deltaw,
+    float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -851,15 +869,17 @@ __global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num, int emb
     uint32_t offset = hash_value_index_count_offset[bid];
     for (int i = 0; i < sample_num; i++) {
       int sample_index = sample_id[offset + i];
-      gi += wgrad[sample_index * embedding_vec_size + tid];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
     }
     gi = gi / scaler;
     // compute the grad of the weights and update it
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float accm_old = nesterov.accm_ptr[feature_index];
+    float accm_old =
+        TypeConvertFunc<float, TypeEmbeddingComp>::convert(nesterov.accm_ptr[feature_index]);
     float accm_new = nesterov.mu * accm_old - lr * gi;
-    nesterov.accm_ptr[feature_index] = accm_new;
+    nesterov.accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm_new);
     float weight_diff = -nesterov.mu * accm_old + (1.0f + nesterov.mu) * accm_new;
 
     // save weights diff
@@ -898,7 +918,8 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
   if (tid < embedding_vec_size && bid < nnz) {
     for (int key_id = bid; key_id < nnz; key_id += gridDim.x) {
       int sample_id = sample_ids[key_id];
-      float deltaw = -lr_scale * (float)(wgrad[sample_id * embedding_vec_size + tid]);
+      float deltaw = -lr_scale * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+                                     wgrad[sample_id * embedding_vec_size + tid]);
 
       // atomic update
       size_t value_index = hash_value_index[key_id];
@@ -919,7 +940,8 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
   if (tid < embedding_vec_size && bid < nnz) {
     for (int key_id = bid; key_id < nnz; key_id += gridDim.x) {
       // for one-hot, the max_feature_per_slot is 1, so sample_id is equal to key_id
-      float deltaw = -lr_scale * (float)(wgrad[key_id * embedding_vec_size + tid]);
+      float deltaw = -lr_scale * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+                                     wgrad[key_id * embedding_vec_size + tid]);
 
       // atomic update
       size_t value_index = hash_value_index[key_id];

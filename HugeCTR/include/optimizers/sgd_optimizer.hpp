@@ -23,11 +23,10 @@ namespace HugeCTR {
 /**
  * Adam optimizer
  */
-template <typename T>
-class SgdOptimizer : public Optimizer {
+class SGDOptimizer : public Optimizer {
  public:
   /**
-   * Constructor of SgdOptimizerHalf.
+   * Constructor of SGDOptimizer.
    * names of hyper-parameters are the same as in Algorithm 1 of Adam paper (arXiv:1412.6980)
    * @param weight_main weights to be updated
    * @param wgrad gradient for weights
@@ -35,10 +34,9 @@ class SgdOptimizer : public Optimizer {
    * @param lr learning rate
    # @param scaler scaler factor for mixed precision
    */
-  SgdOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
-               const std::shared_ptr<GeneralBuffer<T>>& wgrad,
-               const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
-               int device_id,
+  SGDOptimizer(const GeneralBufferPtr<float>& weight_main,
+               const GeneralBufferPtr<float>& fp32_wgrad,
+               const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
                float lr = 0.001f, float scaler = 1.f);
 
   /**
@@ -48,9 +46,6 @@ class SgdOptimizer : public Optimizer {
   void update(cudaStream_t stream) override;
 
  private:
-  std::shared_ptr<GeneralBuffer<T>> wgrad_;
-  std::shared_ptr<GeneralBuffer<T>> weight_sub_;
 };
 
 }  // namespace HugeCTR
-

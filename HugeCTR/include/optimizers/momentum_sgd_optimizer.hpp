@@ -20,16 +20,10 @@
 
 namespace HugeCTR {
 
-struct MomentumSGDHyperParameters {
-  float lr;
-  float momentum_factor;
-};
-
 /**
  * SGD optimizer with Momentum
  */
-template <typename T>
-class MomentumSGD : public Optimizer {
+class MomentumSGDOptimizer : public Optimizer {
  public:
   /**
    * Constructor of MomentumSGD.
@@ -39,11 +33,11 @@ class MomentumSGD : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor momentum factor
    */
-  MomentumSGD(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
-              const std::shared_ptr<GeneralBuffer<T>>& wgrad,
-              const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
-              int device_id,
-              float learning_rate, float momentum_factor, float scaler = 1.f);
+  MomentumSGDOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
+                       const GeneralBufferPtr<float>& fp32_wgrad,
+                       const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision,
+                       int device_id, float learning_rate, float momentum_factor,
+                       float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -52,10 +46,9 @@ class MomentumSGD : public Optimizer {
   void update(cudaStream_t stream) final;
 
  private:
-  std::unique_ptr<GeneralBuffer<float>> momentum_;
-  float momentum_factor_;
-  std::shared_ptr<GeneralBuffer<T>> wgrad_;
-  std::shared_ptr<GeneralBuffer<T>> weight_sub_;
+  GeneralBuffer<float> fp32_momentum_;
+  GeneralBuffer<__half> fp16_momentum_;
+  const float momentum_factor_;
 };
 
 }  // namespace HugeCTR
