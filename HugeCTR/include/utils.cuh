@@ -49,7 +49,9 @@ struct TypeFunc<__half2> {
 };
 
 template <typename TOUT, typename TIN>
-struct TypeConvertFunc;
+struct TypeConvertFunc {
+  static __forceinline__ __device__ TOUT convert(TIN val) { return (TOUT)val; }
+};
 
 template <>
 struct TypeConvertFunc<__half, float> {

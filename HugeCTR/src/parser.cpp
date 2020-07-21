@@ -817,76 +817,23 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   // create optimizer
   auto opt_param = get_optimizer_param<float>(j_optimizer);
 
-  switch (static_cast<Optimizer_t>(opt_param.optimizer)) {
-    case Optimizer_t::Adam: {
-      auto alpha = opt_param.lr;
-      auto beta1 = opt_param.hyperparams.adam.beta1;
-      auto beta2 = opt_param.hyperparams.adam.beta2;
-      auto epsilon = opt_param.hyperparams.adam.epsilon;
-      if (use_mixed_precision) {
-        network->optimizer_.reset(new AdamOptimizer<__half>(weight_buff, wgrad_buff_half,
-                                                            device_id,
-                                                            alpha,
-                                                            beta1, beta2,
-                                                            epsilon, scaler));
-      }
-      else {
-        network->optimizer_.reset(new AdamOptimizer<float>(weight_buff, wgrad_buff,
-                                                           device_id,
-                                                           alpha,
-                                                           beta1, beta2,
-                                                           epsilon, scaler));
-      }
-      break;
-    }
-    case Optimizer_t::MomentumSGD: {
-      auto learning_rate = opt_param.lr;
-      auto momentum_factor = opt_param.hyperparams.momentum.factor;
-      if (use_mixed_precision) {
-        network->optimizer_.reset(new MomentumSGD<__half>(weight_buff, wgrad_buff_half,
-                                                          device_id,
-                                                          learning_rate,
-                                                          momentum_factor, scaler));
-      }
-      else {
-        network->optimizer_.reset(new MomentumSGD<float>(weight_buff, wgrad_buff,
-                                                         device_id,
-                                                         learning_rate,
-                                                         momentum_factor, scaler));
-      }
-      break;
-    }
-    case Optimizer_t::Nesterov: {
-      auto learning_rate = opt_param.lr;
-      auto momentum_factor = opt_param.hyperparams.nesterov.mu;
-      if (use_mixed_precision) {
-        network->optimizer_.reset(new NesterovOptimizer<__half>(weight_buff, wgrad_buff_half,
-                                                                device_id,
-                                                                learning_rate, momentum_factor,
-                                                                scaler));
-      }
-      else {
-        network->optimizer_.reset(new NesterovOptimizer<float>(weight_buff, wgrad_buff,
-                                                               device_id,
-                                                               learning_rate, momentum_factor,
-                                                               scaler));
-      }
-      break;
-    }
-    case Optimizer_t::SGD: {
-      auto learning_rate = opt_param.lr;
-      if (use_mixed_precision) {
-        network->optimizer_.reset(new SgdOptimizer<__half>(
-            weight_buff, wgrad_buff_half, weight_buff_half, device_id, learning_rate, scaler));
-      } else {
-        network->optimizer_.reset(
-            new SgdOptimizer<float>(weight_buff, wgrad_buff, nullptr, device_id, learning_rate, scaler));
-      }
-      break;
-    }
-    default:
-      assert(!"Error: no such optimizer && should never get here!");
+  if (use_mixed_precision) {
+    network->optimizer_ = std::move(Optimizer::Create<__half>(opt_param,
+                                                              weight_buff,
+                                                              wgrad_buff_half,
+                                                              weight_buff_half,
+                                                              scaler,
+                                                              device_id));
   }
+  else {
+    network->optimizer_ = std::move(Optimizer::Create<float>(opt_param,
+                                                             weight_buff,
+                                                             wgrad_buff,
+                                                             nullptr,
+                                                             scaler,
+                                                             device_id));
+  }
+
   weight_buff->init(device_id);
   wgrad_buff->init(device_id);
   blobs_buff->init(device_id);

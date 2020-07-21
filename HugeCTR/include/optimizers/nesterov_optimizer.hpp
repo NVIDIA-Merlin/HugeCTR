@@ -28,14 +28,15 @@ class NesterovOptimizer : public Optimizer {
  public:
   /**
    * Constructor of NesterovOptimizer.
-   * @param weight weights to be updated
+   * @param weight_main weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
    * @param learning_rate learning rate
    * @param momentum_factor the momentum factor
    */
-  NesterovOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
+  NesterovOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
                     const std::shared_ptr<GeneralBuffer<T>>& wgrad,
+                    const std::shared_ptr<GeneralBuffer<T>>& weight_sub,
                     int device_id,
                     float learning_rate, float momentum_factor,
                     float scaler = 1.f);
@@ -50,6 +51,7 @@ class NesterovOptimizer : public Optimizer {
   GeneralBuffer<float> accum_;  // accumulation
   const float mu_;              // momentum factor
   std::shared_ptr<GeneralBuffer<T>> wgrad_;
+  std::shared_ptr<GeneralBuffer<T>> weight_sub_;
 };
 
 }  // namespace HugeCTR
