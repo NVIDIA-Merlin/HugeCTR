@@ -330,12 +330,6 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
                         TypeHashValue *hash_table_value_from_cpu) {
   bool rtn = true;
 
-  //   // just for debug
-  //   for(long long i = 0; i < capacity; i++) {
-  //     printf("i=%d, key_from_gpu=%d, key_from_cpu=%d \n", i, hash_table_key_from_gpu[i],
-  //        hash_table_key_from_cpu[i]);
-  //   }
-
   // Since the <key1,value1> and <key2,value2> is not the same ordered, we need to insert <key1,
   // value1> into a hash_table, then compare value1=hash_table->get(key2) with value2
   HashTableCpu<TypeHashKey, TypeHashValue> *hash_table =
@@ -351,12 +345,6 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
     value2 = hash_table_value_from_cpu + i;
 
     hash_table->get(key, value1, 1);
-
-    // // just for debug
-    // for(int j=0; j < value_len; j++) {
-    //   std::cout << "value1(gpu)=" << ((float*)value1)[j] << ", value2(cpu)=" <<
-    //   ((float*)value2)[j]  << std::endl;
-    // }
 
     if (!compare_array(value_len, (float *)value1, (float *)value2)) {
       std::cout << "Error in compare_hash_table: <key, value> pair number=" << i << std::endl;

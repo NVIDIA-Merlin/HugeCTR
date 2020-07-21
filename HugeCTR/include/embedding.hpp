@@ -218,41 +218,44 @@ Embedding<TypeKey, TypeEmbeddingComp>::Embedding(
   return;
 }
 
+template<typename T>
 struct AdamOptHyperParams {  // TODO: move to optimizer
   uint64_t times = 0;
   float alpha_t = 0.0f;
   float beta1 = 0.9f;
   float beta2 = 0.999f;
   float epsilon = 1e-6f;
-  float* m_ptr = nullptr;
-  float* v_ptr = nullptr;
+  T* m_ptr = nullptr;
+  T* v_ptr = nullptr;
 };
 
-struct MomentumSgdOptHyperParams {
+template<typename T>
+struct MomentumSGDOptHyperParams {
   float factor = 0.1f;
-  float* momentum_ptr = nullptr;
+  T* momentum_ptr = nullptr;
 };
 
+template<typename T>
 struct NesterovOptHyperParams {
   float mu = 0.9f;
-  float* accm_ptr = nullptr;
+  T* accm_ptr = nullptr;
 };
 
 // TODO: use union type should be better ???
+template <typename TypeEmbeddingComp>
 struct OptHyperParams {
-  AdamOptHyperParams adam;
-  MomentumSgdOptHyperParams momentum;
-  NesterovOptHyperParams nesterov;
+  AdamOptHyperParams<TypeEmbeddingComp> adam;
+  MomentumSGDOptHyperParams<TypeEmbeddingComp> momentum;
+  NesterovOptHyperParams<TypeEmbeddingComp> nesterov;
 };
 
 template <typename TypeEmbeddingComp>
 struct OptParams {
   Optimizer_t optimizer;
   float lr;
-  OptHyperParams hyperparams;
+  OptHyperParams<TypeEmbeddingComp> hyperparams;
   bool global_update;
   float scaler;
-  TypeEmbeddingComp unused;
 };
 
 

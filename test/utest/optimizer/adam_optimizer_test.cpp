@@ -25,22 +25,30 @@ using namespace HugeCTR;
 
 namespace {
 
-template <typename T>
 class AdamCPU {
  public:
-  AdamCPU(int len, float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999,
-          float epsilon = 1e-8)
-      : m_(len),
-        v_(len),
+  AdamCPU(int len, float* w, const float* g, const __half* g_half, bool mixed_precision,
+          float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8)
+      : w_(w),
+        g_(g),
+        g_half_(g_half),
         len_(len),
+        mixed_precision_(mixed_precision),
         t_(0),
         alpha_(alpha),
         beta1_(beta1),
         beta2_(beta2),
-        epsilon_(epsilon) {}
+        epsilon_(epsilon) {
+    if (mixed_precision) {
+      m_half_.resize(len);
+      v_half_.resize(len);
+    } else {
+      m_.resize(len);
+      v_.resize(len);
+    }
+  }
 
-
-  void update(float* w, const T* g, T* w_tmp) {
+  void update() {
     ++t_;
     const float alpha_t = alpha_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
 
@@ -58,22 +66,35 @@ class AdamCPU {
 #endif
 
     for (int i = 0; i < len_; ++i) {
-      float gi = static_cast<float>(g[i]);
-      float mi = beta1_ * static_cast<float>(m_[i]) + (1 - beta1_) * gi;
-      float vi = beta2_ * static_cast<float>(v_[i]) + (1 - beta2_) * gi * gi;
-      m_[i] = mi;
-      v_[i] = vi;
-      w[i] -= alpha_t * mi / (sqrt(vi) + epsilon_) / scaler;
-      if (w_tmp != nullptr)
-        w_tmp[i] = w[i];
+      if (mixed_precision_) {
+        float gi = __half2float(g_half_[i]);
+        float mi = beta1_ * __half2float(m_half_[i]) + (1 - beta1_) * gi;
+        float vi = beta2_ * __half2float(v_half_[i]) + (1 - beta2_) * gi * gi;
+        m_half_[i] = __float2half(mi);
+        v_half_[i] = __float2half(vi);
+        w_[i] -= alpha_t * mi / (sqrt(vi) + epsilon_) / scaler;
+      } else {
+        float gi = g_[i];
+        float mi = beta1_ * m_[i] + (1 - beta1_) * gi;
+        float vi = beta2_ * v_[i] + (1 - beta2_) * gi * gi;
+        m_[i] = mi;
+        v_[i] = vi;
+        w_[i] -= alpha_t * mi / (sqrt(vi) + epsilon_) / scaler;
+      }
     }
   }
 
  private:
   // named as in Algorithm 1 from Adam paper (arXiv:1609.04747)
-  vector<T> m_;
-  vector<T> v_;
-  int len_;
+  float* w_;
+  const float* g_;
+  const __half* g_half_;
+  vector<float> m_;
+  vector<float> v_;
+  vector<__half> m_half_;
+  vector<__half> v_half_;
+  const int len_;
+  const bool mixed_precision_;
   uint64_t t_;
   const float alpha_;
   const float beta1_;
@@ -81,75 +102,71 @@ class AdamCPU {
   const float epsilon_;
 };
 
-template <typename T>
-void compare_array(const T* a, const T* b, int len, float eps) {
+void compare_array(const float* a, const float* b, int len, float eps) {
   for (int i = 0; i < len; ++i) {
     ASSERT_NEAR(a[i], b[i], eps) << "array differ at index " << i;
   }
 }
 
-template <typename T>
-void adam_test(int len, int num_update) {
+void adam_test(int len, int num_update, bool mixed_precision) {
   const int device_id = 0;
-  std::shared_ptr<GeneralBuffer<float>> weight_main(new GeneralBuffer<float>(len, device_id));
-  std::shared_ptr<GeneralBuffer<T>> weight_sub;
-  if (std::is_same<T, float>::value == false) {
-    weight_sub.reset(new GeneralBuffer<T>(len, device_id));
-  }
-  std::shared_ptr<GeneralBuffer<T>> wgrad(new GeneralBuffer<T>(len, device_id));
+  std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>(len, device_id));
+  std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>(len, device_id));
+  std::shared_ptr<GeneralBuffer<__half>> wgrad_half(new GeneralBuffer<__half>(len, device_id));
 
-  std::unique_ptr<float[]> h_weight_main(new float[len]);
-  std::unique_ptr<T[]> h_weight_sub;
-  if (weight_sub != nullptr) {
-    h_weight_sub.reset(new T[len]);
-  }
-  std::unique_ptr<T[]> h_wgrad(new T[len]);
+  std::unique_ptr<float[]> h_weight(new float[len]);
+  std::unique_ptr<float[]> h_wgrad(new float[len]);
+  std::unique_ptr<__half[]> h_wgrad_half(new __half[len]);
   std::unique_ptr<float[]> h_weight_expected(new float[len]);
-  float* d_weight_main = weight_main->get_ptr_with_offset(0);
-  T* d_weight_sub = (weight_sub != nullptr)? weight_sub->get_ptr_with_offset(0) : nullptr;
-  T* d_wgrad = wgrad->get_ptr_with_offset(0);
+  float* d_weight = weight->get_ptr_with_offset(0);
+  float* d_wgrad = wgrad->get_ptr_with_offset(0);
+  __half* d_wgrad_half = wgrad_half->get_ptr_with_offset(0);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
   for (int i = 0; i < len; ++i) {
-    h_weight_expected[i] = h_weight_main[i] = simulator.get_num();
+    h_weight_expected[i] = h_weight[i] = simulator.get_num();
   }
-  cudaMemcpy(d_weight_main, h_weight_main.get(), len * sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
-  AdamOptimizer<T> adam(weight_main, wgrad, weight_sub, device_id);
-  AdamCPU<T> adam_cpu(len);
+  AdamOptimizer adam(weight, wgrad, wgrad_half, mixed_precision, device_id);
+  AdamCPU adam_cpu(len, h_weight_expected.get(), h_wgrad.get(), h_wgrad_half.get(),
+                   mixed_precision);
   for (int i = 0; i < num_update; ++i) {
     for (int i = 0; i < len; ++i) {
-      h_wgrad[i] = simulator.get_num();
+      float val = simulator.get_num();
+      if (mixed_precision) {
+        h_wgrad_half[i] = __float2half(val);
+      } else {
+        h_wgrad[i] = val;
+      }
     }
-    cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(T), cudaMemcpyHostToDevice);
+
+    if (mixed_precision) {
+      cudaMemcpy(d_wgrad_half, h_wgrad_half.get(), len * sizeof(__half), cudaMemcpyHostToDevice);
+    } else {
+      cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
+    }
 
     adam.update(cudaStreamDefault);
-    adam_cpu.update(h_weight_expected.get(), h_wgrad.get(), h_weight_sub.get());
+    adam_cpu.update();
   }
 
-  float eps = 1e-6;
-  if (std::is_same<T, __half>::value) {
-    eps = 1e-3;
+  cudaMemcpy(h_weight.get(), d_weight, len * sizeof(float), cudaMemcpyDeviceToHost);
+  if (mixed_precision) {
+    compare_array(h_weight.get(), h_weight_expected.get(), len, 1e-3);
+  } else {
+    compare_array(h_weight.get(), h_weight_expected.get(), len, 1e-6);
   }
-
-  if (weight_sub != nullptr) {
-    std::unique_ptr<T[]> d2h_weight_sub(new T[len]);
-    cudaMemcpy(d2h_weight_sub.get(), d_weight_sub, len * sizeof(T), cudaMemcpyDeviceToHost);
-    compare_array<T>(d2h_weight_sub.get(), h_weight_sub.get(), len, eps);
-  } 
-
-  cudaMemcpy(h_weight_main.get(), d_weight_main, len * sizeof(float), cudaMemcpyDeviceToHost);
-  compare_array<float>(h_weight_main.get(), h_weight_expected.get(), len, eps);
 }
 
 }  // namespace
 
 TEST(adam, fp32_adam) {
-  adam_test<float>(1024, 5);
-  adam_test<float>(10240, 5);
+  adam_test(1024, 5, false);
+  adam_test(10240, 5, false);
 }
 
 TEST(adam, fp16_adam) {
-  adam_test<__half>(1024, 5);
-  adam_test<__half>(10240, 5);
+  adam_test(1024, 5, true);
+  adam_test(10240, 5, true);
 }

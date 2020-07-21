@@ -40,7 +40,7 @@ file(GLOB huge_ctr_src
   network.cpp
   metrics.cu
   optimizers/adam_optimizer.cu
-  optimizers/momentum_sgd.cu
+  optimizers/momentum_sgd_optimizer.cu
   optimizers/nesterov_optimizer.cu
   optimizers/sgd_optimizer.cu
   optimizer.cpp

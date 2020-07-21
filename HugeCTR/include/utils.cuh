@@ -19,8 +19,6 @@
 
 namespace HugeCTR {
 
-inline int calc_grid(int t, int b) { return (t - 1) / b + 1; }
-
 template <typename T>
 struct TypeFunc;
 
@@ -56,6 +54,16 @@ struct TypeConvertFunc {
 template <>
 struct TypeConvertFunc<__half, float> {
   static __forceinline__ __device__ __half convert(float val) { return __float2half(val); }
+};
+
+template <>
+struct TypeConvertFunc<float, __half> {
+  static __forceinline__ __device__ float convert(__half val) { return __half2float(val); }
+};
+
+template <>
+struct TypeConvertFunc<float, float> {
+  static __forceinline__ __device__ float convert(float val) { return val; }
 };
 
 template <typename T>
