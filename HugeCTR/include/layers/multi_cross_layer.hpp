@@ -93,13 +93,9 @@ class MultiCrossLayer : public Layer {
 
   MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
                   const GeneralBufferPtr<float>& wgrad_buff, const TensorPtr<float>& in_tensor,
-<<<<<<< HEAD
-                  const TensorPtr<float>& out_tensor, int num_layers, int device_id,
-                  std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
-=======
                   const TensorPtr<float>& out_tensor, cublasHandle_t const& cublas_handle,
-                  int num_layers, int device_id);
->>>>>>> Moves cublas handler out of the function
+		  int num_layers, int device_id,
+                  std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   MultiCrossLayer(const MultiCrossLayer&) = delete;
   MultiCrossLayer& operator=(const MultiCrossLayer&) = delete;
 

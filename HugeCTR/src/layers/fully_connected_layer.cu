@@ -112,7 +112,7 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
       out_tensor->get_format() == TensorFormat_t::HW) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, weight,
                                   CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out, CUDA_R_32F, n,
-                                  CUDA_R_32F, algo));
+                                  CUDA_R_32F, falgo_));
     MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, true, true,
                   [] __device__(float a, float b) { return a + b; }, stream);
   } else if ((weights_[0])->get_format() == TensorFormat_t::WH &&
@@ -120,7 +120,7 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
              out_tensor->get_format() == TensorFormat_t::WH) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, in,
                                   CUDA_R_32F, m, weight, CUDA_R_32F, k, &beta, out, CUDA_R_32F, m,
-                                  CUDA_R_32F, algo));
+                                  CUDA_R_32F, falgo_));
     MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, false, true,
               [] __device__(float a, float b) { return a + b; }, stream);
   } else
@@ -162,7 +162,7 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
     // gradient respect to Xn
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_T, CUBLAS_OP_N, k, m, n, &alpha, weight,
                                   CUDA_R_32F, n, out, CUDA_R_32F, n, &beta_x, in, CUDA_R_32F, k,
-                                  CUDA_R_32F, algo));
+                                  CUDA_R_32F, balgo_Xn_));
     MLCommon::LinAlg::reduce(bias_grad, out, m, n, float(0), false, true, stream, true);
   }
   // Col-major
@@ -176,7 +176,7 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
     // gradient respect to Xn
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_T, m, k, n, &alpha, out,
                                   CUDA_R_32F, m, weight, CUDA_R_32F, k, &beta_x, in, CUDA_R_32F, m,
-                                  CUDA_R_32F, algo));
+                                  CUDA_R_32F, balgo_Xn_));
     MLCommon::LinAlg::reduce(bias_grad, out, m, n, float(0), true, true, stream, true);
   } else
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
