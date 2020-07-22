@@ -1191,4 +1191,17 @@ __global__ void hash_key_value_index_mapping_kernel(size_t nnz, int slot_num,
   }
 }
 
+template <typename value_type>
+__global__ void upload_value_tensor_kernel(value_type *value_buf, size_t *index_buf,
+                                           value_type *dst_tensor, int emb_vec_size, size_t len) {
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < len) {
+    size_t src_offset = gid * emb_vec_size;
+    size_t dst_offset = index_buf[gid] * emb_vec_size;
+    for (int i = 0; i < emb_vec_size; i++) {
+      dst_tensor[dst_offset + i] = value_buf[src_offset + i];
+    }
+  }
+}
+
 }  // end of namespace HugeCTR

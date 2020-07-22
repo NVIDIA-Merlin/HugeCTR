@@ -16,8 +16,10 @@
 
 #include <cuda_profiler_api.h>
 #include <sys/time.h>
+#include <algorithm>
 #include <fstream>
 #include <functional>
+#include <random>
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
 #include "HugeCTR/include/embedding.hpp"
@@ -99,6 +101,159 @@ std::vector<size_t> slot_sizes = {100, 100, 100, 100, 100, 100, 100, 100, 100,
                                   100, 100, 100, 100, 100, 100, 100, 100};  // just for verify
 
 //-----------------------------------------------------------------------------------------
+
+TEST(localized_sparse_embedding_one_hot_test, upload_and_download_params) {
+  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update,
+                                                   scaler};
+
+  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+      batchsize,       0,        slot_sizes, embedding_vec_size,
+      max_feature_num, slot_num, combiner,   opt_params};
+
+  int numprocs = 1, pid = 0;
+  std::vector<std::vector<int>> vvgpu;
+#ifdef ENABLE_MPI
+  test::mpi_init();
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+#endif
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
+  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+
+  if (pid == 0) {
+#if 0
+    // re-generate the dataset files 
+    std::ifstream file(file_list_name);
+    if(file.good()) 
+      std::remove(file_list_name.c_str());
+    }
+#endif
+    // data generation: key's corresponding slot_id=(key%slot_num)
+    HugeCTR::data_generation_for_localized_test<T, CHK>(
+        file_list_name, prefix, num_files, num_records, slot_num, vocabulary_size, label_dim,
+        dense_dim, max_nnz_per_slot, slot_sizes);
+  }
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  std::cout << "This is rank: " << pid << std::endl;
+#endif
+
+  // setup a data reader
+  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
+                                       max_nnz_per_slot, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+  DataReader<T> *data_reader =
+      new DataReader<T>(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
+                        gpu_resource_group, num_chunk_threads);
+
+  // define object
+  // Embedding<T>* embedding = new LocalizedSlotSparseEmbeddingOneHot<T>(
+  //     data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
+  //     embedding_params, plan_file, gpu_resource_group);
+
+  Embedding<T, TypeEmbeddingComp> *embedding =
+      EmbeddingCreator::create_localized_sparse_embedding_one_hot(
+          data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
+          embedding_params, plan_file, gpu_resource_group);
+
+  // init hash table file
+  const std::string hash_table_upload("localized_hash_table_upload.bin");
+  const std::string hash_table_download("localized_hash_table_download.bin");
+
+  if (pid == 0) {
+    std::ofstream weight_stream(hash_table_upload);
+    if (!weight_stream.is_open()) {
+      ERROR_MESSAGE_("Error: file not open for writing");
+    }
+    // UnifiedDataSimulator<T> ldata_sim(0, slot_num-1); // for slot_id
+    UnifiedDataSimulator<float> fdata_sim(0, vocabulary_size - 1);  // for value
+    // key buffer
+    T *p_key = (T *)malloc(vocabulary_size * sizeof(T));
+    // Generate key
+    for (long long i = 0; i < vocabulary_size; i++) {
+      p_key[i] = (T)i;
+    }
+    // Shuffle the key to random order
+    std::random_device rd;
+    std::mt19937 urbg(rd());
+    std::shuffle(p_key, p_key + vocabulary_size, urbg);
+
+    for (long long i = 0; i < vocabulary_size; i++) {
+      T key = p_key[i];
+      // CAUSION: can not set random keys here, because we need to ensure that:
+      // 1) we can find keys in the data file from this hash table
+      // 2) there are no repeated keys
+      weight_stream.write((char *)&key, sizeof(T));
+      T slot_id;
+      if (slot_sizes.size() == 0) {
+        // slot_id = key % slot_num;  // CAUSION: need to dedicate the slot_id for each key for
+        //                            // correctness verification
+        CK_THROW_(Error_t::WrongInput,
+                  "Must set slot_sizes since there is no hashtable in "
+                  "LocalizedSlotSpasrseEmbeddingOneHot");
+      } else {
+        size_t offset = 0;
+        for (size_t j = 0; j < slot_sizes.size(); j++) {
+          if ((key >= static_cast<T>(offset)) && (key < static_cast<T>(offset + slot_sizes[j]))) {
+            slot_id = (T)j;
+            break;
+          }
+          offset += slot_sizes[j];
+        }
+      }
+      weight_stream.write((char *)&slot_id, sizeof(T));
+      // float val = (float)i;
+      // float val = 0.1f;
+      float val = fdata_sim.get_num();
+      for (int j = 0; j < embedding_vec_size; j++) {
+        weight_stream.write((char *)&val, sizeof(float));
+      }
+    }
+    weight_stream.close();
+    // std::cout << " Done" << std::endl;
+    free(p_key);
+  }
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // upload data from host to device
+  std::ifstream i_weight_stream(hash_table_upload);
+  printf("start updaload_params_to_device()\n");
+  embedding->upload_params_to_device(i_weight_stream);
+  i_weight_stream.close();
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // download data from device to host
+  std::ofstream o_weight_stream(hash_table_download);
+  printf("start download_params_to_host()\n");
+  embedding->download_params_to_host(o_weight_stream);
+  o_weight_stream.close();
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // comapre the read file with the written file
+  typedef struct TypeHashValue_ {
+    float data[embedding_vec_size];
+  } TypeHashValue;
+
+  printf("start compare_localized_hash_table_files()\n");
+  bool rtn = compare_localized_hash_table_files<T, T, TypeHashValue>(hash_table_upload,
+                                                                     hash_table_download);
+  ASSERT_EQ(true, rtn);
+}
 
 // localized_sparse_embedding_hash correctness testing: forward->backward->update_params
 TEST(localized_sparse_embedding_one_hot_test, training_correctness) {
