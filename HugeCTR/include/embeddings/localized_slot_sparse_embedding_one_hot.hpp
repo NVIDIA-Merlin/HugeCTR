@@ -177,6 +177,18 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
         embedding_features_[id] = Base::output_tensors_[id]->get_ptr();
       }
 
+      // Check whether the P2P access can be enabled
+      if (gpu_resource_group->all_p2p_enabled() == false) {
+        throw std::runtime_error(
+            std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
+                        "cannot be used on machine without GPU peer2peer access support. \n"));
+      }
+#ifdef ENABLE_MPI
+      throw std::runtime_error(
+          std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
+                      "cannot support multi-node currently. \n"));
+#endif
+
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;
       throw;
@@ -368,6 +380,18 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
           slot_sizes_prefix_sum += slot_size;
         }
       }
+
+      // Check whether the P2P access can be enabled
+      if (gpu_resource_group->all_p2p_enabled() == false) {
+        throw std::runtime_error(
+            std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
+                        "cannot be used on machine without GPU peer2peer access support. \n"));
+      }
+#ifdef ENABLE_MPI
+      throw std::runtime_error(
+          std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
+                      "cannot support multi-node currently. \n"));
+#endif
 
       // peer2peer access
       auto &device_list = gpu_resource_group->get_device_list();
@@ -588,11 +612,10 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
     CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-    // Note: not verify (without hashtable for one-hot)
     functors_.upload_params_to_device<TypeHashKey, TypeHashValueIndex>(
-        weight_stream, max_vocabulary_size_, embedding_params_.embedding_vec_size,
-        max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_table_slot_id_tensors_,
-        hash_tables_, Base::device_resources_, context);
+        weight_stream, embedding_params_.embedding_vec_size, hash_table_value_tensors_,
+        embedding_params_.slot_size_array, mapping_offsets_per_gpu_tensors_,
+        Base::device_resources_, context);
 
     return;
   }
@@ -610,11 +633,9 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
     CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
 
-    // Note: not verify (without hashtable for one-hot)
-    functors_.download_params_to_host(weight_stream, max_vocabulary_size_,
-                                      embedding_params_.embedding_vec_size,
-                                      hash_table_value_tensors_, hash_table_slot_id_tensors_,
-                                      hash_tables_, Base::device_resources_, context);
+    functors_.download_params_to_host<TypeHashKey, TypeHashValueIndex>(
+        weight_stream, embedding_params_.embedding_vec_size, hash_table_value_tensors_,
+        embedding_params_.slot_size_array, Base::device_resources_, context);
 
     return;
   }
