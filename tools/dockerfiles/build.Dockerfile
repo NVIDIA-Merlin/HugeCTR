@@ -1,9 +1,9 @@
 FROM nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04-rc
 ARG CMAKE_BUILD_TYPE=Release
-ARG SM=70
+ARG SM="70;80"
 ARG VAL_MODE=OFF
 ARG ENABLE_MULTINODES=OFF
-ARG NCCL_A2A=OFF
+ARG NCCL_A2A=ON
 
 RUN apt-get update && \
     apt-get upgrade -y
@@ -40,6 +40,6 @@ RUN git clone -b v2.2-integration https://gitlab-master.nvidia.com/zehuanw/hugec
     chmod +x /usr/local/hugectr/bin/* &&\
     rm -rf HugeCTR 
 
-RUN echo 'export PATH=/usr/local/hugectr/bin:$PATH' >>/etc/bash.bashrc
+ENV PATH /usr/local/hugectr/bin:$PATH
 
 
