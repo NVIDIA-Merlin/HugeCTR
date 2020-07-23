@@ -25,23 +25,24 @@ namespace HugeCTR {
 /**
  * Dropout layer which selects an arbitrary fraction of inputs to 0
  */
+template <typename T>
 class DropoutLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  // Tensors<float> weights_; It is inherited from Layer.
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
 
  public:
   /**
@@ -51,8 +52,8 @@ class DropoutLayer : public Layer {
    * @param rate fraction of the inputs set to zero., 0 < rate < 1, default = 0.5
    * @param device_id the id of GPU where this layer belongs
    */
-  DropoutLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-               const std::shared_ptr<Tensor<float>>& out_tensor, float rate,
+  DropoutLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
+               const std::shared_ptr<Tensor<T>>& out_tensor, float rate,
                const curandGenerator_t& curand_generator, int device_id);
 
   ~DropoutLayer() override;
@@ -77,7 +78,7 @@ class DropoutLayer : public Layer {
 
  private:
   int64_t get_seed() const;
-  void prop_common(const float* in, float* out, cudaStream_t stream);
+  void prop_common(const T* in, T* out, cudaStream_t stream);
 
   float rate_;
   float scale_;
