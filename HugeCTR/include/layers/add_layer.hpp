@@ -26,23 +26,24 @@ namespace HugeCTR {
  * Layer which does element-wise add by input tensors.
  * All the input tensors should have the same shape.
  */
+template <typename T>
 class AddLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  // Tensors<float> weights_; It is inherited from Layer.
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
 
  public:
   /**
@@ -51,8 +52,8 @@ class AddLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  AddLayer(const std::vector<std::shared_ptr<Tensor<float>>> in_tensors,
-           const std::shared_ptr<Tensor<float>>& out_tensor, int device_id);
+  AddLayer(const std::vector<std::shared_ptr<Tensor<T>>> in_tensors,
+           const std::shared_ptr<Tensor<T>>& out_tensor, int device_id);
   ~AddLayer();
 
   /**
@@ -69,8 +70,8 @@ class AddLayer : public Layer {
  private:
   int size_;
   int num_;
-  float** h_inputs_ = NULL;
-  float** d_inputs_ = NULL;
+  T** h_inputs_ = NULL;
+  T** d_inputs_ = NULL;
   bool initialized_{false};
 };
 

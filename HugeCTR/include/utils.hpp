@@ -505,4 +505,14 @@ inline void set_affinity(std::thread& t, std::set<int> set, bool excluded) {
   return;
 }
 
+template <typename T>
+struct TypeConvert {
+  static __host__ T convert(const float val) {return (T)val; }
+};
+
+template <>
+struct TypeConvert<__half> {
+  static __host__ __half convert(const float val) {return __float2half(val); }
+};
+
 }  // namespace HugeCTR

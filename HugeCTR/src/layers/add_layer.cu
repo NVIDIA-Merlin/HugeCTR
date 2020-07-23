@@ -57,8 +57,9 @@ __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int nu
 
 }  // end of namespace
 
-AddLayer::AddLayer(const std::vector<std::shared_ptr<Tensor<float>>> in_tensors,
-                   const std::shared_ptr<Tensor<float>>& out_tensor, int device_id)
+template <typename T>
+AddLayer<T>::AddLayer(const std::vector<std::shared_ptr<Tensor<T>>> in_tensors,
+                   const std::shared_ptr<Tensor<T>>& out_tensor, int device_id)
     : Layer(device_id) {
   try {
     CudaDeviceContext context(get_device_id());
@@ -87,8 +88,8 @@ AddLayer::AddLayer(const std::vector<std::shared_ptr<Tensor<float>>> in_tensors,
     }
     out_tensors_.emplace_back(out_tensor);
 
-    CK_CUDA_THROW_(cudaMallocHost((void**)(&h_inputs_), num_ * sizeof(float*)));
-    CK_CUDA_THROW_(cudaMalloc((void**)(&d_inputs_), num_ * sizeof(float*)));
+    CK_CUDA_THROW_(cudaMallocHost((void**)(&h_inputs_), num_ * sizeof(T*)));
+    CK_CUDA_THROW_(cudaMalloc((void**)(&d_inputs_), num_ * sizeof(T*)));
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -96,7 +97,8 @@ AddLayer::AddLayer(const std::vector<std::shared_ptr<Tensor<float>>> in_tensors,
   }
 }
 
-AddLayer::~AddLayer() {
+template <typename T>
+AddLayer<T>::~AddLayer() {
   try {
     if (h_inputs_) {
       CK_CUDA_THROW_(cudaFreeHost(h_inputs_));
@@ -109,38 +111,43 @@ AddLayer::~AddLayer() {
   }
 }
 
-void AddLayer::fprop(cudaStream_t stream) {
+template <typename T>
+void AddLayer<T>::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   if (!initialized_) {
     for (int i = 0; i < num_; i++) {
       h_inputs_[i] = in_tensors_[i]->get_ptr();
     }
-    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*),
+    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(T*),
                                    cudaMemcpyHostToDevice, stream));
     initialized_ = true;
   }
-  float* output = out_tensors_[0]->get_ptr();
+  T* output = out_tensors_[0]->get_ptr();
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
   add_kernel<<<gridSize, blockSize, 0, stream>>>(d_inputs_, output, size_, num_);
 }
 
-void AddLayer::bprop(cudaStream_t stream) {
+template <typename T>
+void AddLayer<T>::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   if (!initialized_) {
     for (int i = 0; i < num_; i++) {
       h_inputs_[i] = in_tensors_[i]->get_ptr();
     }
-    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(float*),
+    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_, (void*)h_inputs_, num_ * sizeof(T*),
                                    cudaMemcpyHostToDevice, stream));
     initialized_ = true;
   }
-  float* output = out_tensors_[0]->get_ptr();
+  T* output = out_tensors_[0]->get_ptr();
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
   add_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, d_inputs_, size_, num_);
 }
+
+template class AddLayer<float>;
+template class AddLayer<__half>;
 
 }  // namespace HugeCTR
