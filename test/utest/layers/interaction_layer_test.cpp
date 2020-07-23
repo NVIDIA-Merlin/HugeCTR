@@ -34,16 +34,6 @@ namespace {
 const float eps = 1e-3;
 
 template <typename T>
-__host__ __device__ T convert(const float val) {
-  return (T)val;
-}
-
-template <>
-__host__ __device__ __half convert(const float val) {
-  return __float2half(val);
-}
-
-template <typename T>
 void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
   cublasHandle_t cublas_handle;
   cublasCreate(&cublas_handle);
@@ -64,9 +54,9 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
     std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(dims, buff, in_format));
     in_tensors.push_back(in_tensor);
 
-    h_ins.push_back(std::vector<T>(in_tensor->get_num_elements(), convert<T>(0.0f)));
+    h_ins.push_back(std::vector<T>(in_tensor->get_num_elements(), TypeConvert<T>::convert(0.0f)));
     for (unsigned int i = 0; i < h_ins[ni].size(); i++) {
-      h_ins[ni][i] = convert<T>(data_sim.get_num());
+      h_ins[ni][i] = TypeConvert<T>::convert(data_sim.get_num());
     }
   }
 
@@ -79,7 +69,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
   size_t n_ins = 1 + n_emb;
   size_t out_width = n_ins * in_width;
 
-  std::vector<T> h_concat(height * out_width, convert<T>(0.0f));
+  std::vector<T> h_concat(height * out_width, TypeConvert<T>::convert(0.0f));
   auto concat_op = [&](bool fprop) {
     for (size_t ni = 0; ni < n_ins; ni++) {
       for (size_t h = 0; h < height; h++) {
@@ -118,7 +108,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
   // host fprop
   concat_op(true);
 
-  std::vector<T> h_mat(height * n_ins * n_ins, convert<T>(0.0f));
+  std::vector<T> h_mat(height * n_ins * n_ins, TypeConvert<T>::convert(0.0f));
   for (size_t p = 0; p < height; p++) {
     size_t concat_stride = n_ins * in_width * p;
     size_t mat_stride = n_ins * n_ins * p;
@@ -152,12 +142,12 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
     }
   }
 
-  std::vector<T> h_out(out_tensor->get_num_elements(), convert<T>(0.0f));
+  std::vector<T> h_out(out_tensor->get_num_elements(), TypeConvert<T>::convert(0.0f));
   T* d_out = out_tensor->get_ptr();
   cudaMemcpy(&h_out.front(), d_out, out_tensor->get_size(), cudaMemcpyDeviceToHost);
 
   ASSERT_TRUE(
-      test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), convert<T>(eps)));
+      test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), TypeConvert<T>::convert(eps)));
 
   // device bprop
   interaction_layer.bprop(cudaStreamDefault);
@@ -173,7 +163,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
     for (size_t n = 0; n < n_ins; n++) {
       for (size_t m = 0; m < n_ins; m++) {
         h_mat[mat_stride + m * n_ins + n] =
-            (n > m) ? h_ref[out_stride + cur_idx++] : convert<T>(0.0f);
+            (n > m) ? h_ref[out_stride + cur_idx++] : TypeConvert<T>::convert(0.0f);
       }
     }
   }
@@ -197,7 +187,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
 
   for (int i = 0; i < 2; i++) {
     auto in_tensor = in_tensors[i];
-    std::vector<T> h_in(in_tensor->get_num_elements(), convert<T>(0.0f));
+    std::vector<T> h_in(in_tensor->get_num_elements(), TypeConvert<T>::convert(0.0f));
     T* d_in = in_tensor->get_ptr();
     cudaMemcpy(&h_in.front(), d_in, in_tensor->get_size(), cudaMemcpyDeviceToHost);
     std::vector<T>& h_ref = h_ins[i];
