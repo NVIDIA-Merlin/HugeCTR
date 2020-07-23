@@ -235,7 +235,9 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"Interaction", Layer_t::Interaction},
     {"Reshape", Layer_t::Reshape},
     {"Slice", Layer_t::Slice},
-    {"ReLU", Layer_t::ReLU}};
+    {"ReLU", Layer_t::ReLU},
+    {"Dropout", Layer_t::Dropout},
+    {"Add", Layer_t::Add}};
 const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
     {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},
@@ -398,16 +400,30 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Dropout: {
         const auto& do_in_tensor = input_output_info.input[0];
 
-        // establish out tensor
-        std::shared_ptr<Tensor<float>> do_out_tensor(
-            new Tensor<float>(do_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
-        output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
-        // get ELU params
-        auto rate_it = j.find("rate");
-        auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-        layers.emplace_back(new DropoutLayer(dynamic_tensor_cast<float>(do_in_tensor),
-                                             do_out_tensor, rate,
-                                             gpu_resource->get_curand_generator(), device_id));
+        if (use_mixed_precision) {
+          // establish out tensor
+          std::shared_ptr<Tensor<__half>> do_out_tensor(
+              new Tensor<__half>(do_in_tensor->get_dims(), blobs_buff_half, 
+                                TensorFormat_t::HW));
+          output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
+          // get ELU params
+          auto rate_it = j.find("rate");
+          auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
+          layers.emplace_back(new DropoutLayer<__half>(dynamic_tensor_cast<__half>(do_in_tensor),
+                                              do_out_tensor, rate,
+                                              gpu_resource->get_curand_generator(), device_id));
+        } else {
+          // establish out tensor
+          std::shared_ptr<Tensor<float>> do_out_tensor(
+              new Tensor<float>(do_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
+          output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
+          // get ELU params
+          auto rate_it = j.find("rate");
+          auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
+          layers.emplace_back(new DropoutLayer<float>(dynamic_tensor_cast<float>(do_in_tensor),
+                                              do_out_tensor, rate,
+                                              gpu_resource->get_curand_generator(), device_id));
+        }
         network->enable_cuda_graph_ = false;
 
         break;
@@ -781,11 +797,21 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
       case Layer_t::Add: {
         auto& in_tensors = input_output_info.input;
-        std::shared_ptr<Tensor<float>> out_tensor(
-            new Tensor<float>(in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
-        layers.emplace_back(new AddLayer(tensor_vec_dynamic_cast<float>(in_tensors),
-                                         out_tensor, device_id));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+
+        if (use_mixed_precision) {
+          std::shared_ptr<Tensor<__half>> out_tensor(
+              new Tensor<__half>(in_tensors[0]->get_dims(), blobs_buff_half, 
+                                  in_tensors[0]->get_format()));
+          layers.emplace_back(new AddLayer<__half>(tensor_vec_dynamic_cast<__half>(in_tensors),
+                                          out_tensor, device_id));
+          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        } else {
+          std::shared_ptr<Tensor<float>> out_tensor(
+              new Tensor<float>(in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
+          layers.emplace_back(new AddLayer<float>(tensor_vec_dynamic_cast<float>(in_tensors),
+                                          out_tensor, device_id));
+          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});       
+        }
         break;
       }
       case Layer_t::ReduceSum: {
