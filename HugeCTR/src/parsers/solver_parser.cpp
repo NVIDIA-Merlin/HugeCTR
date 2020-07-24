@@ -201,6 +201,9 @@ SolverParser::SolverParser(const std::string& file)
       i64_input_key = false;
     }
 
+    use_algorithm_search = get_value_from_json_soft<bool>(j, "algorithm_search", true);
+    MESSAGE_("Algorithm search: " + std::string(use_algorithm_search? "ON" : "OFF"));
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
