@@ -44,7 +44,8 @@ class Network {
       const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
       const std::map<std::string, std::shared_ptr<ITensor>>& tensor_list_in, int device_id,
       int num_networks_in_global, const std::shared_ptr<const GPUResource>& gpu_resource,
-      bool use_mixed_precision, float scaler);
+      bool use_mixed_precision, float scaler,
+      bool use_algorithm_search);
 
  private:
   //  Tensors<float> tensors_;
