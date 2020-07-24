@@ -256,7 +256,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                         const std::map<std::string, std::shared_ptr<ITensor>>& tensor_list_in,
                         int device_id, int num_networks_in_global,
                         const std::shared_ptr<const GPUResource>& gpu_resource,
-                        bool use_mixed_precision, float scaler) {
+                        bool use_mixed_precision, float scaler,
+                        bool use_algorithm_search) {
   std::unique_ptr<Network> network(new Network(device_id, gpu_resource, use_mixed_precision));
   std::map<std::string, std::shared_ptr<ITensor>> tensor_list(tensor_list_in);
 
@@ -861,7 +862,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
 #ifndef DATA_READING_TEST
   network->initialize();
-  network->search_algorithm();
+  if (use_algorithm_search) {
+    network->search_algorithm();
+  }
 #endif
 
   return network.release();
@@ -1106,7 +1109,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                                      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                                      nlohmann::json config, size_t batch_size,
                                      size_t batch_size_eval, bool use_mixed_precision,
-                                     float scaler) {
+                                     float scaler,
+                                     bool use_algorithm_search) {
   try {
 
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
@@ -1329,12 +1333,17 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       }
       const auto& device_list = gpu_resource_group->get_device_list();
       for (auto device_id : device_list) {
-        network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i], device_id,
-                                            total_gpu_count, (*gpu_resource_group)[i],
-                                            use_mixed_precision, scaler));
+        network.emplace_back(
+            create_network(j_layers_array, j_optimizer, tensor_maps[i], device_id,
+                           total_gpu_count, (*gpu_resource_group)[i],
+                           use_mixed_precision, scaler,
+                           use_algorithm_search));
         network_eval.emplace_back(
             create_network(j_layers_array, j_optimizer, tensor_maps_eval[i], device_id,
-                           total_gpu_count, (*gpu_resource_group)[i], use_mixed_precision, scaler));
+                           total_gpu_count, (*gpu_resource_group)[i],
+                           use_mixed_precision, scaler,
+                           use_algorithm_search));
+
         if (use_mixed_precision) {
           network_eval.back()->set_weight_half(network.back()->get_weight_half());
         }
@@ -1359,7 +1368,8 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, embedding_eval,
                                    network, network_eval, gpu_resource_group, config_, batch_size_,
-                                   batch_size_eval_, use_mixed_precision_, scaler_);
+                                   batch_size_eval_, use_mixed_precision_, scaler_,
+                                   use_algorithm_search_);
 }
 
 void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
@@ -1371,7 +1381,8 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, embedding_eval,
                                    network, network_eval, gpu_resource_group, config_, batch_size_,
-                                   batch_size_eval_, use_mixed_precision_, scaler_);
+                                   batch_size_eval_, use_mixed_precision_, scaler_,
+                                   use_algorithm_search_);
 }
 
 }  // namespace HugeCTR

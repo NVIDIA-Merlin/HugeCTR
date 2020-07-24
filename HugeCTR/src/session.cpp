@@ -101,7 +101,8 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
   RandomEngine::get().set_seed(solver_config.seed);
   Parser parser(solver_config.configure_file,
                 solver_config.batchsize, solver_config.batchsize_eval,
-                solver_config.use_mixed_precision, solver_config.scaler);
+                solver_config.use_mixed_precision, solver_config.scaler,
+                solver_config.use_algorithm_search);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_,
                          networks_, networks_eval_, gpu_resource_group_);
