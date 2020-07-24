@@ -47,6 +47,7 @@ class Parser {
   size_t batch_size_eval_; /**< batch size. */
   const bool use_mixed_precision_{false};
   const float scaler_{1.f};
+  const bool use_algorithm_search_;
 
  public:
   /**
@@ -55,11 +56,13 @@ class Parser {
    */
 
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-         bool use_mixed_precision = false, float scaler = 1.0f)
+         bool use_mixed_precision = false, float scaler = 1.0f,
+         bool use_algorithm_search = true)
       : batch_size_(batch_size),
         batch_size_eval_(batch_size_eval),
         use_mixed_precision_(use_mixed_precision),
-        scaler_(scaler) {
+        scaler_(scaler),
+        use_algorithm_search_(use_algorithm_search) {
     try {
       std::ifstream file(configure_file);
       if (!file.is_open()) {
@@ -126,6 +129,7 @@ struct SolverParser {
   float scaler;
   std::map<metrics::Type, float> metrics_spec;
   bool i64_input_key;
+  bool use_algorithm_search;
   SolverParser(const std::string& file);
 };
 
