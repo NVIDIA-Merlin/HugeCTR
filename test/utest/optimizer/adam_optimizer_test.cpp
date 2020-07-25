@@ -28,7 +28,7 @@ namespace {
 class AdamCPU {
  public:
   AdamCPU(int len, float* w, const float* g, const __half* g_half, bool mixed_precision,
-          float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8)
+          float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-7)
       : w_(w),
         g_(g),
         g_half_(g_half),

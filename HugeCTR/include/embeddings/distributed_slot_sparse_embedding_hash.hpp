@@ -196,7 +196,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 
         // init GenenralBuffers to do real allocation
 #ifndef NDEBUG
-        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size();
+        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size() << std::endl;
         std::cout << " value_index_bufs_:" << value_index_bufs_.back()->get_size() << std::endl;
 #endif
         fp_bufs_.back()->init(cur_device);
@@ -412,11 +412,11 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 
         // init GenenralBuffers to do real allocation
 #ifndef NDEBUG
-        std::cout << " max_feature_num_:" << embedding_params_.max_feature_num;
-        std::cout << " float_bufs_:" << float_bufs_.back()->get_size();
-        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size();
-        std::cout << " uint32_bufs_:" << uint32_bufs_.back()->get_size();
-        std::cout << " key_bufs_:" << key_bufs_.back()->get_size();
+        std::cout << " max_feature_num_:" << embedding_params_.max_feature_num << std::endl;
+        std::cout << " float_bufs_:" << float_bufs_.back()->get_size() << std::endl;
+        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size() << std::endl;
+        std::cout << " uint32_bufs_:" << uint32_bufs_.back()->get_size() << std::endl;
+        std::cout << " key_bufs_:" << key_bufs_.back()->get_size() << std::endl;
         std::cout << " value_index_bufs_:" << value_index_bufs_.back()->get_size() << std::endl;
 #endif
         float_bufs_.back()->init(cur_device);
@@ -438,8 +438,6 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
                                                sizeof(TypeEmbeddingComp),
                                            (*Base::device_resources_)[id]->get_stream()));
             opt_params_[id].hyperparams.adam.times = 0;
-            opt_params_[id].hyperparams.adam.alpha_t =
-                embedding_params_.opt_params.hyperparams.adam.alpha_t;
             opt_params_[id].hyperparams.adam.beta1 =
                 embedding_params_.opt_params.hyperparams.adam.beta1;
             opt_params_[id].hyperparams.adam.beta2 =

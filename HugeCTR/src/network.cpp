@@ -35,7 +35,11 @@ Network::Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_re
       gpu_resource_(gpu_resource),
       device_id_(device_id),
       full_fp16_(full_fp16),
+#ifdef NDEBUG
       enable_cuda_graph_(true),
+#else
+      enable_cuda_graph_(false),
+#endif
       eval_graph_created_(false),
       train_fprop_graph_created_(false),
       train_bprop_graph_created_(false) {
@@ -64,13 +68,7 @@ void Network::conv_weight_() {
 }
 
 void Network::train() {
-#ifndef NDEBUG
-  print_buffer(*weight_buff_, 18, 38);
-  print_buffer(*weight_buff_, -20, -1);
-  print_buffer(*wgrad_buff_, 18, 38);
-  print_buffer(*wgrad_buff_, -20, -1);
 
-#endif
   // forward
   if (full_fp16_) {
     conv_weight_();
@@ -123,13 +121,7 @@ void Network::train() {
 }
 
 void Network::eval() {
-#ifndef NDEBUG
-  print_buffer(*weight_buff_, 18, 38);
-  print_buffer(*weight_buff_, -20, -1);
-  print_buffer(*wgrad_buff_, 18, 38);
-  print_buffer(*wgrad_buff_, -20, -1);
 
-#endif
   if (enable_cuda_graph_) {
     if (!eval_graph_created_) {
       CK_CUDA_THROW_(

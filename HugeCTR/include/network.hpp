@@ -64,7 +64,7 @@ class Network {
   std::unique_ptr<ILoss> loss_;                             /**< loss */
   std::shared_ptr<Tensor<float>> loss_tensor_;              /**< loss tensor */
   bool full_fp16_{false};
-  bool enable_cuda_graph_{true};
+  bool enable_cuda_graph_;
   int n_sms_{0};
   void conv_weight_();
   metrics::RawMetricMap raw_metrics_;

@@ -20,6 +20,19 @@
 
 namespace HugeCTR {
 
+namespace {
+
+template <typename T>
+__forceinline__ __device__ void atomic_global_sum_div(T val, T *acc, float div) {
+  val = warpReduceSum(val);
+  if (threadIdx.x % warpSize == 0) {
+    atomicAdd(acc, (T)(val / div));
+  }
+  return;
+}
+
+}  // namespace
+
 template <typename T>
 Loss<T>::Loss(const std::shared_ptr<const Tensor<float>> &label_tensor,
               const std::shared_ptr<Tensor<T>> &input_tensor,
