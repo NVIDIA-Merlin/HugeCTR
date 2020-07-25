@@ -50,8 +50,8 @@ struct ToMpiType<float> {
 
 #endif
 
-void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor,
-           const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream);
+template <typename TypeComp>
+void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<TypeComp>> dense_tensor, const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream);
 
 /**
  * @brief A helper class of data reader.
@@ -72,7 +72,7 @@ class DataCollector {
   std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_;
 
   Tensors<float> label_tensors_;
-  Tensors<float> dense_tensors_;
+  ITensors dense_tensors_;
   GeneralBuffers<TypeKey> csr_buffers_;
   // GeneralBuffers<float> label_dense_buffers_internal_;
   // GeneralBuffers<TypeKey> csr_buffers_internal_;
@@ -83,6 +83,7 @@ class DataCollector {
   // long long current_batchsize_{0};
   // todo: risk:
   std::vector<unsigned int> pre_nnz_;
+  bool use_mixed_precision_;
   const bool one_hot_;
   const size_t cache_size_;
 
@@ -104,6 +105,7 @@ class DataCollector {
   void collect_blank_();
   void collect_();
 
+
  public:
   /**
    * Ctor.
@@ -114,10 +116,11 @@ class DataCollector {
    * @param csr_heap heap of data reader.
    */
 
-  DataCollector(const Tensors<float>& label_tensors, const Tensors<float>& dense_tensors,
+  DataCollector(const Tensors<float>& label_tensors, const ITensors& dense_tensors,
                 const GeneralBuffers<TypeKey>& csr_buffers,
                 const std::shared_ptr<GPUResourceGroup>& device_resources,
                 const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap = nullptr,
+		const bool use_mixed_precision = false,
                 const bool one_hot = false, const size_t cache_size = 0);
 
   void set_ready_to_write();
@@ -155,12 +158,14 @@ class DataCollector {
 template <typename TypeKey>
 int DataCollector<TypeKey>::id_ = 0;
 
+
 template <typename TypeKey>
 DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
-                                      const Tensors<float>& dense_tensors,
+                                      const ITensors& dense_tensors,
                                       const GeneralBuffers<TypeKey>& csr_buffers,
                                       const std::shared_ptr<GPUResourceGroup>& device_resources,
                                       const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap,
+				      const bool use_mixed_precision,
                                       const bool one_hot, const size_t cache_size)
     : csr_heap_(csr_heap),
       label_tensors_(label_tensors),
@@ -168,6 +173,7 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
       csr_buffers_(csr_buffers),
       device_resources_(device_resources),
       pre_nnz_(csr_buffers.size(), 0),
+      use_mixed_precision_(use_mixed_precision),
       one_hot_(one_hot),
       cache_size_(cache_size),
       reverse_(false) {
@@ -226,6 +232,7 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
   id_++;
 }
 
+
 template <typename TypeKey>
 void DataCollector<TypeKey>::collect() {
   if (counter_ < cache_size_ || cache_size_ == 0) {
@@ -234,6 +241,7 @@ void DataCollector<TypeKey>::collect() {
     collect_blank_();
   }
 }
+
 
 template <typename TypeKey>
 void DataCollector<TypeKey>::collect_blank_() {
@@ -366,13 +374,17 @@ long long DataCollector<TypeKey>::read_a_batch_to_device() {
                           csr_buffers_[csr_id]->get_size(), cudaMemcpyDeviceToDevice,
                           (*device_resources_)[i]->get_stream()));
     }
-
-    split(label_tensors_[i], dense_tensors_[i], internal_buffer->label_dense_buffers_internal[i],
-          (*device_resources_)[i]->get_stream());
+    if(use_mixed_precision_){
+      split(label_tensors_[i], dynamic_tensor_cast<__half>(dense_tensors_[i]), internal_buffer->label_dense_buffers_internal[i], (*device_resources_)[i]->get_stream());
+    }
+    else{
+      split(label_tensors_[i], dynamic_tensor_cast<float>(dense_tensors_[i]), internal_buffer->label_dense_buffers_internal[i], (*device_resources_)[i]->get_stream());
+    }
   }
   counter_++;
   return internal_buffer->current_batchsize;
 }
+
 
 template <typename TypeKey>
 void DataCollector<TypeKey>::set_ready_to_write_sync() {

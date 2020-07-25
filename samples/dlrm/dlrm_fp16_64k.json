@@ -71,16 +71,9 @@
     },
 
     {
-      "name": "cast1",
-      "type": "Cast",
-      "bottom": "dense",
-      "top": "cast1"
-    },
-
-    {
       "name": "fc1",
       "type": "FusedInnerProduct",
-      "bottom": "cast1",
+      "bottom": "dense",
       "top": "fc1",
       "fc_param": {
         "num_output": 512

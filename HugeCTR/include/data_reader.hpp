@@ -68,7 +68,7 @@ static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& d
  */
 template <typename TypeKey>
 static void data_collector_thread_func_(
-    const std::shared_ptr<DataCollector<TypeKey>>& data_collector, int* p_loop_flag) {
+const std::shared_ptr<DataCollector<TypeKey>>& data_collector, int* p_loop_flag) {
   try {
     while ((*p_loop_flag) == 0) {
       usleep(2);
@@ -108,9 +108,11 @@ class DataReader {
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
   std::thread data_collector_thread_;            /**< A data_collector_thread. */
 
-  GeneralBuffers<float> label_dense_buffers_; /**< A gpu general buffer for label_buffer */
+  GeneralBuffers<float> label_buffers_; /**< A gpu general buffer for label_buffer */
+  GeneralBuffers<float> dense_buffers_fp32_; /**< A gpu general buffer for dense_buffer */
+  GeneralBuffers<__half> dense_buffers_fp16_; /**< A gpu general buffer for dense_buffer */
   Tensors<float> label_tensors_;              /**< Label tensors for the usage of loss */
-  Tensors<float> dense_tensors_;              /**< Dense tensors for the usage of loss */
+  ITensors dense_tensors_;              /**< Dense tensors for the usage of loss */
   Check_t check_type_;                        /**< check type */
 
   /* Each gpu will have several csr output for different embedding */
@@ -125,6 +127,7 @@ class DataReader {
                                       output data, which is sharing output tensor with train. */
 
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< gpu resource used in this data reader*/
+  bool use_mixed_precision_{false};
   const size_t batchsize_;                             /**< batch size */
 
   const size_t label_dim_;      /**< dimention of label e.g. 1 for BinaryCrossEntropy */
@@ -205,7 +208,9 @@ class DataReader {
 
   long long read_a_batch_to_device_delay_release();
 
-  void ready_to_collect() { data_collector_->set_ready_to_write(); }
+  void ready_to_collect() { 
+    data_collector_->set_ready_to_write(); 
+  }
 
   void start() { data_reader_loop_flag_ = 1; }
 
@@ -215,13 +220,14 @@ class DataReader {
   DataReader(const std::string& file_list_name, int batchsize, size_t label_dim, int dense_dim,
              Check_t check_type, std::vector<DataReaderSparseParam>& params,
              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-             int num_chunk_threads = 31, DataReaderType_t type = DataReaderType_t::Norm,
+             int num_chunk_threads = 31, bool use_mixed_precision = false
+	     , DataReaderType_t type = DataReaderType_t::Norm,
              long long num_samples = 0, std::vector<long long> slot_size = std::vector<long long>(),
              bool cache_data = false, bool start_reading_from_beginning = true,
              bool data_shuffle = false);
 
   const Tensors<float>& get_label_tensors() const { return label_tensors_; }
-  const Tensors<float>& get_dense_tensors() const { return dense_tensors_; }
+  const ITensors& get_dense_tensors() const { return dense_tensors_; }
   const Tensors<TypeKey>& get_row_offsets_tensors() const { return row_offsets_tensors_; }
   const Tensors<TypeKey>& get_value_tensors() const { return value_tensors_; }
   const Tensors<TypeKey> get_row_offsets_tensors(int param_id) const {
@@ -246,8 +252,9 @@ template <typename TypeKey>
 DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize, size_t label_dim,
                                 int dense_dim, Check_t check_type,
                                 std::vector<DataReaderSparseParam>& params,
-                                const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                                int num_chunk_threads, DataReaderType_t type, long long num_samples,
+                                const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, 
+                                int num_chunk_threads, bool use_mixed_precision,
+				DataReaderType_t type, long long num_samples,
                                 std::vector<long long> slot_offset, bool cache_data,
                                 bool start_reading_from_beginning, bool data_shuffle)
     : file_list_(file_list_name),
@@ -256,6 +263,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       check_type_(check_type),
       params_(params),
       device_resources_(gpu_resource_group),
+      use_mixed_precision_(use_mixed_precision),
       batchsize_(batchsize),
       label_dim_(label_dim),
       dense_dim_(dense_dim),
@@ -284,14 +292,25 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
   // create label and dense tensor
   size_t batch_size_per_device = batchsize_ / total_gpu_count;
   for (auto device_id : device_list) {
-    std::shared_ptr<GeneralBuffer<float>> tmp_label_dense_buff(new GeneralBuffer<float>());
+    std::shared_ptr<GeneralBuffer<float>> tmp_label_buff(new GeneralBuffer<float>());
     label_tensors_.emplace_back(new Tensor<float>({batch_size_per_device, label_dim_},
-                                                  tmp_label_dense_buff, TensorFormat_t::HW));
-    dense_tensors_.emplace_back(new Tensor<float>({batch_size_per_device, dense_dim_},
-                                                  tmp_label_dense_buff, TensorFormat_t::HW));
-
-    tmp_label_dense_buff->init(device_id);
-    label_dense_buffers_.emplace_back(tmp_label_dense_buff);
+                                                  tmp_label_buff, TensorFormat_t::HW));
+    tmp_label_buff->init(device_id);
+    label_buffers_.emplace_back(tmp_label_buff);
+    if(use_mixed_precision_){
+      std::shared_ptr<GeneralBuffer<__half>> tmp_dense_buff(new GeneralBuffer<__half>());
+      dense_tensors_.emplace_back(new Tensor<__half>({batch_size_per_device, dense_dim_},
+						     tmp_dense_buff, TensorFormat_t::HW));
+      tmp_dense_buff->init(device_id);
+      dense_buffers_fp16_.emplace_back(tmp_dense_buff);
+    }
+    else{
+      std::shared_ptr<GeneralBuffer<float>> tmp_dense_buff(new GeneralBuffer<float>());
+      dense_tensors_.emplace_back(new Tensor<float>({batch_size_per_device, dense_dim_},
+						     tmp_dense_buff, TensorFormat_t::HW));
+      tmp_dense_buff->init(device_id);
+      dense_buffers_fp32_.emplace_back(tmp_dense_buff);
+    }
   }
 
   // create value and row offset tensor
@@ -333,16 +352,18 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
   bool one_hot = type_ == DataReaderType_t::Raw ? true : false;
 
+
   if (cache_data) {
     data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
-                                                     device_resources_, csr_heap_, one_hot,
-                                                     (num_samples - 1) / batchsize_ + 1));
+						     device_resources_, csr_heap_, use_mixed_precision_, one_hot,
+								  (num_samples - 1) / batchsize_ + 1));
   } else {
     data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
-                                                     device_resources_, csr_heap_, one_hot));
+						     device_resources_, csr_heap_, use_mixed_precision_, one_hot));
   }
   data_collector_thread_ =
-      std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
+    std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
+
 
   set_affinity(data_collector_thread_, {}, true);
 
@@ -353,9 +374,11 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
 template <typename TypeKey>
 long long DataReader<TypeKey>::read_a_batch_to_device_delay_release() {
-  long long current_batchsize = data_collector_->read_a_batch_to_device();
+  long long current_batchsize;
+  current_batchsize = data_collector_->read_a_batch_to_device();
   return current_batchsize;
 }
+
 
 template <typename TypeKey>
 long long DataReader<TypeKey>::read_a_batch_to_device() {
@@ -373,7 +396,6 @@ DataReader<TypeKey>::~DataReader() {
       data_reader->skip_read();
     }
     data_collector_->stop();
-
     if (csr_heap_ != nullptr) {
       csr_heap_->break_and_return();
     }
