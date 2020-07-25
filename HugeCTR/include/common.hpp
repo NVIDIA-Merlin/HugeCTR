@@ -34,7 +34,7 @@
 namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 2
-#define HUGECTR_VERSION_MINOR 1
+#define HUGECTR_VERSION_MINOR 2
 
 #define WARP_SIZE 32
 
