@@ -62,7 +62,7 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
   switch (optimizer_type) {
     case Optimizer_t::Adam: {
       j_hparam = get_json(j_optimizer, "adam_hparam");
-      lr = get_value_from_json<float>(j_hparam, "alpha");
+      lr = get_value_from_json<float>(j_hparam, "learning_rate");
       break;
     }
     case Optimizer_t::MomentumSGD: {

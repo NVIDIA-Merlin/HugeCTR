@@ -110,17 +110,17 @@ Note that `global_update` will not have as good speed as not using it.
   "type": "Adam",
   "global_update": true,
   "adam_hparam": {
-    "alpha": 0.005,
+    "learning_rate": 0.001,
     "beta1": 0.9,
     "beta2": 0.999,
-    "epsilon": 0.000001
+    "epsilon": 0.0000001
   }
 }
 "optimizer": {
   "type": "MomentumSGD",
   "global_update": false,
   "momentum_sgd_hparam": {
-    "learning_rate": 0.005,
+    "learning_rate": 0.01,
     "momentum_factor": 0.0
   }
 }
@@ -128,7 +128,7 @@ Note that `global_update` will not have as good speed as not using it.
   "type": "Nesterov",
   "global_update": true,
   "nesterov_hparam": {
-    "learning_rate": 0.005,
+    "learning_rate": 0.01,
     "momentum_factor": 0.0
   }
 }
@@ -216,10 +216,10 @@ Embedding:
         "type": "Adam",
         "global_update": true,
         "adam_hparam": {
-          "alpha": 0.005,
+          "learning_rate": 0.001,
           "beta1": 0.9,
           "beta2": 0.999,
-          "epsilon": 0.000001
+          "epsilon": 0.0000001
         }
       }
     }

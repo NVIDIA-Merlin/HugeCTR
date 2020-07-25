@@ -159,7 +159,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
         // init GenenralBuffers to do real allocation
 #ifndef NDEBUG
-        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size();
+        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size() << std::endl;
         std::cout << " value_index_bufs_:" << value_index_bufs_.back()->get_size() << std::endl;
 #endif
         fp_bufs_.back()->init(cur_device);
@@ -176,18 +176,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       for (int id = 0; id < local_gpu_count_; id++) {
         embedding_features_[id] = Base::output_tensors_[id]->get_ptr();
       }
-
-      // Check whether the P2P access can be enabled
-      if (gpu_resource_group->all_p2p_enabled() == false) {
-        throw std::runtime_error(
-            std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
-                        "cannot be used on machine without GPU peer2peer access support. \n"));
-      }
-#ifdef ENABLE_MPI
-      throw std::runtime_error(
-          std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
-                      "cannot support multi-node currently. \n"));
-#endif
 
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -343,11 +331,11 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
         // init GenenralBuffers to do real allocation
 #ifndef NDEBUG
-        std::cout << " max_feature_num_:" << embedding_params_.max_feature_num;
-        std::cout << " float_bufs_:" << float_bufs_.back()->get_size();
-        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size();
-        std::cout << " uint32_bufs_:" << uint32_bufs_.back()->get_size();
-        std::cout << " key_bufs_:" << key_bufs_.back()->get_size();
+        std::cout << " max_feature_num_:" << embedding_params_.max_feature_num << std::endl;
+        std::cout << " float_bufs_:" << float_bufs_.back()->get_size() << std::endl;
+        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size() << std::endl;
+        std::cout << " uint32_bufs_:" << uint32_bufs_.back()->get_size() << std::endl;
+        std::cout << " key_bufs_:" << key_bufs_.back()->get_size() << std::endl;
         std::cout << " value_index_bufs_:" << value_index_bufs_.back()->get_size() << std::endl;
 #endif
         float_bufs_.back()->init(cur_device);
@@ -382,7 +370,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       }
 
       // Check whether the P2P access can be enabled
-      if (gpu_resource_group->all_p2p_enabled() == false) {
+      if (gpu_resource_group->get_local_gpu_count() > 1 && !gpu_resource_group->all_p2p_enabled()) {
         throw std::runtime_error(
             std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
                         "cannot be used on machine without GPU peer2peer access support. \n"));

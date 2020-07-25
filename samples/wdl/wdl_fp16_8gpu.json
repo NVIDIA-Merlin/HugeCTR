@@ -59,7 +59,7 @@
         "top": "sparse_embedding2",
         "sparse_embedding_hparam": {
           "max_vocabulary_size_per_gpu": 2322444,
-          "embedding_vec_size": 2,
+          "embedding_vec_size": 1,
           "combiner": 0
         }
       },

@@ -17,6 +17,7 @@
 #pragma once
 #include <vector>
 #include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/diagnose.hpp"
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.hpp"
 #include "cub/cub/device/device_radix_sort.cuh"
@@ -228,7 +229,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
         // init GenenralBuffers to do real allocation
 #ifndef NDEBUG
-        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size();
+        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size() << std::endl;
         std::cout << " value_index_bufs_:" << value_index_bufs_.back()->get_size() << std::endl;
 #endif
         fp_bufs_.back()->init(cur_device);
@@ -499,12 +500,13 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
         // init GenenralBuffers to do real allocation
 #ifndef NDEBUG
-        std::cout << " max_feature_num_:" << embedding_params_.max_feature_num;
-        std::cout << " float_bufs_:" << float_bufs_.back()->get_size();
-        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size();
-        std::cout << " uint32_bufs_:" << uint32_bufs_.back()->get_size();
-        std::cout << " key_bufs_:" << key_bufs_.back()->get_size();
-        std::cout << " value_index_bufs_:" << value_index_bufs_.back()->get_size() << std::endl;
+        std::cout << " max_feature_num_:" << embedding_params_.max_feature_num << std::endl;
+        std::cout << " float_bufs_:" << float_bufs_.back()->get_size() << std::endl;
+        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size() << std::endl;
+        std::cout << " uint32_bufs_:" << uint32_bufs_.back()->get_size() << std::endl;
+        std::cout << " key_bufs_:" << key_bufs_.back()->get_size() << std::endl;
+        std::cout << " value_index_bufs_:" << value_index_bufs_.back()->get_size() << std::endl
+                  << std::endl;
 #endif
         float_bufs_.back()->init(cur_device);
         fp_bufs_.back()->init(cur_device);
@@ -525,8 +527,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                                                sizeof(TypeEmbeddingComp),
                                            (*Base::device_resources_)[id]->get_stream()));
             opt_params_[id].hyperparams.adam.times = 0;
-            opt_params_[id].hyperparams.adam.alpha_t =
-                embedding_params_.opt_params.hyperparams.adam.alpha_t;
             opt_params_[id].hyperparams.adam.beta1 =
                 embedding_params_.opt_params.hyperparams.adam.beta1;
             opt_params_[id].hyperparams.adam.beta2 =
@@ -727,6 +727,13 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                             hash_value_index_tensors_, hash_table_slot_id_tensors_,
                             Base::device_resources_, context);
 
+#ifndef NDEBUG
+    diagnose::check_and_count_data(
+        "embedding forward output", Base::output_tensors_[0]->get_ptr(),
+        embedding_params_.batch_size * slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size,
+        (*Base::device_resources_)[0]->get_stream());
+#endif
+
     return;
   }
 
@@ -738,6 +745,13 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
     // Read dgrad from output_tensors -> compute wgrad
 
     CudaDeviceContext context((*Base::device_resources_)[0]->get_device_id());
+
+#ifndef NDEBUG
+    diagnose::check_and_count_data(
+        "embedding backward top_grad", Base::output_tensors_[0]->get_ptr(),
+        embedding_params_.batch_size * slot_num_per_gpu_[0] * embedding_params_.embedding_vec_size,
+        (*Base::device_resources_)[0]->get_stream());
+#endif
 
     // reorder
     functors_.backward_reorder(batch_size_per_gpu_, embedding_params_.slot_num,

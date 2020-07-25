@@ -41,9 +41,9 @@ __global__ void adam_update_kernel(int len, float* weight, T* m, T* v, const T* 
 AdamOptimizer::AdamOptimizer(const GeneralBufferPtr<float>& weight_main,
                              const GeneralBufferPtr<float>& fp32_wgrad,
                              const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision,
-                             int device_id, float alpha, float beta1, float beta2, float epsilon,
+                             int device_id, float learning_rate, float beta1, float beta2, float epsilon,
                              float scaler)
-    : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, device_id, alpha, scaler),
+    : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, device_id, learning_rate, scaler),
       t_(0),
       beta1_(beta1),
       beta2_(beta2),
