@@ -76,88 +76,6 @@ class SparseEmbeddingHashFunctors {
   }
 
   /**
-   * forward propagation for DistributedSlotSparseEmbeddingHash
-   * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num the number of slots in hash table.
-   * @param embedding_vec_size embedding vector size.
-   * @param row_offsets_tensors row_offsets tensors of mulitple GPUs (CSR format of input sparse
-   * tensors)
-   * @param value_tensors value tensors of multi GPUs (CSR format of input sparse tensors)
-   * @param nnz_num_per_batch non-zero feature number per batch of multi GPUs
-   * @param hash_tables hash table of multi GPUs, pairs of <key, value_index>
-   * @param hash_table_value_tensors hash table value tenosrs of multi GPUs, the value is
-   * represented for embedding vector
-   * @param hash_value_index_tensors hash table value_index tensors of multi GPUs
-   * @param embedding_feature_tensors embedding feature tensors on multi GPUs
-   * @param device_resources all gpus device resources.
-   * @param context gpu device context, for switching device
-   */
-  template <typename TypeHashKey, typename TypeHashValueIndex, typename TypeEmbeddingComp>
-  void forward(
-      int batch_size, int slot_num, int embedding_vec_size,
-      const Tensors<TypeHashKey> &row_offsets_tensors, const Tensors<TypeHashKey> &value_tensors,
-      std::vector<PinnedBuffer<TypeHashKey>> &nnz_num_per_batch,
-      const std::vector<std::unique_ptr<
-          HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>
-          &hash_tables,
-      const Tensors<float> &hash_table_value_tensors,
-      const Tensors<TypeHashValueIndex> &hash_value_index_tensors,
-      Tensors<TypeEmbeddingComp> &embedding_feature_tensors,
-      const std::shared_ptr<GPUResourceGroup> &device_resources, const CudaDeviceContext &context) {
-    int local_gpu_count = device_resources->size();
-
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    // launch kernels on GPUs: do embedding lookup on multi GPUs
-    for (int id = 0; id < local_gpu_count; id++) {
-      context.set_device((*device_resources)[id]->get_device_id());
-
-      const auto &row_offset = row_offsets_tensors[id]->get_ptr();
-      const auto &hash_key = value_tensors[id]->get_ptr();
-      auto nnz = nnz_num_per_batch[id].get();
-      const auto &hash_table = hash_tables[id].get();
-      const auto &hash_table_value = hash_table_value_tensors[id]->get_ptr();
-      const auto &hash_value_index = hash_value_index_tensors[id]->get_ptr();
-      auto embedding_feature = embedding_feature_tensors[id]->get_ptr();
-      const cudaStream_t stream = (*device_resources)[id]->get_stream();
-
-      try {
-        // get hash_value_index from hash_table by hash_key
-        CK_CUDA_THROW_(cudaMemcpyAsync(nnz, &row_offset[batch_size * slot_num], sizeof(TypeHashKey),
-                                       cudaMemcpyDeviceToHost, stream));
-        CK_CUDA_THROW_(cudaStreamSynchronize(stream));
-        hash_table->get_insert(hash_key, hash_value_index, *nnz, stream);
-
-        // do sum reduction
-        dim3 blockSize(embedding_vec_size, 1,
-                       1);  // each thread corresponds to one element in an embedding vector
-        dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
-        forward_sum_kernel<TypeHashKey, TypeHashValueIndex><<<gridSize, blockSize, 0, stream>>>(
-            batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
-            hash_table_value, embedding_feature);
-        // for combiner=mean, call forward_scale() after this forward() and NCCL all-reduce
-        // operation
-
-      } catch (const std::runtime_error &rt_err) {
-        std::cerr << rt_err.what() << std::endl;
-        throw;
-      }
-    }
-
-    return;
-  }
-
-  /**
    * forward propagation on each GPU for DistributedSlotSparseEmbeddingHash
    * @param batch_size batch size for the current mini-batch computation.
    * @param slot_num the number of slots for current GPU
@@ -178,18 +96,6 @@ class SparseEmbeddingHashFunctors {
                                        std::numeric_limits<TypeHashKey>::max()> *hash_table,
                        const float *hash_table_value, TypeHashValueIndex *hash_value_index,
                        TypeEmbeddingComp *embedding_feature, cudaStream_t stream) {
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
     try {
       // get hash_value_index from hash_table by hash_key
       CK_CUDA_THROW_(cudaMemcpyAsync(nnz, &row_offset[batch_size * slot_num], sizeof(TypeHashKey),
@@ -197,114 +103,25 @@ class SparseEmbeddingHashFunctors {
       CK_CUDA_THROW_(cudaStreamSynchronize(stream));
       hash_table->get_insert(hash_key, hash_value_index, *nnz, stream);
 
+      const size_t grid_size = batch_size;  // each block corresponds to a sample
       // do sum reduction
-      dim3 blockSize(embedding_vec_size, 1,
-                     1);  // each thread corresponds to one element in an embedding vector
-      dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
-      forward_sum_kernel<TypeHashKey, TypeHashValueIndex><<<gridSize, blockSize, 0, stream>>>(
-          batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index, hash_table_value,
-          embedding_feature);
-      // for combiner=mean, call forward_scale() after this forward() and NCCL all-reduce
-      // operation
+      if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+        const size_t block_size = embedding_vec_size / 2;
+        forward_sum_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+            batch_size, slot_num, embedding_vec_size / 2, row_offset, hash_value_index,
+            hash_table_value, embedding_feature);
+      } else {
+        const size_t block_size =
+            embedding_vec_size;  // each thread corresponds to one element in an embedding vector
+        forward_sum_kernel<<<grid_size, block_size, 0, stream>>>(
+            batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
+            hash_table_value, embedding_feature);
+      }
+      // for combiner=mean, call forward_scale() after this forward() and NCCL all-reduce operation
 
     } catch (const std::runtime_error &rt_err) {
       std::cerr << rt_err.what() << std::endl;
       throw;
-    }
-
-    return;
-  }
-
-  /**
-   * forward propagation for LocalizedSlotSparseEmbeddingHash
-   * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num_per_gpu the number of slots for each local GPUs
-   * @param embedding_vec_size embedding vector size.
-   * @param combiner 0-sum; 1-mean
-   * @param row_offsets_tensors row_offsets tensors of mulitple GPUs (CSR format of input sparse
-   * tensors)
-   * @param value_tensors value tensors of multi GPUs (CSR format of input sparse tensors)
-   * @param nnz_num_per_batch non-zero feature number per batch of multi GPUs
-   * @param hash_tables hash table of multi GPUs, pairs of <key, value_index>
-   * @param hash_table_value_tensors hash table value tenosrs of multi GPUs, the value is
-   * represented for embedding vector
-   * @param hash_value_index_tensors hash table value_index tensors of multi GPUs
-   * @param embedding_feature_tensors embedding feature tensors on multi GPUs
-   * @param device_resources all gpus device resources.
-   * @param context gpu device context, for switching device
-   */
-  template <typename TypeHashKey, typename TypeHashValueIndex, typename TypeEmbeddingComp>
-  void forward(
-      int batch_size, const std::vector<int> &slot_num_per_gpu, int embedding_vec_size,
-      int combiner, const Tensors<TypeHashKey> &row_offsets_tensors,
-      const Tensors<TypeHashKey> &value_tensors,
-      std::vector<PinnedBuffer<TypeHashKey>> &nnz_num_per_batch,
-      const std::vector<std::unique_ptr<
-          HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>>>
-          &hash_tables,
-      const Tensors<float> &hash_table_value_tensors,
-      const Tensors<TypeHashValueIndex> &hash_value_index_tensors,
-      Tensors<TypeEmbeddingComp> &embedding_feature_tensors,
-      const std::shared_ptr<GPUResourceGroup> &device_resources, const CudaDeviceContext &context) {
-    int local_gpu_count = device_resources->size();
-    int total_gpu_count = device_resources->get_total_gpu_count();
-
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    // launch kernels on GPUs: do embedding lookup on multi GPUs
-    for (int id = 0; id < local_gpu_count; id++) {
-      if (slot_num_per_gpu[id] == 0) {
-        continue;
-      }
-
-      int cur_device = (*device_resources)[id]->get_device_id();
-      context.set_device(cur_device);
-
-      const auto &row_offset = row_offsets_tensors[id]->get_ptr();
-      const auto &hash_key = value_tensors[id]->get_ptr();
-      auto nnz = nnz_num_per_batch[id].get();
-      const auto &hash_table = hash_tables[id].get();
-      const auto &hash_table_value = hash_table_value_tensors[id]->get_ptr();
-      const auto &hash_value_index = hash_value_index_tensors[id]->get_ptr();
-      auto embedding_feature = embedding_feature_tensors[id]->get_ptr();
-      const cudaStream_t stream = (*device_resources)[id]->get_stream();
-
-      try {
-        // get hash_value_index from hash_table by hash_key
-        CK_CUDA_THROW_(cudaMemcpyAsync(nnz, &row_offset[batch_size * slot_num_per_gpu[id]],
-                                       sizeof(TypeHashKey), cudaMemcpyDeviceToHost, stream));
-        CK_CUDA_THROW_(cudaStreamSynchronize(stream));
-        hash_table->get_insert(hash_key, hash_value_index, *nnz, stream);
-
-        // do sum reduction
-        dim3 blockSize(embedding_vec_size, 1,
-                       1);  // each thread corresponds to one element in an embedding vector
-        dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
-        if (combiner == 0) {
-          forward_sum_kernel<TypeHashKey, TypeHashValueIndex><<<gridSize, blockSize, 0, stream>>>(
-              batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset, hash_value_index,
-              hash_table_value, embedding_feature);
-        } else if (combiner == 1) {
-          forward_mean_kernel<TypeHashKey, TypeHashValueIndex><<<gridSize, blockSize, 0, stream>>>(
-              batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset, hash_value_index,
-              hash_table_value, embedding_feature);
-        } else {
-          CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
-        }
-      } catch (const std::runtime_error &rt_err) {
-        std::cerr << rt_err.what() << std::endl;
-        throw;
-      }
     }
 
     return;
@@ -332,18 +149,6 @@ class SparseEmbeddingHashFunctors {
                                        std::numeric_limits<TypeHashKey>::max()> *hash_table,
                        const float *hash_table_value, TypeHashValueIndex *hash_value_index,
                        TypeEmbeddingComp *embedding_feature, cudaStream_t stream) {
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
     try {
       // get hash_value_index from hash_table by hash_key
       CK_CUDA_THROW_(cudaMemcpyAsync(nnz, &row_offset[batch_size * slot_num], sizeof(TypeHashKey),
@@ -354,77 +159,31 @@ class SparseEmbeddingHashFunctors {
       // do sum reduction
       dim3 blockSize(embedding_vec_size, 1,
                      1);  // each thread corresponds to one element in an embedding vector
-      dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
+      const size_t grid_size = batch_size;  // each block corresponds to a sample
       if (combiner == 0) {
-        forward_sum_kernel<TypeHashKey, TypeHashValueIndex><<<gridSize, blockSize, 0, stream>>>(
-            batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
-            hash_table_value, embedding_feature);
+        if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+          const size_t block_size = embedding_vec_size / 2;
+          forward_sum_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num, embedding_vec_size / 2, row_offset, hash_value_index,
+              hash_table_value, embedding_feature);
+        } else {
+          const size_t block_size = embedding_vec_size;
+          forward_sum_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
+              hash_table_value, embedding_feature);
+        }
       } else if (combiner == 1) {
-        forward_mean_kernel<TypeHashKey, TypeHashValueIndex><<<gridSize, blockSize, 0, stream>>>(
-            batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
-            hash_table_value, embedding_feature);
-      } else {
-        CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
-      }
-    } catch (const std::runtime_error &rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
-    }
-
-    return;
-  }
-
-  /**
-   * forward propagation on each GPU for LocalizedSlotSparseEmbeddingOneHot
-   * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num the number of slots for current GPU
-   * @param embedding_vec_size embedding vector size.
-   * @param combiner 0-sum; 1-mean
-   * @param row_offset row_offset (CSR format of input sparse tensors)
-   * @param hash_key value (CSR format of input sparse tensors)
-   * @param nnz non-zero feature number per batch
-   * @param hash_table hash table, pairs of <key, value_index>
-   * @param hash_table_value hash table value, which represents embedding vector
-   * @param hash_value_index hash table value_index(row index of embedding)
-   * @param embedding_feature embedding feature (output)
-   * @param stream cuda stream
-   */
-  template <typename TypeHashKey, typename TypeHashValueIndex, typename TypeEmbeddingComp>
-  void forward_per_gpu(int batch_size, int slot_num, int embedding_vec_size, int combiner,
-                       const TypeHashKey *row_offset, const TypeHashKey *hash_key, TypeHashKey *nnz,
-                       const uint32_t *mapping_offsets, const float *hash_table_value,
-                       TypeHashValueIndex *hash_value_index, TypeEmbeddingComp *embedding_feature,
-                       cudaStream_t stream) {
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    try {
-      // get hash_value_index from hash_table by hash_key
-      CK_CUDA_THROW_(cudaMemcpyAsync(nnz, &row_offset[batch_size * slot_num], sizeof(TypeHashKey),
-                                     cudaMemcpyDeviceToHost, stream));
-      CK_CUDA_THROW_(cudaStreamSynchronize(stream));
-
-      // remove hashtable get_insert(), and do linear mapping between key and value_index
-      hash_key_value_index_mapping_kernel<<<((*nnz) + 255) / 256, 256, 0, stream>>>(
-          (*nnz), slot_num, mapping_offsets, hash_key, hash_value_index);
-
-      // do sum reduction
-      dim3 blockSize(embedding_vec_size, 1,
-                     1);  // each thread corresponds to one element in an embedding vector
-      dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
-      if (combiner == 0) {
-        forward_sum_kernel<TypeHashKey, TypeHashValueIndex><<<gridSize, blockSize, 0, stream>>>(
-            batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
-            hash_table_value, embedding_feature);
+        if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+          const size_t block_size = embedding_vec_size / 2;
+          forward_mean_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num, embedding_vec_size / 2, row_offset, hash_value_index,
+              hash_table_value, embedding_feature);
+        } else {
+          const size_t block_size = embedding_vec_size;
+          forward_mean_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
+              hash_table_value, embedding_feature);
+        }
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -471,129 +230,6 @@ class SparseEmbeddingHashFunctors {
   }
 
   /**
-   * forward propagation for LocalizedSlotSparseEmbeddingOneHot.
-   * fuse (forward_sum_kernel + all2all + forward_reorder) into one kernel.
-   * Only support single node currently.
-   * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num total slots number
-   * @param slot_num_per_gpu the number of slots for each GPU
-   * @param embedding_vec_size embedding vector size.
-   * @param combiner 0-sum; 1-mean
-   * @param row_offsets_tensors row_offset (CSR format of input sparse tensors)
-   * @param hash_value_index_tensors hash table value_index(row index of embedding)
-   * @param hash_table_value_tensors hash table value, which represents embedding vector
-   * @param embedding_features embedding features of all gpus (output)
-   * @param device_resources device resources
-   */
-  template <typename TypeHashKey, typename TypeHashValueIndex, typename TypeEmbeddingComp>
-  void forward_fuse(size_t batch_size, int slot_num, const std::vector<int> &slot_num_per_gpu,
-                    int embedding_vec_size, int combiner,
-                    const Tensors<TypeHashKey> &row_offsets_tensors,
-                    const Tensors<TypeHashValueIndex> &hash_value_index_tensors,
-                    const Tensors<float> &hash_table_value_tensors,
-                    TypeEmbeddingComp **embedding_features,
-                    const std::shared_ptr<GPUResourceGroup> &device_resources) {
-    int local_gpu_count = device_resources->size();
-    size_t batch_size_per_gpu = batch_size / local_gpu_count;
-
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    dim3 blockSize(embedding_vec_size, 1, 1);
-    int maxActiveBlocks;
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:  // fp16
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocks, forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>,
-            blockSize.x, 0));
-        break;
-      case 4:  // fp32
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocks, forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>,
-            blockSize.x, 0));
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-    dim3 gridSize(min((int)batch_size, (sm_count_ * maxActiveBlocks)), 1, 1);
-
-    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_
-    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x
-    //     << std::endl;
-
-    struct cudaLaunchParams params[local_gpu_count];
-    void *kargs[local_gpu_count][11];
-    int id_list[local_gpu_count];
-    int slot_num_list[local_gpu_count];
-    TypeHashKey *row_offsets_list[local_gpu_count];
-    float *hash_table_value_list[local_gpu_count];
-    TypeHashValueIndex *hash_value_index_list[local_gpu_count];
-
-    for (int id = 0; id < local_gpu_count; id++) {
-      if (slot_num_per_gpu[id] == 0) {
-        continue;
-      }
-
-      id_list[id] = (*device_resources)[id]->get_device_id();
-      slot_num_list[id] = slot_num_per_gpu[id];
-      row_offsets_list[id] = row_offsets_tensors[id]->get_ptr();
-      hash_value_index_list[id] = hash_value_index_tensors[id]->get_ptr();
-      hash_table_value_list[id] = hash_table_value_tensors[id]->get_ptr();
-
-      switch (sizeof(TypeEmbeddingComp)) {
-        case 2:  // fp16
-          params[id].func = (void *)forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>;
-          break;
-        case 4:  // fp32
-          params[id].func = (void *)forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>;
-          break;
-        default:
-          CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-      }
-
-      params[id].gridDim = gridSize;
-      params[id].blockDim = blockSize;
-      params[id].sharedMem = 0;
-      params[id].stream = (*device_resources)[id]->get_stream();
-      kargs[id][0] = (void *)&(id_list[id]);
-      kargs[id][1] = (void *)&local_gpu_count;
-      kargs[id][2] = (void *)&batch_size;
-      kargs[id][3] = (void *)&batch_size_per_gpu;
-      kargs[id][4] = (void *)&slot_num;
-      kargs[id][5] = (void *)&(slot_num_list[id]);
-      kargs[id][6] = (void *)&embedding_vec_size;
-      kargs[id][7] = (void *)&(row_offsets_list[id]);
-      kargs[id][8] = (void *)&(hash_value_index_list[id]);
-      kargs[id][9] = (void *)&(hash_table_value_list[id]);
-      kargs[id][10] = (void *)&embedding_features;
-      params[id].args = (void **)kargs[id];
-    }
-
-    try {
-      if (combiner == 0) {
-        CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(
-            params, local_gpu_count, cudaCooperativeLaunchMultiDeviceNoPreSync));
-      } else {
-        CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
-      }
-    } catch (const std::runtime_error &rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
-    }
-
-    return;
-  }
-
-  /**
    * forward propagation for LocalizedSlotSparseEmbeddingOneHot (per GPU).
    * fuse (forward_sum_kernel + all2all + forward_reorder) into one kernel.
    * Only support single node currently.
@@ -618,51 +254,27 @@ class SparseEmbeddingHashFunctors {
                             const TypeHashValueIndex *hash_value_index,
                             const float *hash_table_value, TypeEmbeddingComp **embedding_features,
                             cudaStream_t stream) {
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    dim3 blockSize(embedding_vec_size, 1, 1);
     int maxActiveBlocks;
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:  // fp16
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocks, forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>,
-            blockSize.x, 0));
-        break;
-      case 4:  // fp32
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocks, forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>,
-            blockSize.x, 0));
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-    dim3 gridSize(min((int)batch_size, (sm_count_ * maxActiveBlocks)), 1, 1);
-
-    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_
-    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x
-    //     << std::endl;
-
     void *func;
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:  // fp16
-        func = (void *)forward_sum_fuse_kernel_fp16<TypeHashKey, TypeHashValueIndex>;
-        break;
-      case 4:  // fp32
-        func = (void *)forward_sum_fuse_kernel_fp32<TypeHashKey, TypeHashValueIndex>;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+    int embedding_vec_size_opt;
+
+    if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+      embedding_vec_size_opt = embedding_vec_size / 2;
+      CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &maxActiveBlocks, forward_sum_fuse_align2_kernel<TypeHashKey, TypeHashValueIndex>,
+          embedding_vec_size_opt, 0));
+      func = (void *)forward_sum_fuse_align2_kernel<TypeHashKey, TypeHashValueIndex>;
+    } else {
+      embedding_vec_size_opt = embedding_vec_size;
+      CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &maxActiveBlocks,
+          forward_sum_fuse_kernel<TypeHashKey, TypeHashValueIndex, TypeEmbeddingComp>,
+          embedding_vec_size_opt, 0));
+      func = (void *)forward_sum_fuse_kernel<TypeHashKey, TypeHashValueIndex, TypeEmbeddingComp>;
     }
+
+    const size_t block_size = embedding_vec_size_opt;
+    const size_t grid_size = min(batch_size, static_cast<size_t>(sm_count_ * maxActiveBlocks));
 
     void *kargs[11];
     kargs[0] = (void *)&id;
@@ -671,7 +283,7 @@ class SparseEmbeddingHashFunctors {
     kargs[3] = (void *)&batch_size_per_gpu;
     kargs[4] = (void *)&slot_num;
     kargs[5] = (void *)&slot_num_per_gpu;
-    kargs[6] = (void *)&embedding_vec_size;
+    kargs[6] = (void *)&embedding_vec_size_opt;
     kargs[7] = (void *)&row_offset;
     kargs[8] = (void *)&hash_value_index;
     kargs[9] = (void *)&hash_table_value;
@@ -679,7 +291,7 @@ class SparseEmbeddingHashFunctors {
 
     try {
       if (combiner == 0) {
-        CK_CUDA_THROW_(cudaLaunchKernel(func, gridSize, blockSize, kargs, 0, stream));
+        CK_CUDA_THROW_(cudaLaunchKernel(func, grid_size, block_size, kargs, 0, stream));
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -711,18 +323,6 @@ class SparseEmbeddingHashFunctors {
     int local_gpu_count = device_resources->size();
     int total_gpu_count = device_resources->get_total_gpu_count();
 
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
     int batchsize_per_gpu = (int)(batch_size / total_gpu_count);
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
@@ -732,16 +332,15 @@ class SparseEmbeddingHashFunctors {
       auto embedding_feature = output_tensors[id]->get_ptr();
       const auto &stream = (*device_resources)[id]->get_stream();
 
-      try {
-        dim3 blockSize(embedding_vec_size, 1, 1);
-        dim3 gridSize(batchsize_per_gpu, 1, 1);
-
-        forward_scale_kernel<<<gridSize, blockSize, 0, stream>>>(
+      const size_t grid_size = batchsize_per_gpu;
+      if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+        const size_t block_size = embedding_vec_size / 2;
+        forward_scale_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+            batchsize_per_gpu, slot_num, embedding_vec_size / 2, row_offset, embedding_feature);
+      } else {
+        const size_t block_size = embedding_vec_size;
+        forward_scale_kernel<<<grid_size, block_size, 0, stream>>>(
             batchsize_per_gpu, slot_num, embedding_vec_size, row_offset, embedding_feature);
-
-      } catch (const std::runtime_error &rt_err) {
-        std::cerr << rt_err.what() << std::endl;
-        throw;
       }
     }
 
@@ -778,25 +377,34 @@ class SparseEmbeddingHashFunctors {
       const auto &row_offset = row_offset_allreduce_tensors[id]->get_ptr();
       auto wgrad = wgrad_tensors[id]->get_ptr();
 
-      try {
-        dim3 blockSize(embedding_vec_size, 1,
-                       1);  // each thread corresponds to one element in an embedding vetor
-        dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
+      const size_t grid_size = batch_size;  // each block corresponds to a sample
 
-        if (combiner == 0)  // sum
-        {
-          backward_sum_kernel<TypeHashKey><<<gridSize, blockSize, 0, stream>>>(
-              batch_size, slot_num, embedding_vec_size, top_grad, wgrad);
-        } else if (combiner == 1)  // mean
-        {
-          backward_mean_kernel<<<gridSize, blockSize, 0, stream>>>(
-              batch_size, slot_num, embedding_vec_size, row_offset, top_grad, wgrad);
+      if (combiner == 0)  // sum
+      {
+        if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+          const size_t block_size =
+              embedding_vec_size /
+              2;  // each thread corresponds to one element in an embedding vetor
+          backward_sum_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num, embedding_vec_size / 2, top_grad, wgrad);
         } else {
-          CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+          const size_t block_size = embedding_vec_size;
+          backward_sum_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num, embedding_vec_size, top_grad, wgrad);
         }
-      } catch (const std::runtime_error &rt_err) {
-        std::cerr << rt_err.what() << std::endl;
-        throw;
+      } else if (combiner == 1)  // mean
+      {
+        if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+          const size_t block_size = embedding_vec_size / 2;
+          backward_mean_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num, embedding_vec_size / 2, row_offset, top_grad, wgrad);
+        } else {
+          const size_t block_size = embedding_vec_size;
+          backward_mean_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num, embedding_vec_size, row_offset, top_grad, wgrad);
+        }
+      } else {
+        CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
     }
 
@@ -826,18 +434,6 @@ class SparseEmbeddingHashFunctors {
                 const CudaDeviceContext &context) {
     int local_gpu_count = device_resources->size();
 
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
     for (int id = 0; id < local_gpu_count; id++) {
       if (slot_num_per_gpu[id] == 0) {
         continue;
@@ -849,136 +445,36 @@ class SparseEmbeddingHashFunctors {
       const auto &row_offset = row_offset_allreduce_tensors[id]->get_ptr();
       auto wgrad = wgrad_tensors[id]->get_ptr();
 
-      try {
-        dim3 blockSize(embedding_vec_size, 1,
-                       1);  // each thread corresponds to one element in an embedding vetor
-        dim3 gridSize(batch_size, 1, 1);  // each block corresponds to a sample
+      const size_t grid_size = batch_size;  // each block corresponds to a sample
 
-        if (combiner == 0)  // sum
-        {
-          backward_sum_kernel<TypeHashKey><<<gridSize, blockSize, 0, stream>>>(
-              batch_size, slot_num_per_gpu[id], embedding_vec_size, top_grad, wgrad);
-        } else if (combiner == 1)  // mean
-        {
-          backward_mean_kernel<<<gridSize, blockSize, 0, stream>>>(
-              batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset, top_grad, wgrad);
+      if (combiner == 0)  // sum
+      {
+        if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+          const size_t block_size =
+              embedding_vec_size /
+              2;  // each thread corresponds to one element in an embedding vetor
+          backward_sum_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num_per_gpu[id], embedding_vec_size / 2, top_grad, wgrad);
         } else {
-          CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
+          const size_t block_size = embedding_vec_size;
+          backward_sum_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num_per_gpu[id], embedding_vec_size, top_grad, wgrad);
         }
-      } catch (const std::runtime_error &rt_err) {
-        std::cerr << rt_err.what() << std::endl;
-        throw;
-      }
-    }
-
-    return;
-  }
-
-  /**
-   * backward propagation for LocalizedSlotSparseEmbeddingOneHot.
-   * fuse (backward_reorder + all2all + backward_xxx_kernel) into one kernel.
-   * Only support single node currently.
-   * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num total slots number
-   * @param slot_num_per_gpu the number of slots for each GPU
-   * @param embedding_vec_size embedding vector size.
-   * @param combiner 0-sum; 1-mean
-   * @param embedding_features embedding features of all gpus (output)
-   * @param wgrad_tensors wgrad tensors of multi GPUs, the output of this function.
-   * @param device_resources device resources
-   */
-  template <typename TypeEmbeddingComp>
-  void backward_fuse(size_t batch_size, int slot_num, const std::vector<int> &slot_num_per_gpu,
-                     int embedding_vec_size, int combiner, TypeEmbeddingComp **embedding_features,
-                     Tensors<TypeEmbeddingComp> &wgrad_tensors,
-                     const std::shared_ptr<GPUResourceGroup> &device_resources) {
-    int local_gpu_count = device_resources->size();
-    size_t batch_size_per_gpu = batch_size / local_gpu_count;
-
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    dim3 blockSize(embedding_vec_size, 1, 1);
-    int maxActiveBlocks;
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:  // fp16
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocks, backward_sum_fuse_kernel_fp16, blockSize.x, 0));
-        break;
-      case 4:  // fp32
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocks, backward_sum_fuse_kernel_fp32, blockSize.x, 0));
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-    dim3 gridSize(min((int)batch_size, (sm_count_ * maxActiveBlocks)), 1, 1);
-
-    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_
-    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x
-    //     << std::endl;
-
-    struct cudaLaunchParams params[local_gpu_count];
-    void *kargs[local_gpu_count][9];
-    int id_list[local_gpu_count];
-    int slot_num_list[local_gpu_count];
-    TypeEmbeddingComp *wgrad_list[local_gpu_count];
-
-    for (int id = 0; id < local_gpu_count; id++) {
-      if (slot_num_per_gpu[id] == 0) {
-        continue;
-      }
-
-      id_list[id] = (*device_resources)[id]->get_device_id();
-      slot_num_list[id] = slot_num_per_gpu[id];
-      wgrad_list[id] = wgrad_tensors[id]->get_ptr();
-
-      switch (sizeof(TypeEmbeddingComp)) {
-        case 2:  // fp16
-          params[id].func = (void *)backward_sum_fuse_kernel_fp16;
-          break;
-        case 4:  // fp32
-          params[id].func = (void *)backward_sum_fuse_kernel_fp32;
-          break;
-        default:
-          CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-      }
-
-      params[id].gridDim = gridSize;
-      params[id].blockDim = blockSize;
-      params[id].sharedMem = 0;
-      params[id].stream = (*device_resources)[id]->get_stream();
-      kargs[id][0] = (void *)&(id_list[id]);
-      kargs[id][1] = (void *)&local_gpu_count;
-      kargs[id][2] = (void *)&batch_size;
-      kargs[id][3] = (void *)&batch_size_per_gpu;
-      kargs[id][4] = (void *)&slot_num;
-      kargs[id][5] = (void *)&(slot_num_list[id]);
-      kargs[id][6] = (void *)&embedding_vec_size;
-      kargs[id][7] = (void *)&embedding_features;
-      kargs[id][8] = (void *)&(wgrad_list[id]);
-      params[id].args = (void **)kargs[id];
-    }
-
-    try {
-      if (combiner == 0) {
-        CK_CUDA_THROW_(cudaLaunchCooperativeKernelMultiDevice(
-            params, local_gpu_count, cudaCooperativeLaunchMultiDeviceNoPostSync));
+      } else if (combiner == 1)  // mean
+      {
+        if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+          const size_t block_size = embedding_vec_size / 2;
+          backward_mean_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num_per_gpu[id], embedding_vec_size / 2, row_offset, top_grad,
+              wgrad);
+        } else {
+          const size_t block_size = embedding_vec_size;
+          backward_mean_kernel<<<grid_size, block_size, 0, stream>>>(
+              batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset, top_grad, wgrad);
+        }
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
-    } catch (const std::runtime_error &rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
     }
 
     return;
@@ -1006,49 +502,25 @@ class SparseEmbeddingHashFunctors {
                              int embedding_vec_size, int combiner,
                              TypeEmbeddingComp **embedding_features, TypeEmbeddingComp *wgrad,
                              cudaStream_t stream) {
-    // need to know the Type
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    dim3 blockSize(embedding_vec_size, 1, 1);
     int maxActiveBlocks;
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:  // fp16
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocks, backward_sum_fuse_kernel_fp16, blockSize.x, 0));
-        break;
-      case 4:  // fp32
-        CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-            &maxActiveBlocks, backward_sum_fuse_kernel_fp32, blockSize.x, 0));
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-    dim3 gridSize(min((int)batch_size, (sm_count_ * maxActiveBlocks)), 1, 1);
-
-    // std::cout << "batch_size=" << batch_size << ", sm_count=" << sm_count_
-    //     << ", maxActiveBlocks=" << maxActiveBlocks << ", girdSize=" << gridSize.x
-    //     << std::endl;
-
     void *func;
-    switch (sizeof(TypeEmbeddingComp)) {
-      case 2:  // fp16
-        func = (void *)backward_sum_fuse_kernel_fp16;
-        break;
-      case 4:  // fp32
-        func = (void *)backward_sum_fuse_kernel_fp32;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
+    int embedding_vec_size_opt;
+
+    if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+      embedding_vec_size_opt = embedding_vec_size / 2;
+      CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &maxActiveBlocks, backward_sum_fuse_align2_kernel, embedding_vec_size_opt, 0));
+      func = (void *)backward_sum_fuse_align2_kernel;
+    } else {
+      embedding_vec_size_opt = embedding_vec_size;
+      CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &maxActiveBlocks, backward_sum_fuse_kernel<TypeEmbeddingComp>, embedding_vec_size_opt,
+          0));
+      func = (void *)backward_sum_fuse_kernel<TypeEmbeddingComp>;
     }
+
+    const size_t block_size = embedding_vec_size_opt;
+    const size_t grid_size = min(batch_size, static_cast<size_t>(sm_count_ * maxActiveBlocks));
 
     void *kargs[9];
     kargs[0] = (void *)&id;
@@ -1057,13 +529,13 @@ class SparseEmbeddingHashFunctors {
     kargs[3] = (void *)&batch_size_per_gpu;
     kargs[4] = (void *)&slot_num;
     kargs[5] = (void *)&slot_num_per_gpu;
-    kargs[6] = (void *)&embedding_vec_size;
+    kargs[6] = (void *)&embedding_vec_size_opt;
     kargs[7] = (void *)&embedding_features;
     kargs[8] = (void *)&wgrad;
 
     try {
       if (combiner == 0) {
-        CK_CUDA_THROW_(cudaLaunchKernel(func, gridSize, blockSize, kargs, 0, stream));
+        CK_CUDA_THROW_(cudaLaunchKernel(func, grid_size, block_size, kargs, 0, stream));
       } else {
         CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
       }
@@ -1166,8 +638,8 @@ class SparseEmbeddingHashFunctors {
             hash_value_index_count_counter);
 
         uint32_t hash_hash_value_index_count_num = 0;
-        // this async memcpy will not perform as a async operation because the host memory is not a
-        // pinned memroy
+        // this async memcpy will not perform as a async operation because the host memory is not
+        // a pinned memroy
         CK_CUDA_THROW_(cudaMemcpyAsync(&hash_hash_value_index_count_num,
                                        hash_value_index_count_counter, sizeof(uint32_t),
                                        cudaMemcpyDeviceToHost, stream));
@@ -1180,7 +652,8 @@ class SparseEmbeddingHashFunctors {
         if (opt_params.global_update) {
           switch (opt_params.optimizer) {
             case Optimizer_t::Adam:  // adam
-              opt_params.hyperparams.adam.alpha_t =
+            {
+              float alpha_t =
                   opt_params.lr *
                   sqrt(1 -
                        pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
@@ -1193,8 +666,9 @@ class SparseEmbeddingHashFunctors {
               // all update according to the mi vi
               adam_update_kernel_global<<<1024, 256, 0, stream>>>(
                   embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam,
-                  hash_table_value);
+                  alpha_t, hash_table_value);
               break;
+            }
             case Optimizer_t::MomentumSGD:  // momentum sgd
               opt_momentum_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
@@ -1227,7 +701,8 @@ class SparseEmbeddingHashFunctors {
         } else {
           switch (opt_params.optimizer) {
             case Optimizer_t::Adam:  // adam
-              opt_params.hyperparams.adam.alpha_t =
+            {
+              float alpha_t =
                   opt_params.lr *
                   sqrt(1 -
                        pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
@@ -1235,9 +710,10 @@ class SparseEmbeddingHashFunctors {
 
               opt_adam_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-                  sample_id_sort, hash_value_index_sort, hash_value_index_count_offset, wgrad,
-                  deltaw_hash_value_index, deltaw, opt_params.scaler);
+                  alpha_t, sample_id_sort, hash_value_index_sort, hash_value_index_count_offset,
+                  wgrad, deltaw_hash_value_index, deltaw, opt_params.scaler);
               break;
+            }
             case Optimizer_t::MomentumSGD:  // momentum sgd
               opt_momentum_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
@@ -2446,35 +1922,32 @@ class SparseEmbeddingHashFunctors {
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  template <typename Type>
+  template <typename TypeEmbeddingComp>
   void forward_reorder(int batch_size_per_gpu, int slot_num, int embedding_vec_size,
-                       Tensors<Type> &src_tensors, Tensors<Type> &dst_tensors,
+                       Tensors<TypeEmbeddingComp> &src_tensors,
+                       Tensors<TypeEmbeddingComp> &dst_tensors,
                        const std::shared_ptr<GPUResourceGroup> &device_resources,
                        const CudaDeviceContext &context) {
     int local_gpu_count = device_resources->size();
     int total_gpu_count = device_resources->get_total_gpu_count();
 
-    // need to know the Type
-    switch (sizeof(Type)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    dim3 blockSize(embedding_vec_size, 1, 1);
-    dim3 gridSize(batch_size_per_gpu, 1, 1);
+    const size_t grid_size = batch_size_per_gpu;
 
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
-      forward_reorder_kernel<Type>
-          <<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(
-              batch_size_per_gpu, slot_num, embedding_vec_size, total_gpu_count,
-              src_tensors[id]->get_ptr(), dst_tensors[id]->get_ptr());
+
+      if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+        const size_t block_size = embedding_vec_size / 2;
+        forward_reorder_align2_kernel<<<grid_size, block_size, 0,
+                                        (*device_resources)[id]->get_stream()>>>(
+            batch_size_per_gpu, slot_num, embedding_vec_size / 2, total_gpu_count,
+            src_tensors[id]->get_ptr(), dst_tensors[id]->get_ptr());
+      } else {
+        const size_t block_size = embedding_vec_size;
+        forward_reorder_kernel<<<grid_size, block_size, 0, (*device_resources)[id]->get_stream()>>>(
+            batch_size_per_gpu, slot_num, embedding_vec_size, total_gpu_count,
+            src_tensors[id]->get_ptr(), dst_tensors[id]->get_ptr());
+      }
     }
   }
 
@@ -2488,35 +1961,32 @@ class SparseEmbeddingHashFunctors {
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device.
    */
-  template <typename Type>
+  template <typename TypeEmbeddingComp>
   void backward_reorder(int batch_size_per_gpu, int slot_num, int embedding_vec_size,
-                        Tensors<Type> &src_tensors, Tensors<Type> &dst_tensors,
+                        Tensors<TypeEmbeddingComp> &src_tensors,
+                        Tensors<TypeEmbeddingComp> &dst_tensors,
                         const std::shared_ptr<GPUResourceGroup> &device_resources,
                         const CudaDeviceContext &context) {
     int local_gpu_count = device_resources->size();
     int total_gpu_count = device_resources->get_total_gpu_count();
 
-    // need to know the Type
-    switch (sizeof(Type)) {
-      case 2:                                         // fp16
-        embedding_vec_size = embedding_vec_size / 2;  // use __half2
-        break;
-      case 4:  // fp32
-        embedding_vec_size = embedding_vec_size;
-        break;
-      default:
-        CK_THROW_(Error_t::WrongInput, "Error: Type not support by now");
-    }
-
-    dim3 blockSize(embedding_vec_size, 1, 1);
-    dim3 gridSize(batch_size_per_gpu, 1, 1);
+    const size_t grid_size = batch_size_per_gpu;
 
     for (int id = 0; id < local_gpu_count; id++) {
       context.set_device((*device_resources)[id]->get_device_id());
-      backward_reorder_kernel<Type>
-          <<<gridSize, blockSize, 0, (*device_resources)[id]->get_stream()>>>(
-              batch_size_per_gpu, slot_num, embedding_vec_size, total_gpu_count,
-              src_tensors[id]->get_ptr(), dst_tensors[id]->get_ptr());
+      if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
+        const size_t block_size = embedding_vec_size / 2;
+        backward_reorder_align2_kernel<<<grid_size, block_size, 0,
+                                         (*device_resources)[id]->get_stream()>>>(
+            batch_size_per_gpu, slot_num, embedding_vec_size / 2, total_gpu_count,
+            src_tensors[id]->get_ptr(), dst_tensors[id]->get_ptr());
+      } else {
+        const size_t block_size = embedding_vec_size;
+        backward_reorder_kernel<<<grid_size, block_size, 0,
+                                  (*device_resources)[id]->get_stream()>>>(
+            batch_size_per_gpu, slot_num, embedding_vec_size, total_gpu_count,
+            src_tensors[id]->get_ptr(), dst_tensors[id]->get_ptr());
+      }
     }
   }
 
@@ -2813,9 +2283,9 @@ class SparseEmbeddingHashFunctors {
         }
       }
 
-      std::cout << "\rUploading " << std::fixed << std::setprecision(2)
-                << (float)(i) / loop_num * 100.0f << "%, loop " << i << " of " << loop_num
-                << std::flush;
+      /*       std::cout << "\rUploading " << std::fixed << std::setprecision(2)
+                      << (float)(i) / loop_num * 100.0f << "%, loop " << i << " of " << loop_num
+                      << std::flush; */
     }  // end of for(int i = 0; i < loop_num; i++)
 
     // process the remaining data(less than a chunk)
@@ -3161,12 +2631,12 @@ class SparseEmbeddingHashFunctors {
         }
       }
 
-      std::cout << "\rUploading " << std::fixed << std::setprecision(2)
-                << (float)(i) / loop_num * 100.0f << "%, loop " << i << " of " << loop_num
-                << std::flush;
+      /*       std::cout << "\rUploading " << std::fixed << std::setprecision(2)
+                      << (float)(i) / loop_num * 100.0f << "%, loop " << i << " of " << loop_num
+                      << std::flush; */
     }  // end of for(int i = 0; i < loop_num; i++)
 
-    std::cout << std::endl;
+    //std::cout << std::endl;
 
     // process the remaining data(less than a chunk)
     int remain_size_in_B = file_size_in_B - loop_num * hash_table_chunk_size_in_B;
@@ -3279,7 +2749,8 @@ class SparseEmbeddingHashFunctors {
     weight_stream.seekg(0, weight_stream.beg);
     // size_t hash_table_size_in_B =
     //     vocabulary_size * (sizeof(TypeHashKey) + sizeof(TypeHashValueIndex) +
-    //                        (size_t)embedding_vec_size * sizeof(float));  // key+ slot_id + value
+    //                        (size_t)embedding_vec_size * sizeof(float));  // key+ slot_id +
+    //                        value
     // if (file_size_in_B > hash_table_size_in_B) {
     //   CK_THROW_(Error_t::WrongInput,
     //             "Error: hash table file size " + std::to_string(file_size_in_B) +
@@ -3297,8 +2768,8 @@ class SparseEmbeddingHashFunctors {
     // define size
     int local_gpu_count = device_resources->size();
     int chunk_loop = 1000;
-    int tile_size = 1;  // must be 1, because we need to cal (key&local_gpu_count) to decide gpu_id
-                        // for each <key,value>
+    int tile_size = 1;  // must be 1, because we need to cal (key&local_gpu_count) to decide
+                        // gpu_id for each <key,value>
     int hash_table_key_tile_size = tile_size;
     int hash_table_key_tile_size_in_B = hash_table_key_tile_size * sizeof(TypeHashKey);
     int hash_table_value_tile_size = tile_size * embedding_vec_size;
@@ -3458,12 +2929,12 @@ class SparseEmbeddingHashFunctors {
         tile_counter_in_chunk_per_gpu[id] = 0;  // reset chunk counter to zero
       }
 
-      std::cout << "\rUploading " << std::fixed << std::setprecision(2)
-                << (float)(i) / loop_num * 100.0f << "%, loop " << i << " of " << loop_num
-                << std::flush;
+      /*       std::cout << "\rUploading " << std::fixed << std::setprecision(2)
+                      << (float)(i) / loop_num * 100.0f << "%, loop " << i << " of " << loop_num
+                      << std::flush; */
     }  // end of for(int i = 0; i < loop_num; i++)
 
-    std::cout << std::endl;
+    //std::cout << std::endl;
 
     // process the remaining data(less than a chunk)
     int remain_size_in_B = file_size_in_B - loop_num * hash_table_chunk_size_in_B;
@@ -3688,11 +3159,13 @@ class SparseEmbeddingHashFunctors {
                value_size);
         offset += value_size;
 
-        std::cout << "\rRank" << my_rank << ": Seperate keys and values on GPU" << id << ", finish "
-                  << k << " of total count " << count[id] << ", " << (float)k / count[id] * 100.0f
-                  << "%" << std::flush;
+        /*         std::cout << "\rRank" << my_rank << ": Seperate keys and values on GPU" << id <<
+           ", finish "
+                          << k << " of total count " << count[id] << ", " << (float)k / count[id] *
+           100.0f
+                          << "%" << std::flush; */
       }
-      std::cout << std::endl;
+      //std::cout << std::endl;
       if (my_rank == master_node) {
         MESSAGE_("Rank" + std::to_string(my_rank) + ": Write hash table <key,value> pairs to file");
         weight_stream.write(file_buf.get(), size_in_B);
@@ -3888,10 +3361,11 @@ class SparseEmbeddingHashFunctors {
       size_t size_in_B = count[id] * pair_size_in_B;
       size_t offset = 0;
       for (unsigned int k = 0; k < count[id]; k++) {
-        std::cout << "\rRank" << my_rank << ": Seperate keys, slot_ids and values on GPU" << id
-                  << ", finish " << k << " of total count " << count[id] << ", "
-                  << (float)k / count[id] * 100.0f << "%" << std::flush;
-
+        /*         std::cout << "\rRank" << my_rank << ": Seperate keys, slot_ids and values on GPU"
+           << id
+                          << ", finish " << k << " of total count " << count[id] << ", "
+                          << (float)k / count[id] * 100.0f << "%" << std::flush;
+         */
         memcpy(file_buf.get() + offset, h_hash_table_key[id] + k, key_size);
         offset += key_size;
         memcpy(file_buf.get() + offset, h_hash_table_slot_id[id] + k, slot_id_size);
@@ -3900,7 +3374,7 @@ class SparseEmbeddingHashFunctors {
                value_size);
         offset += value_size;
       }
-      std::cout << std::endl;
+      //std::cout << std::endl;
       if (my_rank == master_node) {
         MESSAGE_("Rank" + std::to_string(my_rank) + ": Write hash table <key,value> pairs to file");
         weight_stream.write(file_buf.get(), size_in_B);
@@ -4098,9 +3572,10 @@ class SparseEmbeddingHashFunctors {
       size_t size_in_B = count[id] * pair_size_in_B;
       size_t offset = 0;
       for (unsigned int k = 0; k < count[id]; k++) {
-        std::cout << "\rRank" << my_rank << ": Seperate keys, slot_ids and values on GPU" << id
-                  << ", finish " << k << " of total count " << count[id] << ", "
-                  << (float)k / count[id] * 100.0f << "%" << std::flush;
+        /*         std::cout << "\rRank" << my_rank << ": Seperate keys, slot_ids and values on GPU"
+           << id
+                          << ", finish " << k << " of total count " << count[id] << ", "
+                          << (float)k / count[id] * 100.0f << "%" << std::flush; */
 
         memcpy(file_buf.get() + offset, h_hash_table_key[id] + k, key_size);
         offset += key_size;
@@ -4110,7 +3585,7 @@ class SparseEmbeddingHashFunctors {
                value_size);
         offset += value_size;
       }
-      std::cout << std::endl;
+      //std::cout << std::endl;
       if (my_rank == master_node) {
         MESSAGE_("Rank" + std::to_string(my_rank) + ": Write hash table <key,value> pairs to file");
         weight_stream.write(file_buf.get(), size_in_B);

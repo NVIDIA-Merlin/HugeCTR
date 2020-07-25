@@ -182,12 +182,6 @@ void DataReaderWorker<T>::read_a_batch() {
               ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
             }
 
-#ifndef NDEBUG
-            if (i >= 0) {
-              std::cout << "[HCDEBUG]"
-                        << "nnz: " << nnz << "sample " << i << std::endl;
-            }
-#endif
             CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
             if (param.type == DataReaderSparse_t::Distributed) {
               for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {

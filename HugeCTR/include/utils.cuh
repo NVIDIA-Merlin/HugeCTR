@@ -47,9 +47,7 @@ struct TypeFunc<__half2> {
 };
 
 template <typename TOUT, typename TIN>
-struct TypeConvertFunc {
-  static __forceinline__ __device__ TOUT convert(TIN val) { return (TOUT)val; }
-};
+struct TypeConvertFunc;
 
 template <>
 struct TypeConvertFunc<__half, float> {
@@ -96,23 +94,6 @@ __inline__ __device__ T blockReduceSum(T val) {
   return val;
 }
 
-template <typename T>
-__forceinline__ __device__ void atomic_global_sum_div(T val, T* acc, float div) {
-  val = warpReduceSum(val);
-  if (threadIdx.x % warpSize == 0) {
-    atomicAdd(acc, (T)(val / div));
-  }
-  return;
-}
-
-template <typename T>
-__forceinline__ __device__ void atomic_global_sum(T val, T* acc) {
-  val = warpReduceSum(val);
-  if (threadIdx.x % warpSize == 0) {
-    atomicAdd(acc, val);
-  }
-  return;
-}
 
 template <typename T>
 __global__ void initialize_array(T* array, int num_elements, T value) {
@@ -139,21 +120,6 @@ __global__ void convert_array(TOUT* out, const TIN* in, int num_elements) {
   for (int tid = tid_base; tid < num_elements; tid += num_threads) {
     out[tid] = TypeConvertFunc<TOUT, TIN>::convert(__ldg(in + tid));
   }
-}
-
-template <typename T>
-__device__ __forceinline__ T clip(T val, T min, T max) {
-  val = val < min ? min : val;
-  val = val > max ? max : val;
-  return val;
-}
-
-template <typename T>
-__device__ __forceinline__ bool isnan(T val) {
-  if (val != val) {
-    return true;
-  }
-  return false;
 }
 
 }  // namespace HugeCTR

@@ -48,7 +48,7 @@ void CastLayer::fprop(cudaStream_t stream) {
   cast_kernel<<<blocks, threads, 0, stream>>>(top, bottom, bottom_tensor_->get_num_elements());
 
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
@@ -57,7 +57,7 @@ void CastLayer::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
