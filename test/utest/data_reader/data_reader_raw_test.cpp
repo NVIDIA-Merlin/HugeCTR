@@ -98,7 +98,7 @@ TEST(data_reader_raw, data_reader_raw_test) {
   params.push_back(param);
 
   DataReader<T> data_reader(file_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 1, DataReaderType_t::Raw, num_samples, slot_offset);
+                            gpu_resource_group, 1, true, DataReaderType_t::Raw, num_samples, slot_offset);
 
   long long current_batchsize = data_reader.read_a_batch_to_device();
   std::cout << "current_batchsize: " << current_batchsize << std::endl;
@@ -106,7 +106,7 @@ TEST(data_reader_raw, data_reader_raw_test) {
   print_tensor(*data_reader.get_value_tensors()[1], 0, 30);
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 30);
   print_tensor(*data_reader.get_label_tensors()[0], 0, 30);
-  print_tensor(*data_reader.get_dense_tensors()[0], 0, 30);
+  print_tensor(*dynamic_tensor_cast<__half>(data_reader.get_dense_tensors()[0]), 0, 30);
   print_tensor(*data_reader.get_value_tensors()[0], 0, 30);
   print_tensor(*data_reader.get_row_offsets_tensors()[0], 0, 30);
 

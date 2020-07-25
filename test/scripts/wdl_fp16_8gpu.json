@@ -89,17 +89,11 @@
         "leading_dim": 2
       },
       {
-          "name": "cast1",
-          "type": "Cast",
-          "bottom": "dense",
-          "top": "cast1"
-      },
-      {
         "name": "concat1",
         "type": "Concat",
         "bottom": [
           "reshape1",
-          "cast1"
+          "dense"
         ],
         "top": "concat1"
       },

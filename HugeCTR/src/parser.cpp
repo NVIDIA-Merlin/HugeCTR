@@ -1200,29 +1200,29 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
         switch (format) {
           case DataReaderType_t::Norm: {
+
 #ifdef VAL
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                       check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 1));
+                                                      gpu_resource_group, 1, use_mixed_precision));
 #else
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                       check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group));
+                                                      gpu_resource_group, 31, use_mixed_precision));
 
 #endif
 
 #ifdef VAL
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1));
+                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision));
 #else
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group));
+                data_reader_sparse_param_array, gpu_resource_group, 31, use_mixed_precision));
 
 #endif
 
-            //            }
 
             break;
           }
@@ -1247,12 +1247,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                       check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 1, format, num_samples,
+                                                      gpu_resource_group, 1, use_mixed_precision, format, num_samples,
                                                       slot_offset, false, false, true));
 #else
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                       check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 12, format, num_samples,
+                                                      gpu_resource_group, 12, use_mixed_precision, format, num_samples,
                                                       slot_offset, false, false, true));
 
 #endif
@@ -1263,12 +1263,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, format, eval_num_samples,
+                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format, eval_num_samples,
                 slot_offset, cache_eval_data, false, false));
 #else
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 12, format, eval_num_samples,
+                data_reader_sparse_param_array, gpu_resource_group, 12, use_mixed_precision, format, eval_num_samples,
                 slot_offset, cache_eval_data, false, false));
 
 #endif
