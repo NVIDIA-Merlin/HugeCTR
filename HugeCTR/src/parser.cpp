@@ -137,35 +137,35 @@ OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
   switch (optimizer_type) {
     case Optimizer_t::Adam: {
       auto j_hparam = get_json(j_optimizer, "adam_hparam");
-      auto alpha = (Type)get_value_from_json<float>(j_hparam, "alpha");
-      auto beta1 = (Type)get_value_from_json<float>(j_hparam, "beta1");
-      auto beta2 = (Type)get_value_from_json<float>(j_hparam, "beta2");
-      auto epsilon = (Type)get_value_from_json<float>(j_hparam, "epsilon");
+      float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
+      float beta1 = get_value_from_json<float>(j_hparam, "beta1");
+      float beta2 = get_value_from_json<float>(j_hparam, "beta2");
+      float epsilon = get_value_from_json<float>(j_hparam, "epsilon");
       opt_hyper_params.adam.beta1 = beta1;
       opt_hyper_params.adam.beta2 = beta2;
       opt_hyper_params.adam.epsilon = epsilon;
-      opt_params = {Optimizer_t::Adam, alpha, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::Adam, learning_rate, opt_hyper_params, global_update};
       break;
     }
     case Optimizer_t::MomentumSGD: {
       auto j_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
-      auto learning_rate = (Type)get_value_from_json<float>(j_hparam, "learning_rate");
-      auto momentum_factor = (Type)get_value_from_json<float>(j_hparam, "momentum_factor");
+      float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
+      float momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.momentum.factor = momentum_factor;
       opt_params = {Optimizer_t::MomentumSGD, learning_rate, opt_hyper_params, global_update};
       break;
     }
     case Optimizer_t::Nesterov: {
       auto j_hparam = get_json(j_optimizer, "nesterov_hparam");
-      auto learning_rate = (Type)get_value_from_json<float>(j_hparam, "learning_rate");
-      auto momentum_factor = (Type)get_value_from_json<float>(j_hparam, "momentum_factor");
+      float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
+      float momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.nesterov.mu = momentum_factor;
       opt_params = {Optimizer_t::Nesterov, learning_rate, opt_hyper_params, global_update};
       break;
     }
     case Optimizer_t::SGD: {
       auto j_hparam = get_json(j_optimizer, "sgd_hparam");
-      auto learning_rate = (Type)get_value_from_json<float>(j_hparam, "learning_rate");
+      auto learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       opt_params = {Optimizer_t::SGD, learning_rate, opt_hyper_params, global_update};
       break;
     }

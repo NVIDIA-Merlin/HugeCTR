@@ -1,4 +1,4 @@
-image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04-rc
+image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -8,7 +8,7 @@ before_script:
   - apt update && apt install -y cmake
   - mkdir ${CI_PROJECT_DIR}/build
   - cd ${CI_PROJECT_DIR}/build
-  - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 -DNCCL_INCLUDE_DIR=/usr/local/cuda-11.0/targets/x86_64-linux/include -DNCCL_LIBRARIES=/usr/local/cuda-11.0/targets/x86_64-linux/lib ..
+  - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 ..
   - make -j
 
 criteo:
@@ -45,20 +45,31 @@ wdl_deepfm:
     - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_1gpu.json
     - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_8gpu.json
 
+dlrm:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/dcn
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_8gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_8gpu.json
+
 unit_tests:
   tags:
     - hugectr
   script:
     - cd ${CI_PROJECT_DIR}/build/bin
     - ./session_test
+    - ./layers_test
+    - ./embedding_test
     - ./checker_test
     - ./data_parser_test
     - ./data_reader_test
     - ./device_map_test
-    - ./embedding_test
     - ./heap_test
     - ./loss_test
     - ./optimizer_test
     - ./parser_test
     - ./regularizers_test
-    - ./layers_test
+

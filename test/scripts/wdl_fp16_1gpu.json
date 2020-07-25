@@ -11,15 +11,16 @@
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "eval_batches": 2048,
-    "mixed_precision": 1024,
-    "eval_metrics": ["AUC:0.8025"]
+    "mixed_precision": 1024
   },
   "optimizer": {
-    "type": "SGD",
-    "global_update": false,
-    "sgd_hparam": {
-       "learning_rate": 8.0,
-       "warmup_steps": 1000
+    "type": "Adam",
+    "global_update": true,
+    "adam_hparam": {
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "epsilon": 0.0001
     }
   },
   "layers": [
@@ -59,7 +60,7 @@
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
         "max_vocabulary_size_per_gpu": 2322444,
-        "embedding_vec_size": 2,
+        "embedding_vec_size": 1,
         "combiner": 0
       }
     },
@@ -86,7 +87,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding2",
       "top": "reshape2",
-      "leading_dim": 2
+      "leading_dim": 1
     },
     {
       "name": "concat1",
@@ -151,18 +152,11 @@
       }
     },
     {
-      "name": "slice1",
-      "type": "Slice",
-      "bottom": "reshape2",
-      "ranges": [[0,1], [1,2]],
-      "top": ["slice11", "slice12"]
-    },
-    {
       "name": "add1",
       "type": "Add",
       "bottom": [
         "fc4",
-        "slice11"
+        "reshape2"
       ],
       "top": "add1"
     },

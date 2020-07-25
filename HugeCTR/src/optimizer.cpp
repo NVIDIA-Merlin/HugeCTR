@@ -37,11 +37,11 @@ std::unique_ptr<Optimizer> Optimizer::Create(const OptParams<T>& params,
 
   switch (params.optimizer) {
     case Optimizer_t::Adam: {
-      auto alpha = params.lr;
+      auto lr = params.lr;
       auto beta1 = params.hyperparams.adam.beta1;
       auto beta2 = params.hyperparams.adam.beta2;
       auto epsilon = params.hyperparams.adam.epsilon;
-      ret.reset(new AdamOptimizer(weight_main, wgrad, wgrad_half, mixed_precision, device_id, alpha,
+      ret.reset(new AdamOptimizer(weight_main, wgrad, wgrad_half, mixed_precision, device_id, lr,
                                   beta1, beta2, epsilon, scaler));
       break;
     }

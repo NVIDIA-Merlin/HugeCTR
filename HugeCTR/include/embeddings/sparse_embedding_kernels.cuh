@@ -47,11 +47,12 @@ namespace HugeCTR {
  */
 
 // forward kernel funcion: for both combiner=sum and combiner=mean
-template <typename TypeKey, typename TypeValueIndex>
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
 __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_vec_size,
                                    const TypeKey *row_offset,
                                    const TypeValueIndex *hash_value_index,
-                                   const float *hash_table_value, float *embedding_feature) {
+                                   const float *hash_table_value,
+                                   TypeEmbeddingComp *embedding_feature) {
   int bid = blockIdx.x;   // each block corresponding to one sample
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
@@ -71,17 +72,25 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
       }
 
       // store the embedding vector
-      embedding_feature[feature_row_index * embedding_vec_size + tid] = sum;
+      embedding_feature[feature_row_index * embedding_vec_size + tid] =
+          TypeConvertFunc<TypeEmbeddingComp, float>::convert(sum);
     }
   }
 }
 
-// overload for fp16
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
+__global__ void forward_sum_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                          const TypeKey *row_offset,
+                                          const TypeValueIndex *hash_value_index,
+                                          const float *hash_table_value,
+                                          TypeEmbeddingComp *embedding_feature);
+
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_vec_size,
-                                   const TypeKey *row_offset,
-                                   const TypeValueIndex *hash_value_index,
-                                   const float *hash_table_value, __half *embedding_feature) {
+__global__ void forward_sum_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                          const TypeKey *row_offset,
+                                          const TypeValueIndex *hash_value_index,
+                                          const float *hash_table_value,
+                                          __half *embedding_feature) {
   int bid = blockIdx.x;   // each block corresponding to one sample
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
@@ -111,14 +120,14 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
 }
 
 // fuse foward_sum_kernel + all2all + forward_reorder into one kernel
-template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size_t batch_size,
-                                             size_t batch_size_per_gpu, int slot_num,
-                                             int slot_num_per_gpu, int embedding_vec_size,
-                                             const TypeKey *row_offset,
-                                             const TypeValueIndex *hash_value_index,
-                                             const float *hash_table_value,
-                                             float **embedding_features) {
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
+__global__ void forward_sum_fuse_kernel(int local_gpu_id, int gpu_num, size_t batch_size,
+                                        size_t batch_size_per_gpu, int slot_num,
+                                        int slot_num_per_gpu, int embedding_vec_size,
+                                        const TypeKey *row_offset,
+                                        const TypeValueIndex *hash_value_index,
+                                        const float *hash_table_value,
+                                        TypeEmbeddingComp **embedding_features) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
   int offset = (local_gpu_id + 1) * batch_size_per_gpu;
@@ -147,7 +156,8 @@ __global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size
         size_t feature_id = sample_id * slot_num + slot_id;  // feature id on target gpu
 
         // store the embedding vector
-        embedding_features[gpu_id][feature_id * embedding_vec_size + tid] = sum;
+        embedding_features[gpu_id][feature_id * embedding_vec_size + tid] =
+            TypeConvertFunc<TypeEmbeddingComp, float>::convert(sum);
       }
     }
   }
@@ -155,13 +165,13 @@ __global__ void forward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size
 
 // overload for fp16
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size_t batch_size,
-                                             size_t batch_size_per_gpu, int slot_num,
-                                             int slot_num_per_gpu, int embedding_vec_size,
-                                             const TypeKey *row_offset,
-                                             const TypeValueIndex *hash_value_index,
-                                             const float *hash_table_value,
-                                             __half **embedding_features) {
+__global__ void forward_sum_fuse_align2_kernel(int local_gpu_id, int gpu_num, size_t batch_size,
+                                               size_t batch_size_per_gpu, int slot_num,
+                                               int slot_num_per_gpu, int embedding_vec_size,
+                                               const TypeKey *row_offset,
+                                               const TypeValueIndex *hash_value_index,
+                                               const float *hash_table_value,
+                                               __half **embedding_features) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
   int offset = (local_gpu_id + 1) * batch_size_per_gpu;
@@ -204,9 +214,10 @@ __global__ void forward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size
 
 // forward kernel function: this is an additional function for combiner=mean (only for Distributed
 // Embedding)
-template <typename TypeKey>
+template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void forward_scale_kernel(int batch_size, int slot_num, int embedding_vec_size,
-                                     const TypeKey *row_offset, float *embedding_feature) {
+                                     const TypeKey *row_offset,
+                                     TypeEmbeddingComp *embedding_feature) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -215,21 +226,27 @@ __global__ void forward_scale_kernel(int batch_size, int slot_num, int embedding
       size_t feature_row_index = bid * slot_num + i;
       int feature_num = row_offset[feature_row_index + 1] - row_offset[feature_row_index];
       size_t feature_index = feature_row_index * embedding_vec_size + tid;
-      float feature = embedding_feature[feature_index];
+      float feature =
+          TypeConvertFunc<float, TypeEmbeddingComp>::convert(embedding_feature[feature_index]);
       float scaler = 1.0f;
       if (feature_num > 1) {
         scaler = 1.0f / (float)feature_num;
       }
 
-      embedding_feature[feature_index] = feature * scaler;
+      embedding_feature[feature_index] =
+          TypeConvertFunc<TypeEmbeddingComp, float>::convert(feature * scaler);
     }
   }
 }
 
-// overload for fp16
+template <typename TypeKey, typename TypeEmbeddingComp>
+__global__ void forward_scale_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                            const TypeKey *row_offset,
+                                            TypeEmbeddingComp *embedding_feature);
+
 template <typename TypeKey>
-__global__ void forward_scale_kernel(int batch_size, int slot_num, int embedding_vec_size,
-                                     const TypeKey *row_offset, __half *embedding_feature) {
+__global__ void forward_scale_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                            const TypeKey *row_offset, __half *embedding_feature) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -255,11 +272,12 @@ __global__ void forward_scale_kernel(int batch_size, int slot_num, int embedding
 }
 
 // forward kernel funcion: for combiner=mean in LocalizedEmbedding
-template <typename TypeKey, typename TypeValueIndex>
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
 __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_vec_size,
                                     const TypeKey *row_offset,
                                     const TypeValueIndex *hash_value_index,
-                                    const float *hash_table_value, float *embedding_feature) {
+                                    const float *hash_table_value,
+                                    TypeEmbeddingComp *embedding_feature) {
   int bid = blockIdx.x;   // each block corresponding to one sample
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
@@ -284,17 +302,25 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
       }
 
       // store the embedding vector
-      embedding_feature[feature_row_index * embedding_vec_size + tid] = (sum * scaler);
+      embedding_feature[feature_row_index * embedding_vec_size + tid] =
+          TypeConvertFunc<TypeEmbeddingComp, float>::convert(sum * scaler);
     }
   }
 }
 
-// overload for fp16
+template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
+__global__ void forward_mean_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                           const TypeKey *row_offset,
+                                           const TypeValueIndex *hash_value_index,
+                                           const float *hash_table_value,
+                                           TypeEmbeddingComp *embedding_feature);
+
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_vec_size,
-                                    const TypeKey *row_offset,
-                                    const TypeValueIndex *hash_value_index,
-                                    const float *hash_table_value, __half *embedding_feature) {
+__global__ void forward_mean_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                           const TypeKey *row_offset,
+                                           const TypeValueIndex *hash_value_index,
+                                           const float *hash_table_value,
+                                           __half *embedding_feature) {
   int bid = blockIdx.x;   // each block corresponding to one sample
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
@@ -330,9 +356,9 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
 }
 
 // backward kernel function: for combiner=sum
-template <typename TypeKey>
+template <typename TypeEmbeddingComp>
 __global__ void backward_sum_kernel(int batch_size, int slot_num, int embedding_vec_size,
-                                    const float *top_grad, float *wgrad) {
+                                    const TypeEmbeddingComp *top_grad, TypeEmbeddingComp *wgrad) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
 
@@ -344,10 +370,14 @@ __global__ void backward_sum_kernel(int batch_size, int slot_num, int embedding_
   }
 }
 
-// overload for fp16
-template <typename TypeKey>
-__global__ void backward_sum_kernel(int batch_size, int slot_num, int embedding_vec_size,
-                                    const __half *top_grad, __half *wgrad) {
+template <typename TypeEmbeddingComp>
+__global__ void backward_sum_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                           const TypeEmbeddingComp *top_grad,
+                                           TypeEmbeddingComp *wgrad);
+
+template <>
+__global__ void backward_sum_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                           const __half *top_grad, __half *wgrad) {
   int tid = threadIdx.x;
   int bid = blockIdx.x;
 
@@ -363,10 +393,12 @@ __global__ void backward_sum_kernel(int batch_size, int slot_num, int embedding_
 }
 
 // fuse backward_reorder_kernel + all2all + backward_sum_kernel into one kernel
-__global__ void backward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, size_t batch_size,
-                                              size_t batch_size_per_gpu, int slot_num,
-                                              int slot_num_per_gpu, int embedding_vec_size,
-                                              float **embedding_features, float *wgrad) {
+template <typename TypeEmbeddingComp>
+__global__ void backward_sum_fuse_kernel(int local_gpu_id, int gpu_num, size_t batch_size,
+                                         size_t batch_size_per_gpu, int slot_num,
+                                         int slot_num_per_gpu, int embedding_vec_size,
+                                         TypeEmbeddingComp **embedding_features,
+                                         TypeEmbeddingComp *wgrad) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
   // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
@@ -394,10 +426,10 @@ __global__ void backward_sum_fuse_kernel_fp32(int local_gpu_id, int gpu_num, siz
 }
 
 // overload for fp16
-__global__ void backward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, size_t batch_size,
-                                              size_t batch_size_per_gpu, int slot_num,
-                                              int slot_num_per_gpu, int embedding_vec_size,
-                                              __half **embedding_features, __half *wgrad) {
+__global__ void backward_sum_fuse_align2_kernel(int local_gpu_id, int gpu_num, size_t batch_size,
+                                                size_t batch_size_per_gpu, int slot_num,
+                                                int slot_num_per_gpu, int embedding_vec_size,
+                                                __half **embedding_features, __half *wgrad) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
   // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
@@ -428,10 +460,10 @@ __global__ void backward_sum_fuse_kernel_fp16(int local_gpu_id, int gpu_num, siz
 }
 
 // backward kernel function: for combiner=mean
-template <typename TypeKey>
+template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void backward_mean_kernel(int batch_size, int slot_num, int embedding_vec_size,
-                                     const TypeKey *row_offset, const float *top_grad,
-                                     float *wgrad) {
+                                     const TypeKey *row_offset, const TypeEmbeddingComp *top_grad,
+                                     TypeEmbeddingComp *wgrad) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -445,16 +477,23 @@ __global__ void backward_mean_kernel(int batch_size, int slot_num, int embedding
       }
 
       size_t feature_index = feature_row_index * embedding_vec_size + tid;
-      wgrad[feature_index] = scaler * top_grad[feature_index];
+      float g = TypeConvertFunc<float, TypeEmbeddingComp>::convert(top_grad[feature_index]);
+      g *= scaler;
+      wgrad[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(g);
     }
   }
 }
 
-// overload for fp16
+template <typename TypeKey, typename TypeEmbeddingComp>
+__global__ void backward_mean_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                            const TypeKey *row_offset,
+                                            const TypeEmbeddingComp *top_grad,
+                                            TypeEmbeddingComp *wgrad);
+
 template <typename TypeKey>
-__global__ void backward_mean_kernel(int batch_size, int slot_num, int embedding_vec_size,
-                                     const TypeKey *row_offset, const __half *top_grad,
-                                     __half *wgrad) {
+__global__ void backward_mean_align2_kernel(int batch_size, int slot_num, int embedding_vec_size,
+                                            const TypeKey *row_offset, const __half *top_grad,
+                                            __half *wgrad) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -565,16 +604,21 @@ template <typename TypeEmbeddingComp>
 __global__ void adam_update_kernel_global(int embedding_vec_size,
                                           size_t table_size,  // vocabulary size / factor
                                           const AdamOptHyperParams<TypeEmbeddingComp> adam,
+                                          float alpha_t,
                                           float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
-    float mi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.m_ptr[feature_index]);
-    float vi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.v_ptr[feature_index]);
-    float weight_diff = -adam.alpha_t * mi / (sqrtf(vi) + adam.epsilon);
+    float mi =
+        adam.beta1 * TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.m_ptr[feature_index]);
+    float vi =
+        adam.beta2 * TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.v_ptr[feature_index]);
+
+    adam.m_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mi);
+    adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
+
+    float weight_diff = -alpha_t * mi / (sqrtf(vi) + adam.epsilon);
     hash_table_value[feature_index] += weight_diff;
-    adam.m_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(adam.beta1 * mi);
-    adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(adam.beta2 * vi);
   }
 }
 
@@ -607,9 +651,11 @@ __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int 
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
     float mi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.m_ptr[feature_index]) +
-               (1.0f - adam.beta1) * gi;
+               (1.0f - adam.beta1) * gi / adam.beta1;
+
     float vi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.v_ptr[feature_index]) +
-               (1.0f - adam.beta2) * gi * gi;
+               (1.0f - adam.beta2) * gi * gi / adam.beta2;
+
     adam.m_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mi);
     adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
   }
@@ -644,7 +690,7 @@ __global__ void opt_momentum_sgd_kernel_global(
     size_t feature_index = row_index * embedding_vec_size + tid;
     float mo =
         TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum.momentum_ptr[feature_index]) -
-        lr * gi;
+        lr * gi / momentum.factor;
     momentum.momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
   }
 }
@@ -659,9 +705,9 @@ __global__ void momentum_sgd_update_kernel_global(
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
     float mo =
         TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum.momentum_ptr[feature_index]);
+    mo *= momentum.factor;
     hash_table_value[feature_index] += mo;
-    momentum.momentum_ptr[feature_index] =
-        TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo * momentum.factor);
+    momentum.momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
   }
 }
 
@@ -759,7 +805,7 @@ __global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num, int embeddin
 // calculate weights update value(deltaw) by adam opitimizer
 template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                const AdamOptHyperParams<TypeEmbeddingComp> adam,
+                                const AdamOptHyperParams<TypeEmbeddingComp> adam, float alpha_t,
                                 const TypeKey *sample_id,
                                 const TypeValueIndex *hash_value_index_sort,
                                 const uint32_t *hash_value_index_count_offset,
@@ -794,7 +840,7 @@ __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embeddi
         (1.0f - adam.beta2) * gi * gi;
     adam.m_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mi);
     adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
-    float weight_diff = -adam.alpha_t * mi / (sqrtf(vi) + adam.epsilon);
+    float weight_diff = -alpha_t * mi / (sqrtf(vi) + adam.epsilon);
 
     // save weights diff
     deltaw[bid * embedding_vec_size + tid] = weight_diff;
@@ -1001,9 +1047,10 @@ __global__ void get_hash_slot_id_kernel(size_t count, const TypeValueIndex *valu
 }
 
 // reorder operation after all2all in forward propagation
-template <typename Type>
+template <typename TypeEmbeddingComp>
 __global__ void forward_reorder_kernel(int batch_size_per_gpu, int slot_num, int embedding_vec_size,
-                                       int gpu_num, const Type *input, Type *output) {
+                                       int gpu_num, const TypeEmbeddingComp *input,
+                                       TypeEmbeddingComp *output) {
   // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding
   // vector gridDim.x = batch_size / gpu_num = samples_per_gpu; // each block corresponding to one
   // sample on each GPU Each thread needs to process slot_num slots
@@ -1036,11 +1083,16 @@ __global__ void forward_reorder_kernel(int batch_size_per_gpu, int slot_num, int
   }
 }
 
-// template specialization for fp16
+template <typename TypeEmbeddingComp>
+__global__ void forward_reorder_align2_kernel(int batch_size_per_gpu, int slot_num,
+                                              int embedding_vec_size, int gpu_num,
+                                              const TypeEmbeddingComp *input,
+                                              TypeEmbeddingComp *output);
+
 // reorder operation after all2all in forward propagation
-template <>
-__global__ void forward_reorder_kernel(int batch_size_per_gpu, int slot_num, int embedding_vec_size,
-                                       int gpu_num, const __half *input, __half *output) {
+__global__ void forward_reorder_align2_kernel(int batch_size_per_gpu, int slot_num,
+                                              int embedding_vec_size, int gpu_num,
+                                              const __half *input, __half *output) {
   // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding
   // vector gridDim.x = batch_size / gpu_num = samples_per_gpu; // each block corresponding to one
   // sample on each GPU Each thread needs to process slot_num slots
@@ -1077,10 +1129,10 @@ __global__ void forward_reorder_kernel(int batch_size_per_gpu, int slot_num, int
 }
 
 // reorder operation before all2all in backward propagation
-template <typename Type>
+template <typename TypeEmbeddingComp>
 __global__ void backward_reorder_kernel(int batch_size_per_gpu, int slot_num,
-                                        int embedding_vec_size, int gpu_num, const Type *input,
-                                        Type *output) {
+                                        int embedding_vec_size, int gpu_num,
+                                        const TypeEmbeddingComp *input, TypeEmbeddingComp *output) {
   // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding
   // vector gridDim.x = batch_size / gpu_num = samples_per_gpu; // each block corresponding to one
   // sample on each GPU Each thread needs to process slot_num slots
@@ -1112,12 +1164,16 @@ __global__ void backward_reorder_kernel(int batch_size_per_gpu, int slot_num,
   }
 }
 
-// template specialization for fp16
+template <typename TypeEmbeddingComp>
+__global__ void backward_reorder_align2_kernel(int batch_size_per_gpu, int slot_num,
+                                               int embedding_vec_size, int gpu_num,
+                                               const TypeEmbeddingComp *input,
+                                               TypeEmbeddingComp *output);
+
 // reorder operation before all2all in backward propagation
-template <>
-__global__ void backward_reorder_kernel(int batch_size_per_gpu, int slot_num,
-                                        int embedding_vec_size, int gpu_num, const __half *input,
-                                        __half *output) {
+__global__ void backward_reorder_align2_kernel(int batch_size_per_gpu, int slot_num,
+                                               int embedding_vec_size, int gpu_num,
+                                               const __half *input, __half *output) {
   // blockDim.x = embedding_vec_size; // each thread corresponding to one element of embedding
   // vector gridDim.x = batch_size / gpu_num = samples_per_gpu; // each block corresponding to one
   // sample on each GPU Each thread needs to process slot_num slots

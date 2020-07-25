@@ -221,10 +221,9 @@ Embedding<TypeKey, TypeEmbeddingComp>::Embedding(
 template<typename T>
 struct AdamOptHyperParams {  // TODO: move to optimizer
   uint64_t times = 0;
-  float alpha_t = 0.0f;
   float beta1 = 0.9f;
   float beta2 = 0.999f;
-  float epsilon = 1e-6f;
+  float epsilon = 1e-7f;
   T* m_ptr = nullptr;
   T* v_ptr = nullptr;
 };

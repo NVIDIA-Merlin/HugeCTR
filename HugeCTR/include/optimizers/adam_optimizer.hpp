@@ -31,7 +31,7 @@ class AdamOptimizer : public Optimizer {
    * @param weight_main weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
-   * @param alpha learning rate, alpha in Adam paper
+   * @param learning_rate learning rate, alpha in Adam paper
    * @param beta1 beta1 in Adam paper
    * @param beta2 beta2 in Adam paper
    * @param epsilon epsilon in Adam paper
@@ -39,8 +39,8 @@ class AdamOptimizer : public Optimizer {
   AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
                 const GeneralBufferPtr<float>& fp32_wgrad,
                 const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
-                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8,
-                float scaler = 1.f);
+                float learning_rate = 0.001, float beta1 = 0.9, float beta2 = 0.999,
+                float epsilon = 1e-7, float scaler = 1.f);
 
   /**
    * update the weights using gradient
