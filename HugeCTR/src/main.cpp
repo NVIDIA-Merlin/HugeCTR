@@ -87,6 +87,9 @@ void train(std::string config_file) {
       // display
       float loss = 0;
       session_instance->get_current_loss(&loss);
+      if (std::to_string(loss).empty()){ 
+          throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");   
+      }
       if (pid == 0) {
         MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
                  " iters): " + std::to_string(timer_train.elapsedSeconds()) +
@@ -176,6 +179,10 @@ void train(std::string config_file) {
     if (start_test == true) {
       float loss_tmp = 0;
       session_instance->get_current_loss(&loss_tmp);
+      if (std::to_string(loss_temp).empty()){
+            throw std::runtime_error(std::string("Train Runtime error:Loss cannot converge ") + __FILE__ + ":" + std::to_string(__LINE__) + " \n");   
+      }
+
       loss += loss_tmp;
     }
     if (i % solver_config.eval_interval == solver_config.eval_batches &&

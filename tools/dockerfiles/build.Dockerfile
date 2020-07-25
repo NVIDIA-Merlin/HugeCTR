@@ -27,9 +27,9 @@ RUN cp /usr/local/cuda/lib64/libnccl*  /usr/lib/x86_64-linux-gnu/ && \
     cp /usr/local/cuda-11.0/targets/x86_64-linux/include/nccl*.h  /usr/include
 
 RUN echo 'export PS1="\s \w\$ "' >>/etc/bash.bashrc
-
-RUN git clone -b v2.2-integration https://gitlab-master.nvidia.com/zehuanw/hugectr.git &&\
-    cd hugectr && \
+    
+RUN git clone https://github.com/NVIDIA/HugeCTR.git &&\
+    cd HugeCTR && \
     git submodule update --init --recursive && \
     mkdir build && cd build &&\
     cmake -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DSM=$SM \

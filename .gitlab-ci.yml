@@ -72,4 +72,3 @@ unit_tests:
     - ./optimizer_test
     - ./parser_test
     - ./regularizers_test
-
