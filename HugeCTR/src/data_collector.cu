@@ -21,7 +21,8 @@
 
 namespace HugeCTR {
 
-__global__ void split_kernel__(int batchsize, float* label_ptr, int label_dim, float* dense_ptr,
+template <typename TypeComp>
+__global__ void split_kernel__(int batchsize, float* label_ptr, int label_dim, TypeComp* dense_ptr,
                                int dense_dim, const float* label_dense) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < batchsize * (label_dim + dense_dim)) {
@@ -39,8 +40,8 @@ __global__ void split_kernel__(int batchsize, float* label_ptr, int label_dim, f
   return;
 }
 
-void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor,
-           const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream) {
+template <typename TypeComp>
+void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<TypeComp>> dense_tensor,   const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream) {
   // check the input size
   assert(label_tensor->get_dims()[0] == dense_tensor->get_dims()[0]);
   assert(label_tensor->get_num_elements() + dense_tensor->get_num_elements() ==
@@ -54,11 +55,29 @@ void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<f
   const int GRID_DIM = (label_dense_buffer->get_num_elements() - 1) / BLOCK_DIM + 1;
   assert(dense_dim >= 0 || "dense_dim should be >= 0");
 
-  split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(batchsize, label_tensor->get_ptr(), label_dim,
-                                                     dense_tensor->get_ptr(), dense_dim,
-                                                     label_dense_buffer->get_ptr_with_offset(0));
+  if(dense_dim > 0){
+    split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(batchsize, label_tensor->get_ptr(), label_dim,
+						       dense_tensor->get_ptr(), dense_dim,
+						       label_dense_buffer->get_ptr_with_offset(0));
+  }
+  else if(dense_dim == 0){
+    split_kernel__<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(batchsize, label_tensor->get_ptr(), label_dim,
+						       (TypeComp*)0, 0,
+						       label_dense_buffer->get_ptr_with_offset(0));
+
+  }
+  else{
+    CK_THROW_(Error_t::WrongInput, "dense_dim < 0");
+  }
 
   return;
 }
+
+template
+void split<float>(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<float>> dense_tensor,   const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream);
+
+template
+void split<__half>(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<__half>> dense_tensor,   const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream);
+
 
 }  // namespace HugeCTR
