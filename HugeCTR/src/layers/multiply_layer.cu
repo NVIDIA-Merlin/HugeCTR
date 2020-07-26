@@ -176,38 +176,39 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight
 }
 
 std::unique_ptr<DataSimulator<float>> MultiplyLayer::get_uniform_initializer(const int index) {
-  float bottom_dim = slot_num_;                         
-  float top_dim = slot_num_ * embedding_vec_size_;  
+  float bottom_dim = slot_num_;
+  float top_dim = slot_num_ * embedding_vec_size_;
 
   float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
   return std::unique_ptr<DataSimulator<float>>(new UnifiedDataSimulator<float>(-1 * limit, limit));
 }
 
-std::unique_ptr<DataSimulator<float>> MultiplyLayer::get_xavier_uniform_initializer(const int index) {
-  float bottom_dim = slot_num_;                         
-  float top_dim = slot_num_ * embedding_vec_size_;  
+std::unique_ptr<DataSimulator<float>> MultiplyLayer::get_xavier_uniform_initializer(
+    const int index) {
+  float bottom_dim = slot_num_;
+  float top_dim = slot_num_ * embedding_vec_size_;
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
-            data_simu::Distribution_t::Uniform,
-            0 == index ? bottom_dim : 0, top_dim));
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
+      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform,
+      0 == index ? bottom_dim : 0, top_dim));
 }
 
 std::unique_ptr<DataSimulator<float>> MultiplyLayer::get_xavier_norm_initializer(const int index) {
-  float bottom_dim = slot_num_;                         
-  float top_dim = slot_num_ * embedding_vec_size_;  
+  float bottom_dim = slot_num_;
+  float top_dim = slot_num_ * embedding_vec_size_;
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
-            data_simu::Distribution_t::Norm,
-            0 == index ? bottom_dim : 0, top_dim));
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
+      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm, 0 == index ? bottom_dim : 0,
+      top_dim));
 }
 
 std::unique_ptr<DataSimulator<float>> MultiplyLayer::get_default_initializer(const int index) {
-  float bottom_dim = slot_num_;                         
-  float top_dim = slot_num_ * embedding_vec_size_;  
+  float bottom_dim = slot_num_;
+  float top_dim = slot_num_ * embedding_vec_size_;
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
-            data_simu::Distribution_t::Uniform,
-            0 == index ? bottom_dim : 0, top_dim));
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
+      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform,
+      0 == index ? bottom_dim : 0, top_dim));
 }
 
 void MultiplyLayer::fprop(cudaStream_t stream) {

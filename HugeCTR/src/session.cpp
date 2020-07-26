@@ -19,7 +19,6 @@
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/utils.hpp"
 
-
 #include <algorithm>
 #include <random>
 #include <string>
@@ -35,8 +34,8 @@ std::string generate_random_file_name() {
 
   std::random_device rd;
   std::mt19937 rng(rd());
-  std::uniform_int_distribution<> ch_dist(0, ch_set.size()-1);
-  std::uniform_int_distribution<> len_dist(ch_set.size()/5, ch_set.size()/3);
+  std::uniform_int_distribution<> ch_dist(0, ch_set.size() - 1);
+  std::uniform_int_distribution<> len_dist(ch_set.size() / 5, ch_set.size() / 3);
 
   int length = len_dist(rng);
   auto get_ch = [&ch_set, &ch_dist, &rng]() { return ch_set[ch_dist(rng)]; };
@@ -45,7 +44,6 @@ std::string generate_random_file_name() {
   std::generate_n(ret.begin(), length, get_ch);
   return ret;
 }
-
 
 /**
  * check if device is avaliable.
@@ -77,7 +75,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
   return;
 }
 
-} // end namespace
+}  // end namespace
 
 template <typename TypeKey>
 SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
@@ -99,13 +97,12 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
   }
 
   RandomEngine::get().set_seed(solver_config.seed);
-  Parser parser(solver_config.configure_file,
-                solver_config.batchsize, solver_config.batchsize_eval,
+  Parser parser(solver_config.configure_file, solver_config.batchsize, solver_config.batchsize_eval,
                 solver_config.use_mixed_precision, solver_config.scaler,
                 solver_config.use_algorithm_search);
 
-  parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_,
-                         networks_, networks_eval_, gpu_resource_group_);
+  parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_, networks_,
+                         networks_eval_, gpu_resource_group_);
 
   // init networks.
   std::string TMP_DENSE_NAME;
@@ -115,7 +112,7 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
   }
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
-  int length = (pid == 0)? TMP_DENSE_NAME.length() : 0;
+  int length = (pid == 0) ? TMP_DENSE_NAME.length() : 0;
   MPI_Bcast(&length, 1, MPI_INT, 0, MPI_COMM_WORLD);
   if (pid != 0) {
     TMP_DENSE_NAME.resize(length);
@@ -140,13 +137,11 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
   init_or_load_params_for_sparse_(solver_config.embedding_files);
 
   int num_total_gpus = gpu_resource_group_->get_total_gpu_count();
-  for (const auto& metric: solver_config.metrics_spec) {
+  for (const auto& metric : solver_config.metrics_spec) {
     metrics_.emplace_back(
-        std::move(metrics::Metric::Create(metric.first,
-                  solver_config.use_mixed_precision,
-                  solver_config.batchsize_eval / num_total_gpus,
-                  solver_config.eval_batches,
-                  gpu_resource_group_)));
+        std::move(metrics::Metric::Create(metric.first, solver_config.use_mixed_precision,
+                                          solver_config.batchsize_eval / num_total_gpus,
+                                          solver_config.eval_batches, gpu_resource_group_)));
   }
 }
 
@@ -179,7 +174,7 @@ Error_t SessionImpl<TypeKey>::load_params_for_dense_(const std::string& model_fi
     std::cerr << err.what() << std::endl;
     return Error_t::UnspecificError;
   }
-  return Error_t::Success;  
+  return Error_t::Success;
 }
 
 /**
@@ -188,17 +183,18 @@ Error_t SessionImpl<TypeKey>::load_params_for_dense_(const std::string& model_fi
  * the sequence as discribed in configure file.
  **/
 template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::init_or_load_params_for_sparse_(const std::vector<std::string>& embedding_model_files) {
+Error_t SessionImpl<TypeKey>::init_or_load_params_for_sparse_(
+    const std::vector<std::string>& embedding_model_files) {
   try {
-    for(size_t i = 0; i < embedding_.size(); i++) {
-      if(i < embedding_model_files.size()) {
+    for (size_t i = 0; i < embedding_.size(); i++) {
+      if (i < embedding_model_files.size()) {
         std::ifstream embedding_stream(embedding_model_files[i], std::ifstream::binary);
         if (!embedding_stream.is_open()) {
           CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
-          }
-          std::cout << "Loading sparse model: " << embedding_model_files[i] << std::endl;
-          embedding_[i]->upload_params_to_device(embedding_stream);
-          embedding_stream.close();
+        }
+        std::cout << "Loading sparse model: " << embedding_model_files[i] << std::endl;
+        embedding_[i]->upload_params_to_device(embedding_stream);
+        embedding_stream.close();
       } else {
         embedding_[i]->init_params();
       }
@@ -366,8 +362,8 @@ Error_t SessionImpl<TypeKey>::download_params_to_files(std::string prefix, int i
 }
 
 template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::download_params_to_files_(std::string weights_file,
-                                           const std::vector<std::string>& embedding_files) {
+Error_t SessionImpl<TypeKey>::download_params_to_files_(
+    std::string weights_file, const std::vector<std::string>& embedding_files) {
   try {
     {
       int i = 0;
@@ -468,10 +464,9 @@ template class SessionImpl<long long>;
 std::shared_ptr<Session> Session::Create(const SolverParser& solver_config) {
   std::shared_ptr<Session> session;
   if (solver_config.i64_input_key) {
-   session.reset(new SessionImpl<long long>(solver_config));
-  }
-  else {
-   session.reset(new SessionImpl<unsigned int>(solver_config));
+    session.reset(new SessionImpl<long long>(solver_config));
+  } else {
+    session.reset(new SessionImpl<unsigned int>(solver_config));
   }
   return session;
 }

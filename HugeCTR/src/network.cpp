@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
 #include "HugeCTR/include/layers/relu_layer.hpp"
-#include "HugeCTR/include/network.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
 
 namespace HugeCTR {
 
-void conv_weight_gpu(int grid, int block, __half* dst, float* src, int elems,
-                     cudaStream_t stream);
+void conv_weight_gpu(int grid, int block, __half* dst, float* src, int elems, cudaStream_t stream);
 
 Network::Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
                  bool full_fp16)
@@ -60,15 +59,11 @@ void Network::conv_weight_() {
   const int BLOCK = 256;
   int GRID = (elems - 1) / BLOCK + 1;
   GRID = GRID > 10 * n_sms_ ? 10 * n_sms_ : GRID;
-  conv_weight_gpu(GRID, BLOCK, 
-                  weight_buff_half_->get_ptr_with_offset(0),
-                  weight_buff_->get_ptr_with_offset(0),
-                  elems,
-                  gpu_resource_->get_stream());
+  conv_weight_gpu(GRID, BLOCK, weight_buff_half_->get_ptr_with_offset(0),
+                  weight_buff_->get_ptr_with_offset(0), elems, gpu_resource_->get_stream());
 }
 
 void Network::train() {
-
   // forward
   if (full_fp16_) {
     conv_weight_();
@@ -121,7 +116,6 @@ void Network::train() {
 }
 
 void Network::eval() {
-
   if (enable_cuda_graph_) {
     if (!eval_graph_created_) {
       CK_CUDA_THROW_(

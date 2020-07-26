@@ -23,12 +23,12 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <set>
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include <limits>
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_parser.hpp"
 
@@ -205,8 +205,8 @@ class DataWriter {
 
 template <typename T, Check_t CK_T>
 void data_generation_for_test(std::string file_list_name, std::string data_prefix, int num_files,
-		     int num_records_per_file, int slot_num, int vocabulary_size,
-		     int label_dim, int dense_dim, int max_nnz) {
+                              int num_records_per_file, int slot_num, int vocabulary_size,
+                              int label_dim, int dense_dim, int max_nnz) {
   if (file_exist(file_list_name)) {
     std::cout << "File (" + file_list_name +
                      ") exist. To generate new dataset plesae remove this file."
@@ -250,7 +250,8 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
         data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
         for (int j = 0; j < nnz; j++) {
           T key = ldata_sim.get_num();
-          while ((key % static_cast<T>(slot_num)) != static_cast<T>(k)) {  // guarantee the key belongs to the current slot_id(=k)
+          while ((key % static_cast<T>(slot_num)) !=
+                 static_cast<T>(k)) {  // guarantee the key belongs to the current slot_id(=k)
             key = ldata_sim.get_num();
           }
           data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
@@ -264,8 +265,6 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
   std::cout << file_list_name << " done!" << std::endl;
   return;
 }
-
-
 
 // Add a new data_generation function for LocalizedSparseEmbedding testing
 // In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
@@ -328,7 +327,6 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
   file_list_stream.close();
   return;
 }
-
 
 template <typename T, Check_t CK_T>
 void data_generation_for_localized_test(std::string file_list_name, std::string data_prefix,
@@ -405,9 +403,10 @@ inline void data_generation_for_raw(
     for (int j = 0; j < sparse_dim; j++) {
       int sparse = 0;
       if (slot_size.size() != 0) {
-        UnifiedDataSimulator<long long> temp_sim(0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1)); // range = [0, slot_size[j])
+        UnifiedDataSimulator<long long> temp_sim(
+            0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1));  // range = [0, slot_size[j])
         long long num_ = temp_sim.get_num();
-        sparse = num_ > std::numeric_limits<int>::max() ? std::numeric_limits<int>::max() : num_; 
+        sparse = num_ > std::numeric_limits<int>::max() ? std::numeric_limits<int>::max() : num_;
       } else {
         sparse = j;
       }
@@ -507,12 +506,12 @@ inline void set_affinity(std::thread& t, std::set<int> set, bool excluded) {
 
 template <typename T>
 struct TypeConvert {
-  static __host__ T convert(const float val) {return (T)val; }
+  static __host__ T convert(const float val) { return (T)val; }
 };
 
 template <>
 struct TypeConvert<__half> {
-  static __host__ __half convert(const float val) {return __float2half(val); }
+  static __host__ __half convert(const float val) { return __float2half(val); }
 };
 
 }  // namespace HugeCTR

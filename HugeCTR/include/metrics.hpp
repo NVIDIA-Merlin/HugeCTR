@@ -36,8 +36,8 @@ using RawMetricMap = std::map<RawType, std::shared_ptr<ITensor>>;
 class Metric {
  public:
   static std::unique_ptr<Metric> Create(const Type type, bool use_mixed_precision,
-                                 int batch_size_eval, int n_batches,
-                                 std::shared_ptr<GPUResourceGroup> gpu_resource_group);
+                                        int batch_size_eval, int n_batches,
+                                        std::shared_ptr<GPUResourceGroup> gpu_resource_group);
   Metric();
   virtual ~Metric();
   virtual void local_reduce(RawMetricMap raw_metrics) = 0;

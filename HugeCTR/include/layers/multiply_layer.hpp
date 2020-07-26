@@ -77,7 +77,6 @@ class MultiplyLayer : public Layer {
   void bprop(cudaStream_t stream) override;
 
  private:
-
   std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;

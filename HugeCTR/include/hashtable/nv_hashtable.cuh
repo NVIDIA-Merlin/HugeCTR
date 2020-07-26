@@ -85,7 +85,8 @@ __global__ void search_kernel(Table* table, const typename Table::key_type* cons
 
 template <typename Table>
 __global__ void get_insert_kernel(Table* table, const typename Table::key_type* const keys,
-                                  typename Table::mapped_type* const vals, size_t len, size_t* d_counter) {
+                                  typename Table::mapped_type* const vals, size_t len,
+                                  size_t* d_counter) {
   ReplaceOp<typename Table::mapped_type> op;
   const size_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
@@ -188,10 +189,11 @@ class HashTable {
    * @param capacity the number of <key,value> pairs in the hash table.
    * @param count the existed number of <key,value> pairs in the hash table.
    */
-  HashTable(size_t capacity, size_t count = 0): capacity_(capacity) {
+  HashTable(size_t capacity, size_t count = 0) : capacity_(capacity) {
     // assert(capacity <= std::numeric_limits<ValType>::max() && "error: Table is too large for the
     // value type");
-    table_ = new Table(static_cast<size_t>(capacity / LOAD_FACTOR), std::numeric_limits<ValType>::max());
+    table_ =
+        new Table(static_cast<size_t>(capacity / LOAD_FACTOR), std::numeric_limits<ValType>::max());
     update_counter_ = 0;
     get_counter_ = 0;
     // Allocate device-side counter and copy user input to it
@@ -308,12 +310,13 @@ class HashTable {
    * of <key,value> pairs.
    * @param stream the cuda stream for this operation.
    */
-   size_t get_count(cudaStream_t stream) const {
+  size_t get_count(cudaStream_t stream) const {
     size_t count;
-    CK_CUDA_THROW_(cudaMemcpyAsync(&count, d_counter_, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
+    CK_CUDA_THROW_(
+        cudaMemcpyAsync(&count, d_counter_, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
     CK_CUDA_THROW_(cudaStreamSynchronize(stream));
     return count;
-   }
+  }
   /**
    * The dump function for hash table. "dump" means getting some of the <key,value>
    * pairs from the hash table and copying them to the corresponding memory buffer.
@@ -345,7 +348,7 @@ class HashTable {
    * Get the head of the value from the device counter. It's equal to the
    * number of the <key,value> pairs in the hash table.
    */
-   size_t get_value_head() {
+  size_t get_value_head() {
     size_t counter;
     CK_CUDA_THROW_(cudaMemcpy(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost));
     return counter;
@@ -363,7 +366,7 @@ class HashTable {
    * current value of the device counter.
    * @param counter_add the new counter value to be added.
    */
-   size_t add_value_head(size_t counter_add) {
+  size_t add_value_head(size_t counter_add) {
     size_t counter;
     CK_CUDA_THROW_(cudaMemcpy(&counter, d_counter_, sizeof(*d_counter_), cudaMemcpyDeviceToHost));
     counter += counter_add;
@@ -404,7 +407,8 @@ class HashTable {
       return;
     }
     const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
-    get_insert_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(table_, d_keys, d_vals, len, d_counter_);
+    get_insert_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(table_, d_keys, d_vals, len,
+                                                             d_counter_);
   }
   /**
    * Before any get API is called, call this function to check and update counter.

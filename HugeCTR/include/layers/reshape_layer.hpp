@@ -58,8 +58,8 @@ class ReshapeLayer : public Layer {
    * e.g., batch_size * n_slots * vector_size % leading_dim == 0
    * @param device_id the id of GPU where this layer belongs
    */
-  ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
-               std::shared_ptr<Tensor<T>>& out_tensor, size_t leading_dim, int device_id);
+  ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor, std::shared_ptr<Tensor<T>>& out_tensor,
+               size_t leading_dim, int device_id);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
    * @param in_tensor the input tensor
@@ -69,8 +69,7 @@ class ReshapeLayer : public Layer {
    * Othewise, the only selected slots are concatenated in newly assigned tensor.
    * @param device_id the id of GPU where this layer belongs
    */
-  ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
-               std::shared_ptr<Tensor<T>>& out_tensor,
+  ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor, std::shared_ptr<Tensor<T>>& out_tensor,
                const std::shared_ptr<GeneralBuffer<T>>& blobs_buff, std::vector<int>& selected,
                int device_id);
   ~ReshapeLayer() override;

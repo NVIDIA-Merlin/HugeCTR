@@ -44,7 +44,7 @@ enum class CmdOptions_t { Train, Version, Help };
 HugeCTR::Timer timer_log;
 
 void train(std::string config_file) {
-  try{
+  try {
     int pid = 0;
 #ifdef ENABLE_MPI
     int numprocs = 1;
@@ -55,7 +55,7 @@ void train(std::string config_file) {
     const HugeCTR::SolverParser solver_config(config_file);
     std::shared_ptr<HugeCTR::Session> session_instance = HugeCTR::Session::Create(solver_config);
     std::unique_ptr<HugeCTR::LearningRateScheduler> lr_sch =
-      HugeCTR::get_learning_rate_scheduler(config_file);
+        HugeCTR::get_learning_rate_scheduler(config_file);
 
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "init_end");
     HugeCTR::Timer timer;
@@ -84,77 +84,80 @@ void train(std::string config_file) {
 
       session_instance->train();
       if (i % solver_config.display == 0 && i != 0) {
-	timer_train.stop();
-	// display
-	float loss = 0;
-	session_instance->get_current_loss(&loss);
-	if (isnan(loss)){ 
-          throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");   
-	}
-	if (pid == 0) {
-	  MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
-		   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-		   "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
-	}
-	timer_train.start();
+        timer_train.stop();
+        // display
+        float loss = 0;
+        session_instance->get_current_loss(&loss);
+        if (isnan(loss)) {
+          throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
+                                   __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+        }
+        if (pid == 0) {
+          MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
+                   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                   "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+        }
+        timer_train.start();
       }
       if (i % solver_config.snapshot == 0 && i != 0) {
-	// snapshot
-	session_instance->download_params_to_files(solver_config.snapshot_prefix, i);
+        // snapshot
+        session_instance->download_params_to_files(solver_config.snapshot_prefix, i);
       }
 
       if ((solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0)) {
-	HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
-		     float(i) / solver_config.max_iter);
-	timer_eval.start();
-	session_instance->check_overflow();
-	for (int j = 0; j < solver_config.eval_batches; ++j) {
-	  session_instance->eval();
-	}
+        HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
+                     float(i) / solver_config.max_iter);
+        timer_eval.start();
+        session_instance->check_overflow();
+        for (int j = 0; j < solver_config.eval_batches; ++j) {
+          session_instance->eval();
+        }
 
-	auto eval_metrics = session_instance->get_eval_metrics();
-	for (auto& eval_metric : eval_metrics) {
-	  MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+        auto eval_metrics = session_instance->get_eval_metrics();
+        for (auto& eval_metric : eval_metrics) {
+          MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
 
-	  HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second, float(i) / solver_config.max_iter, i);
+          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second,
+                       float(i) / solver_config.max_iter, i);
 
-	  // early stop doesn't support multinodes
-	  if (!eval_metric.first.compare("AUC")) {
-	    const auto auc_threshold = const_cast<HugeCTR::SolverParser&>(solver_config).metrics_spec[HugeCTR::metrics::Type::AUC];
-	    if (eval_metric.second >= auc_threshold) {
-	      timer.stop();
-	      size_t train_samples =
-                static_cast<size_t>(i + 1) * static_cast<size_t>(solver_config.batchsize);
-	      HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
+          // early stop doesn't support multinodes
+          if (!eval_metric.first.compare("AUC")) {
+            const auto auc_threshold = const_cast<HugeCTR::SolverParser&>(solver_config)
+                                           .metrics_spec[HugeCTR::metrics::Type::AUC];
+            if (eval_metric.second >= auc_threshold) {
+              timer.stop();
+              size_t train_samples =
+                  static_cast<size_t>(i + 1) * static_cast<size_t>(solver_config.batchsize);
+              HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
 
-	      std::string epoch_num_str = std::to_string(float(i) / solver_config.max_iter);
+              std::string epoch_num_str = std::to_string(float(i) / solver_config.max_iter);
 
-	      std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) +
-		" at epoch " + epoch_num_str + " with batchsize: "
-			<< solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
-			<< std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
-			<< float(i) * solver_config.batchsize / timer.elapsedSeconds()
-			<< " records/s." << std::endl;
+              std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) +
+                               " at epoch " + epoch_num_str + " with batchsize: "
+                        << solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                        << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
+                        << float(i) * solver_config.batchsize / timer.elapsedSeconds()
+                        << " records/s." << std::endl;
 
-	      HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", epoch_num_str);
+              HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", epoch_num_str);
 
-	      HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+              HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
 
-	      HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
-	      timer_log.stop();
-	      return;
-	    }
-	  }
-	}
+              HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
+              timer_log.stop();
+              return;
+            }
+          }
+        }
 
-	timer_eval.stop();
+        timer_eval.stop();
 
-	MESSAGE_("Eval Time for " + std::to_string(solver_config.eval_batches) +
-		 " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+        MESSAGE_("Eval Time for " + std::to_string(solver_config.eval_batches) +
+                 " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
 
-	HugeCTR::LOG(
-		     timer_log.elapsedMilliseconds(), "eval_stop",
-		     float(i) / solver_config.max_iter);  // use iteration to calculate it's in which epoch
+        HugeCTR::LOG(
+            timer_log.elapsedMilliseconds(), "eval_stop",
+            float(i) / solver_config.max_iter);  // use iteration to calculate it's in which epoch
       }
     }
 
@@ -178,35 +181,36 @@ void train(std::string config_file) {
 
       session_instance->train();
       if (start_test == true) {
-	float loss_tmp = 0;
-	session_instance->get_current_loss(&loss_tmp);
-	if (isnan(loss_tmp)){
-	  throw std::runtime_error(std::string("Train Runtime error:Loss cannot converge ") + __FILE__ + ":" + std::to_string(__LINE__) + " \n");   
-	}
+        float loss_tmp = 0;
+        session_instance->get_current_loss(&loss_tmp);
+        if (isnan(loss_tmp)) {
+          throw std::runtime_error(std::string("Train Runtime error:Loss cannot converge ") +
+                                   __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+        }
 
-	loss += loss_tmp;
+        loss += loss_tmp;
       }
       if (i % solver_config.eval_interval == solver_config.eval_batches &&
-	  i != solver_config.eval_batches) {
-	session_instance->check_overflow();
-	loss = loss / solver_config.eval_batches;
-	for (int j = 0; j < solver_config.eval_batches; ++j) {
-	  session_instance->eval();
-	}
-	if (pid == 0) {
-	  std::cout << loop << " " << loss << " ";
-	  auto eval_metrics = session_instance->get_eval_metrics();
-	  for (auto& eval_metric : eval_metrics) {
-	    std::cout << eval_metric.second << " ";
-	  }
-	  std::cout << std::endl;
-	}
-	start_test = false;
+          i != solver_config.eval_batches) {
+        session_instance->check_overflow();
+        loss = loss / solver_config.eval_batches;
+        for (int j = 0; j < solver_config.eval_batches; ++j) {
+          session_instance->eval();
+        }
+        if (pid == 0) {
+          std::cout << loop << " " << loss << " ";
+          auto eval_metrics = session_instance->get_eval_metrics();
+          for (auto& eval_metric : eval_metrics) {
+            std::cout << eval_metric.second << " ";
+          }
+          std::cout << std::endl;
+        }
+        start_test = false;
       }
       if (i != 0 && i % solver_config.eval_interval == 0) {
-	start_test = true;
-	loss = 0;
-	loop = i;
+        start_test = true;
+        loss = 0;
+        loop = i;
       }
     }
 #endif

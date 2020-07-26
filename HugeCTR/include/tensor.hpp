@@ -55,10 +55,8 @@ class ITensor {
   virtual size_t get_num_elements() const = 0;
   virtual size_t get_size() const = 0;
   virtual TensorFormat_t get_format() const = 0;
-  virtual Tensor_t get_type(){return type_;}
+  virtual Tensor_t get_type() { return type_; }
 };
-
-
 
 /**
  * @brief A simple class to implement Tensor in network, for example: gradients, parameters, blobs.
@@ -104,7 +102,6 @@ class Tensor : public ITensor {
       if (dims_.size() != 2 && dims_.size() != 3) {
         CK_THROW_(Error_t::WrongInput, "doesn't support dims != 2 and != 3");
       }
-
 
       type_ = TensorTypeFunc<T>::type();
 
@@ -283,20 +280,18 @@ using TensorPtr = std::shared_ptr<Tensor<T>>;
 using ITensors = std::vector<std::shared_ptr<ITensor>>;
 using ITensorPtr = std::shared_ptr<ITensor>;
 
-
-
 template <typename T>
-TensorPtr<T> dynamic_tensor_cast(ITensorPtr ptr){
-  if(ptr->get_type() != TensorTypeFunc<T>::type()){
-    CK_THROW_(Error_t::WrongInput, "ptr->get_type() != TensorTypeFunc<T>::type()");    
+TensorPtr<T> dynamic_tensor_cast(ITensorPtr ptr) {
+  if (ptr->get_type() != TensorTypeFunc<T>::type()) {
+    CK_THROW_(Error_t::WrongInput, "ptr->get_type() != TensorTypeFunc<T>::type()");
   }
   return std::dynamic_pointer_cast<Tensor<T>>(ptr);
 }
 
 template <typename T>
-Tensors<T> tensor_vec_dynamic_cast(ITensors& vin){
+Tensors<T> tensor_vec_dynamic_cast(ITensors& vin) {
   Tensors<T> vout;
-  for (auto& i : vin){
+  for (auto& i : vin) {
     vout.emplace_back(dynamic_tensor_cast<T>(i));
   }
   return vout;

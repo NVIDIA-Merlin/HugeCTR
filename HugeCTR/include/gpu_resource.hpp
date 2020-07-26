@@ -50,7 +50,7 @@ class GPUResource {
   const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t* get_nccl_ptr() const { return comm_; }
-  const cudaEvent_t& get_event() const {return event_; }
+  const cudaEvent_t& get_event() const { return event_; }
 
  private:
   cudaStream_t stream_;              /**< cuda stream for computation */
@@ -79,9 +79,7 @@ class GPUResourceGroup {
   const std::shared_ptr<const GPUResource>& operator[](int idx) const {
     return gpu_resources_[idx];
   }
-  size_t size() const {
-    return device_map_->get_device_list().size();
-  }
+  size_t size() const { return device_map_->get_device_list().size(); }
   bool empty() const { return size() == 0; }
 
   const std::vector<int>& get_device_list() const { return device_map_->get_device_list(); }

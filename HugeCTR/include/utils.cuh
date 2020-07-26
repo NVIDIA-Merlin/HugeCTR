@@ -94,7 +94,6 @@ __inline__ __device__ T blockReduceSum(T val) {
   return val;
 }
 
-
 template <typename T>
 __global__ void initialize_array(T* array, int num_elements, T value) {
   const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;

@@ -34,7 +34,8 @@ template <typename T>
 __global__ void dropout_kernel(const T* in, const float* mask, T* out, const int len,
                                const float rate, const float scale) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
-    out[i] = TypeConvertFunc<T, float>::convert(((1.f - mask[i]) >= rate) * TypeConvertFunc<float, T>::convert(in[i]) * scale);
+    out[i] = TypeConvertFunc<T, float>::convert(((1.f - mask[i]) >= rate) *
+                                                TypeConvertFunc<float, T>::convert(in[i]) * scale);
   }
 }
 
@@ -42,8 +43,8 @@ __global__ void dropout_kernel(const T* in, const float* mask, T* out, const int
 
 template <typename T>
 DropoutLayer<T>::DropoutLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
-                           const std::shared_ptr<Tensor<T>>& out_tensor, float rate,
-                           const curandGenerator_t& curand_generator, int device_id)
+                              const std::shared_ptr<Tensor<T>>& out_tensor, float rate,
+                              const curandGenerator_t& curand_generator, int device_id)
     : Layer(device_id),
       rate_(rate),
       scale_(1.0 / (1.0 - rate)),

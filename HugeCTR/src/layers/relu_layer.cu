@@ -26,7 +26,6 @@
 #include <iostream>
 #endif
 
-
 namespace HugeCTR {
 
 namespace {
@@ -81,7 +80,7 @@ void ReluLayer<float>::fprop(cudaStream_t stream) {
 template <>
 void ReluLayer<__half>::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
-  
+
   const size_t BLOCK_DIM = 1024;
   const size_t MAX_GRID_DIM = 1024;
 
@@ -121,7 +120,6 @@ void ReluLayer<__half>::bprop(cudaStream_t stream) {
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
-
 
 template class ReluLayer<float>;
 template class ReluLayer<__half>;

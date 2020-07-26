@@ -124,10 +124,8 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
   std::vector<size_t> kernel_dim = {k, n};
   std::vector<size_t> bias_dim = {1, n};
 
-  weights_.emplace_back(
-      new Tensor<float>(kernel_dim, master_weights_buff, weight_tensor_format));
-  weights_.emplace_back(
-      new Tensor<float>(bias_dim, master_weights_buff, weight_tensor_format));
+  weights_.emplace_back(new Tensor<float>(kernel_dim, master_weights_buff, weight_tensor_format));
+  weights_.emplace_back(new Tensor<float>(bias_dim, master_weights_buff, weight_tensor_format));
 
   weights_half_.emplace_back(new Tensor<__half>(kernel_dim, weights_buff, weight_tensor_format));
   weights_half_.emplace_back(new Tensor<__half>(bias_dim, weights_buff, weight_tensor_format));
@@ -376,7 +374,8 @@ void FusedFullyConnectedLayer::search_algorithm() {
   CK_CUDA_THROW_(cudaStreamDestroy(stream));
 }  // namespace HugeCTR
 
-std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_uniform_initializer(const int index) {
+std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_uniform_initializer(
+    const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
@@ -384,32 +383,35 @@ std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_uniform_init
   return std::unique_ptr<DataSimulator<float>>(new UnifiedDataSimulator<float>(-1 * limit, limit));
 }
 
-std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_xavier_uniform_initializer(const int index) {
+std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_xavier_uniform_initializer(
+    const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
-            data_simu::Distribution_t::Uniform,
-            0 == index ? bottom_dim : 0, top_dim));
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
+      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform,
+      0 == index ? bottom_dim : 0, top_dim));
 }
 
-std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_xavier_norm_initializer(const int index) {
+std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_xavier_norm_initializer(
+    const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, 
-            data_simu::Distribution_t::Norm,
-            0 == index ? bottom_dim : 0, top_dim));
+  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
+      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm, 0 == index ? bottom_dim : 0,
+      top_dim));
 }
 
-std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_default_initializer(const int index) {
+std::unique_ptr<DataSimulator<float>> FusedFullyConnectedLayer::get_default_initializer(
+    const int index) {
   size_t bottom_dim = bottom_tensor_->get_dims()[1];
   size_t top_dim = top_tensor_->get_dims()[1];
 
   std::unique_ptr<DataSimulator<float>> simu(nullptr);
   if (0 == index) {
-    simu.reset(new VarianceScalingSimulator<float>(1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm,
-            bottom_dim, top_dim));
+    simu.reset(new VarianceScalingSimulator<float>(
+        1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm, bottom_dim, top_dim));
   } else if (1 == index) {
     float stddev = sqrt(1.f / top_dim);
     simu.reset(new GaussianDataSimulator<float>(0, stddev, -2 * stddev, 2 * stddev));

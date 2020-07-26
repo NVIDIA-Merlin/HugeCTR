@@ -32,8 +32,7 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weig
                                const std::shared_ptr<Tensor<float>>& in_tensor,
                                const std::shared_ptr<Tensor<float>>& out_tensor,
                                const Params& params, cudnnHandle_t const& cudnn_handle,
-                               int device_id,
-                               std::vector<Initializer_t> initializer_types)
+                               int device_id, std::vector<Initializer_t> initializer_types)
     : Layer(device_id, initializer_types),
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION),
@@ -226,10 +225,10 @@ std::string BatchNormLayer::get_no_trained_params_in_string() {
 std::unique_ptr<DataSimulator<float>> BatchNormLayer::get_default_initializer(const int index) {
   std::unique_ptr<DataSimulator<float>> simu(nullptr);
   if (0 == index) {
-    auto ones_init = [] {return static_cast<float>(1); };
+    auto ones_init = [] { return static_cast<float>(1); };
     simu.reset(new SingleDataSimulator<float>(ones_init));
   } else if (1 == index) {
-    auto zeros_init = [] {return static_cast<float>(0); };
+    auto zeros_init = [] { return static_cast<float>(0); };
     simu.reset(new SingleDataSimulator<float>(zeros_init));
   } else {
     CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");

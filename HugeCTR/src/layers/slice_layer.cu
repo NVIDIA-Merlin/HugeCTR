@@ -64,8 +64,8 @@ __global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, c
 
 template <typename T>
 SliceLayer<T>::SliceLayer(const std::shared_ptr<Tensor<T>>& in_tensor, Tensors<T>& out_tensors,
-                       const std::shared_ptr<GeneralBuffer<T>>& blobs_buff,
-                       std::vector<std::pair<int, int>>& ranges, int device_id)
+                          const std::shared_ptr<GeneralBuffer<T>>& blobs_buff,
+                          std::vector<std::pair<int, int>>& ranges, int device_id)
     : Layer(device_id), n_sms_(0), virt_w_(0) {
   try {
     CudaDeviceContext context(device_id);
@@ -131,10 +131,14 @@ SliceLayer<T>::SliceLayer(const std::shared_ptr<Tensor<T>>& in_tensor, Tensors<T
 }
 
 template <typename T>
-void SliceLayer<T>::fprop(cudaStream_t stream) { prop_common(true, stream); }
+void SliceLayer<T>::fprop(cudaStream_t stream) {
+  prop_common(true, stream);
+}
 
 template <typename T>
-void SliceLayer<T>::bprop(cudaStream_t stream) { prop_common(false, stream); }
+void SliceLayer<T>::bprop(cudaStream_t stream) {
+  prop_common(false, stream);
+}
 
 template <typename T>
 void SliceLayer<T>::prop_common(bool forward, cudaStream_t stream) {

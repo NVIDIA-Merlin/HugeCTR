@@ -59,7 +59,7 @@ __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int nu
 
 template <typename T>
 AddLayer<T>::AddLayer(const std::vector<std::shared_ptr<Tensor<T>>> in_tensors,
-                   const std::shared_ptr<Tensor<T>>& out_tensor, int device_id)
+                      const std::shared_ptr<Tensor<T>>& out_tensor, int device_id)
     : Layer(device_id) {
   try {
     CudaDeviceContext context(get_device_id());

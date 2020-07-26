@@ -51,7 +51,9 @@ struct ToMpiType<float> {
 #endif
 
 template <typename TypeComp>
-void split(std::shared_ptr<Tensor<float>> label_tensor, std::shared_ptr<Tensor<TypeComp>> dense_tensor, const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream);
+void split(std::shared_ptr<Tensor<float>> label_tensor,
+           std::shared_ptr<Tensor<TypeComp>> dense_tensor,
+           const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream);
 
 /**
  * @brief A helper class of data reader.
@@ -105,7 +107,6 @@ class DataCollector {
   void collect_blank_();
   void collect_();
 
-
  public:
   /**
    * Ctor.
@@ -120,8 +121,8 @@ class DataCollector {
                 const GeneralBuffers<TypeKey>& csr_buffers,
                 const std::shared_ptr<GPUResourceGroup>& device_resources,
                 const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap = nullptr,
-		const bool use_mixed_precision = false,
-                const bool one_hot = false, const size_t cache_size = 0);
+                const bool use_mixed_precision = false, const bool one_hot = false,
+                const size_t cache_size = 0);
 
   void set_ready_to_write();
 
@@ -158,15 +159,14 @@ class DataCollector {
 template <typename TypeKey>
 int DataCollector<TypeKey>::id_ = 0;
 
-
 template <typename TypeKey>
 DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
                                       const ITensors& dense_tensors,
                                       const GeneralBuffers<TypeKey>& csr_buffers,
                                       const std::shared_ptr<GPUResourceGroup>& device_resources,
                                       const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap,
-				      const bool use_mixed_precision,
-                                      const bool one_hot, const size_t cache_size)
+                                      const bool use_mixed_precision, const bool one_hot,
+                                      const size_t cache_size)
     : csr_heap_(csr_heap),
       label_tensors_(label_tensors),
       dense_tensors_(dense_tensors),
@@ -232,7 +232,6 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
   id_++;
 }
 
-
 template <typename TypeKey>
 void DataCollector<TypeKey>::collect() {
   if (counter_ < cache_size_ || cache_size_ == 0) {
@@ -241,7 +240,6 @@ void DataCollector<TypeKey>::collect() {
     collect_blank_();
   }
 }
-
 
 template <typename TypeKey>
 void DataCollector<TypeKey>::collect_blank_() {
@@ -374,17 +372,19 @@ long long DataCollector<TypeKey>::read_a_batch_to_device() {
                           csr_buffers_[csr_id]->get_size(), cudaMemcpyDeviceToDevice,
                           (*device_resources_)[i]->get_stream()));
     }
-    if(use_mixed_precision_){
-      split(label_tensors_[i], dynamic_tensor_cast<__half>(dense_tensors_[i]), internal_buffer->label_dense_buffers_internal[i], (*device_resources_)[i]->get_stream());
-    }
-    else{
-      split(label_tensors_[i], dynamic_tensor_cast<float>(dense_tensors_[i]), internal_buffer->label_dense_buffers_internal[i], (*device_resources_)[i]->get_stream());
+    if (use_mixed_precision_) {
+      split(label_tensors_[i], dynamic_tensor_cast<__half>(dense_tensors_[i]),
+            internal_buffer->label_dense_buffers_internal[i],
+            (*device_resources_)[i]->get_stream());
+    } else {
+      split(label_tensors_[i], dynamic_tensor_cast<float>(dense_tensors_[i]),
+            internal_buffer->label_dense_buffers_internal[i],
+            (*device_resources_)[i]->get_stream());
     }
   }
   counter_++;
   return internal_buffer->current_batchsize;
 }
-
 
 template <typename TypeKey>
 void DataCollector<TypeKey>::set_ready_to_write_sync() {

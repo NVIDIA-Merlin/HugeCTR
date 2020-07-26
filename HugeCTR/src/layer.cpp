@@ -34,7 +34,7 @@ void Layer::init_params(std::ofstream& out_stream) {
 
 std::vector<float> Layer::get_initializer() {
   size_t elements = 0;
-  for (const auto& weight : weights_){
+  for (const auto& weight : weights_) {
     elements += weight->get_num_elements();
   }
   std::vector<float> initializer(elements, 0.f);
@@ -42,27 +42,27 @@ std::vector<float> Layer::get_initializer() {
   std::vector<std::unique_ptr<DataSimulator<float>>> simulators;
   for (int index = 0; index < static_cast<int>(initializer_types_.size()); ++index) {
     switch (initializer_types_[index]) {
-      case Initializer_t::Uniform : {
+      case Initializer_t::Uniform: {
         simulators.push_back(get_uniform_initializer(index));
         break;
       }
-      case Initializer_t::XavierNorm : {
+      case Initializer_t::XavierNorm: {
         simulators.push_back(get_xavier_norm_initializer(index));
         break;
       }
-      case Initializer_t::XavierUniform : {
+      case Initializer_t::XavierUniform: {
         simulators.push_back(get_xavier_uniform_initializer(index));
         break;
       }
-      case Initializer_t::Zero : {
+      case Initializer_t::Zero: {
         simulators.push_back(get_zero_initializer(index));
         break;
       }
-      case Initializer_t::Default : {
+      case Initializer_t::Default: {
         simulators.push_back(get_default_initializer(index));
         break;
       }
-      default : {
+      default: {
         CK_THROW_(Error_t::OutOfBound, "Not supported initializer.");
         break;
       }
@@ -70,15 +70,14 @@ std::vector<float> Layer::get_initializer() {
   }
 
   size_t current_offset = 0;
-  for (size_t w = 0; w < weights_.size(); ++w){
-    for (size_t j = 0; j < (weights_[w])->get_num_elements(); ++j){
+  for (size_t w = 0; w < weights_.size(); ++w) {
+    for (size_t j = 0; j < (weights_[w])->get_num_elements(); ++j) {
       initializer[j + current_offset] = simulators[w % simulators.size()]->get_num();
     }
     current_offset += (weights_[w])->get_num_elements();
   }
 
-  for (auto& simu : simulators)
-    simu.reset(nullptr);
+  for (auto& simu : simulators) simu.reset(nullptr);
 
   return initializer;
 }
