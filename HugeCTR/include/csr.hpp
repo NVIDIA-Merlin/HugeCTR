@@ -76,11 +76,18 @@ class CSR {
   CSR& operator=(const CSR&) = delete;
   CSR(CSR&&) = default;
 
+  inline void push_back_new_row(const T& value) {
+    row_offset_[size_of_row_offset_] = static_cast<T>(size_of_value_);
+    size_of_row_offset_++;
+    value_[size_of_value_] = value;
+    size_of_value_++;
+  }
+
   /**
    * Push back a value to this object.
    * @param value the value to be pushed back.
    */
-  void push_back(const T& value) {
+  inline void push_back(const T& value) {
     if (size_of_value_ >= max_value_size_)
       CK_THROW_(Error_t::OutOfBound, "CSR out of bound " + std::to_string(max_value_size_) +
                                          "offset" + std::to_string(size_of_value_));
@@ -94,7 +101,7 @@ class CSR {
    * When you have pushed back all the values, you need to call this method
    * again.
    */
-  void new_row() {  // call before push_back values in this line
+  inline void new_row() {  // call before push_back values in this line
     if (size_of_row_offset_ > num_rows_) CK_THROW_(Error_t::OutOfBound, "CSR out of bound");
     row_offset_[size_of_row_offset_] = static_cast<T>(size_of_value_);
     size_of_row_offset_++;

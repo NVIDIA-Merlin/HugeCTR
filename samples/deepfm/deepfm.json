@@ -2,7 +2,7 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 1000,
-    "max_iter": 300000,
+    "max_iter": 10000,
     "gpu": [0],
     "batchsize": 512,
     "snapshot": 10000000,
@@ -15,10 +15,10 @@
     "type": "Adam",
     "global_update": true,
     "adam_hparam": {
-      "alpha": 0.001,
+      "learning_rate": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.00000001
+      "epsilon": 0.0000001
     }
   },
 
@@ -53,8 +53,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1737710,
-        "load_factor": 0.75,
+        "max_vocabulary_size_per_gpu": 1737709,
         "embedding_vec_size": 11,
         "combiner": 0
       }

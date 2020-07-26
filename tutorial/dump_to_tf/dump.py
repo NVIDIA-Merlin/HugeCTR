@@ -33,6 +33,9 @@ class DumpToTF(object):
         self.model_content = None
         self.embedding_layers = None
         self.dense_layers = None
+        self.gpus = [0]
+        self.key_type = 'I32' # {'I64', 'I32'}, default is 'I32'
+        self.key_type_map = {"I32": ["I", 4], "I64": ["q", 8]}
 
         self.parse_json()
 
@@ -53,6 +56,11 @@ class DumpToTF(object):
             with open(self.model_json, 'r') as model_json:
                 self.model_content = json.load(model_json)
 
+                self.gpus = self.model_content["solver"]["gpu"]
+                key_type = self.model_content["solver"].get("input_key_type")
+                if key_type is not None:
+                    self.key_type = key_type                
+                
                 layers = self.model_content["layers"]
                 # embedding_layers
                 self.embedding_layers = []
@@ -83,14 +91,17 @@ class DumpToTF(object):
             each_key_size = 0
             layer_type = layer["type"]
             embedding_vec_size = layer["sparse_embedding_hparam"]["embedding_vec_size"]
-            vocabulary_size = layer["sparse_embedding_hparam"]["vocabulary_size"]
+            max_vocab_size_per_gpu = layer["sparse_embedding_hparam"]["max_vocabulary_size_per_gpu"]
+
+            vocabulary_size = max_vocab_size_per_gpu * len(self.gpus)
 
             if layer_type == "DistributedSlotSparseEmbeddingHash":
                 # sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size
-                each_key_size = 8 + 4 * embedding_vec_size
+                each_key_size = self.key_type_map[self.key_type][1] + 4 * embedding_vec_size
+
             elif layer_type == "LocalizedSlotSparseEmbeddingHash":
                 # sizeof(TypeHashKey) + sizeof(TypeHashValueIndex) + sizeof(float) * embedding_vec_size
-                each_key_size = 8 + 8 + 4 * embedding_vec_size
+                each_key_size = self.key_type_map[self.key_type][1] + self.key_type_map[self.key_type][1] + 4 * embedding_vec_size
 
             embedding_table = np.zeros(shape=(vocabulary_size, embedding_vec_size), dtype=np.float32)
 
@@ -102,11 +113,13 @@ class DumpToTF(object):
                             break
                         
                         if layer_type == "DistributedSlotSparseEmbeddingHash":
-                            key = struct.unpack("q", buffer[0:8])
-                            values = struct.unpack(str(embedding_vec_size) + "f", buffer[8:])
+                            key = struct.unpack(self.key_type_map[self.key_type][0], buffer[0: self.key_type_map[self.key_type][1]])
+                            values = struct.unpack(str(embedding_vec_size) + "f", buffer[self.key_type_map[self.key_type][1]: ])
+
                         elif layer_type == "LocalizedSlotSparseEmbeddingHash":
-                            key, slot_id = struct.unpack("2q", buffer[0:16])
-                            values = struct.unpack(str(embedding_vec_size) + "f", buffer[16:])
+                            key, slot_id = struct.unpack("2" + self.key_type_map[self.key_type][0], 
+                                                         buffer[0: 2*self.key_type_map[self.key_type][1]])
+                            values = struct.unpack(str(embedding_vec_size) + "f", buffer[self.key_type_map[self.key_type][1]: ])
 
                         embedding_table[key] = values
 
@@ -189,6 +202,9 @@ class DumpToTF(object):
         save the computing-graph with the loading weights into a tf checkpoint.
         """
         pass
+
+    def get_key_type(self):
+        return self.key_type
 
 
 if __name__ == "__main__":

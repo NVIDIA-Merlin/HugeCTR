@@ -15,15 +15,31 @@
  */
 
 #pragma once
-#include <nccl.h>
 #include <fstream>
 #include <functional>
 #include <vector>
 #include "HugeCTR/include/data_reader.hpp"
 #include "HugeCTR/include/gpu_resource.hpp"
 #include "HugeCTR/include/tensor.hpp"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
+
+class IEmbedding {
+ public:
+  virtual ~IEmbedding() {}
+  virtual void forward() = 0;
+  virtual void backward() = 0;
+  virtual void update_params() = 0;
+  virtual void init_params() = 0;
+  virtual void upload_params_to_device(std::ifstream& weight_stream) = 0;
+  virtual void download_params_to_host(std::ofstream& weight_stream) = 0;
+  virtual void set_learning_rate(float lr) = 0;
+  virtual size_t get_params_num() = 0;
+  virtual const ITensors get_output_tensors() const = 0;
+  virtual void check_overflow() const = 0;
+};
+
 /**
  * @brief The base class of embedding layers.
  *
@@ -37,16 +53,16 @@ namespace HugeCTR {
  * embedding tables) to/from GPUs from/to host file stream, which are named as
  * upload_params_to_device() and download_params_to_host().
  */
-template <typename TypeKey>
-class Embedding {
+template <typename TypeKey, typename TypeEmbeddingComp>
+class Embedding : public IEmbedding {
  protected:
-  GeneralBuffers<float> output_buffers_;       /**< The buffer for storing output tensors. */
-  Tensors<float> output_tensors_;              /**< The output tensors. */
+  GeneralBuffers<TypeEmbeddingComp> output_buffers_; /**< The buffer for storing output tensors. */
+  Tensors<TypeEmbeddingComp> output_tensors_;        /**< The output tensors. */
   const Tensors<TypeKey> row_offsets_tensors_; /**< The row_offsets tensors of the input data. */
   const Tensors<TypeKey> value_tensors_;       /**< The value tensors of the input data. */
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< The GPU device resources. */
   const int batchsize_; /**< The batch size of the input data for the current training process. */
-  const float scaler_;
+  const TypeEmbeddingComp scaler_;
 
  public:
   /**
@@ -59,10 +75,18 @@ class Embedding {
    * @param slot_num the number of slots of the hash table
    * @param embedding_vec_size the dim size of the embedding feature vector.
    * @param gpu_resource_group the GPU device resource group
+   * @param scaler scaler factor for mixed precision
    */
   Embedding(const Tensors<TypeKey>& row_offsets_tensors, const Tensors<TypeKey>& value_tensors,
             size_t batchsize, size_t slot_num, size_t embedding_vec_size,
-            const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, float scaler);
+            const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, TypeEmbeddingComp scaler);
+
+  virtual Embedding* clone_eval(const Tensors<TypeKey>& row_offsets_tensors,
+                                const Tensors<TypeKey>& value_tensors, size_t batchsize,
+                                const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
+    return nullptr;
+  }
+
   /**
    * The declaration for indicating that there is no default copy construtor in this class.
    */
@@ -87,6 +111,10 @@ class Embedding {
    */
   virtual void update_params() = 0;
   /**
+   * Initialize the embedding table
+   */
+  virtual void init_params() = 0;
+  /**
    * Read the embedding table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
    * @param weight_stream the host file stream for reading data from.
@@ -102,11 +130,17 @@ class Embedding {
   /**
    * Get the total size of embedding tables on all GPUs.
    */
-  virtual long long get_params_num() = 0;
+  virtual size_t get_params_num() = 0;
   /**
    * Return the output tensors.
    */
-  const Tensors<float>& get_output_tensors() const { return output_tensors_; }
+  const ITensors get_output_tensors() const override {
+    ITensors ts;
+    for (auto& t : output_tensors_) {
+      ts.emplace_back(t);
+    }
+    return ts;
+  }
 
   // only used for results check
   /**
@@ -115,7 +149,7 @@ class Embedding {
    * @param embedding_feature the host pointer for storing the forward()
    * results.
    */
-  virtual void get_forward_results(float* embedding_feature) = 0;
+  virtual void get_forward_results(TypeEmbeddingComp* embedding_feature) = 0;
   /**
    * Get the backward() results from GPUs and copy them to the host pointer
    * wgrad. The wgrad on each GPU should be the same. This function is only
@@ -123,7 +157,7 @@ class Embedding {
    * @param wgrad the host pointer for stroing the backward() results.
    * @param devIndex the GPU device id.
    */
-  virtual void get_backward_results(float* wgrad, int devIndex) = 0;
+  virtual void get_backward_results(TypeEmbeddingComp* wgrad, int devIndex) = 0;
   /**
    * Get the update_params() results(the hash table, including hash_table_keys
    * and hash_table_values) from GPUs and copy them to the host pointers.
@@ -132,14 +166,15 @@ class Embedding {
    * @param hash_table_value the host pointer for stroing the hash table values.
    */
   virtual void get_update_params_results(TypeKey* hash_table_key, float* hash_table_value) = 0;
+
+  virtual void set_learning_rate(float lr) = 0;
 };
 
-template <typename TypeKey>
-Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
-                              const Tensors<TypeKey>& value_tensors, size_t batchsize,
-                              size_t slot_num, size_t embedding_vec_size,
-                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                              float scaler)
+template <typename TypeKey, typename TypeEmbeddingComp>
+Embedding<TypeKey, TypeEmbeddingComp>::Embedding(
+    const Tensors<TypeKey>& row_offsets_tensors, const Tensors<TypeKey>& value_tensors,
+    size_t batchsize, size_t slot_num, size_t embedding_vec_size,
+    const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, TypeEmbeddingComp scaler)
     : row_offsets_tensors_(row_offsets_tensors),
       value_tensors_(value_tensors),
       device_resources_(gpu_resource_group),
@@ -165,13 +200,16 @@ Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
 
     assert(output_buffers_.empty());
     for (size_t i = 0; i < gpu_count; i++) {
-      std::shared_ptr<GeneralBuffer<float>> buff(new GeneralBuffer<float>());
+      std::shared_ptr<GeneralBuffer<TypeEmbeddingComp>> buff(
+          new GeneralBuffer<TypeEmbeddingComp>());
       const size_t batchsize_per_device = batchsize / device_resources_->get_total_gpu_count();
       std::vector<size_t> output_dims = {batchsize_per_device, slot_num, embedding_vec_size};
-      output_tensors_.emplace_back(new Tensor<float>(output_dims, buff, TensorFormat_t::HSW));
+      output_tensors_.emplace_back(
+          new Tensor<TypeEmbeddingComp>(output_dims, buff, TensorFormat_t::HSW));
       buff->init(device_list[i]);
       output_buffers_.emplace_back(buff);
     }
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -179,77 +217,141 @@ Embedding<TypeKey>::Embedding(const Tensors<TypeKey>& row_offsets_tensors,
   return;
 }
 
-typedef struct AdamOptHyperParams_ {  // TODO: move to optimizer
+template <typename T>
+struct AdamOptHyperParams {  // TODO: move to optimizer
   uint64_t times = 0;
-  float alpha_t = 0;
   float beta1 = 0.9f;
   float beta2 = 0.999f;
-  float epsilon = 1e-6f;
-  float* m_ptr = nullptr;
-  float* v_ptr = nullptr;
-} AdamOptHyperParams;
+  float epsilon = 1e-7f;
+  T* m_ptr = nullptr;
+  T* v_ptr = nullptr;
+};
 
-typedef struct MomentumSgdOptHyperParams_ {
+template <typename T>
+struct MomentumSGDOptHyperParams {
   float factor = 0.1f;
-  float* momentum_ptr = nullptr;
-} MomentumSgdOptHyperParams;
+  T* momentum_ptr = nullptr;
+};
 
-typedef struct NesterovOptHyperParams_ {
+template <typename T>
+struct NesterovOptHyperParams {
   float mu = 0.9f;
-  float* accm_ptr = nullptr;
-} NesterovOptHyperParams;
+  T* accm_ptr = nullptr;
+};
 
 // TODO: use union type should be better ???
-typedef struct OptHyperParams_ {
-  AdamOptHyperParams adam;
-  MomentumSgdOptHyperParams momentum;
-  NesterovOptHyperParams nesterov;
-} OptHyperParams;
+template <typename TypeEmbeddingComp>
+struct OptHyperParams {
+  AdamOptHyperParams<TypeEmbeddingComp> adam;
+  MomentumSGDOptHyperParams<TypeEmbeddingComp> momentum;
+  NesterovOptHyperParams<TypeEmbeddingComp> nesterov;
+};
 
-typedef struct OptParams_ {
-  int optimizer;  // 0-adam, 1-momentum sgd, 2-nesterov
+template <typename TypeEmbeddingComp>
+struct OptParams {
+  Optimizer_t optimizer;
   float lr;
-  OptHyperParams hyperparams;
+  OptHyperParams<TypeEmbeddingComp> hyperparams;
   bool global_update;
-} OptParams;
-
-typedef struct SparseEmbeddingHashParams_ {
-  size_t batch_size;          // batch size
-  long long vocabulary_size;  // row number of hash table
-  float load_factor;  // row number of hash table for each GPU = (vocabulary_size / gpu_count /
-                      // load_factor)
-  size_t embedding_vec_size;  // col number of hash table value
-  size_t max_feature_num;     // max feature number of all input samples of all slots
-  size_t slot_num;            // slot number
-  int combiner;               // 0-sum, 1-mean
-  OptParams opt_params;       // optimizer params
   float scaler;
-} SparseEmbeddingHashParams;
+};
+
+template <typename TypeEmbeddingComp>
+struct SparseEmbeddingHashParams {
+  size_t batch_size;                        // batch size
+  size_t max_vocabulary_size_per_gpu;       // max row number of hash table for each gpu
+  std::vector<size_t> slot_size_array;      // max row number for each slot
+  size_t embedding_vec_size;                // col number of hash table value
+  size_t max_feature_num;                   // max feature number of all input samples of all slots
+  size_t slot_num;                          // slot number
+  int combiner;                             // 0-sum, 1-mean
+  OptParams<TypeEmbeddingComp> opt_params;  // optimizer params
+};
 
 // Embedding should be register here
 struct EmbeddingCreator {
   typedef long long TYPE_1;
   typedef unsigned int TYPE_2;
 
-  static Embedding<TYPE_1>* create_distributed_sparse_embedding_hash(
+  static Embedding<TYPE_1, float>* create_distributed_sparse_embedding_hash(
       const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
-      SparseEmbeddingHashParams embedding_params,
+      SparseEmbeddingHashParams<float> embedding_params,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
-  static Embedding<TYPE_2>* create_distributed_sparse_embedding_hash(
+  static Embedding<TYPE_2, float>* create_distributed_sparse_embedding_hash(
       const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
-      SparseEmbeddingHashParams embedding_params,
+      SparseEmbeddingHashParams<float> embedding_params,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
-  static Embedding<TYPE_1>* create_localized_sparse_embedding_hash(
+  static Embedding<TYPE_1, __half>* create_distributed_sparse_embedding_hash(
       const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
-      SparseEmbeddingHashParams embedding_params, const std::string plan_file,
+      SparseEmbeddingHashParams<__half> embedding_params,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
 
-  static Embedding<TYPE_2>* create_localized_sparse_embedding_hash(
+  static Embedding<TYPE_2, __half>* create_distributed_sparse_embedding_hash(
       const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
-      SparseEmbeddingHashParams embedding_params, const std::string plan_file,
+      SparseEmbeddingHashParams<__half> embedding_params,
       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_1, float>* create_localized_sparse_embedding_hash(
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      SparseEmbeddingHashParams<float> embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_2, float>* create_localized_sparse_embedding_hash(
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      SparseEmbeddingHashParams<float> embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_1, __half>* create_localized_sparse_embedding_hash(
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      SparseEmbeddingHashParams<__half> embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_2, __half>* create_localized_sparse_embedding_hash(
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      SparseEmbeddingHashParams<__half> embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_1, float>* create_localized_sparse_embedding_one_hot(
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      SparseEmbeddingHashParams<float> embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_2, float>* create_localized_sparse_embedding_one_hot(
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      SparseEmbeddingHashParams<float> embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_1, __half>* create_localized_sparse_embedding_one_hot(
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      SparseEmbeddingHashParams<__half> embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_2, __half>* create_localized_sparse_embedding_one_hot(
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      SparseEmbeddingHashParams<__half> embedding_params, const std::string plan_file,
+      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+
+  static Embedding<TYPE_1, __half>* clone_eval(
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      size_t batchsize, const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+      Embedding<TYPE_1, __half>* embedding);
+
+  static Embedding<TYPE_1, float>* clone_eval(
+      const Tensors<TYPE_1>& row_offsets_tensors, const Tensors<TYPE_1>& value_tensors,
+      size_t batchsize, const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+      Embedding<TYPE_1, float>* embedding);
+
+  static Embedding<TYPE_2, __half>* clone_eval(
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      size_t batchsize, const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+      Embedding<TYPE_2, __half>* embedding);
+
+  static Embedding<TYPE_2, float>* clone_eval(
+      const Tensors<TYPE_2>& row_offsets_tensors, const Tensors<TYPE_2>& value_tensors,
+      size_t batchsize, const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+      Embedding<TYPE_2, float>* embedding);
 };
 
 }  // namespace HugeCTR

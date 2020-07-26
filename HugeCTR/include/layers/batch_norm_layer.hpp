@@ -31,6 +31,23 @@ namespace HugeCTR {
  * BatchNorm layer based on cuDNN
  */
 class BatchNormLayer : public Layer {
+  /*
+   * stores the weight tensors of this layer.
+   */
+  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+
  public:
   /**
    * BatchNorm parameters
@@ -54,7 +71,8 @@ class BatchNormLayer : public Layer {
                  const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
                  const std::shared_ptr<Tensor<float>>& in_tensor,
                  const std::shared_ptr<Tensor<float>>& out_tensor, const Params& params,
-                 cudnnHandle_t const& cudnn_handle, int device_id);
+                 cudnnHandle_t const& cudnn_handle, int device_id,
+                 std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   ~BatchNormLayer() override;
 
   /**
@@ -86,7 +104,7 @@ class BatchNormLayer : public Layer {
    * Gamma is initialized to 1s while Beta is 0ed.
    * Override this function to change the initialization behavior.
    */
-  std::vector<float> get_initializer() override;
+  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
 
   const Params params_;
   const cudnnBatchNormMode_t mode_;

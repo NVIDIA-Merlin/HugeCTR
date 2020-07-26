@@ -28,9 +28,13 @@ class FileSource : public Source {
   FileList file_list_;           /**< file list of data set */
   std::ifstream in_file_stream_; /**< file stream of data set file */
   std::string file_name_;        /**< file name of current file */
+  const long long offset_;
+  const long long stride_;
+  unsigned int counter_{0};
+
  public:
-  FileSource(unsigned int offset, unsigned int stride, const std::string& file_list)
-      : Source(offset, stride), file_list_(file_list) {}
+  FileSource(long long offset, long long stride, const std::string& file_list)
+      : file_list_(file_list), offset_(offset), stride_(stride) {}
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.

@@ -30,7 +30,8 @@ namespace HugeCTR {
 /**
  * @brief NoRegularizer
  */
-class NoRegularizer : public Regularizer {
+template <typename T>
+class NoRegularizer : public Regularizer<T> {
  public:
   /*
    * Constructor of NoRegularizer
@@ -40,7 +41,7 @@ class NoRegularizer : public Regularizer {
    * @param device_id Device to be used
    */
   NoRegularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff, const int batch_size,
+                const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff, const int batch_size,
                 const int device_id);
 
   /*
@@ -65,7 +66,7 @@ class NoRegularizer : public Regularizer {
    * @param num_elements the number of weight values across layers
    * @param stream CUDA Stream where the kernel is executed
    */
-  void do_initialize_wgrad(const float* weight, float* wgrad, int num_elements,
+  void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
                            cudaStream_t stream) override;
 };
 

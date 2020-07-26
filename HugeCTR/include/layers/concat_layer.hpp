@@ -30,7 +30,25 @@ namespace HugeCTR {
  * e.g., (batch_size, a * vector_length) + (batch_size, b * vector_length)
  *       to (batch_size, (a + b) * vector_length)
  */
+template <typename T>
 class ConcatLayer : public Layer {
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors<T> weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<T> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
+
  public:
   /**
    * Ctor of ConcatLayer.
@@ -39,8 +57,8 @@ class ConcatLayer : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<float>>& out_tensor,
-              const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, int device_id);
+  ConcatLayer(Tensors<T> in_tensors, std::shared_ptr<Tensor<T>>& out_tensor,
+              const std::shared_ptr<GeneralBuffer<T>>& blobs_buff, int device_id);
   ~ConcatLayer() override{};
 
   /**
@@ -54,7 +72,6 @@ class ConcatLayer : public Layer {
    */
   void bprop(cudaStream_t stream) override;
 
-  template <typename T>
   struct InParam {
     T* in;
     const int in_w;
@@ -62,7 +79,7 @@ class ConcatLayer : public Layer {
 
  private:
   void prop_common(bool forward, cudaStream_t stream);
-  std::vector<InParam<float>> set_in_params(int n);
+  std::vector<InParam> set_in_params(int n);
   template <typename... Args>
   void kernel_launch(bool forward, cudaStream_t stream, Args&... args);
 

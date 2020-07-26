@@ -14,14 +14,19 @@
 cmake_minimum_required(VERSION 3.8)
 
 file(GLOB huge_ctr_src
+  gpu_resource.cpp
   data_parser.cpp
   data_reader.cpp
   layer.cpp
   layers/batch_norm_layer.cu
+  layers/cast_layer.cu
   layers/concat_layer.cu
   layers/dropout_layer.cu
   layers/elu_layer.cu
   layers/fully_connected_layer.cu
+  layers/fully_connected_layer_half.cu
+  layers/fused_fully_connected_layer.cu
+  layers/interaction_layer.cu
   layers/relu_layer.cu
   layers/reshape_layer.cu
   layers/slice_layer.cu
@@ -32,17 +37,23 @@ file(GLOB huge_ctr_src
   layers/reduce_sum_layer.cu
   layers/dot_product_layer.cu
   loss.cu
+  network.cu
   network.cpp
+  metrics.cu
   optimizers/adam_optimizer.cu
-  optimizers/momentum_sgd.cu
+  optimizers/momentum_sgd_optimizer.cu
   optimizers/nesterov_optimizer.cu
+  optimizers/sgd_optimizer.cu
+  optimizer.cpp
   regularizer.cu
   regularizers/l1_regularizer.cu
   regularizers/l2_regularizer.cu
   regularizers/no_regularizer.cu
   parser.cpp
+  parsers/solver_parser.cpp
+  parsers/learning_rate_scheduler_parser.cpp
   session.cpp
-  ../../gossip/include/plan_parser.cpp 
+  plan_parser.cpp 
   embedding_creator.cu
   data_collector.cu
 )
@@ -58,9 +69,11 @@ else()
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
-target_compile_features(huge_ctr_static PUBLIC cxx_std_11)
+
+target_compile_features(huge_ctr_static PUBLIC cxx_std_14)
+
 set_target_properties(huge_ctr_static PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 add_executable(huge_ctr main.cpp)
 target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
-target_compile_features(huge_ctr PUBLIC cxx_std_11)
+target_compile_features(huge_ctr PUBLIC cxx_std_14)

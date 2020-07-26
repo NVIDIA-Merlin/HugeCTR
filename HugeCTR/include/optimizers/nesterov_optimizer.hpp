@@ -27,20 +27,16 @@ class NesterovOptimizer : public Optimizer {
  public:
   /**
    * Constructor of NesterovOptimizer.
-   * @param weight weights to be updated
+   * @param weight_main weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
    * @param learning_rate learning rate
    * @param momentum_factor the momentum factor
    */
-  NesterovOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
-                    const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
-                    float learning_rate, float momentum_factor, float scaler = 1.f)
-      : Optimizer(weight, wgrad, device_id, learning_rate, scaler),
-        accum_(weight->get_num_elements(), device_id),
-        mu_(momentum_factor) {
-    accum_.reset_sync();
-  }
+  NesterovOptimizer(const GeneralBufferPtr<float>& weight_main,
+                    const GeneralBufferPtr<float>& fp32_wgrad,
+                    const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
+                    float learning_rate, float momentum_factor, float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -49,8 +45,9 @@ class NesterovOptimizer : public Optimizer {
   void update(cudaStream_t stream) override;
 
  private:
-  GeneralBuffer<float> accum_;  // accumulation
-  const float mu_;              // momentum factor
+  GeneralBuffer<float> fp32_accum_;   // accumulation
+  GeneralBuffer<__half> fp16_accum_;  // accumulation
+  const float mu_;                    // momentum factor
 };
 
 }  // namespace HugeCTR

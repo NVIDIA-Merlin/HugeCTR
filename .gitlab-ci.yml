@@ -1,0 +1,75 @@
+image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  FF_USE_LEGACY_GIT_CLEAN_STRATEGY: 1
+
+before_script:
+  - apt update && apt install -y cmake
+  - mkdir ${CI_PROJECT_DIR}/build
+  - cd ${CI_PROJECT_DIR}/build
+  - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 ..
+  - make -j
+
+criteo:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/criteo
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_8gpu.json
+    - cd /dataset/criteo_kaggle/criteo_multi_slots
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_8gpu.json
+
+dcn:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/dcn
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_8gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_8gpu.json
+
+wdl_deepfm:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/wdl
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_8gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json
+    - cd /dataset/criteo_kaggle/deepfm
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_8gpu.json
+
+dlrm:
+  tags:
+    - hugectr
+  script:
+    - cd /dataset/criteo_kaggle/dcn
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_8gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_1gpu.json
+    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_8gpu.json
+
+unit_tests:
+  tags:
+    - hugectr
+  script:
+    - cd ${CI_PROJECT_DIR}/build/bin
+    - ./layers_test
+    - ./embedding_test
+    - ./checker_test
+    - ./data_parser_test
+    - ./data_reader_test
+    - ./device_map_test
+    - ./heap_test
+    - ./loss_test
+    - ./optimizer_test
+    - ./regularizers_test
+    - ./parser_test
+    - ./session_test
+

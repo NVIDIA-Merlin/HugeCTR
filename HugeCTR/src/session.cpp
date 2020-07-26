@@ -19,7 +19,31 @@
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/utils.hpp"
 
+#include <algorithm>
+#include <random>
+#include <string>
+
+// #define DATA_READING_TEST
+
 namespace HugeCTR {
+
+namespace {
+
+std::string generate_random_file_name() {
+  std::string ch_set("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+
+  std::random_device rd;
+  std::mt19937 rng(rd());
+  std::uniform_int_distribution<> ch_dist(0, ch_set.size() - 1);
+  std::uniform_int_distribution<> len_dist(ch_set.size() / 5, ch_set.size() / 3);
+
+  int length = len_dist(rng);
+  auto get_ch = [&ch_set, &ch_dist, &rng]() { return ch_set[ch_dist(rng)]; };
+
+  std::string ret(length, 0);
+  std::generate_n(ret.begin(), length, get_ch);
+  return ret;
+}
 
 /**
  * check if device is avaliable.
@@ -51,79 +75,83 @@ static void check_device(int device_id, int min_major, int min_minor) {
   return;
 }
 
-Session::Session(const std::string& json_name)
-    : solver_config_(json_name),
-      gpu_resource_group_(new GPUResourceGroup(solver_config_.device_map)) {
-  try {
-    int pid = 0;
+}  // end namespace
+
+template <typename TypeKey>
+SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
+    : gpu_resource_group_(new GPUResourceGroup(solver_config.device_map)) {
+  int pid = 0;
 #ifdef ENABLE_MPI
-    int numprocs = 1;
-    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+  int numprocs = 1;
+  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
 #endif
 
-    for (auto dev : gpu_resource_group_->get_device_list()) {
-      if (solver_config_.use_mixed_precision) {
-        check_device(dev, 7,
-                     0);  // to support mixed precision training earliest supported device is CC=70
-      } else {
-        check_device(dev, 6, 0);  // earliest supported device is CC=60
-      }
+  for (auto dev : gpu_resource_group_->get_device_list()) {
+    if (solver_config.use_mixed_precision) {
+      check_device(dev, 7,
+                   0);  // to support mixed precision training earliest supported device is CC=70
+    } else {
+      check_device(dev, 6, 0);  // earliest supported device is CC=60
     }
-    parser_.reset(new Parser(json_name, solver_config_.batchsize,
-                             solver_config_.use_mixed_precision, solver_config_.scaler));
-    parser_->create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_,
-                             gpu_resource_group_);
+  }
 
-    // init networks.
-    const std::string TMP_DENSE_NAME = "tmp_dense_model.bin";
-    if (pid == 0) {
-      networks_[0]->init_params(TMP_DENSE_NAME);
-    }
-#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
-    for (auto& network : networks_) {
-      network->upload_params_to_device(TMP_DENSE_NAME);
-    }
-#ifdef ENABLE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
-    if (pid == 0) {
-      if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
-        CK_THROW_(Error_t::WrongInput, TMP_DENSE_NAME + " cannot be removed.");
-      }
-    }
+  RandomEngine::get().set_seed(solver_config.seed);
+  Parser parser(solver_config.configure_file, solver_config.batchsize, solver_config.batchsize_eval,
+                solver_config.use_mixed_precision, solver_config.scaler,
+                solver_config.use_algorithm_search);
 
-    load_params_(solver_config_.model_file, solver_config_.embedding_files);
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
+  parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_, networks_,
+                         networks_eval_, gpu_resource_group_);
+
+  // init networks.
+  std::string TMP_DENSE_NAME;
+  if (pid == 0) {
+    TMP_DENSE_NAME = "./" + generate_random_file_name();
+    networks_[0]->init_params(TMP_DENSE_NAME);
+  }
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+  int length = (pid == 0) ? TMP_DENSE_NAME.length() : 0;
+  MPI_Bcast(&length, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  if (pid != 0) {
+    TMP_DENSE_NAME.resize(length);
+  }
+  MPI_Bcast(const_cast<char*>(TMP_DENSE_NAME.data()), length, MPI_CHAR, 0, MPI_COMM_WORLD);
+  MESSAGE_("tmp dense file name: " + TMP_DENSE_NAME);
+#endif
+  for (auto& network : networks_) {
+    network->upload_params_to_device(TMP_DENSE_NAME);
+  }
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+  if (pid == 0) {
+    if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
+      CK_THROW_(Error_t::WrongInput,
+                TMP_DENSE_NAME + " cannot be removed. (reason: " + std::strerror(errno) + ")");
+    }
+  }
+
+  load_params_for_dense_(solver_config.model_file);
+  init_or_load_params_for_sparse_(solver_config.embedding_files);
+
+  int num_total_gpus = gpu_resource_group_->get_total_gpu_count();
+  for (const auto& metric : solver_config.metrics_spec) {
+    metrics_.emplace_back(
+        std::move(metrics::Metric::Create(metric.first, solver_config.use_mixed_precision,
+                                          solver_config.batchsize_eval / num_total_gpus,
+                                          solver_config.eval_batches, gpu_resource_group_)));
   }
 }
 
 /**
  * load the model (binary) from model_file.
- * In model file, model should be saved as
- * the sequence as discribed in configure file.
+ * In model file, model should be saved as the sequence as discribed in configure file.
  **/
-Error_t Session::load_params_(const std::string& model_file,
-                              const std::vector<std::string>& embedding_files) {
+template <typename TypeKey>
+Error_t SessionImpl<TypeKey>::load_params_for_dense_(const std::string& model_file) {
   try {
-    if (!embedding_files.empty()) {
-      int i = 0;
-      for (auto& embedding_file : embedding_files) {
-        std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
-        if (!embedding_stream.is_open()) {
-          CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
-        }
-        std::cout << "Loading sparse model: " << embedding_file << std::endl;
-        embedding_[i]->upload_params_to_device(embedding_stream);
-        embedding_stream.close();
-        i++;
-      }
-    }
     if (!model_file.empty()) {
       std::ifstream model_stream(model_file, std::ifstream::binary);
       if (!model_stream.is_open()) {
@@ -149,19 +177,57 @@ Error_t Session::load_params_(const std::string& model_file,
   return Error_t::Success;
 }
 
+/**
+ * load the model (binary) from model_file.
+ * In model file, model should be saved as
+ * the sequence as discribed in configure file.
+ **/
+template <typename TypeKey>
+Error_t SessionImpl<TypeKey>::init_or_load_params_for_sparse_(
+    const std::vector<std::string>& embedding_model_files) {
+  try {
+    for (size_t i = 0; i < embedding_.size(); i++) {
+      if (i < embedding_model_files.size()) {
+        std::ifstream embedding_stream(embedding_model_files[i], std::ifstream::binary);
+        if (!embedding_stream.is_open()) {
+          CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
+        }
+        std::cout << "Loading sparse model: " << embedding_model_files[i] << std::endl;
+        embedding_[i]->upload_params_to_device(embedding_stream);
+        embedding_stream.close();
+      } else {
+        embedding_[i]->init_params();
+      }
+    }
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+}
+
 void network_train_helper(int id, Network* n) {
   try {
     n->train();
+    n->exchange_wgrad();
+    n->update_params();
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
+    throw;
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
+    throw;
   }
   return;
 }
 
-Error_t Session::train() {
+template <typename TypeKey>
+void SessionImpl<TypeKey>::train() {
   try {
+#ifndef DATA_READING_TEST
     data_reader_->read_a_batch_to_device_delay_release();
     for (auto& one_embedding : embedding_) {
       one_embedding->forward();
@@ -178,37 +244,33 @@ Error_t Session::train() {
       }
     } else if (networks_.size() == 1) {
       networks_[0]->train();
+      networks_[0]->update_params();
     } else {
       assert(!"networks_.size() should not less than 1.");
-    }
-    // wgrad exchange
-    if (gpu_resource_group_->get_total_gpu_count() > 1) {
-      CK_NCCL_THROW_(ncclGroupStart());
-      for (auto& network : networks_) {
-        network->exchange_wgrad();
-      }
-      CK_NCCL_THROW_(ncclGroupEnd());
-    }
-    for (auto& network : networks_) {
-      network->update_params();
     }
     for (auto& one_embedding : embedding_) {
       one_embedding->backward();
       one_embedding->update_params();
     }
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    return rt_err.get_error();
+#else
+    data_reader_->read_a_batch_to_device();
+#endif
+  } catch (const internal_runtime_error& err) {
+    std::cerr << err.what() << std::endl;
+    throw err;
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
-    return Error_t::UnspecificError;
+    throw err;
   }
-  return Error_t::Success;
 }
 
-void network_eval_helper(int id, Network* n) {
+void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
   try {
     n->eval();
+
+    for (auto& metric : metrics) {
+      metric->local_reduce(n->get_raw_metrics());
+    }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   } catch (const std::exception& err) {
@@ -216,38 +278,76 @@ void network_eval_helper(int id, Network* n) {
   }
 }
 
-Error_t Session::eval() {
+template <typename TypeKey>
+void SessionImpl<TypeKey>::eval() {
   try {
-    if (data_reader_eval_ == nullptr) return Error_t::NotInitialized;
-    data_reader_eval_->read_a_batch_to_device_delay_release();
-    for (auto& one_embedding : embedding_) {
+    if (data_reader_eval_ == nullptr) return;
+    long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
+    for (auto& metric : metrics_) {
+      metric->set_current_batch_size(current_batchsize);
+    }
+
+#ifndef DATA_READING_TEST
+    for (auto& one_embedding : embedding_eval_) {
       one_embedding->forward();
     }
-    data_reader_eval_->ready_to_collect();
-    if (networks_.size() > 1) {
-      for (unsigned int i = 0; i < networks_.size(); i++) {
+
+    if (networks_eval_.size() > 1) {
+      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
         gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
-            [this, i](int id) { network_eval_helper(id, networks_[i].get()); });
+            [this, i](int id) { network_eval_helper(id, networks_eval_[i].get(), metrics_); });
       }
-      for (unsigned int i = 0; i < networks_.size(); i++) {
+      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
         gpu_resource_group_->results[i].get();
       }
-    } else if (networks_.size() == 1) {
-      networks_[0]->eval();
+    } else if (networks_eval_.size() == 1) {
+      network_eval_helper(0, networks_eval_[0].get(), metrics_);
     } else {
-      assert(!"networks_.size() should not less than 1.");
+      assert(!"networks_eval_.size() should not less than 1.");
     }
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    return rt_err.get_error();
+#endif
+
+    for (auto& metric : metrics_) {
+      metric->global_reduce(networks_eval_.size());
+    }
+
+  } catch (const internal_runtime_error& err) {
+    std::cerr << err.what() << std::endl;
+    throw err;
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
-    return Error_t::UnspecificError;
+    throw err;
   }
-  return Error_t::Success;
+
+  // for(auto& metric : metrics_) {
+  //   try {
+  //     // TODO: enable to get batch_size from read_a_batch_to_device_delay_release();
+  //     metric->set_current_batch_size(current_batchsize);
+  //     for (auto& network : networks_) {
+  //       metric->local_reduce(network->get_raw_metrics());
+  //     }
+  //     metric->global_reduce(networks_.size());
+  //   } catch (const internal_runtime_error& rt_err) {
+  //     std::cerr << rt_err.what() << std::endl;
+  //     return rt_err.get_error();
+  //   } catch (const std::exception& err) {
+  //     std::cerr << err.what() << std::endl;
+  //     return Error_t::UnspecificError;
+  //   }
+  // }
 }
 
-Error_t Session::download_params_to_files(std::string prefix, int iter) {
+template <typename TypeKey>
+std::vector<std::pair<std::string, float>> SessionImpl<TypeKey>::get_eval_metrics() {
+  std::vector<std::pair<std::string, float>> metrics;
+  for (auto& metric : metrics_) {
+    metrics.push_back(std::make_pair(metric->name(), metric->finalize_metric()));
+  }
+  return metrics;
+}
+
+template <typename TypeKey>
+Error_t SessionImpl<TypeKey>::download_params_to_files(std::string prefix, int iter) {
   std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
   std::vector<std::string> snapshot_sparse_names;
   if (iter <= 0) {
@@ -261,8 +361,9 @@ Error_t Session::download_params_to_files(std::string prefix, int iter) {
   return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
 }
 
-Error_t Session::download_params_to_files_(std::string weights_file,
-                                           const std::vector<std::string>& embedding_files) {
+template <typename TypeKey>
+Error_t SessionImpl<TypeKey>::download_params_to_files_(
+    std::string weights_file, const std::vector<std::string>& embedding_files) {
   try {
     {
       int i = 0;
@@ -302,7 +403,8 @@ Error_t Session::download_params_to_files_(std::string weights_file,
   return Error_t::Success;
 }
 
-Error_t Session::get_current_loss(float* loss) {
+template <typename TypeKey>
+Error_t SessionImpl<TypeKey>::get_current_loss(float* loss) {
   try {
     float loss_sum = 0.f;
     float loss_reduced = 0.f;
@@ -334,7 +436,15 @@ Error_t Session::get_current_loss(float* loss) {
   return Error_t::Success;
 }
 
-Session::~Session() {
+template <typename TypeKey>
+void SessionImpl<TypeKey>::check_overflow() const {
+  for (auto& one_embedding : embedding_) {
+    one_embedding->check_overflow();
+  }
+}
+
+template <typename TypeKey>
+SessionImpl<TypeKey>::~SessionImpl() {
   try {
     for (auto device : gpu_resource_group_->get_device_list()) {
       CudaDeviceContext context(device);
@@ -346,6 +456,19 @@ Session::~Session() {
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
   }
+}
+
+template class SessionImpl<unsigned int>;
+template class SessionImpl<long long>;
+
+std::shared_ptr<Session> Session::Create(const SolverParser& solver_config) {
+  std::shared_ptr<Session> session;
+  if (solver_config.i64_input_key) {
+    session.reset(new SessionImpl<long long>(solver_config));
+  } else {
+    session.reset(new SessionImpl<unsigned int>(solver_config));
+  }
+  return session;
 }
 
 }  // namespace HugeCTR

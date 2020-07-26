@@ -28,6 +28,15 @@ namespace HugeCTR {
  */
 class DotProductLayer : public Layer {
  public:
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+
   /**
    * Ctor of DotProductLayer.
    * @param in_tensor the input tensor
@@ -35,7 +44,7 @@ class DotProductLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   DotProductLayer(const std::vector<std::shared_ptr<Tensor<float>>>& in_tensors,
-  const std::shared_ptr<Tensor<float>>& out_tensor, int device_id);
+                  const std::shared_ptr<Tensor<float>>& out_tensor, int device_id);
   ~DotProductLayer();
 
   /**

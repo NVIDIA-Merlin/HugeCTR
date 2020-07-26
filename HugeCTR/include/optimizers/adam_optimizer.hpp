@@ -28,28 +28,19 @@ class AdamOptimizer : public Optimizer {
   /**
    * Constructor of AdamOptimizer.
    * names of hyper-parameters are the same as in Algorithm 1 of Adam paper (arXiv:1412.6980)
-   * @param weight weights to be updated
+   * @param weight_main weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
-   * @param alpha learning rate, alpha in Adam paper
+   * @param learning_rate learning rate, alpha in Adam paper
    * @param beta1 beta1 in Adam paper
    * @param beta2 beta2 in Adam paper
    * @param epsilon epsilon in Adam paper
    */
-  AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight,
-                const std::shared_ptr<GeneralBuffer<float>>& wgrad, int device_id,
-                float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8,
-                float scaler = 1.f)
-      : Optimizer(weight, wgrad, device_id, alpha, scaler),
-        m_(weight->get_num_elements(), device_id),
-        v_(weight->get_num_elements(), device_id),
-        t_(0),
-        beta1_(beta1),
-        beta2_(beta2),
-        epsilon_(epsilon) {
-    m_.reset_sync();
-    v_.reset_sync();
-  }
+  AdamOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
+                const GeneralBufferPtr<float>& fp32_wgrad,
+                const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
+                float learning_rate = 0.001, float beta1 = 0.9, float beta2 = 0.999,
+                float epsilon = 1e-7, float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -60,8 +51,10 @@ class AdamOptimizer : public Optimizer {
  private:
   // named as in Algorithm 1 of Adam paper (arXiv:1412.6980)
   // except that alpha is lr_ in class Optimizer
-  GeneralBuffer<float> m_;
-  GeneralBuffer<float> v_;
+  GeneralBuffer<float> fp32_m_;
+  GeneralBuffer<float> fp32_v_;
+  GeneralBuffer<__half> fp16_m_;
+  GeneralBuffer<__half> fp16_v_;
   uint64_t t_;
   const float beta1_;
   const float beta2_;

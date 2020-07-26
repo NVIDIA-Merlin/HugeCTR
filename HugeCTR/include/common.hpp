@@ -20,6 +20,8 @@
 #include <cublas_v2.h>
 #include <ctime>
 #include <exception>
+#include <initializer_list>
+#include <iomanip>
 #include <iostream>
 #include "HugeCTR/include/config.hpp"
 
@@ -27,12 +29,16 @@
 #include <mpi.h>
 #endif
 
+#define PYTORCH_INIT
+
 namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 2
-#define HUGECTR_VERSION_MINOR 1
+#define HUGECTR_VERSION_MINOR 2
 
 #define WARP_SIZE 32
+
+//#define DATA_READING_TEST
 
 enum class Error_t {
   Success,
@@ -56,11 +62,16 @@ enum class Error_t {
 
 enum class Check_t { Sum, None };
 
+enum class Tensor_t { FP32, FP16, LONGLONG, UINT };
+
 enum class DataReaderSparse_t { Distributed, Localized };
+
+enum class DataReaderType_t { Norm, Raw };
 
 struct DataReaderSparseParam {
   DataReaderSparse_t type;
   int max_feature_num;
+  int max_nnz;
   int slot_num;
 };
 
@@ -101,7 +112,7 @@ enum class TensorFormat_t {
 
 enum class LrPolicy_t { fixed };
 
-enum class Optimizer_t { Adam, MomentumSGD, Nesterov };
+enum class Optimizer_t { Adam, MomentumSGD, Nesterov, SGD };
 
 enum class Regularizer_t { L1, L2 };
 
@@ -114,18 +125,28 @@ enum class Layer_t {
   Dropout,
   ELU,
   InnerProduct,
+  FusedInnerProduct,
+  Interaction,
   MultiCrossEntropyLoss,
   ReLU,
+  ReLUHalf,
   Slice,
   Multiply,
   FmOrder2,
   Add,
   ReduceSum,
   MultiCross,
+  Cast,
   DotProduct
 };
 
-enum class Embedding_t { DistributedSlotSparseEmbeddingHash, LocalizedSlotSparseEmbeddingHash };
+enum class Embedding_t {
+  DistributedSlotSparseEmbeddingHash,
+  LocalizedSlotSparseEmbeddingHash,
+  LocalizedSlotSparseEmbeddingOneHot
+};
+
+enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
 
 typedef struct DataSetHeader_ {
   long long error_check;        // 0: no error check; 1: check_num
@@ -195,14 +216,16 @@ typedef struct DataSetHeader_ {
     }                                                                              \
   } while (0)
 
-#define MESSAGE_(msg)                                                                            \
-  do {                                                                                           \
-    std::time_t time_instance = std::time(0);                                                    \
-    std::tm* time_now = std::localtime(&time_instance);                                          \
-    std::string str = (msg);                                                                     \
-    std::cout << "[" << time_now->tm_mday << "d" << time_now->tm_hour << "h" << time_now->tm_min \
-              << "m" << time_now->tm_sec << "s"                                                  \
-              << "][HUGECTR][INFO]: " << str << std::endl;                                       \
+#define MESSAGE_(msg)                                                                \
+  do {                                                                               \
+    std::time_t time_instance = std::time(0);                                        \
+    std::tm* time_now = std::localtime(&time_instance);                              \
+    std::string str = (msg);                                                         \
+    std::cout.fill('0');                                                             \
+    std::cout << "[" << std::setw(2) << time_now->tm_mday << "d" << std::setw(2)     \
+              << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m" \
+              << std::setw(2) << time_now->tm_sec << "s"                             \
+              << "][HUGECTR][INFO]: " << str << std::endl;                           \
   } while (0)
 
 #define CK_CUDA_THROW_(x)                                                                          \
@@ -305,5 +328,20 @@ typedef struct DataSetHeader_ {
                                    " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
     }                                                                                           \
   } while (0)
+
+template <typename T>
+inline void print_func(T& t) {
+  std::cout << t << ", ";
+  return;
+}
+
+template <typename... Args>
+inline void LOG(const Args&... args) {
+  std::cout << "[";
+  std::initializer_list<char>{(print_func(args), 'a')...};
+  std::cout << "]" << std::endl;
+
+  return;
+}
 
 }  // namespace HugeCTR

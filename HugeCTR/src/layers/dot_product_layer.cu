@@ -45,12 +45,13 @@ __global__ void dot_product_kernel(T** inputs, T* output, int size, int num) {
 }
 
 template <typename T>
-__global__ void dot_product_dgrad_kernel(const T* top_grad, T** dgrads, T* fprop_output, int size, int num) {
+__global__ void dot_product_dgrad_kernel(const T* top_grad, T** dgrads, T* fprop_output, int size,
+                                         int num) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (tid < size) {
-    for (int i = 0; i < num; ++i){
-      if (0 == fprop_output[tid]){
+    for (int i = 0; i < num; ++i) {
+      if (0 == fprop_output[tid]) {
         dgrads[i][tid] = 0;
       } else {
         T d_input = dgrads[i][tid];
@@ -111,7 +112,7 @@ DotProductLayer::~DotProductLayer() {
     if (d_inputs_) {
       CK_CUDA_THROW_(cudaFree(d_inputs_));
     }
-    if (fprop_output_){
+    if (fprop_output_) {
       CK_CUDA_THROW_(cudaFree(fprop_output_));
     }
   } catch (const std::runtime_error& rt_err) {
@@ -153,7 +154,8 @@ void DotProductLayer::bprop(cudaStream_t stream) {
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
-  dot_product_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, d_inputs_, fprop_output_, size_, num_);
+  dot_product_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, d_inputs_, fprop_output_,
+                                                               size_, num_);
 }
 
 }  // namespace HugeCTR

@@ -36,7 +36,7 @@ __device__ int array_length(T (&arr)[length]) {
 template <typename T, typename... Args>
 __global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, const int virt_w,
                              const Args... args) {
-  const SliceLayer::OutParam<T> out_params[] = {args...};
+  const typename SliceLayer<T>::OutParam out_params[] = {args...};
   const int n_outs = array_length(out_params);
 
   for (int row = blockIdx.x; row < h; row += gridDim.x) {
@@ -62,9 +62,10 @@ __global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, c
 
 }  // anonymous namespace
 
-SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor, Tensors<float>& out_tensors,
-                       const std::shared_ptr<GeneralBuffer<float>>& blobs_buff,
-                       std::vector<std::pair<int, int>>& ranges, int device_id)
+template <typename T>
+SliceLayer<T>::SliceLayer(const std::shared_ptr<Tensor<T>>& in_tensor, Tensors<T>& out_tensors,
+                          const std::shared_ptr<GeneralBuffer<T>>& blobs_buff,
+                          std::vector<std::pair<int, int>>& ranges, int device_id)
     : Layer(device_id), n_sms_(0), virt_w_(0) {
   try {
     CudaDeviceContext context(device_id);
@@ -106,7 +107,7 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor, Tensors<
       }
       size_t out_w = cur_max - cur_min;
       std::vector<size_t> out_dims = {height, out_w};
-      out_tensors.emplace_back(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
+      out_tensors.emplace_back(new Tensor<T>(out_dims, blobs_buff, TensorFormat_t::HW));
       sts_.push_back(cur_min);
       virt_w_ += out_w;
 
@@ -129,25 +130,32 @@ SliceLayer::SliceLayer(const std::shared_ptr<Tensor<float>>& in_tensor, Tensors<
   }
 }
 
-void SliceLayer::fprop(cudaStream_t stream) { prop_common(true, stream); }
+template <typename T>
+void SliceLayer<T>::fprop(cudaStream_t stream) {
+  prop_common(true, stream);
+}
 
-void SliceLayer::bprop(cudaStream_t stream) { prop_common(false, stream); }
+template <typename T>
+void SliceLayer<T>::bprop(cudaStream_t stream) {
+  prop_common(false, stream);
+}
 
-void SliceLayer::prop_common(bool forward, cudaStream_t stream) {
+template <typename T>
+void SliceLayer<T>::prop_common(bool forward, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   int n_out_tensors = out_tensors_.size();
   if (n_out_tensors == 2) {
-    std::vector<OutParam<float>> out_params = set_out_params(2);
+    std::vector<OutParam> out_params = set_out_params(2);
     kernel_launch(forward, stream, out_params[0], out_params[1]);
   } else if (n_out_tensors == 3) {
-    std::vector<OutParam<float>> out_params = set_out_params(3);
+    std::vector<OutParam> out_params = set_out_params(3);
     kernel_launch(forward, stream, out_params[0], out_params[1], out_params[2]);
   } else if (n_out_tensors == 4) {
-    std::vector<OutParam<float>> out_params = set_out_params(4);
+    std::vector<OutParam> out_params = set_out_params(4);
     kernel_launch(forward, stream, out_params[0], out_params[1], out_params[2], out_params[3]);
   } else if (n_out_tensors == 5) {
-    std::vector<OutParam<float>> out_params = set_out_params(5);
+    std::vector<OutParam> out_params = set_out_params(5);
     kernel_launch(forward, stream, out_params[0], out_params[1], out_params[2], out_params[3],
                   out_params[4]);
   } else {
@@ -160,11 +168,12 @@ void SliceLayer::prop_common(bool forward, cudaStream_t stream) {
 #endif
 }
 
-std::vector<SliceLayer::OutParam<float>> SliceLayer::set_out_params(int n) {
-  std::vector<OutParam<float>> out_params;
+template <typename T>
+std::vector<typename SliceLayer<T>::OutParam> SliceLayer<T>::set_out_params(int n) {
+  std::vector<OutParam> out_params;
   for (int i = 0; i < n; i++) {
     const auto& out_tensor = out_tensors_[i];
-    float* out = out_tensor->get_ptr();
+    T* out = out_tensor->get_ptr();
     int st = sts_[i];
     int w = out_tensor->get_dims()[1];
     out_params.push_back({out, st, st + w});
@@ -172,18 +181,22 @@ std::vector<SliceLayer::OutParam<float>> SliceLayer::set_out_params(int n) {
   return std::move(out_params);
 }
 
+template <typename T>
 template <typename... Args>
-void SliceLayer::kernel_launch(bool forward, cudaStream_t stream, Args&... args) {
+void SliceLayer<T>::kernel_launch(bool forward, cudaStream_t stream, Args&... args) {
   int block_size = 512;
   int n_blocks = n_sms_ * 4;
   const auto& in_tensor = in_tensors_[0];
-  float* in = in_tensor->get_ptr();
+  T* in = in_tensor->get_ptr();
   int h = in_tensor->get_dims()[0];
   int in_w = in_tensor->get_dims()[1];
   if (!forward) {
-    initialize_array<<<n_blocks, block_size, 0, stream>>>(in, h * in_w, float(0));
+    initialize_array<<<n_blocks, block_size, 0, stream>>>(in, h * in_w, T(0));
   }
   slice_kernel<<<n_blocks, block_size, 0, stream>>>(forward, in, h, in_w, virt_w_, args...);
 }
+
+template class SliceLayer<float>;
+template class SliceLayer<__half>;
 
 }  // namespace HugeCTR

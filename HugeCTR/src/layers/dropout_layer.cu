@@ -30,18 +30,21 @@ namespace HugeCTR {
 
 namespace {
 
-__global__ void dropout_kernel(const float* in, const float* mask, float* out, const int len,
+template <typename T>
+__global__ void dropout_kernel(const T* in, const float* mask, T* out, const int len,
                                const float rate, const float scale) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
-    out[i] = ((1.f - mask[i]) >= rate) * in[i] * scale;
+    out[i] = TypeConvertFunc<T, float>::convert(((1.f - mask[i]) >= rate) *
+                                                TypeConvertFunc<float, T>::convert(in[i]) * scale);
   }
 }
 
 }  // end namespace
 
-DropoutLayer::DropoutLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                           const std::shared_ptr<Tensor<float>>& out_tensor, float rate,
-                           const curandGenerator_t& curand_generator, int device_id)
+template <typename T>
+DropoutLayer<T>::DropoutLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
+                              const std::shared_ptr<Tensor<T>>& out_tensor, float rate,
+                              const curandGenerator_t& curand_generator, int device_id)
     : Layer(device_id),
       rate_(rate),
       scale_(1.0 / (1.0 - rate)),
@@ -55,38 +58,44 @@ DropoutLayer::DropoutLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
   out_tensors_.emplace_back(out_tensor);
 
   CudaDeviceContext context(get_device_id());
-  CK_CUDA_THROW_(cudaMalloc(&mask_, in_tensor->get_size()));
+  CK_CUDA_THROW_(cudaMalloc(&mask_, in_tensor->get_num_elements() * sizeof(float)));
   CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(curand_generator_, get_seed()));
 
   CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, get_device_id()));
   assert(n_sms_ > 0);
 }
 
-DropoutLayer::~DropoutLayer() {
+template <typename T>
+DropoutLayer<T>::~DropoutLayer() {
   if (mask_) {
     cudaFree(mask_);
   }
 }
 
-void DropoutLayer::fprop(cudaStream_t stream) {
+template <typename T>
+void DropoutLayer<T>::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
+  CK_CURAND_THROW_(curandSetStream(curand_generator_, stream));
   CK_CURAND_THROW_(
       curandGenerateUniform(curand_generator_, mask_, in_tensors_[0]->get_num_elements()));
   prop_common(in_tensors_[0]->get_ptr(), out_tensors_[0]->get_ptr(), stream);
 }
 
-void DropoutLayer::bprop(cudaStream_t stream) {
+template <typename T>
+void DropoutLayer<T>::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   prop_common(out_tensors_[0]->get_ptr(), in_tensors_[0]->get_ptr(), stream);
 }
 
-void DropoutLayer::inference(cudaStream_t stream) {
+template <typename T>
+void DropoutLayer<T>::inference(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   cudaMemcpyAsync(out_tensors_[0]->get_ptr(), in_tensors_[0]->get_ptr(), in_tensors_[0]->get_size(),
                   cudaMemcpyDeviceToDevice, stream);
 }
 
-int64_t DropoutLayer::get_seed() const {
+template <typename T>
+int64_t DropoutLayer<T>::get_seed() const {
   FILE* f = fopen("/dev/urandom", "rb");
   if (f) {
     int64_t seed;
@@ -99,7 +108,8 @@ int64_t DropoutLayer::get_seed() const {
   return time(nullptr);
 }
 
-void DropoutLayer::prop_common(const float* in, float* out, cudaStream_t stream) {
+template <typename T>
+void DropoutLayer<T>::prop_common(const T* in, T* out, cudaStream_t stream) {
   int len = in_tensors_[0]->get_num_elements();
 
   int grid_size = n_sms_ * 16;
@@ -111,5 +121,8 @@ void DropoutLayer::prop_common(const float* in, float* out, cudaStream_t stream)
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+
+template class DropoutLayer<float>;
+template class DropoutLayer<__half>;
 
 }  // namespace HugeCTR
