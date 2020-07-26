@@ -23,10 +23,12 @@ from hugectr_layers import *
 import argparse
 
 
-def read_a_sample_for_dcn(args, slot_num=26):
+def read_a_sample_for_dcn(args, key_type="I64", slot_num=26):
     """
     read a sample from criteo dataset.
     """
+    key_type_map = {"I32": ["I", 4], "I64": ["q", 8]}
+
     with open(args.dataset, 'rb') as file:
         # skip data_header
         file.seek(4 + 64 + 1, 0)
@@ -45,8 +47,10 @@ def read_a_sample_for_dcn(args, slot_num=26):
         for _ in range(slot_num):
             nnz_buffer = file.read(4) # int
             nnz = struct.unpack("i", nnz_buffer)[0]
-            key_buffer = file.read(8 * nnz) # nnz * long long 
-            key = struct.unpack(str(nnz) + "q", key_buffer)
+
+            key_buffer = file.read(key_type_map[key_type][1] * nnz) # nnz * sizeof(key_type)
+            key = struct.unpack(str(nnz) + key_type_map[key_type][0], key_buffer)
+
             keys += list(key)
 
         check_bit_buffer = file.read(1) # char
@@ -181,7 +185,7 @@ def dcn_model(args):
         sess.run(init_op)
 
         # check inference output
-        label, dense, keys = read_a_sample_for_dcn(args)
+        label, dense, keys = read_a_sample_for_dcn(args, dump.get_key_type())
         keys[keys == -1] = vocabulary_size # map -1 to invalid zeros embedding feature
         output = sess.run(fc4, feed_dict={dense_input: dense,
                                           sparse_input: keys})
@@ -192,10 +196,11 @@ def dcn_model(args):
         print("[INFO] save done.")
 
 
-def read_a_sample_for_criteo(args, slot_num=1):
+def read_a_sample_for_criteo(args, key_type='I64', slot_num=1):
     """
     read a sample from criteo dataset
     """
+    key_type_map = {"I32": ["I", 4], "I64": ["q", 8]}
     with open(args.dataset, 'rb') as file:
         # skip data_header
         file.seek(4 + 64 + 1, 0)
@@ -213,8 +218,10 @@ def read_a_sample_for_criteo(args, slot_num=1):
         for _ in range(slot_num):
             nnz_buffer = file.read(4) # int
             nnz = struct.unpack("i", nnz_buffer)[0]
-            keys_buffer = file.read(8 * nnz) # nnz * long long
-            key = struct.unpack(str(nnz) + "q", keys_buffer)
+
+            keys_buffer = file.read(key_type_map[key_type][1] * nnz)
+            key = struct.unpack(str(nnz) + key_type_map[key_type][0], keys_buffer)
+
             keys += list(key)
             
         check_bit_buffer = file.read(1) # char
@@ -335,7 +342,7 @@ def criteo_model(args):
         sess.run(init_op)
 
         # check inference output
-        label, dense, keys = read_a_sample_for_criteo(args)
+        label, dense, keys = read_a_sample_for_criteo(args, dump.get_key_type())
         keys[keys == -1] = vocabulary_size # map -1 to invalid zeros embedding feature
         output = sess.run(fc4, feed_dict={sparse_input: keys})
         print("[INFO] output = %f" %output)
