@@ -38,9 +38,9 @@ HugeCTR is not only a high-performance refereence design for framework designers
 
 + **Optimized Data Reader for Raw Data Format** : RAW data format is supported to simplify the one hot data reading and achieve better performance.
 
-+ **Deep Learning Recommendation Model (DLRM)** : We eanbled and optimized the training of DLRM. Please find more details in [samples/dlrm](samples/dlrm/README.md).
++ **Deep Learning Recommendation Model (DLRM)** : We eanbled and optimized the training of DLRM. Please find more details in [samples/dlrm](../samples/dlrm/README.md).
 
-+ **Learning Rate Scheduling** : [Different learning rate scheduling](#sgd-optimizer-learning-rate-scheduling) is supported. <br>
++ **Learning Rate Scheduling** : [Different learning rate scheduling](#sgd-optimizer--learning-rate-scheduling) is supported. <br>
 
 + **Weight Initialization Methods** : For each trainable layer, a use can choose which method ,e.g., XavierUnifrom, Zero, etc is used for its weight initialization.
 
@@ -355,7 +355,7 @@ The Others
 * Fully Connected (`InnerProduct`): bias is supported in fully connected layer and `num_output` is the dimension of output.
 * Fused fully connected layer(`FusedInnerProduct`): Fused bias adding and relu activation into a single layer.
 * Loss: different from the other layers, you can specify which `regularization` will you use. This is optional. By default no regularization will be used.
-* For more details please refer to [**parser.cu**](../HugeCTR/src/parser.cpp)
+* For more details please refer to [**parser.cpp**](../HugeCTR/src/parser.cpp)
 ```json
 {
   "name": "elu1",
