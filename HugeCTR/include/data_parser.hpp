@@ -17,99 +17,13 @@
 #pragma once
 
 #include <fstream>
-#include <iostream>
 #include <memory>
-#include <random>
 #include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/data_simulator.hpp"
 
 namespace HugeCTR {
 
-enum class DistributeType { Unified, Gaussian };
-
 enum class IOmode { read, write };
-
-template <class T>
-class DataSimulator {
- public:
-  DataSimulator(DistributeType type) : type_(type){};
-  virtual T get_num() = 0;
-  DistributeType get_distribute_type() const { return type_; };
-
- private:
-  DistributeType type_;
-};
-
-template <class T>
-class UnifiedDataSimulator : public DataSimulator<T> {
- public:
-  UnifiedDataSimulator(T min, T max)
-      : DataSimulator<T>(DistributeType::Unified), rd_(), gen_(rd_()), dis_(min, max) {}
-  T get_num() final { return static_cast<T>(dis_(gen_)); }
-
- private:
-  std::random_device rd_;
-  std::mt19937 gen_;
-  std::uniform_real_distribution<> dis_;
-};
-
-template <>
-class UnifiedDataSimulator<long long> : public DataSimulator<long long> {
- public:
-  UnifiedDataSimulator(long long min, long long max)
-      : DataSimulator<long long>(DistributeType::Unified), rd_(), gen_(rd_()), dis_(min, max) {}
-  long long get_num() final { return dis_(gen_); }
-
- private:
-  std::random_device rd_;
-  std::mt19937 gen_;
-  std::uniform_int_distribution<long long> dis_;
-};
-
-template <>
-class UnifiedDataSimulator<int> : public DataSimulator<int> {
- public:
-  UnifiedDataSimulator(int min, int max)  // both included
-      : DataSimulator<int>(DistributeType::Unified), rd_(), gen_(rd_()), dis_(min, max) {}
-  int get_num() final { return dis_(gen_); }
-
- private:
-  std::random_device rd_;
-  std::mt19937 gen_;
-  std::uniform_int_distribution<int> dis_;
-};
-
-template <class T>
-class GaussianDataSimulator : public DataSimulator<T> {
- public:
-  GaussianDataSimulator(float mu, float sigma, T min, T max)
-      : DataSimulator<T>(DistributeType::Gaussian),
-        rd_(),
-        gen_(rd_()),
-        dis_(mu, sigma),
-        min_(min),
-        max_(max) {
-    if (min_ > max_) {
-      ERROR_MESSAGE_("min_ > max_");
-    }
-  }
-  T get_num() final {
-    while (1) {
-      T tmp = static_cast<T>(dis_(gen_));
-      if (tmp <= max_ && tmp >= min_) return tmp;
-      if (tmp < min_) continue;
-      if (tmp > max_) continue;
-      ERROR_MESSAGE_("wrong path");
-    }
-    return 0;
-  }
-
- private:
-  std::random_device rd_;
-  std::mt19937 gen_;
-  std::normal_distribution<> dis_;
-  T min_;
-  T max_;
-};
 
 template <class T>
 class DataParser {

@@ -20,7 +20,7 @@
 #include <string>
 
 namespace HugeCTR{
-  const static std::string PROJECT_HOME_ = "@PROJECT_SOURCE_DIR@/";
+  const static std::string PROJECT_HOME_ = "@PROJECT_SOURCE_DIR@/test/";
 }//HugeCTR
 
 

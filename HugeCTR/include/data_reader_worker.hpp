@@ -22,13 +22,14 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/csr.hpp"
 #include "HugeCTR/include/csr_chunk.hpp"
+#include "HugeCTR/include/data_reader_worker_interface.hpp"
 #include "HugeCTR/include/file_list.hpp"
 #include "HugeCTR/include/file_source.hpp"
 #include "HugeCTR/include/heapex.hpp"
 
 namespace HugeCTR {
 template <class T>
-class DataReaderWorker {
+class DataReaderWorker : public IDataReaderWorker {
  private:
   const unsigned int worker_id_{0};
   const unsigned int worker_num_{0};
@@ -140,6 +141,7 @@ void DataReaderWorker<T>::read_a_batch() {
     csr_heap_->free_chunk_checkout(&csr_chunk, worker_id_);
 
     if (!skip_read_) {
+      csr_chunk->set_current_batchsize(csr_chunk->get_batchsize());
       const auto& label_dense_buffers = csr_chunk->get_label_buffers();
       const int label_dense_dim = csr_chunk->get_label_dense_dim();
       if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
@@ -180,12 +182,6 @@ void DataReaderWorker<T>::read_a_batch() {
               ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
             }
 
-#ifndef NDEBUG
-            if (i >= 0) {
-              std::cout << "[HCDEBUG]"
-                        << "nnz: " << nnz << "sample " << i << std::endl;
-            }
-#endif
             CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
             if (param.type == DataReaderSparse_t::Distributed) {
               for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {

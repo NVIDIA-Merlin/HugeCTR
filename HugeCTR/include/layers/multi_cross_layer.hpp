@@ -60,6 +60,24 @@ class MultiCrossLayer : public Layer {
 
   TensorPtr<float> tmp_mat_tensors_[3];  //[h,w]
   TensorPtr<float> tmp_vec_tensor_;      //[h,1]
+
+  /*
+   * stores the weight tensors of this layer.
+   */
+  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+
  public:
   /**
    * forward pass
@@ -72,14 +90,12 @@ class MultiCrossLayer : public Layer {
 
   MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
                   const GeneralBufferPtr<float>& wgrad_buff, const TensorPtr<float>& in_tensor,
-                  const TensorPtr<float>& out_tensor, int num_layers, int device_id);
+                  const TensorPtr<float>& out_tensor, int num_layers, int device_id,
+                  std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   MultiCrossLayer(const MultiCrossLayer&) = delete;
   MultiCrossLayer& operator=(const MultiCrossLayer&) = delete;
 
  private:
-  /**
-   * Use Gaussian initialization.
-   */
-  std::vector<float> get_initializer() override;
+  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
 };
 }  // namespace HugeCTR

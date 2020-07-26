@@ -24,9 +24,10 @@
 
 namespace HugeCTR {
 
-Regularizer::Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                         const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-                         const int batch_size, const int device_id)
+template <typename T>
+Regularizer<T>::Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
+                            const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff,
+                            const int batch_size, const int device_id)
     : weight_buff_(weight_buff),
       wgrad_buff_(wgrad_buff),
       batch_size_(batch_size),
@@ -36,7 +37,8 @@ Regularizer::Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buf
   CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device_id_));
 }
 
-void Regularizer::compute_rterm(cudaStream_t stream) {
+template <typename T>
+void Regularizer<T>::compute_rterm(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   const float* weight = weight_buff_->get_ptr_with_offset(0);
@@ -48,11 +50,12 @@ void Regularizer::compute_rterm(cudaStream_t stream) {
 #endif
 }
 
-void Regularizer::initialize_wgrad(cudaStream_t stream) {
+template <typename T>
+void Regularizer<T>::initialize_wgrad(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   const float* weight = weight_buff_->get_ptr_with_offset(0);
-  float* wgrad = wgrad_buff_->get_ptr_with_offset(0);
+  T* wgrad = wgrad_buff_->get_ptr_with_offset(0);
   do_initialize_wgrad(weight, wgrad, weight_buff_->get_num_elements(), stream);
 
 #ifndef NDEBUG
@@ -61,4 +64,6 @@ void Regularizer::initialize_wgrad(cudaStream_t stream) {
 #endif
 }
 
+template class Regularizer<float>;
+template class Regularizer<__half>;
 }  // namespace HugeCTR

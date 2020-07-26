@@ -31,6 +31,27 @@ class FullyConnectedLayer : public Layer {
  private:
   const cublasHandle_t cublas_handle_;
   const bool use_mixed_precision_{false};
+  // Optimized cublasGemmEx algorithm selection
+  cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
+  cublasGemmAlgo_t balgo_W_{CUBLAS_GEMM_DEFAULT};
+  cublasGemmAlgo_t balgo_Xn_{CUBLAS_GEMM_DEFAULT};
+
+  /*
+   * stores the weight tensors of this layer.
+   */
+  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
+  /*
+   * stores the weight gradient tensors of this layer.
+   */
+  Tensors<float> wgrad_;
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
 
  public:
   /**
@@ -41,6 +62,10 @@ class FullyConnectedLayer : public Layer {
    * backward pass
    */
   void bprop(cudaStream_t stream) final;
+  /*
+   * algorithm search for cublasGemmEx
+   */
+  void search_algorithm() final;
   /**
    * This is the constructor of the FullyConnectedLayer.
    * It will check whether the format combination of all tensors is supported or not.
@@ -59,14 +84,18 @@ class FullyConnectedLayer : public Layer {
                       const std::shared_ptr<Tensor<float>>& in_tensor,
                       const std::shared_ptr<Tensor<float>>& out_tensor,
                       TensorFormat_t weight_format, cublasHandle_t const& cublas_handle,
-                      int device_id, bool use_mixed_precision = false);
+                      int device_id, bool use_mixed_precision = false,
+                      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);
 
  private:
-  /**
-   * Use Gaussian initialization.
+  /*
+   * initializers for this layer.
    */
-  std::vector<float> get_initializer() override;
+  std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
 };
 }  // namespace HugeCTR

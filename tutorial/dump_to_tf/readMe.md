@@ -82,6 +82,8 @@ Take criteo dataset and DCN model as an example to demonstrate the steps.
 + struct (python package)
 + json (python package)
 
+Suppose you have trained with `samples/dcn/dcn.json`, and have data (sparse_embedding0.data), model files (_dense_20000.model/0_sparse_20000.model) in your coresponding folders.
+If you don't have please modify your dcn.json script and commands below accordingly.
 You can use these commands to run this demo:
 ```
 $ cd hugectr/tutorial/dump_to_tf
@@ -90,6 +92,12 @@ $ python3 main.py \
 ../../samples/dcn/_dense_20000.model \
 ../../samples/dcn/0_sparse_20000.model
 ```
+Expected output (the number in runtime can be different):
+```
+[INFO] output = -0.008215
+[INFO] save done.
+```
+
 
 **Usage** 
 ```

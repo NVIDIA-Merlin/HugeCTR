@@ -36,7 +36,7 @@ template <typename T, typename... Args>
 __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w,
                               const Args... args) {
   const int gid_base = blockIdx.x * blockDim.x + threadIdx.x;
-  const ConcatLayer::InParam<T> in_params[] = {args...};
+  const typename ConcatLayer<T>::InParam in_params[] = {args...};
   const int n_ins = array_length(in_params);
   for (int gid = gid_base; gid < h * out_w; gid += blockDim.x * gridDim.x) {
     int row = gid / out_w;
@@ -67,8 +67,9 @@ __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w
 
 }  // anonymous namespace
 
-ConcatLayer::ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<float>>& out_tensor,
-                         const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, int device_id)
+template <typename T>
+ConcatLayer<T>::ConcatLayer(Tensors<T> in_tensors, std::shared_ptr<Tensor<T>>& out_tensor,
+                            const std::shared_ptr<GeneralBuffer<T>>& blobs_buff, int device_id)
     : Layer(device_id), n_sms_(0) {
   try {
     CudaDeviceContext context(get_device_id());
@@ -101,7 +102,7 @@ ConcatLayer::ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<floa
     }
 
     std::vector<size_t> out_dims = {height, new_width};
-    out_tensor.reset(new Tensor<float>(out_dims, blobs_buff, TensorFormat_t::HW));
+    out_tensor.reset(new Tensor<T>(out_dims, blobs_buff, TensorFormat_t::HW));
 
     for (auto& in_tensor : in_tensors) {
       in_tensors_.emplace_back(in_tensor);
@@ -118,25 +119,32 @@ ConcatLayer::ConcatLayer(Tensors<float>& in_tensors, std::shared_ptr<Tensor<floa
   }
 }
 
-void ConcatLayer::fprop(cudaStream_t stream) { prop_common(true, stream); }
+template <typename T>
+void ConcatLayer<T>::fprop(cudaStream_t stream) {
+  prop_common(true, stream);
+}
 
-void ConcatLayer::bprop(cudaStream_t stream) { prop_common(false, stream); }
+template <typename T>
+void ConcatLayer<T>::bprop(cudaStream_t stream) {
+  prop_common(false, stream);
+}
 
-void ConcatLayer::prop_common(bool forward, cudaStream_t stream) {
+template <typename T>
+void ConcatLayer<T>::prop_common(bool forward, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   int n_in_tensors = in_tensors_.size();
   if (n_in_tensors == 2) {
-    std::vector<InParam<float>> in_params = set_in_params(2);
+    std::vector<InParam> in_params = set_in_params(2);
     kernel_launch(forward, stream, in_params[0], in_params[1]);
   } else if (n_in_tensors == 3) {
-    std::vector<InParam<float>> in_params = set_in_params(3);
+    std::vector<InParam> in_params = set_in_params(3);
     kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2]);
   } else if (n_in_tensors == 4) {
-    std::vector<InParam<float>> in_params = set_in_params(4);
+    std::vector<InParam> in_params = set_in_params(4);
     kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2], in_params[3]);
   } else if (n_in_tensors == 5) {
-    std::vector<InParam<float>> in_params = set_in_params(5);
+    std::vector<InParam> in_params = set_in_params(5);
     kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2], in_params[3],
                   in_params[4]);
   } else {
@@ -149,26 +157,31 @@ void ConcatLayer::prop_common(bool forward, cudaStream_t stream) {
 #endif
 }
 
-std::vector<ConcatLayer::InParam<float>> ConcatLayer::set_in_params(int n) {
-  std::vector<InParam<float>> in_params;
+template <typename T>
+std::vector<typename ConcatLayer<T>::InParam> ConcatLayer<T>::set_in_params(int n) {
+  std::vector<InParam> in_params;
   for (int i = 0; i < n; i++) {
     const auto& in_tensor = in_tensors_[i];
-    float* in = in_tensor->get_ptr();
+    T* in = in_tensor->get_ptr();
     int w = in_tensor->get_dims()[1];
     in_params.push_back({in, w});
   }
   return std::move(in_params);
 }
 
+template <typename T>
 template <typename... Args>
-void ConcatLayer::kernel_launch(bool forward, cudaStream_t stream, Args&... args) {
+void ConcatLayer<T>::kernel_launch(bool forward, cudaStream_t stream, Args&... args) {
   int block_size = 256;
   int n_blocks = n_sms_ * 8;
   const auto& out_tensor = out_tensors_[0];
-  float* out = out_tensor->get_ptr();
+  T* out = out_tensor->get_ptr();
   int h = out_tensor->get_dims()[0];
   int out_w = out_tensor->get_dims()[1];
   concat_kernel<<<n_blocks, block_size, 0, stream>>>(forward, out, h, out_w, args...);
 }
+
+template class ConcatLayer<float>;
+template class ConcatLayer<__half>;
 
 }  // namespace HugeCTR

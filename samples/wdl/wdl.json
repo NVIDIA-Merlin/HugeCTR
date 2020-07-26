@@ -2,7 +2,7 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 30000,
+    "max_iter": 10000,
     "gpu": [0],
     "batchsize": 16384,
     "snapshot": 10000000,
@@ -15,10 +15,10 @@
     "type": "Adam",
     "global_update": true,
     "adam_hparam": {
-      "alpha": 0.001,
+      "learning_rate": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.00000001
+      "epsilon": 0.0000001
     }
   },
 
@@ -60,8 +60,7 @@
       "bottom": "wide_data",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1603616,
-        "load_factor": 0.75,
+        "max_vocabulary_size_per_gpu": 2322444,
         "embedding_vec_size": 1,
         "combiner": 0
       }
@@ -74,8 +73,7 @@
       "bottom": "deep_data",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "vocabulary_size": 1603616,
-        "load_factor": 0.75,
+        "max_vocabulary_size_per_gpu": 2322444,
         "embedding_vec_size": 16,
         "combiner": 0
       }

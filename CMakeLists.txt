@@ -38,7 +38,8 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
-option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" off)
+
+option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" ON)
 if (NCCL_A2A) 
   message(STATUS "-- NCCL_A2A is ON")
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DNCCL_A2A")
@@ -78,28 +79,35 @@ if (VAL_MODE)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DVAL")
 endif()
 
-message("-- Default GPU architecture to be compiled for is 70. Set SM to change the GPU architecture")
-set(SM 70)
 # setting compiler flags
-if (SM STREQUAL 75 OR 
-    SM STREQUAL 70 OR
-    SM STREQUAL 62 OR
-    SM STREQUAL 61 OR
-    SM STREQUAL 60)
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM},code=\\\"sm_${SM},compute_${SM}\\\" -rdc=true")
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall")	
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall")
-  message(STATUS "-- Assign GPU architecture (sm=${SM})")
-else()
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_60,code=\\\"sm_60,compute_60\\\" -rdc=true")
-  message(WARNING "-- Unknown or unsupported GPU architecture (set sm=60)")
-endif()
+foreach(arch_name ${SM})
+    if (arch_name STREQUAL 80 OR 
+        arch_name STREQUAL 75 OR 
+        arch_name STREQUAL 70)
+        list(APPEND cuda_arch_list ${arch_name})
+        message(STATUS "-- Assign GPU architecture (sm=${arch_name})")
+    else()
+        message(FATAL_ERROR "-- Unknown or unsupported GPU architecture (set sm=70)")
+    endif()
+endforeach()
 
+list(LENGTH cuda_arch_list cuda_arch_list_length)
+if(${cuda_arch_list_length} EQUAL 0)
+    list(APPEND cuda_arch_list "70")
+endif()
+list(REMOVE_DUPLICATES cuda_arch_list)
+
+foreach(arch_name ${cuda_arch_list})
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
+endforeach()
+
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror")	
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror")
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror")
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
 
@@ -113,6 +121,7 @@ configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOU
 # building
 include_directories(
   ${PROJECT_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/test
   ${CUDA_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/json/single_include
@@ -145,8 +154,11 @@ link_directories(
   ${UCX_LIB_PATHS}
   $ENV{CONDA_PREFIX}/lib)
 
+#setting binary files install path
+install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
+
 add_subdirectory(HugeCTR/src)
 add_subdirectory(googletest)
 add_subdirectory(json)
-add_subdirectory(utest)
+add_subdirectory(test/utest)
 add_subdirectory(tools)
