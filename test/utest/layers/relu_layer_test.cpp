@@ -31,69 +31,97 @@ namespace {
 const float eps = 1e-6;
 
 template <typename T>
-void relu_cpu(const T* in, T* out, int len) {
+void relu_cpu(T* top, const T* bottom, int len);
+
+template <>
+void relu_cpu<float>(float* top, const float* bottom, int len) {
   for (int i = 0; i < len; ++i) {
-    if (in[i] < 0) {
-      out[i] = 0.0f;
+    if (bottom[i] < 0) {
+      top[i] = 0.0f;
     } else {
-      out[i] = in[i];
+      top[i] = bottom[i];
+    }
+  }
+}
+
+template <>
+void relu_cpu<__half>(__half* top, const __half* bottom, int len) {
+  for (int i = 0; i < len; ++i) {
+    if (bottom[i] > 0) {
+      top[i] = bottom[i];
+    } else {
+      top[i] = __float2half(0.0f);
     }
   }
 }
 
 template <typename T>
-void relu_bprop_cpu(const T* d_out, T* d_in, int len) {
+void relu_bprop_cpu(T* d_bottom, const T* d_top, const T* bottom, int len);
+
+template <>
+void relu_bprop_cpu<float>(float* d_bottom, const float* d_top, const float* bottom, int len) {
   for (int i = 0; i < len; ++i) {
-    if (d_in[i] < 0) {
-      d_in[i] = 0.f;
+    if (bottom[i] < 0) {
+      d_bottom[i] = 0.f;
     } else {
-      d_in[i] = d_out[i];
+      d_bottom[i] = d_top[i];
+    }
+  }
+}
+
+template <>
+void relu_bprop_cpu<__half>(__half* d_bottom, const __half* d_top, const __half* bottom, int len) {
+  for (int i = 0; i < len; ++i) {
+    if (bottom[i] > 0) {
+      d_bottom[i] = d_top[i];
+    } else {
+      d_bottom[i] = __float2half(0.0f);
     }
   }
 }
 
 template <typename T>
 void relu_test(size_t dim0, size_t dim1) {
-  std::shared_ptr<GeneralBuffer<T>> buf(new GeneralBuffer<T>());
+  shared_ptr<GeneralBuffer<T>> buf(new GeneralBuffer<T>());
   vector<size_t> dims = {dim0, dim1};
-  std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(dims, buf));
-  std::shared_ptr<Tensor<T>> out_tensor(new Tensor<T>(dims, buf));
+  shared_ptr<Tensor<T>> bottom_tensor(new Tensor<T>(dims, buf));
+  shared_ptr<Tensor<T>> top_tensor(new Tensor<T>(dims, buf));
   buf->init(0);
 
-  const int len = dim0 * dim1;
-  T* d_in = in_tensor->get_ptr();
-  T* d_out = out_tensor->get_ptr();
-  std::unique_ptr<T[]> h_in(new T[len]);
-  std::unique_ptr<T[]> h_out(new T[len]);
-  std::unique_ptr<T[]> h_expected(new T[len]);
+  const size_t len = dim0 * dim1;
+
+  std::unique_ptr<T[]> h_bottom(new T[len]);
+  std::unique_ptr<T[]> h_top(new T[len]);
+  std::unique_ptr<T[]> d2h_top(new T[len]);
+  std::unique_ptr<T[]> h_bottom_grad(new T[len]);
+  std::unique_ptr<T[]> d2h_bottom_grad(new T[len]);
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  ReluLayer<T> relu_layer(in_tensor, out_tensor, 0);
+  for (size_t i = 0; i < len; ++i) {
+    h_bottom[i] = simulator.get_num();
+  }
 
   // fprop
-  for (int i = 0; i < len; ++i) {
-    h_in[i] = simulator.get_num();
-  }
-  cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice);
-  relu_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, len * sizeof(T), cudaMemcpyDeviceToHost);
 
-  relu_cpu<T>(h_in.get(), h_expected.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_expected.get(), len, eps));
+  ReluLayer<T> relu_layer(bottom_tensor, top_tensor, 0);
+  cudaMemcpy(bottom_tensor->get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice);
+  relu_layer.fprop(cudaStreamDefault);
+  cudaMemcpy(d2h_top.get(), top_tensor->get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost);
+
+  relu_cpu<T>(h_top.get(), h_bottom.get(), len);
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, eps));
 
   // bprop
-  for (int i = 0; i < len; ++i) {
-    h_in[i] = simulator.get_num();
-    h_out[i] = simulator.get_num();
-    h_expected[i] = h_in[i];
+  for (size_t i = 0; i < len; ++i) {
+    h_top[i] = simulator.get_num();
   }
-  cudaMemcpy(d_in, h_in.get(), len * sizeof(T), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_out, h_out.get(), len * sizeof(T), cudaMemcpyHostToDevice);
+  cudaMemcpy(top_tensor->get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice);
   relu_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in.get(), d_in, len * sizeof(T), cudaMemcpyDeviceToHost);
+  cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor->get_ptr(), len * sizeof(T),
+             cudaMemcpyDeviceToHost);
 
-  relu_bprop_cpu<T>(h_out.get(), h_expected.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_expected.get(), len, eps));
+  relu_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_bottom.get(), len);
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, eps));
 }
 
 }  // namespace
