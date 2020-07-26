@@ -2636,7 +2636,7 @@ class SparseEmbeddingHashFunctors {
                       << std::flush; */
     }  // end of for(int i = 0; i < loop_num; i++)
 
-    //std::cout << std::endl;
+    // std::cout << std::endl;
 
     // process the remaining data(less than a chunk)
     int remain_size_in_B = file_size_in_B - loop_num * hash_table_chunk_size_in_B;
@@ -2934,7 +2934,7 @@ class SparseEmbeddingHashFunctors {
                       << std::flush; */
     }  // end of for(int i = 0; i < loop_num; i++)
 
-    //std::cout << std::endl;
+    // std::cout << std::endl;
 
     // process the remaining data(less than a chunk)
     int remain_size_in_B = file_size_in_B - loop_num * hash_table_chunk_size_in_B;
@@ -3165,7 +3165,7 @@ class SparseEmbeddingHashFunctors {
            100.0f
                           << "%" << std::flush; */
       }
-      //std::cout << std::endl;
+      // std::cout << std::endl;
       if (my_rank == master_node) {
         MESSAGE_("Rank" + std::to_string(my_rank) + ": Write hash table <key,value> pairs to file");
         weight_stream.write(file_buf.get(), size_in_B);
@@ -3374,7 +3374,7 @@ class SparseEmbeddingHashFunctors {
                value_size);
         offset += value_size;
       }
-      //std::cout << std::endl;
+      // std::cout << std::endl;
       if (my_rank == master_node) {
         MESSAGE_("Rank" + std::to_string(my_rank) + ": Write hash table <key,value> pairs to file");
         weight_stream.write(file_buf.get(), size_in_B);
@@ -3585,7 +3585,7 @@ class SparseEmbeddingHashFunctors {
                value_size);
         offset += value_size;
       }
-      //std::cout << std::endl;
+      // std::cout << std::endl;
       if (my_rank == master_node) {
         MESSAGE_("Rank" + std::to_string(my_rank) + ": Write hash table <key,value> pairs to file");
         weight_stream.write(file_buf.get(), size_in_B);

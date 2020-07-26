@@ -41,7 +41,6 @@ namespace HugeCTR {
  */
 class Parser {
  private:
-
   nlohmann::json config_;  /**< configure file. */
   size_t batch_size_;      /**< batch size. */
   size_t batch_size_eval_; /**< batch size. */
@@ -56,8 +55,7 @@ class Parser {
    */
 
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-         bool use_mixed_precision = false, float scaler = 1.0f,
-         bool use_algorithm_search = true)
+         bool use_mixed_precision = false, float scaler = 1.0f, bool use_algorithm_search = true)
       : batch_size_(batch_size),
         batch_size_eval_(batch_size_eval),
         use_mixed_precision_(use_mixed_precision),
@@ -146,7 +144,6 @@ struct SparseInput {
   SparseInput() {}
 };
 
-
 #define HAS_KEY_(j_in, key_in)                                          \
   do {                                                                  \
     const nlohmann::json& j__ = (j_in);                                 \
@@ -221,13 +218,11 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
   }
 }
 
-
 void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense_dim,
                              Check_t& check_type, std::string& source_data,
                              std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
                              std::string& eval_source, std::string& top_strs_label,
                              std::string& top_strs_dense, std::vector<std::string>& sparse_names,
                              std::map<std::string, SparseInput<long long>>& sparse_input_map);
-
 
 }  // namespace HugeCTR

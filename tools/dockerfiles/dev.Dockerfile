@@ -8,6 +8,7 @@ RUN apt-get install -y \
     cmake \
     vim \
     wget \
+    clang-format \
     python3-pip
 
 RUN python3 -m pip install --upgrade pip setuptools six && \

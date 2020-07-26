@@ -44,25 +44,24 @@ class Network {
       const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
       const std::map<std::string, std::shared_ptr<ITensor>>& tensor_list_in, int device_id,
       int num_networks_in_global, const std::shared_ptr<const GPUResource>& gpu_resource,
-      bool use_mixed_precision, float scaler,
-      bool use_algorithm_search);
+      bool use_mixed_precision, float scaler, bool use_algorithm_search);
 
  private:
   //  Tensors<float> tensors_;
-  std::vector<std::unique_ptr<Layer>> layers_;              /**< vector of layers */
-  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;        /**< blobs' general buffer */
-  std::shared_ptr<GeneralBuffer<float>> weight_buff_;       /**< weight (param) general buffer */
-  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;        /**< weight gradient general buffer */
+  std::vector<std::unique_ptr<Layer>> layers_;        /**< vector of layers */
+  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;  /**< blobs' general buffer */
+  std::shared_ptr<GeneralBuffer<float>> weight_buff_; /**< weight (param) general buffer */
+  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;  /**< weight gradient general buffer */
 
   std::shared_ptr<GeneralBuffer<__half>> blobs_buff_half_;  /**< blobs' general buffer */
   std::shared_ptr<GeneralBuffer<__half>> weight_buff_half_; /**< weight (param) general buffer */
   std::shared_ptr<GeneralBuffer<__half>> wgrad_buff_half_;  /**< weight gradient general buffer */
 
-  std::shared_ptr<const GPUResource> gpu_resource_;         /**< gpu resource */
-  int device_id_;                                           /**< device id */
-  std::unique_ptr<Optimizer> optimizer_;                    /**< optimizer */
-  std::unique_ptr<ILoss> loss_;                             /**< loss */
-  std::shared_ptr<Tensor<float>> loss_tensor_;              /**< loss tensor */
+  std::shared_ptr<const GPUResource> gpu_resource_; /**< gpu resource */
+  int device_id_;                                   /**< device id */
+  std::unique_ptr<Optimizer> optimizer_;            /**< optimizer */
+  std::unique_ptr<ILoss> loss_;                     /**< loss */
+  std::shared_ptr<Tensor<float>> loss_tensor_;      /**< loss tensor */
   bool full_fp16_{false};
   bool enable_cuda_graph_;
   int n_sms_{0};

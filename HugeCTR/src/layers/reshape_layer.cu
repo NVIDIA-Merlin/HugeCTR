@@ -52,8 +52,8 @@ __global__ void reshape_kernel(T* input, T* output, int batch_size, int n_slot, 
 
 template <typename T>
 ReshapeLayer<T>::ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
-                           std::shared_ptr<Tensor<T>>& out_tensor, size_t leading_dim,
-                           int device_id)
+                              std::shared_ptr<Tensor<T>>& out_tensor, size_t leading_dim,
+                              int device_id)
     : Layer(device_id),
       in_place_(true),
       batch_size_(0),
@@ -96,9 +96,9 @@ ReshapeLayer<T>::ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
 
 template <typename T>
 ReshapeLayer<T>::ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
-                           std::shared_ptr<Tensor<T>>& out_tensor,
-                           const std::shared_ptr<GeneralBuffer<T>>& blobs_buff,
-                           std::vector<int>& selected, int device_id)
+                              std::shared_ptr<Tensor<T>>& out_tensor,
+                              const std::shared_ptr<GeneralBuffer<T>>& blobs_buff,
+                              std::vector<int>& selected, int device_id)
     : Layer(device_id),
       in_place_(selected.empty()),
       batch_size_(0),
@@ -155,10 +155,14 @@ ReshapeLayer<T>::~ReshapeLayer() {
 }
 
 template <typename T>
-void ReshapeLayer<T>::fprop(cudaStream_t stream) { prop_common(true, stream); }
+void ReshapeLayer<T>::fprop(cudaStream_t stream) {
+  prop_common(true, stream);
+}
 
 template <typename T>
-void ReshapeLayer<T>::bprop(cudaStream_t stream) { prop_common(false, stream); }
+void ReshapeLayer<T>::bprop(cudaStream_t stream) {
+  prop_common(false, stream);
+}
 
 template <typename T>
 void ReshapeLayer<T>::prop_common(bool forward, cudaStream_t stream) {

@@ -604,8 +604,7 @@ template <typename TypeEmbeddingComp>
 __global__ void adam_update_kernel_global(int embedding_vec_size,
                                           size_t table_size,  // vocabulary size / factor
                                           const AdamOptHyperParams<TypeEmbeddingComp> adam,
-                                          float alpha_t,
-                                          float *hash_table_value) {
+                                          float alpha_t, float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {

@@ -170,7 +170,6 @@ class Embedding : public IEmbedding {
   virtual void set_learning_rate(float lr) = 0;
 };
 
-
 template <typename TypeKey, typename TypeEmbeddingComp>
 Embedding<TypeKey, TypeEmbeddingComp>::Embedding(
     const Tensors<TypeKey>& row_offsets_tensors, const Tensors<TypeKey>& value_tensors,
@@ -218,7 +217,7 @@ Embedding<TypeKey, TypeEmbeddingComp>::Embedding(
   return;
 }
 
-template<typename T>
+template <typename T>
 struct AdamOptHyperParams {  // TODO: move to optimizer
   uint64_t times = 0;
   float beta1 = 0.9f;
@@ -228,13 +227,13 @@ struct AdamOptHyperParams {  // TODO: move to optimizer
   T* v_ptr = nullptr;
 };
 
-template<typename T>
+template <typename T>
 struct MomentumSGDOptHyperParams {
   float factor = 0.1f;
   T* momentum_ptr = nullptr;
 };
 
-template<typename T>
+template <typename T>
 struct NesterovOptHyperParams {
   float mu = 0.9f;
   T* accm_ptr = nullptr;
@@ -257,12 +256,11 @@ struct OptParams {
   float scaler;
 };
 
-
 template <typename TypeEmbeddingComp>
 struct SparseEmbeddingHashParams {
-  size_t batch_size;       // batch size
-  size_t max_vocabulary_size_per_gpu; // max row number of hash table for each gpu
-  std::vector<size_t> slot_size_array; // max row number for each slot
+  size_t batch_size;                        // batch size
+  size_t max_vocabulary_size_per_gpu;       // max row number of hash table for each gpu
+  std::vector<size_t> slot_size_array;      // max row number for each slot
   size_t embedding_vec_size;                // col number of hash table value
   size_t max_feature_num;                   // max feature number of all input samples of all slots
   size_t slot_num;                          // slot number

@@ -35,7 +35,7 @@ class Session {
   virtual void train() = 0;
   virtual void eval() = 0;
   virtual std::vector<std::pair<std::string, float>> get_eval_metrics() = 0;
-  virtual void start_data_reading() =0;
+  virtual void start_data_reading() = 0;
   virtual Error_t get_current_loss(float* loss) = 0;
   virtual Error_t download_params_to_files(std::string prefix, int iter) = 0;
   virtual Error_t set_learning_rate(float lr) = 0;

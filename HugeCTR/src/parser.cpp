@@ -21,6 +21,7 @@
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
 #include "HugeCTR/include/layers/cast_layer.hpp"
 #include "HugeCTR/include/layers/concat_layer.hpp"
+#include "HugeCTR/include/layers/dot_product_layer.hpp"
 #include "HugeCTR/include/layers/dropout_layer.hpp"
 #include "HugeCTR/include/layers/elu_layer.hpp"
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
@@ -43,7 +44,6 @@
 #include "HugeCTR/include/regularizers/l1_regularizer.hpp"
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 #include "HugeCTR/include/regularizers/no_regularizer.hpp"
-#include "HugeCTR/include/layers/dot_product_layer.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -258,8 +258,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                         const std::map<std::string, std::shared_ptr<ITensor>>& tensor_list_in,
                         int device_id, int num_networks_in_global,
                         const std::shared_ptr<const GPUResource>& gpu_resource,
-                        bool use_mixed_precision, float scaler,
-                        bool use_algorithm_search) {
+                        bool use_mixed_precision, float scaler, bool use_algorithm_search) {
   std::unique_ptr<Network> network(new Network(device_id, gpu_resource, use_mixed_precision));
   std::map<std::string, std::shared_ptr<ITensor>> tensor_list(tensor_list_in);
 
@@ -306,19 +305,19 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto eps = get_value_from_json<float>(j_bn_hparam, "eps");
         // establish initializer
         std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
-        if (has_key_(j_bn_hparam, "gamma_init")){
+        if (has_key_(j_bn_hparam, "gamma_init")) {
           const auto gamma_init_name = get_value_from_json<std::string>(j_bn_hparam, "gamma_init");
           Initializer_t gamma_init_type;
-          if (!find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
           } else {
             initializer_types[0] = gamma_init_type;
           }
         }
-        if (has_key_(j_bn_hparam, "beta_init")){
+        if (has_key_(j_bn_hparam, "beta_init")) {
           const auto beta_init_name = get_value_from_json<std::string>(j_bn_hparam, "beta_init");
           Initializer_t beta_init_type;
-          if (!find_item_in_map(beta_init_type, beta_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(beta_init_type, beta_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + beta_init_name);
           } else {
             initializer_types[1] = beta_init_type;
@@ -327,8 +326,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         BatchNormLayer::Params params = {factor, eps};
         layers.emplace_back(new BatchNormLayer(
-            weight_buff, wgrad_buff, dynamic_tensor_cast<float>(bn_in_tensor),
-            bn_out_tensor, params, gpu_resource->get_cudnn_handle(), device_id, initializer_types));
+            weight_buff, wgrad_buff, dynamic_tensor_cast<float>(bn_in_tensor), bn_out_tensor,
+            params, gpu_resource->get_cudnn_handle(), device_id, initializer_types));
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
@@ -340,9 +339,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         if (use_mixed_precision) {
           loss.reset(new BinaryCrossEntropyLoss<__half>(
-	      dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<__half>(binary_cross_entropy_loss_in_tensor),
-              loss_tensor,
+              dynamic_tensor_cast<float>(label_tensor),
+              dynamic_tensor_cast<__half>(binary_cross_entropy_loss_in_tensor), loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff_half,
                                  (binary_cross_entropy_loss_in_tensor->get_dims())[0],
                                  gpu_resource->get_cublas_handle(), device_id),
@@ -350,8 +348,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         } else {
           loss.reset(new BinaryCrossEntropyLoss<float>(
               dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<float>(binary_cross_entropy_loss_in_tensor),
-              loss_tensor,
+              dynamic_tensor_cast<float>(binary_cross_entropy_loss_in_tensor), loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff,
                                  (binary_cross_entropy_loss_in_tensor->get_dims())[0],
                                  gpu_resource->get_cublas_handle(), device_id),
@@ -364,12 +361,12 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         if (use_mixed_precision) {
           std::shared_ptr<Tensor<__half>> out_tensor;
           layers.emplace_back(new ConcatLayer<__half>(tensor_vec_dynamic_cast<__half>(in_tensors),
-                                              out_tensor, blobs_buff_half, device_id));
+                                                      out_tensor, blobs_buff_half, device_id));
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         } else {
           std::shared_ptr<Tensor<float>> out_tensor;
           layers.emplace_back(new ConcatLayer<float>(tensor_vec_dynamic_cast<float>(in_tensors),
-                                              out_tensor, blobs_buff, device_id));
+                                                     out_tensor, blobs_buff, device_id));
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         }
         break;
@@ -383,7 +380,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
         if (use_mixed_precision) {
           loss.reset(new CrossEntropyLoss<__half>(
-	      dynamic_tensor_cast<float>(label_tensor),
+              dynamic_tensor_cast<float>(label_tensor),
               dynamic_tensor_cast<__half>(cross_entropy_loss_in_tensor), loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff_half,
                                  (cross_entropy_loss_in_tensor->get_dims())[0],
@@ -406,15 +403,14 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         if (use_mixed_precision) {
           // establish out tensor
           std::shared_ptr<Tensor<__half>> do_out_tensor(
-              new Tensor<__half>(do_in_tensor->get_dims(), blobs_buff_half, 
-                                TensorFormat_t::HW));
+              new Tensor<__half>(do_in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
           output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-          layers.emplace_back(new DropoutLayer<__half>(dynamic_tensor_cast<__half>(do_in_tensor),
-                                              do_out_tensor, rate,
-                                              gpu_resource->get_curand_generator(), device_id));
+          layers.emplace_back(
+              new DropoutLayer<__half>(dynamic_tensor_cast<__half>(do_in_tensor), do_out_tensor,
+                                       rate, gpu_resource->get_curand_generator(), device_id));
         } else {
           // establish out tensor
           std::shared_ptr<Tensor<float>> do_out_tensor(
@@ -423,9 +419,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-          layers.emplace_back(new DropoutLayer<float>(dynamic_tensor_cast<float>(do_in_tensor),
-                                              do_out_tensor, rate,
-                                              gpu_resource->get_curand_generator(), device_id));
+          layers.emplace_back(
+              new DropoutLayer<float>(dynamic_tensor_cast<float>(do_in_tensor), do_out_tensor, rate,
+                                      gpu_resource->get_curand_generator(), device_id));
         }
         network->enable_cuda_graph_ = false;
 
@@ -441,8 +437,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
         auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
-        layers.emplace_back(new EluLayer(dynamic_tensor_cast<float>(elu_in_tensor),
-                                         elu_out_tensor, alpha, device_id));
+        layers.emplace_back(new EluLayer(dynamic_tensor_cast<float>(elu_in_tensor), elu_out_tensor,
+                                         alpha, device_id));
 
         break;
       }
@@ -453,19 +449,19 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto j_fc_param = get_json(j, "fc_param");
         // establish initializer
         std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
-        if (has_key_(j_fc_param, "weight_init")){
+        if (has_key_(j_fc_param, "weight_init")) {
           const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
           Initializer_t weight_init_type;
-          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
         }
-        if (has_key_(j_fc_param, "bias_init")){
+        if (has_key_(j_fc_param, "bias_init")) {
           const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
           Initializer_t bias_init_type;
-          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
@@ -481,8 +477,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           Layer* fc_layer = new FusedFullyConnectedLayer(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, blobs_buff_half,
-              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor,
-              TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id, initializer_types);
+              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor, TensorFormat_t::HW,
+              gpu_resource->get_cublas_handle(), device_id, initializer_types);
           layers.emplace_back(fc_layer);
         } else {
           CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
@@ -496,8 +492,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           std::shared_ptr<Tensor<__half>> out_tensor(
               new Tensor<__half>(in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-          layers.emplace_back(new CastLayer(dynamic_tensor_cast<float>(in_tensor),
-                                            out_tensor, device_id));
+          layers.emplace_back(
+              new CastLayer(dynamic_tensor_cast<float>(in_tensor), out_tensor, device_id));
         } else {
           CK_THROW_(Error_t::WrongInput, "Cast supports half only");
         }
@@ -510,19 +506,19 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto j_fc_param = get_json(j, "fc_param");
         // establish initializer
         std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
-        if (has_key_(j_fc_param, "weight_init")){
+        if (has_key_(j_fc_param, "weight_init")) {
           const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
           Initializer_t weight_init_type;
-          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
         }
-        if (has_key_(j_fc_param, "bias_init")){
+        if (has_key_(j_fc_param, "bias_init")) {
           const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
           Initializer_t bias_init_type;
-          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
@@ -538,8 +534,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           Layer* fc_layer = new FullyConnectedLayerHalf(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff_half,
-              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor,
-              TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id, initializer_types);
+              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor, TensorFormat_t::HW,
+              gpu_resource->get_cublas_handle(), device_id, initializer_types);
           layers.emplace_back(fc_layer);
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         } else {
@@ -547,9 +543,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               {(fc_in_tensor->get_dims())[0], output}, blobs_buff, TensorFormat_t::HW));
           // establish layer
           Layer* fc_layer = new FullyConnectedLayer(
-              weight_buff, wgrad_buff, dynamic_tensor_cast<float>(fc_in_tensor),
-              out_tensor, TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id,
-              use_mixed_precision, initializer_types);
+              weight_buff, wgrad_buff, dynamic_tensor_cast<float>(fc_in_tensor), out_tensor,
+              TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id, use_mixed_precision,
+              initializer_types);
           layers.emplace_back(fc_layer);
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         }
@@ -564,7 +560,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         if (use_mixed_precision) {
           std::shared_ptr<Tensor<__half>> out_tensor;
           layers.emplace_back(new InteractionLayer<__half>(
-	      dynamic_tensor_cast<__half>(in_mlp_tensor),
+              dynamic_tensor_cast<__half>(in_mlp_tensor),
               dynamic_tensor_cast<__half>(in_emb_tensor), out_tensor,
               blobs_buff_half,  // todo cannot use this blobs_buff here need half
               gpu_resource->get_cublas_handle(), use_mixed_precision, device_id));
@@ -573,9 +569,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         } else {
           std::shared_ptr<Tensor<float>> out_tensor;
           layers.emplace_back(new InteractionLayer<float>(
-              dynamic_tensor_cast<float>(in_mlp_tensor),
-              dynamic_tensor_cast<float>(in_emb_tensor), out_tensor, blobs_buff,
-              gpu_resource->get_cublas_handle(), use_mixed_precision, device_id));
+              dynamic_tensor_cast<float>(in_mlp_tensor), dynamic_tensor_cast<float>(in_emb_tensor),
+              out_tensor, blobs_buff, gpu_resource->get_cublas_handle(), use_mixed_precision,
+              device_id));
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         }
 
@@ -587,19 +583,19 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto j_mc_param = get_json(j, "mc_param");
         // establish initializer
         std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
-        if (has_key_(j_mc_param, "weight_init")){
+        if (has_key_(j_mc_param, "weight_init")) {
           const auto weight_init_name = get_value_from_json<std::string>(j_mc_param, "weight_init");
           Initializer_t weight_init_type;
-          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
           }
         }
-        if (has_key_(j_mc_param, "bias_init")){
+        if (has_key_(j_mc_param, "bias_init")) {
           const auto bias_init_name = get_value_from_json<std::string>(j_mc_param, "bias_init");
           Initializer_t bias_init_type;
-          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
           } else {
             initializer_types[1] = bias_init_type;
@@ -612,9 +608,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             new Tensor<float>(mc_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         // establish layer
-        Layer* mc_layer = new MultiCrossLayer(
-            weight_buff, wgrad_buff, dynamic_tensor_cast<float>(mc_in_tensor),
-            out_tensor, num_layers, device_id, initializer_types);
+        Layer* mc_layer =
+            new MultiCrossLayer(weight_buff, wgrad_buff, dynamic_tensor_cast<float>(mc_in_tensor),
+                                out_tensor, num_layers, device_id, initializer_types);
         layers.emplace_back(mc_layer);
         break;
       }
@@ -637,8 +633,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         if (use_mixed_precision) {
           loss.reset(new MultiCrossEntropyLoss<__half>(
               dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<__half>(multi_cross_entropy_loss_in_tensor),
-              loss_tensor,
+              dynamic_tensor_cast<__half>(multi_cross_entropy_loss_in_tensor), loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff_half,
                                  (multi_cross_entropy_loss_in_tensor->get_dims())[0],
                                  gpu_resource->get_cublas_handle(), device_id),
@@ -646,8 +641,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         } else {
           loss.reset(new MultiCrossEntropyLoss<float>(
               dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<float>(multi_cross_entropy_loss_in_tensor),
-              loss_tensor,
+              dynamic_tensor_cast<float>(multi_cross_entropy_loss_in_tensor), loss_tensor,
               create_regularizer(j, weight_buff, wgrad_buff,
                                  (multi_cross_entropy_loss_in_tensor->get_dims())[0],
                                  gpu_resource->get_cublas_handle(), device_id),
@@ -663,7 +657,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               new Tensor<__half>(relu_in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
           layers.emplace_back(
               new ReluLayer<__half>(std::dynamic_pointer_cast<Tensor<__half>>(relu_in_tensor),
-                                relu_out_tensor, device_id));
+                                    relu_out_tensor, device_id));
           output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
         } else {
           // establish out tensor
@@ -671,7 +665,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               new Tensor<float>(relu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
           layers.emplace_back(
               new ReluLayer<float>(std::dynamic_pointer_cast<Tensor<float>>(relu_in_tensor),
-                            relu_out_tensor, device_id));
+                                   relu_out_tensor, device_id));
           output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
         }
 
@@ -694,12 +688,14 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           if (use_mixed_precision) {
             std::shared_ptr<Tensor<__half>> out_tensor;
             layers.emplace_back(new ReshapeLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
-                                                 out_tensor, blobs_buff_half, selected, device_id));
+                                                         out_tensor, blobs_buff_half, selected,
+                                                         device_id));
             output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
           } else {
             std::shared_ptr<Tensor<float>> out_tensor;
             layers.emplace_back(new ReshapeLayer<float>(dynamic_tensor_cast<float>(in_tensor),
-                                                 out_tensor, blobs_buff, selected, device_id));
+                                                        out_tensor, blobs_buff, selected,
+                                                        device_id));
             output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
           }
         }
@@ -714,12 +710,12 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           if (use_mixed_precision) {
             std::shared_ptr<Tensor<__half>> out_tensor;
             layers.emplace_back(new ReshapeLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
-                                                 out_tensor, leading_dim, device_id));
+                                                         out_tensor, leading_dim, device_id));
             output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
           } else {
             std::shared_ptr<Tensor<float>> out_tensor;
             layers.emplace_back(new ReshapeLayer<float>(dynamic_tensor_cast<float>(in_tensor),
-                                                 out_tensor, leading_dim, device_id));
+                                                        out_tensor, leading_dim, device_id));
             output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
           }
         }
@@ -739,18 +735,18 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         if (use_mixed_precision) {
           Tensors<__half> out_tensors;
           layers.emplace_back(new SliceLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
-                                             out_tensors, blobs_buff_half, ranges, device_id));
+                                                     out_tensors, blobs_buff_half, ranges,
+                                                     device_id));
           for (size_t i = 0; i < out_tensors.size(); i++) {
             output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
           }
         } else {
           Tensors<float> out_tensors;
           layers.emplace_back(new SliceLayer<float>(dynamic_tensor_cast<float>(in_tensor),
-                                             out_tensors, blobs_buff, ranges, device_id));
+                                                    out_tensors, blobs_buff, ranges, device_id));
           for (size_t i = 0; i < out_tensors.size(); i++) {
             output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
           }
-
         }
         break;
       }
@@ -766,10 +762,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         // establish initializer
         std::vector<Initializer_t> initializer_types(1, Initializer_t::Default);
-        if (has_key_(j, "weight_init")){
+        if (has_key_(j, "weight_init")) {
           const auto weight_init_name = get_value_from_json<std::string>(j, "weight_init");
           Initializer_t weight_init_type;
-          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)){
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
             CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
           } else {
             initializer_types[0] = weight_init_type;
@@ -778,8 +774,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         std::shared_ptr<Tensor<float>> out_tensor;
         Layer* mul_layer = new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff,
-                                              dynamic_tensor_cast<float>(in_tensor),
-                                              out_tensor, weight_dims, device_id, initializer_types);
+                                             dynamic_tensor_cast<float>(in_tensor), out_tensor,
+                                             weight_dims, device_id, initializer_types);
         layers.emplace_back(mul_layer);
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
@@ -793,8 +789,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
             {(in_tensor->get_dims())[0], out_dim}, blobs_buff, TensorFormat_t::HW));
 
-        layers.emplace_back(new FmOrder2Layer(dynamic_tensor_cast<float>(in_tensor),
-                                              out_tensor, device_id));
+        layers.emplace_back(
+            new FmOrder2Layer(dynamic_tensor_cast<float>(in_tensor), out_tensor, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }
@@ -802,18 +798,17 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto& in_tensors = input_output_info.input;
 
         if (use_mixed_precision) {
-          std::shared_ptr<Tensor<__half>> out_tensor(
-              new Tensor<__half>(in_tensors[0]->get_dims(), blobs_buff_half, 
-                                  in_tensors[0]->get_format()));
+          std::shared_ptr<Tensor<__half>> out_tensor(new Tensor<__half>(
+              in_tensors[0]->get_dims(), blobs_buff_half, in_tensors[0]->get_format()));
           layers.emplace_back(new AddLayer<__half>(tensor_vec_dynamic_cast<__half>(in_tensors),
-                                          out_tensor, device_id));
+                                                   out_tensor, device_id));
           output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         } else {
-          std::shared_ptr<Tensor<float>> out_tensor(
-              new Tensor<float>(in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
+          std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
+              in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
           layers.emplace_back(new AddLayer<float>(tensor_vec_dynamic_cast<float>(in_tensors),
-                                          out_tensor, device_id));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});       
+                                                  out_tensor, device_id));
+          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         }
         break;
       }
@@ -821,8 +816,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto& in_tensor = input_output_info.input[0];
         std::shared_ptr<Tensor<float>> out_tensor;
         int axis = get_json(j, "axis").get<int>();
-        layers.emplace_back(new ReduceSumLayer(dynamic_tensor_cast<float>(in_tensor),
-                                               out_tensor, blobs_buff, axis, device_id));
+        layers.emplace_back(new ReduceSumLayer(dynamic_tensor_cast<float>(in_tensor), out_tensor,
+                                               blobs_buff, axis, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }
@@ -830,7 +825,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto& in_tensors = input_output_info.input;
         std::shared_ptr<Tensor<float>> out_tensor(
             new Tensor<float>(in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
-        layers.emplace_back(new DotProductLayer(tensor_vec_dynamic_cast<float>(in_tensors), out_tensor, device_id));
+        layers.emplace_back(
+            new DotProductLayer(tensor_vec_dynamic_cast<float>(in_tensors), out_tensor, device_id));
         output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
         break;
       }
@@ -854,13 +850,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   // create optimizer
   auto opt_param = get_optimizer_param<float>(j_optimizer);
 
-  network->optimizer_ = std::move(Optimizer::Create(opt_param,
-                                                    weight_buff,
-                                                    wgrad_buff,
-                                                    wgrad_buff_half,
-                                                    use_mixed_precision,
-                                                    scaler,
-                                                    device_id));
+  network->optimizer_ = std::move(Optimizer::Create(
+      opt_param, weight_buff, wgrad_buff, wgrad_buff_half, use_mixed_precision, scaler, device_id));
   weight_buff->init(device_id);
   wgrad_buff->init(device_id);
   blobs_buff->init(device_id);
@@ -942,17 +933,15 @@ void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense
 }
 
 template <typename TypeKey, typename TypeFP>
-static void create_embedding (std::map<std::string, SparseInput<TypeKey>>& sparse_input_map ,
-                              std::map<std::string, std::shared_ptr<ITensor>> *tensor_maps,
-                              std::map<std::string, std::shared_ptr<ITensor>> *tensor_maps_eval,
-                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                              std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
-                              Embedding_t embedding_type,
-                              const nlohmann::json& config,
-                              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                              size_t batch_size, size_t batch_size_eval,
-                              bool use_mixed_precision, float scaler,
-                              const nlohmann::json& j_layers) {
+static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                             std::map<std::string, std::shared_ptr<ITensor>>* tensor_maps,
+                             std::map<std::string, std::shared_ptr<ITensor>>* tensor_maps_eval,
+                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                             std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                             Embedding_t embedding_type, const nlohmann::json& config,
+                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                             size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
+                             float scaler, const nlohmann::json& j_layers) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
@@ -967,14 +956,16 @@ static void create_embedding (std::map<std::string, SparseInput<TypeKey>>& spars
 
   auto j_hparam = get_json(j_layers, "sparse_embedding_hparam");
   size_t max_vocabulary_size_per_gpu = 0;
-  if(embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
-    max_vocabulary_size_per_gpu = get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
-  } else if(embedding_type == Embedding_t::LocalizedSlotSparseEmbeddingHash) {
+  if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
+    max_vocabulary_size_per_gpu =
+        get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
+  } else if (embedding_type == Embedding_t::LocalizedSlotSparseEmbeddingHash) {
     if (has_key_(j_hparam, "max_vocabulary_size_per_gpu")) {
-      max_vocabulary_size_per_gpu = get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
-    }
-    else if(!has_key_(j_hparam, "slot_size_array")){
-      CK_THROW_(Error_t::WrongInput, "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_name);
+      max_vocabulary_size_per_gpu =
+          get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
+    } else if (!has_key_(j_hparam, "slot_size_array")) {
+      CK_THROW_(Error_t::WrongInput,
+                "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_name);
     }
   }
   auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
@@ -1015,13 +1006,12 @@ static void create_embedding (std::map<std::string, SparseInput<TypeKey>>& spars
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-
 #ifndef NCCL_A2A
       int num_procs = 1, pid = 0;
-      #ifdef ENABLE_MPI
+#ifdef ENABLE_MPI
       MPI_Comm_rank(MPI_COMM_WORLD, &pid);
       MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-      #endif
+#endif
 
       auto j_plan = get_json(j_layers, "plan_file");
       std::string plan_file;
@@ -1064,8 +1054,7 @@ static void create_embedding (std::map<std::string, SparseInput<TypeKey>>& spars
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
       auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_hash(
-          sparse_input.row, sparse_input.value, embedding_params, plan_file,
-          gpu_resource_group);
+          sparse_input.row, sparse_input.value, embedding_params, plan_file, gpu_resource_group);
       embedding.emplace_back(emb_ptr);
       embedding_eval.emplace_back(
           EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
@@ -1092,8 +1081,7 @@ static void create_embedding (std::map<std::string, SparseInput<TypeKey>>& spars
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
       auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_one_hot(
-          sparse_input.row, sparse_input.value, embedding_params, plan_file,
-          gpu_resource_group);
+          sparse_input.row, sparse_input.value, embedding_params, plan_file, gpu_resource_group);
       embedding.emplace_back(emb_ptr);
       embedding_eval.emplace_back(
           EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
@@ -1104,8 +1092,7 @@ static void create_embedding (std::map<std::string, SparseInput<TypeKey>>& spars
   }  // switch
   for (unsigned int i = 0; i < gpu_resource_group->size(); i++) {
     tensor_maps[i].emplace(top_name, (embedding.back()->get_output_tensors())[i]);
-    tensor_maps_eval[i].emplace(top_name,
-                                (embedding_eval.back()->get_output_tensors())[i]);
+    tensor_maps_eval[i].emplace(top_name, (embedding_eval.back()->get_output_tensors())[i]);
   }
 }
 
@@ -1118,11 +1105,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                                      std::vector<std::unique_ptr<Network>>& network_eval,
                                      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                                      nlohmann::json config, size_t batch_size,
-                                     size_t batch_size_eval, bool use_mixed_precision,
-                                     float scaler,
+                                     size_t batch_size_eval, bool use_mixed_precision, float scaler,
                                      bool use_algorithm_search) {
   try {
-
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
     std::map<std::string, std::shared_ptr<ITensor>> tensor_maps[gpu_resource_group->size()];
     std::map<std::string, std::shared_ptr<ITensor>> tensor_maps_eval[gpu_resource_group->size()];
@@ -1141,8 +1126,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         if (layer_type_name.compare("Data") != 0) {
           CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + layer_type_name);
         }
-
-
 
         const std::map<std::string, DataReaderType_t> DATA_READER_MAP = {
             {"Norm", DataReaderType_t::Norm}, {"Raw", DataReaderType_t::Raw}};
@@ -1210,7 +1193,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
         switch (format) {
           case DataReaderType_t::Norm: {
-
 #ifdef VAL
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                       check_type, data_reader_sparse_param_array,
@@ -1233,7 +1215,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
 #endif
 
-
             break;
           }
           case DataReaderType_t::Raw: {
@@ -1255,15 +1236,15 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
             }
 
 #ifdef VAL
-            data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 1, use_mixed_precision, format, num_samples,
-                                                      slot_offset, false, false, true));
+            data_reader.reset(new DataReader<TypeKey>(
+                source_data, batch_size, label_dim, dense_dim, check_type,
+                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format,
+                num_samples, slot_offset, false, false, true));
 #else
-            data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 12, use_mixed_precision, format, num_samples,
-                                                      slot_offset, false, false, true));
+            data_reader.reset(new DataReader<TypeKey>(
+                source_data, batch_size, label_dim, dense_dim, check_type,
+                data_reader_sparse_param_array, gpu_resource_group, 12, use_mixed_precision, format,
+                num_samples, slot_offset, false, false, true));
 
 #endif
 
@@ -1273,13 +1254,13 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format, eval_num_samples,
-                slot_offset, cache_eval_data, false, false));
+                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format,
+                eval_num_samples, slot_offset, cache_eval_data, false, false));
 #else
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 12, use_mixed_precision, format, eval_num_samples,
-                slot_offset, cache_eval_data, false, false));
+                data_reader_sparse_param_array, gpu_resource_group, 12, use_mixed_precision, format,
+                eval_num_samples, slot_offset, cache_eval_data, false, false));
 
 #endif
 
@@ -1325,12 +1306,16 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           }
 
           if (use_mixed_precision) {
-            create_embedding<TypeKey, __half>(sparse_input_map, tensor_maps, tensor_maps_eval, embedding, embedding_eval, embedding_type,
-                                              config, gpu_resource_group, batch_size, batch_size_eval, use_mixed_precision, scaler, j);
+            create_embedding<TypeKey, __half>(sparse_input_map, tensor_maps, tensor_maps_eval,
+                                              embedding, embedding_eval, embedding_type, config,
+                                              gpu_resource_group, batch_size, batch_size_eval,
+                                              use_mixed_precision, scaler, j);
           }  //	  if(use_mixed_precision)
           else {
-            create_embedding<TypeKey, float>(sparse_input_map, tensor_maps, tensor_maps_eval, embedding, embedding_eval, embedding_type,
-                                             config, gpu_resource_group, batch_size, batch_size_eval, use_mixed_precision, scaler, j);
+            create_embedding<TypeKey, float>(sparse_input_map, tensor_maps, tensor_maps_eval,
+                                             embedding, embedding_eval, embedding_type, config,
+                                             gpu_resource_group, batch_size, batch_size_eval,
+                                             use_mixed_precision, scaler, j);
           }  //    if(!use_mixed_precision)
         }    // for ()
       }      // Create Embedding
@@ -1343,16 +1328,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       }
       const auto& device_list = gpu_resource_group->get_device_list();
       for (auto device_id : device_list) {
-        network.emplace_back(
-            create_network(j_layers_array, j_optimizer, tensor_maps[i], device_id,
-                           total_gpu_count, (*gpu_resource_group)[i],
-                           use_mixed_precision, scaler,
-                           use_algorithm_search));
-        network_eval.emplace_back(
-            create_network(j_layers_array, j_optimizer, tensor_maps_eval[i], device_id,
-                           total_gpu_count, (*gpu_resource_group)[i],
-                           use_mixed_precision, scaler,
-                           use_algorithm_search));
+        network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i], device_id,
+                                            total_gpu_count, (*gpu_resource_group)[i],
+                                            use_mixed_precision, scaler, use_algorithm_search));
+        network_eval.emplace_back(create_network(
+            j_layers_array, j_optimizer, tensor_maps_eval[i], device_id, total_gpu_count,
+            (*gpu_resource_group)[i], use_mixed_precision, scaler, use_algorithm_search));
 
         if (use_mixed_precision) {
           network_eval.back()->set_weight_half(network.back()->get_weight_half());

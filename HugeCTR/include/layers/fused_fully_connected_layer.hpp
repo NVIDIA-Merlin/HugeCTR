@@ -37,7 +37,8 @@ class FusedFullyConnectedLayer : public Layer {
   /*
    * stores the weight tensors for compute of this layer.
    */
-  // std::vector<TensorPtr<float>> master_weights_; It is inherited from Layer, and named as weights_;
+  // std::vector<TensorPtr<float>> master_weights_; It is inherited from Layer, and named as
+  // weights_;
 
   /*
    * stores the weight tensors for compute of this layer.
@@ -96,20 +97,18 @@ class FusedFullyConnectedLayer : public Layer {
    * @param tensor_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  FusedFullyConnectedLayer(const GeneralBufferPtr<float>& master_weights_buff,
-                           const GeneralBufferPtr<__half>& weights_buff,
-                           const GeneralBufferPtr<__half>& weights_grad_buff,
-                           const GeneralBufferPtr<float>& blobs_buff,
-                           const GeneralBufferPtr<__half>& blobs_half_buff,
-                           const TensorPtr<__half>& bottom_tensor,
-                           const TensorPtr<__half>& top_tensor, TensorFormat_t weight_tensor_format,
-                           cublasHandle_t const& cublas_handle, int device_id,
-                           std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+  FusedFullyConnectedLayer(
+      const GeneralBufferPtr<float>& master_weights_buff,
+      const GeneralBufferPtr<__half>& weights_buff,
+      const GeneralBufferPtr<__half>& weights_grad_buff, const GeneralBufferPtr<float>& blobs_buff,
+      const GeneralBufferPtr<__half>& blobs_half_buff, const TensorPtr<__half>& bottom_tensor,
+      const TensorPtr<__half>& top_tensor, TensorFormat_t weight_tensor_format,
+      cublasHandle_t const& cublas_handle, int device_id,
+      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FusedFullyConnectedLayer(const FusedFullyConnectedLayer&) = delete;
   FusedFullyConnectedLayer& operator=(const FusedFullyConnectedLayer&);
 
  private:
-
   std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;

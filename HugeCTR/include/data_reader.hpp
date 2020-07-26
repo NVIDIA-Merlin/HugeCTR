@@ -68,7 +68,7 @@ static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& d
  */
 template <typename TypeKey>
 static void data_collector_thread_func_(
-const std::shared_ptr<DataCollector<TypeKey>>& data_collector, int* p_loop_flag) {
+    const std::shared_ptr<DataCollector<TypeKey>>& data_collector, int* p_loop_flag) {
   try {
     while ((*p_loop_flag) == 0) {
       usleep(2);
@@ -97,7 +97,7 @@ static int core_offset_ = 0;
 template <typename TypeKey>
 class DataReader {
  private:
-  std::string file_list_;   /**< file list of data set */
+  std::string file_list_; /**< file list of data set */
 
   const int NumChunks{12};  /**< NumChunks will be used in HeapEx*/
   const int NumThreads{12}; /**< number of threads for data reading */
@@ -108,11 +108,11 @@ class DataReader {
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
   std::thread data_collector_thread_;            /**< A data_collector_thread. */
 
-  GeneralBuffers<float> label_buffers_; /**< A gpu general buffer for label_buffer */
-  GeneralBuffers<float> dense_buffers_fp32_; /**< A gpu general buffer for dense_buffer */
+  GeneralBuffers<float> label_buffers_;       /**< A gpu general buffer for label_buffer */
+  GeneralBuffers<float> dense_buffers_fp32_;  /**< A gpu general buffer for dense_buffer */
   GeneralBuffers<__half> dense_buffers_fp16_; /**< A gpu general buffer for dense_buffer */
   Tensors<float> label_tensors_;              /**< Label tensors for the usage of loss */
-  ITensors dense_tensors_;              /**< Dense tensors for the usage of loss */
+  ITensors dense_tensors_;                    /**< Dense tensors for the usage of loss */
   Check_t check_type_;                        /**< check type */
 
   /* Each gpu will have several csr output for different embedding */
@@ -128,7 +128,7 @@ class DataReader {
 
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< gpu resource used in this data reader*/
   bool use_mixed_precision_{false};
-  const size_t batchsize_;                             /**< batch size */
+  const size_t batchsize_; /**< batch size */
 
   const size_t label_dim_;      /**< dimention of label e.g. 1 for BinaryCrossEntropy */
   const size_t dense_dim_;      /**< dimention of dense */
@@ -208,9 +208,7 @@ class DataReader {
 
   long long read_a_batch_to_device_delay_release();
 
-  void ready_to_collect() { 
-    data_collector_->set_ready_to_write(); 
-  }
+  void ready_to_collect() { data_collector_->set_ready_to_write(); }
 
   void start() { data_reader_loop_flag_ = 1; }
 
@@ -220,11 +218,10 @@ class DataReader {
   DataReader(const std::string& file_list_name, int batchsize, size_t label_dim, int dense_dim,
              Check_t check_type, std::vector<DataReaderSparseParam>& params,
              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-             int num_chunk_threads = 31, bool use_mixed_precision = false
-	     , DataReaderType_t type = DataReaderType_t::Norm,
-             long long num_samples = 0, std::vector<long long> slot_size = std::vector<long long>(),
-             bool cache_data = false, bool start_reading_from_beginning = true,
-             bool data_shuffle = false);
+             int num_chunk_threads = 31, bool use_mixed_precision = false,
+             DataReaderType_t type = DataReaderType_t::Norm, long long num_samples = 0,
+             std::vector<long long> slot_size = std::vector<long long>(), bool cache_data = false,
+             bool start_reading_from_beginning = true, bool data_shuffle = false);
 
   const Tensors<float>& get_label_tensors() const { return label_tensors_; }
   const ITensors& get_dense_tensors() const { return dense_tensors_; }
@@ -252,9 +249,9 @@ template <typename TypeKey>
 DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize, size_t label_dim,
                                 int dense_dim, Check_t check_type,
                                 std::vector<DataReaderSparseParam>& params,
-                                const std::shared_ptr<GPUResourceGroup>& gpu_resource_group, 
+                                const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                                 int num_chunk_threads, bool use_mixed_precision,
-				DataReaderType_t type, long long num_samples,
+                                DataReaderType_t type, long long num_samples,
                                 std::vector<long long> slot_offset, bool cache_data,
                                 bool start_reading_from_beginning, bool data_shuffle)
     : file_list_(file_list_name),
@@ -293,21 +290,20 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
   size_t batch_size_per_device = batchsize_ / total_gpu_count;
   for (auto device_id : device_list) {
     std::shared_ptr<GeneralBuffer<float>> tmp_label_buff(new GeneralBuffer<float>());
-    label_tensors_.emplace_back(new Tensor<float>({batch_size_per_device, label_dim_},
-                                                  tmp_label_buff, TensorFormat_t::HW));
+    label_tensors_.emplace_back(
+        new Tensor<float>({batch_size_per_device, label_dim_}, tmp_label_buff, TensorFormat_t::HW));
     tmp_label_buff->init(device_id);
     label_buffers_.emplace_back(tmp_label_buff);
-    if(use_mixed_precision_){
+    if (use_mixed_precision_) {
       std::shared_ptr<GeneralBuffer<__half>> tmp_dense_buff(new GeneralBuffer<__half>());
       dense_tensors_.emplace_back(new Tensor<__half>({batch_size_per_device, dense_dim_},
-						     tmp_dense_buff, TensorFormat_t::HW));
+                                                     tmp_dense_buff, TensorFormat_t::HW));
       tmp_dense_buff->init(device_id);
       dense_buffers_fp16_.emplace_back(tmp_dense_buff);
-    }
-    else{
+    } else {
       std::shared_ptr<GeneralBuffer<float>> tmp_dense_buff(new GeneralBuffer<float>());
       dense_tensors_.emplace_back(new Tensor<float>({batch_size_per_device, dense_dim_},
-						     tmp_dense_buff, TensorFormat_t::HW));
+                                                    tmp_dense_buff, TensorFormat_t::HW));
       tmp_dense_buff->init(device_id);
       dense_buffers_fp32_.emplace_back(tmp_dense_buff);
     }
@@ -333,7 +329,6 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       Tensor<TypeKey>* tmp_row_offset =
           new Tensor<TypeKey>(num_rows_dim, tmp_buffer, TensorFormat_t::HW);
 
-
       size_t num_max_value = (param.max_nnz * slots) <= param.max_feature_num
                                  ? (param.max_nnz * slots * batchsize_)
                                  : (param.max_feature_num * batchsize_);
@@ -352,18 +347,17 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
   bool one_hot = type_ == DataReaderType_t::Raw ? true : false;
 
-
   if (cache_data) {
-    data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
-						     device_resources_, csr_heap_, use_mixed_precision_, one_hot,
-								  (num_samples - 1) / batchsize_ + 1));
+    data_collector_.reset(new DataCollector<TypeKey>(
+        label_tensors_, dense_tensors_, csr_buffers_, device_resources_, csr_heap_,
+        use_mixed_precision_, one_hot, (num_samples - 1) / batchsize_ + 1));
   } else {
     data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
-						     device_resources_, csr_heap_, use_mixed_precision_, one_hot));
+                                                     device_resources_, csr_heap_,
+                                                     use_mixed_precision_, one_hot));
   }
   data_collector_thread_ =
-    std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
-
+      std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
 
   set_affinity(data_collector_thread_, {}, true);
 
@@ -378,7 +372,6 @@ long long DataReader<TypeKey>::read_a_batch_to_device_delay_release() {
   current_batchsize = data_collector_->read_a_batch_to_device();
   return current_batchsize;
 }
-
 
 template <typename TypeKey>
 long long DataReader<TypeKey>::read_a_batch_to_device() {

@@ -69,7 +69,7 @@ __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w
 
 template <typename T>
 ConcatLayer<T>::ConcatLayer(Tensors<T> in_tensors, std::shared_ptr<Tensor<T>>& out_tensor,
-                         const std::shared_ptr<GeneralBuffer<T>>& blobs_buff, int device_id)
+                            const std::shared_ptr<GeneralBuffer<T>>& blobs_buff, int device_id)
     : Layer(device_id), n_sms_(0) {
   try {
     CudaDeviceContext context(get_device_id());
@@ -120,10 +120,14 @@ ConcatLayer<T>::ConcatLayer(Tensors<T> in_tensors, std::shared_ptr<Tensor<T>>& o
 }
 
 template <typename T>
-void ConcatLayer<T>::fprop(cudaStream_t stream) { prop_common(true, stream); }
+void ConcatLayer<T>::fprop(cudaStream_t stream) {
+  prop_common(true, stream);
+}
 
 template <typename T>
-void ConcatLayer<T>::bprop(cudaStream_t stream) { prop_common(false, stream); }
+void ConcatLayer<T>::bprop(cudaStream_t stream) {
+  prop_common(false, stream);
+}
 
 template <typename T>
 void ConcatLayer<T>::prop_common(bool forward, cudaStream_t stream) {

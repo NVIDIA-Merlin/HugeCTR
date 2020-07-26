@@ -73,31 +73,30 @@ GPUResourceGroup::GPUResourceGroup(const std::shared_ptr<const DeviceMap>& devic
   }
 
   if (device_map->get_device_list().size() != local_gpu_count) {
-    CK_THROW_(Error_t::WrongInput,
-              "device_map->get_device_list().size() != local_gpu_count");
+    CK_THROW_(Error_t::WrongInput, "device_map->get_device_list().size() != local_gpu_count");
   }
   int total_gpu_count = get_total_gpu_count();
   // if ther are multiple GPUs within a node or/and across nodes
   if (total_gpu_count > 1) {
-  comms_.reset(new ncclComm_t[local_gpu_count]());
+    comms_.reset(new ncclComm_t[local_gpu_count]());
 #ifdef ENABLE_MPI
-  int my_rank = 0;
-  int n_ranks = 1;
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
-  ncclUniqueId nid;
-  if (my_rank == 0) CK_NCCL_THROW_(ncclGetUniqueId(&nid));
-  CK_MPI_THROW_(MPI_Bcast((void*)&nid, sizeof(nid), MPI_BYTE, 0, MPI_COMM_WORLD));
+    int my_rank = 0;
+    int n_ranks = 1;
+    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
+    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &n_ranks));
+    ncclUniqueId nid;
+    if (my_rank == 0) CK_NCCL_THROW_(ncclGetUniqueId(&nid));
+    CK_MPI_THROW_(MPI_Bcast((void*)&nid, sizeof(nid), MPI_BYTE, 0, MPI_COMM_WORLD));
 
-  CK_NCCL_THROW_(ncclGroupStart());
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    CK_CUDA_THROW_(cudaSetDevice(device_list[i]));
-    CK_NCCL_THROW_(ncclCommInitRank(comms_.get() + i, total_gpu_count, nid,
-                                    device_map->get_global_id(device_list[i])));
-  }
-  CK_NCCL_THROW_(ncclGroupEnd());
+    CK_NCCL_THROW_(ncclGroupStart());
+    for (size_t i = 0; i < local_gpu_count; i++) {
+      CK_CUDA_THROW_(cudaSetDevice(device_list[i]));
+      CK_NCCL_THROW_(ncclCommInitRank(comms_.get() + i, total_gpu_count, nid,
+                                      device_map->get_global_id(device_list[i])));
+    }
+    CK_NCCL_THROW_(ncclGroupEnd());
 #else
-  CK_NCCL_THROW_(ncclCommInitAll(comms_.get(), device_list.size(), device_list.data()));
+    CK_NCCL_THROW_(ncclCommInitAll(comms_.get(), device_list.size(), device_list.data()));
 #endif
   }
   for (size_t i = 0; i < local_gpu_count; i++) {
@@ -143,10 +142,10 @@ bool GPUResourceGroup::all_p2p_enabled() const {
   }
 
   int n_enabled = 0;
-  for (const auto& src: p2p_enabled_) {
+  for (const auto& src : p2p_enabled_) {
     const auto& src_dev = src.first;
     const auto& p2p_enabled_src = src.second;
-    for (const auto& dst: p2p_enabled_src) {
+    for (const auto& dst : p2p_enabled_src) {
       const auto& dst_dev = dst.first;
       const auto& enabled = dst.second;
       if (dst_dev != src_dev && enabled) {
@@ -162,9 +161,9 @@ void GPUResourceGroup::enable_all_peer_accesses() {
   assert(!empty());
 
   const auto& dev_list = get_device_list();
-  for (auto& src_dev: dev_list) {
+  for (auto& src_dev : dev_list) {
     CudaDeviceContext context(src_dev);
-    for (auto& dst_dev: dev_list) {
+    for (auto& dst_dev : dev_list) {
       int can_access_peer = 0;
       if (dst_dev != src_dev) {
         CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, src_dev, dst_dev));

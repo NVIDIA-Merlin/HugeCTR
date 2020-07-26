@@ -18,8 +18,7 @@
 
 namespace HugeCTR {
 
-SolverParser::SolverParser(const std::string& file)
-    : configure_file(file) {
+SolverParser::SolverParser(const std::string& file) : configure_file(file) {
   try {
     int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
@@ -135,14 +134,12 @@ SolverParser::SolverParser(const std::string& file)
     device_list = device_map->get_device_list();
 
     const std::map<std::string, metrics::Type> metrics_map = {
-      {"AverageLoss", metrics::Type::AverageLoss},
-      {"AUC", metrics::Type::AUC}
-    };
+        {"AverageLoss", metrics::Type::AverageLoss}, {"AUC", metrics::Type::AUC}};
 
     if (has_key_(j, "eval_metrics")) {
-    auto eval_metrics = get_json(j, "eval_metrics");
+      auto eval_metrics = get_json(j, "eval_metrics");
       if (eval_metrics.is_array()) {
-        for(auto metric: eval_metrics) {
+        for (auto metric : eval_metrics) {
           std::stringstream ss(metric.get<std::string>());
           std::string elem;
           std::vector<std::string> metric_strs;
@@ -170,17 +167,14 @@ SolverParser::SolverParser(const std::string& file)
                 break;
               }
             }
-          }
-          else {
+          } else {
             CK_THROW_(Error_t::WrongInput, metric_strs[0] + " is a unsupported metric");
           }
         }
-      }
-      else {
+      } else {
         CK_THROW_(Error_t::WrongInput, "metrics must be in the form of list");
       }
-    }
-    else {
+    } else {
       // Default is AUC without the threshold
       MESSAGE_("Default evaluation metric is AUC without threshold value");
       metrics_spec[metrics::Type::AUC] = 1.f;
@@ -190,11 +184,9 @@ SolverParser::SolverParser(const std::string& file)
       auto str = get_value_from_json<std::string>(j, "input_key_type");
       if (str.compare("I64") == 0) {
         i64_input_key = true;
-      }
-      else if (str.compare("I32") == 0) {
+      } else if (str.compare("I32") == 0) {
         i64_input_key = false;
-      }
-      else {
+      } else {
         CK_THROW_(Error_t::WrongInput, "input_key_type is I64 or I32");
       }
     } else {
@@ -202,7 +194,7 @@ SolverParser::SolverParser(const std::string& file)
     }
 
     use_algorithm_search = get_value_from_json_soft<bool>(j, "algorithm_search", true);
-    MESSAGE_("Algorithm search: " + std::string(use_algorithm_search? "ON" : "OFF"));
+    MESSAGE_("Algorithm search: " + std::string(use_algorithm_search ? "ON" : "OFF"));
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

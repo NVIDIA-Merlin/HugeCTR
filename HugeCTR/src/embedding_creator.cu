@@ -91,9 +91,8 @@ EmbeddingCreator::create_localized_sparse_embedding_hash(
     SparseEmbeddingHashParams<__half> embedding_params, std::string plan_file,
     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   Embedding<TYPE_1, __half>* sparse_embedding =
-      new LocalizedSlotSparseEmbeddingHash<TYPE_1, __half>(row_offsets_tensors, value_tensors,
-                                                           embedding_params, plan_file,
-                                                           gpu_resource_group);
+      new LocalizedSlotSparseEmbeddingHash<TYPE_1, __half>(
+          row_offsets_tensors, value_tensors, embedding_params, plan_file, gpu_resource_group);
   return sparse_embedding;
 }
 
@@ -103,9 +102,8 @@ EmbeddingCreator::create_localized_sparse_embedding_hash(
     SparseEmbeddingHashParams<__half> embedding_params, std::string plan_file,
     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   Embedding<TYPE_2, __half>* sparse_embedding =
-      new LocalizedSlotSparseEmbeddingHash<TYPE_2, __half>(row_offsets_tensors, value_tensors,
-                                                           embedding_params, plan_file,
-                                                           gpu_resource_group);
+      new LocalizedSlotSparseEmbeddingHash<TYPE_2, __half>(
+          row_offsets_tensors, value_tensors, embedding_params, plan_file, gpu_resource_group);
   return sparse_embedding;
 }
 
@@ -115,9 +113,8 @@ EmbeddingCreator::create_localized_sparse_embedding_one_hot(
     SparseEmbeddingHashParams<float> embedding_params, std::string plan_file,
     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   Embedding<TYPE_1, float>* sparse_embedding =
-      new LocalizedSlotSparseEmbeddingOneHot<TYPE_1, float>(row_offsets_tensors, value_tensors,
-                                                            embedding_params, plan_file,
-                                                            gpu_resource_group);
+      new LocalizedSlotSparseEmbeddingOneHot<TYPE_1, float>(
+          row_offsets_tensors, value_tensors, embedding_params, plan_file, gpu_resource_group);
   return sparse_embedding;
 }
 
@@ -127,9 +124,8 @@ EmbeddingCreator::create_localized_sparse_embedding_one_hot(
     SparseEmbeddingHashParams<float> embedding_params, std::string plan_file,
     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   Embedding<TYPE_2, float>* sparse_embedding =
-      new LocalizedSlotSparseEmbeddingOneHot<TYPE_2, float>(row_offsets_tensors, value_tensors,
-                                                            embedding_params, plan_file,
-                                                            gpu_resource_group);
+      new LocalizedSlotSparseEmbeddingOneHot<TYPE_2, float>(
+          row_offsets_tensors, value_tensors, embedding_params, plan_file, gpu_resource_group);
   return sparse_embedding;
 }
 
@@ -139,9 +135,8 @@ EmbeddingCreator::create_localized_sparse_embedding_one_hot(
     SparseEmbeddingHashParams<__half> embedding_params, std::string plan_file,
     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   Embedding<TYPE_1, __half>* sparse_embedding =
-      new LocalizedSlotSparseEmbeddingOneHot<TYPE_1, __half>(row_offsets_tensors, value_tensors,
-                                                             embedding_params, plan_file,
-                                                             gpu_resource_group);
+      new LocalizedSlotSparseEmbeddingOneHot<TYPE_1, __half>(
+          row_offsets_tensors, value_tensors, embedding_params, plan_file, gpu_resource_group);
   return sparse_embedding;
 }
 
@@ -151,9 +146,8 @@ EmbeddingCreator::create_localized_sparse_embedding_one_hot(
     SparseEmbeddingHashParams<__half> embedding_params, std::string plan_file,
     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   Embedding<TYPE_2, __half>* sparse_embedding =
-      new LocalizedSlotSparseEmbeddingOneHot<TYPE_2, __half>(row_offsets_tensors, value_tensors,
-                                                             embedding_params, plan_file,
-                                                             gpu_resource_group);
+      new LocalizedSlotSparseEmbeddingOneHot<TYPE_2, __half>(
+          row_offsets_tensors, value_tensors, embedding_params, plan_file, gpu_resource_group);
   return sparse_embedding;
 }
 

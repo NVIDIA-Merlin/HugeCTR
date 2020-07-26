@@ -146,13 +146,7 @@ enum class Embedding_t {
   LocalizedSlotSparseEmbeddingOneHot
 };
 
-enum class Initializer_t {
-  Default,
-  Uniform, 
-  XavierNorm,
-  XavierUniform,
-  Zero
-};
+enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
 
 typedef struct DataSetHeader_ {
   long long error_check;        // 0: no error check; 1: check_num

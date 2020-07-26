@@ -142,19 +142,17 @@ void copy_all<__half>(float* y_pred, float* y_label, __half* x_pred, float* x_la
 }  // namespace
 
 std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision,
-                                int batch_size_eval, int n_batches,
-                                std::shared_ptr<GPUResourceGroup> gpu_resource_group) {
-
+                                       int batch_size_eval, int n_batches,
+                                       std::shared_ptr<GPUResourceGroup> gpu_resource_group) {
   int root_gpu = gpu_resource_group->get_device_list()[0];
   int num_local_gpus = gpu_resource_group->get_device_list().size();
   std::unique_ptr<Metric> ret;
-  switch(type) {
+  switch (type) {
     case Type::AUC:
       if (use_mixed_precision) {
         ret.reset(new AUC<__half>(batch_size_eval, n_batches, root_gpu, num_local_gpus,
                                   gpu_resource_group));
-      }
-      else {
+      } else {
         ret.reset(new AUC<float>(batch_size_eval, n_batches, root_gpu, num_local_gpus,
                                  gpu_resource_group));
       }
@@ -342,7 +340,7 @@ void AUC<T>::global_reduce(int n_nets) {
   num_active_gpu_and_r(num_active_gpu, r);
   offset_ += (batch_size_per_gpu_ * num_active_gpu + r);
 
-  #ifdef ENABLE_MPI
+#ifdef ENABLE_MPI
   if (num_procs_ > 1) {
     int cnt = offset_;
     CK_MPI_THROW_(MPI_Gather((pid_ == 0) ? MPI_IN_PLACE : d_pred(), cnt, MPI_FLOAT, d_pred(), cnt,
@@ -391,7 +389,6 @@ float AUC<T>::finalize_metric() {
     trapz_kernel<<<grid, block>>>(tpr(), fpr(), d_auc(), num_selected);
 
     CK_CUDA_THROW_(cudaDeviceSynchronize());
-
   }
   offset_ = 0;
 

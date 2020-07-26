@@ -91,8 +91,8 @@ class FullyConnectedLayer : public Layer {
 
  private:
   /*
-  * initializers for this layer.
-  */
+   * initializers for this layer.
+   */
   std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;
