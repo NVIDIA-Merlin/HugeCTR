@@ -60,7 +60,6 @@ unit_tests:
     - hugectr
   script:
     - cd ${CI_PROJECT_DIR}/build/bin
-    - ./session_test
     - ./layers_test
     - ./embedding_test
     - ./checker_test
@@ -70,5 +69,7 @@ unit_tests:
     - ./heap_test
     - ./loss_test
     - ./optimizer_test
-    - ./parser_test
     - ./regularizers_test
+    - ./parser_test
+    - ./session_test
+
