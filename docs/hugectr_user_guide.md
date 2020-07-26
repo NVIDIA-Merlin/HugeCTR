@@ -199,7 +199,7 @@ Fig. 6 illustartes how these hyperparameters interact with the actual learning r
   }
 }
 ```
-<div align=center><img width = '500' src ="docs/user_guide_src/learning_rate_scheduling.png"/></div>
+<div align=center><img width = '500' src ="user_guide_src/learning_rate_scheduling.png"/></div>
 <div align=center>Fig. 6. Learning rate scheduling</div>
 
 ### Layers
