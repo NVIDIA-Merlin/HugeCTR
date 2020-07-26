@@ -1,5 +1,4 @@
-# <img src="docs/user_guide_src/merlin_logo.png" alt="logo" width="85"/> Merlin: HugeCTR #
-[![v22](docs/user_guide_src/version.JPG)](docs/hugectr_user_guide.md#newly-added-features-in-version-22)
+# Merlin: HugeCTR # {#mainpage}
 
 HugeCTR is a recommender specific framework which is capable of distributed training across multiple GPUs and nodes for Click-Through-Rate (CTR) estimation.
 It is also a component of [**NVIDIA Merlin**](https://developer.nvidia.com/nvidia-merlin#getstarted),
@@ -11,19 +10,9 @@ Design Goals:
 * Easy: you can start your work now, no matter you are a data scientist, a learner, or a developer.
 
 ## Version 2.2
-In HugeCTR version 2.2, we add [**the new features**](docs/hugectr_user_guide.md#newly-added-features-in-version-22) like *full fp16 pipeline*, *algorithm search*, *AUC calculation*, etc, 
+In HugeCTR version 2.2, we add the new features like *full fp16 pipeline*, *algorithm search*, *AUC calculation*, etc, 
 whilst enabling the support of the world's most advanced accelerator, NVIDIA A100 Tensor Core GPU and the modern models such as *Wide and Deep*, *Deep Cross Network*, *DeepFM*, *Deep Learning Recommendation Model (DLRM)*.
 This document describes how to setup envirnment and run HugeCTR.
-For more details such as HugeCTR architecture and supported features, please refer to [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and [**Questions and Answers**](docs/QAList.md) in directory `docs/`
-
-## Table of Contents
-* [Requirements](#requirements)
-* [Build](#build)
-* [Run](#run)
-* [Coding Style and Refactor](#coding-style-and-refactor)
-* [Document Generation](#document-generation)
-* [Synthetic Data Generation and Benchmark](#synthetic-data-generation-and-benchmark)
-* [File Format](#file-format)
 
 ## Requirements ##
 * cuBLAS >= 10.1
@@ -49,7 +38,7 @@ $ git submodule update --init --recursive
 
 ### Use Docker Container ###
 You can choose to use Docker to simplify the environment setting up.
-If you have already set up your envirnment manually, please jump to [Build](#build-with-release) section.
+If you have already set up your envirnment manually, please jump to Build below.
 
 Mare sure that you have installed [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) .
 
@@ -170,7 +159,7 @@ $ doxygen
 ```
 
 ## Synthetic Data Generation and Benchmark ##
-For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`.
+For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both Norm format (with Header) and Raw format (without Header) dataset can be generated with `data_generator`.
 - For `Norm` format: <br>
 ```bash
 $ ./data_generator your_config.json data_folder vocabulary_size max_nnz #files #samples per file
@@ -193,8 +182,7 @@ Arguments:
 In total, there are three types of files used in HugeCTR training: a configuration file, model file and dataset.
 
 ### Configuration File ###
-Configuration file must be in a json format, e.g., [simple_sparse_embedding_fp32.json](test/utest/simple_sparse_embedding_fp32.json)
-
+Configuration file must be in a json format, e.g., simple_sparse_embedding_fp32.json.
 There are three main JSON objects in a configuration file: "solver", "optimizer", and "layers". They can be specified in any order.
 * solver: the active GPU list, batchsize, model_file, etc are specified.
 * optimizer: The type of optimizer and its hyperparameters are specified.
@@ -204,7 +192,7 @@ There are three main JSON objects in a configuration file: "solver", "optimizer"
 Model file is a binary file that will be loaded to initialize weights.
 In that file, the weights are stored in the same order with the layers in configuration file. 
 
-We provide a tutorial on [**how to dump a model to TensorFlow**](./tutorial/dump_to_tf/readMe.md). You can find more details on `Model file and it format` there.
+We provide a tutorial on how to dump a model to TensorFlow, i.e., tutorial/dump_to_tf/readMe.md. You can find more details on `Model file and it format` there.
 
 ### Data Set ###
 Two format of data set are supported in HugeCTR:
@@ -275,5 +263,6 @@ typedef struct Data_{
   int dense[dense_dim];
   int category[sparse_dim];
 } Data;
+```
 
 
