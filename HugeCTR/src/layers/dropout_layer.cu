@@ -29,6 +29,19 @@
 
 namespace HugeCTR {
 
+namespace {
+
+template <typename T>
+__global__ void dropout_kernel(const T* in, const float* mask, T* out, const int len,
+                                const float rate, const float scale) {
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
+    out[i] = TypeConvertFunc<T, float>::convert(((1.f - mask[i]) >= rate) *
+                                                TypeConvertFunc<float, T>::convert(in[i]) * scale);
+  }
+}
+
+}  // end namespace
+    
 template <typename T>
 DropoutLayer<T>::DropoutLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
                               const std::shared_ptr<Tensor<T>>& out_tensor, float rate,
@@ -46,7 +59,7 @@ DropoutLayer<T>::DropoutLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
   out_tensors_.emplace_back(out_tensor);
 
   CudaDeviceContext context(get_device_id());
-  CK_CUDA_THROW_(cudaMalloc(&mask_, in_tensor->get_num_elements() * sizeof(float)));
+  CK_CUDA_THROW_(cudaMalloc(&mask_, in_tensor->get_num_elements() * sizeof(T)));
   CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(curand_generator_, get_seed()));
 
   CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, get_device_id()));
@@ -96,14 +109,28 @@ int64_t DropoutLayer<T>::get_seed() const {
   return time(nullptr);
 }
 
-template <typename T>
-void DropoutLayer<T>::prop_common(const T* in, T* out, cudaStream_t stream) {
+template <>
+void DropoutLayer<float>::prop_common(const float* in, float* out, cudaStream_t stream) {
   int len = in_tensors_[0]->get_num_elements();
 
   float r = rate_;
   float s = scale_;
   MLCommon::LinAlg::binaryOp(out, in, mask_, len,
-              [r, s] __device__(T a, T b) { return ((T(1) - b) >= r) * a * s; }, stream);
+              [r, s] __device__(float a, float b) { return ((1.f - b) >= r) * a * s; }, stream);
+
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
+}
+
+template <typename T>
+void DropoutLayer<T>::prop_common(const T* in, T* out, cudaStream_t stream) {
+  int len = in_tensors_[0]->get_num_elements();
+
+  int grid_size = n_sms_ * 16;
+  int block_size = 256;
+  dropout_kernel<<<grid_size, block_size, 0, stream>>>(in, mask_, out, len, rate_, scale_);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

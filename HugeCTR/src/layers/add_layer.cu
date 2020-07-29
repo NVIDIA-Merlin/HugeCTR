@@ -18,6 +18,7 @@
 #include "HugeCTR/include/utils.cuh"
 #include "HugeCTR/include/utils.hpp"
 #include <prims/linalg/reduce.cuh>
+#include <prims/cuda_utils.cuh>
 
 #include <algorithm>
 #include <functional>
@@ -112,8 +113,8 @@ void AddLayer<T>::fprop(cudaStream_t stream) {
   }
   T* output = out_tensors_[0]->get_ptr();
 
-  MLCommon::LinAlg::reduce(output, d_inputs_, size_, num_, (float)0, false, false, stream, false,
-          [] __device__(float in, int i) { return in; });
+  MLCommon::LinAlg::reduce(output, d_inputs_, size_, num_, (T)0, false, false, stream, false,
+          [] __device__(T in, int i) { return in; });
 
 }
 
