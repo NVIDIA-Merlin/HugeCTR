@@ -16,7 +16,7 @@
 cmake_minimum_required(VERSION 3.8)
 file(GLOB prims_test_src
   matrix_vector_op.cu
-  reduce.cu
+  #reduce.cu
 )
 
 add_executable(prims_test ${prims_test_src})
