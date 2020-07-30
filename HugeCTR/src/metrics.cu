@@ -329,7 +329,7 @@ void AUC<T>::local_reduce(RawMetricMap raw_metrics) {
 
     copy_all<T>(d_pred() + offset, d_label() + offset, pred_tensor->get_ptr(),
                 label_tensor->get_ptr(), num_elems, num_sms_,
-                (*gpu_resource_group_)[current_device_id]->get_stream());
+                (*gpu_resource_group_)[current_device_id].get_stream());
   }
 }
 

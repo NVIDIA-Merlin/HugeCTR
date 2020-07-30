@@ -78,6 +78,7 @@ void train(std::string config_file) {
 #ifndef VAL
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0);  // just 1 epoch
 
+    session_instance->set_train_stage();
     for (int i = 0; i < solver_config.max_iter; i++) {
       float lr = lr_sch->get_next();
       session_instance->set_learning_rate(lr);
@@ -105,10 +106,12 @@ void train(std::string config_file) {
       }
 
       if ((solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0)) {
+        session_instance->check_overflow();
+        session_instance->set_evaluate_stage();
+
         HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
                      float(i) / solver_config.max_iter);
         timer_eval.start();
-        session_instance->check_overflow();
         for (int j = 0; j < solver_config.eval_batches; ++j) {
           session_instance->eval();
         }
@@ -158,6 +161,8 @@ void train(std::string config_file) {
         HugeCTR::LOG(
             timer_log.elapsedMilliseconds(), "eval_stop",
             float(i) / solver_config.max_iter);  // use iteration to calculate it's in which epoch
+
+        session_instance->set_train_stage();
       }
     }
 
@@ -175,6 +180,7 @@ void train(std::string config_file) {
     float loss = 0;
     bool start_test = false;
     int loop = 0;
+    session_instance->set_train_stage();
     for (int i = 0; i < solver_config.max_iter; i++) {
       float lr = lr_sch->get_next();
       session_instance->set_learning_rate(lr);
@@ -193,6 +199,7 @@ void train(std::string config_file) {
       if (i % solver_config.eval_interval == solver_config.eval_batches &&
           i != solver_config.eval_batches) {
         session_instance->check_overflow();
+        session_instance->set_evaluate_stage();
         loss = loss / solver_config.eval_batches;
         for (int j = 0; j < solver_config.eval_batches; ++j) {
           session_instance->eval();
@@ -206,6 +213,7 @@ void train(std::string config_file) {
           std::cout << std::endl;
         }
         start_test = false;
+        session_instance->set_train_stage();
       }
       if (i != 0 && i % solver_config.eval_interval == 0) {
         start_test = true;

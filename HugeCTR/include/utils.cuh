@@ -64,6 +64,16 @@ struct TypeConvertFunc<float, float> {
   static __forceinline__ __device__ float convert(float val) { return val; }
 };
 
+template <>
+struct TypeConvertFunc<float, long long> {
+  static __forceinline__ __device__ float convert(long long val) { return static_cast<float>(val); }
+};
+
+template <>
+struct TypeConvertFunc<float, unsigned int> {
+  static __forceinline__ __device__ float convert(unsigned int val) { return static_cast<float>(val); }
+};
+
 template <typename T>
 __inline__ __device__ T warpReduceSum(T val) {
   const unsigned int FULL_MASK = 0xffffffff;

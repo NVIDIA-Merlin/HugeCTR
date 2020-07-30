@@ -71,38 +71,18 @@ class Timer {
  * Helper class for switching device
  */
 class CudaDeviceContext {
-  int original_device;
-
-  /**
-   * Pop current cuda device and set new device.
-   * @param i_device device ID to set
-   * @param o_device device ID to pop, if o_device is NULL just set device to i_device.
-   * @return the same as cudaError_t
-   */
-  static inline cudaError_t get_set_device(int i_device, int* o_device = nullptr) {
-    int current_device = 0;
-    cudaError_t err = cudaSuccess;
-
-    err = cudaGetDevice(&current_device);
-    if (err != cudaSuccess) return err;
-
-    if (current_device != i_device) {
-      err = cudaSetDevice(i_device);
-      if (err != cudaSuccess) return err;
-    }
-
-    if (o_device) {
-      *o_device = current_device;
-    }
-
-    return cudaSuccess;
-  }
+  int original_device_;
 
  public:
-  CudaDeviceContext(int device) { CK_CUDA_THROW_(get_set_device(device, &original_device)); }
-  ~CudaDeviceContext() noexcept(false) { CK_CUDA_THROW_(get_set_device(original_device)); }
+  CudaDeviceContext() { CK_CUDA_THROW_(cudaGetDevice(&original_device_)); }
+  CudaDeviceContext(int device) : CudaDeviceContext() {
+    if (device != original_device_) {
+      set_device(device);
+    }
+  }
+  ~CudaDeviceContext() noexcept(false) { set_device(original_device_); }
 
-  void set_device(int device) const { CK_CUDA_THROW_(get_set_device(device)); }
+  void set_device(int device) const { CK_CUDA_THROW_(cudaSetDevice(device)); }
 };
 
 /**

@@ -76,6 +76,7 @@ class DataCollector {
   Tensors<float> label_tensors_;
   ITensors dense_tensors_;
   GeneralBuffers<TypeKey> csr_buffers_;
+  std::vector<std::shared_ptr<size_t>> nnz_array_;
   // GeneralBuffers<float> label_dense_buffers_internal_;
   // GeneralBuffers<TypeKey> csr_buffers_internal_;
   std::shared_ptr<GPUResourceGroup> device_resources_;
@@ -97,6 +98,7 @@ class DataCollector {
     // Tensors<TypeKey> csr_buffers_internal;
     GeneralBuffers<float> label_dense_buffers_internal;
     GeneralBuffers<TypeKey> csr_buffers_internal;
+    std::vector<std::shared_ptr<size_t>> nnz_array_internal;
     long long current_batchsize{0};
   };
 
@@ -119,6 +121,7 @@ class DataCollector {
 
   DataCollector(const Tensors<float>& label_tensors, const ITensors& dense_tensors,
                 const GeneralBuffers<TypeKey>& csr_buffers,
+                const std::vector<std::shared_ptr<size_t>>& nnz_array,
                 const std::shared_ptr<GPUResourceGroup>& device_resources,
                 const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap = nullptr,
                 const bool use_mixed_precision = false, const bool one_hot = false,
@@ -163,6 +166,7 @@ template <typename TypeKey>
 DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
                                       const ITensors& dense_tensors,
                                       const GeneralBuffers<TypeKey>& csr_buffers,
+                                      const std::vector<std::shared_ptr<size_t>>& nnz_array,
                                       const std::shared_ptr<GPUResourceGroup>& device_resources,
                                       const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap,
                                       const bool use_mixed_precision, const bool one_hot,
@@ -171,6 +175,7 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
       label_tensors_(label_tensors),
       dense_tensors_(dense_tensors),
       csr_buffers_(csr_buffers),
+      nnz_array_(nnz_array),
       device_resources_(device_resources),
       pre_nnz_(csr_buffers.size(), 0),
       use_mixed_precision_(use_mixed_precision),
@@ -215,6 +220,9 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
         //   MESSAGE_("buf_size " + std::to_string(cb->get_num_elements()) + " device " +
         //   std::to_string(cb->get_device_id()));
         // }
+      }
+      for (size_t i = 0; i < nnz_array_.size(); i++) {
+        internal_buffer->nnz_array_internal.emplace_back(new size_t);
       }
       internal_buffers_.push_back(internal_buffer);
     }
@@ -313,7 +321,7 @@ void DataCollector<TypeKey>::collect_() {
               internal_buffer->csr_buffers_internal[local_id * num_params + j]->get_ptr_with_offset(
                   0),
               csr_cpu_buffers[i * num_params + j].get_buffer(), csr_copy_num * sizeof(TypeKey),
-              cudaMemcpyHostToDevice, (*device_resources_)[local_id]->get_data_copy_stream(id_)));
+              cudaMemcpyHostToDevice, (*device_resources_)[local_id].get_data_copy_stream(id_)));
         } else {
           unsigned int offset = csr_cpu_buffers[i * num_params + j].get_num_rows() + 1;
           int csr_copy_num = csr_cpu_buffers[i * num_params + j].get_sizeof_value();
@@ -323,13 +331,14 @@ void DataCollector<TypeKey>::collect_() {
                   offset,
               csr_cpu_buffers[i * num_params + j].get_buffer() + offset,
               csr_copy_num * sizeof(TypeKey), cudaMemcpyHostToDevice,
-              (*device_resources_)[local_id]->get_data_copy_stream(id_)));
+              (*device_resources_)[local_id].get_data_copy_stream(id_)));
         }
+        *(internal_buffer->nnz_array_internal[local_id * num_params + j]) = nnz;
       }
       CK_CUDA_THROW_(cudaMemcpyAsync(
           internal_buffer->label_dense_buffers_internal[local_id]->get_ptr_with_offset(0),
           label_dense_buffers[i].get(), label_copy_num * sizeof(float), cudaMemcpyHostToDevice,
-          (*device_resources_)[local_id]->get_data_copy_stream(id_)));
+          (*device_resources_)[local_id].get_data_copy_stream(id_)));
     }
   }
   // sync
@@ -341,7 +350,7 @@ void DataCollector<TypeKey>::collect_() {
       int local_id = device_resources_->get_local_id(i);
       CudaDeviceContext context(device_resources_->get_local_device_id(i));
       CK_CUDA_THROW_(
-          cudaStreamSynchronize((*device_resources_)[local_id]->get_data_copy_stream(id_)));
+          cudaStreamSynchronize((*device_resources_)[local_id].get_data_copy_stream(id_)));
     }
   }
 
@@ -363,23 +372,22 @@ long long DataCollector<TypeKey>::read_a_batch_to_device() {
   }
 
   for (unsigned int i = 0; i < device_resources_->size(); i++) {
-    CudaDeviceContext context((*device_resources_)[i]->get_device_id());
+    CudaDeviceContext context((*device_resources_)[i].get_device_id());
     for (int j = 0; j < num_params_; j++) {
       int csr_id = i * num_params_ + j;
       CK_CUDA_THROW_(
           cudaMemcpyAsync(csr_buffers_[csr_id]->get_ptr_with_offset(0),
                           internal_buffer->csr_buffers_internal[csr_id]->get_ptr_with_offset(0),
                           csr_buffers_[csr_id]->get_size(), cudaMemcpyDeviceToDevice,
-                          (*device_resources_)[i]->get_stream()));
+                          (*device_resources_)[i].get_stream()));
+      *(nnz_array_[csr_id]) = *(internal_buffer->nnz_array_internal[csr_id]);
     }
     if (use_mixed_precision_) {
       split(label_tensors_[i], dynamic_tensor_cast<__half>(dense_tensors_[i]),
-            internal_buffer->label_dense_buffers_internal[i],
-            (*device_resources_)[i]->get_stream());
+            internal_buffer->label_dense_buffers_internal[i], (*device_resources_)[i].get_stream());
     } else {
       split(label_tensors_[i], dynamic_tensor_cast<float>(dense_tensors_[i]),
-            internal_buffer->label_dense_buffers_internal[i],
-            (*device_resources_)[i]->get_stream());
+            internal_buffer->label_dense_buffers_internal[i], (*device_resources_)[i].get_stream());
     }
   }
   counter_++;
@@ -389,8 +397,8 @@ long long DataCollector<TypeKey>::read_a_batch_to_device() {
 template <typename TypeKey>
 void DataCollector<TypeKey>::set_ready_to_write_sync() {
   for (unsigned int i = 0; i < device_resources_->size(); i++) {
-    CudaDeviceContext context((*device_resources_)[i]->get_device_id());
-    cudaStreamSynchronize((*device_resources_)[i]->get_stream());
+    CudaDeviceContext context((*device_resources_)[i].get_device_id());
+    cudaStreamSynchronize((*device_resources_)[i].get_stream());
   }
   set_ready_to_write();
 }

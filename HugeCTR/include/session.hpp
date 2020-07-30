@@ -39,6 +39,9 @@ class Session {
   virtual Error_t get_current_loss(float* loss) = 0;
   virtual Error_t download_params_to_files(std::string prefix, int iter) = 0;
   virtual Error_t set_learning_rate(float lr) = 0;
+
+  virtual void set_train_stage() = 0;
+  virtual void set_evaluate_stage() = 0;
   virtual void check_overflow() const = 0;
 };
 
@@ -119,6 +122,8 @@ class SessionImpl : public Session {
     return static_cast<long long>(networks_[0]->get_params_num()) + size;
   }
 
+  void set_train_stage() override;
+  void set_evaluate_stage() override;
   void check_overflow() const override;
 
  private:
@@ -127,7 +132,6 @@ class SessionImpl : public Session {
   std::vector<std::unique_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::unique_ptr<IEmbedding>> embedding_;  /**< embedding */
   std::vector<std::unique_ptr<Network>> networks_eval_; /**< networks (dense) used in eval. */
-  std::vector<std::unique_ptr<IEmbedding>> embedding_eval_; /**< embedding in eval*/
 
   std::unique_ptr<DataReader<TypeKey>>
       data_reader_; /**< data reader to reading data from data set to embedding. */
