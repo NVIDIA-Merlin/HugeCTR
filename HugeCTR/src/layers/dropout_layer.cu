@@ -112,25 +112,8 @@
    return time(nullptr);
  }
  
-template <>
-void DropoutLayer<float>::prop_common(const float* in, float* out, cudaStream_t stream) {
-  int len = in_tensors_[0]->get_num_elements();
-
-  float r = rate_;
-  float s = scale_;
-  MLCommon::LinAlg::binaryOp(out, in, mask_, len,
-              [r, s] __device__(float a, float b) { return ((1.f - b) >= r) * a * s; }, stream);
-
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
-#endif
-}
-
-
-
- template <>
- void DropoutLayer<__half>::prop_common(const __half* in, __half* out, cudaStream_t stream) {
+ template <typename T>
+ void DropoutLayer<T>::prop_common(const T* in, T* out, cudaStream_t stream) {
    int len = in_tensors_[0]->get_num_elements();
  
    int grid_size = n_sms_ * 16;
@@ -141,7 +124,7 @@ void DropoutLayer<float>::prop_common(const float* in, float* out, cudaStream_t 
    cudaDeviceSynchronize();
    CK_CUDA_THROW_(cudaGetLastError());
  #endif
- }
+ } 
  
  template class DropoutLayer<float>;
  template class DropoutLayer<__half>;

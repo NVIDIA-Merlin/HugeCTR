@@ -76,11 +76,10 @@ class DropoutLayer : public Layer {
 
   const float* mask() const { return mask_; }
 
-  void prop_common(const T* in, T* out, cudaStream_t stream);
-
  private:
   int64_t get_seed() const;
-
+  void prop_common(const T* in, T* out, cudaStream_t stream);
+  
   float rate_;
   float scale_;
   float* mask_;
