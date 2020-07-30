@@ -275,6 +275,9 @@ template <typename T>
 using Tensors = std::vector<std::shared_ptr<Tensor<T>>>;
 
 template <typename T>
+using TensorPtrs = std::vector<std::shared_ptr<Tensor<T>>>;
+
+template <typename T>
 using TensorPtr = std::shared_ptr<Tensor<T>>;
 
 using ITensors = std::vector<std::shared_ptr<ITensor>>;

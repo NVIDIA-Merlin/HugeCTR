@@ -101,7 +101,7 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
                 solver_config.use_mixed_precision, solver_config.scaler,
                 solver_config.use_algorithm_search);
 
-  parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_, networks_,
+  parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_,
                          networks_eval_, gpu_resource_group_);
 
   // init networks.
@@ -235,12 +235,13 @@ void SessionImpl<TypeKey>::train() {
     data_reader_->ready_to_collect();
     if (networks_.size() > 1) {
       // execute dense forward and backward with multi-cpu threads
+      std::vector<std::future<void>> results(networks_.size());
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
+        results[i] = gpu_resource_group_->get_thread_pool().push(
             [this, i](int id) { network_train_helper(id, networks_[i].get()); });
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_->results[i].get();
+        results[i].get();
       }
     } else if (networks_.size() == 1) {
       networks_[0]->train();
@@ -288,17 +289,18 @@ void SessionImpl<TypeKey>::eval() {
     }
 
 #ifndef DATA_READING_TEST
-    for (auto& one_embedding : embedding_eval_) {
+    for (auto& one_embedding : embedding_) {
       one_embedding->forward();
     }
 
     if (networks_eval_.size() > 1) {
+      std::vector<std::future<void>> results(networks_eval_.size());
       for (unsigned int i = 0; i < networks_eval_.size(); i++) {
-        gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
+        results[i] = gpu_resource_group_->get_thread_pool().push(
             [this, i](int id) { network_eval_helper(id, networks_eval_[i].get(), metrics_); });
       }
       for (unsigned int i = 0; i < networks_eval_.size(); i++) {
-        gpu_resource_group_->results[i].get();
+        results[i].get();
       }
     } else if (networks_eval_.size() == 1) {
       network_eval_helper(0, networks_eval_[0].get(), metrics_);
@@ -434,6 +436,20 @@ Error_t SessionImpl<TypeKey>::get_current_loss(float* loss) {
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
+}
+
+template <typename TypeKey>
+void SessionImpl<TypeKey>::set_train_stage() {
+for (auto& one_embedding : embedding_) {
+    one_embedding->train();
+  }
+}
+
+template <typename TypeKey>
+void SessionImpl<TypeKey>::set_evaluate_stage() {
+for (auto& one_embedding : embedding_) {
+    one_embedding->evaluate();
+  }
 }
 
 template <typename TypeKey>
