@@ -39,12 +39,11 @@ void test_parser(std::string& json_name) {
   std::unique_ptr<DataReader<TypeKey>> data_reader;
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval;
   std::vector<std::unique_ptr<IEmbedding>> embedding;
-  std::vector<std::unique_ptr<IEmbedding>> embedding_eval;
   std::vector<std::unique_ptr<Network>> networks;
   std::vector<std::unique_ptr<Network>> networks_eval;
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
 
-  p.create_pipeline(data_reader, data_reader_eval, embedding, embedding_eval, networks,
+  p.create_pipeline(data_reader, data_reader_eval, embedding, networks,
                     networks_eval, gpu_resource_group);
   return;
 }

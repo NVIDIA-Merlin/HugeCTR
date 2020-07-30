@@ -18,9 +18,11 @@
 
 namespace HugeCTR {
 
-GPUResource::GPUResource(int device_id, const ncclComm_t* comm)
+GPUResource::GPUResource(int device_id) : GPUResource(device_id, nullptr) {}
+
+GPUResource::GPUResource(int device_id, const ncclComm_t& comm)
     : device_id_(device_id), comm_(comm) {
-  CudaDeviceContext context(device_id_);
+  CudaDeviceContext context(device_id);
   CK_CUBLAS_THROW_(cublasCreate(&cublas_handle_));
   CK_CURAND_THROW_(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
   CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle_));
@@ -40,19 +42,17 @@ GPUResource::~GPUResource() {
     CK_CUDA_THROW_(cudaEventDestroy(event_));
     CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_[0]));
     CK_CUDA_THROW_(cudaStreamDestroy(data_copy_stream_[1]));
+    CK_NCCL_THROW_(ncclCommDestroy(comm_));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
 }
 
 GPUResourceGroup::GPUResourceGroup(const std::shared_ptr<const DeviceMap>& device_map)
-    : comms_(nullptr),
-      device_map_(device_map),
-      train_thread_pool(device_map->get_device_list().size()),
-      results(device_map->get_device_list().size()) {
+    : device_map_(device_map), thread_pool_(device_map->get_device_list().size()) {
   // set threads affinity
   for (unsigned int i = 0; i < device_map->get_device_list().size(); i++) {
-    set_affinity(train_thread_pool.get_thread(i), {}, true);
+    set_affinity(thread_pool_.get_thread(i), {}, true);
   }
 
   auto& device_list = device_map->get_device_list();
@@ -78,7 +78,7 @@ GPUResourceGroup::GPUResourceGroup(const std::shared_ptr<const DeviceMap>& devic
   int total_gpu_count = get_total_gpu_count();
   // if ther are multiple GPUs within a node or/and across nodes
   if (total_gpu_count > 1) {
-    comms_.reset(new ncclComm_t[local_gpu_count]());
+    std::vector<ncclComm_t> comms(local_gpu_count);
 #ifdef ENABLE_MPI
     int my_rank = 0;
     int n_ranks = 1;
@@ -91,16 +91,18 @@ GPUResourceGroup::GPUResourceGroup(const std::shared_ptr<const DeviceMap>& devic
     CK_NCCL_THROW_(ncclGroupStart());
     for (size_t i = 0; i < local_gpu_count; i++) {
       CK_CUDA_THROW_(cudaSetDevice(device_list[i]));
-      CK_NCCL_THROW_(ncclCommInitRank(comms_.get() + i, total_gpu_count, nid,
+      CK_NCCL_THROW_(ncclCommInitRank(&comms[i], total_gpu_count, nid,
                                       device_map->get_global_id(device_list[i])));
     }
     CK_NCCL_THROW_(ncclGroupEnd());
 #else
-    CK_NCCL_THROW_(ncclCommInitAll(comms_.get(), device_list.size(), device_list.data()));
+    CK_NCCL_THROW_(ncclCommInitAll(comms.data(), device_list.size(), device_list.data()));
 #endif
-  }
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    gpu_resources_.emplace_back(new GPUResource(device_list[i], comms_.get() + i));
+    for (size_t i = 0; i < local_gpu_count; i++) {
+      gpu_resources_.emplace_back(new GPUResource(device_list[i], comms[i]));
+    }
+  } else {
+    gpu_resources_.emplace_back(new GPUResource(device_list[0]));
   }
 
   enable_all_peer_accesses();
@@ -109,17 +111,7 @@ GPUResourceGroup::GPUResourceGroup(const std::shared_ptr<const DeviceMap>& devic
   }
 }
 
-GPUResourceGroup::~GPUResourceGroup() {
-  try {
-    if (gpu_resources_.size() > 1) {
-      for (unsigned int i = 0; i < gpu_resources_.size(); i++) {
-        CK_NCCL_THROW_(ncclCommDestroy(comms_[i]));
-      }
-    }
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  }
-}
+GPUResourceGroup::~GPUResourceGroup() {}
 
 bool GPUResourceGroup::p2p_enabled(int src_dev, int dst_dev) const {
   const auto it = p2p_enabled_.find(src_dev);

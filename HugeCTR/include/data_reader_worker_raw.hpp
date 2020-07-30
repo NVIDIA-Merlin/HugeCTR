@@ -192,12 +192,12 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
                   dev_id = std::abs(dev_id);
 
                   assert(dev_id < csr_chunk->get_num_devices());
-#ifndef NDEBUG
+/* #ifndef NDEBUG
                   if (i >= 0)
                     std::cout << "[HCDEBUG]"
                               << "feature_ids:" << feature_ids[k] << " local_id: " << local_id
                               << " param_id: " << param_id << " dev_id: " << dev_id << std::endl;
-#endif
+#endif */
 
                   csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
                 }

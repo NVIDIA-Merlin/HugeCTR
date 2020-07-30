@@ -253,6 +253,9 @@ template <typename T>
 using GeneralBuffers = std::vector<std::shared_ptr<GeneralBuffer<T>>>;
 
 template <typename T>
+using GeneralBufferPtrs = std::vector<std::shared_ptr<GeneralBuffer<T>>>;
+
+template <typename T>
 using GeneralBufferPtr = std::shared_ptr<GeneralBuffer<T>>;
 
 }  // namespace HugeCTR

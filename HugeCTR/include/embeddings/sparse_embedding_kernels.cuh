@@ -121,9 +121,9 @@ __global__ void forward_sum_align2_kernel(int batch_size, int slot_num, int embe
 
 // fuse foward_sum_kernel + all2all + forward_reorder into one kernel
 template <typename TypeKey, typename TypeValueIndex, typename TypeEmbeddingComp>
-__global__ void forward_sum_fuse_kernel(int local_gpu_id, int gpu_num, size_t batch_size,
-                                        size_t batch_size_per_gpu, int slot_num,
-                                        int slot_num_per_gpu, int embedding_vec_size,
+__global__ void forward_sum_fuse_kernel(size_t local_gpu_id, size_t gpu_num, size_t batch_size,
+                                        size_t batch_size_per_gpu, size_t slot_num,
+                                        size_t slot_num_per_gpu, size_t embedding_vec_size,
                                         const TypeKey *row_offset,
                                         const TypeValueIndex *hash_value_index,
                                         const float *hash_table_value,
@@ -165,10 +165,10 @@ __global__ void forward_sum_fuse_kernel(int local_gpu_id, int gpu_num, size_t ba
 
 // overload for fp16
 template <typename TypeKey, typename TypeValueIndex>
-__global__ void forward_sum_fuse_align2_kernel(int local_gpu_id, int gpu_num, size_t batch_size,
-                                               size_t batch_size_per_gpu, int slot_num,
-                                               int slot_num_per_gpu, int embedding_vec_size,
-                                               const TypeKey *row_offset,
+__global__ void forward_sum_fuse_align2_kernel(size_t local_gpu_id, size_t gpu_num,
+                                               size_t batch_size, size_t batch_size_per_gpu,
+                                               size_t slot_num, size_t slot_num_per_gpu,
+                                               size_t embedding_vec_size, const TypeKey *row_offset,
                                                const TypeValueIndex *hash_value_index,
                                                const float *hash_table_value,
                                                __half **embedding_features) {
@@ -394,9 +394,9 @@ __global__ void backward_sum_align2_kernel(int batch_size, int slot_num, int emb
 
 // fuse backward_reorder_kernel + all2all + backward_sum_kernel into one kernel
 template <typename TypeEmbeddingComp>
-__global__ void backward_sum_fuse_kernel(int local_gpu_id, int gpu_num, size_t batch_size,
-                                         size_t batch_size_per_gpu, int slot_num,
-                                         int slot_num_per_gpu, int embedding_vec_size,
+__global__ void backward_sum_fuse_kernel(size_t local_gpu_id, size_t gpu_num, size_t batch_size,
+                                         size_t batch_size_per_gpu, size_t slot_num,
+                                         size_t slot_num_per_gpu, size_t embedding_vec_size,
                                          TypeEmbeddingComp **embedding_features,
                                          TypeEmbeddingComp *wgrad) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
@@ -426,9 +426,10 @@ __global__ void backward_sum_fuse_kernel(int local_gpu_id, int gpu_num, size_t b
 }
 
 // overload for fp16
-__global__ void backward_sum_fuse_align2_kernel(int local_gpu_id, int gpu_num, size_t batch_size,
-                                                size_t batch_size_per_gpu, int slot_num,
-                                                int slot_num_per_gpu, int embedding_vec_size,
+__global__ void backward_sum_fuse_align2_kernel(size_t local_gpu_id, size_t gpu_num,
+                                                size_t batch_size, size_t batch_size_per_gpu,
+                                                size_t slot_num, size_t slot_num_per_gpu,
+                                                size_t embedding_vec_size,
                                                 __half **embedding_features, __half *wgrad) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 

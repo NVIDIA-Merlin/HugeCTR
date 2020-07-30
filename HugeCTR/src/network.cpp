@@ -237,18 +237,18 @@ float Network::get_loss() {
 metrics::RawMetricMap Network::get_raw_metrics() const { return raw_metrics_; }
 
 void Network::exchange_wgrad() {
-  if (gpu_resource_->get_nccl_ptr() != nullptr) {
+  if (gpu_resource_->support_NCCL()) {
     CudaDeviceContext context(device_id_);
     if (full_fp16_) {
       CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_buff_half_->get_ptr_with_offset(0),
                                    (void*)wgrad_buff_half_->get_ptr_with_offset(0),
                                    wgrad_buff_half_->get_num_elements(), ncclHalf, ncclSum,
-                                   *(gpu_resource_->get_nccl_ptr()), gpu_resource_->get_stream()));
+                                   gpu_resource_->get_nccl(), gpu_resource_->get_stream()));
     } else {
       CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_buff_->get_ptr_with_offset(0),
                                    (void*)wgrad_buff_->get_ptr_with_offset(0),
                                    wgrad_buff_->get_num_elements(), ncclFloat, ncclSum,
-                                   *(gpu_resource_->get_nccl_ptr()), gpu_resource_->get_stream()));
+                                   gpu_resource_->get_nccl(), gpu_resource_->get_stream()));
     }
   } else {
     CK_THROW_(Error_t::IllegalCall, "cannot call exchange_wgrad with single GPU");

@@ -38,7 +38,8 @@ namespace HugeCTR {
  */
 class GPUResource {
  public:
-  GPUResource(int device_id, const ncclComm_t* comm);
+  GPUResource(int device_id);
+  GPUResource(int device_id, const ncclComm_t& comm);
   GPUResource(const GPUResource&) = delete;
   GPUResource& operator=(const GPUResource&) = delete;
   ~GPUResource();
@@ -49,18 +50,20 @@ class GPUResource {
   const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
   const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
-  const ncclComm_t* get_nccl_ptr() const { return comm_; }
+  const ncclComm_t& get_nccl() const { return comm_; }
   const cudaEvent_t& get_event() const { return event_; }
 
+  bool support_NCCL() const { return comm_ != nullptr; }
+
  private:
+  const int device_id_;
   cudaStream_t stream_;              /**< cuda stream for computation */
   cudaStream_t data_copy_stream_[2]; /**< cuda stream for data copy */
   cublasHandle_t cublas_handle_;
   curandGenerator_t curand_generator_;
   cudnnHandle_t cudnn_handle_;
-  const int device_id_;
-  const ncclComm_t* comm_;
   cudaEvent_t event_;
+  ncclComm_t comm_;
 };
 
 /**
@@ -72,13 +75,12 @@ class GPUResource {
 class GPUResourceGroup {
  public:
   GPUResourceGroup(const std::shared_ptr<const DeviceMap>& device_map);
-  GPUResourceGroup(const GPUResourceGroup& C) = delete;
+  GPUResourceGroup(const GPUResourceGroup&) = delete;
   GPUResourceGroup& operator=(const GPUResourceGroup&) = delete;
   ~GPUResourceGroup();
 
-  const std::shared_ptr<const GPUResource>& operator[](int idx) const {
-    return gpu_resources_[idx];
-  }
+  const GPUResource& operator[](int idx) const { return *gpu_resources_[idx]; }
+  const std::shared_ptr<const GPUResource>& get_shared(int idx) { return gpu_resources_[idx]; }
   size_t size() const { return device_map_->get_device_list().size(); }
   bool empty() const { return size() == 0; }
 
@@ -100,17 +102,18 @@ class GPUResourceGroup {
   bool p2p_enabled(int src_dev, int dst_dev) const;
   bool all_p2p_enabled() const;
 
+  ctpl::thread_pool& get_thread_pool() { return thread_pool_; }
+
  private:
   void enable_all_peer_accesses();
 
-  std::unique_ptr<ncclComm_t[]> comms_;
   std::shared_ptr<const DeviceMap> device_map_;
   std::vector<std::shared_ptr<const GPUResource>> gpu_resources_; /**< GPU resource vector */
   std::map<int, std::map<int, bool>> p2p_enabled_;
 
- public:
-  ctpl::thread_pool train_thread_pool; /**< cpu thread pool for training */
-  std::vector<std::future<void>> results;
+  ctpl::thread_pool thread_pool_; /**< cpu thread pool for training */
 };
+
+using GPUResourceGroupPtr = std::shared_ptr<GPUResourceGroup>;
 
 }  // namespace HugeCTR
