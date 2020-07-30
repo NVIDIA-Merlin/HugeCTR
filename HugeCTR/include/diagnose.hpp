@@ -74,6 +74,19 @@ __global__ void check_kernel(const __half* arr, int len, int* flag) {
   }
 }
 
+template<typename T>
+__global__ void sample_kernel(const T* arr, int len, float* arr_sample, int stride,
+                              int max_sample_len) {
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
+    if (i % stride == 0) {
+      int j = i / stride;
+      if (j < max_sample_len) {
+        arr_sample[j] = TypeConvertFunc<float, T>::convert(arr[i]);
+      }
+    }
+  }
+}
+
 }  // namespace
 
 template <typename T>
@@ -107,6 +120,31 @@ void check_and_count_data(const char* category, const T* arr, size_t len,
   }
   CK_CUDA_THROW_(cudaFree(d_array));
   CK_CUDA_THROW_(cudaFree(d_flag));
+}
+
+template <typename T>
+void sample_data(const char* category, const T* arr, size_t len, const cudaStream_t& stream) {
+  const size_t max_sample_len = 31;
+  float h_array[max_sample_len]{0};
+
+  float* d_array;
+  CK_CUDA_THROW_(cudaMalloc(&d_array, max_sample_len * sizeof(float)));
+  CK_CUDA_THROW_(cudaMemsetAsync(d_array, 0, max_sample_len * sizeof(float), stream));
+  sample_kernel<<<160, 1024, 0, stream>>>(arr, len, d_array, len / max_sample_len, max_sample_len);
+  CK_CUDA_THROW_(cudaMemcpyAsync(h_array, d_array, max_sample_len * sizeof(float),
+                                 cudaMemcpyDeviceToHost, stream));
+  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+
+  std::stringstream ss;
+  ss << "Data sampling for " << category << " [";
+  for (size_t i = 0; i < min(max_sample_len, len); i++) {
+    if (i != 0) ss << ",";
+    ss << h_array[i];
+  }
+  ss << "]" << std::endl;
+  MESSAGE_(ss.str());
+
+  CK_CUDA_THROW_(cudaFree(d_array));
 }
 
 }  // namespace diagnose

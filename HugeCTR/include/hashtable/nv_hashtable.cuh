@@ -190,8 +190,6 @@ class HashTable {
    * @param count the existed number of <key,value> pairs in the hash table.
    */
   HashTable(size_t capacity, size_t count = 0) : capacity_(capacity) {
-    // assert(capacity <= std::numeric_limits<ValType>::max() && "error: Table is too large for the
-    // value type");
     table_ =
         new Table(static_cast<size_t>(capacity / LOAD_FACTOR), std::numeric_limits<ValType>::max());
     update_counter_ = 0;

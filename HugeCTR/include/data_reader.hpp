@@ -120,6 +120,7 @@ class DataReader {
       csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
   Tensors<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
   Tensors<TypeKey> value_tensors_;       /**< value tensors */
+  std::vector<std::shared_ptr<size_t>> nnz_array_;
 
   const std::vector<DataReaderSparseParam> params_;
 
@@ -227,6 +228,7 @@ class DataReader {
   const ITensors& get_dense_tensors() const { return dense_tensors_; }
   const Tensors<TypeKey>& get_row_offsets_tensors() const { return row_offsets_tensors_; }
   const Tensors<TypeKey>& get_value_tensors() const { return value_tensors_; }
+  const std::vector<std::shared_ptr<size_t>> get_nnz_array() const { return nnz_array_; }
   const Tensors<TypeKey> get_row_offsets_tensors(int param_id) const {
     Tensors<TypeKey> tensors;
     for (unsigned int i = 0; i < device_resources_->size(); i++) {
@@ -240,6 +242,13 @@ class DataReader {
       tensors.emplace_back(value_tensors_[i * params_.size() + param_id]);
     }
     return tensors;
+  }
+  const std::vector<std::shared_ptr<size_t>> get_nnz_array(int param_id) const {
+    std::vector<std::shared_ptr<size_t>> array;
+    for (size_t i = 0; i < device_resources_->size(); i++) {
+      array.push_back(nnz_array_[i * params_.size() + param_id]);
+    }
+    return array;
   }
 
   ~DataReader();
@@ -341,6 +350,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
       row_offsets_tensors_.emplace_back(tmp_row_offset);
       value_tensors_.emplace_back(tmp_value);
+      nnz_array_.emplace_back(new size_t);
       csr_buffers_.emplace_back(tmp_buffer);
     }
   }
@@ -349,11 +359,11 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
   if (cache_data) {
     data_collector_.reset(new DataCollector<TypeKey>(
-        label_tensors_, dense_tensors_, csr_buffers_, device_resources_, csr_heap_,
+        label_tensors_, dense_tensors_, csr_buffers_, nnz_array_, device_resources_, csr_heap_,
         use_mixed_precision_, one_hot, (num_samples - 1) / batchsize_ + 1));
   } else {
     data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
-                                                     device_resources_, csr_heap_,
+                                                     nnz_array_, device_resources_, csr_heap_,
                                                      use_mixed_precision_, one_hot));
   }
   data_collector_thread_ =

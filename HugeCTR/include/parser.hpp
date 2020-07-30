@@ -83,10 +83,9 @@ class Parser {
   void create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                        std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                        std::vector<std::unique_ptr<Network>>& network,
                        std::vector<std::unique_ptr<Network>>& network_eval,
-                       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+                       const GPUResourceGroupPtr& gpu_resource_group);
 
   /**
    * Create the pipeline, which includes data reader, embedding.
@@ -94,10 +93,9 @@ class Parser {
   void create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                        std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                        std::vector<std::unique_ptr<Network>>& network,
                        std::vector<std::unique_ptr<Network>>& network_eval,
-                       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+                       const GPUResourceGroupPtr& gpu_resource_group);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -135,8 +133,10 @@ template <typename T>
 struct SparseInput {
   Tensors<T> row;
   Tensors<T> value;
+  std::vector<std::shared_ptr<size_t>> nnz;
   Tensors<T> row_eval;
   Tensors<T> value_eval;
+  std::vector<std::shared_ptr<size_t>> nnz_eval;
   size_t slot_num;
   size_t max_feature_num_per_sample;
   SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
