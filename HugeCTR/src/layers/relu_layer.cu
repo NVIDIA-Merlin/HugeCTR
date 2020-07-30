@@ -45,7 +45,7 @@ void ReluLayer<T>::fprop(cudaStream_t stream) {
 
   int len = in_tensors_[0]->get_num_elements();
 
-  auto fop = [] __device__(T in) { return (in < T(0)) ? T(0) : in; };
+  auto fop = [] __device__(T in) { return (in > T(0)) ? in : T(0); };
 
   MLCommon::LinAlg::unaryOp(out_tensors_[0]->get_ptr(), in_tensors_[0]->get_ptr(), len, fop, stream);
 
@@ -61,7 +61,7 @@ void ReluLayer<T>::bprop(cudaStream_t stream) {
 
   int len = in_tensors_[0]->get_num_elements();
 
-  auto bop = [] __device__(T d_out, T d_in) { return (d_in < T(0)) ? T(0) : d_out; };
+  auto bop = [] __device__(T d_out, T d_in) { return (d_in > T(0)) ? d_out : T(0); };
 
   MLCommon::LinAlg::binaryOp(in_tensors_[0]->get_ptr(), out_tensors_[0]->get_ptr(), in_tensors_[0]->get_ptr(), len, bop, stream);
 
