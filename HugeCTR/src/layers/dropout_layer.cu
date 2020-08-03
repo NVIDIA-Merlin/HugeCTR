@@ -21,7 +21,7 @@
  #include <functional>
  #include <utils.cuh>
  #include <HugeCTR/include/utils.hpp>
- #include <linalg/binary_op.cuh>
+ #include <prims/linalg/binary_op.cuh>
 
 
  #ifndef NDEBUG

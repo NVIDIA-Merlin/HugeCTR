@@ -131,7 +131,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/HugeCTR
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
-  ${PROJECT_SOURCE_DIR}/third_party/cub/cub
+  ${PROJECT_SOURCE_DIR}/third_party/cub
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
 

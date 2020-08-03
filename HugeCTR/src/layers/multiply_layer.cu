@@ -14,19 +14,13 @@
  * limitations under the License.
  */
 
-<<<<<<< HEAD
-#include "HugeCTR/include/layers/multiply_layer.hpp"
-#include "HugeCTR/include/utils.cuh"
-#include "HugeCTR/include/utils.hpp"
+
 #include <linalg/reduce.cuh>
 #include <linalg/matrix_vector_op.cuh>
-
-=======
 #include <layers/element_wise_function.hpp>
 #include <layers/multiply_layer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
->>>>>>> f56e035ff037e2fab78adee7a0a392e6337583ea
 #include <algorithm>
 #include <functional>
 

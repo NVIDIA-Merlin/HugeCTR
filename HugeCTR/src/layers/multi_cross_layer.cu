@@ -16,7 +16,7 @@
 
 #include <math.h>
 #include <vector>
-#include <linalg/matrix_multiplication.cuh>
+#include <prims/linalg/matrix_multiplication.cuh>
 #include <layers/multi_cross_layer.hpp>
 #include <utils.cuh>
 #include <linalg/binary_op.cuh>
