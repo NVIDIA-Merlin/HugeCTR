@@ -31,7 +31,8 @@
  namespace HugeCTR {
  
  namespace {
- /*
+ 
+/*
  template <typename T>
  __global__ void dropout_kernel(const T* in, const float* mask, T* out, const int len,
                                 const float rate, const float scale) {
@@ -39,7 +40,8 @@
      out[i] = TypeConvertFunc<T, float>::convert(((1.f - mask[i]) >= rate) *
                                                  TypeConvertFunc<float, T>::convert(in[i]) * scale);
    }
- }*/
+ }
+*/
  
  }  // end namespace
  
@@ -117,7 +119,7 @@
    float r = rate_;
    float s = scale_;
    MLCommon::LinAlg::binaryOp(out, in, mask_, len,
-               [r, s] __device__(T a, float b) { return T(float((1.f - b) >= r) * float(a) * s); }, stream);
+               [r, s] __device__(T a, float b) { return TypeConvertFunc<T, float>::convert(((1.f - b) >= r) * TypeConvertFunc<float, T>::convert(a) * s); }, stream);
 
  
  #ifndef NDEBUG
