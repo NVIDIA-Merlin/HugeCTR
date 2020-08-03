@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
- #include "HugeCTR/include/layers/dropout_layer.hpp"
-
+ #include <layers/dropout_layer.hpp>
  #include <algorithm>
  #include <cstdio>
  #include <ctime>
  #include <functional>
- #include "HugeCTR/include/utils.cuh"
- #include "HugeCTR/include/utils.hpp"
-
- #include <prims/linalg/binary_op.cuh>
+ #include <utils.cuh>
+ #include <HugeCTR/include/utils.hpp>
+ #include <linalg/binary_op.cuh>
 
 
  #ifndef NDEBUG

@@ -18,61 +18,41 @@
 
 #include <layer.hpp>
 
-#include <vector>
-
 namespace HugeCTR {
 
 /**
- * Layer which does element-wise add by input tensors.
- * All the input tensors should have the same shape.
+ * Relu activation function as a derived class of Layer
  */
-template <typename T>
-class AddLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  // Tensors<float> weights_; It is inherited from Layer.
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors<T> wgrad_;
+class ReluLayerHalf : public Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
+  TensorPtr<__half> bottom_tensor_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
+  TensorPtr<__half> top_tensor_;
 
  public:
   /**
-   * Ctor of AddLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the resulting output tensor
+   * Ctor of ReluLayerHalf.
+   * @param bottom_tensor the input tensor
+   * @param top_tensor the output tensor which has the same dim with in_tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  AddLayer(const std::vector<std::shared_ptr<Tensor<T>>> in_tensors,
-           const std::shared_ptr<Tensor<T>>& out_tensor, int device_id);
-  ~AddLayer();
+  ReluLayerHalf(const TensorPtr<__half>& bottom_tensor, const TensorPtr<__half>& top_tensor,
+                int device_id);
 
   /**
-   * AddLayer's foward propagation
+   * A method of implementing the forward pass of Relu
    * @param stream CUDA stream where the foward propagation is executed
    */
   void fprop(cudaStream_t stream) override;
   /**
-   * AddLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * A method of implementing the backward pass of Relu
+   * @param stream CUDA stream where the backward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
-
- private:
-  int size_;
-  int num_;
-  T** h_inputs_ = NULL;
-  T** d_inputs_ = NULL;
-  bool initialized_{false};
 };
 
 }  // namespace HugeCTR

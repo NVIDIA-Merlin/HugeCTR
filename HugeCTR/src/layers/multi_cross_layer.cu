@@ -16,11 +16,9 @@
 
 #include <math.h>
 #include <vector>
-#include "HugeCTR/include/layers/multi_cross_layer.hpp"
-#include "HugeCTR/include/prims/linalg/matrix_multiplication.cuh"
-#include "HugeCTR/include/utils.cuh"
-
-
+#include <linalg/matrix_multiplication.cuh>
+#include <layers/multi_cross_layer.hpp>
+#include <utils.cuh>
 #include <linalg/binary_op.cuh>
 #include <linalg/gemm.cuh>
 #include <linalg/gemv.h>

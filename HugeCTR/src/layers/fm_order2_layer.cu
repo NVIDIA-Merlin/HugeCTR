@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/fm_order2_layer.hpp"
+#include <layers/fm_order2_layer.hpp>
 
 namespace HugeCTR {
 

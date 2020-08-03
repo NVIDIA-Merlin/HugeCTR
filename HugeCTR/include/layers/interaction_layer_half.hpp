@@ -17,62 +17,68 @@
 #pragma once
 
 #include <layer.hpp>
-
 #include <vector>
 
 namespace HugeCTR {
 
 /**
- * Layer which does element-wise add by input tensors.
- * All the input tensors should have the same shape.
+ * Layer which
  */
-template <typename T>
-class AddLayer : public Layer {
+class InteractionLayerHalf : public Layer {
   /*
-   * stores the weight tensors of this layer.
+   * stores the master weight tensors of this layer.
    */
-  // Tensors<float> weights_; It is inherited from Layer.
+  Tensors<float> weights_;
+  /*
+   * stores the weight tensors for compute of this layer.
+   */
+  Tensors<__half> weights_half_;
+
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<T> wgrad_;
+  Tensors<__half> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
+  std::vector<std::shared_ptr<Tensor<__half>>> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
+  std::vector<std::shared_ptr<Tensor<__half>>> out_tensors_;
 
  public:
   /**
-   * Ctor of AddLayer.
-   * @param in_tensor the input tensor
+   * Ctor of InteractionLayerHalf.
+   * @param in_bottom_mlp_tensor the input bottom MLP tensor (batch_size, width)
+   * @param in_embeddings the input embeddings (batch_size, n_emb, width)
    * @param out_tensor the resulting output tensor
+   * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  AddLayer(const std::vector<std::shared_ptr<Tensor<T>>> in_tensors,
-           const std::shared_ptr<Tensor<T>>& out_tensor, int device_id);
-  ~AddLayer();
+  InteractionLayerHalf(std::shared_ptr<Tensor<__half>>& in_bottom_mlp_tensor,
+                       std::shared_ptr<Tensor<__half>>& in_embeddings,
+                       std::shared_ptr<Tensor<__half>>& out_tensor,
+                       const std::shared_ptr<GeneralBuffer<__half>>& blobs_buff,
+                       cublasHandle_t cublas_handle, int device_id);
+  ~InteractionLayerHalf() override;
 
   /**
-   * AddLayer's foward propagation
+   * Interaction's foward pass to gather data to the output tensor
    * @param stream CUDA stream where the foward propagation is executed
    */
   void fprop(cudaStream_t stream) override;
   /**
-   * AddLayer's backward propagation
+   * Interaction's backward pass to scatter data to the input tensors
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
 
  private:
-  int size_;
-  int num_;
-  T** h_inputs_ = NULL;
-  T** d_inputs_ = NULL;
-  bool initialized_{false};
+  cublasHandle_t cublas_handle_;
+  int n_sms_;
+
+  Tensors<__half> internal_tensors_;
 };
 
 }  // namespace HugeCTR

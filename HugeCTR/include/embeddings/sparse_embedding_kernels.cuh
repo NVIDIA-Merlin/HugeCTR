@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/utils.cuh"
+
+#include <common.hpp>
+#include <utils.cuh>
 
 //#include <cooperative_groups.h>
 // using namespace cooperative_groups;

@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <common.hpp>
+#include <embedding.hpp>
+#include <general_buffer.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 
