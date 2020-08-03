@@ -1,15 +1,15 @@
-[submodule "googletest"]
-	path = googletest
+[submodule "third_party/googletest"]
+	path = third_party/googletest
 	url = https://github.com/google/googletest.git
-[submodule "cub"]
-	path = cub
+[submodule "third_party/cub"]
+	path = third_party/cub
 	url = https://github.com/NVlabs/cub.git
-[submodule "json"]
-	path = json
-	url = https://github.com/nlohmann/json.git
-[submodule "ctpl"]
-	path = ctpl
+[submodule "third_party/ctpl"]
+	path = third_party/ctpl
 	url = https://github.com/vit-vit/CTPL.git
-[submodule "gossip"]
-	path = gossip
+[submodule "third_party/gossip"]
+	path = third_party/gossip
 	url = https://github.com/Funatiq/gossip
+[submodule "third_party/json"]
+	path = third_party/json
+	url = https://github.com/nlohmann/json.git

@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/slice_layer.hpp"
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/tensor.hpp"
-#include "HugeCTR/include/utils.cuh"
+#include <layers/slice_layer.hpp>
+#include <common.hpp>
+#include <tensor.hpp>
+#include <utils.cuh>
 
 #ifndef NDEBUG
 #include <iostream>

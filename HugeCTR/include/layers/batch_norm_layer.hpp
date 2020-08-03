@@ -16,13 +16,10 @@
 
 #pragma once
 
-#include "HugeCTR/include/layer.hpp"
-
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/tensor.hpp"
-
+#include <layer.hpp>
+#include <general_buffer.hpp>
+#include <tensor.hpp>
 #include <cudnn.h>
-
 #include <memory>
 
 namespace HugeCTR {

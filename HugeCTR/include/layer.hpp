@@ -20,7 +20,7 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include "HugeCTR/include/tensor.hpp"
+#include <tensor.hpp>
 
 namespace HugeCTR {
 /**

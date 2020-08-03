@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/device_map.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "ctpl/ctpl_stl.h"
+#include <common.hpp>
+#include <device_map.hpp>
+#include <utils.hpp>
+#include <ctpl/ctpl_stl.h>
 
 #include <cudnn.h>
 #include <curand.h>

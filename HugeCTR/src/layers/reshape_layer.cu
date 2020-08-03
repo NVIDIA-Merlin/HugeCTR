@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/reshape_layer.hpp"
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/tensor.hpp"
+#include <layers/reshape_layer.hpp>
+#include <common.hpp>
+#include <tensor.hpp>
 
 #ifndef NDEBUG
 #include <iostream>

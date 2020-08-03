@@ -17,13 +17,13 @@
 #pragma once
 #include <fstream>
 #include <vector>
-#include "HugeCTR/include/check_none.hpp"
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/csr.hpp"
-#include "HugeCTR/include/csr_chunk.hpp"
-#include "HugeCTR/include/data_reader_worker_interface.hpp"
-#include "HugeCTR/include/heapex.hpp"
-#include "HugeCTR/include/mmap_source.hpp"
+#include <check_none.hpp>
+#include <common.hpp>
+#include <csr.hpp>
+#include <csr_chunk.hpp>
+#include <data_reader_worker_interface.hpp>
+#include <heapex.hpp>
+#include <mmap_source.hpp>
 
 namespace HugeCTR {
 template <class T>

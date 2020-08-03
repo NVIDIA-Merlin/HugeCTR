@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/utils.cuh"
+#include <utils.cuh>
 
 namespace HugeCTR {
 

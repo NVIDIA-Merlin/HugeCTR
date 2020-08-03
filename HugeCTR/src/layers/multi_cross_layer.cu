@@ -16,8 +16,8 @@
 
 #include <math.h>
 #include <vector>
-#include "HugeCTR/include/layers/multi_cross_layer.hpp"
-#include "HugeCTR/include/utils.cuh"
+#include <layers/multi_cross_layer.hpp>
+#include <utils.cuh>
 
 namespace HugeCTR {
 

@@ -16,11 +16,12 @@
 
 #pragma once
 #include <vector>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/diagnose.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.hpp"
-#include "cub/cub/device/device_radix_sort.cuh"
+#include <common.hpp>
+#include <embedding.hpp>
+#include <embeddings/sparse_embedding_hash_functors.hpp>
+#include <cub/cub/device/device_radix_sort.cuh>
+#include <diagnose.hpp>
+#include <embedding.hpp>
 
 namespace HugeCTR {
 /**

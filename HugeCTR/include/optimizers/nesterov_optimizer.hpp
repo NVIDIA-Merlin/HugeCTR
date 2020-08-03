@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "HugeCTR/include/optimizer.hpp"
+#include <optimizer.hpp>
 
 namespace HugeCTR {
 

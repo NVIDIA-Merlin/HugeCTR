@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/batch_norm_layer.hpp"
-
-#include "HugeCTR/include/utils.hpp"
+#include <layers/batch_norm_layer.hpp>
+#include <utils.hpp>
 
 #include <algorithm>
 #include <functional>
