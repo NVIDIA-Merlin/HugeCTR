@@ -17,13 +17,13 @@
 #pragma once
 
 #include <unistd.h>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/csr.hpp"
-#include "HugeCTR/include/csr_chunk.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/heapex.hpp"
-#include "HugeCTR/include/tensor.hpp"
+#include <common.hpp>
+#include <csr.hpp>
+#include <csr_chunk.hpp>
+#include <general_buffer.hpp>
+#include <gpu_resource.hpp>
+#include <heapex.hpp>
+#include <tensor.hpp>
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif

@@ -15,13 +15,11 @@
  */
 
 #pragma once
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_hash_functors.hpp"
-#include "cub/cub/device/device_radix_sort.cuh"
-
-#include "HugeCTR/include/hashtable/nv_hashtable.cuh"
-
+#include <common.hpp>
+#include <embedding.hpp>
+#include <embeddings/sparse_embedding_hash_functors.hpp>
+#include <cub/cub/device/device_radix_sort.cuh>
+#include <hashtable/nv_hashtable.cuh>
 #include <vector>
 
 namespace HugeCTR {

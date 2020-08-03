@@ -29,8 +29,8 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_parser.hpp"
+#include <common.hpp>
+#include <data_parser.hpp>
 
 namespace HugeCTR {
 

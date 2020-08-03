@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/network.hpp"
-#include "HugeCTR/include/layers/fully_connected_layer.hpp"
-#include "HugeCTR/include/layers/relu_layer.hpp"
-#include "HugeCTR/include/regularizers/no_regularizer.hpp"
+
+
+#include <network.hpp>
+#include <layers/fully_connected_layer.hpp>
+#include <layers/relu_layer.hpp>
+#include <regularizers/no_regularizer.hpp>
 
 namespace HugeCTR {
 

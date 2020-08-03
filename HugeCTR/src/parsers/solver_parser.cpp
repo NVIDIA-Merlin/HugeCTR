@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/parser.hpp"
+#include <parser.hpp>
 
 namespace HugeCTR {
 

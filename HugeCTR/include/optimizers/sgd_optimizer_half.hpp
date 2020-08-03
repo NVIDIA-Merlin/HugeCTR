@@ -23,21 +23,29 @@ namespace HugeCTR {
 /**
  * Adam optimizer
  */
-class SGDOptimizer : public Optimizer {
+class SgdOptimizerHalf : public Optimizer {
  public:
   /**
-   * Constructor of SGDOptimizer.
+   * Constructor of SgdOptimizerHalf.
    * names of hyper-parameters are the same as in Algorithm 1 of Adam paper (arXiv:1412.6980)
-   * @param weight_main weights to be updated
+   * @param weight weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
    * @param lr learning rate
    # @param scaler scaler factor for mixed precision
    */
-  SGDOptimizer(const GeneralBufferPtr<float>& weight_main,
-               const GeneralBufferPtr<float>& fp32_wgrad,
-               const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
-               float lr = 0.001f, float scaler = 1.f);
+  SgdOptimizerHalf(const std::shared_ptr<GeneralBuffer<float>>& weight,
+                   const std::shared_ptr<GeneralBuffer<__half>>& wgrad,
+                   const std::shared_ptr<GeneralBuffer<__half>>& weight_half, int device_id,
+                   float lr = 0.001f, float scaler = 1.f)
+      : Optimizer(weight, device_id, lr, scaler), wgrad_(wgrad), weight_half_(weight_half) {
+    if (weight_->get_num_elements() != wgrad_->get_num_elements() ||
+        wgrad_->get_num_elements() != weight_half_->get_num_elements()) {
+      CK_THROW_(Error_t::WrongInput,
+                "weight_.get_num_elements() != wgrad_.get_num_elements() or "
+                "wgrad_->get_num_elements() != weight_half_->get_num_elements()");
+    }
+  }
 
   /**
    * update the weights using gradient
@@ -46,6 +54,8 @@ class SGDOptimizer : public Optimizer {
   void update(cudaStream_t stream) override;
 
  private:
+  std::shared_ptr<GeneralBuffer<__half>> wgrad_;
+  std::shared_ptr<GeneralBuffer<__half>> weight_half_;
 };
 
 }  // namespace HugeCTR

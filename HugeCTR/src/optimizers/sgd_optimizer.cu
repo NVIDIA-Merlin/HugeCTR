@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
-#include "HugeCTR/include/utils.cuh"
+#include <optimizers/sgd_optimizer.hpp>
+#include <utils.cuh>
 
 namespace HugeCTR {
 

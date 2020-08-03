@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "HugeCTR/include/checker.hpp"
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/source.hpp"
+#include <checker.hpp>
+#include <common.hpp>
+#include <source.hpp>
 
 namespace HugeCTR {
 

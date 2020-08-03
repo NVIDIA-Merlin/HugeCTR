@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/fused_fully_connected_layer.hpp"
-#include "HugeCTR/include/utils.cuh"
+#include <layers/fused_fully_connected_layer.hpp>
+#include <utils.cuh>
 
 namespace HugeCTR {
 

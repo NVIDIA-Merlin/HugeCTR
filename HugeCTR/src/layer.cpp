@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layer.hpp"
-
+#include <layer.hpp>
 #include <utility>
 
 #ifndef NDEBUG

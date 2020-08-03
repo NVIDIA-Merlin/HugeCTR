@@ -21,15 +21,15 @@
 #include <fstream>
 #include <functional>
 #include <vector>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/layer.hpp"
-#include "HugeCTR/include/loss.hpp"
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/optimizer.hpp"
-#include "HugeCTR/include/tensor.hpp"
-#include "nlohmann/json.hpp"
+#include <common.hpp>
+#include <general_buffer.hpp>
+#include <gpu_resource.hpp>
+#include <layer.hpp>
+#include <loss.hpp>
+#include <metrics.hpp>
+#include <optimizer.hpp>
+#include <tensor.hpp>
+#include <nlohmann/json.hpp>
 
 namespace HugeCTR {
 

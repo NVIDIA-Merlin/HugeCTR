@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_parser.hpp"
+#include <data_parser.hpp>
 
 namespace HugeCTR {
 void InputParser::write(long long num_index) {
