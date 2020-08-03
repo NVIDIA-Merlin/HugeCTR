@@ -18,9 +18,9 @@
 
 #include <functional>
 #include <vector>
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/regularizer.hpp"
-#include "HugeCTR/include/tensor.hpp"
+#include <general_buffer.hpp>
+#include <regularizer.hpp>
+#include <tensor.hpp>
 
 namespace HugeCTR {
 

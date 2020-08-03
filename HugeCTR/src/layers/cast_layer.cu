@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/cast_layer.hpp"
+#include <layers/cast_layer.hpp>
 
 namespace HugeCTR {
 

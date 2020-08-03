@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/gpu_resource.hpp"
+#include <gpu_resource.hpp>
 
 namespace HugeCTR {
 

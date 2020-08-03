@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/fully_connected_layer.hpp"
-
-#include "HugeCTR/include/utils.cuh"
-
+#include <layers/fully_connected_layer.hpp>
+#include <utils.cuh>
 #include <math.h>
 #include <vector>
-#include "HugeCTR/include/data_parser.hpp"
+#include <data_parser.hpp>
 
 namespace HugeCTR {
 

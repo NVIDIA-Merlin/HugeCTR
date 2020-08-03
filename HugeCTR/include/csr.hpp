@@ -18,8 +18,8 @@
 #include <cuda_runtime_api.h>
 #include <iostream>
 #include <stdexcept>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/pinned_buffer.hpp"
+#include <common.hpp>
+#include <pinned_buffer.hpp>
 
 namespace HugeCTR {
 

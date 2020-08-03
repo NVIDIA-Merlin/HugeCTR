@@ -17,14 +17,14 @@
 #pragma once
 #include <thread>
 #include <utility>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_reader_worker.hpp"
-#include "HugeCTR/include/device_map.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/network.hpp"
-#include "HugeCTR/include/parser.hpp"
-#include "ctpl/ctpl_stl.h"
+#include <common.hpp>
+#include <data_reader_worker.hpp>
+#include <device_map.hpp>
+#include <embedding.hpp>
+#include <metrics.hpp>
+#include <network.hpp>
+#include <parser.hpp>
+#include <ctpl/ctpl_stl.h>
 
 namespace HugeCTR {
 

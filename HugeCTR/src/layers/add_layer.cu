@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/add_layer.hpp"
-#include "HugeCTR/include/utils.cuh"
-#include "HugeCTR/include/utils.hpp"
+#include <layers/add_layer.hpp>
+#include <utils.cuh>
+#include <utils.hpp>
 
 #include <algorithm>
 #include <functional>

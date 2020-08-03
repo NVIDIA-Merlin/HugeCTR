@@ -18,8 +18,8 @@
 
 #include <functional>
 #include <vector>
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/layer.hpp"
+#include <general_buffer.hpp>
+#include <layer.hpp>
 
 namespace HugeCTR {
 

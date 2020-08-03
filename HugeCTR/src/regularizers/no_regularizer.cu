@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/regularizers/no_regularizer.hpp"
-
-#include "HugeCTR/include/utils.cuh"
-
+#include <regularizers/no_regularizer.hpp>
+#include <utils.cuh>
 #include <utility>
 
 #ifndef NDEBUG

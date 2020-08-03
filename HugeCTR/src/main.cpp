@@ -17,10 +17,10 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include "HugeCTR/include/optimizer.hpp"
-#include "HugeCTR/include/parser.hpp"
-#include "HugeCTR/include/session.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <optimizer.hpp>
+#include <parser.hpp>
+#include <session.hpp>
+#include <utils.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>

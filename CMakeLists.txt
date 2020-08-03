@@ -123,8 +123,12 @@ include_directories(
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/test
   ${CUDA_INCLUDE_DIRS}
-  ${PROJECT_SOURCE_DIR}/googletest/googletest/include
-  ${PROJECT_SOURCE_DIR}/json/single_include
+  ${PROJECT_SOURCE_DIR}/HugeCTR
+  ${PROJECT_SOURCE_DIR}/HugeCTR/include
+  ${PROJECT_SOURCE_DIR}/third_party
+  ${PROJECT_SOURCE_DIR}/third_party/cub/cub
+  ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
+  ${PROJECT_SOURCE_DIR}/third_party/json/single_include
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
@@ -158,7 +162,7 @@ link_directories(
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 
 add_subdirectory(HugeCTR/src)
-add_subdirectory(googletest)
-add_subdirectory(json)
+add_subdirectory(third_party/googletest)
+add_subdirectory(third_party/json)
 add_subdirectory(test/utest)
 add_subdirectory(tools)

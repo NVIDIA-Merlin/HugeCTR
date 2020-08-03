@@ -18,9 +18,10 @@
 #include <fstream>
 #include <functional>
 #include <vector>
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/tensor.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <gpu_resource.hpp>
+#include <tensor.hpp>
+#include <utils.hpp>
+
 
 namespace HugeCTR {
 

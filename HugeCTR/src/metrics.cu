@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/utils.cuh"
-
-#include "cub/cub/cub.cuh"
+#include <metrics.hpp>
+#include <utils.cuh>
+#include <cub/cub/cub.cuh>
 
 namespace HugeCTR {
 
