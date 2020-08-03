@@ -14,16 +14,8 @@
  * limitations under the License.
  */
 
-
-#include <layers/relu_layer.hpp>
-#include <layers/element_wise_function.hpp>
-#include <include/utils.cuh>
-#include <algorithm>
-#include <functional>
-#include <utils.hpp>
-#ifndef NDEBUG
-#include <iostream>
-#endif
+#include <layers/relu_layer_half.hpp>
+#include <utils.cuh>
 
 namespace HugeCTR {
 
@@ -55,72 +47,49 @@ __global__ void backward_half2_relu_kernel(__half* bottom, const __half* top, in
 
 }  // namespace
 
-template <typename T>
-ReluLayer<T>::ReluLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
-                        const std::shared_ptr<Tensor<T>>& out_tensor, int device_id)
+ReluLayerHalf::ReluLayerHalf(const TensorPtr<__half>& bottom_tensor,
+                             const TensorPtr<__half>& top_tensor, int device_id)
     : Layer(device_id) {
-  assert(get_size_from_dims(in_tensor->get_dims()) == get_size_from_dims(out_tensor->get_dims()));
-  assert(get_size_from_dims(in_tensor->get_dims()) % 2 == 0);
+  assert(get_size_from_dims(bottom_tensor->get_dims()) ==
+         get_size_from_dims(top_tensor->get_dims()));
+  assert(get_size_from_dims(bottom_tensor->get_dims()) % 2 == 0);
 
-  in_tensors_.emplace_back(in_tensor);
-  out_tensors_.emplace_back(out_tensor);
+  bottom_tensor_ = bottom_tensor;
+  top_tensor_ = top_tensor;
 }
 
-template <>
-void ReluLayer<float>::fprop(cudaStream_t stream) {
-  const auto& in_tensor = in_tensors_[0];
-  const auto& out_tensor = out_tensors_[0];
-
-  auto fop = [] __device__(float in) { return (in < 0) ? 0 : in; };
-  internal::ElementWiseFunctor functor;
-  functor.forward_evaluate(*in_tensor, *out_tensor, get_device_id(), fop, stream);
-}
-
-template <>
-void ReluLayer<__half>::fprop(cudaStream_t stream) {
+void ReluLayerHalf::fprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   const size_t BLOCK_DIM = 1024;
   const size_t MAX_GRID_DIM = 1024;
 
-  const size_t size = get_size_from_dims(in_tensors_[0]->get_dims()) / 2;
+  const size_t size = get_size_from_dims(bottom_tensor_->get_dims()) / 2;
   const size_t grid_dim = std::min((size - 1) / BLOCK_DIM + 1, MAX_GRID_DIM);
-  forward_half2_relu_kernel<<<grid_dim, BLOCK_DIM, 0, stream>>>(out_tensors_[0]->get_ptr(),
-                                                                in_tensors_[0]->get_ptr(), size);
+  forward_half2_relu_kernel<<<grid_dim, BLOCK_DIM, 0, stream>>>(top_tensor_->get_ptr(),
+                                                                bottom_tensor_->get_ptr(), size);
+
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
 
-template <>
-void ReluLayer<float>::bprop(cudaStream_t stream) {
-  const auto& in_tensor = in_tensors_[0];
-  const auto& out_tensor = out_tensors_[0];
-
-  auto bop = [] __device__(float d_out, float d_in) { return (d_in < 0) ? 0 : d_out; };
-  internal::ElementWiseFunctor functor;
-  functor.backward_evaluate(*in_tensor, *out_tensor, get_device_id(), bop, stream);
-}
-
-template <>
-void ReluLayer<__half>::bprop(cudaStream_t stream) {
+void ReluLayerHalf::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   const size_t BLOCK_DIM = 1024;
   const size_t MAX_GRID_DIM = 1024;
 
-  const size_t size = get_size_from_dims(in_tensors_[0]->get_dims()) / 2;
+  const size_t size = get_size_from_dims(bottom_tensor_->get_dims()) / 2;
   const size_t grid_dim = std::min((size - 1) / BLOCK_DIM + 1, MAX_GRID_DIM);
-  backward_half2_relu_kernel<<<grid_dim, BLOCK_DIM, 0, stream>>>(in_tensors_[0]->get_ptr(),
-                                                                 out_tensors_[0]->get_ptr(), size);
+  backward_half2_relu_kernel<<<grid_dim, BLOCK_DIM, 0, stream>>>(bottom_tensor_->get_ptr(),
+                                                                 top_tensor_->get_ptr(), size);
+
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
-
-template class ReluLayer<float>;
-template class ReluLayer<__half>;
 
 }  // namespace HugeCTR

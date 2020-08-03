@@ -17,9 +17,9 @@
 #pragma once
 #include <fstream>
 #include <vector>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/file_list.hpp"
-#include "HugeCTR/include/source.hpp"
+#include <common.hpp>
+#include <file_list.hpp>
+#include <source.hpp>
 
 namespace HugeCTR {
 

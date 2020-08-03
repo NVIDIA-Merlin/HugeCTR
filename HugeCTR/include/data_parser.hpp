@@ -18,8 +18,8 @@
 
 #include <fstream>
 #include <memory>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_simulator.hpp"
+#include <common.hpp>
+#include <data_simulator.hpp>
 
 namespace HugeCTR {
 

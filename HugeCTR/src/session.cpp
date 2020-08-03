@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/session.hpp"
+#include <session.hpp>
 #include <nvToolsExt.h>
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/utils.hpp"
-
+#include <embedding.hpp>
+#include <utils.hpp>
 #include <algorithm>
 #include <random>
 #include <string>

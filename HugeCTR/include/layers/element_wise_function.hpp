@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include "HugeCTR/include/tensor.hpp"
-#include "HugeCTR/include/utils.hpp"
-
+#include <tensor.hpp>
+#include <utils.hpp>
 #include <algorithm>
 #include <functional>
 #ifndef NDEBUG

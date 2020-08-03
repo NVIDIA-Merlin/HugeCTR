@@ -17,14 +17,14 @@
 #pragma once
 #include <fstream>
 #include <functional>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_reader.hpp"
-#include "HugeCTR/include/device_map.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/network.hpp"
-#include "nlohmann/json.hpp"
+#include <common.hpp>
+#include <data_reader.hpp>
+#include <device_map.hpp>
+#include <embedding.hpp>
+#include <gpu_resource.hpp>
+#include <metrics.hpp>
+#include <network.hpp>
+#include <nlohmann/json.hpp>
 
 namespace HugeCTR {
 

@@ -17,8 +17,8 @@
 #pragma once
 
 #include <vector>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <common.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 

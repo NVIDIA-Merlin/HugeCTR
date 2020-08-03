@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/element_wise_function.hpp"
-#include "HugeCTR/include/layers/multiply_layer.hpp"
-#include "HugeCTR/include/utils.cuh"
-#include "HugeCTR/include/utils.hpp"
-
+#include <layers/element_wise_function.hpp>
+#include <layers/multiply_layer.hpp>
+#include <utils.cuh>
+#include <utils.hpp>
 #include <algorithm>
 #include <functional>
 

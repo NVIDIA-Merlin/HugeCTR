@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_collector.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/tensor.hpp"
+#include <common.hpp>
+#include <data_collector.hpp>
+#include <general_buffer.hpp>
+#include <tensor.hpp>
 
 namespace HugeCTR {
 

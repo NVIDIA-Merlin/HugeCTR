@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
+#include <embedding.hpp>
+#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
 
 namespace HugeCTR {
 

@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/tensor.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <common.hpp>
+#include <general_buffer.hpp>
+#include <tensor.hpp>
+#include <utils.hpp>
 
 #include <memory>
 
