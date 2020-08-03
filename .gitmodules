@@ -10,9 +10,6 @@
 [submodule "third_party/gossip"]
 	path = third_party/gossip
 	url = https://github.com/Funatiq/gossip
-[submodule "submodules/cutlass"]
-	path = submodules/cutlass
-	url = https://github.com/NVIDIA/cutlass.git
 [submodule "third_party/json"]
 	path = third_party/json
 	url = https://github.com/nlohmann/json.git
