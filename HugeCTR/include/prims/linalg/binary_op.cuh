@@ -33,7 +33,7 @@
    InVecType2 b;
    OutVecType c;
    IdxType idx1 = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
-   IdxType idx2 = idx1;
+   IdxType idx2 = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
    idx1 *= InVecType1::Ratio;
    idx2 *= InVecType2::Ratio;
    if (idx1 >= len || idx2 >= len) return;
