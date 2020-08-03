@@ -23,7 +23,7 @@
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
-#include "HugeCTR/include/config.hpp"
+#include <config.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>

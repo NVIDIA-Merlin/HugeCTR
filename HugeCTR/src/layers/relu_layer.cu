@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/relu_layer.hpp"
-#include "HugeCTR/include/utils.cuh"
 
 #include <linalg/binary_op.cuh>
 #include <linalg/unary_op.cuh>
-
 #include <algorithm>
 #include <functional>
+#include <layers/relu_layer.hpp>
+#include <layers/element_wise_function.hpp>
+#include <include/utils.cuh>
+#include <algorithm>
+#include <functional>
+#include <utils.hpp>
+
 #ifndef NDEBUG
 #include <iostream>
 #endif

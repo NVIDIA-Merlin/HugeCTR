@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "HugeCTR/include/layer.hpp"
+#include <layer.hpp>
 
 namespace HugeCTR {
 class CastLayer : public Layer {

@@ -16,19 +16,21 @@
 
 #pragma once
 
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embeddings/sparse_embedding_kernels.cuh"
+#include <common.hpp>
+#include <embeddings/sparse_embedding_kernels.cuh>
 #ifndef NCCL_A2A
-#include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/FasterGossipComm.h"
+#include <faster_gossip_comm/FasterGossipComm/FasterGossipComm.h>
 #endif
 #include <iomanip>
-#include "HugeCTR/include/diagnose.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/hashtable/nv_hashtable.cuh"
-#include "HugeCTR/include/pinned_buffer.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "cub/cub/device/device_radix_sort.cuh"
-#include "cub/cub/device/device_scan.cuh"
+
+#include <diagnose.hpp>
+#include <gpu_resource.hpp>
+#include <hashtable/nv_hashtable.cuh>
+#include <pinned_buffer.hpp>
+#include <utils.hpp>
+#include <cub/cub/device/device_radix_sort.cuh>
+#include <cub/cub/device/device_scan.cuh>
+
 
 #ifdef ENABLE_MPI
 #include <mpi.h>

@@ -15,8 +15,8 @@
  */
 
 #include <vector>
-#include "HugeCTR/include/loss.hpp"
-#include "HugeCTR/include/utils.cuh"
+#include <loss.hpp>
+#include <utils.cuh>
 
 namespace HugeCTR {
 

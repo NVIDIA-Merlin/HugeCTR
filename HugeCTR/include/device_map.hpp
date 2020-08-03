@@ -19,7 +19,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
-#include "HugeCTR/include/common.hpp"
+#include <common.hpp>
 
 namespace HugeCTR {
 

@@ -22,7 +22,7 @@
 #include <queue>
 #include <thread>
 #include <vector>
-#include "HugeCTR/include/common.hpp"
+#include <common.hpp>
 
 namespace HugeCTR {
 

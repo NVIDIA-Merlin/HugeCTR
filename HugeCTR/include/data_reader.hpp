@@ -20,19 +20,19 @@
 #include <fstream>
 #include <thread>
 #include <vector>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/csr.hpp"
-#include "HugeCTR/include/csr_chunk.hpp"
-#include "HugeCTR/include/data_collector.hpp"
-#include "HugeCTR/include/data_reader_worker.hpp"
-#include "HugeCTR/include/data_reader_worker_interface.hpp"
-#include "HugeCTR/include/data_reader_worker_raw.hpp"
-#include "HugeCTR/include/file_list.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/heap.hpp"
-#include "HugeCTR/include/tensor.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <common.hpp>
+#include <csr.hpp>
+#include <csr_chunk.hpp>
+#include <data_collector.hpp>
+#include <data_reader_worker.hpp>
+#include <data_reader_worker_interface.hpp>
+#include <data_reader_worker_raw.hpp>
+#include <file_list.hpp>
+#include <general_buffer.hpp>
+#include <gpu_resource.hpp>
+#include <heap.hpp>
+#include <tensor.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 

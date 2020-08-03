@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "HugeCTR/include/common.hpp"
+#include <common.hpp>
 
 namespace HugeCTR {
 

@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/interaction_layer.hpp"
-
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/tensor.hpp"
-
+#include <layers/interaction_layer.hpp>
+#include <common.hpp>
+#include <tensor.hpp>
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime_api.h>

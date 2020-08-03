@@ -17,7 +17,7 @@
 #pragma once
 
 #include <vector>
-#include "HugeCTR/include/csr.hpp"
+#include <csr.hpp>
 
 namespace HugeCTR {
 
