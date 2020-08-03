@@ -125,9 +125,9 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${CUDA_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/submodules/cutlass
-  ${PROJECT_SOURCE_DIR}/submodules/cuml/cpp
-  ${PROJECT_SOURCE_DIR}/submodules/cuml/cpp/include
-  ${PROJECT_SOURCE_DIR}/submodules/cuml/cpp/src_prims
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/include
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/src_prims
   ${PROJECT_SOURCE_DIR}/HugeCTR
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
