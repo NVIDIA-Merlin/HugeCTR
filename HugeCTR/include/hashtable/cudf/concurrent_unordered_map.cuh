@@ -85,12 +85,9 @@ __inline__ __device__ int64_t atomicAdd(int64_t* address, int64_t val) {
   return (int64_t)atomicAdd((unsigned long long*)address, (unsigned long long)val);
 }
 
-#ifdef NCCL_A2A
 __inline__ __device__ uint64_t atomicAdd(uint64_t* address, uint64_t val) {
   return (uint64_t)atomicAdd((unsigned long long*)address, (unsigned long long)val);
 }
-
-#endif
 
 template <typename pair_type>
 __forceinline__ __device__ pair_type load_pair_vectorized(const pair_type* __restrict__ const ptr) {
