@@ -87,9 +87,9 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
                             float_bufs_.back(), TensorFormat_t::HW));
 
       // new hash table value_index that get() from HashTable
-      hash_value_index_tensors_.emplace_back(new Tensor<size_t>(
-          {1, Base::get_universal_batch_size() * Base::get_max_feature_num()},
-          value_index_bufs_.back(), TensorFormat_t::HW));
+      hash_value_index_tensors_.emplace_back(
+          new Tensor<size_t>({1, Base::get_universal_batch_size() * Base::get_max_feature_num()},
+                             value_index_bufs_.back(), TensorFormat_t::HW));
 
       // new embedding features reduced by hash table values(results of forward)
       embedding_feature_tensors_.emplace_back(new Tensor<TypeEmbeddingComp>(
@@ -153,6 +153,21 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
       uint32_bufs_.back()->init(cur_device);
       key_bufs_.back()->init(cur_device);
       value_index_bufs_.back()->init(cur_device);
+
+      const OptParams<TypeEmbeddingComp> &source_opt_param = Base::get_opt_params();
+      OptParams<TypeEmbeddingComp> &target_opt_param = Base::get_opt_params(id);
+
+      switch (Base::get_optimizer()) {
+        case Optimizer_t::SGD:
+          target_opt_param.hyperparams.sgd.atomic_update =
+              source_opt_param.hyperparams.sgd.atomic_update;
+
+          break;
+
+        default:
+          throw std::runtime_error(
+              std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+      }
     }  // end of for(int id = 0; id < Base::get_local_gpu_count(); id++)
 
     // sync
@@ -263,8 +278,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
   size_t hash_table_value_chunk_size = hash_table_value_tile_size * chunk_loop;
   size_t hash_table_value_chunk_size_in_B = hash_table_value_chunk_size * sizeof(float);
   size_t hash_table_slot_id_tile_size = tile_size;
-  size_t hash_table_slot_id_tile_size_in_B =
-      hash_table_slot_id_tile_size * sizeof(size_t);
+  size_t hash_table_slot_id_tile_size_in_B = hash_table_slot_id_tile_size * sizeof(size_t);
   size_t hash_table_tile_size_in_B = hash_table_key_tile_size_in_B +
                                      hash_table_slot_id_tile_size_in_B +
                                      hash_table_value_tile_size_in_B;
@@ -343,8 +357,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
     float *value_dst_buf;
     size_t *tensor_index_dst_buf;
     for (size_t k = 0; k < chunk_loop; k++) {  // process a tile in each loop
-      size_t slot_id =
-          *((size_t *)(src_buf + hash_table_key_tile_size_in_B));
+      size_t slot_id = *((size_t *)(src_buf + hash_table_key_tile_size_in_B));
       size_t gid = slot_id % total_gpu_count;           // global GPU ID
       size_t id = device_resources.get_local_id(gid);   // local GPU ID (not gpudevice id)
       size_t dst_rank = device_resources.get_pid(gid);  // node id
@@ -431,8 +444,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
     size_t *tensor_index_dst_buf;
     for (size_t i = 0; i < remain_loop_num; i++) {  // process one tile in each loop
 
-      size_t slot_id =
-          *((size_t *)(src_buf + hash_table_key_tile_size_in_B));
+      size_t slot_id = *((size_t *)(src_buf + hash_table_key_tile_size_in_B));
       size_t gid = slot_id % total_gpu_count;           // global GPU ID
       size_t id = device_resources.get_local_id(gid);   // local GPU ID (not gpudevice id)
       size_t dst_rank = device_resources.get_pid(gid);  // node id
@@ -559,10 +571,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
 
   std::unique_ptr<TypeHashKey *[]> h_hash_table_key(new TypeHashKey *[local_gpu_count]);
   std::unique_ptr<TypeHashKey *[]> d_hash_table_key(new TypeHashKey *[local_gpu_count]);
-  std::unique_ptr<size_t *[]> h_hash_table_slot_id(
-      new size_t *[local_gpu_count]);
-  std::unique_ptr<size_t *[]> d_hash_table_slot_id(
-      new size_t *[local_gpu_count]);
+  std::unique_ptr<size_t *[]> h_hash_table_slot_id(new size_t *[local_gpu_count]);
+  std::unique_ptr<size_t *[]> d_hash_table_slot_id(new size_t *[local_gpu_count]);
   std::unique_ptr<float *[]> h_hash_table_value(new float *[local_gpu_count]);
   for (size_t id = 0; id < local_gpu_count; id++) {
     if (count[id] == 0) {
@@ -604,8 +614,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
                                (TypeHashKey)1, slot_sizes[i], device_resources[id].get_stream());
 
         // Generate slot_id
-        functors_.memset_const(d_hash_table_slot_id[id] + buffer_offset, i,
-                               slot_sizes[i], device_resources[id].get_stream());
+        functors_.memset_const(d_hash_table_slot_id[id] + buffer_offset, i, slot_sizes[i],
+                               device_resources[id].get_stream());
 
         buffer_offset += slot_sizes[i];
       }
@@ -633,8 +643,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
 #endif
   // TODO: could be optimized ???
   // one pair in the file includes <key,slot_id,value>
-  size_t pair_size_in_B =
-      sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * embedding_vec_size;
+  size_t pair_size_in_B = sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * embedding_vec_size;
   size_t max_size_in_B = max_count * pair_size_in_B;
   std::unique_ptr<char[]> file_buf(new char[max_size_in_B]);
   size_t key_size = sizeof(TypeHashKey);
