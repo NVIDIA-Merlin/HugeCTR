@@ -19,7 +19,7 @@ Embedding table in HugeCTR is model-parallel stored across GPUs and nodes.  So i
 HugeCTR supports GPUs with Compute Compatibility > 7.0 such as V100, T4 and A100.
 ### 7. Must we use the DGX family such as DGX A100 to run HugeCTR? ###
 A DGX machine is not mandatory but recommended to achieve the best performance by exploiting NVSwitch's high inter-GPU bandwidth. 
-### 8. Can HugeCTR run without InfiniBand?###
+### 8. Can HugeCTR run without InfiniBand? ###
 For multi-node training, InfiniBand is recommended but not required. You can use any solution with UCX support.
 However, InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.
 ### 9. Is there any requirement of CPU configuration for HugeCTR execution? ###
@@ -98,5 +98,3 @@ which is `slot_size_array` and HugeCTR will calculate the `max_vocabulary_size_p
 GPU with nvlink is not required, but recommended because the performance of CTR training highly relies on the performance of inter-GPUs communication. GPU servers with PCIE connections are also supported.
 ### 27. Is DGX the only GPU server that is required in HugeCTR? ###
 DGX is not required, but recommended, because the performance of CTR training highly relies on the performance of inter-GPUs transactions. DGX has NVLink and NVSwitch inside, so that you can expect 150GB/s per direction per GPU. It’s 9.3x to PCI-E 3.0.
-### 28. Can HugeCTR run without InfiniBand? ###
-For multi-node training, InfiniBand is recommended but not required. You can use any solution with UCX support. InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.
