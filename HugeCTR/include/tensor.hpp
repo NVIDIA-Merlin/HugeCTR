@@ -26,23 +26,38 @@ template <typename T>
 struct TensorTypeFunc;
 
 template <>
-struct TensorTypeFunc<float> {
-  static Tensor_t type() { return Tensor_t::FP32; }
-};
-
-template <>
 struct TensorTypeFunc<__half> {
   static Tensor_t type() { return Tensor_t::FP16; }
 };
 
 template <>
+struct TensorTypeFunc<float> {
+  static Tensor_t type() { return Tensor_t::FP32; }
+};
+
+template <>
+struct TensorTypeFunc<double> {
+  static Tensor_t type() { return Tensor_t::FP64; }
+};
+
+template <>
+struct TensorTypeFunc<int> {
+  static Tensor_t type() { return Tensor_t::INT32; }
+};
+
+template <>
 struct TensorTypeFunc<long long> {
-  static Tensor_t type() { return Tensor_t::LONGLONG; }
+  static Tensor_t type() { return Tensor_t::INT64; }
 };
 
 template <>
 struct TensorTypeFunc<unsigned int> {
-  static Tensor_t type() { return Tensor_t::UINT; }
+  static Tensor_t type() { return Tensor_t::UINT32; }
+};
+
+template <>
+struct TensorTypeFunc<unsigned long> {
+  static Tensor_t type() { return Tensor_t::UINT64; }
 };
 
 class ITensor {
@@ -88,7 +103,8 @@ class Tensor : public ITensor {
         format_(format),
         mem_offset_(buffer->reserve(get_size_from_dims(dims))) {
     static_assert(std::is_same<T, float>::value || std::is_same<T, long long>::value ||
-                      std::is_same<T, unsigned int>::value || std::is_same<T, half>::value,
+                      std::is_same<T, unsigned int>::value || std::is_same<T, __half>::value ||
+                      std::is_same<T, size_t>::value,
                   "type not support");
     try {
       // verify dims == 2
@@ -164,12 +180,14 @@ class Tensor : public ITensor {
     }
     return buff_->get_ptr_with_offset(mem_offset_);
   }
+
   T* get_ptr() {
     if (type_ != TensorTypeFunc<T>::type()) {
       CK_THROW_(Error_t::WrongInput, "type_ != TensorTypeFunc<T>::type()");
     }
     return buff_->get_ptr_with_offset(mem_offset_);
   }
+
   const std::vector<size_t>& get_dims() const override { return dims_; }
   size_t get_num_elements() const override {
     size_t tensor_size = 1;

@@ -109,6 +109,10 @@ GPUResourceGroup::GPUResourceGroup(const std::shared_ptr<const DeviceMap>& devic
   if (all_p2p_enabled() == false) {
     MESSAGE_("Peer-to-peer access cannot be fully enabled.");
   }
+
+  int sm_count;
+  CK_CUDA_THROW_(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0));
+  sm_count_ = sm_count;
 }
 
 GPUResourceGroup::~GPUResourceGroup() {}

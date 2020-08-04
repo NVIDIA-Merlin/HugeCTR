@@ -62,7 +62,7 @@ enum class Error_t {
 
 enum class Check_t { Sum, None };
 
-enum class Tensor_t { FP32, FP16, LONGLONG, UINT };
+enum class Tensor_t { FP16, FP32, FP64, INT32, INT64, UINT32, UINT64 };
 
 enum class DataReaderSparse_t { Distributed, Localized };
 

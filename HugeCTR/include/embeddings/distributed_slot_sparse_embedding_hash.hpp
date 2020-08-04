@@ -15,12 +15,11 @@
  */
 
 #pragma once
-#include <common.hpp>
-#include <embedding.hpp>
-#include <embeddings/sparse_embedding_hash_functors.hpp>
-#include <cub/cub/device/device_radix_sort.cuh>
-#include <hashtable/nv_hashtable.cuh>
 #include <vector>
+#include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/embedding.hpp"
+#include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#include "HugeCTR/include/hashtable/nv_hashtable.hpp"
 
 namespace HugeCTR {
 /**
@@ -43,17 +42,14 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbeddingComp> {
   using Base = Embedding<TypeHashKey, TypeEmbeddingComp>;
 
-  using TypeHashValueIndex = TypeHashKey;  // use the hash key type as the hash value_index type(it
-                                           // will be uint32 or int64)
-  using NvHashTable =
-      HashTable<TypeHashKey, TypeHashValueIndex, std::numeric_limits<TypeHashKey>::max()>;
+  using NvHashTable = HashTable<TypeHashKey, size_t>;
 
  private:
   std::vector<std::shared_ptr<NvHashTable>> hash_tables_; /**< Hash table.  */
 
   // define tensors
   TensorPtrs<float> hash_table_value_tensors_; /**< Hash table value. */
-  TensorPtrs<TypeHashValueIndex>
+  TensorPtrs<size_t>
       hash_value_index_tensors_; /**< Hash table value index. The index is corresponding to the line
                                     number of the value. */
   TensorPtrs<TypeEmbeddingComp>
@@ -70,7 +66,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   TensorPtrs<TypeHashKey>
       row_offset_allreduce_tensors_; /**< The temp memory to store the row_offset after all_reduce
                                         operation among multi-gpu in forward(). */
-  TensorPtrs<TypeHashValueIndex>
+  TensorPtrs<size_t>
       hash_value_index_sort_tensors_; /**< The temp memory to store the sorted hash table value
                                          indexes in update_params(). */
 
@@ -94,7 +90,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   TensorPtrs<uint32_t> temp_storage_scan_tensors_; /**< The temp memory for the CUB lib scaning API
                                                       in update_params(). */
 
-  TensorPtrs<TypeHashValueIndex>
+  TensorPtrs<size_t>
       deltaw_hash_value_index_tensors_; /**< The temp memory to store the hash table indexes of
                                            deltaw in update_params(). */
   TensorPtrs<float> deltaw_tensors_; /**< The temp memory to store the deltaw in update_params(). */
@@ -105,7 +101,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
       fp_bufs_; /**< TypeEmbeddingComp(fp32 or fp16) type general buffer. */
   GeneralBufferPtrs<uint32_t> uint32_bufs_; /**< uint32 type general buffer. */
   GeneralBufferPtrs<TypeHashKey> key_bufs_; /**< TypeHashKey type general buffer. */
-  GeneralBufferPtrs<TypeHashValueIndex>
+  GeneralBufferPtrs<size_t>
       value_index_bufs_; /**< TypeHashValueIndex type general buffer. */
 
   std::vector<size_t> temp_storage_sort_bytes_; /**< The temp variable for CUB lib sorting API. */
@@ -114,9 +110,54 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   size_t max_vocabulary_size_;         /**< Max vocabulary size for each GPU. */
   size_t max_vocabulary_size_per_gpu_; /**< Max vocabulary size for each GPU. */
 
-  SparseEmbeddingHashFunctors functors_; /**< obj of SparseEmbeddingHashFunctors */
+  SparseEmbeddingFunctors functors_;
 
   TensorPtrs<TypeEmbeddingComp> utest_forward_temp_tensors_;
+
+  /**
+   * Initialize the embedding table on local GPUs.
+   * @param max_vocabulary_size_per_gpu max vocabulary size per GPU.
+   * @param embedding_vec_size embedding vector size.
+   * @param hash_table_value_tensors embedding table tensors.
+   * @param device_resources GPU device resources.
+   */
+  void init_embedding(size_t max_vocabulary_size_per_gpu, size_t embedding_vec_size,
+                      const TensorPtrs<float> &hash_table_value_tensors,
+                      const GPUResourceGroup &device_resources);
+
+  /**
+   * upload_params_to_device for DistributedSlotSparseEmbeddingHash.
+   * @param weight_stream weight file stream to read.
+   * @param vocabulary_size the total row number of hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param max_vocabulary_size_per_gpu max vocabulary size for each GPU
+   * @param hash_table_value_tensors the tensors of hash table value on multi GPUs.
+   * @param hash_tables the hash tables on multi GPUs
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
+  void upload_params_to_device(
+      std::ifstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
+      size_t max_vocabulary_size_per_gpu, const TensorPtrs<float> &hash_table_value_tensors,
+      std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables,
+      const GPUResourceGroup &device_resources);
+
+  /**
+   * download_params_to_host for DistributedSlotSparseEmbeddingHash
+   * download hash_table from GPUs to CPU.
+   * @param weight_stream weight file stream to write.
+   * @param vocabulary_size the total row number of hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param hash_table_value_tensors the tensors of hash table value on multi GPUs.
+   * @param hash_tables the hash tables on multi GPUs
+   * @param device_resources all gpus device resources.
+   * @param context gpu device context, for switching device
+   */
+  void download_params_to_host(
+      std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
+      const TensorPtrs<float> &hash_table_value_tensors,
+      const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables,
+      const GPUResourceGroup &device_resources) const;
 
  public:
   /**
@@ -135,236 +176,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
                                      const TensorPtrs<TypeHashKey> &evaluate_value_tensors,
                                      const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
                                      SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params,
-                                     const std::shared_ptr<GPUResourceGroup> &gpu_resource_group)
-      : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
-             evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
-             embedding_params, gpu_resource_group) {
-    try {
-      CudaDeviceContext context;
-
-      // CAUSION: can not decide how many <key,value> pairs in each GPU, because the GPU
-      // distribution is computed by (key%gpu_count). In order to not allocate the total size of
-      // hash table on each GPU, meanwhile get a better performance by a unfull hash table, the
-      // users need to set the param "load_factor"(load_factor<1).
-      max_vocabulary_size_per_gpu_ = Base::get_max_vocabulary_size_per_gpu();
-      max_vocabulary_size_ = max_vocabulary_size_per_gpu_ * Base::get_total_gpu_count();
-
-      MESSAGE_("max_vocabulary_size_per_gpu_=" + std::to_string(max_vocabulary_size_per_gpu_));
-
-      for (size_t id = 0; id < Base::get_local_gpu_count(); id++) {
-        int cur_device = Base::get_gpu_resource(id).get_device_id();
-        context.set_device(cur_device);
-
-        // construct HashTable object: used to store hash table <key, value_index>
-        hash_tables_.emplace_back(new NvHashTable(max_vocabulary_size_per_gpu_));
-
-        // new GeneralBuffer objects
-        float_bufs_.emplace_back(new GeneralBuffer<float>());
-        fp_bufs_.emplace_back(new GeneralBuffer<TypeEmbeddingComp>());
-        uint32_bufs_.emplace_back(new GeneralBuffer<uint32_t>());
-        key_bufs_.emplace_back(new GeneralBuffer<TypeHashKey>());
-        value_index_bufs_.emplace_back(new GeneralBuffer<TypeHashValueIndex>());
-
-        // new hash table value vectors
-        hash_table_value_tensors_.emplace_back(
-            new Tensor<float>({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()},
-                              float_bufs_.back(), TensorFormat_t::HW));
-
-        // new hash table value_index that get() from HashTable
-        hash_value_index_tensors_.emplace_back(new Tensor<TypeHashValueIndex>(
-            {1, Base::get_universal_batch_size() * Base::get_max_feature_num()},
-            value_index_bufs_.back(), TensorFormat_t::HW));
-
-        // new embedding features reduced by hash table values(results of forward)
-        embedding_feature_tensors_.emplace_back(
-            new Tensor<TypeEmbeddingComp>({Base::get_universal_batch_size() * Base::get_slot_num(),
-                                           Base::get_embedding_vec_size()},
-                                          fp_bufs_.back(), TensorFormat_t::HW));
-
-        // new wgrad used by backward
-        wgrad_tensors_.emplace_back(
-            new Tensor<TypeEmbeddingComp>({Base::get_train_only_batch_size() * Base::get_slot_num(),
-                                           Base::get_embedding_vec_size()},
-                                          fp_bufs_.back(), TensorFormat_t::HW));
-
-        // new optimizer params used by update_params
-        switch (Base::get_optimizer()) {
-          case Optimizer_t::Adam:  // adam
-            opt_m_tensors_.emplace_back(new Tensor<TypeEmbeddingComp>(
-                {max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, fp_bufs_.back(),
-                TensorFormat_t::HW));
-            opt_v_tensors_.emplace_back(new Tensor<TypeEmbeddingComp>(
-                {max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, fp_bufs_.back(),
-                TensorFormat_t::HW));
-            break;
-
-          case Optimizer_t::MomentumSGD:  // momentum_sgd
-            opt_momentum_tensors_.emplace_back(new Tensor<TypeEmbeddingComp>(
-                {max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, fp_bufs_.back(),
-                TensorFormat_t::HW));
-            break;
-
-          case Optimizer_t::Nesterov:  // nesterov
-            opt_accm_tensors_.emplace_back(new Tensor<TypeEmbeddingComp>(
-                {max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, fp_bufs_.back(),
-                TensorFormat_t::HW));
-            break;
-
-          case Optimizer_t::SGD:
-            break;
-
-          default:
-            throw std::runtime_error(
-                std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
-        }
-
-        // new temp tensors used by update_params
-        row_offset_allreduce_tensors_.emplace_back(new Tensor<TypeHashKey>(
-            {1, Base::get_universal_batch_size() * Base::get_slot_num() + 1}, key_bufs_.back(),
-            TensorFormat_t::HW));
-        sample_id_tensors_.emplace_back(new Tensor<TypeHashKey>(
-            {1, Base::get_train_only_batch_size() * Base::get_max_feature_num()}, key_bufs_.back(),
-            TensorFormat_t::HW));
-        sample_id_sort_tensors_.emplace_back(new Tensor<TypeHashKey>(
-            {1, Base::get_train_only_batch_size() * Base::get_max_feature_num()}, key_bufs_.back(),
-            TensorFormat_t::HW));
-        hash_value_index_sort_tensors_.emplace_back(new Tensor<TypeHashValueIndex>(
-            {1, Base::get_train_only_batch_size() * Base::get_max_feature_num()},
-            value_index_bufs_.back(), TensorFormat_t::HW));
-        hash_value_index_count_offset_tensors_.emplace_back(new Tensor<uint32_t>(
-            {1, Base::get_train_only_batch_size() * Base::get_max_feature_num() + 1},
-            uint32_bufs_.back(), TensorFormat_t::HW));
-
-        new_hash_value_flag_tensors_.emplace_back(new Tensor<uint32_t>(
-            {1, Base::get_train_only_batch_size() * Base::get_max_feature_num()},
-            uint32_bufs_.back(), TensorFormat_t::HW));
-
-        hash_value_flag_sumed_tensors_.emplace_back(new Tensor<uint32_t>(
-            {1, Base::get_train_only_batch_size() * Base::get_max_feature_num()},
-            uint32_bufs_.back(), TensorFormat_t::HW));
-
-        hash_value_index_count_counter_tensors_.emplace_back(
-            new Tensor<uint32_t>({1, 1}, uint32_bufs_.back(), TensorFormat_t::HW));
-        deltaw_hash_value_index_tensors_.emplace_back(new Tensor<TypeHashValueIndex>(
-            {1, Base::get_train_only_batch_size() * Base::get_max_feature_num()},
-            value_index_bufs_.back(), TensorFormat_t::HW));
-        deltaw_tensors_.emplace_back(
-            new Tensor<float>({Base::get_train_only_batch_size() * Base::get_max_feature_num(),
-                               Base::get_embedding_vec_size()},
-                              float_bufs_.back(), TensorFormat_t::HW));
-        {
-          // cal the temp storage bytes for CUB radix sort
-          size_t temp = 0;
-          cub::DeviceRadixSort::SortPairs(
-              (void *)NULL, (size_t &)temp, (TypeHashKey *)NULL, (TypeHashKey *)NULL,
-              (TypeHashKey *)NULL, (TypeHashKey *)NULL,
-              Base::get_train_only_batch_size() * Base::get_max_feature_num());
-          temp_storage_sort_bytes_.push_back(temp);
-          size_t size = (size_t)ceil((float)temp_storage_sort_bytes_[id] / sizeof(TypeHashKey));
-
-          // new temp storage tensors for CUB radix sort
-          temp_storage_sort_tensors_.emplace_back(
-              new Tensor<TypeHashKey>({1, size}, key_bufs_.back(), TensorFormat_t::HW));
-        }
-
-        {
-          size_t temp = 0;
-          cub::DeviceScan::InclusiveSum(
-              (void *)NULL, temp, (uint32_t *)NULL, (uint32_t *)NULL,
-              Base::get_train_only_batch_size() * Base::get_max_feature_num());
-          temp_storage_scan_bytes_.push_back(temp);
-
-          size_t size = (size_t)ceil((float)temp_storage_scan_bytes_[id] / sizeof(uint32_t));
-
-          temp_storage_scan_tensors_.emplace_back(
-              new Tensor<uint32_t>({1, size}, uint32_bufs_.back(), TensorFormat_t::HW));
-        }
-
-        utest_forward_temp_tensors_.emplace_back(
-            new Tensor<TypeEmbeddingComp>({Base::get_universal_batch_size() * Base::get_slot_num(),
-                                           Base::get_embedding_vec_size()},
-                                          fp_bufs_.back(), TensorFormat_t::HW));
-
-        // init GenenralBuffers to do real allocation
-#ifndef NDEBUG
-        std::cout << " max_feature_num_:" << Base::get_max_feature_num() << std::endl;
-        std::cout << " float_bufs_:" << float_bufs_.back()->get_size() << std::endl;
-        std::cout << " fp_bufs_:" << fp_bufs_.back()->get_size() << std::endl;
-        std::cout << " uint32_bufs_:" << uint32_bufs_.back()->get_size() << std::endl;
-        std::cout << " key_bufs_:" << key_bufs_.back()->get_size() << std::endl;
-        std::cout << " value_index_bufs_:" << value_index_bufs_.back()->get_size() << std::endl;
-#endif
-        float_bufs_.back()->init(cur_device);
-        fp_bufs_.back()->init(cur_device);
-        uint32_bufs_.back()->init(cur_device);
-        key_bufs_.back()->init(cur_device);
-        value_index_bufs_.back()->init(cur_device);
-
-        const OptParams<TypeEmbeddingComp> &source_opt_param = Base::get_opt_params();
-        OptParams<TypeEmbeddingComp> &target_opt_param = Base::get_opt_params(id);
-
-        switch (Base::get_optimizer()) {
-          case Optimizer_t::Adam:  // adam
-            CK_CUDA_THROW_(
-                cudaMemsetAsync(opt_m_tensors_[id]->get_ptr(), 0,
-                                max_vocabulary_size_per_gpu_ * Base::get_embedding_vec_size() *
-                                    sizeof(TypeEmbeddingComp),
-                                Base::get_gpu_resource(id).get_stream()));
-            CK_CUDA_THROW_(
-                cudaMemsetAsync(opt_v_tensors_[id]->get_ptr(), 0,
-                                max_vocabulary_size_per_gpu_ * Base::get_embedding_vec_size() *
-                                    sizeof(TypeEmbeddingComp),
-                                Base::get_gpu_resource(id).get_stream()));
-            target_opt_param.hyperparams.adam.times = 0;
-            target_opt_param.hyperparams.adam.beta1 = source_opt_param.hyperparams.adam.beta1;
-            target_opt_param.hyperparams.adam.beta2 = source_opt_param.hyperparams.adam.beta2;
-            target_opt_param.hyperparams.adam.epsilon = source_opt_param.hyperparams.adam.epsilon;
-            target_opt_param.hyperparams.adam.m_ptr = opt_m_tensors_[id]->get_ptr();
-            target_opt_param.hyperparams.adam.v_ptr = opt_v_tensors_[id]->get_ptr();
-
-            break;
-
-          case Optimizer_t::MomentumSGD:  // momentum_sgd
-            CK_CUDA_THROW_(
-                cudaMemsetAsync(opt_momentum_tensors_[id]->get_ptr(), 0,
-                                max_vocabulary_size_per_gpu_ * Base::get_embedding_vec_size() *
-                                    sizeof(TypeEmbeddingComp),
-                                Base::get_gpu_resource(id).get_stream()));
-            target_opt_param.hyperparams.momentum.factor =
-                source_opt_param.hyperparams.momentum.factor;
-            target_opt_param.hyperparams.momentum.momentum_ptr =
-                opt_momentum_tensors_[id]->get_ptr();
-            break;
-
-          case Optimizer_t::Nesterov:  // nesterov
-            CK_CUDA_THROW_(
-                cudaMemsetAsync(opt_accm_tensors_[id]->get_ptr(), 0,
-                                max_vocabulary_size_per_gpu_ * Base::get_embedding_vec_size() *
-                                    sizeof(TypeEmbeddingComp),
-                                Base::get_gpu_resource(id).get_stream()));
-            target_opt_param.hyperparams.nesterov.mu = source_opt_param.hyperparams.nesterov.mu;
-            target_opt_param.hyperparams.nesterov.accm_ptr = opt_accm_tensors_[id]->get_ptr();
-            break;
-
-          case Optimizer_t::SGD:
-            break;
-
-          default:
-            throw std::runtime_error(
-                std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
-        }
-
-      }  // end of for(int id = 0; id < local_gpu_count_; id++)
-
-      functors_.sync_all_gpus(Base::get_gpu_resource_group());
-
-    } catch (const std::runtime_error &rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
-    }
-
-    return;
-  }
+                                     const std::shared_ptr<GPUResourceGroup> &gpu_resource_group);
 
   /**
    * The forward propagation of embedding layer.
@@ -377,7 +189,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
     for (size_t i = 0; i < Base::get_local_gpu_count(); i++) {
       context.set_device(Base::get_gpu_resource(i).get_device_id());
       functors_.forward_per_gpu(
-          Base::get_batch_size(), Base::get_slot_num(), Base::get_embedding_vec_size(),
+          Base::get_batch_size(), Base::get_slot_num(), Base::get_embedding_vec_size(), 0,
           Base::in_train(), Base::get_row_offsets_tensors()[i]->get_ptr(),
           Base::get_value_tensors()[i]->get_ptr(), *Base::get_nnz_array()[i], *hash_tables_[i],
           hash_table_value_tensors_[i]->get_ptr(), hash_value_index_tensors_[i]->get_ptr(),
@@ -440,18 +252,19 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 
       // do update params operation
       functors_.update_params(
-          Base::get_gpu_resource(i).get_stream(), Base::get_batch_size(), Base::get_slot_num(),
-          Base::get_embedding_vec_size(), max_vocabulary_size_per_gpu_, Base::get_opt_params(i),
-          *Base::get_nnz_array()[i], Base::get_row_offsets_tensors()[i]->get_ptr(),
-          hash_value_index_tensors_[i]->get_ptr(), sample_id_tensors_[i]->get_ptr(),
-          sample_id_sort_tensors_[i]->get_ptr(), hash_value_index_sort_tensors_[i]->get_ptr(),
+          Base::get_batch_size(), Base::get_slot_num(), Base::get_embedding_vec_size(),
+          max_vocabulary_size_per_gpu_, Base::get_opt_params(i), *Base::get_nnz_array()[i],
+          Base::get_row_offsets_tensors()[i]->get_ptr(), hash_value_index_tensors_[i]->get_ptr(),
+          sample_id_tensors_[i]->get_ptr(), sample_id_sort_tensors_[i]->get_ptr(),
+          hash_value_index_sort_tensors_[i]->get_ptr(),
           hash_value_index_count_offset_tensors_[i]->get_ptr(),
           new_hash_value_flag_tensors_[i]->get_ptr(), hash_value_flag_sumed_tensors_[i]->get_ptr(),
           hash_value_index_count_counter_tensors_[i]->get_ptr(),
           temp_storage_sort_tensors_[i]->get_ptr(), temp_storage_sort_bytes_[i],
           temp_storage_scan_tensors_[i]->get_ptr(), temp_storage_scan_bytes_[i],
           wgrad_tensors_[i]->get_ptr(), deltaw_hash_value_index_tensors_[i]->get_ptr(),
-          deltaw_tensors_[i]->get_ptr(), hash_table_value_tensors_[i]->get_ptr());
+          deltaw_tensors_[i]->get_ptr(), hash_table_value_tensors_[i]->get_ptr(),
+          Base::get_gpu_resource_group().get_sm_count(), Base::get_gpu_resource(i).get_stream());
     }
 
     return;
@@ -461,7 +274,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * Initialize the embedding table
    */
   void init_params() override {
-    functors_.init_embedding(max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size(),
+    init_embedding(max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size(),
                              hash_table_value_tensors_, Base::get_gpu_resource_group());
   }
 
@@ -476,10 +289,9 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
       CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
     }
 
-    functors_.upload_params_to_device(weight_stream, max_vocabulary_size_,
-                                      Base::get_embedding_vec_size(), max_vocabulary_size_per_gpu_,
-                                      hash_table_value_tensors_, hash_tables_,
-                                      Base::get_gpu_resource_group());
+    upload_params_to_device(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
+                            max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_,
+                            Base::get_gpu_resource_group());
 
     return;
   }
@@ -496,9 +308,9 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
       return;
     }
 
-    functors_.download_params_to_host(weight_stream, max_vocabulary_size_,
-                                      Base::get_embedding_vec_size(), hash_table_value_tensors_,
-                                      hash_tables_, Base::get_gpu_resource_group());
+    download_params_to_host(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
+                            hash_table_value_tensors_, hash_tables_,
+                            Base::get_gpu_resource_group());
 
     return;
   }
