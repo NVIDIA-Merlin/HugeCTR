@@ -269,14 +269,14 @@ int main(int argc, char* argv[]) {
       }
       case CmdOptions_t::Version: {
         if (pid == 0) {
-          std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR
+          std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR << "." << HUGECTR_VERSION_PATCH
                     << std::endl;
         }
         break;
       }
       case CmdOptions_t::Train: {
         if (pid == 0) {
-          std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR
+          std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR << "." << HUGECTR_VERSION_PATCH
                     << std::endl;
         }
 
