@@ -102,6 +102,8 @@ class GPUResourceGroup {
   bool p2p_enabled(int src_dev, int dst_dev) const;
   bool all_p2p_enabled() const;
 
+  size_t get_sm_count() const { return sm_count_; }
+
   ctpl::thread_pool& get_thread_pool() { return thread_pool_; }
 
  private:
@@ -110,6 +112,7 @@ class GPUResourceGroup {
   std::shared_ptr<const DeviceMap> device_map_;
   std::vector<std::shared_ptr<const GPUResource>> gpu_resources_; /**< GPU resource vector */
   std::map<int, std::map<int, bool>> p2p_enabled_;
+  size_t sm_count_;
 
   ctpl::thread_pool thread_pool_; /**< cpu thread pool for training */
 };
