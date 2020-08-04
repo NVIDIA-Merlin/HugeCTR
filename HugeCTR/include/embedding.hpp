@@ -65,12 +65,17 @@ struct NesterovOptHyperParams {
   T* accm_ptr = nullptr;
 };
 
+struct SGDOptHyperParams {
+  bool atomic_update = false;
+};
+
 // TODO: use union type should be better ???
 template <typename TypeEmbeddingComp>
 struct OptHyperParams {
   AdamOptHyperParams<TypeEmbeddingComp> adam;
   MomentumSGDOptHyperParams<TypeEmbeddingComp> momentum;
   NesterovOptHyperParams<TypeEmbeddingComp> nesterov;
+  SGDOptHyperParams sgd;
 };
 
 template <typename TypeEmbeddingComp>

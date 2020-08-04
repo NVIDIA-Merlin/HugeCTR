@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include <parser.hpp>
 #include <device_map.hpp>
+#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
 #include <layer.hpp>
 #include <layers/add_layer.hpp>
 #include <layers/batch_norm_layer.hpp>
@@ -41,12 +43,10 @@
 #include <optimizers/momentum_sgd_optimizer.hpp>
 #include <optimizers/nesterov_optimizer.hpp>
 #include <optimizers/sgd_optimizer.hpp>
+#include <parser.hpp>
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <regularizers/no_regularizer.hpp>
-#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
-#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
-#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -170,6 +170,9 @@ OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
     case Optimizer_t::SGD: {
       auto j_hparam = get_json(j_optimizer, "sgd_hparam");
       auto learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
+      if (has_key_(j_hparam, "atomic_update")) {
+        opt_hyper_params.sgd.atomic_update = get_value_from_json<bool>(j_hparam, "atomic_update");
+      }
       opt_params = {Optimizer_t::SGD, learning_rate, opt_hyper_params, global_update};
       break;
     }

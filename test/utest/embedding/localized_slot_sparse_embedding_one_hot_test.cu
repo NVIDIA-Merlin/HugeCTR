@@ -89,6 +89,7 @@ template <typename TypeEmbeddingComp>
 void train_and_test(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                     bool global_update) {
   OptHyperParams<TypeEmbeddingComp> hyper_params;
+  hyper_params.sgd.atomic_update = true;
   const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update,
                                                    scaler};
 

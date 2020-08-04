@@ -19,8 +19,6 @@
 #include "cub/cub/device/device_radix_sort.cuh"
 #include "cub/cub/device/device_scan.cuh"
 
-#define SGD_ATOMIC
-
 namespace HugeCTR {
 
 namespace {
@@ -456,8 +454,6 @@ __global__ void update_kernel(uint32_t hash_value_index_count_num, int embedding
   }
 }
 
-#ifdef SGD_ATOMIC
-
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_scale,
                                       const size_t *hash_value_index, const TypeKey *sample_ids,
@@ -501,8 +497,6 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
   }
 }
 
-#endif
-
 }  // namespace
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
@@ -529,17 +523,15 @@ void SparseEmbeddingFunctors::update_params(
     sample_id_expand_kernel<<<grid_size, block_size, 0, stream>>>(batch_size, slot_num, row_offset,
                                                                   sample_id);
 
-#ifdef SGD_ATOMIC
-    if (opt_params.optimizer == Optimizer_t::SGD) {  // for SGD, do atomic update
+    if (opt_params.optimizer == Optimizer_t::SGD &&
+        opt_params.hyperparams.sgd.atomic_update) {  // for SGD, do atomic update
       const size_t block_size = embedding_vec_size;
       const size_t grid_size = min(max(1ul, nnz), sm_count * 32);
 
       float lr_scale = opt_params.lr / opt_params.scaler;
       opt_sgd_atomic_kernel<<<grid_size, block_size, 0, stream>>>(
           nnz, embedding_vec_size, lr_scale, hash_value_index, sample_id, wgrad, hash_table_value);
-    } else
-#endif
-    {
+    } else {
       // step3: sort by hash_value_index
       int end_bit = static_cast<int>(log2(static_cast<float>(max_vocabulary_size_per_gpu))) + 1;
       CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairs(
@@ -615,14 +607,12 @@ void SparseEmbeddingFunctors::update_params(
                 opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
                 hash_value_index_count_offset, wgrad, hash_table_value, opt_params.scaler);
             break;
-#ifndef SGD_ATOMIC
           case Optimizer_t::SGD:
             opt_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
                 hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr, sample_id_sort,
                 hash_value_index_sort, hash_value_index_count_offset, wgrad, hash_table_value,
                 opt_params.scaler);
             break;
-#endif
           default:
             CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
         }
@@ -656,14 +646,12 @@ void SparseEmbeddingFunctors::update_params(
                 hash_value_index_count_offset, wgrad, deltaw_hash_value_index, deltaw,
                 opt_params.scaler);
             break;
-#ifndef SGD_ATOMIC
           case Optimizer_t::SGD:
             opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                 hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr, sample_id_sort,
                 hash_value_index_sort, hash_value_index_count_offset, wgrad,
                 deltaw_hash_value_index, deltaw, opt_params.scaler);
             break;
-#endif
           default:
             CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
         }
@@ -693,8 +681,7 @@ void SparseEmbeddingFunctors::update_params(size_t embedding_vec_size,
                                             const TypeEmbeddingComp *wgrad, float *hash_table_value,
                                             size_t sm_count, cudaStream_t stream) {
   try {
-#ifdef SGD_ATOMIC
-    if (opt_params.optimizer == Optimizer_t::SGD) {  // for SGD, do atomic update
+    if (opt_params.optimizer == Optimizer_t::SGD && opt_params.hyperparams.sgd.atomic_update) {
       const size_t grid_size = min(max(1ul, nnz), sm_count * 32);
       const size_t block_size = embedding_vec_size;
 
@@ -706,9 +693,6 @@ void SparseEmbeddingFunctors::update_params(size_t embedding_vec_size,
     } else {
       CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
     }
-#else
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer/method pattern");
-#endif
 
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
