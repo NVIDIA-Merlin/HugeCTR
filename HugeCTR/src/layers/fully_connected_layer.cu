@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <linalg/matrix_vector_op.cuh>
+#include <linalg/reduce.cuh>
 #include <layers/fully_connected_layer.hpp>
 #include <utils.cuh>
 #include <math.h>
@@ -80,6 +82,7 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<flo
     throw;
   }
 }
+
 void __global__ add_bias_kernel_row(float* data, const float* bias, const int m, const int n) {
   int offset = blockIdx.x * n;
   for (int tid = threadIdx.x; tid < n; tid += blockDim.x) {
@@ -110,6 +113,7 @@ void add_bias(float* data, const float* bias, const int m, const int n, bool row
 #endif
 }
 
+
 void FullyConnectedLayer::fprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
   CudaDeviceContext context(get_device_id());
@@ -139,6 +143,8 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, weight,
                                   CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out, CUDA_R_32F, n,
                                   CUDA_R_32F, falgo_));
+    //MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, true, true,
+    //              [] __device__(float a, float b) { return a + b; }, stream);
     add_bias(out, bias, m, n, true, stream);
   } else if ((weights_[0])->get_format() == TensorFormat_t::WH &&
              in_tensor->get_format() == TensorFormat_t::WH &&
@@ -146,35 +152,11 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, in,
                                   CUDA_R_32F, m, weight, CUDA_R_32F, k, &beta, out, CUDA_R_32F, m,
                                   CUDA_R_32F, falgo_));
+    //MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, false, true,
+    //          [] __device__(float a, float b) { return a + b; }, stream);
     add_bias(out, bias, m, n, false, stream);
   } else
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
-}
-
-void __global__ cal_bias_grad_kernel_col(float* out, float* bias_grad, int m, int n,
-                                         bool row_major) {
-  float local_sum = 0.0f;
-  if (!row_major) {
-    int offset = blockIdx.x * m;
-    for (int tid = threadIdx.x; tid < m; tid += blockDim.x) local_sum += out[tid + offset];
-  } else {
-    for (int tid = threadIdx.x; tid < m; tid += blockDim.x) local_sum += out[tid * n + blockIdx.x];
-  }
-  __syncthreads();
-  local_sum = blockReduceSum(local_sum);
-  if (threadIdx.x == 0) {
-    bias_grad[blockIdx.x] += local_sum;
-  }
-}
-void cal_bias_grad(float* out, float* bias_grad, int m, int n, bool row_major,
-                   cudaStream_t stream) {
-  dim3 grid(n);
-  dim3 block(1024);
-  cal_bias_grad_kernel_col<<<grid, block, 0, stream>>>(out, bias_grad, m, n, row_major);
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
-#endif
 }
 
 void FullyConnectedLayer::bprop(cudaStream_t stream) {
@@ -213,7 +195,7 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_T, CUBLAS_OP_N, k, m, n, &alpha, weight,
                                   CUDA_R_32F, n, out, CUDA_R_32F, n, &beta_x, in, CUDA_R_32F, k,
                                   CUDA_R_32F, balgo_Xn_));
-    cal_bias_grad(out, bias_grad, m, n, true, stream);
+    MLCommon::LinAlg::reduce(bias_grad, out, m, n, float(0), false, true, stream, true);
   }
   // Col-major
   else if ((weights_[0])->get_format() == TensorFormat_t::WH &&
@@ -227,7 +209,7 @@ void FullyConnectedLayer::bprop(cudaStream_t stream) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_T, m, k, n, &alpha, out,
                                   CUDA_R_32F, m, weight, CUDA_R_32F, k, &beta_x, in, CUDA_R_32F, m,
                                   CUDA_R_32F, balgo_Xn_));
-    cal_bias_grad(out, bias_grad, m, n, false, stream);
+    MLCommon::LinAlg::reduce(bias_grad, out, m, n, float(0), true, true, stream, true);
   } else
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
 }

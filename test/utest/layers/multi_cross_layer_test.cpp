@@ -305,7 +305,9 @@ class MultiCrossLayerTest {
     }
 
     // layer
-    layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, d_input_, d_output_, layers, 0));
+    cublasHandle_t cublas_handle;
+    cublasCreate(&cublas_handle);
+    layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, d_input_, d_output_, cublas_handle, layers, 0));
 
     blob_buf_->init(0);
     weight_buf_->init(0);

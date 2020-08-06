@@ -122,13 +122,19 @@ configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOU
 include_directories(
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/test
+  ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${CUDA_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/third_party/cutlass
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/include
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/src_prims
   ${PROJECT_SOURCE_DIR}/HugeCTR
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
-  ${PROJECT_SOURCE_DIR}/third_party/cub/cub
+  ${PROJECT_SOURCE_DIR}/third_party/cub
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
+
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
