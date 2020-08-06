@@ -35,6 +35,7 @@ namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 2
 #define HUGECTR_VERSION_MINOR 2
+#define HUGECTR_VERSION_PATCH 1
 
 #define WARP_SIZE 32
 
@@ -62,7 +63,7 @@ enum class Error_t {
 
 enum class Check_t { Sum, None };
 
-enum class Tensor_t { FP32, FP16, LONGLONG, UINT };
+enum class Tensor_t { FP16, FP32, FP64, INT32, INT64, UINT32, UINT64 };
 
 enum class DataReaderSparse_t { Distributed, Localized };
 

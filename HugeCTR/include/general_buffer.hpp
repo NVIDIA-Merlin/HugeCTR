@@ -45,7 +45,8 @@ class GeneralBuffer {
    */
   GeneralBuffer() {
     static_assert(std::is_same<T, float>::value || std::is_same<T, long long>::value ||
-                      std::is_same<T, unsigned int>::value || std::is_same<T, __half>::value,
+                      std::is_same<T, unsigned int>::value || std::is_same<T, __half>::value ||
+                      std::is_same<T, size_t>::value,
                   "Type not support");  // check the template parameters
   }
   GeneralBuffer(const GeneralBuffer& C) = delete;

@@ -44,6 +44,9 @@
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <regularizers/no_regularizer.hpp>
+#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -996,9 +999,9 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
           sparse_input.slot_num,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
-      embedding.emplace_back(EmbeddingCreator::create_distributed_sparse_embedding_hash(
-          sparse_input.row, sparse_input.value, sparse_input.nnz, sparse_input.row_eval, sparse_input.value_eval, sparse_input.nnz_eval,
-          embedding_params, gpu_resource_group));
+      embedding.emplace_back(new DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
+          sparse_input.row, sparse_input.value, sparse_input.nnz, sparse_input.row_eval,
+          sparse_input.value_eval, sparse_input.nnz_eval, embedding_params, gpu_resource_group));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
@@ -1050,9 +1053,10 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
           sparse_input.slot_num,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
-      embedding.emplace_back(EmbeddingCreator::create_localized_sparse_embedding_hash(
-          sparse_input.row, sparse_input.value, sparse_input.nnz, sparse_input.row_eval, sparse_input.value_eval, sparse_input.nnz_eval,
-          embedding_params, plan_file, gpu_resource_group));
+      embedding.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
+          sparse_input.row, sparse_input.value, sparse_input.nnz, sparse_input.row_eval,
+          sparse_input.value_eval, sparse_input.nnz_eval, embedding_params, plan_file,
+          gpu_resource_group));
 
       break;
     }
@@ -1075,9 +1079,10 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
           sparse_input.slot_num,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
-      embedding.emplace_back(EmbeddingCreator::create_localized_sparse_embedding_one_hot(
-          sparse_input.row, sparse_input.value, sparse_input.nnz, sparse_input.row_eval, sparse_input.value_eval, sparse_input.nnz_eval,
-          embedding_params, plan_file, gpu_resource_group));
+      embedding.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
+          sparse_input.row, sparse_input.value, sparse_input.nnz, sparse_input.row_eval,
+          sparse_input.value_eval, sparse_input.nnz_eval, embedding_params, plan_file,
+          gpu_resource_group));
 
       break;
     }
@@ -1278,7 +1283,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           sparse_input->second.nnz = data_reader->get_nnz_array(i);
           sparse_input->second.row_eval = data_reader_eval->get_row_offsets_tensors(i);
           sparse_input->second.value_eval = data_reader_eval->get_value_tensors(i);
-          sparse_input->second.nnz_eval = data_reader->get_nnz_array(i);
+          sparse_input->second.nnz_eval = data_reader_eval->get_nnz_array(i);
         }
       }
 

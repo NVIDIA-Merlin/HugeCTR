@@ -20,7 +20,7 @@
 #include <unordered_set>
 #include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/data_reader.hpp"
-#include "HugeCTR/include/embedding.hpp"
+#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
 #include "utest/embedding/embedding_test_utils.hpp"
@@ -68,7 +68,11 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   OptHyperParams<TypeEmbeddingComp> hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
-  hyper_params.adam.epsilon = 1e-7f;
+  if (std::is_same<TypeEmbeddingComp, __half>::value) {
+    hyper_params.adam.epsilon = 1e-4f;
+  } else {
+    hyper_params.adam.epsilon = 1e-7f;
+  }
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
 
@@ -162,7 +166,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       max_feature_num, slot_num,       combiner,        opt_params};
 
   std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
-      EmbeddingCreator::create_distributed_sparse_embedding_hash(
+      new DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
           train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
           train_data_reader->get_nnz_array(), test_data_reader->get_row_offsets_tensors(),
           test_data_reader->get_value_tensors(), test_data_reader->get_nnz_array(),
@@ -179,9 +183,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> embedding_cpu(
       new SparseEmbeddingHashCpu<T, TypeEmbeddingComp>(
           train_batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num,
-          label_dim, dense_dim, CHK, train_batch_num * train_batchsize, combiner, optimizer, lr,
-          train_file_list_name, hash_table_file_name, SparseEmbedding_t::Distributed, global_update,
-          scaler));
+          label_dim, dense_dim, CHK, train_batch_num * train_batchsize, combiner, opt_params,
+          train_file_list_name, hash_table_file_name, SparseEmbedding_t::Distributed));
 
   // for results check
   std::unique_ptr<TypeEmbeddingComp[]> embedding_feature_from_gpu(
@@ -299,9 +302,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> test_embedding_cpu(
       new SparseEmbeddingHashCpu<T, TypeEmbeddingComp>(
           test_batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, label_dim,
-          dense_dim, CHK, test_batch_num * test_batchsize, combiner, optimizer, lr,
-          test_file_list_name, hash_table_file_name, SparseEmbedding_t::Distributed, global_update,
-          scaler));
+          dense_dim, CHK, test_batch_num * test_batchsize, combiner, opt_params,
+          test_file_list_name, hash_table_file_name, SparseEmbedding_t::Distributed));
 
   TypeEmbeddingComp *embedding_feature_from_cpu_eval = test_embedding_cpu->get_forward_results();
 
