@@ -31,53 +31,25 @@ namespace {
 const float eps = 1e-6;
 
 template <typename T>
-void relu_cpu(T* top, const T* bottom, int len);
-
-template <>
-void relu_cpu<float>(float* top, const float* bottom, int len) {
+void relu_cpu(T* top, const T* bottom, int len) {
   for (int i = 0; i < len; ++i) {
-    if (bottom[i] < 0) {
-      top[i] = 0.0f;
-    } else {
-      top[i] = bottom[i];
-    }
-  }
-}
-
-template <>
-void relu_cpu<__half>(__half* top, const __half* bottom, int len) {
-  for (int i = 0; i < len; ++i) {
-    if (bottom[i] > 0) {
+    if (bottom[i] > T(0.)) {
       top[i] = bottom[i];
     } else {
-      top[i] = __float2half(0.0f);
+      top[i] = T(0.);
     }
-  }
+  }  
 }
 
 template <typename T>
-void relu_bprop_cpu(T* d_bottom, const T* d_top, const T* bottom, int len);
-
-template <>
-void relu_bprop_cpu<float>(float* d_bottom, const float* d_top, const float* bottom, int len) {
+void relu_bprop_cpu(T* d_bottom, const T* d_top, const T* bottom, int len) {
   for (int i = 0; i < len; ++i) {
-    if (bottom[i] < 0) {
-      d_bottom[i] = 0.f;
-    } else {
-      d_bottom[i] = d_top[i];
-    }
-  }
-}
-
-template <>
-void relu_bprop_cpu<__half>(__half* d_bottom, const __half* d_top, const __half* bottom, int len) {
-  for (int i = 0; i < len; ++i) {
-    if (bottom[i] > 0) {
+    if (bottom[i] > T(0.)) {
       d_bottom[i] = d_top[i];
     } else {
-      d_bottom[i] = __float2half(0.0f);
+      d_bottom[i] = T(0.);
     }
-  }
+  }  
 }
 
 template <typename T>

@@ -613,7 +613,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // establish layer
         Layer* mc_layer =
             new MultiCrossLayer(weight_buff, wgrad_buff, dynamic_tensor_cast<float>(mc_in_tensor),
-                                out_tensor, num_layers, device_id, initializer_types);
+                                out_tensor, gpu_resource->get_cublas_handle(), num_layers, 
+                                device_id, initializer_types);
         layers.emplace_back(mc_layer);
         break;
       }

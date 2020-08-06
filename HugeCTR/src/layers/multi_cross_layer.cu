@@ -16,8 +16,14 @@
 
 #include <math.h>
 #include <vector>
+#include <prims/linalg/matrix_multiplication.cuh>
 #include <layers/multi_cross_layer.hpp>
 #include <utils.cuh>
+#include <linalg/binary_op.cuh>
+#include <linalg/gemm.cuh>
+#include <linalg/gemv.h>
+#include <linalg/matrix_vector_op.cuh>
+#include <linalg/reduce.cuh>
 
 namespace HugeCTR {
 
@@ -26,33 +32,8 @@ namespace {
 
 inline int calc_grid(int t, int b) { return (t - 1) / b + 1; }
 
-/**
- * Each row in `mat`dot product with vec, length of vec should be w. Then adding bias for each of
- * the rows
- * @param out: hx1
- * @param mat: hxw
- * @param vec: 1xw
- */
-__global__ void matrix_vec_mul_kernel(float* out, const float* mat, int h, int w,
-                                      const float* vec) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  const int wtid = tid % WARP_SIZE;  // thread id in warp
-  const int wid = tid / WARP_SIZE;   // warp id
-  const float* mat_with_offset = mat + wid * w;
-  if (wid < h) {
-    float accum = 0.;
-    for (int i = wtid; i < w; i += WARP_SIZE) {
-      accum += mat_with_offset[i] * vec[i];
-    }
-    float val = warpReduceSum(accum);
-    if (wtid == 0) {
-      out[wid] = val;
-    }
-  }
-}
-
 void matrix_vec_mul(Tensor<float>& out, const Tensor<float>& mat, const Tensor<float>& vec,
-                    cudaStream_t stream) {
+                    cublasHandle_t cublas_handle, cudaStream_t stream) {
   float* pout = out.get_ptr();
   const float* pmat = mat.get_ptr();
   const float* pvec = vec.get_ptr();
@@ -65,26 +46,8 @@ void matrix_vec_mul(Tensor<float>& out, const Tensor<float>& mat, const Tensor<f
 
   const int h = idim[0];
   const int w = idim[1];
-
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * WARP_SIZE, BLOCK_DIM);
-
-  matrix_vec_mul_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
-}
-
-/**
- * Each row in `mat` scale with the coresponding element in vec.
- * The length of vec should be h.
- * @param o_mat: hxw
- * @param mat: hxw
- * @param vec: hx1
- */
-__global__ void row_scaling_kenrel(float* o_mat, const float* mat, int h, int w, const float* vec) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < h * w) {
-    const int row = tid / w;
-    o_mat[tid] = mat[tid] * vec[row];
-  }
+  
+  MLCommon::LinAlg::gemv<float>(pmat, w, h, pvec, pout, true, 1.f, 0.f, cublas_handle, stream);
 }
 
 void row_scaling(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<float>& vec,
@@ -102,26 +65,9 @@ void row_scaling(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<fl
   const int h = dim[0];
   const int w = dim[1];
 
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
+  MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, true,
+          [] __device__(float a, float b) { return a * b; }, stream);
 
-  row_scaling_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
-}
-
-/**
- * Each row in `mat` sum with  vec.
- * The length of vec should be w.
- * @param o_mat: hxw
- * @param mat: hxw
- * @param vec: 1xw
- */
-__global__ void matrix_vec_add_kenrel(float* o_mat, const float* mat, int h, int w,
-                                      const float* vec) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < h * w) {
-    const int col = tid % w;
-    o_mat[tid] = mat[tid] + vec[col];
-  }
 }
 
 void matrix_vec_add(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor<float>& vec,
@@ -139,21 +85,9 @@ void matrix_vec_add(Tensor<float>& o_mat, const Tensor<float>& mat, const Tensor
   const int h = dim[0];
   const int w = dim[1];
 
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
+  MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, false,
+            [] __device__(float a, float b) { return a + b; }, stream);
 
-  matrix_vec_add_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
-}
-
-/**
- * Pointwise adding
- */
-__global__ void matrix_add_kenrel(float* o_mat, const float* mat_a, int h, int w,
-                                  const float* mat_b) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < h * w) {
-    o_mat[tid] = mat_a[tid] + mat_b[tid];
-  }
 }
 
 void matrix_add(Tensor<float>& out_mat, const Tensor<float>& mat_a, const Tensor<float>& mat_b,
@@ -171,9 +105,9 @@ void matrix_add(Tensor<float>& out_mat, const Tensor<float>& mat_a, const Tensor
   const int h = dim[0];
   const int w = dim[1];
 
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
-  matrix_add_kenrel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat_a, h, w, pmat_b);
+  MLCommon::LinAlg::binaryOp(pout, pmat_a, pmat_b, h * w,
+            [] __device__(float a, float b) { return a + b; }, stream);
+
 }
 
 /**
@@ -216,21 +150,6 @@ void matrix_pair_mul(Tensor<float>& o_vec, const Tensor<float>& mat_a, const Ten
   matrix_pair_mul_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat_a, h, w, pmat_b);
 }
 
-/**
- * out product of two vectors
- * @param out_mat: hxw
- * @param vec_a: hx1
- * @param vec_b: 1xw
- */
-__global__ void out_product_kernel(float* out_mat, const float* vec_a, int h, const float* vec_b,
-                                   int w) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < h * w) {
-    const int col = tid % w;
-    const int row = tid / w;
-    out_mat[tid] = vec_a[row] * vec_b[col];
-  }
-}
 void out_product(Tensor<float>& out_mat, const Tensor<float>& vec_a, const Tensor<float>& vec_b,
                  cudaStream_t stream) {
   float* pout = out_mat.get_ptr();
@@ -243,9 +162,10 @@ void out_product(Tensor<float>& out_mat, const Tensor<float>& vec_a, const Tenso
 
   assert(h == vec_a.get_dims()[0] && w == vec_b.get_dims()[1] && vec_a.get_dims()[1] == 1 &&
          vec_b.get_dims()[0] == 1);
+  
   const int BLOCK_DIM = 256;
   const int GRID_DIM = calc_grid(h * w, BLOCK_DIM);
-  out_product_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pvec_a, h, pvec_b, w);
+  MLCommon::LinAlg::mm_1d<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pvec_a, h, pvec_b, w);
 }
 
 /**
@@ -295,29 +215,6 @@ void row_scaling_sum(Tensor<float>& out, const Tensor<float>& mat, const Tensor<
   row_scaling_sum_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w, pvec);
 }
 
-/**
- * Accum across rows
- * @param o_mat: 1xw
- * @param mat: hxw
- */
-__global__ void row_sum_kernel(float* out, const float* mat, int h, int w) {
-  const int tid = blockDim.x * blockIdx.x + threadIdx.x;
-  const int wtid = tid % WARP_SIZE;  // thread id in warp
-  const int wid = tid / WARP_SIZE;   // warp id
-  if (wid < w) {
-    float accum = 0.f;
-    for (int i = wtid; i < h; i += WARP_SIZE) {
-      const int col = wid;
-      const int idx = i * w + col;
-      accum += mat[idx];
-    }
-    float val = warpReduceSum(accum);
-    if (wtid == 0) {
-      out[wid] += val;  // using += here to enable regularization
-    }
-  }
-}
-
 void rows_sum(Tensor<float>& out, const Tensor<float>& mat, cudaStream_t stream) {
   float* pout = out.get_ptr();
   const float* pmat = mat.get_ptr();
@@ -330,10 +227,9 @@ void rows_sum(Tensor<float>& out, const Tensor<float>& mat, cudaStream_t stream)
   const int h = idim[0];
   const int w = idim[1];
 
-  const int BLOCK_DIM = 256;
-  const int GRID_DIM = calc_grid(w * WARP_SIZE, BLOCK_DIM);  // each col one warp
+  MLCommon::LinAlg::reduce(pout, pmat, h, w, (float)0, false, true, stream, false,
+          [] __device__(float in, int i) { return in; });
 
-  row_sum_kernel<<<GRID_DIM, BLOCK_DIM, 0, stream>>>(pout, pmat, h, w);
 }
 
 }  // namespace
@@ -355,7 +251,8 @@ def forward(x, k, b, layers):
   return y, h
  *
  */
-void MultiCrossForwardFunctor::operator()(cudaStream_t stream, const Tensor<float>& input_tensor,
+void MultiCrossForwardFunctor::operator()(cudaStream_t stream, cublasHandle_t cublas_handle, 
+                                          const Tensor<float>& input_tensor,
                                           const std::vector<const Tensor<float>*>& kernel_tensors,
                                           const std::vector<const Tensor<float>*>& bias_tensors,
                                           const std::vector<Tensor<float>*>& layer_output_tensors,
@@ -363,7 +260,7 @@ void MultiCrossForwardFunctor::operator()(cudaStream_t stream, const Tensor<floa
                                           int num_layers) const {
   for (int i = 0; i < num_layers; i++) {
     matrix_vec_mul(*layer_hidden_tensors[i], i == 0 ? input_tensor : *layer_output_tensors[i - 1],
-                   *kernel_tensors[i], stream);
+                   *kernel_tensors[i], cublas_handle, stream);
     row_scaling(*layer_output_tensors[i], input_tensor, *layer_hidden_tensors[i], stream);
     matrix_add(*layer_output_tensors[i], *layer_output_tensors[i],
                i == 0 ? input_tensor : *layer_output_tensors[i - 1], stream);
@@ -417,10 +314,12 @@ void MultiCrossBackwardFunctor::operator()(
 MultiCrossLayer::MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
                                  const GeneralBufferPtr<float>& wgrad_buff,
                                  const TensorPtr<float>& in_tensor,
-                                 const TensorPtr<float>& out_tensor, int num_layers, int device_id,
+                                 const TensorPtr<float>& out_tensor,  cublasHandle_t const& cublas_handle,
+                                 int num_layers, int device_id,
                                  std::vector<Initializer_t> initializer_types)
-    : Layer(device_id, initializer_types),
-      num_layers_(num_layers),
+    : cublas_handle_(cublas_handle), 
+      Layer(device_id, initializer_types), 
+      num_layers_(num_layers), 
       blobs_buff_(new GeneralBuffer<float>()) {
   try {
     // check the in_tensor and out_tensor
@@ -498,7 +397,7 @@ void MultiCrossLayer::fprop(cudaStream_t stream) {
     hidden_tensors.push_back(vec_tensors_[i].get());
   }
 
-  MultiCrossForwardFunctor()(stream, *blob_tensors_[0], kernel_tensors, bias_tensors,
+  MultiCrossForwardFunctor()(stream, cublas_handle_, *blob_tensors_[0], kernel_tensors, bias_tensors,
                              output_tensors, hidden_tensors, num_layers_);
 }
 

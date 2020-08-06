@@ -28,7 +28,8 @@ struct MultiCrossForwardFunctor {
   MultiCrossForwardFunctor(const MultiCrossForwardFunctor&) = delete;
   MultiCrossForwardFunctor& operator=(const MultiCrossForwardFunctor&) = delete;
 
-  void operator()(cudaStream_t stream, const Tensor<float>& input_tensor,
+  void operator()(cudaStream_t stream, cublasHandle_t cublas_handle,
+                  const Tensor<float>& input_tensor,
                   const std::vector<const Tensor<float>*>& kernel_tensors,
                   const std::vector<const Tensor<float>*>& bias_tensors,
                   const std::vector<Tensor<float>*>& layer_output_tensors,
@@ -40,7 +41,8 @@ struct MultiCrossBackwardFunctor {
   MultiCrossBackwardFunctor(const MultiCrossBackwardFunctor&) = delete;
   MultiCrossBackwardFunctor& operator=(const MultiCrossBackwardFunctor&) = delete;
 
-  void operator()(cudaStream_t stream, const Tensor<float>& input_tensor,
+  void operator()(cudaStream_t stream,
+                  const Tensor<float>& input_tensor,
                   const std::vector<const Tensor<float>*>& kernel_tensors,
                   const std::vector<const Tensor<float>*>& layer_output_tensors,
                   const std::vector<const Tensor<float>*>& layer_hidden_tensors,
@@ -78,6 +80,7 @@ class MultiCrossLayer : public Layer {
    */
   std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
 
+  const cublasHandle_t cublas_handle_; // cublas handle
  public:
   /**
    * forward pass
@@ -90,7 +93,8 @@ class MultiCrossLayer : public Layer {
 
   MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
                   const GeneralBufferPtr<float>& wgrad_buff, const TensorPtr<float>& in_tensor,
-                  const TensorPtr<float>& out_tensor, int num_layers, int device_id,
+                  const TensorPtr<float>& out_tensor, cublasHandle_t const& cublas_handle,
+		  int num_layers, int device_id,
                   std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   MultiCrossLayer(const MultiCrossLayer&) = delete;
   MultiCrossLayer& operator=(const MultiCrossLayer&) = delete;

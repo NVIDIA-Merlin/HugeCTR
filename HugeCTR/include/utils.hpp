@@ -68,6 +68,39 @@ class Timer {
 };
 
 /**
+ * GPU Timer
+ */
+class GPUTimer {
+ private:
+  cudaEvent_t start_;
+  cudaEvent_t stop_;
+  cudaStream_t stream_;
+ public:
+    GPUTimer() {
+      cudaEventCreate(&start_);
+      cudaEventCreate(&stop_);
+    }
+
+    ~GPUTimer() {
+      cudaEventDestroy(start_);
+      cudaEventDestroy(stop_);
+    }
+
+    void start(cudaStream_t st = 0) {
+      stream_ = st;
+      cudaEventRecord(start_, stream_);
+    }
+
+    float stop() {
+        float milliseconds = 0;
+        cudaEventRecord(stop_, stream_);
+        cudaEventSynchronize(stop_);
+        cudaEventElapsedTime(&milliseconds, start_, stop_);
+        return milliseconds;
+    }
+ };
+
+/**
  * Helper class for switching device
  */
 class CudaDeviceContext {
