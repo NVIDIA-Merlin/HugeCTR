@@ -54,8 +54,35 @@ file(GLOB huge_ctr_src
   parsers/learning_rate_scheduler_parser.cpp
   session.cpp
   plan_parser.cpp 
-  embedding_creator.cu
   data_collector.cu
+  hashtable/nv_hashtable.cu
+  embeddings/sync_all_gpus_functor.cu
+  embeddings/init_embedding_functor.cu
+  embeddings/forward_per_gpu_functor.cu
+  embeddings/forward_scale_functor.cu
+  embeddings/forward_reorder_functor.cu
+  embeddings/forward_mapping_per_gpu_functor.cu
+  embeddings/forward_fuse_per_gpu_functor.cu
+  embeddings/store_slot_id_functor.cu
+  embeddings/backward_functor.cu
+  embeddings/backward_reorder_functor.cu
+  embeddings/backward_fuse_per_gpu_functor.cu
+  embeddings/update_params_functor.cu
+  embeddings/get_update_params_results_functor.cu
+  embeddings/reduce_scatter_functor.cu
+  embeddings/all_reduce_functor.cu
+  embeddings/all_gather_functor.cu
+  embeddings/all2all_init_forward_functor.cu
+  embeddings/all2all_init_backward_functor.cu
+  embeddings/all2all_forward_functor.cu
+  embeddings/all2all_backward_functor.cu
+  embeddings/all2all_exec_functor.cu
+  embeddings/get_forward_results_functor.cu
+  embeddings/get_backward_results_functor.cu
+  embeddings/utils_functor.cu
+  embeddings/distributed_slot_sparse_embedding_hash.cu
+  embeddings/localized_slot_sparse_embedding_hash.cu
+  embeddings/localized_slot_sparse_embedding_one_hot.cu
 )
 
 

@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <limits>
 #include "HugeCTR/include/utils.cuh"
 
 namespace HugeCTR {
@@ -74,7 +75,7 @@ __global__ void check_kernel(const __half* arr, int len, int* flag) {
   }
 }
 
-template<typename T>
+template <typename T>
 __global__ void sample_kernel(const T* arr, int len, float* arr_sample, int stride,
                               int max_sample_len) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
