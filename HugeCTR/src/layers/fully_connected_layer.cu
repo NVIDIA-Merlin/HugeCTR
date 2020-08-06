@@ -83,6 +83,37 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<flo
   }
 }
 
+void __global__ add_bias_kernel_row(float* data, const float* bias, const int m, const int n) {
+  int offset = blockIdx.x * n;
+  for (int tid = threadIdx.x; tid < n; tid += blockDim.x) {
+    data[offset + tid] += bias[tid];
+  }
+}
+void __global__ add_bias_kernel_col(float* data, const float* bias, const int m, const int n) {
+  int offset = blockIdx.x * m;
+  float b = bias[blockIdx.x];
+  for (int tid = threadIdx.x; tid < m; tid += blockDim.x) {
+    data[offset + tid] += b;
+  }
+}
+void add_bias(float* data, const float* bias, const int m, const int n, bool row_major,
+              cudaStream_t stream) {
+  if (row_major) {
+    dim3 grid(m);
+    dim3 block(min(n, 1024));
+    add_bias_kernel_row<<<grid, block, 0, stream>>>(data, bias, m, n);
+  } else {
+    dim3 grid(n);
+    dim3 block(min(m, 1024));
+    add_bias_kernel_col<<<grid, block, 0, stream>>>(data, bias, m, n);
+  }
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
+}
+
+
 void FullyConnectedLayer::fprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
   CudaDeviceContext context(get_device_id());
@@ -112,16 +143,18 @@ void FullyConnectedLayer::fprop(cudaStream_t stream) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, weight,
                                   CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out, CUDA_R_32F, n,
                                   CUDA_R_32F, falgo_));
-    MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, true, true,
-                  [] __device__(float a, float b) { return a + b; }, stream);
+    //MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, true, true,
+    //              [] __device__(float a, float b) { return a + b; }, stream);
+    add_bias(out, bias, m, n, true, stream);
   } else if ((weights_[0])->get_format() == TensorFormat_t::WH &&
              in_tensor->get_format() == TensorFormat_t::WH &&
              out_tensor->get_format() == TensorFormat_t::WH) {
     CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, in,
                                   CUDA_R_32F, m, weight, CUDA_R_32F, k, &beta, out, CUDA_R_32F, m,
                                   CUDA_R_32F, falgo_));
-    MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, false, true,
-              [] __device__(float a, float b) { return a + b; }, stream);
+    //MLCommon::LinAlg::matrixVectorOp(out, out, bias, n, m, false, true,
+    //          [] __device__(float a, float b) { return a + b; }, stream);
+    add_bias(out, bias, m, n, false, stream);
   } else
     CK_THROW_(Error_t::UnSupportedFormat, "The format combination is not supported");
 }
