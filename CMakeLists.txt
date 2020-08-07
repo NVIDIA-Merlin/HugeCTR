@@ -16,7 +16,7 @@
 
 cmake_minimum_required(VERSION 3.8)
 project(HugeCTR LANGUAGES CXX CUDA)
-
+set(CMAKE_CXX_STANDARD 14)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
 option(CLANGFORMAT "Setup clangformat target" OFF)
@@ -101,13 +101,13 @@ foreach(arch_name ${cuda_arch_list})
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
 endforeach()
 
-set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror")	
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror")
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror")
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G  --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror ")
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
 
@@ -139,7 +139,8 @@ include_directories(
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
   ${UCX_INC_PATHS}
-  $ENV{CONDA_PREFIX}/include)
+  $ENV{CONDA_PREFIX}/include
+  $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx)
 
 if(ENABLE_MULTINODES)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_MPI")

@@ -71,6 +71,7 @@ class FileSource : public Source {
       }
       std::string file_name = file_list_.get_a_file_with_id(offset_ + counter_ * stride_);
       counter_++;  // counter_ should be accum for every source.
+
       in_file_stream_.open(file_name, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
         CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name);
@@ -83,6 +84,7 @@ class FileSource : public Source {
   }
 
   bool is_open() noexcept { return in_file_stream_.is_open(); }
+
 };
 
 }  // namespace HugeCTR

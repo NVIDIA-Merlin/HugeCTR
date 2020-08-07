@@ -101,7 +101,7 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
                 solver_config.use_algorithm_search);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_,
-                         networks_eval_, gpu_resource_group_);
+                         networks_eval_, gpu_resource_group_, memory_resource_);
 
   // init networks.
   std::string TMP_DENSE_NAME;

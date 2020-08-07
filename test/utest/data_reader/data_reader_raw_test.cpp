@@ -91,14 +91,15 @@ TEST(data_reader_raw, data_reader_raw_test) {
   }
   auto device_map = std::make_shared<DeviceMap>(vvgpu, pid);
   auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
-
+  std::shared_ptr<rmm::mr::device_memory_resource> memory_resource;
   const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz * slot_num, 1,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
   DataReader<T> data_reader(file_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 1, true, DataReaderType_t::Raw, num_samples, slot_offset);
+                            gpu_resource_group, memory_resource, 1, true,
+                            DataReaderType_t::Raw, num_samples, slot_offset);
 
   long long current_batchsize = data_reader.read_a_batch_to_device();
   std::cout << "current_batchsize: " << current_batchsize << std::endl;

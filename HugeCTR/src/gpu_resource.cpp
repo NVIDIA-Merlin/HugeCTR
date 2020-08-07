@@ -26,10 +26,10 @@ GPUResource::GPUResource(int device_id, const ncclComm_t& comm)
   CK_CUBLAS_THROW_(cublasCreate(&cublas_handle_));
   CK_CURAND_THROW_(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
   CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle_));
-  CK_CUDA_THROW_(cudaStreamCreate(&stream_));
+  CK_CUDA_THROW_(cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking));
   CK_CUDA_THROW_(cudaEventCreate(&event_));
-  CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_[0]));
-  CK_CUDA_THROW_(cudaStreamCreate(&data_copy_stream_[1]));
+  CK_CUDA_THROW_(cudaStreamCreateWithFlags(&data_copy_stream_[0], cudaStreamNonBlocking));
+  CK_CUDA_THROW_(cudaStreamCreateWithFlags(&data_copy_stream_[1], cudaStreamNonBlocking));
 }
 
 GPUResource::~GPUResource() {
