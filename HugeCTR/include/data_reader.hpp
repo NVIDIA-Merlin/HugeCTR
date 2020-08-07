@@ -27,6 +27,7 @@
 #include <data_reader_worker.hpp>
 #include <data_reader_worker_interface.hpp>
 #include <data_reader_worker_raw.hpp>
+#include <parquet_data_reader_worker.hpp>
 #include <file_list.hpp>
 #include <general_buffer.hpp>
 #include <gpu_resource.hpp>
@@ -40,7 +41,7 @@ namespace HugeCTR {
  * A helper function to read data from dataset to heap in a new thread.
  * @param data_reader a pointer of data_reader.
  * @param p_loop_flag a flag to control the loop,
-          and break loop when DataReaderWorker is destroyed.
+          and break loop when IDataReaderWorker is destroyed.
  */
 template <typename TypeKey>
 static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& data_reader,
@@ -87,7 +88,7 @@ static void data_collector_thread_func_(
  *
  * Control the data reading from data set to embedding.
  * An instance of DataReader will maintain independent
- * threads for data reading (DataReaderWorker)
+ * threads for data reading (IDataReaderWorker)
  * from dataset to heap. Meanwhile one independent
  * thread consumes the data (DataCollector),
  * and copy the data to GPU buffer.
@@ -140,6 +141,7 @@ class DataReader {
 
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
   std::shared_ptr<MmapOffsetList> file_offset_list_;
+  std::shared_ptr<rmm::mr::device_memory_resource> memory_resource_;
 
   bool data_shuffle_{false};
 
@@ -162,7 +164,6 @@ class DataReader {
     assert(data_readers_.empty() && data_reader_threads_.empty());
 
     // create data reader
-
     switch (type_) {
       case DataReaderType_t::Norm: {
         for (int i = 0; i < NumThreads; i++) {
@@ -197,6 +198,17 @@ class DataReader {
         }
         break;
       }
+      case DataReaderType_t::Parquet: {
+        for (int i = 0; i < NumThreads; i++) {
+          std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
+                         i, NumThreads, csr_heap_, file_list_, max_feature_num_per_sample, params_,
+                         slot_offset_, memory_resource_));
+          data_readers_.push_back(data_reader);
+          data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
+                                            &data_reader_loop_flag_);
+        }
+        break;
+      }
       default: { CK_THROW_(Error_t::WrongInput, "No such data reader type"); }
     }
   }
@@ -219,6 +231,7 @@ class DataReader {
   DataReader(const std::string& file_list_name, int batchsize, size_t label_dim, int dense_dim,
              Check_t check_type, std::vector<DataReaderSparseParam>& params,
              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+             std::shared_ptr<rmm::mr::device_memory_resource>& mr,
              int num_chunk_threads = 31, bool use_mixed_precision = false,
              DataReaderType_t type = DataReaderType_t::Norm, long long num_samples = 0,
              std::vector<long long> slot_size = std::vector<long long>(), bool cache_data = false,
@@ -259,6 +272,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
                                 int dense_dim, Check_t check_type,
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                                std::shared_ptr<rmm::mr::device_memory_resource>& mr,
                                 int num_chunk_threads, bool use_mixed_precision,
                                 DataReaderType_t type, long long num_samples,
                                 std::vector<long long> slot_offset, bool cache_data,
@@ -276,6 +290,7 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       type_(type),
       num_samples_(num_samples),
       slot_offset_(slot_offset),
+      memory_resource_(mr),
       data_shuffle_(data_shuffle) {
   if (start_reading_from_beginning) {
     data_reader_loop_flag_ = 1;

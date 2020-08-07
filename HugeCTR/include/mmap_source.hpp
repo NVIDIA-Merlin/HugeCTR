@@ -48,5 +48,6 @@ class MmapSource : public Source {
   }
 
   long long get_num_of_items_in_source() { return offset_.samples; }
+
 };
 }  // namespace HugeCTR

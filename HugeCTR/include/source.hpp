@@ -47,6 +47,7 @@ class Source {
   virtual long long get_num_of_items_in_source() { return 0; }
 
   virtual bool is_open() noexcept = 0;
+
 };
 
 }  // namespace HugeCTR

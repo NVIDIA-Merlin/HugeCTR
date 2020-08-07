@@ -137,6 +137,10 @@ class CSR {
   int get_num_rows() const { return num_rows_; }
   int get_max_value_size() const { return max_value_size_; }
   const T* get_buffer() const { return row_offset_value_buffer_.get(); }
+  T* get_value_buffer() { return value_; };
+  T* get_row_offset_buffer() { return row_offset_; };
+  void update_value_size(int update_size) { size_of_value_ += update_size; };
+  void update_row_offset(int update_size) { size_of_row_offset_ += update_size; };
 };
 
 }  // namespace HugeCTR

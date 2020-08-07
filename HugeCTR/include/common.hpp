@@ -67,7 +67,7 @@ enum class Tensor_t { FP16, FP32, FP64, INT32, INT64, UINT32, UINT64 };
 
 enum class DataReaderSparse_t { Distributed, Localized };
 
-enum class DataReaderType_t { Norm, Raw };
+enum class DataReaderType_t { Norm, Raw, Parquet };
 
 struct DataReaderSparseParam {
   DataReaderSparse_t type;
