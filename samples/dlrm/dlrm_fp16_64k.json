@@ -19,6 +19,7 @@
     "global_update": false,
     "sgd_hparam": {
       "learning_rate": 24.0,
+      "atomic_update": true,
       "warmup_steps": 8000,
       "decay_start": 48000,
       "decay_steps": 24000,
