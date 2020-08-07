@@ -228,7 +228,7 @@ void FusedFullyConnectedLayer::search_algorithm() {
 
   // CUDA stream to be used for cublas on this device
   cudaStream_t stream;
-  CK_CUDA_THROW_(cudaStreamCreate(&stream));
+  CK_CUDA_THROW_(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
   // Set stream to cublas handler
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));

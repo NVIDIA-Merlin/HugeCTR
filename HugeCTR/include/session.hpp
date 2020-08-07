@@ -138,6 +138,7 @@ class SessionImpl : public Session {
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval_; /**< data reader for evaluation. */
   std::shared_ptr<GPUResourceGroup>
       gpu_resource_group_; /**< GPU resources include handles and streams etc.*/
+  std::shared_ptr<rmm::mr::device_memory_resource> memory_resource_;
 
   Error_t download_params_to_files_(std::string weights_file,
                                     const std::vector<std::string>& embedding_files);

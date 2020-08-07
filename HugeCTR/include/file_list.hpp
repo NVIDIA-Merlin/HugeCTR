@@ -18,6 +18,7 @@
 #include <atomic>
 #include <fstream>
 #include <vector>
+#include "HugeCTR/include/metadata.hpp"
 
 namespace HugeCTR {
 
@@ -40,6 +41,15 @@ class FileList {
   int num_of_files_;                     /**< num of files read from text file. */
   std::vector<std::string> file_vector_; /**< the vector of file names. */
   std::atomic<unsigned int> counter_{0};
+  std::string file_type_;
+
+  std::string get_file_type(std::string file_name) {
+    std::string type = "None";
+    std::size_t found = file_name.find_last_of(".");
+    type = file_name.substr(found + 1);
+
+    return type;
+  }
 
  public:
   /*
@@ -59,6 +69,9 @@ class FileList {
       if (num_of_files_ > 0) {
         for (int i = 0; i < num_of_files_; i++) {
           std::getline(read_stream, buff);
+          if (i == 0) {
+        	  file_type_ = get_file_type(buff);
+          }
           file_vector_.push_back(buff);
         }
         read_stream.close();
@@ -91,6 +104,10 @@ class FileList {
   std::string get_a_file_with_id(unsigned int id) {
     int current_file_idx = id % num_of_files_;
     return file_vector_[current_file_idx];
+  }
+
+  std::string get_file_type() {
+	  return file_type_;
   }
 };
 

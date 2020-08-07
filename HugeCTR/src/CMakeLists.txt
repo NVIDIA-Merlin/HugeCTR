@@ -12,7 +12,7 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-
+include_directories(/opt/conda/include)
 file(GLOB huge_ctr_src
   gpu_resource.cpp
   data_parser.cpp
@@ -39,6 +39,7 @@ file(GLOB huge_ctr_src
   loss.cu
   network.cu
   network.cpp
+  metadata.cpp
   metrics.cu
   optimizers/adam_optimizer.cu
   optimizers/momentum_sgd_optimizer.cu
@@ -55,6 +56,7 @@ file(GLOB huge_ctr_src
   session.cpp
   plan_parser.cpp 
   data_collector.cu
+  parquet_data_converter.cu
   hashtable/nv_hashtable.cu
   embeddings/sync_all_gpus_functor.cu
   embeddings/init_embedding_functor.cu
@@ -85,14 +87,14 @@ file(GLOB huge_ctr_src
   embeddings/localized_slot_sparse_embedding_one_hot.cu
 )
 
-
+set(CMAKE_CXX_STANDARD 14)
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct)
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf rmm)
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
-  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf rmm)
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
