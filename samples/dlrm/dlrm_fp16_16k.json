@@ -17,7 +17,8 @@
     "type": "SGD",
     "global_update": false,
     "sgd_hparam": {
-	    "learning_rate": 8.0,
+      "learning_rate": 8.0,
+      "atomic_update": true,
       "warmup_steps": 1000
     }
   },
