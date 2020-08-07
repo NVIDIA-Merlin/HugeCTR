@@ -106,6 +106,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   }
   std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
   std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+  std::shared_ptr<rmm::mr::device_memory_resource> memory_resource;
 
   if (pid == 0) {
     std::cout << "rank " << pid << " is generating data" << std::endl;
@@ -151,11 +152,11 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   std::unique_ptr<DataReader<T>> train_data_reader(
       new DataReader<T>(train_file_list_name, train_batchsize, label_dim, dense_dim, CHK, params,
-                        gpu_resource_group, num_chunk_threads));
+                        gpu_resource_group, memory_resource, num_chunk_threads));
 
   std::unique_ptr<DataReader<T>> test_data_reader(
       new DataReader<T>(test_file_list_name, test_batchsize, label_dim, dense_dim, CHK, params,
-                        gpu_resource_group, num_chunk_threads));
+                        gpu_resource_group, memory_resource, num_chunk_threads));
 
   // generate hashtable
   if (pid == 0) {
