@@ -86,7 +86,8 @@ class Parser {
                        std::vector<std::unique_ptr<Network>>& network,
                        std::vector<std::unique_ptr<Network>>& network_eval,
                        const GPUResourceGroupPtr& gpu_resource_group,
-                       std::shared_ptr<rmm::mr::device_memory_resource>& memory_resource_);
+                       std::shared_ptr<rmm::mr::device_memory_resource>& memory_resource_, 
+		       const std::string& dataset_folder = "");
 
   /**
    * Create the pipeline, which includes data reader, embedding.
@@ -97,7 +98,8 @@ class Parser {
                        std::vector<std::unique_ptr<Network>>& network,
                        std::vector<std::unique_ptr<Network>>& network_eval,
                        const GPUResourceGroupPtr& gpu_resource_group,
-                       std::shared_ptr<rmm::mr::device_memory_resource>& memory_resource_);
+                       std::shared_ptr<rmm::mr::device_memory_resource>& memory_resource_, 
+		       const std::string& dataset_folder = "");
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
