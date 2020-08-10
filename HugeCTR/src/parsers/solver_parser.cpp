@@ -155,7 +155,7 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
                 break;
               }
               case metrics::Type::AUC: {
-                float val = std::stof(metric_strs[1]);
+                float val = (metric_strs.size() == 1)? 1.f : std::stof(metric_strs[1]);
                 if (val < 0.0 || val > 1.0) {
                   CK_THROW_(Error_t::WrongInput, "0 <= AUC threshold <= 1 is not true");
                 }
