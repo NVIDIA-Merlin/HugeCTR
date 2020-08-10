@@ -497,24 +497,24 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_pa
         // memcpy hash_table_key to corresponding GPU
         key_dst_buf = h_hash_table_key_chunk_per_gpu[id] +
                       tile_counter_in_chunk_per_gpu[id] * hash_table_key_tile_size;
-        CK_CUDA_THROW_(cudaMemcpyAsync(key_dst_buf, src_buf, hash_table_key_tile_size_in_B,
-                                       cudaMemcpyHostToHost, device_resources[id].get_stream()));
+        
+        memcpy(key_dst_buf, src_buf, hash_table_key_tile_size_in_B);
 
         src_buf += hash_table_key_tile_size_in_B;
 
         // memcpy hash_table_slot_id to corresponding GPU
         slot_id_dst_buf = h_hash_table_slot_id_chunk_per_gpu[id] +
                           tile_counter_in_chunk_per_gpu[id] * hash_table_slot_id_tile_size;
-        CK_CUDA_THROW_(cudaMemcpyAsync(slot_id_dst_buf, src_buf, hash_table_slot_id_tile_size_in_B,
-                                       cudaMemcpyHostToHost, device_resources[id].get_stream()));
+        
+        memcpy(slot_id_dst_buf, src_buf, hash_table_slot_id_tile_size_in_B);
 
         src_buf += hash_table_slot_id_tile_size_in_B;
 
         // memcpy hash_table_value to corresponding GPU
         value_dst_buf = h_hash_table_value_chunk_per_gpu[id] +
                         tile_counter_in_chunk_per_gpu[id] * hash_table_value_tile_size;
-        CK_CUDA_THROW_(cudaMemcpyAsync(value_dst_buf, src_buf, hash_table_value_tile_size_in_B,
-                                       cudaMemcpyHostToHost, device_resources[id].get_stream()));
+        
+        memcpy(value_dst_buf, src_buf, hash_table_value_tile_size_in_B);
 
         src_buf += hash_table_value_tile_size_in_B;
 
@@ -658,7 +658,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_pa
         size_t slot_id_offset = tile_counter_per_gpu[id];
         slot_id_dst_buf = hash_table_slot_id_tensors[id]->get_ptr() + slot_id_offset;
         CK_CUDA_THROW_(cudaMemcpyAsync(slot_id_dst_buf, src_buf, hash_table_slot_id_tile_size_in_B,
-                                       cudaMemcpyHostToHost, device_resources[id].get_stream()));
+                                       cudaMemcpyHostToDevice, device_resources[id].get_stream()));
         src_buf += hash_table_slot_id_tile_size_in_B;
 
         // memcpy hash_table_value from CPU to GPU
