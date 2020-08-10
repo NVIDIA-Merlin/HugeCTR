@@ -369,16 +369,16 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
         // memcpy hash_table_key to corresponding GPU
         key_dst_buf = h_hash_table_key_chunk_per_gpu[id] +
                       tile_counter_in_chunk_per_gpu[id] * hash_table_key_tile_size;
-        CK_CUDA_THROW_(cudaMemcpyAsync(key_dst_buf, src_buf, hash_table_key_tile_size_in_B,
-                                       cudaMemcpyHostToHost, device_resources[id].get_stream()));
+        
+        memcpy(key_dst_buf, src_buf, hash_table_key_tile_size_in_B);
 
         src_buf += hash_table_key_tile_size_in_B;
 
         // memcpy hash_table_value to corresponding GPU
         value_dst_buf = h_hash_table_value_chunk_per_gpu[id] +
                         tile_counter_in_chunk_per_gpu[id] * hash_table_value_tile_size;
-        CK_CUDA_THROW_(cudaMemcpyAsync(value_dst_buf, src_buf, hash_table_value_tile_size_in_B,
-                                       cudaMemcpyHostToHost, device_resources[id].get_stream()));
+        
+        memcpy(value_dst_buf, src_buf, hash_table_value_tile_size_in_B);
 
         src_buf += hash_table_value_tile_size_in_B;
 
