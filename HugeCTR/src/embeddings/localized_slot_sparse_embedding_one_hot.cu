@@ -372,8 +372,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
         // memcpy hash_table_value to corresponding GPU
         value_dst_buf = h_hash_table_value_chunk_per_gpu[id] +
                         tile_counter_in_chunk_per_gpu[id] * hash_table_value_tile_size;
-        CK_CUDA_THROW_(cudaMemcpyAsync(value_dst_buf, src_buf, hash_table_value_tile_size_in_B,
-                                       cudaMemcpyHostToHost, device_resources[id].get_stream()));
+        memcpy(value_dst_buf, src_buf, hash_table_value_tile_size_in_B);
         src_buf += hash_table_value_tile_size_in_B;
         tensor_index_dst_buf =
             h_hash_table_index_chunk_per_gpu[id] + tile_counter_in_chunk_per_gpu[id];
@@ -459,8 +458,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
         // memcpy hash_table_value to corresponding GPU
         value_dst_buf = h_hash_table_value_chunk_per_gpu[id] +
                         tile_counter_in_chunk_per_gpu[id] * hash_table_value_tile_size;
-        CK_CUDA_THROW_(cudaMemcpyAsync(value_dst_buf, src_buf, hash_table_value_tile_size_in_B,
-                                       cudaMemcpyHostToHost, device_resources[id].get_stream()));
+        memcpy(value_dst_buf, src_buf, hash_table_value_tile_size_in_B);
         src_buf += hash_table_value_tile_size_in_B;
         tensor_index_dst_buf =
             h_hash_table_index_chunk_per_gpu[id] + tile_counter_in_chunk_per_gpu[id];
