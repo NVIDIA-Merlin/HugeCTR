@@ -99,6 +99,7 @@ template <typename TypeKey>
 class DataReader {
  private:
   std::string file_list_; /**< file list of data set */
+  std::string dataset_folder_; /**<folder of file list and dataset>**/
 
   const int NumChunks{12};  /**< NumChunks will be used in HeapEx*/
   const int NumThreads{12}; /**< number of threads for data reading */
@@ -169,7 +170,7 @@ class DataReader {
         for (int i = 0; i < NumThreads; i++) {
           std::shared_ptr<IDataReaderWorker> data_reader(
               new DataReaderWorker<TypeKey>(i, NumThreads, csr_heap_, file_list_,
-                                            max_feature_num_per_sample, check_type_, params_));
+                                            max_feature_num_per_sample, check_type_, params_, dataset_folder_));
           data_readers_.push_back(data_reader);
           data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
                                             &data_reader_loop_flag_);
@@ -235,7 +236,7 @@ class DataReader {
              int num_chunk_threads = 31, bool use_mixed_precision = false,
              DataReaderType_t type = DataReaderType_t::Norm, long long num_samples = 0,
              std::vector<long long> slot_size = std::vector<long long>(), bool cache_data = false,
-             bool start_reading_from_beginning = true, bool data_shuffle = false);
+             bool start_reading_from_beginning = true, bool data_shuffle = false, const std::string& dataset_folder = "");
 
   const Tensors<float>& get_label_tensors() const { return label_tensors_; }
   const ITensors& get_dense_tensors() const { return dense_tensors_; }
@@ -276,8 +277,9 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
                                 int num_chunk_threads, bool use_mixed_precision,
                                 DataReaderType_t type, long long num_samples,
                                 std::vector<long long> slot_offset, bool cache_data,
-                                bool start_reading_from_beginning, bool data_shuffle)
+                                bool start_reading_from_beginning, bool data_shuffle, const std::string& dataset_folder)
     : file_list_(file_list_name),
+      dataset_folder_(dataset_folder),
       NumChunks(num_chunk_threads),
       NumThreads(num_chunk_threads),
       check_type_(check_type),

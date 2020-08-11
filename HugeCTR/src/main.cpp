@@ -36,14 +36,14 @@
 
 #endif
 
-static const std::string simple_help =
-    "usage: huge_ctr.exe [--train] [--help] [--version] config_file.json\n";
+static const std::string simple_help = 
+  "usage: huge_ctr.exe [--train] [--help] [--version] config_file.json [--dataset-folder dataset_folder]\n";
 
 enum class CmdOptions_t { Train, Version, Help };
 
 HugeCTR::Timer timer_log;
 
-void train(std::string config_file) {
+void train(std::string config_file, std::string dataset_folder) {
   try {
     int pid = 0;
 #ifdef ENABLE_MPI
@@ -53,7 +53,7 @@ void train(std::string config_file) {
 #endif
 
     const HugeCTR::SolverParser solver_config(config_file);
-    std::shared_ptr<HugeCTR::Session> session_instance = HugeCTR::Session::Create(solver_config);
+    std::shared_ptr<HugeCTR::Session> session_instance = HugeCTR::Session::Create(solver_config, dataset_folder);
     std::unique_ptr<HugeCTR::LearningRateScheduler> lr_sch =
         HugeCTR::get_learning_rate_scheduler(config_file);
 
@@ -248,7 +248,7 @@ int main(int argc, char* argv[]) {
         {"--help", CmdOptions_t::Help},
         {"--version", CmdOptions_t::Version}};
 
-    if (argc != 3 && argc != 2 && pid == 0) {
+    if (argc != 5 && argc != 3 && argc != 2 && pid == 0) {
       std::cout << simple_help;
       return -1;
     }
@@ -280,17 +280,29 @@ int main(int argc, char* argv[]) {
                     << std::endl;
         }
 
-        if (argc != 3 && pid == 0) {
+        if (argc == 2 && pid == 0) {
           std::cerr << "expect config file." << std::endl;
           std::cerr << simple_help;
           return -1;
         }
 
+
+        if (argc == 4 && pid == 0 && strcmp(argv[3],"--dataset-folder") != 0) {
+          std::cerr << "specify dataset folder only with --dataset-folder" << std::endl;
+          std::cerr << simple_help;
+          return -1;
+        }
+
         std::string config_file(argv[2]);
-        if (pid == 0) {
+        
+        std::string dataset_folder("");
+        if (argc == 5 and pid == 0)
+          dataset_folder = argv[4];
+
+	if (pid == 0) {
           std::cout << "Config file: " << config_file << std::endl;
         }
-        std::thread train_thread(train, config_file);
+        std::thread train_thread(train, config_file, dataset_folder);
         HugeCTR::set_affinity(train_thread, {}, true);
 
         train_thread.join();

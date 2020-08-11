@@ -33,9 +33,8 @@ class FileSource : public Source {
   unsigned int counter_{0};
 
  public:
-  FileSource(long long offset, long long stride, const std::string& file_list)
-      : file_list_(file_list), offset_(offset), stride_(stride) {}
-
+   FileSource(long long offset, long long stride, const std::string& file_list, const std::string& dataset_folder = "")
+      : file_list_(file_list, dataset_folder), offset_(offset), stride_(stride) {}
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
    * @param ptr pointer to user located buffer
