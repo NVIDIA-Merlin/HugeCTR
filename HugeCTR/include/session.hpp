@@ -30,7 +30,7 @@ namespace HugeCTR {
 
 class Session {
  public:
-  static std::shared_ptr<Session> Create(const SolverParser& solver_config);
+  static std::shared_ptr<Session> Create(const SolverParser& solver_config, const std::string& dataset_folder = "");
 
   virtual void train() = 0;
   virtual void eval() = 0;
@@ -145,7 +145,8 @@ class SessionImpl : public Session {
 
   metrics::Metrics metrics_;
 
-  friend std::shared_ptr<Session> Session::Create(const SolverParser& solver_config);
+  friend std::shared_ptr<Session> Session::Create(const SolverParser& solver_config, const std::string& dataset_folder);
+  SessionImpl(const SolverParser& solver_config, const std::string& dataset_folder);
   SessionImpl(const SolverParser& solver_config);
 
   /**
