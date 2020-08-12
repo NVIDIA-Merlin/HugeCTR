@@ -319,23 +319,6 @@ void SessionImpl<TypeKey>::eval() {
     std::cerr << err.what() << std::endl;
     throw err;
   }
-
-  // for(auto& metric : metrics_) {
-  //   try {
-  //     // TODO: enable to get batch_size from read_a_batch_to_device_delay_release();
-  //     metric->set_current_batch_size(current_batchsize);
-  //     for (auto& network : networks_) {
-  //       metric->local_reduce(network->get_raw_metrics());
-  //     }
-  //     metric->global_reduce(networks_.size());
-  //   } catch (const internal_runtime_error& rt_err) {
-  //     std::cerr << rt_err.what() << std::endl;
-  //     return rt_err.get_error();
-  //   } catch (const std::exception& err) {
-  //     std::cerr << err.what() << std::endl;
-  //     return Error_t::UnspecificError;
-  //   }
-  // }
 }
 
 template <typename TypeKey>
