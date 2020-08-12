@@ -76,8 +76,7 @@ class DataReaderWorker : public IDataReaderWorker {
   DataReaderWorker(unsigned int worker_id, unsigned int worker_num,
                    const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
                    const std::string& file_list, size_t buffer_length, Check_t check_type,
-                   const std::vector<DataReaderSparseParam>& params,
-		   const std::string& dataset_folder = "")
+                   const std::vector<DataReaderSparseParam>& params)
       : worker_id_(worker_id),
         worker_num_(worker_num),
         csr_heap_(csr_heap),
@@ -92,7 +91,7 @@ class DataReaderWorker : public IDataReaderWorker {
     for (auto& p : params) {
       slots_ += p.slot_num;
     }
-    source_ = std::make_shared<FileSource>(worker_id, worker_num, file_list, dataset_folder);
+    source_ = std::make_shared<FileSource>(worker_id, worker_num, file_list);
     switch (check_type_) {
       case Check_t::Sum:
         checker_ = std::make_shared<CheckSum>(*source_);
