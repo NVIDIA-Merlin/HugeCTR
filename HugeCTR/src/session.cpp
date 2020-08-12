@@ -77,7 +77,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
 }  // end namespace
 
 template <typename TypeKey>
-SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config, const std::string& dataset_folder)
+SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
     : gpu_resource_group_(new GPUResourceGroup(solver_config.device_map)) {
   int pid = 0;
 #ifdef ENABLE_MPI
@@ -101,7 +101,7 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config, const std::
                 solver_config.use_algorithm_search);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_,
-                         networks_eval_, gpu_resource_group_, memory_resource_, dataset_folder);
+                         networks_eval_, gpu_resource_group_, memory_resource_);
 
   // init networks.
   std::string TMP_DENSE_NAME;
@@ -476,12 +476,12 @@ SessionImpl<TypeKey>::~SessionImpl() {
 template class SessionImpl<unsigned int>;
 template class SessionImpl<long long>;
 
-std::shared_ptr<Session> Session::Create(const SolverParser& solver_config, const std::string& dataset_folder) {
+std::shared_ptr<Session> Session::Create(const SolverParser& solver_config) {
   std::shared_ptr<Session> session;
   if (solver_config.i64_input_key) {
-    session.reset(new SessionImpl<long long>(solver_config, dataset_folder));
+    session.reset(new SessionImpl<long long>(solver_config));
   } else {
-    session.reset(new SessionImpl<unsigned int>(solver_config, dataset_folder));
+    session.reset(new SessionImpl<unsigned int>(solver_config));
   }
   return session;
 }

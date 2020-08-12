@@ -40,8 +40,6 @@ class FileList {
  private:
   int num_of_files_;                     /**< num of files read from text file. */
   std::vector<std::string> file_vector_; /**< the vector of file names. */
-  std::string file_list_abs;
-  std::string datafile_folder;
   std::atomic<unsigned int> counter_{0};
   std::string file_type_;
 
@@ -57,23 +55,14 @@ class FileList {
   /*
    * Ctor
    */
-  FileList(const std::string& file_list_name, const std::string& dataset_folder = "") {
+  FileList(const std::string& file_list_name) {
     try {
-      if (file_list_name[0] != '/' && file_list_name[0] != '~')
-        file_list_abs = get_absolute_path(file_list_name, dataset_folder);
-      else
-        file_list_abs = file_list_name;
-      int pos = file_list_abs.rfind('/');
-      if (pos != -1)
-        datafile_folder = file_list_abs.substr(0, file_list_abs.rfind('/'));
-      std::ifstream read_stream(file_list_abs, std::ifstream::in);
-
+      std::ifstream read_stream(file_list_name, std::ifstream::in);
       if (!read_stream.is_open()) {
-        CK_THROW_(Error_t::FileCannotOpen, "file list open failed: " + file_list_abs);
+        CK_THROW_(Error_t::FileCannotOpen, "file list open failed: " + file_list_name);
       }
 
       std::string buff;
-      std::string data_file;
       std::getline(read_stream, buff);
       num_of_files_ = std::stoi(buff);
       assert(file_vector_.empty());
@@ -83,11 +72,7 @@ class FileList {
           if (i == 0) {
         	  file_type_ = get_file_type(buff);
           }
-          if (buff[0] != '/' && buff[0] != '~')
-            data_file = get_absolute_path(buff, datafile_folder);
-          else
-            data_file = buff;
-          file_vector_.push_back(data_file);
+          file_vector_.push_back(buff);
         }
         read_stream.close();
       } else {
@@ -97,23 +82,6 @@ class FileList {
       std::cerr << rt_err.what() << std::endl;
       throw;
     }
-  }
-
-
-    /**
-   * Get the absolute path of file list or data file.
-   * @return the absolute path.
-   */
-  std::string get_absolute_path(const std::string& file_name, const std::string& folder) {
-    std::string abs_path = file_name;
-    std::ifstream read_stream;
-    if (folder != "") {
-      read_stream.open(file_name, std::ifstream::in);
-      if (!read_stream.is_open())
-        abs_path = folder + "/" + file_name;
-      read_stream.close();
-    }
-    return abs_path;
   }
 
   /**
