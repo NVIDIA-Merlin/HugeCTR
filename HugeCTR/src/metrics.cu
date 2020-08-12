@@ -355,6 +355,12 @@ float AUC<T>::finalize_metric() {
   CudaDeviceContext context(root_device_id_);
 
   if (pid_ == 0) {
+    auto& dev_list = gpu_resource_group_->get_device_list();
+    for (int i = 0; i < num_gpus_; i++) {
+      CudaDeviceContext context(dev_list[i]);
+      CK_CUDA_THROW_(cudaDeviceSynchronize());
+    }
+
     int num_elems = offset_ * num_procs_;
     CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairsDescending(workspace_, temp_storage_bytes_,
                                                              d_pred(), d_pred_sort(), d_label(),
