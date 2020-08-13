@@ -141,7 +141,6 @@ class DataReader {
 
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
   std::shared_ptr<MmapOffsetList> file_offset_list_;
-  std::shared_ptr<rmm::mr::device_memory_resource> memory_resource_;
 
   bool data_shuffle_{false};
 
@@ -202,7 +201,7 @@ class DataReader {
         for (int i = 0; i < NumThreads; i++) {
           std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
                          i, NumThreads, csr_heap_, file_list_, max_feature_num_per_sample, params_,
-                         slot_offset_, memory_resource_));
+                         slot_offset_, device_resources_->get_rmm_mr()));
           data_readers_.push_back(data_reader);
           data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
                                             &data_reader_loop_flag_);
@@ -231,7 +230,6 @@ class DataReader {
   DataReader(const std::string& file_list_name, int batchsize, size_t label_dim, int dense_dim,
              Check_t check_type, std::vector<DataReaderSparseParam>& params,
              const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-             std::shared_ptr<rmm::mr::device_memory_resource>& mr,
              int num_chunk_threads = 31, bool use_mixed_precision = false,
              DataReaderType_t type = DataReaderType_t::Norm, long long num_samples = 0,
              std::vector<long long> slot_size = std::vector<long long>(), bool cache_data = false,
@@ -272,7 +270,6 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
                                 int dense_dim, Check_t check_type,
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                                std::shared_ptr<rmm::mr::device_memory_resource>& mr,
                                 int num_chunk_threads, bool use_mixed_precision,
                                 DataReaderType_t type, long long num_samples,
                                 std::vector<long long> slot_offset, bool cache_data,
@@ -290,7 +287,6 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
       type_(type),
       num_samples_(num_samples),
       slot_offset_(slot_offset),
-      memory_resource_(mr),
       data_shuffle_(data_shuffle) {
   if (start_reading_from_beginning) {
     data_reader_loop_flag_ = 1;

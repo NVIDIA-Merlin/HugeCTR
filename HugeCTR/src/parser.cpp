@@ -1103,7 +1103,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                                      std::vector<std::unique_ptr<Network>>& network,
                                      std::vector<std::unique_ptr<Network>>& network_eval,
                                      const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                                     std::shared_ptr<rmm::mr::device_memory_resource>& memory_resource,
                                      nlohmann::json config, size_t batch_size,
                                      size_t batch_size_eval, bool use_mixed_precision, float scaler,
                                      bool use_algorithm_search) {
@@ -1197,12 +1196,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                       check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, memory_resource, 1,
+                                                      gpu_resource_group, 1,
                                                       use_mixed_precision));
 #else
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                                                       check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, memory_resource, 31,
+                                                      gpu_resource_group, 31,
                                                       use_mixed_precision));
 
 #endif
@@ -1210,12 +1209,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, memory_resource, 1,
+                data_reader_sparse_param_array, gpu_resource_group, 1,
                 use_mixed_precision));
 #else
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, memory_resource, 31,
+                data_reader_sparse_param_array, gpu_resource_group, 31,
                 use_mixed_precision));
 
 #endif
@@ -1243,12 +1242,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader.reset(new DataReader<TypeKey>(
                 source_data, batch_size, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, memory_resource, 1,
+                data_reader_sparse_param_array, gpu_resource_group, 1,
                 use_mixed_precision, format, num_samples, slot_offset, false, false, true));
 #else
             data_reader.reset(new DataReader<TypeKey>(
                 source_data, batch_size, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, memory_resource, 12,
+                data_reader_sparse_param_array, gpu_resource_group, 12,
                 use_mixed_precision, format, num_samples, slot_offset, false, false, true));
 
 #endif
@@ -1259,13 +1258,13 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, memory_resource, 1,
+                data_reader_sparse_param_array, gpu_resource_group, 1,
                 use_mixed_precision, format, eval_num_samples, slot_offset,
                 cache_eval_data, false, false));
 #else
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, memory_resource, 12,
+                data_reader_sparse_param_array, gpu_resource_group, 12,
                 use_mixed_precision, format, eval_num_samples, slot_offset,
                 cache_eval_data, false, false));
 
@@ -1278,7 +1277,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           case DataReaderType_t::Parquet: {
             size_t pool_alloc_size = 256 * 1024 * 1024;
             std::vector<int> dev = gpu_resource_group->get_device_list();
-            memory_resource = std::make_shared<rmm::mr::cnmem_memory_resource>(pool_alloc_size, dev);
+            auto& memory_resource = gpu_resource_group->get_rmm_mr();
+            memory_resource = std::make_shared<rmm::mr::cnmem_memory_resource>(
+                                                                    pool_alloc_size, dev);
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
             rmm::mr::set_default_resource(memory_resource.get());
@@ -1302,12 +1303,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                         check_type, data_reader_sparse_param_array, gpu_resource_group,
-                        memory_resource, 1, use_mixed_precision, format, 0, slot_offset,
+                        1, use_mixed_precision, format, 0, slot_offset,
                         false, false, false));
 #else
             data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
                         check_type, data_reader_sparse_param_array, gpu_resource_group,
-                        memory_resource, gpu_resource_group->get_total_gpu_count(),
+                        gpu_resource_group->get_total_gpu_count(),
                         use_mixed_precision, format, 0, slot_offset, false, false, false));
 
 #endif
@@ -1315,12 +1316,12 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, memory_resource, 1,
+                data_reader_sparse_param_array, gpu_resource_group, 1,
                 use_mixed_precision, format, 0, slot_offset, false, false, false));
 #else
             data_reader_eval.reset(new DataReader<TypeKey>(
                 eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, memory_resource,
+                data_reader_sparse_param_array, gpu_resource_group,
                 gpu_resource_group->get_total_gpu_count(), use_mixed_precision,
                 format, 0, slot_offset, false, false, false));
 
@@ -1414,10 +1415,9 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
                              std::vector<std::unique_ptr<Network>>& network_eval,
-                             const GPUResourceGroupPtr& gpu_resource_group,
-                             std::shared_ptr<rmm::mr::device_memory_resource>& memory_resource_) {
+                             const GPUResourceGroupPtr& gpu_resource_group) {
   create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, network, network_eval,
-                                   gpu_resource_group, memory_resource_, config_, batch_size_,
+                                   gpu_resource_group, config_, batch_size_,
                                    batch_size_eval_, use_mixed_precision_, scaler_,
                                    use_algorithm_search_);
 }
@@ -1427,10 +1427,9 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
                              std::vector<std::unique_ptr<Network>>& network_eval,
-                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                             std::shared_ptr<rmm::mr::device_memory_resource>& memory_resource_) {
+                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
   create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, network, network_eval,
-                                   gpu_resource_group, memory_resource_, config_, batch_size_,
+                                   gpu_resource_group, config_, batch_size_,
                                    batch_size_eval_, use_mixed_precision_, scaler_,
                                    use_algorithm_search_);
 }

@@ -24,6 +24,7 @@
 #include <cudnn.h>
 #include <curand.h>
 #include <nccl.h>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -105,6 +106,7 @@ class GPUResourceGroup {
   size_t get_sm_count() const { return sm_count_; }
 
   ctpl::thread_pool& get_thread_pool() { return thread_pool_; }
+  std::shared_ptr<rmm::mr::device_memory_resource>& get_rmm_mr() { return memory_resource_; }
 
  private:
   void enable_all_peer_accesses();
@@ -115,6 +117,7 @@ class GPUResourceGroup {
   size_t sm_count_;
 
   ctpl::thread_pool thread_pool_; /**< cpu thread pool for training */
+  std::shared_ptr<rmm::mr::device_memory_resource> memory_resource_;
 };
 
 using GPUResourceGroupPtr = std::shared_ptr<GPUResourceGroup>;
