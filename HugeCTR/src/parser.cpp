@@ -1279,8 +1279,10 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
             size_t pool_alloc_size = 256 * 1024 * 1024;
             std::vector<int> dev = gpu_resource_group->get_device_list();
             memory_resource = std::make_shared<rmm::mr::cnmem_memory_resource>(pool_alloc_size, dev);
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
             rmm::mr::set_default_resource(memory_resource.get());
-
+            #pragma GCC diagnostic pop
             // @Future: Should be slot_offset here and data_reader ctor should
             // be TypeKey not long long
             std::vector<long long> slot_offset;
