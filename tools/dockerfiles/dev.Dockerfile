@@ -28,16 +28,12 @@ RUN mv nccl/build/include/*.h /usr/include && \
     mv nccl/build/lib/libnccl* /usr/lib/x86_64-linux-gnu/ && \
     rm -rf nccl
 
-RUN apt-get install -y curl
-RUN curl -o ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-     chmod +x ~/miniconda.sh && \
-     ~/miniconda.sh -b -p /opt/conda && \
-     rm ~/miniconda.sh && \
-     /opt/conda/bin/conda clean -ya
-
-ENV PATH $PATH:/opt/conda/bin
-RUN conda install -c rapidsai-nightly -c nvidia -c conda-forge -c defaults cudf=0.15 python=3.7 cudatoolkit=10.2
-#RUN conda install -c rapidsai -c nvidia -c conda-forge -c defaults rapids=0.14 python=3.6
-RUN rm /opt/conda/include/nccl.h && rm /opt/conda/lib/libnccl.so
-ENV CONDA_PREFIX=/opt/conda
 RUN echo 'export PS1="\s \w\$ "' >>/etc/bash.bashrc
+RUN mkdir -p /opt/conda
+ENV CONDA_PREFIX=/opt/conda
+RUN mkdir -p /opt/tmp
+COPY . /opt/tmp/
+RUN chmod +x /opt/tmp/*.sh
+RUN /opt/tmp/setup_dependencies.sh
+RUN cd /opt/tmp && ./build_and_install_dependencies.sh
+
