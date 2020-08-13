@@ -21,6 +21,8 @@
 #pragma GCC diagnostic ignored "-Wreorder"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <cudf/io/functions.hpp>
 #include <cudf/types.hpp>
 #include <cudf/table/table.hpp>
@@ -34,10 +36,11 @@
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <rmm/mr/device/thread_safe_resource_adaptor.hpp>
 #include <rmm/device_buffer.hpp>
+#include "HugeCTR/include/file_source_parquet.hpp"
+#pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 #include "HugeCTR/include/file_list.hpp"
-#include "HugeCTR/include/file_source_parquet.hpp"
 #include "HugeCTR/include/pinned_buffer.hpp"
 #include "HugeCTR/include/metadata.hpp"
 #include "HugeCTR/include/parquet_data_converter.hpp"
@@ -201,7 +204,10 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
   if (!thread_resource_allocated_) {
     // cant allocate and set resources in constructor
     CK_CUDA_THROW_(cudaSetDevice(device_id_));  // for multiple devices
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     rmm::mr::set_default_resource(memory_resource_.get());
+    #pragma GCC diagnostic pop
     CK_CUDA_THROW_(cudaStreamCreateWithFlags(&task_stream_, cudaStreamNonBlocking));
     CK_CUDA_THROW_(cudaStreamCreateWithFlags(&dense_stream_, cudaStreamNonBlocking));
     size_t slot_offset_buf_size = sizeof(T) * slot_offset_dtype_.size();
