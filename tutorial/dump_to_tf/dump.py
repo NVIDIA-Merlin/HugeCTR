@@ -100,8 +100,8 @@ class DumpToTF(object):
                 each_key_size = self.key_type_map[self.key_type][1] + 4 * embedding_vec_size
 
             elif layer_type == "LocalizedSlotSparseEmbeddingHash":
-                # sizeof(TypeHashKey) + sizeof(TypeHashValueIndex) + sizeof(float) * embedding_vec_size
-                each_key_size = self.key_type_map[self.key_type][1] + self.key_type_map[self.key_type][1] + 4 * embedding_vec_size
+                # sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * embedding_vec_size
+                each_key_size = self.key_type_map[self.key_type][1] + 8 + 4 * embedding_vec_size
 
             embedding_table = np.zeros(shape=(vocabulary_size, embedding_vec_size), dtype=np.float32)
 
@@ -117,9 +117,9 @@ class DumpToTF(object):
                             values = struct.unpack(str(embedding_vec_size) + "f", buffer[self.key_type_map[self.key_type][1]: ])
 
                         elif layer_type == "LocalizedSlotSparseEmbeddingHash":
-                            key, slot_id = struct.unpack("2" + self.key_type_map[self.key_type][0], 
-                                                         buffer[0: 2*self.key_type_map[self.key_type][1]])
-                            values = struct.unpack(str(embedding_vec_size) + "f", buffer[self.key_type_map[self.key_type][1]: ])
+                            key = struct.unpack(self.key_type_map[self.key_type][0], buffer[0 : self.key_type_map[self.key_type][1]])[0]
+                            slot_id = struct.unpack("Q", buffer[self.key_type_map[self.key_type][1] : self.key_type_map[self.key_type][1] + 8])[0]
+                            values = struct.unpack(str(embedding_vec_size) + "f", buffer[self.key_type_map[self.key_type][1] + 8: ])
 
                         embedding_table[key] = values
 
