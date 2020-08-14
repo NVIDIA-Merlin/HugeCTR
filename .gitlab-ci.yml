@@ -1,3 +1,7 @@
+stages:
+  - build
+  - test
+
 image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
 
 variables:
@@ -5,21 +9,34 @@ variables:
   FF_USE_LEGACY_GIT_CLEAN_STRATEGY: 1
 
 before_script:
-  - apt update && apt install -y python3-pip git
-  - python3 -m pip install --upgrade pip
-  - mkdir -p /opt/conda
-  - export CONDA_PREFIX=/opt/conda
-  - cd ${CI_PROJECT_DIR}
-  - ./setup_dependencies.sh
-  - ./build_and_install_dependencies.sh
-  - mkdir build
-  - cd build
-  - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 ..
-  - make -j
+- apt update
+- apt install -y python3-pip
+- apt install -y git
+- python3 -m pip install --upgrade pip
+- ./setup_dependencies.sh
+
+build:
+  tags:
+    - hugectr
+  stage: build
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}/build/
+    expire_in: 1 week
+  script:
+    - cd ${CI_PROJECT_DIR}
+    - mkdir -p build
+    - export CONDA_PREFIX=${CI_PROJECT_DIR}/build/
+    - ./build_and_install_dependencies.sh
+    - cd build
+    - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 ..
+    - make -j
+
 
 criteo:
   tags:
     - hugectr
+  stage: test
   script:
     - cd /dataset/criteo_kaggle/criteo
     - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_1gpu.json
@@ -31,6 +48,7 @@ criteo:
 dcn:
   tags:
     - hugectr
+  stage: test
   script:
     - cd /dataset/criteo_kaggle/dcn
     - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_1gpu.json
@@ -41,6 +59,7 @@ dcn:
 wdl_deepfm:
   tags:
     - hugectr
+  stage: test
   script:
     - cd /dataset/criteo_kaggle/wdl
     - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_1gpu.json
@@ -54,6 +73,7 @@ wdl_deepfm:
 dlrm:
   tags:
     - hugectr
+  stage: test
   script:
     - cd /dataset/criteo_kaggle/dcn
     - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_1gpu.json
@@ -64,6 +84,7 @@ dlrm:
 unit_tests:
   tags:
     - hugectr
+  stage: test
   script:
     - cd ${CI_PROJECT_DIR}/build/bin
     - ./layers_test
