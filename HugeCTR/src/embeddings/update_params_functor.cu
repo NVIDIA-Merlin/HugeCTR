@@ -665,7 +665,10 @@ void SparseEmbeddingFunctors::update_params(
       }  // else
 
     }  // else
-
+#ifndef NDEBUG
+    cudaDeviceSynchronize();
+    CK_CUDA_THROW_(cudaGetLastError());
+#endif
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -690,6 +693,10 @@ void SparseEmbeddingFunctors::update_params(size_t embedding_vec_size,
       // for one-hot, the sample_id is dedicated.
       opt_sgd_atomic_kernel<<<grid_size, block_size, 0, stream>>>(
           nnz, embedding_vec_size, lr_scale, hash_value_index, wgrad, hash_table_value);
+#ifndef NDEBUG
+      cudaDeviceSynchronize();
+      CK_CUDA_THROW_(cudaGetLastError());
+#endif
     } else {
       CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
     }

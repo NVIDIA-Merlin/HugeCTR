@@ -195,37 +195,41 @@ void ReduceSumLayer::fprop(cudaStream_t stream) {
     reduce_sum_kernel<<<gridSize, blockSize, 0, stream>>>(input, output, axis_, in_dims[0],
                                                           in_dims[1], in_dims[2]);
   }
+
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
 }
 
 void ReduceSumLayer::bprop(cudaStream_t stream) {
-  try {
-    CudaDeviceContext context(device_id_);
+  CudaDeviceContext context(device_id_);
 
-    float* input = in_tensors_[0]->get_ptr();
-    float* output = out_tensors_[0]->get_ptr();
-    auto in_dims = in_tensors_[0]->get_dims();
+  float* input = in_tensors_[0]->get_ptr();
+  float* output = out_tensors_[0]->get_ptr();
+  auto in_dims = in_tensors_[0]->get_dims();
 
-    int size = 1;
-    for (auto dim : in_dims) {
-      size *= dim;
-    }
-
-    dim3 blockSize(256, 1, 1);
-    dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
-    if (in_dims.size() == 1) {
-      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0]);
-    } else if (in_dims.size() == 2) {
-      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0],
-                                                                  in_dims[1]);
-    } else if (in_dims.size() == 3) {
-      reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0],
-                                                                  in_dims[1], in_dims[2]);
-    }
-
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    throw;
+  int size = 1;
+  for (auto dim : in_dims) {
+    size *= dim;
   }
+
+  dim3 blockSize(256, 1, 1);
+  dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
+  if (in_dims.size() == 1) {
+    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0]);
+  } else if (in_dims.size() == 2) {
+    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0],
+                                                                in_dims[1]);
+  } else if (in_dims.size() == 3) {
+    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0],
+                                                                in_dims[1], in_dims[2]);
+  }
+
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
 }
 
 }  // namespace HugeCTR
