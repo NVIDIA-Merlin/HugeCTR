@@ -2,7 +2,7 @@ stages:
   - build
   - test
 
-image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+image: gitlab-master.nvidia.com/zehuanw/hugectr:devel
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -10,10 +10,8 @@ variables:
 
 before_script:
 - apt update
-- apt install -y python3-pip
-- apt install -y git
+- apt install -y python3-pip git
 - python3 -m pip install --upgrade pip
-- ./setup_dependencies.sh
 
 build:
   tags:
@@ -25,9 +23,7 @@ build:
     expire_in: 1 week
   script:
     - cd ${CI_PROJECT_DIR}
-    - mkdir -p build
-    - export CONDA_PREFIX=${CI_PROJECT_DIR}/build/
-    - ./build_and_install_dependencies.sh
+    - mkdir build
     - cd build
     - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 ..
     - make -j
