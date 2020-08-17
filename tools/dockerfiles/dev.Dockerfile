@@ -1,39 +1,110 @@
-FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
+FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04 AS devel
 
-RUN apt-get update && \
-    apt-get upgrade -y
+ARG SM="60;61;70;75"
 
-RUN apt-get install -y \
-    git \
-    cmake \
-    vim \
-    wget \
-    clang-format \
-    python3-pip
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        vim \
+        wget \
+        make \
+        python3-pip \
+        python3-setuptools \
+        python3-wheel \
+        lsb-release \
+        libboost-all-dev \
+        zlib1g-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install --upgrade pip setuptools six && \
-    python3 -m pip install --no-cache-dir \
-    numpy \
-    pandas \
-    sklearn \
-    ortools \
-    tensorflow
+# CMake version 3.14.3
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v3.14/cmake-3.14.3-Linux-x86_64.sh && \
+    mkdir -p /usr/local && \
+    /bin/sh /var/tmp/cmake-3.14.3-Linux-x86_64.sh --prefix=/usr/local --skip-license && \
+    rm -rf /var/tmp/cmake-3.14.3-Linux-x86_64.sh
+ENV PATH=/usr/local/bin:$PATH
 
-RUN git clone https://github.com/NVIDIA/nccl.git --recursive && \
-    cd nccl && \
-    git checkout p2p && \
-    make -j src.build
+# pip
+RUN pip3 install numpy pandas sklearn ortools tensorflow mpi4py
 
-RUN mv nccl/build/include/*.h /usr/include && \
-    mv nccl/build/lib/libnccl* /usr/lib/x86_64-linux-gnu/ && \
-    rm -rf nccl
+# UCX version 1.8.0
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        binutils-dev \
+        file \
+        libnuma-dev && \
+    rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/openucx/ucx/releases/download/v1.8.0/ucx-1.8.0.tar.gz && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/ucx-1.8.0.tar.gz -C /var/tmp -z && \
+    cd /var/tmp/ucx-1.8.0 &&   ./configure --prefix=/usr/local/ucx --disable-assertions --disable-debug --disable-doxygen-doc --disable-logging --disable-params-check --enable-optimizations --with-cuda=/usr/local/cuda && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    rm -rf /var/tmp/ucx-1.8.0 /var/tmp/ucx-1.8.0.tar.gz
+ENV CPATH=/usr/local/ucx/include:$CPATH \
+    LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH \
+    LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH \
+    PATH=/usr/local/ucx/bin:$PATH
 
-RUN echo 'export PS1="\s \w\$ "' >>/etc/bash.bashrc
+# OpenMPI version 4.0.3
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bzip2 \
+        file \
+        hwloc \
+        libnuma-dev \
+        openssh-client \
+        perl \
+        tar && \
+    rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://www.open-mpi.org/software/ompi/v4.0/downloads/openmpi-4.0.3.tar.bz2 && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/openmpi-4.0.3.tar.bz2 -C /var/tmp -j && \
+    cd /var/tmp/openmpi-4.0.3 &&   ./configure --prefix=/usr/local/openmpi --disable-getpwuid --enable-orterun-prefix-by-default --with-cuda --with-ucx=/usr/local/ucx --with-verbs && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    rm -rf /var/tmp/openmpi-4.0.3 /var/tmp/openmpi-4.0.3.tar.bz2
+ENV LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH \
+    PATH=/usr/local/openmpi/bin:$PATH
+
+# NCCL
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/NVIDIA/nccl/archive/v2.7.6-1.tar.gz && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/v2.7.6-1.tar.gz -C /var/tmp -z && \
+    cd /var/tmp/nccl-2.7.6-1 && \
+    PREFIX=/usr/local/nccl make -j$(nproc) install && \
+    rm -rf /var/tmp/nccl-2.7.6-1 /var/tmp/v2.7.6-1.tar.gz
+ENV CPATH=/usr/local/nccl/include:$CPATH \
+    LD_LIBRARY_PATH=/usr/local/nccl/lib:$LD_LIBRARY_PATH \
+    LIBRARY_PATH=/usr/local/nccl/lib:$LIBRARY_PATH \
+    PATH=/usr/local/nccl/bin:$PATH
+
 RUN mkdir -p /opt/conda
-ENV CONDA_PREFIX=/opt/conda
-RUN mkdir -p /opt/tmp
-COPY . /opt/tmp/
-RUN chmod +x /opt/tmp/*.sh
-RUN /opt/tmp/setup_dependencies.sh
-RUN cd /opt/tmp && ./build_and_install_dependencies.sh
+ENV CONDA_PREFIX=/opt/conda 
+
+RUN if [ $(lsb_release --codename --short) = "stretch" ]; then \
+      echo "deb http://deb.debian.org/debian $(lsb_release --codename --short)-backports main" >> /etc/apt/sources.list.d/backports.list; \ 
+    fi && \
+    wget https://apache.bintray.com/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb && \
+    apt install -y -V ./apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb && \
+    apt update && apt install -y libarrow-dev=0.17.1-1 libarrow-cuda-dev=0.17.1-1
+
+# https://github.com/rapidsai/rmm.git
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15 https://github.com/rapidsai/rmm.git rmm && cd - && \
+    cd /var/tmp/rmm && \
+    mkdir -p build && cd build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    rm -rf /var/tmp/rmm
+
+# https://github.com/rapidsai/cudf.git
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15 https://github.com/rapidsai/cudf.git cudf && cd - && \
+    git clone --depth=1 --branch master https://github.com/dmlc/dlpack.git /var/tmp/dlpack && \
+    cd /var/tmp/cudf/cpp && \
+    mkdir -p build && cd build && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS=$SM \
+             -DARROW_INCLUDE_DIR=/usr/include/arrow/ -DDLPACK_INCLUDE=/var/tmp/dlpack/include \
+             -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF -DDISABLE_DEPRECATION_WARNING=ON && \ 
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    rm -rf /var/tmp/dlpack /var/tmp/cudf
+
 
