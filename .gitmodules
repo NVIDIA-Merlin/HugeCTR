@@ -20,15 +20,3 @@
 [submodule "third_party/cutlass"]
 	path = third_party/cutlass
 	url = https://github.com/NVIDIA/cutlass.git
-[submodule "third_party/rmm"]
-	path = third_party/rmm
-	url = https://github.com/rapidsai/rmm.git
-	branch = branch-0.15
-[submodule "third_party/dlpack"]
-	path = third_party/dlpack
-	url = https://github.com/dmlc/dlpack.git
-	branch = master
-[submodule "third_party/cudf"]
-	path = third_party/cudf
-	url = https://github.com/rapidsai/cudf.git
-	branch = branch-0.15
