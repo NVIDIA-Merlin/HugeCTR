@@ -350,13 +350,13 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
     }
 #else
     if (Base::get_total_gpu_count() > 1) {
-      functors_.all2all_forward(batch_size_per_gpu_, Base::get_slot_num(),
+      functors_.all2all_forward(Base::get_batch_size_per_gpu(), Base::get_slot_num(),
                                 Base::get_embedding_vec_size(), wgrad_tensors_,
                                 utest_all2all_tensors_, Base::get_gpu_resource_group());
     } else {
       CK_CUDA_THROW_(
           cudaMemcpyAsync(utest_all2all_tensors_[0]->get_ptr(), wgrad_tensors_[0]->get_ptr(),
-                          (size_t)batch_size_per_gpu_ * slot_num_per_gpu_[0] *
+                          Base::get_batch_size_per_gpu() * slot_num_per_gpu_[0] *
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
                           cudaMemcpyDeviceToDevice, Base::get_gpu_resource(0).get_stream()));
     }

@@ -37,7 +37,7 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t 
   CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
   CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
   size_t num_proc = device_resources.get_node_count();
-  if (num_proc != total_rank) {
+  if (num_proc != (size_t)total_rank) {
     CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
   }
   if (total_gpu_count != (total_rank * local_gpu_count)) {

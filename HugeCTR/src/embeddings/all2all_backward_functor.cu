@@ -46,7 +46,7 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu, size_t
   CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
 
   size_t num_proc = device_resources.get_node_count();
-  if (num_proc != total_rank) {
+  if (num_proc != (size_t)total_rank) {
     CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
   }
   if (total_gpu_count != (total_rank * local_gpu_count)) {
@@ -147,9 +147,9 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu, size_t
   for (size_t i = 0; i < local_gpu_count; i++) {
     for (size_t j = 0; j < total_gpu_count; j++) {
       CK_NCCL_THROW_(ncclSend(src_pos[i][j], send_table[i][j], type, j,
-                              device_resources[i].get_nccl(), device_resources[i]->get_stream()));
+                              device_resources[i].get_nccl(), device_resources[i].get_stream()));
       CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j,
-                              device_resources[i].get_nccl(), device_resources[i]->get_stream()));
+                              device_resources[i].get_nccl(), device_resources[i].get_stream()));
     }
   }
   CK_NCCL_THROW_(ncclGroupEnd());
