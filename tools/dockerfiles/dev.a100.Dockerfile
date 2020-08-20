@@ -1,6 +1,6 @@
-FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04 AS devel
+FROM nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 AS devel
 
-ARG SM="60;61;70;75"
+ARG SM="60;61;70;75;80"
 
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -25,7 +25,8 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://
 ENV PATH=/usr/local/bin:$PATH
 
 # pip
-RUN pip3 install numpy pandas sklearn ortools tensorflow mpi4py
+RUN pip3 install --upgrade pip && \
+    pip3 install numpy pandas sklearn ortools tensorflow mpi4py
 
 # UCX version 1.8.0
 RUN apt-get update -y && \
@@ -64,17 +65,6 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://
     rm -rf /var/tmp/openmpi-4.0.3 /var/tmp/openmpi-4.0.3.tar.bz2
 ENV LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH \
     PATH=/usr/local/openmpi/bin:$PATH
-
-# NCCL
-RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/NVIDIA/nccl/archive/v2.7.6-1.tar.gz && \
-    mkdir -p /var/tmp && tar -x -f /var/tmp/v2.7.6-1.tar.gz -C /var/tmp -z && \
-    cd /var/tmp/nccl-2.7.6-1 && \
-    PREFIX=/usr/local/nccl make -j$(nproc) install && \
-    rm -rf /var/tmp/nccl-2.7.6-1 /var/tmp/v2.7.6-1.tar.gz
-ENV CPATH=/usr/local/nccl/include:$CPATH \
-    LD_LIBRARY_PATH=/usr/local/nccl/lib:$LD_LIBRARY_PATH \
-    LIBRARY_PATH=/usr/local/nccl/lib:$LIBRARY_PATH \
-    PATH=/usr/local/nccl/bin:$PATH
 
 RUN mkdir -p /opt/conda
 ENV CONDA_PREFIX=/opt/conda 
