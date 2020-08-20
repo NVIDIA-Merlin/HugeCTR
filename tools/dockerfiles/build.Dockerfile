@@ -1,6 +1,6 @@
-FROM nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04-rc
+FROM nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
 ARG CMAKE_BUILD_TYPE=Release
-ARG SM="60;61;70;75;80"
+ARG SM="70;75;80"
 ARG VAL_MODE=OFF
 ARG ENABLE_MULTINODES=OFF
 ARG NCCL_A2A=ON
@@ -36,10 +36,6 @@ RUN apt-get update -y && \
         python3-wheel && \
     rm -rf /var/lib/apt/lists/*
 RUN pip3 install numpy pandas sklearn ortools tensorflow 
-
-RUN cp /usr/local/cuda/lib64/libnccl*  /usr/lib/x86_64-linux-gnu/ && \
-    cp /usr/local/cuda-11.0/targets/x86_64-linux/include/nccl*.h  /usr/include && \
-    echo 'export PS1="\s \w\$ "' >>/etc/bash.bashrc
 
 RUN mkdir -p /opt/conda
 ENV CONDA_PREFIX=/opt/conda
