@@ -57,7 +57,7 @@ To build a docker image of **development environment** from the corresponding Do
 It will install the libraries and tools required to use HugeCTR.
 HugeCTR build itself must be done by yourself.
 ```shell
-$ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
+$ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile .
 ```
 Run with interaction mode (mount the home directory of repo into container for easy development and try):
 ```shell
