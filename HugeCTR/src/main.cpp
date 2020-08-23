@@ -78,7 +78,6 @@ void train(std::string config_file) {
 #ifndef VAL
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0);  // just 1 epoch
 
-    session_instance->set_train_stage();
     for (int i = 0; i < solver_config.max_iter; i++) {
       float lr = lr_sch->get_next();
       session_instance->set_learning_rate(lr);
@@ -95,8 +94,8 @@ void train(std::string config_file) {
         }
         if (pid == 0) {
           MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
-                   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                   "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+                   " iters): " + std::to_string(timer_train.elapsedSeconds()) + "s Loss: " +
+                   std::to_string(loss) + " lr:" + std::to_string(lr));
         }
         timer_train.start();
       }
@@ -107,7 +106,6 @@ void train(std::string config_file) {
 
       if ((solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0)) {
         session_instance->check_overflow();
-        session_instance->set_evaluate_stage();
 
         HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
                      float(i) / solver_config.max_iter);
@@ -155,14 +153,12 @@ void train(std::string config_file) {
 
         timer_eval.stop();
 
-        MESSAGE_("Eval Time for " + std::to_string(solver_config.eval_batches) +
-                 " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+        MESSAGE_("Eval Time for " + std::to_string(solver_config.eval_batches) + " iters: " +
+                 std::to_string(timer_eval.elapsedSeconds()) + "s");
 
         HugeCTR::LOG(
             timer_log.elapsedMilliseconds(), "eval_stop",
             float(i) / solver_config.max_iter);  // use iteration to calculate it's in which epoch
-
-        session_instance->set_train_stage();
       }
     }
 
@@ -180,7 +176,6 @@ void train(std::string config_file) {
     float loss = 0;
     bool start_test = false;
     int loop = 0;
-    session_instance->set_train_stage();
     for (int i = 0; i < solver_config.max_iter; i++) {
       float lr = lr_sch->get_next();
       session_instance->set_learning_rate(lr);
@@ -213,7 +208,6 @@ void train(std::string config_file) {
           std::cout << std::endl;
         }
         start_test = false;
-        session_instance->set_train_stage();
       }
       if (i != 0 && i % solver_config.eval_interval == 0) {
         start_test = true;
@@ -269,15 +263,15 @@ int main(int argc, char* argv[]) {
       }
       case CmdOptions_t::Version: {
         if (pid == 0) {
-          std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR << "." << HUGECTR_VERSION_PATCH
-                    << std::endl;
+          std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR
+                    << "." << HUGECTR_VERSION_PATCH << std::endl;
         }
         break;
       }
       case CmdOptions_t::Train: {
         if (pid == 0) {
-          std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR << "." << HUGECTR_VERSION_PATCH
-                    << std::endl;
+          std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR
+                    << "." << HUGECTR_VERSION_PATCH << std::endl;
         }
 
         if (argc != 3 && pid == 0) {

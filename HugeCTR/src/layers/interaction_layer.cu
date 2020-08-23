@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include <layers/interaction_layer.hpp>
-#include <common.hpp>
-#include <tensor.hpp>
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <mma.h>
-
+#include <common.hpp>
+#include <layers/interaction_layer.hpp>
 #include <type_traits>
+#include <utils.hpp>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -307,7 +306,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernelNon
   // Upstream gradient vector for interactions
   const half *gmem_ugrad_interactions = &gmem_ugrad[num_cols];
 
-  // upstream grad -> shared memory (place in input section temporarily)
+// upstream grad -> shared memory (place in input section temporarily)
 #pragma unroll
   for (uint idx = lane_id; idx < interaction_ugrad_size; idx += THREADS_IN_WARP) {
     smem_in[idx] = gmem_ugrad_interactions[idx];
@@ -457,7 +456,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
   // Upstream gradient vector for interactions
   const half *gmem_ugrad_interactions = &gmem_ugrad[num_cols];
 
-  // upstream grad -> shared memory (place in input section temporarily)
+// upstream grad -> shared memory (place in input section temporarily)
 #pragma unroll
   for (uint idx = lane_id; idx < (interaction_ugrad_size >> 3); idx += THREADS_IN_WARP) {
     ((float4 *)smem_in)[idx] = ((float4 *)gmem_ugrad_interactions)[idx];
@@ -610,21 +609,21 @@ inline void dotBasedInteractFwd(const void *bottom_mlp_input, const void *emb_in
   if (float4_predicate) {
     dotBasedInteractFwdKernel<warps_per_threadblock, threadblock_size, M_BLOCKS, K_BLOCKS,
                               SMEM_STRIDE, SMEM_STRIDE_ACC, kWarpSize, kWarpSizeLog2, kTileDim,
-                              kTileDimLog2>
-        <<<(batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
-           warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
-            (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
-            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
-            smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
+                              kTileDimLog2><<<
+        (batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
+        warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
+        (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
+        num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
+        smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
   } else {
     dotBasedInteractFwdKernelNonAligned<warps_per_threadblock, threadblock_size, M_BLOCKS, K_BLOCKS,
                                         SMEM_STRIDE, SMEM_STRIDE_ACC, kWarpSize, kWarpSizeLog2,
-                                        kTileDim, kTileDimLog2>
-        <<<(batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
-           warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
-            (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
-            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
-            smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
+                                        kTileDim, kTileDimLog2><<<
+        (batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
+        warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
+        (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
+        num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
+        smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
   }
 }
 
@@ -689,26 +688,25 @@ inline void dotBasedInteractBwd(void *upstream_grad, void *bottom_mlp_grad, void
 
   bool float4_predicate = !((interaction_ugrad_size_with_padding & 7) || (num_cols & 7));
   if (float4_predicate) {
-    dotBasedInteractBwdKernel<kWarpsPerBlock, kNumThreads, kRowTilesPerStep, kColTilesPerStep,
-                              kWarpSize, kWarpSizeLog2, kTileDim, kTileDimLog2>
-        <<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
-            (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
-            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
-            interaction_ugrad_size, interaction_ugrad_size_with_padding,
-            interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
-            input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
-            shared_mem_per_warp_size_byte);
+    dotBasedInteractBwdKernel<
+        kWarpsPerBlock, kNumThreads, kRowTilesPerStep, kColTilesPerStep, kWarpSize, kWarpSizeLog2,
+        kTileDim, kTileDimLog2><<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
+        (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
+        num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
+        interaction_ugrad_size, interaction_ugrad_size_with_padding,
+        interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
+        input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
+        shared_mem_per_warp_size_byte);
   } else {
-    dotBasedInteractBwdKernelNonAligned<kWarpsPerBlock, kNumThreads, kRowTilesPerStep,
-                                        kColTilesPerStep, kWarpSize, kWarpSizeLog2, kTileDim,
-                                        kTileDimLog2>
-        <<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
-            (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
-            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
-            interaction_ugrad_size, interaction_ugrad_size_with_padding,
-            interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
-            input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
-            shared_mem_per_warp_size_byte);
+    dotBasedInteractBwdKernelNonAligned<
+        kWarpsPerBlock, kNumThreads, kRowTilesPerStep, kColTilesPerStep, kWarpSize, kWarpSizeLog2,
+        kTileDim, kTileDimLog2><<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
+        (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
+        num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
+        interaction_ugrad_size, interaction_ugrad_size_with_padding,
+        interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
+        input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
+        shared_mem_per_warp_size_byte);
   }
 }
 
@@ -817,12 +815,11 @@ __global__ void gather_concat_bprop_kernel(const T *out, T *in0, T *mat, const i
 }  // anonymous namespace
 
 template <typename T>
-InteractionLayer<T>::InteractionLayer(std::shared_ptr<Tensor<T>> in_bottom_mlp_tensor,
-                                      std::shared_ptr<Tensor<T>> in_embeddings,
-                                      std::shared_ptr<Tensor<T>> &out_tensor,
-                                      const std::shared_ptr<GeneralBuffer<T>> &blobs_buff,
-                                      cublasHandle_t cublas_handle, bool use_mixed_precision,
-                                      int device_id)
+InteractionLayer<T>::InteractionLayer(
+    const Tensor2<T> &train_in_bottom_mlp_tensor, const Tensor2<T> &evaluate_in_bottom_mlp_tensor,
+    const Tensor2<T> &train_in_embeddings, const Tensor2<T> &evaluate_in_embeddings,
+    Tensor2<T> &out_tensor, const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
+    cublasHandle_t cublas_handle, bool use_mixed_precision, int device_id)
     : cublas_handle_(cublas_handle),
       use_mixed_precision_(use_mixed_precision),
       n_sms_(0),
@@ -830,15 +827,11 @@ InteractionLayer<T>::InteractionLayer(std::shared_ptr<Tensor<T>> in_bottom_mlp_t
   try {
     CudaDeviceContext context(get_device_id());
 
-    auto first_in_dims = in_bottom_mlp_tensor->get_dims();
-    auto second_in_dims = in_embeddings->get_dims();
+    auto first_in_dims = train_in_bottom_mlp_tensor.get_dimensions();
+    auto second_in_dims = train_in_embeddings.get_dimensions();
 
     if (first_in_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "Input Bottom MLP must be a 2D tensor");
-    }
-    if (in_bottom_mlp_tensor->get_format() != TensorFormat_t::HW ||
-        in_embeddings->get_format() != TensorFormat_t::HSW) {
-      CK_THROW_(Error_t::WrongInput, "TensorFormat_t is invalid");
     }
 
     if (second_in_dims.size() != 3) {
@@ -853,26 +846,38 @@ InteractionLayer<T>::InteractionLayer(std::shared_ptr<Tensor<T>> in_bottom_mlp_t
       CK_THROW_(Error_t::WrongInput, "the input tensors' widths must be the same");
     }
 
-    TensorFormat_t format = TensorFormat_t::HW;
-
     size_t n_ins = 1 + second_in_dims[1];
     if (std::is_same<T, __half>::value == false) {
       size_t concat_dims_width = first_in_dims[1] + second_in_dims[1] * second_in_dims[2];
       std::vector<size_t> concat_dims = {first_in_dims[0], concat_dims_width};
-      internal_tensors_.emplace_back(new Tensor<T>(concat_dims, blobs_buff, format));
-      std::vector<size_t> mat_dims = {first_in_dims[0], n_ins * n_ins};
-      internal_tensors_.emplace_back(new Tensor<T>(mat_dims, blobs_buff, format));
 
-      internal_tensors_.emplace_back(new Tensor<T>(concat_dims, blobs_buff, format));
+      {
+        Tensor2<T> tensor;
+        blobs_buff->reserve(concat_dims, &tensor);
+        internal_tensors_.push_back(tensor);
+      }
+      {
+        std::vector<size_t> mat_dims = {first_in_dims[0], n_ins * n_ins};
+        Tensor2<T> tensor;
+        blobs_buff->reserve(mat_dims, &tensor);
+        internal_tensors_.push_back(tensor);
+      }
+      {
+        Tensor2<T> tensor;
+        blobs_buff->reserve(concat_dims, &tensor);
+        internal_tensors_.push_back(tensor);
+      }
     }
 
     int concat_len = n_ins * (n_ins + 1) / 2 - n_ins;
     std::vector<size_t> out_dims = {first_in_dims[0], first_in_dims[1] + concat_len + 1};
-    out_tensor.reset(new Tensor<T>(out_dims, blobs_buff, format));
+    blobs_buff->reserve(out_dims, &out_tensor);
 
-    in_tensors_.emplace_back(in_bottom_mlp_tensor);
-    in_tensors_.emplace_back(in_embeddings);
-    out_tensors_.emplace_back(out_tensor);
+    train_in_tensors_.push_back(train_in_bottom_mlp_tensor);
+    train_in_tensors_.push_back(train_in_embeddings);
+    evaluate_in_tensors_.push_back(evaluate_in_bottom_mlp_tensor);
+    evaluate_in_tensors_.push_back(evaluate_in_embeddings);
+    out_tensors_.push_back(out_tensor);
 
     int device = get_device_id();
     CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device));
@@ -888,18 +893,18 @@ template <typename T>
 InteractionLayer<T>::~InteractionLayer(){};
 
 template <typename T>
-void InteractionLayer<T>::fprop(cudaStream_t stream) {
+void InteractionLayer<T>::fprop(bool is_train, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   // phase 0: concat
-  T *concat = internal_tensors_[0]->get_ptr();
-  T *in_mlp = in_tensors_[0]->get_ptr();
-  T *in_emb = in_tensors_[1]->get_ptr();
-  const int h = internal_tensors_[0]->get_dims()[0];
-  const int out_w = internal_tensors_[0]->get_dims()[1];
-  const int in_w = in_tensors_[0]->get_dims()[1];
-  const int n_emb = in_tensors_[1]->get_dims()[1];
+  T *concat = internal_tensors_[0].get_ptr();
+  T *in_mlp = get_in_tensors(is_train)[0].get_ptr();
+  T *in_emb = get_in_tensors(is_train)[1].get_ptr();
+  const int h = internal_tensors_[0].get_dimensions()[0];
+  const int out_w = internal_tensors_[0].get_dimensions()[1];
+  const int in_w = get_in_tensors(is_train)[0].get_dimensions()[1];
+  const int n_emb = get_in_tensors(is_train)[1].get_dimensions()[1];
   const int n_ins = 1 + n_emb;
 
   dim3 grid0(n_ins, n_sms_, 1);
@@ -908,7 +913,7 @@ void InteractionLayer<T>::fprop(cudaStream_t stream) {
 
   // phase 1: matmul
   const int batch_count = h;
-  T *mat = internal_tensors_[1]->get_ptr();
+  T *mat = internal_tensors_[1].get_ptr();
   const int m = n_ins;
   const int n = n_ins;
   const int k = in_w;
@@ -931,8 +936,8 @@ void InteractionLayer<T>::fprop(cudaStream_t stream) {
                                               batch_count, compute_type, algo));
 
   // phase 2: gather & concat
-  T *in0 = in_tensors_[0]->get_ptr();
-  T *gather = out_tensors_[0]->get_ptr();
+  T *in0 = get_in_tensors(is_train)[0].get_ptr();
+  T *gather = out_tensors_[0].get_ptr();
 
   dim3 grid1(n_sms_ * 8, 1, 1);
   dim3 block1(16, 16, 1);
@@ -947,18 +952,18 @@ void InteractionLayer<T>::fprop(cudaStream_t stream) {
 }
 
 template <>
-void InteractionLayer<__half>::fprop(cudaStream_t stream) {
+void InteractionLayer<__half>::fprop(bool is_train, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   // __half* concat = internal_tensors_[0]->get_ptr();
-  __half *in_mlp = in_tensors_[0]->get_ptr();
-  __half *in_emb = in_tensors_[1]->get_ptr();
-  __half *output = out_tensors_[0]->get_ptr();
-  const int h = in_tensors_[0]->get_dims()[0];
+  __half *in_mlp = get_in_tensors(is_train)[0].get_ptr();
+  __half *in_emb = get_in_tensors(is_train)[1].get_ptr();
+  __half *output = out_tensors_[0].get_ptr();
+  const int h = get_in_tensors(is_train)[0].get_dimensions()[0];
   // const int out_w = internal_tensors_[0]->get_dims()[1];
-  const int in_w = in_tensors_[0]->get_dims()[1];
-  const int n_emb = in_tensors_[1]->get_dims()[1];
+  const int in_w = get_in_tensors(is_train)[0].get_dimensions()[1];
+  const int n_emb = get_in_tensors(is_train)[1].get_dimensions()[1];
   const int n_ins = 1 + n_emb;
 
   // dim3 grid0(n_ins, n_sms_, 1);
@@ -981,12 +986,12 @@ void InteractionLayer<T>::bprop(cudaStream_t stream) {
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   // phase 0:
-  T *gather = out_tensors_[0]->get_ptr();
-  T *in0 = in_tensors_[0]->get_ptr();
-  T *mat = internal_tensors_[1]->get_ptr();
-  const int h = internal_tensors_[0]->get_dims()[0];
-  const int n_ins = 1 + in_tensors_[1]->get_dims()[1];
-  const int in_w = in_tensors_[0]->get_dims()[1];
+  T *gather = out_tensors_[0].get_ptr();
+  T *in0 = get_in_tensors(true)[0].get_ptr();
+  T *mat = internal_tensors_[1].get_ptr();
+  const int h = internal_tensors_[0].get_dimensions()[0];
+  const int n_ins = 1 + get_in_tensors(true)[1].get_dimensions()[1];
+  const int in_w = get_in_tensors(true)[0].get_dimensions()[1];
 
   dim3 grid1(n_sms_ * 8, 1, 1);
   dim3 block1(16, 16, 1);
@@ -996,8 +1001,8 @@ void InteractionLayer<T>::bprop(cudaStream_t stream) {
 
   // phase 1:
   const int batch_count = h;
-  T *concat = internal_tensors_[0]->get_ptr();
-  T *concat_tmp = internal_tensors_[2]->get_ptr();
+  T *concat = internal_tensors_[0].get_ptr();
+  T *concat_tmp = internal_tensors_[2].get_ptr();
   const int m = n_ins;
   const int n = in_w;
   const int k = n_ins;
@@ -1028,10 +1033,10 @@ void InteractionLayer<T>::bprop(cudaStream_t stream) {
                                               batch_count, compute_type, algo));
 
   // phase 2:
-  T *in_mlp = in_tensors_[0]->get_ptr();
-  T *in_emb = in_tensors_[1]->get_ptr();
-  const int out_w = internal_tensors_[0]->get_dims()[1];
-  const int n_emb = in_tensors_[1]->get_dims()[1];
+  T *in_mlp = get_in_tensors(true)[0].get_ptr();
+  T *in_emb = get_in_tensors(true)[1].get_ptr();
+  const int out_w = internal_tensors_[0].get_dimensions()[1];
+  const int n_emb = get_in_tensors(true)[1].get_dimensions()[1];
 
   dim3 grid0(n_ins, n_sms_, 1);
   dim3 block0(((in_w <= 128) ? 128 : ((in_w <= 256) ? 256 : 512)), 1, 1);
@@ -1049,23 +1054,23 @@ void InteractionLayer<__half>::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
-  __half *up_grad = out_tensors_[0]->get_ptr();
-  __half *mlp_grad = in_tensors_[0]->get_ptr();
-  __half *emb_grad = in_tensors_[1]->get_ptr();
+  __half *up_grad = out_tensors_[0].get_ptr();
+  __half *mlp_grad = get_in_tensors(true)[0].get_ptr();
+  __half *emb_grad = get_in_tensors(true)[1].get_ptr();
   // __half* out_grad  = internal_tensors_[2]->get_ptr();
-  const int h = in_tensors_[0]->get_dims()[0];
-  const int n_emb = in_tensors_[1]->get_dims()[1];
+  const int h = get_in_tensors(true)[0].get_dimensions()[0];
+  const int n_emb = get_in_tensors(true)[1].get_dimensions()[1];
   const int n_ins = 1 + n_emb;
-  const int in_w = in_tensors_[0]->get_dims()[1];
+  const int in_w = get_in_tensors(true)[0].get_dimensions()[1];
   // const int out_w = internal_tensors_[0]->get_dims()[1];
 
   dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, stream);
 
-  // dim3 grid0(n_ins, n_sms_, 1);
-  // dim3 block0(((in_w <= 128)? 128 : ((in_w <= 256)? 256 : 512)), 1, 1);
-  // concat_kernel<<<grid0, block0, 0, stream>>>(false, out_grad, mlp_grad, emb_grad,
-  //                                             h, out_w,
-  //                                             in_w, n_emb);
+// dim3 grid0(n_ins, n_sms_, 1);
+// dim3 block0(((in_w <= 128)? 128 : ((in_w <= 256)? 256 : 512)), 1, 1);
+// concat_kernel<<<grid0, block0, 0, stream>>>(false, out_grad, mlp_grad, emb_grad,
+//                                             h, out_w,
+//                                             in_w, n_emb);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

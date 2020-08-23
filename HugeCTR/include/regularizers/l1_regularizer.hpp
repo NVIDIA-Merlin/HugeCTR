@@ -16,12 +16,10 @@
 
 #pragma once
 
-#include <regularizer.hpp>
 #include <common.hpp>
-#include <general_buffer.hpp>
-#include <tensor.hpp>
-#include <utils.hpp>
 #include <memory>
+#include <regularizer.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 
@@ -38,9 +36,9 @@ class L1Regularizer : public Regularizer<T> {
    * @param batch_size Network batch size
    * @param device_id Device to be used
    */
-  L1Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff, const int batch_size,
-                const float lambda, cublasHandle_t cublas_handle, const int device_id);
+  L1Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
+                const int batch_size, const float lambda, cublasHandle_t cublas_handle,
+                const int device_id);
 
   /*
    * Destructor of L1Regularizer

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <session.hpp>
 #include <nvToolsExt.h>
-#include <embedding.hpp>
-#include <utils.hpp>
 #include <algorithm>
+#include <embedding.hpp>
 #include <random>
+#include <session.hpp>
 #include <string>
+#include <utils.hpp>
 
 // #define DATA_READING_TEST
 
@@ -101,7 +101,7 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
                 solver_config.use_algorithm_search);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_,
-                         networks_eval_, gpu_resource_group_);
+                         gpu_resource_group_);
 
   // init networks.
   std::string TMP_DENSE_NAME;
@@ -229,7 +229,7 @@ void SessionImpl<TypeKey>::train() {
 #ifndef DATA_READING_TEST
     data_reader_->read_a_batch_to_device_delay_release();
     for (auto& one_embedding : embedding_) {
-      one_embedding->forward();
+      one_embedding->forward(true);
     }
     data_reader_->ready_to_collect();
     if (networks_.size() > 1) {
@@ -269,7 +269,7 @@ void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
     n->eval();
 
     for (auto& metric : metrics) {
-      metric->local_reduce(n->get_raw_metrics());
+      metric->local_reduce(n->get_device_id(), n->get_raw_metrics());
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -289,27 +289,27 @@ void SessionImpl<TypeKey>::eval() {
 
 #ifndef DATA_READING_TEST
     for (auto& one_embedding : embedding_) {
-      one_embedding->forward();
+      one_embedding->forward(false);
     }
 
-    if (networks_eval_.size() > 1) {
-      std::vector<std::future<void>> results(networks_eval_.size());
-      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
+    if (networks_.size() > 1) {
+      std::vector<std::future<void>> results(networks_.size());
+      for (unsigned int i = 0; i < networks_.size(); i++) {
         results[i] = gpu_resource_group_->get_thread_pool().push(
-            [this, i](int id) { network_eval_helper(id, networks_eval_[i].get(), metrics_); });
+            [this, i](int id) { network_eval_helper(id, networks_[i].get(), metrics_); });
       }
-      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
+      for (unsigned int i = 0; i < networks_.size(); i++) {
         results[i].get();
       }
-    } else if (networks_eval_.size() == 1) {
-      network_eval_helper(0, networks_eval_[0].get(), metrics_);
+    } else if (networks_.size() == 1) {
+      network_eval_helper(0, networks_[0].get(), metrics_);
     } else {
-      assert(!"networks_eval_.size() should not less than 1.");
+      assert(!"networks_.size() should not less than 1.");
     }
 #endif
 
     for (auto& metric : metrics_) {
-      metric->global_reduce(networks_eval_.size());
+      metric->global_reduce(networks_.size());
     }
 
   } catch (const internal_runtime_error& err) {
@@ -418,20 +418,6 @@ Error_t SessionImpl<TypeKey>::get_current_loss(float* loss) {
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
-}
-
-template <typename TypeKey>
-void SessionImpl<TypeKey>::set_train_stage() {
-for (auto& one_embedding : embedding_) {
-    one_embedding->train();
-  }
-}
-
-template <typename TypeKey>
-void SessionImpl<TypeKey>::set_evaluate_stage() {
-for (auto& one_embedding : embedding_) {
-    one_embedding->evaluate();
-  }
 }
 
 template <typename TypeKey>

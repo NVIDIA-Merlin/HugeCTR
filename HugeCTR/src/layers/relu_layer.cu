@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-
+#include <algorithm>
+#include <functional>
+#include <include/utils.cuh>
+#include <layers/element_wise_function.hpp>
+#include <layers/relu_layer.hpp>
 #include <linalg/binary_op.cuh>
 #include <linalg/unary_op.cuh>
-#include <algorithm>
-#include <functional>
-#include <layers/relu_layer.hpp>
-#include <layers/element_wise_function.hpp>
-#include <include/utils.cuh>
-#include <algorithm>
-#include <functional>
 #include <utils.hpp>
 
 #ifndef NDEBUG
@@ -33,25 +30,24 @@
 namespace HugeCTR {
 
 template <typename T>
-ReluLayer<T>::ReluLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
-                        const std::shared_ptr<Tensor<T>>& out_tensor, int device_id)
+ReluLayer<T>::ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, int device_id)
     : Layer(device_id) {
-  assert(get_size_from_dims(in_tensor->get_dims()) == get_size_from_dims(out_tensor->get_dims()));
-  assert(get_size_from_dims(in_tensor->get_dims()) % 2 == 0);
+  assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
+  assert(in_tensor.get_num_elements() % 2 == 0);
 
-  in_tensors_.emplace_back(in_tensor);
-  out_tensors_.emplace_back(out_tensor);
+  in_tensors_.push_back(in_tensor);
+  out_tensors_.push_back(out_tensor);
 }
 
 template <typename T>
-void ReluLayer<T>::fprop(cudaStream_t stream) {
+void ReluLayer<T>::fprop(bool is_train, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
-  int len = in_tensors_[0]->get_num_elements();
+  int len = in_tensors_[0].get_num_elements();
 
   auto fop = [] __device__(T in) { return (in > T(0)) ? in : T(0); };
 
-  MLCommon::LinAlg::unaryOp(out_tensors_[0]->get_ptr(), in_tensors_[0]->get_ptr(), len, fop, stream);
+  MLCommon::LinAlg::unaryOp(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), len, fop, stream);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -63,11 +59,12 @@ template <typename T>
 void ReluLayer<T>::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
-  int len = in_tensors_[0]->get_num_elements();
+  int len = in_tensors_[0].get_num_elements();
 
   auto bop = [] __device__(T d_out, T d_in) { return (d_in > T(0)) ? d_out : T(0); };
 
-  MLCommon::LinAlg::binaryOp(in_tensors_[0]->get_ptr(), out_tensors_[0]->get_ptr(), in_tensors_[0]->get_ptr(), len, bop, stream);
+  MLCommon::LinAlg::binaryOp(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(),
+                             in_tensors_[0].get_ptr(), len, bop, stream);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

@@ -266,24 +266,27 @@ void forward_mean(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::forward_per_gpu(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner, bool train,
-    const TypeHashKey *row_offset, const TypeHashKey *hash_key, size_t nnz,
-    HashTable<TypeHashKey, size_t> &hash_table, const float *hash_table_value,
-    size_t *hash_value_index, TypeEmbeddingComp *embedding_feature, cudaStream_t stream) {
+    const Tensor2<TypeHashKey> &row_offset, const Tensor2<TypeHashKey> &hash_key, size_t nnz,
+    HashTable<TypeHashKey, size_t> &hash_table, const Tensor2<float> &hash_table_value,
+    Tensor2<size_t> &hash_value_index, Tensor2<TypeEmbeddingComp> &embedding_feature,
+    cudaStream_t stream) {
   try {
     // get hash_value_index from hash_table by hash_key
     if (train) {
-      hash_table.get_insert(hash_key, hash_value_index, nnz, stream);
+      hash_table.get_insert(hash_key.get_ptr(), hash_value_index.get_ptr(), nnz, stream);
     } else {
-      hash_table.get(hash_key, hash_value_index, nnz, stream);
+      hash_table.get(hash_key.get_ptr(), hash_value_index.get_ptr(), nnz, stream);
     }
 
     // do sum reduction
     if (combiner == 0) {
-      forward_sum(batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
-                  hash_table_value, embedding_feature, stream);
+      forward_sum(batch_size, slot_num, embedding_vec_size, row_offset.get_ptr(),
+                  hash_value_index.get_ptr(), hash_table_value.get_ptr(),
+                  embedding_feature.get_ptr(), stream);
     } else if (combiner == 1) {
-      forward_mean(batch_size, slot_num, embedding_vec_size, row_offset, hash_value_index,
-                   hash_table_value, embedding_feature, stream);
+      forward_mean(batch_size, slot_num, embedding_vec_size, row_offset.get_ptr(),
+                   hash_value_index.get_ptr(), hash_table_value.get_ptr(),
+                   embedding_feature.get_ptr(), stream);
     } else {
       CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
     }
@@ -297,26 +300,26 @@ void SparseEmbeddingFunctors::forward_per_gpu(
 
 template void SparseEmbeddingFunctors::forward_per_gpu<unsigned int, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner, bool train,
-    const unsigned int *row_offset, const unsigned int *hash_key, size_t nnz,
-    HashTable<unsigned int, size_t> &hash_table, const float *hash_table_value,
-    size_t *hash_value_index, float *embedding_feature, cudaStream_t stream);
+    const Tensor2<unsigned int> &row_offset, const Tensor2<unsigned int> &hash_key, size_t nnz,
+    HashTable<unsigned int, size_t> &hash_table, const Tensor2<float> &hash_table_value,
+    Tensor2<size_t> &hash_value_index, Tensor2<float> &embedding_feature, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::forward_per_gpu<long long, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner, bool train,
-    const long long *row_offset, const long long *hash_key, size_t nnz,
-    HashTable<long long, size_t> &hash_table, const float *hash_table_value,
-    size_t *hash_value_index, float *embedding_feature, cudaStream_t stream);
+    const Tensor2<long long> &row_offset, const Tensor2<long long> &hash_key, size_t nnz,
+    HashTable<long long, size_t> &hash_table, const Tensor2<float> &hash_table_value,
+    Tensor2<size_t> &hash_value_index, Tensor2<float> &embedding_feature, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::forward_per_gpu<unsigned int, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner, bool train,
-    const unsigned int *row_offset, const unsigned int *hash_key, size_t nnz,
-    HashTable<unsigned int, size_t> &hash_table, const float *hash_table_value,
-    size_t *hash_value_index, __half *embedding_feature, cudaStream_t stream);
+    const Tensor2<unsigned int> &row_offset, const Tensor2<unsigned int> &hash_key, size_t nnz,
+    HashTable<unsigned int, size_t> &hash_table, const Tensor2<float> &hash_table_value,
+    Tensor2<size_t> &hash_value_index, Tensor2<__half> &embedding_feature, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::forward_per_gpu<long long, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner, bool train,
-    const long long *row_offset, const long long *hash_key, size_t nnz,
-    HashTable<long long, size_t> &hash_table, const float *hash_table_value,
-    size_t *hash_value_index, __half *embedding_feature, cudaStream_t stream);
+    const Tensor2<long long> &row_offset, const Tensor2<long long> &hash_key, size_t nnz,
+    HashTable<long long, size_t> &hash_table, const Tensor2<float> &hash_table_value,
+    Tensor2<size_t> &hash_value_index, Tensor2<__half> &embedding_feature, cudaStream_t stream);
 
 }  // namespace HugeCTR

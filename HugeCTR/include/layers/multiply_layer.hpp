@@ -38,15 +38,15 @@ class MultiplyLayer : public Layer {
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors2<float> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  Tensors2<float> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  Tensors2<float> out_tensors_;
 
  public:
   /**
@@ -55,12 +55,11 @@ class MultiplyLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  MultiplyLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-                const std::shared_ptr<GeneralBuffer<float>>& blob_buff,
-                const std::shared_ptr<Tensor<float>>& in_tensor,
-                std::shared_ptr<Tensor<float>>& out_tensor, const std::vector<size_t>& weight_dims,
-                int device_id,
+  MultiplyLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
+                const Tensor2<float>& in_tensor, Tensor2<float>& out_tensor,
+                const std::vector<size_t>& weight_dims, int device_id,
                 std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   ~MultiplyLayer() override{};
 
@@ -68,7 +67,7 @@ class MultiplyLayer : public Layer {
    * MultiplyLayer's foward propagation to do element-wise production
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train, cudaStream_t stream) override;
   /**
    * MultiplyLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
@@ -84,8 +83,7 @@ class MultiplyLayer : public Layer {
   size_t batch_size_;
   size_t slot_num_;
   size_t embedding_vec_size_;
-  std::shared_ptr<GeneralBuffer<float>> internal_buff_;
-  std::unique_ptr<Tensor<float>> wgrad_tmp_trans_;
+  Tensor2<float> wgrad_tmp_trans_;
 };
 
 }  // namespace HugeCTR

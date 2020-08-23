@@ -15,14 +15,14 @@
  */
 
 #include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/tensor.hpp"
-#include "HugeCTR/include/pinned_buffer.hpp"
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/device_buffer.hpp>
 #include <cstring>
 #include <inttypes.h>
 #include <cub/cub/cub.cuh>
 #include <deque>
+#include <vector>
+
 namespace HugeCTR {
 
   __device__ __forceinline__ unsigned int __mylaneid() {

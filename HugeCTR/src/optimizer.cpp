@@ -27,12 +27,9 @@
 namespace HugeCTR {
 
 template <typename T>
-std::unique_ptr<Optimizer> Optimizer::Create(const OptParams<T>& params,
-                                             const GeneralBufferPtr<float>& weight_main,
-                                             const GeneralBufferPtr<float>& wgrad,
-                                             const GeneralBufferPtr<__half>& wgrad_half,
-                                             bool mixed_precision, const float scaler,
-                                             int device_id) {
+std::unique_ptr<Optimizer> Optimizer::Create(
+    const OptParams<T>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
+    const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler, int device_id) {
   std::unique_ptr<Optimizer> ret;
 
   switch (params.optimizer) {
@@ -72,13 +69,11 @@ std::unique_ptr<Optimizer> Optimizer::Create(const OptParams<T>& params,
 }
 
 template std::unique_ptr<Optimizer> Optimizer::Create<float>(
-    const OptParams<float>& params, const GeneralBufferPtr<float>& weight_main,
-    const GeneralBufferPtr<float>& wgrad, const GeneralBufferPtr<__half>& wgrad_half,
-    bool mixed_precision, const float scaler, int device_id);
+    const OptParams<float>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
+    const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler, int device_id);
 
 template std::unique_ptr<Optimizer> Optimizer::Create<__half>(
-    const OptParams<__half>& params, const GeneralBufferPtr<float>& weight_main,
-    const GeneralBufferPtr<float>& wgrad, const GeneralBufferPtr<__half>& wgrad_half,
-    bool mixed_precision, const float scaler, int device_id);
+    const OptParams<__half>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
+    const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler, int device_id);
 
 }  // end namespace HugeCTR

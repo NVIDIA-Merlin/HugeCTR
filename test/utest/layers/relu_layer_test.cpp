@@ -17,7 +17,6 @@
 #include "HugeCTR/include/layers/relu_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -38,7 +37,7 @@ void relu_cpu(T* top, const T* bottom, int len) {
     } else {
       top[i] = T(0.);
     }
-  }  
+  }
 }
 
 template <typename T>
@@ -49,16 +48,20 @@ void relu_bprop_cpu(T* d_bottom, const T* d_top, const T* bottom, int len) {
     } else {
       d_bottom[i] = T(0.);
     }
-  }  
+  }
 }
 
 template <typename T>
 void relu_test(size_t dim0, size_t dim1) {
-  shared_ptr<GeneralBuffer<T>> buf(new GeneralBuffer<T>());
+  shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
   vector<size_t> dims = {dim0, dim1};
-  shared_ptr<Tensor<T>> bottom_tensor(new Tensor<T>(dims, buf));
-  shared_ptr<Tensor<T>> top_tensor(new Tensor<T>(dims, buf));
-  buf->init(0);
+
+  Tensor2<T> bottom_tensor;
+  buf->reserve(dims, &bottom_tensor);
+  Tensor2<T> top_tensor;
+  buf->reserve(dims, &top_tensor);
+
+  buf->allocate();
 
   const size_t len = dim0 * dim1;
 
@@ -76,9 +79,9 @@ void relu_test(size_t dim0, size_t dim1) {
   // fprop
 
   ReluLayer<T> relu_layer(bottom_tensor, top_tensor, 0);
-  cudaMemcpy(bottom_tensor->get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice);
-  relu_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(d2h_top.get(), top_tensor->get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost);
+  cudaMemcpy(bottom_tensor.get_ptr(), h_bottom.get(), len * sizeof(T), cudaMemcpyHostToDevice);
+  relu_layer.fprop(true, cudaStreamDefault);
+  cudaMemcpy(d2h_top.get(), top_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost);
 
   relu_cpu<T>(h_top.get(), h_bottom.get(), len);
   ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, eps));
@@ -87,9 +90,9 @@ void relu_test(size_t dim0, size_t dim1) {
   for (size_t i = 0; i < len; ++i) {
     h_top[i] = simulator.get_num();
   }
-  cudaMemcpy(top_tensor->get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice);
+  cudaMemcpy(top_tensor.get_ptr(), h_top.get(), len * sizeof(T), cudaMemcpyHostToDevice);
   relu_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor->get_ptr(), len * sizeof(T),
+  cudaMemcpy(d2h_bottom_grad.get(), bottom_tensor.get_ptr(), len * sizeof(T),
              cudaMemcpyDeviceToHost);
 
   relu_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_bottom.get(), len);
@@ -98,14 +101,9 @@ void relu_test(size_t dim0, size_t dim1) {
 
 }  // namespace
 
-TEST(relu_layer, fp32_fprop_and_bprop) {
-  relu_test<float>(10, 20);
-  relu_test<float>(10, 500);
-  relu_test<float>(512, 1024 * 2);
-}
-
-TEST(relu_layer, fp16_fprop_and_bprop) {
-  relu_test<__half>(10, 20);
-  relu_test<__half>(10, 500);
-  relu_test<__half>(512, 1024 * 2);
-}
+TEST(relu_layer, fp32_10x20) { relu_test<float>(10, 20); }
+TEST(relu_layer, fp32_10x500) { relu_test<float>(10, 500); }
+TEST(relu_layer, fp32_512x2048) { relu_test<float>(512, 1024 * 2); }
+TEST(relu_layer, fp16_10x20) { relu_test<__half>(10, 20); }
+TEST(relu_layer, fp16_10x500) { relu_test<__half>(10, 500); }
+TEST(relu_layer, fp16_512x2048) { relu_test<__half>(512, 1024 * 2); }

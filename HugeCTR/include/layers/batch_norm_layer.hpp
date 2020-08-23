@@ -16,10 +16,9 @@
 
 #pragma once
 
-#include <layer.hpp>
-#include <general_buffer.hpp>
-#include <tensor.hpp>
 #include <cudnn.h>
+#include <general_buffer2.hpp>
+#include <layer.hpp>
 #include <memory>
 
 namespace HugeCTR {
@@ -35,15 +34,15 @@ class BatchNormLayer : public Layer {
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors2<float> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  Tensors2<float> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  Tensors2<float> out_tensors_;
 
  public:
   /**
@@ -64,11 +63,11 @@ class BatchNormLayer : public Layer {
    * @param cudnn_handle cuDNN handle created externally
    * @param device_id the id of GPU where this layer belongs
    */
-  BatchNormLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                 const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-                 const std::shared_ptr<Tensor<float>>& in_tensor,
-                 const std::shared_ptr<Tensor<float>>& out_tensor, const Params& params,
-                 cudnnHandle_t const& cudnn_handle, int device_id,
+  BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                 const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
+                 const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
+                 const Params& params, cudnnHandle_t const& cudnn_handle, int device_id,
                  std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   ~BatchNormLayer() override;
 
@@ -76,17 +75,12 @@ class BatchNormLayer : public Layer {
    * A method of implementing the forward pass of BatchNorm
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train, cudaStream_t stream) override;
   /**
    * A method of implementing the forward pass of BatchNorm
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
-  /*
-   * Inference pass
-   * @param stream: the CUDA stream that the forward function will be executed on.
-   */
-  void inference(cudaStream_t stream) override;
 
   /**
    * A method to get mean and variance which are needed for inference as string.
@@ -111,21 +105,21 @@ class BatchNormLayer : public Layer {
 
   // these four pointers are just for convenience
   // they are deleted by Layer d'tor through the other pointer aliases: weight_ and wgrad_
-  std::shared_ptr<Tensor<float>> gamma_;
-  std::shared_ptr<Tensor<float>> beta_;
-  std::shared_ptr<Tensor<float>> gamma_grad_;
-  std::shared_ptr<Tensor<float>> beta_grad_;
+  Tensor2<float> gamma_;
+  Tensor2<float> beta_;
+  Tensor2<float> gamma_grad_;
+  Tensor2<float> beta_grad_;
 
   // these tensors are internal only managed by smart ptrs
-  std::unique_ptr<Tensor<float>> temp_in_tensor_;
-  std::unique_ptr<Tensor<float>> result_running_mean_;
-  std::unique_ptr<Tensor<float>> result_running_var_;
-  std::unique_ptr<Tensor<float>> result_save_mean_;
-  std::unique_ptr<Tensor<float>> result_save_inv_var_;
+  Tensor2<float> temp_in_tensor_;
+  Tensor2<float> result_running_mean_;
+  Tensor2<float> result_running_var_;
+  Tensor2<float> result_save_mean_;
+  Tensor2<float> result_save_inv_var_;
 
   // host array to do device-to-host copy for mean and var
-  std::unique_ptr<float[]> h_result_running_mean_;
-  std::unique_ptr<float[]> h_result_running_var_;
+  Tensor2<float> h_result_running_mean_;
+  Tensor2<float> h_result_running_var_;
 };
 
 }  // namespace HugeCTR

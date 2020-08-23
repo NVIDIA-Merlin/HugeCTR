@@ -18,12 +18,12 @@
 
 #include <assert.h>
 #include <cublas_v2.h>
+#include <config.hpp>
 #include <ctime>
 #include <exception>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
-#include <config.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -63,8 +63,6 @@ enum class Error_t {
 
 enum class Check_t { Sum, None };
 
-enum class Tensor_t { FP16, FP32, FP64, INT32, INT64, UINT32, UINT64 };
-
 enum class DataReaderSparse_t { Distributed, Localized };
 
 enum class DataReaderType_t { Norm, Raw, Parquet };
@@ -103,12 +101,6 @@ class internal_runtime_error : public std::runtime_error {
    */
   internal_runtime_error(Error_t err, std::string str)
       : runtime_error("[HCDEBUG][ERROR] " + str), err_(err) {}
-};
-
-enum class TensorFormat_t {
-  WH,  // column major
-  HW,  // row major
-  HSW
 };
 
 enum class LrPolicy_t { fixed };

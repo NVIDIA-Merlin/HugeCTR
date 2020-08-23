@@ -111,56 +111,69 @@ __global__ void forward_sum_fuse_align2_kernel(
   }
 }
 
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void forward_fuse(size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
+                  size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size,
+                  const TypeHashKey *row_offset, const size_t *hash_value_index,
+                  const float *hash_table_value, TypeEmbeddingComp **embedding_features,
+                  size_t sm_count, cudaStream_t stream) {
+  const size_t block_size = embedding_vec_size;
+  int maxActiveBlocks;
+  CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      &maxActiveBlocks, forward_sum_fuse_kernel<TypeHashKey, TypeEmbeddingComp>, block_size, 0));
+  const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
+
+  forward_sum_fuse_kernel<<<grid_size, block_size, 0, stream>>>(
+      id, local_gpu_count, batch_size, batch_size_per_gpu, slot_num, slot_num_per_gpu,
+      embedding_vec_size, row_offset, hash_value_index, hash_table_value, embedding_features);
+}
+
+template <typename TypeHashKey>
+void forward_fuse(size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
+                  size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size,
+                  const TypeHashKey *row_offset, const size_t *hash_value_index,
+                  const float *hash_table_value, __half **embedding_features, size_t sm_count,
+                  cudaStream_t stream) {
+  if (embedding_vec_size % 2 == 0) {
+    const size_t block_size = embedding_vec_size / 2;
+    int maxActiveBlocks;
+    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &maxActiveBlocks, forward_sum_fuse_align2_kernel<TypeHashKey>, block_size, 0));
+    const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
+
+    forward_sum_fuse_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+        id, local_gpu_count, batch_size, batch_size_per_gpu, slot_num, slot_num_per_gpu,
+        embedding_vec_size / 2, row_offset, hash_value_index, hash_table_value, embedding_features);
+
+  } else {
+    const size_t block_size = embedding_vec_size;
+    int maxActiveBlocks;
+    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &maxActiveBlocks, forward_sum_fuse_kernel<TypeHashKey, __half>, block_size, 0));
+    const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
+
+    forward_sum_fuse_kernel<<<grid_size, block_size, 0, stream>>>(
+        id, local_gpu_count, batch_size, batch_size_per_gpu, slot_num, slot_num_per_gpu,
+        embedding_vec_size, row_offset, hash_value_index, hash_table_value, embedding_features);
+  }
+}
+
 }  // namespace
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::forward_fuse_per_gpu(
     size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
     size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size, int combiner,
-    const TypeHashKey *row_offset, const size_t *hash_value_index, const float *hash_table_value,
-    TypeEmbeddingComp **embedding_features, size_t sm_count, cudaStream_t stream) {
-  int maxActiveBlocks;
-  void *func;
-  size_t embedding_vec_size_opt;
+    const Tensor2<TypeHashKey> &row_offset, const Tensor2<size_t> &hash_value_index,
+    const Tensor2<float> &hash_table_value, Tensor2<TypeEmbeddingComp *> &embedding_features,
+    size_t sm_count, cudaStream_t stream) {
+  if (combiner == 0) {
+    forward_fuse(id, local_gpu_count, batch_size, batch_size_per_gpu, slot_num, slot_num_per_gpu,
+                 embedding_vec_size, row_offset.get_ptr(), hash_value_index.get_ptr(),
+                 hash_table_value.get_ptr(), embedding_features.get_ptr(), sm_count, stream);
 
-  if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
-    embedding_vec_size_opt = embedding_vec_size / 2;
-    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &maxActiveBlocks, forward_sum_fuse_align2_kernel<TypeHashKey>, embedding_vec_size_opt, 0));
-    func = (void *)forward_sum_fuse_align2_kernel<TypeHashKey>;
   } else {
-    embedding_vec_size_opt = embedding_vec_size;
-    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &maxActiveBlocks, forward_sum_fuse_kernel<TypeHashKey, TypeEmbeddingComp>,
-        embedding_vec_size_opt, 0));
-    func = (void *)forward_sum_fuse_kernel<TypeHashKey, TypeEmbeddingComp>;
-  }
-
-  const size_t block_size = embedding_vec_size_opt;
-  const size_t grid_size = min(batch_size, static_cast<size_t>(sm_count * maxActiveBlocks));
-
-  void *kargs[11];
-  kargs[0] = (void *)&id;
-  kargs[1] = (void *)&local_gpu_count;
-  kargs[2] = (void *)&batch_size;
-  kargs[3] = (void *)&batch_size_per_gpu;
-  kargs[4] = (void *)&slot_num;
-  kargs[5] = (void *)&slot_num_per_gpu;
-  kargs[6] = (void *)&embedding_vec_size_opt;
-  kargs[7] = (void *)&row_offset;
-  kargs[8] = (void *)&hash_value_index;
-  kargs[9] = (void *)&hash_table_value;
-  kargs[10] = (void *)&embedding_features;
-
-  try {
-    if (combiner == 0) {
-      CK_CUDA_THROW_(cudaLaunchKernel(func, grid_size, block_size, kargs, 0, stream));
-    } else {
-      CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
-    }
-  } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    throw;
+    CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
   }
 
   return;
@@ -169,25 +182,29 @@ void SparseEmbeddingFunctors::forward_fuse_per_gpu(
 template void SparseEmbeddingFunctors::forward_fuse_per_gpu<unsigned int, float>(
     size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
     size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size, int combiner,
-    const unsigned int *row_offset, const size_t *hash_value_index, const float *hash_table_value,
-    float **embedding_features, size_t sm_count, cudaStream_t stream);
+    const Tensor2<unsigned int> &row_offset, const Tensor2<size_t> &hash_value_index,
+    const Tensor2<float> &hash_table_value, Tensor2<float *> &embedding_features, size_t sm_count,
+    cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::forward_fuse_per_gpu<long long, float>(
     size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
     size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size, int combiner,
-    const long long *row_offset, const size_t *hash_value_index, const float *hash_table_value,
-    float **embedding_features, size_t sm_count, cudaStream_t stream);
+    const Tensor2<long long> &row_offset, const Tensor2<size_t> &hash_value_index,
+    const Tensor2<float> &hash_table_value, Tensor2<float *> &embedding_features, size_t sm_count,
+    cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::forward_fuse_per_gpu<unsigned int, __half>(
     size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
     size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size, int combiner,
-    const unsigned int *row_offset, const size_t *hash_value_index, const float *hash_table_value,
-    __half **embedding_features, size_t sm_count, cudaStream_t stream);
+    const Tensor2<unsigned int> &row_offset, const Tensor2<size_t> &hash_value_index,
+    const Tensor2<float> &hash_table_value, Tensor2<__half *> &embedding_features, size_t sm_count,
+    cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::forward_fuse_per_gpu<long long, __half>(
     size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
     size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size, int combiner,
-    const long long *row_offset, const size_t *hash_value_index, const float *hash_table_value,
-    __half **embedding_features, size_t sm_count, cudaStream_t stream);
+    const Tensor2<long long> &row_offset, const Tensor2<size_t> &hash_value_index,
+    const Tensor2<float> &hash_table_value, Tensor2<__half *> &embedding_features, size_t sm_count,
+    cudaStream_t stream);
 
 }  // namespace HugeCTR

@@ -27,7 +27,7 @@ template <typename TypeEmbeddingComp>
 __global__ void backward_sum_fuse_kernel(size_t local_gpu_id, size_t gpu_num, size_t batch_size,
                                          size_t batch_size_per_gpu, size_t slot_num,
                                          size_t slot_num_per_gpu, size_t embedding_vec_size,
-                                         TypeEmbeddingComp **embedding_features,
+                                         TypeEmbeddingComp *const *embedding_features,
                                          TypeEmbeddingComp *wgrad) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
@@ -60,7 +60,7 @@ __global__ void backward_sum_fuse_align2_kernel(size_t local_gpu_id, size_t gpu_
                                                 size_t batch_size, size_t batch_size_per_gpu,
                                                 size_t slot_num, size_t slot_num_per_gpu,
                                                 size_t embedding_vec_size,
-                                                __half **embedding_features, __half *wgrad) {
+                                                __half *const *embedding_features, __half *wgrad) {
   int tid = threadIdx.x;  // each thread corresponding to one element in the embedding vector
 
   // for(int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
@@ -70,7 +70,7 @@ __global__ void backward_sum_fuse_align2_kernel(size_t local_gpu_id, size_t gpu_
     int bid = bid_offset % batch_size;
 
     if (tid < embedding_vec_size) {
-      __half2 **embedding_features2 = reinterpret_cast<__half2 **>(embedding_features);
+      __half2 *const *embedding_features2 = reinterpret_cast<__half2 *const *>(embedding_features);
       __half2 *wgrad2 = reinterpret_cast<__half2 *>(wgrad);
 
       int gpu_id = bid / batch_size_per_gpu;     // target gpu id
@@ -87,6 +87,49 @@ __global__ void backward_sum_fuse_align2_kernel(size_t local_gpu_id, size_t gpu_
         wgrad2[dst_feature_index] = embedding_features2[gpu_id][src_feature_index];
       }
     }
+  }
+}
+
+template <typename TypeEmbeddingComp>
+void backward_fuse(size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
+                   size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size,
+                   TypeEmbeddingComp *const *embedding_features, TypeEmbeddingComp *wgrad,
+                   size_t sm_count, cudaStream_t stream) {
+  const size_t block_size = embedding_vec_size;
+  int maxActiveBlocks;
+  CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      &maxActiveBlocks, backward_sum_fuse_kernel<TypeEmbeddingComp>, block_size, 0));
+  const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
+
+  backward_sum_fuse_kernel<<<grid_size, block_size, 0, stream>>>(
+      id, local_gpu_count, batch_size, batch_size_per_gpu, slot_num, slot_num_per_gpu,
+      embedding_vec_size, embedding_features, wgrad);
+}
+
+void backward_fuse(size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
+                   size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size,
+                   __half *const *embedding_features, __half *wgrad, size_t sm_count,
+                   cudaStream_t stream) {
+  if (embedding_vec_size % 2 == 0) {
+    const size_t block_size = embedding_vec_size / 2;
+    int maxActiveBlocks;
+    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &maxActiveBlocks, backward_sum_fuse_align2_kernel, block_size, 0));
+    const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
+
+    backward_sum_fuse_align2_kernel<<<grid_size, block_size, 0, stream>>>(
+        id, local_gpu_count, batch_size, batch_size_per_gpu, slot_num, slot_num_per_gpu,
+        embedding_vec_size / 2, embedding_features, wgrad);
+  } else {
+    const size_t block_size = embedding_vec_size;
+    int maxActiveBlocks;
+    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &maxActiveBlocks, backward_sum_fuse_kernel<__half>, block_size, 0));
+    const size_t grid_size = min(batch_size, sm_count * static_cast<size_t>(maxActiveBlocks));
+
+    backward_sum_fuse_kernel<<<grid_size, block_size, 0, stream>>>(
+        id, local_gpu_count, batch_size, batch_size_per_gpu, slot_num, slot_num_per_gpu,
+        embedding_vec_size, embedding_features, wgrad);
   }
 }
 
@@ -109,52 +152,17 @@ __global__ void backward_sum_fuse_align2_kernel(size_t local_gpu_id, size_t gpu_
  * @param stream cuda stream
  */
 template <typename TypeEmbeddingComp>
-void SparseEmbeddingFunctors::backward_fuse_per_gpu(size_t id, size_t local_gpu_count,
-                                                    size_t batch_size, size_t batch_size_per_gpu,
-                                                    size_t slot_num, size_t slot_num_per_gpu,
-                                                    size_t embedding_vec_size, int combiner,
-                                                    TypeEmbeddingComp **embedding_features,
-                                                    TypeEmbeddingComp *wgrad, size_t sm_count,
-                                                    cudaStream_t stream) {
-  int maxActiveBlocks;
-  void *func;
-  size_t embedding_vec_size_opt;
-
-  if (std::is_same<TypeEmbeddingComp, __half>::value && embedding_vec_size % 2 == 0) {
-    embedding_vec_size_opt = embedding_vec_size / 2;
-    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &maxActiveBlocks, backward_sum_fuse_align2_kernel, embedding_vec_size_opt, 0));
-    func = (void *)backward_sum_fuse_align2_kernel;
+void SparseEmbeddingFunctors::backward_fuse_per_gpu(
+    size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
+    size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size, int combiner,
+    const Tensor2<TypeEmbeddingComp *> &embedding_features, Tensor2<TypeEmbeddingComp> &wgrad,
+    size_t sm_count, cudaStream_t stream) {
+  if (combiner == 0) {
+    backward_fuse(id, local_gpu_count, batch_size, batch_size_per_gpu, slot_num, slot_num_per_gpu,
+                  embedding_vec_size, embedding_features.get_ptr(), wgrad.get_ptr(), sm_count,
+                  stream);
   } else {
-    embedding_vec_size_opt = embedding_vec_size;
-    CK_CUDA_THROW_(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &maxActiveBlocks, backward_sum_fuse_kernel<TypeEmbeddingComp>, embedding_vec_size_opt, 0));
-    func = (void *)backward_sum_fuse_kernel<TypeEmbeddingComp>;
-  }
-
-  const size_t block_size = embedding_vec_size_opt;
-  const size_t grid_size = min(batch_size, static_cast<size_t>(sm_count * maxActiveBlocks));
-
-  void *kargs[9];
-  kargs[0] = (void *)&id;
-  kargs[1] = (void *)&local_gpu_count;
-  kargs[2] = (void *)&batch_size;
-  kargs[3] = (void *)&batch_size_per_gpu;
-  kargs[4] = (void *)&slot_num;
-  kargs[5] = (void *)&slot_num_per_gpu;
-  kargs[6] = (void *)&embedding_vec_size_opt;
-  kargs[7] = (void *)&embedding_features;
-  kargs[8] = (void *)&wgrad;
-
-  try {
-    if (combiner == 0) {
-      CK_CUDA_THROW_(cudaLaunchKernel(func, grid_size, block_size, kargs, 0, stream));
-    } else {
-      CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
-    }
-  } catch (const std::runtime_error &rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    throw;
+    CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
   }
 
   return;
@@ -163,11 +171,13 @@ void SparseEmbeddingFunctors::backward_fuse_per_gpu(size_t id, size_t local_gpu_
 template void SparseEmbeddingFunctors::backward_fuse_per_gpu<float>(
     size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
     size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size, int combiner,
-    float **embedding_features, float *wgrad, size_t sm_count, cudaStream_t stream);
+    const Tensor2<float *> &embedding_features, Tensor2<float> &wgrad, size_t sm_count,
+    cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::backward_fuse_per_gpu<__half>(
     size_t id, size_t local_gpu_count, size_t batch_size, size_t batch_size_per_gpu,
     size_t slot_num, size_t slot_num_per_gpu, size_t embedding_vec_size, int combiner,
-    __half **embedding_features, __half *wgrad, size_t sm_count, cudaStream_t stream);
+    const Tensor2<__half *> &embedding_features, Tensor2<__half> &wgrad, size_t sm_count,
+    cudaStream_t stream);
 
 }  // namespace HugeCTR

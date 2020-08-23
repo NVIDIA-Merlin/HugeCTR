@@ -21,9 +21,9 @@ namespace HugeCTR {
 template <typename TypeHashKey>
 void SparseEmbeddingFunctors::get_update_params_results(
     size_t embedding_vec_size, size_t vocabulary_size,
-    const TensorPtrs<float> &hash_table_value_tensors,
+    const Tensors2<float> &hash_table_value_tensors,
     const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables,
-    TypeHashKey *hash_table_key, float *hash_table_value,
+    Tensor2<TypeHashKey> &hash_table_key, Tensor2<float> &hash_table_value,
     const GPUResourceGroup &device_resources) {
   CudaDeviceContext context;
 
@@ -88,7 +88,7 @@ void SparseEmbeddingFunctors::get_update_params_results(
                           device_resources[id].get_stream());
 
     get_hash_value(count[id], embedding_vec_size, d_hash_table_value_index[id],
-                   hash_table_value_tensors[id]->get_ptr(), d_hash_table_value[id],
+                   hash_table_value_tensors[id].get_ptr(), d_hash_table_value[id],
                    device_resources[id].get_stream());
   }
 
@@ -105,11 +105,11 @@ void SparseEmbeddingFunctors::get_update_params_results(
 
     context.set_device(device_resources[id].get_device_id());
 
-    CK_CUDA_THROW_(cudaMemcpy(hash_table_key + key_offset, d_hash_table_key[id],
+    CK_CUDA_THROW_(cudaMemcpy(hash_table_key.get_ptr() + key_offset, d_hash_table_key[id],
                               count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost));
     key_offset += count[id];
 
-    CK_CUDA_THROW_(cudaMemcpy(hash_table_value + value_offset, d_hash_table_value[id],
+    CK_CUDA_THROW_(cudaMemcpy(hash_table_value.get_ptr() + value_offset, d_hash_table_value[id],
                               count[id] * embedding_vec_size * sizeof(float),
                               cudaMemcpyDeviceToHost));
     value_offset += count[id] * embedding_vec_size;
@@ -155,8 +155,9 @@ void SparseEmbeddingFunctors::get_update_params_results(
       }
     }
 
-    MPI_Gatherv(hash_table_key, total_count * sizeof(TypeHashKey), MPI_CHAR, hash_table_key,
-                recv_count_key.get(), displs_key.get(), MPI_CHAR, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(hash_table_key.get_ptr(), total_count * sizeof(TypeHashKey), MPI_CHAR,
+                hash_table_key.get_ptr(), recv_count_key.get(), displs_key.get(), MPI_CHAR, 0,
+                MPI_COMM_WORLD);
 
     std::unique_ptr<int> displs_value(new int(n_ranks));
     std::unique_ptr<int> recv_count_value(new int(n_ranks));
@@ -167,9 +168,9 @@ void SparseEmbeddingFunctors::get_update_params_results(
       }
     }
 
-    MPI_Gatherv(hash_table_value, total_count * embedding_vec_size * sizeof(float), MPI_CHAR,
-                hash_table_value, recv_count_value.get(), displs_value.get(), MPI_CHAR, 0,
-                MPI_COMM_WORLD);
+    MPI_Gatherv(hash_table_value.get_ptr(), total_count * embedding_vec_size * sizeof(float),
+                MPI_CHAR, hash_table_value.get_ptr(), recv_count_value.get(), displs_value.get(),
+                MPI_CHAR, 0, MPI_COMM_WORLD);
   }
 #endif
 
@@ -178,15 +179,16 @@ void SparseEmbeddingFunctors::get_update_params_results(
 
 template void SparseEmbeddingFunctors::get_update_params_results<unsigned int>(
     size_t embedding_vec_size, size_t vocabulary_size,
-    const TensorPtrs<float> &hash_table_value_tensors,
+    const Tensors2<float> &hash_table_value_tensors,
     const std::vector<std::shared_ptr<HashTable<unsigned int, size_t>>> &hash_tables,
-    unsigned int *hash_table_key, float *hash_table_value,
+    Tensor2<unsigned int> &hash_table_key, Tensor2<float> &hash_table_value,
     const GPUResourceGroup &device_resources);
 
 template void SparseEmbeddingFunctors::get_update_params_results<long long>(
     size_t embedding_vec_size, size_t vocabulary_size,
-    const TensorPtrs<float> &hash_table_value_tensors,
+    const Tensors2<float> &hash_table_value_tensors,
     const std::vector<std::shared_ptr<HashTable<long long, size_t>>> &hash_tables,
-    long long *hash_table_key, float *hash_table_value, const GPUResourceGroup &device_resources);
+    Tensor2<long long> &hash_table_key, Tensor2<float> &hash_table_value,
+    const GPUResourceGroup &device_resources);
 
 }  // namespace HugeCTR

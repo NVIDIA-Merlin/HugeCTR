@@ -20,7 +20,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
-#include "HugeCTR/include/general_buffer.hpp"
 #include "cublas_v2.h"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -36,17 +35,18 @@ void cast_test(size_t dim0, size_t dim1) {
   curandGenerator_t curand_generator;
   CK_CURAND_THROW_(curandCreateGenerator(&curand_generator, CURAND_RNG_PSEUDO_DEFAULT));
 
-  std::shared_ptr<GeneralBuffer<float>> buf_fp32(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<__half>> buf_fp16(new GeneralBuffer<__half>());
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   vector<size_t> dims = {dim0, dim1};
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, buf_fp32));
-  std::shared_ptr<Tensor<__half>> out_tensor(new Tensor<__half>(dims, buf_fp16));
-  buf_fp32->init(0);
-  buf_fp16->init(0);
+  Tensor2<float> in_tensor;
+  buff->reserve(dims, &in_tensor);
+  Tensor2<__half> out_tensor;
+  buff->reserve(dims, &out_tensor);
+
+  buff->allocate();
 
   const int len = dim0 * dim1;
-  float* d_in = in_tensor->get_ptr();
-  __half* d_out = out_tensor->get_ptr();
+  float* d_in = in_tensor.get_ptr();
+  __half* d_out = out_tensor.get_ptr();
 
   std::unique_ptr<float[]> h_in(new float[len]);
   std::unique_ptr<__half[]> h_out(new __half[len]);
@@ -61,7 +61,7 @@ void cast_test(size_t dim0, size_t dim1) {
   std::unique_ptr<__half[]> h_out_gpu(new __half[len]);
 
   // fprop test
-  cast_layer.fprop(cudaStreamDefault);
+  cast_layer.fprop(true, cudaStreamDefault);
   cudaMemcpy(h_out_gpu.get(), d_out, len * sizeof(__half), cudaMemcpyDeviceToHost);
 
   for (int i = 0; i < len; i++) {
@@ -76,8 +76,8 @@ void cast_test(size_t dim0, size_t dim1) {
   CK_CURAND_THROW_(curandDestroyGenerator(curand_generator));
 }
 
-TEST(cast_layer, 32x64)   { cast_test(32,  64);  }
-TEST(cast_layer, 64x128)  { cast_test(64,  128); }
+TEST(cast_layer, 32x64) { cast_test(32, 64); }
+TEST(cast_layer, 64x128) { cast_test(64, 128); }
 TEST(cast_layer, 128x256) { cast_test(128, 256); }
 TEST(cast_layer, 256x512) { cast_test(256, 512); }
 
