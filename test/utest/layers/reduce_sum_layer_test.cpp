@@ -17,7 +17,6 @@
 #include "HugeCTR/include/layers/reduce_sum_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -129,37 +128,31 @@ void reduce_sum_dgrad_cpu(const float* top_grad, float* dgrad, std::vector<size_
 }
 
 void reduce_sum_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, size_t axis) {
-  size_t dev_id = 0;
-  std::shared_ptr<GeneralBuffer<float>> in_out_buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   vector<size_t> in_dims = {batch_size, slot_num, embedding_vec_size};  // 3D
-  // vector<size_t> in_dims = {batch_size, slot_num}; // 2D
-  TensorFormat_t in_format;
-  if (in_dims.size() == 2) {
-    in_format = TensorFormat_t::HW;
-  } else if (in_dims.size() == 3) {
-    in_format = TensorFormat_t::HSW;
-  }
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, in_out_buf, in_format));
-  std::shared_ptr<Tensor<float>> out_tensor;
+
+  Tensor2<float> in_tensor;
+  buff->reserve(in_dims, &in_tensor);
+  Tensor2<float> out_tensor;
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  ReduceSumLayer reduce_sum_layer(in_tensor, out_tensor, in_out_buf, axis, dev_id);
+  ReduceSumLayer reduce_sum_layer(in_tensor, out_tensor, buff, axis, 0);
 
-  in_out_buf->init(dev_id);
+  buff->allocate();
 
   size_t in_size = 1;
   for (auto dim : in_dims) {
     in_size *= dim;
   }
-  auto out_dims = out_tensor->get_dims();
+  auto out_dims = out_tensor.get_dimensions();
   size_t out_size = 1;
   for (auto dim : out_dims) {
     out_size *= dim;
   }
 
-  float* d_in = in_tensor->get_ptr();
-  float* d_out = out_tensor->get_ptr();
+  float* d_in = in_tensor.get_ptr();
+  float* d_out = out_tensor.get_ptr();
   std::unique_ptr<float[]> h_in(new float[in_size]);
   std::unique_ptr<float[]> h_out(new float[out_size]);
   std::unique_ptr<float[]> h_cpu_out(new float[out_size]);
@@ -210,7 +203,7 @@ void reduce_sum_test(size_t batch_size, size_t slot_num, size_t embedding_vec_si
   // }
 
   cudaMemcpy(d_in, h_in.get(), in_size * sizeof(float), cudaMemcpyHostToDevice);
-  reduce_sum_layer.fprop(cudaStreamDefault);
+  reduce_sum_layer.fprop(true, cudaStreamDefault);
   cudaMemcpy(h_out.get(), d_out, out_size * sizeof(float), cudaMemcpyDeviceToHost);
 
   // std::cout << "gpu out:" << std::endl;
@@ -274,9 +267,7 @@ void reduce_sum_test(size_t batch_size, size_t slot_num, size_t embedding_vec_si
 
 }  // namespace
 
-TEST(reduce_sum_layer, fprop_and_bprop) {
-  reduce_sum_test(2, 3, 4, 0);
-  reduce_sum_test(2, 3, 4, 1);
-  reduce_sum_test(2, 3, 4, 2);
-  reduce_sum_test(40960, 39, 1, 1);
-}
+TEST(reduce_sum_layer, fp32_2x3x4_0) { reduce_sum_test(2, 3, 4, 0); }
+TEST(reduce_sum_layer, fp32_2x3x4_1) { reduce_sum_test(2, 3, 4, 1); }
+TEST(reduce_sum_layer, fp32_2x3x4_2) { reduce_sum_test(2, 3, 4, 2); }
+TEST(reduce_sum_layer, fp32_40960x39x1_1) { reduce_sum_test(40960, 39, 1, 1); }

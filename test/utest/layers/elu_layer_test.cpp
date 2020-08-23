@@ -17,7 +17,6 @@
 #include "HugeCTR/include/layers/elu_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -44,15 +43,19 @@ void elu_bprop_cpu(const float* d_out, float* d_in, int len, float alpha) {
 }
 
 void elu_test(size_t dim0, size_t dim1, float alpha) {
-  std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
   vector<size_t> dims = {dim0, dim1};
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(dims, buf));
-  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(dims, buf));
-  buf->init(0);
+
+  Tensor2<float> in_tensor;
+  buf->reserve(dims, &in_tensor);
+  Tensor2<float> out_tensor;
+  buf->reserve(dims, &out_tensor);
+
+  buf->allocate();
 
   const int len = dim0 * dim1;
-  float* d_in = in_tensor->get_ptr();
-  float* d_out = out_tensor->get_ptr();
+  float* d_in = in_tensor.get_ptr();
+  float* d_out = out_tensor.get_ptr();
   std::unique_ptr<float[]> h_in(new float[len]);
   std::unique_ptr<float[]> h_out(new float[len]);
   std::unique_ptr<float[]> h_expected(new float[len]);
@@ -65,7 +68,7 @@ void elu_test(size_t dim0, size_t dim1, float alpha) {
     h_in[i] = simulator.get_num();
   }
   cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
-  elu_layer.fprop(cudaStreamDefault);
+  elu_layer.fprop(true, cudaStreamDefault);
   cudaMemcpy(h_out.get(), d_out, len * sizeof(float), cudaMemcpyDeviceToHost);
 
   elu_cpu(h_in.get(), h_expected.get(), len, alpha);
@@ -88,8 +91,6 @@ void elu_test(size_t dim0, size_t dim1, float alpha) {
 
 }  // namespace
 
-TEST(elu_layer, fprop_and_bprop) {
-  elu_test(10, 20, 1.0);
-  elu_test(10, 500, 1.0);
-  elu_test(512, 1024 * 2, 1.0);
-}
+TEST(elu_layer, fp32_10x20_1) { elu_test(10, 20, 1.0); }
+TEST(elu_layer, fp32_10x500_1) { elu_test(10, 500, 1.0); }
+TEST(elu_layer, fp32_512x2048_1) { elu_test(512, 1024 * 2, 1.0); }

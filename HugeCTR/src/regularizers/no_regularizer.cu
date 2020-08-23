@@ -15,8 +15,8 @@
  */
 
 #include <regularizers/no_regularizer.hpp>
-#include <utils.cuh>
 #include <utility>
+#include <utils.cuh>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -24,8 +24,7 @@
 
 namespace HugeCTR {
 template <typename T>
-NoRegularizer<T>::NoRegularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                                const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff,
+NoRegularizer<T>::NoRegularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
                                 const int batch_size, const int device_id)
     : Regularizer<T>(weight_buff, wgrad_buff, batch_size, device_id) {}
 

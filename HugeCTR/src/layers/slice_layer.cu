@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <layers/slice_layer.hpp>
 #include <common.hpp>
-#include <tensor.hpp>
+#include <layers/slice_layer.hpp>
 #include <utils.cuh>
+#include <utils.hpp>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -62,8 +62,9 @@ __global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, c
 }  // anonymous namespace
 
 template <typename T>
-SliceLayer<T>::SliceLayer(const std::shared_ptr<Tensor<T>>& in_tensor, Tensors<T>& out_tensors,
-                          const std::shared_ptr<GeneralBuffer<T>>& blobs_buff,
+SliceLayer<T>::SliceLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& evaluate_in_tensor,
+                          Tensors2<T>& out_tensors,
+                          const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                           std::vector<std::pair<int, int>>& ranges, int device_id)
     : Layer(device_id), n_sms_(0), virt_w_(0) {
   try {
@@ -77,12 +78,9 @@ SliceLayer<T>::SliceLayer(const std::shared_ptr<Tensor<T>>& in_tensor, Tensors<T
       CK_THROW_(Error_t::WrongInput, "output tensor vector must be empty");
     }
 
-    auto in_dims = in_tensor->get_dims();
+    auto in_dims = train_in_tensor.get_dimensions();
     if (in_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "Only 2D tensors can be concatenated");
-    }
-    if (in_tensor->get_format() != TensorFormat_t::HW) {
-      CK_THROW_(Error_t::WrongInput, "Only TensorFormat_t::HW is allowed");
     }
 
     size_t height = in_dims[0];
@@ -106,7 +104,11 @@ SliceLayer<T>::SliceLayer(const std::shared_ptr<Tensor<T>>& in_tensor, Tensors<T
       }
       size_t out_w = cur_max - cur_min;
       std::vector<size_t> out_dims = {height, out_w};
-      out_tensors.emplace_back(new Tensor<T>(out_dims, blobs_buff, TensorFormat_t::HW));
+      {
+        Tensor2<T> tensor;
+        blobs_buff->reserve(out_dims, &tensor);
+        out_tensors.push_back(tensor);
+      }
       sts_.push_back(cur_min);
       virt_w_ += out_w;
 
@@ -114,9 +116,10 @@ SliceLayer<T>::SliceLayer(const std::shared_ptr<Tensor<T>>& in_tensor, Tensors<T
       prev_max = cur_max;
     }
 
-    in_tensors_.emplace_back(in_tensor);
+    train_in_tensors_.push_back(train_in_tensor);
+    evaluate_in_tensors_.push_back(evaluate_in_tensor);
     for (auto& out_tensor : out_tensors) {
-      out_tensors_.emplace_back(out_tensor);
+      out_tensors_.push_back(out_tensor);
     }
 
     int device = get_device_id();
@@ -130,33 +133,34 @@ SliceLayer<T>::SliceLayer(const std::shared_ptr<Tensor<T>>& in_tensor, Tensors<T
 }
 
 template <typename T>
-void SliceLayer<T>::fprop(cudaStream_t stream) {
-  prop_common(true, stream);
+void SliceLayer<T>::fprop(bool is_train, cudaStream_t stream) {
+  prop_common(true, is_train, stream);
 }
 
 template <typename T>
 void SliceLayer<T>::bprop(cudaStream_t stream) {
-  prop_common(false, stream);
+  prop_common(false, true, stream);
 }
 
 template <typename T>
-void SliceLayer<T>::prop_common(bool forward, cudaStream_t stream) {
+void SliceLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
   int n_out_tensors = out_tensors_.size();
   if (n_out_tensors == 2) {
     std::vector<OutParam> out_params = set_out_params(2);
-    kernel_launch(forward, stream, out_params[0], out_params[1]);
+    kernel_launch(forward, is_train, stream, out_params[0], out_params[1]);
   } else if (n_out_tensors == 3) {
     std::vector<OutParam> out_params = set_out_params(3);
-    kernel_launch(forward, stream, out_params[0], out_params[1], out_params[2]);
+    kernel_launch(forward, is_train, stream, out_params[0], out_params[1], out_params[2]);
   } else if (n_out_tensors == 4) {
     std::vector<OutParam> out_params = set_out_params(4);
-    kernel_launch(forward, stream, out_params[0], out_params[1], out_params[2], out_params[3]);
+    kernel_launch(forward, is_train, stream, out_params[0], out_params[1], out_params[2],
+                  out_params[3]);
   } else if (n_out_tensors == 5) {
     std::vector<OutParam> out_params = set_out_params(5);
-    kernel_launch(forward, stream, out_params[0], out_params[1], out_params[2], out_params[3],
-                  out_params[4]);
+    kernel_launch(forward, is_train, stream, out_params[0], out_params[1], out_params[2],
+                  out_params[3], out_params[4]);
   } else {
     CK_THROW_(Error_t::UnSupportedFormat, "Slicing into > 5 layers is not supported");
   }
@@ -171,10 +175,10 @@ template <typename T>
 std::vector<typename SliceLayer<T>::OutParam> SliceLayer<T>::set_out_params(int n) {
   std::vector<OutParam> out_params;
   for (int i = 0; i < n; i++) {
-    const auto& out_tensor = out_tensors_[i];
-    T* out = out_tensor->get_ptr();
+    Tensor2<T>& out_tensor = out_tensors_[i];
+    T* out = out_tensor.get_ptr();
     int st = sts_[i];
-    int w = out_tensor->get_dims()[1];
+    int w = out_tensor.get_dimensions()[1];
     out_params.push_back({out, st, st + w});
   }
   return std::move(out_params);
@@ -182,13 +186,13 @@ std::vector<typename SliceLayer<T>::OutParam> SliceLayer<T>::set_out_params(int 
 
 template <typename T>
 template <typename... Args>
-void SliceLayer<T>::kernel_launch(bool forward, cudaStream_t stream, Args&... args) {
+void SliceLayer<T>::kernel_launch(bool forward, bool is_train, cudaStream_t stream, Args&... args) {
   int block_size = 512;
   int n_blocks = n_sms_ * 4;
-  const auto& in_tensor = in_tensors_[0];
-  T* in = in_tensor->get_ptr();
-  int h = in_tensor->get_dims()[0];
-  int in_w = in_tensor->get_dims()[1];
+  Tensor2<T>& in_tensor = get_in_tensors(is_train)[0];
+  T* in = in_tensor.get_ptr();
+  int h = in_tensor.get_dimensions()[0];
+  int in_w = in_tensor.get_dimensions()[1];
   if (!forward) {
     initialize_array<<<n_blocks, block_size, 0, stream>>>(in, h * in_w, T(0));
   }

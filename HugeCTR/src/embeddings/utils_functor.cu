@@ -101,5 +101,4 @@ template void SparseEmbeddingFunctors::memset_liner<size_t>(size_t *data, size_t
                                                             size_t stride_value, size_t n,
                                                             cudaStream_t stream) const;
 
-
 }  // namespace HugeCTR

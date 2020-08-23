@@ -15,64 +15,53 @@
  */
 
 #pragma once
-
 #include <common.hpp>
-#include <embedding.hpp>
-#include <general_buffer.hpp>
-#include <utils.hpp>
+#include <tensor2.hpp>
 
 namespace HugeCTR {
 
-class LearningRateScheduler {
-  const float base_lr_;
-  const size_t warmup_steps_;
-  const size_t decay_start_;
-  const size_t decay_steps_;
-  const float decay_power_;
-  const float end_lr_;
-  size_t step_{0};
-  float current_lr_{0.f};
+template <typename T>
+struct AdamOptHyperParams {  // TODO: move to optimizer
+  uint64_t times = 0;
+  float beta1 = 0.9f;
+  float beta2 = 0.999f;
+  float epsilon = 1e-7f;
+  T* m_ptr = nullptr;
+  T* v_ptr = nullptr;
+};
 
- public:
-  // decay_start means no decay will be used.
-  LearningRateScheduler(float base_lr, size_t warmup_steps = 1, size_t decay_start = 0,
-                        size_t decay_steps = 1, float decay_power = 2.f, float end_lr = 0.f)
-      : base_lr_(base_lr),
-        warmup_steps_(warmup_steps),
-        decay_start_(decay_start),
-        decay_steps_(decay_steps),
-        decay_power_(decay_power),
-        end_lr_(end_lr) {
-    if (base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0f || end_lr < 0.f) {
-      CK_THROW_(Error_t::WrongInput,
-                "base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0 || end_lr "
-                "< 0.f");
-    }
-  }
+template <typename T>
+struct MomentumSGDOptHyperParams {
+  float factor = 0.1f;
+  T* momentum_ptr = nullptr;
+};
 
-  float get_next() {
-    step_++;
-    if (step_ <= warmup_steps_) {
-      current_lr_ = step_ * base_lr_ / warmup_steps_;
-    } else {
-      if (decay_start_ != 0) {
-        if (step_ <= decay_start_) {
-          current_lr_ = base_lr_;
-        } else {
-          float lr_factor =
-              pow(((decay_start_ + decay_steps_ - step_) / ((float)decay_steps_)), decay_power_);
-          current_lr_ = base_lr_ * lr_factor > end_lr_ ? base_lr_ * lr_factor : end_lr_;
-        }
-      } else {
-        current_lr_ = base_lr_;
-      }
-    }
-    return current_lr_;
-  }
+template <typename T>
+struct NesterovOptHyperParams {
+  float mu = 0.9f;
+  T* accm_ptr = nullptr;
+};
 
-  float get_lr() const { return current_lr_; }
+struct SGDOptHyperParams {
+  bool atomic_update = false;
+};
 
-  size_t get_step() const { return step_; }
+// TODO: use union type should be better ???
+template <typename TypeEmbeddingComp>
+struct OptHyperParams {
+  AdamOptHyperParams<TypeEmbeddingComp> adam;
+  MomentumSGDOptHyperParams<TypeEmbeddingComp> momentum;
+  NesterovOptHyperParams<TypeEmbeddingComp> nesterov;
+  SGDOptHyperParams sgd;
+};
+
+template <typename TypeEmbeddingComp>
+struct OptParams {
+  Optimizer_t optimizer;
+  float lr;
+  OptHyperParams<TypeEmbeddingComp> hyperparams;
+  bool global_update;
+  float scaler;
 };
 
 /**
@@ -85,10 +74,10 @@ class Optimizer {
    */
   template <typename T>
   static std::unique_ptr<Optimizer> Create(const OptParams<T>& params,
-                                           const GeneralBufferPtr<float>& weight_main,
-                                           const GeneralBufferPtr<float>& wgrad,
-                                           const GeneralBufferPtr<__half>& wgrad_half,
-                                           bool mixed_precision, const float scaler, int device_id);
+                                           const Tensor2<float>& weight_main,
+                                           const Tensor2<float>& wgrad,
+                                           const Tensor2<__half>& wgrad_half, bool mixed_precision,
+                                           const float scaler, int device_id);
 
   /**
    * Constructor of Optimizer.
@@ -97,9 +86,9 @@ class Optimizer {
    * @param device_id the id of GPU where update kernel is launched
    * @param learning_rate learning rate
    */
-  Optimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
-            const GeneralBufferPtr<float>& fp32_wgrad, const GeneralBufferPtr<__half>& fp16_wgrad,
-            bool mixed_precision, int device_id, float learning_rate, float scaler)
+  Optimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
+            const Tensor2<__half>& fp16_wgrad, bool mixed_precision, int device_id,
+            float learning_rate, float scaler)
       : weight_main_(weight_main),
         fp32_wgrad_(fp32_wgrad),
         fp16_wgrad_(fp16_wgrad),
@@ -108,12 +97,12 @@ class Optimizer {
         lr_(learning_rate),
         scaler_(scaler) {
     if (mixed_precision) {
-      if (weight_main->get_num_elements() != fp16_wgrad->get_num_elements()) {
+      if (weight_main.get_num_elements() != fp16_wgrad.get_num_elements()) {
         CK_THROW_(Error_t::WrongInput,
                   "fp32_weight->get_num_elements() != fp16_wgrad->get_num_elements()");
       }
     } else {
-      if (weight_main->get_num_elements() != fp32_wgrad->get_num_elements()) {
+      if (weight_main.get_num_elements() != fp32_wgrad.get_num_elements()) {
         CK_THROW_(Error_t::WrongInput,
                   "fp32_weight->get_num_elements() != fp32_wgrad->get_num_elements()");
       }
@@ -143,9 +132,9 @@ class Optimizer {
   }
 
  protected:
-  GeneralBufferPtr<float> weight_main_;
-  GeneralBufferPtr<float> fp32_wgrad_;
-  GeneralBufferPtr<__half> fp16_wgrad_;
+  Tensor2<float> weight_main_;
+  Tensor2<float> fp32_wgrad_;
+  Tensor2<__half> fp16_wgrad_;
   bool mixed_precision_;
   int device_id_;
   float lr_;  // learning rate

@@ -20,13 +20,12 @@
 
 namespace HugeCTR {
 class CastLayer : public Layer {
-  TensorPtr<float> bottom_tensor_;
-  TensorPtr<__half> top_tensor_;
+  Tensor2<float> bottom_tensor_;
+  Tensor2<__half> top_tensor_;
 
  public:
-  CastLayer(const TensorPtr<float>& bottom_tensor, const TensorPtr<__half>& top_tensor,
-            int device_id);
-  void fprop(cudaStream_t stream) override;
+  CastLayer(const Tensor2<float>& bottom_tensor, const Tensor2<__half>& top_tensor, int device_id);
+  void fprop(bool is_train, cudaStream_t stream) override;
   void bprop(cudaStream_t stream) override;
 };
 }  // namespace HugeCTR

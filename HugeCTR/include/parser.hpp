@@ -15,13 +15,14 @@
  */
 
 #pragma once
-#include <fstream>
-#include <functional>
 #include <common.hpp>
 #include <data_reader.hpp>
 #include <device_map.hpp>
 #include <embedding.hpp>
+#include <fstream>
+#include <functional>
 #include <gpu_resource.hpp>
+#include <learning_rate_scheduler.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
 #include <nlohmann/json.hpp>
@@ -84,7 +85,6 @@ class Parser {
                        std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
-                       std::vector<std::unique_ptr<Network>>& network_eval,
                        const GPUResourceGroupPtr& gpu_resource_group);
 
   /**
@@ -94,7 +94,6 @@ class Parser {
                        std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
-                       std::vector<std::unique_ptr<Network>>& network_eval,
                        const GPUResourceGroupPtr& gpu_resource_group);
 };
 
@@ -131,12 +130,12 @@ struct SolverParser {
 
 template <typename T>
 struct SparseInput {
-  Tensors<T> row;
-  Tensors<T> value;
-  std::vector<std::shared_ptr<size_t>> nnz;
-  Tensors<T> row_eval;
-  Tensors<T> value_eval;
-  std::vector<std::shared_ptr<size_t>> nnz_eval;
+  Tensors2<T> train_row_offsets;
+  Tensors2<T> train_values;
+  std::vector<std::shared_ptr<size_t>> train_nnz;
+  Tensors2<T> evaluate_row_offsets;
+  Tensors2<T> evaluate_values;
+  std::vector<std::shared_ptr<size_t>> evaluate_nnz;
   size_t slot_num;
   size_t max_feature_num_per_sample;
   SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
@@ -181,8 +180,7 @@ static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"SGD", Optimizer_t::SGD}};
 
 static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
-    {"L1", Regularizer_t::L1},
-    {"L2", Regularizer_t::L2},
+    {"L1", Regularizer_t::L1}, {"L2", Regularizer_t::L2},
 };
 
 inline bool has_key_(const nlohmann::json& j_in, const std::string& key_in) {

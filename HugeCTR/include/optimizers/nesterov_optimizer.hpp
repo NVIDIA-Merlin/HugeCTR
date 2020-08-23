@@ -33,9 +33,8 @@ class NesterovOptimizer : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor the momentum factor
    */
-  NesterovOptimizer(const GeneralBufferPtr<float>& weight_main,
-                    const GeneralBufferPtr<float>& fp32_wgrad,
-                    const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
+  NesterovOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
+                    const Tensor2<__half>& fp16_wgrad, bool mixed_precision, int device_id,
                     float learning_rate, float momentum_factor, float scaler = 1.f);
 
   /**
@@ -45,9 +44,9 @@ class NesterovOptimizer : public Optimizer {
   void update(cudaStream_t stream) override;
 
  private:
-  GeneralBuffer<float> fp32_accum_;   // accumulation
-  GeneralBuffer<__half> fp16_accum_;  // accumulation
-  const float mu_;                    // momentum factor
+  Tensor2<float> fp32_accum_;   // accumulation
+  Tensor2<__half> fp16_accum_;  // accumulation
+  const float mu_;              // momentum factor
 };
 
 }  // namespace HugeCTR

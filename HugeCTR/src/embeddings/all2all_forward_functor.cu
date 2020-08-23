@@ -25,8 +25,8 @@ namespace HugeCTR {
 template <typename Type>
 void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t slot_num,
                                               size_t embedding_vec_size,
-                                              const TensorPtrs<Type> &send_tensors,
-                                              const TensorPtrs<Type> &recv_tensors,
+                                              const Tensors2<Type> &send_tensors,
+                                              Tensors2<Type> &recv_tensors,
                                               const GPUResourceGroup &device_resources) {
   std::vector<int> device_list = device_resources.get_device_list();
   size_t local_gpu_count = device_list.size();
@@ -44,11 +44,11 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t 
     CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
   }
 
-  std::vector<Type *> src(local_gpu_count);
+  std::vector<const Type *> src(local_gpu_count);
   std::vector<Type *> dst(local_gpu_count);
   for (size_t id = 0; id < local_gpu_count; id++) {
-    src[id] = send_tensors[id]->get_ptr();
-    dst[id] = recv_tensors[id]->get_ptr();
+    src[id] = send_tensors[id].get_ptr();
+    dst[id] = recv_tensors[id].get_ptr();
   }
 
   std::vector<std::vector<size_t>> send_table(local_gpu_count,
@@ -81,7 +81,8 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t 
     }
   }
 
-  std::vector<std::vector<Type *>> src_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
+  std::vector<std::vector<const Type *>> src_pos(local_gpu_count,
+                                                 std::vector<const Type *>(total_gpu_count));
   std::vector<std::vector<Type *>> dst_pos(local_gpu_count, std::vector<Type *>(total_gpu_count));
   // Calculate the src offset pointer from each GPU to each other
   for (size_t i = 0; i < local_gpu_count; i++) {
@@ -150,12 +151,12 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t 
 
 template void SparseEmbeddingFunctors::all2all_forward<float>(
     size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
-    const TensorPtrs<float> &send_tensors, const TensorPtrs<float> &recv_tensors,
+    const Tensors2<float> &send_tensors, Tensors2<float> &recv_tensors,
     const GPUResourceGroup &device_resources);
 
 template void SparseEmbeddingFunctors::all2all_forward<__half>(
     size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
-    const TensorPtrs<__half> &send_tensors, const TensorPtrs<__half> &recv_tensors,
+    const Tensors2<__half> &send_tensors, Tensors2<__half> &recv_tensors,
     const GPUResourceGroup &device_resources);
 
 #else
@@ -164,8 +165,8 @@ template <typename Type>
 void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu,
                                               const std::vector<size_t> &slot_num_per_gpu,
                                               size_t embedding_vec_size,
-                                              const TensorPtrs<Type> &send_tensors,
-                                              const TensorPtrs<Type> &recv_tensors,
+                                              const Tensors2<Type> &send_tensors,
+                                              Tensors2<Type> &recv_tensors,
                                               const GPUResourceGroup &device_resources) {
   std::vector<int> device_list = device_resources.get_device_list();
   size_t local_gpu_count = device_list.size();
@@ -190,13 +191,14 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu,
   std::cout << std::endl;
 #endif
 
-  std::vector<Type *> src(local_gpu_count);
+  std::vector<const Type *> src(local_gpu_count);
   std::vector<Type *> dst(local_gpu_count);
   for (size_t id = 0; id < local_gpu_count; id++) {
-    src[id] = send_tensors[id]->get_ptr();
-    dst[id] = recv_tensors[id]->get_ptr();
+    src[id] = send_tensors[id].get_ptr();
+    dst[id] = recv_tensors[id].get_ptr();
   }
-  std::vector<std::vector<Type *>> src_pos(local_gpu_count, std::vector<Type *>(local_gpu_count));
+  std::vector<std::vector<const Type *>> src_pos(local_gpu_count,
+                                                 std::vector<const Type *>(local_gpu_count));
   std::vector<std::vector<Type *>> dst_pos(local_gpu_count, std::vector<Type *>(local_gpu_count));
   // Calculate the src offset pointer from each GPU to each other
   for (size_t i = 0; i < local_gpu_count; i++) {
@@ -265,13 +267,13 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu,
 
 template void SparseEmbeddingFunctors::all2all_forward<float>(
     size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
-    size_t embedding_vec_size, const TensorPtrs<float> &send_tensors,
-    const TensorPtrs<float> &recv_tensors, const GPUResourceGroup &device_resources);
+    size_t embedding_vec_size, const Tensors2<float> &send_tensors, Tensors2<float> &recv_tensors,
+    const GPUResourceGroup &device_resources);
 
 template void SparseEmbeddingFunctors::all2all_forward<__half>(
     size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
-    size_t embedding_vec_size, const TensorPtrs<__half> &send_tensors,
-    const TensorPtrs<__half> &recv_tensors, const GPUResourceGroup &device_resources);
+    size_t embedding_vec_size, const Tensors2<__half> &send_tensors, Tensors2<__half> &recv_tensors,
+    const GPUResourceGroup &device_resources);
 
 #endif
 

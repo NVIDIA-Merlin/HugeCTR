@@ -17,7 +17,7 @@
 #pragma once
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/tensor.hpp"
+#include "HugeCTR/include/tensor2.hpp"
 #ifndef NCCL_A2A
 #ifdef ENABLE_MPI
 #include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/FasterGossipCommMulti.h"
@@ -91,8 +91,9 @@ class SparseEmbeddingFunctors {
   template <typename TypeHashKey>
   void init_embedding_per_gpu(size_t lid, size_t gid, size_t total_gpu_count,
                               const std::vector<size_t> &slot_sizes, size_t embedding_vec_size,
-                              float *embedding_table, HashTable<TypeHashKey, size_t> &hash_table,
-                              size_t *slot_ids, const GPUResourceGroup &device_resources);
+                              Tensor2<float> &embedding_table,
+                              HashTable<TypeHashKey, size_t> &hash_table, Tensor2<size_t> &slot_ids,
+                              const GPUResourceGroup &device_resources);
 
   /**
    * Initialize the hash table and embedding table on one GPU. This function is only used by
@@ -109,7 +110,7 @@ class SparseEmbeddingFunctors {
   template <typename TypeHashKey>
   void init_embedding_per_gpu(size_t lid, size_t gid, size_t total_gpu_count,
                               const std::vector<size_t> &slot_sizes, size_t embedding_vec_size,
-                              float *embedding_table, size_t *slot_ids,
+                              Tensor2<float> &embedding_table, Tensor2<size_t> &slot_ids,
                               const GPUResourceGroup &device_resources);
 
   /**
@@ -129,10 +130,11 @@ class SparseEmbeddingFunctors {
    */
   template <typename TypeHashKey, typename TypeEmbeddingComp>
   void forward_per_gpu(size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner,
-                       bool train, const TypeHashKey *row_offset, const TypeHashKey *hash_key,
-                       size_t nnz, HashTable<TypeHashKey, size_t> &hash_table,
-                       const float *hash_table_value, size_t *hash_value_index,
-                       TypeEmbeddingComp *embedding_feature, cudaStream_t stream);
+                       bool train, const Tensor2<TypeHashKey> &row_offset,
+                       const Tensor2<TypeHashKey> &hash_key, size_t nnz,
+                       HashTable<TypeHashKey, size_t> &hash_table,
+                       const Tensor2<float> &hash_table_value, Tensor2<size_t> &hash_value_index,
+                       Tensor2<TypeEmbeddingComp> &embedding_feature, cudaStream_t stream);
 
   /**
    * An additional function for the forward propagation when (combiner=mean).
@@ -147,8 +149,8 @@ class SparseEmbeddingFunctors {
    */
   template <typename TypeHashKey, typename TypeEmbeddingComp>
   void forward_scale(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-                     const TensorPtrs<TypeHashKey> &row_offset_allreduce_tensors,
-                     const TensorPtrs<TypeEmbeddingComp> &output_tensors,
+                     const Tensors2<TypeHashKey> &row_offset_allreduce_tensors,
+                     Tensors2<TypeEmbeddingComp> &output_tensors,
                      const GPUResourceGroup &device_resources);
 
   /**
@@ -163,8 +165,8 @@ class SparseEmbeddingFunctors {
    */
   template <typename TypeEmbeddingComp>
   void forward_reorder(size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
-                       const TensorPtrs<TypeEmbeddingComp> &src_tensors,
-                       const TensorPtrs<TypeEmbeddingComp> &dst_tensors,
+                       const Tensors2<TypeEmbeddingComp> &src_tensors,
+                       Tensors2<TypeEmbeddingComp> &dst_tensors,
                        const GPUResourceGroup &device_resources);
 
   /**
@@ -181,9 +183,10 @@ class SparseEmbeddingFunctors {
    * @param stream cuda stream
    */
   template <typename TypeHashKey>
-  void forward_mapping_per_gpu(size_t batch_size, size_t slot_num, const TypeHashKey *hash_key,
-                               size_t nnz, const uint32_t *mapping_offsets,
-                               size_t *hash_value_index, cudaStream_t stream);
+  void forward_mapping_per_gpu(size_t batch_size, size_t slot_num,
+                               const Tensor2<TypeHashKey> &hash_key, size_t nnz,
+                               const Tensor2<uint32_t> &mapping_offsets,
+                               Tensor2<size_t> &hash_value_index, cudaStream_t stream);
 
   /**
    * forward propagation for LocalizedSlotSparseEmbeddingOneHot (per GPU).
@@ -206,9 +209,11 @@ class SparseEmbeddingFunctors {
   template <typename TypeHashKey, typename TypeEmbeddingComp>
   void forward_fuse_per_gpu(size_t id, size_t local_gpu_count, size_t batch_size,
                             size_t batch_size_per_gpu, size_t slot_num, size_t slot_num_per_gpu,
-                            size_t embedding_vec_size, int combiner, const TypeHashKey *row_offset,
-                            const size_t *hash_value_index, const float *hash_table_value,
-                            TypeEmbeddingComp **embedding_features, size_t sm_count,
+                            size_t embedding_vec_size, int combiner,
+                            const Tensor2<TypeHashKey> &row_offset,
+                            const Tensor2<size_t> &hash_value_index,
+                            const Tensor2<float> &hash_table_value,
+                            Tensor2<TypeEmbeddingComp *> &embedding_features, size_t sm_count,
                             cudaStream_t stream);
 
   /**
@@ -225,9 +230,8 @@ class SparseEmbeddingFunctors {
   template <typename TypeKey>
   void store_slot_id(size_t batch_size, size_t slot_num,
                      const std::vector<size_t> &slot_num_per_gpu,
-                     const TensorPtrs<TypeKey> &row_offset_tensors,
-                     const TensorPtrs<size_t> &value_index_tensors,
-                     const TensorPtrs<size_t> &slot_id_tensors,
+                     const Tensors2<TypeKey> &row_offset_tensors,
+                     const Tensors2<size_t> &value_index_tensors, Tensors2<size_t> &slot_id_tensors,
                      const GPUResourceGroup &device_resources);
 
   /**
@@ -246,9 +250,9 @@ class SparseEmbeddingFunctors {
    */
   template <typename TypeHashKey, typename TypeEmbeddingComp>
   void backward(size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner,
-                const TensorPtrs<TypeHashKey> &row_offset_allreduce_tensors,
-                const TensorPtrs<TypeEmbeddingComp> &embedding_feature_tensors,
-                const TensorPtrs<TypeEmbeddingComp> &wgrad_tensors,
+                const Tensors2<TypeHashKey> &row_offset_allreduce_tensors,
+                const Tensors2<TypeEmbeddingComp> &embedding_feature_tensors,
+                Tensors2<TypeEmbeddingComp> &wgrad_tensors,
                 const GPUResourceGroup &device_resources);
 
   /**
@@ -268,9 +272,9 @@ class SparseEmbeddingFunctors {
   template <typename TypeHashKey, typename TypeEmbeddingComp>
   void backward(size_t batch_size, const std::vector<size_t> &slot_num_per_gpu,
                 size_t embedding_vec_size, int combiner,
-                const TensorPtrs<TypeHashKey> &row_offset_allreduce_tensors,
-                const TensorPtrs<TypeEmbeddingComp> &embedding_feature_tensors,
-                const TensorPtrs<TypeEmbeddingComp> &wgrad_tensors,
+                const Tensors2<TypeHashKey> &row_offset_allreduce_tensors,
+                const Tensors2<TypeEmbeddingComp> &embedding_feature_tensors,
+                Tensors2<TypeEmbeddingComp> &wgrad_tensors,
                 const GPUResourceGroup &device_resources);
 
   /**
@@ -285,8 +289,8 @@ class SparseEmbeddingFunctors {
    */
   template <typename TypeEmbeddingComp>
   void backward_reorder(size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
-                        const TensorPtrs<TypeEmbeddingComp> &src_tensors,
-                        const TensorPtrs<TypeEmbeddingComp> &dst_tensors,
+                        const Tensors2<TypeEmbeddingComp> &src_tensors,
+                        Tensors2<TypeEmbeddingComp> &dst_tensors,
                         const GPUResourceGroup &device_resources);
 
   /**
@@ -309,8 +313,8 @@ class SparseEmbeddingFunctors {
   void backward_fuse_per_gpu(size_t id, size_t local_gpu_count, size_t batch_size,
                              size_t batch_size_per_gpu, size_t slot_num, size_t slot_num_per_gpu,
                              size_t embedding_vec_size, int combiner,
-                             TypeEmbeddingComp **embedding_features, TypeEmbeddingComp *wgrad,
-                             size_t sm, cudaStream_t stream);
+                             const Tensor2<TypeEmbeddingComp *> &embedding_features,
+                             Tensor2<TypeEmbeddingComp> &wgrad, size_t sm, cudaStream_t stream);
 
   /**
    * The second step of backward propagation: update embedding tables(weights)
@@ -342,15 +346,17 @@ class SparseEmbeddingFunctors {
   template <typename TypeHashKey, typename TypeEmbeddingComp>
   void update_params(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
                      size_t max_vocabulary_size_per_gpu, OptParams<TypeEmbeddingComp> &opt_params,
-                     size_t nnz, const TypeHashKey *row_offset, size_t *hash_value_index,
-                     TypeHashKey *sample_id, TypeHashKey *sample_id_sort,
-                     size_t *hash_value_index_sort, uint32_t *hash_value_index_count_offset,
-                     uint32_t *new_hash_value_flag, uint32_t *hash_value_flag_sumed,
-                     uint32_t *hash_value_index_count_counter, void *temp_storage_sort,
-                     size_t temp_storage_sort_bytes, void *temp_storage_scan,
-                     size_t temp_storage_scan_bytes, const TypeEmbeddingComp *wgrad,
-                     size_t *deltaw_hash_value_index, float *deltaw, float *hash_table_value,
-                     size_t sm_count, cudaStream_t stream);
+                     size_t nnz, const Tensor2<TypeHashKey> &row_offset,
+                     Tensor2<size_t> &hash_value_index, Tensor2<TypeHashKey> &sample_id,
+                     Tensor2<TypeHashKey> &sample_id_sort, Tensor2<size_t> &hash_value_index_sort,
+                     Tensor2<uint32_t> &hash_value_index_count_offset,
+                     Tensor2<uint32_t> &new_hash_value_flag,
+                     Tensor2<uint32_t> &hash_value_flag_sumed,
+                     Tensor2<uint32_t> &hash_value_index_count_counter,
+                     Tensor2<void> &temp_storage_sort, Tensor2<void> &temp_storage_scan,
+                     const Tensor2<TypeEmbeddingComp> &wgrad,
+                     Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
+                     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
   /**
    * update_params for LocalizedSlotSparseEmbeddingOneHot.
@@ -366,8 +372,9 @@ class SparseEmbeddingFunctors {
    */
   template <typename TypeEmbeddingComp>
   void update_params(size_t embedding_vec_size, const OptParams<TypeEmbeddingComp> &opt_params,
-                     size_t nnz, const size_t *hash_value_index, const TypeEmbeddingComp *wgrad,
-                     float *hash_table_value, size_t sm_count, cudaStream_t stream);
+                     size_t nnz, const Tensor2<size_t> &hash_value_index,
+                     const Tensor2<TypeEmbeddingComp> &wgrad, Tensor2<float> &hash_table_value,
+                     size_t sm_count, cudaStream_t stream);
 
   /**
    * collection communication: reduce_scatter f or DistributedSlotSparseEmbeddingHash
@@ -377,8 +384,8 @@ class SparseEmbeddingFunctors {
    * @param device_resources all gpus device resources.
    */
   template <typename TypeEmbeddingComp>
-  void reduce_scatter(size_t recv_count, const TensorPtrs<TypeEmbeddingComp> &send_tensors,
-                      const TensorPtrs<TypeEmbeddingComp> &recv_tensors,
+  void reduce_scatter(size_t recv_count, const Tensors2<TypeEmbeddingComp> &send_tensors,
+                      Tensors2<TypeEmbeddingComp> &recv_tensors,
                       const GPUResourceGroup &device_resources);
 
   /**
@@ -390,9 +397,8 @@ class SparseEmbeddingFunctors {
    * @param context gpu device context, for switching device.
    */
   template <typename TypeHashKey>
-  void all_reduce(size_t send_count, const TensorPtrs<TypeHashKey> &send_tensors,
-                  const TensorPtrs<TypeHashKey> &recv_tensors,
-                  const GPUResourceGroup &device_resources);
+  void all_reduce(size_t send_count, const Tensors2<TypeHashKey> &send_tensors,
+                  Tensors2<TypeHashKey> &recv_tensors, const GPUResourceGroup &device_resources);
 
   /**
    * collection communication: all_gather.
@@ -403,9 +409,8 @@ class SparseEmbeddingFunctors {
    * @param context gpu device context, for switching device.
    */
   template <typename TypeHashKey>
-  void all_gather(size_t send_count, const TensorPtrs<TypeHashKey> &send_tensors,
-                  const TensorPtrs<TypeHashKey> &recv_tensors,
-                  const GPUResourceGroup &device_resources);
+  void all_gather(size_t send_count, const Tensors2<TypeHashKey> &send_tensors,
+                  Tensors2<TypeHashKey> &recv_tensors, const GPUResourceGroup &device_resources);
 
 #ifdef NCCL_A2A
 #ifdef ENABLE_MPI
@@ -420,7 +425,7 @@ class SparseEmbeddingFunctors {
    */
   template <typename Type>
   void all2all_forward(size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
-                       const TensorPtrs<Type> &send_tensors, const TensorPtrs<Type> &recv_tensors,
+                       const Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
                        const GPUResourceGroup &device_resources);
 
   /**
@@ -434,7 +439,7 @@ class SparseEmbeddingFunctors {
    */
   template <typename Type>
   void all2all_backward(size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
-                        const TensorPtrs<Type> &send_tensors, TensorPtrs<Type> &recv_tensors,
+                        const Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
                         const GPUResourceGroup &device_resources);
 #else
   /**
@@ -449,9 +454,8 @@ class SparseEmbeddingFunctors {
    */
   template <typename Type>
   void all2all_forward(size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
-                       size_t embedding_vec_size, const TensorPtrs<Type> &send_tensors,
-                       const TensorPtrs<Type> &recv_tensors,
-                       const GPUResourceGroup &device_resources);
+                       size_t embedding_vec_size, const Tensors2<Type> &send_tensors,
+                       Tensors2<Type> &recv_tensors, const GPUResourceGroup &device_resources);
 
   /**
    * nccl all2all communication for backward
@@ -465,8 +469,8 @@ class SparseEmbeddingFunctors {
    */
   template <typename Type>
   void all2all_backward(size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
-                        size_t embedding_vec_size, const TensorPtrs<Type> &send_tensors,
-                        TensorPtrs<Type> &recv_tensors, const GPUResourceGroup &device_resources);
+                        size_t embedding_vec_size, const Tensors2<Type> &send_tensors,
+                        Tensors2<Type> &recv_tensors, const GPUResourceGroup &device_resources);
 #endif
 #else
 #ifdef ENABLE_MPI
@@ -577,9 +581,9 @@ class SparseEmbeddingFunctors {
    */
   template <typename TypeEmbeddingComp>
   void get_forward_results(size_t memcpy_size,
-                           const TensorPtrs<TypeEmbeddingComp> &embedding_feature_tensors,
-                           TypeEmbeddingComp *embedding_feature,
-                           TensorPtrs<TypeEmbeddingComp> &temp_tensors,
+                           const Tensors2<TypeEmbeddingComp> &embedding_feature_tensors,
+                           Tensor2<TypeEmbeddingComp> &embedding_feature,
+                           Tensors2<TypeEmbeddingComp> &temp_tensors,
                            const GPUResourceGroup &device_resources);
 
   /**
@@ -593,8 +597,9 @@ class SparseEmbeddingFunctors {
    */
   template <typename TypeEmbeddingComp>
   void get_backward_results(size_t id, size_t memcpy_size,
-                            const TensorPtrs<TypeEmbeddingComp> &wgrad_tensors,
-                            TypeEmbeddingComp *wgrad, const GPUResourceGroup &device_resources);
+                            const Tensors2<TypeEmbeddingComp> &wgrad_tensors,
+                            Tensor2<TypeEmbeddingComp> &wgrad,
+                            const GPUResourceGroup &device_resources);
 
   /**
    * get update_params results from GPU to CPU. This functin is just used for utest.
@@ -610,9 +615,9 @@ class SparseEmbeddingFunctors {
   template <typename TypeHashKey>
   void get_update_params_results(
       size_t embedding_vec_size, size_t vocabulary_size,
-      const TensorPtrs<float> &hash_table_value_tensors,
+      const Tensors2<float> &hash_table_value_tensors,
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables,
-      TypeHashKey *hash_table_key, float *hash_table_value,
+      Tensor2<TypeHashKey> &hash_table_key, Tensor2<float> &hash_table_value,
       const GPUResourceGroup &device_resources);
 
   /**

@@ -18,20 +18,26 @@
 
 #include <cublas_v2.h>
 #include <nccl.h>
+#include <common.hpp>
 #include <fstream>
 #include <functional>
-#include <vector>
-#include <common.hpp>
-#include <general_buffer.hpp>
 #include <gpu_resource.hpp>
 #include <layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
-#include <optimizer.hpp>
-#include <tensor.hpp>
 #include <nlohmann/json.hpp>
+#include <optimizer.hpp>
+#include <vector>
 
 namespace HugeCTR {
+
+enum class TensorUse { General, Train, Evaluate };
+
+struct TensorEntry {
+  std::string name;
+  TensorUse use;
+  TensorBag2 bag;
+};
 
 /**
  * @brief Dense network (embedding is not included)
@@ -40,28 +46,25 @@ namespace HugeCTR {
  * forward/backward/loss/update of the dense layers.
  */
 class Network {
-  friend Network* create_network(
-      const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-      const std::map<std::string, std::shared_ptr<ITensor>>& tensor_list_in, int device_id,
-      int num_networks_in_global, const std::shared_ptr<const GPUResource>& gpu_resource,
-      bool use_mixed_precision, float scaler, bool use_algorithm_search);
+  friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
+                                 std::vector<TensorEntry>& tensor_entries, int device_id,
+                                 int num_networks_in_global,
+                                 const std::shared_ptr<const GPUResource>& gpu_resource,
+                                 bool use_mixed_precision, float scaler, bool use_algorithm_search);
 
  private:
-  //  Tensors<float> tensors_;
-  std::vector<std::unique_ptr<Layer>> layers_;        /**< vector of layers */
-  std::shared_ptr<GeneralBuffer<float>> blobs_buff_;  /**< blobs' general buffer */
-  std::shared_ptr<GeneralBuffer<float>> weight_buff_; /**< weight (param) general buffer */
-  std::shared_ptr<GeneralBuffer<float>> wgrad_buff_;  /**< weight gradient general buffer */
+  std::vector<std::unique_ptr<Layer>> layers_; /**< vector of layers */
 
-  std::shared_ptr<GeneralBuffer<__half>> blobs_buff_half_;  /**< blobs' general buffer */
-  std::shared_ptr<GeneralBuffer<__half>> weight_buff_half_; /**< weight (param) general buffer */
-  std::shared_ptr<GeneralBuffer<__half>> wgrad_buff_half_;  /**< weight gradient general buffer */
+  Tensor2<float> weight_tensor_;
+  Tensor2<float> wgrad_tensor_;
+  Tensor2<__half> weight_tensor_half_;
+  Tensor2<__half> wgrad_tensor_half_;
 
   std::shared_ptr<const GPUResource> gpu_resource_; /**< gpu resource */
   int device_id_;                                   /**< device id */
   std::unique_ptr<Optimizer> optimizer_;            /**< optimizer */
   std::unique_ptr<ILoss> loss_;                     /**< loss */
-  std::shared_ptr<Tensor<float>> loss_tensor_;      /**< loss tensor */
+  Tensor2<float> loss_tensor_;                      /**< loss tensor */
   bool full_fp16_{false};
   bool enable_cuda_graph_;
   int n_sms_{0};
@@ -90,20 +93,6 @@ class Network {
   Network(const Network& C) = delete;
   Network& operator=(const Network&) = delete;
 
-  std::shared_ptr<GeneralBuffer<float>>& get_weight() { return weight_buff_; }
-
-  std::shared_ptr<GeneralBuffer<__half>>& get_weight_half() { return weight_buff_half_; }
-
-  void set_weight(std::shared_ptr<GeneralBuffer<float>>& weight_buff) {
-    weight_buff_->replace_buffer_with(*weight_buff);
-    return;
-  }
-
-  void set_weight_half(std::shared_ptr<GeneralBuffer<__half>>& wgrad_buff_half) {
-    weight_buff_half_->replace_buffer_with(*wgrad_buff_half);
-    return;
-  }
-
   /**
    * Forward, backward and update the network.
    */
@@ -119,12 +108,14 @@ class Network {
    */
   float get_loss();
 
+  int get_device_id() const { return device_id_; }
+
   metrics::RawMetricMap get_raw_metrics() const;
 
   /**
    * Get number of parameters in this network.
    */
-  size_t get_params_num() const { return weight_buff_->get_num_elements(); }
+  size_t get_params_num() const { return weight_tensor_.get_num_elements(); }
 
   /**
    * Writting paramters to fstream.
@@ -193,6 +184,6 @@ class Network {
       n->search_algorithm();
     }
   }
-};
+};  // namespace HugeCTR
 
 }  // namespace HugeCTR

@@ -15,15 +15,15 @@
  */
 
 #pragma once
-#include <fstream>
-#include <vector>
 #include <check_none.hpp>
 #include <common.hpp>
 #include <csr.hpp>
 #include <csr_chunk.hpp>
 #include <data_reader_worker_interface.hpp>
+#include <fstream>
 #include <heapex.hpp>
 #include <mmap_source.hpp>
+#include <vector>
 
 namespace HugeCTR {
 template <class T>
@@ -101,7 +101,7 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
                   << "batchsize: " << csr_chunk->get_batchsize() << std::endl;
       }
       csr_chunk->set_current_batchsize(current_batchsize);
-      const auto& label_dense_buffers = csr_chunk->get_label_buffers();
+      Tensors2<float>& label_dense_buffers = csr_chunk->get_label_buffers();
       const int label_dense_dim = csr_chunk->get_label_dense_dim();
 
       DENSE_T* label_dense;
@@ -155,12 +155,13 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
           int local_id = i % (csr_chunk->get_batchsize() / label_dense_buffers.size());
           assert((unsigned int)local_id <
                  (csr_chunk->get_batchsize() / label_dense_buffers.size()));
+
+          float* ptr = label_dense_buffers[buffer_id].get_ptr();
           for (int j = 0; j < label_dense_dim; j++) {
             if (j < label_dim_) {
-              label_dense_buffers[buffer_id][local_id * label_dense_dim + j] =
-                  label_dense[j];  // row major for label buffer
+              ptr[local_id * label_dense_dim + j] = label_dense[j];  // row major for label buffer
             } else {
-              label_dense_buffers[buffer_id][local_id * label_dense_dim + j] =
+              ptr[local_id * label_dense_dim + j] =
                   log((float)label_dense[j] + 1.f);  // dlrm has preprocess like this
             }
           }
@@ -192,12 +193,14 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
                   dev_id = std::abs(dev_id);
 
                   assert(dev_id < csr_chunk->get_num_devices());
-/* #ifndef NDEBUG
-                  if (i >= 0)
-                    std::cout << "[HCDEBUG]"
-                              << "feature_ids:" << feature_ids[k] << " local_id: " << local_id
-                              << " param_id: " << param_id << " dev_id: " << dev_id << std::endl;
-#endif */
+                  /* #ifndef NDEBUG
+                                    if (i >= 0)
+                                      std::cout << "[HCDEBUG]"
+                                                << "feature_ids:" << feature_ids[k] << " local_id: "
+                  << local_id
+                                                << " param_id: " << param_id << " dev_id: " <<
+                  dev_id << std::endl;
+                  #endif */
 
                   csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
                 }

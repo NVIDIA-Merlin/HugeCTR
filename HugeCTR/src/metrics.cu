@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include <cub/cub/cub.cuh>
+#include <diagnose.hpp>
 #include <metrics.hpp>
 #include <utils.cuh>
-#include <cub/cub/cub.cuh>
 
 namespace HugeCTR {
 
@@ -182,13 +183,12 @@ template <typename T>
 AverageLoss<T>::~AverageLoss() {}
 
 template <typename T>
-void AverageLoss<T>::local_reduce(RawMetricMap raw_metrics) {
+void AverageLoss<T>::local_reduce(int device_id, RawMetricMap raw_metrics) {
   float loss_host = 0.0f;
-  auto loss_tensor = static_cast<TensorType*>(raw_metrics[RawType::Loss].get());
-  int device_id = loss_tensor->get_device_id();
+  Tensor2<T> loss_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Loss]);
   CudaDeviceContext context(device_id);
   CK_CUDA_THROW_(
-      cudaMemcpy(&loss_host, loss_tensor->get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
+      cudaMemcpy(&loss_host, loss_tensor.get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
   loss_local_[device_id] = loss_host;
 }
 
@@ -308,12 +308,11 @@ AUC<T>::~AUC() {
 }
 
 template <typename T>
-void AUC<T>::local_reduce(RawMetricMap raw_metrics) {
-  auto pred_tensor = static_cast<Tensor<PredType>*>(raw_metrics[RawType::Pred].get());
-  auto label_tensor = static_cast<Tensor<LabelType>*>(raw_metrics[RawType::Label].get());
-  int current_device_id = pred_tensor->get_device_id();
+void AUC<T>::local_reduce(int device_id, RawMetricMap raw_metrics) {
+  Tensor2<PredType> pred_tensor = Tensor2<PredType>::stretch_from(raw_metrics[RawType::Pred]);
+  Tensor2<LabelType> label_tensor = Tensor2<LabelType>::stretch_from(raw_metrics[RawType::Label]);
 
-  CudaDeviceContext context(current_device_id);
+  CudaDeviceContext context(device_id);
   int num_active_gpu = 0;
   int r = 0;
   num_active_gpu_and_r(num_active_gpu, r);
@@ -321,14 +320,14 @@ void AUC<T>::local_reduce(RawMetricMap raw_metrics) {
     num_active_gpu += 1;
   }
 
-  if (current_device_id < num_active_gpu) {
-    int num_elems = (r && current_device_id == num_active_gpu - 1) ? r : batch_size_per_gpu_;
+  if (device_id < num_active_gpu) {
+    int num_elems = (r && device_id == num_active_gpu - 1) ? r : batch_size_per_gpu_;
 
-    size_t offset = offset_ + batch_size_per_gpu_ * current_device_id;
+    size_t offset = offset_ + batch_size_per_gpu_ * device_id;
 
-    copy_all<T>(d_pred() + offset, d_label() + offset, pred_tensor->get_ptr(),
-                label_tensor->get_ptr(), num_elems, num_sms_,
-                (*gpu_resource_group_)[current_device_id].get_stream());
+    copy_all<T>(d_pred() + offset, d_label() + offset, pred_tensor.get_ptr(),
+                label_tensor.get_ptr(), num_elems, num_sms_,
+                (*gpu_resource_group_)[device_id].get_stream());
   }
 }
 

@@ -34,7 +34,7 @@ void Layer::init_params(std::ofstream& out_stream) {
 std::vector<float> Layer::get_initializer() {
   size_t elements = 0;
   for (const auto& weight : weights_) {
-    elements += weight->get_num_elements();
+    elements += weight.get_num_elements();
   }
   std::vector<float> initializer(elements, 0.f);
 
@@ -70,10 +70,10 @@ std::vector<float> Layer::get_initializer() {
 
   size_t current_offset = 0;
   for (size_t w = 0; w < weights_.size(); ++w) {
-    for (size_t j = 0; j < (weights_[w])->get_num_elements(); ++j) {
+    for (size_t j = 0; j < weights_[w].get_num_elements(); ++j) {
       initializer[j + current_offset] = simulators[w % simulators.size()]->get_num();
     }
-    current_offset += (weights_[w])->get_num_elements();
+    current_offset += weights_[w].get_num_elements();
   }
 
   for (auto& simu : simulators) simu.reset(nullptr);

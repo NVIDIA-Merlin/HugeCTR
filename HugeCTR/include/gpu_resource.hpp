@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <common.hpp>
-#include <device_map.hpp>
-#include <utils.hpp>
 #include <ctpl/ctpl_stl.h>
-
 #include <cudnn.h>
 #include <curand.h>
 #include <nccl.h>
 #include <rmm/mr/device/device_memory_resource.hpp>
+#include <common.hpp>
+#include <device_map.hpp>
+#include <utils.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>

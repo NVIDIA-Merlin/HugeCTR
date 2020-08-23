@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <vector>
 #include <csr.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -32,10 +32,10 @@ template <typename CSR_Type>
 class CSRChunk {
  private:
   std::vector<CSR<CSR_Type>>
-      csr_buffers_; /**< A vector of CSR objects, should be same number as devices. */
-  std::vector<PinnedBuffer<float>> label_buffers_; /**< A vector of label buffers */
-  int label_dense_dim_; /**< dimension of label + dense (for one sample) */
-  int batchsize_;       /**< batch size of training */
+      csr_buffers_;               /**< A vector of CSR objects, should be same number as devices. */
+  Tensors2<float> label_buffers_; /**< A vector of label buffers */
+  int label_dense_dim_;           /**< dimension of label + dense (for one sample) */
+  int batchsize_;                 /**< batch size of training */
   int num_params_;
   int num_devices_;
   long long current_batchsize_;
@@ -68,6 +68,9 @@ class CSRChunk {
     num_devices_ = num_devices;
     assert(csr_buffers_.empty() && label_buffers_.empty());
 
+    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
+        GeneralBuffer2<CudaHostAllocator>::create();
+
     for (int i = 0; i < num_devices; i++) {
       for (auto& param : params) {
         int slots = 0;
@@ -83,8 +86,14 @@ class CSRChunk {
         }
         csr_buffers_.emplace_back(batchsize * slots, param.max_feature_num * batchsize);
       }
-      label_buffers_.emplace_back(batchsize / num_devices * label_dense_dim);
+
+      Tensor2<float> label_tensor;
+      buff->reserve({static_cast<size_t>(batchsize / num_devices * label_dense_dim)},
+                    &label_tensor);
+      label_buffers_.push_back(label_tensor);
     }
+
+    buff->allocate();
   }
 
   /**
@@ -121,7 +130,7 @@ class CSRChunk {
    * Get labels
    * This methord is used in collector (consumer) and data_reader (provider).
    */
-  const std::vector<PinnedBuffer<float>>& get_label_buffers() const { return label_buffers_; }
+  Tensors2<float>& get_label_buffers() { return label_buffers_; }
   int get_label_dense_dim() const { return label_dense_dim_; }
   int get_batchsize() const { return batchsize_; }
   int get_num_devices() const { return num_devices_; }

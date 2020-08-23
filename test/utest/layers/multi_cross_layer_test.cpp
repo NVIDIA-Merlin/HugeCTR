@@ -17,7 +17,6 @@
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -33,12 +32,15 @@ class MultiCrossLayerTest {
   const size_t batchsize_;
   const size_t w_;
   const int layers_;
-  GeneralBufferPtr<float> blob_buf_;
-  std::shared_ptr<GeneralBuffer<float>> weight_buf_;
-  std::shared_ptr<GeneralBuffer<float>> wgrad_buf_;
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blob_buf_;
+  std::shared_ptr<BufferBlock2<float>> weight_buf_;
+  std::shared_ptr<BufferBlock2<float>> wgrad_buf_;
 
-  TensorPtr<float> d_input_;
-  TensorPtr<float> d_output_;
+  Tensor2<float> weight_;
+  Tensor2<float> wgrad_;
+
+  Tensor2<float> d_input_;
+  Tensor2<float> d_output_;
 
   std::vector<float> h_input_;
   std::vector<float> h_input_grad_;
@@ -70,9 +72,9 @@ class MultiCrossLayerTest {
       }
     }
 
-    CK_CUDA_THROW_(cudaMemcpy(d_input_->get_ptr(), h_input_.data(), d_input_->get_size(),
+    CK_CUDA_THROW_(cudaMemcpy(d_input_.get_ptr(), h_input_.data(), d_input_.get_size_in_bytes(),
                               cudaMemcpyHostToDevice));
-    float* p = weight_buf_->get_ptr_with_offset(0);
+    float* p = weight_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       CK_CUDA_THROW_(
           cudaMemcpy(p, h_kernels_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
@@ -98,9 +100,9 @@ class MultiCrossLayerTest {
         b = 0.0f;
       }
     }
-    CK_CUDA_THROW_(cudaMemcpy(d_output_->get_ptr(), h_output_grad_.data(),
+    CK_CUDA_THROW_(cudaMemcpy(d_output_.get_ptr(), h_output_grad_.data(),
                               batchsize_ * w_ * sizeof(float), cudaMemcpyHostToDevice));
-    float* p = wgrad_buf_->get_ptr_with_offset(0);
+    float* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       CK_CUDA_THROW_(
           cudaMemcpy(p, h_kernel_grads_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
@@ -200,7 +202,7 @@ class MultiCrossLayerTest {
   }
 
   void gpu_fprop_() {
-    layer_->fprop(cudaStreamDefault);
+    layer_->fprop(true, cudaStreamDefault);
     return;
   }
 
@@ -236,7 +238,7 @@ class MultiCrossLayerTest {
     std::vector<float> d2h_output;
     d2h_output.resize(batchsize_ * w_);
 
-    CK_CUDA_THROW_(cudaMemcpy(d2h_output.data(), d_output_->get_ptr(), d_output_->get_size(),
+    CK_CUDA_THROW_(cudaMemcpy(d2h_output.data(), d_output_.get_ptr(), d_output_.get_size_in_bytes(),
                               cudaMemcpyDeviceToHost));
 
     // todo compare
@@ -255,9 +257,9 @@ class MultiCrossLayerTest {
       d2h_bias_grads_.push_back(std::vector<float>(1 * w_));
     }
 
-    CK_CUDA_THROW_(cudaMemcpy(d2h_input_grad.data(), d_input_->get_ptr(), d_input_->get_size(),
-                              cudaMemcpyDeviceToHost));
-    float* p = wgrad_buf_->get_ptr_with_offset(0);
+    CK_CUDA_THROW_(cudaMemcpy(d2h_input_grad.data(), d_input_.get_ptr(),
+                              d_input_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+    float* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       CK_CUDA_THROW_(
           cudaMemcpy(d2h_kernel_grads_[i].data(), p, w_ * sizeof(float), cudaMemcpyDeviceToHost));
@@ -284,12 +286,13 @@ class MultiCrossLayerTest {
       : batchsize_(batchsize),
         w_(w),
         layers_(layers),
-        blob_buf_(new GeneralBuffer<float>()),
-        weight_buf_(new GeneralBuffer<float>()),
-        wgrad_buf_(new GeneralBuffer<float>()),
+        blob_buf_(GeneralBuffer2<CudaAllocator>::create()),
         data_sim_(0.0, 1.0, -10.0, 10.0) {
-    d_input_.reset(new Tensor<float>({batchsize, w}, blob_buf_, TensorFormat_t::HW));
-    d_output_.reset(new Tensor<float>({batchsize, w}, blob_buf_, TensorFormat_t::HW));
+    weight_buf_ = blob_buf_->create_block<float>();
+    wgrad_buf_ = blob_buf_->create_block<float>();
+
+    blob_buf_->reserve({batchsize, w}, &d_input_);
+    blob_buf_->reserve({batchsize, w}, &d_output_);
 
     h_input_.resize(batchsize * w);
     h_output_grad_.resize(batchsize * w);
@@ -307,11 +310,13 @@ class MultiCrossLayerTest {
     // layer
     cublasHandle_t cublas_handle;
     cublasCreate(&cublas_handle);
-    layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, d_input_, d_output_, cublas_handle, layers, 0));
+    layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, blob_buf_, d_input_, d_output_,
+                                     cublas_handle, layers, 0));
 
-    blob_buf_->init(0);
-    weight_buf_->init(0);
-    wgrad_buf_->init(0);
+    blob_buf_->allocate();
+
+    weight_ = weight_buf_->as_tensor();
+    wgrad_ = wgrad_buf_->as_tensor();
 
     return;
   }
@@ -328,37 +333,37 @@ class MultiCrossLayerTest {
   }
 };
 
-TEST(multi_cross_layer, 1x1024x1) {
+TEST(multi_cross_layer, fp32_1x1024x1) {
   MultiCrossLayerTest test(1, 1024, 1);
   test.test();
 }
 
-TEST(multi_cross_layer, 1x1024x2) {
+TEST(multi_cross_layer, fp32_1x1024x2) {
   MultiCrossLayerTest test(1, 1024, 2);
   test.test();
 }
 
-TEST(multi_cross_layer, 1x1024x3) {
+TEST(multi_cross_layer, fp32_1x1024x3) {
   MultiCrossLayerTest test(1, 1024, 3);
   test.test();
 }
 
-TEST(multi_cross_layer, 32x1024x3) {
+TEST(multi_cross_layer, fp32_32x1024x3) {
   MultiCrossLayerTest test(32, 1024, 3);
   test.test();
 }
 
-TEST(multi_cross_layer, 4096x1024x2) {
+TEST(multi_cross_layer, fp32_4096x1024x2) {
   MultiCrossLayerTest test(4096, 1024, 2);
   test.test();
 }
 
-TEST(multi_cross_layer, 4096x1024x3) {
+TEST(multi_cross_layer, fp32_4096x1024x3) {
   MultiCrossLayerTest test(4096, 1024, 3);
   test.test();
 }
 
-TEST(multi_cross_layer, 40963x356x3) {
+TEST(multi_cross_layer, fp32_40963x356x3) {
   MultiCrossLayerTest test(40963, 356, 3);
   test.test();
 }

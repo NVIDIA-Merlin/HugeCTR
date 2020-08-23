@@ -35,21 +35,35 @@ class ConcatLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<T> weights_;
+  Tensors2<T> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<T> wgrad_;
+  Tensors2<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
+  Tensors2<T> train_in_tensors_;
+  Tensors2<T> evaluate_in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
+  Tensor2<T> out_tensor_;
+
+  int n_sms_;
+
+  void prop_common(bool forward, Tensors2<T>& in_tensors, cudaStream_t stream);
+  template <typename... Args>
+  void kernel_launch(bool forward, cudaStream_t stream, Args&... args);
+
+  Tensors2<T>& get_in_tensors(bool is_train);
 
  public:
+  struct InParam {
+    T* in;
+    const int in_w;
+  };
+
   /**
    * Ctor of ConcatLayer.
    * @param in_tensors the vector of the input tensors
@@ -57,33 +71,24 @@ class ConcatLayer : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  ConcatLayer(Tensors<T> in_tensors, std::shared_ptr<Tensor<T>>& out_tensor,
-              const std::shared_ptr<GeneralBuffer<T>>& blobs_buff, int device_id);
+  ConcatLayer(const Tensors2<T>& train_in_tensors, const Tensors2<T>& evaluate_in_tensors,
+              Tensor2<T>& out_tensor,
+              const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int device_id);
   ~ConcatLayer() override{};
 
   /**
    * Concat's foward pass to gather data to the output tensor
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train, cudaStream_t stream) override;
   /**
    * Concat's backward pass to scatter data to the input tensors
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
 
-  struct InParam {
-    T* in;
-    const int in_w;
-  };
-
  private:
-  void prop_common(bool forward, cudaStream_t stream);
-  std::vector<InParam> set_in_params(int n);
-  template <typename... Args>
-  void kernel_launch(bool forward, cudaStream_t stream, Args&... args);
-
-  int n_sms_;
+  std::vector<InParam> set_in_params(Tensors2<T>& in_tensors, int n);
 };
 
 }  // namespace HugeCTR

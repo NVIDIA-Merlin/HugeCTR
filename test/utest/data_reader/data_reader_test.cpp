@@ -90,17 +90,17 @@ TEST(data_reader_test, data_reader_simple_test) {
                             gpu_resource_group, 1);
 
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+    print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
+    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+    print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
+    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+    print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
+    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
 }
 
 TEST(data_reader_test, data_reader_localized_test) {
@@ -129,18 +129,20 @@ TEST(data_reader_test, data_reader_localized_test) {
                             gpu_resource_group, 1);
 
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
   print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+ */
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
   print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+ */
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+/*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
   print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
-}
+ */}
 
 TEST(data_reader_test, data_reader_mixed_test) {
   const int batchsize = 2048;
@@ -170,21 +172,22 @@ TEST(data_reader_test, data_reader_mixed_test) {
                             gpu_resource_group, 1);
 
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+    print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
+    print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
+    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
   print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
   print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+ */
   data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+/*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
   print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
   print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
   print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
-}
+ */}
 
 #ifdef ENABLE_MPI
 TEST(data_reader_test, two_nodes_localized) {
@@ -223,17 +226,17 @@ TEST(data_reader_test, two_nodes_localized) {
                               gpu_resource_group, 1);
 
     data_reader.read_a_batch_to_device();
-    print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+/*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
     print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
     print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
 
     std::cout << "two Nodes 4 GPUs second batch\n" << std::endl;
     data_reader.read_a_batch_to_device();
-    print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+/*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
     print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
     print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
   }
   std::cout << "Single Node 4 GPUs\n" << std::endl;
   if (pid == 0) {
@@ -252,7 +255,7 @@ TEST(data_reader_test, two_nodes_localized) {
                               gpu_resource_group, 1);
 
     data_reader.read_a_batch_to_device();
-    print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
+/*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
     print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
     print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
     print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
@@ -260,7 +263,7 @@ TEST(data_reader_test, two_nodes_localized) {
     print_tensor(*data_reader.get_label_tensors()[3], -10, -1);
     print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
     print_tensor(*data_reader.get_value_tensors()[3], 0, 10);
-    print_tensor(*data_reader.get_row_offsets_tensors()[3], 0, 10);
+    print_tensor(*data_reader.get_row_offsets_tensors()[3], 0, 10); */
   }
 }
 #endif

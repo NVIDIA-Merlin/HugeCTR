@@ -17,9 +17,6 @@
 #pragma once
 
 #include <atomic>
-#include <fstream>
-#include <thread>
-#include <vector>
 #include <common.hpp>
 #include <csr.hpp>
 #include <csr_chunk.hpp>
@@ -27,13 +24,14 @@
 #include <data_reader_worker.hpp>
 #include <data_reader_worker_interface.hpp>
 #include <data_reader_worker_raw.hpp>
-#include <parquet_data_reader_worker.hpp>
 #include <file_list.hpp>
-#include <general_buffer.hpp>
+#include <fstream>
 #include <gpu_resource.hpp>
 #include <heap.hpp>
-#include <tensor.hpp>
+#include <parquet_data_reader_worker.hpp>
+#include <thread>
 #include <utils.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -109,18 +107,14 @@ class DataReader {
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
   std::thread data_collector_thread_;            /**< A data_collector_thread. */
 
-  GeneralBuffers<float> label_buffers_;       /**< A gpu general buffer for label_buffer */
-  GeneralBuffers<float> dense_buffers_fp32_;  /**< A gpu general buffer for dense_buffer */
-  GeneralBuffers<__half> dense_buffers_fp16_; /**< A gpu general buffer for dense_buffer */
-  Tensors<float> label_tensors_;              /**< Label tensors for the usage of loss */
-  ITensors dense_tensors_;                    /**< Dense tensors for the usage of loss */
-  Check_t check_type_;                        /**< check type */
+  Tensors2<float> label_tensors_;         /**< Label tensors for the usage of loss */
+  std::vector<TensorBag2> dense_tensors_; /**< Dense tensors for the usage of loss */
+  Check_t check_type_;                    /**< check type */
 
   /* Each gpu will have several csr output for different embedding */
-  GeneralBuffers<TypeKey>
-      csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
-  Tensors<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
-  Tensors<TypeKey> value_tensors_;       /**< value tensors */
+  Tensors2<TypeKey> csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
+  Tensors2<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
+  Tensors2<TypeKey> value_tensors_;       /**< value tensors */
   std::vector<std::shared_ptr<size_t>> nnz_array_;
 
   const std::vector<DataReaderSparseParam> params_;
@@ -200,8 +194,8 @@ class DataReader {
       case DataReaderType_t::Parquet: {
         for (int i = 0; i < NumThreads; i++) {
           std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
-                         i, NumThreads, csr_heap_, file_list_, max_feature_num_per_sample, params_,
-                         slot_offset_, device_resources_->get_rmm_mr()));
+              i, NumThreads, csr_heap_, file_list_, max_feature_num_per_sample, params_,
+              slot_offset_, device_resources_->get_rmm_mr()));
           data_readers_.push_back(data_reader);
           data_reader_threads_.emplace_back(data_reader_thread_func_<TypeKey>, data_reader,
                                             &data_reader_loop_flag_);
@@ -235,22 +229,22 @@ class DataReader {
              std::vector<long long> slot_size = std::vector<long long>(), bool cache_data = false,
              bool start_reading_from_beginning = true, bool data_shuffle = false);
 
-  const Tensors<float>& get_label_tensors() const { return label_tensors_; }
-  const ITensors& get_dense_tensors() const { return dense_tensors_; }
-  const Tensors<TypeKey>& get_row_offsets_tensors() const { return row_offsets_tensors_; }
-  const Tensors<TypeKey>& get_value_tensors() const { return value_tensors_; }
+  const Tensors2<float>& get_label_tensors() const { return label_tensors_; }
+  const std::vector<TensorBag2>& get_dense_tensors() const { return dense_tensors_; }
+  const Tensors2<TypeKey>& get_row_offsets_tensors() const { return row_offsets_tensors_; }
+  const Tensors2<TypeKey>& get_value_tensors() const { return value_tensors_; }
   const std::vector<std::shared_ptr<size_t>> get_nnz_array() const { return nnz_array_; }
-  const Tensors<TypeKey> get_row_offsets_tensors(int param_id) const {
-    Tensors<TypeKey> tensors;
+  const Tensors2<TypeKey> get_row_offsets_tensors(int param_id) const {
+    Tensors2<TypeKey> tensors;
     for (unsigned int i = 0; i < device_resources_->size(); i++) {
-      tensors.emplace_back(row_offsets_tensors_[i * params_.size() + param_id]);
+      tensors.push_back(row_offsets_tensors_[i * params_.size() + param_id]);
     }
     return tensors;
   }
-  const Tensors<TypeKey> get_value_tensors(int param_id) const {
-    Tensors<TypeKey> tensors;
+  const Tensors2<TypeKey> get_value_tensors(int param_id) const {
+    Tensors2<TypeKey> tensors;
     for (unsigned int i = 0; i < device_resources_->size(); i++) {
-      tensors.emplace_back(value_tensors_[i * params_.size() + param_id]);
+      tensors.push_back(value_tensors_[i * params_.size() + param_id]);
     }
     return tensors;
   }
@@ -304,50 +298,53 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
   create_heap_workers_();
 
-  auto& device_list = device_resources_->get_device_list();
+  const auto& device_list = device_resources_->get_device_list();
+
+  std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> buffs;
+  for (size_t i = 0; i < device_list.size(); i++) {
+    buffs.push_back(GeneralBuffer2<CudaAllocator>::create());
+  }
 
   // create label and dense tensor
   size_t batch_size_per_device = batchsize_ / total_gpu_count;
-  for (auto device_id : device_list) {
-    std::shared_ptr<GeneralBuffer<float>> tmp_label_buff(new GeneralBuffer<float>());
-    label_tensors_.emplace_back(
-        new Tensor<float>({batch_size_per_device, label_dim_}, tmp_label_buff, TensorFormat_t::HW));
-    tmp_label_buff->init(device_id);
-    label_buffers_.emplace_back(tmp_label_buff);
+  for (size_t i = 0; i < device_list.size(); i++) {
+    {
+      Tensor2<float> tensor;
+      buffs[i]->reserve({batch_size_per_device, label_dim_}, &tensor);
+      label_tensors_.push_back(tensor);
+    }
     if (use_mixed_precision_) {
-      std::shared_ptr<GeneralBuffer<__half>> tmp_dense_buff(new GeneralBuffer<__half>());
-      dense_tensors_.emplace_back(new Tensor<__half>({batch_size_per_device, dense_dim_},
-                                                     tmp_dense_buff, TensorFormat_t::HW));
-      tmp_dense_buff->init(device_id);
-      dense_buffers_fp16_.emplace_back(tmp_dense_buff);
+      Tensor2<__half> tensor;
+      buffs[i]->reserve({batch_size_per_device, dense_dim_}, &tensor);
+      dense_tensors_.push_back(tensor.shrink());
     } else {
-      std::shared_ptr<GeneralBuffer<float>> tmp_dense_buff(new GeneralBuffer<float>());
-      dense_tensors_.emplace_back(new Tensor<float>({batch_size_per_device, dense_dim_},
-                                                    tmp_dense_buff, TensorFormat_t::HW));
-      tmp_dense_buff->init(device_id);
-      dense_buffers_fp32_.emplace_back(tmp_dense_buff);
+      Tensor2<float> tensor;
+      buffs[i]->reserve({batch_size_per_device, dense_dim_}, &tensor);
+      dense_tensors_.push_back(tensor.shrink());
     }
   }
 
   // create value and row offset tensor
-  for (auto device_id : device_list) {
+  for (size_t i = 0; i < device_list.size(); i++) {
     for (auto& param : params) {
       int slots = 0;
       if (param.type == DataReaderSparse_t::Distributed) {
         slots = param.slot_num;
       } else if (param.type == DataReaderSparse_t::Localized) {
         int mod_slots = param.slot_num % total_gpu_count;  // ceiling
-        int global_id = gpu_resource_group->get_global_id(device_id);
+        int global_id = gpu_resource_group->get_global_id(device_list[i]);
         if (global_id < mod_slots) {
           slots = param.slot_num / total_gpu_count + 1;
         } else {
           slots = param.slot_num / total_gpu_count;
         }
       }
-      std::shared_ptr<GeneralBuffer<TypeKey>> tmp_buffer(new GeneralBuffer<TypeKey>());
+
+      std::shared_ptr<BufferBlock2<TypeKey>> blockbuff = buffs[i]->create_block<TypeKey>();
+
       std::vector<size_t> num_rows_dim = {1, batchsize_ * slots + 1};
-      Tensor<TypeKey>* tmp_row_offset =
-          new Tensor<TypeKey>(num_rows_dim, tmp_buffer, TensorFormat_t::HW);
+      Tensor2<TypeKey> tmp_row_offset;
+      blockbuff->reserve(num_rows_dim, &tmp_row_offset);
 
       size_t num_max_value = (param.max_nnz * slots) <= param.max_feature_num
                                  ? (param.max_nnz * slots * batchsize_)
@@ -355,14 +352,13 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
       std::vector<size_t> num_max_value_dim = {1, num_max_value};
 
-      Tensor<TypeKey>* tmp_value =
-          new Tensor<TypeKey>(num_max_value_dim, tmp_buffer, TensorFormat_t::HW);
-      tmp_buffer->init(device_id);
+      Tensor2<TypeKey> tmp_value;
+      blockbuff->reserve(num_max_value_dim, &tmp_value);
 
       row_offsets_tensors_.emplace_back(tmp_row_offset);
       value_tensors_.emplace_back(tmp_value);
       nnz_array_.emplace_back(new size_t);
-      csr_buffers_.emplace_back(tmp_buffer);
+      csr_buffers_.emplace_back(blockbuff->as_tensor());
     }
   }
 
@@ -370,13 +366,19 @@ DataReader<TypeKey>::DataReader(const std::string& file_list_name, int batchsize
 
   if (cache_data) {
     data_collector_.reset(new DataCollector<TypeKey>(
-        label_tensors_, dense_tensors_, csr_buffers_, nnz_array_, device_resources_, csr_heap_,
-        use_mixed_precision_, one_hot, (num_samples - 1) / batchsize_ + 1));
+        label_tensors_, dense_tensors_, csr_buffers_, nnz_array_, buffs, device_resources_,
+        csr_heap_, use_mixed_precision_, one_hot, (num_samples - 1) / batchsize_ + 1));
   } else {
     data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
-                                                     nnz_array_, device_resources_, csr_heap_,
-                                                     use_mixed_precision_, one_hot));
+                                                     nnz_array_, buffs, device_resources_,
+                                                     csr_heap_, use_mixed_precision_, one_hot));
   }
+
+  for (size_t i = 0; i < device_list.size(); i++) {
+    CudaDeviceContext context(device_list[i]);
+    buffs[i]->allocate();
+  }
+
   data_collector_thread_ =
       std::thread(data_collector_thread_func_<TypeKey>, data_collector_, &data_reader_loop_flag_);
 
