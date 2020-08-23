@@ -33,11 +33,9 @@ class MomentumSGDOptimizer : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor momentum factor
    */
-  MomentumSGDOptimizer(const std::shared_ptr<GeneralBuffer<float>>& weight_main,
-                       const GeneralBufferPtr<float>& fp32_wgrad,
-                       const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision,
-                       int device_id, float learning_rate, float momentum_factor,
-                       float scaler = 1.f);
+  MomentumSGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
+                       const Tensor2<__half>& fp16_wgrad, bool mixed_precision, int device_id,
+                       float learning_rate, float momentum_factor, float scaler = 1.f);
 
   /**
    * update the weights using gradient
@@ -46,8 +44,8 @@ class MomentumSGDOptimizer : public Optimizer {
   void update(cudaStream_t stream) final;
 
  private:
-  GeneralBuffer<float> fp32_momentum_;
-  GeneralBuffer<__half> fp16_momentum_;
+  Tensor2<float> fp32_momentum_;
+  Tensor2<__half> fp16_momentum_;
   const float momentum_factor_;
 };
 

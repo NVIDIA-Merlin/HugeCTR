@@ -17,9 +17,8 @@
 #pragma once
 
 #include <functional>
-#include <vector>
-#include <general_buffer.hpp>
 #include <layer.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -29,11 +28,9 @@ struct MultiCrossForwardFunctor {
   MultiCrossForwardFunctor& operator=(const MultiCrossForwardFunctor&) = delete;
 
   void operator()(cudaStream_t stream, cublasHandle_t cublas_handle,
-                  const Tensor<float>& input_tensor,
-                  const std::vector<const Tensor<float>*>& kernel_tensors,
-                  const std::vector<const Tensor<float>*>& bias_tensors,
-                  const std::vector<Tensor<float>*>& layer_output_tensors,
-                  const std::vector<Tensor<float>*>& layer_hidden_tensors, int num_layers) const;
+                  const Tensor2<float>& input_tensor, const Tensors2<float>& kernel_tensors,
+                  const Tensors2<float>& bias_tensors, Tensors2<float>& layer_output_tensors,
+                  Tensors2<float>& layer_hidden_tensors, int num_layers) const;
 };
 
 struct MultiCrossBackwardFunctor {
@@ -41,27 +38,23 @@ struct MultiCrossBackwardFunctor {
   MultiCrossBackwardFunctor(const MultiCrossBackwardFunctor&) = delete;
   MultiCrossBackwardFunctor& operator=(const MultiCrossBackwardFunctor&) = delete;
 
-  void operator()(cudaStream_t stream,
-                  const Tensor<float>& input_tensor,
-                  const std::vector<const Tensor<float>*>& kernel_tensors,
-                  const std::vector<const Tensor<float>*>& layer_output_tensors,
-                  const std::vector<const Tensor<float>*>& layer_hidden_tensors,
-                  const Tensor<float>& grad_tensor, Tensor<float>& output_tensor,
-                  const std::vector<Tensor<float>*>& kernel_output_tensors,
-                  const std::vector<Tensor<float>*>& bias_output_tensors,
-                  Tensor<float>& tmp_vec_tensor, const std::vector<Tensor<float>*>& tmp_mat_tensors,
-                  int num_layers) const;
+  void operator()(cudaStream_t stream, const Tensor2<float>& input_tensor,
+                  const Tensors2<float>& kernel_tensors,
+                  const Tensors2<float>& layer_output_tensors,
+                  const Tensors2<float>& layer_hidden_tensors, const Tensor2<float>& grad_tensor,
+                  Tensor2<float>& output_tensor, Tensors2<float>& kernel_output_tensors,
+                  Tensors2<float>& bias_output_tensors, Tensor2<float>& tmp_vec_tensor,
+                  Tensor2<float> tmp_mat_tensors[], int num_layers) const;
 };
 
 class MultiCrossLayer : public Layer {
  private:
   const int num_layers_;
-  GeneralBufferPtr<float> blobs_buff_; /**< internal blobs' general buffer */
-  Tensors<float> blob_tensors_;        /**< vector of internal blobs' tensors */
-  Tensors<float> vec_tensors_;         //[h,1]
+  Tensors2<float> blob_tensors_; /**< vector of internal blobs' tensors */
+  Tensors2<float> vec_tensors_;  //[h,1]
 
-  TensorPtr<float> tmp_mat_tensors_[3];  //[h,w]
-  TensorPtr<float> tmp_vec_tensor_;      //[h,1]
+  Tensor2<float> tmp_mat_tensors_[3];  //[h,w]
+  Tensor2<float> tmp_vec_tensor_;      //[h,1]
 
   /*
    * stores the weight tensors of this layer.
@@ -70,31 +63,32 @@ class MultiCrossLayer : public Layer {
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors2<float> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  Tensors2<float> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  Tensors2<float> out_tensors_;
 
-  const cublasHandle_t cublas_handle_; // cublas handle
+  const cublasHandle_t cublas_handle_;  // cublas handle
  public:
   /**
    * forward pass
    */
-  void fprop(cudaStream_t stream) final;
+  void fprop(bool is_train, cudaStream_t stream) final;
   /**
    * backward pass
    */
   void bprop(cudaStream_t stream) final;
 
-  MultiCrossLayer(const GeneralBufferPtr<float>& weight_buff,
-                  const GeneralBufferPtr<float>& wgrad_buff, const TensorPtr<float>& in_tensor,
-                  const TensorPtr<float>& out_tensor, cublasHandle_t const& cublas_handle,
-		  int num_layers, int device_id,
+  MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                  const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
+                  cublasHandle_t const& cublas_handle, int num_layers, int device_id,
                   std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   MultiCrossLayer(const MultiCrossLayer&) = delete;
   MultiCrossLayer& operator=(const MultiCrossLayer&) = delete;

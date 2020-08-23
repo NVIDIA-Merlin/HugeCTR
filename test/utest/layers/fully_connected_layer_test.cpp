@@ -18,7 +18,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
-#include "HugeCTR/include/general_buffer.hpp"
 #include "cublas_v2.h"
 #include "gtest/gtest.h"
 using namespace std;
@@ -61,40 +60,38 @@ static void transpose(float *a, int m, int n) {
   for (int i = 0; i < m * n; ++i) a[i] = tmp[i];
 }
 
+static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
+      GeneralBuffer2<CudaAllocator>::create();
+  std::shared_ptr<BufferBlock2<float>> weight_buff = blobs_buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<float>> wgrad_buff = blobs_buff->create_block<float>();
 
-static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_t k) {
-  std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> blobs(new GeneralBuffer<float>());
-
-  std::shared_ptr<Tensor<float>> in_tensor(
-      new Tensor<float>((std::vector<size_t>){row_major ? m : k, row_major ? k : m}, blobs,
-                        row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
-  std::shared_ptr<Tensor<float>> out_tensor(
-      new Tensor<float>((std::vector<size_t>){row_major ? m : n, row_major ? n : m}, blobs,
-                        row_major ? TensorFormat_t::HW : TensorFormat_t::WH));
+  Tensor2<float> in_tensor;
+  blobs_buff->reserve({m, k}, &in_tensor);
+  Tensor2<float> out_tensor;
+  blobs_buff->reserve({m, n}, &out_tensor);
 
   cublasHandle_t cublas_handle;
   CK_CUBLAS_THROW_(cublasCreate(&cublas_handle));
-  FullyConnectedLayer fully_connected_layer(weight, wgrad, in_tensor, out_tensor,
-                                            row_major ? TensorFormat_t::HW : TensorFormat_t::WH,
-                                            cublas_handle, 0);
+  FullyConnectedLayer fully_connected_layer(weight_buff, wgrad_buff, in_tensor, in_tensor,
+                                            out_tensor, cublas_handle, 0);
   // Initialize tensors to 0 and choose cublas algorithms
-  weight->init(0);
-  wgrad->init(0);
-  blobs->init(0);
+  blobs_buff->allocate();
   fully_connected_layer.initialize();
-  //fully_connected_layer.search_algorithm();
+  // fully_connected_layer.search_algorithm();
   // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
   // of optimize)
-  weight->reset_sync();
-  wgrad->reset_sync();
-  blobs->reset_sync();
+  Tensor2<float> weight = weight_buff->as_tensor();
+  Tensor2<float> wgrad = wgrad_buff->as_tensor();
+
+  cudaMemset(weight.get_ptr(), 0, weight.get_size_in_bytes());
+  cudaMemset(wgrad.get_ptr(), 0, wgrad.get_size_in_bytes());
+
   // TODO: result check
-  float *d_weight = weight->get_ptr_with_offset(0);
-  float *d_weight_grad = wgrad->get_ptr_with_offset(0);
-  float *d_in = blobs->get_ptr_with_offset(0);
-  float *d_out = blobs->get_ptr_with_offset(k * m);
+  float *d_weight = weight.get_ptr();
+  float *d_weight_grad = wgrad.get_ptr();
+  float *d_in = in_tensor.get_ptr();
+  float *d_out = out_tensor.get_ptr();
 
   std::unique_ptr<float[]> h_weight(new float[n * k]);
   std::unique_ptr<float[]> h_weight_grad(new float[n * k]);
@@ -112,20 +109,16 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
   cpu_mm(h_in.get(), h_weight.get(), h_out.get(), m, k, n);
   cpu_add_bias(h_out.get(), h_bias.get(), m, n);
 
-  if (!row_major) {
-    transpose(h_weight.get(), k, n);
-    transpose(h_in.get(), m, k);
-  }
-  CK_CUDA_THROW_(cudaMemcpy(d_weight, h_weight.get(), sizeof(float) * k * n, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_weight + k * n, h_bias.get(), sizeof(float) * n, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_weight, h_weight.get(), sizeof(float) * k * n, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_weight + k * n, h_bias.get(), sizeof(float) * n, cudaMemcpyHostToDevice));
   CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), sizeof(float) * m * k, cudaMemcpyHostToDevice));
 
-  fully_connected_layer.fprop(cudaStreamDefault);
+  fully_connected_layer.fprop(true, cudaStreamDefault);
 
-  if (!row_major) transpose(h_out.get(), m, n);
-
-  ASSERT_EQ(true, check_cpu_gpu(h_out.get(), d_out, m * n))
-      << "fprop cross_check result fail" << endl;
+  ASSERT_EQ(true, check_cpu_gpu(h_out.get(), d_out, m * n)) << "fprop cross_check result fail"
+                                                            << endl;
 
   for (size_t i = 0; i < m * n; ++i) h_out[i] = (float)(rand() % 100);
 
@@ -134,23 +127,16 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
     for (size_t j = 0; j < n; ++j) h_bias_grad[j] += h_out[i * n + j];
   }
   // CPU bprop
-  if (row_major) {
-    transpose(h_weight.get(), k, n);
-    transpose(h_in.get(), m, k);
-  }
+  transpose(h_weight.get(), k, n);
+  transpose(h_in.get(), m, k);
   cpu_mm(h_in.get(), h_out.get(), h_weight_grad.get(), k, m, n);
   cpu_mm(h_out.get(), h_weight.get(), h_in.get(), m, n, k);
 
-  if (!row_major) transpose(h_out.get(), m, n);
   CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), sizeof(float) * m * n, cudaMemcpyHostToDevice));
   fully_connected_layer.bprop(cudaStreamDefault);
 
-  if (!row_major) {
-    transpose(h_weight_grad.get(), k, n);
-    transpose(h_in.get(), m, k);
-  }
-  ASSERT_EQ(true, check_cpu_gpu(h_in.get(), d_in, m * k))
-      << " bprop cross_check input_grad fail" << endl;
+  ASSERT_EQ(true, check_cpu_gpu(h_in.get(), d_in, m * k)) << " bprop cross_check input_grad fail"
+                                                          << endl;
   ASSERT_EQ(true, check_cpu_gpu(h_weight_grad.get(), d_weight_grad, k * n))
       << " bprop cross_check weight_grad fail" << endl;
   ASSERT_EQ(true, check_cpu_gpu(h_bias_grad.get(), d_weight_grad + k * n, n))
@@ -159,65 +145,11 @@ static void fully_connected_layer_test(bool row_major, size_t m, size_t n, size_
   CK_CUBLAS_THROW_(cublasDestroy(cublas_handle));
 }
 
-TEST(layers_test, fully_connected_layer_WH) {
-  // col-major
-  fully_connected_layer_test(false, 1024, 1024, 1024);
-  fully_connected_layer_test(false, 2048, 2048, 2048);
-  fully_connected_layer_test(false, 1, 1024, 1024);
-  fully_connected_layer_test(false, 1024, 1, 1024);
-  fully_connected_layer_test(false, 1024, 1024, 1);
-  fully_connected_layer_test(false, 1, 1, 1);
-  fully_connected_layer_test(false, 256, 512, 1024);
-  fully_connected_layer_test(false, 251, 511, 1023);
-}
-
-TEST(layers_test, fully_connected_layer_HW) {
-  // const int m = 256, n = 512, k = 1024;
-  fully_connected_layer_test(true, 1024, 1024, 1024);
-  fully_connected_layer_test(true, 2048, 2048, 2048);
-  fully_connected_layer_test(true, 1, 1024, 1024);
-  fully_connected_layer_test(true, 1024, 1, 1024);
-  fully_connected_layer_test(true, 1024, 1024, 1);
-  fully_connected_layer_test(true, 1, 1, 1);
-  fully_connected_layer_test(true, 256, 512, 1024);
-  fully_connected_layer_test(true, 251, 511, 1023);
-}
-
-TEST(layers_test, fully_connected_layer_HWHWWH) {
-  const size_t m = 256, n = 512, k = 1024;
-  std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> blobs(new GeneralBuffer<float>());
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>({m, k}, blobs, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>({m, n}, blobs, TensorFormat_t::HW));
-  cublasHandle_t cublas_handle;
-  CK_CUBLAS_THROW_(cublasCreate(&cublas_handle));
-  FullyConnectedLayer fully_connected_layer(weight, wgrad, in_tensor, out_tensor,
-                                            TensorFormat_t::WH, cublas_handle, 0);
-  weight->init(0);
-  wgrad->init(0);
-  blobs->init(0);
-  // TODO: result check
-
-  CK_CUBLAS_THROW_(cublasDestroy(cublas_handle));
-}
-
-TEST(layers_test, fully_connected_layer_WHWHHW) {
-  const size_t m = 256, n = 512, k = 1024;
-
-  std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> blobs(new GeneralBuffer<float>());
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>({k, m}, blobs, TensorFormat_t::WH));
-  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>({n, m}, blobs, TensorFormat_t::WH));
-  cublasHandle_t cublas_handle;
-  CK_CUBLAS_THROW_(cublasCreate(&cublas_handle));
-  FullyConnectedLayer fully_connected_layer(weight, wgrad, in_tensor, out_tensor,
-                                            TensorFormat_t::HW, cublas_handle, 0);
-  weight->init(0);
-  wgrad->init(0);
-  blobs->init(0);
-  // TODO: result check
-
-  CK_CUBLAS_THROW_(cublasDestroy(cublas_handle));
-}
+TEST(fully_connected_layer, fp32_1024x1024x1024) { fully_connected_layer_test(1024, 1024, 1024); }
+TEST(fully_connected_layer, fp32_2048x2048x2048) { fully_connected_layer_test(2048, 2048, 2048); }
+TEST(fully_connected_layer, fp32_1x1024x1024) { fully_connected_layer_test(1, 1024, 1024); }
+TEST(fully_connected_layer, fp32_1024x1x1024) { fully_connected_layer_test(1024, 1, 1024); }
+TEST(fully_connected_layer, fp32_1024x1024x1) { fully_connected_layer_test(1024, 1024, 1); }
+TEST(fully_connected_layer, fp32_1x1x1) { fully_connected_layer_test(1, 1, 1); }
+TEST(fully_connected_layer, fp32_256x512x1024) { fully_connected_layer_test(256, 512, 1024); }
+TEST(fully_connected_layer, fp32_251x511x1023) { fully_connected_layer_test(251, 511, 1023); }

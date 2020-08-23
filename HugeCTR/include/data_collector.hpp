@@ -20,10 +20,8 @@
 #include <common.hpp>
 #include <csr.hpp>
 #include <csr_chunk.hpp>
-#include <general_buffer.hpp>
 #include <gpu_resource.hpp>
 #include <heapex.hpp>
-#include <tensor.hpp>
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
@@ -51,9 +49,8 @@ struct ToMpiType<float> {
 #endif
 
 template <typename TypeComp>
-void split(std::shared_ptr<Tensor<float>> label_tensor,
-           std::shared_ptr<Tensor<TypeComp>> dense_tensor,
-           const std::shared_ptr<GeneralBuffer<float>> label_dense_buffer, cudaStream_t stream);
+void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
+           const Tensor2<float>& label_dense_buffer, cudaStream_t stream);
 
 /**
  * @brief A helper class of data reader.
@@ -73,31 +70,25 @@ class DataCollector {
   std::condition_variable stat_cv_;
   std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_;
 
-  Tensors<float> label_tensors_;
-  ITensors dense_tensors_;
-  GeneralBuffers<TypeKey> csr_buffers_;
+  Tensors2<float> label_tensors_;
+  std::vector<TensorBag2> dense_tensors_;
+  Tensors2<TypeKey> csr_buffers_;
   std::vector<std::shared_ptr<size_t>> nnz_array_;
-  // GeneralBuffers<float> label_dense_buffers_internal_;
-  // GeneralBuffers<TypeKey> csr_buffers_internal_;
   std::shared_ptr<GPUResourceGroup> device_resources_;
   int num_params_;
   size_t counter_{0};
   int pid_{0}, num_procs_{1};
-  // long long current_batchsize_{0};
-  // todo: risk:
   std::vector<unsigned int> pre_nnz_;
   bool use_mixed_precision_;
   const bool one_hot_;
   const size_t cache_size_;
 
-  GeneralBuffers<float> label_dense_buffers_internal_;
-  GeneralBuffers<TypeKey> csr_buffers_internal_;
+  Tensors2<float> label_dense_buffers_internal_;
+  Tensors2<TypeKey> csr_buffers_internal_;
 
   struct InternalBuffer_ {
-    // Tensors<float> label_dense_buffers_internal;
-    // Tensors<TypeKey> csr_buffers_internal;
-    GeneralBuffers<float> label_dense_buffers_internal;
-    GeneralBuffers<TypeKey> csr_buffers_internal;
+    Tensors2<float> label_dense_buffers_internal;
+    Tensors2<TypeKey> csr_buffers_internal;
     std::vector<std::shared_ptr<size_t>> nnz_array_internal;
     long long current_batchsize{0};
   };
@@ -119,9 +110,10 @@ class DataCollector {
    * @param csr_heap heap of data reader.
    */
 
-  DataCollector(const Tensors<float>& label_tensors, const ITensors& dense_tensors,
-                const GeneralBuffers<TypeKey>& csr_buffers,
+  DataCollector(const Tensors2<float>& label_tensors, const std::vector<TensorBag2>& dense_tensors,
+                const Tensors2<TypeKey>& csr_buffers,
                 const std::vector<std::shared_ptr<size_t>>& nnz_array,
+                const std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& buffs,
                 const std::shared_ptr<GPUResourceGroup>& device_resources,
                 const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap = nullptr,
                 const bool use_mixed_precision = false, const bool one_hot = false,
@@ -163,14 +155,13 @@ template <typename TypeKey>
 int DataCollector<TypeKey>::id_ = 0;
 
 template <typename TypeKey>
-DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
-                                      const ITensors& dense_tensors,
-                                      const GeneralBuffers<TypeKey>& csr_buffers,
-                                      const std::vector<std::shared_ptr<size_t>>& nnz_array,
-                                      const std::shared_ptr<GPUResourceGroup>& device_resources,
-                                      const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap,
-                                      const bool use_mixed_precision, const bool one_hot,
-                                      const size_t cache_size)
+DataCollector<TypeKey>::DataCollector(
+    const Tensors2<float>& label_tensors, const std::vector<TensorBag2>& dense_tensors,
+    const Tensors2<TypeKey>& csr_buffers, const std::vector<std::shared_ptr<size_t>>& nnz_array,
+    const std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& buffs,
+    const std::shared_ptr<GPUResourceGroup>& device_resources,
+    const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap, const bool use_mixed_precision,
+    const bool one_hot, const size_t cache_size)
     : csr_heap_(csr_heap),
       label_tensors_(label_tensors),
       dense_tensors_(dense_tensors),
@@ -194,32 +185,30 @@ DataCollector<TypeKey>::DataCollector(const Tensors<float>& label_tensors,
     // create internal buffers
     auto& local_device_list = device_resources_->get_device_list();
 
-    if (cache_size == 0) {
-    }
     size_t num_internal_buffers = cache_size_ == 0 ? 1 : cache_size_;
 
     MESSAGE_("num_internal_buffers " + std::to_string(num_internal_buffers));
 
     for (size_t j = 0; j < num_internal_buffers; j++) {
       auto internal_buffer = std::make_shared<InternalBuffer_>();
-      for (unsigned int i = 0; i < local_device_list.size(); i++) {
-        assert(local_device_list[i] == label_tensors_[i]->get_device_id());
-        assert(local_device_list[i] == dense_tensors_[i]->get_device_id());
-        int buf_size =
-            label_tensors_[i]->get_num_elements() + dense_tensors_[i]->get_num_elements();
-        internal_buffer->label_dense_buffers_internal.emplace_back(
-            std::make_shared<GeneralBuffer<float>>(buf_size, local_device_list[i]));
-        // if(j == 0){
-        //   MESSAGE_("buf_size " + std::to_string(buf_size) + " device " + std::to_string(i));
-        // }
+      for (size_t i = 0; i < local_device_list.size(); i++) {
+        int buf_size = label_tensors_[i].get_num_elements();
+        if (use_mixed_precision) {
+          Tensor2<__half> dense_tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
+          buf_size += dense_tensor.get_num_elements();
+        } else {
+          Tensor2<float> dense_tensor = Tensor2<float>::stretch_from(dense_tensors_[i]);
+          buf_size += dense_tensor.get_num_elements();
+        }
+        Tensor2<float> tensor;
+        buffs[i]->reserve({static_cast<size_t>(buf_size)}, &tensor);
+        internal_buffer->label_dense_buffers_internal.push_back(tensor);
       }
-      for (auto& cb : csr_buffers_) {
-        internal_buffer->csr_buffers_internal.emplace_back(
-            new GeneralBuffer<TypeKey>(cb->get_num_elements(), cb->get_device_id()));
-        // if(j == 0){
-        //   MESSAGE_("buf_size " + std::to_string(cb->get_num_elements()) + " device " +
-        //   std::to_string(cb->get_device_id()));
-        // }
+      size_t k = csr_buffers_.size() / local_device_list.size();
+      for (size_t i = 0; i < csr_buffers_.size(); i++) {
+        Tensor2<TypeKey> tensor;
+        buffs[i / k]->reserve(csr_buffers_[i].get_dimensions(), &tensor);
+        internal_buffer->csr_buffers_internal.push_back(tensor);
       }
       for (size_t i = 0; i < nnz_array_.size(); i++) {
         internal_buffer->nnz_array_internal.emplace_back(new size_t);
@@ -318,17 +307,14 @@ void DataCollector<TypeKey>::collect_() {
           int csr_copy_num = (csr_cpu_buffers[i * num_params + j].get_num_rows() +
                               csr_cpu_buffers[i * num_params + j].get_sizeof_value() + 1);
           CK_CUDA_THROW_(cudaMemcpyAsync(
-              internal_buffer->csr_buffers_internal[local_id * num_params + j]->get_ptr_with_offset(
-                  0),
+              internal_buffer->csr_buffers_internal[local_id * num_params + j].get_ptr(),
               csr_cpu_buffers[i * num_params + j].get_buffer(), csr_copy_num * sizeof(TypeKey),
               cudaMemcpyHostToDevice, (*device_resources_)[local_id].get_data_copy_stream(id_)));
         } else {
           unsigned int offset = csr_cpu_buffers[i * num_params + j].get_num_rows() + 1;
           int csr_copy_num = csr_cpu_buffers[i * num_params + j].get_sizeof_value();
           CK_CUDA_THROW_(cudaMemcpyAsync(
-              internal_buffer->csr_buffers_internal[local_id * num_params + j]->get_ptr_with_offset(
-                  0) +
-                  offset,
+              internal_buffer->csr_buffers_internal[local_id * num_params + j].get_ptr() + offset,
               csr_cpu_buffers[i * num_params + j].get_buffer() + offset,
               csr_copy_num * sizeof(TypeKey), cudaMemcpyHostToDevice,
               (*device_resources_)[local_id].get_data_copy_stream(id_)));
@@ -336,8 +322,8 @@ void DataCollector<TypeKey>::collect_() {
         *(internal_buffer->nnz_array_internal[local_id * num_params + j]) = nnz;
       }
       CK_CUDA_THROW_(cudaMemcpyAsync(
-          internal_buffer->label_dense_buffers_internal[local_id]->get_ptr_with_offset(0),
-          label_dense_buffers[i].get(), label_copy_num * sizeof(float), cudaMemcpyHostToDevice,
+          internal_buffer->label_dense_buffers_internal[local_id].get_ptr(),
+          label_dense_buffers[i].get_ptr(), label_copy_num * sizeof(float), cudaMemcpyHostToDevice,
           (*device_resources_)[local_id].get_data_copy_stream(id_)));
     }
   }
@@ -375,19 +361,20 @@ long long DataCollector<TypeKey>::read_a_batch_to_device() {
     CudaDeviceContext context((*device_resources_)[i].get_device_id());
     for (int j = 0; j < num_params_; j++) {
       int csr_id = i * num_params_ + j;
-      CK_CUDA_THROW_(
-          cudaMemcpyAsync(csr_buffers_[csr_id]->get_ptr_with_offset(0),
-                          internal_buffer->csr_buffers_internal[csr_id]->get_ptr_with_offset(0),
-                          csr_buffers_[csr_id]->get_size(), cudaMemcpyDeviceToDevice,
-                          (*device_resources_)[i].get_stream()));
+      CK_CUDA_THROW_(cudaMemcpyAsync(
+          csr_buffers_[csr_id].get_ptr(), internal_buffer->csr_buffers_internal[csr_id].get_ptr(),
+          csr_buffers_[csr_id].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+          (*device_resources_)[i].get_stream()));
       *(nnz_array_[csr_id]) = *(internal_buffer->nnz_array_internal[csr_id]);
     }
     if (use_mixed_precision_) {
-      split(label_tensors_[i], dynamic_tensor_cast<__half>(dense_tensors_[i]),
-            internal_buffer->label_dense_buffers_internal[i], (*device_resources_)[i].get_stream());
+      Tensor2<__half> tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
+      split(label_tensors_[i], tensor, internal_buffer->label_dense_buffers_internal[i],
+            (*device_resources_)[i].get_stream());
     } else {
-      split(label_tensors_[i], dynamic_tensor_cast<float>(dense_tensors_[i]),
-            internal_buffer->label_dense_buffers_internal[i], (*device_resources_)[i].get_stream());
+      Tensor2<float> tensor = Tensor2<float>::stretch_from(dense_tensors_[i]);
+      split(label_tensors_[i], tensor, internal_buffer->label_dense_buffers_internal[i],
+            (*device_resources_)[i].get_stream());
     }
   }
   counter_++;

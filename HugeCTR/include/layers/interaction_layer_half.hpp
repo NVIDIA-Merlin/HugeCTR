@@ -28,24 +28,24 @@ class InteractionLayerHalf : public Layer {
   /*
    * stores the master weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  Tensors2<float> weights_;
   /*
    * stores the weight tensors for compute of this layer.
    */
-  Tensors<__half> weights_half_;
+  Tensors2<__half> weights_half_;
 
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<__half> wgrad_;
+  Tensors2<__half> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<__half>>> in_tensors_;
+  Tensors2<__half> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<__half>>> out_tensors_;
+  Tensors2<__half> out_tensors_;
 
  public:
   /**
@@ -56,10 +56,9 @@ class InteractionLayerHalf : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  InteractionLayerHalf(std::shared_ptr<Tensor<__half>>& in_bottom_mlp_tensor,
-                       std::shared_ptr<Tensor<__half>>& in_embeddings,
-                       std::shared_ptr<Tensor<__half>>& out_tensor,
-                       const std::shared_ptr<GeneralBuffer<__half>>& blobs_buff,
+  InteractionLayerHalf(Tensor2<__half>& in_bottom_mlp_tensor, Tensor2<__half>& in_embeddings,
+                       Tensor2<__half>& out_tensor,
+                       const std::shared_ptr<GeneralBuffer2>& blobs_buff,
                        cublasHandle_t cublas_handle, int device_id);
   ~InteractionLayerHalf() override;
 
@@ -67,7 +66,7 @@ class InteractionLayerHalf : public Layer {
    * Interaction's foward pass to gather data to the output tensor
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train, cudaStream_t stream) override;
   /**
    * Interaction's backward pass to scatter data to the input tensors
    * @param stream CUDA stream where the foward propagation is executed

@@ -503,13 +503,14 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::update_params(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     size_t max_vocabulary_size_per_gpu, OptParams<TypeEmbeddingComp> &opt_params, size_t nnz,
-    const TypeHashKey *row_offset, size_t *hash_value_index, TypeHashKey *sample_id,
-    TypeHashKey *sample_id_sort, size_t *hash_value_index_sort,
-    uint32_t *hash_value_index_count_offset, uint32_t *new_hash_value_flag,
-    uint32_t *hash_value_flag_sumed, uint32_t *hash_value_index_count_counter,
-    void *temp_storage_sort, size_t temp_storage_sort_bytes, void *temp_storage_scan,
-    size_t temp_storage_scan_bytes, const TypeEmbeddingComp *wgrad, size_t *deltaw_hash_value_index,
-    float *deltaw, float *hash_table_value, size_t sm_count, cudaStream_t stream) {
+    const Tensor2<TypeHashKey> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<TypeHashKey> &sample_id, Tensor2<TypeHashKey> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<TypeEmbeddingComp> &wgrad,
+    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
+    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream) {
   if (slot_num == 0) {
     return;
   }
@@ -520,8 +521,8 @@ void SparseEmbeddingFunctors::update_params(
     // step1: expand sample IDs
     block_size = 64;
     grid_size = (batch_size * slot_num - 1) / block_size + 1;
-    sample_id_expand_kernel<<<grid_size, block_size, 0, stream>>>(batch_size, slot_num, row_offset,
-                                                                  sample_id);
+    sample_id_expand_kernel<<<grid_size, block_size, 0, stream>>>(
+        batch_size, slot_num, row_offset.get_ptr(), sample_id.get_ptr());
 
     if (opt_params.optimizer == Optimizer_t::SGD &&
         opt_params.hyperparams.sgd.atomic_update) {  // for SGD, do atomic update
@@ -530,38 +531,43 @@ void SparseEmbeddingFunctors::update_params(
 
       float lr_scale = opt_params.lr / opt_params.scaler;
       opt_sgd_atomic_kernel<<<grid_size, block_size, 0, stream>>>(
-          nnz, embedding_vec_size, lr_scale, hash_value_index, sample_id, wgrad, hash_table_value);
+          nnz, embedding_vec_size, lr_scale, hash_value_index.get_ptr(), sample_id.get_ptr(),
+          wgrad.get_ptr(), hash_table_value.get_ptr());
     } else {
       // step3: sort by hash_value_index
       int end_bit = static_cast<int>(log2(static_cast<float>(max_vocabulary_size_per_gpu))) + 1;
+      size_t temp_storage_sort_size = temp_storage_sort.get_size_in_bytes();
       CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairs(
-          (void *)temp_storage_sort, temp_storage_sort_bytes, hash_value_index,
-          hash_value_index_sort, sample_id, sample_id_sort, nnz, 0, end_bit, stream, false));
+          temp_storage_sort.get_ptr(), temp_storage_sort_size, hash_value_index.get_ptr(),
+          hash_value_index_sort.get_ptr(), sample_id.get_ptr(), sample_id_sort.get_ptr(), nnz, 0,
+          end_bit, stream, false));
 
       // step4: count the number for each unduplicated hash_value_index
-      CK_CUDA_THROW_(cudaMemsetAsync(hash_value_index_count_counter, 0, sizeof(uint32_t), stream));
+      CK_CUDA_THROW_(
+          cudaMemsetAsync(hash_value_index_count_counter.get_ptr(), 0, sizeof(uint32_t), stream));
 
       constexpr size_t max_grid_size = 384;
       block_size = 256;
       grid_size = min(max_grid_size, (nnz - 1) / block_size + 1);
 
-      value_count_kernel_1<<<grid_size, block_size, 0, stream>>>(nnz, hash_value_index_sort,
-                                                                 new_hash_value_flag);
+      value_count_kernel_1<<<grid_size, block_size, 0, stream>>>(
+          nnz, hash_value_index_sort.get_ptr(), new_hash_value_flag.get_ptr());
 
       // prefix_sum
-      CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum((void *)temp_storage_scan,
-                                                   temp_storage_scan_bytes, new_hash_value_flag,
-                                                   hash_value_flag_sumed, nnz, stream));
+      size_t temp_storage_scan_size = temp_storage_scan.get_size_in_bytes();
+      CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
+          temp_storage_scan.get_ptr(), temp_storage_scan_size, new_hash_value_flag.get_ptr(),
+          hash_value_flag_sumed.get_ptr(), nnz, stream));
 
       value_count_kernel_2<<<grid_size, block_size, 0, stream>>>(
-          nnz, new_hash_value_flag, hash_value_flag_sumed, hash_value_index_count_offset,
-          hash_value_index_count_counter);
+          nnz, new_hash_value_flag.get_ptr(), hash_value_flag_sumed.get_ptr(),
+          hash_value_index_count_offset.get_ptr(), hash_value_index_count_counter.get_ptr());
 
       uint32_t hash_hash_value_index_count_num = 0;
       // this async memcpy will not perform as a async operation because the host memory is not
       // a pinned memroy
       CK_CUDA_THROW_(cudaMemcpyAsync(&hash_hash_value_index_count_num,
-                                     hash_value_index_count_counter, sizeof(uint32_t),
+                                     hash_value_index_count_counter.get_ptr(), sizeof(uint32_t),
                                      cudaMemcpyDeviceToHost, stream));
 
       // step5: use optimizer method to compute deltaw, and record corresponding
@@ -581,37 +587,40 @@ void SparseEmbeddingFunctors::update_params(
             // update target mi and vi
             opt_adam_kernel_global<<<grid_size, block_size, 0, stream>>>(
                 hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-                sample_id_sort, hash_value_index_sort, hash_value_index_count_offset, wgrad,
-                opt_params.scaler);
+                sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(), opt_params.scaler);
             // all update according to the mi vi
             adam_update_kernel_global<<<1024, 256, 0, stream>>>(
                 embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam,
-                alpha_t, hash_table_value);
+                alpha_t, hash_table_value.get_ptr());
             break;
           }
           case Optimizer_t::MomentumSGD:  // momentum sgd
             opt_momentum_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
                 hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
-                hash_value_index_count_offset, wgrad, opt_params.scaler);
+                opt_params.hyperparams.momentum, sample_id_sort.get_ptr(),
+                hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                wgrad.get_ptr(), opt_params.scaler);
             momentum_sgd_update_kernel_global<<<1024, 256, 0, stream>>>(
                 embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum,
-                hash_table_value);
+                hash_table_value.get_ptr());
             break;
           case Optimizer_t::Nesterov:  // nesterov
             nesterov_global_update_kernel_global<<<1024, 256, 0, stream>>>(
                 embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov,
-                hash_table_value);
+                hash_table_value.get_ptr());
             nesterov_local_update_kernel_global<<<grid_size, block_size, 0, stream>>>(
                 hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-                hash_value_index_count_offset, wgrad, hash_table_value, opt_params.scaler);
+                opt_params.hyperparams.nesterov, sample_id_sort.get_ptr(),
+                hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
             break;
           case Optimizer_t::SGD:
             opt_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr, sample_id_sort,
-                hash_value_index_sort, hash_value_index_count_offset, wgrad, hash_table_value,
-                opt_params.scaler);
+                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                hash_table_value.get_ptr(), opt_params.scaler);
             break;
           default:
             CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
@@ -628,29 +637,33 @@ void SparseEmbeddingFunctors::update_params(
 
             opt_adam_kernel<<<grid_size, block_size, 0, stream>>>(
                 hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-                alpha_t, sample_id_sort, hash_value_index_sort, hash_value_index_count_offset,
-                wgrad, deltaw_hash_value_index, deltaw, opt_params.scaler);
+                alpha_t, sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), opt_params.scaler);
             break;
           }
           case Optimizer_t::MomentumSGD:  // momentum sgd
             opt_momentum_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                 hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                opt_params.hyperparams.momentum, sample_id_sort, hash_value_index_sort,
-                hash_value_index_count_offset, wgrad, deltaw_hash_value_index, deltaw,
+                opt_params.hyperparams.momentum, sample_id_sort.get_ptr(),
+                hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                wgrad.get_ptr(), deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(),
                 opt_params.scaler);
             break;
           case Optimizer_t::Nesterov:  // nesterov
             opt_nesterov_kernel<<<grid_size, block_size, 0, stream>>>(
                 hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                opt_params.hyperparams.nesterov, sample_id_sort, hash_value_index_sort,
-                hash_value_index_count_offset, wgrad, deltaw_hash_value_index, deltaw,
+                opt_params.hyperparams.nesterov, sample_id_sort.get_ptr(),
+                hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                wgrad.get_ptr(), deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(),
                 opt_params.scaler);
             break;
           case Optimizer_t::SGD:
             opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr, sample_id_sort,
-                hash_value_index_sort, hash_value_index_count_offset, wgrad,
-                deltaw_hash_value_index, deltaw, opt_params.scaler);
+                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), opt_params.scaler);
             break;
           default:
             CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
@@ -660,8 +673,8 @@ void SparseEmbeddingFunctors::update_params(
         block_size = embedding_vec_size;
         grid_size = max(1, hash_hash_value_index_count_num);
         update_kernel<<<grid_size, block_size, 0, stream>>>(
-            hash_hash_value_index_count_num, embedding_vec_size, deltaw_hash_value_index, deltaw,
-            hash_table_value);
+            hash_hash_value_index_count_num, embedding_vec_size, deltaw_hash_value_index.get_ptr(),
+            deltaw.get_ptr(), hash_table_value.get_ptr());
       }  // else
 
     }  // else
@@ -680,9 +693,10 @@ void SparseEmbeddingFunctors::update_params(
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::update_params(size_t embedding_vec_size,
                                             const OptParams<TypeEmbeddingComp> &opt_params,
-                                            size_t nnz, const size_t *hash_value_index,
-                                            const TypeEmbeddingComp *wgrad, float *hash_table_value,
-                                            size_t sm_count, cudaStream_t stream) {
+                                            size_t nnz, const Tensor2<size_t> &hash_value_index,
+                                            const Tensor2<TypeEmbeddingComp> &wgrad,
+                                            Tensor2<float> &hash_table_value, size_t sm_count,
+                                            cudaStream_t stream) {
   try {
     if (opt_params.optimizer == Optimizer_t::SGD && opt_params.hyperparams.sgd.atomic_update) {
       const size_t grid_size = min(max(1ul, nnz), sm_count * 32);
@@ -692,11 +706,8 @@ void SparseEmbeddingFunctors::update_params(size_t embedding_vec_size,
 
       // for one-hot, the sample_id is dedicated.
       opt_sgd_atomic_kernel<<<grid_size, block_size, 0, stream>>>(
-          nnz, embedding_vec_size, lr_scale, hash_value_index, wgrad, hash_table_value);
-#ifndef NDEBUG
-      cudaDeviceSynchronize();
-      CK_CUDA_THROW_(cudaGetLastError());
-#endif
+          nnz, embedding_vec_size, lr_scale, hash_value_index.get_ptr(), wgrad.get_ptr(),
+          hash_table_value.get_ptr());
     } else {
       CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
     }
@@ -712,55 +723,59 @@ void SparseEmbeddingFunctors::update_params(size_t embedding_vec_size,
 template void SparseEmbeddingFunctors::update_params<unsigned int, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     size_t max_vocabulary_size_per_gpu, OptParams<float> &opt_params, size_t nnz,
-    const unsigned int *row_offset, size_t *hash_value_index, unsigned int *sample_id,
-    unsigned int *sample_id_sort, size_t *hash_value_index_sort,
-    uint32_t *hash_value_index_count_offset, uint32_t *new_hash_value_flag,
-    uint32_t *hash_value_flag_sumed, uint32_t *hash_value_index_count_counter,
-    void *temp_storage_sort, size_t temp_storage_sort_bytes, void *temp_storage_scan,
-    size_t temp_storage_scan_bytes, const float *wgrad, size_t *deltaw_hash_value_index,
-    float *deltaw, float *hash_table_value, size_t sm_count, cudaStream_t stream);
+    const Tensor2<unsigned int> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<unsigned int> &sample_id, Tensor2<unsigned int> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad,
+    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
+    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<long long, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     size_t max_vocabulary_size_per_gpu, OptParams<float> &opt_params, size_t nnz,
-    const long long *row_offset, size_t *hash_value_index, long long *sample_id,
-    long long *sample_id_sort, size_t *hash_value_index_sort,
-    uint32_t *hash_value_index_count_offset, uint32_t *new_hash_value_flag,
-    uint32_t *hash_value_flag_sumed, uint32_t *hash_value_index_count_counter,
-    void *temp_storage_sort, size_t temp_storage_sort_bytes, void *temp_storage_scan,
-    size_t temp_storage_scan_bytes, const float *wgrad, size_t *deltaw_hash_value_index,
-    float *deltaw, float *hash_table_value, size_t sm_count, cudaStream_t stream);
+    const Tensor2<long long> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<long long> &sample_id, Tensor2<long long> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad,
+    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
+    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<unsigned int, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     size_t max_vocabulary_size_per_gpu, OptParams<__half> &opt_params, size_t nnz,
-    const unsigned int *row_offset, size_t *hash_value_index, unsigned int *sample_id,
-    unsigned int *sample_id_sort, size_t *hash_value_index_sort,
-    uint32_t *hash_value_index_count_offset, uint32_t *new_hash_value_flag,
-    uint32_t *hash_value_flag_sumed, uint32_t *hash_value_index_count_counter,
-    void *temp_storage_sort, size_t temp_storage_sort_bytes, void *temp_storage_scan,
-    size_t temp_storage_scan_bytes, const __half *wgrad, size_t *deltaw_hash_value_index,
-    float *deltaw, float *hash_table_value, size_t sm_count, cudaStream_t stream);
+    const Tensor2<unsigned int> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<unsigned int> &sample_id, Tensor2<unsigned int> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<__half> &wgrad,
+    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
+    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<long long, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     size_t max_vocabulary_size_per_gpu, OptParams<__half> &opt_params, size_t nnz,
-    const long long *row_offset, size_t *hash_value_index, long long *sample_id,
-    long long *sample_id_sort, size_t *hash_value_index_sort,
-    uint32_t *hash_value_index_count_offset, uint32_t *new_hash_value_flag,
-    uint32_t *hash_value_flag_sumed, uint32_t *hash_value_index_count_counter,
-    void *temp_storage_sort, size_t temp_storage_sort_bytes, void *temp_storage_scan,
-    size_t temp_storage_scan_bytes, const __half *wgrad, size_t *deltaw_hash_value_index,
-    float *deltaw, float *hash_table_value, size_t sm_count, cudaStream_t stream);
+    const Tensor2<long long> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<long long> &sample_id, Tensor2<long long> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<__half> &wgrad,
+    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
+    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<float>(
     size_t embedding_vec_size, const OptParams<float> &opt_params, size_t nnz,
-    const size_t *hash_value_index, const float *wgrad, float *hash_table_value, size_t sm_count,
-    cudaStream_t stream);
+    const Tensor2<size_t> &hash_value_index, const Tensor2<float> &wgrad,
+    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<__half>(
     size_t embedding_vec_size, const OptParams<__half> &opt_params, size_t nnz,
-    const size_t *hash_value_index, const __half *wgrad, float *hash_table_value, size_t sm_count,
-    cudaStream_t stream);
+    const Tensor2<size_t> &hash_value_index, const Tensor2<__half> &wgrad,
+    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
 }  // namespace HugeCTR

@@ -50,23 +50,26 @@ __global__ void hash_key_value_index_mapping_kernel(size_t nnz, int slot_num,
  */
 template <typename TypeHashKey>
 void SparseEmbeddingFunctors::forward_mapping_per_gpu(size_t batch_size, size_t slot_num,
-                                                      const TypeHashKey *hash_key, size_t nnz,
-                                                      const uint32_t *mapping_offsets,
-                                                      size_t *hash_value_index,
+                                                      const Tensor2<TypeHashKey> &hash_key,
+                                                      size_t nnz,
+                                                      const Tensor2<uint32_t> &mapping_offsets,
+                                                      Tensor2<size_t> &hash_value_index,
                                                       cudaStream_t stream) {
   // remove hashtable get_insert(), and do linear mapping between key and value_index
   hash_key_value_index_mapping_kernel<<<(nnz + 255) / 256, 256, 0, stream>>>(
-      nnz, slot_num, mapping_offsets, hash_key, hash_value_index);
+      nnz, slot_num, mapping_offsets.get_ptr(), hash_key.get_ptr(), hash_value_index.get_ptr());
 
   return;
 }
 
 template void SparseEmbeddingFunctors::forward_mapping_per_gpu<unsigned int>(
-    size_t batch_size, size_t slot_num, const unsigned int *hash_key, size_t nnz,
-    const uint32_t *mapping_offsets, size_t *hash_value_index, cudaStream_t stream);
+    size_t batch_size, size_t slot_num, const Tensor2<unsigned int> &hash_key, size_t nnz,
+    const Tensor2<uint32_t> &mapping_offsets, Tensor2<size_t> &hash_value_index,
+    cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::forward_mapping_per_gpu<long long>(
-    size_t batch_size, size_t slot_num, const long long *hash_key, size_t nnz,
-    const uint32_t *mapping_offsets, size_t *hash_value_index, cudaStream_t stream);
+    size_t batch_size, size_t slot_num, const Tensor2<long long> &hash_key, size_t nnz,
+    const Tensor2<uint32_t> &mapping_offsets, Tensor2<size_t> &hash_value_index,
+    cudaStream_t stream);
 
 }  // namespace HugeCTR

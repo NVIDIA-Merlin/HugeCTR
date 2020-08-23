@@ -51,9 +51,9 @@ __global__ void store_slot_id_kernel(size_t batch_size,
 template <typename TypeKey>
 void SparseEmbeddingFunctors::store_slot_id(size_t batch_size, size_t slot_num,
                                             const std::vector<size_t> &slot_num_per_gpu,
-                                            const TensorPtrs<TypeKey> &row_offset_tensors,
-                                            const TensorPtrs<size_t> &value_index_tensors,
-                                            const TensorPtrs<size_t> &slot_id_tensors,
+                                            const Tensors2<TypeKey> &row_offset_tensors,
+                                            const Tensors2<size_t> &value_index_tensors,
+                                            Tensors2<size_t> &slot_id_tensors,
                                             const GPUResourceGroup &device_resources) {
   CudaDeviceContext context;
   size_t local_gpu_count = device_resources.size();
@@ -73,20 +73,19 @@ void SparseEmbeddingFunctors::store_slot_id(size_t batch_size, size_t slot_num,
     context.set_device(local_device_id);
     store_slot_id_kernel<<<grid_size, block_size, 0, device_resources[id].get_stream()>>>(
         batch_size, slot_num, slot_num_per_gpu[id], total_gpu_count, global_id,
-        row_offset_tensors[id]->get_ptr(), value_index_tensors[id]->get_ptr(),
-        slot_id_tensors[id]->get_ptr());
+        row_offset_tensors[id].get_ptr(), value_index_tensors[id].get_ptr(),
+        slot_id_tensors[id].get_ptr());
   }
 }
 
 template void SparseEmbeddingFunctors::store_slot_id<unsigned int>(
     size_t batch_size, size_t slot_num, const std::vector<size_t> &slot_num_per_gpu,
-    const TensorPtrs<unsigned int> &row_offset_tensors,
-    const TensorPtrs<size_t> &value_index_tensors, const TensorPtrs<size_t> &slot_id_tensors,
-    const GPUResourceGroup &device_resources);
+    const Tensors2<unsigned int> &row_offset_tensors, const Tensors2<size_t> &value_index_tensors,
+    Tensors2<size_t> &slot_id_tensors, const GPUResourceGroup &device_resources);
 
 template void SparseEmbeddingFunctors::store_slot_id<long long>(
     size_t batch_size, size_t slot_num, const std::vector<size_t> &slot_num_per_gpu,
-    const TensorPtrs<long long> &row_offset_tensors, const TensorPtrs<size_t> &value_index_tensors,
-    const TensorPtrs<size_t> &slot_id_tensors, const GPUResourceGroup &device_resources);
+    const Tensors2<long long> &row_offset_tensors, const Tensors2<size_t> &value_index_tensors,
+    Tensors2<size_t> &slot_id_tensors, const GPUResourceGroup &device_resources);
 
 }  // namespace HugeCTR

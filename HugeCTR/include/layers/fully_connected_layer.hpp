@@ -16,11 +16,10 @@
 
 #pragma once
 
-#include <functional>
-#include <vector>
-#include <general_buffer.hpp>
-#include <layer.hpp>
 #include <cublas_v2.h>
+#include <functional>
+#include <layer.hpp>
+#include <vector>
 
 namespace HugeCTR {
 /**
@@ -43,21 +42,30 @@ class FullyConnectedLayer : public Layer {
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors2<float> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  Tensors2<float> train_in_tensors_;
+  Tensors2<float> evaluate_in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  Tensors2<float> out_tensors_;
+
+  Tensors2<float>& get_in_tensors(bool is_train) {
+    if (is_train) {
+      return train_in_tensors_;
+    } else {
+      return evaluate_in_tensors_;
+    }
+  }
 
  public:
   /**
    * forward pass
    */
-  void fprop(cudaStream_t stream) final;
+  void fprop(bool is_train, cudaStream_t stream) final;
   /**
    * backward pass
    */
@@ -79,12 +87,12 @@ class FullyConnectedLayer : public Layer {
    * @param weight_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  FullyConnectedLayer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                      const std::shared_ptr<GeneralBuffer<float>>& wgrad_buff,
-                      const std::shared_ptr<Tensor<float>>& in_tensor,
-                      const std::shared_ptr<Tensor<float>>& out_tensor,
-                      TensorFormat_t weight_format, cublasHandle_t const& cublas_handle,
-                      int device_id, bool use_mixed_precision = false,
+  FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                      const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                      const Tensor2<float>& train_in_tensor,
+                      const Tensor2<float>& evaluate_in_tensor, const Tensor2<float>& out_tensor,
+                      cublasHandle_t const& cublas_handle, int device_id,
+                      bool use_mixed_precision = false,
                       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);

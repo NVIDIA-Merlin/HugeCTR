@@ -17,7 +17,6 @@
 #include "HugeCTR/include/layers/multiply_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -72,34 +71,34 @@ void multiply_dgrad_cpu(const T* top_grad, const T* weight, T* dgrad, int batch_
 }
 
 void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size) {
-  size_t dev_id = 0;
-  std::shared_ptr<GeneralBuffer<float>> in_out_buf(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> weight_buf(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> wgrad_buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+  std::shared_ptr<BufferBlock2<float>> weight_buff = buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<float>> wgrad_buff = buff->create_block<float>();
 
   vector<size_t> in_dims = {batch_size, slot_num};
   vector<size_t> weight_dims = {slot_num, embedding_vec_size};
 
-  std::shared_ptr<Tensor<float>> in_tensor(
-      new Tensor<float>(in_dims, in_out_buf, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> out_tensor;
+  Tensor2<float> in_tensor;
+  buff->reserve(in_dims, &in_tensor);
+  Tensor2<float> out_tensor;
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  MultiplyLayer multiply_layer(weight_buf, wgrad_buf, in_out_buf, in_tensor, out_tensor,
-                               weight_dims, 0);
+  MultiplyLayer multiply_layer(weight_buff, wgrad_buff, buff, in_tensor, out_tensor, weight_dims,
+                               0);
 
-  in_out_buf->init(dev_id);
-  weight_buf->init(dev_id);
-  wgrad_buf->init(dev_id);
+  buff->allocate();
 
-  float* d_weight = weight_buf->get_ptr_with_offset(0);
-  float* d_wgrad = wgrad_buf->get_ptr_with_offset(0);
+  Tensor2<float> weight = weight_buff->as_tensor();
+  Tensor2<float> wgrad = wgrad_buff->as_tensor();
+
+  float* d_weight = weight.get_ptr();
+  float* d_wgrad = wgrad.get_ptr();
 
   const size_t len_in = batch_size * slot_num;
   const size_t len_out = batch_size * slot_num * embedding_vec_size;
   const size_t len_w = slot_num * embedding_vec_size;
-  float* d_in = in_tensor->get_ptr();
-  float* d_out = out_tensor->get_ptr();
+  float* d_in = in_tensor.get_ptr();
+  float* d_out = out_tensor.get_ptr();
   std::unique_ptr<float[]> h_in(new float[len_in]);
   std::unique_ptr<float[]> h_out(new float[len_out]);
   std::unique_ptr<float[]> h_weight(new float[len_w]);
@@ -116,7 +115,7 @@ void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size
   }
   cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice);
-  multiply_layer.fprop(cudaStreamDefault);
+  multiply_layer.fprop(true, cudaStreamDefault);
   cudaMemcpy(h_out.get(), d_out, len_out * sizeof(float), cudaMemcpyDeviceToHost);
 
   multiply_cpu(h_in.get(), h_weight.get(), h_expected.get(), batch_size, slot_num,
@@ -156,9 +155,4 @@ void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size
 
 }  // namespace
 
-TEST(multiply_layer, fprop_and_bprop) {
-  // multiply_test(1, 1, 32);
-  // multiply_test(4, 8, 64);
-  // multiply_test(4096, 10, 128);
-  multiply_test(40960, 10, 128);
-}
+TEST(multiply_layer, fp32_40960x10x128) { multiply_test(40960, 10, 128); }

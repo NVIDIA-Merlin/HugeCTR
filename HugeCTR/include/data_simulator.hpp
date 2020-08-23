@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 #include <random>
+#include "HugeCTR/include/common.hpp"
 
 namespace HugeCTR {
 

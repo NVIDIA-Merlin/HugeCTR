@@ -16,10 +16,10 @@
 
 #pragma once
 #include <cuda_runtime_api.h>
+#include <common.hpp>
+#include <general_buffer2.hpp>
 #include <iostream>
 #include <stdexcept>
-#include <common.hpp>
-#include <pinned_buffer.hpp>
 
 namespace HugeCTR {
 
@@ -41,36 +41,40 @@ namespace HugeCTR {
 template <typename T>
 class CSR {
  private:
-  PinnedBuffer<T> row_offset_value_buffer_; /**< a unified buffer for row offset and value. */
-  T* row_offset_;   /**< just offset on the buffer, note that the length of it is slot*batchsize+1.
-                     */
-  T* value_;        /**< pointer of value buffer. */
-  int num_rows_{0}; /**< num rows. */
+  const int num_rows_;       /**< num rows. */
+  const int max_value_size_; /**< number of element of value the CSR matrix will have for num_rows
+                                rows. */
+
+  Tensor2<T> row_offset_value_buffer_; /**< a unified buffer for row offset and value. */
+  T* row_offset_; /**< just offset on the buffer, note that the length of it is slot*batchsize+1.
+                   */
+  T* value_;      /**< pointer of value buffer. */
+
   int size_of_value_{0};      /**< num of values in this CSR buffer */
   int size_of_row_offset_{0}; /**< num of rows in this CSR buffer */
-  const int max_value_size_;  /**< number of element of value the CSR matrix will have for num_rows
-                                 rows. */
-  int check_point_row_;       /**< check point of size_of_row_offset_. */
-  int check_point_value_;     /**< check point of size_of_value__. */
+
+  int check_point_row_;   /**< check point of size_of_row_offset_. */
+  int check_point_value_; /**< check point of size_of_value__. */
  public:
   /**
    * Ctor
    * @param num_rows num of rows is expected
    * @param max_value_size max size of value buffer.
    */
-  CSR(int num_rows, int max_value_size)
-      : row_offset_value_buffer_(num_rows + 1 + max_value_size),
-        row_offset_(row_offset_value_buffer_.get()),
-        value_(row_offset_value_buffer_.get() + num_rows + 1),
-        num_rows_(num_rows),
-        max_value_size_(max_value_size) {
+  CSR(int num_rows, int max_value_size) : num_rows_(num_rows), max_value_size_(max_value_size) {
     static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                   "type not support");
-    //    std::cout << "num_rows: " << num_rows << ";max_value_size: " << max_value_size <<
-    //    std::endl;
     if (max_value_size <= 0 && num_rows <= 0) {
       CK_THROW_(Error_t::WrongInput, "max_value_size <= 0 && num_rows <= 0");
     }
+
+    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
+        GeneralBuffer2<CudaHostAllocator>::create();
+    buff->reserve({static_cast<size_t>(num_rows + 1 + max_value_size)}, &row_offset_value_buffer_);
+    buff->allocate();
+
+    row_offset_ = row_offset_value_buffer_.get_ptr();
+    value_ = row_offset_value_buffer_.get_ptr() + num_rows + 1;
   }
   CSR(const CSR&) = delete;
   CSR& operator=(const CSR&) = delete;
@@ -136,7 +140,7 @@ class CSR {
   int get_sizeof_value() const { return size_of_value_; }
   int get_num_rows() const { return num_rows_; }
   int get_max_value_size() const { return max_value_size_; }
-  const T* get_buffer() const { return row_offset_value_buffer_.get(); }
+  const T* get_buffer() const { return row_offset_value_buffer_.get_ptr(); }
   T* get_value_buffer() { return value_; };
   T* get_row_offset_buffer() { return row_offset_; };
   void update_value_size(int update_size) { size_of_value_ += update_size; };
