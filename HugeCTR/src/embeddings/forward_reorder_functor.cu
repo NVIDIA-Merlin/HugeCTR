@@ -136,8 +136,8 @@ void do_forward_reorder(size_t batch_size_per_gpu, size_t slot_num, size_t embed
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::forward_reorder(size_t batch_size_per_gpu, size_t slot_num,
                                               size_t embedding_vec_size,
-                                              const TensorPtrs<TypeEmbeddingComp> &src_tensors,
-                                              const TensorPtrs<TypeEmbeddingComp> &dst_tensors,
+                                              const Tensors2<TypeEmbeddingComp> &src_tensors,
+                                              Tensors2<TypeEmbeddingComp> &dst_tensors,
                                               const GPUResourceGroup &device_resources) {
   CudaDeviceContext context;
   size_t local_gpu_count = device_resources.size();
@@ -147,19 +147,19 @@ void SparseEmbeddingFunctors::forward_reorder(size_t batch_size_per_gpu, size_t 
     context.set_device(device_resources[id].get_device_id());
 
     do_forward_reorder(batch_size_per_gpu, slot_num, embedding_vec_size, total_gpu_count,
-                       src_tensors[id]->get_ptr(), dst_tensors[id]->get_ptr(),
+                       src_tensors[id].get_ptr(), dst_tensors[id].get_ptr(),
                        device_resources[id].get_stream());
   }
 }
 
 template void SparseEmbeddingFunctors::forward_reorder<float>(
     size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
-    const TensorPtrs<float> &src_tensors, const TensorPtrs<float> &dst_tensors,
+    const Tensors2<float> &src_tensors, Tensors2<float> &dst_tensors,
     const GPUResourceGroup &device_resources);
 
 template void SparseEmbeddingFunctors::forward_reorder<__half>(
     size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
-    const TensorPtrs<__half> &src_tensors, const TensorPtrs<__half> &dst_tensors,
+    const Tensors2<__half> &src_tensors, Tensors2<__half> &dst_tensors,
     const GPUResourceGroup &device_resources);
 
 }  // namespace HugeCTR

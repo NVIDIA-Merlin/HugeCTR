@@ -16,14 +16,14 @@
 
 #include "HugeCTR/include/layers/dropout_layer.hpp"
 
+#include <cublas_v2.h>
 #include <curand.h>
+#include <gtest/gtest.h>
+#include <utest/test_utils.h>
 #include <cmath>
 #include <cstdlib>
+#include <utils.hpp>
 #include <vector>
-#include "HugeCTR/include/general_buffer.hpp"
-#include "cublas_v2.h"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
 
 using namespace std;
 using namespace HugeCTR;
@@ -37,16 +37,21 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   curandGenerator_t curand_generator;
   CK_CURAND_THROW_(curandCreateGenerator(&curand_generator, CURAND_RNG_PSEUDO_DEFAULT));
 
-  std::shared_ptr<GeneralBuffer<T>> buf(new GeneralBuffer<T>());
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
   vector<size_t> dims = {dim0, dim1};
-  std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(dims, buf));
-  std::shared_ptr<Tensor<T>> out_tensor(new Tensor<T>(dims, buf));
-  buf->init(0);
+  Tensor2<T> in_tensor;
+  buf->reserve(dims, &in_tensor);
+  Tensor2<T> out_tensor;
+  buf->reserve(dims, &out_tensor);
+
+  DropoutLayer<T> dropout_layer(in_tensor, out_tensor, buf, rate, curand_generator, 0);
+
+  buf->allocate();
 
   const int len = dim0 * dim1;
   const int n_bytes = len * sizeof(T);
-  T* d_in = in_tensor->get_ptr();
-  T* d_out = out_tensor->get_ptr();
+  T* d_in = in_tensor.get_ptr();
+  T* d_out = out_tensor.get_ptr();
 
   std::unique_ptr<T[]> h_in(new T[len]);
   std::unique_ptr<T[]> h_out(new T[len]);
@@ -56,15 +61,13 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   }
   cudaMemcpy(d_in, h_in.get(), n_bytes, cudaMemcpyHostToDevice);
 
-  DropoutLayer<T> dropout_layer(in_tensor, out_tensor, rate, curand_generator, 0);
-
   std::unique_ptr<float[]> h_mask(new float[len]);
   std::unique_ptr<T[]> h_ref(new T[len]);
 
   float scale = 1.0 / (1.0 - rate);
 
   // fprop test
-  dropout_layer.fprop(cudaStreamDefault);
+  dropout_layer.fprop(true, cudaStreamDefault);
   cudaMemcpy(h_mask.get(), dropout_layer.mask(), len * sizeof(float), cudaMemcpyDeviceToHost);
   cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost);
   int cnt_zero_fprop = 0;

@@ -31,11 +31,11 @@ class DotProductLayer : public Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  Tensors2<float> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  Tensors2<float> out_tensors_;
 
   /**
    * Ctor of DotProductLayer.
@@ -43,15 +43,15 @@ class DotProductLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  DotProductLayer(const std::vector<std::shared_ptr<Tensor<float>>>& in_tensors,
-                  const std::shared_ptr<Tensor<float>>& out_tensor, int device_id);
+  DotProductLayer(const Tensors2<float>& in_tensors, const Tensor2<float>& out_tensor,
+                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int device_id);
   ~DotProductLayer();
 
   /**
    * DotProductLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train, cudaStream_t stream) override;
   /**
    * DotProductLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
@@ -60,11 +60,11 @@ class DotProductLayer : public Layer {
 
  private:
   int size_;
-  int num_;
-  float** h_inputs_ = NULL;
-  float** d_inputs_ = NULL;
+  size_t num_;
+  Tensor2<float*> h_inputs_;
+  Tensor2<float*> d_inputs_;
   bool initialized_{false};
-  float* fprop_output_ = NULL;
+  Tensor2<float> fprop_output_;
 };
 
 }  // namespace HugeCTR

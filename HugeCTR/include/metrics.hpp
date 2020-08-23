@@ -16,13 +16,13 @@
 
 #pragma once
 
+#include <gpu_resource.hpp>
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
-#include <gpu_resource.hpp>
-#include <tensor.hpp>
+#include <tensor2.hpp>
 #include <utils.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -31,7 +31,7 @@ namespace metrics {
 enum class RawType { Loss = 0, Pred = 1, Label = 2 };
 enum class Type { AUC = 0, AverageLoss = 1 };
 
-using RawMetricMap = std::map<RawType, std::shared_ptr<ITensor>>;
+using RawMetricMap = std::map<RawType, TensorBag2>;
 
 class Metric {
  public:
@@ -40,7 +40,7 @@ class Metric {
                                         std::shared_ptr<GPUResourceGroup> gpu_resource_group);
   Metric();
   virtual ~Metric();
-  virtual void local_reduce(RawMetricMap raw_metrics) = 0;
+  virtual void local_reduce(int device_id, RawMetricMap raw_metrics) = 0;
   virtual void global_reduce(int n_nets) = 0;
   virtual float finalize_metric() = 0;
   virtual std::string name() const = 0;
@@ -57,11 +57,10 @@ using Metrics = std::vector<std::unique_ptr<metrics::Metric>>;
 template <typename T>
 class AverageLoss : public Metric {
  public:
-  using TensorType = Tensor<T>;
   AverageLoss(int num_gpus);
   ~AverageLoss() override;
 
-  void local_reduce(RawMetricMap raw_metrics) override;
+  void local_reduce(int device_id, RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
   std::string name() const override { return "AverageLoss"; };
@@ -81,7 +80,7 @@ class AUC : public Metric {
       std::shared_ptr<GPUResourceGroup> gpu_resource_group);
   ~AUC() override;
 
-  void local_reduce(RawMetricMap raw_metrics) override;
+  void local_reduce(int device_id, RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
   std::string name() const override { return "AUC"; };

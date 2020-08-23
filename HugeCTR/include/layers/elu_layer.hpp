@@ -27,19 +27,19 @@ class EluLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  Tensors2<float> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors2<float> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  Tensors2<float> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  Tensors2<float> out_tensors_;
 
  public:
   /**
@@ -48,14 +48,14 @@ class EluLayer : public Layer {
    * @param out_tensor the output tensor which has the same dim with in_tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  EluLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-           const std::shared_ptr<Tensor<float>>& out_tensor, float alpha, int device_id);
+  EluLayer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor, float alpha,
+           int device_id);
 
   /**
    * A method of implementing the forward pass of Relu
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train, cudaStream_t stream) override;
   /**
    * A method of implementing the backward pass of Relu
    * @param stream CUDA stream where the backward propagation is executed

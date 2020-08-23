@@ -20,7 +20,8 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include <tensor.hpp>
+#include "HugeCTR/include/data_simulator.hpp"
+#include "HugeCTR/include/general_buffer2.hpp"
 
 namespace HugeCTR {
 /**
@@ -42,24 +43,19 @@ class Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  Tensors2<float> weights_;
 
  public:
   /*
    * Forward pass
    * @param stream: the CUDA stream that the forward function will be executed on.
    */
-  virtual void fprop(cudaStream_t stream) = 0;
+  virtual void fprop(bool is_train, cudaStream_t stream) = 0;
   /*
    * Backward pass
    * @param stream: the CUDA stream that the forward function will be executed on.
    */
   virtual void bprop(cudaStream_t stream) = 0;
-  /*
-   * Inference pass (most layers just call fprop but some layer like dropout should inherit it)
-   * @param stream: the CUDA stream that the forward function will be executed on.
-   */
-  virtual void inference(cudaStream_t stream) { fprop(stream); }
 
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
   void init_params(std::ofstream& out_stream);

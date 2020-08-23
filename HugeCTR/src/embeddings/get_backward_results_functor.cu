@@ -19,11 +19,12 @@
 namespace HugeCTR {
 
 template <typename TypeEmbeddingComp>
-void SparseEmbeddingFunctors::get_backward_results(
-    size_t id, size_t memcpy_size, const TensorPtrs<TypeEmbeddingComp> &wgrad_tensors,
-    TypeEmbeddingComp *wgrad, const GPUResourceGroup &device_resources) {
+void SparseEmbeddingFunctors::get_backward_results(size_t id, size_t memcpy_size,
+                                                   const Tensors2<TypeEmbeddingComp> &wgrad_tensors,
+                                                   Tensor2<TypeEmbeddingComp> &wgrad,
+                                                   const GPUResourceGroup &device_resources) {
   CudaDeviceContext context(device_resources[id].get_device_id());
-  CK_CUDA_THROW_(cudaMemcpyAsync(wgrad, wgrad_tensors[id]->get_ptr(),
+  CK_CUDA_THROW_(cudaMemcpyAsync(wgrad.get_ptr(), wgrad_tensors[id].get_ptr(),
                                  memcpy_size * sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToHost,
                                  device_resources[id].get_stream()));
   CK_CUDA_THROW_(cudaStreamSynchronize(device_resources[id].get_stream()));
@@ -32,11 +33,11 @@ void SparseEmbeddingFunctors::get_backward_results(
 }
 
 template void SparseEmbeddingFunctors::get_backward_results<float>(
-    size_t id, size_t memcpy_size, const TensorPtrs<float> &wgrad_tensors, float *wgrad,
+    size_t id, size_t memcpy_size, const Tensors2<float> &wgrad_tensors, Tensor2<float> &wgrad,
     const GPUResourceGroup &device_resources);
 
 template void SparseEmbeddingFunctors::get_backward_results<__half>(
-    size_t id, size_t memcpy_size, const TensorPtrs<__half> &wgrad_tensors, __half *wgrad,
+    size_t id, size_t memcpy_size, const Tensors2<__half> &wgrad_tensors, Tensor2<__half> &wgrad,
     const GPUResourceGroup &device_resources);
 
 }  // namespace HugeCTR

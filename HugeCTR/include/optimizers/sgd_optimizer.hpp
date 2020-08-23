@@ -34,9 +34,8 @@ class SGDOptimizer : public Optimizer {
    * @param lr learning rate
    # @param scaler scaler factor for mixed precision
    */
-  SGDOptimizer(const GeneralBufferPtr<float>& weight_main,
-               const GeneralBufferPtr<float>& fp32_wgrad,
-               const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
+  SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
+               const Tensor2<__half>& fp16_wgrad, bool mixed_precision, int device_id,
                float lr = 0.001f, float scaler = 1.f);
 
   /**

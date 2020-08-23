@@ -15,8 +15,8 @@
  */
 
 #include <regularizers/l1_regularizer.hpp>
-#include <utils.cuh>
 #include <utility>
+#include <utils.cuh>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -38,8 +38,7 @@ void launch_initialize_wgrad_kernel(const float* weight, T* wgrad, int num_eleme
 }  // namespace
 
 template <typename T>
-L1Regularizer<T>::L1Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                                const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff,
+L1Regularizer<T>::L1Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
                                 const int batch_size, const float lambda,
                                 cublasHandle_t cublas_handle, const int device_id)
     : Regularizer<T>(weight_buff, wgrad_buff, batch_size, device_id),

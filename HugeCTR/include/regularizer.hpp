@@ -17,11 +17,9 @@
 #pragma once
 
 #include <common.hpp>
-#include <general_buffer.hpp>
-#include <tensor.hpp>
-#include <utils.hpp>
-
+#include <general_buffer2.hpp>
 #include <memory>
+#include <utils.hpp>
 
 namespace HugeCTR {
 
@@ -38,8 +36,7 @@ class Regularizer {
    * @param batch_size Network batch size
    * @param device_id Device to be used
    */
-  Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-              const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff, const int batch_size,
+  Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff, const int batch_size,
               const int device_id);
 
   /*
@@ -62,7 +59,7 @@ class Regularizer {
   /*
    * Return the calculated regularization term
    */
-  float get_rterm() const { return *h_rterm_; }
+  float get_rterm() const { return h_rterm_; }
 
  protected:
   int get_batch_size() const { return batch_size_; }
@@ -91,12 +88,12 @@ class Regularizer {
   virtual void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
                                    cudaStream_t stream) = 0;
 
-  std::shared_ptr<GeneralBuffer<float>> weight_buff_;
-  std::shared_ptr<GeneralBuffer<T>> wgrad_buff_;
+  Tensor2<float> weight_buff_;
+  Tensor2<T> wgrad_buff_;
   int batch_size_;
   int device_id_;
   int n_sms_;
-  std::unique_ptr<float> h_rterm_;
+  float h_rterm_;
 };
 
 }  // namespace HugeCTR

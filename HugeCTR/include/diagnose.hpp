@@ -46,10 +46,11 @@ template <typename T>
 __global__ void count_kernel(const T* arr, int len, float* range) {
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += blockDim.x * gridDim.x) {
     float val = TypeConvertFunc<float, T>::convert(arr[i]);
-    if (val < 0) {
+    if (val <= 0) {
       atomicMin(range + 0, val);
       atomicMax(range + 1, val);
-    } else if (val > 0) {
+    }
+    if (val >= 0) {
       atomicMin(range + 2, val);
       atomicMax(range + 3, val);
     }
@@ -146,6 +147,22 @@ void sample_data(const char* category, const T* arr, size_t len, const cudaStrea
   MESSAGE_(ss.str());
 
   CK_CUDA_THROW_(cudaFree(d_array));
+}
+
+template <typename T>
+void print_data(const char* category, const T* arr, size_t len, const cudaStream_t& stream) {
+  std::unique_ptr<T[]> h_array(new T[len]);
+  CK_CUDA_THROW_(
+      cudaMemcpyAsync(h_array.get(), arr, len * sizeof(float), cudaMemcpyDeviceToHost, stream));
+  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+
+  std::stringstream ss;
+  ss << "Data printing for " << category << " [" << len << "] " << std::endl;
+  for (size_t i = 0; i < len; i++) {
+    ss << h_array[i] << ",";
+  }
+  ss << std::endl;
+  MESSAGE_(ss.str());
 }
 
 }  // namespace diagnose

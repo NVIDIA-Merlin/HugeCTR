@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+#include <general_buffer2.hpp>
 #include <optimizers/nesterov_optimizer.hpp>
 #include <utils.cuh>
+#include <utils.hpp>
 
 namespace HugeCTR {
 
@@ -35,43 +37,50 @@ __global__ void nesterov_update_kernel(int len, float* weight, T* accum, const T
 
 }  // namespace
 
-NesterovOptimizer::NesterovOptimizer(const GeneralBufferPtr<float>& weight_main,
-                                     const GeneralBufferPtr<float>& fp32_wgrad,
-                                     const GeneralBufferPtr<__half>& fp16_wgrad,
-                                     bool mixed_precision, int device_id, float learning_rate,
-                                     float momentum_factor, float scaler)
+NesterovOptimizer::NesterovOptimizer(const Tensor2<float>& weight_main,
+                                     const Tensor2<float>& fp32_wgrad,
+                                     const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
+                                     int device_id, float learning_rate, float momentum_factor,
+                                     float scaler)
     : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, device_id, learning_rate,
                 scaler),
       mu_(momentum_factor) {
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
+
   if (mixed_precision) {
-    fp16_accum_.reserve(weight_main->get_num_elements());
-    fp16_accum_.init(device_id);
-    fp16_accum_.reset_sync();
+    buf->reserve({weight_main.get_num_elements()}, &fp16_accum_);
   } else {
-    fp32_accum_.reserve(weight_main->get_num_elements());
-    fp32_accum_.init(device_id);
-    fp32_accum_.reset_sync();
+    buf->reserve({weight_main.get_num_elements()}, &fp32_accum_);
+  }
+
+  CudaDeviceContext context(device_id);
+  buf->allocate();
+
+  if (mixed_precision) {
+    cudaMemset(fp16_accum_.get_ptr(), 0, fp16_accum_.get_size_in_bytes());
+  } else {
+    cudaMemset(fp32_accum_.get_ptr(), 0, fp32_accum_.get_size_in_bytes());
   }
 }
 
 void NesterovOptimizer::update(cudaStream_t stream) {
   CudaDeviceContext context(device_id_);
 
-  const size_t len = weight_main_->get_num_elements();
+  const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
   const size_t grid_dim = (len - 1) / block_dim + 1;
 
-  float* weight = weight_main_->get_ptr_with_offset(0);
+  float* weight = weight_main_.get_ptr();
 
   if (mixed_precision_) {
-    __half* fp16_accum = fp16_accum_.get_ptr_with_offset(0);
-    const __half* fp16_wgrad = fp16_wgrad_->get_ptr_with_offset(0);
+    __half* fp16_accum = fp16_accum_.get_ptr();
+    const __half* fp16_wgrad = fp16_wgrad_.get_ptr();
 
     nesterov_update_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, fp16_accum, fp16_wgrad,
                                                                lr_, mu_, scaler_);
   } else {
-    float* fp32_accum = fp32_accum_.get_ptr_with_offset(0);
-    const float* fp32_wgrad = fp32_wgrad_->get_ptr_with_offset(0);
+    float* fp32_accum = fp32_accum_.get_ptr();
+    const float* fp32_wgrad = fp32_wgrad_.get_ptr();
 
     nesterov_update_kernel<<<grid_dim, block_dim, 0, stream>>>(len, weight, fp32_accum, fp32_wgrad,
                                                                lr_, mu_, scaler_);

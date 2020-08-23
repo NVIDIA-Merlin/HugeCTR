@@ -18,61 +18,41 @@
 
 #include <layer.hpp>
 
-#include <vector>
-
 namespace HugeCTR {
 
 /**
- * Layer which does element-wise add by input tensors.
- * All the input tensors should have the same shape.
+ * Relu activation function as a derived class of Layer
  */
-template <typename T>
-class AddLayer : public Layer {
-  /*
-   * stores the weight tensors of this layer.
-   */
-  // Tensors<float> weights_; It is inherited from Layer.
-  /*
-   * stores the weight gradient tensors of this layer.
-   */
-  Tensors2<T> wgrad_;
+class ReluLayerHalf : public Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<T> in_tensors_;
+  Tensor2<__half> bottom_tensor_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  Tensors2<T> out_tensors_;
+  Tensor2<__half> top_tensor_;
 
  public:
   /**
-   * Ctor of AddLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the resulting output tensor
+   * Ctor of ReluLayerHalf.
+   * @param bottom_tensor the input tensor
+   * @param top_tensor the output tensor which has the same dim with in_tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  AddLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int device_id);
-  ~AddLayer();
+  ReluLayerHalf(const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
+                int device_id);
 
   /**
-   * AddLayer's foward propagation
+   * A method of implementing the forward pass of Relu
    * @param stream CUDA stream where the foward propagation is executed
    */
   void fprop(bool is_train, cudaStream_t stream) override;
   /**
-   * AddLayer's backward propagation
-   * @param stream CUDA stream where the foward propagation is executed
+   * A method of implementing the backward pass of Relu
+   * @param stream CUDA stream where the backward propagation is executed
    */
   void bprop(cudaStream_t stream) override;
-
- private:
-  int size_;
-  size_t num_;
-  Tensor2<T*> h_inputs_;
-  Tensor2<T*> d_inputs_;
-  bool initialized_{false};
 };
 
 }  // namespace HugeCTR

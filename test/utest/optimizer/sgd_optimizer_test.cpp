@@ -15,9 +15,8 @@
  */
 
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
-#include <vector>
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
+#include "HugeCTR/include/general_buffer2.hpp"
 #include "gtest/gtest.h"
 using namespace std;
 using namespace HugeCTR;
@@ -70,32 +69,38 @@ void compare_array(const float* a, const float* b, int len, float eps) {
   }
 }
 
-void sgd_test(int len, int num_update, bool mixed_precision) {
-  const int device_id = 0;
-  std::shared_ptr<GeneralBuffer<float>> weight(new GeneralBuffer<float>(len, device_id));
-  std::shared_ptr<GeneralBuffer<float>> wgrad(new GeneralBuffer<float>(len, device_id));
-  std::shared_ptr<GeneralBuffer<__half>> wgrad_half(new GeneralBuffer<__half>(len, device_id));
+void sgd_test(size_t len, int num_update, bool mixed_precision) {
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+
+  Tensor2<float> weight;
+  buff->reserve({len}, &weight);
+  Tensor2<float> wgrad;
+  buff->reserve({len}, &wgrad);
+  Tensor2<__half> wgrad_half;
+  buff->reserve({len}, &wgrad_half);
+
+  buff->allocate();
 
   std::unique_ptr<float[]> h_weight(new float[len]);
   std::unique_ptr<float[]> h_wgrad(new float[len]);
   std::unique_ptr<__half[]> h_wgrad_half(new __half[len]);
   std::unique_ptr<float[]> h_weight_expected(new float[len]);
-  float* d_weight = weight->get_ptr_with_offset(0);
-  float* d_wgrad = wgrad->get_ptr_with_offset(0);
-  __half* d_wgrad_half = wgrad_half->get_ptr_with_offset(0);
+  float* d_weight = weight.get_ptr();
+  float* d_wgrad = wgrad.get_ptr();
+  __half* d_wgrad_half = wgrad_half.get_ptr();
 
   GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  for (int i = 0; i < len; ++i) {
+  for (size_t i = 0; i < len; ++i) {
     h_weight_expected[i] = h_weight[i] = simulator.get_num();
   }
   cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
   float lr = 0.001f;
-  SGDOptimizer sgd(weight, wgrad, wgrad_half, mixed_precision, device_id, lr);
+  SGDOptimizer sgd(weight, wgrad, wgrad_half, mixed_precision, 0, lr);
   SGDCPU sgd_cpu(len, h_weight_expected.get(), h_wgrad.get(), h_wgrad_half.get(), mixed_precision,
                  lr);
   for (int i = 0; i < num_update; ++i) {
-    for (int i = 0; i < len; ++i) {
+    for (size_t i = 0; i < len; ++i) {
       float val = simulator.get_num();
       if (mixed_precision) {
         h_wgrad_half[i] = __float2half(val);

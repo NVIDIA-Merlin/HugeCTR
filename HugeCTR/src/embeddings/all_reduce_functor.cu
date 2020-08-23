@@ -26,8 +26,8 @@ namespace HugeCTR {
  */
 template <typename TypeHashKey>
 void SparseEmbeddingFunctors::all_reduce(size_t send_count,
-                                         const TensorPtrs<TypeHashKey> &send_tensors,
-                                         const TensorPtrs<TypeHashKey> &recv_tensors,
+                                         const Tensors2<TypeHashKey> &send_tensors,
+                                         Tensors2<TypeHashKey> &recv_tensors,
                                          const GPUResourceGroup &device_resources) {
   size_t local_gpu_count = device_resources.size();
   size_t total_gpu_count = device_resources.get_total_gpu_count();
@@ -49,7 +49,7 @@ void SparseEmbeddingFunctors::all_reduce(size_t send_count,
   if (total_gpu_count > 1) {
     CK_NCCL_THROW_(ncclGroupStart());
     for (size_t id = 0; id < local_gpu_count; id++) {
-      CK_NCCL_THROW_(ncclAllReduce(send_tensors[id]->get_ptr(), recv_tensors[id]->get_ptr(),
+      CK_NCCL_THROW_(ncclAllReduce(send_tensors[id].get_ptr(), recv_tensors[id].get_ptr(),
                                    send_count, type, ncclSum, device_resources[id].get_nccl(),
                                    device_resources[id].get_stream()));
     }
@@ -58,7 +58,7 @@ void SparseEmbeddingFunctors::all_reduce(size_t send_count,
   // for single GPU, just do memcpyD2D
   else {  // total_gpu_count == 1
     CudaDeviceContext context(device_resources[0].get_device_id());
-    CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0]->get_ptr(), send_tensors[0]->get_ptr(),
+    CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0].get_ptr(), send_tensors[0].get_ptr(),
                                    send_count * sizeof(TypeHashKey), cudaMemcpyDeviceToDevice,
                                    device_resources[0].get_stream()));
   }
@@ -67,11 +67,11 @@ void SparseEmbeddingFunctors::all_reduce(size_t send_count,
 }
 
 template void SparseEmbeddingFunctors::all_reduce<unsigned int>(
-    size_t send_count, const TensorPtrs<unsigned int> &send_tensors,
-    const TensorPtrs<unsigned int> &recv_tensors, const GPUResourceGroup &device_resources);
+    size_t send_count, const Tensors2<unsigned int> &send_tensors,
+    Tensors2<unsigned int> &recv_tensors, const GPUResourceGroup &device_resources);
 
 template void SparseEmbeddingFunctors::all_reduce<long long>(
-    size_t send_count, const TensorPtrs<long long> &send_tensors,
-    const TensorPtrs<long long> &recv_tensors, const GPUResourceGroup &device_resources);
+    size_t send_count, const Tensors2<long long> &send_tensors, Tensors2<long long> &recv_tensors,
+    const GPUResourceGroup &device_resources);
 
 }  // namespace HugeCTR

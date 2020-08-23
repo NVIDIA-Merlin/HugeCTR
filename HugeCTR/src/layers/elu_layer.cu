@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-
-#include <linalg/binary_op.cuh>
-#include <linalg/unary_op.cuh>
-#include <layers/elu_layer.hpp>
-#include <layers/element_wise_function.hpp>
 #include <algorithm>
 #include <functional>
+#include <layers/element_wise_function.hpp>
+#include <layers/elu_layer.hpp>
+#include <linalg/binary_op.cuh>
+#include <linalg/unary_op.cuh>
 #include <utils.hpp>
 #ifndef NDEBUG
 #include <iostream>
@@ -28,43 +27,44 @@
 
 namespace HugeCTR {
 
-EluLayer::EluLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                   const std::shared_ptr<Tensor<float>>& out_tensor, float alpha, int device_id)
+EluLayer::EluLayer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor, float alpha,
+                   int device_id)
     : Layer(device_id), alpha_(alpha) {
-  assert(get_size_from_dims(in_tensor->get_dims()) == get_size_from_dims(out_tensor->get_dims()));
+  assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
 
-  in_tensors_.emplace_back(in_tensor);
-  out_tensors_.emplace_back(out_tensor);
+  in_tensors_.push_back(in_tensor);
+  out_tensors_.push_back(out_tensor);
 }
 
-void EluLayer::fprop(cudaStream_t stream) {
+void EluLayer::fprop(bool is_train, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
-  
-  const auto& in_tensor = in_tensors_[0];
-  const auto& out_tensor = out_tensors_[0];
 
-  const int len = get_size_from_dims(in_tensor->get_dims());
+  const Tensor2<float>& in_tensor = in_tensors_[0];
+  Tensor2<float>& out_tensor = out_tensors_[0];
+
+  const int len = in_tensor.get_num_elements();
 
   float alpha = alpha_;
   auto fop = [alpha] __device__(float in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
 
-  MLCommon::LinAlg::unaryOp(out_tensor->get_ptr(), in_tensor->get_ptr(), len, fop, stream);
+  MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len, fop, stream);
 }
 
 void EluLayer::bprop(cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
 
-  const auto& in_tensor = in_tensors_[0];
-  const auto& out_tensor = out_tensors_[0];
-  
-  const int len = get_size_from_dims(in_tensor->get_dims());
+  Tensor2<float>& in_tensor = in_tensors_[0];
+  const Tensor2<float>& out_tensor = out_tensors_[0];
+
+  const int len = in_tensor.get_num_elements();
 
   float alpha = alpha_;
   auto bop = [alpha] __device__(float d_out, float d_in) {
     return (d_in < 0) ? alpha * expf(d_in) * d_out : d_out;
   };
 
-  MLCommon::LinAlg::binaryOp(in_tensor->get_ptr(), out_tensor->get_ptr(), in_tensor->get_ptr(), len, bop, stream);
+  MLCommon::LinAlg::binaryOp(in_tensor.get_ptr(), out_tensor.get_ptr(), in_tensor.get_ptr(), len,
+                             bop, stream);
 }
 
 }  // namespace HugeCTR

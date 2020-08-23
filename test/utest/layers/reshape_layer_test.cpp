@@ -17,7 +17,6 @@
 #include "HugeCTR/include/layers/reshape_layer.hpp"
 
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -31,19 +30,20 @@ namespace {
 
 template <typename T>
 void reshape_test(vector<size_t>& in_dims, size_t leading_dim) {
-  std::shared_ptr<GeneralBuffer<T>> buff(new GeneralBuffer<T>());
-  std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(
-      in_dims, buff, (in_dims.size() == 3) ? TensorFormat_t::HSW : TensorFormat_t::HW));
-  buff->init(0);
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+  Tensor2<T> in_tensor;
+  buff->reserve(in_dims, &in_tensor);
 
-  std::shared_ptr<Tensor<T>> out_tensor;
-  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, leading_dim, 0);
+  Tensor2<T> out_tensor;
+  ReshapeLayer<T> reshape_layer(in_tensor, in_tensor, out_tensor, buff, leading_dim, 0);
 
-  ASSERT_TRUE(out_tensor);
+  buff->allocate();
 
-  std::vector<size_t> out_dims = out_tensor->get_dims();
-  size_t n_in_elems = in_tensor->get_num_elements();
-  size_t n_out_elems = out_tensor->get_num_elements();
+  ASSERT_TRUE(out_tensor.allocated());
+
+  std::vector<size_t> out_dims = out_tensor.get_dimensions();
+  size_t n_in_elems = in_tensor.get_num_elements();
+  size_t n_out_elems = out_tensor.get_num_elements();
 
   ASSERT_TRUE(out_dims.size() == 2 && n_in_elems == n_out_elems &&
               leading_dim == out_dims[out_dims.size() - 1]);
@@ -63,42 +63,22 @@ void reshape_3d_test(size_t dim0, size_t dim1, size_t dim2, size_t leading_dim) 
 
 }  // namespace
 
-TEST(reshape_layer, fp32_32x320to8x1280) { 
-  reshape_2d_test<float>(8 * 4, 320, 4 * 320); 
-}
+TEST(reshape_layer, fp32_32x320to8x1280) { reshape_2d_test<float>(8 * 4, 320, 4 * 320); }
 
-TEST(reshape_layer, fp32_32x320to16x640) { 
-  reshape_2d_test<float>(8 * 4, 320, 2 * 320); 
-}
+TEST(reshape_layer, fp32_32x320to16x640) { reshape_2d_test<float>(8 * 4, 320, 2 * 320); }
 
-TEST(reshape_layer, fp32_8x4x320to8x1280) { 
-  reshape_3d_test<float>(8, 4, 320, 4 * 320); 
-}
+TEST(reshape_layer, fp32_8x4x320to8x1280) { reshape_3d_test<float>(8, 4, 320, 4 * 320); }
 
-TEST(reshape_layer, fp32_8x4x320to4x2560) { 
-  reshape_3d_test<float>(8, 4, 320, 8 * 320); 
-}
+TEST(reshape_layer, fp32_8x4x320to4x2560) { reshape_3d_test<float>(8, 4, 320, 8 * 320); }
 
-TEST(reshape_layer, fp32_8x4x320to32x2560) { 
-  reshape_3d_test<float>(8, 4, 320, 320); 
-}
+TEST(reshape_layer, fp32_8x4x320to32x2560) { reshape_3d_test<float>(8, 4, 320, 320); }
 
-TEST(reshape_layer, fp16_32x320to8x1280) { 
-  reshape_2d_test<__half>(8 * 4, 320, 4 * 320); 
-}
+TEST(reshape_layer, fp16_32x320to8x1280) { reshape_2d_test<__half>(8 * 4, 320, 4 * 320); }
 
-TEST(reshape_layer, fp16_32x320to16x640) { 
-  reshape_2d_test<__half>(8 * 4, 320, 2 * 320); 
-}
+TEST(reshape_layer, fp16_32x320to16x640) { reshape_2d_test<__half>(8 * 4, 320, 2 * 320); }
 
-TEST(reshape_layer, fp16_8x4x320to8x1280) { 
-  reshape_3d_test<__half>(8, 4, 320, 4 * 320); 
-}
+TEST(reshape_layer, fp16_8x4x320to8x1280) { reshape_3d_test<__half>(8, 4, 320, 4 * 320); }
 
-TEST(reshape_layer, fp16_8x4x320to4x2560) { 
-  reshape_3d_test<__half>(8, 4, 320, 8 * 320); 
-}
+TEST(reshape_layer, fp16_8x4x320to4x2560) { reshape_3d_test<__half>(8, 4, 320, 8 * 320); }
 
-TEST(reshape_layer, fp16_8x4x320to32x2560) { 
-  reshape_3d_test<__half>(8, 4, 320, 320); 
-}
+TEST(reshape_layer, fp16_8x4x320to32x2560) { reshape_3d_test<__half>(8, 4, 320, 320); }
