@@ -606,6 +606,20 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Interaction: {
         // lambda template could be a better solution here, but there's not support in c++11
         if (use_mixed_precision) {
+          int major = 0;
+          int minor = 0;
+          CK_CUDA_THROW_(cudaDeviceGetAttribute(&major,
+                                                cudaDevAttrComputeCapabilityMajor,
+                                                device_id));
+          CK_CUDA_THROW_(cudaDeviceGetAttribute(&minor,
+                                                cudaDevAttrComputeCapabilityMinor,
+                                                device_id));
+          if (major < 7) {
+            CK_THROW_(Error_t::WrongInput,
+                      "InteractionLayer<__half> is not supported in SM " +
+                      std::to_string(major) + "." + std::to_string(minor));
+          }
+
           Tensor2<__half> train_in_mlp_tensor =
               Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
           Tensor2<__half> evaluate_in_mlp_tensor =
@@ -615,6 +629,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           Tensor2<__half> evaluate_in_emb_tensor =
               Tensor2<__half>::stretch_from(input_output_info.evaluate_input[1]);
           Tensor2<__half> out_tensor;
+
           layers.emplace_back(new InteractionLayer<__half>(
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_in_emb_tensor,
               evaluate_in_emb_tensor, out_tensor,
