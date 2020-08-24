@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
+#include <layers/add_layer.hpp>
+
 #include <algorithm>
 #include <functional>
-#include <layers/add_layer.hpp>
-#include <prims/cuda_utils.cuh>
-#include <prims/linalg/reduce.cuh>
 #include <utils.cuh>
 #include <utils.hpp>
 
@@ -31,6 +30,18 @@ namespace HugeCTR {
 namespace {
 
 #define BLOCK_DIM_SIZE 32
+template <typename T>
+__global__ void add_kernel(T** inputs, T* output, int size, int num) {
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (tid < size) {
+    T tmp = 0;
+    for (int i = 0; i < num; i++) {
+      tmp += inputs[i][tid];
+    }
+    output[tid] = tmp;
+  }
+}
 
 template <typename T>
 __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int num) {
@@ -107,8 +118,9 @@ void AddLayer<T>::fprop(bool is_train, cudaStream_t stream) {
   }
   T* output = out_tensors_[0].get_ptr();
 
-  MLCommon::LinAlg::reduce(output, d_inputs_.get_ptr(), size_, num_, (T)0, false, false, stream,
-                           false, [] __device__(T in, int i) { return in; });
+  dim3 block_size(256, 1, 1);
+  dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
+  add_kernel<<<grid_size, block_size, 0, stream>>>(d_inputs_.get_ptr(), output, size_, num_);
 }
 
 template <typename T>

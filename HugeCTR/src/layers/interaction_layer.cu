@@ -32,8 +32,6 @@ namespace HugeCTR {
 
 namespace {
 
-using namespace nvcuda;
-
 template <uint x>
 struct Log2 {
   static constexpr uint value = 1 + Log2<x / 2>::value;
@@ -55,6 +53,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNon
     __half *__restrict output, uint batch_size, uint num_rows, uint num_cols,
     uint num_rows_after_padding, uint num_cols_after_padding, uint smem_elems_per_warp,
     uint smem_rows_per_warp, uint output_size, uint num_row_steps, uint num_col_steps) {
+#if __CUDA_ARCH__ >= 700 || !defined(__CUDA_ARCH__)
   uint warp_id = (threadIdx.x >> THREADS_IN_WARP_LOG_2);
   int sample_id = blockIdx.x * WARPS_PER_BLOCK + warp_id;
   if (sample_id >= batch_size) {
@@ -101,26 +100,26 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNon
     gmem_output[idx] = shmem[idx];
   }
 
-  wmma::fragment<wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[M_BLOCKS][M_BLOCKS];
+  nvcuda::wmma::fragment<nvcuda::wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[M_BLOCKS][M_BLOCKS];
 
   for (int i = 0; i < M_BLOCKS; i++) {
     for (int j = 0; j < M_BLOCKS; j++) {
-      wmma::fill_fragment(acc[i][j], 0);
+      nvcuda::wmma::fill_fragment(acc[i][j], 0);
     }
   }
 
   for (int k_step = 0; k_step < num_col_steps; k_step++) {
-    wmma::fragment<wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major> a[M_BLOCKS];
-    wmma::fragment<wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::col_major> b[M_BLOCKS];
+    nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, nvcuda::wmma::row_major> a[M_BLOCKS];
+    nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, nvcuda::wmma::col_major> b[M_BLOCKS];
     for (int j = 0; j < M_BLOCKS; j++) {
       int base_row = (j < M_BLOCKS - 1) ? j * 16 : smem_rows_per_warp - 16;
       const half *tile_ptr = shmem + (base_row * SMEM_STRIDE + k_step * 16);
-      wmma::load_matrix_sync(a[j], tile_ptr, SMEM_STRIDE);
-      wmma::load_matrix_sync(b[j], tile_ptr, SMEM_STRIDE);
+      nvcuda::wmma::load_matrix_sync(a[j], tile_ptr, SMEM_STRIDE);
+      nvcuda::wmma::load_matrix_sync(b[j], tile_ptr, SMEM_STRIDE);
     }
     for (int i = 0; i < M_BLOCKS; i++) {
       for (int j = 0; j < M_BLOCKS; j++) {
-        wmma::mma_sync(acc[i][j], a[i], b[j], acc[i][j]);
+        nvcuda::wmma::mma_sync(acc[i][j], a[i], b[j], acc[i][j]);
       }
     }
   }
@@ -128,7 +127,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNon
   for (int i = 0; i < M_BLOCKS; i++) {
     for (int j = 0; j < M_BLOCKS; j++) {
       float *tile_ptr = shmem_store + (i * 16 * SMEM_STRIDE_ACC + j * 16);
-      wmma::store_matrix_sync(tile_ptr, acc[i][j], SMEM_STRIDE_ACC, wmma::mem_row_major);
+      nvcuda::wmma::store_matrix_sync(tile_ptr, acc[i][j], SMEM_STRIDE_ACC, nvcuda::wmma::mem_row_major);
     }
   }
 
@@ -149,6 +148,9 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractFwdKernelNon
   if (lane_id == 0) {
     gmem_output[output_size - 1] = __float2half(0);
   }
+#else
+#warning "dotBasedInteractFwdKernelNonAligned is not supported for SM < 70 (or __CUDA_ARCH__ < 700)"
+#endif
 }
 
 template <uint WARPS_PER_BLOCK, uint THREADBLOCK_SIZE, uint M_BLOCKS, uint K_BLOCKS,
@@ -161,6 +163,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
                                    uint num_rows_after_padding, uint num_cols_after_padding,
                                    uint smem_elems_per_warp, uint smem_rows_per_warp,
                                    uint output_size, uint num_row_steps, uint num_col_steps) {
+#if __CUDA_ARCH__ >= 700 || !defined(__CUDA_ARCH__)
   uint warp_id = (threadIdx.x >> THREADS_IN_WARP_LOG_2);
   int sample_id = blockIdx.x * WARPS_PER_BLOCK + warp_id;
   if (sample_id >= batch_size) {
@@ -206,26 +209,26 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
     ((float2 *)gmem_output)[lane_id] = ((float2 *)shmem)[lane_id];
   }
 
-  wmma::fragment<wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[M_BLOCKS][M_BLOCKS];
+  nvcuda::wmma::fragment<nvcuda::wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[M_BLOCKS][M_BLOCKS];
 
   for (int i = 0; i < M_BLOCKS; i++) {
     for (int j = 0; j < M_BLOCKS; j++) {
-      wmma::fill_fragment(acc[i][j], 0);
+      nvcuda::wmma::fill_fragment(acc[i][j], 0);
     }
   }
 
   for (int k_step = 0; k_step < num_col_steps; k_step++) {
-    wmma::fragment<wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major> a[M_BLOCKS];
-    wmma::fragment<wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::col_major> b[M_BLOCKS];
+    nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, nvcuda::wmma::row_major> a[M_BLOCKS];
+    nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, nvcuda::wmma::col_major> b[M_BLOCKS];
     for (int j = 0; j < M_BLOCKS; j++) {
       int base_row = (j < M_BLOCKS - 1) ? j * 16 : smem_rows_per_warp - 16;
       const half *tile_ptr = shmem + (base_row * SMEM_STRIDE + k_step * 16);
-      wmma::load_matrix_sync(a[j], tile_ptr, SMEM_STRIDE);
-      wmma::load_matrix_sync(b[j], tile_ptr, SMEM_STRIDE);
+      nvcuda::wmma::load_matrix_sync(a[j], tile_ptr, SMEM_STRIDE);
+      nvcuda::wmma::load_matrix_sync(b[j], tile_ptr, SMEM_STRIDE);
     }
     for (int i = 0; i < M_BLOCKS; i++) {
       for (int j = 0; j < M_BLOCKS; j++) {
-        wmma::mma_sync(acc[i][j], a[i], b[j], acc[i][j]);
+        nvcuda::wmma::mma_sync(acc[i][j], a[i], b[j], acc[i][j]);
       }
     }
   }
@@ -233,7 +236,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
   for (int i = 0; i < M_BLOCKS; i++) {
     for (int j = 0; j < M_BLOCKS; j++) {
       float *tile_ptr = shmem_store + (i * 16 * SMEM_STRIDE_ACC + j * 16);
-      wmma::store_matrix_sync(tile_ptr, acc[i][j], SMEM_STRIDE_ACC, wmma::mem_row_major);
+      nvcuda::wmma::store_matrix_sync(tile_ptr, acc[i][j], SMEM_STRIDE_ACC, nvcuda::wmma::mem_row_major);
     }
   }
 
@@ -254,6 +257,9 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
   if (lane_id == 0) {
     gmem_output[output_size - 1] = __float2half(0);
   }
+#else
+#warning "dotBasedInteractFwdKernel is not supported for SM < 70 (or __CUDA_ARCH__ < 700)"
+#endif
 }
 
 template <uint WARPS_PER_BLOCK, uint THREADBLOCK_SIZE, uint ROW_TILES_PER_STEP,
@@ -267,6 +273,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernelNon
     uint interaction_ugrad_2D_size_elems, uint interaction_ugrad_2D_stride, uint input_size_elems,
     uint input_stride, uint num_row_steps, uint num_col_steps, uint row_tiles_per_step,
     uint shared_mem_per_warp_size_byte) {
+#if __CUDA_ARCH__ >= 700 || !defined(__CUDA_ARCH__)
   extern __shared__ half shared_mem[];
   uint warp_id = (threadIdx.x >> THREADS_IN_WARP_LOG_2);
   uint sample_id = blockIdx.x * WARPS_PER_BLOCK + warp_id;
@@ -357,32 +364,32 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernelNon
   }
   __syncwarp();
 
-  wmma::fragment<wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major>
+  nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, nvcuda::wmma::row_major>
       a[ROW_TILES_PER_STEP][ROW_TILES_PER_STEP];
   for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
     for (uint j = 0; j < ROW_TILES_PER_STEP; j++) {
       const half *tile_ptr = smem_temp + ((i * interaction_ugrad_2D_stride + j) << TILE_DIM_LOG_2);
-      wmma::load_matrix_sync(a[i][j], tile_ptr, interaction_ugrad_2D_stride);
+      nvcuda::wmma::load_matrix_sync(a[i][j], tile_ptr, interaction_ugrad_2D_stride);
     }
   }
 
-  wmma::fragment<wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[ROW_TILES_PER_STEP];
-  wmma::fragment<wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major>
+  nvcuda::wmma::fragment<nvcuda::wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[ROW_TILES_PER_STEP];
+  nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, nvcuda::wmma::row_major>
       b[ROW_TILES_PER_STEP];
   for (int col_step = 0; col_step < num_col_steps; col_step++) {
     for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
       const half *tile_ptr = smem_in + ((i * input_stride + col_step) << TILE_DIM_LOG_2);
-      wmma::fill_fragment(acc[i], 0);
-      wmma::load_matrix_sync(b[i], tile_ptr, input_stride);
+      nvcuda::wmma::fill_fragment(acc[i], 0);
+      nvcuda::wmma::load_matrix_sync(b[i], tile_ptr, input_stride);
     }
     for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
       for (uint j = 0; j < ROW_TILES_PER_STEP; j++) {
-        wmma::mma_sync(acc[i], a[i][j], b[j], acc[i]);
+        nvcuda::wmma::mma_sync(acc[i], a[i][j], b[j], acc[i]);
       }
     }
     for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
       float *tile_ptr = smem_out + i * TILE_DIM * TILE_DIM;
-      wmma::store_matrix_sync(tile_ptr, acc[i], TILE_DIM, wmma::mem_row_major);
+      nvcuda::wmma::store_matrix_sync(tile_ptr, acc[i], TILE_DIM, nvcuda::wmma::mem_row_major);
     }
     __syncwarp();
     uint gmem_grad_col = (col_step << TILE_DIM_LOG_2) + lane_id;
@@ -401,6 +408,9 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__ void dotBasedInteractBwdKernelNon
   // for (uint idx = lane_id; idx < num_cols; idx += THREADS_IN_WARP) {
   //   gmem_mlp_grad[idx] = gmem_ugrad[idx];
   // }
+#else
+#warning "dotBasedInteractBwdKernelNonAligned is not supported for SM < 70 (or __CUDA_ARCH__ < 700)"
+#endif
 }
 
 template <uint WARPS_PER_BLOCK, uint THREADBLOCK_SIZE, uint ROW_TILES_PER_STEP,
@@ -417,6 +427,7 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
                                    uint interaction_ugrad_2D_stride, uint input_size_elems,
                                    uint input_stride, uint num_row_steps, uint num_col_steps,
                                    uint row_tiles_per_step, uint shared_mem_per_warp_size_byte) {
+#if __CUDA_ARCH__ >= 700 || !defined(__CUDA_ARCH__)
   extern __shared__ half shared_mem[];
   uint warp_id = (threadIdx.x >> THREADS_IN_WARP_LOG_2);
   uint sample_id = blockIdx.x * WARPS_PER_BLOCK + warp_id;
@@ -520,32 +531,32 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
   }
   __syncwarp();
 
-  wmma::fragment<wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major>
+  nvcuda::wmma::fragment<nvcuda::wmma::matrix_a, TILE_DIM, TILE_DIM, TILE_DIM, half, nvcuda::wmma::row_major>
       a[ROW_TILES_PER_STEP][ROW_TILES_PER_STEP];
   for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
     for (uint j = 0; j < ROW_TILES_PER_STEP; j++) {
       const half *tile_ptr = smem_temp + ((i * interaction_ugrad_2D_stride + j) << TILE_DIM_LOG_2);
-      wmma::load_matrix_sync(a[i][j], tile_ptr, interaction_ugrad_2D_stride);
+      nvcuda::wmma::load_matrix_sync(a[i][j], tile_ptr, interaction_ugrad_2D_stride);
     }
   }
 
-  wmma::fragment<wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[ROW_TILES_PER_STEP];
-  wmma::fragment<wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, wmma::row_major>
+  nvcuda::wmma::fragment<nvcuda::wmma::accumulator, TILE_DIM, TILE_DIM, TILE_DIM, float> acc[ROW_TILES_PER_STEP];
+  nvcuda::wmma::fragment<nvcuda::wmma::matrix_b, TILE_DIM, TILE_DIM, TILE_DIM, half, nvcuda::wmma::row_major>
       b[ROW_TILES_PER_STEP];
   for (int col_step = 0; col_step < num_col_steps; col_step++) {
     for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
       const half *tile_ptr = smem_in + ((i * input_stride + col_step) << TILE_DIM_LOG_2);
-      wmma::fill_fragment(acc[i], 0);
-      wmma::load_matrix_sync(b[i], tile_ptr, input_stride);
+      nvcuda::wmma::fill_fragment(acc[i], 0);
+      nvcuda::wmma::load_matrix_sync(b[i], tile_ptr, input_stride);
     }
     for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
       for (uint j = 0; j < ROW_TILES_PER_STEP; j++) {
-        wmma::mma_sync(acc[i], a[i][j], b[j], acc[i]);
+        nvcuda::wmma::mma_sync(acc[i], a[i][j], b[j], acc[i]);
       }
     }
     for (uint i = 0; i < ROW_TILES_PER_STEP; i++) {
       float *tile_ptr = smem_out + i * TILE_DIM * TILE_DIM;
-      wmma::store_matrix_sync(tile_ptr, acc[i], TILE_DIM, wmma::mem_row_major);
+      nvcuda::wmma::store_matrix_sync(tile_ptr, acc[i], TILE_DIM, nvcuda::wmma::mem_row_major);
     }
     __syncwarp();
     uint gmem_grad_col_base = (col_step << TILE_DIM_LOG_2);
@@ -562,6 +573,9 @@ __launch_bounds__(THREADBLOCK_SIZE) __global__
       }
     }
   }
+#else
+#warning "dotBasedInteractBwdKernel is not supported for SM < 70 (or __CUDA_ARCH__ < 700)"
+#endif
 }
 
 inline void dotBasedInteractFwd(const void *bottom_mlp_input, const void *emb_input, void *output,
@@ -956,21 +970,13 @@ void InteractionLayer<__half>::fprop(bool is_train, cudaStream_t stream) {
   CudaDeviceContext context(get_device_id());
   CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
-  // __half* concat = internal_tensors_[0]->get_ptr();
   __half *in_mlp = get_in_tensors(is_train)[0].get_ptr();
   __half *in_emb = get_in_tensors(is_train)[1].get_ptr();
   __half *output = out_tensors_[0].get_ptr();
   const int h = get_in_tensors(is_train)[0].get_dimensions()[0];
-  // const int out_w = internal_tensors_[0]->get_dims()[1];
   const int in_w = get_in_tensors(is_train)[0].get_dimensions()[1];
   const int n_emb = get_in_tensors(is_train)[1].get_dimensions()[1];
   const int n_ins = 1 + n_emb;
-
-  // dim3 grid0(n_ins, n_sms_, 1);
-  // dim3 block0(((in_w <= 128)? 128 : ((in_w <= 256)? 256 : 512)), 1, 1);
-  // concat_kernel<<<grid0, block0, 0, stream>>>(true, concat, in_mlp, in_emb,
-  //                                             h, out_w,
-  //                                             in_w, n_emb);
 
   dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, stream);
 
@@ -1057,21 +1063,12 @@ void InteractionLayer<__half>::bprop(cudaStream_t stream) {
   __half *up_grad = out_tensors_[0].get_ptr();
   __half *mlp_grad = get_in_tensors(true)[0].get_ptr();
   __half *emb_grad = get_in_tensors(true)[1].get_ptr();
-  // __half* out_grad  = internal_tensors_[2]->get_ptr();
   const int h = get_in_tensors(true)[0].get_dimensions()[0];
   const int n_emb = get_in_tensors(true)[1].get_dimensions()[1];
   const int n_ins = 1 + n_emb;
   const int in_w = get_in_tensors(true)[0].get_dimensions()[1];
-  // const int out_w = internal_tensors_[0]->get_dims()[1];
 
   dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, stream);
-
-// dim3 grid0(n_ins, n_sms_, 1);
-// dim3 block0(((in_w <= 128)? 128 : ((in_w <= 256)? 256 : 512)), 1, 1);
-// concat_kernel<<<grid0, block0, 0, stream>>>(false, out_grad, mlp_grad, emb_grad,
-//                                             h, out_w,
-//                                             in_w, n_emb);
-
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());

@@ -83,7 +83,9 @@ endif()
 foreach(arch_name ${SM})
     if (arch_name STREQUAL 80 OR 
         arch_name STREQUAL 75 OR 
-        arch_name STREQUAL 70)
+        arch_name STREQUAL 70 OR 
+        arch_name STREQUAL 61 OR 
+        arch_name STREQUAL 60)
         list(APPEND cuda_arch_list ${arch_name})
         message(STATUS "-- Assign GPU architecture (sm=${arch_name})")
     else()
@@ -103,11 +105,11 @@ endforeach()
 
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp")
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp")
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
 

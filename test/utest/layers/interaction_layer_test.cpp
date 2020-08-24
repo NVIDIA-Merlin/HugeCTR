@@ -202,5 +202,15 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
 
 }  // namespace
 
-TEST(interaction_layer, fp32_512x26x128) { interaction_layer_test<float>(512, 26, 128); }
-TEST(interaction_layer, fp16_512x26x128) { interaction_layer_test<__half>(512, 26, 128); }
+TEST(interaction_layer, fp32_512x479) {
+  interaction_layer_test<float>(512, 26, 128);
+}
+
+TEST(interaction_layer, fp16_512x479) {
+  int major = 0;
+  cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, 0);
+  if (major < 7) {
+    GTEST_SKIP();
+  }
+  interaction_layer_test<__half>(512, 26, 128);
+}
