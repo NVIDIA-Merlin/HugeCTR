@@ -19,7 +19,7 @@
 #include <common.hpp>
 #include <csr.hpp>
 #include <csr_chunk.hpp>
-#include <data_reader_worker_interface.hpp>
+#include <data_readers/data_reader_worker_interface.hpp>
 #include <fstream>
 #include <heapex.hpp>
 #include <mmap_source.hpp>

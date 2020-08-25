@@ -527,4 +527,6 @@ struct TypeConvert<__half> {
   static __host__ __half convert(const float val) { return __float2half(val); }
 };
 
+
+
 }  // namespace HugeCTR

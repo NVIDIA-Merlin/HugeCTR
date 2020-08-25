@@ -15,7 +15,7 @@
  */
 
 #include <common.hpp>
-#include <data_collector.hpp>
+#include <data_readers/data_collector.hpp>
 
 namespace HugeCTR {
 

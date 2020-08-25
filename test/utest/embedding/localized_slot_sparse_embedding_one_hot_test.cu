@@ -151,12 +151,16 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(
-      new DataReader<T>(train_file_list_name, train_batchsize, label_dim, dense_dim, CHK, params,
+      new DataReader<T>(train_batchsize, label_dim, dense_dim, params,
                         gpu_resource_group, num_chunk_threads));
 
+  train_data_reader->create_drwg_norm(train_file_list_name, CHK);
+
   std::unique_ptr<DataReader<T>> test_data_reader(
-      new DataReader<T>(test_file_list_name, test_batchsize, label_dim, dense_dim, CHK, params,
+      new DataReader<T>(test_batchsize, label_dim, dense_dim, params,
                         gpu_resource_group, num_chunk_threads));
+
+  test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
   // generate hashtable
   if (pid == 0) {

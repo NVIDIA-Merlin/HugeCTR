@@ -18,7 +18,7 @@
 #include <fstream>
 #include <thread>
 #include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/data_reader_worker.hpp"
+#include "HugeCTR/include/data_readers/data_reader_worker.hpp"
 #include "HugeCTR/include/file_list.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -86,22 +86,26 @@ TEST(data_reader_test, data_reader_simple_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 1);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+			    gpu_resource_group, 12);
+  
+  data_reader.create_drwg_norm(file_list_name, CHK);
 
   data_reader.read_a_batch_to_device();
-  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-    print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
   data_reader.read_a_batch_to_device();
-  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-    print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); 
   data_reader.read_a_batch_to_device();
-  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-    print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
 }
+
+
 
 TEST(data_reader_test, data_reader_localized_test) {
   const int batchsize = 2048;
@@ -125,24 +129,27 @@ TEST(data_reader_test, data_reader_localized_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 1);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+			    gpu_resource_group, 1);
+  
+  data_reader.create_drwg_norm(file_list_name, CHK);
+
 
   data_reader.read_a_batch_to_device();
-  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
- */
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
+ 
   data_reader.read_a_batch_to_device();
-  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
- */
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
+ 
   data_reader.read_a_batch_to_device();
-/*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
- */}
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
+}
 
 TEST(data_reader_test, data_reader_mixed_test) {
   const int batchsize = 2048;
@@ -168,26 +175,30 @@ TEST(data_reader_test, data_reader_mixed_test) {
   params.push_back(param_localized);
   params.push_back(param_distributed);
 
-  DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 1);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+			    gpu_resource_group, 1, true);
+  
+  data_reader.create_drwg_norm(file_list_name, CHK);
+
 
   data_reader.read_a_batch_to_device();
-  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-    print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
-    print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-    print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10); */
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  //print_tensor(dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); 
   data_reader.read_a_batch_to_device();
-  /*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
- */
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  //print_tensor(dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
+ 
   data_reader.read_a_batch_to_device();
-/*   print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
- */}
+  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+  //print_tensor(*dynamic_tensor_cast<float>(data_reader.get_dense_tensors()[1]), -10, -1);
+  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
+}
+
 
 #ifdef ENABLE_MPI
 TEST(data_reader_test, two_nodes_localized) {
@@ -222,8 +233,11 @@ TEST(data_reader_test, two_nodes_localized) {
     std::vector<DataReaderSparseParam> params;
     params.push_back(param_localized);
 
-    DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                              gpu_resource_group, 1);
+    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+			      gpu_resource_group, 1);
+    
+    data_reader.create_drwg_norm(file_list_name, CHK);
+
 
     data_reader.read_a_batch_to_device();
 /*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
@@ -251,8 +265,10 @@ TEST(data_reader_test, two_nodes_localized) {
     std::vector<DataReaderSparseParam> params;
     params.push_back(param_localized);
 
-    DataReader<T> data_reader(file_list_name, batchsize, label_dim, dense_dim, CHK, params,
-                              gpu_resource_group, 1);
+    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params,
+			      gpu_resource_group, 1);
+    
+    data_reader.create_drwg_norm(file_list_name, CHK);
 
     data_reader.read_a_batch_to_device();
 /*     print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
