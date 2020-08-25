@@ -22,6 +22,7 @@
 #include <csr_chunk.hpp>
 #include <gpu_resource.hpp>
 #include <heapex.hpp>
+#include <thread>
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
@@ -51,6 +52,8 @@ struct ToMpiType<float> {
 template <typename TypeComp>
 void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
            const Tensor2<float>& label_dense_buffer, cudaStream_t stream);
+
+
 
 /**
  * @brief A helper class of data reader.
@@ -96,10 +99,12 @@ class DataCollector {
   std::vector<std::shared_ptr<InternalBuffer_>> internal_buffers_;
 
   bool reverse_;
+  std::thread data_collector_thread_;            /**< A data_collector_thread. */
+  int  data_reader_loop_flag_ = 1;
 
   void collect_blank_();
   void collect_();
-
+  bool started_ = false;
  public:
   /**
    * Ctor.
@@ -136,20 +141,49 @@ class DataCollector {
    * Break the collecting and stop. Only used in destruction.
    */
   void stop() {
+    data_reader_loop_flag_ = 0;
 #ifdef ENABLE_MPI
     CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
 #endif
     stat_ = STOP;
     // stat_cv_.notify_all();
   }
+  
+  void start();
 
   /**
    * Dtor.
    */
   ~DataCollector() {
     if (stat_ != STOP) stop();
+    data_collector_thread_.join();
   }
 };
+
+/**
+ * A helper function to for reading data from
+ * CSRChunk to data_reader (GPU) local buffer in a new thread.
+ * @param data_reader a pointer of data_collector.
+ * @param p_loop_flag a flag to control the loop and
+                      break loop when DataReader is destroyed.
+ */
+template <typename TypeKey>
+static void data_collector_thread_func_(
+    DataCollector<TypeKey>* data_collector, int* p_loop_flag) {
+  try {
+    while ((*p_loop_flag) == 0) {
+      usleep(2);
+    }
+
+    while (*p_loop_flag) {
+      data_collector->collect();
+    }
+  } catch (const std::runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+  }
+}
+
+
 
 template <typename TypeKey>
 int DataCollector<TypeKey>::id_ = 0;
@@ -222,11 +256,25 @@ DataCollector<TypeKey>::DataCollector(
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid_));
     CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &num_procs_));
 #endif
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
 
   id_++;
+}
+
+template <typename TypeKey>
+void DataCollector<TypeKey>::start() {
+  if(started_ == false){
+    data_collector_thread_ = 
+       std::thread(data_collector_thread_func_<TypeKey>, this, &data_reader_loop_flag_);
+    set_affinity(data_collector_thread_, {}, true);
+    started_ = true;
+  }
+  else{
+    CK_THROW_(Error_t::WrongInput, "Data collector has been started");
+  }
 }
 
 template <typename TypeKey>

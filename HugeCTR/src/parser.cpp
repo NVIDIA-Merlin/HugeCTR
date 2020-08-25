@@ -1238,7 +1238,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           }
         }
 
-        auto cache_eval_data = get_value_from_json_soft<bool>(j, "cache_eval_data", false);
+        auto cache_eval_data = get_value_from_json_soft<int>(j, "cache_eval_data", 0);
 
         std::string source_data = get_value_from_json<std::string>(j, "source");
 
@@ -1291,35 +1291,22 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         std::string eval_source;
         FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
 
-        switch (format) {
-          case DataReaderType_t::Norm: {
 #ifdef VAL
-            data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 1, use_mixed_precision));
+	const int NUM_THREADS=1;
 #else
-            data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 31, use_mixed_precision));
-
+	const int NUM_THREADS=12;
 #endif
 
-#ifdef VAL
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision));
-#else
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 31, use_mixed_precision));
+	data_reader.reset(new DataReader<TypeKey>(batch_size, label_dim, dense_dim,
+						  data_reader_sparse_param_array,
+						  gpu_resource_group, NUM_THREADS,
+						  use_mixed_precision, false));
+	data_reader_eval.reset(new DataReader<TypeKey>(
+          batch_size_eval, label_dim, dense_dim,
+          data_reader_sparse_param_array, gpu_resource_group, NUM_THREADS,
+          use_mixed_precision, cache_eval_data));
 
-#endif
-
-            break;
-          }
-          case DataReaderType_t::Raw: {
-            const auto num_samples = get_value_from_json<long long>(j, "num_samples");
-            const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
+	auto f = [&j]() -> std::vector<long long> {
             std::vector<long long> slot_offset;
             if (has_key_(j, "slot_size_array")) {
               auto slot_size_array = get_json(j, "slot_size_array");
@@ -1334,32 +1321,21 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
               }
               MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
             }
+	    return slot_offset;
+	};
 
-#ifdef VAL
-            data_reader.reset(new DataReader<TypeKey>(
-                source_data, batch_size, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format,
-                num_samples, slot_offset, false, false, true));
-#else
-            data_reader.reset(new DataReader<TypeKey>(
-                source_data, batch_size, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 12, use_mixed_precision, format,
-                num_samples, slot_offset, false, false, true));
-
-#endif
-
-#ifdef VAL
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format,
-                eval_num_samples, slot_offset, cache_eval_data, false, false));
-#else
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 12, use_mixed_precision, format,
-                eval_num_samples, slot_offset, cache_eval_data, false, false));
-
-#endif
+	switch (format) {
+          case DataReaderType_t::Norm: {
+	    data_reader->create_drwg_norm(source_data, check_type);
+	    data_reader_eval->create_drwg_norm(eval_source, check_type);
+            break;
+          }
+          case DataReaderType_t::Raw: {
+            const auto num_samples = get_value_from_json<long long>(j, "num_samples");
+            const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
+            std::vector<long long> slot_offset = f();
+	    data_reader->create_drwg_raw(source_data, num_samples, slot_offset, true, false);
+	    data_reader_eval->create_drwg_raw(eval_source, eval_num_samples, slot_offset, false, false);
 
             break;
           }
@@ -1375,48 +1351,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #pragma GCC diagnostic pop
             // @Future: Should be slot_offset here and data_reader ctor should
             // be TypeKey not long long
-            std::vector<long long> slot_offset;
-            if (has_key_(j, "slot_size")) {
-              auto slot_size_array = get_json(j, "slot_size");
-              if (!slot_size_array.is_array()) {
-                CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
-              }
-              long long slot_sum = 0;
-              for (auto j_slot_size : slot_size_array) {
-                slot_offset.push_back(slot_sum);
-                long long slot_size = j_slot_size.get<long long>();
-                slot_sum += slot_size;
-              }
-              MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
-            }
-#ifdef VAL
-            data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 1, use_mixed_precision,
-                                                      format, 0, slot_offset, false, false, false));
-#else
-            data_reader.reset(new DataReader<TypeKey>(
-                source_data, batch_size, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group,
-                gpu_resource_group->get_total_gpu_count(), use_mixed_precision, format, 0,
-                slot_offset, false, false, false));
-
-#endif
-
-#ifdef VAL
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format,
-                0, slot_offset, false, false, false));
-#else
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group,
-                gpu_resource_group->get_total_gpu_count(), use_mixed_precision, format, 0,
-                slot_offset, false, false, false));
-
-#endif
-
+            std::vector<long long> slot_offset = f();
+	    data_reader->create_drwg_parquet(source_data, slot_offset, true);
+	    data_reader_eval->create_drwg_parquet(eval_source, slot_offset, true);
             break;
           }
           default: { assert(!"Error: no such option && should never get here!"); }
