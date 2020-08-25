@@ -47,7 +47,6 @@ TEST(data_reader_raw, data_reader_worker_raw_test) {
   // data generation
   data_generation_for_raw(file_name, num_samples, label_dim, dense_dim, slot_num);
   // setup a CSR heap
-  // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, 1,
@@ -99,13 +98,13 @@ TEST(data_reader_raw, data_reader_raw_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(file_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 1, true, DataReaderType_t::Raw, num_samples,
-                            slot_offset);
 
-  data_reader.read_a_batch_to_device();
+  DataReader<T> data_reader( batchsize, label_dim, dense_dim, params,
+                             gpu_resource_group, 1, true, false);
 
-  /*   long long current_batchsize = data_reader.read_a_batch_to_device();
+  data_reader.create_drwg_raw(file_name, num_samples, slot_offset, true, true);
+
+  long long current_batchsize = data_reader.read_a_batch_to_device();
     std::cout << "current_batchsize: " << current_batchsize << std::endl;
     print_tensor(data_reader.get_label_tensors()[1], 0, 30);
     print_tensor(data_reader.get_value_tensors()[1], 0, 30);
@@ -129,5 +128,5 @@ TEST(data_reader_raw, data_reader_raw_test) {
     std::cout << "current_batchsize: " << current_batchsize << std::endl;
     print_tensor(data_reader.get_label_tensors()[1], -10, -1);
     print_tensor(data_reader.get_value_tensors()[1], 0, 10);
-    print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); */
+    print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
 }

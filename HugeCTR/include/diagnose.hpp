@@ -17,6 +17,8 @@
 #pragma once
 #include <limits>
 #include "HugeCTR/include/utils.cuh"
+#include "HugeCTR/include/utils.hpp"
+#include <tensor2.hpp>
 
 namespace HugeCTR {
 
@@ -165,6 +167,7 @@ void print_data(const char* category, const T* arr, size_t len, const cudaStream
   MESSAGE_(ss.str());
 }
 
+  
 }  // namespace diagnose
 
 }  // namespace HugeCTR

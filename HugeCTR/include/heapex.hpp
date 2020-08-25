@@ -145,6 +145,11 @@ class HeapEx {
       }
     }
   }
+  
+  int get_size(){
+    return num_threads_;
+  }
+
   ~HeapEx() {
     for (size_t i = 0; i < chunks_.size(); i++) {
       T* cand = chunks_[i];
