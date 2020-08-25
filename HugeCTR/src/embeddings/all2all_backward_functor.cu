@@ -272,8 +272,8 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu,
   CK_NCCL_THROW_(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
     for (size_t j = 0; j < local_gpu_count; j++) {
-      CK_NCCL_THROW_(ncclSend(src_pos[i][j], table[i][j], type, j, device_resources[i].get_nccl(),
-                              device_resources[i].get_stream()));
+      CK_NCCL_THROW_(ncclSend(src_pos[i][j], table[i][j], type, j, 
+			      device_resources[i].get_nccl(), device_resources[i].get_stream()));
       CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], table[j][i], type, j, device_resources[i].get_nccl(),
                               device_resources[i].get_stream()));
     }

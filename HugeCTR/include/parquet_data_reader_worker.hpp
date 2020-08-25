@@ -16,7 +16,7 @@
 
 #pragma once
 #include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_reader_worker_interface.hpp"
+#include "HugeCTR/include/data_readers/data_reader_worker_interface.hpp"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wreorder"
 #pragma GCC diagnostic push

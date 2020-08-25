@@ -17,7 +17,7 @@
 #pragma once
 #include <ctpl/ctpl_stl.h>
 #include <common.hpp>
-#include <data_reader_worker.hpp>
+#include <data_reader.hpp>
 #include <device_map.hpp>
 #include <embedding.hpp>
 #include <metrics.hpp>

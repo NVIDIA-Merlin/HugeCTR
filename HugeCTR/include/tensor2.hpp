@@ -18,6 +18,7 @@
 #include <common.hpp>
 #include <memory>
 #include <vector>
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 
@@ -129,4 +130,97 @@ class Tensor2 {
 template <typename T>
 using Tensors2 = std::vector<Tensor2<T>>;
 
+
+/**
+ * To print the tensor from begin to end.
+ * When both begin and end are positive numbers: print the begin->end elements.
+ * When both of them are negtive numbers: print the last elements:
+ * @verbatim
+ *  begin_ = get_size_from_dims(tensor.get_dims()) + begin;
+ *  end_ = get_size_from_dims(tensor.get_dims()) + end;
+ * @endverbatim
+ */
+template <typename T>
+inline bool print_tensor(const Tensor2<T>& tensor, int begin, int end) {
+  int begin_;
+  int end_;
+  //if (begin >= 0 && end <= (int)get_size_from_dims(tensor.get_dims()) && end > begin) {
+  if (begin >= 0 && end <= (int)tensor.get_num_elements() && end > begin) {
+    begin_ = begin;
+    end_ = end;
+  } else if (end < 0 && -begin <= (int)tensor.get_num_elements() && end > begin) {
+    begin_ = get_size_from_dims(tensor.get_dimensions()) + begin;
+    end_ = get_size_from_dims(tensor.get_dimensions()) + end;
+  } else {
+    return false;
+  }
+  //  CudaDeviceContext context(tensor.get_device_id());
+  cudaDeviceSynchronize();
+  assert(end_ > begin_ && begin_ >= 0 &&
+         end_ < static_cast<int>(get_size_from_dims(tensor.get_dimensions())));
+  T host_buff[end_ - begin_];
+  cudaMemcpy(host_buff, tensor.get_ptr() + begin_, (end_ - begin_) * sizeof(T),
+             cudaMemcpyDefault);
+  std::cout << "Tensor: <";
+  for (auto d : tensor.get_dimensions()) {
+    std::cout << d << ",";
+  }
+#ifdef ENABLE_MPI
+  int pid(-1), num_procs(-1);
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+  std::cout << "> in pid: " << pid << " of " << num_procs << " processes." << std::endl;
+#else
+  std::cout << ">" << std::endl;
+#endif
+  std::cout << "begin: " << begin_ << " end: " << end_ << std::endl;
+  for (int i = 0; i < end_ - begin_; i++) {
+    std::cout << host_buff[i] << ",";
+  }
+  std::cout << std::endl;
+  return true;
+}
+
+template <>
+inline bool print_tensor(const Tensor2<__half>& tensor, int begin, int end) {
+  int begin_;
+  int end_;
+  if (begin >= 0 && end <= (int)get_size_from_dims(tensor.get_dimensions()) && end > begin) {
+    begin_ = begin;
+    end_ = end;
+  } else if (end < 0 && -begin <= (int)get_size_from_dims(tensor.get_dimensions()) && end > begin) {
+    begin_ = get_size_from_dims(tensor.get_dimensions()) + begin;
+    end_ = get_size_from_dims(tensor.get_dimensions()) + end;
+  } else {
+    return false;
+  }
+  //  CudaDeviceContext context(tensor.get_device_id());
+  cudaDeviceSynchronize();
+  assert(end_ > begin_ && begin_ >= 0 &&
+         end_ < static_cast<int>(get_size_from_dims(tensor.get_dimensions())));
+  __half host_buff[end_ - begin_];
+  cudaMemcpy(host_buff, tensor.get_ptr() + begin_, (end_ - begin_) * sizeof(__half),
+             cudaMemcpyDefault);
+  std::cout << "Tensor: <";
+  for (auto d : tensor.get_dimensions()) {
+    std::cout << d << ",";
+  }
+#ifdef ENABLE_MPI
+  int pid(-1), num_procs(-1);
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+  std::cout << "> in pid: " << pid << " of " << num_procs << " processes." << std::endl;
+#else
+  std::cout << ">" << std::endl;
+#endif
+  std::cout << "begin: " << begin_ << " end: " << end_ << std::endl;
+  for (int i = 0; i < end_ - begin_; i++) {
+    std::cout << __half2float(host_buff[i]) << ",";
+  }
+  std::cout << std::endl;
+  return true;
+}
+
+  
+  
 }  // namespace HugeCTR
