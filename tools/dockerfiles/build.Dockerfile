@@ -1,6 +1,6 @@
 FROM nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
 ARG CMAKE_BUILD_TYPE=Release
-ARG SM="70;75;80"
+ARG SM="60;61;70;75;80"
 ARG VAL_MODE=OFF
 ARG ENABLE_MULTINODES=OFF
 ARG NCCL_A2A=ON
@@ -73,7 +73,7 @@ RUN git clone https://github.com/NVIDIA/HugeCTR.git HugeCTR &&\
     git submodule update --init --recursive && \
     mkdir build && cd build &&\
     cmake -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DSM=$SM \
-          -DVAL_MODE=$VAL_MODE -DENABLE_MULTINODES=$ENABLE_MULTINODES -DNCCL_A2A=NCCL_A2A .. && \
+          -DVAL_MODE=$VAL_MODE -DENABLE_MULTINODES=$ENABLE_MULTINODES -DNCCL_A2A=$NCCL_A2A .. && \
     make -j$(nproc) &&\
     mkdir /usr/local/hugectr &&\
     make install &&\
