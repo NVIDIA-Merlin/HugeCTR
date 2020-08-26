@@ -1294,7 +1294,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 #ifdef VAL
 	const int NUM_THREADS=1;
 #else
-	const int NUM_THREADS=12;
+	const int NUM_THREADS = format == DataReaderType_t::Parquet ? gpu_resource_group->get_total_gpu_count() : 12;
 #endif
 
 	data_reader.reset(new DataReader<TypeKey>(batch_size, label_dim, dense_dim,
