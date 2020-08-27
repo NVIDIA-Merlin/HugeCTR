@@ -168,8 +168,6 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim,
   csr_heap_.reset(new HeapEx<CSRChunk<TypeKey>>(num_chunk_threads, total_gpu_count, batchsize_,
 						label_dim_ + dense_dim_, params_));
 
-  assert(data_readers_.empty() && data_reader_threads_.empty());
-
 
   const auto& device_list = device_resources_->get_device_list();
 
