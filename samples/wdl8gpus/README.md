@@ -5,7 +5,7 @@ A sample of building and training Wide & Deep Network with HugeCTR [(link)](http
 The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).
 The original training set contains 45,840,617 examples.
 Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
-The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed acordingly.
+The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
 The original test set doesn't contain labels, so it's not used.
 
 ### Requirements ###
@@ -16,10 +16,10 @@ The original test set doesn't contain labels, so it's not used.
 1. Download the dataset and preprocess
 
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
-and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
+and download the kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
 The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
 It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
-Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
+Its purpose is to reduce the vocabulary size of each column while not losing too much information.
 In addition, it doesn't only normalize the integer feature values to the range [0, 1],
 but it also creates the two feature crosses.
 
