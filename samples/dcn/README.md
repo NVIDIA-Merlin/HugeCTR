@@ -5,7 +5,7 @@ A sample of building and training Deep & Cross Network with HugeCTR [(link)](htt
 The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).
 The original training set contains 45,840,617 examples.
 Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
-The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed acordingly.
+The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
 The original test set doesn't contain labels, so it's not used.
 
 ### Requirements ###
@@ -16,28 +16,48 @@ The original test set doesn't contain labels, so it's not used.
 1. Download the dataset and preprocess
 
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
-and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
+and download the kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
 The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
 It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
-Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
+Its purpose is to reduce the vocabulary size of each column while not losing too much information.
 In addition, it normalizes the integer feature values to the range [0, 1],
-but it doesn't create any feature crosses.
+but it doesn't create any feature crosses. Please choose one of the following two methods for data preprocessing.
 
+#### Preprocessing by Pandas ####
 ```shell
 # The preprocessing can take 40 minutes to 1 hour based on the system configuration.
 $ cd ../../tools/criteo_script/
 $ bash preprocess.sh dcn 1 0
 $ cd ../../samples/dcn/
 ```
-
-2. Build HugeCTR with the instructions on README.md under home directory.
-
-3. Convert the dataset to HugeCTR format
+Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
 $ ./criteo2hugectr ../../tools/criteo_script/dcn_data/train criteo/sparse_embedding file_list.txt
 $ ./criteo2hugectr ../../tools/criteo_script/dcn_data/val criteo_test/sparse_embedding file_list_test.txt
 ```
+
+#### Preprocessing by NVTabular ####
+
+HugeCTR supports data processing by NVTabular since version 2.2.1. Please make sure NVTabular docker environment has been set up successfully according to [NVTAbular github](https://github.com/NVIDIA/NVTabular).
+And bind mount HugeCTR ${project_home} volume to NVTabular docker. Run NVTabular docker and execute the following preprocessing commands.
+Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
+download kaggle-display dataset into the folder "${project_home}/samples/dcn/". 
+```shell
+$ tar zxvf dac.tar.gz 
+$ mkdir -p dcn_data/train
+$ mkdir -p dcn_data/val 
+$ head -n 36672493 train.txt > dcn_data/train/train.txt 
+$ tail -n 9168124 train.txt > dcn_data/val/test.txt 
+$ cp ../../tools/criteo_script/preprocess_nvt.py ./
+#The default output of NVTabular is the parquet format, if need the norm binary format, please add argument --parquet_format=0
+$ python3 preprocess_nvt.py --src_csv_path=dcn_data/train/train.txt --dst_csv_path=dcn_data/train/ --normalize_dense=1 --feature_cross=0 --criteo_mode=0
+$ python3 preprocess_nvt.py --src_csv_path=dcn_data/val/test.txt --dst_csv_path=dcn_data/val/ --normalize_dense=1 --feature_cross=0 --criteo_mode=0
+```
+Exit from the NVTabular docker environment and then run HugeCTR docker with interaction mode under home directory again.
+
+2. Build HugeCTR with the instructions on README.md under home directory.
+
 
 ## Training with HugeCTR ##
 
@@ -47,8 +67,22 @@ $ cp ../../build/bin/huge_ctr ./
 ```
 
 2. Run huge_ctr
+
+#### For Pandas Preprocessing ####
 ```shell
 $ ./huge_ctr --train ./dcn.json
+```
+
+#### For NVTabular Preprocessing ####
+
+Parquet output
+```shell
+$ ./huge_ctr --train ./dcn_parquet.json
+```
+
+Binary output
+```shell
+$ ./huge_ctr --train ./dcn_bin.json
 ```
 
 ## Training with localized slot embedding ##
