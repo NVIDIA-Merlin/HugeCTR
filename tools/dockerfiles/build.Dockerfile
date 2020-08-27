@@ -33,7 +33,7 @@ RUN git clone https://github.com/NVIDIA/HugeCTR.git &&\
     git submodule update --init --recursive && \
     mkdir build && cd build &&\
     cmake -DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE -DSM=$SM \
-    -DVAL_MODE=$VAL_MODE -DENABLE_MULTINODES=$ENABLE_MULTINODES -DNCCL_A2A=NCCL_A2A .. && \
+    -DVAL_MODE=$VAL_MODE -DENABLE_MULTINODES=$ENABLE_MULTINODES -DNCCL_A2A=$NCCL_A2A .. && \
     make -j &&\
     mkdir /usr/local/hugectr &&\
     make install &&\
