@@ -8,22 +8,70 @@ which is a framework accelerating the entire pipeline from data ingestion and tr
 Design Goals:
 * Fast: it's a speed-of-light CTR training framework;
 * Dedicated: we consider everything you need in CTR training;
-* Easy: you can start your work now, no matter you are a data scientist, a learner, or a developer.
+* Easy: you can start your work now, no matter if you are a data scientist, a learner, or a developer.
+
+## Version 2.2.1
+HugeCTR version 2.2.1 is a minor update to v2.2, which includes the Parquet data support, the sample preprocessing script rewritten in nvTabular, etc. Find the full list of changes [**here**](docs/hugectr_user_guide.md#whats-new-in-version-221).
 
 ## Version 2.2
-In HugeCTR version 2.2, we add [**the new features**](docs/hugectr_user_guide.md#newly-added-features-in-version-22) like *full fp16 pipeline*, *algorithm search*, *AUC calculation*, etc, 
+In HugeCTR version 2.2, we add [**the new features**](docs/hugectr_user_guide.md#whats-new-in-version-22) like *full fp16 pipeline*, *algorithm search*, *AUC calculation*, etc, 
 whilst enabling the support of the world's most advanced accelerator, NVIDIA A100 Tensor Core GPU and the modern models such as *Wide and Deep*, *Deep Cross Network*, *DeepFM*, *Deep Learning Recommendation Model (DLRM)*.
-This document describes how to setup envirnment and run HugeCTR.
+This document describes how to set up the environment and run HugeCTR.
 For more details such as HugeCTR architecture and supported features, please refer to [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and [**Questions and Answers**](docs/QAList.md) in directory `docs/`
+
+## Quick Start
+### 1. Download Repository ###
+You can download the HugeCTR repository and the third party modules which it relies upon:
+```shell
+git clone https://github.com/NVIDIA/HugeCTR.git
+cd HugeCTR
+git submodule update --init --recursive
+```
+###  2. Build Docker Image and HugeCTR ###
+Inside the HugeCTR directory, build a docker image and run a container with the image:
+```shell
+docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
+docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+```
+
+Then build HugeCTR with the build type and compute capability specified. Please see [**Build Options**](#build-options) for more details.
+```shell
+cd /hugectr
+mkdir -p build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is NVIDIA V100
+make -j
+```
+
+###  3. Download and Preprocess Dataset ###
+Let’s download [the Kaggle Display Advertising Challenge Dataset](#http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset) to `$HugeCTR/tools/criteo_script/` and preprocess it to train [the Deep & Cross Network](#https://arxiv.org/pdf/1708.05123.pdf) (DCN) example:
+```shell
+cd ../../tools/criteo_script/ # assume that the downloaded dataset is here
+bash preprocess.sh dcn 1 0
+```
+
+Alternatively you can generate a synthetic dataset:
+```shell
+cd /hugectr/build
+mkdir dataset_dir
+bin/data_generator ../samples/dcn/dcn.json ./dataset_dir 434428 1
+```
+
+### 4. Train an example DCN model ###
+```shell
+cd /hugectr/build
+bin/huge_ctr --train ../samples/dcn/dcn.json
+```
+The other sample models and their end-to-end instructions are available [here](#/samples).
 
 ## Table of Contents
 * [Requirements](#requirements)
-* [Build](#build)
-* [Run](#run)
-* [Coding Style and Refactor](#coding-style-and-refactor)
-* [Document Generation](#document-generation)
+* [**Supported Compute Capabilities**](#supported-compute-capabilities)
+* [Build Options](#build-options)
 * [Synthetic Data Generation and Benchmark](#synthetic-data-generation-and-benchmark)
 * [File Format](#file-format)
+* [Document Generation](#document-generation)
+* [Coding Style and Refactor](#coding-style-and-refactor)
 
 ## Requirements ##
 * cuBLAS >= 10.1
@@ -40,24 +88,24 @@ For more details such as HugeCTR architecture and supported features, please ref
 * HWLOC library >= 2.1.0
 * mpi4py
 
-## Build ##
-### Init Git ###
-Under the home directory of HugeCTR:
-```shell
-$ git submodule update --init --recursive
-```
+## Supported Compute Capabilities ##
+|Compute Compatibility|GPU|
+|----|----|
+|60|NVIDIA P100 (Pascal)|
+|70|NVIDIA V100 (Volta)|
+|75|NVIDIA T4 (Turing)|
+|80|NVIDIA A100 (Ampere)|
 
+## Build Options ##
 ### Use Docker Container ###
 You can choose to use Docker to simplify the environment setting up.
-If you have already set up your envirnment manually, please jump to [Build](#build-with-release) section.
-
 Mare sure that you have installed [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) .
 
 To build a docker image of **development environment** from the corresponding Dockerfile, run the command below.
 It will install the libraries and tools required to use HugeCTR.
 HugeCTR build itself must be done by yourself.
 ```shell
-$ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile .
+$ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
 ```
 Run with interaction mode (mount the home directory of repo into container for easy development and try):
 ```shell
@@ -74,40 +122,28 @@ $ docker build --build-arg SM="70;75;80" \
                -t hugectr:build \
                -f ./tools/dockerfiles/build.Dockerfile .
 ```
-Run HugeCTR directly
-```shell
-$ docker run --runtime=nvidia hugectr:build huge_ctr --version
-```
 
 ### Build with Release ###
-Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM70 by default (Tesla V100). It is also possible to set multiple Compute Capabilities, e.g., `-DSM=70` for Telsa V100 and `-DSM="70;75"` for both Telsa V100 and Telsa T4.
+Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM70 by default (NVIDIA V100). It is also possible to set multiple Compute Capabilities, e.g., `-DSM=70` for NVIDIA V100 and `-DSM="70;75"` for both NVIDIA V100 and NVIDIA T4.
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is Tesla V100
+$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is NVIDIA V100
 $ make -j
 ```
 
-Supported Compatibility and Tesla GPUs:
-
-|Compute Compatibility|GPU|
-|----|----|
-|70|NVIDIA V100 (Volta)|
-|75|NVIDIA T4 (Turing)|
-|80|NVIDA A100 (Ampere)|
-
 ### Build with Debug ###
-If build type is `Debug`, HugeCTR will print more verbose logs and execute GPU tasks in a synchronous manner.
+If the build type is `Debug`, HugeCTR will print more verbose logs and execute GPU tasks in a synchronous manner.
 The other options remain the same as `Release` build.
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=70 .. # Target is Telsa V100
+$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=70 .. # Target is NVIDIA V100
 $ make -j
 ```
 
 ### Build with Validation Mode ###
-This mode is designed for framework validation. In this mode loss of trainig will be shown as the average of `eval_batches` results. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
+This mode is designed for framework validation. In this mode loss of training will be shown as the average of `eval_batches` results. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
 ```shell
 $ mkdir -p build
 $ cd build
@@ -116,7 +152,7 @@ $ make -j
 ```
 
 ### Build with Multi-Nodes Training Supported ###
-To run with multi-nodes please build in this way and run HugeCTR with `mpirun`. For more details plese refer to `samples/dcn2nodes`
+To run with multi-nodes please build in this way and run HugeCTR with `mpirun`. For more details please refer to `samples/dcn2nodes`
 ```shell
 $ mkdir -p build
 $ cd build
@@ -133,47 +169,11 @@ $ cmake -DNCCL_A2A=ON ..
 $ make -j
 ```
 
-## Run ##
-Please refer to samples
-
-## Coding Style and Refactor ##
-Default coding style follows Google C++ coding style [(link)](https://google.github.io/styleguide/cppguide.html).
-This project also uses `Clang-Format`[(link)](https://clang.llvm.org/docs/ClangFormat.html) to help developers to fix style issue, such as indent, number of spaces to tab, etc.
-The Clang-Format is a tool that can auto-refactor source code.
-Use following instructions to install and enable Clang-Format:
-### Install ###
-```shell
-$ sudo apt-get install clang-format
-```
-### Run ###
-```shell
-# First, configure Cmake as usual 
-$ mkdir -p build
-$ cd build
-$ cmake -DCLANGFORMAT=ON ..
-# Second, run Clang-Format
-$ cmake --build . --target clangformat
-# Third, check what Clang-Format did modify
-$ git status
-# or
-$ git diff
-```
-
-## Document Generation ##
-Doxygen is supported in HugeCTR and by default on-line documentation browser (in HTML) and an off-line reference manual (in LaTeX) can be generated within `docs/`.
-### Install ###
-[Download doxygen](http://www.doxygen.nl/download.html)
-### Generation ###
-Within project `home` directory
-```shell
-$ doxygen
-```
-
 ## Synthetic Data Generation and Benchmark ##
 For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`.
 - For `Norm` format: <br>
 ```bash
-$ ./data_generator your_config.json data_folder vocabulary_size max_nnz #files #samples per file
+$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (num_files) (num_samples_per_file)
 $ ./huge_ctr --train your_config.json
 ```
 - For `Raw` format: <br>
@@ -182,12 +182,12 @@ $ ./data_generator your_config.json
 $ ./huge_ctr --train your_config.json
 ```
 
-Arguments:
-+ `data_folder`: You have to specify the folder to store the generated data
-+ `vocabulary_size`: Vocabulary size of your target dataset
-+ `max_nnz`: [1, max_nnz] values will be generated for each feature (slot) in the dataset. **Note** that `max_nnz*slot_num` should be less than `max_feature_num` in your data layer.
-+ `#files`: number of data file will be generated (optional)
-+ `#samples per file`: number of samples per file (optional)
+Parameters:
++ `data_folder`: Directory where the generated dataset is stored.
++ `vocabulary_size`: Total vocabulary size of your target dataset, which cannot be exceed `max_vocabulary_size_per_gpu` **x** the number of active GPUs. 
++ `max_nnz`: You can use this parameter to simulate one-/multi-hot encodings. If you just want to use the one-hot encoding, set this parameter to 1. Otherwise, [1, max_nnz] values will be generated for each slot. **Note** that `max_nnz * slot_num` must be less than `max_feature_num_per_sample` in the data layer of the used JSON config file.
++ `num_files`: Number of data file will be generated (optional)
++ `num_samples_per_file`: Number of samples per file (optional)
 
 ## File Format ##
 In total, there are three types of files used in HugeCTR training: a configuration file, model file and dataset.
@@ -202,14 +202,14 @@ There are three main JSON objects in a configuration file: "solver", "optimizer"
 
 ### Model File ###
 Model file is a binary file that will be loaded to initialize weights.
-In that file, the weights are stored in the same order with the layers in configuration file. 
+In that file, the weights are stored in the same order with the layers in the configuration file. 
 
 We provide a tutorial on [**how to dump a model to TensorFlow**](./tutorial/dump_to_tf/readMe.md). You can find more details on `Model file and it format` there.
 
 ### Data Set ###
 Two format of data set are supported in HugeCTR:
 #### Norm ####
-Norm format consists a collection of data files and a file list.
+Norm format consists of a collection of data files and a file list.
 
 The first line of a file list is the number of data files in the dataset.
 It is followed by the paths to those files.
@@ -264,7 +264,7 @@ RAW format is introduced in HugeCTR v2.2
 
 Different to `Norm` format, The training Data in `RAW` format is all in one binary file and in int32, no matter Label / Dense Feature / Category Features.
 
-The number of Samples / Dense feature / Category feature / label dimension are all delcared in configure json file.
+The number of Samples / Dense feature / Category feature / label dimension are all declared in the configure json file.
 
 Note that only one-hot data is accepted with this format.
 
@@ -275,5 +275,38 @@ typedef struct Data_{
   int dense[dense_dim];
   int category[sparse_dim];
 } Data;
+
+## Coding Style and Refactor ##
+Default coding style follows Google C++ coding style [(link)](https://google.github.io/styleguide/cppguide.html).
+This project also uses `Clang-Format`[(link)](https://clang.llvm.org/docs/ClangFormat.html) to help developers to fix style issue, such as indent, number of spaces to tab, etc.
+The Clang-Format is a tool that can auto-refactor source code.
+Use following instructions to install and enable Clang-Format:
+### Install ###
+```shell
+$ sudo apt-get install clang-format
+```
+### Run ###
+```shell
+# First, configure Cmake as usual 
+$ mkdir -p build
+$ cd build
+$ cmake -DCLANGFORMAT=ON ..
+# Second, run Clang-Format
+$ cmake --build . --target clangformat
+# Third, check what Clang-Format did modify
+$ git status
+# or
+$ git diff
+```
+
+## Document Generation ##
+Doxygen is supported in HugeCTR and by default an on-line documentation browser (in HTML) and an off-line reference manual (in LaTeX) can be generated within `docs/`.
+### Install ###
+[Download doxygen](http://www.doxygen.nl/download.html)
+### Generation ###
+Within project `home` directory
+```shell
+$ doxygen
+```
 
 
