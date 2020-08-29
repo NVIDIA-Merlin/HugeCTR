@@ -25,6 +25,7 @@
 #include <layers/concat_layer.hpp>
 #include <layers/dot_product_layer.hpp>
 #include <layers/dropout_layer.hpp>
+#include <layers/dropout_cudnn_layer.hpp>
 #include <layers/elu_layer.hpp>
 #include <layers/fm_order2_layer.hpp>
 #include <layers/fully_connected_layer.hpp>
@@ -452,9 +453,15 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
+#ifndef PREFER_CUDNN
           layers.emplace_back(new DropoutLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
                                                        rate, gpu_resource->get_curand_generator(),
                                                        device_id));
+#else
+          layers.emplace_back(new DropoutCudnnLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
+                                                       rate, gpu_resource->get_cudnn_handle(),
+                                                       device_id));
+#endif
         } else {
           // establish out tensor
           Tensor2<float> do_in_tensor =
@@ -465,9 +472,15 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
+#ifndef PREFER_CUDNN
           layers.emplace_back(new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate,
                                                       gpu_resource->get_curand_generator(),
                                                       device_id));
+#else
+          layers.emplace_back(new DropoutCudnnLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
+                                                       rate, gpu_resource->get_cudnn_handle(),
+                                                       device_id));
+#endif
         }
         network->enable_cuda_graph_ = false;
 

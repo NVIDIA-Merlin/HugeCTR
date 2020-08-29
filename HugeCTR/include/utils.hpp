@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
+#include <cudnn.h>
 #include <sys/stat.h>
 #include <chrono>
 #include <cmath>
@@ -525,6 +526,20 @@ struct TypeConvert {
 template <>
 struct TypeConvert<__half> {
   static __host__ __half convert(const float val) { return __float2half(val); }
+};
+
+
+template <typename T>
+struct CudnnDataType;
+
+template <>
+struct CudnnDataType<float> {
+  static cudnnDataType_t getType(){return CUDNN_DATA_FLOAT;}
+};
+
+template <>
+struct CudnnDataType<__half> {
+  static cudnnDataType_t getType(){return CUDNN_DATA_FLOAT;}
 };
 
 
