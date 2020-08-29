@@ -10,9 +10,9 @@ HugeCTR's expressiveness is not confined to the aforementioned models.
 You can construct your own models by combining the layers supported by HugeCTR.
 ### 3. Does HugeCTR support TensorFlow? ###
 HugeCTR v2.2 has no TF interface yet, but a HugeCTR Trained model is compatible with TensorFlow.
-We recommend that you export a trained model to TensorFlow for inference by following the instructions in our [tutorial](../tutorial/dump_to_tf) 
+We recommend that you export a trained model to TensorFlow for inference by following the instructions in our [tutorial](../tutorial/dump_to_tf).
 ### 4. Does HugeCTR support multiple nodes CTR training? ###
-Yes. HugeCTR supports single-GPU, multi-GPU and multi-node training. Cehck out samples/dcn2node for more details.
+Yes. HugeCTR supports single-GPU, multi-GPU and multi-node training. Check out samples/dcn2node for more details.
 ### 5. How to deal with the huge embedding table that cannot be stored in a single GPU memory? ###
 Embedding table in HugeCTR is model-parallel stored across GPUs and nodes.  So if you have very large size of embedding table, just use as many GPUs as you need to store it. That’s why we have the name “HugeCTR”. Suppose you have 1TB embedding table and 16xV100-32GB in a GPU server node, you can take 2 nodes for such case. 
 ### 6. Which GPUs are supported in HugeCTR? ###
