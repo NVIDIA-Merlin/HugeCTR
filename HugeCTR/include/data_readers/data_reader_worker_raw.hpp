@@ -40,6 +40,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   int slots_{0};
   const std::vector<long long> slot_offset_;
   const int label_dim_{1};
+  const bool float_label_dense_;
 
   void read_new_file() { source_->next_source(); }
   //  std::vector<int> data_buffer_; /**< data buffer with size of full batchsize*/
@@ -52,13 +53,15 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
                       const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
                       const std::string& file_name,
                       const std::vector<DataReaderSparseParam>& params,
-                      const std::vector<long long>& slot_offset, int label_dim)
+                      const std::vector<long long>& slot_offset, int label_dim,
+                      bool float_label_dense)
       : worker_id_(worker_id),
         worker_num_(worker_num),
         csr_heap_(csr_heap),
         params_(params),
         slot_offset_(slot_offset),
-        label_dim_(label_dim) {
+        label_dim_(label_dim),
+        float_label_dense_(float_label_dense) {
     if (worker_id >= worker_num) {
       CK_THROW_(Error_t::BrokenFile, "DataReaderWorkerRaw: worker_id >= worker_num");
     }
@@ -92,8 +95,6 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
     CSRChunk<T>* csr_chunk = nullptr;
     csr_heap_->free_chunk_checkout(&csr_chunk, worker_id_);
 
-    typedef int DENSE_T;
-
     if (!skip_read_ && csr_chunk != nullptr) {
       long long current_batchsize = source_->get_num_of_items_in_source();
       if (current_batchsize != csr_chunk->get_batchsize()) {
@@ -102,9 +103,7 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
       }
       csr_chunk->set_current_batchsize(current_batchsize);
       Tensors2<float>& label_dense_buffers = csr_chunk->get_label_buffers();
-      const int label_dense_dim = csr_chunk->get_label_dense_dim();
 
-      DENSE_T* label_dense;
       int slot_id = 0;
 
       csr_chunk->apply_to_csr_buffers(&CSR<T>::reset);
@@ -114,14 +113,17 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
       for (auto& param : params_) {
         num_slots += param.slot_num;
       }
-      size_t sample_length = label_dense_dim + num_slots;
+      const int label_dense_dim = csr_chunk->get_label_dense_dim();
+      size_t label_dense_length =
+          label_dense_dim * (float_label_dense_ ? sizeof(float) : sizeof(int));
+      size_t sample_length = num_slots * sizeof(int) + label_dense_length;
 
-      int* data_buffer = reinterpret_cast<int*>(source_->get_ptr());
+      char* data_buffer = source_->get_ptr();
 
       // batch loop
       for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
         // to compensate the csr when current_batchsize != csr_chunk->get_batchsize()
-        int* sample_cur = data_buffer + sample_length * i;
+        char* sample_cur = data_buffer + sample_length * i;
         if (i >= current_batchsize) {
           int param_id = 0;
           for (auto& param : params_) {
@@ -145,8 +147,6 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
         int param_id = 0;
         csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
 
-        label_dense = sample_cur;
-
         {
           // We suppose that the data parallel mode is like this
           // The subsequence samples will be located to the same GPU
@@ -159,17 +159,23 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
           float* ptr = label_dense_buffers[buffer_id].get_ptr();
           for (int j = 0; j < label_dense_dim; j++) {
             if (j < label_dim_) {
-              ptr[local_id * label_dense_dim + j] = label_dense[j];  // row major for label buffer
+              // label buffer is in row-major layout
+              ptr[local_id * label_dense_dim + j] = float_label_dense_
+                                                        ? reinterpret_cast<float*>(sample_cur)[j]
+                                                        : reinterpret_cast<int*>(sample_cur)[j];
             } else {
-              ptr[local_id * label_dense_dim + j] =
-                  log((float)label_dense[j] + 1.f);  // dlrm has preprocess like this
+              // if the underlying value is int, do DLRM-style preprocessing
+              // otherwise, the value is just directly used.
+              float val = float_label_dense_ ? reinterpret_cast<float*>(sample_cur)[j]
+                                             : log(reinterpret_cast<int*>(sample_cur)[j] + 1.f);
+              ptr[local_id * label_dense_dim + j] = val;
             }
           }
           // if(local_id == 0)
           //   std::cout << std::endl;
         }
 
-        int* feature_ids = sample_cur + label_dense_dim;
+        int* feature_ids = reinterpret_cast<int*>(sample_cur + label_dense_length);
         if (params_.size() == 1 && params_[0].type == DataReaderSparse_t::Localized &&
             !slot_offset_.empty()) {
           auto& param = params_[0];
