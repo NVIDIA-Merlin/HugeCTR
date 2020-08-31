@@ -224,9 +224,11 @@ Fig. 6 illustrates how these hyperparameters interact with the actual learning r
 ### Layers
 Many different kinds of layers are supported in clause `layer`, which are categorized into data, dense layers, and sparse layers (embeddings).
 
-#### Data:
-Data set in the `Norm` format (default) is consistent with the previous version. The properties include file name of training and testing (evaluation) set, maximum elements (key) in a sample, and label dimensions like Fig. 7 (a).
-* From v2.1, `Data` will be one of the layers in the layers list. So that the name of dense input and sparse input can be referenced in the following layers. 
+#### Data
+`Data` is considered as the first layer in a JSON config file. So following layers can access its dense and sparse inputs with their specified names. 
+##### Norm Format
+Data set in the `Norm` format (default) is consistent with the previous version. Its properties include the file name of training and testing (evaluation) set, maximum elements (key) in a sample, and the label dimensions like Fig. 7 (a).
+
 * All the nodes will share the same file list in training.
 * `dense` and `sparse` should be configured (dense_dim should be 0 if no dense feature is involved), where `dense` refers to the dense input and `sparse` refers to the `sparse` input. `sparse` should be an array here, since we support multiple `embedding` and each one requires a `sparse` input.
 * The `type` of sparse input should be consistent with the following Embeddings.
@@ -262,11 +264,14 @@ Data set in the `Norm` format (default) is consistent with the previous version.
 ```
 "cache_eval_data": true,
 ```
+
+##### Raw and Parquet Formats
 We also support ‘Raw’ format, introduced in v2.2, and ‘Parquet’ format from v2.2.1. See Fig. 7 (b) and (c). Several additional item are configurable as below:
 * `format":` `Raw` or `Parquet`
 * `num_samples` should be specified because the `Raw` format file doesn't have a header like in the `Norm` format. It's the same to `eval_num_samples`. ‘Parquet’ format doesn’t need to specify this field.
 * `check`: ‘Raw’ and ‘Parquet’ don’t use this field. So use the value `None` or omit `check` itself.
 * `slot_size_array`: an array of table vocabulary size.
+* `float_label_dense`: **This is valid only for `Raw` format.** If its value is set to `true`, the label and dense features of each sample are interpreted as `float` values. Otherwie, they are read as `int` values while the dense features are preprocessed with `log(dense[i] + 1.f)`. The default value is `false`.
 ```json
      {
 	 "name": "data",
@@ -499,7 +504,7 @@ typedef struct Data_{
 } Data;
 ```
 ### Parquet Data Format
-Parquet is a column-oriented data format of Apache Hadoop ecosystem, which is free and open-source. To reduce the file sizes, it supports compression and encoding. For more information, check out (its official documentation)[https://parquet.apache.org/documentation/latest/].
+Parquet is a column-oriented data format of Apache Hadoop ecosystem, which is free and open-source. To reduce the file sizes, it supports compression and encoding. For more information, check out [its official documentation](https://parquet.apache.org/documentation/latest/).
 
 Fig. 7 (c)  shows an example Parquet dataset in terms of HugeCTR. Currently nested column types are not supported in HugeCTR Parquet data loader. Any missing values in a column are not allowed. Like `Norm` format, the label and dense feature columns should be in float format. Slot feature columns are expected to be in Int64 format. The data columns inside Parquet file can be arranged in any order.  A separate metadata file, named `_metadata.json` is required by HugeCTR to get required information on number of rows in each parquet file and column index mapping for each of label, dense (numerical) and slot (categorical) features.  The example is shown below:
 ```
