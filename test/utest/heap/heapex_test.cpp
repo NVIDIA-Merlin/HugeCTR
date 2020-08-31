@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/heapex.hpp"
+#include "HugeCTR/include/data_readers/heapex.hpp"
 #include <future>
 #include <random>
-#include "HugeCTR/include/csr_chunk.hpp"
+#include "HugeCTR/include/data_readers/csr_chunk.hpp"
 #include "gtest/gtest.h"
 
 using namespace HugeCTR;
