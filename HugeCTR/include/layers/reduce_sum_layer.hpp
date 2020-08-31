@@ -54,23 +54,22 @@ class ReduceSumLayer : public Layer {
    */
   ReduceSumLayer(const Tensor2<float>& in_tensors, Tensor2<float>& out_tensor,
                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int axis,
-                 int device_id);
+                 const std::shared_ptr<GPUResource>& gpu_resource);
   ~ReduceSumLayer(){};
 
   /**
    * ReduceSumLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * ReduceSumLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
  private:
   int axis_;
-  int device_id_;
 };
 
 }  // namespace HugeCTR

@@ -27,20 +27,12 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t 
                                               size_t embedding_vec_size,
                                               const Tensors2<Type> &send_tensors,
                                               Tensors2<Type> &recv_tensors,
-                                              const GPUResourceGroup &device_resources) {
-  std::vector<int> device_list = device_resources.get_device_list();
-  size_t local_gpu_count = device_list.size();
-  size_t total_gpu_count = device_resources.get_total_gpu_count();
+                                              const ResourceManager &resource_manager) {
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
+  size_t total_gpu_count = resource_manager.get_global_gpu_count();
 
-  int total_rank = 1;
-  int my_rank = 0;
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
-  size_t num_proc = device_resources.get_node_count();
-  if (num_proc != (size_t)total_rank) {
-    CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
-  }
-  if (total_gpu_count != (total_rank * local_gpu_count)) {
+  size_t num_proc = resource_manager.get_num_process();
+  if (total_gpu_count != (num_proc * local_gpu_count)) {
     CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
   }
 
@@ -58,8 +50,7 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t 
 
   // Fill in sending partition table, ith Topo GPU send to jth global GPU
   for (size_t i = 0; i < local_gpu_count; i++) {
-    size_t device_id = device_resources[i].get_device_id();
-    size_t global_id = device_resources.get_global_id(device_id);
+    size_t global_id = resource_manager.get_local_gpu(i)->get_global_gpu_id();
     size_t slot_num_per_gpu =
         slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
     size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
@@ -137,11 +128,12 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t 
   // Do the all2all transfer
   CK_NCCL_THROW_(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
+    const auto &local_gpu = resource_manager.get_local_gpu(i);
     for (size_t j = 0; j < total_gpu_count; j++) {
-      CK_NCCL_THROW_(ncclSend(src_pos[i][j], send_table[i][j], type, j,
-                              device_resources[i].get_nccl(), device_resources[i].get_stream()));
-      CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j,
-                              device_resources[i].get_nccl(), device_resources[i].get_stream()));
+      CK_NCCL_THROW_(ncclSend(src_pos[i][j], send_table[i][j], type, j, local_gpu->get_nccl(),
+                              local_gpu->get_stream()));
+      CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], recv_table[i][j], type, j, local_gpu->get_nccl(),
+                              local_gpu->get_stream()));
     }
   }
   CK_NCCL_THROW_(ncclGroupEnd());
@@ -152,12 +144,12 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu, size_t 
 template void SparseEmbeddingFunctors::all2all_forward<float>(
     size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<float> &send_tensors, Tensors2<float> &recv_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::all2all_forward<__half>(
     size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<__half> &send_tensors, Tensors2<__half> &recv_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 #else
 
@@ -167,9 +159,8 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu,
                                               size_t embedding_vec_size,
                                               const Tensors2<Type> &send_tensors,
                                               Tensors2<Type> &recv_tensors,
-                                              const GPUResourceGroup &device_resources) {
-  std::vector<int> device_list = device_resources.get_device_list();
-  size_t local_gpu_count = device_list.size();
+                                              const ResourceManager &resource_manager) {
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
   // Fill in partition table, ith Topo GPU to jth Topo GPU
   std::vector<std::vector<size_t>> table(local_gpu_count, std::vector<size_t>(local_gpu_count));
@@ -253,11 +244,12 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu,
   // Do the all2all transfer
   CK_NCCL_THROW_(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
+    const auto &local_gpu = resource_manager.get_local_gpu(i);
     for (size_t j = 0; j < local_gpu_count; j++) {
-      CK_NCCL_THROW_(ncclSend(src_pos[i][j], table[i][j], type, j, device_resources[i].get_nccl(),
-                              device_resources[i].get_stream()));
-      CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], table[j][i], type, j, device_resources[i].get_nccl(),
-                              device_resources[i].get_stream()));
+      CK_NCCL_THROW_(ncclSend(src_pos[i][j], table[i][j], type, j, local_gpu->get_nccl(),
+                              local_gpu->get_stream()));
+      CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], table[j][i], type, j, local_gpu->get_nccl(),
+                              local_gpu->get_stream()));
     }
   }
   CK_NCCL_THROW_(ncclGroupEnd());
@@ -268,12 +260,12 @@ void SparseEmbeddingFunctors::all2all_forward(size_t batch_size_per_gpu,
 template void SparseEmbeddingFunctors::all2all_forward<float>(
     size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
     size_t embedding_vec_size, const Tensors2<float> &send_tensors, Tensors2<float> &recv_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::all2all_forward<__half>(
     size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
     size_t embedding_vec_size, const Tensors2<__half> &send_tensors, Tensors2<__half> &recv_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 #endif
 

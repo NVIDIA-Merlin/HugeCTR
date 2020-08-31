@@ -53,26 +53,27 @@ class AddLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   AddLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int device_id);
-  ~AddLayer();
+           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+           const std::shared_ptr<GPUResource>& gpu_resource);
+
+  void initialize() override;
 
   /**
    * AddLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * AddLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
  private:
   int size_;
   size_t num_;
   Tensor2<T*> h_inputs_;
   Tensor2<T*> d_inputs_;
-  bool initialized_{false};
 };
 
 }  // namespace HugeCTR

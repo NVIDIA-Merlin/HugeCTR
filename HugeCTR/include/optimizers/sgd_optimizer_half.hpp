@@ -35,9 +35,10 @@ class SgdOptimizerHalf : public Optimizer {
    # @param scaler scaler factor for mixed precision
    */
   SgdOptimizerHalf(const Tensor2<float>& weight, const Tensor2<__half>& wgrad,
-                   const Tensor2<__half>& weight_half, int device_id, float lr = 0.001f,
+                   const Tensor2<__half>& weight_half,
+                   const std::shared_ptr<GPUResource>& gpu_resource, float lr = 0.001f,
                    float scaler = 1.f)
-      : Optimizer(weight, device_id, lr, scaler), wgrad_(wgrad), weight_half_(weight_half) {
+      : Optimizer(weight, gpu_resource, lr, scaler), wgrad_(wgrad), weight_half_(weight_half) {
     if (weight_->get_num_elements() != wgrad_->get_num_elements() ||
         wgrad_->get_num_elements() != weight_half_->get_num_elements()) {
       CK_THROW_(Error_t::WrongInput,
@@ -50,7 +51,7 @@ class SgdOptimizerHalf : public Optimizer {
    * update the weights using gradient
    * @param stream cuda stream used by update kernel
    */
-  void update(cudaStream_t stream) override;
+  void update() override;
 
  private:
   Tensor2<__half> wgrad_;

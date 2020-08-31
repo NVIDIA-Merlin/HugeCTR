@@ -16,6 +16,7 @@
 
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
 #include "HugeCTR/include/utils.cuh"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 
@@ -176,12 +177,13 @@ void SparseEmbeddingFunctors::backward(size_t batch_size, size_t slot_num,
                                        const Tensors2<TypeHashKey> &row_offset_allreduce_tensors,
                                        const Tensors2<TypeEmbeddingComp> &embedding_feature_tensors,
                                        Tensors2<TypeEmbeddingComp> &wgrad_tensors,
-                                       const GPUResourceGroup &device_resources) {
-  CudaDeviceContext context;
-  size_t local_gpu_count = device_resources.size();
+                                       const ResourceManager &resource_manager) {
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
+  CudaDeviceContext context;
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    const auto &local_gpu = resource_manager.get_local_gpu(id);
+    context.set_device(local_gpu->get_device_id());
     const TypeEmbeddingComp *top_grad = embedding_feature_tensors[id].get_ptr();
     const TypeHashKey *row_offset = row_offset_allreduce_tensors[id].get_ptr();
     TypeEmbeddingComp *wgrad = wgrad_tensors[id].get_ptr();
@@ -189,11 +191,11 @@ void SparseEmbeddingFunctors::backward(size_t batch_size, size_t slot_num,
     if (combiner == 0)  // sum
     {
       backward_sum(batch_size, slot_num, embedding_vec_size, top_grad, wgrad,
-                   device_resources[id].get_stream());
+                   local_gpu->get_stream());
     } else if (combiner == 1)  // mean
     {
       backward_mean(batch_size, slot_num, embedding_vec_size, row_offset, top_grad, wgrad,
-                    device_resources[id].get_stream());
+                    local_gpu->get_stream());
     } else {
       CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
     }
@@ -209,16 +211,17 @@ void SparseEmbeddingFunctors::backward(size_t batch_size,
                                        const Tensors2<TypeHashKey> &row_offset_allreduce_tensors,
                                        const Tensors2<TypeEmbeddingComp> &embedding_feature_tensors,
                                        Tensors2<TypeEmbeddingComp> &wgrad_tensors,
-                                       const GPUResourceGroup &device_resources) {
-  CudaDeviceContext context;
-  size_t local_gpu_count = device_resources.size();
+                                       const ResourceManager &resource_manager) {
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
+  CudaDeviceContext context;
   for (size_t id = 0; id < local_gpu_count; id++) {
     if (slot_num_per_gpu[id] == 0) {
       continue;
     }
 
-    context.set_device(device_resources[id].get_device_id());
+    const auto &local_gpu = resource_manager.get_local_gpu(id);
+    context.set_device(local_gpu->get_device_id());
     const TypeEmbeddingComp *top_grad = embedding_feature_tensors[id].get_ptr();
     const TypeHashKey *row_offset = row_offset_allreduce_tensors[id].get_ptr();
     TypeEmbeddingComp *wgrad = wgrad_tensors[id].get_ptr();
@@ -226,11 +229,11 @@ void SparseEmbeddingFunctors::backward(size_t batch_size,
     if (combiner == 0)  // sum
     {
       backward_sum(batch_size, slot_num_per_gpu[id], embedding_vec_size, top_grad, wgrad,
-                   device_resources[id].get_stream());
+                   local_gpu->get_stream());
     } else if (combiner == 1)  // mean
     {
       backward_mean(batch_size, slot_num_per_gpu[id], embedding_vec_size, row_offset, top_grad,
-                    wgrad, device_resources[id].get_stream());
+                    wgrad, local_gpu->get_stream());
     } else {
       CK_THROW_(Error_t::WrongInput, "Invalid combiner type ");
     }
@@ -243,48 +246,48 @@ template void SparseEmbeddingFunctors::backward<unsigned int, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner,
     const Tensors2<unsigned int> &row_offset_allreduce_tensors,
     const Tensors2<float> &embedding_feature_tensors, Tensors2<float> &wgrad_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::backward<long long, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner,
     const Tensors2<long long> &row_offset_allreduce_tensors,
     const Tensors2<float> &embedding_feature_tensors, Tensors2<float> &wgrad_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::backward<unsigned int, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner,
     const Tensors2<unsigned int> &row_offset_allreduce_tensors,
     const Tensors2<__half> &embedding_feature_tensors, Tensors2<__half> &wgrad_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::backward<long long, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size, int combiner,
     const Tensors2<long long> &row_offset_allreduce_tensors,
     const Tensors2<__half> &embedding_feature_tensors, Tensors2<__half> &wgrad_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::backward<unsigned int, float>(
     size_t batch_size, const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
     int combiner, const Tensors2<unsigned int> &row_offset_allreduce_tensors,
     const Tensors2<float> &embedding_feature_tensors, Tensors2<float> &wgrad_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::backward<long long, float>(
     size_t batch_size, const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
     int combiner, const Tensors2<long long> &row_offset_allreduce_tensors,
     const Tensors2<float> &embedding_feature_tensors, Tensors2<float> &wgrad_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::backward<unsigned int, __half>(
     size_t batch_size, const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
     int combiner, const Tensors2<unsigned int> &row_offset_allreduce_tensors,
     const Tensors2<__half> &embedding_feature_tensors, Tensors2<__half> &wgrad_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::backward<long long, __half>(
     size_t batch_size, const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
     int combiner, const Tensors2<long long> &row_offset_allreduce_tensors,
     const Tensors2<__half> &embedding_feature_tensors, Tensors2<__half> &wgrad_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 }  // namespace HugeCTR

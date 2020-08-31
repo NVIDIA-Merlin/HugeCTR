@@ -15,15 +15,17 @@
  */
 
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
-void SparseEmbeddingFunctors::sync_all_gpus(const GPUResourceGroup &device_resources) const {
+void SparseEmbeddingFunctors::sync_all_gpus(const ResourceManager& resource_manager) const {
   CudaDeviceContext context;
 
-  size_t local_gpu_count = device_resources.size();
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
-    CK_CUDA_THROW_(cudaStreamSynchronize(device_resources[id].get_stream()));
+    const auto& local_gpu = resource_manager.get_local_gpu(id);
+    context.set_device(local_gpu->get_device_id());
+    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
   }
 }
 

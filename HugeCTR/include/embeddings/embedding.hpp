@@ -17,7 +17,7 @@
 #pragma once
 #include <embedding.hpp>
 #include <general_buffer2.hpp>
-#include <gpu_resource.hpp>
+#include <resource_manager.hpp>
 
 namespace HugeCTR {
 
@@ -39,8 +39,6 @@ class Embedding : public IEmbedding {
   SparseEmbeddingHashParams<TypeEmbeddingComp>
       embedding_params_;                                 /**< Sparse embedding hash params. */
   std::vector<OptParams<TypeEmbeddingComp>> opt_params_; /**< Optimizer params. */
-  size_t local_gpu_count_;
-  size_t total_gpu_count_;
 
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>
       bufs_;                                         /**< The buffer for storing output tensors. */
@@ -54,7 +52,7 @@ class Embedding : public IEmbedding {
   Tensors2<TypeKey> evaluate_value_tensors_; /**< The value tensors of the input data. */
   std::vector<std::shared_ptr<size_t>> evaluate_nnz_array_;
 
-  std::shared_ptr<GPUResourceGroup> device_resources_; /**< The GPU device resources. */
+  std::shared_ptr<ResourceManager> resource_manager_; /**< The GPU device resources. */
 
  protected:
   size_t get_batch_size(bool is_train) const {
@@ -70,20 +68,16 @@ class Embedding : public IEmbedding {
   }
 
   size_t get_batch_size_per_gpu(bool is_train) const {
-    return get_batch_size(is_train) / total_gpu_count_;
+    return get_batch_size(is_train) / resource_manager_->get_global_gpu_count();
   }
 
   size_t get_universal_batch_size_per_gpu() const {
-    return get_universal_batch_size() / total_gpu_count_;
+    return get_universal_batch_size() / resource_manager_->get_global_gpu_count();
   }
 
-  GPUResourceGroup& get_gpu_resource_group() const { return *device_resources_; }
+  ResourceManager& get_resource_manager() const { return *resource_manager_; }
 
-  const GPUResource& get_gpu_resource(int i) const { return (*device_resources_)[i]; }
-
-  size_t get_local_gpu_count() const { return local_gpu_count_; }
-
-  size_t get_total_gpu_count() const { return total_gpu_count_; }
+  const GPUResource& get_local_gpu(int i) const { return *resource_manager_->get_local_gpu(i); }
 
   const Optimizer_t& get_optimizer() const { return embedding_params_.opt_params.optimizer; }
 
@@ -151,7 +145,7 @@ class Embedding : public IEmbedding {
    * @param batchsize the batch size of the input data
    * @param slot_num the number of slots of the hash table
    * @param embedding_vec_size the dim size of the embedding feature vector.
-   * @param gpu_resource_group the GPU device resource group
+   * @param resource_manager the GPU device resource group
    * @param scaler scaler factor for mixed precision
    */
   Embedding(const Tensors2<TypeKey>& train_row_offsets_tensors,
@@ -161,7 +155,7 @@ class Embedding : public IEmbedding {
             const Tensors2<TypeKey>& evaluate_value_tensors,
             const std::vector<std::shared_ptr<size_t>>& evaluate_nnz_array,
             const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
-            const GPUResourceGroupPtr& gpu_resource_group)
+            const std::shared_ptr<ResourceManager>& resource_manager)
       : embedding_params_(embedding_params),
         train_row_offsets_tensors_(train_row_offsets_tensors),
         train_value_tensors_(train_value_tensors),
@@ -169,7 +163,7 @@ class Embedding : public IEmbedding {
         evaluate_row_offsets_tensors_(evaluate_row_offsets_tensors),
         evaluate_value_tensors_(evaluate_value_tensors),
         evaluate_nnz_array_(evaluate_nnz_array),
-        device_resources_(gpu_resource_group) {
+        resource_manager_(resource_manager) {
     try {
       // Error check
       if (embedding_params.train_batch_size < 1 || embedding_params.evaluate_batch_size < 1 ||
@@ -182,19 +176,19 @@ class Embedding : public IEmbedding {
                   "the embedding_vec_size can not be more than 1024 in embedding layer");
       }
 
-      total_gpu_count_ = device_resources_->get_total_gpu_count();
-      local_gpu_count_ = device_resources_->size();
+      size_t total_gpu_count = resource_manager_->get_global_gpu_count();
+      size_t local_gpu_count = resource_manager_->get_local_gpu_count();
 
-      if (train_row_offsets_tensors.size() != local_gpu_count_ ||
-          train_value_tensors.size() != local_gpu_count_ ||
-          evaluate_row_offsets_tensors.size() != local_gpu_count_ ||
-          evaluate_value_tensors.size() != local_gpu_count_) {
+      if (train_row_offsets_tensors.size() != local_gpu_count ||
+          train_value_tensors.size() != local_gpu_count ||
+          evaluate_row_offsets_tensors.size() != local_gpu_count ||
+          evaluate_value_tensors.size() != local_gpu_count) {
         CK_THROW_(
             Error_t::WrongInput,
             "either row_offsets_tensors.size() or value_tensors.size() isn't local_gpu_count_");
       }
 
-      for (size_t id = 0; id < local_gpu_count_; id++) {
+      for (size_t id = 0; id < local_gpu_count; id++) {
         OptParams<TypeEmbeddingComp> opt_params;
         opt_params.optimizer = embedding_params_.opt_params.optimizer;
         opt_params.lr = embedding_params_.opt_params.lr;
@@ -204,7 +198,7 @@ class Embedding : public IEmbedding {
       }
 
       assert(bufs_.empty());
-      for (size_t i = 0; i < local_gpu_count_; i++) {
+      for (size_t i = 0; i < local_gpu_count; i++) {
         std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf =
             GeneralBuffer2<CudaAllocator>::create();
         bufs_.push_back(buf);
@@ -296,7 +290,7 @@ class Embedding : public IEmbedding {
   }
 
   void set_learning_rate(float lr) {
-    for (size_t id = 0; id < local_gpu_count_; id++) {
+    for (size_t id = 0; id < resource_manager_->get_local_gpu_count(); id++) {
       opt_params_[id].lr = lr;
     }
   }

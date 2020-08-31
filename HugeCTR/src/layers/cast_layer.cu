@@ -29,15 +29,15 @@ __global__ void cast_kernel(__half* out, const float* in, int size) {
 }  // namespace
 
 CastLayer::CastLayer(const Tensor2<float>& bottom_tensor, const Tensor2<__half>& top_tensor,
-                     int device_id)
-    : Layer(device_id) {
+                     const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
   assert(bottom_tensor.get_num_elements() == top_tensor.get_num_elements());
 
   bottom_tensor_ = bottom_tensor;
   top_tensor_ = top_tensor;
 }
 
-void CastLayer::fprop(bool is_train, cudaStream_t stream) {
+void CastLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   const float* bottom = bottom_tensor_.get_ptr();
@@ -45,7 +45,8 @@ void CastLayer::fprop(bool is_train, cudaStream_t stream) {
 
   const size_t threads = 512;
   const size_t blocks = std::min((bottom_tensor_.get_num_elements() - 1) / threads + 1, 1024ul);
-  cast_kernel<<<blocks, threads, 0, stream>>>(top, bottom, bottom_tensor_.get_num_elements());
+  cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(top, bottom,
+                                                              bottom_tensor_.get_num_elements());
 
 #ifndef NDEBUG
   CK_CUDA_THROW_(cudaDeviceSynchronize());
@@ -53,7 +54,7 @@ void CastLayer::fprop(bool is_train, cudaStream_t stream) {
 #endif
 }
 
-void CastLayer::bprop(cudaStream_t stream) {
+void CastLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
 #ifndef NDEBUG

@@ -15,7 +15,6 @@
  */
 
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
-#include "HugeCTR/include/data_parser.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -73,7 +72,10 @@ void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
   Tensor2<float> out_tensor;
   buf->reserve(out_dims, &out_tensor);
 
+  FmOrder2Layer fm_order2_layer(in_tensor, out_tensor, test::get_default_gpu());
+
   buf->allocate();
+  fm_order2_layer.initialize();
 
   float* d_in = in_tensor.get_ptr();
   float* d_out = out_tensor.get_ptr();
@@ -85,32 +87,35 @@ void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
   std::unique_ptr<float[]> h_expected(new float[out_len]);
   std::unique_ptr<float[]> h_expected_dgrad(new float[in_len]);
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  FmOrder2Layer fm_order2_layer(in_tensor, out_tensor, 0);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
-  for (size_t i = 0; i < in_len; i++) {
-    h_in[i] = simulator.get_num();
-  }
+  simulator.fill(h_in.get(), in_len);
 
-  cudaMemcpy(d_in, h_in.get(), in_len * sizeof(float), cudaMemcpyHostToDevice);
-  fm_order2_layer.fprop(true, cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, out_len * sizeof(float), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  fm_order2_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, out_len * sizeof(float), cudaMemcpyDeviceToHost));
 
   fm_order2_fprop_cpu(h_in.get(), h_expected.get(), batch_size, slot_num, emb_vec_size);
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), out_len, eps));
 
+  simulator.fill(h_in.get(), in_len);
   for (size_t i = 0; i < in_len; i++) {
-    h_in[i] = simulator.get_num();
     h_expected_dgrad[i] = h_in[i];
   }
-  for (size_t i = 0; i < out_len; i++) {
-    h_out[i] = simulator.get_num();
-  }
+  simulator.fill(h_out.get(), out_len);
 
-  cudaMemcpy(d_in, h_in.get(), in_len * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_out, h_out.get(), out_len * sizeof(float), cudaMemcpyHostToDevice);
-  fm_order2_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in.get(), d_in, in_len * sizeof(float), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), out_len * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  fm_order2_layer.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, in_len * sizeof(float), cudaMemcpyDeviceToHost));
 
   fm_order2_bprop_cpu(h_expected_dgrad.get(), h_out.get(), h_expected_dgrad.get(), batch_size,
                       slot_num, emb_vec_size);

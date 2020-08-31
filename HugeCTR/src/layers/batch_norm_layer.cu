@@ -29,12 +29,12 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weigh
                                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                                const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                               const Params& params, cudnnHandle_t const& cudnn_handle,
-                               int device_id, std::vector<Initializer_t> initializer_types)
-    : Layer(device_id, initializer_types),
+                               const Params& params,
+                               const std::shared_ptr<GPUResource>& gpu_resource,
+                               std::vector<Initializer_t> initializer_types)
+    : Layer(gpu_resource, initializer_types),
       params_(params),
-      mode_(CUDNN_BATCHNORM_PER_ACTIVATION),
-      cudnn_handle_(cudnn_handle) {
+      mode_(CUDNN_BATCHNORM_PER_ACTIVATION) {
   CudaDeviceContext context(get_device_id());
   const auto& in_tensor_dim = in_tensor.get_dimensions();
   const auto& out_tensor_dim = out_tensor.get_dimensions();
@@ -86,16 +86,6 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weigh
   // save running mean & var (cache)
   blob_buff->reserve(gamma_dim, &result_save_mean_);
   blob_buff->reserve(gamma_dim, &result_save_inv_var_);
-
-  // host array to get running mean & var
-
-  std::shared_ptr<GeneralBuffer2<HostAllocator>> internal_host_buf =
-      GeneralBuffer2<HostAllocator>::create();
-
-  internal_host_buf->reserve({num_feature}, &h_result_running_mean_);
-  internal_host_buf->reserve({num_feature}, &h_result_running_var_);
-
-  internal_host_buf->allocate();
 }
 
 BatchNormLayer::~BatchNormLayer() {
@@ -107,9 +97,22 @@ BatchNormLayer::~BatchNormLayer() {
   }
 }
 
-void BatchNormLayer::fprop(bool is_train, cudaStream_t stream) {
+void BatchNormLayer::initialize() {
+  // host array to get running mean & var
+
+  size_t num_feature = in_tensors_[0].get_dimensions()[1];
+
+  std::shared_ptr<GeneralBuffer2<HostAllocator>> internal_host_buf =
+      GeneralBuffer2<HostAllocator>::create();
+
+  internal_host_buf->reserve({num_feature}, &h_result_running_mean_);
+  internal_host_buf->reserve({num_feature}, &h_result_running_var_);
+
+  internal_host_buf->allocate();
+}
+
+void BatchNormLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-  CK_CUDNN_THROW_(cudnnSetStream(cudnn_handle_, stream));
   float one = 1.0f, zero = 0.0f;
 
   Tensor2<float>& in_tensor = in_tensors_[0];
@@ -127,20 +130,18 @@ void BatchNormLayer::fprop(bool is_train, cudaStream_t stream) {
 
   if (is_train) {
     CK_CUDNN_THROW_(cudnnBatchNormalizationForwardTraining(
-        cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
-        gamma, beta, params_.factor, result_running_mean, result_running_var, params_.eps,
-        result_save_mean, result_save_inv_var));
+        get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
+        gamma_beta_desc_, gamma, beta, params_.factor, result_running_mean, result_running_var,
+        params_.eps, result_save_mean, result_save_inv_var));
   } else {
     CK_CUDNN_THROW_(cudnnBatchNormalizationForwardInference(
-        cudnn_handle_, mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out, gamma_beta_desc_,
-        gamma, beta, result_running_mean, result_running_var, params_.eps));
+        get_gpu().get_cudnn_handle(), mode_, &one, &zero, in_out_desc_, in, in_out_desc_, out,
+        gamma_beta_desc_, gamma, beta, result_running_mean, result_running_var, params_.eps));
   }
 }
 
-void BatchNormLayer::bprop(cudaStream_t stream) {
+void BatchNormLayer::bprop() {
   CudaDeviceContext context(get_device_id());
-
-  CK_CUDNN_THROW_(cudnnSetStream(cudnn_handle_, stream));
 
   float one = 1.0f, zero = 0.0f;
 
@@ -159,12 +160,13 @@ void BatchNormLayer::bprop(cudaStream_t stream) {
 
   float* temp_in = temp_in_tensor_.get_ptr();
   size_t n_byte = temp_in_tensor_.get_size_in_bytes();
-  CK_CUDA_THROW_(cudaMemcpy(temp_in, in, n_byte, cudaMemcpyDeviceToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpyAsync(temp_in, in, n_byte, cudaMemcpyDeviceToDevice, get_gpu().get_stream()));
 
   CK_CUDNN_THROW_(cudnnBatchNormalizationBackward(
-      cudnn_handle_, mode_, &one, &zero, &one, &zero, in_out_desc_, temp_in, in_out_desc_, out,
-      in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad, params_.eps,
-      result_save_mean, result_save_inv_var));
+      get_gpu().get_cudnn_handle(), mode_, &one, &zero, &one, &zero, in_out_desc_, temp_in,
+      in_out_desc_, out, in_out_desc_, in, gamma_beta_desc_, gamma, gamma_grad, beta_grad,
+      params_.eps, result_save_mean, result_save_inv_var));
 }
 
 std::string BatchNormLayer::get_no_trained_params_in_string() {
@@ -196,18 +198,15 @@ std::string BatchNormLayer::get_no_trained_params_in_string() {
   return result;
 }
 
-std::unique_ptr<DataSimulator<float>> BatchNormLayer::get_default_initializer(const int index) {
-  std::unique_ptr<DataSimulator<float>> simu(nullptr);
+std::unique_ptr<DataSimulator> BatchNormLayer::get_default_initializer(const int index) {
+  std::unique_ptr<DataSimulator> simu;
   if (0 == index) {
-    auto ones_init = [] { return static_cast<float>(1); };
-    simu.reset(new SingleDataSimulator<float>(ones_init));
+    simu.reset(new ConstantDataSimulator(1.0f));
   } else if (1 == index) {
-    auto zeros_init = [] { return static_cast<float>(0); };
-    simu.reset(new SingleDataSimulator<float>(zeros_init));
+    simu.reset(new ConstantDataSimulator(0.0f));
   } else {
     CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
   }
-
   return simu;
 }
 

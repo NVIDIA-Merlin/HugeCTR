@@ -16,7 +16,8 @@
 
 #pragma once
 #include <common.hpp>
-#include <tensor2.hpp>
+#include <general_buffer2.hpp>
+#include <gpu_resource.hpp>
 
 namespace HugeCTR {
 
@@ -73,11 +74,11 @@ class Optimizer {
    * Helper to create a speicifed Optimizer object
    */
   template <typename T>
-  static std::unique_ptr<Optimizer> Create(const OptParams<T>& params,
-                                           const Tensor2<float>& weight_main,
-                                           const Tensor2<float>& wgrad,
-                                           const Tensor2<__half>& wgrad_half, bool mixed_precision,
-                                           const float scaler, int device_id);
+  static std::unique_ptr<Optimizer> Create(
+      const OptParams<T>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
+      const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler,
+      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+      const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
    * Constructor of Optimizer.
@@ -87,13 +88,13 @@ class Optimizer {
    * @param learning_rate learning rate
    */
   Optimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
-            const Tensor2<__half>& fp16_wgrad, bool mixed_precision, int device_id,
-            float learning_rate, float scaler)
+            const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
+            const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate, float scaler)
       : weight_main_(weight_main),
         fp32_wgrad_(fp32_wgrad),
         fp16_wgrad_(fp16_wgrad),
         mixed_precision_(mixed_precision),
-        device_id_(device_id),
+        gpu_resource_(gpu_resource),
         lr_(learning_rate),
         scaler_(scaler) {
     if (mixed_precision) {
@@ -114,11 +115,13 @@ class Optimizer {
 
   virtual ~Optimizer() {}
 
+  virtual void initialize() {}
+
   /**
    * update the weights using gradient
    * @param stream cuda stream used by update kernel
    */
-  virtual void update(cudaStream_t stream) = 0;
+  virtual void update() = 0;
 
   /**
    * update the learning rate
@@ -136,9 +139,11 @@ class Optimizer {
   Tensor2<float> fp32_wgrad_;
   Tensor2<__half> fp16_wgrad_;
   bool mixed_precision_;
-  int device_id_;
+  std::shared_ptr<GPUResource> gpu_resource_;
   float lr_;  // learning rate
   const float scaler_;
+
+  int get_device_id() const { return gpu_resource_->get_device_id(); }
 };
 
 }  // namespace HugeCTR

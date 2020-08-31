@@ -47,9 +47,10 @@ struct TensorEntry {
  */
 class Network {
   friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-                                 std::vector<TensorEntry>& tensor_entries, int device_id,
+                                 std::vector<TensorEntry>& tensor_entries,
                                  int num_networks_in_global,
-                                 const std::shared_ptr<const GPUResource>& gpu_resource,
+                                 const std::shared_ptr<CPUResource>& cpu_resource,
+                                 const std::shared_ptr<GPUResource>& gpu_resource,
                                  bool use_mixed_precision, float scaler, bool use_algorithm_search);
 
  private:
@@ -60,14 +61,13 @@ class Network {
   Tensor2<__half> weight_tensor_half_;
   Tensor2<__half> wgrad_tensor_half_;
 
-  std::shared_ptr<const GPUResource> gpu_resource_; /**< gpu resource */
-  int device_id_;                                   /**< device id */
-  std::unique_ptr<Optimizer> optimizer_;            /**< optimizer */
-  std::unique_ptr<ILoss> loss_;                     /**< loss */
-  Tensor2<float> loss_tensor_;                      /**< loss tensor */
+  std::shared_ptr<CPUResource> cpu_resource_;
+  std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
+  std::unique_ptr<Optimizer> optimizer_;      /**< optimizer */
+  std::unique_ptr<ILoss> loss_;               /**< loss */
+  Tensor2<float> loss_tensor_;                /**< loss tensor */
   bool full_fp16_{false};
   bool enable_cuda_graph_;
-  int n_sms_{0};
   void conv_weight_();
   metrics::RawMetricMap raw_metrics_;
 
@@ -88,9 +88,9 @@ class Network {
    * @param gpu_resource gpu resource for local gpu.
    * @param disable_parser only for unit test.
    */
-  Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
-          bool full_fp16 = false);
-  Network(const Network& C) = delete;
+  Network(const std::shared_ptr<CPUResource>& cpu_resource,
+          const std::shared_ptr<GPUResource>& gpu_resource, bool full_fp16 = false);
+  Network(const Network&) = delete;
   Network& operator=(const Network&) = delete;
 
   /**
@@ -108,7 +108,7 @@ class Network {
    */
   float get_loss();
 
-  int get_device_id() const { return device_id_; }
+  int get_device_id() const { return gpu_resource_->get_device_id(); }
 
   metrics::RawMetricMap get_raw_metrics() const;
 

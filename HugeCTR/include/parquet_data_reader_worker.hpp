@@ -133,7 +133,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
                           const std::string& file_list, size_t buffer_length,
                           const std::vector<DataReaderSparseParam>& params,
                           const std::vector<long long>& slot_offset,
-                          std::shared_ptr<rmm::mr::device_memory_resource>& mr)
+                          const std::shared_ptr<rmm::mr::device_memory_resource>& mr)
       : worker_id_(worker_id),
         worker_num_(worker_num),
         buffer_length_(buffer_length),

@@ -38,7 +38,7 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
   const std::vector<float> target_weight(label_dim, 1.0);
 
   MultiCrossEntropyLoss<float> mel(label_tensor, input_tensor, loss_tensor, nullptr, target_weight,
-                                   0, 1);
+                                   test::get_default_gpu(), 1);
 
   std::unique_ptr<float[]> h_input(new float[batch_size * label_dim]);
   std::unique_ptr<float[]> h_label(new float[batch_size * label_dim]);
@@ -54,7 +54,7 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size * label_dim,
              cudaMemcpyHostToDevice);
 
-  mel.compute(true, cudaStreamDefault);
+  mel.compute(true);
 
   int scaler = 1;
 #ifdef SCALE_128

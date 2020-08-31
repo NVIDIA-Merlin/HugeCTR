@@ -25,7 +25,7 @@ namespace HugeCTR {
 
 class ILoss {
  public:
-  virtual void compute(bool is_train, cudaStream_t stream) = 0;
+  virtual void compute(bool is_train) = 0;
   virtual int get_device_id() const = 0;
 };
 
@@ -43,7 +43,7 @@ class ILoss {
 template <typename T>
 class Loss : public ILoss {
   std::shared_ptr<Regularizer<T>> regularizer_;
-  const int device_id_;
+  std::shared_ptr<GPUResource> gpu_resource_;
   int total_gpu_count_;
   float scaler_;
 
@@ -88,7 +88,9 @@ class Loss : public ILoss {
   }
 
  protected:
-  const Tensors2<float>& get_loss_tensors() { return loss_tensors_; }
+  const Tensors2<float>& get_loss_tensors() const { return loss_tensors_; }
+  int get_total_gpu_count() const { return total_gpu_count_; }
+  const GPUResource& get_gpu() const { return *gpu_resource_; }
 
  public:
   /**
@@ -100,23 +102,20 @@ class Loss : public ILoss {
    * @param is_train whether it is on training or evaluating
    * @param stream CUDA stream where the train is executed in
    */
-  void compute(bool is_train, cudaStream_t stream) override;
+  void compute(bool is_train) override;
 
   /**
    * @param device_id GPU device executed on
    */
   Loss(const Tensor2<float>& train_label_tensor, const Tensor2<T>& train_input_tensor,
        const Tensor2<float>& evaluate_label_tensor, const Tensor2<T>& evaluate_input_tensor,
-       const Tensor2<float>& loss_tensor, const std::shared_ptr<Regularizer<T>> regularizer,
-       int device_id, int total_gpu_count, float scaler = 1.0);
+       const Tensor2<float>& loss_tensor, const std::shared_ptr<Regularizer<T>>& regularizer,
+       const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count, float scaler = 1.0);
   Loss(const Loss&) = delete;
   Loss& operator=(const Loss&) = delete;
   virtual ~Loss() {}
 
-  int get_device_id() const override { return device_id_; }
-
- protected:
-  int get_total_gpu_count() const { return total_gpu_count_; }
+  int get_device_id() const override { return gpu_resource_->get_device_id(); }
 };
 
 template <typename T>
@@ -126,8 +125,9 @@ class CrossEntropyLoss : public Loss<T> {
                   float scaler, float rterm, bool is_train, cudaStream_t stream) override final;
   CrossEntropyLoss(const Tensor2<float>& label_tensor, const Tensor2<T>& input_tensor,
                    const Tensor2<float>& loss_tensor,
-                   const std::shared_ptr<Regularizer<T>> regularizer, int device_id,
-                   int total_gpu_count, float scaler = 1.f);
+                   const std::shared_ptr<Regularizer<T>>& regularizer,
+                   const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
+                   float scaler = 1.f);
 };
 
 template <typename T>
@@ -139,8 +139,9 @@ class BinaryCrossEntropyLoss : public Loss<T> {
                          const Tensor2<T>& train_input_tensor,
                          const Tensor2<float>& evaluate_label_tensor,
                          const Tensor2<T>& evaluate_input_tensor, const Tensor2<float>& loss_tensor,
-                         const std::shared_ptr<Regularizer<T>> regularizer, int device_id,
-                         int total_gpu_count, float scaler = 1.f);
+                         const std::shared_ptr<Regularizer<T>>& regularizer,
+                         const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
+                         float scaler = 1.f);
 };
 
 template <typename T>
@@ -153,8 +154,9 @@ class MultiCrossEntropyLoss : public Loss<T> {
                   float scaler, float rterm, bool is_train, cudaStream_t stream) override final;
   MultiCrossEntropyLoss(const Tensor2<float>& label_tensor, const Tensor2<T>& input_tensor,
                         const Tensor2<float>& loss_tensor,
-                        const std::shared_ptr<Regularizer<T>> regularizer,
-                        const std::vector<float>& target_weight, int device_id, int total_gpu_count,
+                        const std::shared_ptr<Regularizer<T>>& regularizer,
+                        const std::vector<float>& target_weight,
+                        const std::shared_ptr<GPUResource>& gpu_resource, int total_gpu_count,
                         float scaler = 1.f);
 };
 
