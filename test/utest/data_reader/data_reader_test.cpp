@@ -19,7 +19,7 @@
 #include <thread>
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader_worker.hpp"
-#include "HugeCTR/include/file_list.hpp"
+#include "HugeCTR/include/data_readers/file_list.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 

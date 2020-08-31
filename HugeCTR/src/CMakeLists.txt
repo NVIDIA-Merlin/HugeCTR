@@ -42,7 +42,7 @@ file(GLOB huge_ctr_src
   loss.cu
   network.cu
   network.cpp
-  metadata.cpp
+  data_readers/metadata.cpp
   metrics.cu
   optimizers/adam_optimizer.cu
   optimizers/momentum_sgd_optimizer.cu
@@ -58,8 +58,8 @@ file(GLOB huge_ctr_src
   parsers/learning_rate_scheduler_parser.cpp
   session.cpp
   plan_parser.cpp 
-  data_collector.cu
-  parquet_data_converter.cu
+  data_readers/data_collector.cu
+  data_readers/parquet_data_converter.cu
   hashtable/nv_hashtable.cu
   embeddings/sync_all_gpus_functor.cu
   embeddings/init_embedding_functor.cu
