@@ -22,14 +22,20 @@
 namespace HugeCTR {
 
 template <typename TypeKey>
-class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup{
-public:
-  //Ctor
-  DataReaderWorkerGroupParquet(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap, std::string file_list, const std::vector<DataReaderSparseParam> params, const std::vector<long long> slot_offset, std::shared_ptr<rmm::mr::device_memory_resource> rmm_mr, bool start_reading_from_beginning = true): DataReaderWorkerGroup(start_reading_from_beginning){
-    if(file_list.empty()){
+class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
+ public:
+  // Ctor
+  DataReaderWorkerGroupParquet(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap,
+                               std::string file_list,
+                               const std::vector<DataReaderSparseParam> params,
+                               const std::vector<long long> slot_offset,
+                               std::shared_ptr<rmm::mr::device_memory_resource> rmm_mr,
+                               bool start_reading_from_beginning = true)
+      : DataReaderWorkerGroup(start_reading_from_beginning) {
+    if (file_list.empty()) {
       CK_THROW_(Error_t::WrongInput, "file_name.empty()");
     }
-    //create data reader workers
+    // create data reader workers
     int max_feature_num_per_sample = 0;
     for (auto& param : params) {
       max_feature_num_per_sample += param.max_feature_num;
@@ -42,11 +48,11 @@ public:
     int NumThreads = csr_heap->get_size();
     for (int i = 0; i < NumThreads; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
-	  i, NumThreads, csr_heap, file_list, max_feature_num_per_sample, params,
-          slot_offset, rmm_mr));
+          i, NumThreads, csr_heap, file_list, max_feature_num_per_sample, params, slot_offset,
+          rmm_mr));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();
   }
 };
-}// namespace HugeCTR 
+}  // namespace HugeCTR

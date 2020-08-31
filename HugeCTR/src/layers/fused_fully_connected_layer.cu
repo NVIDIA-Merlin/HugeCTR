@@ -220,8 +220,8 @@ void FusedFullyConnectedLayer::bprop() {
                                                                             0.0f);
 
   dim3 blocks(n / 64, m / 32);
-  reverse_add_bias_and_re_kernel<32><<<blocks, 512, 0, get_gpu().get_stream()>>>(
-      bias_grad_float, middle, top, n / 2);
+  reverse_add_bias_and_re_kernel<32>
+      <<<blocks, 512, 0, get_gpu().get_stream()>>>(bias_grad_float, middle, top, n / 2);
 
   convert_array<<<(n - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(bias_grad, bias_grad_float,
                                                                          n);

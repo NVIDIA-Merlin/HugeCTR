@@ -32,9 +32,8 @@ namespace LinAlg {
  * @param vec_b the second input vector (1xw)
  * @param w size of vector [vec_b]
  */
- template <typename InType, typename OutType>
- __global__ void mm_1d(OutType *out_mat, const InType *vec_a, int h, const float* vec_b,
-  int w) {
+template <typename InType, typename OutType>
+__global__ void mm_1d(OutType *out_mat, const InType *vec_a, int h, const float *vec_b, int w) {
   const int tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid < h * w) {
     const int col = tid % w;

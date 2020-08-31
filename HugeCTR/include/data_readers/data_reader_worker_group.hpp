@@ -17,14 +17,13 @@
 #pragma once
 
 #include <atomic>
-#include <fstream>
-#include <thread>
-#include <vector>
 #include <common.hpp>
 #include <data_readers/csr.hpp>
 #include <data_readers/csr_chunk.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
-
+#include <fstream>
+#include <thread>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -51,49 +50,47 @@ static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& d
   }
 }
 
-
 class DataReaderWorkerGroup {
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
-  int data_reader_loop_flag_{0}; /**< p_loop_flag a flag to control the loop */
-protected:
+  int data_reader_loop_flag_{0};                 /**< p_loop_flag a flag to control the loop */
+ protected:
   std::vector<std::shared_ptr<IDataReaderWorker>>
-      data_readers_;                             /**< A vector of DataReaderWorker' pointer.*/
+      data_readers_; /**< A vector of DataReaderWorker' pointer.*/
   /**
    * Create threads to run data reader workers
    */
-  void create_data_reader_threads(){
-    if(data_readers_.empty()){
+  void create_data_reader_threads() {
+    if (data_readers_.empty()) {
       CK_THROW_(Error_t::WrongInput, "data_readers_.empty()");
     }
-    if(!data_reader_threads_.empty()){
+    if (!data_reader_threads_.empty()) {
       CK_THROW_(Error_t::WrongInput, "!data_reader_threads_.empty()");
     }
 
-    for(auto& data_reader: data_readers_){
+    for (auto& data_reader : data_readers_) {
       data_reader_threads_.emplace_back(data_reader_thread_func_, data_reader,
-					&data_reader_loop_flag_);
+                                        &data_reader_loop_flag_);
       set_affinity(data_reader_threads_.back(), {}, true);
     }
   }
-public:
-  DataReaderWorkerGroup(bool start_reading_from_beginning){
+
+ public:
+  DataReaderWorkerGroup(bool start_reading_from_beginning) {
     if (start_reading_from_beginning) {
       data_reader_loop_flag_ = 1;
     }
   }
-  void start(){
-    data_reader_loop_flag_ = 1;
-  }
-  void end(){
+  void start() { data_reader_loop_flag_ = 1; }
+  void end() {
     data_reader_loop_flag_ = 0;
     for (auto& data_reader : data_readers_) {
       data_reader->skip_read();
     }
   }
-  virtual ~DataReaderWorkerGroup(){
+  virtual ~DataReaderWorkerGroup() {
     for (auto& data_reader_thread : data_reader_threads_) {
       data_reader_thread.join();
     }
   }
 };
-}// namespace HugeCTR 
+}  // namespace HugeCTR

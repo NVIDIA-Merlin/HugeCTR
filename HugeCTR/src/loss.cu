@@ -187,10 +187,9 @@ __global__ void BinaryCrossEntropy_Kernel(T *input, const float *label, float *b
     if (x >= 0) {
       float exp_neg_x = exp(-x);
       loss_s[tid] += x * (1 - y) + log(1 + exp_neg_x);
-      input[i] = is_train
-                     ? ((1 - y) - exp_neg_x / (1 + exp_neg_x)) * scaler / (float)batch_size /
-                           total_gpu_count
-                     : 1 / (1 + exp_neg_x);
+      input[i] = is_train ? ((1 - y) - exp_neg_x / (1 + exp_neg_x)) * scaler / (float)batch_size /
+                                total_gpu_count
+                          : 1 / (1 + exp_neg_x);
     } else {
       float exp_x = exp(x);
       loss_s[tid] += -x * y + log(1 + exp_x);
@@ -258,9 +257,10 @@ __global__ void MultiCrossEntropy_Kernel(T *input, const float *label, const flo
         (label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] * cross_entropy_loss(x, y));
     loss_s += loss;
     if (is_train) {
-      input[i] = (label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] *
-                                            cross_entropy_loss_backward(x, y) / size * scaler /
-                                            total_gpu_count);
+      input[i] = (label[i] < -0.5)
+                     ? 0.f
+                     : (target_weight[target_weight_idx] * cross_entropy_loss_backward(x, y) /
+                        size * scaler / total_gpu_count);
     }
   }
 

@@ -33,4 +33,4 @@ class CPUResource {
   const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
   const std::shared_ptr<ctpl::thread_pool>& get_thread_pool() { return thread_pool_; }
 };
-}
+}  // namespace HugeCTR

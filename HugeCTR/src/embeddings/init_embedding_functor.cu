@@ -37,9 +37,9 @@ void SparseEmbeddingFunctors::init_embedding_per_gpu(size_t gid, size_t total_gp
     size_t slot_size = slot_sizes[i];
     if ((i % total_gpu_count) == gid) {
       MESSAGE_("gpu" + std::to_string(gid) + " start to init embedding of slot" +
-               std::to_string(i) + " , slot_size=" + std::to_string(slot_size) + ", key_offset=" +
-               std::to_string(key_offset) + ", value_index_offset=" +
-               std::to_string(value_index_offset));
+               std::to_string(i) + " , slot_size=" + std::to_string(slot_size) +
+               ", key_offset=" + std::to_string(key_offset) +
+               ", value_index_offset=" + std::to_string(value_index_offset));
 
       float up_bound = sqrt(1.f / slot_size);
       HugeCTR::UniformGenerator::fill(embedding_tables[j++], -up_bound, up_bound, gpu_resource);

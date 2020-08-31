@@ -30,4 +30,4 @@ CPUResource::CPUResource(unsigned long long seed, size_t thread_num) {
 }
 
 CPUResource::~CPUResource() { curandDestroyGenerator(curand_generator_); }
-}
+}  // namespace HugeCTR

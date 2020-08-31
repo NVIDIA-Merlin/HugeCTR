@@ -67,4 +67,4 @@ class LearningRateScheduler {
 
   size_t get_step() const { return step_; }
 };
-}
+}  // namespace HugeCTR

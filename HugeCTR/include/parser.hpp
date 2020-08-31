@@ -105,7 +105,7 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
  */
 struct SolverParser {
   std::string configure_file;
-  unsigned long long seed;                        /**< seed of data simulator */
+  unsigned long long seed;                  /**< seed of data simulator */
   LrPolicy_t lr_policy;                     /**< the only fixed lr is supported now. */
   int display;                              /**< the interval of loss display. */
   int max_iter;                             /**< the number of iterations for training */
@@ -178,7 +178,8 @@ static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"SGD", Optimizer_t::SGD}};
 
 static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
-    {"L1", Regularizer_t::L1}, {"L2", Regularizer_t::L2},
+    {"L1", Regularizer_t::L1},
+    {"L2", Regularizer_t::L2},
 };
 
 inline bool has_key_(const nlohmann::json& j_in, const std::string& key_in) {

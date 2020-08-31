@@ -23,11 +23,11 @@
 namespace HugeCTR {
 
 /**
-* @brief GPU resources container.
-*
-* A GPU resource container in one node. An instant includes:
-* GPU resource vector, thread pool for training, nccl communicators.
-*/
+ * @brief GPU resources container.
+ *
+ * A GPU resource container in one node. An instant includes:
+ * GPU resource vector, thread pool for training, nccl communicators.
+ */
 class ResourceManager {
   int num_process_;
   int pid_;
@@ -77,4 +77,4 @@ class ResourceManager {
     return memory_resource_;
   }
 };
-}
+}  // namespace HugeCTR

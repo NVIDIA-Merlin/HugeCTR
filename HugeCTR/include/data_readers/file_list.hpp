@@ -70,7 +70,7 @@ class FileList {
         for (int i = 0; i < num_of_files_; i++) {
           std::getline(read_stream, buff);
           if (i == 0) {
-        	  file_type_ = get_file_type(buff);
+            file_type_ = get_file_type(buff);
           }
           file_vector_.push_back(buff);
         }
@@ -106,9 +106,7 @@ class FileList {
     return file_vector_[current_file_idx];
   }
 
-  std::string get_file_type() {
-	  return file_type_;
-  }
+  std::string get_file_type() { return file_type_; }
 };
 
 }  // namespace HugeCTR

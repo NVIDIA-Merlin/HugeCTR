@@ -350,4 +350,4 @@ inline void data_generation_for_raw(
   out_stream.close();
   return;
 }
-}
+}  // namespace HugeCTR

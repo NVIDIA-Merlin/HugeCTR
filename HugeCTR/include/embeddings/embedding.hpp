@@ -324,4 +324,4 @@ class Embedding : public IEmbedding {
   virtual void get_update_params_results(Tensor2<TypeKey>& hash_table_key,
                                          Tensor2<float>& hash_table_value) = 0;
 };
-}
+}  // namespace HugeCTR

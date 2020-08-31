@@ -16,21 +16,25 @@
 
 #pragma once
 
-#include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker.hpp>
+#include <data_readers/data_reader_worker_group.hpp>
 
 namespace HugeCTR {
 
 template <typename TypeKey>
-class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup{
+class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
   std::string file_list_; /**< file list of data set */
-public:
-  //Ctor
-  DataReaderWorkerGroupNorm(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap, std::string file_list, Check_t check_type, const std::vector<DataReaderSparseParam> params, bool start_reading_from_beginning = true): DataReaderWorkerGroup(start_reading_from_beginning){
-    if(file_list.empty()){
+ public:
+  // Ctor
+  DataReaderWorkerGroupNorm(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap,
+                            std::string file_list, Check_t check_type,
+                            const std::vector<DataReaderSparseParam> params,
+                            bool start_reading_from_beginning = true)
+      : DataReaderWorkerGroup(start_reading_from_beginning) {
+    if (file_list.empty()) {
       CK_THROW_(Error_t::WrongInput, "file_name.empty()");
     }
-    //create data reader workers
+    // create data reader workers
     int max_feature_num_per_sample = 0;
     for (auto& param : params) {
       max_feature_num_per_sample += param.max_feature_num;
@@ -41,13 +45,11 @@ public:
     }
     int NumThreads = csr_heap->get_size();
     for (int i = 0; i < NumThreads; i++) {
-      std::shared_ptr<IDataReaderWorker> data_reader(
-        new DataReaderWorker<TypeKey>(i, NumThreads, csr_heap, file_list,
-        max_feature_num_per_sample, check_type, params));
+      std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorker<TypeKey>(
+          i, NumThreads, csr_heap, file_list, max_feature_num_per_sample, check_type, params));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();
   }
-  
 };
-}// namespace HugeCTR 
+}  // namespace HugeCTR

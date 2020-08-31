@@ -15,14 +15,14 @@
  */
 
 #pragma once
-#include <data_readers/check_none.hpp>
 #include <common.hpp>
+#include <data_readers/check_none.hpp>
 #include <data_readers/csr.hpp>
 #include <data_readers/csr_chunk.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
-#include <fstream>
 #include <data_readers/heapex.hpp>
 #include <data_readers/mmap_source.hpp>
+#include <fstream>
 #include <vector>
 
 namespace HugeCTR {

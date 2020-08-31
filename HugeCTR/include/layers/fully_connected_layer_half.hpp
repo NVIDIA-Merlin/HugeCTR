@@ -68,8 +68,8 @@ class FullyConnectedLayerHalf : public Layer {
   Tensor2<__half> identity_tensor_;
 
   /*
- * initializers for this layer.
- */
+   * initializers for this layer.
+   */
   std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
