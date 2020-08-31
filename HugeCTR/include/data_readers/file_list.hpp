@@ -18,7 +18,7 @@
 #include <atomic>
 #include <fstream>
 #include <vector>
-#include "HugeCTR/include/metadata.hpp"
+#include "data_readers/metadata.hpp"
 
 namespace HugeCTR {
 

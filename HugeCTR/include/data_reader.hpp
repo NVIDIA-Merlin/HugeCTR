@@ -18,17 +18,17 @@
 
 #include <atomic>
 #include <common.hpp>
-#include <csr.hpp>
-#include <csr_chunk.hpp>
+#include <data_readers/csr.hpp>
+#include <data_readers/csr_chunk.hpp>
 #include <data_readers/data_collector.hpp>
 #include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker_group_norm.hpp>
 #include <data_readers/data_reader_worker_group_parquet.hpp>
 #include <data_readers/data_reader_worker_group_raw.hpp>
-#include <file_list.hpp>
+#include <data_readers/file_list.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
-#include <heap.hpp>
+#include <data_readers/heap.hpp>
 #include <utils.hpp>
 #include <vector>
 
