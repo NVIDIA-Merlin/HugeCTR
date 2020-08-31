@@ -310,9 +310,9 @@ MultiCrossLayer::MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& wei
                                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                                  const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                                 cublasHandle_t const& cublas_handle, int num_layers, int device_id,
+                                 const std::shared_ptr<GPUResource>& gpu_resource, int num_layers,
                                  std::vector<Initializer_t> initializer_types)
-    : cublas_handle_(cublas_handle), Layer(device_id, initializer_types), num_layers_(num_layers) {
+    : Layer(gpu_resource, initializer_types), num_layers_(num_layers) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor.get_dimensions();
@@ -393,7 +393,7 @@ MultiCrossLayer::MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& wei
   }
 }
 
-void MultiCrossLayer::fprop(bool is_train, cudaStream_t stream) {
+void MultiCrossLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
   Tensors2<float> kernel_tensors;
   Tensors2<float> bias_tensors;
@@ -410,11 +410,12 @@ void MultiCrossLayer::fprop(bool is_train, cudaStream_t stream) {
     hidden_tensors.push_back(vec_tensors_[i]);
   }
 
-  MultiCrossForwardFunctor()(stream, cublas_handle_, blob_tensors_[0], kernel_tensors, bias_tensors,
-                             output_tensors, hidden_tensors, num_layers_);
+  MultiCrossForwardFunctor()(get_gpu().get_stream(), get_gpu().get_cublas_handle(),
+                             blob_tensors_[0], kernel_tensors, bias_tensors, output_tensors,
+                             hidden_tensors, num_layers_);
 }
 
-void MultiCrossLayer::bprop(cudaStream_t stream) {
+void MultiCrossLayer::bprop() {
   CudaDeviceContext context(get_device_id());
   Tensors2<float> kernel_tensors;
   Tensors2<float> kernel_output_tensors;
@@ -433,25 +434,24 @@ void MultiCrossLayer::bprop(cudaStream_t stream) {
     forward_output_tensors.push_back(blob_tensors_[i + 1]);
   }
 
-  MultiCrossBackwardFunctor()(stream, blob_tensors_[0], kernel_tensors, forward_output_tensors,
-                              forward_hidden_tensors, blob_tensors_[num_layers_], blob_tensors_[0],
-                              kernel_output_tensors, bias_output_tensors, tmp_vec_tensor_,
-                              tmp_mat_tensors_, num_layers_);
+  MultiCrossBackwardFunctor()(get_gpu().get_stream(), blob_tensors_[0], kernel_tensors,
+                              forward_output_tensors, forward_hidden_tensors,
+                              blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
+                              bias_output_tensors, tmp_vec_tensor_, tmp_mat_tensors_, num_layers_);
 }
 
-std::unique_ptr<DataSimulator<float>> MultiCrossLayer::get_default_initializer(const int index) {
+std::unique_ptr<DataSimulator> MultiCrossLayer::get_default_initializer(const int index) {
   const Tensor2<float>& in_tensor = in_tensors_[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
   float bottom_dim = in_tensor.get_dimensions()[1];
   float top_dim = out_tensor.get_dimensions()[1];
 
-  std::unique_ptr<DataSimulator<float>> simu(nullptr);
+  std::unique_ptr<DataSimulator> simu(nullptr);
   if (0 == index) {
-    simu.reset(new VarianceScalingSimulator<float>(
+    simu.reset(new VarianceScalingSimulator(
         1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform, bottom_dim, top_dim));
   } else if (1 == index) {
-    auto zero_init = [] { return static_cast<float>(0); };
-    simu.reset(new SingleDataSimulator<float>(zero_init));
+    simu.reset(new ConstantDataSimulator(0.0f));
   } else {
     CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
   }

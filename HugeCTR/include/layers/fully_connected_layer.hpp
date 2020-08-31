@@ -28,7 +28,6 @@ namespace HugeCTR {
  */
 class FullyConnectedLayer : public Layer {
  private:
-  const cublasHandle_t cublas_handle_;
   const bool use_mixed_precision_{false};
   // Optimized cublasGemmEx algorithm selection
   cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
@@ -65,11 +64,11 @@ class FullyConnectedLayer : public Layer {
   /**
    * forward pass
    */
-  void fprop(bool is_train, cudaStream_t stream) final;
+  void fprop(bool is_train) final;
   /**
    * backward pass
    */
-  void bprop(cudaStream_t stream) final;
+  void bprop() final;
   /*
    * algorithm search for cublasGemmEx
    */
@@ -91,7 +90,7 @@ class FullyConnectedLayer : public Layer {
                       const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                       const Tensor2<float>& train_in_tensor,
                       const Tensor2<float>& evaluate_in_tensor, const Tensor2<float>& out_tensor,
-                      cublasHandle_t const& cublas_handle, int device_id,
+                      const std::shared_ptr<GPUResource>& gpu_resource,
                       bool use_mixed_precision = false,
                       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;
@@ -101,9 +100,9 @@ class FullyConnectedLayer : public Layer {
   /*
    * initializers for this layer.
    */
-  std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 };
 }  // namespace HugeCTR

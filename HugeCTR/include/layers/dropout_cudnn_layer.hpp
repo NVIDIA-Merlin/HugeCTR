@@ -52,8 +52,8 @@ class DropoutCudnnLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   DropoutCudnnLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
-               cudnnHandle_t const& cudnn_handle, int device_id);
+                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
+                    const std::shared_ptr<GPUResource>& gpu_resource);
 
   ~DropoutCudnnLayer() override;
 
@@ -61,28 +61,23 @@ class DropoutCudnnLayer : public Layer {
    * A method of implementing the forward pass of Dropout
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * A method of implementing the backward pass of Dropout
    * @param stream CUDA stream where the backward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
   const float* mask() const { return mask_.get_ptr(); }
 
  private:
-  int64_t get_seed() const;
   cudnnDropoutDescriptor_t dropout_descriptor_;
   float rate_;
   float scale_;
   void* cudnn_status_;
   Tensor2<float> mask_;
-  const cudnnHandle_t cudnn_handle_;
   cudnnTensorDescriptor_t in_out_desc_;
   size_t reserveSpaceSizeInBytes_;
-  int n_sms_;
-  
-
 };
 
 }  // namespace HugeCTR

@@ -18,6 +18,7 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embeddings/embedding.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 /**
@@ -39,7 +40,9 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
  private:
   // define tensors
-  Tensors2<float> hash_table_value_tensors_;    /**< Hash table value. */
+  Tensors2<float> hash_table_value_tensors_; /**< Hash table value. */
+  std::vector<Tensors2<float>> value_table_tensors_;
+
   Tensors2<size_t> hash_table_slot_id_tensors_; /**< the tensors for storing slot ids */
   Tensors2<size_t> hash_value_index_tensors_;   /**< Hash value index. The index is corresponding to
                                                    the line   number of the value. */
@@ -79,13 +82,14 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * @param slot_sizes an array which stores the size of the slots to be intialized.
    * @param device_resources GPU device resources.
    */
-  size_t cal_max_voc_size_per_gpu(size_t total_gpu_count, size_t local_gpu_count,
-                                  const std::vector<size_t> slot_sizes,
-                                  const GPUResourceGroup &device_resources) {
+  static size_t cal_max_voc_size_per_gpu(const std::vector<size_t> slot_sizes,
+                                         const ResourceManager &resource_manager) {
+    size_t local_gpu_count = resource_manager.get_local_gpu_count();
+    size_t total_gpu_count = resource_manager.get_global_gpu_count();
+
     size_t max_voc_size = 0;
     for (size_t id = 0; id < local_gpu_count; id++) {
-      size_t device_id = device_resources[id].get_device_id();
-      size_t global_id = device_resources.get_global_id(device_id);
+      size_t global_id = resource_manager.get_local_gpu(id)->get_global_gpu_id();
 
       size_t total_size = 0;
       for (size_t i = 0; i < slot_sizes.size(); i++) {
@@ -112,9 +116,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * @param device_resources GPU device resources.
    */
   void init_embedding(const std::vector<size_t> slot_sizes, size_t embedding_vec_size,
-                      Tensors2<float> &hash_table_value_tensors,
-                      Tensors2<size_t> &hash_table_slot_id_tensors,
-                      const GPUResourceGroup &device_resources);
+                      std::vector<Tensors2<float>> &hash_table_value_tensors,
+                      Tensors2<size_t> &hash_table_slot_id_tensors);
 
   /**
    * upload_params_to_device() for LocalizedSlotSparseEmbeddingOnehot
@@ -129,8 +132,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
   void upload_params_to_device(std::ifstream &weight_stream, size_t embedding_vec_size,
                                Tensors2<float> &hash_table_value_tensors,
                                const std::vector<size_t> &slot_sizes,
-                               const Tensors2<uint32_t> &mapping_offsets_per_gpu_tensors,
-                               const GPUResourceGroup &device_resources);
+                               const Tensors2<uint32_t> &mapping_offsets_per_gpu_tensors);
 
   /**
    * download_params_to_host for LocalizedSlotSparseEmbeddingOnehot.
@@ -143,8 +145,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    */
   void download_params_to_host(std::ofstream &weight_stream, size_t embedding_vec_size,
                                const Tensors2<float> &hash_table_value_tensors,
-                               const std::vector<size_t> &slot_sizes,
-                               const GPUResourceGroup &device_resources) const;
+                               const std::vector<size_t> &slot_sizes) const;
 
  public:
   /**
@@ -154,7 +155,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * @param hash_key_tensors hash keys of the input tensor(refer to value vector in sparse matrix
    * CSR format).
    * @param embedding_params embedding params for initialization.
-   * @param gpu_resource_group the GPU resource group
+   * @param resource_manager the GPU resource group
    */
   LocalizedSlotSparseEmbeddingOneHot(
       const Tensors2<TypeHashKey> &train_row_offsets_tensors,
@@ -164,7 +165,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
       const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-      const std::string plan_file, const std::shared_ptr<GPUResourceGroup> &gpu_resource_group);
+      const std::string plan_file, const std::shared_ptr<ResourceManager> &resource_manager);
 
   /**
    * The forward propagation of embedding layer.
@@ -172,26 +173,26 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
   void forward(bool is_train) override {
     CudaDeviceContext context;
 
-    for (size_t i = 0; i < Base::get_local_gpu_count(); i++) {
-      context.set_device(Base::get_gpu_resource(i).get_device_id());  // set device
-                                                                      // for forward_fuse method
+    for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+      context.set_device(Base::get_local_gpu(i).get_device_id());  // set device
+                                                                   // for forward_fuse method
       functors_.forward_mapping_per_gpu(
           Base::get_batch_size(is_train), slot_num_per_gpu_[i],
           Base::get_value_tensors(is_train)[i], *Base::get_nnz_array(is_train)[i],
           mapping_offsets_per_gpu_tensors_[i], hash_value_index_tensors_[i],
-          Base::get_gpu_resource(i).get_stream());
+          Base::get_local_gpu(i).get_stream());
 
       // fuse forward+all2all+reorder into one kernel
       functors_.forward_fuse_per_gpu(
-          i, Base::get_local_gpu_count(), Base::get_batch_size(is_train),
+          i, Base::get_resource_manager().get_local_gpu_count(), Base::get_batch_size(is_train),
           Base::get_batch_size_per_gpu(is_train), Base::get_slot_num(), slot_num_per_gpu_[i],
           Base::get_embedding_vec_size(), Base::get_combiner(),
           Base::get_row_offsets_tensors(is_train)[i], hash_value_index_tensors_[i],
           hash_table_value_tensors_[i], get_embedding_features(is_train),
-          Base::get_gpu_resource_group().get_sm_count(), Base::get_gpu_resource(i).get_stream());
+          Base::get_local_gpu(i).get_sm_count(), Base::get_local_gpu(i).get_stream());
     }
 
-    functors_.sync_all_gpus(Base::get_gpu_resource_group());
+    functors_.sync_all_gpus(Base::get_resource_manager());
 
     return;
   }
@@ -201,18 +202,18 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * which computes the wgrad by the dgrad from the top layer.
    */
   void backward() override {
-    functors_.sync_all_gpus(Base::get_gpu_resource_group());
+    functors_.sync_all_gpus(Base::get_resource_manager());
 
     CudaDeviceContext context;
-    for (size_t i = 0; i < Base::get_local_gpu_count(); i++) {
-      context.set_device(Base::get_gpu_resource(i).get_device_id());
+    for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+      context.set_device(Base::get_local_gpu(i).get_device_id());
 
       functors_.backward_fuse_per_gpu(
-          i, Base::get_local_gpu_count(), Base::get_batch_size(true),
+          i, Base::get_resource_manager().get_local_gpu_count(), Base::get_batch_size(true),
           Base::get_batch_size_per_gpu(true), Base::get_slot_num(), slot_num_per_gpu_[i],
           Base::get_embedding_vec_size(), Base::get_combiner(), get_embedding_features(true),
-          wgrad_tensors_[i], Base::get_gpu_resource_group().get_sm_count(),
-          Base::get_gpu_resource(i).get_stream());
+          wgrad_tensors_[i], Base::get_local_gpu(i).get_sm_count(),
+          Base::get_local_gpu(i).get_stream());
     }
 
     return;
@@ -224,8 +225,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    */
   void update_params() override {
     CudaDeviceContext context;
-    for (size_t i = 0; i < Base::get_local_gpu_count(); i++) {
-      context.set_device(Base::get_gpu_resource(i).get_device_id());
+    for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+      context.set_device(Base::get_local_gpu(i).get_device_id());
 
       // accumulate times for adam optimizer
       Base::get_opt_params(i).hyperparams.adam.times++;
@@ -234,7 +235,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       functors_.update_params(
           Base::get_embedding_vec_size(), Base::get_opt_params(i), *Base::get_nnz_array(true)[i],
           hash_value_index_tensors_[i], wgrad_tensors_[i], hash_table_value_tensors_[i],
-          Base::get_gpu_resource_group().get_sm_count(), Base::get_gpu_resource(i).get_stream());
+          Base::get_local_gpu(i).get_sm_count(), Base::get_local_gpu(i).get_stream());
     }
 
     return;
@@ -246,8 +247,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
   void init_params() override {
     // do hash table value initialization
     if (slot_size_array_.size() == Base::get_slot_num()) {
-      init_embedding(slot_size_array_, Base::get_embedding_vec_size(), hash_table_value_tensors_,
-                     hash_table_slot_id_tensors_, Base::get_gpu_resource_group());
+      init_embedding(slot_size_array_, Base::get_embedding_vec_size(), value_table_tensors_,
+                     hash_table_slot_id_tensors_);
     } else {
       throw std::runtime_error(
           std::string("[HCDEBUG][ERROR] Runtime error: the size of slot_sizes != slot_num\n"));
@@ -267,7 +268,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
     upload_params_to_device(weight_stream, Base::get_embedding_vec_size(),
                             hash_table_value_tensors_, slot_size_array_,
-                            mapping_offsets_per_gpu_tensors_, Base::get_gpu_resource_group());
+                            mapping_offsets_per_gpu_tensors_);
 
     return;
   }
@@ -284,8 +285,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
     }
 
     download_params_to_host(weight_stream, Base::get_embedding_vec_size(),
-                            hash_table_value_tensors_, slot_size_array_,
-                            Base::get_gpu_resource_group());
+                            hash_table_value_tensors_, slot_size_array_);
 
     return;
   }
@@ -310,7 +310,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
     functors_.get_forward_results(memcpy_size, Base::get_output_tensors(is_train),
                                   embedding_feature, utest_forward_temp_tensors_,
-                                  Base::get_gpu_resource_group());
+                                  Base::get_resource_manager());
 
     return;
   }
@@ -322,33 +322,33 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * @param devIndex the GPU device id.
    */
   void get_backward_results(Tensor2<TypeEmbeddingComp> &wgrad, int devIndex) override {
-    CudaDeviceContext context(Base::get_gpu_resource(0).get_device_id());
+    CudaDeviceContext context(Base::get_local_gpu(0).get_device_id());
 
 #ifdef NCCL_A2A
 
 #ifndef ENABLE_MPI
-    if (Base::get_total_gpu_count() > 1) {
+    if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_forward(Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
                                 Base::get_embedding_vec_size(), wgrad_tensors_,
-                                utest_all2all_tensors_, Base::get_gpu_resource_group());
+                                utest_all2all_tensors_, Base::get_resource_manager());
     } else {
       CK_CUDA_THROW_(
           cudaMemcpyAsync(utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
                           Base::get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
-                          cudaMemcpyDeviceToDevice, Base::get_gpu_resource(0).get_stream()));
+                          cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
 #else
-    if (Base::get_total_gpu_count() > 1) {
+    if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_forward(Base::get_batch_size_per_gpu(true), Base::get_slot_num(),
                                 Base::get_embedding_vec_size(), wgrad_tensors_,
-                                utest_all2all_tensors_, Base::get_gpu_resource_group());
+                                utest_all2all_tensors_, Base::get_resource_manager());
     } else {
       CK_CUDA_THROW_(
           cudaMemcpyAsync(utest_all2all_tensors_[0].get_ptr(), wgrad_tensors_[0].get_ptr(),
                           Base::get_batch_size_per_gpu(true) * slot_num_per_gpu_[0] *
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
-                          cudaMemcpyDeviceToDevice, Base::get_gpu_resource(0).get_stream()));
+                          cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
 #endif
 
@@ -360,7 +360,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
     // reorder
     functors_.forward_reorder(Base::get_batch_size_per_gpu(true), Base::get_slot_num(),
                               Base::get_embedding_vec_size(), utest_all2all_tensors_,
-                              utest_reorder_tensors_, Base::get_gpu_resource_group());
+                              utest_reorder_tensors_, Base::get_resource_manager());
 
     // there are batch_size_per_gpu samples' wgard on each GPU
     size_t memcpy_size =
@@ -370,12 +370,12 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
     functors_.all_gather(memcpy_size,
                          utest_reorder_tensors_,        // send
                          utest_backward_temp_tensors_,  // recv
-                         Base::get_gpu_resource_group());
+                         Base::get_resource_manager());
 
     // memcpy H2D
-    functors_.get_backward_results(devIndex, Base::get_total_gpu_count() * memcpy_size,
-                                   utest_backward_temp_tensors_, wgrad,
-                                   Base::get_gpu_resource_group());
+    functors_.get_backward_results(
+        devIndex, Base::get_resource_manager().get_global_gpu_count() * memcpy_size,
+        utest_backward_temp_tensors_, wgrad, Base::get_resource_manager());
 
     return;
   }

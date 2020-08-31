@@ -27,7 +27,6 @@ namespace HugeCTR {
  * This class implements the fully connected layer.
  */
 class FusedFullyConnectedLayer : public Layer {
-  const cublasHandle_t cublas_handle_;
   // Optimized cublasGemmEx algorithm selection
   cublasGemmAlgo_t falgo_k_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_k_{CUBLAS_GEMM_DEFAULT};
@@ -71,10 +70,10 @@ class FusedFullyConnectedLayer : public Layer {
    */
   Tensor2<float> bias_grad_tensor_;
 
-  std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 
   Tensor2<__half>& get_bottom_tensor(bool is_train) {
     if (is_train) {
@@ -88,11 +87,11 @@ class FusedFullyConnectedLayer : public Layer {
   /**
    * forward pass
    */
-  void fprop(bool is_train, cudaStream_t stream) final;
+  void fprop(bool is_train) final;
   /**
    * backward pass
    */
-  void bprop(cudaStream_t stream) final;
+  void bprop() final;
   /*
    * algorithm search for cublasGemmEx
    */
@@ -116,7 +115,7 @@ class FusedFullyConnectedLayer : public Layer {
       const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
       const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
       const Tensor2<__half>& train_bottom_tensor, const Tensor2<__half>& evaluate_bottom_tensor,
-      const Tensor2<__half>& top_tensor, cublasHandle_t const& cublas_handle, int device_id,
+      const Tensor2<__half>& top_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FusedFullyConnectedLayer(const FusedFullyConnectedLayer&) = delete;
   FusedFullyConnectedLayer& operator=(const FusedFullyConnectedLayer&);

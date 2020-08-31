@@ -34,9 +34,6 @@ const float eps = 1e-6;
 
 template <typename T>
 void dropout_test(size_t dim0, size_t dim1, float rate) {
-  curandGenerator_t curand_generator;
-  CK_CURAND_THROW_(curandCreateGenerator(&curand_generator, CURAND_RNG_PSEUDO_DEFAULT));
-
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
   vector<size_t> dims = {dim0, dim1};
   Tensor2<T> in_tensor;
@@ -44,9 +41,12 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   Tensor2<T> out_tensor;
   buf->reserve(dims, &out_tensor);
 
-  DropoutLayer<T> dropout_layer(in_tensor, out_tensor, buf, rate, curand_generator, 0);
+  DropoutLayer<T> dropout_layer(in_tensor, out_tensor, buf, rate, test::get_default_gpu());
 
   buf->allocate();
+  dropout_layer.initialize();
+
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
   const int len = dim0 * dim1;
   const int n_bytes = len * sizeof(T);
@@ -55,11 +55,9 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
 
   std::unique_ptr<T[]> h_in(new T[len]);
   std::unique_ptr<T[]> h_out(new T[len]);
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  for (int i = 0; i < len; ++i) {
-    h_in[i] = TypeConvert<T>::convert(simulator.get_num());
-  }
-  cudaMemcpy(d_in, h_in.get(), n_bytes, cudaMemcpyHostToDevice);
+
+  simulator.fill(h_in.get(), len);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), n_bytes, cudaMemcpyHostToDevice));
 
   std::unique_ptr<float[]> h_mask(new float[len]);
   std::unique_ptr<T[]> h_ref(new T[len]);
@@ -67,9 +65,10 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   float scale = 1.0 / (1.0 - rate);
 
   // fprop test
-  dropout_layer.fprop(true, cudaStreamDefault);
-  cudaMemcpy(h_mask.get(), dropout_layer.mask(), len * sizeof(float), cudaMemcpyDeviceToHost);
-  cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost);
+  dropout_layer.fprop(true);
+  CK_CUDA_THROW_(
+      cudaMemcpy(h_mask.get(), dropout_layer.mask(), len * sizeof(float), cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost));
   int cnt_zero_fprop = 0;
   for (int i = 0; i < len; i++) {
     h_ref[i] = ((1.f - h_mask[i]) >= rate) * h_in[i] * scale;
@@ -80,8 +79,8 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_ref.get(), len, eps));
 
   // bprop test
-  dropout_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost);
+  dropout_layer.bprop();
+  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost));
   int cnt_zero_bprop = 0;
   for (int i = 0; i < len; i++) {
     h_ref[i] = ((1.f - h_mask[i]) >= rate) * h_out[i] * scale;
@@ -92,8 +91,6 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_ref.get(), len, eps));
 
   ASSERT_TRUE(cnt_zero_fprop == cnt_zero_bprop);
-
-  CK_CURAND_THROW_(curandDestroyGenerator(curand_generator));
 }
 
 TEST(dropout_layer, fp32_32x320_25) { dropout_test<float>(32, 320, 0.25); }

@@ -50,7 +50,7 @@ __global__ void momentumSGD_update_kernel(float* weight_ptr, float* momentum_ptr
 
 namespace HugeCTR {
 
-void MomentumSGD::update(cudaStream_t stream) {
+void MomentumSGD::update() {
   CudaDeviceContext context(device_id_);
 
   constexpr int block_dim = 256;

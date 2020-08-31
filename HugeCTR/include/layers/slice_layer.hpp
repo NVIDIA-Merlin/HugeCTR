@@ -47,7 +47,6 @@ class SliceLayer : public Layer {
    */
   Tensors2<T> out_tensors_;
 
-  int n_sms_;
   int virt_w_;
   std::vector<int> sts_;
 
@@ -75,19 +74,20 @@ class SliceLayer : public Layer {
   SliceLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& evaluate_in_tensor,
              Tensors2<T>& out_tensors,
              const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-             std::vector<std::pair<int, int>>& ranges, int device_id);
+             std::vector<std::pair<int, int>>& ranges,
+             const std::shared_ptr<GPUResource>& gpu_resource);
   ~SliceLayer() override{};
 
   /**
    * Slice's foward pass to gather data to the output tensor
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * Slice's backward pass to scatter data to the input tensors
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
   struct OutParam {
     T* out;

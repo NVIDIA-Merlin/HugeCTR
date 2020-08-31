@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/include/data_reader.hpp"
 #include <fstream>
 #include <thread>
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_generator.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -75,19 +76,19 @@ void data_reader_raw_test_impl(bool float_label_dense) {
   // data_generation_for_raw(file_name, num_samples, label_dim, dense_dim, slot_num);
 
   const int batchsize = 131072;
-  int numprocs = 1, pid = 0;
+
+  test::mpi_init();
+
+  int numprocs = 1;
   std::vector<std::vector<int>> vvgpu;
   std::vector<int> device_list = {0, 1};
 #ifdef ENABLE_MPI
-  test::mpi_init();
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 #endif
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  auto device_map = std::make_shared<DeviceMap>(vvgpu, pid);
-  auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
+  auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
   const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz * slot_num, 1,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -100,29 +101,29 @@ void data_reader_raw_test_impl(bool float_label_dense) {
 
   long long current_batchsize = data_reader.read_a_batch_to_device();
   std::cout << "current_batchsize: " << current_batchsize << std::endl;
-  print_tensor(data_reader.get_label_tensors()[1], 0, 30);
-  print_tensor(data_reader.get_value_tensors()[1], 0, 30);
-  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 30);
-  print_tensor(data_reader.get_label_tensors()[0], 0, 30);
-  print_tensor(Tensor2<__half>::stretch_from(data_reader.get_dense_tensors()[0]), 0, 30);
-  print_tensor(data_reader.get_value_tensors()[0], 0, 30);
-  print_tensor(data_reader.get_row_offsets_tensors()[0], 0, 30);
+  /*   print_tensor(data_reader.get_label_tensors()[1], 0, 30);
+    print_tensor(data_reader.get_value_tensors()[1], 0, 30);
+    print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 30);
+    print_tensor(data_reader.get_label_tensors()[0], 0, 30);
+    print_tensor(Tensor2<__half>::stretch_from(data_reader.get_dense_tensors()[0]), 0, 30);
+    print_tensor(data_reader.get_value_tensors()[0], 0, 30);
+    print_tensor(data_reader.get_row_offsets_tensors()[0], 0, 30); */
 
   current_batchsize = data_reader.read_a_batch_to_device();
   std::cout << "current_batchsize: " << current_batchsize << std::endl;
-  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
+  /*   print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+    print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+    print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); */
   current_batchsize = data_reader.read_a_batch_to_device();
-  print_tensor(data_reader.get_value_tensors()[0], -30, -1);
-  print_tensor(data_reader.get_row_offsets_tensors()[0], -30, -1);
-  print_tensor(data_reader.get_value_tensors()[1], -30, -1);
-  print_tensor(data_reader.get_row_offsets_tensors()[1], -30, -1);
+  /*   print_tensor(data_reader.get_value_tensors()[0], -30, -1);
+    print_tensor(data_reader.get_row_offsets_tensors()[0], -30, -1);
+    print_tensor(data_reader.get_value_tensors()[1], -30, -1);
+    print_tensor(data_reader.get_row_offsets_tensors()[1], -30, -1); */
 
   std::cout << "current_batchsize: " << current_batchsize << std::endl;
-  print_tensor(data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10);
+  /*   print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+    print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+    print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); */
 }
 
 TEST(data_reader_raw, data_reader_worker_raw_float_test) { data_reader_worker_raw_test_impl(true); }

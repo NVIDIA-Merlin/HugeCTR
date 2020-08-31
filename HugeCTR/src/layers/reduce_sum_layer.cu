@@ -126,11 +126,9 @@ __global__ void reduce_sum_dgrad_kernel(const float* top_grad, float* dgrad, int
 
 ReduceSumLayer::ReduceSumLayer(const Tensor2<float>& in_tensor, Tensor2<float>& out_tensor,
                                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                               int axis, int device_id)
-    : Layer(device_id), axis_(axis), device_id_(device_id) {
+                               int axis, const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource), axis_(axis) {
   try {
-    CudaDeviceContext context(device_id_);
-
     // error input checking
     const auto& in_dims = in_tensor.get_dimensions();
     for (auto i : in_dims) {
@@ -161,8 +159,8 @@ ReduceSumLayer::ReduceSumLayer(const Tensor2<float>& in_tensor, Tensor2<float>& 
   }
 }
 
-void ReduceSumLayer::fprop(bool is_train, cudaStream_t stream) {
-  CudaDeviceContext context(device_id_);
+void ReduceSumLayer::fprop(bool is_train) {
+  CudaDeviceContext context(get_device_id());
 
   float* input = in_tensors_[0].get_ptr();
   float* output = out_tensors_[0].get_ptr();
@@ -177,13 +175,14 @@ void ReduceSumLayer::fprop(bool is_train, cudaStream_t stream) {
   dim3 blockSize(256, 1, 1);
   dim3 gridSize(block_num, 1, 1);
   if (in_dims.size() == 1) {
-    reduce_sum_kernel<<<gridSize, blockSize, 0, stream>>>(input, output, axis_, in_dims[0]);
+    reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(input, output, axis_,
+                                                                          in_dims[0]);
   } else if (in_dims.size() == 2) {
-    reduce_sum_kernel<<<gridSize, blockSize, 0, stream>>>(input, output, axis_, in_dims[0],
-                                                          in_dims[1]);
+    reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(input, output, axis_,
+                                                                          in_dims[0], in_dims[1]);
   } else if (in_dims.size() == 3) {
-    reduce_sum_kernel<<<gridSize, blockSize, 0, stream>>>(input, output, axis_, in_dims[0],
-                                                          in_dims[1], in_dims[2]);
+    reduce_sum_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        input, output, axis_, in_dims[0], in_dims[1], in_dims[2]);
   }
 
 #ifndef NDEBUG
@@ -192,8 +191,8 @@ void ReduceSumLayer::fprop(bool is_train, cudaStream_t stream) {
 #endif
 }
 
-void ReduceSumLayer::bprop(cudaStream_t stream) {
-  CudaDeviceContext context(device_id_);
+void ReduceSumLayer::bprop() {
+  CudaDeviceContext context(get_device_id());
 
   float* input = in_tensors_[0].get_ptr();
   float* output = out_tensors_[0].get_ptr();
@@ -207,13 +206,14 @@ void ReduceSumLayer::bprop(cudaStream_t stream) {
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size + blockSize.x - 1) / blockSize.x, 1, 1);
   if (in_dims.size() == 1) {
-    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0]);
+    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, input,
+                                                                                axis_, in_dims[0]);
   } else if (in_dims.size() == 2) {
-    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0],
-                                                                in_dims[1]);
+    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        output, input, axis_, in_dims[0], in_dims[1]);
   } else if (in_dims.size() == 3) {
-    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, input, axis_, in_dims[0],
-                                                                in_dims[1], in_dims[2]);
+    reduce_sum_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+        output, input, axis_, in_dims[0], in_dims[1], in_dims[2]);
   }
 
 #ifndef NDEBUG

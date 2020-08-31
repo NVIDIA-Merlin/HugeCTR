@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/include/data_generator.hpp"
 #include <sys/stat.h>
 #include <fstream>
 #include <ios>
@@ -21,7 +22,6 @@
 #include <sstream>
 #include <vector>
 #include "HugeCTR/include/parser.hpp"
-#include "HugeCTR/include/utils.hpp"
 #include "nlohmann/json.hpp"
 
 using namespace HugeCTR;

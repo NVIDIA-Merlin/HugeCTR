@@ -41,39 +41,37 @@ __global__ void adam_update_kernel(int len, float* weight, T* m, T* v, const T* 
 }  // namespace
 
 AdamOptimizer::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
-                             const Tensor2<__half>& fp16_wgrad, bool mixed_precision, int device_id,
-                             float learning_rate, float beta1, float beta2, float epsilon,
-                             float scaler)
-    : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, device_id, learning_rate,
+                             const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
+                             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+                             const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
+                             float beta1, float beta2, float epsilon, float scaler)
+    : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, gpu_resource, learning_rate,
                 scaler),
       t_(0),
       beta1_(beta1),
       beta2_(beta2),
       epsilon_(epsilon) {
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-
   if (mixed_precision) {
-    buf->reserve({weight_main.get_num_elements()}, &fp16_m_);
-    buf->reserve({weight_main.get_num_elements()}, &fp16_v_);
+    buff->reserve({weight_main.get_num_elements()}, &fp16_m_);
+    buff->reserve({weight_main.get_num_elements()}, &fp16_v_);
   } else {
-    buf->reserve({weight_main.get_num_elements()}, &fp32_m_);
-    buf->reserve({weight_main.get_num_elements()}, &fp32_v_);
-  }
-
-  CudaDeviceContext context(device_id);
-  buf->allocate();
-
-  if (mixed_precision) {
-    cudaMemset(fp16_m_.get_ptr(), 0, fp16_m_.get_size_in_bytes());
-    cudaMemset(fp16_v_.get_ptr(), 0, fp16_v_.get_size_in_bytes());
-  } else {
-    cudaMemset(fp32_m_.get_ptr(), 0, fp32_m_.get_size_in_bytes());
-    cudaMemset(fp32_v_.get_ptr(), 0, fp32_v_.get_size_in_bytes());
+    buff->reserve({weight_main.get_num_elements()}, &fp32_m_);
+    buff->reserve({weight_main.get_num_elements()}, &fp32_v_);
   }
 }  // namespace HugeCTR
 
-void AdamOptimizer::update(cudaStream_t stream) {
-  CudaDeviceContext context(device_id_);
+void AdamOptimizer::initialize() {
+  if (mixed_precision_) {
+    cudaMemsetAsync(fp16_m_.get_ptr(), 0, fp16_m_.get_size_in_bytes(), gpu_resource_->get_stream());
+    cudaMemsetAsync(fp16_v_.get_ptr(), 0, fp16_v_.get_size_in_bytes(), gpu_resource_->get_stream());
+  } else {
+    cudaMemsetAsync(fp32_m_.get_ptr(), 0, fp32_m_.get_size_in_bytes(), gpu_resource_->get_stream());
+    cudaMemsetAsync(fp32_v_.get_ptr(), 0, fp32_v_.get_size_in_bytes(), gpu_resource_->get_stream());
+  }
+}
+
+void AdamOptimizer::update() {
+  CudaDeviceContext context(get_device_id());
 
   const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
@@ -89,14 +87,14 @@ void AdamOptimizer::update(cudaStream_t stream) {
     __half* fp16_v = fp16_v_.get_ptr();
     const __half* fp16_wgrad = fp16_wgrad_.get_ptr();
 
-    adam_update_kernel<<<grid_dim, block_dim, 0, stream>>>(
+    adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, fp16_m, fp16_v, fp16_wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
   } else {
     float* fp32_m = fp32_m_.get_ptr();
     float* fp32_v = fp32_v_.get_ptr();
     const float* fp32_wgrad = fp32_wgrad_.get_ptr();
 
-    adam_update_kernel<<<grid_dim, block_dim, 0, stream>>>(
+    adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, fp32_m, fp32_v, fp32_wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
   }
 #ifndef NDEBUG

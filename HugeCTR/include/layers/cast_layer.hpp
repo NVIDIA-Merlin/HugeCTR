@@ -24,8 +24,9 @@ class CastLayer : public Layer {
   Tensor2<__half> top_tensor_;
 
  public:
-  CastLayer(const Tensor2<float>& bottom_tensor, const Tensor2<__half>& top_tensor, int device_id);
-  void fprop(bool is_train, cudaStream_t stream) override;
-  void bprop(cudaStream_t stream) override;
+  CastLayer(const Tensor2<float>& bottom_tensor, const Tensor2<__half>& top_tensor,
+            const std::shared_ptr<GPUResource>& gpu_resource);
+  void fprop(bool is_train) override;
+  void bprop() override;
 };
 }  // namespace HugeCTR

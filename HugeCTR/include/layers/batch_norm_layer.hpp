@@ -67,20 +67,23 @@ class BatchNormLayer : public Layer {
                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                  const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                 const Params& params, cudnnHandle_t const& cudnn_handle, int device_id,
+                 const Params& params, const std::shared_ptr<GPUResource>& gpu_resource,
                  std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   ~BatchNormLayer() override;
+
+  void initialize() override;
 
   /**
    * A method of implementing the forward pass of BatchNorm
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
+
   /**
    * A method of implementing the forward pass of BatchNorm
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
   /**
    * A method to get mean and variance which are needed for inference as string.
@@ -95,11 +98,10 @@ class BatchNormLayer : public Layer {
    * Gamma is initialized to 1s while Beta is 0ed.
    * Override this function to change the initialization behavior.
    */
-  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 
   const Params params_;
   const cudnnBatchNormMode_t mode_;
-  const cudnnHandle_t cudnn_handle_;
   cudnnTensorDescriptor_t in_out_desc_;
   cudnnTensorDescriptor_t gamma_beta_desc_;
 

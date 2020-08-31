@@ -15,16 +15,9 @@
  */
 
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-
-#include <cudnn.h>
-
-#include <math.h>
-#include <vector>
 
 using namespace std;
 using namespace HugeCTR;
@@ -118,14 +111,12 @@ void batch_norm_test(size_t batch_size, size_t num_feature) {
   Tensor2<float> out_tensor;
   buff->reserve(dims, &out_tensor);
 
-  cudnnHandle_t cudnn_handle;
-  CK_CUDNN_THROW_(cudnnCreate(&cudnn_handle));
-
   BatchNormLayer::Params params = {1.0, eps};
-  BatchNormLayer batch_norm_layer(wbuff, wgbuff, buff, in_tensor, out_tensor, params, cudnn_handle,
-                                  0);
+  BatchNormLayer batch_norm_layer(wbuff, wgbuff, buff, in_tensor, out_tensor, params,
+                                  test::get_default_gpu());
 
   buff->allocate();
+  batch_norm_layer.initialize();
 
   const size_t len = batch_size * num_feature;
 
@@ -138,7 +129,7 @@ void batch_norm_test(size_t batch_size, size_t num_feature) {
   std::unique_ptr<float[]> h_out(new float[len]);
   std::unique_ptr<float[]> h_expected(new float[len]);
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -100.0, 100.0);
+  test::GaussianDataSimulator simulator(0.0, 1.0);
 
   // standard normall distribution is assumed
   for (size_t j = 0; j < num_feature; j++) {
@@ -150,42 +141,40 @@ void batch_norm_test(size_t batch_size, size_t num_feature) {
 
   float* d_gamma = weight_tensor.get_ptr();
   float* d_beta = weight_tensor.get_ptr() + num_feature;
-  cudaMemcpy(d_gamma, h_gamma.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_beta, h_beta.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice);
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_gamma, h_gamma.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_beta, h_beta.get(), num_feature * sizeof(float), cudaMemcpyHostToDevice));
 
-  for (size_t i = 0; i < batch_size; i++) {
-    for (size_t j = 0; j < num_feature; j++) {
-      int idx = i * num_feature + j;
-      h_in[idx] = simulator.get_num();
-    }
-  }
+  simulator.fill(h_in.get(), len);
 
   batch_norm_fprop_cpu(h_gamma.get(), h_beta.get(), h_in.get(), h_expected.get(), batch_size,
                        num_feature);
 
-  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
-  batch_norm_layer.fprop(true, cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, len * sizeof(float), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  batch_norm_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, len * sizeof(float), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len, eps));
 
-  for (size_t i = 0; i < batch_size; i++) {
-    for (size_t j = 0; j < num_feature; j++) {
-      int idx = i * num_feature + j;
-      h_out[idx] = simulator.get_num();
-    }
-  }
+  simulator.fill(h_out.get(), len);
 
-  cudaMemcpy(h_expected.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(h_expected.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost));
   batch_norm_bprop_cpu(h_gamma.get(), h_out.get(), h_expected.get(), batch_size, num_feature);
 
-  cudaMemcpy(d_out, h_out.get(), len * sizeof(float), cudaMemcpyHostToDevice);
-  batch_norm_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), len * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  batch_norm_layer.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<float>(h_in.get(), h_expected.get(), len, eps));
-
-  CK_CUDNN_THROW_(cudnnDestroy(cudnn_handle));
 }
 
 }  // namespace

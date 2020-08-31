@@ -15,9 +15,10 @@
  */
 
 #include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
-#include "HugeCTR/include/data_parser.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "gtest/gtest.h"
+#include "utest/test_utils.h"
+
 using namespace std;
 using namespace HugeCTR;
 
@@ -94,7 +95,13 @@ void sgd_test(size_t len, int num_update, bool mixed_precision) {
   buff->reserve({len}, &wgrad);
   Tensor2<__half> wgrad_half;
   buff->reserve({len}, &wgrad_half);
+
+  MomentumSGDOptimizer sgd(weight, wgrad, wgrad_half, mixed_precision, buff,
+                           test::get_default_gpu(), 0.01, 0.9);
+
   buff->allocate();
+
+  sgd.initialize();
 
   std::unique_ptr<float[]> h_weight(new float[len]);
   std::unique_ptr<float[]> h_wgrad(new float[len]);
@@ -104,32 +111,27 @@ void sgd_test(size_t len, int num_update, bool mixed_precision) {
   float* d_wgrad = wgrad.get_ptr();
   __half* d_wgrad_half = wgrad_half.get_ptr();
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+  simulator.fill(h_weight.get(), len);
   for (size_t i = 0; i < len; ++i) {
-    h_weight_expected[i] = h_weight[i] = simulator.get_num();
+    h_weight_expected[i] = h_weight[i];
   }
   cudaMemcpy(d_weight, h_weight.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
-  MomentumSGDOptimizer sgd(weight, wgrad, wgrad_half, mixed_precision, 0, 0.01, 0.9);
   SGDCPU sgd_cpu(len, h_weight_expected.get(), h_wgrad.get(), h_wgrad_half.get(), mixed_precision,
                  0.01, 0.9);
   for (int i = 0; i < num_update; ++i) {
-    for (size_t i = 0; i < len; ++i) {
-      float val = simulator.get_num();
-      if (mixed_precision) {
-        h_wgrad_half[i] = __float2half(val);
-      } else {
-        h_wgrad[i] = val;
-      }
-    }
-
+    simulator.fill(h_wgrad.get(), len);
     if (mixed_precision) {
+      for (size_t i = 0; i < len; ++i) {
+        h_wgrad_half[i] = __float2half(h_wgrad[i]);
+      }
       cudaMemcpy(d_wgrad_half, h_wgrad_half.get(), len * sizeof(__half), cudaMemcpyHostToDevice);
     } else {
       cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
     }
 
-    sgd.update(cudaStreamDefault);
+    sgd.update();
     sgd_cpu.update();
   }
 

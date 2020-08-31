@@ -42,7 +42,8 @@ void cross_entropy_loss(size_t batch_size) {
   Tensor2<float> loss_tensor;
   buff->reserve({1, 1}, &loss_tensor);
 
-  CrossEntropyLoss<float> cel(label_tensor, input_tensor, loss_tensor, nullptr, 0, 1);
+  CrossEntropyLoss<float> cel(label_tensor, input_tensor, loss_tensor, nullptr,
+                              test::get_default_gpu(), 1);
 
   buff->allocate();
 
@@ -61,7 +62,7 @@ void cross_entropy_loss(size_t batch_size) {
   cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size * feature_dim,
              cudaMemcpyHostToDevice);
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
-  cel.compute(true, cudaStreamDefault);
+  cel.compute(true);
 
   // CPU
   float z0_exp, z1_exp;
@@ -110,7 +111,7 @@ void binary_cross_entropy_loss(size_t batch_size) {
   buff->reserve({1, 1}, &loss_tensor);
 
   BinaryCrossEntropyLoss<float> bce(label_tensor, input_tensor, label_tensor, input_tensor,
-                                    loss_tensor, nullptr, 0, 1);
+                                    loss_tensor, nullptr, test::get_default_gpu(), 1);
 
   buff->allocate();
 
@@ -127,7 +128,7 @@ void binary_cross_entropy_loss(size_t batch_size) {
   // GPU
   cudaMemcpy(d_input, h_input.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size, cudaMemcpyHostToDevice);
-  bce.compute(true, cudaStreamDefault);
+  bce.compute(true);
 
   float cpu_loss = 0.0f;
   float x, val, y;

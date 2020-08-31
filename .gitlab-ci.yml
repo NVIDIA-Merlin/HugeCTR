@@ -119,7 +119,6 @@ unit_tests:
     - ./layers_test
     - ./embedding_test
     - ./checker_test
-    - ./data_parser_test
     - ./data_reader_test
     - ./device_map_test
     - ./heap_test

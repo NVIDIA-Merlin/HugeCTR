@@ -17,8 +17,6 @@
 #pragma once
 #include <ctpl/ctpl_stl.h>
 #include <common.hpp>
-#include <data_reader.hpp>
-#include <device_map.hpp>
 #include <embedding.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
@@ -130,8 +128,8 @@ class SessionImpl : public Session {
   std::unique_ptr<DataReader<TypeKey>>
       data_reader_; /**< data reader to reading data from data set to embedding. */
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval_; /**< data reader for evaluation. */
-  std::shared_ptr<GPUResourceGroup>
-      gpu_resource_group_; /**< GPU resources include handles and streams etc.*/
+  std::shared_ptr<ResourceManager>
+      resource_manager_; /**< GPU resources include handles and streams etc.*/
 
   Error_t download_params_to_files_(std::string weights_file,
                                     const std::vector<std::string>& embedding_files);

@@ -53,17 +53,14 @@ template <typename T>
 ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& train_in_tensor,
                               const Tensor2<T>& evaluate_in_tensor, Tensor2<T>& out_tensor,
                               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                              size_t leading_dim, int device_id)
-    : Layer(device_id),
+                              size_t leading_dim, const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource),
       in_place_(true),
       batch_size_(0),
       n_slot_(0),
       vector_length_(0),
-      n_active_slot_(0),
-      n_sms_(0) {
+      n_active_slot_(0) {
   try {
-    CudaDeviceContext context(device_id);
-
     const std::vector<size_t>& in_dims = train_in_tensor.get_dimensions();
     int im_idx = in_dims.size() - 1;
     if (leading_dim < in_dims[im_idx] || leading_dim % in_dims[im_idx] != 0) {
@@ -98,17 +95,16 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& train_in_tensor,
 template <typename T>
 ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                              std::vector<int>& selected, int device_id)
-    : Layer(device_id),
+                              std::vector<int>& selected,
+                              const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource),
       in_place_(selected.empty()),
       batch_size_(0),
       n_slot_(0),
       vector_length_(0),
       n_active_slot_(selected.size()),
-      n_sms_(0) {
+      selected_(selected) {
   try {
-    CudaDeviceContext context(device_id);
-
     const std::vector<size_t>& in_dims = in_tensor.get_dimensions();
     if (in_dims[1] < n_active_slot_) {
       CK_THROW_(Error_t::WrongInput, "selected is invalid");
@@ -124,20 +120,11 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tenso
       n_slot_ = in_dims[i++];
       vector_length_ = in_dims[i];
 
-      std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-      buf->reserve({n_active_slot_}, &selected_);
-      buf->allocate();
-
-      CK_CUDA_THROW_(cudaMemcpy(selected_.get_ptr(), &selected.front(),
-                                n_active_slot_ * sizeof(int), cudaMemcpyHostToDevice));
+      blobs_buff->reserve({n_active_slot_}, &selected_tensor_);
     }
     train_in_tensors_.push_back(in_tensor);
     evaluate_in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
-
-    int device = get_device_id();
-    CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device));
-    assert(n_sms_ > 0);
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -146,16 +133,22 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tenso
 }
 
 template <typename T>
-ReshapeLayer<T>::~ReshapeLayer() {}
-
-template <typename T>
-void ReshapeLayer<T>::fprop(bool is_train, cudaStream_t stream) {
-  prop_common(true, is_train, stream);
+void ReshapeLayer<T>::initialize() {
+  if (!in_place_) {
+    CK_CUDA_THROW_(cudaMemcpyAsync(selected_tensor_.get_ptr(), &selected_.front(),
+                                   n_active_slot_ * sizeof(int), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
+  }
 }
 
 template <typename T>
-void ReshapeLayer<T>::bprop(cudaStream_t stream) {
-  prop_common(false, true, stream);
+void ReshapeLayer<T>::fprop(bool is_train) {
+  prop_common(true, is_train, get_gpu().get_stream());
+}
+
+template <typename T>
+void ReshapeLayer<T>::bprop() {
+  prop_common(false, true, get_gpu().get_stream());
 }
 
 template <typename T>
@@ -174,11 +167,11 @@ void ReshapeLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stre
     }
   } else {
     int block_size = 128;
-    int n_block = n_sms_ * 16;
+    int n_block = get_gpu().get_sm_count() * 16;
     T* in = in_tensor.get_ptr();
     T* out = out_tensor.get_ptr();
     reshape_kernel<<<n_block, block_size>>>(in, out, batch_size_, n_slot_, vector_length_,
-                                            selected_.get_ptr(), n_active_slot_, forward);
+                                            selected_tensor_.get_ptr(), n_active_slot_, forward);
   }
 #ifndef NDEBUG
   cudaDeviceSynchronize();

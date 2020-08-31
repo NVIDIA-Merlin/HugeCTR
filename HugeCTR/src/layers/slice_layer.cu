@@ -65,11 +65,10 @@ template <typename T>
 SliceLayer<T>::SliceLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& evaluate_in_tensor,
                           Tensors2<T>& out_tensors,
                           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                          std::vector<std::pair<int, int>>& ranges, int device_id)
-    : Layer(device_id), n_sms_(0), virt_w_(0) {
+                          std::vector<std::pair<int, int>>& ranges,
+                          const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource), virt_w_(0) {
   try {
-    CudaDeviceContext context(device_id);
-
     if (ranges.empty()) {
       CK_THROW_(Error_t::WrongInput, "Empty slice ranges is not allowed");
     }
@@ -122,10 +121,6 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& e
       out_tensors_.push_back(out_tensor);
     }
 
-    int device = get_device_id();
-    CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device));
-    assert(n_sms_ > 0);
-
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -133,13 +128,13 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& e
 }
 
 template <typename T>
-void SliceLayer<T>::fprop(bool is_train, cudaStream_t stream) {
-  prop_common(true, is_train, stream);
+void SliceLayer<T>::fprop(bool is_train) {
+  prop_common(true, is_train, get_gpu().get_stream());
 }
 
 template <typename T>
-void SliceLayer<T>::bprop(cudaStream_t stream) {
-  prop_common(false, true, stream);
+void SliceLayer<T>::bprop() {
+  prop_common(false, true, get_gpu().get_stream());
 }
 
 template <typename T>
@@ -188,7 +183,7 @@ template <typename T>
 template <typename... Args>
 void SliceLayer<T>::kernel_launch(bool forward, bool is_train, cudaStream_t stream, Args&... args) {
   int block_size = 512;
-  int n_blocks = n_sms_ * 4;
+  int n_blocks = get_gpu().get_sm_count() * 4;
   Tensor2<T>& in_tensor = get_in_tensors(is_train)[0];
   T* in = in_tensor.get_ptr();
   int h = in_tensor.get_dimensions()[0];

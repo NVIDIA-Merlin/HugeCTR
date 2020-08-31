@@ -41,18 +41,19 @@ class ReluLayer : public Layer {
    * @param out_tensor the output tensor which has the same dim with in_tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, int device_id);
+  ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
+            const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
    * A method of implementing the forward pass of Relu
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * A method of implementing the backward pass of Relu
    * @param stream CUDA stream where the backward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 };
 
 }  // namespace HugeCTR
