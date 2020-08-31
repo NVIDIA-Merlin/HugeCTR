@@ -17,7 +17,7 @@
 #pragma once
 
 #include <data_readers/data_reader_worker_group.hpp>
-#include <parquet_data_reader_worker.hpp>
+#include <data_readers/parquet_data_reader_worker.hpp>
 
 namespace HugeCTR {
 

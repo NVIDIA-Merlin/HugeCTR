@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <mmap_offset_list.hpp>
-#include <source.hpp>
+#include <data_readers/mmap_offset_list.hpp>
+#include <data_readers/source.hpp>
 
 namespace HugeCTR {
 class MmapSource : public Source {

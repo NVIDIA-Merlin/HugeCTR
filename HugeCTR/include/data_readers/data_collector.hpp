@@ -18,9 +18,9 @@
 
 #include <unistd.h>
 #include <common.hpp>
-#include <csr.hpp>
-#include <csr_chunk.hpp>
-#include <heapex.hpp>
+#include <data_readers/csr.hpp>
+#include <data_readers/csr_chunk.hpp>
+#include <data_readers/heapex.hpp>
 #include <resource_manager.hpp>
 #include <utils.hpp>
 #ifdef ENABLE_MPI
