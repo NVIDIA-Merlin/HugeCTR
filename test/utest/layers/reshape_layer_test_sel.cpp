@@ -15,14 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/reshape_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
-
 #include <math.h>
 #include <memory>
 #include <vector>
+#include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace std;
 using namespace HugeCTR;
@@ -42,14 +39,17 @@ void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
   Tensor2<T> in_tensor;
   buff->reserve(in_dims, &in_tensor);
   Tensor2<T> out_tensor;
-  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, buff, selected, 0);
+  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, buff, selected, test::get_default_gpu());
 
   buff->allocate();
+  reshape_layer.initialize();
+
+  test::GaussianDataSimulator data_sim(0.0f, 1.0f);
 
   std::vector<T> h_in;
   h_in.resize(in_tensor.get_num_elements());
-  GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
-  for (unsigned int i = 0; i < h_in.size(); i++) h_in[i] = data_sim.get_num();
+
+  data_sim.fill(h_in.data(), h_in.size());
 
   // fprop
   std::vector<T> h_ref;
@@ -69,14 +69,16 @@ void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
   }
 
   T* d_in = in_tensor.get_ptr();
-  cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice);
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
-  reshape_layer.fprop(true, cudaStreamDefault);
+  reshape_layer.fprop(true);
 
   std::vector<T> h_result;
   h_result.resize(batch_size * n_active_slot * vector_length);
   T* d_out = out_tensor.get_ptr();
-  cudaMemcpy(&h_result.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(
+      cudaMemcpy(&h_result.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(
       test::compare_array_approx<T>(&h_result.front(), &h_ref.front(), h_result.size(), eps));
@@ -85,7 +87,7 @@ void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
   h_ref.resize(batch_size * n_slot * vector_length);
   h_ref = h_in;
 
-  reshape_layer.bprop(cudaStreamDefault);
+  reshape_layer.bprop();
 
   h_result.resize(batch_size * n_slot * vector_length);
   cudaMemcpy(&h_result.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);

@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <gpu_resource.hpp>
 #include <map>
 #include <memory>
+#include <resource_manager.hpp>
 #include <string>
 #include <tensor2.hpp>
 #include <utils.hpp>
@@ -37,10 +37,10 @@ class Metric {
  public:
   static std::unique_ptr<Metric> Create(const Type type, bool use_mixed_precision,
                                         int batch_size_eval, int n_batches,
-                                        std::shared_ptr<GPUResourceGroup> gpu_resource_group);
+                                        const std::shared_ptr<ResourceManager>& resource_manager);
   Metric();
   virtual ~Metric();
-  virtual void local_reduce(int device_id, RawMetricMap raw_metrics) = 0;
+  virtual void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) = 0;
   virtual void global_reduce(int n_nets) = 0;
   virtual float finalize_metric() = 0;
   virtual std::string name() const = 0;
@@ -57,15 +57,16 @@ using Metrics = std::vector<std::unique_ptr<metrics::Metric>>;
 template <typename T>
 class AverageLoss : public Metric {
  public:
-  AverageLoss(int num_gpus);
+  AverageLoss(const std::shared_ptr<ResourceManager>& resource_manager);
   ~AverageLoss() override;
 
-  void local_reduce(int device_id, RawMetricMap raw_metrics) override;
+  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
   std::string name() const override { return "AverageLoss"; };
 
  private:
+  std::shared_ptr<ResourceManager> resource_manager_;
   std::vector<float> loss_local_;
   float loss_global_;
   int n_batches_;
@@ -76,11 +77,11 @@ class AUC : public Metric {
  public:
   using PredType = T;
   using LabelType = float;
-  AUC(int batch_size_per_gpu, int n_batches, int root_device_id, int num_gpus,
-      std::shared_ptr<GPUResourceGroup> gpu_resource_group);
+  AUC(int batch_size_per_gpu, int n_batches,
+      const std::shared_ptr<ResourceManager>& resource_manager);
   ~AUC() override;
 
-  void local_reduce(int device_id, RawMetricMap raw_metrics) override;
+  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
   std::string name() const override { return "AUC"; };
@@ -100,6 +101,7 @@ class AUC : public Metric {
 
   void num_active_gpu_and_r(int& num_active_gpu, int& r);
 
+  std::shared_ptr<ResourceManager> resource_manager_;
   int batch_size_per_gpu_;
   int n_batches_;
   int root_device_id_;
@@ -111,8 +113,6 @@ class AUC : public Metric {
   void* temp3_;
   void* workspace_;
   size_t temp_storage_bytes_;
-  int num_sms_;
-  std::shared_ptr<GPUResourceGroup> gpu_resource_group_;
 };
 
 }  // namespace metrics

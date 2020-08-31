@@ -34,9 +34,6 @@ const float eps = 1e-5;
 
 void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t>> layers,
                          float lambda) {
-  cublasHandle_t cublas_handle;
-  cublasCreate(&cublas_handle);
-
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   std::shared_ptr<BufferBlock2<float>> weight_buff = buff->create_block<float>();
@@ -56,7 +53,7 @@ void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t
 
   buff->allocate();
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -1.0, 1.0);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
   std::vector<std::vector<float>> h_weights;
   for (size_t i = 0; i < layers.size(); i++) {
     auto& weight = weight_tensors[i];
@@ -64,19 +61,17 @@ void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t
     const size_t len = weight.get_num_elements();
     const size_t n_bytes = weight.get_size_in_bytes();
 
-    std::vector<float> h_weight;
-    for (size_t i = 0; i < len; i++) {
-      h_weight.push_back(simulator.get_num());
-    }
-    cudaMemcpy(weight.get_ptr(), &h_weight.front(), n_bytes, cudaMemcpyHostToDevice);
+    std::vector<float> h_weight(len);
+    simulator.fill(h_weight.data(), len);
+    cudaMemcpy(weight.get_ptr(), h_weight.data(), n_bytes, cudaMemcpyHostToDevice);
     h_weights.push_back(h_weight);
   }
 
   L2Regularizer<float> l2_regularizer(weight_buff->as_tensor(), wgrad_buff->as_tensor(), batch_size,
-                                      lambda, cublas_handle, 0);
+                                      lambda, test::get_default_gpu());
 
   // compute the regularization term
-  l2_regularizer.compute_rterm(cudaStreamDefault);
+  l2_regularizer.compute_rterm();
   float out_term = l2_regularizer.get_rterm();
 
   float ref_term = 0.0f;
@@ -91,7 +86,7 @@ void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t
   ASSERT_TRUE(test::compare_array_approx<float>(&out_term, &ref_term, 1, eps));
 
   // initialize wgard with (lambda / m) * w
-  l2_regularizer.initialize_wgrad(cudaStreamDefault);
+  l2_regularizer.initialize_wgrad();
   for (size_t i = 0; i < layers.size(); i++) {
     const auto& wgrad = wgrad_tensors[i];
     const size_t len = wgrad.get_num_elements();
@@ -107,8 +102,6 @@ void l2_regularizer_test(size_t batch_size, std::vector<std::pair<size_t, size_t
     }
     ASSERT_TRUE(test::compare_array_approx<float>(&out_wgrad.front(), &ref_wgrad.front(), 1, eps));
   }
-
-  cublasDestroy(cublas_handle);
 }
 
 TEST(l2_regularizer_layer, 32x64_64x1) { l2_regularizer_test(32, {{64, 1}}, 0.001); }

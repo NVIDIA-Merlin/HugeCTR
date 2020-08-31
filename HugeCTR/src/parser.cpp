@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <device_map.hpp>
 #include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
@@ -40,10 +39,7 @@
 #include <layers/slice_layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
-#include <optimizers/adam_optimizer.hpp>
-#include <optimizers/momentum_sgd_optimizer.hpp>
-#include <optimizers/nesterov_optimizer.hpp>
-#include <optimizers/sgd_optimizer.hpp>
+#include <optimizer.hpp>
 #include <parser.hpp>
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
@@ -192,9 +188,9 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
 template <typename T>
 static std::shared_ptr<Regularizer<T>> create_regularizer(
     const nlohmann::json& j, const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
-    const int batch_size, cublasHandle_t cublas_handle, const int device_id) {
+    const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource) {
   std::shared_ptr<Regularizer<T>> reg(
-      new NoRegularizer<T>(weight_buff, wgrad_buff, batch_size, device_id));
+      new NoRegularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource));
   auto reg_it = j.find("regularizer");
   if (reg_it != j.end()) {
     Regularizer_t reg_type;
@@ -205,14 +201,12 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
     switch (reg_type) {
       case Regularizer_t::L1: {
         const auto lambda = get_value_from_json<float>(j, "lambda");
-        reg.reset(new L1Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle,
-                                       device_id));
+        reg.reset(new L1Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
         break;
       }
       case Regularizer_t::L2: {
         const auto lambda = get_value_from_json<float>(j, "lambda");
-        reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle,
-                                       device_id));
+        reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
         break;
       }
       default: { assert(!"Error: no such regularizer!"); }
@@ -267,11 +261,11 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
  *
  */
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
-                        std::vector<TensorEntry>& tensor_entries, int device_id,
-                        int num_networks_in_global,
-                        const std::shared_ptr<const GPUResource>& gpu_resource,
-                        bool use_mixed_precision, float scaler, bool use_algorithm_search) {
-  std::unique_ptr<Network> network(new Network(device_id, gpu_resource, use_mixed_precision));
+                        std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
+                        const std::shared_ptr<CPUResource>& cpu_resource,
+                        const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+                        float scaler, bool use_algorithm_search) {
+  std::unique_ptr<Network> network(new Network(cpu_resource, gpu_resource, use_mixed_precision));
 
   auto& layers = network->layers_;
   auto& loss_tensor = network->loss_tensor_;
@@ -339,9 +333,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
 
         BatchNormLayer::Params params = {factor, eps};
-        layers.emplace_back(new BatchNormLayer(
-            weight_buff, wgrad_buff, blobs_buff, bn_in_tensor, bn_out_tensor, params,
-            gpu_resource->get_cudnn_handle(), device_id, initializer_types));
+        layers.emplace_back(new BatchNormLayer(weight_buff, wgrad_buff, blobs_buff, bn_in_tensor,
+                                               bn_out_tensor, params, gpu_resource,
+                                               initializer_types));
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
@@ -364,9 +358,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               train_label_tensor, train_in_tensor, evaluate_label_tensor, evaluate_in_tensor,
               loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-                                 train_in_tensor.get_dimensions()[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              device_id, num_networks_in_global, scaler));
+                                 train_in_tensor.get_dimensions()[0], gpu_resource),
+              gpu_resource, num_networks_in_global, scaler));
         } else {
           Tensor2<float> train_in_tensor =
               Tensor2<float>::stretch_from(input_output_info.train_input[0]);
@@ -375,11 +368,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
           loss.reset(new BinaryCrossEntropyLoss<float>(
               train_label_tensor, train_in_tensor, evaluate_label_tensor, evaluate_in_tensor,
-              loss_tensor,
-              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                                 train_in_tensor.get_dimensions()[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              device_id, num_networks_in_global, scaler));
+              loss_tensor, create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                                              train_in_tensor.get_dimensions()[0], gpu_resource),
+              gpu_resource, num_networks_in_global, scaler));
         }
         break;
       }
@@ -395,7 +386,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           }
           Tensor2<__half> out_tensor;
           layers.emplace_back(new ConcatLayer<__half>(train_in_tensors, evaluate_in_tensors,
-                                                      out_tensor, blobs_buff, device_id));
+                                                      out_tensor, blobs_buff, gpu_resource));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         } else {
           Tensors2<float> train_in_tensors;
@@ -408,7 +399,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           }
           Tensor2<float> out_tensor;
           layers.emplace_back(new ConcatLayer<float>(train_in_tensors, evaluate_in_tensors,
-                                                     out_tensor, blobs_buff, device_id));
+                                                     out_tensor, blobs_buff, gpu_resource));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
@@ -427,9 +418,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           loss.reset(new CrossEntropyLoss<__half>(
               label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-                                 cross_entropy_loss_in_tensor.get_dimensions()[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              device_id, num_networks_in_global, scaler));
+                                 cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
+              gpu_resource, num_networks_in_global, scaler));
         } else {
           Tensor2<float> cross_entropy_loss_in_tensor =
               Tensor2<float>::stretch_from(input_output_info.train_input[0]);
@@ -437,9 +427,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           loss.reset(new CrossEntropyLoss<float>(
               label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                                 cross_entropy_loss_in_tensor.get_dimensions()[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              device_id, num_networks_in_global, scaler));
+                                 cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
+              gpu_resource, num_networks_in_global, scaler));
         }
         break;
       }
@@ -456,12 +445,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
 #ifndef PREFER_CUDNN
           layers.emplace_back(new DropoutLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                       rate, gpu_resource->get_curand_generator(),
-                                                       device_id));
+                                                       rate, gpu_resource));
 #else
           layers.emplace_back(new DropoutCudnnLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                            rate, gpu_resource->get_cudnn_handle(),
-                                                            device_id));
+                                                            rate, gpu_resource));
 #endif
         } else {
           // establish out tensor
@@ -474,13 +461,11 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
 #ifndef PREFER_CUDNN
-          layers.emplace_back(new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate,
-                                                      gpu_resource->get_curand_generator(),
-                                                      device_id));
+          layers.emplace_back(
+              new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
 #else
           layers.emplace_back(new DropoutCudnnLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                           rate, gpu_resource->get_cudnn_handle(),
-                                                           device_id));
+                                                           rate, gpu_resource));
 #endif
         }
         network->enable_cuda_graph_ = false;
@@ -498,7 +483,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
         auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
-        layers.emplace_back(new EluLayer(elu_in_tensor, elu_out_tensor, alpha, device_id));
+        layers.emplace_back(new EluLayer(elu_in_tensor, elu_out_tensor, alpha, gpu_resource));
 
         break;
       }
@@ -539,8 +524,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           layers.emplace_back(new FusedFullyConnectedLayer(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
-              evaluate_in_tensor, fc_out_tensor, gpu_resource->get_cublas_handle(), device_id,
-              initializer_types));
+              evaluate_in_tensor, fc_out_tensor, gpu_resource, initializer_types));
         } else {
           CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
         }
@@ -553,7 +537,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           Tensor2<__half> out_tensor;
           blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
-          layers.emplace_back(new CastLayer(in_tensor, out_tensor, device_id));
+          layers.emplace_back(new CastLayer(in_tensor, out_tensor, gpu_resource));
         } else {
           CK_THROW_(Error_t::WrongInput, "Cast supports half only");
         }
@@ -597,8 +581,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           layers.emplace_back(new FullyConnectedLayerHalf(
               weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
-              evaluate_in_tensor, fc_out_tensor, gpu_resource->get_cublas_handle(), device_id,
-              initializer_types));
+              evaluate_in_tensor, fc_out_tensor, gpu_resource, initializer_types));
           output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
         } else {
           Tensor2<float> train_in_tensor =
@@ -608,10 +591,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           Tensor2<float> fc_out_tensor;
           blobs_buff->reserve({train_in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
           // establish layer
-          layers.emplace_back(new FullyConnectedLayer(weight_buff, wgrad_buff, train_in_tensor,
-                                                      evaluate_in_tensor, fc_out_tensor,
-                                                      gpu_resource->get_cublas_handle(), device_id,
-                                                      use_mixed_precision, initializer_types));
+          layers.emplace_back(new FullyConnectedLayer(
+              weight_buff, wgrad_buff, train_in_tensor, evaluate_in_tensor, fc_out_tensor,
+              gpu_resource, use_mixed_precision, initializer_types));
           output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
@@ -620,15 +602,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::Interaction: {
         // lambda template could be a better solution here, but there's not support in c++11
         if (use_mixed_precision) {
-          int major = 0;
-          int minor = 0;
-          CK_CUDA_THROW_(
-              cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device_id));
-          CK_CUDA_THROW_(
-              cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device_id));
-          if (major < 7) {
+          if (gpu_resource->get_cc_major() < 7) {
             CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
-                                               std::to_string(major) + "." + std::to_string(minor));
+                                               std::to_string(gpu_resource->get_cc_major()) + "." +
+                                               std::to_string(gpu_resource->get_cc_minor()));
           }
 
           Tensor2<__half> train_in_mlp_tensor =
@@ -645,7 +622,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_in_emb_tensor,
               evaluate_in_emb_tensor, out_tensor,
               blobs_buff,  // todo cannot use this blobs_buff here need half
-              gpu_resource->get_cublas_handle(), use_mixed_precision, device_id));
+              gpu_resource, use_mixed_precision));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
 
         } else {
@@ -660,8 +637,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           Tensor2<float> out_tensor;
           layers.emplace_back(new InteractionLayer<float>(
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_emb_tensor, evaluate_emb_tensor,
-              out_tensor, blobs_buff, gpu_resource->get_cublas_handle(), use_mixed_precision,
-              device_id));
+              out_tensor, blobs_buff, gpu_resource, use_mixed_precision));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
 
@@ -698,10 +674,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
         output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         // establish layer
-        Layer* mc_layer = new MultiCrossLayer(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
-                                              out_tensor, gpu_resource->get_cublas_handle(),
-                                              num_layers, device_id, initializer_types);
-        layers.emplace_back(mc_layer);
+        layers.emplace_back(new MultiCrossLayer(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
+                                                out_tensor, gpu_resource, num_layers,
+                                                initializer_types));
         break;
       }
 
@@ -728,8 +703,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
                                  multi_cross_entropy_loss_in_tensor.get_dimensions()[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              target_weight_vec, device_id, num_networks_in_global, scaler));
+                                 gpu_resource),
+              target_weight_vec, gpu_resource, num_networks_in_global, scaler));
         } else {
           Tensor2<float> multi_cross_entropy_loss_in_tensor =
               Tensor2<float>::stretch_from(input_output_info.train_input[0]);
@@ -737,8 +712,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
                                  multi_cross_entropy_loss_in_tensor.get_dimensions()[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              target_weight_vec, device_id, num_networks_in_global, scaler));
+                                 gpu_resource),
+              target_weight_vec, gpu_resource, num_networks_in_global, scaler));
         }
         break;
       }
@@ -748,7 +723,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
           Tensor2<__half> relu_out_tensor;
           blobs_buff->reserve(relu_in_tensor.get_dimensions(), &relu_out_tensor);
-          layers.emplace_back(new ReluLayer<__half>(relu_in_tensor, relu_out_tensor, device_id));
+          layers.emplace_back(new ReluLayer<__half>(relu_in_tensor, relu_out_tensor, gpu_resource));
           output_tensor_pairs.push_back({relu_out_tensor.shrink(), input_output_info.output[0]});
         } else {
           // establish out tensor
@@ -756,7 +731,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               Tensor2<float>::stretch_from(input_output_info.train_input[0]);
           Tensor2<float> relu_out_tensor;
           blobs_buff->reserve(relu_in_tensor.get_dimensions(), &relu_out_tensor);
-          layers.emplace_back(new ReluLayer<float>(relu_in_tensor, relu_out_tensor, device_id));
+          layers.emplace_back(new ReluLayer<float>(relu_in_tensor, relu_out_tensor, gpu_resource));
           output_tensor_pairs.push_back({relu_out_tensor.shrink(), input_output_info.output[0]});
         }
 
@@ -778,15 +753,15 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             Tensor2<__half> in_tensor =
                 Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
             Tensor2<__half> out_tensor;
-            layers.emplace_back(
-                new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff, selected, device_id));
+            layers.emplace_back(new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff,
+                                                         selected, gpu_resource));
             output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           } else {
             Tensor2<float> in_tensor =
                 Tensor2<float>::stretch_from(input_output_info.train_input[0]);
             Tensor2<float> out_tensor;
             layers.emplace_back(
-                new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff, selected, device_id));
+                new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff, selected, gpu_resource));
             output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           }
         }
@@ -808,7 +783,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                                      : train_in_tensor.get_num_elements() / in_dims[0];
             layers.emplace_back(new ReshapeLayer<__half>(train_in_tensor, evaluate_in_tensor,
                                                          out_tensor, blobs_buff, leading_dim,
-                                                         device_id));
+                                                         gpu_resource));
             output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           } else {
             Tensor2<float> train_in_tensor =
@@ -822,7 +797,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                                      : train_in_tensor.get_num_elements() / in_dims[0];
             layers.emplace_back(new ReshapeLayer<float>(train_in_tensor, evaluate_in_tensor,
                                                         out_tensor, blobs_buff, leading_dim,
-                                                        device_id));
+                                                        gpu_resource));
             output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           }
         }
@@ -843,8 +818,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           Tensor2<__half> evaluate_in_tensor =
               Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
           Tensors2<__half> out_tensors;
-          layers.emplace_back(new SliceLayer<__half>(train_in_tensor, evaluate_in_tensor,
-                                                     out_tensors, blobs_buff, ranges, device_id));
+          layers.emplace_back(new SliceLayer<__half>(
+              train_in_tensor, evaluate_in_tensor, out_tensors, blobs_buff, ranges, gpu_resource));
           for (size_t i = 0; i < out_tensors.size(); i++) {
             output_tensor_pairs.push_back({out_tensors[i].shrink(), input_output_info.output[i]});
           }
@@ -855,7 +830,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
           Tensors2<float> out_tensors;
           layers.emplace_back(new SliceLayer<float>(train_in_tensor, evaluate_in_tensor,
-                                                    out_tensors, blobs_buff, ranges, device_id));
+                                                    out_tensors, blobs_buff, ranges, gpu_resource));
           for (size_t i = 0; i < out_tensors.size(); i++) {
             output_tensor_pairs.push_back({out_tensors[i].shrink(), input_output_info.output[i]});
           }
@@ -884,9 +859,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
         Tensor2<float> out_tensor;
-        Layer* mul_layer = new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff, in_tensor,
-                                             out_tensor, weight_dims, device_id, initializer_types);
-        layers.emplace_back(mul_layer);
+        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff, in_tensor,
+                                              out_tensor, weight_dims, gpu_resource,
+                                              initializer_types));
         output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         break;
       }
@@ -897,7 +872,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         Tensor2<float> out_tensor;
         blobs_buff->reserve({in_tensor.get_dimensions()[0], out_dim}, &out_tensor);
 
-        layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, device_id));
+        layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, gpu_resource));
         output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         break;
       }
@@ -909,7 +884,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           }
           Tensor2<__half> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(new AddLayer<__half>(in_tensors, out_tensor, blobs_buff, device_id));
+          layers.emplace_back(
+              new AddLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         } else {
           Tensors2<float> in_tensors;
@@ -918,7 +894,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           }
           Tensor2<float> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(new AddLayer<float>(in_tensors, out_tensor, blobs_buff, device_id));
+          layers.emplace_back(
+              new AddLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
@@ -928,7 +905,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
         Tensor2<float> out_tensor;
-        layers.emplace_back(new ReduceSumLayer(in_tensor, out_tensor, blobs_buff, axis, device_id));
+        layers.emplace_back(
+            new ReduceSumLayer(in_tensor, out_tensor, blobs_buff, axis, gpu_resource));
         output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         break;
       }
@@ -939,7 +917,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
         Tensor2<float> out_tensor;
         blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-        layers.emplace_back(new DotProductLayer(in_tensors, out_tensor, blobs_buff, device_id));
+        layers.emplace_back(new DotProductLayer(in_tensors, out_tensor, blobs_buff, gpu_resource));
         output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         break;
       }
@@ -963,16 +941,16 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   // create optimizer
   auto opt_param = get_optimizer_param<float>(j_optimizer);
 
-  network->optimizer_ = std::move(
-      Optimizer::Create(opt_param, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                        wgrad_buff_half->as_tensor(), use_mixed_precision, scaler, device_id));
+  network->optimizer_ = std::move(Optimizer::Create(
+      opt_param, weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+      use_mixed_precision, scaler, blobs_buff, gpu_resource));
 
   network->weight_tensor_ = weight_buff->as_tensor();
   network->wgrad_tensor_ = wgrad_buff->as_tensor();
   network->weight_tensor_half_ = weight_buff_half->as_tensor();
   network->wgrad_tensor_half_ = wgrad_buff_half->as_tensor();
 
-  CudaDeviceContext context(device_id);
+  CudaDeviceContext context(gpu_resource->get_device_id());
   blobs_buff->allocate();
 
 #ifndef DATA_READING_TEST
@@ -1051,7 +1029,7 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
                              std::vector<TensorEntry>* tensor_entries_list,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
                              Embedding_t embedding_type, const nlohmann::json& config,
-                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                             const std::shared_ptr<ResourceManager>& resource_manager,
                              size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
                              float scaler, const nlohmann::json& j_layers) {
 #ifdef ENABLE_MPI
@@ -1112,7 +1090,7 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
       embedding.emplace_back(new DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, gpu_resource_group));
+          sparse_input.evaluate_nnz, embedding_params, resource_manager));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
@@ -1168,7 +1146,7 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
       embedding.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, plan_file, gpu_resource_group));
+          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
 
       break;
     }
@@ -1195,12 +1173,12 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
       embedding.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, plan_file, gpu_resource_group));
+          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
 
       break;
     }
   }  // switch
-  for (unsigned int i = 0; i < gpu_resource_group->size(); i++) {
+  for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     tensor_entries_list[i].push_back(
         {top_name, TensorUse::Train, (embedding.back()->get_train_output_tensors())[i]});
     tensor_entries_list[i].push_back(
@@ -1213,13 +1191,13 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                                      std::unique_ptr<DataReader<TypeKey>>& data_reader_eval,
                                      std::vector<std::unique_ptr<IEmbedding>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
-                                     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                                     const std::shared_ptr<ResourceManager>& resource_manager,
                                      nlohmann::json config, size_t batch_size,
                                      size_t batch_size_eval, bool use_mixed_precision, float scaler,
                                      bool use_algorithm_search) {
   try {
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
-    std::vector<TensorEntry> tensor_entries_list[gpu_resource_group->size()];
+    std::vector<TensorEntry> tensor_entries_list[resource_manager->get_local_gpu_count()];
     {
       if (!network.empty()) {
         CK_THROW_(Error_t::WrongInput, "vector network is not empty");
@@ -1306,15 +1284,15 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         const int NUM_THREADS = 1;
 #else
         const int NUM_THREADS =
-            format == DataReaderType_t::Parquet ? gpu_resource_group->get_total_gpu_count() : 12;
+            format == DataReaderType_t::Parquet ? resource_manager->get_global_gpu_count() : 12;
 #endif
 
-        data_reader.reset(new DataReader<TypeKey>(
-            batch_size, label_dim, dense_dim, data_reader_sparse_param_array, gpu_resource_group,
-            NUM_THREADS, use_mixed_precision, false));
+        data_reader.reset(new DataReader<TypeKey>(batch_size, label_dim, dense_dim,
+                                                  data_reader_sparse_param_array, resource_manager,
+                                                  NUM_THREADS, use_mixed_precision, false));
         data_reader_eval.reset(new DataReader<TypeKey>(
-            batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array,
-            gpu_resource_group, NUM_THREADS, use_mixed_precision, cache_eval_data));
+            batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
+            NUM_THREADS, use_mixed_precision, cache_eval_data));
 
         auto f = [&j]() -> std::vector<long long> {
           std::vector<long long> slot_offset;
@@ -1353,11 +1331,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
             break;
           }
           case DataReaderType_t::Parquet: {
-            size_t pool_alloc_size = 256 * 1024 * 1024;
-            std::vector<int> dev = gpu_resource_group->get_device_list();
-            auto& memory_resource = gpu_resource_group->get_rmm_mr();
-            memory_resource =
-                std::make_shared<rmm::mr::cnmem_memory_resource>(pool_alloc_size, dev);
+            const auto& memory_resource = resource_manager->get_rmm_mr_device_memory_resource();
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
             rmm::mr::set_default_resource(memory_resource.get());
@@ -1372,7 +1346,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           default: { assert(!"Error: no such option && should never get here!"); }
         }
 
-        for (unsigned int i = 0; i < gpu_resource_group->size(); i++) {
+        for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
           tensor_entries_list[i].push_back(
               {top_strs_label, TensorUse::Train, data_reader->get_label_tensors()[i].shrink()});
           tensor_entries_list[i].push_back({top_strs_label, TensorUse::Evaluate,
@@ -1419,29 +1393,27 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           }
 
           if (use_mixed_precision) {
-            create_embedding<TypeKey, __half>(
-                sparse_input_map, tensor_entries_list, embedding, embedding_type, config,
-                gpu_resource_group, batch_size, batch_size_eval, use_mixed_precision, scaler, j);
+            create_embedding<TypeKey, __half>(sparse_input_map, tensor_entries_list, embedding,
+                                              embedding_type, config, resource_manager, batch_size,
+                                              batch_size_eval, use_mixed_precision, scaler, j);
           } else {
             create_embedding<TypeKey, float>(sparse_input_map, tensor_entries_list, embedding,
-                                             embedding_type, config, gpu_resource_group, batch_size,
+                                             embedding_type, config, resource_manager, batch_size,
                                              batch_size_eval, use_mixed_precision, scaler, j);
           }
         }  // for ()
       }    // Create Embedding
 
       // create network
-      int i = 0;
-      int total_gpu_count = gpu_resource_group->get_total_gpu_count();
+      int total_gpu_count = resource_manager->get_global_gpu_count();
       if (0 != batch_size % total_gpu_count) {
         CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
       }
-      const auto& device_list = gpu_resource_group->get_device_list();
-      for (auto device_id : device_list) {
-        network.emplace_back(create_network(
-            j_layers_array, j_optimizer, tensor_entries_list[i], device_id, total_gpu_count,
-            gpu_resource_group->get_shared(i), use_mixed_precision, scaler, use_algorithm_search));
-        i++;
+      for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+        network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
+                                            total_gpu_count, resource_manager->get_local_cpu(),
+                                            resource_manager->get_local_gpu(i), use_mixed_precision,
+                                            scaler, use_algorithm_search));
       }
     }
 
@@ -1455,9 +1427,9 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                              std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
-                             const GPUResourceGroupPtr& gpu_resource_group) {
+                             const std::shared_ptr<ResourceManager>& resource_manager) {
   create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, network,
-                                   gpu_resource_group, config_, batch_size_, batch_size_eval_,
+                                   resource_manager, config_, batch_size_, batch_size_eval_,
                                    use_mixed_precision_, scaler_, use_algorithm_search_);
 }
 
@@ -1465,9 +1437,9 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                              std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
-                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
+                             const std::shared_ptr<ResourceManager>& resource_manager) {
   create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, network,
-                                   gpu_resource_group, config_, batch_size_, batch_size_eval_,
+                                   resource_manager, config_, batch_size_, batch_size_eval_,
                                    use_mixed_precision_, scaler_, use_algorithm_search_);
 }
 

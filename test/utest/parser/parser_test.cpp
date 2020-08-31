@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include "HugeCTR/include/data_generator.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -33,17 +34,15 @@ void test_parser(std::string& json_name) {
   std::vector<int> device_list{0, 1};
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, 0));
   int batch_size = 4096;
   Parser p(json_name, batch_size, batch_size);
   std::unique_ptr<DataReader<TypeKey>> data_reader;
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval;
   std::vector<std::unique_ptr<IEmbedding>> embedding;
   std::vector<std::unique_ptr<Network>> networks;
-  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+  const auto& resource_manager = ResourceManager::create(vvgpu, 0);
 
-  p.create_pipeline(data_reader, data_reader_eval, embedding, networks,
-                    gpu_resource_group);
+  p.create_pipeline(data_reader, data_reader_eval, embedding, networks, resource_manager);
   return;
 }
 

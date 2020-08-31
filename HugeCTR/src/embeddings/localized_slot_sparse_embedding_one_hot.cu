@@ -45,33 +45,32 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
         const Tensors2<TypeHashKey> &evaluate_value_tensors,
         const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
         const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-        const std::string plan_file, const std::shared_ptr<GPUResourceGroup> &gpu_resource_group)
+        const std::string plan_file, const std::shared_ptr<ResourceManager> &resource_manager)
     : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
-           embedding_params, gpu_resource_group),
+           embedding_params, resource_manager),
       slot_size_array_(embedding_params.slot_size_array) {
   try {
-    CudaDeviceContext context(Base::get_gpu_resource(0).get_device_id());
-
     max_vocabulary_size_ = 0;
     for (size_t slot_size : slot_size_array_) {
       max_vocabulary_size_ += slot_size;
     }
 
     max_vocabulary_size_per_gpu_ =
-        cal_max_voc_size_per_gpu(Base::get_total_gpu_count(), Base::get_local_gpu_count(),
-                                 slot_size_array_, Base::get_gpu_resource_group());
+        cal_max_voc_size_per_gpu(slot_size_array_, Base::get_resource_manager());
 
     MESSAGE_("max_vocabulary_size_per_gpu_=" + std::to_string(max_vocabulary_size_per_gpu_));
 
-    for (size_t id = 0; id < Base::get_local_gpu_count(); id++) {
-      int cur_device = Base::get_gpu_resource(id).get_device_id();
+    CudaDeviceContext context;
+    for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
+      int cur_device = Base::get_local_gpu(id).get_device_id();
       context.set_device(cur_device);
 
-      size_t gid = Base::get_gpu_resource_group().get_global_id(cur_device);
+      size_t gid = Base::get_local_gpu(id).get_global_gpu_id();
       size_t slot_num_per_gpu =
-          Base::get_slot_num() / Base::get_total_gpu_count() +
-          ((gid < Base::get_slot_num() % Base::get_total_gpu_count()) ? 1 : 0);
+          Base::get_slot_num() / Base::get_resource_manager().get_global_gpu_count() +
+          ((gid < Base::get_slot_num() % Base::get_resource_manager().get_global_gpu_count()) ? 1
+                                                                                              : 0);
       slot_num_per_gpu_.push_back(slot_num_per_gpu);
 
       // new GeneralBuffer objects
@@ -79,9 +78,17 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 
       // new hash table value vectors
       {
-        Tensor2<float> tensor;
-        buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-        hash_table_value_tensors_.push_back(tensor);
+        const std::shared_ptr<BufferBlock2<float>> &block = buf->create_block<float>();
+        Tensors2<float> tensors;
+        for (size_t i = 0; i < slot_size_array_.size(); i++) {
+          if ((i % Base::get_resource_manager().get_global_gpu_count()) == gid) {
+            Tensor2<float> tensor;
+            block->reserve({slot_size_array_[i], Base::get_embedding_vec_size()}, &tensor);
+            tensors.push_back(tensor);
+          }
+        }
+        value_table_tensors_.push_back(tensors);
+        hash_table_value_tensors_.push_back(block->as_tensor());
       }
 
       // new hash table value_index that get() from HashTable
@@ -193,18 +200,17 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
     }  // end of for(int id = 0; id < Base::get_local_gpu_count(); id++)
 
     // sync
-    functors_.sync_all_gpus(Base::get_gpu_resource_group());
+    functors_.sync_all_gpus(Base::get_resource_manager());
 
     // get the mapping table between local value_index and input value_index
-    for (size_t id = 0; id < Base::get_local_gpu_count(); id++) {
+    for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
       uint32_t slot_sizes_prefix_sum = 0;
       uint32_t slot_sizes_prefix_sum_local = 0;
       int slot_num = 0;
       for (size_t i = 0; i < slot_size_array_.size(); i++) {
-        size_t device_id = Base::get_gpu_resource(id).get_device_id();
-        size_t global_id = Base::get_gpu_resource_group().get_global_id(device_id);
+        size_t global_id = Base::get_local_gpu(id).get_global_gpu_id();
         size_t slot_size = slot_size_array_[i];
-        if (i % Base::get_total_gpu_count() == global_id) {
+        if (i % Base::get_resource_manager().get_global_gpu_count() == global_id) {
           uint32_t mapping_offset = slot_sizes_prefix_sum - slot_sizes_prefix_sum_local;
           CK_CUDA_THROW_(cudaMemcpy(&((mapping_offsets_per_gpu_tensors_[id].get_ptr())[slot_num]),
                                     &mapping_offset, sizeof(uint32_t), cudaMemcpyHostToDevice));
@@ -216,7 +222,8 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
     }
 
     // Check whether the P2P access can be enabled
-    if (gpu_resource_group->get_local_gpu_count() > 1 && !gpu_resource_group->all_p2p_enabled()) {
+    if (Base::get_resource_manager().get_local_gpu_count() > 1 &&
+        !Base::get_resource_manager().all_p2p_enabled()) {
       throw std::runtime_error(
           std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
                       "cannot be used on machine without GPU peer2peer access support. \n"));
@@ -227,32 +234,15 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
                     "cannot support multi-node currently. \n"));
 #endif
 
-    // peer2peer access
-    auto &device_list = gpu_resource_group->get_device_list();
-    for (int dev_i : device_list) {
-      CudaDeviceContext context(dev_i);  // set device
-      for (int dev_j : device_list) {
-        if (dev_j != dev_i) {
-          cudaError_t ret =
-              cudaDeviceEnablePeerAccess(dev_j, 0);  // enable p2p access between gpu i and j
-          if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
-            CK_CUDA_THROW_(ret);
-          } else {
-            // cudaErrorPeerAccessAlreadyEnabled must not be handled as an error
-            // so we reset it to cudaSuccess here
-            cudaGetLastError();
-          }
-        }
-      }
-    }
-
     std::shared_ptr<GeneralBuffer2<CudaManagedAllocator>> unified_buf =
         GeneralBuffer2<CudaManagedAllocator>::create();
-    unified_buf->reserve({Base::get_local_gpu_count()}, &train_embedding_features_);
-    unified_buf->reserve({Base::get_local_gpu_count()}, &evaluate_embedding_features_);
+    unified_buf->reserve({Base::get_resource_manager().get_local_gpu_count()},
+                         &train_embedding_features_);
+    unified_buf->reserve({Base::get_resource_manager().get_local_gpu_count()},
+                         &evaluate_embedding_features_);
     unified_buf->allocate();
 
-    for (size_t id = 0; id < Base::get_local_gpu_count(); id++) {
+    for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
       train_embedding_features_.get_ptr()[id] = Base::get_output_tensors(true)[id].get_ptr();
       evaluate_embedding_features_.get_ptr()[id] = Base::get_output_tensors(false)[id].get_ptr();
     }
@@ -269,8 +259,7 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_params_to_device(
     std::ifstream &weight_stream, size_t embedding_vec_size,
     Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes,
-    const Tensors2<uint32_t> &mapping_offsets_per_gpu_tensors,
-    const GPUResourceGroup &device_resources) {
+    const Tensors2<uint32_t> &mapping_offsets_per_gpu_tensors) {
   CudaDeviceContext context;
   // check file size and vocabulary_size (file size <=　hash_table_size)
   weight_stream.seekg(0, weight_stream.end);
@@ -285,7 +274,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
 #endif
 
   // define size
-  size_t local_gpu_count = device_resources.size();
+  size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
   size_t chunk_loop = 1000;
   size_t tile_size = 1;  // must be 1, because we need to cal (key&local_gpu_count) to decide
                          // gpu_id for each <key,value>
@@ -301,7 +290,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
                                      hash_table_slot_id_tile_size_in_B +
                                      hash_table_value_tile_size_in_B;
   size_t hash_table_chunk_size_in_B = hash_table_tile_size_in_B * chunk_loop;
-  size_t total_gpu_count = device_resources.get_total_gpu_count();
+  size_t total_gpu_count = Base::get_resource_manager().get_global_gpu_count();
 
   // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory for
   // each GPU allocate CPU/GPU memory for value/index chunk
@@ -314,7 +303,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
   }
   std::unique_ptr<float *[]> d_hash_table_value_chunk_per_gpu(new float *[local_gpu_count]);
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
     CK_CUDA_THROW_(
         cudaMalloc(&d_hash_table_value_chunk_per_gpu[id], hash_table_value_chunk_size_in_B));
   }
@@ -325,7 +314,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
   }
   std::unique_ptr<size_t *[]> d_hash_table_index_chunk_per_gpu(new size_t *[local_gpu_count]);
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
     CK_CUDA_THROW_(cudaMalloc(&d_hash_table_index_chunk_per_gpu[id], chunk_loop * sizeof(size_t)));
   }
 
@@ -336,10 +325,11 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
   std::vector<size_t> local_slot_id(slot_sizes.size());
   std::vector<size_t> local_slot_num(local_gpu_count, 0);
   for (size_t i = 0; i < slot_sizes.size(); i++) {
-    size_t gid = i % total_gpu_count;                 // global GPU ID
-    size_t id = device_resources.get_local_id(gid);   // local GPU ID (not gpudevice id)
-    size_t dst_rank = device_resources.get_pid(gid);  // node id
-    if (static_cast<size_t>(my_rank) == dst_rank) {
+    size_t gid = i % total_gpu_count;  // global GPU ID
+    size_t id = Base::get_resource_manager().get_gpu_local_id_from_global_id(
+        gid);  // local GPU ID (not gpudevice id)
+    int dst_rank = Base::get_resource_manager().get_pid_from_gpu_global_id(gid);  // node id
+    if (my_rank == dst_rank) {
       local_slot_id[i] = local_slot_num[id];
       local_slot_num[id]++;
     }
@@ -348,18 +338,18 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
   // Host buffer to keep mapping_offset
   std::vector<uint32_t *> h_mapping_offsets_per_gpu_tensors(local_gpu_count);
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
     CK_CUDA_THROW_(cudaMallocHost(&h_mapping_offsets_per_gpu_tensors[id],
                                   local_slot_num[id] * sizeof(uint32_t)));
     // Copy the mapping offset from GPU to Host
     cudaMemcpyAsync(h_mapping_offsets_per_gpu_tensors[id],
                     mapping_offsets_per_gpu_tensors[id].get_ptr(),
                     local_slot_num[id] * sizeof(uint32_t), cudaMemcpyDeviceToHost,
-                    device_resources[id].get_stream());
+                    Base::get_local_gpu(id).get_stream());
   }
 
   // sync wait
-  functors_.sync_all_gpus(device_resources);
+  functors_.sync_all_gpus(Base::get_resource_manager());
 
   // do upload
   size_t loop_num = file_size_in_B / hash_table_chunk_size_in_B;
@@ -376,11 +366,12 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
     size_t *tensor_index_dst_buf;
     for (size_t k = 0; k < chunk_loop; k++) {  // process a tile in each loop
       size_t slot_id = *((size_t *)(src_buf + hash_table_key_tile_size_in_B));
-      size_t gid = slot_id % total_gpu_count;           // global GPU ID
-      size_t id = device_resources.get_local_id(gid);   // local GPU ID (not gpudevice id)
-      size_t dst_rank = device_resources.get_pid(gid);  // node id
+      size_t gid = slot_id % total_gpu_count;  // global GPU ID
+      size_t id = Base::get_resource_manager().get_gpu_local_id_from_global_id(
+          gid);  // local GPU ID (not gpudevice id)
+      int dst_rank = Base::get_resource_manager().get_pid_from_gpu_global_id(gid);  // node id
 
-      if (static_cast<size_t>(my_rank) == dst_rank) {
+      if (my_rank == dst_rank) {
         TypeHashKey tile_key = *((TypeHashKey *)src_buf);
         size_t tensor_index =
             tile_key - (h_mapping_offsets_per_gpu_tensors[id][local_slot_id[slot_id]]);
@@ -411,30 +402,30 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
         continue;
       }
 
-      context.set_device(device_resources[id].get_device_id());
+      context.set_device(Base::get_local_gpu(id).get_device_id());
 
       // Copy value buffer and tensor_index buffer to GPU
       size_t value_chunk_size = tile_counter_in_chunk_per_gpu[id] * hash_table_value_tile_size;
       float *src_buf_value = h_hash_table_value_chunk_per_gpu[id];
       float *dst_buf_value = d_hash_table_value_chunk_per_gpu[id];
       CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf_value, src_buf_value, value_chunk_size * sizeof(float),
-                                     cudaMemcpyHostToDevice, device_resources[id].get_stream()));
+                                     cudaMemcpyHostToDevice, Base::get_local_gpu(id).get_stream()));
       size_t *src_buf_index = h_hash_table_index_chunk_per_gpu[id];
       size_t *dst_buf_index = d_hash_table_index_chunk_per_gpu[id];
       value_chunk_size = tile_counter_in_chunk_per_gpu[id];
       CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf_index, src_buf_index,
                                      value_chunk_size * sizeof(size_t), cudaMemcpyHostToDevice,
-                                     device_resources[id].get_stream()));
+                                     Base::get_local_gpu(id).get_stream()));
 
       // Call kernel to insert the value into embedding value tensor
       const size_t grid_size = (tile_counter_in_chunk_per_gpu[id] - 1) / 256 + 1;
-      upload_value_tensor_kernel<<<grid_size, 256, 0, device_resources[id].get_stream()>>>(
+      upload_value_tensor_kernel<<<grid_size, 256, 0, Base::get_local_gpu(id).get_stream()>>>(
           d_hash_table_value_chunk_per_gpu[id], d_hash_table_index_chunk_per_gpu[id],
           hash_table_value_tensors[id].get_ptr(), hash_table_value_tile_size,
           tile_counter_in_chunk_per_gpu[id]);
     }
 
-    functors_.sync_all_gpus(device_resources);
+    functors_.sync_all_gpus(Base::get_resource_manager());
 
     // set counter value
     for (size_t id = 0; id < local_gpu_count; id++) {
@@ -462,11 +453,12 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
     for (size_t i = 0; i < remain_loop_num; i++) {  // process one tile in each loop
 
       size_t slot_id = *((size_t *)(src_buf + hash_table_key_tile_size_in_B));
-      size_t gid = slot_id % total_gpu_count;           // global GPU ID
-      size_t id = device_resources.get_local_id(gid);   // local GPU ID (not gpudevice id)
-      size_t dst_rank = device_resources.get_pid(gid);  // node id
+      size_t gid = slot_id % total_gpu_count;  // global GPU ID
+      size_t id = Base::get_resource_manager().get_gpu_local_id_from_global_id(
+          gid);  // local GPU ID (not gpudevice id)
+      int dst_rank = Base::get_resource_manager().get_pid_from_gpu_global_id(gid);  // node id
 
-      if (static_cast<size_t>(my_rank) == dst_rank) {
+      if (my_rank == dst_rank) {
         TypeHashKey tile_key = *((TypeHashKey *)src_buf);
         size_t tensor_index =
             tile_key - (h_mapping_offsets_per_gpu_tensors[id][local_slot_id[slot_id]]);
@@ -498,31 +490,31 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
         continue;
       }
 
-      context.set_device(device_resources[id].get_device_id());
+      context.set_device(Base::get_local_gpu(id).get_device_id());
 
       // Copy value buffer and tensor_index buffer to GPU
       size_t value_chunk_size = tile_counter_in_chunk_per_gpu[id] * hash_table_value_tile_size;
       float *src_buf_value = h_hash_table_value_chunk_per_gpu[id];
       float *dst_buf_value = d_hash_table_value_chunk_per_gpu[id];
       CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf_value, src_buf_value, value_chunk_size * sizeof(float),
-                                     cudaMemcpyHostToDevice, device_resources[id].get_stream()));
+                                     cudaMemcpyHostToDevice, Base::get_local_gpu(id).get_stream()));
       size_t *src_buf_index = h_hash_table_index_chunk_per_gpu[id];
       size_t *dst_buf_index = d_hash_table_index_chunk_per_gpu[id];
       value_chunk_size = tile_counter_in_chunk_per_gpu[id];
       CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf_index, src_buf_index,
                                      value_chunk_size * sizeof(size_t), cudaMemcpyHostToDevice,
-                                     device_resources[id].get_stream()));
+                                     Base::get_local_gpu(id).get_stream()));
 
       // Call kernel to insert the value into embedding value tensor
       const size_t grid_size = (tile_counter_in_chunk_per_gpu[id] - 1) / 256 + 1;
-      upload_value_tensor_kernel<<<grid_size, 256, 0, device_resources[id].get_stream()>>>(
+      upload_value_tensor_kernel<<<grid_size, 256, 0, Base::get_local_gpu(id).get_stream()>>>(
           d_hash_table_value_chunk_per_gpu[id], d_hash_table_index_chunk_per_gpu[id],
           hash_table_value_tensors[id].get_ptr(), hash_table_value_tile_size,
           tile_counter_in_chunk_per_gpu[id]);
     }
 
     // sync wait
-    functors_.sync_all_gpus(device_resources);
+    functors_.sync_all_gpus(Base::get_resource_manager());
 
   }  // end of if(remain_loop_num)
 
@@ -530,7 +522,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
 
   // release resources
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
     CK_CUDA_THROW_(cudaFree(d_hash_table_value_chunk_per_gpu[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_index_chunk_per_gpu[id]));
   }
@@ -545,10 +537,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::download_params_to_host(
     std::ofstream &weight_stream, size_t embedding_vec_size,
-    const Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes,
-    const GPUResourceGroup &device_resources) const {
-  CudaDeviceContext context;
-  size_t local_gpu_count = device_resources.size();
+    const Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes) const {
+  size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
 
   int my_rank = 0;
 #ifdef ENABLE_MPI
@@ -561,13 +551,14 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
   std::unique_ptr<size_t[]> count(new size_t[local_gpu_count]);
   size_t max_count = 0;
   size_t total_count = 0;
+
+  CudaDeviceContext context;
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
     count[id] = 0;
     for (size_t i = 0; i < slot_sizes.size(); i++) {
-      size_t device_id = device_resources[id].get_device_id();
-      size_t global_id = device_resources.get_global_id(device_id);
-      if ((i % device_resources.get_total_gpu_count()) == global_id) {
+      size_t global_id = Base::get_local_gpu(id).get_global_gpu_id();
+      if ((i % Base::get_resource_manager().get_global_gpu_count()) == global_id) {
         count[id] += slot_sizes[i];
       }
     }
@@ -595,7 +586,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
       continue;
     }
 
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
 
     cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
     cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -613,25 +604,24 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
     MESSAGE_("Rank" + std::to_string(my_rank) + ": Dump embedding table from GPU" +
              std::to_string(id));
 
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
 
     // Loop for each slot
     size_t buffer_offset = 0;
     for (size_t i = 0; i < slot_sizes.size(); i++) {
-      size_t device_id = device_resources[id].get_device_id();
-      size_t global_id = device_resources.get_global_id(device_id);
-      if ((i % device_resources.get_total_gpu_count()) == global_id) {
+      size_t global_id = Base::get_local_gpu(id).get_global_gpu_id();
+      if ((i % Base::get_resource_manager().get_global_gpu_count()) == global_id) {
         // Generate key buffer
         size_t key_offset = 0;
         for (size_t j = 0; j < i; j++) {
           key_offset += slot_sizes[j];
         }
         functors_.memset_liner(d_hash_table_key[id] + buffer_offset, (TypeHashKey)key_offset,
-                               (TypeHashKey)1, slot_sizes[i], device_resources[id].get_stream());
+                               (TypeHashKey)1, slot_sizes[i], Base::get_local_gpu(id).get_stream());
 
         // Generate slot_id
         functors_.memset_const(d_hash_table_slot_id[id] + buffer_offset, i, slot_sizes[i],
-                               device_resources[id].get_stream());
+                               Base::get_local_gpu(id).get_stream());
 
         buffer_offset += slot_sizes[i];
       }
@@ -639,19 +629,19 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
     // Copy key buffer to host
     CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key[id], d_hash_table_key[id],
                                    count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
-                                   device_resources[id].get_stream()));
+                                   Base::get_local_gpu(id).get_stream()));
     // Copy value buffer to host
     CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_value[id], hash_table_value_tensors[id].get_ptr(),
                                    count[id] * embedding_vec_size * sizeof(float),
-                                   cudaMemcpyDeviceToHost, device_resources[id].get_stream()));
+                                   cudaMemcpyDeviceToHost, Base::get_local_gpu(id).get_stream()));
     // Copy slot_id to host
     CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_slot_id[id], d_hash_table_slot_id[id],
                                    count[id] * sizeof(size_t), cudaMemcpyDeviceToHost,
-                                   device_resources[id].get_stream()));
+                                   Base::get_local_gpu(id).get_stream()));
   }
 
   // sync wait
-  functors_.sync_all_gpus(device_resources);
+  functors_.sync_all_gpus(Base::get_resource_manager());
 
   const int master_node = 0;
 #ifdef ENABLE_MPI
@@ -724,7 +714,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
       continue;
     }
 
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
 
     CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
@@ -739,10 +729,10 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::downloa
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::init_embedding(
     const std::vector<size_t> slot_sizes, size_t embedding_vec_size,
-    Tensors2<float> &hash_table_value_tensors, Tensors2<size_t> &hash_table_slot_id_tensors,
-    const GPUResourceGroup &device_resources) {
-  size_t local_gpu_count = device_resources.size();
-  size_t total_gpu_count = device_resources.get_total_gpu_count();
+    std::vector<Tensors2<float>> &hash_table_value_tensors,
+    Tensors2<size_t> &hash_table_slot_id_tensors) {
+  size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
+  size_t total_gpu_count = Base::get_resource_manager().get_global_gpu_count();
 
 #ifndef NDEBUG
   MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) + ", total_gpu_count=" +
@@ -750,17 +740,22 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::init_em
 #endif
 
   for (size_t id = 0; id < local_gpu_count; id++) {
-    size_t device_id = device_resources[id].get_device_id();
-    size_t global_id = device_resources.get_global_id(device_id);
+    size_t device_id = Base::get_local_gpu(id).get_device_id();
+    size_t global_id = Base::get_local_gpu(id).get_global_gpu_id();
 
 #ifndef NDEBUG
     MESSAGE_("id=" + std::to_string(id) + ", device_id=" + std::to_string(device_id) +
              ", global_id=" + std::to_string(global_id));
 #endif
 
-    functors_.init_embedding_per_gpu<TypeHashKey>(id, global_id, total_gpu_count, slot_sizes,
-                                                  embedding_vec_size, hash_table_value_tensors[id],
-                                                  hash_table_slot_id_tensors[id], device_resources);
+    functors_.init_embedding_per_gpu(global_id, total_gpu_count, slot_sizes, embedding_vec_size,
+                                     hash_table_value_tensors[id], hash_table_slot_id_tensors[id],
+                                     Base::get_local_gpu(id));
+  }
+
+  for (size_t id = 0; id < local_gpu_count; id++) {
+    CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(id).get_stream()));
+    MESSAGE_("gpu" + std::to_string(id) + " init embedding done");
   }
 
   return;

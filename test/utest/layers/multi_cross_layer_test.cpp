@@ -15,14 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
-
 #include <math.h>
 #include <memory>
 #include <vector>
+#include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace HugeCTR;
 
@@ -55,21 +52,15 @@ class MultiCrossLayerTest {
   std::vector<std::vector<float>> h_bias_grads_;
 
   std::shared_ptr<MultiCrossLayer> layer_;
-  GaussianDataSimulator<float> data_sim_;
+  test::GaussianDataSimulator data_sim_;
 
   void reset_forward_() {
-    for (auto& a : h_input_) {
-      a = data_sim_.get_num();
-    }
+    data_sim_.fill(h_input_.data(), batchsize_ * w_);
     for (auto& a : h_kernels_) {
-      for (auto& b : a) {
-        b = data_sim_.get_num();
-      }
+      data_sim_.fill(a.data(), w_);
     }
     for (auto& a : h_biases_) {
-      for (auto& b : a) {
-        b = data_sim_.get_num();
-      }
+      data_sim_.fill(a.data(), w_);
     }
 
     CK_CUDA_THROW_(cudaMemcpy(d_input_.get_ptr(), h_input_.data(), d_input_.get_size_in_bytes(),
@@ -202,7 +193,7 @@ class MultiCrossLayerTest {
   }
 
   void gpu_fprop_() {
-    layer_->fprop(true, cudaStreamDefault);
+    layer_->fprop(true);
     return;
   }
 
@@ -230,7 +221,7 @@ class MultiCrossLayerTest {
   }
 
   void gpu_bprop_() {
-    layer_->bprop(cudaStreamDefault);
+    layer_->bprop();
     return;
   }
 
@@ -287,7 +278,7 @@ class MultiCrossLayerTest {
         w_(w),
         layers_(layers),
         blob_buf_(GeneralBuffer2<CudaAllocator>::create()),
-        data_sim_(0.0, 1.0, -10.0, 10.0) {
+        data_sim_(0.0f, 1.0f) {
     weight_buf_ = blob_buf_->create_block<float>();
     wgrad_buf_ = blob_buf_->create_block<float>();
 
@@ -308,12 +299,11 @@ class MultiCrossLayerTest {
     }
 
     // layer
-    cublasHandle_t cublas_handle;
-    cublasCreate(&cublas_handle);
     layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, blob_buf_, d_input_, d_output_,
-                                     cublas_handle, layers, 0));
+                                     test::get_default_gpu(), layers));
 
     blob_buf_->allocate();
+    layer_->initialize();
 
     weight_ = weight_buf_->as_tensor();
     wgrad_ = wgrad_buf_->as_tensor();

@@ -59,11 +59,9 @@ __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int nu
 template <typename T>
 AddLayer<T>::AddLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
                       const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                      int device_id)
-    : Layer(device_id) {
+                      const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
   try {
-    CudaDeviceContext context(get_device_id());
-
     size_ = in_tensors[0].get_num_elements();
     num_ = in_tensors.size();
 
@@ -88,11 +86,6 @@ AddLayer<T>::AddLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tenso
     }
     out_tensors_.push_back(out_tensor);
 
-    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
-        GeneralBuffer2<CudaHostAllocator>::create();
-    pinned_host_buf->reserve({num_}, &h_inputs_);
-    pinned_host_buf->allocate();
-
     blobs_buff->reserve({num_}, &d_inputs_);
 
   } catch (const std::runtime_error& rt_err) {
@@ -102,43 +95,43 @@ AddLayer<T>::AddLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tenso
 }
 
 template <typename T>
-AddLayer<T>::~AddLayer() {}
+void AddLayer<T>::initialize() {
+  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
+      GeneralBuffer2<CudaHostAllocator>::create();
+  pinned_host_buf->reserve({num_}, &h_inputs_);
+  pinned_host_buf->allocate();
+
+  for (size_t i = 0; i < num_; i++) {
+    h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
+  }
+
+  CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+                                 num_ * sizeof(T*), cudaMemcpyHostToDevice,
+                                 get_gpu().get_stream()));
+}
 
 template <typename T>
-void AddLayer<T>::fprop(bool is_train, cudaStream_t stream) {
+void AddLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-  if (!initialized_) {
-    for (size_t i = 0; i < num_; i++) {
-      h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
-    }
 
-    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
-                                   num_ * sizeof(T*), cudaMemcpyHostToDevice, stream));
-    initialized_ = true;
-  }
   T* output = out_tensors_[0].get_ptr();
 
   dim3 block_size(256, 1, 1);
   dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
-  add_kernel<<<grid_size, block_size, 0, stream>>>(d_inputs_.get_ptr(), output, size_, num_);
+  add_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(), output,
+                                                                   size_, num_);
 }
 
 template <typename T>
-void AddLayer<T>::bprop(cudaStream_t stream) {
+void AddLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
-  if (!initialized_) {
-    for (size_t i = 0; i < num_; i++) {
-      h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
-    }
-    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
-                                   num_ * sizeof(T*), cudaMemcpyHostToDevice, stream));
-    initialized_ = true;
-  }
+
   T* output = out_tensors_[0].get_ptr();
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
-  add_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(output, d_inputs_.get_ptr(), size_, num_);
+  add_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, d_inputs_.get_ptr(),
+                                                                       size_, num_);
 }
 
 template class AddLayer<float>;

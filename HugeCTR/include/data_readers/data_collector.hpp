@@ -20,9 +20,9 @@
 #include <common.hpp>
 #include <csr.hpp>
 #include <csr_chunk.hpp>
-#include <gpu_resource.hpp>
 #include <heapex.hpp>
-#include <thread>
+#include <resource_manager.hpp>
+#include <utils.hpp>
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
@@ -53,8 +53,6 @@ template <typename TypeComp>
 void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
            const Tensor2<float>& label_dense_buffer, cudaStream_t stream);
 
-
-
 /**
  * @brief A helper class of data reader.
  *
@@ -77,7 +75,7 @@ class DataCollector {
   std::vector<TensorBag2> dense_tensors_;
   Tensors2<TypeKey> csr_buffers_;
   std::vector<std::shared_ptr<size_t>> nnz_array_;
-  std::shared_ptr<GPUResourceGroup> device_resources_;
+  std::shared_ptr<ResourceManager> resource_manager_;
   int num_params_;
   size_t counter_{0};
   int pid_{0}, num_procs_{1};
@@ -99,12 +97,13 @@ class DataCollector {
   std::vector<std::shared_ptr<InternalBuffer_>> internal_buffers_;
 
   bool reverse_;
-  std::thread data_collector_thread_;            /**< A data_collector_thread. */
-  int  data_reader_loop_flag_ = 1;
+  std::thread data_collector_thread_; /**< A data_collector_thread. */
+  int data_reader_loop_flag_ = 1;
 
   void collect_blank_();
   void collect_();
   bool started_ = false;
+
  public:
   /**
    * Ctor.
@@ -119,7 +118,7 @@ class DataCollector {
                 const Tensors2<TypeKey>& csr_buffers,
                 const std::vector<std::shared_ptr<size_t>>& nnz_array,
                 const std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& buffs,
-                const std::shared_ptr<GPUResourceGroup>& device_resources,
+                const std::shared_ptr<ResourceManager>& resource_manager,
                 const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap = nullptr,
                 const bool use_mixed_precision = false, const bool one_hot = false,
                 const size_t cache_size = 0);
@@ -148,7 +147,7 @@ class DataCollector {
     stat_ = STOP;
     // stat_cv_.notify_all();
   }
-  
+
   void start();
 
   /**
@@ -168,8 +167,7 @@ class DataCollector {
                       break loop when DataReader is destroyed.
  */
 template <typename TypeKey>
-static void data_collector_thread_func_(
-    DataCollector<TypeKey>* data_collector, int* p_loop_flag) {
+static void data_collector_thread_func_(DataCollector<TypeKey>* data_collector, int* p_loop_flag) {
   try {
     while ((*p_loop_flag) == 0) {
       usleep(2);
@@ -183,8 +181,6 @@ static void data_collector_thread_func_(
   }
 }
 
-
-
 template <typename TypeKey>
 int DataCollector<TypeKey>::id_ = 0;
 
@@ -193,7 +189,7 @@ DataCollector<TypeKey>::DataCollector(
     const Tensors2<float>& label_tensors, const std::vector<TensorBag2>& dense_tensors,
     const Tensors2<TypeKey>& csr_buffers, const std::vector<std::shared_ptr<size_t>>& nnz_array,
     const std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& buffs,
-    const std::shared_ptr<GPUResourceGroup>& device_resources,
+    const std::shared_ptr<ResourceManager>& resource_manager,
     const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap, const bool use_mixed_precision,
     const bool one_hot, const size_t cache_size)
     : csr_heap_(csr_heap),
@@ -201,7 +197,7 @@ DataCollector<TypeKey>::DataCollector(
       dense_tensors_(dense_tensors),
       csr_buffers_(csr_buffers),
       nnz_array_(nnz_array),
-      device_resources_(device_resources),
+      resource_manager_(resource_manager),
       pre_nnz_(csr_buffers.size(), 0),
       use_mixed_precision_(use_mixed_precision),
       one_hot_(one_hot),
@@ -217,7 +213,7 @@ DataCollector<TypeKey>::DataCollector(
     }
 
     // create internal buffers
-    auto& local_device_list = device_resources_->get_device_list();
+    size_t local_gpu_count = resource_manager_->get_local_gpu_count();
 
     size_t num_internal_buffers = cache_size_ == 0 ? 1 : cache_size_;
 
@@ -225,7 +221,7 @@ DataCollector<TypeKey>::DataCollector(
 
     for (size_t j = 0; j < num_internal_buffers; j++) {
       auto internal_buffer = std::make_shared<InternalBuffer_>();
-      for (size_t i = 0; i < local_device_list.size(); i++) {
+      for (size_t i = 0; i < local_gpu_count; i++) {
         int buf_size = label_tensors_[i].get_num_elements();
         if (use_mixed_precision) {
           Tensor2<__half> dense_tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
@@ -238,7 +234,7 @@ DataCollector<TypeKey>::DataCollector(
         buffs[i]->reserve({static_cast<size_t>(buf_size)}, &tensor);
         internal_buffer->label_dense_buffers_internal.push_back(tensor);
       }
-      size_t k = csr_buffers_.size() / local_device_list.size();
+      size_t k = csr_buffers_.size() / local_gpu_count;
       for (size_t i = 0; i < csr_buffers_.size(); i++) {
         Tensor2<TypeKey> tensor;
         buffs[i / k]->reserve(csr_buffers_[i].get_dimensions(), &tensor);
@@ -250,7 +246,7 @@ DataCollector<TypeKey>::DataCollector(
       internal_buffers_.push_back(internal_buffer);
     }
 
-    num_params_ = csr_buffers_.size() / local_device_list.size();
+    num_params_ = csr_buffers_.size() / local_gpu_count;
 
 #ifdef ENABLE_MPI
     CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid_));
@@ -266,13 +262,12 @@ DataCollector<TypeKey>::DataCollector(
 
 template <typename TypeKey>
 void DataCollector<TypeKey>::start() {
-  if(started_ == false){
-    data_collector_thread_ = 
-       std::thread(data_collector_thread_func_<TypeKey>, this, &data_reader_loop_flag_);
+  if (started_ == false) {
+    data_collector_thread_ =
+        std::thread(data_collector_thread_func_<TypeKey>, this, &data_reader_loop_flag_);
     set_affinity(data_collector_thread_, {}, true);
     started_ = true;
-  }
-  else{
+  } else {
     CK_THROW_(Error_t::WrongInput, "Data collector has been started");
   }
 }
@@ -315,7 +310,7 @@ void DataCollector<TypeKey>::collect_() {
   // my turn
   CSRChunk<TypeKey>* chunk_tmp = nullptr;
 
-  int total_device_count = device_resources_->get_total_gpu_count();
+  int total_device_count = resource_manager_->get_global_gpu_count();
   csr_heap_->data_chunk_checkout(&chunk_tmp);
 
   while (stat_ != READY_TO_WRITE && stat_ != STOP) {
@@ -341,11 +336,13 @@ void DataCollector<TypeKey>::collect_() {
   for (int ix = 0; ix < total_device_count; ix++) {
     int i =
         ((id_ == 0 && !reverse_) || (id_ == 1 && reverse_)) ? ix : (total_device_count - 1 - ix);
-    int pid = device_resources_->get_pid(i);
+    int pid = resource_manager_->get_pid_from_gpu_global_id(i);
     int label_copy_num = (label_dense_buffers[0]).get_num_elements();
     if (pid == pid_) {
-      int local_id = device_resources_->get_local_id(i);
-      CudaDeviceContext context(device_resources_->get_local_device_id(i));
+      size_t local_id = resource_manager_->get_gpu_local_id_from_global_id(i);
+      const auto& local_gpu = resource_manager_->get_local_gpu(local_id);
+
+      CudaDeviceContext context(local_gpu->get_device_id());
       for (int j = 0; j < num_params; j++) {
         unsigned int nnz = csr_cpu_buffers[i * num_params + j]
                                .get_buffer()[csr_cpu_buffers[i * num_params + j].get_num_rows()];
@@ -357,7 +354,7 @@ void DataCollector<TypeKey>::collect_() {
           CK_CUDA_THROW_(cudaMemcpyAsync(
               internal_buffer->csr_buffers_internal[local_id * num_params + j].get_ptr(),
               csr_cpu_buffers[i * num_params + j].get_buffer(), csr_copy_num * sizeof(TypeKey),
-              cudaMemcpyHostToDevice, (*device_resources_)[local_id].get_data_copy_stream(id_)));
+              cudaMemcpyHostToDevice, local_gpu->get_data_copy_stream()));
         } else {
           unsigned int offset = csr_cpu_buffers[i * num_params + j].get_num_rows() + 1;
           int csr_copy_num = csr_cpu_buffers[i * num_params + j].get_sizeof_value();
@@ -365,26 +362,26 @@ void DataCollector<TypeKey>::collect_() {
               internal_buffer->csr_buffers_internal[local_id * num_params + j].get_ptr() + offset,
               csr_cpu_buffers[i * num_params + j].get_buffer() + offset,
               csr_copy_num * sizeof(TypeKey), cudaMemcpyHostToDevice,
-              (*device_resources_)[local_id].get_data_copy_stream(id_)));
+              local_gpu->get_data_copy_stream()));
         }
         *(internal_buffer->nnz_array_internal[local_id * num_params + j]) = nnz;
       }
-      CK_CUDA_THROW_(cudaMemcpyAsync(
-          internal_buffer->label_dense_buffers_internal[local_id].get_ptr(),
-          label_dense_buffers[i].get_ptr(), label_copy_num * sizeof(float), cudaMemcpyHostToDevice,
-          (*device_resources_)[local_id].get_data_copy_stream(id_)));
+      CK_CUDA_THROW_(
+          cudaMemcpyAsync(internal_buffer->label_dense_buffers_internal[local_id].get_ptr(),
+                          label_dense_buffers[i].get_ptr(), label_copy_num * sizeof(float),
+                          cudaMemcpyHostToDevice, local_gpu->get_data_copy_stream()));
     }
   }
   // sync
   for (int ix = 0; ix < total_device_count; ix++) {
     int i =
         ((id_ == 0 && !reverse_) || (id_ == 1 && reverse_)) ? ix : (total_device_count - 1 - ix);
-    int pid = device_resources_->get_pid(i);
+    int pid = resource_manager_->get_pid_from_gpu_global_id(i);
     if (pid_ == pid) {
-      int local_id = device_resources_->get_local_id(i);
-      CudaDeviceContext context(device_resources_->get_local_device_id(i));
-      CK_CUDA_THROW_(
-          cudaStreamSynchronize((*device_resources_)[local_id].get_data_copy_stream(id_)));
+      size_t local_id = resource_manager_->get_gpu_local_id_from_global_id(i);
+      const auto& local_gpu = resource_manager_->get_local_gpu(local_id);
+      CudaDeviceContext context(local_gpu->get_device_id());
+      CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_data_copy_stream()));
     }
   }
 
@@ -405,24 +402,25 @@ long long DataCollector<TypeKey>::read_a_batch_to_device() {
     return internal_buffer->current_batchsize;
   }
 
-  for (unsigned int i = 0; i < device_resources_->size(); i++) {
-    CudaDeviceContext context((*device_resources_)[i].get_device_id());
+  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+    const auto& local_gpu = resource_manager_->get_local_gpu(i);
+    CudaDeviceContext context(local_gpu->get_device_id());
     for (int j = 0; j < num_params_; j++) {
       int csr_id = i * num_params_ + j;
-      CK_CUDA_THROW_(cudaMemcpyAsync(
-          csr_buffers_[csr_id].get_ptr(), internal_buffer->csr_buffers_internal[csr_id].get_ptr(),
-          csr_buffers_[csr_id].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-          (*device_resources_)[i].get_stream()));
+      CK_CUDA_THROW_(cudaMemcpyAsync(csr_buffers_[csr_id].get_ptr(),
+                                     internal_buffer->csr_buffers_internal[csr_id].get_ptr(),
+                                     csr_buffers_[csr_id].get_size_in_bytes(),
+                                     cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
       *(nnz_array_[csr_id]) = *(internal_buffer->nnz_array_internal[csr_id]);
     }
     if (use_mixed_precision_) {
       Tensor2<__half> tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
       split(label_tensors_[i], tensor, internal_buffer->label_dense_buffers_internal[i],
-            (*device_resources_)[i].get_stream());
+            local_gpu->get_stream());
     } else {
       Tensor2<float> tensor = Tensor2<float>::stretch_from(dense_tensors_[i]);
       split(label_tensors_[i], tensor, internal_buffer->label_dense_buffers_internal[i],
-            (*device_resources_)[i].get_stream());
+            local_gpu->get_stream());
     }
   }
   counter_++;
@@ -431,9 +429,10 @@ long long DataCollector<TypeKey>::read_a_batch_to_device() {
 
 template <typename TypeKey>
 void DataCollector<TypeKey>::set_ready_to_write_sync() {
-  for (unsigned int i = 0; i < device_resources_->size(); i++) {
-    CudaDeviceContext context((*device_resources_)[i].get_device_id());
-    cudaStreamSynchronize((*device_resources_)[i].get_stream());
+  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+    const auto& local_gpu = resource_manager_->get_local_gpu(i);
+    CudaDeviceContext context(local_gpu->get_device_id());
+    cudaStreamSynchronize(local_gpu->get_stream());
   }
   set_ready_to_write();
 }

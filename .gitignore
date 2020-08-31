@@ -1,4 +1,6 @@
 build
+debug_build
+release_build
 docs/html
 docs/latex
 .vscode

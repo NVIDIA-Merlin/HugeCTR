@@ -52,8 +52,8 @@ class ReshapeLayer : public Layer {
   int n_slot_;
   int vector_length_;
   size_t n_active_slot_;
-  Tensor2<int> selected_;
-  int n_sms_;
+  Tensor2<int> selected_tensor_;
+  std::vector<int> selected_;
 
   void prop_common(bool forward, bool is_train, cudaStream_t stream);
 
@@ -73,7 +73,7 @@ class ReshapeLayer : public Layer {
   ReshapeLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& evaluate_in_tensor,
                Tensor2<T>& out_tensor,
                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, size_t leading_dim,
-               int device_id);
+               const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
    * @param in_tensor the input tensor
@@ -85,19 +85,20 @@ class ReshapeLayer : public Layer {
    */
   ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-               std::vector<int>& selected, int device_id);
-  ~ReshapeLayer() override;
+               std::vector<int>& selected, const std::shared_ptr<GPUResource>& gpu_resource);
+
+  void initialize() override;
 
   /**
    * A method of implementing the forward pass of Reshape
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * A method of implementing the forward pass of Reshape
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 };
 
 }  // namespace HugeCTR

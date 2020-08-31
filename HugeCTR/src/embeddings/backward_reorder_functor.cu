@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 
@@ -126,28 +127,29 @@ void SparseEmbeddingFunctors::backward_reorder(size_t batch_size_per_gpu, size_t
                                                size_t embedding_vec_size,
                                                const Tensors2<TypeEmbeddingComp> &src_tensors,
                                                Tensors2<TypeEmbeddingComp> &dst_tensors,
-                                               const GPUResourceGroup &device_resources) {
-  CudaDeviceContext context;
-  size_t local_gpu_count = device_resources.size();
-  size_t total_gpu_count = device_resources.get_total_gpu_count();
+                                               const ResourceManager &resource_manager) {
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
+  size_t total_gpu_count = resource_manager.get_global_gpu_count();
 
+  CudaDeviceContext context;
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    const auto &local_gpu = resource_manager.get_local_gpu(id);
+    context.set_device(local_gpu->get_device_id());
 
     do_backward_reorder(batch_size_per_gpu, slot_num, embedding_vec_size, total_gpu_count,
                         src_tensors[id].get_ptr(), dst_tensors[id].get_ptr(),
-                        device_resources[id].get_stream());
+                        local_gpu->get_stream());
   }
 }
 
 template void SparseEmbeddingFunctors::backward_reorder<float>(
     size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<float> &src_tensors, Tensors2<float> &dst_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::backward_reorder<__half>(
     size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<__half> &src_tensors, Tensors2<__half> &dst_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 }  // namespace HugeCTR

@@ -37,7 +37,7 @@ class NoRegularizer : public Regularizer<T> {
    * @param device_id Device to be used
    */
   NoRegularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
-                const int batch_size, const int device_id);
+                const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*
    * Destructor of NoRegularizer
@@ -52,8 +52,7 @@ class NoRegularizer : public Regularizer<T> {
    * @param num_elements the number of weight values across layers
    * @param stream CUDA Stream where the kernel is executed
    */
-  void do_compute_rterm(const float* weight, float* h_rterm, int num_elements,
-                        cudaStream_t stream) override;
+  void do_compute_rterm(const float* weight, float* h_rterm, int num_elements) override;
   /*
    * Initialize wgrad with zeros
    * @param weight the device buffer of weight
@@ -61,8 +60,7 @@ class NoRegularizer : public Regularizer<T> {
    * @param num_elements the number of weight values across layers
    * @param stream CUDA Stream where the kernel is executed
    */
-  void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
-                           cudaStream_t stream) override;
+  void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements) override;
 };
 
 }  // namespace HugeCTR

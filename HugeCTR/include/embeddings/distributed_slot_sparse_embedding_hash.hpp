@@ -19,6 +19,7 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embeddings/embedding.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 /**
@@ -103,11 +104,10 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param max_vocabulary_size_per_gpu max vocabulary size per GPU.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors embedding table tensors.
-   * @param device_resources GPU device resources.
+   * @param resource_manager GPU device resources.
    */
   void init_embedding(size_t max_vocabulary_size_per_gpu, size_t embedding_vec_size,
-                      Tensors2<float> &hash_table_value_tensors,
-                      const GPUResourceGroup &device_resources);
+                      Tensors2<float> &hash_table_value_tensors);
 
   /**
    * upload_params_to_device for DistributedSlotSparseEmbeddingHash.
@@ -123,8 +123,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   void upload_params_to_device(
       std::ifstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
       size_t max_vocabulary_size_per_gpu, Tensors2<float> &hash_table_value_tensors,
-      std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables,
-      const GPUResourceGroup &device_resources);
+      std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables);
 
   /**
    * download_params_to_host for DistributedSlotSparseEmbeddingHash
@@ -140,8 +139,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   void download_params_to_host(
       std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
       const Tensors2<float> &hash_table_value_tensors,
-      const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables,
-      const GPUResourceGroup &device_resources) const;
+      const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
 
  public:
   /**
@@ -151,7 +149,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param hash_key_tensors hash keys of the input tensor(refer to value vector in sparse matrix
    * CSR format).
    * @param embedding_params embedding params for initialization.
-   * @param gpu_resource_group the GPU resource group
+   * @param resource_manager the GPU resource group
    */
   DistributedSlotSparseEmbeddingHash(
       const Tensors2<TypeHashKey> &train_row_offsets_tensors,
@@ -161,7 +159,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
       const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-      const std::shared_ptr<GPUResourceGroup> &gpu_resource_group);
+      const std::shared_ptr<ResourceManager> &resource_manager);
 
   /**
    * The forward propagation of embedding layer.
@@ -171,32 +169,32 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 
     CudaDeviceContext context;
 
-    for (size_t i = 0; i < Base::get_local_gpu_count(); i++) {
-      context.set_device(Base::get_gpu_resource(i).get_device_id());
+    for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+      context.set_device(Base::get_local_gpu(i).get_device_id());
       functors_.forward_per_gpu(
           Base::get_batch_size(is_train), Base::get_slot_num(), Base::get_embedding_vec_size(), 0,
           is_train, Base::get_row_offsets_tensors(is_train)[i],
           Base::get_value_tensors(is_train)[i], *Base::get_nnz_array(is_train)[i], *hash_tables_[i],
           hash_table_value_tensors_[i], hash_value_index_tensors_[i], embedding_feature_tensors_[i],
-          Base::get_gpu_resource(i).get_stream());
+          Base::get_local_gpu(i).get_stream());
     }
 
     // do reduce scatter
     size_t recv_count = Base::get_batch_size_per_gpu(is_train) * Base::get_slot_num() *
                         Base::get_embedding_vec_size();
     functors_.reduce_scatter(recv_count, embedding_feature_tensors_,
-                             Base::get_output_tensors(is_train), Base::get_gpu_resource_group());
+                             Base::get_output_tensors(is_train), Base::get_resource_manager());
 
     // scale for combiner=mean after reduction
     if (Base::get_combiner() == 1) {
       size_t send_count = Base::get_batch_size(is_train) * Base::get_slot_num() + 1;
       functors_.all_reduce(send_count, Base::get_row_offsets_tensors(is_train),
-                           row_offset_allreduce_tensors_, Base::get_gpu_resource_group());
+                           row_offset_allreduce_tensors_, Base::get_resource_manager());
 
       // do average
       functors_.forward_scale(Base::get_batch_size(is_train), Base::get_slot_num(),
                               Base::get_embedding_vec_size(), row_offset_allreduce_tensors_,
-                              Base::get_output_tensors(is_train), Base::get_gpu_resource_group());
+                              Base::get_output_tensors(is_train), Base::get_resource_manager());
     }
 
     return;
@@ -213,13 +211,13 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
     size_t send_count =
         Base::get_batch_size_per_gpu(true) * Base::get_slot_num() * Base::get_embedding_vec_size();
     functors_.all_gather(send_count, Base::get_output_tensors(true), embedding_feature_tensors_,
-                         Base::get_gpu_resource_group());
+                         Base::get_resource_manager());
 
     // do backward
     functors_.backward(Base::get_batch_size(true), Base::get_slot_num(),
                        Base::get_embedding_vec_size(), Base::get_combiner(),
                        row_offset_allreduce_tensors_, embedding_feature_tensors_, wgrad_tensors_,
-                       Base::get_gpu_resource_group());
+                       Base::get_resource_manager());
 
     return;
   }
@@ -230,8 +228,8 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    */
   void update_params() override {
     CudaDeviceContext context;
-    for (size_t i = 0; i < Base::get_local_gpu_count(); i++) {
-      CudaDeviceContext context(Base::get_gpu_resource(i).get_device_id());
+    for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+      CudaDeviceContext context(Base::get_local_gpu(i).get_device_id());
 
       // accumulate times for adam optimizer
       Base::get_opt_params(i).hyperparams.adam.times++;
@@ -246,7 +244,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
           hash_value_flag_sumed_tensors_[i], hash_value_index_count_counter_tensors_[i],
           temp_storage_sort_tensors_[i], temp_storage_scan_tensors_[i], wgrad_tensors_[i],
           deltaw_hash_value_index_tensors_[i], deltaw_tensors_[i], hash_table_value_tensors_[i],
-          Base::get_gpu_resource_group().get_sm_count(), Base::get_gpu_resource(i).get_stream());
+          Base::get_local_gpu(i).get_sm_count(), Base::get_local_gpu(i).get_stream());
     }
 
     return;
@@ -257,7 +255,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    */
   void init_params() override {
     init_embedding(max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size(),
-                   hash_table_value_tensors_, Base::get_gpu_resource_group());
+                   hash_table_value_tensors_);
   }
 
   /**
@@ -272,8 +270,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
     }
 
     upload_params_to_device(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
-                            max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_,
-                            Base::get_gpu_resource_group());
+                            max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_);
 
     return;
   }
@@ -291,8 +288,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
     }
 
     download_params_to_host(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
-                            hash_table_value_tensors_, hash_tables_,
-                            Base::get_gpu_resource_group());
+                            hash_table_value_tensors_, hash_tables_);
 
     return;
   }
@@ -305,13 +301,13 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 
     size_t total_size = 0;
 
-    CudaDeviceContext context(Base::get_gpu_resource(0).get_device_id());
+    CudaDeviceContext context;
 
     // need to collect the <key, value> pair count from all GPUs and do sum reduction
-    for (size_t id = 0; id < Base::get_local_gpu_count(); id++) {
-      context.set_device(Base::get_gpu_resource(id).get_device_id());
-      total_size += hash_tables_[id]->get_size(Base::get_gpu_resource(id).get_stream());
-      CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_gpu_resource(id).get_stream()));
+    for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
+      context.set_device(Base::get_local_gpu(id).get_device_id());
+      total_size += hash_tables_[id]->get_size(Base::get_local_gpu(id).get_stream());
+      CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(id).get_stream()));
     }
 
     total_size *= Base::get_embedding_vec_size();
@@ -332,7 +328,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 
     functors_.get_forward_results(memcpy_size, Base::get_output_tensors(is_train),
                                   embedding_feature, utest_forward_temp_tensors_,
-                                  Base::get_gpu_resource_group());
+                                  Base::get_resource_manager());
 
     return;
   }
@@ -350,7 +346,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
         Base::get_batch_size(true) * Base::get_slot_num() * Base::get_embedding_vec_size();
 
     functors_.get_backward_results(devIndex, memcpy_size, wgrad_tensors_, wgrad,
-                                   Base::get_gpu_resource_group());
+                                   Base::get_resource_manager());
 
     return;
   }
@@ -366,7 +362,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
                                  Tensor2<float> &hash_table_value) override {
     functors_.get_update_params_results(Base::get_embedding_vec_size(), max_vocabulary_size_,
                                         hash_table_value_tensors_, hash_tables_, hash_table_key,
-                                        hash_table_value, Base::get_gpu_resource_group());
+                                        hash_table_value, Base::get_resource_manager());
 
     return;
   }
@@ -378,16 +374,16 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   void check_overflow() const override {
     CudaDeviceContext context;
 
-    for (size_t id = 0; id < Base::get_local_gpu_count(); id++) {
-      context.set_device(Base::get_gpu_resource(id).get_device_id());
-      size_t count = hash_tables_[id]->get_size(Base::get_gpu_resource(id).get_stream());
+    for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
+      context.set_device(Base::get_local_gpu(id).get_device_id());
+      size_t count = hash_tables_[id]->get_size(Base::get_local_gpu(id).get_stream());
       if (count > max_vocabulary_size_per_gpu_) {
-        CK_THROW_(Error_t::OutOfBound,
-                  "Runtime vocabulary size (" + std::to_string(count) +
-                      ") exceeds max_vocabulary_size_per_gpu (" +
-                      std::to_string(max_vocabulary_size_per_gpu_) + ") on GPU " +
-                      std::to_string(Base::get_gpu_resource(id).get_device_id()) +
-                      ", new feature insertion failed.\n");
+        CK_THROW_(Error_t::OutOfBound, "Runtime vocabulary size (" + std::to_string(count) +
+                                           ") exceeds max_vocabulary_size_per_gpu (" +
+                                           std::to_string(max_vocabulary_size_per_gpu_) +
+                                           ") on GPU " +
+                                           std::to_string(Base::get_local_gpu(id).get_device_id()) +
+                                           ", new feature insertion failed.\n");
       }
     }
   }

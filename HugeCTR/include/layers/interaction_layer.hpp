@@ -44,9 +44,7 @@ class InteractionLayer : public Layer {
    */
   Tensors2<T> out_tensors_;
 
-  cublasHandle_t cublas_handle_;
   bool use_mixed_precision_;
-  int n_sms_;
 
   Tensors2<T> internal_tensors_;
 
@@ -72,19 +70,19 @@ class InteractionLayer : public Layer {
                    const Tensor2<T>& train_in_embeddings, const Tensor2<T>& evaluate_in_embeddings,
                    Tensor2<T>& out_tensor,
                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                   cublasHandle_t cublas_handle, bool use_mixed_precision, int device_id);
+                   const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision);
   ~InteractionLayer() override;
 
   /**
    * Interaction's foward pass to gather data to the output tensor
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * Interaction's backward pass to scatter data to the input tensors
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 };
 
 }  // namespace HugeCTR

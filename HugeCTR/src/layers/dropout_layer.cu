@@ -32,64 +32,36 @@ namespace HugeCTR {
 template <typename T>
 DropoutLayer<T>::DropoutLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
                               const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff,
-                              float rate, const curandGenerator_t& curand_generator, int device_id)
-    : Layer(device_id),
-      rate_(rate),
-      scale_(1.0 / (1.0 - rate)),
-      curand_generator_(curand_generator),
-      n_sms_(0) {
+                              float rate, const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource), rate_(rate), scale_(1.0 / (1.0 - rate)) {
   assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
   assert(rate_ > 0.f && rate_ < 1.f);
 
   in_tensors_.emplace_back(in_tensor);
   out_tensors_.emplace_back(out_tensor);
 
-  CudaDeviceContext context(get_device_id());
-
   blobs_buff->reserve(in_tensor.get_dimensions(), &mask_);
-
-  CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(curand_generator_, get_seed()));
-
-  CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, get_device_id()));
-  assert(n_sms_ > 0);
 }
 
 template <typename T>
-DropoutLayer<T>::~DropoutLayer() {}
-
-template <typename T>
-void DropoutLayer<T>::fprop(bool is_train, cudaStream_t stream) {
+void DropoutLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   if (is_train) {
-    CK_CURAND_THROW_(curandSetStream(curand_generator_, stream));
-    CK_CURAND_THROW_(curandGenerateUniform(curand_generator_, mask_.get_ptr(),
+    CK_CURAND_THROW_(curandGenerateUniform(get_gpu().get_curand_generator(), mask_.get_ptr(),
                                            in_tensors_[0].get_num_elements()));
-    prop_common(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(), stream);
+    prop_common(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(), get_gpu().get_stream());
   } else {
     cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
-                    in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice, stream);
+                    in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                    get_gpu().get_stream());
   }
 }
 
 template <typename T>
-void DropoutLayer<T>::bprop(cudaStream_t stream) {
+void DropoutLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
-  prop_common(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), stream);
-}
-
-template <typename T>
-int64_t DropoutLayer<T>::get_seed() const {
-  FILE* f = fopen("/dev/urandom", "rb");
-  if (f) {
-    int64_t seed;
-    size_t ret = fread(&seed, 1, sizeof(seed), f);
-    fclose(f);
-    if (ret == sizeof(seed)) {
-      return seed;
-    }
-  }
-  return time(nullptr);
+  prop_common(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), get_gpu().get_stream());
 }
 
 template <typename T>

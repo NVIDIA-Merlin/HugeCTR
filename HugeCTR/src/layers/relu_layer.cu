@@ -30,8 +30,9 @@
 namespace HugeCTR {
 
 template <typename T>
-ReluLayer<T>::ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, int device_id)
-    : Layer(device_id) {
+ReluLayer<T>::ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
+                        const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
   assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
   assert(in_tensor.get_num_elements() % 2 == 0);
 
@@ -40,14 +41,15 @@ ReluLayer<T>::ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tenso
 }
 
 template <typename T>
-void ReluLayer<T>::fprop(bool is_train, cudaStream_t stream) {
+void ReluLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   int len = in_tensors_[0].get_num_elements();
 
   auto fop = [] __device__(T in) { return (in > T(0)) ? in : T(0); };
 
-  MLCommon::LinAlg::unaryOp(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), len, fop, stream);
+  MLCommon::LinAlg::unaryOp(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), len, fop,
+                            get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -56,7 +58,7 @@ void ReluLayer<T>::fprop(bool is_train, cudaStream_t stream) {
 }
 
 template <typename T>
-void ReluLayer<T>::bprop(cudaStream_t stream) {
+void ReluLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
   int len = in_tensors_[0].get_num_elements();
@@ -64,7 +66,7 @@ void ReluLayer<T>::bprop(cudaStream_t stream) {
   auto bop = [] __device__(T d_out, T d_in) { return (d_in > T(0)) ? d_out : T(0); };
 
   MLCommon::LinAlg::binaryOp(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(),
-                             in_tensors_[0].get_ptr(), len, bop, stream);
+                             in_tensors_[0].get_ptr(), len, bop, get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

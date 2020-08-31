@@ -26,10 +26,9 @@ FullyConnectedLayerHalf::FullyConnectedLayerHalf(
     const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
     const Tensor2<__half>& train_bottom_tensor, const Tensor2<__half>& evaluate_bottom_tensor,
-    const Tensor2<__half>& top_tensor, cublasHandle_t const& cublas_handle, int device_id,
+    const Tensor2<__half>& top_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
     std::vector<Initializer_t> initializer_types)
-    : Layer(device_id, initializer_types),
-      cublas_handle_(cublas_handle),
+    : Layer(gpu_resource, initializer_types),
       falgo_b_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       falgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_b_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
@@ -87,9 +86,8 @@ FullyConnectedLayerHalf::FullyConnectedLayerHalf(
   top_tensor_ = top_tensor;
 }
 
-void FullyConnectedLayerHalf::fprop(bool is_train, cudaStream_t stream) {
+void FullyConnectedLayerHalf::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-  CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* bias = weights_half_[1].get_ptr();
@@ -108,13 +106,13 @@ void FullyConnectedLayerHalf::fprop(bool is_train, cudaStream_t stream) {
   const float beta_b = 0.0f;
   const float beta_k = 1.0f;
 
-  CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1, &alpha, bias,
-                                CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta_b, top, CUDA_R_16F, n,
-                                CUDA_R_32F, falgo_b_));
+  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1,
+                                &alpha, bias, CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta_b, top,
+                                CUDA_R_16F, n, CUDA_R_32F, falgo_b_));
 
-  CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, kernel,
-                                CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k, top, CUDA_R_16F, n,
-                                CUDA_R_32F, falgo_k_));
+  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+                                &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k, top,
+                                CUDA_R_16F, n, CUDA_R_32F, falgo_k_));
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -122,9 +120,8 @@ void FullyConnectedLayerHalf::fprop(bool is_train, cudaStream_t stream) {
 #endif
 }
 
-void FullyConnectedLayerHalf::bprop(cudaStream_t stream) {
+void FullyConnectedLayerHalf::bprop() {
   CudaDeviceContext context(get_device_id());
-  CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* top = top_tensor_.get_ptr();
@@ -145,17 +142,17 @@ void FullyConnectedLayerHalf::bprop(cudaStream_t stream) {
   const float beta_k = 1.0f;
   const float beta_x = 0.0f;
 
-  CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m, &alpha, top,
-                                CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b, bias_grad,
-                                CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
+  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
+                                &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
+                                bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
 
-  CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha, top,
-                                CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k, kernel_grad,
-                                CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
+  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
+                                &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
+                                kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
 
-  CK_CUBLAS_THROW_(cublasGemmEx(cublas_handle_, CUBLAS_OP_T, CUBLAS_OP_N, k, m, n, &alpha, kernel,
-                                CUDA_R_16F, n, top, CUDA_R_16F, n, &beta_x, bottom, CUDA_R_16F, k,
-                                CUDA_R_32F, balgo_x_));
+  CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
+                                &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta_x, bottom,
+                                CUDA_R_16F, k, CUDA_R_32F, balgo_x_));
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -184,13 +181,6 @@ void FullyConnectedLayerHalf::search_algorithm() {
   // Set to the CUDA device where this layer assigned to
   CudaDeviceContext context(get_device_id());
   const size_t repeat_num = 100;
-
-  // CUDA stream to be used for cublas on this device
-  cudaStream_t stream;
-  CK_CUDA_THROW_(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-
-  // Set stream to cublas handler
-  CK_CUBLAS_THROW_(cublasSetStream(cublas_handle_, stream));
 
   // Device Tensors to be used
   __half* bottom = get_bottom_tensor(true).get_ptr();
@@ -228,13 +218,13 @@ void FullyConnectedLayerHalf::search_algorithm() {
     const float beta = 0.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, stream));
+    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1, &alpha, bias,
-                            CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta, top, CUDA_R_16F, n,
-                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1,
+                            &alpha, bias, CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta, top,
+                            CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, stream));
+    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
     CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
@@ -262,13 +252,13 @@ void FullyConnectedLayerHalf::search_algorithm() {
     const float beta = 1.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, stream));
+    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, kernel,
-                            CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, top, CUDA_R_16F, n,
-                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+                            &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, top,
+                            CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, stream));
+    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
     CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
@@ -296,13 +286,13 @@ void FullyConnectedLayerHalf::search_algorithm() {
     const float beta = 0.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, stream));
+    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m, &alpha, top,
-                            CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta, bias_grad, CUDA_R_16F, n,
-                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
+                            &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta, bias_grad,
+                            CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, stream));
+    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
     CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
@@ -330,13 +320,13 @@ void FullyConnectedLayerHalf::search_algorithm() {
     const float beta = 1.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, stream));
+    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(cublas_handle_, CUBLAS_OP_N, CUBLAS_OP_T, n, k, m, &alpha, top,
-                            CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, kernel_grad, CUDA_R_16F, n,
-                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
+                            &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta, kernel_grad,
+                            CUDA_R_16F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
-    CK_CUDA_THROW_(cudaEventRecord(stop, stream));
+    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
     CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
@@ -364,14 +354,14 @@ void FullyConnectedLayerHalf::search_algorithm() {
     const float beta = 0.0f;
 
     // Record start event
-    CK_CUDA_THROW_(cudaEventRecord(start, stream));
+    CK_CUDA_THROW_(cudaEventRecord(start, get_gpu().get_stream()));
     for (size_t i = 0; i < repeat_num && status == CUBLAS_STATUS_SUCCESS; ++i) {
-      status = cublasGemmEx(cublas_handle_, CUBLAS_OP_T, CUBLAS_OP_N, k, m, n, &alpha, kernel,
-                            CUDA_R_16F, n, top, CUDA_R_16F, n, &beta, bottom, CUDA_R_16F, k,
-                            CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+      status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
+                            &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta, bottom,
+                            CUDA_R_16F, k, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
 
-    CK_CUDA_THROW_(cudaEventRecord(stop, stream));
+    CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
     CK_CUDA_THROW_(cudaEventElapsedTime(&time, start, stop));
     // Avg Time(ms) for this alorithm for fprop GEMM
@@ -402,50 +392,47 @@ void FullyConnectedLayerHalf::search_algorithm() {
   // Clean-up
   CK_CUDA_THROW_(cudaEventDestroy(start));
   CK_CUDA_THROW_(cudaEventDestroy(stop));
-  CK_CUDA_THROW_(cudaStreamDestroy(stream));
 }  // namespace HugeCTR
 
-std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_uniform_initializer(
-    const int index) {
+std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_uniform_initializer(const int index) {
   size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
   size_t top_dim = top_tensor_.get_dimensions()[1];
 
   float limit = 1.0f / ((0 == index ? bottom_dim : 0) + top_dim);
-  return std::unique_ptr<DataSimulator<float>>(new UnifiedDataSimulator<float>(-1 * limit, limit));
+  return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
 }
 
-std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_xavier_uniform_initializer(
+std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_xavier_uniform_initializer(
     const int index) {
   size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
   size_t top_dim = top_tensor_.get_dimensions()[1];
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
-      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Uniform,
-      0 == index ? bottom_dim : 0, top_dim));
+  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
+                                                    data_simu::Distribution_t::Uniform,
+                                                    0 == index ? bottom_dim : 0, top_dim);
 }
 
-std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_xavier_norm_initializer(
+std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_xavier_norm_initializer(
     const int index) {
   size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
   size_t top_dim = top_tensor_.get_dimensions()[1];
 
-  return std::unique_ptr<DataSimulator<float>>(new VarianceScalingSimulator<float>(
-      1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm, 0 == index ? bottom_dim : 0,
-      top_dim));
+  return std::make_unique<VarianceScalingSimulator>(1.f, data_simu::Mode_t::Fan_avg,
+                                                    data_simu::Distribution_t::Norm,
+                                                    0 == index ? bottom_dim : 0, top_dim);
 }
 
-std::unique_ptr<DataSimulator<float>> FullyConnectedLayerHalf::get_default_initializer(
-    const int index) {
+std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_default_initializer(const int index) {
   size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
   size_t top_dim = top_tensor_.get_dimensions()[1];
 
-  std::unique_ptr<DataSimulator<float>> simu(nullptr);
+  std::unique_ptr<DataSimulator> simu(nullptr);
   if (0 == index) {
-    simu.reset(new VarianceScalingSimulator<float>(
-        1.f, data_simu::Mode_t::Fan_avg, data_simu::Distribution_t::Norm, bottom_dim, top_dim));
+    simu.reset(new VarianceScalingSimulator(1.f, data_simu::Mode_t::Fan_avg,
+                                            data_simu::Distribution_t::Norm, bottom_dim, top_dim));
   } else if (1 == index) {
     float stddev = sqrt(1.f / top_dim);
-    simu.reset(new GaussianDataSimulator<float>(0, stddev, -2 * stddev, 2 * stddev));
+    simu.reset(new GaussianDataSimulator(0, stddev, -2 * stddev, 2 * stddev));
   } else {
     CK_THROW_(Error_t::OutOfBound, "index != {0, 1}.");
   }

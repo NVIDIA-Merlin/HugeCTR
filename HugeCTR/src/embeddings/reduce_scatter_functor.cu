@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 
@@ -22,9 +23,9 @@ template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::reduce_scatter(size_t recv_count,
                                              const Tensors2<TypeEmbeddingComp> &send_tensors,
                                              Tensors2<TypeEmbeddingComp> &recv_tensors,
-                                             const GPUResourceGroup &device_resources) {
-  size_t local_gpu_count = device_resources.size();
-  size_t total_gpu_count = device_resources.get_total_gpu_count();
+                                             const ResourceManager &resource_manager) {
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
+  size_t total_gpu_count = resource_manager.get_global_gpu_count();
 
   // need to know the type of TypeHashKey here
   ncclDataType_t type;
@@ -43,19 +44,21 @@ void SparseEmbeddingFunctors::reduce_scatter(size_t recv_count,
   if (total_gpu_count > 1) {
     CK_NCCL_THROW_(ncclGroupStart());
     for (size_t id = 0; id < local_gpu_count; id++) {
+      const auto &local_gpu = resource_manager.get_local_gpu(id);
       CK_NCCL_THROW_(ncclReduceScatter(send_tensors[id].get_ptr(),  // send buf
                                        recv_tensors[id].get_ptr(),  // recv buff
-                                       recv_count, type, ncclSum, device_resources[id].get_nccl(),
-                                       device_resources[id].get_stream()));
+                                       recv_count, type, ncclSum, local_gpu->get_nccl(),
+                                       local_gpu->get_stream()));
     }
     CK_NCCL_THROW_(ncclGroupEnd());
   }
   // for single GPU, just do memcpyD2D
   else {  // total_gpu_count == 1
-    CudaDeviceContext context(device_resources[0].get_device_id());
+    const auto &local_gpu = resource_manager.get_local_gpu(0);
+    CudaDeviceContext context(local_gpu->get_device_id());
     CK_CUDA_THROW_(cudaMemcpyAsync(recv_tensors[0].get_ptr(), send_tensors[0].get_ptr(),
                                    recv_count * sizeof(TypeEmbeddingComp), cudaMemcpyDeviceToDevice,
-                                   device_resources[0].get_stream()));
+                                   local_gpu->get_stream()));
   }
 
   return;
@@ -63,10 +66,10 @@ void SparseEmbeddingFunctors::reduce_scatter(size_t recv_count,
 
 template void SparseEmbeddingFunctors::reduce_scatter<float>(
     size_t recv_count, const Tensors2<float> &send_tensors, Tensors2<float> &recv_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::reduce_scatter<__half>(
     size_t recv_count, const Tensors2<__half> &send_tensors, Tensors2<__half> &recv_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 }  // namespace HugeCTR

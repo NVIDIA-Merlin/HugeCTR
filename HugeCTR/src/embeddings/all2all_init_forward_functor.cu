@@ -26,14 +26,14 @@ void SparseEmbeddingFunctors::all2all_init_forward(
         Type, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>>> &all2all,
     const std::string &plan_file, size_t batch_size_per_gpu, size_t slot_num,
     size_t embedding_vec_size, const TensorPtrs<Type> &send_tensors, TensorPtrs<Type> &recv_tensors,
-    const std::shared_ptr<GPUResourceGroup> &device_resources) {
+    const ResourceManager &resource_manager) {
   using transfer_plan_t =
       typename FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>::transfer_plan_t;
   transfer_plan_t *transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
   size_t plan_gpu_count = transfer_plan->num_gpus();  // total number of GPUs in current node
-  std::vector<int> device_list = device_resources->get_device_list();
-  size_t local_gpu_count = device_list.size();
-  size_t total_gpu_count = device_resources->get_total_gpu_count();
+  std::vector<int> device_list = resource_manager.get_local_gpu_device_id_list();
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
+  size_t total_gpu_count = device_resources.get_global_gpu_count();
   if (local_gpu_count != plan_gpu_count) {
     std::cout << "local_gpu_count=" << local_gpu_count << ", plan_gpu_count=" << plan_gpu_count
               << std::endl;
@@ -150,14 +150,14 @@ template void SparseEmbeddingFunctors::all2all_init_forward<float>(
         float, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<float>>> &all2all,
     const std::string &plan_file, size_t batch_size_per_gpu, size_t slot_num,
     size_t embedding_vec_size, const TensorPtrs<float> &send_tensors,
-    TensorPtrs<float> &recv_tensors, const std::shared_ptr<GPUResourceGroup> &device_resources);
+    TensorPtrs<float> &recv_tensors, const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::all2all_init_forward<__half>(
     std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
         __half, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<__half>>> &all2all,
     const std::string &plan_file, size_t batch_size_per_gpu, size_t slot_num,
     size_t embedding_vec_size, const TensorPtrs<__half> &send_tensors,
-    TensorPtrs<__half> &recv_tensors, const std::shared_ptr<GPUResourceGroup> &device_resources);
+    TensorPtrs<__half> &recv_tensors, const ResourceManager &resource_manager);
 
 #else
 
@@ -168,14 +168,14 @@ void SparseEmbeddingFunctors::all2all_init_forward(
     const std::string &plan_file, size_t batch_size_per_gpu,
     const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
     const TensorPtrs<Type> &send_tensors, const TensorPtrs<Type> &recv_tensors,
-    const GPUResourceGroup &device_resources) {
+    const ResourceManager &resource_manager) {
   using transfer_plan_t =
       typename FasterGossipComm::FasterGossipCommAll2AllTraits<Type>::transfer_plan_t;
   transfer_plan_t *transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
   size_t plan_gpu_count = transfer_plan->num_gpus();  // total number of GPUs in current node
 
-  std::vector<int> device_list = device_resources.get_device_list();
-  size_t local_gpu_count = device_list.size();
+  std::vector<int> device_list = device_resources.get_local_gpu_device_id_list();
+  size_t local_gpu_count = device_resources.get_local_gpu_count();
   if (local_gpu_count != plan_gpu_count) {
     std::cout << "local_gpu_count=" << local_gpu_count << ", plan_gpu_count=" << plan_gpu_count
               << std::endl;
@@ -235,7 +235,7 @@ template void SparseEmbeddingFunctors::all2all_init_forward<float>(
     const std::string &plan_file, size_t batch_size_per_gpu,
     const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
     const TensorPtrs<float> &send_tensors, const TensorPtrs<float> &recv_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::all2all_init_forward<__half>(
     std::unique_ptr<FasterGossipComm::FasterGossipComm<
@@ -243,7 +243,7 @@ template void SparseEmbeddingFunctors::all2all_init_forward<__half>(
     const std::string &plan_file, size_t batch_size_per_gpu,
     const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
     const TensorPtrs<__half> &send_tensors, const TensorPtrs<__half> &recv_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 #endif
 #endif
