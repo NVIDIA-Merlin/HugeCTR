@@ -26,9 +26,9 @@
 #include <data_readers/data_reader_worker_group_parquet.hpp>
 #include <data_readers/data_reader_worker_group_raw.hpp>
 #include <data_readers/file_list.hpp>
+#include <data_readers/heap.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
-#include <data_readers/heap.hpp>
 #include <utils.hpp>
 #include <vector>
 

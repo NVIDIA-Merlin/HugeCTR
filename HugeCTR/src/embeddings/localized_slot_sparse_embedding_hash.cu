@@ -969,8 +969,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::init_embe
   size_t total_gpu_count = Base::get_resource_manager().get_global_gpu_count();
 
 #ifndef NDEBUG
-  MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) + ", total_gpu_count=" +
-           std::to_string(total_gpu_count));
+  MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) +
+           ", total_gpu_count=" + std::to_string(total_gpu_count));
 #endif
 
   for (size_t id = 0; id < local_gpu_count; id++) {

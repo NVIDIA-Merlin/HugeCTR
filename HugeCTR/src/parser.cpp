@@ -368,8 +368,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
           loss.reset(new BinaryCrossEntropyLoss<float>(
               train_label_tensor, train_in_tensor, evaluate_label_tensor, evaluate_in_tensor,
-              loss_tensor, create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                                              train_in_tensor.get_dimensions()[0], gpu_resource),
+              loss_tensor,
+              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                                 train_in_tensor.get_dimensions()[0], gpu_resource),
               gpu_resource, num_networks_in_global, scaler));
         }
         break;

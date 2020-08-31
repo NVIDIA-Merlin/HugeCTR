@@ -15,13 +15,12 @@
  */
 
 #include "data_readers/metadata.hpp"
-#include "nlohmann/json.hpp"
 #include <iostream>
+#include "nlohmann/json.hpp"
 
 namespace HugeCTR {
 
 void Metadata::get_parquet_metadata(std::string file_name) {
-
   nlohmann::json config;
   std::ifstream file_stream(file_name);
   if (!file_stream.is_open()) {
@@ -31,15 +30,15 @@ void Metadata::get_parquet_metadata(std::string file_name) {
 
   try {
     auto fstats = config.find("file_stats").value();
-    for (unsigned int i=0; i<fstats.size(); i++) {
+    for (unsigned int i = 0; i < fstats.size(); i++) {
       FileStats fs;
       std::string fname = (std::string)fstats[i].find("file_name").value();
       fs.num_rows = long(fstats[i].find("num_rows").value());
-	  file_stats_.insert({fname, fs});
+      file_stats_.insert({fname, fs});
     }
 
     auto cats = config.find("cats").value();
-    for (unsigned int i=0; i<cats.size(); i++) {
+    for (unsigned int i = 0; i < cats.size(); i++) {
       Cols c;
       c.col_name = (std::string)cats[i].find("col_name").value();
       c.index = (int)cats[i].find("index").value();
@@ -47,7 +46,7 @@ void Metadata::get_parquet_metadata(std::string file_name) {
     }
 
     auto conts = config.find("conts").value();
-    for (unsigned int i=0; i<conts.size(); i++) {
+    for (unsigned int i = 0; i < conts.size(); i++) {
       Cols c;
       c.col_name = (std::string)conts[i].find("col_name").value();
       c.index = (int)conts[i].find("index").value();
@@ -55,7 +54,7 @@ void Metadata::get_parquet_metadata(std::string file_name) {
     }
 
     auto labels = config.find("labels").value();
-    for (unsigned int i=0; i<labels.size(); i++) {
+    for (unsigned int i = 0; i < labels.size(); i++) {
       Cols c;
       c.col_name = (std::string)labels[i].find("col_name").value();
       c.index = (int)labels[i].find("index").value();

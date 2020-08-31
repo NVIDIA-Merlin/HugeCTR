@@ -16,13 +16,13 @@
 
 #pragma once
 #include <atomic>
+#include <common.hpp>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
 #include <vector>
-#include <common.hpp>
 
 namespace HugeCTR {
 
@@ -145,10 +145,8 @@ class HeapEx {
       }
     }
   }
-  
-  int get_size(){
-    return num_threads_;
-  }
+
+  int get_size() { return num_threads_; }
 
   ~HeapEx() {
     for (size_t i = 0; i < chunks_.size(); i++) {

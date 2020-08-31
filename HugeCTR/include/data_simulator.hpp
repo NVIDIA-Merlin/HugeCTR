@@ -93,7 +93,7 @@ enum class Mode_t {
 };
 
 enum class Distribution_t { Uniform, Norm };
-}
+}  // namespace data_simu
 
 class VarianceScalingSimulator : public DataSimulator {
  public:
@@ -152,4 +152,4 @@ class VarianceScalingSimulator : public DataSimulator {
   float scale_;
   bool truncated_;
 };
-}
+}  // namespace HugeCTR

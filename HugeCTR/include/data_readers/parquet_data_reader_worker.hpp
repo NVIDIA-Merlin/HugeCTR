@@ -515,4 +515,4 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
   return;
 }
 
-}  // HugeCTR
+}  // namespace HugeCTR

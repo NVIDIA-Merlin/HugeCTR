@@ -641,21 +641,21 @@ inline void dotBasedInteractFwd(const void *bottom_mlp_input, const void *emb_in
   if (float4_predicate) {
     dotBasedInteractFwdKernel<warps_per_threadblock, threadblock_size, M_BLOCKS, K_BLOCKS,
                               SMEM_STRIDE, SMEM_STRIDE_ACC, kWarpSize, kWarpSizeLog2, kTileDim,
-                              kTileDimLog2><<<
-        (batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
-        warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
-        (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
-        num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
-        smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
+                              kTileDimLog2>
+        <<<(batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
+           warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
+            (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
+            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
+            smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
   } else {
     dotBasedInteractFwdKernelNonAligned<warps_per_threadblock, threadblock_size, M_BLOCKS, K_BLOCKS,
                                         SMEM_STRIDE, SMEM_STRIDE_ACC, kWarpSize, kWarpSizeLog2,
-                                        kTileDim, kTileDimLog2><<<
-        (batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
-        warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
-        (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
-        num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
-        smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
+                                        kTileDim, kTileDimLog2>
+        <<<(batch_size + warps_per_threadblock - 1) / warps_per_threadblock, threadblock_size,
+           warps_per_threadblock * smem_elems_per_warp * sizeof(__half), stream>>>(
+            (const __half *)bottom_mlp_input, (const __half *)emb_input, (half *)output, batch_size,
+            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, smem_elems_per_warp,
+            smem_rows_per_warp, output_size, num_row_steps, num_col_steps);
   }
 }
 
@@ -720,25 +720,26 @@ inline void dotBasedInteractBwd(void *upstream_grad, void *bottom_mlp_grad, void
 
   bool float4_predicate = !((interaction_ugrad_size_with_padding & 7) || (num_cols & 7));
   if (float4_predicate) {
-    dotBasedInteractBwdKernel<
-        kWarpsPerBlock, kNumThreads, kRowTilesPerStep, kColTilesPerStep, kWarpSize, kWarpSizeLog2,
-        kTileDim, kTileDimLog2><<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
-        (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
-        num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
-        interaction_ugrad_size, interaction_ugrad_size_with_padding,
-        interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
-        input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
-        shared_mem_per_warp_size_byte);
+    dotBasedInteractBwdKernel<kWarpsPerBlock, kNumThreads, kRowTilesPerStep, kColTilesPerStep,
+                              kWarpSize, kWarpSizeLog2, kTileDim, kTileDimLog2>
+        <<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
+            (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
+            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
+            interaction_ugrad_size, interaction_ugrad_size_with_padding,
+            interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
+            input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
+            shared_mem_per_warp_size_byte);
   } else {
-    dotBasedInteractBwdKernelNonAligned<
-        kWarpsPerBlock, kNumThreads, kRowTilesPerStep, kColTilesPerStep, kWarpSize, kWarpSizeLog2,
-        kTileDim, kTileDimLog2><<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
-        (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
-        num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
-        interaction_ugrad_size, interaction_ugrad_size_with_padding,
-        interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
-        input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
-        shared_mem_per_warp_size_byte);
+    dotBasedInteractBwdKernelNonAligned<kWarpsPerBlock, kNumThreads, kRowTilesPerStep,
+                                        kColTilesPerStep, kWarpSize, kWarpSizeLog2, kTileDim,
+                                        kTileDimLog2>
+        <<<num_blocks, kNumThreads, shared_mem_size_bytes, stream>>>(
+            (const half *)upstream_grad, (half *)bottom_mlp_grad, (half *)emb_grad, batch_size,
+            num_rows, num_cols, num_rows_after_padding, num_cols_after_padding, sample_size,
+            interaction_ugrad_size, interaction_ugrad_size_with_padding,
+            interaction_ugrad_2D_size_elems, interaction_ugrad_2D_stride, input_size_elems,
+            input_stride, num_row_steps, num_col_steps, row_tiles_per_step,
+            shared_mem_per_warp_size_byte);
   }
 }
 

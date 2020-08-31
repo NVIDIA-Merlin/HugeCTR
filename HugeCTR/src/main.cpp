@@ -94,8 +94,8 @@ void train(std::string config_file) {
         }
         if (pid == 0) {
           MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
-                   " iters): " + std::to_string(timer_train.elapsedSeconds()) + "s Loss: " +
-                   std::to_string(loss) + " lr:" + std::to_string(lr));
+                   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                   "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
         }
         timer_train.start();
       }
@@ -153,8 +153,8 @@ void train(std::string config_file) {
 
         timer_eval.stop();
 
-        MESSAGE_("Eval Time for " + std::to_string(solver_config.eval_batches) + " iters: " +
-                 std::to_string(timer_eval.elapsedSeconds()) + "s");
+        MESSAGE_("Eval Time for " + std::to_string(solver_config.eval_batches) +
+                 " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
 
         HugeCTR::LOG(
             timer_log.elapsedMilliseconds(), "eval_stop",

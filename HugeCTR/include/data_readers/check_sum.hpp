@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <data_readers/checker.hpp>
 #include <common.hpp>
+#include <data_readers/checker.hpp>
 #include <data_readers/source.hpp>
 
 namespace HugeCTR {

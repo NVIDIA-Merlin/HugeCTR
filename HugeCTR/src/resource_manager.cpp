@@ -167,4 +167,4 @@ void ResourceManager::enable_all_peer_accesses() {
     }
   }
 }
-}
+}  // namespace HugeCTR

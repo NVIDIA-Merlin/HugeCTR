@@ -16,11 +16,11 @@
 
 #pragma once
 #include <atomic>
+#include <common.hpp>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <vector>
-#include <common.hpp>
 
 namespace HugeCTR {
 

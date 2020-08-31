@@ -15,11 +15,11 @@
  */
 
 #pragma once
-#include <fstream>
-#include <vector>
 #include <common.hpp>
 #include <data_readers/file_list.hpp>
 #include <data_readers/source.hpp>
+#include <fstream>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -84,7 +84,6 @@ class FileSource : public Source {
   }
 
   bool is_open() noexcept { return in_file_stream_.is_open(); }
-
 };
 
 }  // namespace HugeCTR

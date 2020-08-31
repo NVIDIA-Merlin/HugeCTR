@@ -42,9 +42,10 @@ void HostUniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b,
   if (a >= b) {
     CK_THROW_(Error_t::WrongInput, "a must be smaller than b");
   }
-  CK_CURAND_THROW_(curandGenerateUniform(gen, tensor.get_ptr(), tensor.get_num_elements() % 2 != 0
-                                                                    ? tensor.get_num_elements() + 1
-                                                                    : tensor.get_num_elements()));
+  CK_CURAND_THROW_(curandGenerateUniform(gen, tensor.get_ptr(),
+                                         tensor.get_num_elements() % 2 != 0
+                                             ? tensor.get_num_elements() + 1
+                                             : tensor.get_num_elements()));
   float* p = tensor.get_ptr();
   for (size_t i = 0; i < tensor.get_num_elements(); i++) {
     p[i] = p[i] * (b - a) + a;
@@ -61,9 +62,10 @@ void NormalGenerator::fill<float>(Tensor2<float>& tensor, float mean, float stdd
 template <>
 void HostNormalGenerator::fill<float>(Tensor2<float>& tensor, float mean, float stddev,
                                       const curandGenerator_t& gen) {
-  CK_CURAND_THROW_(curandGenerateNormal(gen, tensor.get_ptr(), tensor.get_num_elements() % 2 != 0
-                                                                   ? tensor.get_num_elements() + 1
-                                                                   : tensor.get_num_elements(),
+  CK_CURAND_THROW_(curandGenerateNormal(gen, tensor.get_ptr(),
+                                        tensor.get_num_elements() % 2 != 0
+                                            ? tensor.get_num_elements() + 1
+                                            : tensor.get_num_elements(),
                                         mean, stddev));
 }
 
@@ -81,4 +83,4 @@ void UniformDataSimulator::fill(Tensor2<float>& tensor, const curandGenerator_t&
 void GaussianDataSimulator::fill(Tensor2<float>& tensor, const curandGenerator_t& gen) {
   HostNormalGenerator::fill(tensor, mu_, sigma_, gen);
 }
-}
+}  // namespace HugeCTR
