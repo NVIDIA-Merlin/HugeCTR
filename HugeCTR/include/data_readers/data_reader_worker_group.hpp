@@ -21,8 +21,8 @@
 #include <thread>
 #include <vector>
 #include <common.hpp>
-#include <csr.hpp>
-#include <csr_chunk.hpp>
+#include <data_readers/csr.hpp>
+#include <data_readers/csr_chunk.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
 
 

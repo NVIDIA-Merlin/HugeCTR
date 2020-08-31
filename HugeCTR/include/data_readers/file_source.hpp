@@ -18,8 +18,8 @@
 #include <fstream>
 #include <vector>
 #include <common.hpp>
-#include <file_list.hpp>
-#include <source.hpp>
+#include <data_readers/file_list.hpp>
+#include <data_readers/source.hpp>
 
 namespace HugeCTR {
 
