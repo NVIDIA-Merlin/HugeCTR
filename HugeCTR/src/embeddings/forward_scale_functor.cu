@@ -16,6 +16,7 @@
 
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
 #include "HugeCTR/include/utils.cuh"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 
@@ -117,21 +118,22 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::forward_scale(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<TypeHashKey> &row_offset_allreduce_tensors,
-    Tensors2<TypeEmbeddingComp> &output_tensors, const GPUResourceGroup &device_resources) {
+    Tensors2<TypeEmbeddingComp> &output_tensors, const ResourceManager &resource_manager) {
   CudaDeviceContext context;
-  size_t local_gpu_count = device_resources.size();
-  size_t total_gpu_count = device_resources.get_total_gpu_count();
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
+  size_t total_gpu_count = resource_manager.get_global_gpu_count();
   size_t batchsize_per_gpu = batch_size / total_gpu_count;
 
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    const auto &local_gpu = resource_manager.get_local_gpu(id);
+    context.set_device(local_gpu->get_device_id());
 
     const TypeHashKey *row_offset =
         row_offset_allreduce_tensors[id].get_ptr() + id * batchsize_per_gpu * slot_num;
     TypeEmbeddingComp *embedding_feature = output_tensors[id].get_ptr();
 
     do_forward_scale(batchsize_per_gpu, slot_num, embedding_vec_size, row_offset, embedding_feature,
-                     device_resources[id].get_stream());
+                     local_gpu->get_stream());
   }
 
   return;
@@ -140,21 +142,21 @@ void SparseEmbeddingFunctors::forward_scale(
 template void SparseEmbeddingFunctors::forward_scale<unsigned int, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<unsigned int> &row_offset_allreduce_tensors, Tensors2<float> &output_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::forward_scale<long long, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<long long> &row_offset_allreduce_tensors, Tensors2<float> &output_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::forward_scale<unsigned int, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<unsigned int> &row_offset_allreduce_tensors, Tensors2<__half> &output_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::forward_scale<long long, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
     const Tensors2<long long> &row_offset_allreduce_tensors, Tensors2<__half> &output_tensors,
-    const GPUResourceGroup &device_resources);
+    const ResourceManager &resource_manager);
 
 }  // namespace HugeCTR

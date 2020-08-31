@@ -59,7 +59,8 @@ class MultiplyLayer : public Layer {
                 const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                 const Tensor2<float>& in_tensor, Tensor2<float>& out_tensor,
-                const std::vector<size_t>& weight_dims, int device_id,
+                const std::vector<size_t>& weight_dims,
+                const std::shared_ptr<GPUResource>& gpu_resource,
                 std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   ~MultiplyLayer() override{};
 
@@ -67,18 +68,18 @@ class MultiplyLayer : public Layer {
    * MultiplyLayer's foward propagation to do element-wise production
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * MultiplyLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
  private:
-  std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 
   size_t batch_size_;
   size_t slot_num_;

@@ -15,13 +15,10 @@
  */
 
 #include "HugeCTR/include/layers/elu_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
-
 #include <math.h>
 #include <vector>
+#include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace std;
 using namespace HugeCTR;
@@ -51,7 +48,10 @@ void elu_test(size_t dim0, size_t dim1, float alpha) {
   Tensor2<float> out_tensor;
   buf->reserve(dims, &out_tensor);
 
+  EluLayer elu_layer(in_tensor, out_tensor, alpha, test::get_default_gpu());
+
   buf->allocate();
+  elu_layer.initialize();
 
   const int len = dim0 * dim1;
   float* d_in = in_tensor.get_ptr();
@@ -60,30 +60,35 @@ void elu_test(size_t dim0, size_t dim1, float alpha) {
   std::unique_ptr<float[]> h_out(new float[len]);
   std::unique_ptr<float[]> h_expected(new float[len]);
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  EluLayer elu_layer(in_tensor, out_tensor, alpha, 0);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
   // fprop
-  for (int i = 0; i < len; ++i) {
-    h_in[i] = simulator.get_num();
-  }
-  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
-  elu_layer.fprop(true, cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, len * sizeof(float), cudaMemcpyDeviceToHost);
+  simulator.fill(h_in.get(), len);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  elu_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, len * sizeof(float), cudaMemcpyDeviceToHost));
 
   elu_cpu(h_in.get(), h_expected.get(), len, alpha);
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len, eps));
 
   // bprop
+  simulator.fill(h_in.get(), len);
+  simulator.fill(h_out.get(), len);
   for (int i = 0; i < len; ++i) {
-    h_in[i] = simulator.get_num();
-    h_out[i] = simulator.get_num();
     h_expected[i] = h_in[i];
   }
-  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_out, h_out.get(), len * sizeof(float), cudaMemcpyHostToDevice);
-  elu_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), len * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  elu_layer.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, len * sizeof(float), cudaMemcpyDeviceToHost));
 
   elu_bprop_cpu(h_out.get(), h_expected.get(), len, alpha);
   ASSERT_TRUE(test::compare_array_approx<float>(h_in.get(), h_expected.get(), len, eps));

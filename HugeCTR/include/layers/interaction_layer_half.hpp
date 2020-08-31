@@ -74,9 +74,6 @@ class InteractionLayerHalf : public Layer {
   void bprop(cudaStream_t stream) override;
 
  private:
-  cublasHandle_t cublas_handle_;
-  int n_sms_;
-
   Tensors<__half> internal_tensors_;
 };
 

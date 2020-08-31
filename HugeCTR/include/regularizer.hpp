@@ -18,6 +18,7 @@
 
 #include <common.hpp>
 #include <general_buffer2.hpp>
+#include <gpu_resource.hpp>
 #include <memory>
 #include <utils.hpp>
 
@@ -37,25 +38,29 @@ class Regularizer {
    * @param device_id Device to be used
    */
   Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff, const int batch_size,
-              const int device_id);
+              const std::shared_ptr<GPUResource>& gpu_resource);
 
   /*
    * Destructor of Regularizer
    */
   virtual ~Regularizer() {}
 
+  virtual void initialize() {}
+
   /*
    * Function that computes the regularization term
    * To customize it, override th private function do_compute_rterm
    * @param stream CUDA Stream where the kernel is executed
    */
-  void compute_rterm(cudaStream_t stream);
+  void compute_rterm();
+
   /*
    * Function that initialize wgrad
    * To customize it, override th private function do_initialize_wgrad
    * @param stream CUDA Stream where the kernel is executed
    */
-  void initialize_wgrad(cudaStream_t stream);
+  void initialize_wgrad();
+
   /*
    * Return the calculated regularization term
    */
@@ -63,8 +68,8 @@ class Regularizer {
 
  protected:
   int get_batch_size() const { return batch_size_; }
-  int get_device_id() const { return device_id_; }
-  int get_n_sms() const { return n_sms_; }
+  int get_device_id() const { return gpu_resource_->get_device_id(); }
+  const GPUResource& get_gpu() const { return *gpu_resource_; }
 
  private:
   /*
@@ -75,8 +80,7 @@ class Regularizer {
    * @param num_elements the number of weight values across layers
    * @param stream CUDA Stream where the kernel is executed
    */
-  virtual void do_compute_rterm(const float* weight, float* h_rterm, int num_elements,
-                                cudaStream_t stream) = 0;
+  virtual void do_compute_rterm(const float* weight, float* h_rterm, int num_elements) = 0;
   /*
    * To initialize wgrad, override this function.
    * It is called inside the public function initialize_wgrad
@@ -85,15 +89,13 @@ class Regularizer {
    * @param num_elements the number of weight values across layers
    * @param stream CUDA Stream where the kernel is executed
    */
-  virtual void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
-                                   cudaStream_t stream) = 0;
+  virtual void do_initialize_wgrad(const float* weight, T* wgrad, int num_elements) = 0;
 
   Tensor2<float> weight_buff_;
   Tensor2<T> wgrad_buff_;
   int batch_size_;
-  int device_id_;
-  int n_sms_;
   float h_rterm_;
+  std::shared_ptr<GPUResource> gpu_resource_;
 };
 
 }  // namespace HugeCTR

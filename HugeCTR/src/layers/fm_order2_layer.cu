@@ -67,8 +67,8 @@ __global__ void fm_order2_dgrad_kernel(const float* in, const float* top_grad, f
 }  // end of namespace
 
 FmOrder2Layer::FmOrder2Layer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                             int device_id)
-    : Layer(device_id) {
+                             const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
   try {
     const auto& in_dims = in_tensor.get_dimensions();
     if (in_dims.size() != 2) {
@@ -95,7 +95,7 @@ FmOrder2Layer::FmOrder2Layer(const Tensor2<float>& in_tensor, const Tensor2<floa
   }
 }
 
-void FmOrder2Layer::fprop(bool is_train, cudaStream_t stream) {
+void FmOrder2Layer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   const float* in = in_tensors_[0].get_ptr();
@@ -103,11 +103,11 @@ void FmOrder2Layer::fprop(bool is_train, cudaStream_t stream) {
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 grdiSize(batch_size_, 1, 1);
-  fm_order2_kernel<<<grdiSize, blockSize, 0, stream>>>(in, out, batch_size_, slot_num_,
-                                                       embedding_vec_size_);
+  fm_order2_kernel<<<grdiSize, blockSize, 0, get_gpu().get_stream()>>>(
+      in, out, batch_size_, slot_num_, embedding_vec_size_);
 }
 
-void FmOrder2Layer::bprop(cudaStream_t stream) {
+void FmOrder2Layer::bprop() {
   CudaDeviceContext context(get_device_id());
 
   float* in = in_tensors_[0].get_ptr();
@@ -115,11 +115,11 @@ void FmOrder2Layer::bprop(cudaStream_t stream) {
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 gridSize(batch_size_, 1, 1);
-  fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(in,
-                                                             out,  // top_grad
-                                                             in,   // dgrad
-                                                             batch_size_, slot_num_,
-                                                             embedding_vec_size_);
+  fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(in,
+                                                                             out,  // top_grad
+                                                                             in,   // dgrad
+                                                                             batch_size_, slot_num_,
+                                                                             embedding_vec_size_);
 }
 
 }  // end of namespace HugeCTR

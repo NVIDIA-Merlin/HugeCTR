@@ -18,7 +18,7 @@
 #include <fstream>
 #include <functional>
 #include <unordered_set>
-#include "HugeCTR/include/data_parser.hpp"
+#include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_reader.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "gtest/gtest.h"
@@ -84,15 +84,10 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
   test::mpi_init();
-#ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-#endif
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
-  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
 
   if (pid == 0) {
     // re-generate the dataset files
@@ -122,20 +117,19 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 #endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot * slot_num, max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz_per_slot * slot_num,
+                                       max_nnz_per_slot, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  std::unique_ptr<DataReader<T>> train_data_reader(
-      new DataReader<T>(train_batchsize, label_dim, dense_dim, params,
-                        gpu_resource_group, num_chunk_threads));
+  std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
+      train_batchsize, label_dim, dense_dim, params, resource_manager, num_chunk_threads));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
-  std::unique_ptr<DataReader<T>> test_data_reader(
-      new DataReader<T>(test_batchsize, label_dim, dense_dim, params,
-                        gpu_resource_group, num_chunk_threads));
-  
+  std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
+      test_batchsize, label_dim, dense_dim, params, resource_manager, num_chunk_threads));
+
   test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
   // init hash table file
@@ -144,7 +138,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     if (!fs.is_open()) {
       ERROR_MESSAGE_("Error: file not open for writing");
     }
-    UnifiedDataSimulator<float> fdata_sim(-0.1f, 0.1f);
+    test::UniformDataSimulator fdata_sim;
+    std::unique_ptr<float[]> buf(new float[embedding_vec_size]);
     for (long long i = 0; i < vocabulary_size; i++) {
       T key = (T)i;
       // T key = ldata_sim.get_num();
@@ -152,10 +147,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       // 1) we can find keys in the data file from this hash table
       // 2) there are no repeated keys
       fs.write((char *)&key, sizeof(T));
-      float val = fdata_sim.get_num();
-      for (int j = 0; j < embedding_vec_size; j++) {
-        fs.write((char *)&val, sizeof(float));
-      }
+
+      fdata_sim.fill(buf.get(), embedding_vec_size, -0.1f, 0.1f);
+      fs.write(reinterpret_cast<const char *>(buf.get()), embedding_vec_size * sizeof(float));
     }
     fs.close();
   }
@@ -173,7 +167,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
           train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
           train_data_reader->get_nnz_array(), test_data_reader->get_row_offsets_tensors(),
           test_data_reader->get_value_tensors(), test_data_reader->get_nnz_array(),
-          embedding_params, gpu_resource_group));
+          embedding_params, resource_manager));
 
   {
     // upload hash table to device

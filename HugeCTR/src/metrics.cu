@@ -143,22 +143,18 @@ void copy_all<__half>(float* y_pred, float* y_label, __half* x_pred, float* x_la
 
 std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision,
                                        int batch_size_eval, int n_batches,
-                                       std::shared_ptr<GPUResourceGroup> gpu_resource_group) {
-  int root_gpu = gpu_resource_group->get_device_list()[0];
-  int num_local_gpus = gpu_resource_group->get_device_list().size();
+                                       const std::shared_ptr<ResourceManager>& resource_manager) {
   std::unique_ptr<Metric> ret;
   switch (type) {
     case Type::AUC:
       if (use_mixed_precision) {
-        ret.reset(new AUC<__half>(batch_size_eval, n_batches, root_gpu, num_local_gpus,
-                                  gpu_resource_group));
+        ret.reset(new AUC<__half>(batch_size_eval, n_batches, resource_manager));
       } else {
-        ret.reset(new AUC<float>(batch_size_eval, n_batches, root_gpu, num_local_gpus,
-                                 gpu_resource_group));
+        ret.reset(new AUC<float>(batch_size_eval, n_batches, resource_manager));
       }
       break;
     case Type::AverageLoss:
-      ret.reset(new AverageLoss<float>(num_local_gpus));
+      ret.reset(new AverageLoss<float>(resource_manager));
       break;
   }
   return ret;
@@ -173,9 +169,10 @@ Metric::Metric() : num_procs_(1), pid_(0), current_batch_size_(0) {
 Metric::~Metric() {}
 
 template <typename T>
-AverageLoss<T>::AverageLoss(int num_gpus)
+AverageLoss<T>::AverageLoss(const std::shared_ptr<ResourceManager>& resource_manager)
     : Metric(),
-      loss_local_(std::vector<float>(num_gpus, 0.0f)),
+      resource_manager_(resource_manager),
+      loss_local_(std::vector<float>(resource_manager->get_local_gpu_count(), 0.0f)),
       loss_global_(0.0f),
       n_batches_(0) {}
 
@@ -183,13 +180,13 @@ template <typename T>
 AverageLoss<T>::~AverageLoss() {}
 
 template <typename T>
-void AverageLoss<T>::local_reduce(int device_id, RawMetricMap raw_metrics) {
+void AverageLoss<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   float loss_host = 0.0f;
   Tensor2<T> loss_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Loss]);
-  CudaDeviceContext context(device_id);
+  CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
   CK_CUDA_THROW_(
       cudaMemcpy(&loss_host, loss_tensor.get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
-  loss_local_[device_id] = loss_host;
+  loss_local_[local_gpu_id] = loss_host;
 }
 
 template <typename T>
@@ -232,22 +229,21 @@ float AverageLoss<T>::finalize_metric() {
 }
 
 template <typename T>
-AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int root_device_id, int num_gpus,
-            std::shared_ptr<GPUResourceGroup> gpu_resource_group)
+AUC<T>::AUC(int batch_size_per_gpu, int n_batches,
+            const std::shared_ptr<ResourceManager>& resource_manager)
     : Metric(),
+      resource_manager_(resource_manager),
       batch_size_per_gpu_(batch_size_per_gpu),
       n_batches_(n_batches),
-      root_device_id_(root_device_id),
-      num_gpus_(num_gpus),
+      root_device_id_(resource_manager->get_local_gpu(0)->get_device_id()),
+      num_gpus_(resource_manager->get_local_gpu_count()),
       offset_(0),
       temp0_(nullptr),
       temp1_(nullptr),
       temp2_(nullptr),
       temp3_(nullptr),
       workspace_(nullptr),
-      temp_storage_bytes_(0),
-      num_sms_(0),
-      gpu_resource_group_(gpu_resource_group) {
+      temp_storage_bytes_(0) {
   int num_elems = batch_size_per_gpu_ * n_batches_ * num_gpus_;
 #ifdef ENABLE_MPI
   if (num_procs_ > 1 && pid_ == 0) {
@@ -256,7 +252,7 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int root_device_id, int num_g
 #endif
   size_t buffer_size = num_elems * sizeof(float);
 
-  CudaDeviceContext context(root_device_id);
+  CudaDeviceContext context(root_device_id_);
   CK_CUDA_THROW_(cudaMallocManaged(&temp0_, buffer_size));
   CK_CUDA_THROW_(cudaMallocManaged(&temp1_, buffer_size));
   CK_CUDA_THROW_(cudaMallocManaged(&temp2_, buffer_size));
@@ -286,8 +282,6 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches, int root_device_id, int num_g
   size_t num_size = sizeof(int);
   CK_CUDA_THROW_(cudaMallocManaged(&workspace_, temp_storage_bytes_ + num_size + flag_size));
 
-  CK_CUDA_THROW_(cudaDeviceGetAttribute(&num_sms_, cudaDevAttrMultiProcessorCount, root_device_id));
-
   for (int b = 0; b < n_batches_; b++) {
     for (int g = 0; g < num_gpus_; g++) {
       int offset = (g + b * num_gpus_) * batch_size_per_gpu_;
@@ -308,10 +302,11 @@ AUC<T>::~AUC() {
 }
 
 template <typename T>
-void AUC<T>::local_reduce(int device_id, RawMetricMap raw_metrics) {
+void AUC<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   Tensor2<PredType> pred_tensor = Tensor2<PredType>::stretch_from(raw_metrics[RawType::Pred]);
   Tensor2<LabelType> label_tensor = Tensor2<LabelType>::stretch_from(raw_metrics[RawType::Label]);
 
+  int device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_device_id();
   CudaDeviceContext context(device_id);
   int num_active_gpu = 0;
   int r = 0;
@@ -325,9 +320,11 @@ void AUC<T>::local_reduce(int device_id, RawMetricMap raw_metrics) {
 
     size_t offset = offset_ + batch_size_per_gpu_ * device_id;
 
+    // TBD get_local_gpu
     copy_all<T>(d_pred() + offset, d_label() + offset, pred_tensor.get_ptr(),
-                label_tensor.get_ptr(), num_elems, num_sms_,
-                (*gpu_resource_group_)[device_id].get_stream());
+                label_tensor.get_ptr(), num_elems,
+                resource_manager_->get_local_gpu(local_gpu_id)->get_sm_count(),
+                resource_manager_->get_local_gpu(local_gpu_id)->get_stream());
   }
 }
 
@@ -354,9 +351,8 @@ float AUC<T>::finalize_metric() {
   CudaDeviceContext context(root_device_id_);
 
   if (pid_ == 0) {
-    auto& dev_list = gpu_resource_group_->get_device_list();
     for (int i = 0; i < num_gpus_; i++) {
-      CudaDeviceContext context(dev_list[i]);
+      CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
       CK_CUDA_THROW_(cudaDeviceSynchronize());
     }
 

@@ -53,33 +53,27 @@ class DropoutLayer : public Layer {
    */
   DropoutLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
                const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
-               const curandGenerator_t& curand_generator, int device_id);
-
-  ~DropoutLayer() override;
+               const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
    * A method of implementing the forward pass of Dropout
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * A method of implementing the backward pass of Dropout
    * @param stream CUDA stream where the backward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
   const float* mask() const { return mask_.get_ptr(); }
 
   void prop_common(const T* in, T* out, cudaStream_t stream);
 
  private:
-  int64_t get_seed() const;
-
   float rate_;
   float scale_;
   Tensor2<float> mask_;
-  curandGenerator_t curand_generator_;
-  int n_sms_;
 };
 
 }  // namespace HugeCTR

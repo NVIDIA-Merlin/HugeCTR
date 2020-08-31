@@ -32,9 +32,6 @@ namespace {
 const float eps = 1e-6;
 
 void cast_test(size_t dim0, size_t dim1) {
-  curandGenerator_t curand_generator;
-  CK_CURAND_THROW_(curandCreateGenerator(&curand_generator, CURAND_RNG_PSEUDO_DEFAULT));
-
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   vector<size_t> dims = {dim0, dim1};
   Tensor2<float> in_tensor;
@@ -42,7 +39,12 @@ void cast_test(size_t dim0, size_t dim1) {
   Tensor2<__half> out_tensor;
   buff->reserve(dims, &out_tensor);
 
+  CastLayer cast_layer(in_tensor, out_tensor, test::get_default_gpu());
+
   buff->allocate();
+  cast_layer.initialize();
+
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
   const int len = dim0 * dim1;
   float* d_in = in_tensor.get_ptr();
@@ -50,19 +52,17 @@ void cast_test(size_t dim0, size_t dim1) {
 
   std::unique_ptr<float[]> h_in(new float[len]);
   std::unique_ptr<__half[]> h_out(new __half[len]);
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  for (int i = 0; i < len; ++i) {
-    h_in[i] = simulator.get_num();
-  }
-  cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice);
 
-  CastLayer cast_layer(in_tensor, out_tensor, 0);
-
-  std::unique_ptr<__half[]> h_out_gpu(new __half[len]);
+  simulator.fill(h_in.get(), len);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len * sizeof(float), cudaMemcpyHostToDevice));
 
   // fprop test
-  cast_layer.fprop(true, cudaStreamDefault);
-  cudaMemcpy(h_out_gpu.get(), d_out, len * sizeof(__half), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  cast_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  std::unique_ptr<__half[]> h_out_gpu(new __half[len]);
+  CK_CUDA_THROW_(cudaMemcpy(h_out_gpu.get(), d_out, len * sizeof(__half), cudaMemcpyDeviceToHost));
 
   for (int i = 0; i < len; i++) {
     h_out[i] = h_in[i];
@@ -71,9 +71,7 @@ void cast_test(size_t dim0, size_t dim1) {
 
   // bprop test
   // doing nothing in bprop, no need to test
-  cast_layer.bprop(cudaStreamDefault);
-
-  CK_CURAND_THROW_(curandDestroyGenerator(curand_generator));
+  cast_layer.bprop();
 }
 
 TEST(cast_layer, 32x64) { cast_test(32, 64); }

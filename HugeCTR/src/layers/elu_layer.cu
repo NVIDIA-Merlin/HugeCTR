@@ -28,15 +28,15 @@
 namespace HugeCTR {
 
 EluLayer::EluLayer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor, float alpha,
-                   int device_id)
-    : Layer(device_id), alpha_(alpha) {
+                   const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource), alpha_(alpha) {
   assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
 
   in_tensors_.push_back(in_tensor);
   out_tensors_.push_back(out_tensor);
 }
 
-void EluLayer::fprop(bool is_train, cudaStream_t stream) {
+void EluLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   const Tensor2<float>& in_tensor = in_tensors_[0];
@@ -47,10 +47,11 @@ void EluLayer::fprop(bool is_train, cudaStream_t stream) {
   float alpha = alpha_;
   auto fop = [alpha] __device__(float in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
 
-  MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len, fop, stream);
+  MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len, fop,
+                            get_gpu().get_stream());
 }
 
-void EluLayer::bprop(cudaStream_t stream) {
+void EluLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
   Tensor2<float>& in_tensor = in_tensors_[0];
@@ -64,7 +65,7 @@ void EluLayer::bprop(cudaStream_t stream) {
   };
 
   MLCommon::LinAlg::binaryOp(in_tensor.get_ptr(), out_tensor.get_ptr(), in_tensor.get_ptr(), len,
-                             bop, stream);
+                             bop, get_gpu().get_stream());
 }
 
 }  // namespace HugeCTR

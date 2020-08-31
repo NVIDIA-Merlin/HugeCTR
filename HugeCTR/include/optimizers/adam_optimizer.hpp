@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <general_buffer2.hpp>
 #include <optimizer.hpp>
 
 namespace HugeCTR {
@@ -37,15 +38,18 @@ class AdamOptimizer : public Optimizer {
    * @param epsilon epsilon in Adam paper
    */
   AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
-                const Tensor2<__half>& fp16_wgrad, bool mixed_precision, int device_id,
-                float learning_rate = 0.001, float beta1 = 0.9, float beta2 = 0.999,
-                float epsilon = 1e-7, float scaler = 1.f);
+                const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
+                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+                const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
+                float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-7, float scaler = 1.f);
+
+  void initialize() override;
 
   /**
    * update the weights using gradient
    * @param stream cuda stream used by update kernel
    */
-  void update(cudaStream_t stream) override;
+  void update() override;
 
  private:
   // named as in Algorithm 1 of Adam paper (arXiv:1412.6980)

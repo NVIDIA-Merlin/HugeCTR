@@ -44,19 +44,21 @@ class DotProductLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   DotProductLayer(const Tensors2<float>& in_tensors, const Tensor2<float>& out_tensor,
-                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int device_id);
-  ~DotProductLayer();
+                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                  const std::shared_ptr<GPUResource>& gpu_resource);
+
+  void initialize() override;
 
   /**
    * DotProductLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * DotProductLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
  private:
   int size_;

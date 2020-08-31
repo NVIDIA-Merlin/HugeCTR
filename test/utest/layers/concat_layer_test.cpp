@@ -15,14 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/concat_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
-
 #include <math.h>
 #include <memory>
 #include <vector>
+#include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace std;
 using namespace HugeCTR;
@@ -36,7 +33,7 @@ void concat_layer_test(size_t height, std::vector<size_t> widths) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   Tensors2<T> in_tensors;
 
-  GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
+  test::GaussianDataSimulator data_sim(0.0, 1.0);
   std::vector<std::vector<T>> h_ins;
 
   int n_ins = widths.size();
@@ -51,16 +48,16 @@ void concat_layer_test(size_t height, std::vector<size_t> widths) {
     in_tensors.push_back(tensor);
 
     std::vector<T> h_in(height * width, 0.0);
-    for (unsigned int i = 0; i < h_in.size(); i++) {
-      h_in[i] = data_sim.get_num();
-    }
+    data_sim.fill(h_in.data(), h_in.size());
+
     h_ins.push_back(h_in);
   }
 
   Tensor2<T> out_tensor;
-  ConcatLayer<T> concat_layer(in_tensors, in_tensors, out_tensor, buff, 0);
+  ConcatLayer<T> concat_layer(in_tensors, in_tensors, out_tensor, buff, test::get_default_gpu());
 
   buff->allocate();
+  concat_layer.initialize();
 
   // fprop
   std::vector<T> h_ref(out_tensor.get_num_elements(), 0.0);
@@ -86,22 +83,27 @@ void concat_layer_test(size_t height, std::vector<size_t> widths) {
   for (int i = 0; i < n_ins; i++) {
     T* d_in = in_tensors[i].get_ptr();
     std::vector<T>& h_in = h_ins[i];
-    cudaMemcpy(d_in, &h_in.front(), in_tensors[i].get_size_in_bytes(), cudaMemcpyHostToDevice);
+    CK_CUDA_THROW_(
+        cudaMemcpy(d_in, &h_in.front(), in_tensors[i].get_size_in_bytes(), cudaMemcpyHostToDevice));
   }
 
-  concat_layer.fprop(true, cudaStreamDefault);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  concat_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
   std::vector<T> h_out(out_tensor.get_num_elements(), 0.0);
   T* d_out = out_tensor.get_ptr();
-  cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(
+      cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
 
   // bprop
-  concat_layer.bprop(cudaStreamDefault);
-  concat_layer.fprop(true, cudaStreamDefault);
+  concat_layer.bprop();
+  concat_layer.fprop(true);
 
-  cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(
+      cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), eps));
 }

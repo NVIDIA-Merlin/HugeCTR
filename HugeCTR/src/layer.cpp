@@ -23,22 +23,28 @@
 
 namespace HugeCTR {
 
-void Layer::init_params(std::ofstream& out_stream) {
-  std::vector<float> initializer = std::move(get_initializer());
-  if (initializer.empty()) return;
+void Layer::init_params(std::ofstream& out_stream, const CPUResource& cpu_resource) {
+  Tensor2<float> initializer = get_initializer(cpu_resource);
+  if (initializer.get_num_elements() == 0) return;
 
-  size_t size_in_byte = initializer.size() * sizeof(float);
-  out_stream.write(reinterpret_cast<char*>(&initializer.front()), size_in_byte);
+  out_stream.write(reinterpret_cast<const char*>(initializer.get_ptr()),
+                   initializer.get_size_in_bytes());
 }
 
-std::vector<float> Layer::get_initializer() {
-  size_t elements = 0;
-  for (const auto& weight : weights_) {
-    elements += weight.get_num_elements();
-  }
-  std::vector<float> initializer(elements, 0.f);
+Tensor2<float> Layer::get_initializer(const CPUResource& cpu_resource) {
+  std::shared_ptr<GeneralBuffer2<HostAllocator>> buff = GeneralBuffer2<HostAllocator>::create();
+  std::shared_ptr<BufferBlock2<float>> block = buff->create_block<float>();
 
-  std::vector<std::unique_ptr<DataSimulator<float>>> simulators;
+  Tensors2<float> tensors;
+  for (const Tensor2<float>& weight : weights_) {
+    Tensor2<float> tensor;
+    block->reserve(weight.get_dimensions(), &tensor);
+    tensors.push_back(tensor);
+  }
+
+  buff->allocate();
+
+  std::vector<std::unique_ptr<DataSimulator>> simulators;
   for (int index = 0; index < static_cast<int>(initializer_types_.size()); ++index) {
     switch (initializer_types_[index]) {
       case Initializer_t::Uniform: {
@@ -68,17 +74,11 @@ std::vector<float> Layer::get_initializer() {
     }
   }
 
-  size_t current_offset = 0;
   for (size_t w = 0; w < weights_.size(); ++w) {
-    for (size_t j = 0; j < weights_[w].get_num_elements(); ++j) {
-      initializer[j + current_offset] = simulators[w % simulators.size()]->get_num();
-    }
-    current_offset += weights_[w].get_num_elements();
+    simulators[w % simulators.size()]->fill(tensors[w], cpu_resource.get_curand_generator());
   }
 
-  for (auto& simu : simulators) simu.reset(nullptr);
-
-  return initializer;
+  return block->as_tensor();
 }
 
 }  // namespace HugeCTR

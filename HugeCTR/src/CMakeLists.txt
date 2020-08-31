@@ -14,8 +14,10 @@
 cmake_minimum_required(VERSION 3.8)
 include_directories(/opt/conda/include)
 file(GLOB huge_ctr_src
+  cpu_resource.cpp
   gpu_resource.cpp
-  data_parser.cpp
+  resource_manager.cpp
+  data_simulator.cu
   data_reader.cpp
   layer.cpp
   layers/batch_norm_layer.cu
@@ -86,6 +88,7 @@ file(GLOB huge_ctr_src
   embeddings/distributed_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_one_hot.cu
+  diagnose.cu
 )
 
 set(CMAKE_CXX_STANDARD 14)

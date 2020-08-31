@@ -53,19 +53,19 @@ class FmOrder2Layer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   FmOrder2Layer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                const int device_id);
+                const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
    * A method of implementing the forward pass of FmOrder2
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(bool is_train, cudaStream_t stream);
+  void fprop(bool is_train);
 
   /**
    * A method of implementing the backward pass of FmOrder2
    * @param stream CUDA stream where the backward propagation is executed
    */
-  void bprop(cudaStream_t stream);
+  void bprop();
 
  private:
   int batch_size_;

@@ -70,11 +70,9 @@ template <typename T>
 ConcatLayer<T>::ConcatLayer(const Tensors2<T>& train_in_tensors,
                             const Tensors2<T>& evaluate_in_tensors, Tensor2<T>& out_tensor,
                             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                            int device_id)
-    : Layer(device_id), n_sms_(0) {
+                            const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
   try {
-    CudaDeviceContext context(get_device_id());
-
     if (train_in_tensors.empty() || evaluate_in_tensors.empty()) {
       CK_THROW_(Error_t::WrongInput, "Empty input tensors");
     }
@@ -110,10 +108,6 @@ ConcatLayer<T>::ConcatLayer(const Tensors2<T>& train_in_tensors,
     }
     out_tensor_ = out_tensor;
 
-    int device = get_device_id();
-    CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device));
-    assert(n_sms_ > 0);
-
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -121,32 +115,33 @@ ConcatLayer<T>::ConcatLayer(const Tensors2<T>& train_in_tensors,
 }
 
 template <typename T>
-void ConcatLayer<T>::fprop(bool is_train, cudaStream_t stream) {
-  prop_common(true, get_in_tensors(is_train), stream);
+void ConcatLayer<T>::fprop(bool is_train) {
+  prop_common(true, get_in_tensors(is_train), get_gpu().get_stream(), get_gpu().get_sm_count());
 }
 
 template <typename T>
-void ConcatLayer<T>::bprop(cudaStream_t stream) {
-  prop_common(false, get_in_tensors(true), stream);
+void ConcatLayer<T>::bprop() {
+  prop_common(false, get_in_tensors(true), get_gpu().get_stream(), get_gpu().get_sm_count());
 }
 
 template <typename T>
-void ConcatLayer<T>::prop_common(bool forward, Tensors2<T>& in_tensors, cudaStream_t stream) {
+void ConcatLayer<T>::prop_common(bool forward, Tensors2<T>& in_tensors, cudaStream_t stream,
+                                 size_t n_sms) {
   CudaDeviceContext context(get_device_id());
 
   int n_in_tensors = in_tensors.size();
   if (n_in_tensors == 2) {
     std::vector<InParam> in_params = set_in_params(in_tensors, 2);
-    kernel_launch(forward, stream, in_params[0], in_params[1]);
+    kernel_launch(forward, stream, n_sms, in_params[0], in_params[1]);
   } else if (n_in_tensors == 3) {
     std::vector<InParam> in_params = set_in_params(in_tensors, 3);
-    kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2]);
+    kernel_launch(forward, stream, n_sms, in_params[0], in_params[1], in_params[2]);
   } else if (n_in_tensors == 4) {
     std::vector<InParam> in_params = set_in_params(in_tensors, 4);
-    kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2], in_params[3]);
+    kernel_launch(forward, stream, n_sms, in_params[0], in_params[1], in_params[2], in_params[3]);
   } else if (n_in_tensors == 5) {
     std::vector<InParam> in_params = set_in_params(in_tensors, 5);
-    kernel_launch(forward, stream, in_params[0], in_params[1], in_params[2], in_params[3],
+    kernel_launch(forward, stream, n_sms, in_params[0], in_params[1], in_params[2], in_params[3],
                   in_params[4]);
   } else {
     CK_THROW_(Error_t::UnSupportedFormat, "Merging > 5 layers is not supported");
@@ -173,9 +168,9 @@ std::vector<typename ConcatLayer<T>::InParam> ConcatLayer<T>::set_in_params(Tens
 
 template <typename T>
 template <typename... Args>
-void ConcatLayer<T>::kernel_launch(bool forward, cudaStream_t stream, Args&... args) {
+void ConcatLayer<T>::kernel_launch(bool forward, cudaStream_t stream, size_t n_sms, Args&... args) {
   int block_size = 256;
-  int n_blocks = n_sms_ * 8;
+  int n_blocks = n_sms * 8;
   Tensor2<T>& out_tensor = out_tensor_;
   T* out = out_tensor.get_ptr();
   int h = out_tensor.get_dimensions()[0];

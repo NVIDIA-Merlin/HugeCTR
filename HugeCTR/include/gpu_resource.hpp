@@ -15,19 +15,10 @@
  */
 
 #pragma once
-
-#include <ctpl/ctpl_stl.h>
+#include <cublas_v2.h>
 #include <cudnn.h>
 #include <curand.h>
 #include <nccl.h>
-#include <rmm/mr/device/device_memory_resource.hpp>
-#include <common.hpp>
-#include <device_map.hpp>
-#include <utils.hpp>
-
-#ifdef ENABLE_MPI
-#include <mpi.h>
-#endif
 
 namespace HugeCTR {
 
@@ -37,88 +28,39 @@ namespace HugeCTR {
  * This class implement unified resource managment on the target GPU.
  */
 class GPUResource {
+  const int device_id_;
+  const size_t global_gpu_id_;
+  cudaStream_t computation_stream_; /**< cuda stream for computation */
+  cudaStream_t data_copy_stream_;   /**< cuda stream for data copy */
+  curandGenerator_t curand_generator_;
+  cublasHandle_t cublas_handle_;
+  cudnnHandle_t cudnn_handle_;
+  ncclComm_t comm_;
+  size_t sm_count_;
+  int cc_major_;
+  int cc_minor_;
+
  public:
-  GPUResource(int device_id);
-  GPUResource(int device_id, const ncclComm_t& comm);
+  GPUResource(int device_id, size_t global_gpu_id_, unsigned long long seed);
+  GPUResource(int device_id, size_t global_gpu_id_, unsigned long long seed,
+              const ncclComm_t& comm);
   GPUResource(const GPUResource&) = delete;
   GPUResource& operator=(const GPUResource&) = delete;
   ~GPUResource();
 
   int get_device_id() const { return device_id_; }
-  const cudaStream_t& get_stream() const { return stream_; }
-  const cudaStream_t& get_data_copy_stream(int id) const { return data_copy_stream_[0]; }
-  const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
+  size_t get_global_gpu_id() const { return global_gpu_id_; }
+  const cudaStream_t& get_stream() const { return computation_stream_; }
+  const cudaStream_t& get_data_copy_stream() const { return data_copy_stream_; }
   const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
+  const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t& get_nccl() const { return comm_; }
-  const cudaEvent_t& get_event() const { return event_; }
-
-  bool support_NCCL() const { return comm_ != nullptr; }
-
- private:
-  const int device_id_;
-  cudaStream_t stream_;              /**< cuda stream for computation */
-  cudaStream_t data_copy_stream_[2]; /**< cuda stream for data copy */
-  cublasHandle_t cublas_handle_;
-  curandGenerator_t curand_generator_;
-  cudnnHandle_t cudnn_handle_;
-  cudaEvent_t event_;
-  ncclComm_t comm_;
-};
-
-/**
- * @brief GPU resources container.
- *
- * A GPU resource container in one node. An instant includes:
- * GPU resource vector, thread pool for training, nccl communicators.
- */
-class GPUResourceGroup {
- public:
-  GPUResourceGroup(const std::shared_ptr<const DeviceMap>& device_map);
-  GPUResourceGroup(const GPUResourceGroup&) = delete;
-  GPUResourceGroup& operator=(const GPUResourceGroup&) = delete;
-  ~GPUResourceGroup();
-
-  const GPUResource& operator[](int idx) const { return *gpu_resources_[idx]; }
-  const std::shared_ptr<const GPUResource>& get_shared(int idx) { return gpu_resources_[idx]; }
-  size_t size() const { return device_map_->get_device_list().size(); }
-  bool empty() const { return size() == 0; }
-
-  const std::vector<int>& get_device_list() const { return device_map_->get_device_list(); }
-  int get_global_id(int local_device_id) const {
-    return device_map_->get_global_id(local_device_id);
-  }
-  int get_local_id(int global_id) const {  // sequential GPU indices
-    return device_map_->get_local_id(global_id);
-  }
-  int get_local_device_id(int global_id) const {  // the actual GPU ids
-    return device_map_->get_local_device_id(global_id);
-  }
-  int get_local_gpu_count() const { return get_device_list().size(); }
-  int get_total_gpu_count() const { return device_map_->size(); }
-  int get_node_count() const { return device_map_->num_nodes(); }
-  int get_pid(int global_id) const { return device_map_->get_pid(global_id); }
-
-  bool p2p_enabled(int src_dev, int dst_dev) const;
-  bool all_p2p_enabled() const;
-
   size_t get_sm_count() const { return sm_count_; }
+  int get_cc_major() const { return cc_major_; }
+  int get_cc_minor() const { return cc_minor_; }
 
-  ctpl::thread_pool& get_thread_pool() { return thread_pool_; }
-  std::shared_ptr<rmm::mr::device_memory_resource>& get_rmm_mr() { return memory_resource_; }
-
- private:
-  void enable_all_peer_accesses();
-
-  std::shared_ptr<const DeviceMap> device_map_;
-  std::vector<std::shared_ptr<const GPUResource>> gpu_resources_; /**< GPU resource vector */
-  std::map<int, std::map<int, bool>> p2p_enabled_;
-  size_t sm_count_;
-
-  ctpl::thread_pool thread_pool_; /**< cpu thread pool for training */
-  std::shared_ptr<rmm::mr::device_memory_resource> memory_resource_;
+  bool support_nccl() const { return comm_ != nullptr; }
 };
-
-using GPUResourceGroupPtr = std::shared_ptr<GPUResourceGroup>;
 
 }  // namespace HugeCTR

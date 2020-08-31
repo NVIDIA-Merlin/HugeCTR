@@ -15,12 +15,9 @@
  */
 
 #include "HugeCTR/include/layers/multiply_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
+#include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-
-#include <vector>
 
 using namespace std;
 using namespace HugeCTR;
@@ -82,11 +79,12 @@ void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size
   buff->reserve(in_dims, &in_tensor);
   Tensor2<float> out_tensor;
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
   MultiplyLayer multiply_layer(weight_buff, wgrad_buff, buff, in_tensor, out_tensor, weight_dims,
-                               0);
+                               test::get_default_gpu());
 
   buff->allocate();
+  multiply_layer.initialize();
 
   Tensor2<float> weight = weight_buff->as_tensor();
   Tensor2<float> wgrad = wgrad_buff->as_tensor();
@@ -107,38 +105,42 @@ void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size
   std::unique_ptr<float[]> h_expected_wgrad(new float[len_w]);
 
   // fprop
-  for (size_t i = 0; i < len_in; ++i) {
-    h_in[i] = simulator.get_num();
-  }
-  for (size_t i = 0; i < len_w; ++i) {
-    h_weight[i] = simulator.get_num();
-  }
-  cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice);
-  multiply_layer.fprop(true, cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, len_out * sizeof(float), cudaMemcpyDeviceToHost);
+  simulator.fill(h_in.get(), len_in);
+  simulator.fill(h_weight.get(), len_w);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  multiply_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, len_out * sizeof(float), cudaMemcpyDeviceToHost));
 
   multiply_cpu(h_in.get(), h_weight.get(), h_expected.get(), batch_size, slot_num,
                embedding_vec_size);
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len_out, eps));
 
   // bprop
+  simulator.fill(h_in.get(), len_in);
   for (size_t i = 0; i < len_in; ++i) {
-    h_in[i] = simulator.get_num();
     h_expected[i] = h_in[i];
   }
-  for (size_t i = 0; i < len_out; i++) {
-    h_out[i] = simulator.get_num();  // top_grad
-  }
-  for (size_t i = 0; i < len_w; ++i) {
-    h_weight[i] = simulator.get_num();
-  }
-  cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_out, h_out.get(), len_out * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice);
-  multiply_layer.bprop(cudaStreamDefault);  // compute wgrad and dgrad
-  cudaMemcpy(h_wgrad.get(), d_wgrad, len_w * sizeof(float), cudaMemcpyDeviceToHost);  // wgrad
-  cudaMemcpy(h_in.get(), d_in, len_in * sizeof(float), cudaMemcpyDeviceToHost);       // dgrad
+  simulator.fill(h_out.get(), len_out);
+  simulator.fill(h_weight.get(), len_w);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), len_out * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  multiply_layer.bprop();  // compute wgrad and dgrad
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(
+      cudaMemcpy(h_wgrad.get(), d_wgrad, len_w * sizeof(float), cudaMemcpyDeviceToHost));  // wgrad
+  CK_CUDA_THROW_(
+      cudaMemcpy(h_in.get(), d_in, len_in * sizeof(float), cudaMemcpyDeviceToHost));  // dgrad
 
   multiply_wgrad_cpu(h_out.get(), h_expected.get(), h_expected_wgrad.get(), batch_size, slot_num,
                      embedding_vec_size);

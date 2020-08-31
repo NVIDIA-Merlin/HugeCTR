@@ -15,15 +15,12 @@
  */
 
 #include "HugeCTR/include/layers/interaction_layer.hpp"
-
 #include <cublas_v2.h>
 #include <gtest/gtest.h>
-#include <utest/test_utils.h>
-#include <utils.hpp>
-#include "HugeCTR/include/data_parser.hpp"
-
 #include <math.h>
+#include <utest/test_utils.h>
 #include <memory>
+#include <utils.hpp>
 #include <vector>
 
 using namespace std;
@@ -31,17 +28,25 @@ using namespace HugeCTR;
 
 namespace {
 
-const float eps = 1e-3;
+template <typename T>
+T get_eps();
+
+template <>
+float get_eps() {
+  return 1e-3;
+}
+
+template <>
+__half get_eps() {
+  return __float2half(1);
+}
 
 template <typename T>
 void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
-  cublasHandle_t cublas_handle;
-  cublasCreate(&cublas_handle);
-
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   Tensors2<T> in_tensors;
 
-  GaussianDataSimulator<float> data_sim(0.0, 1.0, -0.25, 0.25);
+  test::GaussianDataSimulator data_sim(0.0f, 1.0f);
   std::vector<std::vector<T>> h_ins;
   for (int ni = 0; ni < 2; ni++) {
     std::vector<size_t> dims;
@@ -55,9 +60,8 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
     in_tensors.push_back(in_tensor);
 
     h_ins.push_back(std::vector<T>(in_tensor.get_num_elements(), TypeConvert<T>::convert(0.0f)));
-    for (unsigned int i = 0; i < h_ins[ni].size(); i++) {
-      h_ins[ni][i] = TypeConvert<T>::convert(data_sim.get_num());
-    }
+
+    data_sim.fill(h_ins[ni].data(), h_ins[ni].size());
   }
 
   auto& in_mlp_tensor = in_tensors[0];
@@ -94,18 +98,22 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
 
   Tensor2<T> out_tensor;
   InteractionLayer<T> interaction_layer(in_mlp_tensor, in_mlp_tensor, in_emb_tensor, in_emb_tensor,
-                                        out_tensor, buff, cublas_handle, false, 0);
+                                        out_tensor, buff, test::get_default_gpu(), false);
 
   buff->allocate();
+  interaction_layer.initialize();
 
   // device fprop
   T* d_in_mlp = in_mlp_tensor.get_ptr();
-  cudaMemcpy(d_in_mlp, &h_in_mlp.front(), in_mlp_tensor.get_size_in_bytes(),
-             cudaMemcpyHostToDevice);
+  CK_CUDA_THROW_(cudaMemcpy(d_in_mlp, &h_in_mlp.front(), in_mlp_tensor.get_size_in_bytes(),
+                            cudaMemcpyHostToDevice));
   T* d_in_emb = in_emb_tensor.get_ptr();
-  cudaMemcpy(d_in_emb, &h_in_emb.front(), in_emb_tensor.get_size_in_bytes(),
-             cudaMemcpyHostToDevice);
-  interaction_layer.fprop(true, cudaStreamDefault);
+  CK_CUDA_THROW_(cudaMemcpy(d_in_emb, &h_in_emb.front(), in_emb_tensor.get_size_in_bytes(),
+                            cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  interaction_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
   // host fprop
   concat_op(true);
@@ -146,13 +154,16 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
 
   std::vector<T> h_out(out_tensor.get_num_elements(), TypeConvert<T>::convert(0.0f));
   T* d_out = out_tensor.get_ptr();
-  cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(
+      cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
-  ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(),
-                                            TypeConvert<T>::convert(eps)));
+  ASSERT_TRUE(
+      test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), get_eps<T>()));
 
   // device bprop
-  interaction_layer.bprop(cudaStreamDefault);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  interaction_layer.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
   // host bprop
   for (size_t p = 0; p < height; p++) {
@@ -191,20 +202,18 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
     auto in_tensor = in_tensors[i];
     std::vector<T> h_in(in_tensor.get_num_elements(), TypeConvert<T>::convert(0.0f));
     T* d_in = in_tensor.get_ptr();
-    cudaMemcpy(&h_in.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);
+    CK_CUDA_THROW_(
+        cudaMemcpy(&h_in.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
     std::vector<T>& h_ref = h_ins[i];
 
-    ASSERT_TRUE(test::compare_array_approx<T>(&h_in.front(), &h_ref.front(), h_in.size(), eps));
+    ASSERT_TRUE(
+        test::compare_array_approx<T>(&h_in.front(), &h_ref.front(), h_in.size(), get_eps<T>()));
   }
-
-  cublasDestroy(cublas_handle);
 }
 
 }  // namespace
 
-TEST(interaction_layer, fp32_512x479) {
-  interaction_layer_test<float>(512, 26, 128);
-}
+TEST(interaction_layer, fp32_512x479) { interaction_layer_test<float>(512, 26, 128); }
 
 TEST(interaction_layer, fp16_512x479) {
   int major = 0;

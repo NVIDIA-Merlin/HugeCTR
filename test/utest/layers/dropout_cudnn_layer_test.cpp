@@ -33,8 +33,6 @@ const float eps = 1e-6;
 
 template <typename T>
 void dropout_test(size_t dim0, size_t dim1, float rate) {
-  cudnnHandle_t handle;
-  cudnnCreate(&handle);
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
   vector<size_t> dims = {dim0, dim1};
   Tensor2<T> in_tensor;
@@ -42,7 +40,7 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   Tensor2<T> out_tensor;
   buf->reserve(dims, &out_tensor);
 
-  DropoutCudnnLayer<T> dropout_layer(in_tensor, out_tensor, buf, rate, handle, 0);
+  DropoutCudnnLayer<T> dropout_layer(in_tensor, out_tensor, buf, rate, test::get_default_gpu());
 
   buf->allocate();
 
@@ -53,22 +51,20 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
 
   std::unique_ptr<T[]> h_in(new T[len]);
   std::unique_ptr<T[]> h_out(new T[len]);
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  for (int i = 0; i < len; ++i) {
-    h_in[i] = TypeConvert<T>::convert(simulator.get_num());
-  }
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+
+  simulator.fill(h_in.get(), len);
   cudaMemcpy(d_in, h_in.get(), n_bytes, cudaMemcpyHostToDevice);
 
   std::unique_ptr<float[]> h_mask(new float[len]);
   std::unique_ptr<T[]> h_ref(new T[len]);
 
   // fprop test
-  dropout_layer.fprop(true, cudaStreamDefault);
+  dropout_layer.fprop(true);
 
   // bprop test
-  dropout_layer.bprop(cudaStreamDefault);
+  dropout_layer.bprop();
   cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost);
-  
 }
 
 TEST(dropout_cudnn_layer, fp32_32x320_25) { dropout_test<float>(32, 320, 0.25); }

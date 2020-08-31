@@ -73,27 +73,26 @@ class MultiCrossLayer : public Layer {
    */
   Tensors2<float> out_tensors_;
 
-  const cublasHandle_t cublas_handle_;  // cublas handle
  public:
   /**
    * forward pass
    */
-  void fprop(bool is_train, cudaStream_t stream) final;
+  void fprop(bool is_train) final;
   /**
    * backward pass
    */
-  void bprop(cudaStream_t stream) final;
+  void bprop() final;
 
   MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
                   const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                   const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                  cublasHandle_t const& cublas_handle, int num_layers, int device_id,
+                  const std::shared_ptr<GPUResource>& gpu_resource, int num_layers,
                   std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   MultiCrossLayer(const MultiCrossLayer&) = delete;
   MultiCrossLayer& operator=(const MultiCrossLayer&) = delete;
 
  private:
-  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 };
 }  // namespace HugeCTR

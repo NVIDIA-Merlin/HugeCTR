@@ -80,7 +80,7 @@ static float compare_array(const __half *arr1, const __half *arr2, size_t n, flo
 static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   printf("Testing m=%zu, n=%zu, k=%zu\n", m, n, k);
 
-  GaussianDataSimulator<float> simulator(0.0f, 1.0f, -100.0f, 100.0f);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
       GeneralBuffer2<CudaAllocator>::create();
@@ -93,11 +93,9 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   Tensor2<__half> top_tensor;
   blobs_buff->reserve({m, n}, &top_tensor);
 
-  cublasHandle_t cublas_handle;
-  CK_CUBLAS_THROW_(cublasCreate(&cublas_handle));
-  FusedFullyConnectedLayer fully_connected_layer(master_weights_buff, weights_buff,
-                                                 weights_grad_buff, blobs_buff, bottom_tensor,
-                                                 bottom_tensor, top_tensor, cublas_handle, 0);
+  FusedFullyConnectedLayer fully_connected_layer(
+      master_weights_buff, weights_buff, weights_grad_buff, blobs_buff, bottom_tensor,
+      bottom_tensor, top_tensor, test::get_default_gpu());
 
   // Initialize tensors to 0 and choose cublas algorithms
   blobs_buff->allocate();
@@ -108,8 +106,8 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
 
   Tensor2<__half> weights = weights_buff->as_tensor();
   Tensor2<__half> weights_grad = weights_grad_buff->as_tensor();
-  cudaMemset(weights.get_ptr(), 0, weights.get_size_in_bytes());
-  cudaMemset(weights_grad.get_ptr(), 0, weights_grad.get_size_in_bytes());
+  CK_CUDA_THROW_(cudaMemset(weights.get_ptr(), 0, weights.get_size_in_bytes()));
+  CK_CUDA_THROW_(cudaMemset(weights_grad.get_ptr(), 0, weights_grad.get_size_in_bytes()));
   // TODO: result check
   __half *d_kernel = weights.get_ptr();
   __half *d_bias = weights.get_ptr() + k * n;
@@ -131,9 +129,9 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   std::unique_ptr<__half[]> d2h_kernel_grad(new __half[k * n]);
   std::unique_ptr<__half[]> d2h_bias_grad(new __half[n]);
 
-  for (size_t i = 0; i < m * k; ++i) h_bottom[i] = simulator.get_num();
-  for (size_t i = 0; i < k * n; ++i) h_kernel[i] = simulator.get_num();
-  for (size_t i = 0; i < n; ++i) h_bias[i] = simulator.get_num();
+  simulator.fill(h_bottom.get(), m * k);
+  simulator.fill(h_kernel.get(), k * n);
+  simulator.fill(h_bias.get(), n);
 
   CK_CUDA_THROW_(
       cudaMemcpy(d_kernel, h_kernel.get(), sizeof(__half) * k * n, cudaMemcpyHostToDevice));
@@ -145,14 +143,17 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   cpu_mm(h_top.get(), h_bottom.get(), false, h_kernel.get(), false, m, k, n);
   cpu_add_bias_and_re(h_top.get(), h_middle.get(), h_bias.get(), m, n);
 
-  fully_connected_layer.fprop(true, cudaStreamDefault);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  fully_connected_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
   CK_CUDA_THROW_(cudaMemcpy(d2h_top.get(), d_top, sizeof(__half) * m * n, cudaMemcpyDeviceToHost));
 
   ASSERT_LT(compare_array(h_top.get(), d2h_top.get(), m * n, 1e-5), 0.01f)
       << "fprop cross_check result fail" << endl;
 
-  for (size_t i = 0; i < m * n; ++i) h_top[i] = simulator.get_num();
+  simulator.fill(h_top.get(), m * n);
+
   CK_CUDA_THROW_(cudaMemcpy(d_top, h_top.get(), sizeof(__half) * m * n, cudaMemcpyHostToDevice));
 
   cpu_reverse_add_bias_and_re(h_bias_grad.get(), h_middle.get(), h_top.get(), m, n);
@@ -160,7 +161,9 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   cpu_mm(h_kernel_grad.get(), h_bottom.get(), true, h_middle.get(), false, k, m, n);
   cpu_mm(h_bottom.get(), h_middle.get(), false, h_kernel.get(), true, m, n, k);
 
-  fully_connected_layer.bprop(cudaStreamDefault);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  fully_connected_layer.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
   CK_CUDA_THROW_(
       cudaMemcpy(d2h_bottom.get(), d_bottom, sizeof(__half) * m * k, cudaMemcpyDeviceToHost));
@@ -175,8 +178,6 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
       << " bprop cross_check weight_grad fail" << endl;
   ASSERT_LT(compare_array(h_bias_grad.get(), d2h_bias_grad.get(), n, 1e-1), 0.15f)
       << " bprop cross_check bias_grad fail" << endl;
-
-  CK_CUBLAS_THROW_(cublasDestroy(cublas_handle));
 }
 
 TEST(fused_fully_connected_layer, fp16_32x64x32) { fully_connected_layer_test(32, 64, 32); }

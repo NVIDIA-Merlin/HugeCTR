@@ -36,10 +36,10 @@ __forceinline__ __device__ void atomic_global_sum_div(T val, T *acc, float div) 
 template <typename T>
 Loss<T>::Loss(const Tensor2<float> &train_label_tensor, const Tensor2<T> &train_input_tensor,
               const Tensor2<float> &evaluate_label_tensor, const Tensor2<T> &evaluate_input_tensor,
-              const Tensor2<float> &loss_tensor, const std::shared_ptr<Regularizer<T>> regularizer,
-              int device_id, int total_gpu_count, float scaler)
+              const Tensor2<float> &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
+              const std::shared_ptr<GPUResource> &gpu_resource, int total_gpu_count, float scaler)
     : regularizer_(regularizer),
-      device_id_(device_id),
+      gpu_resource_(gpu_resource),
       total_gpu_count_(total_gpu_count),
       scaler_(scaler) {
   train_label_tensors_.push_back(train_label_tensor);
@@ -50,7 +50,7 @@ Loss<T>::Loss(const Tensor2<float> &train_label_tensor, const Tensor2<T> &train_
 }
 
 template <typename T>
-void Loss<T>::compute(bool is_train, cudaStream_t stream) {
+void Loss<T>::compute(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   Tensor2<T> &input_tensor = get_input_tensors(is_train)[0];
@@ -69,14 +69,15 @@ void Loss<T>::compute(bool is_train, cudaStream_t stream) {
 
   float rterm = 0.0f;
   if (regularizer_) {
-    regularizer_->compute_rterm(stream);
+    regularizer_->compute_rterm();
     rterm = regularizer_->get_rterm();
   }
 
-  do_compute(input, label, loss, batch_size, feature_dim, scaler_, rterm, is_train, stream);
+  do_compute(input, label, loss, batch_size, feature_dim, scaler_, rterm, is_train,
+             get_gpu().get_stream());
 
   if (is_train && regularizer_) {
-    regularizer_->initialize_wgrad(stream);
+    regularizer_->initialize_wgrad();
   }
 
 #ifndef NDEBUG
@@ -89,10 +90,11 @@ template <typename T>
 CrossEntropyLoss<T>::CrossEntropyLoss(const Tensor2<float> &label_tensor,
                                       const Tensor2<T> &input_tensor,
                                       const Tensor2<float> &loss_tensor,
-                                      const std::shared_ptr<Regularizer<T>> regularizer,
-                                      int device_id, int total_gpu_count, float scaler)
+                                      const std::shared_ptr<Regularizer<T>> &regularizer,
+                                      const std::shared_ptr<GPUResource> &gpu_resource,
+                                      int total_gpu_count, float scaler)
     : Loss<T>(label_tensor, input_tensor, label_tensor, input_tensor, loss_tensor, regularizer,
-              device_id, total_gpu_count, scaler) {
+              gpu_resource, total_gpu_count, scaler) {
   const auto &input_dim = input_tensor.get_dimensions();
   const auto &label_dim = label_tensor.get_dimensions();
   int feature_dim = input_dim[1];
@@ -157,15 +159,13 @@ void CrossEntropyLoss<T>::do_compute(T *input, const float *label, float *loss, 
 }
 
 template <typename T>
-BinaryCrossEntropyLoss<T>::BinaryCrossEntropyLoss(const Tensor2<float> &train_label_tensor,
-                                                  const Tensor2<T> &train_input_tensor,
-                                                  const Tensor2<float> &evaluate_label_tensor,
-                                                  const Tensor2<T> &evaluate_input_tensor,
-                                                  const Tensor2<float> &loss_tensor,
-                                                  const std::shared_ptr<Regularizer<T>> regularizer,
-                                                  int device_id, int total_gpu_count, float scaler)
+BinaryCrossEntropyLoss<T>::BinaryCrossEntropyLoss(
+    const Tensor2<float> &train_label_tensor, const Tensor2<T> &train_input_tensor,
+    const Tensor2<float> &evaluate_label_tensor, const Tensor2<T> &evaluate_input_tensor,
+    const Tensor2<float> &loss_tensor, const std::shared_ptr<Regularizer<T>> &regularizer,
+    const std::shared_ptr<GPUResource> &gpu_resource, int total_gpu_count, float scaler)
     : Loss<T>(train_label_tensor, train_input_tensor, evaluate_label_tensor, evaluate_input_tensor,
-              loss_tensor, regularizer, device_id, total_gpu_count, scaler) {
+              loss_tensor, regularizer, gpu_resource, total_gpu_count, scaler) {
   const auto &input_dim = train_input_tensor.get_dimensions();
   int feature_dim = input_dim[1];
   if (feature_dim != 1)
@@ -290,11 +290,12 @@ template <typename T>
 MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(const Tensor2<float> &label_tensor,
                                                 const Tensor2<T> &input_tensor,
                                                 const Tensor2<float> &loss_tensor,
-                                                const std::shared_ptr<Regularizer<T>> regularizer,
+                                                const std::shared_ptr<Regularizer<T>> &regularizer,
                                                 const std::vector<float> &target_weight,
-                                                int device_id, int total_gpu_count, float scaler)
+                                                const std::shared_ptr<GPUResource> &gpu_resource,
+                                                int total_gpu_count, float scaler)
     : Loss<T>(label_tensor, input_tensor, label_tensor, input_tensor, loss_tensor, regularizer,
-              device_id, total_gpu_count, scaler) {
+              gpu_resource, total_gpu_count, scaler) {
   if (label_tensor.get_dimensions().size() != 2 || input_tensor.get_dimensions().size() != 2 ||
       label_tensor.get_dimensions()[0] != input_tensor.get_dimensions()[0] ||
       label_tensor.get_dimensions()[1] != input_tensor.get_dimensions()[1]) {
@@ -311,7 +312,7 @@ MultiCrossEntropyLoss<T>::MultiCrossEntropyLoss(const Tensor2<float> &label_tens
   std::vector<size_t> twdim = {1, label_tensor.get_dimensions()[1]};
   internal_buff->reserve(twdim, &target_weight_);
 
-  CudaDeviceContext context(device_id);
+  CudaDeviceContext context(Loss<T>::get_device_id());
   internal_buff->allocate();
   CK_CUDA_THROW_(cudaMemcpy(target_weight_.get_ptr(), target_weight.data(),
                             target_weight_.get_size_in_bytes(), cudaMemcpyHostToDevice));

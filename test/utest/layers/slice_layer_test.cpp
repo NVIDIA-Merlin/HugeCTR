@@ -15,15 +15,12 @@
  */
 
 #include "HugeCTR/include/layers/slice_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
-
 #include <math.h>
 #include <memory>
 #include <set>
 #include <vector>
+#include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace std;
 using namespace HugeCTR;
@@ -40,18 +37,19 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
   Tensor2<T> in_tensor;
   buff->reserve(in_dims, &in_tensor);
 
-  GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
+  test::GaussianDataSimulator data_sim(0.0f, 1.0f);
+
   std::vector<T> h_in(in_tensor.get_num_elements(), 0.0);
-  for (unsigned int i = 0; i < h_in.size(); i++) {
-    h_in[i] = data_sim.get_num();
-  }
+  data_sim.fill(h_in.data(), h_in.size());
 
   Tensors2<T> out_tensors;
-  SliceLayer<T> slice_layer(in_tensor, in_tensor, out_tensors, buff, ranges, 0);
-
-  size_t n_outs = out_tensors.size();
+  SliceLayer<T> slice_layer(in_tensor, in_tensor, out_tensors, buff, ranges,
+                            test::get_default_gpu());
 
   buff->allocate();
+  slice_layer.initialize();
+
+  size_t n_outs = out_tensors.size();
 
   // fprop
   std::vector<std::vector<T>> h_refs;
@@ -74,20 +72,22 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
   }
 
   T* d_in = in_tensor.get_ptr();
-  cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice);
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
-  slice_layer.fprop(true, cudaStreamDefault);
+  slice_layer.fprop(true);
 
   for (size_t i = 0; i < n_outs; i++) {
     std::vector<T> h_out(out_tensors[i].get_num_elements(), 0.0);
     T* d_out = out_tensors[i].get_ptr();
-    cudaMemcpy(&h_out.front(), d_out, out_tensors[i].get_size_in_bytes(), cudaMemcpyDeviceToHost);
+    CK_CUDA_THROW_(cudaMemcpy(&h_out.front(), d_out, out_tensors[i].get_size_in_bytes(),
+                              cudaMemcpyDeviceToHost));
     ASSERT_TRUE(
         test::compare_array_approx<T>(&h_out.front(), &h_refs[i].front(), h_out.size(), eps));
   }
 
   // bprop
-  slice_layer.bprop(cudaStreamDefault);
+  slice_layer.bprop();
 
   for (unsigned int i = 0; i < h_in.size(); i++) {
     h_in[i] = 0.0f;
@@ -105,7 +105,8 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
     i++;
   }
   std::vector<T> h_out(in_tensor.get_num_elements(), 0.0);
-  cudaMemcpy(&h_out.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(
+      cudaMemcpy(&h_out.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
   ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_in.front(), h_out.size(), eps));
 }
 

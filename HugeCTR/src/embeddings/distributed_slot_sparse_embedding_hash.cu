@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "HugeCTR/include/data_simulator.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "cub/cub/device/device_radix_sort.cuh"
 #include "cub/cub/device/device_scan.cuh"
@@ -29,10 +30,10 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
         const Tensors2<TypeHashKey> &evaluate_value_tensors,
         const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
         const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-        const std::shared_ptr<GPUResourceGroup> &gpu_resource_group)
+        const std::shared_ptr<ResourceManager> &resource_manager)
     : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
-           embedding_params, gpu_resource_group) {
+           embedding_params, resource_manager) {
   try {
     CudaDeviceContext context;
 
@@ -41,12 +42,13 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
     // hash table on each GPU, meanwhile get a better performance by a unfull hash table, the
     // users need to set the param "load_factor"(load_factor<1).
     max_vocabulary_size_per_gpu_ = Base::get_max_vocabulary_size_per_gpu();
-    max_vocabulary_size_ = max_vocabulary_size_per_gpu_ * Base::get_total_gpu_count();
+    max_vocabulary_size_ =
+        max_vocabulary_size_per_gpu_ * Base::get_resource_manager().get_global_gpu_count();
 
     MESSAGE_("max_vocabulary_size_per_gpu_=" + std::to_string(max_vocabulary_size_per_gpu_));
 
-    for (size_t id = 0; id < Base::get_local_gpu_count(); id++) {
-      int cur_device = Base::get_gpu_resource(id).get_device_id();
+    for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
+      int cur_device = Base::get_local_gpu(id).get_device_id();
       context.set_device(cur_device);
 
       // construct HashTable object: used to store hash table <key, value_index>
@@ -220,10 +222,10 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
         case Optimizer_t::Adam:  // adam
           CK_CUDA_THROW_(cudaMemsetAsync(opt_m_tensors_[id].get_ptr(), 0,
                                          opt_m_tensors_[id].get_size_in_bytes(),
-                                         Base::get_gpu_resource(id).get_stream()));
+                                         Base::get_local_gpu(id).get_stream()));
           CK_CUDA_THROW_(cudaMemsetAsync(opt_v_tensors_[id].get_ptr(), 0,
                                          opt_v_tensors_[id].get_size_in_bytes(),
-                                         Base::get_gpu_resource(id).get_stream()));
+                                         Base::get_local_gpu(id).get_stream()));
           target_opt_param.hyperparams.adam.times = 0;
           target_opt_param.hyperparams.adam.beta1 = source_opt_param.hyperparams.adam.beta1;
           target_opt_param.hyperparams.adam.beta2 = source_opt_param.hyperparams.adam.beta2;
@@ -236,7 +238,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
         case Optimizer_t::MomentumSGD:  // momentum_sgd
           CK_CUDA_THROW_(cudaMemsetAsync(opt_momentum_tensors_[id].get_ptr(), 0,
                                          opt_momentum_tensors_[id].get_size_in_bytes(),
-                                         Base::get_gpu_resource(id).get_stream()));
+                                         Base::get_local_gpu(id).get_stream()));
           target_opt_param.hyperparams.momentum.factor =
               source_opt_param.hyperparams.momentum.factor;
           target_opt_param.hyperparams.momentum.momentum_ptr = opt_momentum_tensors_[id].get_ptr();
@@ -245,7 +247,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
         case Optimizer_t::Nesterov:  // nesterov
           CK_CUDA_THROW_(cudaMemsetAsync(opt_accm_tensors_[id].get_ptr(), 0,
                                          opt_accm_tensors_[id].get_size_in_bytes(),
-                                         Base::get_gpu_resource(id).get_stream()));
+                                         Base::get_local_gpu(id).get_stream()));
           target_opt_param.hyperparams.nesterov.mu = source_opt_param.hyperparams.nesterov.mu;
           target_opt_param.hyperparams.nesterov.accm_ptr = opt_accm_tensors_[id].get_ptr();
           break;
@@ -260,7 +262,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
 
     }  // end of for(int id = 0; id < local_gpu_count_; id++)
 
-    functors_.sync_all_gpus(Base::get_gpu_resource_group());
+    functors_.sync_all_gpus(Base::get_resource_manager());
 
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -274,8 +276,7 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_params_to_device(
     std::ifstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
     size_t max_vocabulary_size_per_gpu, Tensors2<float> &hash_table_value_tensors,
-    std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables,
-    const GPUResourceGroup &device_resources) {
+    std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) {
   CudaDeviceContext context;
   // check file size and vocabulary_size (file size <=　hash_table_size)
   weight_stream.seekg(0, weight_stream.end);
@@ -297,7 +298,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
 #endif
 
   // define size
-  size_t local_gpu_count = device_resources.size();
+  size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
   size_t chunk_loop = 1000;
   size_t tile_size = 1;  // must be 1, because we need to cal (key&local_gpu_count) to decide
                          // gpu_id for each <key,value>
@@ -324,17 +325,17 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
   std::unique_ptr<size_t *[]> d_hash_table_value_index_chunk_per_gpu(new size_t *[local_gpu_count]);
 
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
     CK_CUDA_THROW_(cudaMalloc(&d_hash_table_value_index_chunk_per_gpu[id],
                               hash_table_value_index_chunk_size_in_B));
     // initalize to zeros
     CK_CUDA_THROW_(cudaMemsetAsync(d_hash_table_value_index_chunk_per_gpu[id], 0,
                                    hash_table_value_index_chunk_size_in_B,
-                                   device_resources[id].get_stream()));
+                                   Base::get_local_gpu(id).get_stream()));
   }
 
   // sync wait
-  functors_.sync_all_gpus(device_resources);
+  functors_.sync_all_gpus(Base::get_resource_manager());
 
   // CAUSION: can not decide how many values for each GPU, so need to allocate enough memory
   // for each GPU allocate CPU/GPU memory for hash_table/key/value chunk
@@ -349,7 +350,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
   std::unique_ptr<TypeHashKey *[]> d_hash_table_key_chunk_per_gpu(
       new TypeHashKey *[local_gpu_count]);
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
     CK_CUDA_THROW_(cudaMalloc(&d_hash_table_key_chunk_per_gpu[id], hash_table_key_chunk_size_in_B));
   }
   std::unique_ptr<float *[]> h_hash_table_value_chunk_per_gpu(new float *[local_gpu_count]);
@@ -373,11 +374,12 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
     float *value_dst_buf;
     for (size_t k = 0; k < chunk_loop; k++) {  // process a tile in each loop
       TypeHashKey key = *((TypeHashKey *)src_buf);
-      size_t gid = key % device_resources.get_total_gpu_count();  // global GPU ID
-      size_t id = device_resources.get_local_id(gid);             // local GPU ID (not gpudevice id)
-      size_t dst_rank = device_resources.get_pid(gid);            // node id
+      size_t gid = key % Base::get_resource_manager().get_global_gpu_count();  // global GPU ID
+      size_t id = Base::get_resource_manager().get_gpu_local_id_from_global_id(
+          gid);  // local GPU ID (not gpudevice id)
+      int dst_rank = Base::get_resource_manager().get_pid_from_gpu_global_id(gid);  // node id
 
-      if (static_cast<size_t>(my_rank) == dst_rank) {
+      if (my_rank == dst_rank) {
         // memcpy hash_table_key to corresponding GPU
         key_dst_buf = h_hash_table_key_chunk_per_gpu[id] +
                       tile_counter_in_chunk_per_gpu[id] * hash_table_key_tile_size;
@@ -404,7 +406,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
 
     // do HashTable insert <key,value_index>
     for (size_t id = 0; id < local_gpu_count; id++) {
-      context.set_device(device_resources[id].get_device_id());
+      context.set_device(Base::get_local_gpu(id).get_device_id());
 
       size_t tile_count = tile_counter_in_chunk_per_gpu[id];
 
@@ -412,7 +414,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
       CK_CUDA_THROW_(cudaMemcpyAsync(d_hash_table_key_chunk_per_gpu[id],
                                      h_hash_table_key_chunk_per_gpu[id],
                                      tile_count * sizeof(TypeHashKey), cudaMemcpyHostToDevice,
-                                     device_resources[id].get_stream()));
+                                     Base::get_local_gpu(id).get_stream()));
 
       size_t value_index_offset = tile_counter_per_gpu[id];
       size_t *value_index_buf = d_hash_table_value_index_chunk_per_gpu[id];
@@ -420,28 +422,28 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
       if (tile_count > 0) {
         // set hash_table_value_index on GPU
         functors_.memset_liner(value_index_buf, value_index_offset, 1ul, tile_count,
-                               device_resources[id].get_stream());
+                               Base::get_local_gpu(id).get_stream());
       }
 
       // do hash table insert <key, value_index> on GPU
       hash_tables[id]->insert(d_hash_table_key_chunk_per_gpu[id], value_index_buf, tile_count,
-                              device_resources[id].get_stream());
+                              Base::get_local_gpu(id).get_stream());
       size_t value_head =
-          hash_tables[id]->get_and_add_value_head(tile_count, device_resources[id].get_stream());
+          hash_tables[id]->get_and_add_value_head(tile_count, Base::get_local_gpu(id).get_stream());
     }
 
     // memcpy hash_table_value from CPU to GPU
     for (size_t id = 0; id < local_gpu_count; id++) {
-      context.set_device(device_resources[id].get_device_id());
+      context.set_device(Base::get_local_gpu(id).get_device_id());
       size_t value_chunk_size = tile_counter_in_chunk_per_gpu[id] * embedding_vec_size;
       size_t value_chunk_offset = tile_counter_per_gpu[id] * embedding_vec_size;
       float *src_buf = h_hash_table_value_chunk_per_gpu[id];
       float *dst_buf = hash_table_value_tensors[id].get_ptr() + value_chunk_offset;
       CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf, src_buf, value_chunk_size * sizeof(float),
-                                     cudaMemcpyHostToDevice, device_resources[id].get_stream()));
+                                     cudaMemcpyHostToDevice, Base::get_local_gpu(id).get_stream()));
     }
 
-    functors_.sync_all_gpus(device_resources);
+    functors_.sync_all_gpus(Base::get_resource_manager());
 
     // set counter value
     for (size_t id = 0; id < local_gpu_count; id++) {
@@ -475,17 +477,19 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
     float *value_dst_buf;
     for (size_t i = 0; i < remain_loop_num; i++) {
       TypeHashKey key = *((TypeHashKey *)src_buf);
-      size_t gid = key % device_resources.get_total_gpu_count();  // global GPU ID
-      size_t id = device_resources.get_local_id(gid);             // local GPU ID (not gpudevice id)
-      size_t dst_rank = device_resources.get_pid(gid);
+      size_t gid = key % Base::get_resource_manager().get_global_gpu_count();  // global GPU ID
+      size_t id = Base::get_resource_manager().get_gpu_local_id_from_global_id(
+          gid);  // local GPU ID (not gpudevice id)
+      int dst_rank = Base::get_resource_manager().get_pid_from_gpu_global_id(gid);
 
-      if (static_cast<size_t>(my_rank) == dst_rank) {
-        context.set_device(device_resources[id].get_device_id());
+      if (my_rank == dst_rank) {
+        context.set_device(Base::get_local_gpu(id).get_device_id());
 
         // memcpy hash_table_key from CPU to GPU
         key_dst_buf = d_hash_table_key_chunk_per_gpu[id];
         CK_CUDA_THROW_(cudaMemcpyAsync(key_dst_buf, src_buf, hash_table_key_tile_size_in_B,
-                                       cudaMemcpyHostToDevice, device_resources[id].get_stream()));
+                                       cudaMemcpyHostToDevice,
+                                       Base::get_local_gpu(id).get_stream()));
 
         src_buf += hash_table_key_tile_size_in_B;
 
@@ -493,19 +497,20 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
         size_t value_index_offset = tile_counter_per_gpu[id];
         value_index_buf = d_hash_table_value_index_chunk_per_gpu[id];
         functors_.memset_liner(value_index_buf, value_index_offset, 1ul, 1ul,
-                               device_resources[id].get_stream());
+                               Base::get_local_gpu(id).get_stream());
 
         // do hash table insert <key, value_index> on GPU
         hash_tables[id]->insert(d_hash_table_key_chunk_per_gpu[id], value_index_buf,
-                                hash_table_key_tile_size, device_resources[id].get_stream());
+                                hash_table_key_tile_size, Base::get_local_gpu(id).get_stream());
         size_t value_head = hash_tables[id]->get_and_add_value_head(
-            hash_table_key_tile_size, device_resources[id].get_stream());
+            hash_table_key_tile_size, Base::get_local_gpu(id).get_stream());
 
         // memcpy hash_table_value from CPU to GPU
         size_t value_offset = tile_counter_per_gpu[id] * embedding_vec_size;
         value_dst_buf = hash_table_value_tensors[id].get_ptr() + value_offset;
         CK_CUDA_THROW_(cudaMemcpyAsync(value_dst_buf, src_buf, hash_table_value_tile_size_in_B,
-                                       cudaMemcpyHostToDevice, device_resources[id].get_stream()));
+                                       cudaMemcpyHostToDevice,
+                                       Base::get_local_gpu(id).get_stream()));
         src_buf += hash_table_value_tile_size_in_B;
 
         // set counter
@@ -518,7 +523,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
     }
 
     // sync wait
-    functors_.sync_all_gpus(device_resources);
+    functors_.sync_all_gpus(Base::get_resource_manager());
 
   }  // end of if(remain_loop_num)
 
@@ -526,7 +531,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_
 
   // release resources
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
     CK_CUDA_THROW_(cudaFree(d_hash_table_value_index_chunk_per_gpu[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_key_chunk_per_gpu[id]));
   }
@@ -541,10 +546,9 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::download_params_to_host(
     std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
     const Tensors2<float> &hash_table_value_tensors,
-    const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables,
-    const GPUResourceGroup &device_resources) const {
+    const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const {
   CudaDeviceContext context;
-  size_t local_gpu_count = device_resources.size();
+  size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
 
   int my_rank = 0;
 #ifdef ENABLE_MPI
@@ -559,9 +563,9 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::downloa
   size_t total_count = 0;
 
   for (size_t id = 0; id < local_gpu_count; id++) {
-    context.set_device(device_resources[id].get_device_id());
-    auto count_tmp = hash_tables[id]->get_size(device_resources[id].get_stream());
-    if (count_tmp != hash_tables[id]->get_value_head(device_resources[id].get_stream())) {
+    context.set_device(Base::get_local_gpu(id).get_device_id());
+    auto count_tmp = hash_tables[id]->get_size(Base::get_local_gpu(id).get_stream());
+    if (count_tmp != hash_tables[id]->get_value_head(Base::get_local_gpu(id).get_stream())) {
       CK_THROW_(Error_t::WrongInput,
                 "Error: hash_table get_value_head() size not equal to get_size()");
     }
@@ -591,7 +595,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::downloa
       continue;
     }
 
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
 
     cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
     cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
@@ -609,26 +613,26 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::downloa
 
     MESSAGE_("Rank" + std::to_string(my_rank) + ": Dump hash table from GPU" + std::to_string(id));
 
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
 
     hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], d_dump_counter[id],
-                          device_resources[id].get_stream());
+                          Base::get_local_gpu(id).get_stream());
 
     CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key[id], d_hash_table_key[id],
                                    count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
-                                   device_resources[id].get_stream()));
+                                   Base::get_local_gpu(id).get_stream()));
 
     functors_.get_hash_value(count[id], embedding_vec_size, d_hash_table_value_index[id],
                              hash_table_value_tensors[id].get_ptr(), d_hash_table_value[id],
-                             device_resources[id].get_stream());
+                             Base::get_local_gpu(id).get_stream());
 
     CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_value[id], d_hash_table_value[id],
                                    count[id] * embedding_vec_size * sizeof(float),
-                                   cudaMemcpyDeviceToHost, device_resources[id].get_stream()));
+                                   cudaMemcpyDeviceToHost, Base::get_local_gpu(id).get_stream()));
   }
 
   // sync wait
-  functors_.sync_all_gpus(device_resources);
+  functors_.sync_all_gpus(Base::get_resource_manager());
 
   const int master_node = 0;
 #ifdef ENABLE_MPI
@@ -697,7 +701,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::downloa
       continue;
     }
 
-    context.set_device(device_resources[id].get_device_id());
+    context.set_device(Base::get_local_gpu(id).get_device_id());
 
     CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
@@ -713,37 +717,20 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::downloa
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::init_embedding(
     size_t max_vocabulary_size_per_gpu, size_t embedding_vec_size,
-    Tensors2<float> &hash_table_value_tensors, const GPUResourceGroup &device_resources) {
-  size_t num = max_vocabulary_size_per_gpu * embedding_vec_size;
-
-  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
-      GeneralBuffer2<CudaHostAllocator>::create();
-  Tensor2<float> h_hash_table_value;
-  buff->reserve({num}, &h_hash_table_value);
-  buff->allocate();
-
-  float *h_hash_table_value_ptr = h_hash_table_value.get_ptr();
-
-  HugeCTR::UnifiedDataSimulator<float> fdata_sim(-0.05, 0.05);
-  for (size_t i = 0; i < num; i++) {
-    h_hash_table_value_ptr[i] = fdata_sim.get_num();
-  }
-
+    Tensors2<float> &hash_table_value_tensors) {
   CudaDeviceContext context;
-  size_t local_gpu_count = device_resources.size();
+  size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
   for (size_t id = 0; id < local_gpu_count; id++) {
-    size_t cur_device = device_resources[id].get_device_id();
-    context.set_device(cur_device);
+    context.set_device(Base::get_local_gpu(id).get_device_id());
 
     MESSAGE_("gpu" + std::to_string(id) + " start to init embedding");
 
-    CK_CUDA_THROW_(cudaMemcpyAsync(hash_table_value_tensors[id].get_ptr(),
-                                   h_hash_table_value.get_ptr(), num * sizeof(float),
-                                   cudaMemcpyHostToDevice, device_resources[id].get_stream()));
+    HugeCTR::UniformGenerator::fill(hash_table_value_tensors[id], -0.05f, 0.05f,
+                                    Base::get_local_gpu(id));
   }
 
   for (size_t id = 0; id < local_gpu_count; id++) {
-    CK_CUDA_THROW_(cudaStreamSynchronize(device_resources[id].get_stream()));
+    CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(id).get_stream()));
     MESSAGE_("gpu" + std::to_string(id) + " init embedding done");
   }
 }

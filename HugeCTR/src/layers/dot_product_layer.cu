@@ -66,11 +66,9 @@ __global__ void dot_product_dgrad_kernel(const T* top_grad, T** dgrads, T* fprop
 DotProductLayer::DotProductLayer(const Tensors2<float>& in_tensors,
                                  const Tensor2<float>& out_tensor,
                                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                                 int device_id)
-    : Layer(device_id) {
+                                 const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
   try {
-    CudaDeviceContext context(get_device_id());
-
     size_ = in_tensors[0].get_num_elements();
     num_ = in_tensors.size();
 
@@ -95,11 +93,6 @@ DotProductLayer::DotProductLayer(const Tensors2<float>& in_tensors,
     }
     out_tensors_.push_back(out_tensor);
 
-    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
-        GeneralBuffer2<CudaHostAllocator>::create();
-    pinned_host_buf->reserve({num_}, &h_inputs_);
-    pinned_host_buf->allocate();
-
     blobs_buff->reserve({num_}, &d_inputs_);
     blobs_buff->reserve(out_tensor.get_dimensions(), &fprop_output_);
 
@@ -109,44 +102,52 @@ DotProductLayer::DotProductLayer(const Tensors2<float>& in_tensors,
   }
 }
 
-DotProductLayer::~DotProductLayer() {}
+void DotProductLayer::initialize() {
+  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> pinned_host_buf =
+      GeneralBuffer2<CudaHostAllocator>::create();
+  pinned_host_buf->reserve({num_}, &h_inputs_);
+  pinned_host_buf->allocate();
+}
 
-void DotProductLayer::fprop(bool is_train, cudaStream_t stream) {
+void DotProductLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
   if (!initialized_) {
     for (size_t i = 0; i < num_; i++) {
       h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
     }
     CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
-                                   num_ * sizeof(float*), cudaMemcpyHostToDevice, stream));
+                                   num_ * sizeof(float*), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
     initialized_ = true;
   }
   float* output = out_tensors_[0].get_ptr();
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
-  dot_product_kernel<<<gridSize, blockSize, 0, stream>>>(d_inputs_.get_ptr(), output, size_, num_);
+  dot_product_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(),
+                                                                         output, size_, num_);
 
   CK_CUDA_THROW_(cudaMemcpyAsync((void*)fprop_output_.get_ptr(), (void*)output,
                                  out_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                                 stream));
+                                 get_gpu().get_stream()));
 }
 
-void DotProductLayer::bprop(cudaStream_t stream) {
+void DotProductLayer::bprop() {
   CudaDeviceContext context(get_device_id());
   if (!initialized_) {
     for (size_t i = 0; i < num_; i++) {
       h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
     }
     CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
-                                   num_ * sizeof(float*), cudaMemcpyHostToDevice, stream));
+                                   num_ * sizeof(float*), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
     initialized_ = true;
   }
   float* output = out_tensors_[0].get_ptr();
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
-  dot_product_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(
+  dot_product_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
       output, d_inputs_.get_ptr(), fprop_output_.get_ptr(), size_, num_);
 }
 
