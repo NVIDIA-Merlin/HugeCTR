@@ -17,13 +17,13 @@
 #pragma once
 #include <fstream>
 #include <vector>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/file_list.hpp"
-#include "HugeCTR/include/source.hpp"
+#include "common.hpp"
+#include "data_readers/file_list.hpp"
+#include "data_readers/source.hpp"
 #include <cudf/io/functions.hpp>
 #include <cudf/copying.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
-#include "HugeCTR/include/metadata.hpp"
+#include "data_readers/metadata.hpp"
 #include <nvToolsExt.h>
 #include <fcntl.h>
 #include <sys/io.h>

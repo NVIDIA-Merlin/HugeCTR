@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "HugeCTR/include/check_none.hpp"
-#include "HugeCTR/include/check_sum.hpp"
+#include "HugeCTR/include/data_readers/check_none.hpp"
+#include "HugeCTR/include/data_readers/check_sum.hpp"
 #include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/csr_chunk.hpp"
-#include "HugeCTR/include/file_list.hpp"
-#include "HugeCTR/include/file_source.hpp"
-#include "HugeCTR/include/heap.hpp"
+#include "HugeCTR/include/data_readers/csr_chunk.hpp"
+#include "HugeCTR/include/data_readers/file_list.hpp"
+#include "HugeCTR/include/data_readers/file_source.hpp"
+#include "HugeCTR/include/data_readers/heap.hpp"
 
 #include "utest/embedding/cpu_hashtable.hpp"
 

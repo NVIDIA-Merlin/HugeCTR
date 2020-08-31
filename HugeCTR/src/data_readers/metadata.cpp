@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/metadata.hpp"
+#include "data_readers/metadata.hpp"
 #include "nlohmann/json.hpp"
 #include <iostream>
 

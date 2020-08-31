@@ -30,7 +30,7 @@ git submodule update --init --recursive
 ###  2. Build Docker Image and HugeCTR ###
 Inside the HugeCTR directory, build a docker image and run a container with the image:
 ```shell
-docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
+docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile . #docker support A100. To use tf please use dev.tf.Dockerfile instead.
 docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
 ```
 
