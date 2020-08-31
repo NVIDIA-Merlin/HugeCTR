@@ -24,8 +24,8 @@
 #include <layers/cast_layer.hpp>
 #include <layers/concat_layer.hpp>
 #include <layers/dot_product_layer.hpp>
-#include <layers/dropout_layer.hpp>
 #include <layers/dropout_cudnn_layer.hpp>
+#include <layers/dropout_layer.hpp>
 #include <layers/elu_layer.hpp>
 #include <layers/fm_order2_layer.hpp>
 #include <layers/fully_connected_layer.hpp>
@@ -375,9 +375,10 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
           loss.reset(new BinaryCrossEntropyLoss<float>(
               train_label_tensor, train_in_tensor, evaluate_label_tensor, evaluate_in_tensor,
-              loss_tensor, create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                                              train_in_tensor.get_dimensions()[0],
-                                              gpu_resource->get_cublas_handle(), device_id),
+              loss_tensor,
+              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                                 train_in_tensor.get_dimensions()[0],
+                                 gpu_resource->get_cublas_handle(), device_id),
               device_id, num_networks_in_global, scaler));
         }
         break;
@@ -459,8 +460,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                                                        device_id));
 #else
           layers.emplace_back(new DropoutCudnnLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                       rate, gpu_resource->get_cudnn_handle(),
-                                                       device_id));
+                                                            rate, gpu_resource->get_cudnn_handle(),
+                                                            device_id));
 #endif
         } else {
           // establish out tensor
@@ -478,8 +479,8 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                                                       device_id));
 #else
           layers.emplace_back(new DropoutCudnnLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                       rate, gpu_resource->get_cudnn_handle(),
-                                                       device_id));
+                                                           rate, gpu_resource->get_cudnn_handle(),
+                                                           device_id));
 #endif
         }
         network->enable_cuda_graph_ = false;
@@ -621,16 +622,13 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         if (use_mixed_precision) {
           int major = 0;
           int minor = 0;
-          CK_CUDA_THROW_(cudaDeviceGetAttribute(&major,
-                                                cudaDevAttrComputeCapabilityMajor,
-                                                device_id));
-          CK_CUDA_THROW_(cudaDeviceGetAttribute(&minor,
-                                                cudaDevAttrComputeCapabilityMinor,
-                                                device_id));
+          CK_CUDA_THROW_(
+              cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device_id));
+          CK_CUDA_THROW_(
+              cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device_id));
           if (major < 7) {
-            CK_THROW_(Error_t::WrongInput,
-                      "InteractionLayer<__half> is not supported in SM " +
-                      std::to_string(major) + "." + std::to_string(minor));
+            CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
+                                               std::to_string(major) + "." + std::to_string(minor));
           }
 
           Tensor2<__half> train_in_mlp_tensor =
@@ -1305,50 +1303,52 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
 
 #ifdef VAL
-	const int NUM_THREADS=1;
+        const int NUM_THREADS = 1;
 #else
-	const int NUM_THREADS = format == DataReaderType_t::Parquet ? gpu_resource_group->get_total_gpu_count() : 12;
+        const int NUM_THREADS =
+            format == DataReaderType_t::Parquet ? gpu_resource_group->get_total_gpu_count() : 12;
 #endif
 
-	data_reader.reset(new DataReader<TypeKey>(batch_size, label_dim, dense_dim,
-						  data_reader_sparse_param_array,
-						  gpu_resource_group, NUM_THREADS,
-						  use_mixed_precision, false));
-	data_reader_eval.reset(new DataReader<TypeKey>(
-          batch_size_eval, label_dim, dense_dim,
-          data_reader_sparse_param_array, gpu_resource_group, NUM_THREADS,
-          use_mixed_precision, cache_eval_data));
+        data_reader.reset(new DataReader<TypeKey>(
+            batch_size, label_dim, dense_dim, data_reader_sparse_param_array, gpu_resource_group,
+            NUM_THREADS, use_mixed_precision, false));
+        data_reader_eval.reset(new DataReader<TypeKey>(
+            batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array,
+            gpu_resource_group, NUM_THREADS, use_mixed_precision, cache_eval_data));
 
-	auto f = [&j]() -> std::vector<long long> {
-            std::vector<long long> slot_offset;
-            if (has_key_(j, "slot_size_array")) {
-              auto slot_size_array = get_json(j, "slot_size_array");
-              if (!slot_size_array.is_array()) {
-                CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
-              }
-              long long slot_sum = 0;
-              for (auto j_slot_size : slot_size_array) {
-                slot_offset.push_back(slot_sum);
-                long long slot_size = j_slot_size.get<long long>();
-                slot_sum += slot_size;
-              }
-              MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+        auto f = [&j]() -> std::vector<long long> {
+          std::vector<long long> slot_offset;
+          if (has_key_(j, "slot_size_array")) {
+            auto slot_size_array = get_json(j, "slot_size_array");
+            if (!slot_size_array.is_array()) {
+              CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
             }
-	    return slot_offset;
-	};
+            long long slot_sum = 0;
+            for (auto j_slot_size : slot_size_array) {
+              slot_offset.push_back(slot_sum);
+              long long slot_size = j_slot_size.get<long long>();
+              slot_sum += slot_size;
+            }
+            MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+          }
+          return slot_offset;
+        };
 
-	switch (format) {
+        switch (format) {
           case DataReaderType_t::Norm: {
-	    data_reader->create_drwg_norm(source_data, check_type);
-	    data_reader_eval->create_drwg_norm(eval_source, check_type);
+            data_reader->create_drwg_norm(source_data, check_type);
+            data_reader_eval->create_drwg_norm(eval_source, check_type);
             break;
           }
           case DataReaderType_t::Raw: {
             const auto num_samples = get_value_from_json<long long>(j, "num_samples");
             const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
             std::vector<long long> slot_offset = f();
-	    data_reader->create_drwg_raw(source_data, num_samples, slot_offset, true, false);
-	    data_reader_eval->create_drwg_raw(eval_source, eval_num_samples, slot_offset, false, false);
+            bool float_label_dense = get_value_from_json_soft<bool>(j, "float_label_dense", false);
+            data_reader->create_drwg_raw(source_data, num_samples, slot_offset, float_label_dense,
+                                         true, false);
+            data_reader_eval->create_drwg_raw(eval_source, eval_num_samples, slot_offset,
+                                              float_label_dense, false, false);
 
             break;
           }
@@ -1365,8 +1365,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
             // @Future: Should be slot_offset here and data_reader ctor should
             // be TypeKey not long long
             std::vector<long long> slot_offset = f();
-	    data_reader->create_drwg_parquet(source_data, slot_offset, true);
-	    data_reader_eval->create_drwg_parquet(eval_source, slot_offset, true);
+            data_reader->create_drwg_parquet(source_data, slot_offset, true);
+            data_reader_eval->create_drwg_parquet(eval_source, slot_offset, true);
             break;
           }
           default: { assert(!"Error: no such option && should never get here!"); }

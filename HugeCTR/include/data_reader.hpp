@@ -23,8 +23,8 @@
 #include <data_readers/data_collector.hpp>
 #include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker_group_norm.hpp>
-#include <data_readers/data_reader_worker_group_raw.hpp>
 #include <data_readers/data_reader_worker_group_parquet.hpp>
+#include <data_readers/data_reader_worker_group_raw.hpp>
 #include <file_list.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
@@ -33,7 +33,6 @@
 #include <vector>
 
 namespace HugeCTR {
-
 
 /**
  * @brief Data reading controller.
@@ -51,9 +50,9 @@ template <typename TypeKey>
 class DataReader {
  private:
   std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_; /**< heap to cache the data set */
-  Tensors2<float> label_tensors_;         /**< Label tensors for the usage of loss */
-  std::vector<TensorBag2> dense_tensors_; /**< Dense tensors for the usage of loss */
- /* Each gpu will have several csr output for different embedding */
+  Tensors2<float> label_tensors_;                       /**< Label tensors for the usage of loss */
+  std::vector<TensorBag2> dense_tensors_;               /**< Dense tensors for the usage of loss */
+  /* Each gpu will have several csr output for different embedding */
   Tensors2<TypeKey> csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
   Tensors2<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
   Tensors2<TypeKey> value_tensors_;       /**< value tensors */
@@ -62,10 +61,11 @@ class DataReader {
   std::shared_ptr<GPUResourceGroup> device_resources_; /**< gpu resource used in this data reader*/
   bool use_mixed_precision_{false};
   const size_t batchsize_; /**< batch size */
-  const size_t label_dim_;      /**< dimention of label e.g. 1 for BinaryCrossEntropy */
-  const size_t dense_dim_;      /**< dimention of dense */
+  const size_t label_dim_; /**< dimention of label e.g. 1 for BinaryCrossEntropy */
+  const size_t dense_dim_; /**< dimention of dense */
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
   std::shared_ptr<DataReaderWorkerGroup> worker_group_;
+
  public:
   /**
    * Reading a batch from cpu to gpu (embedding)
@@ -76,16 +76,12 @@ class DataReader {
 
   void ready_to_collect() { data_collector_->set_ready_to_write(); }
 
-  void start() { 
-    worker_group_->start();
-  }
+  void start() { worker_group_->start(); }
 
-  DataReader(int batchsize, size_t label_dim, int dense_dim, 
-	   std::vector<DataReaderSparseParam>& params,
-	   const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-	   int num_chunk_threads = 31, bool use_mixed_precision = false,
-	   int cache_num_iters=0);
-
+  DataReader(int batchsize, size_t label_dim, int dense_dim,
+             std::vector<DataReaderSparseParam>& params,
+             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+             int num_chunk_threads = 31, bool use_mixed_precision = false, int cache_num_iters = 0);
 
   const Tensors2<float>& get_label_tensors() const { return label_tensors_; }
   const std::vector<TensorBag2>& get_dense_tensors() const { return dense_tensors_; }
@@ -114,36 +110,38 @@ class DataReader {
     return array;
   }
 
-  void create_drwg_norm(std::string file_list, Check_t check_type, bool start_reading_from_beginning = true){
+  void create_drwg_norm(std::string file_list, Check_t check_type,
+                        bool start_reading_from_beginning = true) {
     worker_group_.reset(new DataReaderWorkerGroupNorm<TypeKey>(
-      csr_heap_, file_list, check_type, params_, start_reading_from_beginning
-    ));
+        csr_heap_, file_list, check_type, params_, start_reading_from_beginning));
   }
 
-  void create_drwg_raw(std::string file_name, long long num_samples, const std::vector<long long> slot_offset, bool data_shuffle = false, bool start_reading_from_beginning = true){
+  void create_drwg_raw(std::string file_name, long long num_samples,
+                       const std::vector<long long> slot_offset, bool float_label_dense,
+                       bool data_shuffle = false, bool start_reading_from_beginning = true) {
     worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
-     csr_heap_, file_name, num_samples, params_, slot_offset, 
-     label_dim_, dense_dim_, batchsize_, data_shuffle, start_reading_from_beginning));
+        csr_heap_, file_name, num_samples, params_, slot_offset, label_dim_, dense_dim_, batchsize_,
+        float_label_dense, data_shuffle, start_reading_from_beginning));
   }
 
-  void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset, bool start_reading_from_beginning = true){
-    //worker_group_.empty
-    worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey> (
-      csr_heap_, file_list, params_, slot_offset, device_resources_->get_rmm_mr(), start_reading_from_beginning));
+  void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
+                           bool start_reading_from_beginning = true) {
+    // worker_group_.empty
+    worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
+        csr_heap_, file_list, params_, slot_offset, device_resources_->get_rmm_mr(),
+        start_reading_from_beginning));
   }
 
   ~DataReader();
 };
 
-
 template <typename TypeKey>
-DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim,
-				int dense_dim, 
+DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
                                 int num_chunk_threads, bool use_mixed_precision,
-			        int cache_num_iters):
-      params_(params),
+                                int cache_num_iters)
+    : params_(params),
       device_resources_(gpu_resource_group),
       use_mixed_precision_(use_mixed_precision),
       batchsize_(batchsize),
@@ -151,9 +149,6 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim,
       dense_dim_(dense_dim)
 
 {
-
-
-
   int total_gpu_count = device_resources_->get_total_gpu_count();
 
   // input check
@@ -166,8 +161,7 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim,
 
   // init the heap
   csr_heap_.reset(new HeapEx<CSRChunk<TypeKey>>(num_chunk_threads, total_gpu_count, batchsize_,
-						label_dim_ + dense_dim_, params_));
-
+                                                label_dim_ + dense_dim_, params_));
 
   const auto& device_list = device_resources_->get_device_list();
 
@@ -198,7 +192,7 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim,
   // create value and row offset tensor
   bool one_hot = true;
   for (size_t i = 0; i < device_list.size(); i++) {
-   for (auto& param : params) {
+    for (auto& param : params) {
       int slots = 0;
       if (param.type == DataReaderSparse_t::Distributed) {
         slots = param.slot_num;
@@ -222,8 +216,8 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim,
       size_t num_max_value = (param.max_nnz * slots) <= param.max_feature_num
                                  ? (param.max_nnz * slots * batchsize_)
                                  : (param.max_feature_num * batchsize_);
-      if(param.max_nnz != 1){
-	one_hot = false; // Note: here we have an assumption if max_nnz == 1 the input is one hot. 
+      if (param.max_nnz != 1) {
+        one_hot = false;  // Note: here we have an assumption if max_nnz == 1 the input is one hot.
       }
 
       std::vector<size_t> num_max_value_dim = {1, num_max_value};

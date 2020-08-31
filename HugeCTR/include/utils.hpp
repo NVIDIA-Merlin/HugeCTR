@@ -21,7 +21,9 @@
 #include <sys/stat.h>
 #include <chrono>
 #include <cmath>
+#include <common.hpp>
 #include <ctime>
+#include <data_parser.hpp>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -30,8 +32,6 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include <common.hpp>
-#include <data_parser.hpp>
 
 namespace HugeCTR {
 
@@ -76,30 +76,31 @@ class GPUTimer {
   cudaEvent_t start_;
   cudaEvent_t stop_;
   cudaStream_t stream_;
+
  public:
-    GPUTimer() {
-      cudaEventCreate(&start_);
-      cudaEventCreate(&stop_);
-    }
+  GPUTimer() {
+    cudaEventCreate(&start_);
+    cudaEventCreate(&stop_);
+  }
 
-    ~GPUTimer() {
-      cudaEventDestroy(start_);
-      cudaEventDestroy(stop_);
-    }
+  ~GPUTimer() {
+    cudaEventDestroy(start_);
+    cudaEventDestroy(stop_);
+  }
 
-    void start(cudaStream_t st = 0) {
-      stream_ = st;
-      cudaEventRecord(start_, stream_);
-    }
+  void start(cudaStream_t st = 0) {
+    stream_ = st;
+    cudaEventRecord(start_, stream_);
+  }
 
-    float stop() {
-        float milliseconds = 0;
-        cudaEventRecord(stop_, stream_);
-        cudaEventSynchronize(stop_);
-        cudaEventElapsedTime(&milliseconds, start_, stop_);
-        return milliseconds;
-    }
- };
+  float stop() {
+    float milliseconds = 0;
+    cudaEventRecord(stop_, stream_);
+    cudaEventSynchronize(stop_);
+    cudaEventElapsedTime(&milliseconds, start_, stop_);
+    return milliseconds;
+  }
+};
 
 /**
  * Helper class for switching device
@@ -403,16 +404,24 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
 
 inline void data_generation_for_raw(
     std::string file_name, long long num_samples, int label_dim = 1, int dense_dim = 13,
-    int sparse_dim = 26, const std::vector<long long> slot_size = std::vector<long long>()) {
+    int sparse_dim = 26, float float_label_dense = false,
+    const std::vector<long long> slot_size = std::vector<long long>()) {
   std::ofstream out_stream(file_name, std::ofstream::binary);
+  size_t size_label_dense = float_label_dense ? sizeof(float) : sizeof(int);
   for (long long i = 0; i < num_samples; i++) {
     for (int j = 0; j < label_dim; j++) {
-      int label = i % 2;
-      out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
+      int label_int = i % 2;
+      float label_float = static_cast<float>(label_int);
+      char* label_ptr = float_label_dense ? reinterpret_cast<char*>(&label_float)
+                                          : reinterpret_cast<char*>(&label_int);
+      out_stream.write(label_ptr, size_label_dense);
     }
     for (int j = 0; j < dense_dim; j++) {
-      int dense = j;
-      out_stream.write(reinterpret_cast<char*>(&dense), sizeof(int));
+      int dense_int = j;
+      float dense_float = static_cast<float>(dense_int);
+      char* dense_ptr = float_label_dense ? reinterpret_cast<char*>(&dense_float)
+                                          : reinterpret_cast<char*>(&dense_int);
+      out_stream.write(dense_ptr, size_label_dense);
     }
     for (int j = 0; j < sparse_dim; j++) {
       int sparse = 0;
@@ -528,20 +537,17 @@ struct TypeConvert<__half> {
   static __host__ __half convert(const float val) { return __float2half(val); }
 };
 
-
 template <typename T>
 struct CudnnDataType;
 
 template <>
 struct CudnnDataType<float> {
-  static cudnnDataType_t getType(){return CUDNN_DATA_FLOAT;}
+  static cudnnDataType_t getType() { return CUDNN_DATA_FLOAT; }
 };
 
 template <>
 struct CudnnDataType<__half> {
-  static cudnnDataType_t getType(){return CUDNN_DATA_FLOAT;}
+  static cudnnDataType_t getType() { return CUDNN_DATA_FLOAT; }
 };
-
-
 
 }  // namespace HugeCTR
