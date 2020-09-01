@@ -17,10 +17,10 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include "HugeCTR/include/optimizer.hpp"
-#include "HugeCTR/include/parser.hpp"
-#include "HugeCTR/include/session.hpp"
-#include "HugeCTR/include/utils.hpp"
+#include <optimizer.hpp>
+#include <parser.hpp>
+#include <session.hpp>
+#include <utils.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -105,10 +105,11 @@ void train(std::string config_file) {
       }
 
       if ((solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0)) {
+        session_instance->check_overflow();
+
         HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
                      float(i) / solver_config.max_iter);
         timer_eval.start();
-        session_instance->check_overflow();
         for (int j = 0; j < solver_config.eval_batches; ++j) {
           session_instance->eval();
         }
@@ -193,6 +194,7 @@ void train(std::string config_file) {
       if (i % solver_config.eval_interval == solver_config.eval_batches &&
           i != solver_config.eval_batches) {
         session_instance->check_overflow();
+        session_instance->set_evaluate_stage();
         loss = loss / solver_config.eval_batches;
         for (int j = 0; j < solver_config.eval_batches; ++j) {
           session_instance->eval();
@@ -262,14 +264,14 @@ int main(int argc, char* argv[]) {
       case CmdOptions_t::Version: {
         if (pid == 0) {
           std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR
-                    << std::endl;
+                    << "." << HUGECTR_VERSION_PATCH << std::endl;
         }
         break;
       }
       case CmdOptions_t::Train: {
         if (pid == 0) {
           std::cout << "HugeCTR Version: " << HUGECTR_VERSION_MAJOR << "." << HUGECTR_VERSION_MINOR
-                    << std::endl;
+                    << "." << HUGECTR_VERSION_PATCH << std::endl;
         }
 
         if (argc != 3 && pid == 0) {

@@ -14,48 +14,58 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/elu_layer.hpp"
-
-#include "HugeCTR/include/layers/element_wise_function.hpp"
-
 #include <algorithm>
 #include <functional>
-#include "HugeCTR/include/utils.hpp"
+#include <layers/element_wise_function.hpp>
+#include <layers/elu_layer.hpp>
+#include <linalg/binary_op.cuh>
+#include <linalg/unary_op.cuh>
+#include <utils.hpp>
 #ifndef NDEBUG
 #include <iostream>
 #endif
 
 namespace HugeCTR {
 
-EluLayer::EluLayer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                   const std::shared_ptr<Tensor<float>>& out_tensor, float alpha, int device_id)
-    : Layer(device_id), alpha_(alpha) {
-  assert(get_size_from_dims(in_tensor->get_dims()) == get_size_from_dims(out_tensor->get_dims()));
+EluLayer::EluLayer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor, float alpha,
+                   const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource), alpha_(alpha) {
+  assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
 
-  in_tensors_.emplace_back(in_tensor);
-  out_tensors_.emplace_back(out_tensor);
+  in_tensors_.push_back(in_tensor);
+  out_tensors_.push_back(out_tensor);
 }
 
-void EluLayer::fprop(cudaStream_t stream) {
-  const auto& in_tensor = in_tensors_[0];
-  const auto& out_tensor = out_tensors_[0];
+void EluLayer::fprop(bool is_train) {
+  CudaDeviceContext context(get_device_id());
+
+  const Tensor2<float>& in_tensor = in_tensors_[0];
+  Tensor2<float>& out_tensor = out_tensors_[0];
+
+  const int len = in_tensor.get_num_elements();
 
   float alpha = alpha_;
   auto fop = [alpha] __device__(float in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
-  internal::ElementWiseFunctor functor;
-  functor.forward_evaluate(*in_tensor, *out_tensor, get_device_id(), fop, stream);
+
+  MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len, fop,
+                            get_gpu().get_stream());
 }
 
-void EluLayer::bprop(cudaStream_t stream) {
-  const auto& in_tensor = in_tensors_[0];
-  const auto& out_tensor = out_tensors_[0];
+void EluLayer::bprop() {
+  CudaDeviceContext context(get_device_id());
+
+  Tensor2<float>& in_tensor = in_tensors_[0];
+  const Tensor2<float>& out_tensor = out_tensors_[0];
+
+  const int len = in_tensor.get_num_elements();
 
   float alpha = alpha_;
   auto bop = [alpha] __device__(float d_out, float d_in) {
     return (d_in < 0) ? alpha * expf(d_in) * d_out : d_out;
   };
-  internal::ElementWiseFunctor functor;
-  functor.backward_evaluate(*in_tensor, *out_tensor, get_device_id(), bop, stream);
+
+  MLCommon::LinAlg::binaryOp(in_tensor.get_ptr(), out_tensor.get_ptr(), in_tensor.get_ptr(), len,
+                             bop, get_gpu().get_stream());
 }
 
 }  // namespace HugeCTR

@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include "HugeCTR/include/layer.hpp"
-
 #include <curand.h>
+#include <layer.hpp>
 
 namespace HugeCTR {
 
@@ -34,15 +33,15 @@ class DropoutLayer : public Layer {
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<T> wgrad_;
+  Tensors2<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
+  Tensors2<T> out_tensors_;
 
  public:
   /**
@@ -52,39 +51,29 @@ class DropoutLayer : public Layer {
    * @param rate fraction of the inputs set to zero., 0 < rate < 1, default = 0.5
    * @param device_id the id of GPU where this layer belongs
    */
-  DropoutLayer(const std::shared_ptr<Tensor<T>>& in_tensor,
-               const std::shared_ptr<Tensor<T>>& out_tensor, float rate,
-               const curandGenerator_t& curand_generator, int device_id);
-
-  ~DropoutLayer() override;
+  DropoutLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
+               const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
+               const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
    * A method of implementing the forward pass of Dropout
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * A method of implementing the backward pass of Dropout
    * @param stream CUDA stream where the backward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
-  /*
-   * Inference pass
-   * @param stream: the CUDA stream that the forward function will be executed on.
-   */
-  void inference(cudaStream_t stream) override;
+  void bprop() override;
 
-  const float* mask() const { return mask_; }
+  const float* mask() const { return mask_.get_ptr(); }
 
- private:
-  int64_t get_seed() const;
   void prop_common(const T* in, T* out, cudaStream_t stream);
 
+ private:
   float rate_;
   float scale_;
-  float* mask_;
-  curandGenerator_t curand_generator_;
-  int n_sms_;
+  Tensor2<float> mask_;
 };
 
 }  // namespace HugeCTR

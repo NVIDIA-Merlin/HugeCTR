@@ -1,0 +1,166 @@
+{
+      "solver": {
+        "lr_policy": "fixed",
+        "display": 100,
+        "max_iter":559,
+        "gpu": [0,1,2,3,4,5,6,7],
+        "batchsize": 65536,
+        "batchsize_eval": 131072,
+        "snapshot": 10000000,
+        "snapshot_prefix": "./",
+        "eval_interval": 34,
+        "eval_batches": 35,
+        "mixed_precision": 1024,
+        "eval_metrics": ["AUC:0.8025"]
+      },
+      
+      "optimizer": {
+        "type": "SGD",
+        "global_update": false,
+        "sgd_hparam": {
+            "learning_rate": 1,
+            "atomic_update": true,
+          "warmup_steps": 300
+        }
+      },
+
+      "layers": [ 
+          {
+         "name": "data",
+          "type": "Data",
+          "format": "Raw",
+        "num_samples": 36634624,
+          "slot_size_array": [1459, 583, 6373320, 1977439, 305, 24, 12513, 633, 3, 92719, 5681, 5666265, 3193, 27, 14986, 4209368, 10, 5652, 2173, 4, 5058596, 18, 15, 282062, 105, 141594],    
+        "source": "./train_data.bin",
+          "eval_num_samples": 4584062,
+          "eval_source": "./test_data.bin",
+          "check": "None",
+          "cache_eval_data": false,
+          "label": {
+                  "top": "label",
+                  "label_dim": 1
+          },
+          "dense": {
+                  "top": "dense",
+                  "dense_dim": 13
+          },
+          "sparse": [
+                  {
+              "top": "data1",
+              "type": "LocalizedSlot",
+              "max_feature_num_per_sample": 26,
+                      "max_nnz": 1,
+              "slot_num": 26
+                  }
+          ]
+        },
+    
+        {
+          "name": "sparse_embedding1",
+          "type": "LocalizedSlotSparseEmbeddingOneHot",
+          "bottom": "data1",
+          "top": "sparse_embedding1",
+          "sparse_embedding_hparam": {
+            "slot_size_array": [1459, 583, 6373320, 1977439, 305, 24, 12513, 633, 3, 92719, 5681, 5666265, 3193, 27, 14986, 4209368, 10, 5652, 2173, 4, 5058596, 18, 15, 282062, 105, 141594],
+            "embedding_vec_size": 128,
+            "combiner": 0
+          }
+        },
+    
+        {
+          "name": "fc1",
+          "type": "FusedInnerProduct",
+          "bottom": "dense",
+          "top": "fc1",
+          "fc_param": {
+            "num_output": 512
+          }
+        },
+    
+        {
+          "name": "fc2",
+          "type": "FusedInnerProduct",
+          "bottom": "fc1",
+          "top": "fc2",
+          "fc_param": {
+            "num_output": 256
+          }
+        },
+    
+       
+        {
+          "name": "fc3",
+          "type": "FusedInnerProduct",
+          "bottom": "fc2",
+          "top": "fc3",
+          "fc_param": {
+            "num_output": 128
+          }
+        },
+    
+        {
+          "name": "interaction1",
+          "type": "Interaction",
+          "bottom": ["fc3", "sparse_embedding1"],
+          "top": "interaction1"
+        },
+    
+        {
+          "name": "fc4",
+          "type": "FusedInnerProduct",
+          "bottom": "interaction1",
+          "top": "fc4",
+           "fc_param": {
+            "num_output": 1024
+          }
+        },
+    
+        {
+          "name": "fc5",
+          "type": "FusedInnerProduct",
+          "bottom": "fc4",
+          "top": "fc5",
+          "fc_param": {
+            "num_output": 1024
+          }
+        },
+    
+        {
+          "name": "fc6",
+          "type": "FusedInnerProduct",
+          "bottom": "fc5",
+          "top": "fc6",
+          "fc_param": {
+            "num_output": 512
+          }
+        },
+    
+        {
+          "name": "fc7",
+          "type": "FusedInnerProduct",
+          "bottom": "fc6",
+          "top": "fc7",
+          "fc_param": {
+            "num_output": 256
+          }
+        },
+    
+        {
+          "name": "fc8",
+          "type": "InnerProduct",
+          "bottom": "fc7",
+          "top": "fc8",
+          "fc_param": {
+            "num_output": 1
+          }
+        },
+        
+        {
+          "name": "loss",
+          "type": "BinaryCrossEntropyLoss",
+          "bottom": ["fc8","label"],
+          "top": "loss"
+        } 
+      ]
+    }
+  

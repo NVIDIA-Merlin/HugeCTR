@@ -15,16 +15,16 @@
  */
 
 #pragma once
+#include <common.hpp>
+#include <data_reader.hpp>
+#include <embedding.hpp>
 #include <fstream>
 #include <functional>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_reader.hpp"
-#include "HugeCTR/include/device_map.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/gpu_resource.hpp"
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/network.hpp"
-#include "nlohmann/json.hpp"
+#include <gpu_resource.hpp>
+#include <learning_rate_scheduler.hpp>
+#include <metrics.hpp>
+#include <network.hpp>
+#include <nlohmann/json.hpp>
 
 namespace HugeCTR {
 
@@ -83,10 +83,8 @@ class Parser {
   void create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                        std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                        std::vector<std::unique_ptr<Network>>& network,
-                       std::vector<std::unique_ptr<Network>>& network_eval,
-                       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+                       const std::shared_ptr<ResourceManager>& resource_manager);
 
   /**
    * Create the pipeline, which includes data reader, embedding.
@@ -94,10 +92,8 @@ class Parser {
   void create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                        std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
                        std::vector<std::unique_ptr<Network>>& network,
-                       std::vector<std::unique_ptr<Network>>& network_eval,
-                       const std::shared_ptr<GPUResourceGroup>& gpu_resource_group);
+                       const std::shared_ptr<ResourceManager>& resource_manager);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -109,20 +105,19 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
  */
 struct SolverParser {
   std::string configure_file;
-  unsigned int seed;                           /**< seed of data simulator */
-  LrPolicy_t lr_policy;                        /**< the only fixed lr is supported now. */
-  int display;                                 /**< the interval of loss display. */
-  int max_iter;                                /**< the number of iterations for training */
-  int snapshot;                                /**< the number of iterations for a snapshot */
-  std::string snapshot_prefix;                 /**< naming prefix of snapshot file */
-  int eval_interval;                           /**< the interval of evaluations */
-  int eval_batches;                            /**< the number of batches for evaluations */
-  int batchsize_eval;                          /**< batchsize for eval */
-  int batchsize;                               /**< batchsize */
-  std::string model_file;                      /**< name of model file */
-  std::vector<std::string> embedding_files;    /**< name of embedding file */
-  std::vector<int> device_list;                /**< device_list */
-  std::shared_ptr<const DeviceMap> device_map; /**< device map */
+  unsigned long long seed;                  /**< seed of data simulator */
+  LrPolicy_t lr_policy;                     /**< the only fixed lr is supported now. */
+  int display;                              /**< the interval of loss display. */
+  int max_iter;                             /**< the number of iterations for training */
+  int snapshot;                             /**< the number of iterations for a snapshot */
+  std::string snapshot_prefix;              /**< naming prefix of snapshot file */
+  int eval_interval;                        /**< the interval of evaluations */
+  int eval_batches;                         /**< the number of batches for evaluations */
+  int batchsize_eval;                       /**< batchsize for eval */
+  int batchsize;                            /**< batchsize */
+  std::string model_file;                   /**< name of model file */
+  std::vector<std::string> embedding_files; /**< name of embedding file */
+  std::vector<std::vector<int>> vvgpu;      /**< device map */
   bool use_mixed_precision;
   float scaler;
   std::map<metrics::Type, float> metrics_spec;
@@ -133,10 +128,12 @@ struct SolverParser {
 
 template <typename T>
 struct SparseInput {
-  Tensors<T> row;
-  Tensors<T> value;
-  Tensors<T> row_eval;
-  Tensors<T> value_eval;
+  Tensors2<T> train_row_offsets;
+  Tensors2<T> train_values;
+  std::vector<std::shared_ptr<size_t>> train_nnz;
+  Tensors2<T> evaluate_row_offsets;
+  Tensors2<T> evaluate_values;
+  std::vector<std::shared_ptr<size_t>> evaluate_nnz;
   size_t slot_num;
   size_t max_feature_num_per_sample;
   SparseInput(int slot_num_in, int max_feature_num_per_sample_in)

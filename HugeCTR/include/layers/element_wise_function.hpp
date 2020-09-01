@@ -16,11 +16,10 @@
 
 #pragma once
 
-#include "HugeCTR/include/tensor.hpp"
-#include "HugeCTR/include/utils.hpp"
-
 #include <algorithm>
 #include <functional>
+#include <tensor2.hpp>
+#include <utils.hpp>
 #ifndef NDEBUG
 #include <iostream>
 #endif
@@ -75,14 +74,14 @@ class ElementWiseFunctor {
    * @param stream CUDA stream where the foward propagation is executed
    */
   template <typename Fop>
-  void forward_evaluate(const Tensor<float>& in_tensor, Tensor<float>& out_tensor, int device_id,
+  void forward_evaluate(const Tensor2<float>& in_tensor, Tensor2<float>& out_tensor, int device_id,
                         Fop fop, cudaStream_t stream) {
     CudaDeviceContext context(device_id);
 
     const float* in = in_tensor.get_ptr();
     float* out = out_tensor.get_ptr();
 
-    const int len = get_size_from_dims(in_tensor.get_dims());
+    const int len = in_tensor.get_num_elements();
     const int grid_size = std::min((len - 1) / BLOCK_SIZE + 1, MAX_GRID_SIZE);
     forward_element_wise_kernel<<<grid_size, BLOCK_SIZE, 0, stream>>>(in, out, len, fop);
 
@@ -102,14 +101,14 @@ class ElementWiseFunctor {
    * @param stream CUDA stream where the backward propagation is executed
    */
   template <typename Bop>
-  void backward_evaluate(Tensor<float>& in_tensor, const Tensor<float>& out_tensor, int device_id,
+  void backward_evaluate(Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor, int device_id,
                          Bop bop, cudaStream_t stream) {
     CudaDeviceContext context(device_id);
 
     float* d_in = in_tensor.get_ptr();
     const float* d_out = out_tensor.get_ptr();
 
-    const int len = get_size_from_dims(in_tensor.get_dims());
+    const int len = in_tensor.get_num_elements();
     const int grid_size = std::min((len - 1) / BLOCK_SIZE + 1, MAX_GRID_SIZE);
     backward_element_wise_kernel<<<grid_size, BLOCK_SIZE, 0, stream>>>(d_out, d_in, len, bop);
 

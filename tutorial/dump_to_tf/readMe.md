@@ -8,7 +8,8 @@ There are two kind of binary model files dumped from HugeCTR: sparse model file 
 
 ## Model Format 
 + Sparse model file <br>
-HugeCTR supports multiple embeddings in one network. Each embedding corresponds to a sparse model file.
+HugeCTR supports multiple embeddings in one network. Each embedding corresponds to a sparse model file. <br>
+Currently, **TypeHashKey** can be one of {`long long`,  `unsigned int`}.
 
   1. Distributed embedding <br>
 For distributed embedding, HugeCTR stores keys and embedding features in the following order:
@@ -28,7 +29,7 @@ For localized embedding, HugeCTR stores keys, slot ids and embedding features in
       key2, slot_id2, embedding_feature2,
       ...
       ```
-      Each pair of **<key, slot_id, embedding_feature>** has size in bytes = **sizeof(TypeHashKey) + sizeof(TypeHashValueIndex) + sizeof(float) \* embedding_vec_size**.
+      Each pair of **<key, slot_id, embedding_feature>** has size in bytes = **sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) \* embedding_vec_size**.
 
 + Dense model file <br>
 Dense model's weights will be stored in the order of layers in configuration file. All values are of type `float`.
@@ -88,6 +89,7 @@ You can use these commands to run this demo:
 ```
 $ cd hugectr/tutorial/dump_to_tf
 $ python3 main.py \
+../../samples/dcn/dcn.json \
 ../../samples/dcn/criteo/sparse_embedding0.data \
 ../../samples/dcn/_dense_20000.model \
 ../../samples/dcn/0_sparse_20000.model
@@ -101,9 +103,10 @@ Expected output (the number in runtime can be different):
 
 **Usage** 
 ```
-python3 main.py dataset dense_model sparse_model0 sparse_model1 ...
+python3 main.py json_file dataset dense_model sparse_model0 sparse_model1 ...
 ```
 Arguments: <br>
+```json_file```: configuration file used in HugeCTR training <br>
 ```dataset```: data file used in HugeCTR training <br>
 ```dense_model```: HugeCTR's dense model file <br>
 ```sparse_model```: HugeCTR's sparse model file(s). Specify sparse model(s) in the order of embedding(s) in model json file.

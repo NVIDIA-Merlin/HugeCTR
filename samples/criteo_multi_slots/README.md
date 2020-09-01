@@ -1,20 +1,20 @@
 # CRITEO CTR SAMPLE #
-In this sample we aim to demostrate the basic usage of SparseEmbeddingHash and multiple slots.
+In this sample we aim to demonstrate the basic usage of SparseEmbeddingHash and multiple slots.
 
 ## Dataset and preprocess ##
 The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).
 The original training set contains 45,840,617 examples.
 Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
-The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed acordingly.
+The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
 The original test set doesn't contain labels, so it's not used.
 
 1. Download the dataset and preprocess
 
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
-and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script_legacy/".
+and download the kaggle-display dataset into the folder "${project_home}/tools/criteo_script_legacy/".
 The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
 It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
-Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
+Its purpose is to reduce the vocabulary size of each column while not losing too much information.
 
 ```shell
 $ cd ../../tools/criteo_script_legacy/

@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "HugeCTR/include/check_none.hpp"
-#include "HugeCTR/include/check_sum.hpp"
+#include "HugeCTR/include/data_readers/check_none.hpp"
+#include "HugeCTR/include/data_readers/check_sum.hpp"
 #include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/csr_chunk.hpp"
-#include "HugeCTR/include/file_list.hpp"
-#include "HugeCTR/include/file_source.hpp"
-#include "HugeCTR/include/heap.hpp"
+#include "HugeCTR/include/data_readers/csr_chunk.hpp"
+#include "HugeCTR/include/data_readers/file_list.hpp"
+#include "HugeCTR/include/data_readers/file_source.hpp"
+#include "HugeCTR/include/data_readers/heap.hpp"
 
 #include "utest/embedding/cpu_hashtable.hpp"
 
@@ -68,16 +68,8 @@ class SparseEmbeddingHashCpu {
   int label_dim_;
   int dense_dim_;
   int combiner_;
-  Optimizer_t optimizer_;
-  float lr_;
   uint64_t times_;
-  const float adam_beta1_ = 0.9f;
-  const float adam_beta2_ = 0.999f;
-  const float adam_epsilon_ = 1e-7f;
-  const float momentum_factor_ = 0.9f;
-  const float nesterov_mu_ = 0.9f;
-  bool global_update_ = false;
-  float scaler_;
+  OptParams<TypeEmbeddingComp> opt_params_;
 
   std::unique_ptr<TypeHashKey[]> row_offset_;
   std::unique_ptr<TypeHashKey[]> hash_key_;
@@ -133,9 +125,8 @@ class SparseEmbeddingHashCpu {
   SparseEmbeddingHashCpu(int batchsize, int max_feature_num, int vocabulary_size,
                          int embedding_vec_size, int slot_num, int label_dim, int dense_dim,
                          Check_t check_sum, long long num_records, int combiner,
-                         Optimizer_t optimizer, float lr, const std::string &file_list_name,
-                         const std::string &hash_table_file, const SparseEmbedding_t emb_type,
-                         bool global_update, float scaler);
+                         OptParams<TypeEmbeddingComp> opt_params, const std::string &file_list_name,
+                         const std::string &hash_table_file, const SparseEmbedding_t emb_type);
   ~SparseEmbeddingHashCpu();
 
   void read_a_batch();
@@ -229,9 +220,8 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
     int batchsize, int max_feature_num, int vocabulary_size, int embedding_vec_size, int slot_num,
     int label_dim, int dense_dim, const Check_t check_sum, const long long num_records,
-    int combiner, Optimizer_t optimizer, const float lr, const std::string &file_list_name,
-    const std::string &hash_table_file, const SparseEmbedding_t emb_type, bool global_update,
-    float scaler)
+    int combiner, OptParams<TypeEmbeddingComp> opt_params, const std::string &file_list_name,
+    const std::string &hash_table_file, const SparseEmbedding_t emb_type)
     : batchsize_(batchsize),
       max_feature_num_(max_feature_num),
       vocabulary_size_(vocabulary_size),
@@ -242,10 +232,7 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
       check_sum_(check_sum),
       num_records_(num_records),
       combiner_(combiner),
-      optimizer_(optimizer),
-      lr_(lr),
-      global_update_(global_update),
-      scaler_(scaler) {
+      opt_params_(opt_params) {
 #ifndef NDEBUG
   PRINT_FUNC_NAME_();
 #endif
@@ -828,35 +815,41 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::update_params() {
                hash_value_index_undup_offset_.get());
 
   // step6: update params
-  switch (optimizer_) {
+  switch (opt_params_.optimizer) {
     case Optimizer_t::Adam: {
       times_++;
-      const float alpha_t =
-          lr_ * sqrt(1.0f - pow(adam_beta2_, times_)) / (1.0f - pow(adam_beta1_, times_));
+      const float alpha_t = opt_params_.lr *
+                            sqrt(1.0f - pow(opt_params_.hyperparams.adam.beta2, times_)) /
+                            (1.0f - pow(opt_params_.hyperparams.adam.beta1, times_));
       cpu_optimizer_adam(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
                          hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                         hash_table_value_.get(), opt_m_.get(), opt_v_.get(), alpha_t, adam_beta1_,
-                         adam_beta2_, adam_epsilon_, vocabulary_size_, global_update_, scaler_);
+                         hash_table_value_.get(), opt_m_.get(), opt_v_.get(), alpha_t,
+                         opt_params_.hyperparams.adam.beta1, opt_params_.hyperparams.adam.beta2,
+                         opt_params_.hyperparams.adam.epsilon, vocabulary_size_,
+                         opt_params_.global_update, opt_params_.scaler);
       break;
     }
     case Optimizer_t::MomentumSGD: {
       cpu_optimizer_momentum(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
                              hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                             hash_table_value_.get(), opt_momentum_.get(), momentum_factor_, lr_,
-                             vocabulary_size_, global_update_, scaler_);
+                             hash_table_value_.get(), opt_momentum_.get(),
+                             opt_params_.hyperparams.momentum.factor, opt_params_.lr,
+                             vocabulary_size_, opt_params_.global_update, opt_params_.scaler);
       break;
     }
     case Optimizer_t::Nesterov: {
       cpu_optimizer_nesterov(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
                              hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                             hash_table_value_.get(), opt_accm_.get(), nesterov_mu_, lr_,
-                             vocabulary_size_, global_update_, scaler_);
+                             hash_table_value_.get(), opt_accm_.get(),
+                             opt_params_.hyperparams.nesterov.mu, opt_params_.lr, vocabulary_size_,
+                             opt_params_.global_update, opt_params_.scaler);
       break;
     }
     case Optimizer_t::SGD: {
       cpu_optimizer_sgd(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
                         hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                        hash_table_value_.get(), lr_, vocabulary_size_, scaler_);
+                        hash_table_value_.get(), opt_params_.lr, vocabulary_size_,
+                        opt_params_.scaler);
       break;
     }
     default: { printf("Error: optimizer not support in CPU version\n"); }

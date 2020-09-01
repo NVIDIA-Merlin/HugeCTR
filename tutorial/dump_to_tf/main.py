@@ -74,8 +74,7 @@ def dcn_model(args):
 
     dense_dim = 13
 
-    samples_dir = r'../../samples/'
-    model_json = os.path.join(samples_dir, r'dcn/dcn.json')
+    model_json = args.json_file
 
     sparse_model_names = args.sparse_models
     dense_model_name = args.dense_model
@@ -355,6 +354,8 @@ def criteo_model(args):
 if __name__ == "__main__":
     # Usage python3 main.py dataset dense_model sparse_model0, sparse_model1, ..., [-m]
     parser = argparse.ArgumentParser()
+    parser.add_argument("json_file", type=str, 
+                        help="the configuration json file.")
     parser.add_argument("dataset", type=str,
                         help="where to find criteo dataset.")
     parser.add_argument("dense_model", type=str, 

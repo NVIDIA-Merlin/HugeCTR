@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/fm_order2_layer.hpp"
+#include <layers/fm_order2_layer.hpp>
+#include <utils.hpp>
 
 namespace HugeCTR {
 
@@ -65,25 +66,17 @@ __global__ void fm_order2_dgrad_kernel(const float* in, const float* top_grad, f
 
 }  // end of namespace
 
-FmOrder2Layer::FmOrder2Layer(const std::shared_ptr<Tensor<float>>& in_tensor,
-                             const std::shared_ptr<Tensor<float>>& out_tensor, int device_id)
-    : Layer(device_id) {
+FmOrder2Layer::FmOrder2Layer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
+                             const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
   try {
-    auto in_dims = in_tensor->get_dims();
+    const auto& in_dims = in_tensor.get_dimensions();
     if (in_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "only 2D tensors can be used as input for FmOrder2Layer");
     }
-    TensorFormat_t in_format = in_tensor->get_format();
-    if (in_format != TensorFormat_t::HW) {
-      CK_THROW_(Error_t::WrongInput, "only HW format can be used as input for FmOrder2Layer");
-    }
-    auto out_dims = out_tensor->get_dims();
+    const auto& out_dims = out_tensor.get_dimensions();
     if (out_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "only 2D tensors can be used as output for FmOrder2Layer");
-    }
-    TensorFormat_t out_format = out_tensor->get_format();
-    if (out_format != TensorFormat_t::HW) {
-      CK_THROW_(Error_t::WrongInput, "only HW tensors can be used as output for FmOrder2Layer");
     }
     if ((in_dims[1] % out_dims[1]) != 0) {
       CK_THROW_(Error_t::WrongInput, "(in_dims[1] % out_dims[1]) != 0");
@@ -93,8 +86,8 @@ FmOrder2Layer::FmOrder2Layer(const std::shared_ptr<Tensor<float>>& in_tensor,
     slot_num_ = in_dims[1] / out_dims[1];
     embedding_vec_size_ = out_dims[1];
 
-    in_tensors_.emplace_back(in_tensor);
-    out_tensors_.emplace_back(out_tensor);
+    in_tensors_.push_back(in_tensor);
+    out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -102,31 +95,31 @@ FmOrder2Layer::FmOrder2Layer(const std::shared_ptr<Tensor<float>>& in_tensor,
   }
 }
 
-void FmOrder2Layer::fprop(cudaStream_t stream) {
+void FmOrder2Layer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  float* in = in_tensors_[0]->get_ptr();
-  float* out = out_tensors_[0]->get_ptr();
+  const float* in = in_tensors_[0].get_ptr();
+  float* out = out_tensors_[0].get_ptr();
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 grdiSize(batch_size_, 1, 1);
-  fm_order2_kernel<<<grdiSize, blockSize, 0, stream>>>(in, out, batch_size_, slot_num_,
-                                                       embedding_vec_size_);
+  fm_order2_kernel<<<grdiSize, blockSize, 0, get_gpu().get_stream()>>>(
+      in, out, batch_size_, slot_num_, embedding_vec_size_);
 }
 
-void FmOrder2Layer::bprop(cudaStream_t stream) {
+void FmOrder2Layer::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  float* in = in_tensors_[0]->get_ptr();
-  float* out = out_tensors_[0]->get_ptr();
+  float* in = in_tensors_[0].get_ptr();
+  const float* out = out_tensors_[0].get_ptr();
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 gridSize(batch_size_, 1, 1);
-  fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, stream>>>(in,
-                                                             out,  // top_grad
-                                                             in,   // dgrad
-                                                             batch_size_, slot_num_,
-                                                             embedding_vec_size_);
+  fm_order2_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(in,
+                                                                             out,  // top_grad
+                                                                             in,   // dgrad
+                                                                             batch_size_, slot_num_,
+                                                                             embedding_vec_size_);
 }
 
 }  // end of namespace HugeCTR

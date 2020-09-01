@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include "HugeCTR/include/layer.hpp"
-
+#include <layer.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -31,19 +30,19 @@ class ReduceSumLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  Tensors2<float> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<float> wgrad_;
+  Tensors2<float> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> in_tensors_;
+  Tensors2<float> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<float>>> out_tensors_;
+  Tensors2<float> out_tensors_;
 
  public:
   /**
@@ -53,25 +52,24 @@ class ReduceSumLayer : public Layer {
    * @param axis the reduced dimention, could be 0,1,2
    * @param device_id the id of GPU where this layer belongs
    */
-  ReduceSumLayer(const std::shared_ptr<Tensor<float>>& in_tensors,
-                 std::shared_ptr<Tensor<float>>& out_tensor,
-                 const std::shared_ptr<GeneralBuffer<float>>& blobs_buff, int axis, int device_id);
+  ReduceSumLayer(const Tensor2<float>& in_tensors, Tensor2<float>& out_tensor,
+                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int axis,
+                 const std::shared_ptr<GPUResource>& gpu_resource);
   ~ReduceSumLayer(){};
 
   /**
    * ReduceSumLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * ReduceSumLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
  private:
   int axis_;
-  int device_id_;
 };
 
 }  // namespace HugeCTR
