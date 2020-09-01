@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/parser.hpp"
+#include <parser.hpp>
 
 namespace HugeCTR {
 
@@ -41,10 +41,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
     auto j = get_json(config, "solver");
 
     if (has_key_(j, "seed")) {
-      seed = get_value_from_json<unsigned int>(j, "seed");
+      seed = get_value_from_json<unsigned long long>(j, "seed");
     } else {
-      std::random_device rd;
-      seed = rd();
+      seed = 0ull;
     }
 
     auto lr_policy_string = get_value_from_json<std::string>(j, "lr_policy");
@@ -84,8 +83,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
       }
       scaler = i_scaler;
       if (pid == 0) {
-        std::cout << "Mixed Precision training with scaler: " << i_scaler << " is enabled."
-                  << std::endl;
+        std::stringstream ss;
+        ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
+        MESSAGE_(ss.str());
       }
 
     } else {
@@ -94,8 +94,7 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
     }
 
     auto gpu_array = get_json(j, "gpu");
-    assert(device_list.empty());
-    std::vector<std::vector<int>> vvgpu;
+    assert(vvgpu.empty());
     // todo: output the device map
     if (gpu_array[0].is_array()) {
       int num_nodes = gpu_array.size();
@@ -130,9 +129,6 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
       vvgpu.push_back(vgpu);
     }
 
-    device_map.reset(new DeviceMap(vvgpu, pid));
-    device_list = device_map->get_device_list();
-
     const std::map<std::string, metrics::Type> metrics_map = {
         {"AverageLoss", metrics::Type::AverageLoss}, {"AUC", metrics::Type::AUC}};
 
@@ -155,7 +151,7 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
                 break;
               }
               case metrics::Type::AUC: {
-                float val = std::stof(metric_strs[1]);
+                float val = (metric_strs.size() == 1) ? 1.f : std::stof(metric_strs[1]);
                 if (val < 0.0 || val > 1.0) {
                   CK_THROW_(Error_t::WrongInput, "0 <= AUC threshold <= 1 is not true");
                 }

@@ -15,16 +15,14 @@
  */
 
 #pragma once
+#include <ctpl/ctpl_stl.h>
+#include <common.hpp>
+#include <embedding.hpp>
+#include <metrics.hpp>
+#include <network.hpp>
+#include <parser.hpp>
 #include <thread>
 #include <utility>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_reader_worker.hpp"
-#include "HugeCTR/include/device_map.hpp"
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/network.hpp"
-#include "HugeCTR/include/parser.hpp"
-#include "ctpl/ctpl_stl.h"
 
 namespace HugeCTR {
 
@@ -124,16 +122,14 @@ class SessionImpl : public Session {
  private:
   // typedef unsigned int TypeKey; /**< type of input key in dataset. */
   /// typedef long long TypeKey;                        /**< type of input key in dataset. */
-  std::vector<std::unique_ptr<Network>> networks_;      /**< networks (dense) used in training. */
-  std::vector<std::unique_ptr<IEmbedding>> embedding_;  /**< embedding */
-  std::vector<std::unique_ptr<Network>> networks_eval_; /**< networks (dense) used in eval. */
-  std::vector<std::unique_ptr<IEmbedding>> embedding_eval_; /**< embedding in eval*/
+  std::vector<std::unique_ptr<Network>> networks_;     /**< networks (dense) used in training. */
+  std::vector<std::unique_ptr<IEmbedding>> embedding_; /**< embedding */
 
   std::unique_ptr<DataReader<TypeKey>>
       data_reader_; /**< data reader to reading data from data set to embedding. */
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval_; /**< data reader for evaluation. */
-  std::shared_ptr<GPUResourceGroup>
-      gpu_resource_group_; /**< GPU resources include handles and streams etc.*/
+  std::shared_ptr<ResourceManager>
+      resource_manager_; /**< GPU resources include handles and streams etc.*/
 
   Error_t download_params_to_files_(std::string weights_file,
                                     const std::vector<std::string>& embedding_files);

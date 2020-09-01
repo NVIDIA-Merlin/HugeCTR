@@ -18,9 +18,9 @@
 #include <fstream>
 #include <functional>
 #include <unordered_set>
-#include "HugeCTR/include/data_parser.hpp"
+#include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_reader.hpp"
-#include "HugeCTR/include/embedding.hpp"
+#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
 #include "utest/embedding/embedding_test_utils.hpp"
@@ -33,10 +33,10 @@ using namespace embedding_test;
 namespace {
 //---------------------------------------------------------------------------------------
 // global params for all testing
-const int train_batch_num = 2;  // can not more than 32
+const int train_batch_num = 10;  // can not more than 32
 const int test_batch_num = 1;
 const int train_batchsize = 1024;
-const int test_batchsize = 2048;
+const int test_batchsize = 2560;
 const int slot_num = 26;
 const int max_nnz_per_slot = 1;
 const int max_feature_num = max_nnz_per_slot * slot_num;  // max_feature_num in a sample
@@ -68,7 +68,11 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   OptHyperParams<TypeEmbeddingComp> hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
-  hyper_params.adam.epsilon = 1e-7f;
+  if (std::is_same<TypeEmbeddingComp, __half>::value) {
+    hyper_params.adam.epsilon = 1e-4f;
+  } else {
+    hyper_params.adam.epsilon = 1e-7f;
+  }
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
 
@@ -80,15 +84,10 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
   test::mpi_init();
-#ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-#endif
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  std::shared_ptr<DeviceMap> device_map(new DeviceMap(vvgpu, pid));
-  std::shared_ptr<GPUResourceGroup> gpu_resource_group(new GPUResourceGroup(device_map));
+  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
 
   if (pid == 0) {
     // re-generate the dataset files
@@ -123,9 +122,15 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  std::unique_ptr<DataReader<T>> data_reader(
-      new DataReader<T>(train_file_list_name, train_batchsize, label_dim, dense_dim, CHK, params,
-                        gpu_resource_group, num_chunk_threads));
+  std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
+      train_batchsize, label_dim, dense_dim, params, resource_manager, num_chunk_threads));
+
+  train_data_reader->create_drwg_norm(train_file_list_name, CHK);
+
+  std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
+      test_batchsize, label_dim, dense_dim, params, resource_manager, num_chunk_threads));
+
+  test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
   // init hash table file
   if (pid == 0) {
@@ -133,7 +138,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     if (!fs.is_open()) {
       ERROR_MESSAGE_("Error: file not open for writing");
     }
-    UnifiedDataSimulator<float> fdata_sim(-0.1f, 0.1f);
+    test::UniformDataSimulator fdata_sim;
+    std::unique_ptr<float[]> buf(new float[embedding_vec_size]);
     for (long long i = 0; i < vocabulary_size; i++) {
       T key = (T)i;
       // T key = ldata_sim.get_num();
@@ -141,10 +147,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       // 1) we can find keys in the data file from this hash table
       // 2) there are no repeated keys
       fs.write((char *)&key, sizeof(T));
-      float val = fdata_sim.get_num();
-      for (int j = 0; j < embedding_vec_size; j++) {
-        fs.write((char *)&val, sizeof(float));
-      }
+
+      fdata_sim.fill(buf.get(), embedding_vec_size, -0.1f, 0.1f);
+      fs.write(reinterpret_cast<const char *>(buf.get()), embedding_vec_size * sizeof(float));
     }
     fs.close();
   }
@@ -153,14 +158,16 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> train_embedding_params = {
-      train_batchsize, vocabulary_size, {},       embedding_vec_size,
-      max_feature_num, slot_num,        combiner, opt_params};
+  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+      train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
+      max_feature_num, slot_num,       combiner,        opt_params};
 
   std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
-      EmbeddingCreator::create_distributed_sparse_embedding_hash(
-          data_reader->get_row_offsets_tensors(), data_reader->get_value_tensors(),
-          train_embedding_params, gpu_resource_group));
+      new DistributedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
+          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
+          train_data_reader->get_nnz_array(), test_data_reader->get_row_offsets_tensors(),
+          test_data_reader->get_value_tensors(), test_data_reader->get_nnz_array(),
+          embedding_params, resource_manager));
 
   {
     // upload hash table to device
@@ -173,43 +180,50 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> embedding_cpu(
       new SparseEmbeddingHashCpu<T, TypeEmbeddingComp>(
           train_batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num,
-          label_dim, dense_dim, CHK, train_batch_num * train_batchsize, combiner, optimizer, lr,
-          train_file_list_name, hash_table_file_name, SparseEmbedding_t::Distributed, global_update,
-          scaler));
+          label_dim, dense_dim, CHK, train_batch_num * train_batchsize, combiner, opt_params,
+          train_file_list_name, hash_table_file_name, SparseEmbedding_t::Distributed));
 
-  // for results check
-  std::unique_ptr<TypeEmbeddingComp[]> embedding_feature_from_gpu(
-      new TypeEmbeddingComp[train_batchsize * slot_num * embedding_vec_size]);
   TypeEmbeddingComp *embedding_feature_from_cpu = embedding_cpu->get_forward_results();
-  std::vector<std::unique_ptr<TypeEmbeddingComp[]>> wgrad_from_gpu(device_list.size());
-  for (size_t i = 0; i < device_list.size(); i++) {
-    wgrad_from_gpu[i].reset(new TypeEmbeddingComp[train_batchsize * slot_num * embedding_vec_size]);
-  }
   TypeEmbeddingComp *wgrad_from_cpu = embedding_cpu->get_backward_results();
-  std::unique_ptr<T[]> hash_table_key_from_gpu(new T[vocabulary_size]);
-  std::unique_ptr<float[]> hash_table_value_from_gpu(
-      new float[vocabulary_size * embedding_vec_size]);
   T *hash_table_key_from_cpu = embedding_cpu->get_hash_table_key_ptr();
   float *hash_table_value_from_cpu = embedding_cpu->get_hash_table_value_ptr();
 
-  typedef struct TypeHashValue_ {
-    float data[embedding_vec_size];
-  } TypeHashValue;
+  // for results check
+  std::shared_ptr<GeneralBuffer2<HostAllocator>> buf = GeneralBuffer2<HostAllocator>::create();
+
+  Tensor2<TypeEmbeddingComp> embedding_feature_from_gpu;
+  buf->reserve({train_batchsize * slot_num * embedding_vec_size}, &embedding_feature_from_gpu);
+
+  Tensor2<TypeEmbeddingComp> wgrad_from_gpu;
+  buf->reserve({train_batchsize * slot_num * embedding_vec_size}, &wgrad_from_gpu);
+
+  Tensor2<T> hash_table_key_from_gpu;
+  buf->reserve({vocabulary_size}, &hash_table_key_from_gpu);
+
+  Tensor2<float> hash_table_value_from_gpu;
+  buf->reserve({vocabulary_size * embedding_vec_size}, &hash_table_value_from_gpu);
+
+  Tensor2<TypeEmbeddingComp> embedding_feature_from_gpu_eval;
+  buf->reserve({test_batchsize * slot_num * embedding_vec_size}, &embedding_feature_from_gpu_eval);
+
+  buf->allocate();
+
+  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
 
   for (int i = 0; i < train_batch_num; i++) {
     printf("Rank%d: Round %d start training:\n", pid, i);
 
     // call read a batch
     printf("Rank%d: data_reader->read_a_batch_to_device()\n", pid);
-    data_reader->read_a_batch_to_device();
+    train_data_reader->read_a_batch_to_device();
 
     // GPU forward
     printf("Rank%d: embedding->forward()\n", pid);
-    embedding->forward();
+    embedding->forward(true);
 
     // check the result of forward
     printf("Rank%d: embedding->get_forward_results()\n", pid);
-    embedding->get_forward_results(embedding_feature_from_gpu.get());  // memcpy from GPU to CPU
+    embedding->get_forward_results(true, embedding_feature_from_gpu);  // memcpy from GPU to CPU
 
     if (pid == 0) {
       // CPU forward
@@ -218,7 +232,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
       printf("Rank0: check forward results\n");
       ASSERT_EQ(true, compare_embedding_feature(train_batchsize * slot_num * embedding_vec_size,
-                                                embedding_feature_from_gpu.get(),
+                                                embedding_feature_from_gpu.get_ptr(),
                                                 embedding_feature_from_cpu));
     }
 
@@ -232,7 +246,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
     // check the result of backward
     printf("Rank%d: embedding->get_backward_results()\n", pid);
-    embedding->get_backward_results(wgrad_from_gpu[0].get(), 0);
+    embedding->get_backward_results(wgrad_from_gpu, 0);
 
     if (pid == 0) {
       // CPU backward
@@ -241,7 +255,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
       printf("Rank0: check backward results: GPU and CPU\n");
       ASSERT_EQ(true, compare_wgrad(train_batchsize * slot_num * embedding_vec_size,
-                                    wgrad_from_gpu[0].get(), wgrad_from_cpu));
+                                    wgrad_from_gpu.get_ptr(), wgrad_from_cpu));
     }
 
 #ifdef ENABLE_MPI
@@ -254,9 +268,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
     // check the results of update params
     printf("Rank%d: embedding->get_update_params_results()\n", pid);
-    embedding->get_update_params_results(
-        hash_table_key_from_gpu.get(),
-        hash_table_value_from_gpu.get());  // memcpy from GPU to CPU
+    embedding->get_update_params_results(hash_table_key_from_gpu,
+                                         hash_table_value_from_gpu);  // memcpy from GPU to CPU
 
     if (pid == 0) {
       // CPU update_params
@@ -265,8 +278,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
       printf("Rank0: check update_params results\n");
       bool rtn = compare_hash_table(
-          vocabulary_size, hash_table_key_from_gpu.get(),
-          reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.get()),
+          vocabulary_size, hash_table_key_from_gpu.get_ptr(),
+          reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.get_ptr()),
           hash_table_key_from_cpu, reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu));
       ASSERT_EQ(true, rtn);
     }
@@ -287,38 +300,14 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     fs.close();
   }
 
-  std::unique_ptr<DataReader<T>> test_data_reader(
-      new DataReader<T>(test_file_list_name, test_batchsize, label_dim, dense_dim, CHK, params,
-                        gpu_resource_group, num_chunk_threads));
-
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> test_embedding_params = {
-      test_batchsize,  vocabulary_size, {},       embedding_vec_size,
-      max_feature_num, slot_num,        combiner, opt_params};
-
-  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> test_embedding(
-      EmbeddingCreator::create_distributed_sparse_embedding_hash(
-          test_data_reader->get_row_offsets_tensors(), test_data_reader->get_value_tensors(),
-          test_embedding_params, gpu_resource_group));
-
-  {
-    std::ifstream fs(hash_table_file_name);
-    test_embedding->upload_params_to_device(fs);
-    fs.close();
-  }
-
   // for SparseEmbeddingCpu eval
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> test_embedding_cpu(
       new SparseEmbeddingHashCpu<T, TypeEmbeddingComp>(
           test_batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, label_dim,
-          dense_dim, CHK, test_batch_num * test_batchsize, combiner, optimizer, lr,
-          test_file_list_name, hash_table_file_name, SparseEmbedding_t::Distributed, global_update,
-          scaler));
+          dense_dim, CHK, test_batch_num * test_batchsize, combiner, opt_params,
+          test_file_list_name, hash_table_file_name, SparseEmbedding_t::Distributed));
 
   TypeEmbeddingComp *embedding_feature_from_cpu_eval = test_embedding_cpu->get_forward_results();
-
-  // for results check
-  std::unique_ptr<TypeEmbeddingComp[]> embedding_feature_from_gpu_eval(
-      new TypeEmbeddingComp[test_batchsize * slot_num * embedding_vec_size]);
 
   {
     // eval
@@ -330,12 +319,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
     // GPU forward
     printf("Rank%d: embedding_eval->forward()\n", pid);
-    test_embedding->forward();
+    embedding->forward(false);
 
     // check the result of forward
     printf("Rank%d: embedding_eval->get_forward_results()\n", pid);
-    test_embedding->get_forward_results(
-        embedding_feature_from_gpu_eval.get());  // memcpy from GPU to CPU
+    embedding->get_forward_results(false,
+                                   embedding_feature_from_gpu_eval);  // memcpy from GPU to CPU
 
     if (pid == 0) {
       // CPU forward
@@ -344,7 +333,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
       printf("Rank0: check forward results\n");
       ASSERT_EQ(true, compare_embedding_feature(test_batchsize * slot_num * embedding_vec_size,
-                                                embedding_feature_from_gpu_eval.get(),
+                                                embedding_feature_from_gpu_eval.get_ptr(),
                                                 embedding_feature_from_cpu_eval));
     }
   }
@@ -366,23 +355,23 @@ TEST(distributed_sparse_embedding_hash_test, fp32_sgd_global_update_1gpu) {
   train_and_test<float>({0}, Optimizer_t::SGD, true);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp32_gd_global_update_8gpu) {
+TEST(distributed_sparse_embedding_hash_test, fp32_sgd_global_update_8gpu) {
   train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, true);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp16_gd_1gpu) {
+TEST(distributed_sparse_embedding_hash_test, fp16_sgd_1gpu) {
   train_and_test<__half>({0}, Optimizer_t::SGD, false);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp16_gd_8gpu) {
+TEST(distributed_sparse_embedding_hash_test, fp16_sgd_8gpu) {
   train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, false);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp16_gd_globl_update_1gpu) {
+TEST(distributed_sparse_embedding_hash_test, fp16_sgd_globl_update_1gpu) {
   train_and_test<__half>({0}, Optimizer_t::SGD, true);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp16_gd_globl_update_8gpu) {
+TEST(distributed_sparse_embedding_hash_test, fp16_sgd_globl_update_8gpu) {
   train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, true);
 }
 

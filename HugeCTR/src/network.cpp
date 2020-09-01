@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/network.hpp"
-#include "HugeCTR/include/layers/fully_connected_layer.hpp"
-#include "HugeCTR/include/layers/relu_layer.hpp"
-#include "HugeCTR/include/regularizers/no_regularizer.hpp"
+#include <layers/fully_connected_layer.hpp>
+#include <layers/relu_layer.hpp>
+#include <network.hpp>
+#include <regularizers/no_regularizer.hpp>
 
 namespace HugeCTR {
 
-void conv_weight_gpu(int grid, int block, __half* dst, float* src, int elems, cudaStream_t stream);
+void conv_weight_gpu(size_t grid, size_t block, __half* dst, float* src, int elems,
+                     cudaStream_t stream);
 
-Network::Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_resource,
-                 bool full_fp16)
-    : blobs_buff_(new GeneralBuffer<float>()),
-      weight_buff_(new GeneralBuffer<float>()),
-      wgrad_buff_(new GeneralBuffer<float>()),
-      blobs_buff_half_(new GeneralBuffer<__half>()),
-      weight_buff_half_(new GeneralBuffer<__half>()),
-      wgrad_buff_half_(new GeneralBuffer<__half>()),
+Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
+                 const std::shared_ptr<GPUResource>& gpu_resource, bool full_fp16)
+    : cpu_resource_(cpu_resource),
       gpu_resource_(gpu_resource),
-      device_id_(device_id),
       full_fp16_(full_fp16),
 #ifdef NDEBUG
       enable_cuda_graph_(true),
@@ -42,25 +37,23 @@ Network::Network(int device_id, const std::shared_ptr<const GPUResource>& gpu_re
       eval_graph_created_(false),
       train_fprop_graph_created_(false),
       train_bprop_graph_created_(false) {
-  CK_CUDA_THROW_(cudaDeviceGetAttribute(&n_sms_, cudaDevAttrMultiProcessorCount, device_id));
-  return;
 }
 
 void Network::update_params() {
-  optimizer_->update(gpu_resource_->get_stream());
+  optimizer_->update();
   return;
 }
 
 void Network::conv_weight_() {
-  CudaDeviceContext context(device_id_);
-  size_t elems = weight_buff_half_->get_num_elements();
-  if (weight_buff_half_->get_num_elements() != weight_buff_->get_num_elements())
+  CudaDeviceContext context(get_device_id());
+  size_t elems = weight_tensor_half_.get_num_elements();
+  if (weight_tensor_half_.get_num_elements() != weight_tensor_.get_num_elements())
     CK_THROW_(Error_t::WrongInput, "weight_buff_half_ != weight_buff");
-  const int BLOCK = 256;
-  int GRID = (elems - 1) / BLOCK + 1;
-  GRID = GRID > 10 * n_sms_ ? 10 * n_sms_ : GRID;
-  conv_weight_gpu(GRID, BLOCK, weight_buff_half_->get_ptr_with_offset(0),
-                  weight_buff_->get_ptr_with_offset(0), elems, gpu_resource_->get_stream());
+  const size_t BLOCK = 256;
+  size_t GRID = (elems - 1) / BLOCK + 1;
+  GRID = GRID > 10 * gpu_resource_->get_sm_count() ? 10 * gpu_resource_->get_sm_count() : GRID;
+  conv_weight_gpu(GRID, BLOCK, weight_tensor_half_.get_ptr(), weight_tensor_.get_ptr(), elems,
+                  gpu_resource_->get_stream());
 }
 
 void Network::train() {
@@ -74,7 +67,7 @@ void Network::train() {
       CK_CUDA_THROW_(
           cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
       for (auto& layer : layers_) {
-        layer->fprop(gpu_resource_->get_stream());
+        layer->fprop(true);
       }
       CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_fprop_graph_));
       CK_CUDA_THROW_(
@@ -84,11 +77,11 @@ void Network::train() {
     CK_CUDA_THROW_(cudaGraphLaunch(train_fprop_instance_, gpu_resource_->get_stream()));
   } else {
     for (auto& layer : layers_) {
-      layer->fprop(gpu_resource_->get_stream());
+      layer->fprop(true);
     }
   }
 
-  loss_->compute(true, gpu_resource_->get_stream());
+  loss_->compute(true);
 
   if (enable_cuda_graph_) {
     if (!train_bprop_graph_created_) {
@@ -97,7 +90,7 @@ void Network::train() {
 
       // backward
       for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
-        (*it)->bprop(gpu_resource_->get_stream());
+        (*it)->bprop();
       }
       CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_bprop_graph_));
       CK_CUDA_THROW_(
@@ -108,7 +101,7 @@ void Network::train() {
   } else {
     // backward
     for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
-      (*it)->bprop(gpu_resource_->get_stream());
+      (*it)->bprop();
     }
   }
 
@@ -122,7 +115,7 @@ void Network::eval() {
           cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
       // forward
       for (auto& layer : layers_) {
-        layer->inference(gpu_resource_->get_stream());
+        layer->fprop(false);
       }
       CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &eval_graph_));
       CK_CUDA_THROW_(cudaGraphInstantiate(&eval_instance_, eval_graph_, NULL, NULL, 0));
@@ -132,22 +125,22 @@ void Network::eval() {
   } else {
     // forward
     for (auto& layer : layers_) {
-      layer->inference(gpu_resource_->get_stream());
+      layer->fprop(false);
     }
   }
-  loss_->compute(false, gpu_resource_->get_stream());
+  loss_->compute(false);
 
   return;
 }
 
 void Network::download_params_to_host(std::ofstream& weight_stream) {
   // forward
-  CudaDeviceContext context(device_id_);
+  CudaDeviceContext context(get_device_id());
 
-  std::unique_ptr<char[]> weight(new char[weight_buff_->get_size()]);
-  CK_CUDA_THROW_(cudaMemcpy(weight.get(), weight_buff_->get_ptr_with_offset(0),
-                            weight_buff_->get_size(), cudaMemcpyDeviceToHost));
-  weight_stream.write(weight.get(), weight_buff_->get_size());
+  std::unique_ptr<char[]> weight(new char[weight_tensor_.get_size_in_bytes()]);
+  CK_CUDA_THROW_(cudaMemcpy(weight.get(), weight_tensor_.get_ptr(),
+                            weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+  weight_stream.write(weight.get(), weight_tensor_.get_size_in_bytes());
 
   return;
 }
@@ -179,29 +172,29 @@ void Network::upload_params_to_device(const std::string& model_file) {
     CK_THROW_(Error_t::WrongInput,
               std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
   }
-  CudaDeviceContext context(device_id_);
+  CudaDeviceContext context(get_device_id());
 
-  std::unique_ptr<char[]> params(new char[weight_buff_->get_size()]);
-  model_stream.read(params.get(), weight_buff_->get_size());
-  CK_CUDA_THROW_(cudaMemcpy(weight_buff_->get_ptr_with_offset(0), params.get(),
-                            weight_buff_->get_size(), cudaMemcpyHostToDevice));
+  std::unique_ptr<char[]> params(new char[weight_tensor_.get_size_in_bytes()]);
+  model_stream.read(params.get(), weight_tensor_.get_size_in_bytes());
+  CK_CUDA_THROW_(cudaMemcpy(weight_tensor_.get_ptr(), params.get(),
+                            weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
   model_stream.close();
   return;
 }
 
 void Network::download_params_to_host(float* weight) {
-  CudaDeviceContext context(device_id_);
+  CudaDeviceContext context(get_device_id());
 
-  CK_CUDA_THROW_(cudaMemcpy(weight, weight_buff_->get_ptr_with_offset(0), weight_buff_->get_size(),
+  CK_CUDA_THROW_(cudaMemcpy(weight, weight_tensor_.get_ptr(), weight_tensor_.get_size_in_bytes(),
                             cudaMemcpyDeviceToHost));
 
   return;
 }
 
 void Network::upload_params_to_device(float* params) {
-  CudaDeviceContext context(device_id_);
+  CudaDeviceContext context(get_device_id());
 
-  CK_CUDA_THROW_(cudaMemcpy(weight_buff_->get_ptr_with_offset(0), params, weight_buff_->get_size(),
+  CK_CUDA_THROW_(cudaMemcpy(weight_tensor_.get_ptr(), params, weight_tensor_.get_size_in_bytes(),
                             cudaMemcpyHostToDevice));
 
   return;
@@ -212,24 +205,23 @@ void Network::init_params(const std::string& model_file_name) {
   if (!out_stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
   }
-  for (auto& layer : layers_) layer->init_params(out_stream);
+  for (auto& layer : layers_) layer->init_params(out_stream, *cpu_resource_);
   out_stream.close();
 }
 
 void Network::copy_params(const Network& n) {
-  assert(weight_buff_->get_size() == n.weight_buff_->get_size());
-  CK_CUDA_THROW_(cudaMemcpy(weight_buff_->get_ptr_with_offset(0),
-                            n.weight_buff_->get_ptr_with_offset(0), weight_buff_->get_size(),
-                            cudaMemcpyDeviceToDevice));
+  assert(weight_tensor_.get_size_in_bytes() == n.weight_tensor_.get_size_in_bytes());
+  CK_CUDA_THROW_(cudaMemcpy(weight_tensor_.get_ptr(), n.weight_tensor_.get_ptr(),
+                            weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToDevice));
 }
 
 float Network::get_loss() {
   float loss_host = 0.f;
 
-  CudaDeviceContext context(device_id_);
+  CudaDeviceContext context(get_device_id());
 
   CK_CUDA_THROW_(
-      cudaMemcpy(&loss_host, loss_tensor_->get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
+      cudaMemcpy(&loss_host, loss_tensor_.get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
 
   return loss_host;
 }
@@ -237,18 +229,18 @@ float Network::get_loss() {
 metrics::RawMetricMap Network::get_raw_metrics() const { return raw_metrics_; }
 
 void Network::exchange_wgrad() {
-  if (gpu_resource_->get_nccl_ptr() != nullptr) {
-    CudaDeviceContext context(device_id_);
+  if (gpu_resource_->support_nccl()) {
+    CudaDeviceContext context(get_device_id());
     if (full_fp16_) {
-      CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_buff_half_->get_ptr_with_offset(0),
-                                   (void*)wgrad_buff_half_->get_ptr_with_offset(0),
-                                   wgrad_buff_half_->get_num_elements(), ncclHalf, ncclSum,
-                                   *(gpu_resource_->get_nccl_ptr()), gpu_resource_->get_stream()));
+      CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_half_.get_ptr(),
+                                   (void*)wgrad_tensor_half_.get_ptr(),
+                                   wgrad_tensor_half_.get_num_elements(), ncclHalf, ncclSum,
+                                   gpu_resource_->get_nccl(), gpu_resource_->get_stream()));
     } else {
-      CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_buff_->get_ptr_with_offset(0),
-                                   (void*)wgrad_buff_->get_ptr_with_offset(0),
-                                   wgrad_buff_->get_num_elements(), ncclFloat, ncclSum,
-                                   *(gpu_resource_->get_nccl_ptr()), gpu_resource_->get_stream()));
+      CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_.get_ptr(),
+                                   (void*)wgrad_tensor_.get_ptr(), wgrad_tensor_.get_num_elements(),
+                                   ncclFloat, ncclSum, gpu_resource_->get_nccl(),
+                                   gpu_resource_->get_stream()));
     }
   } else {
     CK_THROW_(Error_t::IllegalCall, "cannot call exchange_wgrad with single GPU");

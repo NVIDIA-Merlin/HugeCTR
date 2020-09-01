@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include "HugeCTR/include/layer.hpp"
-
+#include <layer.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -33,19 +32,32 @@ class ReshapeLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<T> weights_;
+  Tensors2<T> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<T> wgrad_;
+  Tensors2<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
+  Tensors2<T> train_in_tensors_;
+  Tensors2<T> evaluate_in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
+  Tensors2<T> out_tensors_;
+
+  bool in_place_;
+  int batch_size_;
+  int n_slot_;
+  int vector_length_;
+  size_t n_active_slot_;
+  Tensor2<int> selected_tensor_;
+  std::vector<int> selected_;
+
+  void prop_common(bool forward, bool is_train, cudaStream_t stream);
+
+  Tensors2<T>& get_in_tensors(bool is_train);
 
  public:
   /**
@@ -58,8 +70,10 @@ class ReshapeLayer : public Layer {
    * e.g., batch_size * n_slots * vector_size % leading_dim == 0
    * @param device_id the id of GPU where this layer belongs
    */
-  ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor, std::shared_ptr<Tensor<T>>& out_tensor,
-               size_t leading_dim, int device_id);
+  ReshapeLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& evaluate_in_tensor,
+               Tensor2<T>& out_tensor,
+               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, size_t leading_dim,
+               const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
    * @param in_tensor the input tensor
@@ -69,32 +83,22 @@ class ReshapeLayer : public Layer {
    * Othewise, the only selected slots are concatenated in newly assigned tensor.
    * @param device_id the id of GPU where this layer belongs
    */
-  ReshapeLayer(const std::shared_ptr<Tensor<T>>& in_tensor, std::shared_ptr<Tensor<T>>& out_tensor,
-               const std::shared_ptr<GeneralBuffer<T>>& blobs_buff, std::vector<int>& selected,
-               int device_id);
-  ~ReshapeLayer() override;
+  ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+               std::vector<int>& selected, const std::shared_ptr<GPUResource>& gpu_resource);
+
+  void initialize() override;
 
   /**
    * A method of implementing the forward pass of Reshape
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * A method of implementing the forward pass of Reshape
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
-
- private:
-  void prop_common(bool forward, cudaStream_t stream);
-
-  bool in_place_;
-  int batch_size_;
-  int n_slot_;
-  int vector_length_;
-  int n_active_slot_;
-  int* selected_;
-  int n_sms_;
+  void bprop() override;
 };
 
 }  // namespace HugeCTR

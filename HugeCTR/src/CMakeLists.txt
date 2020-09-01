@@ -12,16 +12,19 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-
+include_directories(/opt/conda/include)
 file(GLOB huge_ctr_src
+  cpu_resource.cpp
   gpu_resource.cpp
-  data_parser.cpp
+  resource_manager.cpp
+  data_simulator.cu
   data_reader.cpp
   layer.cpp
   layers/batch_norm_layer.cu
   layers/cast_layer.cu
   layers/concat_layer.cu
   layers/dropout_layer.cu
+  layers/dropout_cudnn_layer.cu
   layers/elu_layer.cu
   layers/fully_connected_layer.cu
   layers/fully_connected_layer_half.cu
@@ -39,6 +42,7 @@ file(GLOB huge_ctr_src
   loss.cu
   network.cu
   network.cpp
+  data_readers/metadata.cpp
   metrics.cu
   optimizers/adam_optimizer.cu
   optimizers/momentum_sgd_optimizer.cu
@@ -54,18 +58,47 @@ file(GLOB huge_ctr_src
   parsers/learning_rate_scheduler_parser.cpp
   session.cpp
   plan_parser.cpp 
-  embedding_creator.cu
-  data_collector.cu
+  data_readers/data_collector.cu
+  data_readers/parquet_data_converter.cu
+  hashtable/nv_hashtable.cu
+  embeddings/sync_all_gpus_functor.cu
+  embeddings/init_embedding_functor.cu
+  embeddings/forward_per_gpu_functor.cu
+  embeddings/forward_scale_functor.cu
+  embeddings/forward_reorder_functor.cu
+  embeddings/forward_mapping_per_gpu_functor.cu
+  embeddings/forward_fuse_per_gpu_functor.cu
+  embeddings/store_slot_id_functor.cu
+  embeddings/backward_functor.cu
+  embeddings/backward_reorder_functor.cu
+  embeddings/backward_fuse_per_gpu_functor.cu
+  embeddings/update_params_functor.cu
+  embeddings/get_update_params_results_functor.cu
+  embeddings/reduce_scatter_functor.cu
+  embeddings/all_reduce_functor.cu
+  embeddings/all_gather_functor.cu
+  embeddings/all2all_init_forward_functor.cu
+  embeddings/all2all_init_backward_functor.cu
+  embeddings/all2all_forward_functor.cu
+  embeddings/all2all_backward_functor.cu
+  embeddings/all2all_exec_functor.cu
+  embeddings/get_forward_results_functor.cu
+  embeddings/get_backward_results_functor.cu
+  embeddings/utils_functor.cu
+  embeddings/distributed_slot_sparse_embedding_hash.cu
+  embeddings/localized_slot_sparse_embedding_hash.cu
+  embeddings/localized_slot_sparse_embedding_one_hot.cu
+  diagnose.cu
 )
 
-
+set(CMAKE_CXX_STANDARD 14)
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct)
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf rmm)
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
-  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf rmm)
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)

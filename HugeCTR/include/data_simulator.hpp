@@ -15,141 +15,77 @@
  */
 
 #pragma once
-#include <math.h>
-#include <algorithm>
-#include <functional>
-#include <memory>
-#include <random>
+#include <gpu_resource.hpp>
+#include <tensor2.hpp>
 
 namespace HugeCTR {
 
-class RandomEngine {
-  std::random_device rd_;
-  unsigned int seed_;
-  std::mt19937 gen_;
-
+class UniformGenerator {
  public:
-  RandomEngine() : rd_(), seed_(rd_()), gen_(seed_) {
-    MESSAGE_("Initial seed is " + std::to_string(seed_));
-  }
-
   template <typename T>
-  void set_seed(const T& t) {
-    gen_.seed(t);
-  }
-
-  template <typename T>
-  typename T::result_type get_num(T& t) {
-    return t(gen_);
-  }
-
-  template <typename It>
-  void shuffle(It begin, It end) {
-    std::shuffle(begin, end, gen_);
-  }
-
-  static RandomEngine& get() {
-    static RandomEngine engine;
-    return engine;
-  }
+  static void fill(Tensor2<T>& tensor, T a, T b, const GPUResource& gpu);
 };
 
-template <typename T>
+class HostUniformGenerator {
+ public:
+  template <typename T>
+  static void fill(Tensor2<T>& tensor, T a, T b, const curandGenerator_t& gen);
+};
+
+class NormalGenerator {
+ public:
+  template <typename T>
+  static void fill(Tensor2<T>& tensor, float mean, float stddev, const GPUResource& gpu);
+};
+
+class HostNormalGenerator {
+ public:
+  template <typename T>
+  static void fill(Tensor2<T>& tensor, float mean, float stddev, const curandGenerator_t& gen);
+};
+
 class DataSimulator {
  public:
-  virtual T get_num() = 0;
-};
-
-template <typename T>
-class UnifiedDataSimulator : public DataSimulator<T> {
- public:
-  UnifiedDataSimulator(T min, T max) : dis_(min, max) {}
-
-  T get_num() final { return RandomEngine::get().get_num(dis_); }
-
- private:
-  std::uniform_real_distribution<T> dis_;
-};
-
-template <>
-class UnifiedDataSimulator<long long> : public DataSimulator<long long> {
- public:
-  UnifiedDataSimulator(long long min, long long max) : dis_(min, max) {}
-
-  long long get_num() final { return RandomEngine::get().get_num(dis_); }
-
- private:
-  std::uniform_int_distribution<long long> dis_;
-};
-
-template <>
-class UnifiedDataSimulator<int> : public DataSimulator<int> {
- public:
-  UnifiedDataSimulator(int min, int max) : dis_(min, max) {}
-
-  int get_num() final { return RandomEngine::get().get_num(dis_); }
-
- private:
-  std::uniform_int_distribution<int> dis_;
-};
-
-template <>
-class UnifiedDataSimulator<unsigned int> : public DataSimulator<unsigned int> {
- public:
-  UnifiedDataSimulator(unsigned int min, unsigned int max) : dis_(min, max) {}
-
-  unsigned int get_num() final { return RandomEngine::get().get_num(dis_); }
-
- private:
-  std::uniform_int_distribution<unsigned int> dis_;
-};
-
-template <typename T>
-class GaussianDataSimulator : public DataSimulator<T> {
- public:
-  GaussianDataSimulator(float mu, float sigma, T min, T max)
-      : dis_(mu, sigma), min_(min), max_(max) {
-    if (min_ > max_) {
-      ERROR_MESSAGE_("min_ > max_");
-    }
-  }
-
-  T get_num() final {
-    while (1) {
-      T tmp = RandomEngine::get().get_num(dis_);
-      if (tmp <= max_ && tmp >= min_) return tmp;
-      if (tmp < min_) continue;
-      if (tmp > max_) continue;
-      ERROR_MESSAGE_("wrong path");
-    }
-    return 0;
-  }
-
- private:
-  std::normal_distribution<T> dis_;
-  T min_;
-  T max_;
+  virtual ~DataSimulator() {}
+  virtual void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) = 0;
 };
 
 /*
  * Wrap of Zeros and Ones initializer.
  */
-template <typename T>
-class SingleDataSimulator : public DataSimulator<T> {
+class ConstantDataSimulator : public DataSimulator {
  public:
-  SingleDataSimulator(std::function<T()> func) : func_(func) {}
+  ConstantDataSimulator(float value) : value_(value) {}
 
-  T get_num() final { return func_(); }
+  void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) override;
 
  private:
-  std::function<T()> func_;
+  float value_;
+};
+
+class UniformDataSimulator : public DataSimulator {
+ public:
+  UniformDataSimulator(float min, float max) : min_(min), max_(max) {}
+
+  void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) override;
+
+ private:
+  float min_;
+  float max_;
+};
+
+class GaussianDataSimulator : public DataSimulator {
+ public:
+  GaussianDataSimulator(float mu, float sigma, float min, float max) : mu_(mu), sigma_(sigma) {}
+
+  void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) override;
+
+ private:
+  float mu_;
+  float sigma_;
 };
 
 namespace data_simu {
-/*
- * Variance Scaling Initializer
- * Which can be used to simulate Xavier(glorot) initialization.
- */
 enum class Mode_t {
   Fan_in,   // number of input units in the weight tensor
   Fan_out,  // number of output units in the weight tensor
@@ -157,11 +93,9 @@ enum class Mode_t {
 };
 
 enum class Distribution_t { Uniform, Norm };
-
 }  // namespace data_simu
 
-template <typename T>
-class VarianceScalingSimulator : public DataSimulator<T> {
+class VarianceScalingSimulator : public DataSimulator {
  public:
   VarianceScalingSimulator(float scale, data_simu::Mode_t mode,
                            data_simu::Distribution_t distribution, float in_dim, float out_dim,
@@ -189,16 +123,16 @@ class VarianceScalingSimulator : public DataSimulator<T> {
     switch (distribution) {
       case data_simu::Distribution_t::Uniform: {
         float limit = sqrt(3.f * scale_);
-        simulator_.reset(new UnifiedDataSimulator<T>(-1 * limit, limit));
+        simulator_.reset(new UniformDataSimulator(-1 * limit, limit));
         break;
       }
       case data_simu::Distribution_t::Norm: {
         if (truncated_) {
           float stddev = sqrt(scale_) / .87962566103423978;
-          simulator_.reset(new GaussianDataSimulator<T>(0, stddev, -2 * stddev, 2 * stddev));
+          simulator_.reset(new GaussianDataSimulator(0, stddev, -2 * stddev, 2 * stddev));
         } else {
           float stddev = sqrt(scale_);
-          simulator_.reset(new GaussianDataSimulator<T>(0, stddev, -10 * stddev, 10 * stddev));
+          simulator_.reset(new GaussianDataSimulator(0, stddev, -10 * stddev, 10 * stddev));
         }
         break;
       }
@@ -209,12 +143,13 @@ class VarianceScalingSimulator : public DataSimulator<T> {
     }
   }
 
-  T get_num() final { return simulator_->get_num(); }
+  void fill(Tensor2<float>& tensor, const curandGenerator_t& gen) override {
+    simulator_->fill(tensor, gen);
+  }
 
  private:
-  std::unique_ptr<DataSimulator<T>> simulator_;
+  std::unique_ptr<DataSimulator> simulator_;
   float scale_;
   bool truncated_;
 };
-
 }  // namespace HugeCTR

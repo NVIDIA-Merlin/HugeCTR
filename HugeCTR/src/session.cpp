@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/session.hpp"
 #include <nvToolsExt.h>
-#include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/utils.hpp"
-
 #include <algorithm>
+#include <embedding.hpp>
 #include <random>
+#include <session.hpp>
 #include <string>
+#include <utils.hpp>
 
 // #define DATA_READING_TEST
 
@@ -79,15 +78,8 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 template <typename TypeKey>
 SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
-    : gpu_resource_group_(new GPUResourceGroup(solver_config.device_map)) {
-  int pid = 0;
-#ifdef ENABLE_MPI
-  int numprocs = 1;
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
-#endif
-
-  for (auto dev : gpu_resource_group_->get_device_list()) {
+    : resource_manager_(ResourceManager::create(solver_config.vvgpu, solver_config.seed)) {
+  for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_config.use_mixed_precision) {
       check_device(dev, 7,
                    0);  // to support mixed precision training earliest supported device is CC=70
@@ -96,25 +88,23 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
     }
   }
 
-  RandomEngine::get().set_seed(solver_config.seed);
   Parser parser(solver_config.configure_file, solver_config.batchsize, solver_config.batchsize_eval,
                 solver_config.use_mixed_precision, solver_config.scaler,
                 solver_config.use_algorithm_search);
 
-  parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, embedding_eval_, networks_,
-                         networks_eval_, gpu_resource_group_);
+  parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_, resource_manager_);
 
   // init networks.
   std::string TMP_DENSE_NAME;
-  if (pid == 0) {
+  if (resource_manager_->get_pid() == 0) {
     TMP_DENSE_NAME = "./" + generate_random_file_name();
     networks_[0]->init_params(TMP_DENSE_NAME);
   }
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
-  int length = (pid == 0) ? TMP_DENSE_NAME.length() : 0;
+  int length = (resource_manager_->get_pid() == 0) ? TMP_DENSE_NAME.length() : 0;
   MPI_Bcast(&length, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  if (pid != 0) {
+  if (resource_manager_->get_pid() != 0) {
     TMP_DENSE_NAME.resize(length);
   }
   MPI_Bcast(const_cast<char*>(TMP_DENSE_NAME.data()), length, MPI_CHAR, 0, MPI_COMM_WORLD);
@@ -126,7 +116,7 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
-  if (pid == 0) {
+  if (resource_manager_->get_pid() == 0) {
     if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
       CK_THROW_(Error_t::WrongInput,
                 TMP_DENSE_NAME + " cannot be removed. (reason: " + std::strerror(errno) + ")");
@@ -136,12 +126,12 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
   load_params_for_dense_(solver_config.model_file);
   init_or_load_params_for_sparse_(solver_config.embedding_files);
 
-  int num_total_gpus = gpu_resource_group_->get_total_gpu_count();
+  int num_total_gpus = resource_manager_->get_global_gpu_count();
   for (const auto& metric : solver_config.metrics_spec) {
     metrics_.emplace_back(
         std::move(metrics::Metric::Create(metric.first, solver_config.use_mixed_precision,
                                           solver_config.batchsize_eval / num_total_gpus,
-                                          solver_config.eval_batches, gpu_resource_group_)));
+                                          solver_config.eval_batches, resource_manager_)));
   }
 }
 
@@ -209,7 +199,7 @@ Error_t SessionImpl<TypeKey>::init_or_load_params_for_sparse_(
   return Error_t::Success;
 }
 
-void network_train_helper(int id, Network* n) {
+void network_train_helper(Network* n) {
   try {
     n->train();
     n->exchange_wgrad();
@@ -230,17 +220,18 @@ void SessionImpl<TypeKey>::train() {
 #ifndef DATA_READING_TEST
     data_reader_->read_a_batch_to_device_delay_release();
     for (auto& one_embedding : embedding_) {
-      one_embedding->forward();
+      one_embedding->forward(true);
     }
     data_reader_->ready_to_collect();
     if (networks_.size() > 1) {
       // execute dense forward and backward with multi-cpu threads
+      std::vector<std::future<void>> results(networks_.size());
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
-            [this, i](int id) { network_train_helper(id, networks_[i].get()); });
+        results[i] = resource_manager_->get_local_cpu()->get_thread_pool()->push(
+            [this, i](int id) { network_train_helper(networks_[i].get()); });
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
-        gpu_resource_group_->results[i].get();
+        results[i].get();
       }
     } else if (networks_.size() == 1) {
       networks_[0]->train();
@@ -269,7 +260,7 @@ void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
     n->eval();
 
     for (auto& metric : metrics) {
-      metric->local_reduce(n->get_raw_metrics());
+      metric->local_reduce(id, n->get_raw_metrics());
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -288,27 +279,28 @@ void SessionImpl<TypeKey>::eval() {
     }
 
 #ifndef DATA_READING_TEST
-    for (auto& one_embedding : embedding_eval_) {
-      one_embedding->forward();
+    for (auto& one_embedding : embedding_) {
+      one_embedding->forward(false);
     }
 
-    if (networks_eval_.size() > 1) {
-      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
-        gpu_resource_group_->results[i] = gpu_resource_group_->train_thread_pool.push(
-            [this, i](int id) { network_eval_helper(id, networks_eval_[i].get(), metrics_); });
+    if (networks_.size() > 1) {
+      std::vector<std::future<void>> results(networks_.size());
+      for (unsigned int i = 0; i < networks_.size(); i++) {
+        results[i] = resource_manager_->get_local_cpu()->get_thread_pool()->push(
+            [this, i](int id) { network_eval_helper(i, networks_[i].get(), metrics_); });
       }
-      for (unsigned int i = 0; i < networks_eval_.size(); i++) {
-        gpu_resource_group_->results[i].get();
+      for (unsigned int i = 0; i < networks_.size(); i++) {
+        results[i].get();
       }
-    } else if (networks_eval_.size() == 1) {
-      network_eval_helper(0, networks_eval_[0].get(), metrics_);
+    } else if (networks_.size() == 1) {
+      network_eval_helper(0, networks_[0].get(), metrics_);
     } else {
-      assert(!"networks_eval_.size() should not less than 1.");
+      assert(!"networks_.size() should not less than 1.");
     }
 #endif
 
     for (auto& metric : metrics_) {
-      metric->global_reduce(networks_eval_.size());
+      metric->global_reduce(networks_.size());
     }
 
   } catch (const internal_runtime_error& err) {
@@ -318,23 +310,6 @@ void SessionImpl<TypeKey>::eval() {
     std::cerr << err.what() << std::endl;
     throw err;
   }
-
-  // for(auto& metric : metrics_) {
-  //   try {
-  //     // TODO: enable to get batch_size from read_a_batch_to_device_delay_release();
-  //     metric->set_current_batch_size(current_batchsize);
-  //     for (auto& network : networks_) {
-  //       metric->local_reduce(network->get_raw_metrics());
-  //     }
-  //     metric->global_reduce(networks_.size());
-  //   } catch (const internal_runtime_error& rt_err) {
-  //     std::cerr << rt_err.what() << std::endl;
-  //     return rt_err.get_error();
-  //   } catch (const std::exception& err) {
-  //     std::cerr << err.what() << std::endl;
-  //     return Error_t::UnspecificError;
-  //   }
-  // }
 }
 
 template <typename TypeKey>
@@ -446,7 +421,7 @@ void SessionImpl<TypeKey>::check_overflow() const {
 template <typename TypeKey>
 SessionImpl<TypeKey>::~SessionImpl() {
   try {
-    for (auto device : gpu_resource_group_->get_device_list()) {
+    for (auto device : resource_manager_->get_local_gpu_device_id_list()) {
       CudaDeviceContext context(device);
       CK_CUDA_THROW_(cudaDeviceSynchronize());
     }

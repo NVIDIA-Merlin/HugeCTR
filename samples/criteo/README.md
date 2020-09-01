@@ -1,35 +1,57 @@
 # CRITEO CTR SAMPLE #
-In this sample we aim to demostrate the basic usage of huge_ctr.
+In this sample we aim to demonstrate the basic usage of huge_ctr.
 
 ## Dataset and preprocess ##
 The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).
 The original training set contains 45,840,617 examples.
 Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
-The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed acordingly.
+The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
 The original test set doesn't contain labels, so it's not used.
+
 
 1. Download the dataset and preprocess
 
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
-and download kaggle-display dataset into the folder "${project_home}/tools/criteo_script_legacy/".
+and download the kaggle-display dataset into the folder "${project_home}/tools/criteo_script_legacy/".
 The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
 It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
-Its purpose is to redcue the vocabulary size of each columm while not losing too much information.
+Its purpose is to reduce the vocabulary size of each column while not losing too much information.
+Please choose one of the following two methods for data preprocessing.
 
+#### Preprocessing by Perl ####
 ```shell
 $ cd ../../tools/criteo_script_legacy/
 $ bash preprocess.sh
 $ cd ../../samples/criteo/
 ```
-
-2. Build HugeCTR with the instructions on README.md under home directory.
-
-3. Translate the dataset to HugeCTR format
+Translate the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr_legacy ./
 $ ./criteo2hugectr_legacy 1 ../../tools/criteo_script_legacy/train.out criteo/sparse_embedding file_list.txt
 $ ./criteo2hugectr_legacy 1 ../../tools/criteo_script_legacy/test.out criteo_test/sparse_embedding file_list_test.txt
 ```
+
+#### Preprocessing by NVTabular ####
+
+HugeCTR supports data processing by NVTabular since version 2.2.1. Please make sure NVTabular docker environment has been set up successfully according to [NVTAbular github](https://github.com/NVIDIA/NVTabular).
+And bind mount HugeCTR ${project_home} volume to NVTabular docker. Run NVTabular docker and execute the following preprocessing commands.
+Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
+download kaggle-display dataset into the folder "${project_home}/samples/criteo/". 
+```shell
+$ tar zxvf dac.tar.gz 
+$ mkdir -p criteo_data/train
+$ mkdir -p criteo_data/val 
+$ head -n 36672493 train.txt > criteo_data/train/train.txt 
+$ tail -n 9168124 train.txt > criteo_data/val/test.txt 
+$ cp ../../tools/criteo_script/preprocess_nvt.py ./
+#The default output of NVTabular is the parquet format, if need the norm binary format, please add argument --parquet_format=0
+$ python3 preprocess_nvt.py --src_csv_path=criteo_data/train/train.txt --dst_csv_path=criteo_data/train/ --normalize_dense=1 --feature_cross=0 --criteo_mode=1
+$ python3 preprocess_nvt.py --src_csv_path=criteo_data/val/test.txt --dst_csv_path=criteo_data/val/ --normalize_dense=1 --feature_cross=0 --criteo_mode=1
+```
+Exit from the NVTabular docker environment and then run HugeCTR docker with interaction mode under home directory again.
+
+2. Build HugeCTR with the instructions on README.md under home directory.
+
 
 ## Training with HugeCTR ##
 
@@ -39,6 +61,20 @@ $ cp ../../build/bin/huge_ctr ./
 ```
 
 2. Run huge_ctr
+
+#### For Pandas Preprocessing ####
 ```shell
 $ ./huge_ctr --train ./criteo.json
 ```
+
+#### For NVTabular Preprocessing ####
+
+Parquet output
+```shell
+$ ./huge_ctr --train ./criteo_parquet.json
+```
+Binary output
+```shell
+$ ./huge_ctr --train ./criteo_bin.json
+```
+

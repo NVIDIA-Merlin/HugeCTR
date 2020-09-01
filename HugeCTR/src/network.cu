@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/utils.cuh"
+#include <utils.cuh>
 
 namespace HugeCTR {
 
-void conv_weight_gpu(int grid, int block, __half* dst, float* src, int elems, cudaStream_t stream) {
+void conv_weight_gpu(size_t grid, size_t block, __half* dst, float* src, int elems,
+                     cudaStream_t stream) {
   convert_array<<<grid, block, 0, stream>>>(dst, src, elems);
 }
 

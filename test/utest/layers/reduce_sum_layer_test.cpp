@@ -15,13 +15,9 @@
  */
 
 #include "HugeCTR/include/layers/reduce_sum_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
+#include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-
-#include <vector>
 
 using namespace std;
 using namespace HugeCTR;
@@ -129,143 +125,58 @@ void reduce_sum_dgrad_cpu(const float* top_grad, float* dgrad, std::vector<size_
 }
 
 void reduce_sum_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, size_t axis) {
-  size_t dev_id = 0;
-  std::shared_ptr<GeneralBuffer<float>> in_out_buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
   vector<size_t> in_dims = {batch_size, slot_num, embedding_vec_size};  // 3D
-  // vector<size_t> in_dims = {batch_size, slot_num}; // 2D
-  TensorFormat_t in_format;
-  if (in_dims.size() == 2) {
-    in_format = TensorFormat_t::HW;
-  } else if (in_dims.size() == 3) {
-    in_format = TensorFormat_t::HSW;
-  }
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, in_out_buf, in_format));
-  std::shared_ptr<Tensor<float>> out_tensor;
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  ReduceSumLayer reduce_sum_layer(in_tensor, out_tensor, in_out_buf, axis, dev_id);
+  Tensor2<float> in_tensor;
+  buff->reserve(in_dims, &in_tensor);
+  Tensor2<float> out_tensor;
 
-  in_out_buf->init(dev_id);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+  ReduceSumLayer reduce_sum_layer(in_tensor, out_tensor, buff, axis, test::get_default_gpu());
+
+  buff->allocate();
+  reduce_sum_layer.initialize();
 
   size_t in_size = 1;
   for (auto dim : in_dims) {
     in_size *= dim;
   }
-  auto out_dims = out_tensor->get_dims();
+  auto out_dims = out_tensor.get_dimensions();
   size_t out_size = 1;
   for (auto dim : out_dims) {
     out_size *= dim;
   }
 
-  float* d_in = in_tensor->get_ptr();
-  float* d_out = out_tensor->get_ptr();
+  float* d_in = in_tensor.get_ptr();
+  float* d_out = out_tensor.get_ptr();
   std::unique_ptr<float[]> h_in(new float[in_size]);
   std::unique_ptr<float[]> h_out(new float[out_size]);
   std::unique_ptr<float[]> h_cpu_out(new float[out_size]);
   std::unique_ptr<float[]> h_gpu_dgrad(new float[in_size]);
 
   // fprop
-  for (size_t i = 0; i < in_size; i++) {
-    h_in[i] = simulator.get_num();
-  }
+  simulator.fill(h_in.get(), in_size);
 
-  // if(in_dims.size() == 2) {
-  //   for(size_t i = 0; i < in_dims[0]; i++) {
-  //     for(size_t j = 0; j < in_dims[1]; j++) {
-  //       h_in[i*in_dims[1]+j] = i;
-  //     }
-  //   }
-  // }
-  // else if(in_dims.size() == 3) {
-  //   for(size_t i = 0; i < in_dims[0]; i++) {
-  //     for(size_t j = 0; j < in_dims[1]; j++) {
-  //       for(size_t k = 0; k < in_dims[2]; k++) {
-  //         h_in[i*in_dims[1]*in_dims[2]+j*in_dims[2]+k] = i*in_dims[1]+j;
-  //       }
-  //     }
-  //   }
-  // }
-
-  // std::cout << "axis=" << axis << std::endl;
-  // std::cout << "data in:" << std::endl;
-  // if(in_dims.size() == 2) {
-  //   for(size_t i = 0; i < in_dims[0]; i++) {
-  //     for(size_t j = 0; j < in_dims[1]; j++) {
-  //         std::cout << h_in[i*in_dims[1]+j] << " ";
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
-  // if(in_dims.size() == 3) {
-  //   for(size_t i = 0; i < in_dims[0]; i++) {
-  //     for(size_t j = 0; j < in_dims[1]; j++) {
-  //       for(size_t k = 0; k < in_dims[2]; k++) {
-  //         std::cout << h_in[i*in_dims[1]*in_dims[2]+j*in_dims[2]+k] << " ";
-  //       }
-  //       std::cout << std::endl;
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
-
-  cudaMemcpy(d_in, h_in.get(), in_size * sizeof(float), cudaMemcpyHostToDevice);
-  reduce_sum_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, out_size * sizeof(float), cudaMemcpyDeviceToHost);
-
-  // std::cout << "gpu out:" << std::endl;
-  // if(out_dims.size() == 2) {
-  //   for(size_t i = 0; i  < out_dims[0]; i++) {
-  //     for(size_t j = 0; j < out_dims[1]; j++) {
-  //       std::cout << h_out[i*out_dims[1]+j] << " ";
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
-  // else if(out_dims.size() == 3) {
-  //   for(size_t i = 0; i  < out_dims[0]; i++) {
-  //     for(size_t j = 0; j < out_dims[1]; j++) {
-  //       for(size_t k = 0; k < out_dims[2]; k++) {
-  //         std::cout << h_out[i*out_dims[1]*out_dims[2]+j*out_dims[2]+k] << " ";
-  //       }
-  //       std::cout << std::endl;
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_size * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  reduce_sum_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, out_size * sizeof(float), cudaMemcpyDeviceToHost));
 
   reduce_sum_cpu(h_in.get(), h_cpu_out.get(), in_dims, axis);
-
-  // std::cout << "cpu out:" << std::endl;
-  // if(out_dims.size() == 2) {
-  //   for(size_t i = 0; i < out_dims[0]; i++) {
-  //     for(size_t j = 0; j < out_dims[1]; j++) {
-  //         std::cout << h_cpu_out[i*out_dims[1]+j] << " ";
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
-  // else if(out_dims.size() == 3) {
-  //   for(size_t i = 0; i < out_dims[0]; i++) {
-  //     for(size_t j = 0; j < out_dims[1]; j++) {
-  //       for(size_t k = 0; k < out_dims[2]; k++) {
-  //         std::cout << h_cpu_out[i*out_dims[1]*out_dims[2]+j*out_dims[2]+k] << " ";
-  //       }
-  //       std::cout << std::endl;
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
 
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_cpu_out.get(), out_size, eps));
 
   // bprop
-  for (size_t i = 0; i < out_size; i++) {
-    h_out[i] = simulator.get_num();  // top_grad
-  }
-  cudaMemcpy(d_out, h_out.get(), out_size * sizeof(float), cudaMemcpyHostToDevice);
-  reduce_sum_layer.bprop(cudaStreamDefault);  // compute wgrad and dgrad
-  cudaMemcpy(h_gpu_dgrad.get(), d_in, in_size * sizeof(float), cudaMemcpyDeviceToHost);
+  simulator.fill(h_out.get(), out_size);
+  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), out_size * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  reduce_sum_layer.bprop();  // compute wgrad and dgrad
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  CK_CUDA_THROW_(
+      cudaMemcpy(h_gpu_dgrad.get(), d_in, in_size * sizeof(float), cudaMemcpyDeviceToHost));
 
   reduce_sum_dgrad_cpu(h_out.get(), h_in.get(), in_dims, axis);
   ASSERT_TRUE(test::compare_array_approx<float>(h_in.get(), h_gpu_dgrad.get(), in_size,
@@ -274,9 +185,7 @@ void reduce_sum_test(size_t batch_size, size_t slot_num, size_t embedding_vec_si
 
 }  // namespace
 
-TEST(reduce_sum_layer, fprop_and_bprop) {
-  reduce_sum_test(2, 3, 4, 0);
-  reduce_sum_test(2, 3, 4, 1);
-  reduce_sum_test(2, 3, 4, 2);
-  reduce_sum_test(40960, 39, 1, 1);
-}
+TEST(reduce_sum_layer, fp32_2x3x4_0) { reduce_sum_test(2, 3, 4, 0); }
+TEST(reduce_sum_layer, fp32_2x3x4_1) { reduce_sum_test(2, 3, 4, 1); }
+TEST(reduce_sum_layer, fp32_2x3x4_2) { reduce_sum_test(2, 3, 4, 2); }
+TEST(reduce_sum_layer, fp32_40960x39x1_1) { reduce_sum_test(40960, 39, 1, 1); }

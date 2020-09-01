@@ -20,7 +20,10 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include "HugeCTR/include/tensor.hpp"
+#include "HugeCTR/include/cpu_resource.hpp"
+#include "HugeCTR/include/data_simulator.hpp"
+#include "HugeCTR/include/general_buffer2.hpp"
+#include "HugeCTR/include/gpu_resource.hpp"
 
 namespace HugeCTR {
 /**
@@ -32,7 +35,7 @@ class Layer {
   /*
    * Specify which GPU device will be executed on.
    */
-  const int device_id_;
+  std::shared_ptr<GPUResource> gpu_resource_;
 
  protected:
   /*
@@ -42,32 +45,31 @@ class Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors<float> weights_;
+  Tensors2<float> weights_;
+
+  const GPUResource& get_gpu() const { return *gpu_resource_; }
+  int get_device_id() const { return gpu_resource_->get_device_id(); }
 
  public:
   /*
    * Forward pass
    * @param stream: the CUDA stream that the forward function will be executed on.
    */
-  virtual void fprop(cudaStream_t stream) = 0;
+  virtual void fprop(bool is_train) = 0;
   /*
    * Backward pass
    * @param stream: the CUDA stream that the forward function will be executed on.
    */
-  virtual void bprop(cudaStream_t stream) = 0;
-  /*
-   * Inference pass (most layers just call fprop but some layer like dropout should inherit it)
-   * @param stream: the CUDA stream that the forward function will be executed on.
-   */
-  virtual void inference(cudaStream_t stream) { fprop(stream); }
+  virtual void bprop() = 0;
 
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
-  void init_params(std::ofstream& out_stream);
-  inline int get_device_id() const { return device_id_; }
-  Layer(int device_id, std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())
-      : device_id_(device_id), initializer_types_(initializer_types) {}
-  Layer(const Layer& C) = delete;
-  Layer& operator=(const Layer& C) = delete;
+  void init_params(std::ofstream& out_stream, const CPUResource& cpu_resource);
+
+  Layer(const std::shared_ptr<GPUResource>& gpu_resource,
+        std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())
+      : gpu_resource_(gpu_resource), initializer_types_(initializer_types) {}
+  Layer(const Layer&) = delete;
+  Layer& operator=(const Layer&) = delete;
   virtual ~Layer() {}
 
   /*
@@ -79,28 +81,26 @@ class Layer {
    */
   virtual void search_algorithm() {}
 
-  std::vector<float> get_initializer();
-
  private:
+  Tensor2<float> get_initializer(const CPUResource& cpu_resource);
   /*
    * Layer initializer. If a layer wants the specific weight initialization,
    * Override each private function accordingly, e.g., BatchNormLayer
    */
-  std::unique_ptr<DataSimulator<float>> get_zero_initializer(const int index) {
-    auto zero_init = [] { return static_cast<float>(0); };
-    return std::unique_ptr<DataSimulator<float>>(new SingleDataSimulator<float>(zero_init));
+  std::unique_ptr<DataSimulator> get_zero_initializer(const int index) {
+    return std::make_unique<ConstantDataSimulator>(0.0f);
   }
 
-  virtual std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) {
+  virtual std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) {
     return std::move(get_default_initializer(index));
   }
-  virtual std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) {
+  virtual std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) {
     return std::move(get_default_initializer(index));
   }
-  virtual std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) {
+  virtual std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) {
     return std::move(get_default_initializer(index));
   }
-  virtual std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) {
+  virtual std::unique_ptr<DataSimulator> get_default_initializer(const int index) {
     return std::move(get_zero_initializer(index));
   }
 };

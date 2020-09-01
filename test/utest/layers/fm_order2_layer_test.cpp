@@ -15,8 +15,6 @@
  */
 
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
-#include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -64,15 +62,23 @@ void fm_order2_bprop_cpu(const float* in, const float* top_grad, float* dgrad, i
 }
 
 void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
-  std::shared_ptr<GeneralBuffer<float>> buf(new GeneralBuffer<float>);
-  std::vector<size_t> in_dims = {batch_size, slot_num * emb_vec_size};
-  std::shared_ptr<Tensor<float>> in_tensor(new Tensor<float>(in_dims, buf, TensorFormat_t::HW));
-  std::vector<size_t> out_dims = {batch_size, emb_vec_size};
-  std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(out_dims, buf, TensorFormat_t::HW));
-  buf->init(0);
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
 
-  float* d_in = in_tensor->get_ptr();
-  float* d_out = out_tensor->get_ptr();
+  std::vector<size_t> in_dims = {batch_size, slot_num * emb_vec_size};
+  Tensor2<float> in_tensor;
+  buf->reserve(in_dims, &in_tensor);
+
+  std::vector<size_t> out_dims = {batch_size, emb_vec_size};
+  Tensor2<float> out_tensor;
+  buf->reserve(out_dims, &out_tensor);
+
+  FmOrder2Layer fm_order2_layer(in_tensor, out_tensor, test::get_default_gpu());
+
+  buf->allocate();
+  fm_order2_layer.initialize();
+
+  float* d_in = in_tensor.get_ptr();
+  float* d_out = out_tensor.get_ptr();
 
   const size_t in_len = batch_size * slot_num * emb_vec_size;
   const size_t out_len = batch_size * emb_vec_size;
@@ -81,32 +87,35 @@ void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
   std::unique_ptr<float[]> h_expected(new float[out_len]);
   std::unique_ptr<float[]> h_expected_dgrad(new float[in_len]);
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  FmOrder2Layer fm_order2_layer(in_tensor, out_tensor, 0);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
-  for (size_t i = 0; i < in_len; i++) {
-    h_in[i] = simulator.get_num();
-  }
+  simulator.fill(h_in.get(), in_len);
 
-  cudaMemcpy(d_in, h_in.get(), in_len * sizeof(float), cudaMemcpyHostToDevice);
-  fm_order2_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, out_len * sizeof(float), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  fm_order2_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, out_len * sizeof(float), cudaMemcpyDeviceToHost));
 
   fm_order2_fprop_cpu(h_in.get(), h_expected.get(), batch_size, slot_num, emb_vec_size);
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), out_len, eps));
 
+  simulator.fill(h_in.get(), in_len);
   for (size_t i = 0; i < in_len; i++) {
-    h_in[i] = simulator.get_num();
     h_expected_dgrad[i] = h_in[i];
   }
-  for (size_t i = 0; i < out_len; i++) {
-    h_out[i] = simulator.get_num();
-  }
+  simulator.fill(h_out.get(), out_len);
 
-  cudaMemcpy(d_in, h_in.get(), in_len * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_out, h_out.get(), out_len * sizeof(float), cudaMemcpyHostToDevice);
-  fm_order2_layer.bprop(cudaStreamDefault);
-  cudaMemcpy(h_in.get(), d_in, in_len * sizeof(float), cudaMemcpyDeviceToHost);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), in_len * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), out_len * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  fm_order2_layer.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, in_len * sizeof(float), cudaMemcpyDeviceToHost));
 
   fm_order2_bprop_cpu(h_expected_dgrad.get(), h_out.get(), h_expected_dgrad.get(), batch_size,
                       slot_num, emb_vec_size);
@@ -115,7 +124,5 @@ void fm_order2_test(size_t batch_size, size_t slot_num, size_t emb_vec_size) {
 
 }  // end of namespace
 
-TEST(fm_order2_layer, fprop_and_bprop) {
-  fm_order2_test(4, 2, 32);
-  fm_order2_test(4096, 10, 64);
-}
+TEST(fm_order2_layer, fp32_4x2x32) { fm_order2_test(4, 2, 32); }
+TEST(fm_order2_layer, fp32_4096x10x64) { fm_order2_test(4096, 10, 64); }

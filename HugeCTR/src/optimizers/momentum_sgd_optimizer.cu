@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
 #include "HugeCTR/include/utils.cuh"
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 
@@ -36,44 +38,52 @@ __global__ void momentum_sgd_update_kernel(int len, float* weight, T* momentum, 
 
 }  // namespace
 
-MomentumSGDOptimizer::MomentumSGDOptimizer(const GeneralBufferPtr<float>& weight,
-                                           const GeneralBufferPtr<float>& fp32_wgrad,
-                                           const GeneralBufferPtr<__half>& fp16_wgrad,
-                                           bool mixed_precision, int device_id, float learning_rate,
-                                           float momentum_factor, float scaler)
-    : Optimizer(weight, fp32_wgrad, fp16_wgrad, mixed_precision, device_id, learning_rate, scaler),
+MomentumSGDOptimizer::MomentumSGDOptimizer(
+    const Tensor2<float>& weight, const Tensor2<float>& fp32_wgrad,
+    const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+    const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate, float momentum_factor,
+    float scaler)
+    : Optimizer(weight, fp32_wgrad, fp16_wgrad, mixed_precision, gpu_resource, learning_rate,
+                scaler),
       momentum_factor_(momentum_factor) {
   if (mixed_precision) {
-    fp16_momentum_.reserve(weight->get_num_elements());
-    fp16_momentum_.init(device_id);
-    fp16_momentum_.reset_sync();
+    buff->reserve({weight.get_num_elements()}, &fp16_momentum_);
   } else {
-    fp32_momentum_.reserve(weight->get_num_elements());
-    fp32_momentum_.init(device_id);
-    fp32_momentum_.reset_sync();
+    buff->reserve({weight.get_num_elements()}, &fp32_momentum_);
   }
 }
 
-void MomentumSGDOptimizer::update(cudaStream_t stream) {
-  CudaDeviceContext context(device_id_);
+void MomentumSGDOptimizer::initialize() {
+  if (mixed_precision_) {
+    cudaMemsetAsync(fp16_momentum_.get_ptr(), 0, fp16_momentum_.get_size_in_bytes(),
+                    gpu_resource_->get_stream());
+  } else {
+    cudaMemsetAsync(fp32_momentum_.get_ptr(), 0, fp32_momentum_.get_size_in_bytes(),
+                    gpu_resource_->get_stream());
+  }
+}
 
-  const size_t len = weight_main_->get_num_elements();
+void MomentumSGDOptimizer::update() {
+  CudaDeviceContext context(get_device_id());
+
+  const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
   const size_t grid_dim = (len - 1) / block_dim + 1;
 
-  float* weight = weight_main_->get_ptr_with_offset(0);
+  float* weight = weight_main_.get_ptr();
 
   if (mixed_precision_) {
-    __half* fp16_momentum = fp16_momentum_.get_ptr_with_offset(0);
-    const __half* fp16_wgrad = fp16_wgrad_->get_ptr_with_offset(0);
+    __half* fp16_momentum = fp16_momentum_.get_ptr();
+    const __half* fp16_wgrad = fp16_wgrad_.get_ptr();
 
-    momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, stream>>>(
+    momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, fp16_momentum, fp16_wgrad, lr_, momentum_factor_, scaler_);
   } else {
-    float* fp32_momentum = fp32_momentum_.get_ptr_with_offset(0);
-    const float* fp32_wgrad = fp32_wgrad_->get_ptr_with_offset(0);
+    float* fp32_momentum = fp32_momentum_.get_ptr();
+    const float* fp32_wgrad = fp32_wgrad_.get_ptr();
 
-    momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, stream>>>(
+    momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
         len, weight, fp32_momentum, fp32_wgrad, lr_, momentum_factor_, scaler_);
   }
 

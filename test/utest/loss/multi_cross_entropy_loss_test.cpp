@@ -16,7 +16,6 @@
 
 #include <cstdlib>
 #include <vector>
-#include "HugeCTR/include/general_buffer.hpp"
 #include "HugeCTR/include/loss.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -25,32 +24,28 @@ using namespace HugeCTR;
 using namespace HugeCTR::test;
 
 void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
-  std::shared_ptr<GeneralBuffer<float>> input_b(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> label_b(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> loss_b(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
 
-  std::shared_ptr<Tensor<float>> input_tensor(
-      new Tensor<float>({batch_size, label_dim}, input_b, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> label_tensor(
-      new Tensor<float>({batch_size, label_dim}, label_b, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> loss_tensor(new Tensor<float>({1, 1}, loss_b, TensorFormat_t::HW));
+  Tensor2<float> input_tensor;
+  buff->reserve({batch_size, label_dim}, &input_tensor);
+  Tensor2<float> label_tensor;
+  buff->reserve({batch_size, label_dim}, &label_tensor);
+  Tensor2<float> loss_tensor;
+  buff->reserve({1, 1}, &loss_tensor);
 
-  input_b->init(0);
-  label_b->init(0);
-  loss_b->init(0);
+  buff->allocate();
 
   const std::vector<float> target_weight(label_dim, 1.0);
 
-
   MultiCrossEntropyLoss<float> mel(label_tensor, input_tensor, loss_tensor, nullptr, target_weight,
-                                   0, 1);
+                                   test::get_default_gpu(), 1);
 
   std::unique_ptr<float[]> h_input(new float[batch_size * label_dim]);
   std::unique_ptr<float[]> h_label(new float[batch_size * label_dim]);
 
-  float *d_input = input_b->get_ptr_with_offset(0);
-  float *d_label = label_b->get_ptr_with_offset(0);
-  float *d_loss = loss_b->get_ptr_with_offset(0);
+  float *d_input = input_tensor.get_ptr();
+  float *d_label = label_tensor.get_ptr();
+  float *d_loss = loss_tensor.get_ptr();
 
   for (size_t i = 0; i < batch_size * label_dim; ++i) h_input[i] = rand() % 100 * 0.01f;
   for (size_t i = 0; i < batch_size * label_dim; ++i) h_label[i] = rand() % 3 - 1;
@@ -59,7 +54,7 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
   cudaMemcpy(d_label, h_label.get(), sizeof(float) * batch_size * label_dim,
              cudaMemcpyHostToDevice);
 
-  mel.compute(true, cudaStreamDefault);
+  mel.compute(true);
 
   int scaler = 1;
 #ifdef SCALE_128
@@ -82,10 +77,8 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
     float loss = y * log(val + MIN_) + (1.0f - y) * log(1.0f - val + MIN_);
     cpu_loss += (h_label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] * loss);
     float grad = -1.0f * val * (y - val) * exp(-x) / (1.0f - val + MIN_);
-    h_input[i] =
-        (h_label[i] < -0.5)
-            ? 0.f
-            : (target_weight[target_weight_idx] * grad / (batch_size * label_dim) * scaler);
+    h_input[i] = (h_label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] * grad /
+                                              (batch_size * label_dim) * scaler);
 
     // if(i == 0){
     //   printf("i=%d, x=%f, y=%f, target_weight[target_weight_idx]=%f, loss=%f, h_input=%f\n", i,

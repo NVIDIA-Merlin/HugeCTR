@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/cast_layer.hpp"
+#include <layers/cast_layer.hpp>
+#include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
 
@@ -27,25 +28,25 @@ __global__ void cast_kernel(__half* out, const float* in, int size) {
 
 }  // namespace
 
-CastLayer::CastLayer(const TensorPtr<float>& bottom_tensor, const TensorPtr<__half>& top_tensor,
-                     int device_id)
-    : Layer(device_id) {
-  assert(get_size_from_dims(bottom_tensor->get_dims()) ==
-         get_size_from_dims(top_tensor->get_dims()));
+CastLayer::CastLayer(const Tensor2<float>& bottom_tensor, const Tensor2<__half>& top_tensor,
+                     const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
+  assert(bottom_tensor.get_num_elements() == top_tensor.get_num_elements());
 
   bottom_tensor_ = bottom_tensor;
   top_tensor_ = top_tensor;
 }
 
-void CastLayer::fprop(cudaStream_t stream) {
+void CastLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  const float* bottom = bottom_tensor_->get_ptr();
-  __half* top = top_tensor_->get_ptr();
+  const float* bottom = bottom_tensor_.get_ptr();
+  __half* top = top_tensor_.get_ptr();
 
   const size_t threads = 512;
-  const size_t blocks = std::min((bottom_tensor_->get_num_elements() - 1) / threads + 1, 1024ul);
-  cast_kernel<<<blocks, threads, 0, stream>>>(top, bottom, bottom_tensor_->get_num_elements());
+  const size_t blocks = std::min((bottom_tensor_.get_num_elements() - 1) / threads + 1, 1024ul);
+  cast_kernel<<<blocks, threads, 0, get_gpu().get_stream()>>>(top, bottom,
+                                                              bottom_tensor_.get_num_elements());
 
 #ifndef NDEBUG
   CK_CUDA_THROW_(cudaDeviceSynchronize());
@@ -53,7 +54,7 @@ void CastLayer::fprop(cudaStream_t stream) {
 #endif
 }
 
-void CastLayer::bprop(cudaStream_t stream) {
+void CastLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
 #ifndef NDEBUG

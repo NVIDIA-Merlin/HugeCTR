@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/include/data_reader.hpp"
 #include <fstream>
 #include <thread>
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_generator.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -40,13 +41,13 @@ const int dense_dim = 13;
 typedef unsigned int T;
 const Check_t CHK = Check_t::None;
 const std::string file_name = "./train_data.bin";
-// const std::string file_name = "/etc/workspace/dataset/criteo/raw/dlrm_40m.limit/train_data.bin";
-TEST(data_reader_raw, data_reader_worker_raw_test) {
+
+void data_reader_worker_raw_test_impl(bool float_label_dense) {
   test::mpi_init();
 
   // data generation
-  data_generation_for_raw(file_name, num_samples, label_dim, dense_dim, slot_num);
-  // setup a CSR heap
+  data_generation_for_raw(file_name, num_samples, label_dim, dense_dim, slot_num,
+                          float_label_dense);
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
@@ -59,70 +60,73 @@ TEST(data_reader_raw, data_reader_worker_raw_test) {
       new HeapEx<CSRChunk<T>>(1, num_devices, batchsize, label_dim + dense_dim, params));
 
   // setup a data reader
-  // DataReaderWorkerRaw<T> data_reader(0,1,batchsize, (label_dim + dense_dim +
-  // slot_num)*sizeof(int), csr_heap, 					file_name, num_samples, params, slot_offset, label_dim);
-
   auto file_offset_list = std::make_shared<MmapOffsetList>(
       file_name, num_samples, (label_dim + dense_dim + slot_num) * sizeof(int), batchsize, false,
       1);
 
   DataReaderWorkerRaw<T> data_reader(0, 1, file_offset_list, csr_heap, file_name, params,
-                                     slot_offset, label_dim);
+                                     slot_offset, label_dim, float_label_dense);
 
   // call read a batch
   data_reader.read_a_batch();
 }
 
-TEST(data_reader_raw, data_reader_raw_test) {
+void data_reader_raw_test_impl(bool float_label_dense) {
   // data generation
   // data_generation_for_raw(file_name, num_samples, label_dim, dense_dim, slot_num);
 
   const int batchsize = 131072;
-  int numprocs = 1, pid = 0;
+
+  test::mpi_init();
+
+  int numprocs = 1;
   std::vector<std::vector<int>> vvgpu;
   std::vector<int> device_list = {0, 1};
 #ifdef ENABLE_MPI
-  test::mpi_init();
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 #endif
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  auto device_map = std::make_shared<DeviceMap>(vvgpu, pid);
-  auto gpu_resource_group = std::make_shared<GPUResourceGroup>(device_map);
-
+  auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
   const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz * slot_num, 1,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(file_name, batchsize, label_dim, dense_dim, CHK, params,
-                            gpu_resource_group, 1, true, DataReaderType_t::Raw, num_samples, slot_offset);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, gpu_resource_group, 1, true,
+                            false);
+
+  data_reader.create_drwg_raw(file_name, num_samples, slot_offset, float_label_dense, true, true);
 
   long long current_batchsize = data_reader.read_a_batch_to_device();
   std::cout << "current_batchsize: " << current_batchsize << std::endl;
-  print_tensor(*data_reader.get_label_tensors()[1], 0, 30);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 30);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 30);
-  print_tensor(*data_reader.get_label_tensors()[0], 0, 30);
-  print_tensor(*dynamic_tensor_cast<__half>(data_reader.get_dense_tensors()[0]), 0, 30);
-  print_tensor(*data_reader.get_value_tensors()[0], 0, 30);
-  print_tensor(*data_reader.get_row_offsets_tensors()[0], 0, 30);
+  /*   print_tensor(data_reader.get_label_tensors()[1], 0, 30);
+    print_tensor(data_reader.get_value_tensors()[1], 0, 30);
+    print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 30);
+    print_tensor(data_reader.get_label_tensors()[0], 0, 30);
+    print_tensor(Tensor2<__half>::stretch_from(data_reader.get_dense_tensors()[0]), 0, 30);
+    print_tensor(data_reader.get_value_tensors()[0], 0, 30);
+    print_tensor(data_reader.get_row_offsets_tensors()[0], 0, 30); */
 
   current_batchsize = data_reader.read_a_batch_to_device();
   std::cout << "current_batchsize: " << current_batchsize << std::endl;
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  /*   print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+    print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+    print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); */
   current_batchsize = data_reader.read_a_batch_to_device();
-  print_tensor(*data_reader.get_value_tensors()[0], -30, -1);
-  print_tensor(*data_reader.get_row_offsets_tensors()[0], -30, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], -30, -1);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], -30, -1);
+  /*   print_tensor(data_reader.get_value_tensors()[0], -30, -1);
+    print_tensor(data_reader.get_row_offsets_tensors()[0], -30, -1);
+    print_tensor(data_reader.get_value_tensors()[1], -30, -1);
+    print_tensor(data_reader.get_row_offsets_tensors()[1], -30, -1); */
 
   std::cout << "current_batchsize: " << current_batchsize << std::endl;
-  print_tensor(*data_reader.get_label_tensors()[1], -10, -1);
-  print_tensor(*data_reader.get_value_tensors()[1], 0, 10);
-  print_tensor(*data_reader.get_row_offsets_tensors()[1], 0, 10);
+  /*   print_tensor(data_reader.get_label_tensors()[1], -10, -1);
+    print_tensor(data_reader.get_value_tensors()[1], 0, 10);
+    print_tensor(data_reader.get_row_offsets_tensors()[1], 0, 10); */
 }
+
+TEST(data_reader_raw, data_reader_worker_raw_float_test) { data_reader_worker_raw_test_impl(true); }
+TEST(data_reader_raw, data_reader_raw_float_test) { data_reader_raw_test_impl(true); }
+TEST(data_reader_raw, data_reader_worker_raw_int_test) { data_reader_worker_raw_test_impl(false); }
+TEST(data_reader_raw, data_reader_raw_int_test) { data_reader_raw_test_impl(false); }

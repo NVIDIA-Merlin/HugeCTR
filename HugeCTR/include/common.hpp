@@ -18,12 +18,13 @@
 
 #include <assert.h>
 #include <cublas_v2.h>
+#include <curand.h>
+#include <config.hpp>
 #include <ctime>
 #include <exception>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
-#include "HugeCTR/include/config.hpp"
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -35,6 +36,7 @@ namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 2
 #define HUGECTR_VERSION_MINOR 2
+#define HUGECTR_VERSION_PATCH 1
 
 #define WARP_SIZE 32
 
@@ -62,11 +64,9 @@ enum class Error_t {
 
 enum class Check_t { Sum, None };
 
-enum class Tensor_t { FP32, FP16, LONGLONG, UINT };
-
 enum class DataReaderSparse_t { Distributed, Localized };
 
-enum class DataReaderType_t { Norm, Raw };
+enum class DataReaderType_t { Norm, Raw, Parquet };
 
 struct DataReaderSparseParam {
   DataReaderSparse_t type;
@@ -102,12 +102,6 @@ class internal_runtime_error : public std::runtime_error {
    */
   internal_runtime_error(Error_t err, std::string str)
       : runtime_error("[HCDEBUG][ERROR] " + str), err_(err) {}
-};
-
-enum class TensorFormat_t {
-  WH,  // column major
-  HW,  // row major
-  HSW
 };
 
 enum class LrPolicy_t { fixed };
