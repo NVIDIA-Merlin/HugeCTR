@@ -275,6 +275,7 @@ typedef struct Data_{
   int dense[dense_dim];
   int category[sparse_dim];
 } Data;
+```
 
 ## Coding Style and Refactor ##
 Default coding style follows Google C++ coding style [(link)](https://google.github.io/styleguide/cppguide.html).
