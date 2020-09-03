@@ -5,11 +5,10 @@
         "max_iter":559,
         "gpu": [0,1,2,3,4,5,6,7],
         "batchsize": 65536,
-        "batchsize_eval": 131072,
         "snapshot": 10000000,
         "snapshot_prefix": "./",
         "eval_interval": 34,
-        "eval_batches": 35,
+        "eval_batches": 70,
         "mixed_precision": 1024,
         "eval_metrics": ["AUC:0.8025"]
       },
@@ -35,7 +34,7 @@
           "eval_num_samples": 4584062,
           "eval_source": "./test_data.bin",
           "check": "None",
-          "cache_eval_data": false,
+          "cache_eval_data": 70,
           "label": {
                   "top": "label",
                   "label_dim": 1
