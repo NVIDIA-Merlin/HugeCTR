@@ -35,7 +35,7 @@
 	  "eval_num_samples": 89137319,
 	  "eval_source": "./test_data.bin",
 	  "check": "None",
-	  "cache_eval_data": true,
+	  "cache_eval_data": 5441,
 	  "label": {
               "top": "label",
               "label_dim": 1
