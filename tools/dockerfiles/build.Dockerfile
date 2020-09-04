@@ -35,7 +35,8 @@ RUN apt-get update -y && \
         python3-setuptools \
         python3-wheel && \
     rm -rf /var/lib/apt/lists/*
-RUN pip3 install numpy pandas sklearn ortools tensorflow 
+RUN pip3 install --upgrade pip && \
+    pip3 install numpy pandas sklearn ortools tensorflow
 
 RUN mkdir -p /opt/conda
 ENV CONDA_PREFIX=/opt/conda
