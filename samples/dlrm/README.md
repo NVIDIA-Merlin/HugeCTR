@@ -30,8 +30,9 @@ $ ./dlrm_raw ./ ./ \
 $ ./huge_ctr --train ./terabyte_fp16_64k.json
 ```
 
-**Note** that `cache_eval_data` is only supported in DGX A100. If you are running in DGX2, please disable this in json files.
-
+* **Note**: In v2.2.1, there is a CUDA Graph related issue in running this sample on DGX2. To run it on DGX2, specify `"cuda_graph": false` in `solver` section of your JSON config.
+For more detailed information on this error, check [Known Issues](docs/hugectr_user_guide.md#known-issues) section.
+* **Note**: `cache_eval_data` is only supported on DGX A100. If your machine is DGX2, disable it. 
 
 ## Dataset and preprocess for Kaggle Criteo Logs ##
 The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).

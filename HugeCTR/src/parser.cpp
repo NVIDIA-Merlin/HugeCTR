@@ -263,9 +263,14 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
                         const std::shared_ptr<CPUResource>& cpu_resource,
-                        const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-                        float scaler, bool use_algorithm_search) {
-  std::unique_ptr<Network> network(new Network(cpu_resource, gpu_resource, use_mixed_precision));
+                        const std::shared_ptr<GPUResource>& gpu_resource,
+                        bool use_mixed_precision,
+                        float scaler,
+                        bool use_algorithm_search,
+                        bool use_cuda_graph) {
+  std::unique_ptr<Network> network(new Network(cpu_resource, gpu_resource,
+                                               use_mixed_precision,
+                                               use_cuda_graph));
 
   auto& layers = network->layers_;
   auto& loss_tensor = network->loss_tensor_;
@@ -1193,9 +1198,13 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
                                      std::vector<std::unique_ptr<IEmbedding>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
                                      const std::shared_ptr<ResourceManager>& resource_manager,
-                                     nlohmann::json config, size_t batch_size,
-                                     size_t batch_size_eval, bool use_mixed_precision, float scaler,
-                                     bool use_algorithm_search) {
+                                     nlohmann::json config,
+                                     size_t batch_size,
+                                     size_t batch_size_eval,
+                                     bool use_mixed_precision,
+                                     float scaler,
+                                     bool use_algorithm_search,
+                                     bool use_cuda_graph) {
   try {
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
     std::vector<TensorEntry> tensor_entries_list[resource_manager->get_local_gpu_count()];
@@ -1413,8 +1422,11 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
                                             total_gpu_count, resource_manager->get_local_cpu(),
-                                            resource_manager->get_local_gpu(i), use_mixed_precision,
-                                            scaler, use_algorithm_search));
+                                            resource_manager->get_local_gpu(i),
+                                            use_mixed_precision,
+                                            scaler,
+                                            use_algorithm_search,
+                                            use_cuda_graph));
       }
     }
 
@@ -1431,7 +1443,8 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
                              const std::shared_ptr<ResourceManager>& resource_manager) {
   create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, network,
                                    resource_manager, config_, batch_size_, batch_size_eval_,
-                                   use_mixed_precision_, scaler_, use_algorithm_search_);
+                                   use_mixed_precision_, scaler_, use_algorithm_search_,
+                                   use_cuda_graph_);
 }
 
 void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
@@ -1441,7 +1454,8 @@ void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
                              const std::shared_ptr<ResourceManager>& resource_manager) {
   create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, network,
                                    resource_manager, config_, batch_size_, batch_size_eval_,
-                                   use_mixed_precision_, scaler_, use_algorithm_search_);
+                                   use_mixed_precision_, scaler_, use_algorithm_search_,
+                                   use_cuda_graph_);
 }
 
 }  // namespace HugeCTR

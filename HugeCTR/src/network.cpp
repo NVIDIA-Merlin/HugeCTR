@@ -25,12 +25,14 @@ void conv_weight_gpu(size_t grid, size_t block, __half* dst, float* src, int ele
                      cudaStream_t stream);
 
 Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
-                 const std::shared_ptr<GPUResource>& gpu_resource, bool full_fp16)
+                 const std::shared_ptr<GPUResource>& gpu_resource,
+                 bool full_fp16,
+                 bool enable_cuda_graph)
     : cpu_resource_(cpu_resource),
       gpu_resource_(gpu_resource),
       full_fp16_(full_fp16),
 #ifdef NDEBUG
-      enable_cuda_graph_(true),
+      enable_cuda_graph_(enable_cuda_graph),
 #else
       enable_cuda_graph_(false),
 #endif
