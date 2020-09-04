@@ -192,6 +192,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
     use_algorithm_search = get_value_from_json_soft<bool>(j, "algorithm_search", true);
     MESSAGE_("Algorithm search: " + std::string(use_algorithm_search ? "ON" : "OFF"));
 
+    use_cuda_graph = get_value_from_json_soft<bool>(j, "cuda_graph", true);
+    MESSAGE_("CUDA Graph: " + std::string(use_cuda_graph? "ON" : "OFF"));
+
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
