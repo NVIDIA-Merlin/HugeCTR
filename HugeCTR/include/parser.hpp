@@ -47,6 +47,7 @@ class Parser {
   const bool use_mixed_precision_{false};
   const float scaler_{1.f};
   const bool use_algorithm_search_;
+  const bool use_cuda_graph_;
 
  public:
   /**
@@ -55,12 +56,16 @@ class Parser {
    */
 
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-         bool use_mixed_precision = false, float scaler = 1.0f, bool use_algorithm_search = true)
+         bool use_mixed_precision = false,
+         float scaler = 1.0f,
+         bool use_algorithm_search = true,
+         bool use_cuda_graph = true)
       : batch_size_(batch_size),
         batch_size_eval_(batch_size_eval),
         use_mixed_precision_(use_mixed_precision),
         scaler_(scaler),
-        use_algorithm_search_(use_algorithm_search) {
+        use_algorithm_search_(use_algorithm_search),
+        use_cuda_graph_(use_cuda_graph) {
     try {
       std::ifstream file(configure_file);
       if (!file.is_open()) {
@@ -123,6 +128,7 @@ struct SolverParser {
   std::map<metrics::Type, float> metrics_spec;
   bool i64_input_key;
   bool use_algorithm_search;
+  bool use_cuda_graph;
   SolverParser(const std::string& file);
 };
 

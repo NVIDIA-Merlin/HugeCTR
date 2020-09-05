@@ -90,7 +90,8 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
 
   Parser parser(solver_config.configure_file, solver_config.batchsize, solver_config.batchsize_eval,
                 solver_config.use_mixed_precision, solver_config.scaler,
-                solver_config.use_algorithm_search);
+                solver_config.use_algorithm_search,
+                solver_config.use_cuda_graph);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_, resource_manager_);
 

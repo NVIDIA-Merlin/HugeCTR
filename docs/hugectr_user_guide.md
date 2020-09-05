@@ -588,6 +588,7 @@ We submitted the DLRM benchmark with HugeCTR v2.2 to [MLPerf Training v0.7](http
 * The current plan file generator doesn't support the system that is only partially connected by NVLink. That is the system which has NVLink but exists 2 GPUs where data cannot travel through NVLink between them.
 * Users need to set an environment variable: `export CUDA_DEVICE_ORDER=PCI_BUS_ID` to ensure that CUDA runtime and driver have consistent ordering of GPUs.
 * `LocalizedSlotSparseEmbeddingOneHot` only supports single node training with p2p connections between each pair of involved GPUs.
+* In v2.2.1, training halts in running DLRM sample on DGX2 due to a CUDA Graph related issue. To run the sample on DGX2, disable the use of CUDA Graph with `"cuda_graph": false` even if it degrades the performance a bit. We are workin on fixing this issue. There isn't such a problem on DGX A100.
 
 ## Reference
 [1] Wide and Deep Learning: https://arxiv.org/abs/1606.07792
