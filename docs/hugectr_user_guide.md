@@ -218,7 +218,7 @@ Fig. 6 illustrates how these hyperparameters interact with the actual learning r
   }
 }
 ```
-<div align=center><img width = '500' src ="docs/user_guide_src/learning_rate_scheduling.png"/></div>
+<div align=center><img width = '500' src ="user_guide_src/learning_rate_scheduling.png"/></div>
 <div align=center>Fig. 6. Learning rate scheduling</div>
 
 ### Layers
@@ -379,7 +379,8 @@ We also support ‘Raw’ format, introduced in v2.2, and ‘Parquet’ format f
 * ELU: the type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
 * Fully Connected (`InnerProduct`): bias is supported in fully connected layers and `num_output` is the dimension of output.
 * Fused fully connected layer(`FusedInnerProduct`): Fused bias adding and relu activation into a single layer.
-* Loss: different from the other layers, you can specify which `regularization` you will use. This is optional. By default no regularization will be used.
+* Loss: different from the other layers, you can specify which `regularization` will you use. This is optional. By default no regularization will be used.
+* For more details please refer to [**parser.cpp**](../HugeCTR/src/parser.cpp)
 ```json
 {
   "name": "elu1",
