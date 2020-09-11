@@ -17,6 +17,7 @@ jobs:
 
     steps:
       - name: Check out repository code
+        working-directory: ${{runner.workspace}}/HugeCTR
         uses: actions/checkout@master
 
       - name: Checkout submodules
