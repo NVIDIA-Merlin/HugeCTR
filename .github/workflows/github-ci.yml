@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Check out repository code
-        working-directory: ${{runner.workspace}}/HugeCTR
+        working-directory: ${{runner.workspace}}
         uses: actions/checkout@master
 
       - name: Checkout submodules
@@ -37,3 +37,4 @@ jobs:
           cd /HugeCTR/build/bin
           ./layers_test
           ./embedding_test
+
