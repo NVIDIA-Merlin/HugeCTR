@@ -16,19 +16,20 @@ jobs:
         - /home/hugectr/actions-runner/dataset:/dataset
 
     steps:
-    - uses: actions/checkout@XiaoleiShi-NV-ci_test
+      - name: Check out repository code
+        uses: actions/checkout@master
     
-    - name: Build 
-      working-directory: ${{runner.workspace}}
-      run: |
-        git submodule update --init --recursive
-        mkdir build && cd build
-        cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
+      - name: Build 
+        working-directory: ${{runner.workspace}}
+        run: |
+          git submodule update --init --recursive
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
 
-    - name: utest
-      working-directory: ${{runner.workspace}}/build/bin
-      shell: bash
-      run: |
-        ./layers_test
-        ./embedding_test
+      - name: utest
+        working-directory: ${{runner.workspace}}/build/bin
+        shell: bash
+        run: |
+          ./layers_test
+          ./embedding_test
         
