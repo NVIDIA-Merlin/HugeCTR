@@ -11,7 +11,7 @@ jobs:
     runs-on: self-hosted
 
     container: 
-      image: gitlab-master.nvidia.com/zehuanw/hugectr:devel
+      image: xiaoleishi/hugectr:v1.0
       volumes: 
         - /home/hugectr/actions-runner/dataset:/dataset
 
