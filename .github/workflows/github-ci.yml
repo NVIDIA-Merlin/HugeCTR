@@ -18,12 +18,14 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@master
+
+      - name: Checkout submodules
+        uses: textbook/git-checkout-submodule-action@master
     
       - name: Build 
         working-directory: ${{runner.workspace}}
         run: |
           cd HugeCTR
-          git submodule update --init --recursive
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
 
