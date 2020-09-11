@@ -22,6 +22,7 @@ jobs:
       - name: Build 
         working-directory: ${{runner.workspace}}
         run: |
+          cd HugeCTR
           pwd
           ls -alh
           git submodule update --init --recursive
@@ -29,9 +30,10 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
 
       - name: utest
-        working-directory: ${{runner.workspace}}/build/bin
+        working-directory: ${{runner.workspace}}
         shell: bash
         run: |
+          cd /HugeCTR/build/bin
           ./layers_test
           ./embedding_test
         
