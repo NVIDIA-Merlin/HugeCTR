@@ -37,4 +37,3 @@ jobs:
           cd /HugeCTR/build/bin
           ./layers_test
           ./embedding_test
-        
