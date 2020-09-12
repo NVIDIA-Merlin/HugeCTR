@@ -18,7 +18,6 @@ jobs:
 
     steps:
       - name: Check out repository code
-        working-directory: ${{runner.workspace}}
         uses: actions/checkout@$VERSION
 
       - name: Checkout submodules
