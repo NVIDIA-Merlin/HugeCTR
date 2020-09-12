@@ -12,7 +12,7 @@ jobs:
     runs-on: self-hosted
 
     container: 
-      image: xiaoleishi/hugectr:v1.0
+      image: xiaoleishi/hugectr:v1.1
       volumes: 
         - /home/hugectr/actions-runner/dataset:/dataset
 
