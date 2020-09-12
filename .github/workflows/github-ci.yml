@@ -23,9 +23,8 @@ jobs:
           submodules: true
 
       - name: Build 
-        working-directory: ${{runner.workspace}}
+        working-directory: ${{runner.workspace}}/HugeCTR
         run: |
-          cd HugeCTR
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
 
@@ -33,8 +32,6 @@ jobs:
         working-directory: ${{runner.workspace}}/HugeCTR/build/bin
         shell: bash
         run: |
-          pwd
-          ls -alh
           ./layers_test
           ./embedding_test
 
