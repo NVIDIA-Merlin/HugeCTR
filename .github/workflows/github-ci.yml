@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@master
 
       - name: Checkout submodules
-        uses: textbook/git-checkout-submodule-action@master
+        uses: snickerbockers/submodules-init@v4 
     
       - name: Build 
         working-directory: ${{runner.workspace}}
