@@ -5,7 +5,7 @@ on: [push]
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
-  VERSION: XiaoleiShi-NV-ci_test
+  # VERSION: XiaoleiShi-NV-ci_test
 
 jobs:
   build:
@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@$VERSION
+        uses: actions/checkout@master
 
       - name: Checkout submodules
-        uses: srt32/git-actions@VERSION
+        uses: srt32/git-actions@master
         with:
           args: git submodule update --init --recursive
     
