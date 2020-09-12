@@ -24,6 +24,7 @@ jobs:
         working-directory: ${{runner.workspace}}/HugeCTR
         shell: bash
         run: |
+          git init
           pwd
           ls -alh
           git submodule update --init --recursive
