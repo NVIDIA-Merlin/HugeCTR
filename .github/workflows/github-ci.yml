@@ -30,12 +30,11 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
 
       - name: utest
-        working-directory: ${{runner.workspace}}/HugeCTR
+        working-directory: ${{runner.workspace}}/HugeCTR/build/bin
         shell: bash
         run: |
           pwd
           ls -alh
-          cd /HugeCTR/build/bin
           ./layers_test
           ./embedding_test
 
