@@ -23,7 +23,7 @@ jobs:
       - name: Checkout submodules
         uses: srt32/git-actions@master
         with:
-          args: git submodule update --init --recursive
+          args: cd HugeCTR && git submodule update --init --recursive
     
       - name: Build 
         working-directory: ${{runner.workspace}}
