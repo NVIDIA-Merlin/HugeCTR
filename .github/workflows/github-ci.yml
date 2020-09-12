@@ -19,15 +19,17 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v2
+        with:
+          submodules: true
 
-      - name: Checkout submodules
-        working-directory: ${{runner.workspace}}/HugeCTR
-        shell: bash
-        run: |
-          git init
-          pwd
-          ls -alh
-          git submodule update --init --recursive
+        #- name: Checkout submodules
+        #  working-directory: ${{runner.workspace}}/HugeCTR
+        #  shell: bash
+        #  run: |
+        #    git init
+        #    pwd
+        #    ls -alh
+        #    git submodule update --init --recursive
 
       - name: Build 
         working-directory: ${{runner.workspace}}
