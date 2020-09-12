@@ -30,7 +30,7 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
 
       - name: utest
-        working-directory: ${{runner.workspace}}
+        working-directory: ${{runner.workspace}}/HugeCTR
         shell: bash
         run: |
           pwd
