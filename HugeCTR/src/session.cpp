@@ -77,7 +77,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
 }  // end namespace
 
 template <typename TypeKey>
-SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
+SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config, const std::string configure_file)
     : resource_manager_(ResourceManager::create(solver_config.vvgpu, solver_config.seed)) {
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_config.use_mixed_precision) {
@@ -88,7 +88,7 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config)
     }
   }
 
-  Parser parser(solver_config.configure_file, solver_config.batchsize, solver_config.batchsize_eval,
+  Parser parser(configure_file, solver_config.batchsize, solver_config.batchsize_eval,
                 solver_config.use_mixed_precision, solver_config.scaler,
                 solver_config.use_algorithm_search,
                 solver_config.use_cuda_graph);
@@ -437,12 +437,12 @@ SessionImpl<TypeKey>::~SessionImpl() {
 template class SessionImpl<unsigned int>;
 template class SessionImpl<long long>;
 
-std::shared_ptr<Session> Session::Create(const SolverParser& solver_config) {
+  std::shared_ptr<Session> Session::Create(const SolverParser& solver_config, const std::string configure_file) {
   std::shared_ptr<Session> session;
   if (solver_config.i64_input_key) {
-    session.reset(new SessionImpl<long long>(solver_config));
+    session.reset(new SessionImpl<long long>(solver_config, configure_file));
   } else {
-    session.reset(new SessionImpl<unsigned int>(solver_config));
+    session.reset(new SessionImpl<unsigned int>(solver_config, configure_file));
   }
   return session;
 }

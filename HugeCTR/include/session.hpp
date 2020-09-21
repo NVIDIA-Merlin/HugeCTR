@@ -28,8 +28,7 @@ namespace HugeCTR {
 
 class Session {
  public:
-  static std::shared_ptr<Session> Create(const SolverParser& solver_config);
-
+  static std::shared_ptr<Session> Create(const SolverParser& solver_config, const std::string configure_file);
   virtual void train() = 0;
   virtual void eval() = 0;
   virtual std::vector<std::pair<std::string, float>> get_eval_metrics() = 0;
@@ -105,7 +104,7 @@ class SessionImpl : public Session {
    * generate a dense model and initilize with small random values.
    * @param model_file dense model initilized
    */
-  Error_t init_params(std::string model_file);
+  Error_t init_params(std::string model_file) {return Error_t::Success;};
   /**
    * get the number of parameters (reserved for debug)
    */
@@ -136,8 +135,8 @@ class SessionImpl : public Session {
 
   metrics::Metrics metrics_;
 
-  friend std::shared_ptr<Session> Session::Create(const SolverParser& solver_config);
-  SessionImpl(const SolverParser& solver_config);
+  friend std::shared_ptr<Session> Session::Create(const SolverParser& solver_config, const std::string configure_file);
+  SessionImpl(const SolverParser& solver_config, const std::string configure_file);
 
   /**
    * A method load trained parameters for dense model.
