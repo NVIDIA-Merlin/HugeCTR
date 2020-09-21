@@ -53,7 +53,7 @@ void train(std::string config_file) {
 #endif
 
     const HugeCTR::SolverParser solver_config(config_file);
-    std::shared_ptr<HugeCTR::Session> session_instance = HugeCTR::Session::Create(solver_config);
+    std::shared_ptr<HugeCTR::Session> session_instance = HugeCTR::Session::Create(solver_config, config_file);
     std::unique_ptr<HugeCTR::LearningRateScheduler> lr_sch =
         HugeCTR::get_learning_rate_scheduler(config_file);
 

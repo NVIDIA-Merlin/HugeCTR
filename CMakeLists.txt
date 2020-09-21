@@ -171,6 +171,7 @@ link_directories(
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 
 add_subdirectory(HugeCTR/src)
+add_subdirectory(HugeCTR/pybind)
 add_subdirectory(third_party/googletest)
 add_subdirectory(third_party/json)
 add_subdirectory(test/utest)
