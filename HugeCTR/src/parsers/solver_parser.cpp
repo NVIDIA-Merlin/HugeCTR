@@ -18,7 +18,7 @@
 
 namespace HugeCTR {
 
-SolverParser::SolverParser(const std::string& file) : configure_file(file) {
+SolverParser::SolverParser(const std::string& file) {
   try {
     int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
@@ -28,9 +28,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
 
     /* file read to json */
     nlohmann::json config;
-    std::ifstream file_stream(configure_file);
+    std::ifstream file_stream(file);
     if (!file_stream.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + configure_file);
+      CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + file);
     }
     file_stream >> config;
     file_stream.close();
