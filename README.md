@@ -21,6 +21,7 @@ For more details such as HugeCTR architecture and supported features, please ref
 
 ## Quick Start
 A production docker image of HugeCTR is available in the NVIDIA container repository at the following location: https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
+
 You can pull and launch the container using the following command:
 ```shell
 docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.2.1 bash
