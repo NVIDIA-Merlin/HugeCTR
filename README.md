@@ -19,7 +19,7 @@ whilst enabling the support of the world's most advanced accelerator, NVIDIA A10
 This document describes how to set up the environment and run HugeCTR.
 For more details such as HugeCTR architecture and supported features, please refer to [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and [**Questions and Answers**](docs/QAList.md) in directory `docs/`
 
-## Quick Start
+## Getting Started with NGC
 A production docker image of HugeCTR is available in the NVIDIA container repository at the following location: https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
 
 You can pull and launch the container using the following command:
@@ -28,7 +28,9 @@ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr
 ```
 If you are running on a docker version 19+, change `--runtime=nvidia` to `--gpus all`.
 
-This container is used for production scenarios, so it only contains the necessary executable files for generating a synthetic dataset or training a model. For a complete installation, please refer to the following steps.
+This image contains the executable files only enough for production use cases. For the full installation, please refer to [the quick start section](quick-start).
+
+## Quick Start
 
 ### 1. Download Repository ###
 You can download the HugeCTR repository and the third party modules which it relies upon:
