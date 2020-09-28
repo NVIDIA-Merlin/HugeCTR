@@ -15,14 +15,12 @@
  */
 
 #pragma once
-#include <ctpl/ctpl_stl.h>
 #include <curand.h>
 
 namespace HugeCTR {
 
 class CPUResource {
   curandGenerator_t curand_generator_;
-  std::shared_ptr<ctpl::thread_pool> thread_pool_; /**< cpu thread pool for training */
 
  public:
   CPUResource(unsigned long long seed, size_t thread_num);
@@ -31,6 +29,5 @@ class CPUResource {
   ~CPUResource();
 
   const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
-  const std::shared_ptr<ctpl::thread_pool>& get_thread_pool() { return thread_pool_; }
 };
 }  // namespace HugeCTR

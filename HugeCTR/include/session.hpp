@@ -15,7 +15,6 @@
  */
 
 #pragma once
-#include <ctpl/ctpl_stl.h>
 #include <common.hpp>
 #include <embedding.hpp>
 #include <metrics.hpp>
