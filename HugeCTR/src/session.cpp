@@ -15,6 +15,7 @@
  */
 
 #include <nvToolsExt.h>
+#include <omp.h>
 #include <algorithm>
 #include <embedding.hpp>
 #include <random>
@@ -196,21 +197,6 @@ Error_t Session::init_or_load_params_for_sparse_(
   return Error_t::Success;
 }
 
-void network_train_helper(Network* n, long long current_batchsize) {
-  try {
-    n->train(current_batchsize);
-    n->exchange_wgrad();
-    n->update_params();
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    throw;
-  } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
-    throw;
-  }
-  return;
-}
-
 void Session::train() {
   try {
 #ifndef DATA_READING_TEST
@@ -220,15 +206,14 @@ void Session::train() {
     }
     data_reader_->ready_to_collect();
     if (networks_.size() > 1) {
-      // execute dense forward and backward with multi-cpu threads
-      std::vector<std::future<void>> results(networks_.size());
-      for (unsigned int i = 0; i < networks_.size(); i++) {
-	long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(i);
-        results[i] = resource_manager_->get_local_cpu()->get_thread_pool()->push(
-          [this, i, current_batchsize_per_device](int id) { network_train_helper(networks_[i].get(), current_batchsize_per_device); });
-      }
-      for (unsigned int i = 0; i < networks_.size(); i++) {
-        results[i].get();
+// execute dense forward and backward with multi-cpu threads
+#pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(id);
+        networks_[id]->train(current_batchsize_per_device);
+        networks_[id]->exchange_wgrad();
+        networks_[id]->update_params();
       }
     } else if (networks_.size() == 1) {
       long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(0);
@@ -253,20 +238,6 @@ void Session::train() {
   }
 }
 
-void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
-  try {
-    n->eval();
-
-    for (auto& metric : metrics) {
-      metric->local_reduce(id, n->get_raw_metrics());
-    }
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
-  }
-}
-
 void Session::eval() {
   try {
     if (data_reader_eval_ == nullptr) return;
@@ -281,16 +252,20 @@ void Session::eval() {
     }
 
     if (networks_.size() > 1) {
-      std::vector<std::future<void>> results(networks_.size());
-      for (unsigned int i = 0; i < networks_.size(); i++) {
-        results[i] = resource_manager_->get_local_cpu()->get_thread_pool()->push(
-            [this, i](int id) { network_eval_helper(i, networks_[i].get(), metrics_); });
+#pragma omp parallel num_threads(networks_.size())
+      {
+        size_t id = omp_get_thread_num();
+        networks_[id]->eval();
+        for (auto& metric : metrics_) {
+          metric->local_reduce(id, networks_[id]->get_raw_metrics());
+        }
       }
-      for (unsigned int i = 0; i < networks_.size(); i++) {
-        results[i].get();
-      }
+
     } else if (networks_.size() == 1) {
-      network_eval_helper(0, networks_[0].get(), metrics_);
+      networks_[0]->eval();
+      for (auto& metric : metrics_) {
+        metric->local_reduce(0, networks_[0]->get_raw_metrics());
+      }
     } else {
       assert(!"networks_.size() should not less than 1.");
     }

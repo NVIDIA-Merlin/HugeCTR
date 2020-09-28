@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <omp.h>
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embeddings/embedding.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
@@ -353,24 +354,24 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * updates the hash table by wgrad(from backward()) and optimizer.
    */
   void update_params() override {
-    CudaDeviceContext context;
-    for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
-      context.set_device(Base::get_local_gpu(i).get_device_id());
+#pragma omp parallel num_threads(Base::get_resource_manager().get_local_gpu_count())
+    {
+      size_t id = omp_get_thread_num();
+      CudaDeviceContext context(Base::get_local_gpu(id).get_device_id());
 
-      // accumulate times for adam optimizer
-      Base::get_opt_params(i).hyperparams.adam.times++;
+      Base::get_opt_params(id).hyperparams.adam.times++;
 
       // do update params operation
       functors_.update_params(
-          Base::get_batch_size(true), slot_num_per_gpu_[i], Base::get_embedding_vec_size(),
-          max_vocabulary_size_per_gpu_, Base::get_opt_params(i), *Base::get_nnz_array(true)[i],
-          Base::get_row_offsets_tensors(true)[i], hash_value_index_tensors_[i],
-          sample_id_tensors_[i], sample_id_sort_tensors_[i], hash_value_index_sort_tensors_[i],
-          hash_value_index_count_offset_tensors_[i], new_hash_value_flag_tensors_[i],
-          hash_value_flag_sumed_tensors_[i], hash_value_index_count_counter_tensors_[i],
-          temp_storage_sort_tensors_[i], temp_storage_scan_tensors_[i], wgrad_tensors_[i],
-          deltaw_hash_value_index_tensors_[i], deltaw_tensors_[i], hash_table_value_tensors_[i],
-          Base::get_local_gpu(i).get_sm_count(), Base::get_local_gpu(i).get_stream());
+          Base::get_batch_size(true), slot_num_per_gpu_[id], Base::get_embedding_vec_size(),
+          max_vocabulary_size_per_gpu_, Base::get_opt_params(id), *Base::get_nnz_array(true)[id],
+          Base::get_row_offsets_tensors(true)[id], hash_value_index_tensors_[id],
+          sample_id_tensors_[id], sample_id_sort_tensors_[id], hash_value_index_sort_tensors_[id],
+          hash_value_index_count_offset_tensors_[id], new_hash_value_flag_tensors_[id],
+          hash_value_flag_sumed_tensors_[id], hash_value_index_count_counter_tensors_[id],
+          temp_storage_sort_tensors_[id], temp_storage_scan_tensors_[id], wgrad_tensors_[id],
+          deltaw_hash_value_index_tensors_[id], deltaw_tensors_[id], hash_table_value_tensors_[id],
+          Base::get_local_gpu(id).get_sm_count(), Base::get_local_gpu(id).get_stream());
     }
   }
 
