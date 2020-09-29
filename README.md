@@ -322,4 +322,9 @@ Within project `home` directory
 $ doxygen
 ```
 
+## Contributing ##
+Merlin HugeCTR is an industry oriented framework and we are keen on making sure that it satisfies your needs and that it provides an overall pleasant experience.
+If you face any problem or have any question, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can discuss it together.
+We would also be grateful if you have any suggestions or feature requests to enrich HugeCTR. 
+To further advance the Merlin/HugeCTR Roadmap, we would like to invite you to share the gist of your recommender system pipeline via [this survey](https://developer.nvidia.com/merlin-devzone-survey)
 
