@@ -103,10 +103,10 @@ The other sample models and their end-to-end instructions are available [here](#
 ## Supported Compute Capabilities ##
 |Compute Compatibility|GPU|
 |----|----|
-|60|NVIDIA P100 (Pascal)|
-|70|NVIDIA V100 (Volta)|
-|75|NVIDIA T4 (Turing)|
-|80|NVIDIA A100 (Ampere)|
+|6.0|NVIDIA P100 (Pascal)|
+|7.0|NVIDIA V100 (Volta)|
+|7.5|NVIDIA T4 (Turing)|
+|8.0|NVIDIA A100 (Ampere)|
 
 ## Build Options ##
 ### Use Docker Container ###
