@@ -98,7 +98,6 @@ which is `slot_size_array` and HugeCTR will calculate the `max_vocabulary_size_p
 GPU with nvlink is not required, but recommended because the performance of CTR training highly relies on the performance of inter-GPUs communication. GPU servers with PCIE connections are also supported.
 ### 27. Is DGX the only GPU server that is required in HugeCTR? ###
 DGX is not required, but recommended, because the performance of CTR training highly relies on the performance of inter-GPUs transactions. DGX has NVLink and NVSwitch inside, so that you can expect 150GB/s per direction per GPU. It’s 9.3x to PCI-E 3.0.
-### 28. Can HugeCTR run without InfiniBand? ###
-For multi-node training, InfiniBand is recommended but not required. You can use any solution with UCX support. InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.
+
 
 
