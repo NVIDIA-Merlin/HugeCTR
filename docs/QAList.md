@@ -16,7 +16,7 @@ Yes. HugeCTR supports single-GPU, multi-GPU and multi-node training. Check out s
 ### 5. How to deal with the huge embedding table that cannot be stored in a single GPU memory? ###
 Embedding table in HugeCTR is model-parallel stored across GPUs and nodes.  So if you have a very large embedding table, just use as many GPUs as you need to store it. That’s why we have the name “HugeCTR”. Suppose you have 1TB embedding table and 16xV100-32GB in a GPU server node, you can take 2 nodes for such a case. 
 ### 6. Which GPUs are supported in HugeCTR? ###
-HugeCTR supports GPUs with Compute Compatibility > 7.0 such as V100, T4 and A100.
+HugeCTR supports GPUs with Compute Compatibility >= 6.0 such as P100, V100, T4 and A100.
 ### 7. Must we use the DGX family such as DGX A100 to run HugeCTR? ###
 A DGX machine is not mandatory but recommended to achieve the best performance by exploiting NVSwitch's high inter-GPU bandwidth. 
 ### 8. Can HugeCTR run without InfiniBand?###
