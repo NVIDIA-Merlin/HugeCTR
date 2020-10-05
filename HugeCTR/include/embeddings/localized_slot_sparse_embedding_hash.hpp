@@ -43,18 +43,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   using Base = Embedding<TypeHashKey, TypeEmbeddingComp>;
 
   using NvHashTable = HashTable<TypeHashKey, size_t>;
-
-#ifndef NCCL_A2A
-#ifndef ENABLE_MPI
-  using comm_handler_traits = FasterGossipComm::FasterGossipCommAll2AllTraits<TypeEmbeddingComp>;
-  using comm_handler = FasterGossipComm::FasterGossipComm<TypeEmbeddingComp, comm_handler_traits>;
-#else
-  using comm_handler_traits =
-      FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<TypeEmbeddingComp>;
-  using comm_handler =
-      FasterGossipCommMulti::FasterGossipCommMulti<TypeEmbeddingComp, comm_handler_traits>;
-#endif
-#endif
+  using comm_handler = GossipComm::FasterComm;
 
  private:
   std::vector<std::shared_ptr<NvHashTable>> hash_tables_; /**< Hash table.  */
@@ -283,7 +272,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 #else
     // sync: guarantee the data is ready for all2all
     functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec(all2all_forward_);
+    functors_.all2all_exec(*all2all_forward_);
 #endif
 
     // reorder
@@ -347,7 +336,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 #else
     // sync: guarantee the data is ready for all2all
     functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec<TypeEmbeddingComp>(all2all_backward_);
+    functors_.all2all_exec(*all2all_backward_);
 #endif
 
     // do backward
@@ -529,7 +518,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 #else
     // sync: guarantee the data is ready for all2all
     functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec<TypeEmbeddingComp>(all2all_utest_);
+    functors_.all2all_exec(*all2all_utest_);
 #endif
 
     // reorder

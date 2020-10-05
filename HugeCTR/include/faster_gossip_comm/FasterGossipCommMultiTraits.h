@@ -7,22 +7,25 @@
  * is strictly prohibited.
  */
 
-
 #pragma once
 
 #include "FasterGossipComm.h"
+#include "FasterGossipCommMulti.h"
+#include "FasterGossipCommTraits.h"
 
-namespace FasterGossipCommMulti{
+namespace HugeCTR {
+namespace GossipComm {
 
 // Traits for All2All multi-node communication using GOSSIP library
-template<typename data_t_>
-class FasterGossipCommMultiAll2AllTraits{
-public:
-    using FasterGossipCommTrait = FasterGossipComm::FasterGossipCommAll2AllTraits<data_t_>;
-    using FasterGossipComm = FasterGossipComm::FasterGossipComm<data_t_, FasterGossipCommTrait>;
-    using gpu_id_t = gossip::gpu_id_t;
-    using transfer_plan_t = gossip::transfer_plan_t;
+template <typename data_t_>
+class FasterGossipCommMultiAll2AllTraits {
+ public:
+  using FasterGossipCommTrait = FasterGossipCommAll2AllTraits<data_t_>;
+  using FasterGossipComm = FasterGossipComm<data_t_>;
+  using gpu_id_t = gossip::gpu_id_t;
+  using transfer_plan_t = gossip::transfer_plan_t;
 
-}; // class
+};  // class
 
-}// namespace
+}  // namespace
+}
