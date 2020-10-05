@@ -19,45 +19,12 @@
 namespace HugeCTR {
 
 #ifndef NCCL_A2A
-#ifdef ENABLE_MPI
 
-template <typename Type>
-void SparseEmbeddingFunctors::all2all_exec(
-    const std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-        Type, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>>> &all2all) {
-  all2all->exec();
+void SparseEmbeddingFunctors::all2all_exec(GossipComm::FasterComm &all2all) {
+  all2all.exec();
   return;
 }
 
-template void SparseEmbeddingFunctors::all2all_exec<float>(
-    const std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-        float, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<float>>> &all2all);
-
-template void SparseEmbeddingFunctors::all2all_exec<__half>(
-    const std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-        __half, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<__half>>> &all2all);
-
-#else
-
-template <typename Type>
-void SparseEmbeddingFunctors::all2all_exec(
-    const std::unique_ptr<FasterGossipComm::FasterGossipComm<
-        Type, FasterGossipComm::FasterGossipCommAll2AllTraits<Type>>> &all2all) {
-  all2all->execAsync();
-  all2all->sync();
-
-  return;
-}
-
-template void SparseEmbeddingFunctors::all2all_exec<float>(
-    const std::unique_ptr<FasterGossipComm::FasterGossipComm<
-        float, FasterGossipComm::FasterGossipCommAll2AllTraits<float>>> &all2all);
-
-template void SparseEmbeddingFunctors::all2all_exec<__half>(
-    const std::unique_ptr<FasterGossipComm::FasterGossipComm<
-        __half, FasterGossipComm::FasterGossipCommAll2AllTraits<__half>>> &all2all);
-
-#endif
 #endif
 
 }  // namespace HugeCTR
