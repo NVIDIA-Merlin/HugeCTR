@@ -360,31 +360,31 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 #ifndef NCCL_A2A
 // all2all init
 #ifndef ENABLE_MPI  // without MPI
-    functors_.all2all_init_forward<TypeEmbeddingComp>(
-        all2all_forward_, plan_file_, Base::get_batch_size_per_gpu(), slot_num_per_gpu_,
-        Base::get_embedding_vec_size(), embedding_feature_tensors_, all2all_tensors_,
-        Base::get_resource_manager());
-    functors_.all2all_init_backward<TypeEmbeddingComp>(
-        all2all_backward_, plan_file_, Base::get_batch_size_per_gpu(), slot_num_per_gpu_,
-        Base::get_embedding_vec_size(), all2all_tensors_, embedding_feature_tensors_,
-        Base::get_resource_manager());
-    functors_.all2all_init_forward<TypeEmbeddingComp>(
-        all2all_utest_, plan_file_, Base::get_batch_size_per_gpu(), slot_num_per_gpu_,
-        Base::get_embedding_vec_size(), wgrad_tensors_, utest_all2all_tensors_,
-        Base::get_resource_manager());
+    functors_.all2all_init_forward(all2all_forward_, plan_file_, Base::get_batch_size_per_gpu(true),
+                                   slot_num_per_gpu_, Base::get_embedding_vec_size(),
+                                   embedding_feature_tensors_, all2all_tensors_,
+                                   Base::get_resource_manager());
+    functors_.all2all_init_backward(all2all_backward_, plan_file_,
+                                    Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
+                                    Base::get_embedding_vec_size(), all2all_tensors_,
+                                    embedding_feature_tensors_, Base::get_resource_manager());
+    functors_.all2all_init_forward(all2all_utest_, plan_file_, Base::get_batch_size_per_gpu(true),
+                                   slot_num_per_gpu_, Base::get_embedding_vec_size(),
+                                   wgrad_tensors_, utest_all2all_tensors_,
+                                   Base::get_resource_manager());
 #else
-    functors_.all2all_init_forward<TypeEmbeddingComp>(
-        all2all_forward_, plan_file_, Base::get_batch_size_per_gpu(), Base::get_slot_num(),
-        Base::get_embedding_vec_size(), embedding_feature_tensors_, all2all_tensors_,
-        Base::get_resource_manager());
-    functors_.all2all_init_backward<TypeEmbeddingComp>(
-        all2all_backward_, plan_file_, Base::get_batch_size_per_gpu(), Base::get_slot_num(),
-        Base::get_embedding_vec_size(), all2all_tensors_, embedding_feature_tensors_,
-        Base::get_resource_manager());
-    functors_.all2all_init_forward<TypeEmbeddingComp>(
-        all2all_utest_, plan_file_, Base::get_batch_size_per_gpu(), Base::get_slot_num(),
-        Base::get_embedding_vec_size(), wgrad_tensors_, utest_all2all_tensors_,
-        Base::get_resource_manager());
+    functors_.all2all_init_forward(all2all_forward_, plan_file_, Base::get_batch_size_per_gpu(true),
+                                   Base::get_slot_num(), Base::get_embedding_vec_size(),
+                                   embedding_feature_tensors_, all2all_tensors_,
+                                   Base::get_resource_manager());
+    functors_.all2all_init_backward(all2all_backward_, plan_file_,
+                                    Base::get_batch_size_per_gpu(true), Base::get_slot_num(),
+                                    Base::get_embedding_vec_size(), all2all_tensors_,
+                                    embedding_feature_tensors_, Base::get_resource_manager());
+    functors_.all2all_init_forward(all2all_utest_, plan_file_, Base::get_batch_size_per_gpu(true),
+                                   Base::get_slot_num(), Base::get_embedding_vec_size(),
+                                   wgrad_tensors_, utest_all2all_tensors_,
+                                   Base::get_resource_manager());
 #endif
 
 #endif
@@ -969,8 +969,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::init_embe
   size_t total_gpu_count = Base::get_resource_manager().get_global_gpu_count();
 
 #ifndef NDEBUG
-  MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) +
-           ", total_gpu_count=" + std::to_string(total_gpu_count));
+  MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) + ", total_gpu_count=" +
+           std::to_string(total_gpu_count));
 #endif
 
   for (size_t id = 0; id < local_gpu_count; id++) {
