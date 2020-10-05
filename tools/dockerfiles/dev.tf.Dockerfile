@@ -5,16 +5,19 @@ ARG SM="60;61;70;75"
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
-        git \
         vim \
         wget \
         make \
+        software-properties-common \
         python3-pip \
         python3-setuptools \
         python3-wheel \
         lsb-release \
         libboost-all-dev \
         zlib1g-dev && \
+    add-apt-repository ppa:git-core/ppa -y && \
+    apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git && \
     rm -rf /var/lib/apt/lists/*
 
 # CMake version 3.14.3
@@ -46,12 +49,23 @@ ENV CPATH=/usr/local/ucx/include:$CPATH \
     LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH \
     PATH=/usr/local/ucx/bin:$PATH
 
+# hwloc version v2.2.0
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://download.open-mpi.org/release/hwloc/v2.2/hwloc-2.2.0.tar.gz && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/hwloc-2.2.0.tar.gz -C /var/tmp -z && \
+    cd /var/tmp/hwloc-2.2.0 && ./configure --prefix=/usr/local/hwloc && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    rm -rf /var/tmp/hwloc-2.2.0 /var/tmp/hwloc-2.2.0.tar.gz
+ENV CPATH=/usr/local/hwloc/include:$CPATH \
+    LD_LIBRARY_PATH=/usr/local/hwloc/lib:$LD_LIBRARY_PATH \
+    LIBRARY_PATH=/usr/local/hwloc/lib:$LIBRARY_PATH \
+    PATH=/usr/local/hwloc/bin:$PATH
+
 # OpenMPI version 4.0.3
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         bzip2 \
         file \
-        hwloc \
         libnuma-dev \
         openssh-client \
         perl \

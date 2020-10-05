@@ -16,19 +16,10 @@
 
 #pragma once
 #include "HugeCTR/include/embedding.hpp"
+#include "HugeCTR/include/faster_gossip_comm/FasterComm.h"
+#include "HugeCTR/include/hashtable/nv_hashtable.hpp"
 #include "HugeCTR/include/resource_manager.hpp"
 #include "HugeCTR/include/tensor2.hpp"
-#ifndef NCCL_A2A
-#ifdef ENABLE_MPI
-#include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/FasterGossipCommMulti.h"
-#else
-#include "HugeCTR/include/faster_gossip_comm/FasterGossipComm/FasterGossipComm.h"
-#endif
-#endif
-#ifdef ENABLE_MPI
-#include <mpi.h>
-#endif
-#include "HugeCTR/include/hashtable/nv_hashtable.hpp"
 
 namespace HugeCTR {
 
@@ -431,12 +422,11 @@ class SparseEmbeddingFunctors {
    * @param device_resources all gpus device resources.
    */
   template <typename Type>
-  void all2all_init_forward(
-      std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-          Type, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>>> &all2all,
-      const std::string &plan_file, size_t batch_size_per_gpu, size_t slot_num,
-      size_t embedding_vec_size, const TensorPtrs<Type> &send_tensors,
-      TensorPtrs<Type> &recv_tensors, const ResourceManager &resource_manager);
+  void all2all_init_forward(std::unique_ptr<GossipComm::FasterComm> &all2all,
+                            const std::string &plan_file, size_t batch_size_per_gpu,
+                            size_t slot_num, size_t embedding_vec_size,
+                            Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
+                            const ResourceManager &resource_manager);
 
   /**
    * the initialization of collection communication: all2all
@@ -450,21 +440,17 @@ class SparseEmbeddingFunctors {
    * @param device_resources all gpus device resources.
    */
   template <typename Type>
-  void all2all_init_backward(
-      std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-          Type, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>>> &all2all,
-      const std::string &plan_file, size_t batch_size_per_gpu, size_t slot_num,
-      size_t embedding_vec_size, const TensorPtrs<Type> &send_tensors,
-      TensorPtrs<Type> &recv_tensors, const ResourceManager &resource_manager);
+  void all2all_init_backward(std::unique_ptr<GossipComm::FasterComm> &all2all,
+                             const std::string &plan_file, size_t batch_size_per_gpu,
+                             size_t slot_num, size_t embedding_vec_size,
+                             Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
+                             const ResourceManager &resource_manager);
 
   /**
    * collection communication: all2all
    * @param all2all all2all handler
    */
-  template <typename Type>
-  void all2all_exec(
-      const std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-          Type, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>>> &all2all);
+  void all2all_exec(GossipComm::FasterComm &all2all);
 #else
   /**
    * the initialization of collection communication: all2all
@@ -478,13 +464,11 @@ class SparseEmbeddingFunctors {
    * @param device_resources all gpus device resources.
    */
   template <typename Type>
-  void all2all_init_forward(
-      std::unique_ptr<FasterGossipComm::FasterGossipComm<
-          Type, FasterGossipComm::FasterGossipCommAll2AllTraits<Type>>> &all2all,
-      const std::string &plan_file, size_t batch_size_per_gpu,
-      const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
-      const TensorPtrs<Type> &send_tensors, const TensorPtrs<Type> &recv_tensors,
-      const ResourceManager &resource_manager);
+  void all2all_init_forward(std::unique_ptr<GossipComm::FasterComm> &all2all,
+                            const std::string &plan_file, size_t batch_size_per_gpu,
+                            const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
+                            Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
+                            const ResourceManager &resource_manager);
 
   /**
    * the initialization of collection communication: all2all
@@ -498,21 +482,17 @@ class SparseEmbeddingFunctors {
    * @param device_resources all gpus device resources.
    */
   template <typename Type>
-  void all2all_init_backward(
-      std::unique_ptr<FasterGossipComm::FasterGossipComm<
-          Type, FasterGossipComm::FasterGossipCommAll2AllTraits<Type>>> &all2all,
-      const std::string &plan_file, size_t batch_size_per_gpu,
-      const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
-      const TensorPtrs<Type> &send_tensors, const TensorPtrs<Type> &recv_tensors,
-      const ResourceManager &resource_manager);
+  void all2all_init_backward(std::unique_ptr<GossipComm::FasterComm> &all2all,
+                             const std::string &plan_file, size_t batch_size_per_gpu,
+                             const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
+                             Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
+                             const ResourceManager &resource_manager);
 
   /**
    * collection communication: all2all
    * @param all2all all2all handler
    */
-  template <typename Type>
-  void all2all_exec(const std::unique_ptr<FasterGossipComm::FasterGossipComm<
-                        Type, FasterGossipComm::FasterGossipCommAll2AllTraits<Type>>> &all2all);
+  void all2all_exec(GossipComm::FasterComm &all2all);
 #endif
 #endif
 

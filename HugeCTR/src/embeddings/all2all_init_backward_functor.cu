@@ -15,6 +15,13 @@
  */
 
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#ifndef NCCL_A2A
+#ifndef ENABLE_MPI
+#include "HugeCTR/include/faster_gossip_comm/FasterGossipComm.h"
+#else
+#include "HugeCTR/include/faster_gossip_comm/FasterGossipCommMulti.h"
+#endif
+#endif
 
 namespace HugeCTR {
 
@@ -23,13 +30,12 @@ namespace HugeCTR {
 
 template <typename Type>
 void SparseEmbeddingFunctors::all2all_init_backward(
-    std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-        Type, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>>> &all2all,
-    const std::string &plan_file, size_t batch_size_per_gpu, size_t slot_num,
-    size_t embedding_vec_size, const TensorPtrs<Type> &send_tensors, TensorPtrs<Type> &recv_tensors,
+    std::unique_ptr<GossipComm::FasterComm> &all2all, const std::string &plan_file,
+    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
+    Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
     const ResourceManager &resource_manager) {
   using transfer_plan_t =
-      typename FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>::transfer_plan_t;
+      typename GossipComm::FasterGossipCommMultiAll2AllTraits<Type>::transfer_plan_t;
   transfer_plan_t *transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
   size_t plan_gpu_count = transfer_plan->num_gpus();  // total number of GPUs in current node
   std::vector<int> device_list = resource_manager.get_local_gpu_device_id_list();
@@ -45,10 +51,6 @@ void SparseEmbeddingFunctors::all2all_init_backward(
   int my_rank = 0;
   CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
   CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
-  size_t num_proc = device_resources->get_node_count();
-  if (num_proc != total_rank) {
-    CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
-  }
   if (total_gpu_count != (total_rank * local_gpu_count)) {
     CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
   }
@@ -68,17 +70,14 @@ void SparseEmbeddingFunctors::all2all_init_backward(
 #endif
 
   // The all2all communication class
-  all2all = std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-      Type, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>>>(
-      new FasterGossipCommMulti::FasterGossipCommMulti<
-          Type, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<Type>>(
-          plan_file, device_ids, num_proc, my_rank, MPI_COMM_WORLD));
+  auto faster_gossip_comm = new GossipComm::FasterGossipCommMulti<Type>(
+      plan_file, device_ids, total_rank, my_rank, MPI_COMM_WORLD);
 
   std::vector<Type *> src(local_gpu_count);
   std::vector<Type *> dst(local_gpu_count);
   for (size_t id = 0; id < local_gpu_count; id++) {
-    src[id] = send_tensors[id]->get_ptr();
-    dst[id] = recv_tensors[id]->get_ptr();
+    src[id] = send_tensors[id].get_ptr();
+    dst[id] = recv_tensors[id].get_ptr();
   }
 
   std::vector<std::vector<size_t>> send_table(local_gpu_count,
@@ -88,8 +87,7 @@ void SparseEmbeddingFunctors::all2all_init_backward(
 
   // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
   for (size_t i = 0; i < local_gpu_count; i++) {
-    size_t device_id = (*device_resources)[i].get_device_id();
-    size_t global_id = device_resources->get_global_id(device_id);
+    size_t global_id = resource_manager.get_local_gpu(i)->get_global_gpu_id();
     size_t slot_num_per_gpu =
         slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
     size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
@@ -131,42 +129,38 @@ void SparseEmbeddingFunctors::all2all_init_backward(
   std::cout << std::endl;
 #endif
 
-  all2all->Initialize(src, dst, send_table, recv_table);
+  faster_gossip_comm->Initialize(src, dst, send_table, recv_table);
+  all2all.reset(faster_gossip_comm);
 
   return;
 }
 
 template void SparseEmbeddingFunctors::all2all_init_backward<float>(
-    std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-        float, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<float>>> &all2all,
-    const std::string &plan_file, size_t batch_size_per_gpu, size_t slot_num,
-    size_t embedding_vec_size, const TensorPtrs<float> &send_tensors,
-    TensorPtrs<float> &recv_tensors, const ResourceManager &resource_manager);
+    std::unique_ptr<GossipComm::FasterComm> &all2all, const std::string &plan_file,
+    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
+    Tensors2<float> &send_tensors, Tensors2<float> &recv_tensors,
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::all2all_init_backward<__half>(
-    std::unique_ptr<FasterGossipCommMulti::FasterGossipCommMulti<
-        __half, FasterGossipCommMulti::FasterGossipCommMultiAll2AllTraits<__half>>> &all2all,
-    const std::string &plan_file, size_t batch_size_per_gpu, size_t slot_num,
-    size_t embedding_vec_size, const TensorPtrs<__half> &send_tensors,
-    TensorPtrs<__half> &recv_tensors, const ResourceManager &resource_manager);
+    std::unique_ptr<GossipComm::FasterComm> &all2all, const std::string &plan_file,
+    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
+    Tensors2<__half> &send_tensors, Tensors2<__half> &recv_tensors,
+    const ResourceManager &resource_manager);
 
 #else
 
 template <typename Type>
 void SparseEmbeddingFunctors::all2all_init_backward(
-    std::unique_ptr<FasterGossipComm::FasterGossipComm<
-        Type, FasterGossipComm::FasterGossipCommAll2AllTraits<Type>>> &all2all,
-    const std::string &plan_file, size_t batch_size_per_gpu,
-    const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
-    const TensorPtrs<Type> &send_tensors, const TensorPtrs<Type> &recv_tensors,
+    std::unique_ptr<GossipComm::FasterComm> &all2all, const std::string &plan_file,
+    size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
+    size_t embedding_vec_size, Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
     const ResourceManager &resource_manager) {
-  using transfer_plan_t =
-      typename FasterGossipComm::FasterGossipCommAll2AllTraits<Type>::transfer_plan_t;
+  using transfer_plan_t = typename GossipComm::FasterGossipCommAll2AllTraits<Type>::transfer_plan_t;
   transfer_plan_t *transfer_plan = new transfer_plan_t(parse_plan(plan_file.c_str()));
   size_t plan_gpu_count = transfer_plan->num_gpus();  // total number of GPUs in current node
 
-  std::vector<int> device_list = device_resources.get_local_gpu_device_id_list();
-  size_t local_gpu_count = device_resources.get_local_gpu_count();
+  std::vector<int> device_list = resource_manager.get_local_gpu_device_id_list();
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
   if (local_gpu_count != plan_gpu_count) {
     std::cout << "local_gpu_count=" << local_gpu_count << ", plan_gpu_count=" << plan_gpu_count
               << std::endl;
@@ -181,18 +175,15 @@ void SparseEmbeddingFunctors::all2all_init_backward(
   std::cout << "}" << std::endl;
 #endif
 
-  all2all = std::unique_ptr<FasterGossipComm::FasterGossipComm<
-      Type, FasterGossipComm::FasterGossipCommAll2AllTraits<Type>>>(
-      new FasterGossipComm::FasterGossipComm<Type,
-                                             FasterGossipComm::FasterGossipCommAll2AllTraits<Type>>(
-          plan_file, device_ids));
+  auto faster_gossip_comm = new GossipComm::FasterGossipComm<Type>(plan_file, device_ids);
+
   // The all2all communication class
 
   std::vector<Type *> src(local_gpu_count);
   std::vector<Type *> dst(local_gpu_count);
   for (size_t id = 0; id < local_gpu_count; id++) {
-    src[id] = send_tensors[id]->get_ptr();
-    dst[id] = recv_tensors[id]->get_ptr();
+    src[id] = send_tensors[id].get_ptr();
+    dst[id] = recv_tensors[id].get_ptr();
   }
 
   // Fill in partition table, ith Topo GPU to jth Topo GPU
@@ -215,25 +206,22 @@ void SparseEmbeddingFunctors::all2all_init_backward(
   std::cout << std::endl;
 #endif
 
-  all2all->Initialize(src, dst, table);
+  faster_gossip_comm->Initialize(src, dst, table);
+  all2all.reset(faster_gossip_comm);
 
   return;
 }
 
 template void SparseEmbeddingFunctors::all2all_init_backward<float>(
-    std::unique_ptr<FasterGossipComm::FasterGossipComm<
-        float, FasterGossipComm::FasterGossipCommAll2AllTraits<float>>> &all2all,
-    const std::string &plan_file, size_t batch_size_per_gpu,
-    const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
-    const TensorPtrs<float> &send_tensors, const TensorPtrs<float> &recv_tensors,
+    std::unique_ptr<GossipComm::FasterComm> &all2all, const std::string &plan_file,
+    size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
+    size_t embedding_vec_size, Tensors2<float> &send_tensors, Tensors2<float> &recv_tensors,
     const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::all2all_init_backward<__half>(
-    std::unique_ptr<FasterGossipComm::FasterGossipComm<
-        __half, FasterGossipComm::FasterGossipCommAll2AllTraits<__half>>> &all2all,
-    const std::string &plan_file, size_t batch_size_per_gpu,
-    const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
-    const TensorPtrs<__half> &send_tensors, const TensorPtrs<__half> &recv_tensors,
+    std::unique_ptr<GossipComm::FasterComm> &all2all, const std::string &plan_file,
+    size_t batch_size_per_gpu, const std::vector<size_t> &slot_num_per_gpu,
+    size_t embedding_vec_size, Tensors2<__half> &send_tensors, Tensors2<__half> &recv_tensors,
     const ResourceManager &resource_manager);
 
 #endif
