@@ -9,19 +9,15 @@
 
 #pragma once
 
-namespace FasterComm{
+namespace HugeCTR {
+namespace GossipComm {
 
 /* General Communication library interface */
 
-class FasterComm{
-public:
-
-    virtual void execAsync() = 0;
-
-    virtual void sync() = 0;
-
-    virtual ~FasterComm(){}
-
+class FasterComm {
+ public:
+  virtual void exec() = 0;
+  virtual ~FasterComm() = default;
 };
-
+}
 }
