@@ -7,7 +7,7 @@ env:
   BUILD_TYPE: Release
 
 jobs:
-  Single node tests:
+  Single_node_tests:
     runs-on: self-hosted
 
     container:
@@ -91,7 +91,7 @@ jobs:
           $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_8gpu.json
 
   jobs:
-    name: Multi-node tests with NCCL
+    name: Multi-node_tests_with_NCCL
     runs-on: self-hosted
     
     container:
