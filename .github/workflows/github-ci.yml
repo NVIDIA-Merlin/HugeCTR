@@ -26,7 +26,7 @@ jobs:
       - name: Build
         working-directory: ${{runner.workspace}}/HugeCTR
         run: |
-          git submodule update --init --recursive
+          git init && git submodule update --init --recursive
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
 
