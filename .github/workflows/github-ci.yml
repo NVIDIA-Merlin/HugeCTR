@@ -131,30 +131,30 @@ jobs:
           mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_4node_2gpu.json
           mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp32_4node_2gpu.json
 
-          #  jobs:
-          #    name: Multi_node_tests_with_Gossip
-          #    runs-on: self-hosted
-          #    
-          #    container:
-          #      image: xiaoleishi/hugectr:v1.1
-          #      volumes:
-          #        - /raid/hugectr/criteo_kaggle:/dataset
-          #    
-          #    steps:
-          #      - name: Check out repository code
-          #        uses: actions/checkout@v2
-          #        with:
-          #          submodules: true
-          #
-          #      - name: Build
-          #        working-directory: ${{runner.workspace}}/HugeCTR
-          #        run: |
-          #          mkdir build && cd build
-          #          cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=70 ..
-          #          make -j
-          #
-          #      - name: criteo 
-          #        shell: bash
-          #        run: |
-          #          WORK_PATH=$(pwd) && cd /dataset/criteo
-          #          mpirun --allow-run-as-root -np 2 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_2node_4gpu.json
+  jobs:
+    name: Multi_node_tests_with_Gossip
+    runs-on: self-hosted
+    
+    container:
+      image: xiaoleishi/hugectr:v1.1
+      volumes:
+        - /raid/hugectr/criteo_kaggle:/dataset
+    
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build
+        working-directory: ${{runner.workspace}}/HugeCTR
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=70 ..
+          make -j
+
+      - name: criteo
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/criteo
+          mpirun --allow-run-as-root -np 2 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_2node_4gpu.json
