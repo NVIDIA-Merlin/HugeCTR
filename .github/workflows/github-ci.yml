@@ -46,8 +46,8 @@ jobs:
       - name: Criteo
         shell: bash
         run: |
-          pwd
-          cd build/bin && BIN_PATH=$(pwd) && cd /dataset/criteo_kaggle/criteo
+          pwd && ls
+          cd build/bin && BIN_PATH=$(pwd) && cd /dataset/criteo
 
           #  jobs:
           #    name: multi_node_test
