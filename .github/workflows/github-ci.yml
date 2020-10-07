@@ -26,21 +26,22 @@ jobs:
         run: |
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
+
       - name: Unit test
         working-directory: ${{runner.workspace}}/HugeCTR/build/bin
         shell: bash
         run: |
           ./checker_test
 
-jobs:
-  multi_node_test:
+  jobs:
+    name: multi_node_test
     runs-on: self-hosted
-
+    
     container:
       image: xiaoleishi/hugectr:v1.1
       volumes:
         - /raid/hugectr/criteo_kaggle:/dataset
-
+    
     steps:
       - name: Check out repository code
         uses: actions/checkout@v2
@@ -53,9 +54,11 @@ jobs:
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=70 ..
           make -j
+
       - name: Test multiple nodes
         shell: bash
         run: |
           cd build/bin && BIN_PATH=$(pwd) && cd /dataset
           mpirun --allow-run-as-root -np 1 $BIN_PATH/loss_test
           mpirun --allow-run-as-root -np 1 $BIN_PATH/layers_test
+
