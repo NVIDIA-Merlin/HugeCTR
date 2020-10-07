@@ -43,7 +43,7 @@ jobs:
           #          ./parser_test
           #          ./session_test
 
-      - name: Criteo
+      - name: criteo
         shell: bash
         run: |
           WORK_PATH=$(pwd) && cd /dataset/criteo
@@ -55,6 +55,40 @@ jobs:
           cd /dataset/criteo_parquet_multi_slots
           $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_parquet_multi_slots_1gpu.json
 
+      - name: dcn
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/dcn
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_8gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_localized_embedding_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_localized_embedding_8gpu.json
+          cd /dataset/dcn_parquet
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_distributed_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_distributed_8gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_localized_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_localized_8gpu.json
+
+      - name: wdl_deepfm
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/wdl
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_8gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_fp16_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_fp16_8gpu.json
+          cd /dataset/deepfm
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/deepfm_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/deepfm_8gpu.json
+
+      - name: dlrm
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/dcn
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_8gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_8gpu.json
 
           #  jobs:
           #    name: multi_node_test
