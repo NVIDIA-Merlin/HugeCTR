@@ -11,7 +11,7 @@ jobs:
     runs-on: self-hosted
 
     container:
-      image: xiaoleishi/hugectr:v1.1
+      image: xiaoleishi/hugectr:v1.2
       volumes:
         - /raid/hugectr/criteo_kaggle:/dataset
 
@@ -32,33 +32,49 @@ jobs:
         shell: bash
         run: |
           ./checker_test
+          #          ./layers_test
+          #          ./embedding_test
+          #          ./data_reader_test
+          #          ./device_map_test
+          #          ./heap_test
+          #          ./loss_test
+          #          ./optimizer_test
+          #          ./regularizers_test
+          #          ./parser_test
+          #          ./session_test
 
-  jobs:
-    name: multi_node_test
-    runs-on: self-hosted
-    
-    container:
-      image: xiaoleishi/hugectr:v1.1
-      volumes:
-        - /raid/hugectr/criteo_kaggle:/dataset
-    
-    steps:
-      - name: Check out repository code
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - name: Build
-        working-directory: ${{runner.workspace}}/HugeCTR
-        run: |
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=70 ..
-          make -j
-
-      - name: Test multiple nodes
+      - name: Criteo
         shell: bash
         run: |
-          cd build/bin && BIN_PATH=$(pwd) && cd /dataset
-          mpirun --allow-run-as-root -np 1 $BIN_PATH/loss_test
-          mpirun --allow-run-as-root -np 1 $BIN_PATH/layers_test
+          pwd
+          cd build/bin && BIN_PATH=$(pwd) && cd /dataset/criteo_kaggle/criteo
 
+          #  jobs:
+          #    name: multi_node_test
+          #    runs-on: self-hosted
+          #    
+          #    container:
+          #      image: xiaoleishi/hugectr:v1.1
+          #      volumes:
+          #        - /raid/hugectr/criteo_kaggle:/dataset
+          #    
+          #    steps:
+          #      - name: Check out repository code
+          #        uses: actions/checkout@v2
+          #        with:
+          #          submodules: true
+          #
+          #      - name: Build
+          #        working-directory: ${{runner.workspace}}/HugeCTR
+          #        run: |
+          #          mkdir build && cd build
+          #          cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=70 ..
+          #          make -j
+          #
+          #      - name: Test multiple nodes
+          #        shell: bash
+          #        run: |
+          #          cd build/bin && BIN_PATH=$(pwd) && cd /dataset
+          #          mpirun --allow-run-as-root -np 1 $BIN_PATH/loss_test
+          #          mpirun --allow-run-as-root -np 1 $BIN_PATH/layers_test
+          #
