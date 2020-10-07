@@ -101,7 +101,7 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15
 
 # https://github.com/rapidsai/cudf.git
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15 https://github.com/rapidsai/cudf.git cudf && cd - && \
-    git clone --depth=1 --branch master https://github.com/dmlc/dlpack.git /var/tmp/dlpack && \
+    git clone --depth=1 --branch main https://github.com/dmlc/dlpack.git /var/tmp/dlpack && \
     cd /var/tmp/cudf/cpp && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS=$SM \
