@@ -16,16 +16,17 @@ jobs:
         - /raid/hugectr/criteo_kaggle:/dataset
 
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v2
-        with:
-          repository: NVIDIA/HugeCTR
-          token: ${{ github.token }}
-          submodules: true
-
+      #      - name: Check out repository code
+      #        uses: actions/checkout@v2
+      #        with:
+      #          repository: NVIDIA/HugeCTR
+      #          token: ${{ github.token }}
+      #          submodules: true
+      #
       - name: Build
         working-directory: ${{runner.workspace}}/HugeCTR
         run: |
+          git submodule update --init --recursive
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
 
