@@ -48,6 +48,13 @@ jobs:
         run: |
           WORK_PATH=$(pwd) && cd /dataset/criteo
           $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_8gpu.json
+          cd /dataset/criteo_multi_slots
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_multi_slots_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_multi_slots_8gpu.json
+          cd /dataset/criteo_parquet_multi_slots
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_parquet_multi_slots_1gpu.json
+
 
           #  jobs:
           #    name: multi_node_test
