@@ -8,6 +8,7 @@ env:
 
 jobs:
   Single_node_tests:
+    name: Single node tests
     runs-on: self-hosted
 
     container:
@@ -90,8 +91,8 @@ jobs:
           $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_1gpu.json
           $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_8gpu.json
 
-  jobs:
-    name: Multi_node_tests_with_NCCL
+  Multi_node_tests_with_NCCL:
+    name: Multi node tests with NCCL
     runs-on: self-hosted
     
     container:
@@ -131,8 +132,8 @@ jobs:
           mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_4node_2gpu.json
           mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp32_4node_2gpu.json
 
-  jobs:
-    name: Multi_node_tests_with_Gossip
+  Multi_node_tests_with_Gossip:
+    name: Multi node tests with Gossip
     runs-on: self-hosted
     
     container:
