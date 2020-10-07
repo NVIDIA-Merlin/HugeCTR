@@ -47,8 +47,7 @@ jobs:
         shell: bash
         run: |
           WORK_PATH=$(pwd) && cd /dataset/criteo
-          ls $WORK_PATH/build/bin/
-          # $WORK_PATH/build/bin/hugectr --train $WORK_PATH/test/scripts/criteo_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_1gpu.json
 
           #  jobs:
           #    name: multi_node_test
