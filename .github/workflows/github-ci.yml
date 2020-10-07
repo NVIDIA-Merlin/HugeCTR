@@ -96,7 +96,7 @@ jobs:
     runs-on: self-hosted
     
     container:
-      image: xiaoleishi/hugectr:v1.1
+      image: xiaoleishi/hugectr:v1.2
       volumes:
         - /raid/hugectr/criteo_kaggle:/dataset
     
@@ -137,7 +137,7 @@ jobs:
     runs-on: self-hosted
     
     container:
-      image: xiaoleishi/hugectr:v1.1
+      image: xiaoleishi/hugectr:v1.2
       volumes:
         - /raid/hugectr/criteo_kaggle:/dataset
     
