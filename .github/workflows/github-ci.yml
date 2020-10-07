@@ -34,7 +34,7 @@ jobs:
           ./checker_test
 
  jobs:
-   name: multi_node_test
+   multi_node_test:
      runs-on: self-hosted
      
      container:
