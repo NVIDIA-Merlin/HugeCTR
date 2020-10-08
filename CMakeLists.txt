@@ -126,7 +126,6 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/test
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${CUDA_INCLUDE_DIRS}
-  ${PROJECT_SOURCE_DIR}/third_party/gossip
   ${PROJECT_SOURCE_DIR}/third_party/cutlass
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/include
