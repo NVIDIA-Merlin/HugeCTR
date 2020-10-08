@@ -40,23 +40,39 @@ cd HugeCTR
 git submodule update --init --recursive
 ```
 ###  2. Build Docker Image and HugeCTR ###
-Inside the HugeCTR directory, build a docker image and run a container with the image:
+Inside the HugeCTR directory, build a docker image:
 ```shell
-docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile . #docker support A100. To use tf please use dev.tf.Dockerfile instead.
+# It may take a long time to download and build all the dependencies.
+docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile . #docker support A100. To use Tensorflow please use dev.tf.Dockerfile instead.
+```
+If you have Docker 19.03 or later, run the container with the following command: 
+```shell
+docker run --gpus all --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+```
+Otherwise, run the container with the following command: 
+```shell
 docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
 ```
 
+
 Then build HugeCTR with the build type and compute capability specified. Please see [**Build Options**](#build-options) for more details.
+
+First, make a build directory and get inside it:
 ```shell
-cd /hugectr
 mkdir -p build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is NVIDIA V100
+```
+If your target graphic card is NVIDIA A100, run the following command. If you are using NVIDIA V100 or NVIDIA T4, change `-DSM=80` to `-DSM=70` or `-DSM=75`.
+```shell
+cmake -DCMAKE_BUILD_TYPE=Release -DSM=80 .. # Target is NVIDIA A100
+```
+Finally build it. HugeCTR executable file and unit tests are located inside `build/bin`.
+```shell
 make -j
 ```
 
 ###  3. Download and Preprocess Dataset ###
-Let’s download [the Kaggle Display Advertising Challenge Dataset](#http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset) to `$HugeCTR/tools/criteo_script/` and preprocess it to train [the Deep & Cross Network](#https://arxiv.org/pdf/1708.05123.pdf) (DCN) example:
+Let’s download [the Kaggle Display Advertising Challenge Dataset](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset) to `$HugeCTR/tools/criteo_script/` and preprocess it to train [the Deep & Cross Network](https://arxiv.org/pdf/1708.05123.pdf) (DCN) example:
 ```shell
 cd ../../tools/criteo_script/ # assume that the downloaded dataset is here
 bash preprocess.sh dcn 1 0
@@ -74,7 +90,7 @@ bin/data_generator ../samples/dcn/dcn.json ./dataset_dir 434428 1
 cd /hugectr/build
 bin/huge_ctr --train ../samples/dcn/dcn.json
 ```
-The other sample models and their end-to-end instructions are available [here](#/samples).
+The other sample models and their end-to-end instructions are available inside [this directory](/samples).
 
 ## Table of Contents
 * [Requirements](#requirements)
