@@ -18,27 +18,23 @@
 #include <HugeCTR/include/data_readers/heapex.hpp>
 
 namespace HugeCTR {
- 
+
 namespace python_lib {
-  
+
 void HeapExPybind(pybind11::module& m) {
-  pybind11::class_<HugeCTR::HeapEx<CSRChunk<long long>>, std::shared_ptr<HugeCTR::HeapEx<CSRChunk<long long>>>>(m, "HeapEx")
-    .def(pybind11::init<int, int, int, long long, const std::vector<DataReaderSparseParam>&>(),
-		        pybind11::arg("num"),
-			pybind11::arg("num_devices"),
-			pybind11::arg("batchsize"),
-			pybind11::arg("dim"),
-			pybind11::arg("params"))
+  pybind11::class_<HugeCTR::HeapEx<CSRChunk<long long>>,
+                   std::shared_ptr<HugeCTR::HeapEx<CSRChunk<long long>>>>(m, "HeapEx")
+      .def(pybind11::init<int, int, int, long long, const std::vector<DataReaderSparseParam>&>(),
+           pybind11::arg("num"), pybind11::arg("num_devices"), pybind11::arg("batchsize"),
+           pybind11::arg("dim"), pybind11::arg("params"))
       //.def("free_chunk_checkout", &HugeCTR::HeapEx<CSRChunk<long long>>::free_chunk_checkout)
-      .def("chunk_write_and_checkin", &HugeCTR::HeapEx<CSRChunk<long long>>::chunk_write_and_checkin,
-		        pybind11::arg("id"))
+      .def("chunk_write_and_checkin",
+           &HugeCTR::HeapEx<CSRChunk<long long>>::chunk_write_and_checkin, pybind11::arg("id"))
       //.def("data_chunk_checkout", &HugeCTR::HeapEx<CSRChunk<long long>>::data_chunk_checkout)
       .def("chunk_free_and_checkin", &HugeCTR::HeapEx<CSRChunk<long long>>::chunk_free_and_checkin)
       .def("break_and_return", &HugeCTR::HeapEx<CSRChunk<long long>>::break_and_return);
 }
-  
+
 }  // namespace python_lib
 
 }  // namespace HugeCTR
-
-

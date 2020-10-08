@@ -23,17 +23,16 @@ namespace python_lib {
 
 void MetricsPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::metrics::RawType>(m, "MetricsRawType")
-    .value("Loss", HugeCTR::metrics::RawType::Loss)
-    .value("Pred", HugeCTR::metrics::RawType::Pred)
-    .value("Label", HugeCTR::metrics::RawType::Label)
-    .export_values();
+      .value("Loss", HugeCTR::metrics::RawType::Loss)
+      .value("Pred", HugeCTR::metrics::RawType::Pred)
+      .value("Label", HugeCTR::metrics::RawType::Label)
+      .export_values();
   pybind11::enum_<HugeCTR::metrics::Type>(m, "MetricsType")
-    .value("AUC", HugeCTR::metrics::Type::AUC)
-    .value("AverageLoss", HugeCTR::metrics::Type::AverageLoss)
-    .export_values();
+      .value("AUC", HugeCTR::metrics::Type::AUC)
+      .value("AverageLoss", HugeCTR::metrics::Type::AverageLoss)
+      .export_values();
 }
 
 }  // namespace python_lib
 
 }  // namespace HugeCTR
-

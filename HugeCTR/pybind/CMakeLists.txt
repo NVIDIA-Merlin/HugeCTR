@@ -143,7 +143,7 @@ target_link_libraries(hugectr
 set_target_properties(hugectr
   PROPERTIES
     PREFIX ""
-    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/HugeCTR/pybind
+    #LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/HugeCTR/pybind
     #PREFIX "${PYTHON_MODULE_PREFIX}"
     #SUFFIX "${PYTHON_MODULE_EXTENSION}"
   )

@@ -1,4 +1,4 @@
-from hugectr import get_learning_rate_scheduler, SolverParser, Session, solver_parser_helper, LrPolicy_t, MetricsType
+from hugectr import Session, solver_parser_helper, LrPolicy_t, MetricsType
 
 def session_impl_test():
   json_name = "./criteo_data/criteo_bin.json"
@@ -9,8 +9,7 @@ def session_impl_test():
     if (i%10 == 0):
       loss = session_instance.get_current_loss()
       print("iter: {}; loss: {}".format(i, loss))
-  session_instance.eval()
-  metrics = session_instance.get_eval_metrics()
+  metrics = session_instance.eval()
   print(metrics)
 
 def learning_rate_scheduler_test(config_file):

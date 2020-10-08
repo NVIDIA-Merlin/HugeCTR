@@ -169,6 +169,8 @@ link_directories(
 
 #setting binary files install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
+#setting python interface file install path
+install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local/hugectr)
 
 add_subdirectory(HugeCTR/src)
 add_subdirectory(HugeCTR/pybind)
