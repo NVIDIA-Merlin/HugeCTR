@@ -3,7 +3,7 @@
 
 HugeCTR is a recommender specific framework which is capable of distributed training across multiple GPUs and nodes for Click-Through-Rate (CTR) estimation.
 It is a component of [**NVIDIA Merlin**](https://developer.nvidia.com/nvidia-merlin#getstarted),
-which is a framework accelerating the entire pipeline from data ingestion and training to deploying GPU-accelerated recommender systems.
+which is an open beta framework accelerating the entire pipeline from data ingestion and training to deploying GPU-accelerated recommender systems.
 
 Design Goals:
 * Fast: it's a speed-of-light CTR training framework;
