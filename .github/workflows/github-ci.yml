@@ -145,12 +145,14 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v2
         with:
+          fetch-depth: 0
+          lfs: true
           submodules: true
 
       - name: Build
         # working-directory: ${{runner.workspace}}/HugeCTR
         run: |
-          ls -alh third_party/gossip/include/
+          ls -alh third_party/gossip/include/cudahelpers
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=70 ..
           make -j
