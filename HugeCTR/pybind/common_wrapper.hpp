@@ -18,83 +18,76 @@
 #include <HugeCTR/include/common.hpp>
 
 namespace HugeCTR {
- 
+
 namespace python_lib {
-  
+
 void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::Error_t>(m, "Error_t")
-    .value("Success",HugeCTR::Error_t::Success)
-    .value("FileCannotOpen",HugeCTR::Error_t::FileCannotOpen)
-    .value("BrokenFile",HugeCTR::Error_t::BrokenFile)
-    .value("OutOfMemory",HugeCTR::Error_t::OutOfMemory)
-    .value("OutOfBound",HugeCTR::Error_t::OutOfBound)
-    .value("WrongInput",HugeCTR::Error_t::WrongInput)
-    .value("IllegalCall",HugeCTR::Error_t::IllegalCall)
-    .value("NotInitialized",HugeCTR::Error_t::NotInitialized)
-    .value("UnSupportedFormat",HugeCTR::Error_t::UnSupportedFormat)
-    .value("InvalidEnv",HugeCTR::Error_t::InvalidEnv)
-    .value("MpiError",HugeCTR::Error_t::MpiError)
-    .value("CublasError",HugeCTR::Error_t::CublasError)
-    .value("CudnnError",HugeCTR::Error_t::CudnnError)
-    .value("CudaError",HugeCTR::Error_t::CudaError)
-    .value("NcclError",HugeCTR::Error_t::NcclError)
-    .value("DataCheckError",HugeCTR::Error_t::DataCheckError)
-    .value("UnspecificError", HugeCTR::Error_t::UnspecificError)
-    .export_values();
+      .value("Success", HugeCTR::Error_t::Success)
+      .value("FileCannotOpen", HugeCTR::Error_t::FileCannotOpen)
+      .value("BrokenFile", HugeCTR::Error_t::BrokenFile)
+      .value("OutOfMemory", HugeCTR::Error_t::OutOfMemory)
+      .value("OutOfBound", HugeCTR::Error_t::OutOfBound)
+      .value("WrongInput", HugeCTR::Error_t::WrongInput)
+      .value("IllegalCall", HugeCTR::Error_t::IllegalCall)
+      .value("NotInitialized", HugeCTR::Error_t::NotInitialized)
+      .value("UnSupportedFormat", HugeCTR::Error_t::UnSupportedFormat)
+      .value("InvalidEnv", HugeCTR::Error_t::InvalidEnv)
+      .value("MpiError", HugeCTR::Error_t::MpiError)
+      .value("CublasError", HugeCTR::Error_t::CublasError)
+      .value("CudnnError", HugeCTR::Error_t::CudnnError)
+      .value("CudaError", HugeCTR::Error_t::CudaError)
+      .value("NcclError", HugeCTR::Error_t::NcclError)
+      .value("DataCheckError", HugeCTR::Error_t::DataCheckError)
+      .value("UnspecificError", HugeCTR::Error_t::UnspecificError)
+      .export_values();
   pybind11::enum_<HugeCTR::Check_t>(m, "Check_t")
-    .value("Sum", HugeCTR::Check_t::Sum)
-    .value("None", HugeCTR::Check_t::None)
-    .export_values();
-//pybind11::enum_<HugeCTR::Tensor_t>(m, "Tensor_t")
-//  .value("FP16", HugeCTR::Tensor_t::FP16)
-//  .value("FP32", HugeCTR::Tensor_t::FP32)
-//  .value("FP64", HugeCTR::Tensor_t::FP64)
-//  .value("INT32", HugeCTR::Tensor_t::INT32)
-//  .value("INT64", HugeCTR::Tensor_t::INT64)
-//  .value("UINT32", HugeCTR::Tensor_t::UINT32)
-//  .value("UINT64", HugeCTR::Tensor_t::UINT64)
-//  .export_values();
+      .value("Sum", HugeCTR::Check_t::Sum)
+      .value("None", HugeCTR::Check_t::None)
+      .export_values();
+  // pybind11::enum_<HugeCTR::Tensor_t>(m, "Tensor_t")
+  //  .value("FP16", HugeCTR::Tensor_t::FP16)
+  //  .value("FP32", HugeCTR::Tensor_t::FP32)
+  //  .value("FP64", HugeCTR::Tensor_t::FP64)
+  //  .value("INT32", HugeCTR::Tensor_t::INT32)
+  //  .value("INT64", HugeCTR::Tensor_t::INT64)
+  //  .value("UINT32", HugeCTR::Tensor_t::UINT32)
+  //  .value("UINT64", HugeCTR::Tensor_t::UINT64)
+  //  .export_values();
   pybind11::enum_<HugeCTR::DataReaderSparse_t>(m, "DataReaderSparse_t")
-    .value("Distributed", HugeCTR::DataReaderSparse_t::Distributed)
-    .value("Localized", HugeCTR::DataReaderSparse_t::Localized)
-    .export_values();
+      .value("Distributed", HugeCTR::DataReaderSparse_t::Distributed)
+      .value("Localized", HugeCTR::DataReaderSparse_t::Localized)
+      .export_values();
   pybind11::enum_<HugeCTR::DataReaderType_t>(m, "DataReaderType_t")
-    .value("Norm", HugeCTR::DataReaderType_t::Norm)
-    .value("Raw", HugeCTR::DataReaderType_t::Raw)
-    .export_values();
+      .value("Norm", HugeCTR::DataReaderType_t::Norm)
+      .value("Raw", HugeCTR::DataReaderType_t::Raw)
+      .export_values();
   pybind11::class_<HugeCTR::DataReaderSparseParam>(m, "DataReaderSparseParam")
-    .def(pybind11::init<HugeCTR::DataReaderSparse_t, int, int, int>(),
-		        pybind11::arg("type"),
-			pybind11::arg("max_feature_num"),
-			pybind11::arg("max_nnz"),
-			pybind11::arg("slot_num"));
+      .def(pybind11::init<HugeCTR::DataReaderSparse_t, int, int, int>(), pybind11::arg("type"),
+           pybind11::arg("max_feature_num"), pybind11::arg("max_nnz"), pybind11::arg("slot_num"));
   pybind11::class_<HugeCTR::NameID>(m, "NameId")
-    .def(pybind11::init<std::string, unsigned int>(),
-		        pybind11::arg("file_name"),
-			pybind11::arg("id"));
+      .def(pybind11::init<std::string, unsigned int>(), pybind11::arg("file_name"),
+           pybind11::arg("id"));
   pybind11::enum_<HugeCTR::LrPolicy_t>(m, "LrPolicy_t")
-    .value("fixed", HugeCTR::LrPolicy_t::fixed)
-    .export_values();
+      .value("fixed", HugeCTR::LrPolicy_t::fixed)
+      .export_values();
   pybind11::enum_<HugeCTR::Optimizer_t>(m, "Optimizer_t")
-    .value("Adam", HugeCTR::Optimizer_t::Adam)
-    .value("MomentumSGD", HugeCTR::Optimizer_t::MomentumSGD)
-    .value("Nesterov", HugeCTR::Optimizer_t::Nesterov)
-    .value("SGD", HugeCTR::Optimizer_t::SGD)
-    .export_values();
+      .value("Adam", HugeCTR::Optimizer_t::Adam)
+      .value("MomentumSGD", HugeCTR::Optimizer_t::MomentumSGD)
+      .value("Nesterov", HugeCTR::Optimizer_t::Nesterov)
+      .value("SGD", HugeCTR::Optimizer_t::SGD)
+      .export_values();
   pybind11::enum_<HugeCTR::Regularizer_t>(m, "Regularizer_t")
-    .value("L1", HugeCTR::Regularizer_t::L1)
-    .value("L2", HugeCTR::Regularizer_t::L2)
-    .export_values();
-//pybind11::enum_<HugeCTR::TensorFormat_t>(m, "TensorFormat_t")
-//  .value("WH", HugeCTR::TensorFormat_t::WH)
-//  .value("HW", HugeCTR::TensorFormat_t::HW)
-//  .value("HSW", HugeCTR::TensorFormat_t::HSW)
-//  .export_values();
+      .value("L1", HugeCTR::Regularizer_t::L1)
+      .value("L2", HugeCTR::Regularizer_t::L2)
+      .export_values();
+  // pybind11::enum_<HugeCTR::TensorFormat_t>(m, "TensorFormat_t")
+  //  .value("WH", HugeCTR::TensorFormat_t::WH)
+  //  .value("HW", HugeCTR::TensorFormat_t::HW)
+  //  .value("HSW", HugeCTR::TensorFormat_t::HSW)
+  //  .export_values();
 }
 
 }  // namespace python_lib
 
-}  // namespece HugeCTR
-
-
-
+}  // namespace HugeCTR
