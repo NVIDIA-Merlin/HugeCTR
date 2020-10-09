@@ -7,133 +7,92 @@ env:
   BUILD_TYPE: Release
 
 jobs:
-  #  Single_node_tests:
-  #    name: Single node tests
-  #    runs-on: self-hosted
-  #
-  #    container:
-  #      image: xiaoleishi/hugectr:v1.2
-  #      volumes:
-  #        - /raid/hugectr/criteo_kaggle:/dataset
-  #
-  #    steps:
-  #      - name: Check out repository code
-  #        uses: actions/checkout@v2
-  #        with:
-  #          submodules: true
-  #
-  #      - name: Build
-  #        working-directory: ${{runner.workspace}}/HugeCTR
-  #        run: |
-  #          mkdir build && cd build
-  #          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
-  #
-  #      - name: Unit test
-  #        working-directory: ${{runner.workspace}}/HugeCTR/build/bin
-  #        shell: bash
-  #        run: |
-  #          ./checker_test
-  #          ./layers_test
-  #          ./embedding_test
-  #          ./data_reader_test
-  #          ./device_map_test
-  #          ./heap_test
-  #          ./loss_test
-  #          ./optimizer_test
-  #          ./regularizers_test
-  #          ./parser_test
-  #          ./session_test
-  #
-  #      - name: criteo
-  #        shell: bash
-  #        run: |
-  #          WORK_PATH=$(pwd) && cd /dataset/criteo
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_8gpu.json
-  #          cd /dataset/criteo_multi_slots
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_multi_slots_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_multi_slots_8gpu.json
-  #          cd /dataset/criteo_parquet_multi_slots
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_parquet_multi_slots_1gpu.json
-  #
-  #      - name: dcn
-  #        shell: bash
-  #        run: |
-  #          WORK_PATH=$(pwd) && cd /dataset/dcn
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_8gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_localized_embedding_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_localized_embedding_8gpu.json
-  #          cd /dataset/dcn_parquet
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_distributed_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_distributed_8gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_localized_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_localized_8gpu.json
-  #
-  #      - name: wdl_deepfm
-  #        shell: bash
-  #        run: |
-  #          WORK_PATH=$(pwd) && cd /dataset/wdl
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_8gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_fp16_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_fp16_8gpu.json
-  #          cd /dataset/deepfm
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/deepfm_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/deepfm_8gpu.json
-  #
-  #      - name: dlrm
-  #        shell: bash
-  #        run: |
-  #          WORK_PATH=$(pwd) && cd /dataset/dcn
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_8gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_1gpu.json
-  #          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_8gpu.json
-  #
-  #  Multi_node_tests_with_NCCL:
-  #    name: Multi node tests with NCCL
-  #    runs-on: self-hosted
-  #    
-  #    container:
-  #      image: xiaoleishi/hugectr:v1.2
-  #      volumes:
-  #        - /raid/hugectr/criteo_kaggle:/dataset
-  #    
-  #    steps:
-  #      - name: Check out repository code
-  #        uses: actions/checkout@v2
-  #        with:
-  #          submodules: true
-  #
-  #      - name: Build
-  #        working-directory: ${{runner.workspace}}/HugeCTR
-  #        run: |
-  #          mkdir build && cd build
-  #          cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=70 ..
-  #          make -j
-  #
-  #      - name: criteo 
-  #        shell: bash
-  #        run: |
-  #          WORK_PATH=$(pwd) && cd /dataset/criteo
-  #          mpirun --allow-run-as-root -np 2 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_2node_4gpu.json
-  #
-  #      - name: dcn 
-  #        shell: bash
-  #        run: |
-  #          WORK_PATH=$(pwd) && cd /dataset/dcn
-  #          mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_4node_2gpu.json
-  #
-  #      - name: dlrm 
-  #        shell: bash
-  #        run: |
-  #          WORK_PATH=$(pwd) && cd /dataset/dcn
-  #          mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_4node_2gpu.json
-  #          mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp32_4node_2gpu.json
-  #
-  Multi_node_tests_with_Gossip:
-    name: Multi node tests with Gossip
+  Single_node_tests:
+    name: Single node tests
+    runs-on: self-hosted
+
+    container:
+      image: xiaoleishi/hugectr:v1.2
+      volumes:
+        - /raid/hugectr/criteo_kaggle:/dataset
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build
+        working-directory: ${{runner.workspace}}/HugeCTR
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSM=70 .. && make -j
+
+      - name: Unit test
+        working-directory: ${{runner.workspace}}/HugeCTR/build/bin
+        shell: bash
+        run: |
+          ./checker_test
+          ./layers_test
+          ./embedding_test
+          ./data_reader_test
+          ./device_map_test
+          ./heap_test
+          ./loss_test
+          ./optimizer_test
+          ./regularizers_test
+          ./parser_test
+          ./session_test
+
+      - name: criteo
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/criteo
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_8gpu.json
+          cd /dataset/criteo_multi_slots
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_multi_slots_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_multi_slots_8gpu.json
+          cd /dataset/criteo_parquet_multi_slots
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_parquet_multi_slots_1gpu.json
+
+      - name: dcn
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/dcn
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_8gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_localized_embedding_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_localized_embedding_8gpu.json
+          cd /dataset/dcn_parquet
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_distributed_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_distributed_8gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_localized_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_parquet_localized_8gpu.json
+
+      - name: wdl_deepfm
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/wdl
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_8gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_fp16_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/wdl_fp16_8gpu.json
+          cd /dataset/deepfm
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/deepfm_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/deepfm_8gpu.json
+
+      - name: dlrm
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/dcn
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_8gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_1gpu.json
+          $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_8gpu.json
+
+  Multi_node_tests_with_NCCL:
+    name: Multi node tests with NCCL
     runs-on: self-hosted
     
     container:
@@ -145,19 +104,60 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0
           submodules: true
 
       - name: Build
-        # working-directory: ${{runner.workspace}}/HugeCTR
+        working-directory: ${{runner.workspace}}/HugeCTR
         run: |
-          ls -alh third_party/gossip/include/cudahelpers
           mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=70 ..
+          cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=70 ..
           make -j
 
-      - name: criteo
+      - name: criteo 
         shell: bash
         run: |
           WORK_PATH=$(pwd) && cd /dataset/criteo
           mpirun --allow-run-as-root -np 2 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_2node_4gpu.json
+
+      - name: dcn 
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/dcn
+          mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dcn_4node_2gpu.json
+
+      - name: dlrm 
+        shell: bash
+        run: |
+          WORK_PATH=$(pwd) && cd /dataset/dcn
+          mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp16_4node_2gpu.json
+          mpirun --allow-run-as-root -np 4 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/dlrm_fp32_4node_2gpu.json
+
+  #  Multi_node_tests_with_Gossip:
+  #    name: Multi node tests with Gossip
+  #    runs-on: self-hosted
+  #    
+  #    container:
+  #      image: xiaoleishi/hugectr:v1.2
+  #      volumes:
+  #        - /raid/hugectr/criteo_kaggle:/dataset
+  #    
+  #    steps:
+  #      - name: Check out repository code
+  #        uses: actions/checkout@v2
+  #        with:
+  #          fetch-depth: 0
+  #          submodules: true
+  #
+  #      - name: Build
+  #        # working-directory: ${{runner.workspace}}/HugeCTR
+  #        run: |
+  #          ls -alh third_party/gossip/include/cudahelpers
+  #          mkdir build && cd build
+  #          cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=70 ..
+  #          make -j
+  #
+  #      - name: criteo
+  #        shell: bash
+  #        run: |
+  #          WORK_PATH=$(pwd) && cd /dataset/criteo
+  #          mpirun --allow-run-as-root -np 2 $WORK_PATH/build/bin/huge_ctr --train $WORK_PATH/test/scripts/criteo_2node_4gpu.json
