@@ -8,20 +8,19 @@ ARG NCCL_A2A=ON
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
-        git \
-        lsb-release \
-        libboost-all-dev \
         vim \
         wget \
+        make \
+        software-properties-common \
+        lsb-release \
+        libboost-all-dev \
         zlib1g-dev && \
+    add-apt-repository ppa:git-core/ppa -y && \
+    apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git && \
     rm -rf /var/lib/apt/lists/*
 
 # CMake version 3.14.3
-RUN apt-get update -y && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        make \
-        wget && \
-    rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v3.14/cmake-3.14.3-Linux-x86_64.sh && \
     mkdir -p /usr/local && \
     /bin/sh /var/tmp/cmake-3.14.3-Linux-x86_64.sh --prefix=/usr/local --skip-license && \
@@ -37,6 +36,58 @@ RUN apt-get update -y && \
     rm -rf /var/lib/apt/lists/*
 RUN pip3 install --upgrade pip && \
     pip3 install numpy pandas sklearn ortools tensorflow
+
+# UCX version 1.8.0
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        binutils-dev \
+        file \
+        libnuma-dev && \
+    rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/openucx/ucx/releases/download/v1.8.0/ucx-1.8.0.tar.gz && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/ucx-1.8.0.tar.gz -C /var/tmp -z && \
+    cd /var/tmp/ucx-1.8.0 &&   ./configure --prefix=/usr/local/ucx --disable-assertions --disable-debug --disable-doxygen-doc --disable-logging --disable-params-check --enable-optimizations --with-cuda=/usr/local/cuda && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    rm -rf /var/tmp/ucx-1.8.0 /var/tmp/ucx-1.8.0.tar.gz
+ENV CPATH=/usr/local/ucx/include:$CPATH \
+    LD_LIBRARY_PATH=/usr/local/ucx/lib:$LD_LIBRARY_PATH \
+    LIBRARY_PATH=/usr/local/ucx/lib:$LIBRARY_PATH \
+    PATH=/usr/local/ucx/bin:$PATH
+
+# hwloc version v2.2.0
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://download.open-mpi.org/release/hwloc/v2.2/hwloc-2.2.0.tar.gz && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/hwloc-2.2.0.tar.gz -C /var/tmp -z && \
+    cd /var/tmp/hwloc-2.2.0 && ./configure --prefix=/usr/local/hwloc && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    rm -rf /var/tmp/hwloc-2.2.0 /var/tmp/hwloc-2.2.0.tar.gz
+ENV CPATH=/usr/local/hwloc/include:$CPATH \
+    LD_LIBRARY_PATH=/usr/local/hwloc/lib:$LD_LIBRARY_PATH \
+    LIBRARY_PATH=/usr/local/hwloc/lib:$LIBRARY_PATH \
+    PATH=/usr/local/hwloc/bin:$PATH
+
+# OpenMPI version 4.0.3
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bzip2 \
+        file \
+        libnuma-dev \
+        openssh-client \
+        perl \
+        tar && \
+    rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://www.open-mpi.org/software/ompi/v4.0/downloads/openmpi-4.0.3.tar.bz2 && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/openmpi-4.0.3.tar.bz2 -C /var/tmp -j && \
+    cd /var/tmp/openmpi-4.0.3 &&   ./configure --prefix=/usr/local/openmpi --disable-getpwuid --enable-orterun-prefix-by-default --with-cuda --with-ucx=/usr/local/ucx --with-verbs && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
+    rm -rf /var/tmp/openmpi-4.0.3 /var/tmp/openmpi-4.0.3.tar.bz2
+ENV LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH \
+    PATH=/usr/local/openmpi/bin:$PATH
+
+# MPI for python
+RUN env MPICC=/usr/local/openmpi/bin pip install mpi4py
 
 RUN mkdir -p /opt/conda
 ENV CONDA_PREFIX=/opt/conda
@@ -57,7 +108,7 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15
     make -j$(nproc) install && \
     rm -rf /var/tmp/rmm
 
-# CUDF 
+# https://github.com/rapidsai/cudf.git
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15 https://github.com/rapidsai/cudf.git cudf && cd - && \
     git clone --depth=1 --branch main https://github.com/dmlc/dlpack.git /var/tmp/dlpack && \
     cd /var/tmp/cudf/cpp && \
@@ -69,6 +120,7 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15
     make -j$(nproc) install && \
     rm -rf /var/tmp/dlpack /var/tmp/cudf
 
+# HugeCTR
 RUN git clone https://github.com/NVIDIA/HugeCTR.git HugeCTR &&\
     cd HugeCTR && \
     git submodule update --init --recursive && \
