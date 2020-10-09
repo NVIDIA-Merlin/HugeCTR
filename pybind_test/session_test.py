@@ -6,11 +6,12 @@ def session_impl_test():
   session_instance = Session.Create(solver_config, json_name)
   for i in range(10000):
     session_instance.train()
-    if (i%10 == 0):
+    if (i%100 == 0):
       loss = session_instance.get_current_loss()
       print("iter: {}; loss: {}".format(i, loss))
-  metrics = session_instance.eval()
-  print(metrics)
+    if (i%1000 == 0 and i != 0):
+      metrics = session_instance.evaluation()
+      print(metrics)
 
 def learning_rate_scheduler_test(config_file):
   lr_sch = get_learning_rate_scheduler(config_file)
@@ -20,4 +21,3 @@ def learning_rate_scheduler_test(config_file):
 
 if __name__ == "__main__":
   session_impl_test()
-  #learning_rate_scheduler_test("wdl_1gpu.json")
