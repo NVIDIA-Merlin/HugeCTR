@@ -15,16 +15,19 @@
  */
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <HugeCTR/include/device_map.hpp>
+#include <HugeCTR/include/utils.hpp>
 
 namespace HugeCTR {
 
 namespace python_lib {
 
-void DeviceMapPybind(pybind11::module& m) {
-  pybind11::class_<HugeCTR::DeviceMap, std::shared_ptr<DeviceMap>>(m, "DeviceMap")
-      .def(pybind11::init<const std::vector<std::vector<int>>, int>(),
-           pybind11::arg("device_list_total"), pybind11::arg("my_pid"));
+void UtilsPybind(pybind11::module& m) {
+  pybind11::module utils = m.def_submodule("utils", "utility submodule of hugectr");
+  utils.def("set_affinity", pybind11::overload_cast<std::thread&, int>(&HugeCTR::set_affinity),
+            pybind11::arg("t"), pybind11::arg("core"));
+  utils.def("set_affinity",
+            pybind11::overload_cast<std::thread&, std::set<int>, bool>(&HugeCTR::set_affinity),
+            pybind11::arg("t"), pybind11::arg("s"), pybind11::arg("excluded"));
 }
 
 }  // namespace python_lib

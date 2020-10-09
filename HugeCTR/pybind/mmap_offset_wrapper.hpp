@@ -18,26 +18,19 @@
 #include <HugeCTR/include/data_readers/mmap_offset_list.hpp>
 
 namespace HugeCTR {
- 
+
 namespace python_lib {
-  
+
 void MmapOffsetPybind(pybind11::module& m) {
-  pybind11::class_<HugeCTR::MmapOffsetList, std::shared_ptr<HugeCTR::MmapOffsetList>>(m, "MmapOffsetList")
-    .def(pybind11::init<std::string, long long, long long, long long, bool, int>(),
-		        pybind11::arg("file_name"),
-			pybind11::arg("num_samples"),
-			pybind11::arg("stride"),
-			pybind11::arg("batchsize"),
-			pybind11::arg("use_shuffle"),
-			pybind11::arg("num_workers"))
-    .def("get_offset", &HugeCTR::MmapOffsetList::get_offset,
-		        pybind11::arg("round"),
-			pybind11::arg("worker_id"));
+  pybind11::class_<HugeCTR::MmapOffsetList, std::shared_ptr<HugeCTR::MmapOffsetList>>(
+      m, "MmapOffsetList")
+      .def(pybind11::init<std::string, long long, long long, long long, bool, int>(),
+           pybind11::arg("file_name"), pybind11::arg("num_samples"), pybind11::arg("stride"),
+           pybind11::arg("batchsize"), pybind11::arg("use_shuffle"), pybind11::arg("num_workers"))
+      .def("get_offset", &HugeCTR::MmapOffsetList::get_offset, pybind11::arg("round"),
+           pybind11::arg("worker_id"));
 }
 
 }  // namespace python_lib
 
 }  // namespace HugeCTR
-
-
-
