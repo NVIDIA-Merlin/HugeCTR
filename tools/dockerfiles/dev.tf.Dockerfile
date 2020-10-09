@@ -29,7 +29,7 @@ ENV PATH=/usr/local/bin:$PATH
 
 # pip
 RUN pip3 install --upgrade pip && \
-    pip3 install numpy pandas sklearn ortools tensorflow mpi4py
+    pip3 install numpy pandas sklearn ortools tensorflow
 
 # UCX version 1.8.0
 RUN apt-get update -y && \
@@ -79,6 +79,9 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://
     rm -rf /var/tmp/openmpi-4.0.3 /var/tmp/openmpi-4.0.3.tar.bz2
 ENV LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH \
     PATH=/usr/local/openmpi/bin:$PATH
+
+# MPI for python
+RUN env MPICC=/usr/local/openmpi/bin pip install mpi4py
 
 # NCCL
 RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://github.com/NVIDIA/nccl/archive/v2.7.6-1.tar.gz && \
