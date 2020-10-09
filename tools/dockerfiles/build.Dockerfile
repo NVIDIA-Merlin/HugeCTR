@@ -79,7 +79,7 @@ RUN git clone https://github.com/NVIDIA/HugeCTR.git HugeCTR &&\
     mkdir /usr/local/hugectr &&\
     make install &&\
     chmod +x /usr/local/hugectr/bin/* &&\
+    chmod +x /usr/local/hugectr/lib/* &&\
     rm -rf HugeCTR 
 ENV PATH /usr/local/hugectr/bin:$PATH
-
-
+ENV PYTHONPATH /usr/local/hugectr/lib:$PYTHONPATH
