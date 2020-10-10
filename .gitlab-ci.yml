@@ -161,3 +161,25 @@ criteo_multinode_gossip:
     - cd /dataset/criteo_kaggle/criteo
     - mpirun --allow-run-as-root -np 2 ${CI_PROJECT_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_2node_4gpu.json
 
+# python interface
+python_interface:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    # single node
+    - cd /dataset/criteo_kaggle/wdl
+    - cp ${CI_PROJECT_DIR}/build/build_single/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
+    - python3 ${CI_PROJECT_DIR}/test/pybind_test/single_node_test.py ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json
+    # multi node + nccl
+    - cd /dataset/criteo_kaggle/dcn
+    - cp ${CI_PROJECT_DIR}/build/build_multi_nccl/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
+    - mpirun --allow-run-as-root -np 4 python3 ${CI_PROJECT_DIR}/test/pybind_test/multi_node_test.py ${CI_PROJECT_DIR}/test/scripts/dcn_4node_2gpu.json
+    # multi node + gossip
+    - cd /dataset/criteo_kaggle/criteo
+    - cp ${CI_PROJECT_DIR}/build/build_multi_gossip/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
+    - mpirun --allow-run-as-root -np 2 python3 ${CI_PROJECT_DIR}/test/pybind_test/multi_node_test.py ${CI_PROJECT_DIR}/test/scripts/criteo_2node_4gpu.json
+
