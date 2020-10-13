@@ -51,6 +51,16 @@ Loss<T>::Loss(const Tensor2<float> &train_label_tensor, const Tensor2<T> &train_
 
 template <typename T>
 void Loss<T>::compute(bool is_train) {
+  Tensor2<T> &input_tensor = get_input_tensors(is_train)[0];
+  const auto &input_dim = input_tensor.get_dimensions();
+  int batch_size = input_dim[0];
+  compute(is_train, batch_size);
+}
+
+
+  //Note: current_batchsize here is the batchsize on this device
+template <typename T>
+void Loss<T>::compute(bool is_train, long long current_batchsize) {
   CudaDeviceContext context(get_device_id());
 
   Tensor2<T> &input_tensor = get_input_tensors(is_train)[0];
@@ -73,8 +83,19 @@ void Loss<T>::compute(bool is_train) {
     rterm = regularizer_->get_rterm();
   }
 
-  do_compute(input, label, loss, batch_size, feature_dim, scaler_, rterm, is_train,
+  if (current_batchsize > batch_size && current_batchsize < 0){
+    CK_THROW_(Error_t::WrongInput, "current_batchsize > batch_size && current_batchsize < 0");
+  }
+  
+  do_compute(input, label, loss, current_batchsize, feature_dim, scaler_, rterm, is_train,
              get_gpu().get_stream());
+  if (is_train) {
+    // once current_batchsize < batch_size in train we set the rest dgrad to 0
+    if(current_batchsize < batch_size){
+      cudaMemsetAsync(input+current_batchsize*feature_dim, 0, 
+		      (batch_size - current_batchsize)*feature_dim*sizeof(T), get_gpu().get_stream());
+    }
+  }
 
   if (is_train && regularizer_) {
     regularizer_->initialize_wgrad();

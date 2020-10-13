@@ -200,9 +200,9 @@ Error_t SessionImpl<TypeKey>::init_or_load_params_for_sparse_(
   return Error_t::Success;
 }
 
-void network_train_helper(Network* n) {
+void network_train_helper(Network* n, long long current_batchsize) {
   try {
-    n->train();
+    n->train(current_batchsize);
     n->exchange_wgrad();
     n->update_params();
   } catch (const internal_runtime_error& rt_err) {
@@ -228,14 +228,16 @@ void SessionImpl<TypeKey>::train() {
       // execute dense forward and backward with multi-cpu threads
       std::vector<std::future<void>> results(networks_.size());
       for (unsigned int i = 0; i < networks_.size(); i++) {
+	long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(i);
         results[i] = resource_manager_->get_local_cpu()->get_thread_pool()->push(
-            [this, i](int id) { network_train_helper(networks_[i].get()); });
+          [this, i, current_batchsize_per_device](int id) { network_train_helper(networks_[i].get(), current_batchsize_per_device); });
       }
       for (unsigned int i = 0; i < networks_.size(); i++) {
         results[i].get();
       }
     } else if (networks_.size() == 1) {
-      networks_[0]->train();
+      long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(0);
+      networks_[0]->train(current_batchsize_per_device);
       networks_[0]->update_params();
     } else {
       assert(!"networks_.size() should not less than 1.");
