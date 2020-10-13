@@ -101,7 +101,7 @@ class Network {
   /**
    * Forward, backward and update the network.
    */
-  void train();
+  void train(long long current_batchsize);
 
   /**
    * Forward only.

@@ -141,7 +141,10 @@ void DataReaderWorker<T>::read_a_batch() {
     csr_heap_->free_chunk_checkout(&csr_chunk, worker_id_);
 
     if (!skip_read_) {
+
+      // todo: set to real batchsize when data reader can stop at end of epoch
       csr_chunk->set_current_batchsize(csr_chunk->get_batchsize());
+
       Tensors2<float>& label_dense_buffers = csr_chunk->get_label_buffers();
       const int label_dense_dim = csr_chunk->get_label_dense_dim();
       if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
@@ -153,6 +156,14 @@ void DataReaderWorker<T>::read_a_batch() {
       assert(label_dense_buffers.size() > 0);
       // batch loop
       for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
+
+	// if (i >= current_batchsize)
+	if (i >= csr_chunk->get_current_batchsize()){
+	  //	  std::cout << "i >= csr_chunk->get_current_batchsize() " << csr_chunk->get_current_batchsize() << " " << csr_chunk->get_batchsize() << std::endl;
+	  fill_empty_sample(params_, csr_chunk);
+          continue;
+	}  
+
         int param_id = 0;
         csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
 
