@@ -85,7 +85,7 @@ ResourceManager::ResourceManager(int num_process, int pid, DeviceMap&& device_ma
     for (size_t i = 0; i < local_gpu_count; i++) {
       CK_CUDA_THROW_(cudaSetDevice(local_gpu_device_id_list[i]));
       CK_NCCL_THROW_(ncclCommInitRank(&comms[i], total_gpu_count, nid,
-                                      device_map_.get_global_id(local_gpu_device_id_list[i])));
+                                      device_map_.get_global_id(i)));
     }
     CK_NCCL_THROW_(ncclGroupEnd());
 #else
@@ -94,13 +94,13 @@ ResourceManager::ResourceManager(int num_process, int pid, DeviceMap&& device_ma
 #endif
     for (size_t i = 0; i < local_gpu_count; i++) {
       gpu_resources_.emplace_back(new GPUResource(
-          local_gpu_device_id_list[i], device_map_.get_global_id(local_gpu_device_id_list[i]),
+          local_gpu_device_id_list[i], device_map_.get_global_id(i),
           dis(gen), comms[i]));
     }
   } else {
     gpu_resources_.emplace_back(
         new GPUResource(local_gpu_device_id_list[0],
-                        device_map_.get_global_id(local_gpu_device_id_list[0]), dis(gen)));
+                        device_map_.get_global_id(0), dis(gen)));
   }
 
   cpu_resource_.reset(new CPUResource(dis(gen), device_map_.get_device_list().size()));

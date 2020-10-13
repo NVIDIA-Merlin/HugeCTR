@@ -125,22 +125,7 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
         // to compensate the csr when current_batchsize != csr_chunk->get_batchsize()
         char* sample_cur = data_buffer + sample_length * i;
         if (i >= current_batchsize) {
-          int param_id = 0;
-          for (auto& param : params_) {
-            for (int k = 0; k < param.slot_num; k++) {
-              if (param.type == DataReaderSparse_t::Distributed) {
-                for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {
-                  csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
-                }
-              } else if (param.type == DataReaderSparse_t::Localized) {
-                int dev_id = k % csr_chunk->get_num_devices();
-                csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
-              } else {
-                CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
-              }
-            }
-            param_id++;
-          }  // for(auto& param: params_)
+	  fill_empty_sample(params_, csr_chunk);
           continue;
         }  // if(i>= current_batchsize)
 

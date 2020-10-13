@@ -25,6 +25,7 @@ namespace HugeCTR {
 
 class ILoss {
  public:
+  virtual void compute(bool is_train, long long current_batchsize) = 0;
   virtual void compute(bool is_train) = 0;
   virtual int get_device_id() const = 0;
 };
@@ -100,8 +101,9 @@ class Loss : public ILoss {
    * gradient values to prevent the overflow issue.
    *
    * @param is_train whether it is on training or evaluating
-   * @param stream CUDA stream where the train is executed in
+   * @param current_batchsize loss we set batchsize - current_batchsize rows of dgrad to 0
    */
+  void compute(bool is_train, long long current_batchsize) override;
   void compute(bool is_train) override;
 
   /**

@@ -69,6 +69,11 @@ class ResourceManager {
     return device_map_.get_local_id(global_gpu_id);
   }
 
+  size_t get_gpu_global_id_from_local_id(size_t local_gpu_id) const {  // sequential GPU indices
+    return device_map_.get_global_id(local_gpu_id);
+  }
+
+
   bool p2p_enabled(int src_dev, int dst_dev) const;
   bool all_p2p_enabled() const;
 

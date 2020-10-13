@@ -58,7 +58,8 @@ void Network::conv_weight_() {
                   gpu_resource_->get_stream());
 }
 
-void Network::train() {
+void Network::train(long long current_batchsize) {
+
   // forward
   if (full_fp16_) {
     conv_weight_();
@@ -83,7 +84,7 @@ void Network::train() {
     }
   }
 
-  loss_->compute(true);
+  loss_->compute(true, current_batchsize);
 
   if (enable_cuda_graph_) {
     if (!train_bprop_graph_created_) {
