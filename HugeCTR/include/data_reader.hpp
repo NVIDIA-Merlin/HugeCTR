@@ -65,7 +65,7 @@ class DataReader {
   const size_t dense_dim_; /**< dimention of dense */
   std::shared_ptr<DataCollector<TypeKey>> data_collector_; /**< pointer of DataCollector */
   std::shared_ptr<DataReaderWorkerGroup> worker_group_;
-
+  long long current_batchsize_;
  public:
   /**
    * Reading a batch from cpu to gpu (embedding)
@@ -73,6 +73,24 @@ class DataReader {
   long long read_a_batch_to_device();  // read data from csr to tensors
 
   long long read_a_batch_to_device_delay_release();
+
+  long long get_current_batchsize_per_device(size_t local_id){
+    if(batchsize_ % resource_manager_->get_global_gpu_count() != 0){
+      CK_THROW_(Error_t::UnspecificError,"batchsize_ % resource_manager_->get_global_gpu_count() != 0");
+    }
+    long long batchsize_per_device = batchsize_ / resource_manager_->get_global_gpu_count();
+    size_t global_id = resource_manager_->get_gpu_global_id_from_local_id(local_id);
+    long long remain_samples = current_batchsize_ - global_id*batchsize_per_device;
+    if(remain_samples >= batchsize_per_device){
+      return batchsize_per_device;
+    }
+    else if (remain_samples > 0){
+      return remain_samples;
+    }
+    else{
+      return 0;
+    }
+  }
 
   void ready_to_collect() { data_collector_->set_ready_to_write(); }
 
@@ -256,6 +274,7 @@ template <typename TypeKey>
 long long DataReader<TypeKey>::read_a_batch_to_device_delay_release() {
   long long current_batchsize;
   current_batchsize = data_collector_->read_a_batch_to_device();
+  current_batchsize_ = current_batchsize;
   return current_batchsize;
 }
 
@@ -263,6 +282,7 @@ template <typename TypeKey>
 long long DataReader<TypeKey>::read_a_batch_to_device() {
   long long current_batchsize = read_a_batch_to_device_delay_release();
   data_collector_->set_ready_to_write_sync();
+  current_batchsize_ = current_batchsize;
   return current_batchsize;
 }
 
