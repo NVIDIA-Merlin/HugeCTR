@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include <fstream>
 #include <thread>
 #include "HugeCTR/include/data_generator.hpp"
@@ -94,7 +94,7 @@ void data_reader_raw_test_impl(bool float_label_dense) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, gpu_resource_group, 1, true,
+  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, gpu_resource_group, 1, true,
                             false);
 
   data_reader.create_drwg_raw(file_name, num_samples, slot_offset, float_label_dense, true, true);

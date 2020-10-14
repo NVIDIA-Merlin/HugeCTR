@@ -19,7 +19,7 @@ def session_impl_test(json_file):
   #print("batchsize: {}, batchsize_eval: {}, vvgpu: {}, i64_input_key: {}, use_mixed_precison: {}, use_cuda_graph: {}".format(batchsize_, batchsize_eval_, vvgpu_, i64_input_key_, use_mixed_precision_, use_cuda_graph_))
   #solver_config = solver_parser_helper(batchsize = batchsize_, batchsize_eval = batchsize_eval_, vvgpu = vvgpu_, i64_input_key = i64_input_key_, use_mixed_precision = use_mixed_precision_, scaler = scaler_, use_cuda_graph = use_cuda_graph_)
   solver_config = SolverParser(json_file)
-  sess = Session.Create(solver_config, json_file)
+  sess = Session(solver_config, json_file)
   for i in range(10000):
     sess.train()
     if (i%100 == 0):

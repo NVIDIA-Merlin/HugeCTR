@@ -60,6 +60,16 @@ struct TensorScalarTypeFunc<__half> {
   static TensorScalarType get_type() { return TensorScalarType::Float16; }
 };
 
+template <>
+struct TensorScalarTypeFunc<long long> {
+  static TensorScalarType get_type() { return TensorScalarType::Int64; }
+};
+
+template <>
+struct TensorScalarTypeFunc<unsigned int> {
+  static TensorScalarType get_type() { return TensorScalarType::UInt32; }
+};
+
 }  // namespace
 
 class TensorBuffer2 {

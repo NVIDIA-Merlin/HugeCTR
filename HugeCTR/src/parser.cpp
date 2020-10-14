@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <data_readers/data_reader.hpp>
 #include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
@@ -1192,20 +1193,23 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
   }
 }
 
+
 template <typename TypeKey>
-static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_reader,
-                                     std::unique_ptr<DataReader<TypeKey>>& data_reader_eval,
+static void create_pipeline_internal(std::unique_ptr<IDataReader>& data_reader,
+                                     std::unique_ptr<IDataReader>& data_reader_eval,
                                      std::vector<std::unique_ptr<IEmbedding>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
                                      const std::shared_ptr<ResourceManager>& resource_manager,
-                                     nlohmann::json config,
-                                     size_t batch_size,
-                                     size_t batch_size_eval,
-                                     bool use_mixed_precision,
-                                     float scaler,
-                                     bool use_algorithm_search,
-                                     bool use_cuda_graph) {
+                                     Parser& parser) {
   try {
+    nlohmann::json config = parser.config_;
+    size_t batch_size = parser.batch_size_;
+    size_t batch_size_eval = parser.batch_size_eval_;
+    bool use_mixed_precision = parser.use_mixed_precision_;
+    float scaler = parser.scaler_;
+    bool use_algorithm_search = parser.use_algorithm_search_;
+    bool use_cuda_graph = parser.use_cuda_graph_;
+
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
     std::vector<TensorEntry> tensor_entries_list[resource_manager->get_local_gpu_count()];
     {
@@ -1297,12 +1301,15 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
             format == DataReaderType_t::Parquet ? resource_manager->get_global_gpu_count() : 12;
 #endif
 
-        data_reader.reset(new DataReader<TypeKey>(batch_size, label_dim, dense_dim,
-                                                  data_reader_sparse_param_array, resource_manager,
-                                                  NUM_THREADS, use_mixed_precision, false));
-        data_reader_eval.reset(new DataReader<TypeKey>(
+        DataReader<TypeKey> *data_reader_tk = new DataReader<TypeKey>(
+            batch_size, label_dim, dense_dim,
+            data_reader_sparse_param_array, resource_manager,
+            NUM_THREADS, use_mixed_precision, false);
+        data_reader.reset(data_reader_tk);
+        DataReader<TypeKey> *data_reader_eval_tk = new DataReader<TypeKey>(
             batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-            NUM_THREADS, use_mixed_precision, cache_eval_data));
+            NUM_THREADS, use_mixed_precision, cache_eval_data);
+        data_reader_eval.reset(data_reader_eval_tk);
 
         auto f = [&j]() -> std::vector<long long> {
           std::vector<long long> slot_offset;
@@ -1358,31 +1365,31 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
         for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
           tensor_entries_list[i].push_back(
-              {top_strs_label, TensorUse::Train, data_reader->get_label_tensors()[i].shrink()});
+              {top_strs_label, TensorUse::Train, data_reader_tk->get_label_tensors()[i].shrink()});
           tensor_entries_list[i].push_back({top_strs_label, TensorUse::Evaluate,
-                                            data_reader_eval->get_label_tensors()[i].shrink()});
+                                            data_reader_eval_tk->get_label_tensors()[i].shrink()});
 
           if (use_mixed_precision) {
             tensor_entries_list[i].push_back(
-                {top_strs_dense, TensorUse::Train, data_reader->get_dense_tensors()[i]});
+                {top_strs_dense, TensorUse::Train, data_reader_tk->get_dense_tensors()[i]});
             tensor_entries_list[i].push_back(
-                {top_strs_dense, TensorUse::Evaluate, data_reader_eval->get_dense_tensors()[i]});
+                {top_strs_dense, TensorUse::Evaluate, data_reader_eval_tk->get_dense_tensors()[i]});
           } else {
             tensor_entries_list[i].push_back(
-                {top_strs_dense, TensorUse::Train, data_reader->get_dense_tensors()[i]});
+                {top_strs_dense, TensorUse::Train, data_reader_tk->get_dense_tensors()[i]});
             tensor_entries_list[i].push_back(
-                {top_strs_dense, TensorUse::Evaluate, data_reader_eval->get_dense_tensors()[i]});
+                {top_strs_dense, TensorUse::Evaluate, data_reader_eval_tk->get_dense_tensors()[i]});
           }
         }
 
         for (unsigned int i = 0; i < j_sparse.size(); i++) {
           const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
-          sparse_input->second.train_row_offsets = data_reader->get_row_offsets_tensors(i);
-          sparse_input->second.train_values = data_reader->get_value_tensors(i);
-          sparse_input->second.train_nnz = data_reader->get_nnz_array(i);
-          sparse_input->second.evaluate_row_offsets = data_reader_eval->get_row_offsets_tensors(i);
-          sparse_input->second.evaluate_values = data_reader_eval->get_value_tensors(i);
-          sparse_input->second.evaluate_nnz = data_reader_eval->get_nnz_array(i);
+          sparse_input->second.train_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
+          sparse_input->second.train_values = data_reader_tk->get_value_tensors(i);
+          sparse_input->second.train_nnz = data_reader_tk->get_nnz_array(i);
+          sparse_input->second.evaluate_row_offsets = data_reader_eval_tk->get_row_offsets_tensors(i);
+          sparse_input->second.evaluate_values = data_reader_eval_tk->get_value_tensors(i);
+          sparse_input->second.evaluate_nnz = data_reader_eval_tk->get_nnz_array(i);
         }
       }
 
@@ -1434,28 +1441,23 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
+
 }
 
-void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
-                             std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
+
+void Parser::create_pipeline(std::unique_ptr<IDataReader>& data_reader,
+                             std::unique_ptr<IDataReader>& data_reader_eval,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
                              const std::shared_ptr<ResourceManager>& resource_manager) {
-  create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, network,
-                                   resource_manager, config_, batch_size_, batch_size_eval_,
-                                   use_mixed_precision_, scaler_, use_algorithm_search_,
-                                   use_cuda_graph_);
+  if (i64_input_key_) {
+    create_pipeline_internal<long long>(data_reader, data_reader_eval, embedding, network,
+                                        resource_manager, *this);
+  } else {
+    create_pipeline_internal<unsigned int>(data_reader, data_reader_eval, embedding, network,
+                                           resource_manager, *this);
+  }
 }
 
-void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
-                             std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                             std::vector<std::unique_ptr<Network>>& network,
-                             const std::shared_ptr<ResourceManager>& resource_manager) {
-  create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, network,
-                                   resource_manager, config_, batch_size_, batch_size_eval_,
-                                   use_mixed_precision_, scaler_, use_algorithm_search_,
-                                   use_cuda_graph_);
-}
 
 }  // namespace HugeCTR
