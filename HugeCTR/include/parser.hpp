@@ -16,7 +16,7 @@
 
 #pragma once
 #include <common.hpp>
-#include <data_reader.hpp>
+#include <data_readers/data_reader.hpp>
 #include <embedding.hpp>
 #include <fstream>
 #include <functional>
@@ -44,6 +44,7 @@ class Parser {
   nlohmann::json config_;  /**< configure file. */
   size_t batch_size_;      /**< batch size. */
   size_t batch_size_eval_; /**< batch size. */
+  const bool i64_input_key_{false};
   const bool use_mixed_precision_{false};
   const float scaler_{1.f};
   const bool use_algorithm_search_;
@@ -56,12 +57,14 @@ class Parser {
    */
 
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
+         bool i64_input_key = false,
          bool use_mixed_precision = false,
          float scaler = 1.0f,
          bool use_algorithm_search = true,
          bool use_cuda_graph = true)
       : batch_size_(batch_size),
         batch_size_eval_(batch_size_eval),
+        i64_input_key_(i64_input_key),
         use_mixed_precision_(use_mixed_precision),
         scaler_(scaler),
         use_algorithm_search_(use_algorithm_search),
@@ -79,26 +82,24 @@ class Parser {
     }
     return;
   }
-  typedef long long TYPE_1;
-  typedef unsigned int TYPE_2;
 
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
-                       std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
+  void create_pipeline(std::unique_ptr<IDataReader>& data_reader,
+                       std::unique_ptr<IDataReader>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<ResourceManager>& resource_manager);
 
-  /**
-   * Create the pipeline, which includes data reader, embedding.
-   */
-  void create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
-                       std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
-                       std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<Network>>& network,
-                       const std::shared_ptr<ResourceManager>& resource_manager);
+  template <typename TypeKey>
+  friend void create_pipeline_internal(std::unique_ptr<IDataReader>& data_reader,
+                                      std::unique_ptr<IDataReader>& data_reader_eval,
+                                      std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                                      std::vector<std::unique_ptr<Network>>& network,
+                                      const std::shared_ptr<ResourceManager>& resource_manager,
+                                      Parser& parser);
+
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -132,6 +133,7 @@ struct SolverParser {
   SolverParser(const std::string& file);
   SolverParser(){}
 };
+
 
 template <typename T>
 struct SparseInput {

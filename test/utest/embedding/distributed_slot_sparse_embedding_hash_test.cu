@@ -19,7 +19,7 @@
 #include <functional>
 #include <unordered_set>
 #include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"

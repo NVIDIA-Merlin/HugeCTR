@@ -23,54 +23,42 @@
 #include <parser.hpp>
 #include <thread>
 #include <utility>
+#include <string>
 
 namespace HugeCTR {
 
-class Session {
- public:
-  static std::shared_ptr<Session> Create(const SolverParser& solver_config, const std::string configure_file);
-  virtual void train() = 0;
-  virtual void eval() = 0;
-  virtual std::vector<std::pair<std::string, float>> get_eval_metrics() = 0;
-  virtual void start_data_reading() = 0;
-  virtual Error_t get_current_loss(float* loss) = 0;
-  virtual Error_t download_params_to_files(std::string prefix, int iter) = 0;
-  virtual Error_t set_learning_rate(float lr) = 0;
-  virtual void check_overflow() const = 0;
-};
-
 /**
- * @brief A simple facade of HugeCTR.
+ * @brief Main HugeCTR class
  *
  * This is a class supporting basic usages of hugectr, which includes
  * train; evaluation; get loss; load and download trained parameters.
  * To learn how to use those method, please refer to main.cpp.
  */
-template <typename TypeKey>
-class SessionImpl : public Session {
+class Session {
  public:
   /**
    * Dtor of SessionImpl.
    */
-  ~SessionImpl();
-  SessionImpl(const SessionImpl&) = delete;
-  SessionImpl& operator=(const SessionImpl&) = delete;
+  ~Session();
+  Session(const SolverParser& solver_config, const std::string& config_file);
+  Session(const Session&) = delete;
+  Session& operator=(const Session&) = delete;
 
   /**
    * The all in one training method.
    * This method processes one iteration of a training, including one forward, one backward and
    * parameter update
    */
-  void train() override;
+  void train();
   /**
    * The all in one evaluation method.
    * This method processes one forward of evaluation.
    */
-  void eval() override;
+  void eval();
 
-  std::vector<std::pair<std::string, float>> get_eval_metrics() override;
+  std::vector<std::pair<std::string, float>> get_eval_metrics();
 
-  void start_data_reading() override {
+  void start_data_reading() {
     data_reader_->start();
     data_reader_eval_->start();
   }
@@ -79,19 +67,19 @@ class SessionImpl : public Session {
    * Get current loss from the loss tensor.
    * @return loss in float
    */
-  Error_t get_current_loss(float* loss) override;
+  Error_t get_current_loss(float* loss);
   /**
    * Download trained parameters to file.
    * @param weights_file file name of output dense model
    * @param embedding_file file name of output sparse model
    */
-  Error_t download_params_to_files(std::string prefix, int iter) override;
+  Error_t download_params_to_files(std::string prefix, int iter);
 
   /**
    * Set learning rate while training
    * @param lr learning rate.
    */
-  Error_t set_learning_rate(float lr) override {
+  Error_t set_learning_rate(float lr) {
     for (auto& embedding : embedding_) {
       embedding->set_learning_rate(lr);
     }
@@ -116,17 +104,15 @@ class SessionImpl : public Session {
     return static_cast<long long>(networks_[0]->get_params_num()) + size;
   }
 
-  void check_overflow() const override;
+  void check_overflow() const;
 
  private:
-  // typedef unsigned int TypeKey; /**< type of input key in dataset. */
-  /// typedef long long TypeKey;                        /**< type of input key in dataset. */
   std::vector<std::unique_ptr<Network>> networks_;     /**< networks (dense) used in training. */
   std::vector<std::unique_ptr<IEmbedding>> embedding_; /**< embedding */
 
-  std::unique_ptr<DataReader<TypeKey>>
-      data_reader_; /**< data reader to reading data from data set to embedding. */
-  std::unique_ptr<DataReader<TypeKey>> data_reader_eval_; /**< data reader for evaluation. */
+  std::unique_ptr<IDataReader> 
+    data_reader_;      /**< data reader to reading data from data set to embedding. */
+  std::unique_ptr<IDataReader> data_reader_eval_; /**< data reader for evaluation. */
   std::shared_ptr<ResourceManager>
       resource_manager_; /**< GPU resources include handles and streams etc.*/
 
@@ -134,9 +120,6 @@ class SessionImpl : public Session {
                                     const std::vector<std::string>& embedding_files);
 
   metrics::Metrics metrics_;
-
-  friend std::shared_ptr<Session> Session::Create(const SolverParser& solver_config, const std::string configure_file);
-  SessionImpl(const SolverParser& solver_config, const std::string configure_file);
 
   /**
    * A method load trained parameters for dense model.

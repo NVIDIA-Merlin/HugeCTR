@@ -31,33 +31,33 @@
 
 #include <pybind11/pybind11.h>
 #include <HugeCTR/pybind/common_wrapper.hpp>
+#include <HugeCTR/pybind/third_party_wrapper.hpp>
+#include <HugeCTR/pybind/utils_wrapper.hpp>
 #include <HugeCTR/pybind/csr_chunk_wrapper.hpp>
-#include <HugeCTR/pybind/data_reader_wrapper.hpp>
 #include <HugeCTR/pybind/device_map_wrapper.hpp>
 #include <HugeCTR/pybind/heapex_wrapper.hpp>
 #include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
 #include <HugeCTR/pybind/metrics_wrapper.hpp>
 #include <HugeCTR/pybind/mmap_offset_wrapper.hpp>
 #include <HugeCTR/pybind/resource_manager_wrapper.hpp>
-#include <HugeCTR/pybind/session_wrapper.hpp>
 #include <HugeCTR/pybind/solver_parser_wrapper.hpp>
-#include <HugeCTR/pybind/third_party_wrapper.hpp>
-#include <HugeCTR/pybind/utils_wrapper.hpp>
+#include <HugeCTR/pybind/data_reader_wrapper.hpp>
+#include <HugeCTR/pybind/session_wrapper.hpp>
 using namespace HugeCTR::python_lib;
 
 PYBIND11_MODULE(hugectr, m) {
   m.doc() = "hugectr python interface";
-  DeviceMapPybind(m);
+  CommonPybind(m);
   ThirdPartyPybind(m);
   UtilsPybind(m);
-  MetricsPybind(m);
-  CommonPybind(m);
-  SolverParserPybind(m);
   CSRChunkPybind(m);
+  DeviceMapPybind(m);
   HeapExPybind(m);
+  LearningRateSchedulerPybind(m);
+  MetricsPybind(m);
   MmapOffsetPybind(m);
   ResourceManagerPybind(m);
-  LearningRateSchedulerPybind(m);
+  SolverParserPybind(m);
   DataReaderPybind(m);
   SessionPybind(m);
 }

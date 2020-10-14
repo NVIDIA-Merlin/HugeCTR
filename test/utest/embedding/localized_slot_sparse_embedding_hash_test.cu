@@ -18,7 +18,7 @@
 #include <fstream>
 #include <functional>
 #include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
