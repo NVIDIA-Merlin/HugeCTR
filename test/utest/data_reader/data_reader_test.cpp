@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include <fstream>
 #include <thread>
 #include "HugeCTR/include/data_generator.hpp"
@@ -126,7 +126,7 @@ TEST(data_reader_test, data_reader_localized_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, 1);
+  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, 1);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 

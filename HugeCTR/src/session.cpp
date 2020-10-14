@@ -76,8 +76,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 }  // end namespace
 
-template <typename TypeKey>
-SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config, const std::string configure_file)
+Session::Session(const SolverParser& solver_config, const std::string& config_file)
     : resource_manager_(ResourceManager::create(solver_config.vvgpu, solver_config.seed)) {
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_config.use_mixed_precision) {
@@ -88,10 +87,9 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config, const std::
     }
   }
 
-  Parser parser(configure_file, solver_config.batchsize, solver_config.batchsize_eval,
-                solver_config.use_mixed_precision, solver_config.scaler,
-                solver_config.use_algorithm_search,
-                solver_config.use_cuda_graph);
+  Parser parser(config_file, solver_config.batchsize, solver_config.batchsize_eval,
+                solver_config.i64_input_key, solver_config.use_mixed_precision, solver_config.scaler,
+                solver_config.use_algorithm_search, solver_config.use_cuda_graph);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_, resource_manager_);
 
@@ -140,8 +138,7 @@ SessionImpl<TypeKey>::SessionImpl(const SolverParser& solver_config, const std::
  * load the model (binary) from model_file.
  * In model file, model should be saved as the sequence as discribed in configure file.
  **/
-template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::load_params_for_dense_(const std::string& model_file) {
+Error_t Session::load_params_for_dense_(const std::string& model_file) {
   try {
     if (!model_file.empty()) {
       std::ifstream model_stream(model_file, std::ifstream::binary);
@@ -173,8 +170,7 @@ Error_t SessionImpl<TypeKey>::load_params_for_dense_(const std::string& model_fi
  * In model file, model should be saved as
  * the sequence as discribed in configure file.
  **/
-template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::init_or_load_params_for_sparse_(
+Error_t Session::init_or_load_params_for_sparse_(
     const std::vector<std::string>& embedding_model_files) {
   try {
     for (size_t i = 0; i < embedding_.size(); i++) {
@@ -215,8 +211,7 @@ void network_train_helper(Network* n, long long current_batchsize) {
   return;
 }
 
-template <typename TypeKey>
-void SessionImpl<TypeKey>::train() {
+void Session::train() {
   try {
 #ifndef DATA_READING_TEST
     data_reader_->read_a_batch_to_device_delay_release();
@@ -272,8 +267,7 @@ void network_eval_helper(int id, Network* n, metrics::Metrics& metrics) {
   }
 }
 
-template <typename TypeKey>
-void SessionImpl<TypeKey>::eval() {
+void Session::eval() {
   try {
     if (data_reader_eval_ == nullptr) return;
     long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
@@ -315,8 +309,7 @@ void SessionImpl<TypeKey>::eval() {
   }
 }
 
-template <typename TypeKey>
-std::vector<std::pair<std::string, float>> SessionImpl<TypeKey>::get_eval_metrics() {
+std::vector<std::pair<std::string, float>> Session::get_eval_metrics() {
   std::vector<std::pair<std::string, float>> metrics;
   for (auto& metric : metrics_) {
     metrics.push_back(std::make_pair(metric->name(), metric->finalize_metric()));
@@ -324,8 +317,7 @@ std::vector<std::pair<std::string, float>> SessionImpl<TypeKey>::get_eval_metric
   return metrics;
 }
 
-template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::download_params_to_files(std::string prefix, int iter) {
+Error_t Session::download_params_to_files(std::string prefix, int iter) {
   std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
   std::vector<std::string> snapshot_sparse_names;
   if (iter <= 0) {
@@ -339,8 +331,7 @@ Error_t SessionImpl<TypeKey>::download_params_to_files(std::string prefix, int i
   return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
 }
 
-template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::download_params_to_files_(
+Error_t Session::download_params_to_files_(
     std::string weights_file, const std::vector<std::string>& embedding_files) {
   try {
     {
@@ -381,8 +372,7 @@ Error_t SessionImpl<TypeKey>::download_params_to_files_(
   return Error_t::Success;
 }
 
-template <typename TypeKey>
-Error_t SessionImpl<TypeKey>::get_current_loss(float* loss) {
+Error_t Session::get_current_loss(float* loss) {
   try {
     float loss_sum = 0.f;
     float loss_reduced = 0.f;
@@ -414,15 +404,13 @@ Error_t SessionImpl<TypeKey>::get_current_loss(float* loss) {
   return Error_t::Success;
 }
 
-template <typename TypeKey>
-void SessionImpl<TypeKey>::check_overflow() const {
+void Session::check_overflow() const {
   for (auto& one_embedding : embedding_) {
     one_embedding->check_overflow();
   }
 }
 
-template <typename TypeKey>
-SessionImpl<TypeKey>::~SessionImpl() {
+Session::~Session() {
   try {
     for (auto device : resource_manager_->get_local_gpu_device_id_list()) {
       CudaDeviceContext context(device);
@@ -434,19 +422,6 @@ SessionImpl<TypeKey>::~SessionImpl() {
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
   }
-}
-
-template class SessionImpl<unsigned int>;
-template class SessionImpl<long long>;
-
-  std::shared_ptr<Session> Session::Create(const SolverParser& solver_config, const std::string configure_file) {
-  std::shared_ptr<Session> session;
-  if (solver_config.i64_input_key) {
-    session.reset(new SessionImpl<long long>(solver_config, configure_file));
-  } else {
-    session.reset(new SessionImpl<unsigned int>(solver_config, configure_file));
-  }
-  return session;
 }
 
 }  // namespace HugeCTR
