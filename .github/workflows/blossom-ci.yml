@@ -1,4 +1,4 @@
-name: HugeCTR CI Test
+name: HugeCTR_CI_Test
 
 on: [push]
 
