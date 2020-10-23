@@ -1,10 +1,10 @@
 HUGECTR 2.2.1 USER GUIDE
 ===================================
-<div align=center><img src ="user_guide_src/merlin_arch.png" width = '800' height ='400'/></div>
+<div align=center><img src ="user_guide_src/merlin_arch.png"/></div>
 <div align=center>Fig. 1. Merlin Architecture</div>
 
 ## Introduction ##
-As the training component of NVIDIA Merlin (Fig. 1), HugeCTR is a recommender specific framework which is capable of distributed training across multiple GPUs and nodes for Click-Through-Rate (CTR) estimation.
+As the training component of NVIDIA Merlin Open Beta (Fig. 1), HugeCTR is a recommender specific framework which is capable of distributed training across multiple GPUs and nodes for Click-Through-Rate (CTR) estimation.
 Its key missions are high-performance and ease-of-use.
 The rest of this documentation is organized as follows.
 We first summarize the changes in version 2.2.1 since the 2.2 release.
