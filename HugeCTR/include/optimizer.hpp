@@ -22,13 +22,14 @@
 namespace HugeCTR {
 
 template <typename T>
-struct AdamOptHyperParams {  // TODO: move to optimizer
+struct AdamOptHyperParams {
   uint64_t times = 0;
   float beta1 = 0.9f;
   float beta2 = 0.999f;
   float epsilon = 1e-7f;
   T* m_ptr = nullptr;
   T* v_ptr = nullptr;
+  uint64_t* prev_time_ptr = nullptr;
 };
 
 template <typename T>
@@ -61,7 +62,7 @@ struct OptParams {
   Optimizer_t optimizer;
   float lr;
   OptHyperParams<TypeEmbeddingComp> hyperparams;
-  bool global_update;
+  Update_t update_type;
   float scaler;
 };
 

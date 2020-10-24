@@ -81,6 +81,8 @@ class Embedding : public IEmbedding {
 
   const Optimizer_t& get_optimizer() const { return embedding_params_.opt_params.optimizer; }
 
+  const Update_t& get_update_type() const { return embedding_params_.opt_params.update_type; }
+
   OptParams<TypeEmbeddingComp>& get_opt_params(int i) { return opt_params_[i]; }
 
   const OptParams<TypeEmbeddingComp>& get_opt_params() const {
@@ -192,7 +194,7 @@ class Embedding : public IEmbedding {
         OptParams<TypeEmbeddingComp> opt_params;
         opt_params.optimizer = embedding_params_.opt_params.optimizer;
         opt_params.lr = embedding_params_.opt_params.lr;
-        opt_params.global_update = embedding_params_.opt_params.global_update;
+        opt_params.update_type = embedding_params_.opt_params.update_type;
         opt_params.scaler = embedding_params_.opt_params.scaler;
         opt_params_.push_back(opt_params);
       }

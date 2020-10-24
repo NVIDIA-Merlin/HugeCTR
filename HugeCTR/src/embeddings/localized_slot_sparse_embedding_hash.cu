@@ -15,6 +15,7 @@
  */
 #include "HugeCTR/include/data_simulator.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/utils.cuh"
 #include "HugeCTR/include/utils.hpp"
 #include "cub/cub/device/device_radix_sort.cuh"
 #include "cub/cub/device/device_scan.cuh"
@@ -155,11 +156,18 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
       switch (Base::get_optimizer()) {
         case Optimizer_t::Adam:  // adam
         {
-          Tensor2<TypeEmbeddingComp> tensor;
-          buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-          opt_m_tensors_.push_back(tensor);
-          buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-          opt_v_tensors_.push_back(tensor);
+          {
+            Tensor2<TypeEmbeddingComp> tensor;
+            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
+            opt_m_tensors_.push_back(tensor);
+            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
+            opt_v_tensors_.push_back(tensor);
+          }
+          if (Base::get_update_type() == Update_t::LazyGlobal) {
+            Tensor2<uint64_t> tensor;
+            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
+            opt_prev_time_tensors_.push_back(tensor);
+          }
           break;
         }
 
@@ -319,6 +327,14 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
           CK_CUDA_THROW_(cudaMemsetAsync(opt_v_tensors_[id].get_ptr(), 0,
                                          opt_v_tensors_[id].get_size_in_bytes(),
                                          Base::get_local_gpu(id).get_stream()));
+          if (Base::get_update_type() == Update_t::LazyGlobal) {
+            dim3 grid(Base::get_local_gpu(id).get_sm_count() * 4, 1, 1);
+            dim3 block(512, 1, 1);
+            initialize_array<<<grid, block, 0, Base::get_local_gpu(id).get_stream()>>>(
+                opt_prev_time_tensors_[id].get_ptr(), opt_prev_time_tensors_[id].get_num_elements(),
+                uint64_t(1));
+            target_opt_param.hyperparams.adam.prev_time_ptr = opt_prev_time_tensors_[id].get_ptr();
+          }
           target_opt_param.hyperparams.adam.times = 0;
           target_opt_param.hyperparams.adam.beta1 = source_opt_param.hyperparams.adam.beta1;
           target_opt_param.hyperparams.adam.beta2 = source_opt_param.hyperparams.adam.beta2;
