@@ -59,6 +59,8 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
       opt_m_tensors_; /**< The mi variable storage for adam optimizer in the update_params(). */
   Tensors2<TypeEmbeddingComp>
       opt_v_tensors_; /**< The vi variable storage for adam optimizer in the update_params(). */
+  Tensors2<uint64_t> opt_prev_time_tensors_; /**< The previous update time storage for lazy adam
+                                                  in update_params(). */
   Tensors2<TypeEmbeddingComp> opt_momentum_tensors_; /**< The momentum variable storage
                                            for the momentum optimizer in the update_params(). */
   Tensors2<TypeEmbeddingComp> opt_accm_tensors_;     /**< The accm variable storage for the

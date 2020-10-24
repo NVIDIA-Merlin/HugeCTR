@@ -171,12 +171,15 @@ Different batch sizes can be set in training and evaluation respectively.
 When `mixed_precission` is set, a full fp16 pipeline will be triggered. [7]
 
 ### Optimizer
-The optimizer used in both dense and sparse models. In addition to Adam/MomentumSGD/Nesterov, We add SGD in version 2.2. Note that different optimizers can be supported in the dense and embedding parts of the model. To enable specific optimizers in embeddings, please just put the optimizer clause into the embedding layer. Otherwise, the embedding layer will use the same optimizer as the dense part. `global_update` can be specified in the optimizer. By default the optimizer will only update the hot columns of embedding in each iteration, but if you assign `true`, our optimizer will update all the columns.
-Note that `global_update` will not have as good speed as not using it.
+The optimizer used in both dense and sparse models. In addition to Adam/MomentumSGD/Nesterov, We add SGD in version 2.2. Note that different optimizers can be supported in the dense and embedding parts of the model. To enable specific optimizers in embeddings, please just put the optimizer clause into the embedding layer. Otherwise, the embedding layer will use the same optimizer as the dense part.
+The embedding update supports three algorithms, specified with `update_type`:
+* `Local` (default value): the optimizer will only update the hot columns of an embedding in each iteration.
+* `Global`: the optimizer will update all the columns. Note: this is slower as the other update types.
+* `LazyGlobal`: the optimizer will only update the hot columns of an embedding in each iteration, but using different semantics from the *local* update, and closer to the *global* update.
 ```json
 "optimizer": {
   "type": "Adam",
-  "global_update": true,
+  "update_type": "Global",
   "adam_hparam": {
     "learning_rate": 0.001,
     "beta1": 0.9,
@@ -186,7 +189,7 @@ Note that `global_update` will not have as good speed as not using it.
 }
 "optimizer": {
   "type": "MomentumSGD",
-  "global_update": false,
+  "update_type": "Local",
   "momentum_sgd_hparam": {
     "learning_rate": 0.01,
     "momentum_factor": 0.0
@@ -194,7 +197,7 @@ Note that `global_update` will not have as good speed as not using it.
 }
 "optimizer": {
   "type": "Nesterov",
-  "global_update": true,
+  "update_type": "Global",
   "nesterov_hparam": {
     "learning_rate": 0.01,
     "momentum_factor": 0.0
@@ -209,7 +212,7 @@ Fig. 6 illustrates how these hyperparameters interact with the actual learning r
 ```json
 "optimizer": {
   "type": "SGD",
-  "global_update": false,
+  "update_type": "Local",
   "sgd_hparam": {
     "learning_rate": 24.0,
     "warmup_steps": 8000,
