@@ -139,8 +139,18 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
   memset(&opt_hyper_params, 0, sizeof(opt_hyper_params));
   OptParams<Type> opt_params;
 
-  bool global_update = false;
-  global_update = get_value_from_json<bool>(j_optimizer, "global_update");
+  Update_t update_type = Update_t::Local;
+  if (has_key_(j_optimizer, "update_type")) {
+    std::string update_name = get_value_from_json<std::string>(j_optimizer, "update_type");
+    if (!find_item_in_map(update_type, update_name, UPDATE_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "No such update type: " + update_name);
+    }
+  } else if (has_key_(j_optimizer, "global_update")) {
+    bool global_update = get_value_from_json<bool>(j_optimizer, "global_update");
+    if (global_update) update_type = Update_t::Global;
+  } else {
+    MESSAGE_("update_type is not specified, using default: local");
+  }
 
   switch (optimizer_type) {
     case Optimizer_t::Adam: {
@@ -152,7 +162,7 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       opt_hyper_params.adam.beta1 = beta1;
       opt_hyper_params.adam.beta2 = beta2;
       opt_hyper_params.adam.epsilon = epsilon;
-      opt_params = {Optimizer_t::Adam, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::Adam, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::MomentumSGD: {
@@ -160,7 +170,7 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       float momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.momentum.factor = momentum_factor;
-      opt_params = {Optimizer_t::MomentumSGD, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::MomentumSGD, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::Nesterov: {
@@ -168,7 +178,7 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       float momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.nesterov.mu = momentum_factor;
-      opt_params = {Optimizer_t::Nesterov, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::Nesterov, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::SGD: {
@@ -177,7 +187,7 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       if (has_key_(j_hparam, "atomic_update")) {
         opt_hyper_params.sgd.atomic_update = get_value_from_json<bool>(j_hparam, "atomic_update");
       }
-      opt_params = {Optimizer_t::SGD, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::SGD, learning_rate, opt_hyper_params, update_type};
       break;
     }
     default:
@@ -264,14 +274,10 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
                         const std::shared_ptr<CPUResource>& cpu_resource,
-                        const std::shared_ptr<GPUResource>& gpu_resource,
-                        bool use_mixed_precision,
-                        float scaler,
-                        bool use_algorithm_search,
-                        bool use_cuda_graph) {
-  std::unique_ptr<Network> network(new Network(cpu_resource, gpu_resource,
-                                               use_mixed_precision,
-                                               use_cuda_graph));
+                        const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+                        float scaler, bool use_algorithm_search, bool use_cuda_graph) {
+  std::unique_ptr<Network> network(
+      new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
 
   auto& layers = network->layers_;
   auto& loss_tensor = network->loss_tensor_;
@@ -1429,11 +1435,8 @@ static void create_pipeline_internal(std::unique_ptr<IDataReader>& data_reader,
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
                                             total_gpu_count, resource_manager->get_local_cpu(),
-                                            resource_manager->get_local_gpu(i),
-                                            use_mixed_precision,
-                                            scaler,
-                                            use_algorithm_search,
-                                            use_cuda_graph));
+                                            resource_manager->get_local_gpu(i), use_mixed_precision,
+                                            scaler, use_algorithm_search, use_cuda_graph));
       }
     }
 

@@ -64,21 +64,24 @@ const char *hash_table_file_name = "distributed_hash_table.bin";
 
 template <typename TypeEmbeddingComp>
 void train_and_test(const std::vector<int> &device_list, const Optimizer_t &optimizer,
-                    bool global_update) {
+                    const Update_t &update_type) {
   OptHyperParams<TypeEmbeddingComp> hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
+  float tolerance;
   if (std::is_same<TypeEmbeddingComp, __half>::value) {
     hyper_params.adam.epsilon = 1e-4f;
+    tolerance = 5e-3f;
   } else {
     hyper_params.adam.epsilon = 1e-7f;
+    tolerance = 1e-4f;
   }
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
 
   const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
 
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update,
+  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
                                                    scaler};
 
   int numprocs = 1, pid = 0;
@@ -208,7 +211,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   buf->allocate();
 
-  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+  typedef struct TypeHashValue_ {
+    float data[embedding_vec_size];
+  } TypeHashValue;
 
   for (int i = 0; i < train_batch_num; i++) {
     printf("Rank%d: Round %d start training:\n", pid, i);
@@ -231,9 +236,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       embedding_cpu->forward();
 
       printf("Rank0: check forward results\n");
-      ASSERT_EQ(true, compare_embedding_feature(train_batchsize * slot_num * embedding_vec_size,
-                                                embedding_feature_from_gpu.get_ptr(),
-                                                embedding_feature_from_cpu));
+      ASSERT_TRUE(compare_embedding_feature(train_batchsize * slot_num * embedding_vec_size,
+                                            embedding_feature_from_gpu.get_ptr(),
+                                            embedding_feature_from_cpu, tolerance));
     }
 
 #ifdef ENABLE_MPI
@@ -254,8 +259,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       embedding_cpu->backward();
 
       printf("Rank0: check backward results: GPU and CPU\n");
-      ASSERT_EQ(true, compare_wgrad(train_batchsize * slot_num * embedding_vec_size,
-                                    wgrad_from_gpu.get_ptr(), wgrad_from_cpu));
+      ASSERT_TRUE(compare_wgrad(train_batchsize * slot_num * embedding_vec_size,
+                                wgrad_from_gpu.get_ptr(), wgrad_from_cpu, tolerance));
     }
 
 #ifdef ENABLE_MPI
@@ -277,11 +282,11 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       embedding_cpu->update_params();
 
       printf("Rank0: check update_params results\n");
-      bool rtn = compare_hash_table(
+      ASSERT_TRUE(compare_hash_table(
           vocabulary_size, hash_table_key_from_gpu.get_ptr(),
           reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.get_ptr()),
-          hash_table_key_from_cpu, reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu));
-      ASSERT_EQ(true, rtn);
+          hash_table_key_from_cpu, reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu),
+          tolerance));
     }
 
 #ifdef ENABLE_MPI
@@ -332,9 +337,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       test_embedding_cpu->forward();
 
       printf("Rank0: check forward results\n");
-      ASSERT_EQ(true, compare_embedding_feature(test_batchsize * slot_num * embedding_vec_size,
-                                                embedding_feature_from_gpu_eval.get_ptr(),
-                                                embedding_feature_from_cpu_eval));
+      ASSERT_TRUE(compare_embedding_feature(test_batchsize * slot_num * embedding_vec_size,
+                                            embedding_feature_from_gpu_eval.get_ptr(),
+                                            embedding_feature_from_cpu_eval, tolerance));
     }
   }
 
@@ -344,65 +349,81 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 }  // namespace
 
 TEST(distributed_sparse_embedding_hash_test, fp32_sgd_1gpu) {
-  train_and_test<float>({0}, Optimizer_t::SGD, false);
+  train_and_test<float>({0}, Optimizer_t::SGD, Update_t::Local);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp32_sgd_8gpu) {
-  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, false);
+  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, Update_t::Local);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp32_sgd_global_update_1gpu) {
-  train_and_test<float>({0}, Optimizer_t::SGD, true);
+  train_and_test<float>({0}, Optimizer_t::SGD, Update_t::Global);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp32_sgd_global_update_8gpu) {
-  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, true);
+  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, Update_t::Global);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp16_sgd_1gpu) {
-  train_and_test<__half>({0}, Optimizer_t::SGD, false);
+  train_and_test<__half>({0}, Optimizer_t::SGD, Update_t::Local);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp16_sgd_8gpu) {
-  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, false);
+  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, Update_t::Local);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp16_sgd_globl_update_1gpu) {
-  train_and_test<__half>({0}, Optimizer_t::SGD, true);
+TEST(distributed_sparse_embedding_hash_test, fp16_sgd_global_update_1gpu) {
+  train_and_test<__half>({0}, Optimizer_t::SGD, Update_t::Global);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp16_sgd_globl_update_8gpu) {
-  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, true);
+TEST(distributed_sparse_embedding_hash_test, fp16_sgd_global_update_8gpu) {
+  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, Update_t::Global);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp32_adam_1gpu) {
-  train_and_test<float>({0}, Optimizer_t::Adam, false);
+  train_and_test<float>({0}, Optimizer_t::Adam, Update_t::Local);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp32_adam_8gpu) {
-  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, false);
+  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, Update_t::Local);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp32_adam_global_update_1gpu) {
-  train_and_test<float>({0}, Optimizer_t::Adam, true);
+  train_and_test<float>({0}, Optimizer_t::Adam, Update_t::Global);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp32_adam_global_update_8gpu) {
-  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, true);
+  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, Update_t::Global);
+}
+
+TEST(distributed_sparse_embedding_hash_test, fp32_adam_lazyglobal_update_1gpu) {
+  train_and_test<float>({0}, Optimizer_t::Adam, Update_t::LazyGlobal);
+}
+
+TEST(distributed_sparse_embedding_hash_test, fp32_adam_lazyglobal_update_8gpu) {
+  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, Update_t::LazyGlobal);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp16_adam_1gpu) {
-  train_and_test<__half>({0}, Optimizer_t::Adam, false);
+  train_and_test<__half>({0}, Optimizer_t::Adam, Update_t::Local);
 }
 
 TEST(distributed_sparse_embedding_hash_test, fp16_adam_8gpu) {
-  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, false);
+  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, Update_t::Local);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp16_adam_globl_update_1gpu) {
-  train_and_test<__half>({0}, Optimizer_t::Adam, true);
+TEST(distributed_sparse_embedding_hash_test, fp16_adam_global_update_1gpu) {
+  train_and_test<__half>({0}, Optimizer_t::Adam, Update_t::Global);
 }
 
-TEST(distributed_sparse_embedding_hash_test, fp16_adam_globl_update_8gpu) {
-  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, true);
+TEST(distributed_sparse_embedding_hash_test, fp16_adam_global_update_8gpu) {
+  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, Update_t::Global);
+}
+
+TEST(distributed_sparse_embedding_hash_test, fp16_adam_lazyglobal_update_1gpu) {
+  train_and_test<__half>({0}, Optimizer_t::Adam, Update_t::LazyGlobal);
+}
+
+TEST(distributed_sparse_embedding_hash_test, fp16_adam_lazyglobal_update_8gpu) {
+  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, Update_t::LazyGlobal);
 }

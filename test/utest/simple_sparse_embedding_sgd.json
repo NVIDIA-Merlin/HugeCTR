@@ -13,7 +13,7 @@
 
   "optimizer": {
     "type": "SGD",
-    "global_update": true,
+    "update_type": "Global",
     "sgd_hparam": {
       "learning_rate": 0.001
     }

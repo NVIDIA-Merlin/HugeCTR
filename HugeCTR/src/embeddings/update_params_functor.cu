@@ -453,6 +453,58 @@ __global__ void update_kernel(uint32_t hash_value_index_count_num, int embedding
     hash_table_value[feature_index] += deltaw[bid * embedding_vec_size + tid];
   }
 }
+/// TODO: remove this kernel and move update in other kernels?
+
+template <typename TypeKey, typename TypeEmbeddingComp>
+__global__ void opt_adam_kernel_lazy(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                                     const AdamOptHyperParams<TypeEmbeddingComp> adam,
+                                     float alpha_t_common, uint64_t times, const TypeKey *sample_id,
+                                     const size_t *hash_value_index_sort,
+                                     const uint32_t *hash_value_index_count_offset,
+                                     const TypeEmbeddingComp *wgrad, float *hash_table_value,
+                                     float scaler) {
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+
+  if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
+    // uint32_t sample_num = hash_value_index_count[bid];
+    uint32_t sample_num =
+        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
+
+    // accumulate the wgrads for the corresponding embedding vector
+    float gi = 0.0f;
+    uint32_t offset = hash_value_index_count_offset[bid];
+    for (int i = 0; i < sample_num; i++) {
+      int sample_index = sample_id[offset + i];
+      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+          wgrad[sample_index * embedding_vec_size + tid]);
+    }
+    gi = gi / scaler;
+
+    size_t row_index = hash_value_index_sort[offset];
+    size_t feature_index = row_index * embedding_vec_size + tid;
+
+    /// TODO: the code above appears in multiple kernels, we can move it to a separate function
+
+    // First update the weights
+    uint64_t prev_time = adam.prev_time_ptr[feature_index];
+    adam.prev_time_ptr[feature_index] = times;
+    uint64_t skipped = times - prev_time;
+    float beta1_pow_skipped = powf(adam.beta1, skipped);
+    float alpha_t = alpha_t_common * sqrtf(1.0f - powf(adam.beta2, prev_time)) /
+                    (1.0f - powf(adam.beta1, prev_time)) * (1.0f - beta1_pow_skipped);
+    float mi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.m_ptr[feature_index]);
+    float vi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.v_ptr[feature_index]);
+    float weight_diff = -alpha_t * mi / (sqrtf(vi) + adam.epsilon);
+    hash_table_value[feature_index] += weight_diff;
+
+    // Then update the moving-average accumulators
+    mi = beta1_pow_skipped * mi + (1.0f - adam.beta1) * gi;
+    vi = powf(adam.beta2, skipped) * vi + (1.0f - adam.beta2) * gi * gi;
+    adam.m_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mi);
+    adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
+  }
+}
 
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_scale,
@@ -575,109 +627,141 @@ void SparseEmbeddingFunctors::update_params(
       block_size = embedding_vec_size;
       grid_size = max(1, hash_hash_value_index_count_num);
 
-      if (opt_params.global_update) {
-        switch (opt_params.optimizer) {
-          case Optimizer_t::Adam:  // adam
-          {
-            float alpha_t =
-                opt_params.lr *
-                sqrt(1 -
-                     pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
-                (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
-            // update target mi and vi
-            opt_adam_kernel_global<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-                sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
-                hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(), opt_params.scaler);
-            // all update according to the mi vi
-            adam_update_kernel_global<<<1024, 256, 0, stream>>>(
-                embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam,
-                alpha_t, hash_table_value.get_ptr());
-            break;
-          }
-          case Optimizer_t::MomentumSGD:  // momentum sgd
-            opt_momentum_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                opt_params.hyperparams.momentum, sample_id_sort.get_ptr(),
-                hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                wgrad.get_ptr(), opt_params.scaler);
-            momentum_sgd_update_kernel_global<<<1024, 256, 0, stream>>>(
-                embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum,
-                hash_table_value.get_ptr());
-            break;
-          case Optimizer_t::Nesterov:  // nesterov
-            nesterov_global_update_kernel_global<<<1024, 256, 0, stream>>>(
-                embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov,
-                hash_table_value.get_ptr());
-            nesterov_local_update_kernel_global<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                opt_params.hyperparams.nesterov, sample_id_sort.get_ptr(),
-                hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
-            break;
-          case Optimizer_t::SGD:
-            opt_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
-                hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
-                hash_table_value.get_ptr(), opt_params.scaler);
-            break;
-          default:
-            CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+      switch (opt_params.update_type) {
+        case Update_t::Global: {
+          switch (opt_params.optimizer) {
+            case Optimizer_t::Adam: {
+              float alpha_t =
+                  opt_params.lr *
+                  sqrt(1 -
+                       pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
+                  (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+              // update target mi and vi
+              opt_adam_kernel_global<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(), opt_params.scaler);
+              // all update according to the mi vi
+              adam_update_kernel_global<<<1024, 256, 0, stream>>>(
+                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam,
+                  alpha_t, hash_table_value.get_ptr());
+              break;
+            }
+            case Optimizer_t::MomentumSGD:
+              opt_momentum_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                  opt_params.hyperparams.momentum, sample_id_sort.get_ptr(),
+                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                  wgrad.get_ptr(), opt_params.scaler);
+              momentum_sgd_update_kernel_global<<<1024, 256, 0, stream>>>(
+                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum,
+                  hash_table_value.get_ptr());
+              break;
+            case Optimizer_t::Nesterov:
+              nesterov_global_update_kernel_global<<<1024, 256, 0, stream>>>(
+                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov,
+                  hash_table_value.get_ptr());
+              nesterov_local_update_kernel_global<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                  opt_params.hyperparams.nesterov, sample_id_sort.get_ptr(),
+                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                  wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
+              break;
+            case Optimizer_t::SGD:
+              opt_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                  hash_table_value.get_ptr(), opt_params.scaler);
+              break;
+            default:
+              CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+          }  // switch (optimizer)
+          break;
         }
-      } else {
-        switch (opt_params.optimizer) {
-          case Optimizer_t::Adam:  // adam
-          {
-            float alpha_t =
-                opt_params.lr *
-                sqrt(1 -
-                     pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
-                (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
+        case Update_t::Local: {
+          switch (opt_params.optimizer) {
+            case Optimizer_t::Adam: {
+              float alpha_t =
+                  opt_params.lr *
+                  sqrt(1 -
+                       pow(opt_params.hyperparams.adam.beta2, opt_params.hyperparams.adam.times)) /
+                  (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
 
-            opt_adam_kernel<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
-                alpha_t, sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
-                hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
-                deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), opt_params.scaler);
-            break;
-          }
-          case Optimizer_t::MomentumSGD:  // momentum sgd
-            opt_momentum_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                opt_params.hyperparams.momentum, sample_id_sort.get_ptr(),
-                hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                wgrad.get_ptr(), deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(),
-                opt_params.scaler);
-            break;
-          case Optimizer_t::Nesterov:  // nesterov
-            opt_nesterov_kernel<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                opt_params.hyperparams.nesterov, sample_id_sort.get_ptr(),
-                hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                wgrad.get_ptr(), deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(),
-                opt_params.scaler);
-            break;
-          case Optimizer_t::SGD:
-            opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
-                hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
-                hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
-                deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), opt_params.scaler);
-            break;
-          default:
-            CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+              opt_adam_kernel<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+                  alpha_t, sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                  deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), opt_params.scaler);
+              break;
+            }
+            case Optimizer_t::MomentumSGD:
+              opt_momentum_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                  opt_params.hyperparams.momentum, sample_id_sort.get_ptr(),
+                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                  wgrad.get_ptr(), deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(),
+                  opt_params.scaler);
+              break;
+            case Optimizer_t::Nesterov:
+              opt_nesterov_kernel<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                  opt_params.hyperparams.nesterov, sample_id_sort.get_ptr(),
+                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                  wgrad.get_ptr(), deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(),
+                  opt_params.scaler);
+              break;
+            case Optimizer_t::SGD:
+              opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                  deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), opt_params.scaler);
+              break;
+            default:
+              CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+          }  // switch (optimizer)
+
+          // step6: update hash_table_value by deltaw
+          block_size = embedding_vec_size;
+          grid_size = max(1, hash_hash_value_index_count_num);
+          update_kernel<<<grid_size, block_size, 0, stream>>>(
+              hash_hash_value_index_count_num, embedding_vec_size,
+              deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), hash_table_value.get_ptr());
+          /// TODO: fuse this step with the previous kernel
+
+          break;
         }
+        case Update_t::LazyGlobal: {
+          switch (opt_params.optimizer) {
+            case Optimizer_t::Adam: {
+              const float alpha_t_common =
+                  opt_params.lr / (1.0f - opt_params.hyperparams.adam.beta1);
 
-        // step6: update hash_table_value by deltaw
-        block_size = embedding_vec_size;
-        grid_size = max(1, hash_hash_value_index_count_num);
-        update_kernel<<<grid_size, block_size, 0, stream>>>(
-            hash_hash_value_index_count_num, embedding_vec_size, deltaw_hash_value_index.get_ptr(),
-            deltaw.get_ptr(), hash_table_value.get_ptr());
-      }  // else
-
-    }  // else
+              opt_adam_kernel_lazy<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+                  alpha_t_common, opt_params.hyperparams.adam.times, sample_id_sort.get_ptr(),
+                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
+                  wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
+              break;
+            }
+            case Optimizer_t::MomentumSGD:
+            case Optimizer_t::Nesterov:
+            case Optimizer_t::SGD: {
+              /// TODO: implement lazy global update for other optimizer types
+              CK_THROW_(Error_t::WrongInput,
+                        "Error: lazy global update is only implemented for Adam");
+              break;
+            }
+            default:
+              CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
+          }
+          break;
+        }
+        default:
+          CK_THROW_(Error_t::WrongInput, "Error: Invalid update type");
+      }  // switch (update type)
+    }
 #ifndef NDEBUG
     cudaDeviceSynchronize();
     CK_CUDA_THROW_(cudaGetLastError());

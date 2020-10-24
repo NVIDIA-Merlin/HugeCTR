@@ -15,7 +15,7 @@
   
   "optimizer": {
     "type": "Adam",
-    "global_update": false,
+    "update_type": "Local",
     "adam_hparam": {
       "learning_rate": 0.001,
       "beta1": 0.9,
