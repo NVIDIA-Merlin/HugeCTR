@@ -16,11 +16,17 @@
 
 #pragma once
 
-#include <unistd.h>
+#include <atomic>
 #include <common.hpp>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <unistd.h>
 #include <data_readers/csr.hpp>
 #include <data_readers/csr_chunk.hpp>
-#include <data_readers/heapex.hpp>
+#include <data_readers/chunk_consumer.hpp>
 #include <resource_manager.hpp>
 #include <utils.hpp>
 #ifdef ENABLE_MPI
@@ -69,7 +75,7 @@ class DataCollector {
   std::atomic<STATUS> stat_{READY_TO_WRITE};
   std::mutex stat_mtx_;
   std::condition_variable stat_cv_;
-  std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_;
+  std::shared_ptr<ChunkConsumer<CSRChunk<TypeKey>>> csr_heap_;
 
   Tensors2<float> label_tensors_;
   std::vector<TensorBag2> dense_tensors_;
@@ -119,7 +125,7 @@ class DataCollector {
                 const std::vector<std::shared_ptr<size_t>>& nnz_array,
                 const std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& buffs,
                 const std::shared_ptr<ResourceManager>& resource_manager,
-                const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap = nullptr,
+                const std::shared_ptr<ChunkConsumer<CSRChunk<TypeKey>>>& csr_heap = nullptr,
                 const bool use_mixed_precision = false, const bool one_hot = false,
                 const size_t cache_size = 0);
 
@@ -190,7 +196,7 @@ DataCollector<TypeKey>::DataCollector(
     const Tensors2<TypeKey>& csr_buffers, const std::vector<std::shared_ptr<size_t>>& nnz_array,
     const std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& buffs,
     const std::shared_ptr<ResourceManager>& resource_manager,
-    const std::shared_ptr<HeapEx<CSRChunk<TypeKey>>>& csr_heap, const bool use_mixed_precision,
+    const std::shared_ptr<ChunkConsumer<CSRChunk<TypeKey>>>& csr_heap, const bool use_mixed_precision,
     const bool one_hot, const size_t cache_size)
     : csr_heap_(csr_heap),
       label_tensors_(label_tensors),
@@ -308,15 +314,23 @@ void DataCollector<TypeKey>::collect_() {
   std::unique_lock<std::mutex> lock(stat_mtx_);
 
   // my turn
-  CSRChunk<TypeKey>* chunk_tmp = nullptr;
+  CSRChunk<TypeKey>* chunk_tmp = csr_heap_->checkout_data_chunk();
 
   int total_device_count = resource_manager_->get_global_gpu_count();
-  csr_heap_->data_chunk_checkout(&chunk_tmp);
 
   while (stat_ != READY_TO_WRITE && stat_ != STOP) {
     usleep(2);
   }
   if (stat_ == STOP) {
+    return;
+  }
+
+  if (chunk_tmp == nullptr) {
+    auto& internal_buffer = internal_buffers_[counter_ % internal_buffers_.size()];
+    internal_buffer->current_batchsize = 0;
+    reverse_ = !reverse_;
+    csr_heap_->return_free_chunk();
+    stat_ = READY_TO_READ;
     return;
   }
 
@@ -387,7 +401,7 @@ void DataCollector<TypeKey>::collect_() {
 
   reverse_ = !reverse_;
 
-  csr_heap_->chunk_free_and_checkin();
+  csr_heap_->return_free_chunk();
 
   stat_ = READY_TO_READ;
 }
@@ -398,7 +412,8 @@ long long DataCollector<TypeKey>::read_a_batch_to_device() {
   while (stat_ != READY_TO_READ && stat_ != STOP) {
     usleep(2);
   }
-  if (stat_ == STOP) {
+  if (stat_ == STOP || internal_buffer->current_batchsize == 0) {
+    counter_++;
     return internal_buffer->current_batchsize;
   }
 
