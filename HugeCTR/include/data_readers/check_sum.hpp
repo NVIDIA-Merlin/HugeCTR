@@ -61,7 +61,6 @@ class CheckSum : public Checker {
             accum_ = 0;
             return Error_t::Success;
           } else {
-            std::cout << "check_error:" << static_cast<int>(accum_) << std::endl;
             accum_ = 0;
             return Error_t::DataCheckError;
           }
@@ -80,16 +79,19 @@ class CheckSum : public Checker {
    * Start a new file to read.
    * @return `FileCannotOpen` or `UnspecificError`
    */
-  void next_source() {
+  Error_t next_source() {
     // initialize
     counter_ = 0;
     accum_ = 0;
     for (int i = MAX_TRY_; i > 0; i--) {
-      if (Checker::src_.next_source() == Error_t::Success) {
-        return;
+      Error_t flag_eof = Checker::src_.next_source();
+      if (flag_eof == Error_t::Success ||
+          flag_eof == Error_t::EndOfFile) {
+        return flag_eof;
       }
     }
     CK_THROW_(Error_t::FileCannotOpen, "Checker::src_.next_source() == Error_t::Success failed");
+    return Error_t::FileCannotOpen; // to elimate compile error
   }
 };
 

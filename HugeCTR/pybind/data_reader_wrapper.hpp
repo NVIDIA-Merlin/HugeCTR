@@ -55,9 +55,9 @@ void DataReaderPybind(pybind11::module& m) {
       m, "DataReaderWorker64")
       .def(pybind11::init<unsigned int, unsigned int,
                           const std::shared_ptr<HeapEx<CSRChunk<long long>>>&, const std::string&,
-                          size_t, Check_t, const std::vector<DataReaderSparseParam>&>(),
+                          size_t, bool, Check_t, const std::vector<DataReaderSparseParam>&>(),
            pybind11::arg("worker_id"), pybind11::arg("worker_num"), pybind11::arg("csr_heap"),
-           pybind11::arg("file_list"), pybind11::arg("buffer_length"), pybind11::arg("check_type"),
+           pybind11::arg("file_list"), pybind11::arg("buffer_length"), pybind11::arg("repeat"), pybind11::arg("check_type"),
            pybind11::arg("params"))
       .def("read_a_batch", &HugeCTR::DataReaderWorker<long long>::read_a_batch)
       .def("skip_read", &HugeCTR::DataReaderWorker<long long>::skip_read);
@@ -65,9 +65,10 @@ void DataReaderPybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::IDataReader, std::unique_ptr<HugeCTR::IDataReader>>(m, "IDataReader");
   pybind11::class_<HugeCTR::DataReader<long long>, std::unique_ptr<HugeCTR::DataReader<long long>>, HugeCTR::IDataReader>(m, "DataReader64")
       .def(pybind11::init<int, size_t, int, std::vector<DataReaderSparseParam>&,
-                          const std::shared_ptr<ResourceManager>&, int, bool, int>(),
+                          const std::shared_ptr<ResourceManager>&, bool, int, bool, int>(),
            pybind11::arg("batchsize"), pybind11::arg("label_dim"), pybind11::arg("dense_dim"),
            pybind11::arg("params"), pybind11::arg("resource_manager"),
+           pybind11::arg("repeat"),
            pybind11::arg("num_chunk_threads") = 31, pybind11::arg("use_mixed_precision") = false,
            pybind11::arg("cache_num_iters") = 0)
       .def("create_drwg_norm", &HugeCTR::DataReader<long long>::create_drwg_norm,

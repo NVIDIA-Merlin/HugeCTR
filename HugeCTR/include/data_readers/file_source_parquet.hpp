@@ -124,7 +124,7 @@ class ParquetFileSource : public Source {
         fd_ = -1;
         can_read_file_ = false;
       }
-      file_name_ = file_list_.get_a_file_with_id(offset_ + counter_ * stride_);
+      file_name_ = file_list_.get_a_file_with_id(offset_ + counter_ * stride_, true);
 
       // check if file exists
       in_file_stream_.open(file_name_, std::ifstream::binary);

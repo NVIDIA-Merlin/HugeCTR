@@ -44,6 +44,7 @@ class Parser {
   nlohmann::json config_;  /**< configure file. */
   size_t batch_size_;      /**< batch size. */
   size_t batch_size_eval_; /**< batch size. */
+  const bool repeat_dataset_;
   const bool i64_input_key_{false};
   const bool use_mixed_precision_{false};
   const float scaler_{1.f};
@@ -56,7 +57,10 @@ class Parser {
    * Ctor only verify the configure file, doesn't create pipeline.
    */
 
-  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
+  Parser(const std::string& configure_file,
+         size_t batch_size,
+         size_t batch_size_eval,
+         bool repeat_dataset,
          bool i64_input_key = false,
          bool use_mixed_precision = false,
          float scaler = 1.0f,
@@ -64,6 +68,7 @@ class Parser {
          bool use_cuda_graph = true)
       : batch_size_(batch_size),
         batch_size_eval_(batch_size_eval),
+        repeat_dataset_(repeat_dataset),
         i64_input_key_(i64_input_key),
         use_mixed_precision_(use_mixed_precision),
         scaler_(scaler),
@@ -86,18 +91,18 @@ class Parser {
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(std::unique_ptr<IDataReader>& data_reader,
-                       std::unique_ptr<IDataReader>& data_reader_eval,
+  void create_pipeline(std::shared_ptr<IDataReader>& data_reader,
+                       std::shared_ptr<IDataReader>& data_reader_eval,
                        std::vector<std::unique_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<ResourceManager>& resource_manager);
 
   template <typename TypeKey>
-  friend void create_pipeline_internal(std::unique_ptr<IDataReader>& data_reader,
-                                      std::unique_ptr<IDataReader>& data_reader_eval,
-                                      std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                                      std::vector<std::unique_ptr<Network>>& network,
-                                      const std::shared_ptr<ResourceManager>& resource_manager,
+  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
+                                       std::shared_ptr<IDataReader>& data_reader_eval,
+                                       std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                                       std::vector<std::unique_ptr<Network>>& network,
+                                       const std::shared_ptr<ResourceManager>& resource_manager,
                                       Parser& parser);
 
 };
@@ -115,6 +120,7 @@ struct SolverParser {
   LrPolicy_t lr_policy;                     /**< the only fixed lr is supported now. */
   int display;                              /**< the interval of loss display. */
   int max_iter;                             /**< the number of iterations for training */
+  int num_epochs;                           /**< the number of epochs for training */
   int snapshot;                             /**< the number of iterations for a snapshot */
   std::string snapshot_prefix;              /**< naming prefix of snapshot file */
   int eval_interval;                        /**< the interval of evaluations */

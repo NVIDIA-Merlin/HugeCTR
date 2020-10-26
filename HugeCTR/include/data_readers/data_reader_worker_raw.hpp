@@ -34,7 +34,6 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   std::vector<DataReaderSparseParam> params_;     /**< configuration of data reader sparse input */
   int* feature_ids_;               /**< a buffer to cache the readed feature from data set */
-  std::shared_ptr<Source> source_; /**< source: can be file or network */
   bool skip_read_{false};          /**< set to true when you want to stop the data reading */
   const int MAX_TRY = 10;
   int slots_{0};
@@ -92,8 +91,7 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
   try {
     read_new_file();
 
-    CSRChunk<T>* csr_chunk = nullptr;
-    csr_heap_->free_chunk_checkout(&csr_chunk, worker_id_);
+    CSRChunk<T>* csr_chunk = csr_heap_->checkout_free_chunk(worker_id_);
 
     if (!skip_read_ && csr_chunk != nullptr) {
       long long current_batchsize = source_->get_num_of_items_in_source();
@@ -214,7 +212,7 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
       // write the last index to row
       csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
     }
-    csr_heap_->chunk_write_and_checkin(worker_id_);
+    csr_heap_->commit_data_chunk(worker_id_, false);
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;

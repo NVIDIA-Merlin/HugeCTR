@@ -52,7 +52,27 @@ SolverParser::SolverParser(const std::string& file) {
     }
 
     display = get_value_from_json<int>(j, "display");
-    max_iter = get_value_from_json<int>(j, "max_iter");
+
+    bool has_max_iter = has_key_(j, "max_iter");
+    bool has_num_epochs = has_key_(j, "num_epochs");
+    if (has_max_iter && has_num_epochs) {
+      CK_THROW_(Error_t::WrongInput, "max_iter and num_epochs cannot be used together.");
+    }
+    else {
+      if (has_max_iter) {
+        max_iter = get_value_from_json<int>(j, "max_iter");
+        num_epochs = 0;
+      }
+      else if (has_num_epochs) {
+        max_iter = 0;
+        num_epochs = get_value_from_json<int>(j, "num_epochs");
+      }
+      else {
+        max_iter = 0;
+        num_epochs = 1;
+      }
+    }
+
     snapshot = get_value_from_json<int>(j, "snapshot");
     batchsize = get_value_from_json<int>(j, "batchsize");
     // batchsize_eval = get_value_from_json<int>(j, "batchsize_eval");

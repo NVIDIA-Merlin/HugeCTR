@@ -59,7 +59,8 @@ enum class Error_t {
   CudaError,
   NcclError,
   DataCheckError,
-  UnspecificError
+  UnspecificError,
+  EndOfFile
 };
 
 enum class Check_t { Sum, None };

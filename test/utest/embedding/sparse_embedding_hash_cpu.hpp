@@ -22,7 +22,6 @@
 #include "HugeCTR/include/data_readers/csr_chunk.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
 #include "HugeCTR/include/data_readers/file_source.hpp"
-#include "HugeCTR/include/data_readers/heap.hpp"
 
 #include "utest/embedding/cpu_hashtable.hpp"
 
@@ -338,7 +337,7 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
   hash_table_->insert(hash_table_key_.get(), hash_table_value_index_.get(), vocabulary_size_);
 
   // dataset filelist
-  source_ = std::make_shared<FileSource>(0, 1, file_list_name);
+  source_ = std::make_shared<FileSource>(0, 1, file_list_name, true);
   switch (check_sum_) {
     case Check_t::Sum:
       checker_ = std::make_shared<CheckSum>(*source_);
