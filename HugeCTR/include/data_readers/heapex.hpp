@@ -23,6 +23,8 @@
 #include <queue>
 #include <thread>
 #include <vector>
+#include <data_readers/chunk_producer.hpp>
+#include <data_readers/chunk_consumer.hpp>
 
 namespace HugeCTR {
 
@@ -36,7 +38,7 @@ namespace HugeCTR {
  * Note that at most 32 chunks are avaliable for a heap.
  */
 template <typename T>
-class HeapEx {
+class HeapEx : public ChunkConsumer<T>, public ChunkProducer<T> {
  private:
   const int num_threads_;
 
@@ -55,55 +57,111 @@ class HeapEx {
    * will try to checkout the chunk id%#chunck
    * if not avaliable just hold
    */
-  void free_chunk_checkout(T** chunk, unsigned int id) {
-    std::unique_lock<std::mutex> lock(mtx_[id]);
-    id = id % num_threads_;
-    read_cond_[id].wait(lock, [this, &id]() { return !credits_[id].empty(); });
-    auto& cand = credits_[id].front();
-    wait_queue_[id].push(cand);
-    *chunk = cand;
-    credits_[id].pop();
+  T* checkout_free_chunk(unsigned int ch_id) override {
+    T* chunk = nullptr;
+    std::unique_lock<std::mutex> lock(mtx_[ch_id]);
+    ch_id = ch_id % num_threads_;
+    read_cond_[ch_id].wait(lock, [this, &ch_id]() { return !credits_[ch_id].empty(); });
+    auto& cand = credits_[ch_id].front();
+    wait_queue_[ch_id].push(cand);
+    chunk = cand;
+    credits_[ch_id].pop();
     lock.unlock();
+    return chunk;
   }
 
   /**
    * After writting, check in the chunk
    */
-  void chunk_write_and_checkin(unsigned int id) {
-    std::unique_lock<std::mutex> lock(mtx_[id]);
-    id = id % num_threads_;
-    auto& cand = wait_queue_[id].front();
-    ready_queue_[id].push(cand);
-    wait_queue_[id].pop();
+  void commit_data_chunk(unsigned int ch_id, bool is_nop) {
+    std::unique_lock<std::mutex> lock(mtx_[ch_id]);
+    ch_id = ch_id % num_threads_;
+    // because nop can be inserted anytime, the emptiness must be checked
+    if (!wait_queue_[ch_id].empty()) {
+      auto& cand = wait_queue_[ch_id].front();
+      if (is_nop) {
+        credits_[ch_id].push(cand);
+        ready_queue_[ch_id].push(nullptr);
+      }
+      else {
+        ready_queue_[ch_id].push(cand);
+      }
+      wait_queue_[ch_id].pop();
+    }
+    else if (is_nop) {
+      ready_queue_[ch_id].push(nullptr);
+    }
     lock.unlock();
-    write_cond_[id].notify_one();
+    write_cond_[ch_id].notify_one();
   }
 
   /**
    * Checkout the data with id count_%chunk
    * if not avaliable hold
+   * return false means EOF data set.
    */
-  void data_chunk_checkout(T** chunk) {
-    int id = count_;
-    std::unique_lock<std::mutex> lock(mtx_[id]);
-    write_cond_[id].wait(lock, [this, &id]() { return !ready_queue_[id].empty(); });
-    auto& cand = ready_queue_[id].front();
-    *chunk = cand;
-    lock.unlock();
+  T* checkout_data_chunk() override {
+    T* chunk = nullptr;
+    for (int i = 0; i < num_threads_; i++) {
+      int id = (count_ + i) % num_threads_;
+      std::unique_lock<std::mutex> lock(mtx_[id]);
+      write_cond_[id].wait(lock, [this, &id]() { return !ready_queue_[id].empty(); });
+      auto& cand = ready_queue_[id].front();
+      lock.unlock();
+      if (cand != nullptr) {
+        chunk = cand;
+        count_ = id;
+        break;
+      }
+    }
+    return chunk;
   }
 
   /**
    * Free the chunk count_%chunk after using.
    */
-  void chunk_free_and_checkin() {
+  void return_free_chunk() override {
     int id = count_;
     std::unique_lock<std::mutex> lock(mtx_[id]);
-    credits_[id].push(ready_queue_[id].front());
-    ready_queue_[id].pop();
+    auto& chunk = ready_queue_[id].front();
+    if (chunk != nullptr) {
+      credits_[id].push(chunk);
+      ready_queue_[id].pop();
+      count_ = (id + 1) % num_threads_;
+    }
+    else {
+      for (int i = 0; i < num_threads_; i++) {
+        if (!ready_queue_[i].empty() && ready_queue_[i].front() == nullptr) {
+          ready_queue_[i].pop();
+        }
+      }
+    }
     lock.unlock();
     read_cond_[id].notify_one();
-    count_ = (id + 1) % num_threads_;
-    return;
+  }
+
+  /**
+   * Reset all the internal states
+   */
+  void reset() {
+    for (int id = 0; id < num_threads_; id++) {
+      std::unique_lock<std::mutex> lock(mtx_[id]);
+      while (!ready_queue_[id].empty()) {
+        auto& chunk = ready_queue_[id].front();
+        if (chunk != nullptr) {
+          credits_[id].push(chunk);
+        }
+        ready_queue_[id].pop();
+      }
+      while (!wait_queue_[id].empty()) {
+        auto& chunk = wait_queue_[id].front();
+        credits_[id].push(chunk);
+        wait_queue_[id].pop();
+      }
+      write_cond_[id].notify_one();
+      read_cond_[id].notify_one();
+    }
+    count_ = 0;
   }
 
   /**

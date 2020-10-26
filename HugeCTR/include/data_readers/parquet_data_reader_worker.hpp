@@ -53,7 +53,6 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   size_t buffer_length_;                          /**< buffer size for internal use */
   std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   std::vector<DataReaderSparseParam> params_;     /**< configuration of data reader sparse input */
-  std::shared_ptr<ParquetFileSource> source_;     /**< source: can be file or network */
   bool skip_read_{false}; /**< set to true when you want to stop the data reading */
   const int MAX_TRY = 10;
   long long records_in_file_;
@@ -79,11 +78,16 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   long long row_group_carry_forward_;
   long long view_offset_;
 
+  ParquetFileSource* parquet_file_source() const { 
+    return static_cast<ParquetFileSource*>(source_.get());
+  }
+
   void read_new_file() {
+    auto source = parquet_file_source();
     for (int i = 0; i < MAX_TRY; i++) {
-      Error_t err = source_->next_source();
+      Error_t err = source->next_source();
       if (err == Error_t::Success) {
-        auto metadata = source_->get_file_metadata();
+        auto metadata = source->get_file_metadata();
 
         if (metadata.get_metadata_status()) {
           auto label_col_names = metadata.get_label_names();
@@ -112,7 +116,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
               i++;
             }
           }
-          records_in_file_ = source_->get_num_rows();
+          records_in_file_ = source->get_num_rows();
           current_record_index_ = 0;
         } else {
           // raise exception
@@ -220,11 +224,11 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
   }
 
   try {
-    if (!source_->is_open()) {
+    auto source = parquet_file_source();
+    if (!source->is_open()) {
       read_new_file();
     }
-    CSRChunk<T>* csr_chunk = nullptr;
-    csr_heap_->free_chunk_checkout(&csr_chunk, worker_id_);
+    CSRChunk<T>* csr_chunk = csr_heap_->checkout_free_chunk(worker_id_);
 
     if (!skip_read_) {
       csr_chunk->set_current_batchsize(csr_chunk->get_batchsize());
@@ -236,7 +240,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       // have enough row inc row_group_index_ else slice and concat to next DF
       while (elements_to_read > 0) {
         if (!cached_df_ || (row_group_size_ == row_group_index_)) {
-          auto tbl_w_metadata = source_->read(-1, memory_resource_.get());
+          auto tbl_w_metadata = source->read(-1, memory_resource_.get());
           if (row_group_carry_forward_ > 0 && table_view_for_concat.size() > 0) {
             std::vector<cudf::table_view> table_views_for_concat{table_view_for_concat[0],
                                                                  tbl_w_metadata.tbl->view()};
@@ -509,7 +513,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       view_offset_ = row_group_index_;
     }
 
-    csr_heap_->chunk_write_and_checkin(worker_id_);
+    csr_heap_->commit_data_chunk(worker_id_, false);
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;

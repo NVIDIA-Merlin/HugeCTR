@@ -15,12 +15,26 @@
  */
 
 #pragma once
+#include <data_readers/source.hpp>
+#include <memory>
 
 namespace HugeCTR {
 class IDataReaderWorker {
  public:
   virtual void read_a_batch() = 0;
   virtual void skip_read() = 0;
+  void set_source(std::shared_ptr<Source> source) {
+    pre_set_source();
+    source_ = source;
+    post_set_source();
+  }
+
+ protected:
+  std::shared_ptr<Source> source_; /**< source: can be file or network */
+
+ private:
+  virtual void pre_set_source() {}
+  virtual void post_set_source() {}
 };
 
 template<typename T>

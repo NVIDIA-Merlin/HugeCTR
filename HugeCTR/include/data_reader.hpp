@@ -26,7 +26,6 @@
 #include <data_readers/data_reader_worker_group_parquet.hpp>
 #include <data_readers/data_reader_worker_group_raw.hpp>
 #include <data_readers/file_list.hpp>
-#include <data_readers/heap.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <utils.hpp>
@@ -71,6 +70,8 @@ public:
   virtual void create_drwg_parquet( std::string file_list,
                             const std::vector<long long> slot_offset,
                             bool start_reading_from_beginning = true) = 0;
+
+  virtual void set_file_list_source(std::string file_list = std::string()) = 0;
 };
 
 

@@ -35,7 +35,6 @@
 #include <HugeCTR/pybind/utils_wrapper.hpp>
 #include <HugeCTR/pybind/csr_chunk_wrapper.hpp>
 #include <HugeCTR/pybind/device_map_wrapper.hpp>
-#include <HugeCTR/pybind/heapex_wrapper.hpp>
 #include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
 #include <HugeCTR/pybind/metrics_wrapper.hpp>
 #include <HugeCTR/pybind/mmap_offset_wrapper.hpp>
@@ -52,7 +51,6 @@ PYBIND11_MODULE(hugectr, m) {
   UtilsPybind(m);
   CSRChunkPybind(m);
   DeviceMapPybind(m);
-  HeapExPybind(m);
   LearningRateSchedulerPybind(m);
   MetricsPybind(m);
   MmapOffsetPybind(m);
