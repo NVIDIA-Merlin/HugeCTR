@@ -30,21 +30,21 @@ TEST(heapex, heapex_basic_test) {
   float* chunks[5];
 
   HeapEx<float> heapex(3, 0.0f);
-  heapex.free_chunk_checkout(&chunks[0], 0);
-  heapex.free_chunk_checkout(&chunks[1], 1);
+  chunks[0] = heapex.checkout_free_chunk(0);
+  chunks[1] = heapex.checkout_free_chunk(1);
   EXPECT_NE(chunks[0], chunks[1]);
   *chunks[1] = 20.0f;
-  heapex.chunk_write_and_checkin(1);
+  heapex.commit_data_chunk(1, false);
   *chunks[0] = 10.0f;
-  heapex.chunk_write_and_checkin(0);
-  heapex.free_chunk_checkout(&chunks[2], 2);
-  heapex.data_chunk_checkout(&chunks[3]);
+  heapex.commit_data_chunk(0, false);
+  chunks[2] = heapex.checkout_free_chunk(2);
+  chunks[3] = heapex.checkout_data_chunk();
   EXPECT_TRUE(*chunks[3] == 10.0f);
-  heapex.chunk_free_and_checkin();
-  heapex.data_chunk_checkout(&chunks[4]);
+  heapex.return_free_chunk();
+  chunks[4] = heapex.checkout_data_chunk();
   EXPECT_TRUE(*chunks[4] == 20.0f);
-  heapex.chunk_free_and_checkin();
-  heapex.chunk_write_and_checkin(2);
+  heapex.return_free_chunk();
+  heapex.commit_data_chunk(2, false);
 }
 
 TEST(heapex, heapex_csr_chunk_test) {
@@ -58,6 +58,6 @@ TEST(heapex, heapex_csr_chunk_test) {
 
   HeapEx<CSRChunk<long long>> csr_heapex(32, num_devices, batchsize, label_dim, params);
   CSRChunk<long long>* chunk_tmp = nullptr;
-  csr_heapex.free_chunk_checkout(&chunk_tmp, 0);
+  chunk_tmp = csr_heapex.checkout_free_chunk(0);
   chunk_tmp->get_csr_buffer(0).reset();
 }

@@ -1201,8 +1201,8 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
 
 
 template <typename TypeKey>
-static void create_pipeline_internal(std::unique_ptr<IDataReader>& data_reader,
-                                     std::unique_ptr<IDataReader>& data_reader_eval,
+static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
+                                     std::shared_ptr<IDataReader>& data_reader_eval,
                                      std::vector<std::unique_ptr<IEmbedding>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
                                      const std::shared_ptr<ResourceManager>& resource_manager,
@@ -1309,11 +1309,16 @@ static void create_pipeline_internal(std::unique_ptr<IDataReader>& data_reader,
 
         DataReader<TypeKey> *data_reader_tk = new DataReader<TypeKey>(
             batch_size, label_dim, dense_dim,
-            data_reader_sparse_param_array, resource_manager,
+            data_reader_sparse_param_array,
+            resource_manager,
+            parser.repeat_dataset_,
             NUM_THREADS, use_mixed_precision, false);
         data_reader.reset(data_reader_tk);
         DataReader<TypeKey> *data_reader_eval_tk = new DataReader<TypeKey>(
-            batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
+            batch_size_eval, label_dim, dense_dim,
+            data_reader_sparse_param_array,
+            resource_manager,
+            parser.repeat_dataset_,
             NUM_THREADS, use_mixed_precision, cache_eval_data);
         data_reader_eval.reset(data_reader_eval_tk);
 
@@ -1448,8 +1453,8 @@ static void create_pipeline_internal(std::unique_ptr<IDataReader>& data_reader,
 }
 
 
-void Parser::create_pipeline(std::unique_ptr<IDataReader>& data_reader,
-                             std::unique_ptr<IDataReader>& data_reader_eval,
+void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
+                             std::shared_ptr<IDataReader>& data_reader_eval,
                              std::vector<std::unique_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
                              const std::shared_ptr<ResourceManager>& resource_manager) {

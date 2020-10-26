@@ -23,6 +23,7 @@
 #include <data_readers/data_reader_worker_interface.hpp>
 #include <data_readers/file_list.hpp>
 #include <data_readers/file_source.hpp>
+#include <data_readers/chunk_producer.hpp>
 #include <data_readers/heapex.hpp>
 #include <fstream>
 #include <vector>
@@ -33,22 +34,27 @@ class DataReaderWorker : public IDataReaderWorker {
  private:
   const unsigned int worker_id_{0};
   const unsigned int worker_num_{0};
-  std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
+  std::shared_ptr<ChunkProducer<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   DataSetHeader
       data_set_header_;  /**< the header of data set, which has main informations of a data file */
   size_t buffer_length_; /**< buffer size for internal use */
   Check_t check_type_;   /**< check type for data set */
   std::vector<DataReaderSparseParam> params_; /**< configuration of data reader sparse input */
   T* feature_ids_;                   /**< a buffer to cache the readed feature from data set */
-  std::shared_ptr<Source> source_;   /**< source: can be file or network */
   std::shared_ptr<Checker> checker_; /**< checker aim to perform error check of the input data */
   bool skip_read_{false};            /**< set to true when you want to stop the data reading */
   const int MAX_TRY = 10;
   int current_record_index_{0};
   int slots_{0};
+
+  std::condition_variable eof_cv_;
+  std::mutex eof_mtx_;
+
   void read_new_file() {
     for (int i = 0; i < MAX_TRY; i++) {
-      checker_->next_source();
+      if (checker_->next_source() == Error_t::EndOfFile) {
+        throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+      }
 
       Error_t err =
           checker_->read(reinterpret_cast<char*>(&data_set_header_), sizeof(DataSetHeader));
@@ -69,13 +75,32 @@ class DataReaderWorker : public IDataReaderWorker {
     CK_THROW_(Error_t::BrokenFile, "failed to read a file");
   }
 
+  void create_checker() {
+    switch (check_type_) {
+      case Check_t::Sum:
+        checker_ = std::make_shared<CheckSum>(*source_);
+        break;
+      case Check_t::None:
+        checker_ = std::make_shared<CheckNone>(*source_);
+        break;
+      default:
+        assert(!"Error: no such Check_t && should never get here!!");
+    }
+  }
+
+  void post_set_source() override {
+    create_checker();
+    eof_cv_.notify_all();
+  }
+
  public:
   /**
    * Ctor
    */
   DataReaderWorker(unsigned int worker_id, unsigned int worker_num,
-                   const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
-                   const std::string& file_list, size_t buffer_length, Check_t check_type,
+                   const std::shared_ptr<ChunkProducer<CSRChunk<T>>>& csr_heap,
+                   const std::string& file_list, size_t buffer_length, bool repeat,
+                   Check_t check_type,
                    const std::vector<DataReaderSparseParam>& params)
       : worker_id_(worker_id),
         worker_num_(worker_num),
@@ -91,18 +116,10 @@ class DataReaderWorker : public IDataReaderWorker {
     for (auto& p : params) {
       slots_ += p.slot_num;
     }
-    source_ = std::make_shared<FileSource>(worker_id, worker_num, file_list);
-    switch (check_type_) {
-      case Check_t::Sum:
-        checker_ = std::make_shared<CheckSum>(*source_);
-        break;
-      case Check_t::None:
-        checker_ = std::make_shared<CheckNone>(*source_);
-        break;
-      default:
-        assert(!"Error: no such Check_t && should never get here!!");
-    }
+    source_ = std::make_shared<FileSource>(worker_id, worker_num, file_list, repeat);
+    create_checker();
   }
+
   /**
    * read a batch of data from data set to heap.
    */
@@ -111,40 +128,25 @@ class DataReaderWorker : public IDataReaderWorker {
   /**
    * skip data reading in read_a_batch()
    */
-  void skip_read() { skip_read_ = true; }
+  void skip_read() {
+    skip_read_ = true;
+    eof_cv_.notify_all();
+  }
 };
-
-#define CK_READ_(x)                                        \
-  do {                                                     \
-    Error_t __ERR = (x);                                   \
-    if (__ERR == Error_t::Success) {                       \
-    } else if (__ERR == Error_t::DataCheckError) {         \
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::roll_back); \
-      i--;                                                 \
-      ERROR_MESSAGE_("Error_t::DataCheckError");           \
-      goto END_SAMPLE;                                     \
-    } else {                                               \
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::roll_back); \
-      i--;                                                 \
-      read_new_file();                                     \
-      goto END_SAMPLE;                                     \
-    }                                                      \
-  } while (0)
 
 template <class T>
 void DataReaderWorker<T>::read_a_batch() {
+  int i = 0;
+  CSRChunk<T>* csr_chunk = nullptr;
   try {
     if (!checker_->is_open()) {
       read_new_file();
     }
-    CSRChunk<T>* csr_chunk = nullptr;
-    csr_heap_->free_chunk_checkout(&csr_chunk, worker_id_);
+    csr_chunk = csr_heap_->checkout_free_chunk(worker_id_);
 
     if (!skip_read_) {
-
-      // todo: set to real batchsize when data reader can stop at end of epoch
+      // if the EOF is faced, the current batch size can be changed later
       csr_chunk->set_current_batchsize(csr_chunk->get_batchsize());
-
       Tensors2<float>& label_dense_buffers = csr_chunk->get_label_buffers();
       const int label_dense_dim = csr_chunk->get_label_dense_dim();
       if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
@@ -155,96 +157,129 @@ void DataReaderWorker<T>::read_a_batch() {
       csr_chunk->apply_to_csr_buffers(&CSR<T>::reset);
       assert(label_dense_buffers.size() > 0);
       // batch loop
-      for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
+      for (i = 0; i < csr_chunk->get_batchsize(); i++) {
+        try {
+          int param_id = 0;
+          csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
 
-	// if (i >= current_batchsize)
-	if (i >= csr_chunk->get_current_batchsize()){
-	  //	  std::cout << "i >= csr_chunk->get_current_batchsize() " << csr_chunk->get_current_batchsize() << " " << csr_chunk->get_batchsize() << std::endl;
-	  fill_empty_sample(params_, csr_chunk);
-          continue;
-	}  
+          CK_THROW_(checker_->read(reinterpret_cast<char*>(label_dense.get()),
+                                  sizeof(float) * label_dense_dim),
+                    "failure in reading label_dense");
 
-        int param_id = 0;
-        csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
+          {
+            // We suppose that the data parallel mode is like this
+            // The subsequence samples will be located to the same GPU
+            int buffer_id = i / (csr_chunk->get_batchsize() / label_dense_buffers.size());
+            assert((unsigned int)buffer_id < label_dense_buffers.size());
+            int local_id = i % (csr_chunk->get_batchsize() / label_dense_buffers.size());
+            assert((unsigned int)local_id <
+                   (csr_chunk->get_batchsize() / label_dense_buffers.size()));
+            float* ptr = label_dense_buffers[buffer_id].get_ptr();
+            for (int j = 0; j < label_dense_dim; j++) {
+              ptr[local_id * label_dense_dim + j] = label_dense[j];  // row major for label buffer
+            }
+          }
 
-        CK_READ_(checker_->read(reinterpret_cast<char*>(label_dense.get()),
-                                sizeof(float) * label_dense_dim));
+          for (auto& param : params_) {
+            for (int k = 0; k < param.slot_num; k++) {
+              int nnz;
+              CK_THROW_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)),
+                        "failure in reading nnz");
 
-        {
-          // We suppose that the data parallel mode is like this
-          // The subsequence samples will be located to the same GPU
-          int buffer_id = i / (csr_chunk->get_batchsize() / label_dense_buffers.size());
-          assert((unsigned int)buffer_id < label_dense_buffers.size());
-          int local_id = i % (csr_chunk->get_batchsize() / label_dense_buffers.size());
-          assert((unsigned int)local_id <
-                 (csr_chunk->get_batchsize() / label_dense_buffers.size()));
-          float* ptr = label_dense_buffers[buffer_id].get_ptr();
-          for (int j = 0; j < label_dense_dim; j++) {
-            ptr[local_id * label_dense_dim + j] = label_dense[j];  // row major for label buffer
+              if (nnz > (int)buffer_length_ || nnz < 0) {
+                ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
+              }
+
+              CK_THROW_(checker_->read(reinterpret_cast<char*>(feature_ids_),
+                                       sizeof(T) * nnz),
+                        "failure in reading feature_ids_");
+              if (param.type == DataReaderSparse_t::Distributed) {
+                for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {
+                  csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
+                }
+                for (int j = 0; j < nnz; j++) {
+                  int dev_id = feature_ids_[j] % csr_chunk->get_num_devices();
+                  dev_id = std::abs(dev_id);
+                  T local_id = feature_ids_[j];
+                  assert(dev_id < csr_chunk->get_num_devices());
+                  csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
+                }
+              } else if (param.type == DataReaderSparse_t::Localized) {
+                int dev_id = k % csr_chunk->get_num_devices();
+                csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
+                for (int j = 0; j < nnz; j++) {
+                  T local_id = feature_ids_[j];
+                  csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
+                }
+              } else {
+                CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
+              }
+            }
+            param_id++;
+          }  // for(auto& param: params_)
+        }
+        catch (const internal_runtime_error &rt_err) {
+          i--; // restart i-th sample
+          csr_chunk->apply_to_csr_buffers(&CSR<T>::roll_back);
+          Error_t err = rt_err.get_error();
+          if (err == Error_t::DataCheckError) {
+            ERROR_MESSAGE_("Error_t::DataCheckError");
+          }
+          else { // Error_t::BrokenFile, Error_t::UnspecificEror, ...
+            read_new_file(); // can throw Error_t::EOF
           }
         }
-
-        for (auto& param : params_) {
-          for (int k = 0; k < param.slot_num; k++) {
-            int nnz;
-            CK_READ_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)));
-
-            if (nnz > (int)buffer_length_ || nnz < 0) {
-              ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
-            }
-
-            CK_READ_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz));
-            if (param.type == DataReaderSparse_t::Distributed) {
-              for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {
-                csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
-              }
-              for (int j = 0; j < nnz; j++) {
-                int dev_id = feature_ids_[j] % csr_chunk->get_num_devices();
-                dev_id = std::abs(dev_id);
-                T local_id = feature_ids_[j];
-                assert(dev_id < csr_chunk->get_num_devices());
-                /* #ifndef NDEBUG
-                                if (i >= 0)
-                                  std::cout << "[HCDEBUG]"
-                                            << "feature_ids:" << feature_ids_[j] << " local_id: " <<
-                local_id
-                                            << " param_id: " << param_id << " dev_id: " << dev_id <<
-                std::endl;
-                #endif */
-
-                csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
-              }
-            } else if (param.type == DataReaderSparse_t::Localized) {
-              int dev_id = k % csr_chunk->get_num_devices();
-              csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
-              for (int j = 0; j < nnz; j++) {
-                T local_id = feature_ids_[j];
-                csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
-              }
-            } else {
-              CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
-            }
-          }
-          param_id++;
-        }  // for(auto& param: params_)
-      END_SAMPLE:;
+        catch (const std::runtime_error& rt_err) {
+          std::cerr << rt_err.what() << std::endl;
+          throw;
+        }
 
         current_record_index_++;
 
         // start a new file when finish one file read
         if (current_record_index_ >= data_set_header_.number_of_records) {
-          read_new_file();
+          read_new_file(); // can throw Error_t::EOF
         }
       }  // batch loop
       // write the last index to row
       csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
     }
-    csr_heap_->chunk_write_and_checkin(worker_id_);
-  } catch (const std::runtime_error& rt_err) {
+    csr_heap_->commit_data_chunk(worker_id_, false);
+  }
+  catch (const internal_runtime_error& rt_err) {
+    Error_t err = rt_err.get_error();
+    if (err == Error_t::EndOfFile) {
+      if (csr_chunk != nullptr && i > 0) {
+        // it faced the EOF after the last sample was processed successfully,
+        if (current_record_index_ >= data_set_header_.number_of_records) {
+          i++;
+        }
+        csr_chunk->set_current_batchsize(i);
+        for (int j = i; j < csr_chunk->get_batchsize(); j++) {
+          fill_empty_sample(params_, csr_chunk);
+        }
+        // write the last index to row
+        csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
+        // push the partially filled batch
+        csr_heap_->commit_data_chunk(worker_id_, false);
+      }
+      else {
+        // push nop to singal to DataCollector that it is the EOF
+        csr_heap_->commit_data_chunk(worker_id_, true);
+        std::unique_lock<std::mutex> lock(eof_mtx_);
+        // wait for the new source is set
+        eof_cv_.wait(lock);
+      }
+    }
+    else {
+      std::cerr << rt_err.what() << std::endl;
+      throw;
+    }
+  }
+  catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
-  return;
 }
 
 }  // namespace HugeCTR

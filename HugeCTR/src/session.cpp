@@ -88,9 +88,15 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
     }
   }
 
-  Parser parser(config_file, solver_config.batchsize, solver_config.batchsize_eval,
-                solver_config.i64_input_key, solver_config.use_mixed_precision, solver_config.scaler,
-                solver_config.use_algorithm_search, solver_config.use_cuda_graph);
+  Parser parser(config_file,
+                solver_config.batchsize,
+                solver_config.batchsize_eval,
+                solver_config.num_epochs < 1,
+                solver_config.i64_input_key,
+                solver_config.use_mixed_precision,
+                solver_config.scaler,
+                solver_config.use_algorithm_search,
+                solver_config.use_cuda_graph);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_, resource_manager_);
 
@@ -197,10 +203,13 @@ Error_t Session::init_or_load_params_for_sparse_(
   return Error_t::Success;
 }
 
-void Session::train() {
+bool Session::train() {
   try {
 #ifndef DATA_READING_TEST
-    data_reader_->read_a_batch_to_device_delay_release();
+    long long current_batchsize = data_reader_->read_a_batch_to_device_delay_release();
+    if (!current_batchsize) {
+      return false;
+    }
     for (auto& one_embedding : embedding_) {
       one_embedding->forward(true);
     }
@@ -226,6 +235,7 @@ void Session::train() {
       one_embedding->backward();
       one_embedding->update_params();
     }
+    return true;
 #else
     data_reader_->read_a_batch_to_device();
 #endif
@@ -238,12 +248,15 @@ void Session::train() {
   }
 }
 
-void Session::eval() {
+bool Session::eval() {
   try {
-    if (data_reader_eval_ == nullptr) return;
+    if (data_reader_eval_ == nullptr) return true;
     long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
+    }
+    if (!current_batchsize) {
+      return false;
     }
 
 #ifndef DATA_READING_TEST
@@ -274,7 +287,7 @@ void Session::eval() {
     for (auto& metric : metrics_) {
       metric->global_reduce(networks_.size());
     }
-
+    return true;
   } catch (const internal_runtime_error& err) {
     std::cerr << err.what() << std::endl;
     throw err;

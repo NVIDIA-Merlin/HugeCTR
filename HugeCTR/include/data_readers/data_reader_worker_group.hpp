@@ -92,5 +92,12 @@ class DataReaderWorkerGroup {
       data_reader_thread.join();
     }
   }
+  template <typename Op>
+  void set_source(Op op) {
+    size_t num_workers = data_readers_.size();
+    for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {
+      data_readers_[worker_id]->set_source(op(worker_id, num_workers));
+    }
+  }
 };
 }  // namespace HugeCTR

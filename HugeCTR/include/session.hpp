@@ -48,12 +48,12 @@ class Session {
    * This method processes one iteration of a training, including one forward, one backward and
    * parameter update
    */
-  void train();
+  bool train();
   /**
    * The all in one evaluation method.
    * This method processes one forward of evaluation.
    */
-  void eval();
+  bool eval();
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -105,13 +105,20 @@ class Session {
 
   void check_overflow() const;
 
+  std::shared_ptr<IDataReader> get_data_reader_train() const {
+    return data_reader_;
+  }
+  std::shared_ptr<IDataReader> get_data_reader_eval() const {
+    return data_reader_eval_;
+  }
+
  private:
   std::vector<std::unique_ptr<Network>> networks_;     /**< networks (dense) used in training. */
   std::vector<std::unique_ptr<IEmbedding>> embedding_; /**< embedding */
 
-  std::unique_ptr<IDataReader> 
+  std::shared_ptr<IDataReader> 
     data_reader_;      /**< data reader to reading data from data set to embedding. */
-  std::unique_ptr<IDataReader> data_reader_eval_; /**< data reader for evaluation. */
+  std::shared_ptr<IDataReader> data_reader_eval_; /**< data reader for evaluation. */
   std::shared_ptr<ResourceManager>
       resource_manager_; /**< GPU resources include handles and streams etc.*/
 
