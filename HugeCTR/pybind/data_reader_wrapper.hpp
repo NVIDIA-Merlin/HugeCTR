@@ -33,10 +33,10 @@ void DataReaderPybind(pybind11::module& m) {
                           const std::shared_ptr<HeapEx<CSRChunk<long long>>>&, const std::string&,
                           size_t, const std::vector<DataReaderSparseParam>&,
                           const std::vector<long long>&,
-                          const std::shared_ptr<rmm::mr::device_memory_resource>&>(),
+                          int, std::shared_ptr<ResourceManager>&>(),
            pybind11::arg("worker_id"), pybind11::arg("worker_num"), pybind11::arg("csr_heap"),
            pybind11::arg("file_list"), pybind11::arg("buffer_length"), pybind11::arg("params"),
-           pybind11::arg("slot_offset"), pybind11::arg("mr"))
+           pybind11::arg("slot_offset"), pybind11::arg("device_id"), pybind11::arg("resource_manager"))
       .def("read_a_batch", &HugeCTR::ParquetDataReaderWorker<long long>::read_a_batch)
       .def("skip_read", &HugeCTR::ParquetDataReaderWorker<long long>::skip_read);
   pybind11::class_<HugeCTR::DataReaderWorkerRaw<long long>, HugeCTR::IDataReaderWorker>(

@@ -147,20 +147,23 @@ void generate_parquet_input_files(int num_files, int sample_per_file) {
 }
 
 TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
-  int device_id = 0;
-  size_t pool_alloc_size = 256 * 1024 * 1024;
-  std::vector<int> dev{device_id};
-  std::shared_ptr<rmm::mr::device_memory_resource> mr =
-              std::make_shared<rmm::mr::cnmem_memory_resource>(pool_alloc_size, dev);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::set_default_resource(mr.get());
+  auto p_mr = rmm::mr::get_default_resource();
 #pragma GCC diagnostic pop
   generate_parquet_input_files(3, 1024);
 
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 128;
+
+  int numprocs = 1;
+  std::vector<std::vector<int>> vvgpu;
+  std::vector<int> device_list = {0};
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
   
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
                                        slot_num};
@@ -178,7 +181,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
 
   // setup a data reader
   ParquetDataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length,
-                                          params, slot_offset, mr);
+                                          params, slot_offset, 0, gpu_resource_group);
 
   // call read a batch
   data_reader.read_a_batch();
@@ -190,17 +193,19 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
 }
 
 TEST(data_reader_parquet_worker, data_reader_parquet_worker_localized_test) {
-  int device_id = 0;
-  size_t pool_alloc_size = 256 * 1024 * 1024;
-  std::vector<int> dev{device_id};
-  std::shared_ptr<rmm::mr::device_memory_resource> mr =
-              std::make_shared<rmm::mr::cnmem_memory_resource>(pool_alloc_size, dev);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::set_default_resource(mr.get());
+  auto p_mr = rmm::mr::get_default_resource();
 #pragma GCC diagnostic pop
   generate_parquet_input_files(3, 2048);
 
+  int numprocs = 1;
+  std::vector<std::vector<int>> vvgpu;
+  std::vector<int> device_list = {0};
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 1024;
@@ -220,7 +225,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_localized_test) {
 
   // setup a data reader
   ParquetDataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length,
-                                          params, slot_offset, mr);
+                                          params, slot_offset, 0, gpu_resource_group);
 
   // call read a batch
   data_reader.read_a_batch();
