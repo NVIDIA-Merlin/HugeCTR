@@ -56,6 +56,7 @@ class DataReaderWorkerGroup {
  protected:
   std::vector<std::shared_ptr<IDataReaderWorker>>
       data_readers_; /**< A vector of DataReaderWorker' pointer.*/
+  std::shared_ptr<ResourceManager> resource_manager_;
   /**
    * Create threads to run data reader workers
    */
@@ -79,6 +80,9 @@ class DataReaderWorkerGroup {
     if (start_reading_from_beginning) {
       data_reader_loop_flag_ = 1;
     }
+  }
+  void set_resource_manager(const std::shared_ptr<ResourceManager>& resource_manager) {
+    resource_manager_ = resource_manager;
   }
   void start() { data_reader_loop_flag_ = 1; }
   void end() {
