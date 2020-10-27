@@ -157,7 +157,7 @@ class DataReader : public IDataReader {
     // worker_group_.empty
     worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
         csr_heap_, file_list, params_, slot_offset,
-        resource_manager_->get_rmm_mr_device_memory_resource(), start_reading_from_beginning));
+        resource_manager_, start_reading_from_beginning));
   }
 
   void set_file_list_source(std::string file_list = std::string()) override {

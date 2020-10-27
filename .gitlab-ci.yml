@@ -136,6 +136,9 @@ dcn_multinode:
   script:
     - cd /dataset/criteo_kaggle/dcn
     - mpirun --allow-run-as-root -np 4 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_4node_2gpu.json
+    - cd /dataset/criteo_kaggle/dcn_parquet
+    - mpirun --allow-run-as-root -np 2 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json
+    - mpirun --allow-run-as-root -np 2 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_distributed_2node_4gpu.json
 
 dlrm_multinode:
   tags:
