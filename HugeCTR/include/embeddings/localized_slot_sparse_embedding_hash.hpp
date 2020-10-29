@@ -16,6 +16,7 @@
 
 #pragma once
 #include <omp.h>
+
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/embeddings/embedding.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
@@ -91,10 +92,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                                                           API in update_params(). */
   Tensors2<void> temp_storage_scan_tensors_;     /**< The temp memory for the CUB lib scaning API
                                                           in update_params(). */
-
-  Tensors2<size_t> deltaw_hash_value_index_tensors_; /**< The temp memory to store the hash table
-                                                          indexes of deltaw in update_params(). */
-  Tensors2<float> deltaw_tensors_; /**< The temp memory to store the deltaw in update_params(). */
 
   size_t max_vocabulary_size_;
   size_t max_vocabulary_size_per_gpu_;   /**< Max vocabulary size for each GPU. */
@@ -372,8 +369,8 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
           hash_value_index_count_offset_tensors_[id], new_hash_value_flag_tensors_[id],
           hash_value_flag_sumed_tensors_[id], hash_value_index_count_counter_tensors_[id],
           temp_storage_sort_tensors_[id], temp_storage_scan_tensors_[id], wgrad_tensors_[id],
-          deltaw_hash_value_index_tensors_[id], deltaw_tensors_[id], hash_table_value_tensors_[id],
-          Base::get_local_gpu(id).get_sm_count(), Base::get_local_gpu(id).get_stream());
+          hash_table_value_tensors_[id], Base::get_local_gpu(id).get_sm_count(),
+          Base::get_local_gpu(id).get_stream());
     }
   }
 
