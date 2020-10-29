@@ -175,18 +175,6 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
         hash_value_index_count_counter_tensors_.push_back(tensor);
       }
       {
-        Tensor2<size_t> tensor;
-        buf->reserve({1, Base::get_batch_size(true) * Base::get_max_feature_num()}, &tensor);
-        deltaw_hash_value_index_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<float> tensor;
-        buf->reserve({Base::get_batch_size(true) * Base::get_max_feature_num(),
-                      Base::get_embedding_vec_size()},
-                     &tensor);
-        deltaw_tensors_.push_back(tensor);
-      }
-      {
         // cal the temp storage bytes for CUB radix sort
         size_t size = 0;
         cub::DeviceRadixSort::SortPairs((void *)nullptr, size, (size_t *)nullptr, (size_t *)nullptr,
