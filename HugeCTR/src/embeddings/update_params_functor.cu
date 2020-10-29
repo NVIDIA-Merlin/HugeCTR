@@ -74,7 +74,26 @@ __global__ void value_count_kernel_1(int nnz, const size_t *hash_value_index_sor
   }
 }
 
-// calculate weights update value(deltaw) by adam opitimizer
+// Helper function to accumulate the weight gradients for a thread's embedding vector
+template <typename TypeKey, typename TypeEmbeddingComp>
+__device__ __forceinline__ float accumulate_gradients(int embedding_vec_size,
+                                                      const TypeKey *sample_id,
+                                                      const uint32_t *hash_value_index_count_offset,
+                                                      const TypeEmbeddingComp *wgrad, float scaler,
+                                                      uint32_t offset, int bid, int tid) {
+  uint32_t sample_num = hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
+
+  float gi = 0.0f;
+  for (int i = 0; i < sample_num; i++) {
+    int sample_index = sample_id[offset + i];
+    gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+        wgrad[sample_index * embedding_vec_size + tid]);
+  }
+  return gi / scaler;
+}
+
+// First step of the global update with the Adam optimizer: compute gradient and add the
+// corresponding terms to the moving-average accumulators
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int embedding_vec_size,
                                        const AdamOptHyperParams<TypeEmbeddingComp> adam,
@@ -86,25 +105,14 @@ __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int 
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    // uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
-    gi = gi / scaler;
-    // compute the grad of the weights and update it
+    float gi = accumulate_gradients(embedding_vec_size, sample_id, hash_value_index_count_offset,
+                                    wgrad, scaler, offset, bid, tid);
+
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
     float mi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.m_ptr[feature_index]) +
                (1.0f - adam.beta1) * gi / adam.beta1;
-
     float vi = TypeConvertFunc<float, TypeEmbeddingComp>::convert(adam.v_ptr[feature_index]) +
                (1.0f - adam.beta2) * gi * gi / adam.beta2;
 
@@ -113,6 +121,8 @@ __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int 
   }
 }
 
+// Second step of the global update with the Adam optimizer: update the moving-average accumulators
+// and the weights for all the features
 template <typename TypeEmbeddingComp>
 __global__ void adam_update_kernel_global(int embedding_vec_size,
                                           size_t table_size,  // vocabulary size / factor
@@ -134,7 +144,8 @@ __global__ void adam_update_kernel_global(int embedding_vec_size,
   }
 }
 
-// calculate weights update value(deltaw) by momentum_sgd opitimizer
+// First step of the global update with Momentum SGD: compute gradient and add the corresponding
+// term to the momentum
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_momentum_sgd_kernel_global(
     uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
@@ -145,20 +156,10 @@ __global__ void opt_momentum_sgd_kernel_global(
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    //    uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
+    float gi = accumulate_gradients(embedding_vec_size, sample_id, hash_value_index_count_offset,
+                                    wgrad, scaler, offset, bid, tid);
 
-    gi = gi / scaler;
-    // compute the grad of the weights and update it
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
     float mo =
@@ -168,6 +169,8 @@ __global__ void opt_momentum_sgd_kernel_global(
   }
 }
 
+// Second step of the global update with Momentum SGD: update the momentum and the weights for all
+// the features
 template <typename TypeEmbeddingComp>
 __global__ void momentum_sgd_update_kernel_global(
     int embedding_vec_size,
@@ -184,6 +187,7 @@ __global__ void momentum_sgd_update_kernel_global(
   }
 }
 
+// First step of the global update with Nesterov: update momentum and weights for all the features
 template <typename TypeEmbeddingComp>
 __global__ void nesterov_global_update_kernel_global(
     int embedding_vec_size,
@@ -200,7 +204,8 @@ __global__ void nesterov_global_update_kernel_global(
   }
 }
 
-// calculate weights update value(deltaw) by nesterov opitimizer
+// Second step of the global update with Nesterov: compute gradient, add the corresponding term
+// to the momentum and update the weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void nesterov_local_update_kernel_global(
     uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
@@ -211,20 +216,10 @@ __global__ void nesterov_local_update_kernel_global(
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    //    uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
-    gi = gi / scaler;
-    // compute the grad of the weights and update it
+    float gi = accumulate_gradients(embedding_vec_size, sample_id, hash_value_index_count_offset,
+                                    wgrad, scaler, offset, bid, tid);
+
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
     float accm =
@@ -235,64 +230,23 @@ __global__ void nesterov_local_update_kernel_global(
   }
 }
 
-template <typename TypeKey, typename TypeEmbeddingComp>
-__global__ void opt_sgd_kernel_global(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                      float lr, const TypeKey *sample_id,
-                                      const size_t *hash_value_index_sort,
-                                      const uint32_t *hash_value_index_count_offset,
-                                      const TypeEmbeddingComp *wgrad, float *hash_table_value,
-                                      float scaler) {
-  int bid = blockIdx.x;
-  int tid = threadIdx.x;
-
-  if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    // uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
-    uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
-    gi = gi / scaler;
-
-    // update
-    size_t value_index = hash_value_index_sort[offset];
-    size_t feature_index = value_index * embedding_vec_size + tid;
-    hash_table_value[feature_index] -= lr * gi;
-  }
-}
-
-// calculate weights update value(deltaw) by adam opitimizer
+// Local update for the Adam optimizer: compute the gradients and update the accumulators and the
+// weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
                                 const AdamOptHyperParams<TypeEmbeddingComp> adam, float alpha_t,
                                 const TypeKey *sample_id, const size_t *hash_value_index_sort,
                                 const uint32_t *hash_value_index_count_offset,
-                                const TypeEmbeddingComp *wgrad, size_t *deltaw_hash_value_index,
-                                float *deltaw, float scaler) {
+                                const TypeEmbeddingComp *wgrad, float *hash_table_value,
+                                float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    // uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
-    gi = gi / scaler;
-    // compute the grad of the weights and update it
+    float gi = accumulate_gradients(embedding_vec_size, sample_id, hash_value_index_count_offset,
+                                    wgrad, scaler, offset, bid, tid);
+
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
     float mi =
@@ -305,40 +259,25 @@ __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embeddi
     adam.v_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
     float weight_diff = -alpha_t * mi / (sqrtf(vi) + adam.epsilon);
 
-    // save weights diff
-    deltaw[bid * embedding_vec_size + tid] = weight_diff;
-
-    // save hash value_indexs(corresponding to deltaw)
-    if (tid == 0) {
-      deltaw_hash_value_index[bid] = row_index;
-    }
+    hash_table_value[feature_index] += weight_diff;
   }
 }
 
-// calculate weights update value(deltaw) by momentum_sgd opitimizer
+// Local update for Momentum SGD: compute the gradients and update the momentum and the weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_momentum_sgd_kernel(
     uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
     const MomentumSGDOptHyperParams<TypeEmbeddingComp> momentum, const TypeKey *sample_id,
     const size_t *hash_value_index_sort, const uint32_t *hash_value_index_count_offset,
-    const TypeEmbeddingComp *wgrad, size_t *deltaw_hash_value_index, float *deltaw, float scaler) {
+    const TypeEmbeddingComp *wgrad, float *hash_table_value, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    //    uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
-    gi = gi / scaler;
-    // compute the grad of the weights and update it
+    float gi = accumulate_gradients(embedding_vec_size, sample_id, hash_value_index_count_offset,
+                                    wgrad, scaler, offset, bid, tid);
+
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
     float mo = momentum.factor * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
@@ -346,43 +285,27 @@ __global__ void opt_momentum_sgd_kernel(
                lr * gi;
     momentum.momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
 
-    // save weights diff
-    deltaw[bid * embedding_vec_size + tid] = mo;
-
-    // save hash value_indexs(corresponding to deltaw)
-    if (tid == 0) {
-      deltaw_hash_value_index[bid] = row_index;
-    }
+    hash_table_value[feature_index] += mo;
   }
 }
 
-// calculate weights update value(deltaw) by nesterov opitimizer
+// Local update for Nesterov: compute the gradients and update the accumulators and the weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
                                     float lr,
                                     const NesterovOptHyperParams<TypeEmbeddingComp> nesterov,
                                     const TypeKey *sample_id, const size_t *hash_value_index_sort,
                                     const uint32_t *hash_value_index_count_offset,
-                                    const TypeEmbeddingComp *wgrad, size_t *deltaw_hash_value_index,
-                                    float *deltaw, float scaler) {
+                                    const TypeEmbeddingComp *wgrad, float *hash_table_value,
+                                    float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    //    uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
-    gi = gi / scaler;
-    // compute the grad of the weights and update it
+    float gi = accumulate_gradients(embedding_vec_size, sample_id, hash_value_index_count_offset,
+                                    wgrad, scaler, offset, bid, tid);
+
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
     float accm_old =
@@ -391,70 +314,36 @@ __global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num, int emb
     nesterov.accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm_new);
     float weight_diff = -nesterov.mu * accm_old + (1.0f + nesterov.mu) * accm_new;
 
-    // save weights diff
-    deltaw[bid * embedding_vec_size + tid] = weight_diff;
-
-    // save hash value_indexs(corresponding to deltaw)
-    if (tid == 0) {
-      deltaw_hash_value_index[bid] = row_index;
-    }
+    hash_table_value[feature_index] += weight_diff;
   }
 }
 
+// Local update for SGD: compute the gradients and update the weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
                                float lr, const TypeKey *sample_id,
                                const size_t *hash_value_index_sort,
                                const uint32_t *hash_value_index_count_offset,
-                               const TypeEmbeddingComp *wgrad, size_t *deltaw_hash_value_index,
-                               float *deltaw, float scaler) {
+                               const TypeEmbeddingComp *wgrad, float *hash_table_value,
+                               float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    // uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
-    gi = gi / scaler;
+    float gi = accumulate_gradients(embedding_vec_size, sample_id, hash_value_index_count_offset,
+                                    wgrad, scaler, offset, bid, tid);
 
-    // compute the grad of the weights and update it
     size_t row_index = hash_value_index_sort[offset];
     float weight_diff = -lr * gi;
 
-    // save weights diff
-    deltaw[bid * embedding_vec_size + tid] = weight_diff;
-
-    // save hash value_indexs(corresponding to deltaw)
-    if (tid == 0) {
-      deltaw_hash_value_index[bid] = row_index;
-    }
+    size_t feature_index = row_index * embedding_vec_size + tid;
+    hash_table_value[feature_index] += weight_diff;
   }
 }
 
-// update embedding table(weights) by deltaw
-__global__ void update_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                              const size_t *deltaw_hash_value_index, const float *deltaw,
-                              float *hash_table_value) {
-  int tid = threadIdx.x;
-  int bid = blockIdx.x;
-
-  if ((bid < hash_value_index_count_num) && (tid < embedding_vec_size)) {
-    size_t value_index = deltaw_hash_value_index[bid];
-    size_t feature_index = value_index * embedding_vec_size + tid;
-    hash_table_value[feature_index] += deltaw[bid * embedding_vec_size + tid];
-  }
-}
-/// TODO: remove this kernel and move update in other kernels?
-
+// Lazy global update for the Adam optimizer: compute the gradients and update the weights and the
+// accumulators (local approximation of the global update)
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel_lazy(uint32_t hash_value_index_count_num, int embedding_vec_size,
                                      const AdamOptHyperParams<TypeEmbeddingComp> adam,
@@ -467,24 +356,12 @@ __global__ void opt_adam_kernel_lazy(uint32_t hash_value_index_count_num, int em
   int tid = threadIdx.x;
 
   if (tid < embedding_vec_size && bid < hash_value_index_count_num) {
-    // uint32_t sample_num = hash_value_index_count[bid];
-    uint32_t sample_num =
-        hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-
-    // accumulate the wgrads for the corresponding embedding vector
-    float gi = 0.0f;
     uint32_t offset = hash_value_index_count_offset[bid];
-    for (int i = 0; i < sample_num; i++) {
-      int sample_index = sample_id[offset + i];
-      gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-          wgrad[sample_index * embedding_vec_size + tid]);
-    }
-    gi = gi / scaler;
+    float gi = accumulate_gradients(embedding_vec_size, sample_id, hash_value_index_count_offset,
+                                    wgrad, scaler, offset, bid, tid);
 
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-
-    /// TODO: the code above appears in multiple kernels, we can move it to a separate function
 
     // First update the weights
     uint64_t prev_time = adam.prev_time_ptr[feature_index];
@@ -561,7 +438,6 @@ void SparseEmbeddingFunctors::update_params(
     Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
     Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
     Tensor2<void> &temp_storage_scan, const Tensor2<TypeEmbeddingComp> &wgrad,
-    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream) {
   if (slot_num == 0) {
     return;
@@ -622,8 +498,7 @@ void SparseEmbeddingFunctors::update_params(
                                      hash_value_index_count_counter.get_ptr(), sizeof(uint32_t),
                                      cudaMemcpyDeviceToHost, stream));
 
-      // step5: use optimizer method to compute deltaw, and record corresponding
-      // deltaw_hash_value_index
+      // step5: use optimizer method to compute deltaw and update the parameters
       block_size = embedding_vec_size;
       grid_size = max(1, hash_hash_value_index_count_num);
 
@@ -668,7 +543,9 @@ void SparseEmbeddingFunctors::update_params(
                   wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
               break;
             case Optimizer_t::SGD:
-              opt_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
+              // Note: this is in fact a local update
+              /// TODO: remove duplicate?
+              opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
@@ -692,7 +569,7 @@ void SparseEmbeddingFunctors::update_params(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
                   alpha_t, sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
-                  deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), opt_params.scaler);
+                  hash_table_value.get_ptr(), opt_params.scaler);
               break;
             }
             case Optimizer_t::MomentumSGD:
@@ -700,36 +577,25 @@ void SparseEmbeddingFunctors::update_params(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   opt_params.hyperparams.momentum, sample_id_sort.get_ptr(),
                   hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                  wgrad.get_ptr(), deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(),
-                  opt_params.scaler);
+                  wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
               break;
             case Optimizer_t::Nesterov:
               opt_nesterov_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   opt_params.hyperparams.nesterov, sample_id_sort.get_ptr(),
                   hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                  wgrad.get_ptr(), deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(),
-                  opt_params.scaler);
+                  wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
               break;
             case Optimizer_t::SGD:
               opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
                   sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
-                  deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), opt_params.scaler);
+                  hash_table_value.get_ptr(), opt_params.scaler);
               break;
             default:
               CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
           }  // switch (optimizer)
-
-          // step6: update hash_table_value by deltaw
-          block_size = embedding_vec_size;
-          grid_size = max(1, hash_hash_value_index_count_num);
-          update_kernel<<<grid_size, block_size, 0, stream>>>(
-              hash_hash_value_index_count_num, embedding_vec_size,
-              deltaw_hash_value_index.get_ptr(), deltaw.get_ptr(), hash_table_value.get_ptr());
-          /// TODO: fuse this step with the previous kernel
-
           break;
         }
         case Update_t::LazyGlobal: {
@@ -812,9 +678,8 @@ template void SparseEmbeddingFunctors::update_params<unsigned int, float>(
     Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
     Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
     Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
-    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad,
-    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
-    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
+    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad, Tensor2<float> &hash_table_value,
+    size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<long long, float>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
@@ -824,9 +689,8 @@ template void SparseEmbeddingFunctors::update_params<long long, float>(
     Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
     Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
     Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
-    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad,
-    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
-    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
+    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad, Tensor2<float> &hash_table_value,
+    size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<unsigned int, __half>(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
@@ -837,7 +701,6 @@ template void SparseEmbeddingFunctors::update_params<unsigned int, __half>(
     Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
     Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
     Tensor2<void> &temp_storage_scan, const Tensor2<__half> &wgrad,
-    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<long long, __half>(
@@ -849,7 +712,6 @@ template void SparseEmbeddingFunctors::update_params<long long, __half>(
     Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
     Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
     Tensor2<void> &temp_storage_scan, const Tensor2<__half> &wgrad,
-    Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
 template void SparseEmbeddingFunctors::update_params<float>(
