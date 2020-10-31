@@ -4,6 +4,9 @@ stages:
 
 image: gitlab-master.nvidia.com/zehuanw/hugectr:devel
 
+variables:
+  NCCL_LAUNCH_MODE: "PARALLEL"
+
 ### Stage: build
 build:
   tags:
@@ -45,6 +48,7 @@ unit_tests:
     - ./regularizers_test
     - ./parser_test
     - ./session_test
+    - ./auc_test
 
 # single node
 criteo:
@@ -72,6 +76,7 @@ dcn:
     - job: build
       artifacts: true
   script:
+    - echo "$NCCL_LAUNCH_MODE"
     - cd /dataset/criteo_kaggle/dcn
     - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_1gpu.json
     - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_8gpu.json
