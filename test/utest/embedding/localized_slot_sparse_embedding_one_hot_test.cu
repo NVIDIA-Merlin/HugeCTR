@@ -376,7 +376,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     }
   }
 
-  test::mpi_finialize();
+  test::mpi_finalize();
 }
 
 }  // namespace
