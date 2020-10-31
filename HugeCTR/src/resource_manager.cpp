@@ -72,37 +72,29 @@ ResourceManager::ResourceManager(int num_process, int pid, DeviceMap&& device_ma
     }
   }
 
-  int total_gpu_count = device_map_.size();
-  // if ther are multiple GPUs within a node or/and across nodes
-  if (total_gpu_count > 1) {
-    std::vector<ncclComm_t> comms(local_gpu_count);
+  std::vector<ncclComm_t> comms(local_gpu_count);
 #ifdef ENABLE_MPI
-    ncclUniqueId nid;
-    if (pid_ == 0) CK_NCCL_THROW_(ncclGetUniqueId(&nid));
-    CK_MPI_THROW_(MPI_Bcast((void*)&nid, sizeof(nid), MPI_BYTE, 0, MPI_COMM_WORLD));
+  ncclUniqueId nid;
+  if (pid_ == 0) CK_NCCL_THROW_(ncclGetUniqueId(&nid));
+  CK_MPI_THROW_(MPI_Bcast((void*)&nid, sizeof(nid), MPI_BYTE, 0, MPI_COMM_WORLD));
 
-    CK_NCCL_THROW_(ncclGroupStart());
-    for (size_t i = 0; i < local_gpu_count; i++) {
-      CK_CUDA_THROW_(cudaSetDevice(local_gpu_device_id_list[i]));
-      CK_NCCL_THROW_(ncclCommInitRank(&comms[i], total_gpu_count, nid,
-                                      device_map_.get_global_id(i)));
-    }
-    CK_NCCL_THROW_(ncclGroupEnd());
-#else
-    CK_NCCL_THROW_(ncclCommInitAll(comms.data(), local_gpu_device_id_list.size(),
-                                   local_gpu_device_id_list.data()));
-#endif
-    for (size_t i = 0; i < local_gpu_count; i++) {
-      gpu_resources_.emplace_back(new GPUResource(
-          local_gpu_device_id_list[i], device_map_.get_global_id(i),
-          dis(gen), comms[i]));
-    }
-  } else {
-    gpu_resources_.emplace_back(
-        new GPUResource(local_gpu_device_id_list[0],
-                        device_map_.get_global_id(0), dis(gen)));
+  CK_NCCL_THROW_(ncclGroupStart());
+  for (size_t i = 0; i < local_gpu_count; i++) {
+    CK_CUDA_THROW_(cudaSetDevice(local_gpu_device_id_list[i]));
+    CK_NCCL_THROW_(ncclCommInitRank(&comms[i], device_map_.size(), nid,
+                                    device_map_.get_global_id(i)));
   }
-
+  CK_NCCL_THROW_(ncclGroupEnd());
+#else
+  CK_NCCL_THROW_(ncclCommInitAll(comms.data(), local_gpu_device_id_list.size(),
+                                 local_gpu_device_id_list.data()));
+#endif
+  for (size_t i = 0; i < local_gpu_count; i++) {
+    gpu_resources_.emplace_back(new GPUResource(
+        local_gpu_device_id_list[i], device_map_.get_global_id(i),
+        dis(gen), comms[i]));
+  }
+  
   cpu_resource_.reset(new CPUResource(dis(gen), device_map_.get_device_list().size()));
 
   for (size_t i = 0; i < local_gpu_count; i++) {

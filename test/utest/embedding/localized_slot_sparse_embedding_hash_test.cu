@@ -401,7 +401,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     printf("Rank%d: Round end:\n", resource_manager->get_pid());
   }
 
-  test::mpi_finialize();
+  test::mpi_finalize();
 }
 
 }  // namespace
