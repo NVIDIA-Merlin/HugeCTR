@@ -198,15 +198,16 @@ $ make -j
 ```
 
 ## Synthetic Data Generation and Benchmark ##
-For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`.
+For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`. For categorical features,you can configure the probability distribution to be uniform or power-law.
+The default distribution is uniform.
 - For `Norm` format: <br>
 ```bash
-$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (num_files) (num_samples_per_file)
+$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (num_files) (num_samples_per_file) (--long-tail <long|short|medium>)
 $ ./huge_ctr --train your_config.json
 ```
 - For `Raw` format: <br>
 ```bash
-$ ./data_generator your_config.json
+$ ./data_generator your_config.json (--long-tail <long|medium|short>)
 $ ./huge_ctr --train your_config.json
 ```
 
@@ -216,6 +217,7 @@ Parameters:
 + `max_nnz`: You can use this parameter to simulate one-/multi-hot encodings. If you just want to use the one-hot encoding, set this parameter to 1. Otherwise, [1, max_nnz] values will be generated for each slot. **Note** that `max_nnz * slot_num` must be less than `max_feature_num_per_sample` in the data layer of the used JSON config file.
 + `num_files`: Number of data file will be generated (optional)
 + `num_samples_per_file`: Number of samples per file (optional)
++ `--long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. There are three option values to be chosen from, i.e., `long`, `medium` and `short`, which characterize the properties of the tail.
 
 ## File Format ##
 In total, there are three types of files used in HugeCTR training: a configuration file, model file and dataset.
