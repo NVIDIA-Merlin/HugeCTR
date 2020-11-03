@@ -198,7 +198,7 @@ $ make -j
 ```
 
 ## Synthetic Data Generation and Benchmark ##
-For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`. For categorical features,you can configure the probability distribution to be uniform or power-law.
+For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`. For categorical features, you can configure the probability distribution to be uniform or power-law.
 The default distribution is uniform.
 - For `Norm` format: <br>
 ```bash
