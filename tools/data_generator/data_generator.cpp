@@ -141,7 +141,7 @@ int main(int argc, char* argv[]) {
 
       if (check_type == Check_t::Sum) {
         if (i64_input_key) {  // I64 = long long
-          data_generation_for_test<long long, Check_t::Sum>(vi
+          data_generation_for_test<long long, Check_t::Sum>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
               vocabulary_size, label_dim, dense_dim, max_nnz, long_tail, alpha);
           data_generation_for_test<long long, Check_t::Sum>(
