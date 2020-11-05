@@ -46,6 +46,7 @@ unit_tests:
     - ./loss_test
     - ./optimizer_test
     - ./regularizers_test
+    - ./model_prefetcher_test
     - ./parser_test
     - ./session_test
     - ./auc_test

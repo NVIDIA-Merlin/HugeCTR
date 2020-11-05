@@ -236,6 +236,15 @@ size_t HashTable<KeyType, ValType>::get_size(cudaStream_t stream) const {
 }
 
 template <typename KeyType, typename ValType>
+size_t HashTable<KeyType, ValType>::get_value_head(cudaStream_t stream) const {
+  size_t counter;
+  CK_CUDA_THROW_(
+      cudaMemcpyAsync(&counter, d_counter_, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
+  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+  return counter;
+}
+
+template <typename KeyType, typename ValType>
 void HashTable<KeyType, ValType>::dump(KeyType* d_key, ValType* d_val, size_t* d_dump_counter,
                                        cudaStream_t stream) const {
   size_t search_length = static_cast<size_t>(capacity_ / LOAD_FACTOR);
@@ -263,6 +272,12 @@ void HashTable<KeyType, ValType>::set(const KeyType* d_keys, const ValType* d_va
 template <typename KeyType, typename ValType>
 size_t HashTable<KeyType, ValType>::get_capacity() const {
   return (container_->size());
+}
+
+template <typename KeyType, typename ValType>
+void HashTable<KeyType, ValType>::clear(cudaStream_t stream) {
+  container_->clear_async(stream);
+  set_value_head(0, stream);
 }
 
 template class HashTable<unsigned int, size_t>;
