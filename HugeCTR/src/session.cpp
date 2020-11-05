@@ -77,7 +77,8 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 }  // end namespace
 
-Session::Session(const SolverParser& solver_config, const std::string& config_file)
+Session::Session(const SolverParser& solver_config, const std::string& config_file,
+                 bool use_model_prefetcher, const std::string temp_embedding_dir)
     : resource_manager_(ResourceManager::create(solver_config.vvgpu, solver_config.seed)) {
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_config.use_mixed_precision) {
@@ -88,15 +89,10 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
     }
   }
 
-  Parser parser(config_file,
-                solver_config.batchsize,
-                solver_config.batchsize_eval,
-                solver_config.num_epochs < 1,
-                solver_config.i64_input_key,
-                solver_config.use_mixed_precision,
-                solver_config.scaler,
-                solver_config.use_algorithm_search,
-                solver_config.use_cuda_graph);
+  Parser parser(config_file, solver_config.batchsize, solver_config.batchsize_eval,
+                solver_config.num_epochs < 1, solver_config.i64_input_key,
+                solver_config.use_mixed_precision, solver_config.scaler,
+                solver_config.use_algorithm_search, solver_config.use_cuda_graph);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_, resource_manager_);
 
@@ -130,7 +126,15 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
   }
 
   load_params_for_dense_(solver_config.model_file);
-  init_or_load_params_for_sparse_(solver_config.embedding_files);
+  if (use_model_prefetcher) {
+    if (solver_config.use_mixed_precision) {
+      model_prefetcher_ = create_model_prefetcher_<__half>(solver_config, temp_embedding_dir);
+    } else {
+      model_prefetcher_ = create_model_prefetcher_<float>(solver_config, temp_embedding_dir);
+    }
+  } else {
+    init_or_load_params_for_sparse_(solver_config.embedding_files);
+  }
 
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   for (const auto& metric : solver_config.metrics_spec) {
@@ -187,7 +191,7 @@ Error_t Session::init_or_load_params_for_sparse_(
           CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
         }
         std::cout << "Loading sparse model: " << embedding_model_files[i] << std::endl;
-        embedding_[i]->upload_params_to_device(embedding_stream);
+        embedding_[i]->load_parameters(embedding_stream);
         embedding_stream.close();
       } else {
         embedding_[i]->init_params();
@@ -319,14 +323,14 @@ Error_t Session::download_params_to_files(std::string prefix, int iter) {
   return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
 }
 
-Error_t Session::download_params_to_files_(
-    std::string weights_file, const std::vector<std::string>& embedding_files) {
+Error_t Session::download_params_to_files_(std::string weights_file,
+                                           const std::vector<std::string>& embedding_files) {
   try {
     {
       int i = 0;
       for (auto& embedding_file : embedding_files) {
         std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
-        embedding_[i]->download_params_to_host(out_stream_embedding);
+        embedding_[i]->dump_parameters(out_stream_embedding);
         out_stream_embedding.close();
         i++;
       }
@@ -390,6 +394,26 @@ Error_t Session::get_current_loss(float* loss) {
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
+}
+
+template <typename TypeEmbeddingComp>
+std::shared_ptr<ModelPrefetcher> Session::create_model_prefetcher_(
+    const SolverParser& solver_config, const std::string& temp_embedding_dir) {
+  try {
+    if (temp_embedding_dir.empty()) {
+      CK_THROW_(Error_t::WrongInput, "must provide a directory for storing temporary embedding");
+    }
+
+    std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>> embedding_params;
+    return std::shared_ptr<ModelPrefetcher>(new ModelPrefetcher(
+        embedding_, embedding_params, solver_config, temp_embedding_dir));
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    throw rt_err;
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    throw err;
+  }
 }
 
 void Session::check_overflow() const {

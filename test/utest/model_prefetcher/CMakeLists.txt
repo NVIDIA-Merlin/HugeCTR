@@ -14,17 +14,12 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-add_subdirectory(layers)
-add_subdirectory(data_reader)
-add_subdirectory(optimizer)
-add_subdirectory(loss)
-add_subdirectory(session)
-add_subdirectory(heap)
-add_subdirectory(parser)
-add_subdirectory(regularizers)
-add_subdirectory(device_map)
-add_subdirectory(embedding)
-add_subdirectory(model_prefetcher)
-add_subdirectory(checker)
-add_subdirectory(prims)
-add_subdirectory(metrics)
+file(GLOB model_prefetcher_test_src
+  parameter_server_test.cu
+  model_prefetcher_test.cpp
+)
+
+add_executable(model_prefetcher_test ${model_prefetcher_test_src})
+target_compile_features(model_prefetcher_test PUBLIC cxx_std_14)
+target_link_libraries(model_prefetcher_test PUBLIC huge_ctr_static gtest gtest_main)
+set_target_properties(model_prefetcher_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

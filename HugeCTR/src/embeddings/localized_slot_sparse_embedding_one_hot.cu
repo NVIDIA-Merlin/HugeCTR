@@ -256,7 +256,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_params_to_device(
+void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_parameters(
     std::ifstream &weight_stream, size_t embedding_vec_size,
     Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes,
     const Tensors2<uint32_t> &mapping_offsets_per_gpu_tensors) {
@@ -535,7 +535,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::upload_
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::download_params_to_host(
+void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
     std::ofstream &weight_stream, size_t embedding_vec_size,
     const Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes) const {
   size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
@@ -735,8 +735,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::init_em
   size_t total_gpu_count = Base::get_resource_manager().get_global_gpu_count();
 
 #ifndef NDEBUG
-  MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) +
-           ", total_gpu_count=" + std::to_string(total_gpu_count));
+  MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) + ", total_gpu_count=" +
+           std::to_string(total_gpu_count));
 #endif
 
   for (size_t id = 0; id < local_gpu_count; id++) {
@@ -759,6 +759,22 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::init_em
   }
 
   return;
+}
+
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::reset() {
+  CudaDeviceContext context;
+  for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+    functors_.init_embedding_per_gpu(Base::get_local_gpu(i).get_global_gpu_id(),
+                                     Base::get_resource_manager().get_global_gpu_count(),
+                                     slot_size_array_, Base::get_embedding_vec_size(),
+                                     value_table_tensors_[i], hash_table_slot_id_tensors_[i],
+                                     Base::get_local_gpu(i));
+  }
+
+  for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+    CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(i).get_stream()));
+  }
 }
 
 template class LocalizedSlotSparseEmbeddingOneHot<unsigned int, float>;

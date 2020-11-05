@@ -32,7 +32,7 @@ namespace HugeCTR {
  * propagation is divided into 2-stage APIs: backward() and update_params(). This class also
  * provides the operations for uploading/downloading embedding models (which is also known as
  * embedding tables) to/from GPUs from/to host file stream, which are named as
- * upload_params_to_device() and download_params_to_host().
+ * load_parameters() and dump_parameters().
  */
 template <typename TypeKey, typename TypeEmbeddingComp>
 class Embedding : public IEmbedding {
@@ -257,20 +257,32 @@ class Embedding : public IEmbedding {
    * upload it onto multi-GPUs global memory.
    * @param weight_stream the host file stream for reading data from.
    */
-  virtual void upload_params_to_device(std::ifstream& weight_stream) = 0;
+  virtual void load_parameters(std::ifstream& stream) = 0;
+
+  virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
+                               size_t num) = 0;
 
   /**
    * Download the embedding table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
    * @param weight_stream the host file stream for writing data to.
    */
-  virtual void download_params_to_host(
+  virtual void dump_parameters(
       std::ofstream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
+
+  virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
+
+  /**
+   * Reset the embedding
+   */
+  virtual void reset() = 0;
 
   /**
    * Get the total size of embedding tables on all GPUs.
    */
   virtual size_t get_params_num() const = 0;
+  virtual size_t get_vocabulary_size() const = 0;
+  virtual size_t get_max_vocabulary_size() const = 0;
 
   /**
    * Return the output tensors.
@@ -295,6 +307,10 @@ class Embedding : public IEmbedding {
     for (size_t id = 0; id < resource_manager_->get_local_gpu_count(); id++) {
       opt_params_[id].lr = lr;
     }
+  }
+
+  const SparseEmbeddingHashParams<TypeEmbeddingComp>& get_embedding_params() const {
+    return embedding_params_;
   }
 
   // only used for results check
