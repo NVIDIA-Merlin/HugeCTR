@@ -36,8 +36,8 @@ namespace HugeCTR {
  * is corresponding to the API forward(). The backward propagation is divided into 2-stage APIs:
  * backward() and update_params(). The class also provides the operations for uploading hash
  * tables(including hash_table_key, hash_table_value_index and hash_table_value) from a host file to
- * GPUs(which named upload_params_to_device()), and for downloading hash tables from GPUs to a host
- * file(which named download_params_to_host()).
+ * GPUs(which named load_parameters()), and for downloading hash tables from GPUs to a host
+ * file(which named dump_parameters()).
  */
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
@@ -170,7 +170,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                       Tensors2<size_t> &hash_table_slot_id_tensors);
 
   /**
-   * upload_params_to_device() for LocalizedSlotSparseEmbeddingHash
+   * load_parameters() for LocalizedSlotSparseEmbeddingHash
    * @param weight_stream weight file stream to read.
    * @param vocabulary_size the total row number of hash table.
    * @param embedding_vec_size embedding vector size.
@@ -181,14 +181,14 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void upload_params_to_device(
-      std::ifstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
-      size_t max_vocabulary_size_per_gpu, Tensors2<float> &hash_table_value_tensors,
-      Tensors2<size_t> &hash_table_slot_id_tensors,
-      std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables);
+  void load_parameters(std::ifstream &weight_stream, size_t vocabulary_size,
+                       size_t embedding_vec_size, size_t max_vocabulary_size_per_gpu,
+                       Tensors2<float> &hash_table_value_tensors,
+                       Tensors2<size_t> &hash_table_slot_id_tensors,
+                       std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables);
 
   /**
-   * download_params_to_host for LocalizedSlotSparseEmbeddingHash.
+   * dump_parameters for LocalizedSlotSparseEmbeddingHash.
    * @param weight_stream weight file stream to write.
    * @param vocabulary_size the total row number of hash table.
    * @param embedding_vec_size embedding vector size.
@@ -198,7 +198,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void download_params_to_host(
+  void dump_parameters(
       std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
       const Tensors2<float> &hash_table_value_tensors,
       const Tensors2<size_t> &hash_table_slot_id_tensors,
@@ -402,62 +402,69 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * upload it onto multi-GPUs global memory.
    * @param weight_stream the host file stream for reading data from.
    */
-  void upload_params_to_device(std::ifstream &weight_stream) override {
-#ifndef NDEBUG
-    MESSAGE_("upload_params_to_device");
-#endif
-
+  void load_parameters(std::ifstream &weight_stream) override {
     // check if file is opened successfully
     if (!weight_stream.is_open()) {
       CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
     }
 
-    upload_params_to_device(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
-                            max_vocabulary_size_per_gpu_, hash_table_value_tensors_,
-                            hash_table_slot_id_tensors_, hash_tables_);
+    load_parameters(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
+                    max_vocabulary_size_per_gpu_, hash_table_value_tensors_,
+                    hash_table_slot_id_tensors_, hash_tables_);
 
     return;
   }
+
+  void load_parameters(const TensorBag2 &keys, const Tensor2<float> &embeddings,
+                       size_t num) override {}
 
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
    * @param weight_stream the host file stream for writing data to.
    */
-  void download_params_to_host(std::ofstream &weight_stream) const override {
+  void dump_parameters(std::ofstream &weight_stream) const override {
     // check if the file is opened successfully
     if (!weight_stream.is_open()) {
       CK_THROW_(Error_t::WrongInput, "Error: file not open for writing");
       return;
     }
 
-    download_params_to_host(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
-                            hash_table_value_tensors_, hash_table_slot_id_tensors_, hash_tables_);
+    dump_parameters(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
+                    hash_table_value_tensors_, hash_table_slot_id_tensors_, hash_tables_);
 
     return;
   }
+
+  void dump_parameters(TensorBag2 keys, Tensor2<float> &embeddings, size_t *num) const override {}
+
+  /**
+   * Reset the embedding
+   */
+  void reset() override;
 
   /**
    * Get the total size of hash tables on all GPUs.
    */
   size_t get_params_num() const override {
     // Read data from input_buffers_ -> look up -> write to output_tensors
+    return get_vocabulary_size() * Base::get_embedding_vec_size();
+  }
 
+  size_t get_vocabulary_size() const override {
     size_t total_size = 0;
 
-    CudaDeviceContext context;
-
     // need to collect the <key, value> pair count from all GPUs and do sum reduction
+    CudaDeviceContext context;
     for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
       context.set_device(Base::get_local_gpu(id).get_device_id());
       total_size += hash_tables_[id]->get_size(Base::get_local_gpu(id).get_stream());
-      CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(id).get_stream()));
     }
-
-    total_size *= (size_t)Base::get_embedding_vec_size();
 
     return total_size;
   }
+
+  size_t get_max_vocabulary_size() const override { return max_vocabulary_size_; }
 
   // only used for results check
   /**

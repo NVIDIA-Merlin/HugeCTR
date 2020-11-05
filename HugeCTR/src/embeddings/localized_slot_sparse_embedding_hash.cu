@@ -421,7 +421,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_params_to_device(
+void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
     std::ifstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
     size_t max_vocabulary_size_per_gpu, Tensors2<float> &hash_table_value_tensors,
     Tensors2<size_t> &hash_table_slot_id_tensors,
@@ -749,7 +749,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_pa
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::download_params_to_host(
+void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
     std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
     const Tensors2<float> &hash_table_value_tensors,
     const Tensors2<size_t> &hash_table_slot_id_tensors,
@@ -997,6 +997,30 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::init_embe
   }
 
   return;
+}
+
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::reset() {
+  CudaDeviceContext context;
+  for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+    context.set_device(Base::get_local_gpu(i).get_device_id());
+    hash_tables_[i]->clear(Base::get_local_gpu(i).get_stream());
+
+    if (slot_size_array_.empty()) {
+      HugeCTR::UniformGenerator::fill(hash_table_value_tensors_[i], -0.05f, 0.05f,
+                                      Base::get_local_gpu(i));
+    } else {
+      functors_.init_embedding_per_gpu(Base::get_local_gpu(i).get_global_gpu_id(),
+                                       Base::get_resource_manager().get_global_gpu_count(),
+                                       slot_size_array_, Base::get_embedding_vec_size(),
+                                       value_table_tensors_[i], hash_table_slot_id_tensors_[i],
+                                       Base::get_local_gpu(i));
+    }
+  }
+
+  for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+    CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(i).get_stream()));
+  }
 }
 
 template class LocalizedSlotSparseEmbeddingHash<unsigned int, float>;

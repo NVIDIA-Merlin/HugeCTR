@@ -51,9 +51,7 @@ class Network {
                                  int num_networks_in_global,
                                  const std::shared_ptr<CPUResource>& cpu_resource,
                                  const std::shared_ptr<GPUResource>& gpu_resource,
-                                 bool use_mixed_precision,
-                                 float scaler,
-                                 bool use_algorithm_search,
+                                 bool use_mixed_precision, float scaler, bool use_algorithm_search,
                                  bool use_cuda_graph);
 
  private:
@@ -92,8 +90,7 @@ class Network {
    * @param disable_parser only for unit test.
    */
   Network(const std::shared_ptr<CPUResource>& cpu_resource,
-          const std::shared_ptr<GPUResource>& gpu_resource,
-          bool full_fp16 = false,
+          const std::shared_ptr<GPUResource>& gpu_resource, bool full_fp16 = false,
           bool use_cuda_graph = true);
   Network(const Network&) = delete;
   Network& operator=(const Network&) = delete;

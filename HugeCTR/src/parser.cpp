@@ -1040,7 +1040,7 @@ void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense
 template <typename TypeKey, typename TypeFP>
 static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                              std::vector<TensorEntry>* tensor_entries_list,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                             std::vector<std::shared_ptr<IEmbedding>>& embedding,
                              Embedding_t embedding_type, const nlohmann::json& config,
                              const std::shared_ptr<ResourceManager>& resource_manager,
                              size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
@@ -1203,7 +1203,7 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
 template <typename TypeKey>
 static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
                                      std::shared_ptr<IDataReader>& data_reader_eval,
-                                     std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                                     std::vector<std::shared_ptr<IEmbedding>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
                                      const std::shared_ptr<ResourceManager>& resource_manager,
                                      Parser& parser) {
@@ -1455,7 +1455,7 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
 
 void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
                              std::shared_ptr<IDataReader>& data_reader_eval,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                             std::vector<std::shared_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
                              const std::shared_ptr<ResourceManager>& resource_manager) {
   if (i64_input_key_) {
