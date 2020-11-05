@@ -111,19 +111,17 @@ class AUCStorage {
 
     void*       d_workspace()              const { return workspace_                  ; }
 
-    size_t& temp_storage_bytes() { return temp_storage_bytes_; }
-
+    size_t& temp_storage_bytes() { return allocated_temp_storage_; }
 
     void alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
                     size_t num_global_gpus);
-    void realloc_redistributed(size_t num_redistributed_samples);
-    void set_max_temp_storage_bytes(size_t new_val);
-    void alloc_workspace();
+    void realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream);
+    void realloc_workspace(size_t temp_storage);
     void free_all();
 
   private:
-    const float imbalance_factor_ = 1.2f;
-    size_t temp_storage_bytes_ = 0;
+    const float reallocate_factor_ = 1.2f;
+    size_t allocated_temp_storage_ = 0;
     size_t num_allocated_redistributed_ = 0;
 
     float*     ptr_preds_1_                = nullptr;
@@ -151,7 +149,7 @@ class AUCStorage {
 
     void*      workspace_                  = nullptr;
 
-    void free_redistributed();
+    void realloc_ptr(void** ptr, size_t old_size, size_t new_size, cudaStream_t stream);
 };
 
 class AUCBarrier {

@@ -273,19 +273,20 @@ void all_to_all(T* srcptr, T* dstptr,
 }
 
 template <typename T>
-void send_halo_right(T* srcptr, T* dstptr, int count, int num_global_gpus, const GPUResource* gpu_resource)
+void send_halo_right(T* srcptr, T* dstptr, int count,
+                     int left_neighbor, int right_neighbor,
+                     const GPUResource* gpu_resource)
 {
   auto& stream = gpu_resource->get_stream();
   auto& comm   = gpu_resource->get_nccl();
-  int my_global_id = gpu_resource->get_global_gpu_id();
   auto type = get_nccl_type<T>();
 
   CK_NCCL_THROW_(ncclGroupStart());
-  if (my_global_id < num_global_gpus-1) {
-    CK_NCCL_THROW_(ncclSend(srcptr, count, type, my_global_id+1, comm, stream));
+  if (right_neighbor >= 0) {
+    CK_NCCL_THROW_(ncclSend(srcptr, count, type, right_neighbor, comm, stream));
   }
-  if (my_global_id > 0) {
-    CK_NCCL_THROW_(ncclRecv(dstptr, count, type, my_global_id-1, comm, stream));
+  if (left_neighbor  >= 0) {
+    CK_NCCL_THROW_(ncclRecv(dstptr, count, type, left_neighbor,  comm, stream));
   }
   CK_NCCL_THROW_(ncclGroupEnd());
 }
@@ -405,64 +406,82 @@ void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t nu
   CK_CUDA_THROW_(cudaMemset(ptr_pos_per_gpu_, 0, (num_global_gpus+1)*sizeof(CountType)));
   CK_CUDA_THROW_(cudaMemset(ptr_neg_per_gpu_, 0, (num_global_gpus+1)*sizeof(CountType)));
 
-  realloc_redistributed(num_local_samples);
+  realloc_redistributed(num_local_samples, 0);
 }
 
-void AUCStorage::realloc_redistributed(size_t num_redistributed_samples) {
-  if (num_redistributed_samples > num_allocated_redistributed_ ) {
+void AUCStorage::realloc_ptr(void** ptr, size_t old_size, size_t new_size, cudaStream_t stream) {
+  void* tmp;
+  CK_CUDA_THROW_(cudaMalloc(&tmp, new_size));
+  CK_CUDA_THROW_(cudaMemcpyAsync(tmp, *ptr, old_size, cudaMemcpyDeviceToDevice, stream));
+  CK_CUDA_THROW_(cudaFree(*ptr));
+  *ptr = tmp;
+}
 
-    free_redistributed();
-    num_allocated_redistributed_ = imbalance_factor_ * num_redistributed_samples;
+void AUCStorage::realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream) {
+  if (num_redistributed_samples > num_allocated_redistributed_) {
+
+    size_t old_size = num_allocated_redistributed_*sizeof(float);
+    num_allocated_redistributed_ = reallocate_factor_ * num_redistributed_samples;
     size_t redistributed_buffer_size = num_allocated_redistributed_*sizeof(float);
     size_t runs_buffer_size = num_allocated_redistributed_*sizeof(CountType)/2;
 
-    CK_CUDA_THROW_(cudaMalloc       ((void**)&(ptr_preds_1_               ), redistributed_buffer_size));
-    CK_CUDA_THROW_(cudaMalloc       ((void**)&(ptr_labels_1_              ), redistributed_buffer_size));    
-    CK_CUDA_THROW_(cudaMalloc       ((void**)&(ptr_preds_2_               ), redistributed_buffer_size));
-    CK_CUDA_THROW_(cudaMalloc       ((void**)&(ptr_labels_2_              ), redistributed_buffer_size));
-    CK_CUDA_THROW_(cudaMalloc       ((void**)&(ptr_identical_pred_starts_ ), runs_buffer_size));
-    CK_CUDA_THROW_(cudaMalloc       ((void**)&(ptr_identical_pred_lengths_), runs_buffer_size));
+    realloc_ptr((void**)&(ptr_preds_1_               ), old_size,   redistributed_buffer_size, stream);
+    realloc_ptr((void**)&(ptr_labels_1_              ), old_size,   redistributed_buffer_size, stream);    
+    realloc_ptr((void**)&(ptr_preds_2_               ), old_size,   redistributed_buffer_size, stream);
+    realloc_ptr((void**)&(ptr_labels_2_              ), old_size,   redistributed_buffer_size, stream);
 
-
+    // These two buffers do not need to preserve their data
+    CK_CUDA_THROW_(cudaFree(ptr_identical_pred_starts_ ));
+    CK_CUDA_THROW_(cudaFree(ptr_identical_pred_lengths_));
+    CK_CUDA_THROW_(cudaMalloc((void**)&ptr_identical_pred_starts_,  runs_buffer_size));
+    CK_CUDA_THROW_(cudaMalloc((void**)&ptr_identical_pred_lengths_, runs_buffer_size));
   }
 }
 
-void AUCStorage::set_max_temp_storage_bytes(size_t new_val) {
-  temp_storage_bytes_ = std::max(new_val, temp_storage_bytes_);
-}
-
-void AUCStorage::alloc_workspace() {
-  CK_CUDA_THROW_(cudaMalloc       ((void**)&(workspace_), temp_storage_bytes_));
-}
-
-void AUCStorage::free_redistributed() {
-  cudaFree(ptr_preds_1_ );
-  cudaFree(ptr_labels_1_);
-  cudaFree(ptr_preds_2_ );
-  cudaFree(ptr_labels_2_);
+void AUCStorage::realloc_workspace(size_t temp_storage) {
+  if (temp_storage > allocated_temp_storage_) {
+    allocated_temp_storage_ = reallocate_factor_ * temp_storage;
+    // This is temporary storage, no need to preserve the data
+    cudaFree(workspace_);
+    CK_CUDA_THROW_(cudaMalloc((void**)&(workspace_), allocated_temp_storage_));
+  }
 }
 
 void AUCStorage::free_all() {
-  cudaFree(ptr_local_bins_            );
-  cudaFree(ptr_global_bins_           );
-  cudaFree(ptr_global_bins_sum_       );
-  cudaFree(ptr_local_bins_sum_        );
-  cudaFree(ptr_pivots_                );
-  cudaFree(ptr_partition_offsets_     );
-  cudaFree(ptr_all_partition_offsets_ );
-  cudaFree(ptr_recv_offsets_          );
-  cudaFree(ptr_pos_per_gpu_           );
-  cudaFree(ptr_neg_per_gpu_           );
-  cudaFree(ptr_num_identical_segments_);
-  cudaFree(ptr_halo_tpr_              );
-  cudaFree(ptr_halo_fpr_              );
-  cudaFree(ptr_tp_offsets_            );
-  cudaFree(ptr_fp_offsets_            );
-  cudaFree(ptr_auc_                   );
-  cudaFree(workspace_                 );
-
-  free_redistributed();
+  CK_CUDA_THROW_(cudaFree(ptr_local_bins_            ));
+  CK_CUDA_THROW_(cudaFree(ptr_global_bins_           ));
+  CK_CUDA_THROW_(cudaFree(ptr_global_bins_sum_       ));
+  CK_CUDA_THROW_(cudaFree(ptr_local_bins_sum_        ));
+  CK_CUDA_THROW_(cudaFree(ptr_pivots_                ));
+  CK_CUDA_THROW_(cudaFree(ptr_partition_offsets_     ));
+  CK_CUDA_THROW_(cudaFree(ptr_all_partition_offsets_ ));
+  CK_CUDA_THROW_(cudaFree(ptr_recv_offsets_          ));
+  CK_CUDA_THROW_(cudaFree(ptr_pos_per_gpu_           ));
+  CK_CUDA_THROW_(cudaFree(ptr_neg_per_gpu_           ));
+  CK_CUDA_THROW_(cudaFree(ptr_num_identical_segments_));
+  CK_CUDA_THROW_(cudaFree(ptr_halo_tpr_              ));
+  CK_CUDA_THROW_(cudaFree(ptr_halo_fpr_              ));
+  CK_CUDA_THROW_(cudaFree(ptr_tp_offsets_            ));
+  CK_CUDA_THROW_(cudaFree(ptr_fp_offsets_            ));
+  CK_CUDA_THROW_(cudaFree(ptr_auc_                   ));
+  CK_CUDA_THROW_(cudaFree(ptr_preds_1_               ));
+  CK_CUDA_THROW_(cudaFree(ptr_labels_1_              ));
+  CK_CUDA_THROW_(cudaFree(ptr_preds_2_               ));
+  CK_CUDA_THROW_(cudaFree(ptr_labels_2_              ));
+  CK_CUDA_THROW_(cudaFree(ptr_identical_pred_starts_ ));
+  CK_CUDA_THROW_(cudaFree(ptr_identical_pred_lengths_));
+  CK_CUDA_THROW_(cudaFree(workspace_                 ));
 }
+
+/// Wrapper to call CUB functions with preallocation
+template<typename CUB_Func>
+void CUB_allocate_and_launch(AUCStorage& st, CUB_Func func) {
+  size_t requested_size;
+  CK_CUDA_THROW_(func(nullptr, requested_size));
+  st.realloc_workspace(requested_size);
+  CK_CUDA_THROW_(func(st.d_workspace(), st.temp_storage_bytes()));
+}
+
 
 AUCBarrier::AUCBarrier(std::size_t thread_count) : 
   threshold_(thread_count), 
@@ -499,7 +518,6 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches,
       offsets_(num_local_gpus_, 0) {
 
   size_t max_num_local_samples = (batch_size_per_gpu_ * n_batches_);
-  size_t est_max_num_redistributed_samples = 2*max_num_local_samples;
 
   for (int i=0; i<num_local_gpus_; i++) {
     int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
@@ -507,43 +525,7 @@ AUC<T>::AUC(int batch_size_per_gpu, int n_batches,
 
     auto& st = storage_[i];
     st.alloc_main(max_num_local_samples, num_bins_, num_partitions_, num_global_gpus_);
-
-    st.set_max_temp_storage_bytes(num_partitions_*sizeof(CountType));
-    size_t new_temp_storage_bytes;
-
-    // (int) casting is a CUB workaround. Fixed in https://github.com/thrust/cub/pull/38
-    CK_CUDA_THROW_(cub::DeviceHistogram::HistogramEven(
-      nullptr, new_temp_storage_bytes, st.d_preds(), st.d_local_bins(),
-      num_bins_+1, pred_min_, pred_max_, (int)max_num_local_samples));
-    st.set_max_temp_storage_bytes(new_temp_storage_bytes);
-
-    CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
-      nullptr, new_temp_storage_bytes, st.d_global_bins(), st.d_global_bins_sum(), num_bins_));
-    st.set_max_temp_storage_bytes(new_temp_storage_bytes);
-
-    CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairsDescending(nullptr, new_temp_storage_bytes,
-                                                             st.d_presorted_preds(),  st.d_sorted_preds(),
-                                                             st.d_presorted_labels(), st.d_sorted_labels(),
-                                                             est_max_num_redistributed_samples));
-    st.set_max_temp_storage_bytes(new_temp_storage_bytes);
-
-    CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
-      nullptr, new_temp_storage_bytes, st.d_presorted_labels(), st.d_tp(), est_max_num_redistributed_samples));
-    st.set_max_temp_storage_bytes(new_temp_storage_bytes);
-
-    CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum(
-      nullptr, new_temp_storage_bytes, st.d_pos_per_gpu(), st.d_tp_offsets(), num_global_gpus_));
-    st.set_max_temp_storage_bytes(new_temp_storage_bytes);
-
-    CK_CUDA_THROW_(cub::DeviceRunLengthEncode::NonTrivialRuns(nullptr, new_temp_storage_bytes,
-                                                              st.d_sorted_preds(),
-                                                              st.d_identical_pred_starts(),
-                                                              st.d_identical_pred_lengths(),
-                                                              st.d_num_identical_segments(),
-                                                              est_max_num_redistributed_samples));
-    st.set_max_temp_storage_bytes(new_temp_storage_bytes);
-
-    st.alloc_workspace();
+    st.realloc_workspace(num_partitions_*sizeof(CountType));
   }
 }
 
@@ -637,9 +619,11 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
     d_clamped_preds(st.d_preds(), clamp);
 
   // (int) casting is a CUB workaround. Fixed in https://github.com/thrust/cub/pull/38
-  CK_CUDA_THROW_(cub::DeviceHistogram::HistogramEven(
-    st.d_workspace(), st.temp_storage_bytes(), d_clamped_preds, st.d_local_bins(),
-    num_bins_+1, pred_min_, pred_max_, (int)num_local_samples, stream));
+  CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceHistogram::HistogramEven(
+        workspace, size, d_clamped_preds, st.d_local_bins(),
+        num_bins_+1, pred_min_, pred_max_, (int)num_local_samples, stream);
+  });
 
 
   // 2. Allreduce histograms
@@ -647,10 +631,12 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
 
 
   // 3. Find num_global_gpus_-1 pivot points
-  CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
-    st.d_workspace(), st.temp_storage_bytes(),
-    st.d_global_bins(), st.d_global_bins_sum(),
-    num_bins_, stream));
+  CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceScan::InclusiveSum(
+        workspace, size,
+        st.d_global_bins(), st.d_global_bins_sum(),
+        num_bins_, stream);
+  });
 
   initialize_array  <<<grid, block, 0, stream>>>(st.d_pivots(), num_partitions_-1, num_bins_-1);
   find_pivots_kernel<<<grid, block, 0, stream>>>(st.d_global_bins_sum(), num_bins_,
@@ -659,10 +645,12 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
 
   // 4. Partition (partially sort) local predictions into num_global_gpus_ bins
   //    separated by pivot points.
-  CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
-    st.d_workspace(), st.temp_storage_bytes(),
-    st.d_local_bins(), st.d_local_bins_sum(),
-    num_bins_, stream));
+  CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceScan::InclusiveSum(
+        workspace, size,
+        st.d_local_bins(), st.d_local_bins_sum(),
+        num_bins_, stream);
+  });
 
   find_partition_offsets_kernel<<<grid, block, 0, stream>>> (
     st.d_local_bins_sum(), st.d_pivots(),
@@ -681,121 +669,175 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
 
   // 5. Exchange the data such that all predicitons on GPU i are smaller than
   //    the ones on GPU i+1. 
-  // 5.1. Compute receiving side offsets.
+  // 5.1. Compute receiving side offsets. Also compute resulting number
+  //      of elements on all the other GPUs, required to determine correct neighbors
   metric_comm::allgather(st.d_partition_offsets(), st.d_all_partition_offsets(), num_partitions_+1,
                          gpu_resource);
 
   // The following is done on the CPU, need to wait
   CK_CUDA_THROW_(cudaStreamSynchronize(stream));
 
-  CountType sum = 0;
-  for (int src=0; src<num_global_gpus_; src++) {
-    CountType size_src = st.d_all_partition_offsets()[src*(num_partitions_+1) + global_id+1] -
-                         st.d_all_partition_offsets()[src*(num_partitions_+1) + global_id  ];
-    st.d_recv_offsets()[src] = sum;
-    sum += size_src;
+  std::vector<size_t> all_num_redistributed_samples(num_global_gpus_);
+  for (int dest=0; dest<num_global_gpus_; dest++) {
+    CountType sum = 0;
+    for (int src=0; src<num_global_gpus_; src++) {
+      CountType size_src = st.d_all_partition_offsets()[src*(num_partitions_+1) + dest+1] -
+                           st.d_all_partition_offsets()[src*(num_partitions_+1) + dest  ];
+      if (dest == global_id) {
+        st.d_recv_offsets()[src] = sum;
+      }
+      sum += size_src;
+    }
+    all_num_redistributed_samples[dest] = sum;
   }
-  st.d_recv_offsets()[num_global_gpus_] = sum;
+  st.d_recv_offsets()[num_global_gpus_]  = all_num_redistributed_samples[global_id];
+  const size_t num_redistributed_samples = all_num_redistributed_samples[global_id];
 
-  const size_t num_redistributed_samples = st.d_recv_offsets()[num_global_gpus_];
-  st.realloc_redistributed(num_redistributed_samples);
+  // 5.2 Allocate more memory if needed
+  st.realloc_redistributed(num_redistributed_samples, stream);
 
-  // 5.2 Synchronize threads before all to all to prevent hangs
+  // 5.3 Synchronize threads before all to all to prevent hangs
   barrier_.wait();
 
-  // 5.3 All to all
+  // 5.4 All to all
   metric_comm::all_to_all(st.d_partitioned_labels(), st.d_presorted_labels(),
                           st.d_partition_offsets(),  st.d_recv_offsets(),
                           num_global_gpus_, gpu_resource);
   metric_comm::all_to_all(st.d_partitioned_preds(),  st.d_presorted_preds(),
                           st.d_partition_offsets(),  st.d_recv_offsets(),
                           num_global_gpus_, gpu_resource);
+  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+
+  if (num_redistributed_samples > 0) {
+
+    // 6. Locally sort (label, pred) by pred
+    CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceRadixSort::SortPairs(workspace, size,
+                                             st.d_presorted_preds(),  st.d_sorted_preds(),
+                                             st.d_presorted_labels(), st.d_sorted_labels(),
+                                             num_redistributed_samples,
+                                             0, sizeof(float)*8, // begin_bit, end_bit
+                                             stream);
+    });
 
 
-  // 6. Locally sort (label, pred) by pred
-  CK_CUDA_THROW_(cub::DeviceRadixSort::SortPairs(st.d_workspace(), st.temp_storage_bytes(),
-                                                 st.d_presorted_preds(),  st.d_sorted_preds(),
-                                                 st.d_presorted_labels(), st.d_sorted_labels(),
-                                                 num_redistributed_samples,
-                                                 0, sizeof(float)*8, // begin_bit, end_bit
-                                                 stream));
+    // 7. Create TPR and FPR. Need a "global" scan
+    // 7.1 Local inclusive scan to find TP and FP
+    auto one_minus_val = [] __device__ (const float v) {
+      return 1.0f-v;
+    };
+    cub::TransformInputIterator<float, decltype(one_minus_val), float*>
+      d_one_minus_labels(st.d_sorted_labels(), one_minus_val);
+
+    CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceScan::InclusiveSum(
+      workspace, size,
+      st.d_sorted_labels(), st.d_tp(),
+      num_redistributed_samples, stream);
+    });
+    CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceScan::InclusiveSum(
+      workspace, size,
+      d_one_minus_labels, st.d_fp(),
+      num_redistributed_samples, stream);
+    });
+
+    // 7.2 'Flatten' tp and fp for cases where several consecutive predictions are identical
+    CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceRunLengthEncode::NonTrivialRuns(workspace, size,
+                                                        st.d_sorted_preds(),
+                                                        st.d_identical_pred_starts(),
+                                                        st.d_identical_pred_lengths(),
+                                                        st.d_num_identical_segments(),
+                                                        num_redistributed_samples,
+                                                        stream);
+    });
+
+    flatten_segments_kernel<<<grid, block, 0, stream>>> (st.d_identical_pred_starts(),
+                                                         st.d_identical_pred_lengths(),
+                                                         st.d_num_identical_segments(),
+                                                         st.d_tp(),
+                                                         st.d_fp());
+
+    // 7.3 Allgather of the number of total positive and negative samples
+    //     on each GPU and exclusive scan them
+    metric_comm::allgather(st.d_tp()+num_redistributed_samples-1, st.d_pos_per_gpu(), 1, 
+                           gpu_resource);
+    metric_comm::allgather(st.d_fp()+num_redistributed_samples-1, st.d_neg_per_gpu(), 1,
+                           gpu_resource);
+
+    CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceScan::ExclusiveSum(workspace, size, 
+                                           st.d_pos_per_gpu(), st.d_tp_offsets(),
+                                           num_global_gpus_+1, stream);
+    });
+
+    CUB_allocate_and_launch(st, [&] (void* workspace, size_t& size) {
+      return cub::DeviceScan::ExclusiveSum(workspace, size, 
+                                           st.d_neg_per_gpu(), st.d_fp_offsets(),
+                                           num_global_gpus_+1, stream);
+    });
+
+    // 7.4 Locally find TPR and FPR given TP, FP and global offsets
+    rate_from_part_cumsum_kernel<<<grid, block, 0, stream>>> (st.d_tp(), num_redistributed_samples,
+                                                              st.d_tp_offsets() + global_id,
+                                                              st.d_tp_offsets() + num_global_gpus_,
+                                                              st.d_tpr());
+    rate_from_part_cumsum_kernel<<<grid, block, 0, stream>>> (st.d_fp(), num_redistributed_samples,
+                                                              st.d_fp_offsets() + global_id,
+                                                              st.d_fp_offsets() + num_global_gpus_,
+                                                              st.d_fpr());
 
 
-  // 7. Create TPR and FPR. Need a "global" scan
-  // 7.1 Local inclusive scan to find TP and FP
-  CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
-    st.d_workspace(), st.temp_storage_bytes(),
-    st.d_sorted_labels(), st.d_tp(),
-    num_redistributed_samples, stream));
+    // 8. Integrate TPR and FPR taking into account halo samples
+    // 8.1 No need to communicate with GPUs that have 0 elements
+    int left_neighbor = -1, right_neighbor = -1;
+    for (int gpuid = global_id-1; gpuid >= 0; gpuid--) {
+      if (all_num_redistributed_samples[gpuid] > 0) {
+        left_neighbor = gpuid;
+        break;
+      }
+    }
+    for (int gpuid = global_id+1; gpuid < num_global_gpus_; gpuid++) {
+      if (all_num_redistributed_samples[gpuid] > 0) {
+        right_neighbor = gpuid;
+        break;
+      }
+    }
+    // printf("neighs rank %d : %d and %d\n", global_id, left_neighbor, right_neighbor);
 
-  auto one_minus_val = [] __device__ (const float v) {
-    return 1.0f-v;
-  };
-  cub::TransformInputIterator<float, decltype(one_minus_val), float*>
-    d_one_minus_labels(st.d_sorted_labels(), one_minus_val);
-  CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
-    st.d_workspace(), st.temp_storage_bytes(),
-    d_one_minus_labels, st.d_fp(),
-    num_redistributed_samples, stream));
+    // 8.2 Send the halos
+    metric_comm::send_halo_right(st.d_tpr()+num_redistributed_samples-1, st.d_halo_tpr(), 1,
+                                left_neighbor, right_neighbor, gpu_resource);
+    metric_comm::send_halo_right(st.d_fpr()+num_redistributed_samples-1, st.d_halo_fpr(), 1, 
+                                left_neighbor, right_neighbor, gpu_resource);
 
-  // 7.2 'Flatten' tp and fp for cases where several consecutive predictions are identical
-  CK_CUDA_THROW_(cub::DeviceRunLengthEncode::NonTrivialRuns(st.d_workspace(), st.temp_storage_bytes(),
-                                                            st.d_sorted_preds(),
-                                                            st.d_identical_pred_starts(),
-                                                            st.d_identical_pred_lengths(),
-                                                            st.d_num_identical_segments(),
-                                                            num_redistributed_samples,
-                                                            stream));
+    // 8.3 First non-zero GPU initializes the halo to 0
+    if ( left_neighbor == -1 ) {
+      initialize_array<<<grid, block, 0, stream>>>(st.d_halo_tpr(), 1, 1.0f);
+      initialize_array<<<grid, block, 0, stream>>>(st.d_halo_fpr(), 1, 1.0f);
+    }
 
-  flatten_segments_kernel<<<grid, block, 0, stream>>> (st.d_identical_pred_starts(),
-                                                       st.d_identical_pred_lengths(),
-                                                       st.d_num_identical_segments(),
-                                                       st.d_tp(),
-                                                       st.d_fp());
-
-  // 7.3 Allgather of the number of total positive and negative samples
-  //     on each GPU and exclusive scan them
-  metric_comm::allgather(st.d_tp()+num_redistributed_samples-1, st.d_pos_per_gpu(), 1, 
-                         gpu_resource);
-  metric_comm::allgather(st.d_fp()+num_redistributed_samples-1, st.d_neg_per_gpu(), 1,
-                         gpu_resource);
-
-  CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum(st.d_workspace(), st.temp_storage_bytes(), 
-                                               st.d_pos_per_gpu(), st.d_tp_offsets(),
-                                               num_global_gpus_+1, stream));
-
-  CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum(st.d_workspace(), st.temp_storage_bytes(), 
-                                               st.d_neg_per_gpu(), st.d_fp_offsets(),
-                                               num_global_gpus_+1, stream));
-
-
-
-  // 7.4 Locally find TPR and FPR given TP, FP and global offsets
-  rate_from_part_cumsum_kernel<<<grid, block, 0, stream>>> (st.d_tp(), num_redistributed_samples,
-                                                            st.d_tp_offsets() + global_id,
-                                                            st.d_tp_offsets() + num_global_gpus_,
-                                                            st.d_tpr());
-  rate_from_part_cumsum_kernel<<<grid, block, 0, stream>>> (st.d_fp(), num_redistributed_samples,
-                                                            st.d_fp_offsets() + global_id,
-                                                            st.d_fp_offsets() + num_global_gpus_,
-                                                            st.d_fpr());
-
-
-  // 8. Integrate TPR and FPR taking into account halo samples
-  metric_comm::send_halo_right(st.d_tpr()+num_redistributed_samples-1, st.d_halo_tpr(), 1,
-                               num_global_gpus_, gpu_resource);
-  metric_comm::send_halo_right(st.d_fpr()+num_redistributed_samples-1, st.d_halo_fpr(), 1, 
-                               num_global_gpus_, gpu_resource);
-
-  if ( global_id == 0 ) {
-    initialize_array<<<grid, block, 0, stream>>>(st.d_halo_tpr(), 1, 1.0f);
-    initialize_array<<<grid, block, 0, stream>>>(st.d_halo_fpr(), 1, 1.0f);
+    // 8.4 Integrate
+    initialize_array<<<grid, block, 0, stream>>>(st.d_auc(), 1, 0.0f);
+    trapz_kernel    <<<grid, block, 0, stream>>>(st.d_tpr(), st.d_fpr(),
+                                                st.d_halo_tpr(), st.d_halo_fpr(),
+                                                st.d_auc(), num_redistributed_samples);
   }
+  else {
+    // Here we're on a GPU with no elements, need to communicate zeros where needed
+    // Performance is not a concern on such GPUs
+    MESSAGE_("GPU "+std::to_string(global_id)+" has no samples in the AUC computation "
+             "due to strongly uneven distribution of the scores. Performance may be impacted");
+    
+    initialize_array<<<grid, block, 0, stream>>>(st.d_halo_tpr(), 1, 0.0f);
+    // 7.3 All GPUs need to call allgather
+    metric_comm::allgather(st.d_halo_tpr(), st.d_pos_per_gpu(), 1, gpu_resource);
+    metric_comm::allgather(st.d_halo_tpr(), st.d_neg_per_gpu(), 1, gpu_resource);
 
-  initialize_array<<<grid, block, 0, stream>>>(st.d_auc(), 1, 0.0f);
-  trapz_kernel    <<<grid, block, 0, stream>>>(st.d_tpr(), st.d_fpr(),
-                                               st.d_halo_tpr(), st.d_halo_fpr(),
-                                               st.d_auc(), num_redistributed_samples);
+    // 8.4 Initialize partial auc to 0
+    initialize_array<<<grid, block, 0, stream>>>(st.d_auc(), 1, 0.0f);
+  }
   
 
   // 9. Finally allreduce auc
