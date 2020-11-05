@@ -228,7 +228,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   {
     // upload hash table to device
     std::ifstream fs(hash_table_file_name);
-    embedding->upload_params_to_device(fs);
+    embedding->load_parameters(fs);
     fs.close();
   }
 
@@ -256,9 +256,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   buf->allocate();
 
-  typedef struct TypeHashValue_ {
-    float data[embedding_vec_size];
-  } TypeHashValue;
+  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
 
   for (int i = 0; i < train_batch_num; i++) {
     printf("Rank%d: Round %d start training:\n", resource_manager->get_pid(), i);
@@ -333,7 +331,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   // create new obj for eval()
   {
     std::ofstream fs(hash_table_file_name);
-    embedding->download_params_to_host(fs);
+    embedding->dump_parameters(fs);
     fs.close();
   }
 

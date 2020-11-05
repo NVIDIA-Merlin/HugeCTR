@@ -23,6 +23,8 @@
 #include <thread>
 #include <utility>
 #include <string>
+#include "HugeCTR/include/embeddings/embedding.hpp"
+#include "HugeCTR/include/model_prefetcher/model_prefetcher.hpp"
 
 namespace HugeCTR {
 
@@ -39,7 +41,9 @@ class Session {
    * Dtor of SessionImpl.
    */
   ~Session();
-  Session(const SolverParser& solver_config, const std::string& config_file);
+  Session(const SolverParser& solver_config, const std::string& config_file,
+          bool use_model_prefetcher = false,
+          const std::string temp_embedding_dir = std::string());
   Session(const Session&) = delete;
   Session& operator=(const Session&) = delete;
 
@@ -87,6 +91,11 @@ class Session {
     }
     return Error_t::Success;
   }
+
+  const std::shared_ptr<ModelPrefetcher> get_model_prefetcher() const {
+    return model_prefetcher_;
+  }
+
   /**
    * generate a dense model and initilize with small random values.
    * @param model_file dense model initilized
@@ -114,7 +123,8 @@ class Session {
 
  private:
   std::vector<std::unique_ptr<Network>> networks_;     /**< networks (dense) used in training. */
-  std::vector<std::unique_ptr<IEmbedding>> embedding_; /**< embedding */
+  std::vector<std::shared_ptr<IEmbedding>> embedding_; /**< embedding */
+  std::shared_ptr<ModelPrefetcher> model_prefetcher_; /**< model prefetcher for model prefetching. */
 
   std::shared_ptr<IDataReader> 
     data_reader_;      /**< data reader to reading data from data set to embedding. */
@@ -126,6 +136,15 @@ class Session {
                                     const std::vector<std::string>& embedding_files);
 
   metrics::Metrics metrics_;
+
+  /**
+   * @brief      Creates a model prefetcher.
+   * @return     The shared pointer of model prefetcher object.
+   */
+  template <typename TypeEmbeddingComp>
+  std::shared_ptr<ModelPrefetcher> create_model_prefetcher_(
+    const SolverParser& solver_config,
+    const std::string& temp_embedding_dir);
 
   /**
    * A method load trained parameters for dense model.

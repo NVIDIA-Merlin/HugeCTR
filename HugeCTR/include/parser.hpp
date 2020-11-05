@@ -93,17 +93,17 @@ class Parser {
    */
   void create_pipeline(std::shared_ptr<IDataReader>& data_reader,
                        std::shared_ptr<IDataReader>& data_reader_eval,
-                       std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<ResourceManager>& resource_manager);
 
   template <typename TypeKey>
   friend void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
                                        std::shared_ptr<IDataReader>& data_reader_eval,
-                                       std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
                                        std::vector<std::unique_ptr<Network>>& network,
                                        const std::shared_ptr<ResourceManager>& resource_manager,
-                                      Parser& parser);
+                                       Parser& parser);
 
 };
 
