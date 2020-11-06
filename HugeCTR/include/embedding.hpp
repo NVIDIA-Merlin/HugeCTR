@@ -42,6 +42,8 @@ class IEmbedding {
   virtual std::vector<TensorBag2> get_train_output_tensors() const = 0;
   virtual std::vector<TensorBag2> get_evaluate_output_tensors() const = 0;
   virtual void check_overflow() const = 0;
+  virtual void get_forward_results_tf(const bool is_train, const bool on_gpu, void* const forward_result) = 0;
+  virtual cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) = 0;
 };
 
 template <typename TypeEmbeddingComp>
