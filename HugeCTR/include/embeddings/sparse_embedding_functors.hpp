@@ -509,6 +509,17 @@ class SparseEmbeddingFunctors {
                            const ResourceManager &resource_manager);
 
   /**
+   * get forward results from GPUs to TensorFlow's tensor.
+  */
+  template <typename TypeEmbeddingComp>
+  void get_forward_results(size_t memcpy_size,
+                           const Tensors2<TypeEmbeddingComp> &embedding_feature_tensors,
+                           void* const embedding_feature,
+                           Tensors2<TypeEmbeddingComp> &temp_tensors,
+                           const ResourceManager &resource_manager,
+                           const bool on_gpu);
+
+  /**
    * get backward results from GPU to CPU. This functin is just used for utest.
    * @param devId gpu device id to get backward resutls from.
    * @param memcpy_size the number of elemments to do memcpy.
