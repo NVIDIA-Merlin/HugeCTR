@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <common.hpp>
 #include <data_readers/source.hpp>
 #include <memory>
 
@@ -24,13 +25,23 @@ class IDataReaderWorker {
   virtual void read_a_batch() = 0;
   virtual void skip_read() = 0;
   void set_source(std::shared_ptr<Source> source) {
+    if (!is_eof_) {
+      CK_THROW_(Error_t::IllegalCall,
+          "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker is not in the EOF state.");
+    }
+
     pre_set_source();
     source_ = source;
     post_set_source();
   }
 
+  IDataReaderWorker()
+      : is_eof_(false) {
+  }
+
  protected:
   std::shared_ptr<Source> source_; /**< source: can be file or network */
+  bool is_eof_;
 
  private:
   virtual void pre_set_source() {}

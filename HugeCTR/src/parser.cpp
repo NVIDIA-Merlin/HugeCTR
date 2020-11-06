@@ -1342,8 +1342,11 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
 
         switch (format) {
           case DataReaderType_t::Norm: {
-            data_reader->create_drwg_norm(source_data, check_type);
-            data_reader_eval->create_drwg_norm(eval_source, check_type);
+            bool start_right_now = parser.repeat_dataset_;
+            data_reader->create_drwg_norm(
+                source_data, check_type, start_right_now);
+            data_reader_eval->create_drwg_norm(
+                eval_source, check_type, start_right_now);
             break;
           }
           case DataReaderType_t::Raw: {
