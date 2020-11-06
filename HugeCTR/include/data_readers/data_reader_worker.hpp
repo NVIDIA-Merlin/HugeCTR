@@ -47,6 +47,8 @@ class DataReaderWorker : public IDataReaderWorker {
   int current_record_index_{0};
   int slots_{0};
 
+  // TODO(minseokl, 11062020): they must be moved to the parent class if the EOF is enabled
+  // in the other workers such as Parquet and Raw.
   std::condition_variable eof_cv_;
   std::mutex eof_mtx_;
 
@@ -91,6 +93,7 @@ class DataReaderWorker : public IDataReaderWorker {
   void post_set_source() override {
     create_checker();
     eof_cv_.notify_all();
+    is_eof_ = false;
   }
 
  public:
@@ -117,6 +120,12 @@ class DataReaderWorker : public IDataReaderWorker {
       slots_ += p.slot_num;
     }
     source_ = std::make_shared<FileSource>(worker_id, worker_num, file_list, repeat);
+    // In the no-repeat mode, the data reader worker doesn't start from the beginning.
+    // Thus, whe constructed, it is considered as the same as the EOF state,
+    // so that set_*_source can be done on the client code side.
+    if (!repeat) {
+      is_eof_ = true;
+    }
     create_checker();
   }
 
@@ -266,6 +275,7 @@ void DataReaderWorker<T>::read_a_batch() {
       else {
         // push nop to singal to DataCollector that it is the EOF
         csr_heap_->commit_data_chunk(worker_id_, true);
+        is_eof_ = true;
         std::unique_lock<std::mutex> lock(eof_mtx_);
         // wait for the new source is set
         eof_cv_.wait(lock);
