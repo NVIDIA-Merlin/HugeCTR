@@ -84,6 +84,7 @@ class DataReaderWorkerGroup {
   void set_resource_manager(const std::shared_ptr<ResourceManager>& resource_manager) {
     resource_manager_ = resource_manager;
   }
+  bool is_started() const { return data_reader_loop_flag_; }
   void start() { data_reader_loop_flag_ = 1; }
   void end() {
     data_reader_loop_flag_ = 0;
@@ -101,6 +102,9 @@ class DataReaderWorkerGroup {
     size_t num_workers = data_readers_.size();
     for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {
       data_readers_[worker_id]->set_source(op(worker_id, num_workers));
+    }
+    if (data_reader_loop_flag_ == 0) {
+      start();
     }
   }
 };

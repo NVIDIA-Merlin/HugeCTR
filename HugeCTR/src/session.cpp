@@ -209,6 +209,11 @@ Error_t Session::init_or_load_params_for_sparse_(
 
 bool Session::train() {
   try {
+    if (data_reader_->is_started() == false) {
+      CK_THROW_(Error_t::IllegalCall,
+          "Start the data reader first before calling Session::train()");
+    }
+
 #ifndef DATA_READING_TEST
     long long current_batchsize = data_reader_->read_a_batch_to_device_delay_release();
     if (!current_batchsize) {
@@ -255,6 +260,12 @@ bool Session::train() {
 bool Session::eval() {
   try {
     if (data_reader_eval_ == nullptr) return true;
+
+    if (data_reader_eval_->is_started() == false) {
+      CK_THROW_(Error_t::IllegalCall,
+          "Start the data reader first before calling Session::eval()");
+    }
+
     long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);

@@ -101,6 +101,7 @@ class DataReader : public IDataReader {
 
   void ready_to_collect() override { data_collector_->set_ready_to_write(); }
 
+  bool is_started() const override { return worker_group_->is_started(); }
   void start() override { worker_group_->start(); }
 
   DataReader(int batchsize, size_t label_dim, int dense_dim,
