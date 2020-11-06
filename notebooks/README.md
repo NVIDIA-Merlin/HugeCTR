@@ -36,9 +36,9 @@ make -j
 Then finally, install and start Jupyter with
 
 ```
-pip3 install jupyter
+pip3 install --upgrade notebook
 cd /hugectr
-jupyter notebook --allow-root --ip 0.0.0.0 --port 8888
+jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888
 ```
 
 Navigate a web browser to the IP address or hostname of the host machine
@@ -55,3 +55,4 @@ Within the container, the notebooks themselves are located at `/hugectr/notebook
 ## 2. Notebook list
 
 - [movie-lens-example.ipynb](movie-lens-example.ipynb): Training and inference demo on the movie lens dataset.
+- [embedding_plugin.ipynb](embedding_plugin.ipynb): Introduction to embedding_plugin and Usage Guide.

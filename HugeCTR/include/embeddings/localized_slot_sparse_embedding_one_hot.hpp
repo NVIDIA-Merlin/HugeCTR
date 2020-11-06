@@ -329,6 +329,19 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
     return;
   }
+
+  /**
+   * Get the forward() results from GPUs and copy them to tensorflow's tensor.
+  */
+  void get_forward_results_tf(const bool is_train, const bool on_gpu, void* const forward_result) override {
+    size_t memcpy_size = Base::get_batch_size_per_gpu(is_train) * Base::get_slot_num() * 
+                         Base::get_embedding_vec_size();
+    functors_.get_forward_results(memcpy_size, Base::get_output_tensors(is_train),
+                                  forward_result, utest_forward_temp_tensors_,
+                                  Base::get_resource_manager(), on_gpu);
+    return;
+  }
+
   /**
    * Get the backward() results from GPUs and copy them to the host pointer
    * wgrad. The wgrad on each GPU should be the same. This function is only
@@ -406,6 +419,36 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
                                  Tensor2<float> &hash_table_value) override {}
 
   void check_overflow() const override {}
+
+  /** only used in tf embedding plugin to distribute top_gradients to each GPUs' output tensor.
+  */
+  cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) override {
+    auto output_tensors = Base::get_output_tensors(true);
+    CudaDeviceContext context;
+
+    const auto top_gradients_internel = reinterpret_cast<const TypeEmbeddingComp*>(top_gradients);
+    cudaMemcpyKind direction = (on_gpu ? cudaMemcpyDeviceToDevice : cudaMemcpyHostToDevice);
+
+    cudaError_t error = cudaError_t::cudaSuccess;
+    for (size_t dev_id = 0; dev_id < Base::get_resource_manager().get_local_gpu_count(); ++dev_id) {
+      context.set_device(Base::get_local_gpu(dev_id).get_device_id());
+
+      error = cudaMemcpyAsync(output_tensors[dev_id].get_ptr(), 
+                              top_gradients_internel + dev_id * output_tensors[dev_id].get_num_elements(),
+                              output_tensors[dev_id].get_size_in_bytes(),
+                              direction, 
+                              Base::get_local_gpu(dev_id).get_stream());
+      if (error != cudaError_t::cudaSuccess) return error;
+    }
+
+    for (size_t dev_id = 0; dev_id < Base::get_resource_manager().get_local_gpu_count(); ++dev_id) {
+      context.set_device(Base::get_local_gpu(dev_id).get_device_id());
+      error = cudaStreamSynchronize(Base::get_local_gpu(dev_id).get_stream());
+      if (error != cudaError_t::cudaSuccess) return error;
+    }
+
+    return cudaError_t::cudaSuccess;
+  }
 
 };  // end of class LocalizedSlotSparseEmbeddingOneHot
 
