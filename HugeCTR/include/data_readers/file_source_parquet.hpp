@@ -23,7 +23,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <cudf/copying.hpp>
-#include <cudf/io/functions.hpp>
+#include <cudf/io/parquet.hpp>
 #include <fstream>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <vector>
@@ -45,7 +45,7 @@ class ParquetFileSource : public Source {
   long long curr_row_idx_;
   long long file_total_rows_; /**< Total rows in current file, read from Metadata */
   std::string file_name_;     /**< file name of current file */
-  cudf_io::read_parquet_args parquet_args{cudf_io::source_info{""}};
+  cudf_io::parquet_reader_options parquet_args;
   bool can_read_file_;     /**< Flag if parquet file is readable/reachable */
   Metadata file_metadata_; /**< Metadata object for the file */
   std::unique_ptr<cudf_io::table_with_metadata> cached_row_group_table_;
@@ -147,7 +147,7 @@ class ParquetFileSource : public Source {
         CK_RETURN_(Error_t::BrokenFile, "Error mmapping the file");
       }
 
-      parquet_args.source = cudf_io::source_info{mmapped_data_, file_size_};
+      parquet_args = cudf_io::parquet_reader_options::builder(cudf_io::source_info{mmapped_data_, file_size_});
       counter_++;         // counter_ should be accum for every source.
       curr_row_idx_ = 0;  // set row to zero id
       file_total_rows_ = 0;
@@ -201,10 +201,10 @@ class ParquetFileSource : public Source {
         // read and inc row_group and send back
         std::vector<cudf::size_type> row_list = {curr_row_group_};
         std::vector<std::vector<cudf::size_type>> rgrps = {row_list};
-        parquet_args.row_groups = rgrps;
-        parquet_args.skip_rows = -1;
-        parquet_args.num_rows = -1;
-        parquet_args.timestamp_type = cudf::data_type(cudf::type_id::EMPTY);
+        parquet_args.set_row_groups(rgrps);
+        parquet_args.set_skip_rows(0);
+        parquet_args.set_num_rows(-1);
+        parquet_args.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
         auto tbl_w_metadata = cudf_io::read_parquet(parquet_args, mr);
         curr_row_group_++;
         curr_row_idx_ += tbl_w_metadata.tbl->num_rows();
@@ -213,10 +213,10 @@ class ParquetFileSource : public Source {
       } else {
         // parquet_args.row_group = -1; // set zero to use num_rows and skip_rows param
         std::vector<std::vector<cudf::size_type>> rgrps;
-        parquet_args.row_groups = rgrps;
-        parquet_args.skip_rows = curr_row_idx_;
-        parquet_args.num_rows = num_rows;
-        parquet_args.timestamp_type = cudf::data_type(cudf::type_id::EMPTY);
+        parquet_args.set_row_groups(rgrps);
+        parquet_args.set_skip_rows(curr_row_idx_);
+        parquet_args.set_num_rows(num_rows);
+        parquet_args.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
         auto tbl_w_metadata = cudf_io::read_parquet(parquet_args, mr);
 
         curr_row_idx_ += num_rows;
@@ -235,11 +235,11 @@ class ParquetFileSource : public Source {
         if (cached_row_group_table_.get() == nullptr) {
           std::vector<cudf::size_type> row_list = {curr_row_group_};
           std::vector<std::vector<cudf::size_type>> rgrps = {row_list};
-          parquet_args.row_groups = rgrps;  // set zero to use num_rows and skip_rows param
+          parquet_args.set_row_groups(rgrps);  // set zero to use num_rows and skip_rows param
           // parquet_args.row_group_count = 1; // set zero to use num_rows and skip_rows param
-          parquet_args.skip_rows = -1;
-          parquet_args.num_rows = -1;
-          parquet_args.timestamp_type = cudf::data_type(cudf::type_id::EMPTY);
+          parquet_args.set_skip_rows(0);
+          parquet_args.set_num_rows(-1);
+          parquet_args.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
           curr_row_group_++;
           // auto tbl_w_metadata = cudf_io::read_parquet(parquet_args, mr);
           cached_row_group_table_ = std::make_unique<cudf_io::table_with_metadata>(
