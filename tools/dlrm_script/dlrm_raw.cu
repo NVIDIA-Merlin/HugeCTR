@@ -50,9 +50,10 @@ void process_kaggle_dataset(const std::string& input_dir_path,
                                       hash_bucket}; // mod-idx
 
     size_t pool_alloc_size = (size_t)4 * 1024 * 1024 * 1024; // 4 GB
-    std::vector<int> dev = {0}; 
-    auto *p_mr = new rmm::mr::cnmem_memory_resource(pool_alloc_size, dev);
-    rmm::mr::set_default_resource(p_mr);
+    //std::vector<int> dev = {0};
+    rmm::mr::device_memory_resource *base_mr = new rmm::mr::cuda_memory_resource();
+    auto *p_mr = new rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>(base_mr, pool_alloc_size);
+    rmm::mr::set_current_device_resource(p_mr);
 
     std::vector<std::string> column_dtypes; // dtypes of label, dense, categorical
     std::vector<std::string> column_names; // names of label, dense, categorical
@@ -108,21 +109,21 @@ void process_kaggle_dataset(const std::string& input_dir_path,
     binary_reader.close();
 
     // csv arguments, https://docs.rapids.ai/api/libcudf/stable/structcudf_1_1io_1_1read__csv__args.html
-    cudf_io::read_csv_args in_args{cudf_io::source_info{input_file_name}};
-    in_args.dtype = column_dtypes;
-    in_args.names = column_names;
-    in_args.delimiter = '\t';
-    in_args.byte_range_size = read_chunks; // how many bytes to read at one time.
-    in_args.skipfooter = 0;
-    in_args.skiprows = 0;
-    in_args.header = -1;
-    in_args.use_cols_names = cat_column_names;
+    cudf_io::csv_reader_options in_args = cudf_io::csv_reader_options::builder(
+                                                cudf_io::source_info{input_file_name}).header(-1);
+    in_args.set_dtypes(column_dtypes);
+    in_args.set_names(column_names);
+    in_args.set_delimiter('\t');
+    in_args.set_byte_range_size(read_chunks); // how many bytes to read at one time.
+    in_args.set_skipfooter(0);
+    in_args.set_skiprows(0);
+    in_args.set_use_cols_names(cat_column_names);
 
     int32_t total_row_nums = 0;
 
     int loop_count = 0;
     while (true) {
-      total_file_bytes_read += in_args.byte_range_size;
+      total_file_bytes_read += in_args.get_byte_range_size();
       cudf_io::table_with_metadata tbl_w_metadata = cudf_io::read_csv(in_args, p_mr);
       total_row_nums += tbl_w_metadata.tbl->num_rows();
 
@@ -155,12 +156,15 @@ void process_kaggle_dataset(const std::string& input_dir_path,
         }
       }
 
-      in_args.byte_range_offset += read_chunks;
-      if (in_args.byte_range_offset >= file_size) 
+      size_t new_byte_range_offset = in_args.get_byte_range_offset() + read_chunks;
+      in_args.set_byte_range_offset(new_byte_range_offset);
+      if (in_args.get_byte_range_offset() >= file_size)
         break;
 
-      if ((in_args.byte_range_offset + read_chunks) > file_size) 
-        in_args.byte_range_size = file_size - in_args.byte_range_offset;
+      if ((in_args.get_byte_range_offset() + read_chunks) > file_size) {
+        size_t new_byte_range_size = file_size - in_args.get_byte_range_offset();
+        in_args.set_byte_range_size(new_byte_range_size);
+      }
 
       ++loop_count;
 
@@ -381,9 +385,9 @@ void process_terabyte_dataset(const std::string& input_dir_path,
                                       hash_bucket}; // mod-idx
 
     size_t pool_alloc_size = (size_t)10 * 1024 * 1024 * 1024; // 10 GB
-    std::vector<int> dev = {0}; 
-    auto *p_mr = new rmm::mr::cnmem_memory_resource(pool_alloc_size, dev);
-    rmm::mr::set_default_resource(p_mr);
+    rmm::mr::device_memory_resource *base_mr = new rmm::mr::cuda_memory_resource();
+    auto *p_mr = new rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>(base_mr, pool_alloc_size);
+    rmm::mr::set_current_device_resource(p_mr);
 
     std::vector<std::string> column_dtypes; // dtypes of label, dense, categorical
     std::vector<std::string> column_names; // names of label, dense, categorical
@@ -446,21 +450,22 @@ void process_terabyte_dataset(const std::string& input_dir_path,
       binary_reader.close();
 
       // csv arguments, https://docs.rapids.ai/api/libcudf/stable/structcudf_1_1io_1_1read__csv__args.html
-      cudf_io::read_csv_args in_args{cudf_io::source_info{input_file_name}};
-      in_args.dtype = column_dtypes;
-      in_args.names = column_names;
-      in_args.delimiter = '\t';
-      in_args.byte_range_size = read_chunks; // how many bytes to read at one time.
-      in_args.skipfooter = 0;
-      in_args.skiprows = 0;
-      in_args.header = -1;
-      in_args.use_cols_names = cat_column_names;
+      cudf_io::csv_reader_options in_args = cudf_io::csv_reader_options::builder(
+                                                cudf_io::source_info{input_file_name}).header(-1);
+
+      in_args.set_dtypes(column_dtypes);
+      in_args.set_names(column_names);
+      in_args.set_delimiter('\t');
+      in_args.set_byte_range_size(read_chunks); // how many bytes to read at one time.
+      in_args.set_skipfooter(0);
+      in_args.set_skiprows(0);
+      in_args.set_use_cols_names(cat_column_names);
 
       int32_t total_row_nums = 0;
 
       int loop_count = 0;
       while (true) {
-        total_file_bytes_read += in_args.byte_range_size;
+        total_file_bytes_read += in_args.get_byte_range_size();
         cudf_io::table_with_metadata tbl_w_metadata = cudf_io::read_csv(in_args, p_mr);
         total_row_nums += tbl_w_metadata.tbl->num_rows();
 
@@ -493,12 +498,15 @@ void process_terabyte_dataset(const std::string& input_dir_path,
           }
         }
 
-        in_args.byte_range_offset += read_chunks;
-        if (in_args.byte_range_offset >= file_size) 
+        size_t new_byte_range_offset = in_args.get_byte_range_offset() + read_chunks;
+        in_args.set_byte_range_offset(new_byte_range_offset);
+        if (in_args.get_byte_range_offset() >= file_size)
           break;
 
-        if ((in_args.byte_range_offset + read_chunks) > file_size) 
-          in_args.byte_range_size = file_size - in_args.byte_range_offset;
+        if ((in_args.get_byte_range_offset() + read_chunks) > file_size) {
+          size_t new_byte_range_size = file_size - in_args.get_byte_range_offset();
+          in_args.set_byte_range_size(new_byte_range_size);
+        }
 
         ++loop_count;
 

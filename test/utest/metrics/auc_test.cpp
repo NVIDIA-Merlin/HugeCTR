@@ -97,7 +97,7 @@ float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels, co
 
     std::stringstream command;
 
-    command << "python python_auc.py " << num_total_samples << " " << sizeof(T) << " " << temp_name;
+    command << "python3 python_auc.py " << num_total_samples << " " << sizeof(T) << " " << temp_name;
     auto py_output = popen(command.str().c_str(), "r");
     int dummy = fscanf(py_output, "%f", &result);
     if (dummy != 1) {

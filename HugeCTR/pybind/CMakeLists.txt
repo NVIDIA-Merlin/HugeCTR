@@ -107,10 +107,10 @@ set(CMAKE_CXX_STANDARD 14)
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf rmm)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf)
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
-  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf rmm)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf)
 endif()
 
 #target_link_libraries(huge_ctr_shared PRIVATE nlohmann_json::nlohmann_json)

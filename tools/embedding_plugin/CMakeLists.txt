@@ -100,7 +100,7 @@ ADD_LIBRARY(embedding_plugin SHARED ${PLUGIN_SRC} ${hugectr_src})
 TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC ${TF_LINK_FLAGS})
 
 IF(MPI_FOUND)
-  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cudf rmm cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
+  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cudf cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
   MESSAGE(STATUS "${MPI_CXX_LIBRARIES}")
 ELSE()
   TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cudf rmm cusparse ${CMAKE_THREAD_LIBS_INIT})
