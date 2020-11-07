@@ -24,7 +24,7 @@ A production docker image of HugeCTR is available in the NVIDIA container reposi
 
 You can pull and launch the container using the following command:
 ```shell
-docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.2.1 bash
+docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.2.1
 ```
 If you are running on a docker version 19+, change `--runtime=nvidia` to `--gpus all`.
 
@@ -43,15 +43,15 @@ git submodule update --init --recursive
 Inside the HugeCTR directory, build a docker image:
 ```shell
 # It may take a long time to download and build all the dependencies.
-docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile . #docker support A100. To use Tensorflow please use dev.tf.Dockerfile instead.
+docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile . #To use Tensorflow please use dev.tfplugin.Dockerfile instead.
 ```
 If you have Docker 19.03 or later, run the container with the following command: 
 ```shell
-docker run --gpus all --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+docker run --gpus all --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
 ```
 Otherwise, run the container with the following command: 
 ```shell
-docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
 ```
 
 
