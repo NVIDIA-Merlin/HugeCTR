@@ -20,11 +20,11 @@ RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git && \
     rm -rf /var/lib/apt/lists/*
 
-# CMake version 3.14.3
-RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v3.14/cmake-3.14.3-Linux-x86_64.sh && \
+# CMake version 3.17 for cuDF/RMM
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v3.17/cmake-3.17.0-Linux-x86_64.sh && \
     mkdir -p /usr/local && \
-    /bin/sh /var/tmp/cmake-3.14.3-Linux-x86_64.sh --prefix=/usr/local --skip-license && \
-    rm -rf /var/tmp/cmake-3.14.3-Linux-x86_64.sh
+    /bin/sh /var/tmp/cmake-3.17.0-Linux-x86_64.sh --prefix=/usr/local --skip-license && \
+    rm -rf /var/tmp/cmake-3.17.0-Linux-x86_64.sh
 ENV PATH=/usr/local/bin:$PATH
 
 # pip
@@ -94,7 +94,7 @@ RUN if [ $(lsb_release --codename --short) = "stretch" ]; then \
     apt update && apt install -y libarrow-dev=0.17.1-1 libarrow-cuda-dev=0.17.1-1
 
 # https://github.com/rapidsai/rmm.git
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15 https://github.com/rapidsai/rmm.git rmm && cd - && \
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.16 https://github.com/rapidsai/rmm.git rmm && cd - && \
     cd /var/tmp/rmm && \
     mkdir -p build && cd build && \
     cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX && \
@@ -103,7 +103,7 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15
     rm -rf /var/tmp/rmm
 
 # https://github.com/rapidsai/cudf.git
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.15 https://github.com/rapidsai/cudf.git cudf && cd - && \
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.16 https://github.com/rapidsai/cudf.git cudf && cd - && \
     git clone --depth=1 --branch main https://github.com/dmlc/dlpack.git /var/tmp/dlpack && \
     cd /var/tmp/cudf/cpp && \
     mkdir -p build && cd build && \

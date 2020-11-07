@@ -1362,11 +1362,6 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
             break;
           }
           case DataReaderType_t::Parquet: {
-            const auto& memory_resource = resource_manager->get_rmm_mr_device_memory_resource();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            rmm::mr::set_default_resource(memory_resource.get());
-#pragma GCC diagnostic pop
             // @Future: Should be slot_offset here and data_reader ctor should
             // be TypeKey not long long
             std::vector<long long> slot_offset = f();

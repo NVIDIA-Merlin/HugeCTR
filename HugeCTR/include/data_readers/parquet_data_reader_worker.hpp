@@ -26,16 +26,14 @@
 #include <cudf/column/column.hpp>
 #include <cudf/column/column_view.hpp>
 #include <cudf/concatenate.hpp>
-#include <cudf/io/functions.hpp>
+#include <cudf/io/parquet.hpp>
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
 #include <cudf/types.hpp>
 #include <rmm/device_buffer.hpp>
-#include <rmm/mr/device/cnmem_memory_resource.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
-#include <rmm/mr/device/thread_safe_resource_adaptor.hpp>
 #include "data_readers/file_source_parquet.hpp"
 #pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
@@ -159,7 +157,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     buff->reserve({32}, &host_pinned_csr_inc_);
     buff->allocate();
 
-    memory_resource_ = resource_manager_->get_rmm_mr_device_memory_resource();
+    memory_resource_ = resource_manager_->get_device_rmm_device_memory_resource(device_id_);
 
     if (worker_id >= worker_num) {
       CK_THROW_(Error_t::BrokenFile, "ParquetDataReaderWorker: worker_id >= worker_num");
@@ -220,10 +218,6 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
   if (!thread_resource_allocated_) {
     // cant allocate and set resources in constructor
     CK_CUDA_THROW_(cudaSetDevice(device_id_));  // for multiple devices
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    rmm::mr::set_default_resource(memory_resource_.get());
-#pragma GCC diagnostic pop
     CK_CUDA_THROW_(cudaStreamCreateWithFlags(&task_stream_, cudaStreamNonBlocking));
     CK_CUDA_THROW_(cudaStreamCreateWithFlags(&dense_stream_, cudaStreamNonBlocking));
     size_t slot_offset_buf_size = sizeof(T) * slot_offset_dtype_.size();
@@ -443,7 +437,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
               csr_chunk_devices, distributed_slot, pid_, resource_manager_,
               device_csr_value_buffers, device_csr_row_offset_buffers, pinned_staging_buffer_param,
               (uint32_t*)device_embed_param_start_offset.data(), dev_slot_offset_ptr, rmm_resources,
-              task_stream_);
+              memory_resource_.get(), task_stream_);
 
         } else if (param.type == DataReaderSparse_t::Localized) {
           // Add row to one buffer
@@ -463,7 +457,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
               csr_chunk_devices, distributed_slot, pid_, resource_manager_,
               device_csr_value_buffers, device_csr_row_offset_buffers, pinned_staging_buffer_param,
               (uint32_t*)device_embed_param_start_offset.data(), dev_slot_offset_ptr, rmm_resources,
-              task_stream_);
+              memory_resource_.get(), task_stream_);
         } else {
           CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
         }

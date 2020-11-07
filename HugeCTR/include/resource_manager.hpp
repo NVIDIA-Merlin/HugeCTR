@@ -36,7 +36,8 @@ class ResourceManager {
   std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
   std::vector<std::vector<bool>> p2p_matrix_;
 
-  std::shared_ptr<rmm::mr::device_memory_resource> memory_resource_;
+  std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> base_cuda_mr_;
+  std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> memory_resource_;
 
   void enable_all_peer_accesses();
   ResourceManager(int num_process, int pid, DeviceMap&& device_map, unsigned long long seed);
@@ -77,9 +78,13 @@ class ResourceManager {
   bool p2p_enabled(int src_dev, int dst_dev) const;
   bool all_p2p_enabled() const;
 
-  const std::shared_ptr<rmm::mr::device_memory_resource>& get_rmm_mr_device_memory_resource()
-      const {
-    return memory_resource_;
+  const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
+                                                                                  int local_gpu_id)
+  const {
+    auto dev_list = device_map_.get_device_list();
+    auto it = std::find(dev_list.begin(), dev_list.end(), local_gpu_id);
+    auto index = std::distance(dev_list.begin(), it);
+    return memory_resource_[index];
   }
 };
 }  // namespace HugeCTR
