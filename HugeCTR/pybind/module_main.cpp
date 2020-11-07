@@ -1,4 +1,12 @@
 /*
+ * @Author: your name
+ * @Date: 2020-11-06 15:00:46
+ * @LastEditTime: 2020-11-06 16:24:53
+ * @LastEditors: your name
+ * @Description: In User Settings Edit
+ * @FilePath: /hugectr/HugeCTR/pybind/module_main.cpp
+ */
+/*
  * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,6 +49,7 @@
 #include <HugeCTR/pybind/resource_manager_wrapper.hpp>
 #include <HugeCTR/pybind/solver_parser_wrapper.hpp>
 #include <HugeCTR/pybind/data_reader_wrapper.hpp>
+#include <HugeCTR/pybind/model_prefetcher_wrapper.hpp>
 #include <HugeCTR/pybind/session_wrapper.hpp>
 using namespace HugeCTR::python_lib;
 
@@ -57,5 +66,6 @@ PYBIND11_MODULE(hugectr, m) {
   ResourceManagerPybind(m);
   SolverParserPybind(m);
   DataReaderPybind(m);
+  ModelPrefetcherPybind(m);
   SessionPybind(m);
 }

@@ -62,8 +62,8 @@ void DataReaderPybind(pybind11::module& m) {
       .def("read_a_batch", &HugeCTR::DataReaderWorker<long long>::read_a_batch)
       .def("skip_read", &HugeCTR::DataReaderWorker<long long>::skip_read);
   
-  pybind11::class_<HugeCTR::IDataReader, std::unique_ptr<HugeCTR::IDataReader>>(m, "IDataReader");
-  pybind11::class_<HugeCTR::DataReader<long long>, std::unique_ptr<HugeCTR::DataReader<long long>>, HugeCTR::IDataReader>(m, "DataReader64")
+  pybind11::class_<HugeCTR::IDataReader, std::shared_ptr<HugeCTR::IDataReader>>(m, "IDataReader");
+  pybind11::class_<HugeCTR::DataReader<long long>, std::shared_ptr<HugeCTR::DataReader<long long>>, HugeCTR::IDataReader>(m, "DataReader64")
       .def(pybind11::init<int, size_t, int, std::vector<DataReaderSparseParam>&,
                           const std::shared_ptr<ResourceManager>&, bool, int, bool, int>(),
            pybind11::arg("batchsize"), pybind11::arg("label_dim"), pybind11::arg("dense_dim"),
@@ -81,6 +81,8 @@ void DataReaderPybind(pybind11::module& m) {
       .def("create_drwg_parquet", &HugeCTR::DataReader<long long>::create_drwg_parquet,
            pybind11::arg("file_list"), pybind11::arg("slot_offset"),
            pybind11::arg("start_reading_from_beginning") = true)
+      .def("set_file_list_source", &HugeCTR::DataReader<long long>::set_file_list_source,
+	   pybind11::arg("file_list") = std::string())
       .def("read_a_batch_to_device", &HugeCTR::DataReader<long long>::read_a_batch_to_device)
       .def("read_a_batch_to_device_delay_release",
            &HugeCTR::DataReader<long long>::read_a_batch_to_device_delay_release)
@@ -103,7 +105,7 @@ void DataReaderPybind(pybind11::module& m) {
                                         pybind11::const_),
            pybind11::arg("param_id"));
 
-  pybind11::class_<HugeCTR::DataReader<unsigned int>, std::unique_ptr<HugeCTR::DataReader<unsigned int>>, HugeCTR::IDataReader>(m, "DataReader32")
+  pybind11::class_<HugeCTR::DataReader<unsigned int>, std::shared_ptr<HugeCTR::DataReader<unsigned int>>, HugeCTR::IDataReader>(m, "DataReader32")
       .def(pybind11::init<int, size_t, int, std::vector<DataReaderSparseParam>&,
                           const std::shared_ptr<ResourceManager>&, int, bool, int>(),
            pybind11::arg("batchsize"), pybind11::arg("label_dim"), pybind11::arg("dense_dim"),
@@ -120,6 +122,8 @@ void DataReaderPybind(pybind11::module& m) {
       .def("create_drwg_parquet", &HugeCTR::DataReader<unsigned int>::create_drwg_parquet,
            pybind11::arg("file_list"), pybind11::arg("slot_offset"),
            pybind11::arg("start_reading_from_beginning") = true)
+      .def("set_file_list_source", &HugeCTR::DataReader<unsigned int>::set_file_list_source,
+	   pybind11::arg("file_list") = std::string())
       .def("read_a_batch_to_device", &HugeCTR::DataReader<unsigned int>::read_a_batch_to_device)
       .def("read_a_batch_to_device_delay_release",
            &HugeCTR::DataReader<unsigned int>::read_a_batch_to_device_delay_release)
