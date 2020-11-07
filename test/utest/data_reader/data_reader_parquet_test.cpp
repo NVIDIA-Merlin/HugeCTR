@@ -25,7 +25,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
-#include <cudf/io/functions.hpp>
+#include <cudf/io/parquet.hpp>
 #include <rmm/device_buffer.hpp>
 #pragma GCC diagnostic pop
 
@@ -93,8 +93,10 @@ void generate_parquet_input_files(int num_files, int sample_per_file) {
     cudf::table input_table(std::move(cols));
 
     std::string filepath = prefix + std::to_string(file_num) + std::string(".parquet");
-    cudf::io::write_parquet_args args{cudf::io::sink_info{filepath}, input_table.view()};
-    cudf::io::write_parquet(args);
+    cudf::io::parquet_writer_options writer_args = cudf_io::parquet_writer_options::builder(
+                                                        cudf::io::sink_info{filepath},
+                                                        input_table.view());
+    cudf::io::write_parquet(writer_args);
   }
 
   std::ofstream output_file_stream;
@@ -147,10 +149,7 @@ void generate_parquet_input_files(int num_files, int sample_per_file) {
 }
 
 TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::get_default_resource();
-#pragma GCC diagnostic pop
+  auto p_mr = rmm::mr::get_current_device_resource();
   generate_parquet_input_files(3, 1024);
 
   // setup a CSR heap
@@ -186,17 +185,11 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
   // call read a batch
   data_reader.read_a_batch();
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  rmm::mr::set_default_resource(p_mr);
-#pragma GCC diagnostic pop
+  rmm::mr::set_current_device_resource(p_mr);
 }
 
 TEST(data_reader_parquet_worker, data_reader_parquet_worker_localized_test) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::get_default_resource();
-#pragma GCC diagnostic pop
+  auto p_mr = rmm::mr::get_current_device_resource();
   generate_parquet_input_files(3, 2048);
 
   int numprocs = 1;
@@ -230,17 +223,11 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_localized_test) {
   // call read a batch
   data_reader.read_a_batch();
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  rmm::mr::set_default_resource(p_mr);
-#pragma GCC diagnostic pop
+  rmm::mr::set_current_device_resource(p_mr);
 }
 
 TEST(data_reader_group_test, data_reader_parquet_distributed_test) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::get_default_resource();
-#pragma GCC diagnostic pop
+  auto p_mr = rmm::mr::get_current_device_resource();
   generate_parquet_input_files(4, 2048);
 
   const int batchsize = 1024;
@@ -266,17 +253,11 @@ TEST(data_reader_group_test, data_reader_parquet_distributed_test) {
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  rmm::mr::set_default_resource(p_mr);
-#pragma GCC diagnostic pop
+  rmm::mr::set_current_device_resource(p_mr);
 }
 
 TEST(data_reader_group_test, data_reader_parquet_localized_test) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::get_default_resource();
-#pragma GCC diagnostic pop
+  auto p_mr = rmm::mr::get_current_device_resource();
   generate_parquet_input_files(4, 2048);
 
   const int batchsize = 1024;
@@ -302,8 +283,6 @@ TEST(data_reader_group_test, data_reader_parquet_localized_test) {
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  rmm::mr::set_default_resource(p_mr);
-#pragma GCC diagnostic pop
+
+  rmm::mr::set_current_device_resource(p_mr);
 }

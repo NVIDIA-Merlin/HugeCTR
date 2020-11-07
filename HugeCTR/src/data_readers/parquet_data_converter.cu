@@ -428,6 +428,7 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
  * @param dev_embed_param_offset_buf memory to atomically accumulate values written to csr val buf
  * @param dev_slot_offset_ptr device buffer with value for slot value offsets to make unique index
  * @param rmm_resources Queue to hold reference to RMM allocations
+ * @param mr Device memory resource for RMM allocations
  * @param task_stream Stream to allocate memory and launch kerenels
  */
 // for nnz =1 csr size_of_value and size_of_row_offset inc will be same
@@ -441,8 +442,8 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
                                    int64_t *dev_ptr_staging, uint32_t *dev_embed_param_offset_buf,
                                    T *dev_slot_offset_ptr,
                                    std::deque<rmm::device_buffer> &rmm_resources,
+                                   rmm::mr::device_memory_resource *mr,
                                    cudaStream_t task_stream) {
-  rmm::mr::device_memory_resource *mr = resource_manager->get_rmm_mr_device_memory_resource().get();
   size_t pinned_staging_elements_used = 0;
   // tiled load and transpose
   size_t size_of_col_ptrs = cat_column_data_ptr.size() * sizeof(int64_t *);
@@ -640,7 +641,8 @@ template size_t convert_parquet_cat_columns<long long int>(
     std::vector<rmm::device_buffer> &csr_value_buffers,
     std::vector<rmm::device_buffer> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
     uint32_t *dev_embed_param_offset_buf, long long *dev_slot_offset_ptr,
-    std::deque<rmm::device_buffer> &rmm_resources, cudaStream_t task_stream);
+    std::deque<rmm::device_buffer> &rmm_resources, rmm::mr::device_memory_resource *mr,
+    cudaStream_t task_stream);
 
 template size_t convert_parquet_cat_columns<unsigned int>(
     std::vector<unsigned int *> &cat_column_data_ptr, int num_params, int param_id, int num_slots,
@@ -649,6 +651,7 @@ template size_t convert_parquet_cat_columns<unsigned int>(
     std::vector<rmm::device_buffer> &csr_value_buffers,
     std::vector<rmm::device_buffer> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
     uint32_t *dev_embed_param_offset_buf, unsigned int *dev_slot_offset_ptr,
-    std::deque<rmm::device_buffer> &rmm_resources, cudaStream_t task_stream);
+    std::deque<rmm::device_buffer> &rmm_resources, rmm::mr::device_memory_resource *mr,
+    cudaStream_t task_stream);
 
 }  // namespace HugeCTR
