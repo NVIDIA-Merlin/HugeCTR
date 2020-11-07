@@ -114,7 +114,10 @@ int main(int argc, char *argv[]) {
     std::cerr << "Cannot open file_list.tmp" << std::endl;
   }
 
-  std::string keyset_name(data_prefix + std::to_string(file_counter) + ".keyset");
+  std::string keyset_name(file_name_prefix + ".keyset");
+  if (FILELIST_LENGTH > 0) {
+    keyset_name = file_name_prefix + "." + std::to_string(file_counter) + ".keyset";
+  }
   std::ofstream keyset_file(keyset_name, std::ofstream::binary);
   DataWriter<Check_t::None> keyset_writer(keyset_file);
 
@@ -294,7 +297,7 @@ int main(int argc, char *argv[]) {
       keyset.clear();
       keyset_writer.write();
       keyset_file.close();
-      keyset_name = std::to_string(NOFile + 1) + ".keyset";
+      keyset_name = file_name_prefix + "." + std::to_string(NOFile + 1) + ".keyset";
       keyset_file.open(keyset_name, std::ofstream::binary);
       DataWriter<Check_t::None> keyset_writer(keyset_file);
 
@@ -316,5 +319,4 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-
 
