@@ -1,4 +1,12 @@
 /*
+ * @Author: your name
+ * @Date: 2020-11-06 15:00:46
+ * @LastEditTime: 2020-11-06 16:25:36
+ * @LastEditors: your name
+ * @Description: In User Settings Edit
+ * @FilePath: /hugectr/HugeCTR/pybind/session_wrapper.hpp
+ */
+/*
  * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,17 +31,27 @@ namespace python_lib {
 
 void SessionPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::Session, std::shared_ptr<HugeCTR::Session>>(m, "Session")
-      .def(pybind11::init<const SolverParser&, const std::string&>(),
+      .def(pybind11::init<const SolverParser&, const std::string&,
+		          bool, const std::string>(),
 		  pybind11::arg("solver_config"),
-                  pybind11::arg("config_file"))
+                  pybind11::arg("config_file"),
+		  pybind11::arg("use_model_prefetcher")=false,
+		  pybind11::arg("temp_embedding_dir")=std::string())
       .def("train", &HugeCTR::Session::train)
       .def("eval", &HugeCTR::Session::eval)
       .def("get_eval_metrics", &HugeCTR::Session::get_eval_metrics)
       .def("evaluation",
            [](HugeCTR::Session &self) {
-             self.eval();
-             std::vector<std::pair<std::string, float>> metrics = self.get_eval_metrics();
-             return metrics;
+             bool good = false;
+	     do {
+	       good = self.eval();
+	       if (!good) {
+	         auto data_reader_eval = self.get_data_reader_eval();
+		 data_reader_eval->set_file_list_source();
+	       }
+	     } while(!good);
+	     auto metrics = self.get_eval_metrics();
+	     return metrics;
            })
       .def("start_data_reading", &HugeCTR::Session::start_data_reading)
       .def("get_current_loss",
@@ -46,10 +64,13 @@ void SessionPybind(pybind11::module &m) {
            pybind11::arg("prefix"), pybind11::arg("iter"))
       .def("set_learning_rate", &HugeCTR::Session::set_learning_rate,
            pybind11::arg("lr"))
+      .def("get_model_prefetcher", &HugeCTR::Session::get_model_prefetcher)
       .def("init_params", &HugeCTR::Session::init_params,
            pybind11::arg("model_file"))
       .def("get_params_num", &HugeCTR::Session::get_params_num)
-      .def("check_overflow", &HugeCTR::Session::check_overflow);
+      .def("check_overflow", &HugeCTR::Session::check_overflow)
+      .def("get_data_reader_train", &HugeCTR::Session::get_data_reader_train)
+      .def("get_data_reader_eval", &HugeCTR::Session::get_data_reader_eval);
 }
 
 }  //  namespace python_lib
