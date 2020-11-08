@@ -202,7 +202,7 @@ For quick benchmarking and research use, you can generate a synthetic dataset li
 The default distribution is uniform.
 - For `Norm` format: <br>
 ```bash
-$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (num_files) (num_samples_per_file) (--long-tail <long|short|medium>)
+$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
 $ ./huge_ctr --train your_config.json
 ```
 - For `Raw` format: <br>
@@ -215,9 +215,9 @@ Parameters:
 + `data_folder`: Directory where the generated dataset is stored.
 + `vocabulary_size`: Total vocabulary size of your target dataset, which cannot be exceed `max_vocabulary_size_per_gpu` **x** the number of active GPUs. 
 + `max_nnz`: You can use this parameter to simulate one-/multi-hot encodings. If you just want to use the one-hot encoding, set this parameter to 1. Otherwise, [1, max_nnz] values will be generated for each slot. **Note** that `max_nnz * slot_num` must be less than `max_feature_num_per_sample` in the data layer of the used JSON config file.
-+ `num_files`: Number of data file will be generated (optional)
-+ `num_samples_per_file`: Number of samples per file (optional)
-+ `--long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. There are three option values to be chosen from, i.e., `long`, `medium` and `short`, which characterize the properties of the tail.
++ `--files`: Number of data file will be generated (optional). The default value is `128`.
++ `--samples`: Number of samples per file (optional). The default value is `40960`.
++ `--long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. There are three option values to be chosen from, i.e., `long`, `medium` and `short`, which characterize the properties of the tail. The scaling exponent will be 1, 3, and 5 correspondingly.
 
 ## File Format ##
 In total, there are three types of files used in HugeCTR training: a configuration file, model file and dataset.
