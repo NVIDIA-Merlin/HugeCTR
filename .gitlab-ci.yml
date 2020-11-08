@@ -184,7 +184,7 @@ python_interface:
     - cp ${CI_PROJECT_DIR}/build/build_single/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
     - python3 ${CI_PROJECT_DIR}/test/pybind_test/single_node_wdl_fp16_8gpu.py ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json
     # single node + model prefetch
-    - cd /dataset/criteo_kaggle/wdl_data_keyset && mkdir temp_embedding
+    - cd /dataset/criteo_kaggle/wdl_data_keyset && mkdir -p temp_embedding
     - cp ${CI_PROJECT_DIR}/build/build_single/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
     - python3 ${CI_PROJECT_DIR}/test/pybind_test/model_prefetch_wdl_1gpu.py /dataset/criteo_kaggle/wdl_data_keyset/wdl.json
     # multi node + nccl
