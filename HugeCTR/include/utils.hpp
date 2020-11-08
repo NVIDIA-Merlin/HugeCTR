@@ -30,8 +30,54 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
+#include <unistd.h>
+#include <getopt.h>
 
 namespace HugeCTR {
+
+const static char* data_generator_options = "";
+const static struct option data_generator_long_options[] = {
+      {"files", required_argument, NULL, 'f'},
+      {"samples",  required_argument, NULL, 's'},
+      {"long-tail", required_argument, NULL, 'l'},
+      {NULL, 0, NULL, 0}
+};
+class ArgParser {
+public:
+  static void parse_data_generator_args(int argc, char* argv[], int& files, int& samples, std::string& tail, bool& use_long_tail) {
+    int opt;
+    int option_index;
+    while ( (opt = getopt_long(argc,
+                               argv,
+                               data_generator_options,
+                               data_generator_long_options,
+                               &option_index)) != EOF) {
+      if (optarg == NULL) {
+        std::string opt_temp = argv[optind-1];
+        CK_THROW_(Error_t::WrongInput, "Unrecognized option for data generator: " + opt_temp);
+      }
+      switch (opt)
+      {
+      case 'f': {
+        files = std::stoi(optarg);
+        break;
+      }
+      case 's': {
+        samples = std::stoi(optarg);
+        break;
+      }
+      case 'l': {
+        tail = optarg;
+        use_long_tail = true;
+        break;
+      }
+      default:
+        assert(!"Error: no such option && should never get here!!");
+      }
+    }
+  }
+};
+
 
 /**
  * CPU Timer.
