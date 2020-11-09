@@ -44,6 +44,8 @@ public:
         const Tensor* embedding_name = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("embedding_name", &embedding_name));
         std::string embedding_name_(embedding_name->flat<tstring>()(0));
+        const Tensor* bp_trigger = nullptr;
+        OP_REQUIRES_OK(ctx, ctx->input("bp_trigger", &bp_trigger));
 
         /*do bprop*/
         bool on_gpu = false;
@@ -55,6 +57,10 @@ public:
         OP_REQUIRES(ctx, wrapper, errors::Unavailable(__FILE__, ":", __FILE__, " ",
                             "There is no wrapper instance, you should call hugectr.init() first."));
         OP_REQUIRES_OK(ctx, wrapper->bprop(embedding_name_, top_gradients, on_gpu));
+
+        /*give output*/
+        Tensor* bp_trigger_grad = nullptr;
+        OP_REQUIRES_OK(ctx, ctx->allocate_output(0, bp_trigger->shape(), &bp_trigger_grad));
     }
 };
 

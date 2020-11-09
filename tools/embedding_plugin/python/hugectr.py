@@ -48,20 +48,20 @@ restore = embedding_plugin_ops.hugectr_embedding_restore
 @ops.RegisterGradient("HugectrEmbeddingFprop")
 def _HugectrEmbeddingGrad(op, top_grad):
     embedding_name = op.inputs[3]
-    bprop(embedding_name, top_grad)
-    bp_trigger_grad = op.inputs[-1]
+    bp_trigger = op.inputs[-1]
+    bp_trigger_grad = bprop(embedding_name, top_grad, bp_trigger)
     return tuple(None for _ in range(len(op.inputs)-1)) + (bp_trigger_grad,)
 
 @ops.RegisterGradient("HugectrEmbeddingFpropV2")
 def _HugectrEmbeddingGradV2(op, top_grad):
     embedding_name = op.inputs[0]
-    bprop(embedding_name, top_grad)
-    bp_trigger_grad = op.inputs[-1]
+    bp_trigger = op.inpust[-1]
+    bp_trigger_grad = bprop(embedding_name, top_grad, bp_trigger)
     return tuple(None for _ in range(len(op.inputs)-1)) + (bp_trigger_grad,)
 
 @ops.RegisterGradient("HugectrEmbeddingFpropV3")
 def _HugectrEmbeddingGradV3(op, top_grad):
     embedding_name = op.inputs[0]
-    bprop(embedding_name, top_grad)
-    bp_trigger_grad = op.inputs[-1]
+    bp_trigger = op.inputs[-1]
+    bp_trigger_grad = bprop(embedding_name, top_grad, bp_trigger)
     return tuple(None for _ in range(len(op.inputs)-1)) + (bp_trigger_grad,)
