@@ -105,3 +105,5 @@ IF(MPI_FOUND)
 ELSE()
   TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cudf rmm cusparse ${CMAKE_THREAD_LIBS_INIT})
 ENDIF()
+
+SET_TARGET_PROPERTIES(embedding_plugin PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
