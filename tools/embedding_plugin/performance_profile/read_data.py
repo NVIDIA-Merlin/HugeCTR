@@ -221,7 +221,6 @@ def create_dataset(dataset_names, feature_desc, batch_size, n_epochs=-1,
     @tf.function
     def _parse_fn(serialized, feature_desc,
                   distribute_keys=False, 
-                  gpu_count=1, 
                   embedding_type="localized"):
         with tf.name_scope("datareader_map"):
             features = tf.io.parse_example(serialized, feature_desc)
@@ -249,7 +248,7 @@ def create_dataset(dataset_names, feature_desc, batch_size, n_epochs=-1,
                 # row_offsets, value_tensors, nnz_array = hugectr.distribute_keys(indices, values, cate.shape,
                 #                                             gpu_count = gpu_count, embedding_type='localized', max_nnz=1)
                 row_offsets, value_tensors, nnz_array = _distribute_kyes(all_keys=cate, 
-                                                    gpu_count=4,
+                                                    gpu_count=gpu_count,
                                                     embedding_type=tf.convert_to_tensor(embedding_type, dtype=tf.string),
                                                     batch_size=batch_size,
                                                     slot_num=26)
@@ -267,7 +266,6 @@ def create_dataset(dataset_names, feature_desc, batch_size, n_epochs=-1,
     dataset = dataset.map(lambda serialized: _parse_fn(serialized, 
                                                        feature_desc, 
                                                        tf.convert_to_tensor(distribute_keys, dtype=tf.bool),
-                                                       tf.convert_to_tensor(gpu_count, dtype=tf.int32), 
                                                        tf.convert_to_tensor(embedding_type, dtype=tf.string)),
                           num_parallel_calls=32, # tf.data.experimental.AUTOTUNE
                           deterministic=False)
