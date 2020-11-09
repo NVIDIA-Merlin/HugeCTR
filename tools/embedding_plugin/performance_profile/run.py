@@ -53,7 +53,7 @@ def main(args):
                              batch_size=args.batch_size,
                              n_epochs=args.n_epochs, 
                              distribute_keys=tf.constant(args.distribute_keys != 0, dtype=tf.bool),
-                             gpu_count=tf.constant(len(args.gpus), dtype=tf.int32), 
+                             gpu_count=len(args.gpus), 
                              embedding_type=tf.constant(args.embedding_type, dtype=tf.string))
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
