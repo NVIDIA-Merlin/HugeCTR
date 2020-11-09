@@ -62,6 +62,8 @@ REGISTER_OP("HugectrEmbeddingFprop")
 REGISTER_OP("HugectrEmbeddingBprop")
     .Input("embedding_name: string")
     .Input("top_gradients: grad_type")
+    .Input("bp_trigger: float")
+    .Output("bp_trigger_grad: float")
     .Attr("grad_type: {float, half}");
 
 REGISTER_OP("HugectrEmbeddingDistributeKeys")
