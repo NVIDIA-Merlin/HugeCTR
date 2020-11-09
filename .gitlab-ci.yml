@@ -196,3 +196,20 @@ python_interface:
     - cp ${CI_PROJECT_DIR}/build/build_multi_gossip/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
     - mpirun --allow-run-as-root -np 2 python3 ${CI_PROJECT_DIR}/test/pybind_test/multi_node_criteo_2node_4gpu.py ${CI_PROJECT_DIR}/test/scripts/criteo_2node_4gpu.json
 
+# embedding_plugin
+embedding_plugin:
+  image: gitlab-master.nvidia.com/zehuanw/hugectr:dev_tfplugin
+  tags:
+    - hugectr
+  stage: test
+  script:
+    # build
+    - cd ${CI_PROJECT_DIR} && git submodule update --init --recursive
+    - mkdir -p build && cd build
+    - cd ${CI_PROJECT_DIR}/build/
+    - rm -rf ./* && cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. && make -j$(nproc)
+    # 1 gpu
+    - cd ${CI_PROJECT_DIR}/test/embedding_plugin_test/
+    - python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/
+    # 4 gpu
+    - python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/
