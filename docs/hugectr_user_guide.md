@@ -7,7 +7,7 @@ HUGECTR 2.2.1 USER GUIDE
 As the training component of NVIDIA Merlin Open Beta (Fig. 1), HugeCTR is a recommender specific framework which is capable of distributed training across multiple GPUs and nodes for Click-Through-Rate (CTR) estimation.
 Its key missions are high-performance and ease-of-use.
 The rest of this documentation is organized as follows.
-We first summarize the changes in version 2.2.1 since the 2.2 release.
+We first summarize the changes in version 2.3.
 Then we describe HugeCTR architecture and what kinds of models it can support, whilst illustrating how to use it.
 In the final section, we compare its performance quantitatively with Tensorflow CPU/GPU.
 
@@ -18,52 +18,25 @@ Highlighted Features of HugeCTR
 * Support of four common networks and their variants: Wide and Deep Learning (WDL)[1], Deep Cross Network (DCN)[2], DeepFM [3] and DLRM[6].
 
 ## Release Notes ##
-## What’s New in Version 2.2.1 ##
-In HugeCTR version 2.2.1, we enriched the user-convenience features together with the refactoring efforts and bug fixes.
-+ **Dataset in Parquet Format Support** :  HugeCTR data reader was extended to support [Parquet format](#parquet-data-format). The preprocessed dataset and its metadata can be generated with [nvTabular](https://github.com/NVIDIA/NVTabular)
+## What’s New in Version 2.3 ##
+In HugeCTR version 2.3, we added some interoperability and user-convenience features, together with the refactoring efforts and bug fixes.
+Check out [Known Issues](#known-issues) section as well to figure out the known issues in this version.
 
-+ **GPU-Powered Preprocessing Script** : The preprocessing script used for HugeCTR samples such as DCN, DeepFM and W&D was rewritten in nvTabular. This GPU accelerated script doesn’t use too much host memory anymore.
++ **Python Interface** : HugeCTR used to let an user set their training environment and specify their model in a JSON config file. To enhance the interoperability with [nvTabular](https://github.com/NVIDIA/NVTabular) and other Python based libraries, the first version of Python interface was introduced to HugeCTR. If you are already used to using HugeCTR in JSON, the transition to Python is a breeze. What you only need to do is to locate `hugectr.so` file and set the environment variable `PYTHONPATH`. You can still configure your model in your JSON config file, but the training options such as `batch_size` must be specified through `hugectr.solver_parser_helper()` in Python. For more detailed information on how to use the HugeCTR Python API and to comprehend its API signature, checkout our [Jupyter Notebook tutorial](../notebooks/python_interface.ipynb).
 
-+ **Preprocessing Tool for DLRM Sample** : To make it easier for the user to run our DLRM sample, a preprocessing tool written in CUDA C++ was added.
++ **HugeCTR Embedding with Tensorflow** :  To help users easily integrate HugeCTR’s optimized embedding into their Tensorflow workflow, We export the HugeCTR embedding layer as a Tensorflow plugin. We offer a [Jupyter notebook](../notebooks/embedding_plugin.ipynb) tutorial which illustrates its install, use and the correctness verification. It also shows how you can create a new Keras layer `EmbeddingLayer` based on [`hugectr.py`](../tools/embedding_plugin/python) helper coce we provide.
 
-+ **Use of RAPIDS MLPrims** : Some existing layers were rewritten to utilize the highly optimized machine learning primitives ([MLPrims](https://github.com/rapidsai/cuml/tree/branch-0.15/cpp/src_prims)) of RAPIDs. 
- 
-+ **Reorganization of Submodules** : All the submodules were moved to `third_party` directory.
++ **Model Prefetching** :  To enable a model with huge embedding tables which cannot fit in a single GPU memory, we added the model prefetching feature. It allows an user to load a subset of their embedding table into GPU in a coarse grained, on-demand manner during the training time. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. Currently this feature only supports a [`Norm`](#norm-dataset) format dataset with its file list given. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. Check out our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset, while the model prefetching per se is not limited to the specific dataset.
 
-+ **Revived Pascal Support** : The support for Pascal Architecture, e.g., P100 was added back. However, with a Pascal graphic card, `InteractionLayer` doesn’t support FP16.
++ **Enhanced AUC Implementation** : To enhance the performance of our AUC computation on multi-node environments, we redesigned our AUC implementation in a manner that the computational load is more effectively distributed across nodes.
 
-+ **Compile Time Reduction** : By modularizing the embedding related code into several files, HugeCTR compile time was improved.
++ **Epoch-based Training** : In addition to `max_iter`, a HugeCTR user can opt for `num_epochs` instead in the **Solver** clause of their JSON config file. Currently this mode is only supported with file list based`Norm` format datasets. We are trying to make this feature available for all the dataset formats.
 
-+ **Refactoring of `Tensor` and `GeneralBuffer`** : In HugeCTR, `Tensor` and `GeneralBuffer` are used for memory management and access control. In the version 2.2.1, they were refactored to clarify their responsibilities and support different memory kinds, .e.g, Host, Device and Unified. Check their interface changes if you are using them to add a new layer.
++ **Multi-node Training Tutorial** : To help people train their models on their multi-node environments, we added [a step-by-step tutorial](../tutorial/multinode-training).
 
-## What’s New in Version 2.2 ##
-HugeCTR version 2.2 adds a lot of features to enhance its usability and performance.
-HugeCTR is not only a high-performance reference design for framework designers but also a self contained training framework.
-+ **Matrix Multiplication Algorithm Search** : HugeCTR runs an exhaustive [algorithm](https://docs.nvidia.com/cuda/cublas/index.html#cublasgemmalgo_t) search for each fully connected layer to find the best performant one.
++ **Power Law Distribution Support with Data Generator** : Because of the increased interest in generating a random dataset whose categorical features follows the power-law distribution, we revised our data generation tool to support the case. For more details, refer to the description of `--long-tail` option [here](../README.md#synthetic-data-generation-and-benchmark).
 
-+ **AUC** : An user can choose to use AUC as an evaluation metric in addition to AverageLoss. It is also possible to stop training when AUC reaches a specified threshold.
-
-+ **Batch Shuffle in Training Data Set** : Training data batch shuffling is supported.
-
-+ **Different Batch Sizes for Training and Evaluation** : An user can specify the different batch sizes for training and evaluation. It can be useful to tune overall performance.
-
-+ **Full FP16 pipeline** : In order to data and compute throughputs, We added the full FP16 pipeline.
-
-+ **Fused Fully Connected Layer** : In FP16 mode, you can choose to use a specialized fully connected layer fused with ReLU activation function.
-
-+ **Evaluation Data Caching on Device** : For GPUs with large memory capacity like A100, a user can choose to cache data batches for small evaluation data sets.
-
-+ **Interaction Layer** : We added Interaction layer used for popular models such as DLRM.
-
-+ **Optimized Data Reader for Raw Data Format** : RAW data format is supported to simplify the one hot data reading and achieve better performance.
-
-+ **Deep Learning Recommendation Model (DLRM)** : We enabled and optimized the training of DLRM. Please find more details in [samples/dlrm](../samples/dlrm/README.md).
-
-+ **Learning Rate Scheduling** : [Different learning rate scheduling](#sgd-optimizer--learning-rate-scheduling) is supported. <br>
-
-+ **Weight Initialization Methods** : For each trainable layer, a user can choose which method ,e.g., XavierUnifrom, Zero, etc is used for its weight initialization.
-
-+ **Ampere Support** : We tested and optimized HugeCTR for Ampere Architecture.
++ **Multi-GPU Preprocessing Script for the Criteo Samples** + : With a newer version of nvTabular (>=0.2), in preparing the dataset for our [samples](../samples), an user can utilize multiple GPUs. Check out how [preprocess_nvt.py](../tools/criteo_script/preprocess_nvt.py) is used to preprocess the Criteo dataset for DCN, DeepFM and W&D samples there.
 
 ## Architecture and Supported Networks
 To enable large embedding training, the embedding table in HugeCTR is model parallel and distributed across all GPUs in a homogeneous cluster, which consists of multiple nodes and multiple GPUs. Meanwhile, the dense model such as DNN is data parallel, which has one copy in each GPU (see Fig. 2).
@@ -110,6 +83,95 @@ Currently, the layers and optimizers below support FP16:
 * MomentumSGD
 * Nesterov
 * SGD
+
+## File Format ##
+There are three sorts of files used in HugeCTR in total: a configuration file, model file and dataset.
+
+### Configuration File ###
+Configuration file is in a json format, e.g., [simple_sparse_embedding_fp32.json](../test/utest/simple_sparse_embedding_fp32.json)
+
+There are three main JSON clauses in a configuration file: "solver", "optimizer", and "layers". They can be specified in any order. Their detailed description can be found in [this section](#network-configurations).
+* solver: the active GPU list, batchsize, model_file, etc are specified.
+* optimizer: The type of optimizer and its hyperparameters are specified.
+* layers: training/evaluation data (and their paths), embeddings and dense layers are specified. Note that embeddings must precede the dense layers.
+
+### Model File ###
+Model file is a binary file loaded to initialize model weights and where the trained weight is stored.
+In the file, it is assumed that the weights are stored in the same order with that of the layers in the configuration file in use. 
+
+We provide a tutorial on [**how to dump a model to TensorFlow**](../tutorial/dump_to_tf/readMe.md). You can find more details on `Model file and it format` there.
+
+### Data Set ###
+Three dataset formats are supported in HugeCTR. This section only briefly overviews them. If you are interested in more details and how to use them with your JSON config file, checkout [this section](#data-format).
+
+#### Norm ####
+Norm format consists of a collection of data files and a file list.
+
+The first line of a file list is the number of data files in the dataset.
+It is followed by the paths to those files.
+```shell
+$ cat simple_sparse_embedding_file_list.txt
+10
+./simple_sparse_embedding/simple_sparse_embedding0.data
+./simple_sparse_embedding/simple_sparse_embedding1.data
+./simple_sparse_embedding/simple_sparse_embedding2.data
+./simple_sparse_embedding/simple_sparse_embedding3.data
+./simple_sparse_embedding/simple_sparse_embedding4.data
+./simple_sparse_embedding/simple_sparse_embedding5.data
+./simple_sparse_embedding/simple_sparse_embedding6.data
+./simple_sparse_embedding/simple_sparse_embedding7.data
+./simple_sparse_embedding/simple_sparse_embedding8.data
+./simple_sparse_embedding/simple_sparse_embedding9.data
+```
+
+A data file (binary) consists of a header and actual tabular data.
+
+Header Definition:
+```c
+typedef struct DataSetHeader_ {
+  long long error_check;        // 0: no error check; 1: check_num
+  long long number_of_records;  // the number of samples in this data file
+  long long label_dim;          // dimension of label
+  long long dense_dim;          // dimension of dense feature
+  long long slot_num;           // slot_num for each embedding
+  long long reserved[3];        // reserved for future use
+} DataSetHeader;
+
+```
+
+Data Definition (each sample):
+```c
+typedef struct Data_{
+  int length;                   // bytes in this sample (optional: only in check_sum mode )
+  float label[label_dim];       
+  float dense[dense_dim];
+  Slot slots[slot_num];          
+  char checkbits;                // checkbit for this sample (optional: only in checksum mode)
+} Data;
+
+typedef struct Slot_{
+  int nnz;
+  unsigned int*  keys; // changeable to `long long` with `"input_key_type"` in `solver` object of JSON config file.
+} Slot;
+```
+
+#### RAW ####
+RAW format is introduced in HugeCTR v2.2
+
+Different to `Norm` format, The training Data in `RAW` format is all in one binary file and in int32, no matter Label / Dense Feature / Category Features.
+
+The number of Samples / Dense feature / Category feature / label dimension are all declared in the configure json file.
+
+Note that only one-hot data is accepted with this format.
+
+Data Definition (each sample):
+```c
+typedef struct Data_{
+  int label[label_dim];       
+  int dense[dense_dim];
+  int category[sparse_dim];
+} Data;
+```
 
 ## Usages
 Training with one-shot instruction:
@@ -269,12 +331,12 @@ Data set in the `Norm` format (default) is consistent with the previous version.
 ```
 
 ##### Raw and Parquet Formats
-We also support ‘Raw’ format, introduced in v2.2, and ‘Parquet’ format from v2.2.1. See Fig. 7 (b) and (c). Several additional item are configurable as below:
+We also support the ‘Raw’ format, introduced in v2.2, and ‘Parquet’ format from v2.2.1. See Fig. 7 (b) and (c). Several additional item are configurable as below:
 * `format":` `Raw` or `Parquet`
 * `num_samples` should be specified because the `Raw` format file doesn't have a header like in the `Norm` format. It's the same to `eval_num_samples`. ‘Parquet’ format doesn’t need to specify this field.
 * `check`: ‘Raw’ and ‘Parquet’ don’t use this field. So use the value `None` or omit `check` itself.
 * `slot_size_array`: an array of table vocabulary size.
-* `float_label_dense`: **This is valid only for `Raw` format.** If its value is set to `true`, the label and dense features of each sample are interpreted as `float` values. Otherwie, they are read as `int` values while the dense features are preprocessed with `log(dense[i] + 1.f)`. The default value is `false`.
+* `float_label_dense`: **This is valid only for `Raw` format.** If its value is set to `true`, the label and dense features of each sample are interpreted as `float` values. Otherwise, they are read as `int` values while the dense features are preprocessed with `log(dense[i] + 1.f)`. The default value is `false`.
 ```json
      {
 	 "name": "data",
@@ -382,7 +444,7 @@ We also support ‘Raw’ format, introduced in v2.2, and ‘Parquet’ format f
 * ELU: the type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
 * Fully Connected (`InnerProduct`): bias is supported in fully connected layers and `num_output` is the dimension of output.
 * Fused fully connected layer(`FusedInnerProduct`): Fused bias adding and relu activation into a single layer.
-* Loss: different from the other layers, you can specify which `regularization` will you use. This is optional. By default no regularization will be used.
+* Loss: different from the other layers, you can specify which `regularization` you will use. This is optional. By default no regularization will be used.
 * For more details please refer to [**parser.cpp**](../HugeCTR/src/parser.cpp)
 ```json
 {
@@ -490,6 +552,8 @@ typedef struct Slot_{
 
 Data field often has a lot of samples. Each sample starts with the labels in integer type, followed by `nnz` (number of nonzero) and key in long long (or unsigned int) type like Fig. 7 (a).
 
+The input keys for categorical are distributed to the slots with no overlap allowed, e.g., `slot[0] = {0,10,32,45}, slot[1] = {1,2,5,67}`. If there is any overlap, it will cause an undefined behavior. Foe example, given that `slot[0] = {0,10,32,45}, slot[1] = {1,10,5,67}`, The table looking up with the key value `10` will lead to different results based on how the slots are assigned to GPUs. 
+
 ### Raw Dataset
 Fig. 7 (b) shows the structure of a `Raw` dataset sample. To use the format, you need to specify the number of train samples and the number of evaluation samples and the slot size of the embedding in the `"data"` clause.
 
@@ -507,6 +571,9 @@ typedef struct Data_{
   int category[sparse_dim];
 } Data;
 ```
+
+In using the Raw format, an user must preprocess their own dataset to generate the continuous keys for each slot. Then, the user must specify the list of the slot sizes with the `slot_size_array` option. So, in the json config snippet above, we assume that the slot 0 has the continuous keyset `{0, 1, 2 ... 39884405}`, whilst the slot 1 has its keyset on a different space `{0, 1, 2 ... 39043}`.
+
 ### Parquet Data Format
 Parquet is a column-oriented data format of Apache Hadoop ecosystem, which is free and open-source. To reduce the file sizes, it supports compression and encoding. For more information, check out [its official documentation](https://parquet.apache.org/documentation/latest/).
 
@@ -520,6 +587,38 @@ Fig. 7 (c)  shows an example Parquet dataset in terms of HugeCTR. Currently nest
 }
 ```
 
+```json
+  "layers": [
+        {
+       "name": "data",
+        "type": "Data",
+        "format": "Parquet",
+        "slot_size_array": [220817330, 126535808, 3014529, 400781, 11, 2209, 11869, 148, 4, 977, 15, 38713, 283898298, 39644599, 181767044, 584616, 12883, 109, 37, 17177, 7425, 20266, 4, 7085, 1535, 64],
+        "source": "_file_list.txt",
+        "eval_source": "_file_list.txt",
+        "check": "None",
+        "label": {
+                "top": "label",
+                "label_dim": 1
+        },
+        "dense": {
+                "top": "dense",
+                "dense_dim": 13
+        },
+        "sparse": [
+                {
+            "top": "data1",
+            "type": "LocalizedSlot",
+            "max_feature_num_per_sample": 30,
+            "max_nnz": 1,
+            "slot_num": 26
+                }
+        ]
+      },
+
+```
+Likewise the Raw format, in using the Parquet format, an user must preprocess their own dataset to generate the continuous keys for each slot. Then, the user must specify the list of the slot sizes with the `slot_size_array` option. So, in the json config snippet above, we assume that the slot 0 has the continuous keyset `{0, 1, 2 ... 220817329}`, whilst the slot 1 has its keyset on a different space `{0, 1, 2 ... 126535807}`.
+ 
 ### Non-Trainable Parameters
 Some of the layers will generate statistical results during training like Batch Norm. Such parameters are outputs of CTR training (called “non-trainable parameters”) and used in inference.
 
@@ -586,13 +685,18 @@ We submitted the DLRM benchmark with HugeCTR v2.2 to [MLPerf Training v0.7](http
 
 ## Known Issues
 
-* The auto plan file generator doesn't support generating a plan file for 1 GPU system. In this case, user need to manually create the json plan file with the following content:
+* Because the automatic plan file generator is not able to handle 1-GPU cases. an user must manually create a json plan file with the following content:
 ` {"type": "all2all", "num_gpus": 1, "main_gpu": 0, "num_steps": 1, "num_chunks": 1, "plan": [[0, 0]], "chunks": [1]} ` and rename the json plan file to the name listed in the HugeCTR configuration file.
-* For a 2-GPU system, if there are 2 NVLinks between GPUs, then the auto plan file generator will print some warnings `RuntimeWarning: divide by zero encountered in true_divide`. This will not affect the generated json plan file.
-* The current plan file generator doesn't support the system that is only partially connected by NVLink. That is the system which has NVLink but exists 2 GPUs where data cannot travel through NVLink between them.
-* Users need to set an environment variable: `export CUDA_DEVICE_ORDER=PCI_BUS_ID` to ensure that CUDA runtime and driver have consistent ordering of GPUs.
-* `LocalizedSlotSparseEmbeddingOneHot` only supports single node training with p2p connections between each pair of involved GPUs.
-* In v2.2.1, training halts in running DLRM sample on DGX2 due to a CUDA Graph related issue. To run the sample on DGX2, disable the use of CUDA Graph with `"cuda_graph": false` even if it degrades the performance a bit. We are workin on fixing this issue. There isn't such a problem on DGX A100.
+* For a 2-GPU system with 2 NVLink connections, the auto plan file generator will print a warning message `RuntimeWarning: divide by zero encountered in true_divide`.
+However, it does not mean that something is wrong in the generated file.
+* The current plan file generator doesn't support a system where the NVSwitch (or a full peer-to-peer connection between all nodes) is unavailable.
+* Users need to set an environment variable: `export CUDA_DEVICE_ORDER=PCI_BUS_ID` to ensure that the CUDA runtime and driver have a consistent GPU numbering.
+* `LocalizedSlotSparseEmbeddingOneHot` only supports a single node machine where all the GPUs are fully connected, e.g., NVSwitch.
+* From v2.2.1, HugeCTR crashes in running our DLRM sample on DGX2 due to a CUDA Graph related issue. To run the sample on DGX2, disable the use of CUDA Graph with `"cuda_graph": false` even if it degrades the performance a bit. We are working on fixing this issue. There isn't such a problem on DGX A100.
+* The model prefetching feature is available only in Python. Currently a user can use this feature only with `DistributedSlotSparseEmbeddingHash` and the `Norm` format dataset on single GPU use cases. We are working on making it available for all the dataset formats and embedding types.
+* HugeCTR embedding Tensorflow plugin only works for a single node case.
+* HugeCTR embedding Tensorflow plugin assumes that the input keys are in `int64` and its output in `float`.
+* In using our embedding plugin, the function `fprop_v3` function available in `tools/embedding_plugin/python/hugectr.py` only works with `DistributedSlotSparseEmbeddingHash`.
 
 ## Reference
 [1] Wide and Deep Learning: https://arxiv.org/abs/1606.07792
