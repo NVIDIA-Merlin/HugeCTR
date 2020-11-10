@@ -17,7 +17,8 @@ Follow the instructions below.
 ### Prepare HugeCTR Executable, Config File and Dataset
 * Prepare a dcn dataset (refer to [dcn2nodes](../../samples/dcn2nodes/README.md)) and cater the dataset in the same directory for all the nodes.
 
-* Build a docker image (refer to [README](../README.md)) in each node. You can also build an image once and use `docker save`/`docker load` to distribute the same image to all the nodes.
+* Build a docker image (refer to [README](../../../README.md#2-build-docker-image-and-hugectr)) in each node. You can also build an image once and use `docker save`/`docker load` to distribute the same image to all the nodes.\
+A production docker image of HugeCTR is available in the NVIDIA container repository, to pull and launch this container, please refer to the [Getting Started with NGC](../../../README.md#getting-started-with-ngc).
   
 * Build HugeCTR: Build HugeCTR with **multi-nodes training supported** (refer to [README](../README.md)) and copy it to the same shared directory in each node
 
