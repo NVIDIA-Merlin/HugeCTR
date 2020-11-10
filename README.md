@@ -20,7 +20,8 @@ A production docker image of HugeCTR is available in the NVIDIA container reposi
 
 You can pull and launch the container using the following command:
 ```shell
-docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.2.1
+docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.3
+# To use Tensorflow, especially if you want to try the HugeCTR embedding op, please use tag `v2.3_tf` instead.
 ```
 If you are running on a docker version 19+, change `--runtime=nvidia` to `--gpus all`.
 
