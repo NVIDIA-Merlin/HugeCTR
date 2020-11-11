@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/model_prefetcher/parameter_server_manager.hpp"
+#include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 
 namespace HugeCTR {
 

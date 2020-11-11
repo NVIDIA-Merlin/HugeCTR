@@ -14,12 +14,12 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-file(GLOB model_prefetcher_test_src
+file(GLOB model_oversubscriber_test_src
   parameter_server_test.cu
-  model_prefetcher_test.cpp
+  model_oversubscriber_test.cpp
 )
 
-add_executable(model_prefetcher_test ${model_prefetcher_test_src})
-target_compile_features(model_prefetcher_test PUBLIC cxx_std_14)
-target_link_libraries(model_prefetcher_test PUBLIC huge_ctr_static gtest gtest_main)
-set_target_properties(model_prefetcher_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+add_executable(model_oversubscriber_test ${model_oversubscriber_test_src})
+target_compile_features(model_oversubscriber_test PUBLIC cxx_std_14)
+target_link_libraries(model_oversubscriber_test PUBLIC huge_ctr_static gtest gtest_main)
+set_target_properties(model_oversubscriber_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

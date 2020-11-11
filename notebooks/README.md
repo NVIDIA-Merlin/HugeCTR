@@ -59,4 +59,4 @@ Within the container, the notebooks per se are located at `/hugectr/notebooks`.
 
 - [movie-lens-example.ipynb](movie-lens-example.ipynb): How to train and inference with the MoveLense dataset.
 - [embedding_plugin.ipynb](embedding_plugin.ipynb): How to install and use the HugeCTR embedding plugin with Tensorflow.
-- [python_interface.ipynb](python_interface.ipynb): How to use the Python interface and the model prefetching feature.
+- [python_interface.ipynb](python_interface.ipynb): How to use the Python interface and the model oversubscribing feature.

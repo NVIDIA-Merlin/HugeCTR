@@ -88,10 +88,10 @@ file(GLOB huge_ctr_src
   embeddings/distributed_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_one_hot.cu
-  model_prefetcher/distributed_parameter_server_delegate.cpp
-  model_prefetcher/model_prefetcher_impl.cpp
-  model_prefetcher/parameter_server.cpp
-  model_prefetcher/parameter_server_manager.cpp
+  model_oversubscriber/distributed_parameter_server_delegate.cpp
+  model_oversubscriber/model_oversubscriber_impl.cpp
+  model_oversubscriber/parameter_server.cpp
+  model_oversubscriber/parameter_server_manager.cpp
   diagnose.cu
 )
 

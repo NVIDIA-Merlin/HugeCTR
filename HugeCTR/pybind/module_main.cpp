@@ -49,7 +49,7 @@
 #include <HugeCTR/pybind/resource_manager_wrapper.hpp>
 #include <HugeCTR/pybind/solver_parser_wrapper.hpp>
 #include <HugeCTR/pybind/data_reader_wrapper.hpp>
-#include <HugeCTR/pybind/model_prefetcher_wrapper.hpp>
+#include <HugeCTR/pybind/model_oversubscriber_wrapper.hpp>
 #include <HugeCTR/pybind/session_wrapper.hpp>
 using namespace HugeCTR::python_lib;
 
@@ -66,6 +66,6 @@ PYBIND11_MODULE(hugectr, m) {
   ResourceManagerPybind(m);
   SolverParserPybind(m);
   DataReaderPybind(m);
-  ModelPrefetcherPybind(m);
+  ModelOversubscriberPybind(m);
   SessionPybind(m);
 }

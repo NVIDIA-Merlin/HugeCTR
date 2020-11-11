@@ -35,7 +35,7 @@ void SessionPybind(pybind11::module &m) {
 		          bool, const std::string>(),
 		  pybind11::arg("solver_config"),
                   pybind11::arg("config_file"),
-		  pybind11::arg("use_model_prefetcher")=false,
+		  pybind11::arg("use_model_oversubscriber")=false,
 		  pybind11::arg("temp_embedding_dir")=std::string())
       .def("train", &HugeCTR::Session::train)
       .def("eval", &HugeCTR::Session::eval)
@@ -64,7 +64,7 @@ void SessionPybind(pybind11::module &m) {
            pybind11::arg("prefix"), pybind11::arg("iter"))
       .def("set_learning_rate", &HugeCTR::Session::set_learning_rate,
            pybind11::arg("lr"))
-      .def("get_model_prefetcher", &HugeCTR::Session::get_model_prefetcher)
+      .def("get_model_oversubscriber", &HugeCTR::Session::get_model_oversubscriber)
       .def("init_params", &HugeCTR::Session::init_params,
            pybind11::arg("model_file"))
       .def("get_params_num", &HugeCTR::Session::get_params_num)
