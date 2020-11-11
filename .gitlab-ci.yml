@@ -198,7 +198,7 @@ python_interface:
 
 # embedding_plugin
 embedding_plugin:
-  image: gitlab-master.nvidia.com/zehuanw/hugectr:dev_tfplugin
+  image: gitlab-master.nvidia.com/zehuanw/hugectr:devel_tf
   tags:
     - hugectr
   stage: test
