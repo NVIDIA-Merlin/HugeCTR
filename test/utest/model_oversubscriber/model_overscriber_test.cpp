@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/model_prefetcher/model_prefetcher.hpp"
+#include "HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp"
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
@@ -30,7 +30,7 @@ using namespace HugeCTR;
 
 namespace {
 
-const char* prefix = "./model_prefetcher_test_data/tmp_";
+const char* prefix = "./model_oversubscriber_test_data/tmp_";
 const char* file_list_name_train = "file_list_train.txt";
 const char* file_list_name_eval = "file_list_eval.txt";
 const char* snapshot_src_file = "distributed_snapshot_src.bin";
@@ -177,14 +177,14 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   solver_config.embedding_files.push_back(snapshot_src_file);
   solver_config.i64_input_key = true;
 
-  // Create a ModelPrefetcher
+  // Create a ModelOversubscriber
   std::vector<std::shared_ptr<IEmbedding>> embeddings;
   embeddings.push_back(embedding);
   std::vector<SparseEmbeddingHashParams<EmbeddingCompType>> embedding_params;
   std::string temp_dir = temp_embedding_dir;
 
-  std::shared_ptr<ModelPrefetcher> model_prefetcher(
-      new ModelPrefetcher(embeddings, embedding_params, solver_config, temp_dir));
+  std::shared_ptr<ModelOversubscriber> model_oversubscriber(
+      new ModelOversubscriber(embeddings, embedding_params, solver_config, temp_dir));
 
   // Make a synthetic keyset files
   auto keys = parameter_server.get_keys_from_hash_table();
@@ -199,9 +199,9 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   Timer timer_ps;
   timer_ps.start();
 
-  model_prefetcher->update(keyset_file_list);
+  model_oversubscriber->update(keyset_file_list);
   // transfer the internal embedding table to the snapshot
-  model_prefetcher->store(snapshot_file_list);
+  model_oversubscriber->store(snapshot_file_list);
 
   MESSAGE_("Batch_num: " + std::to_string(batch_num_train) + ", embedding_vec_size: " +
            std::to_string(embedding_vector_size) + ", elapsed time: " +
@@ -220,7 +220,7 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   ASSERT_TRUE(test::compare_array_approx<char>(vec_src.data(), vec_dst.data(), len_src, 0));
 }
 
-TEST(model_prefetcher_test, long_long_float) {
+TEST(model_oversubscriber_test, long_long_float) {
   do_upload_and_download_snapshot<long long, float>(10, 64);
 }
 

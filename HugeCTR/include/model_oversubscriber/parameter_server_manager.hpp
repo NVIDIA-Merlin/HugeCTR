@@ -17,7 +17,7 @@
 #pragma once
 
 #include <tensor2.hpp>
-#include "HugeCTR/include/model_prefetcher/parameter_server.hpp"
+#include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
 
 #include <vector>
 #include <memory>

@@ -18,14 +18,14 @@
 
 #include <embedding.hpp>
 #include "HugeCTR/include/embeddings/embedding.hpp"
-#include "HugeCTR/include/model_prefetcher/parameter_server_manager.hpp"
+#include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 
 #include <memory>
 #include <vector>
 
 namespace HugeCTR {
 
-class ModelPrefetcherImplBase {
+class ModelOversubscriberImplBase {
 public:
   virtual void store(std::vector<std::string> snapshot_file_list) = 0;
   virtual void update(std::vector<std::string>& keyset_file_list) = 0;
@@ -34,7 +34,7 @@ public:
 
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-class ModelPrefetcherImpl : public ModelPrefetcherImplBase {
+class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
   std::vector<std::shared_ptr<IEmbedding>> embeddings_;
   ParameterServerManager<TypeHashKey, TypeEmbeddingComp> ps_manager_;
 
@@ -55,16 +55,16 @@ class ModelPrefetcherImpl : public ModelPrefetcherImplBase {
   void load_(std::vector<std::string>& keyset_file_list);
 
 public:
-  ModelPrefetcherImpl(
+  ModelOversubscriberImpl(
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
       const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
       const SolverParser& solver_config,
       const std::string& temp_embedding_dir);
 
-  ModelPrefetcherImpl(const ModelPrefetcherImpl&) = delete;
-  ModelPrefetcherImpl& operator=(const ModelPrefetcherImpl&) = delete;
+  ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;
+  ModelOversubscriberImpl& operator=(const ModelOversubscriberImpl&) = delete;
 
-  ~ModelPrefetcherImpl() {}
+  ~ModelOversubscriberImpl() {}
 
   /**
    * @brief      Store the embedding table or a snapshot file downloaded from device to SSD.
