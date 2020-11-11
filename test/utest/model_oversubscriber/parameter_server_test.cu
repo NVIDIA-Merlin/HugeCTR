@@ -17,7 +17,7 @@
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/model_prefetcher/parameter_server.hpp"
+#include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -29,7 +29,7 @@ using namespace HugeCTR;
 
 namespace {
 
-const char* prefix = "./model_prefetcher_test_data/tmp_";
+const char* prefix = "./model_oversubscriber_test_data/tmp_";
 const char* file_list_name_train = "file_list_train.txt";
 const char* file_list_name_eval = "file_list_eval.txt";
 const char* snapshot_src_file = "distributed_snapshot_src.bin";

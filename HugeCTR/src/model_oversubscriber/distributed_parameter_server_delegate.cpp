@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <model_prefetcher/distributed_parameter_server_delegate.hpp>
+#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
 
 #include <cstring>
 #include <memory>

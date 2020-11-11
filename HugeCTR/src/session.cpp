@@ -78,7 +78,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
 }  // end namespace
 
 Session::Session(const SolverParser& solver_config, const std::string& config_file,
-                 bool use_model_prefetcher, const std::string temp_embedding_dir)
+                 bool use_model_oversubscriber, const std::string temp_embedding_dir)
     : resource_manager_(ResourceManager::create(solver_config.vvgpu, solver_config.seed)) {
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_config.use_mixed_precision) {
@@ -126,11 +126,11 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
   }
 
   load_params_for_dense_(solver_config.model_file);
-  if (use_model_prefetcher) {
+  if (use_model_oversubscriber) {
     if (solver_config.use_mixed_precision) {
-      model_prefetcher_ = create_model_prefetcher_<__half>(solver_config, temp_embedding_dir);
+      model_oversubscriber_ = create_model_oversubscriber_<__half>(solver_config, temp_embedding_dir);
     } else {
-      model_prefetcher_ = create_model_prefetcher_<float>(solver_config, temp_embedding_dir);
+      model_oversubscriber_ = create_model_oversubscriber_<float>(solver_config, temp_embedding_dir);
     }
   } else {
     init_or_load_params_for_sparse_(solver_config.embedding_files);
@@ -408,7 +408,7 @@ Error_t Session::get_current_loss(float* loss) {
 }
 
 template <typename TypeEmbeddingComp>
-std::shared_ptr<ModelPrefetcher> Session::create_model_prefetcher_(
+std::shared_ptr<ModelOversubscriber> Session::create_model_oversubscriber_(
     const SolverParser& solver_config, const std::string& temp_embedding_dir) {
   try {
     if (temp_embedding_dir.empty()) {
@@ -416,7 +416,7 @@ std::shared_ptr<ModelPrefetcher> Session::create_model_prefetcher_(
     }
 
     std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>> embedding_params;
-    return std::shared_ptr<ModelPrefetcher>(new ModelPrefetcher(
+    return std::shared_ptr<ModelOversubscriber>(new ModelOversubscriber(
         embedding_, embedding_params, solver_config, temp_embedding_dir));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

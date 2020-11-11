@@ -17,7 +17,7 @@
 #pragma once
 
 #include <embedding.hpp>
-#include <model_prefetcher/parameter_server_delegate.hpp>
+#include <model_oversubscriber/parameter_server_delegate.hpp>
 
 #include <algorithm>
 #include <memory>
