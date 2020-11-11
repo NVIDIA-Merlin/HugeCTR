@@ -4,7 +4,7 @@
  * @LastEditTime: 2020-11-06 16:26:23
  * @LastEditors: your name
  * @Description: In User Settings Edit
- * @FilePath: /hugectr/HugeCTR/pybind/model_prefetcher_wrapper.hpp
+ * @FilePath: /hugectr/HugeCTR/pybind/model_oversubscriber_wrapper.hpp
  */
 /*
  * Copyright (c) 2020, NVIDIA CORPORATION.
@@ -23,19 +23,19 @@
  */
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <HugeCTR/include/model_prefetcher/model_prefetcher.hpp>
+#include <HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp>
 
 namespace HugeCTR {
 
 namespace python_lib {
 
-void ModelPrefetcherPybind(pybind11::module &m) {
-  pybind11::class_<HugeCTR::ModelPrefetcher, std::shared_ptr<HugeCTR::ModelPrefetcher>>(m, "ModelPrefetcher")
-    .def("store", &HugeCTR::ModelPrefetcher::store,
+void ModelOversubscriberPybind(pybind11::module &m) {
+  pybind11::class_<HugeCTR::ModelOversubscriber, std::shared_ptr<HugeCTR::ModelOversubscriber>>(m, "ModelOversubscriber")
+    .def("store", &HugeCTR::ModelOversubscriber::store,
 	 pybind11::arg("snapshot_file_list"))
-    .def("update", pybind11::overload_cast<std::string&>(&HugeCTR::ModelPrefetcher::update),
+    .def("update", pybind11::overload_cast<std::string&>(&HugeCTR::ModelOversubscriber::update),
          pybind11::arg("keyset_file"))
-    .def("update", pybind11::overload_cast<std::vector<std::string>&>(&HugeCTR::ModelPrefetcher::update),
+    .def("update", pybind11::overload_cast<std::vector<std::string>&>(&HugeCTR::ModelOversubscriber::update),
          pybind11::arg("keyset_file_list"));
 }
 

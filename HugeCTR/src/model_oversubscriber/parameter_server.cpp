@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <model_prefetcher/parameter_server.hpp>
-#include <model_prefetcher/distributed_parameter_server_delegate.hpp>
+#include <model_oversubscriber/parameter_server.hpp>
+#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
 
 #include <map>
 #include <cstdio>

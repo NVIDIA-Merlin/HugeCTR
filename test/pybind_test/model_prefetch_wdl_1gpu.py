@@ -1,7 +1,7 @@
 from hugectr import Session, solver_parser_helper
 import sys
 
-def model_prefetcher_test(json_file):
+def model_oversubscriber_test(json_file):
   dataset = [("file_list."+str(i)+".txt", "file_list."+str(i)+".keyset") for i in range(5)]
   solver_config = solver_parser_helper(seed = 0,
                                      batchsize = 16384,
@@ -20,11 +20,11 @@ def model_prefetcher_test(json_file):
   data_reader_train = sess.get_data_reader_train()
   data_reader_eval = sess.get_data_reader_eval()
   data_reader_eval.set_file_list_source("file_list.5.txt")
-  model_prefetcher = sess.get_model_prefetcher()
+  model_oversubscriber = sess.get_model_oversubscriber()
   iteration = 0
   for file_list, keyset_file in dataset:
     data_reader_train.set_file_list_source(file_list)
-    model_prefetcher.update(keyset_file)
+    model_oversubscriber.update(keyset_file)
     while True:
       good = sess.train()
       if good == False:
@@ -38,4 +38,4 @@ def model_prefetcher_test(json_file):
 
 if __name__ == "__main__":
   json_file = sys.argv[1]
-  model_prefetcher_test(json_file)
+  model_oversubscriber_test(json_file)

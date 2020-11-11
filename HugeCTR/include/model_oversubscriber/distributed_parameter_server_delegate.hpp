@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <model_prefetcher/parameter_server_delegate.hpp>
+#include <model_oversubscriber/parameter_server_delegate.hpp>
 
 namespace HugeCTR {
 

@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/model_prefetcher/model_prefetcher_impl.hpp"
+#include "HugeCTR/include/model_oversubscriber/model_oversubscriber_impl.hpp"
 
 namespace HugeCTR {
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::ModelPrefetcherImpl(
+ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::ModelOversubscriberImpl(
     std::vector<std::shared_ptr<IEmbedding>>& embeddings,
     const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
     const SolverParser& solver_config, const std::string& temp_embedding_dir)
@@ -27,7 +27,7 @@ ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::ModelPrefetcherImpl(
       ps_manager_(embedding_params, solver_config, temp_embedding_dir, get_max_embedding_size_()) {}
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::load_(
+void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
     std::vector<std::string>& keyset_file_list) {
   try {
     if (keyset_file_list.size() != embeddings_.size()) {
@@ -58,7 +58,7 @@ void ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::load_(
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::store(
+void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::store(
     std::vector<std::string> snapshot_file_list) {
   try {
     if (snapshot_file_list.size() && snapshot_file_list.size() != embeddings_.size()) {
@@ -89,7 +89,7 @@ void ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::store(
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::update(
+void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(
     std::vector<std::string>& keyset_file_list) {
   try {
     store();
@@ -107,7 +107,7 @@ void ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::update(
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::update(
+void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(
   std::string& keyset_file) {
   try {
     std::vector<std::string> keyset_file_list(embeddings_.size(), keyset_file);
@@ -121,9 +121,9 @@ void ModelPrefetcherImpl<TypeHashKey, TypeEmbeddingComp>::update(
   }
 }
 
-template class ModelPrefetcherImpl<long long, __half>;
-template class ModelPrefetcherImpl<long long, float>;
-template class ModelPrefetcherImpl<unsigned, __half>;
-template class ModelPrefetcherImpl<unsigned, float>;
+template class ModelOversubscriberImpl<long long, __half>;
+template class ModelOversubscriberImpl<long long, float>;
+template class ModelOversubscriberImpl<unsigned, __half>;
+template class ModelOversubscriberImpl<unsigned, float>;
 
 }  // namespace HugeCTR

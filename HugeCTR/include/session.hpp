@@ -24,7 +24,7 @@
 #include <utility>
 #include <string>
 #include "HugeCTR/include/embeddings/embedding.hpp"
-#include "HugeCTR/include/model_prefetcher/model_prefetcher.hpp"
+#include "HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp"
 
 namespace HugeCTR {
 
@@ -42,7 +42,7 @@ class Session {
    */
   ~Session();
   Session(const SolverParser& solver_config, const std::string& config_file,
-          bool use_model_prefetcher = false,
+          bool use_model_oversubscriber = false,
           const std::string temp_embedding_dir = std::string());
   Session(const Session&) = delete;
   Session& operator=(const Session&) = delete;
@@ -92,8 +92,8 @@ class Session {
     return Error_t::Success;
   }
 
-  const std::shared_ptr<ModelPrefetcher> get_model_prefetcher() const {
-    return model_prefetcher_;
+  const std::shared_ptr<ModelOversubscriber> get_model_oversubscriber() const {
+    return model_oversubscriber_;
   }
 
   /**
@@ -124,7 +124,7 @@ class Session {
  private:
   std::vector<std::unique_ptr<Network>> networks_;     /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embedding_; /**< embedding */
-  std::shared_ptr<ModelPrefetcher> model_prefetcher_; /**< model prefetcher for model prefetching. */
+  std::shared_ptr<ModelOversubscriber> model_oversubscriber_; /**< model oversubscriber for model oversubscribing. */
 
   std::shared_ptr<IDataReader> 
     data_reader_;      /**< data reader to reading data from data set to embedding. */
@@ -138,11 +138,11 @@ class Session {
   metrics::Metrics metrics_;
 
   /**
-   * @brief      Creates a model prefetcher.
-   * @return     The shared pointer of model prefetcher object.
+   * @brief      Creates a model oversubscriber.
+   * @return     The shared pointer of model oversubscriber object.
    */
   template <typename TypeEmbeddingComp>
-  std::shared_ptr<ModelPrefetcher> create_model_prefetcher_(
+  std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(
     const SolverParser& solver_config,
     const std::string& temp_embedding_dir);
 
