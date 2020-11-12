@@ -72,6 +72,7 @@ public:
                                         tensorflow::Tensor* nnz_array_output) = 0;
     virtual tensorflow::Status save(const std::string& embedding_name, const std::string& save_name) = 0;
     virtual tensorflow::Status restore(const std::string& embedding_name, const std::string& file_name) = 0;
+    virtual tensorflow::Status get_events(std::vector<cudaEvent_t>& events) = 0;
 };
 
 
@@ -162,7 +163,7 @@ public:
     EmbeddingWrapper(const std::vector<std::vector<int>>& vvgpu, unsigned long long seed, 
                      long long batch_size, long long batch_size_eval);
     EmbeddingWrapper() = delete;
-    virtual ~EmbeddingWrapper() {}
+    virtual ~EmbeddingWrapper();
     EmbeddingWrapper(EmbeddingWrapper&) = delete;
     EmbeddingWrapper& operator=(const EmbeddingWrapper&) = delete;
 
@@ -202,6 +203,7 @@ public:
                                             tensorflow::Tensor* nnz_array_output) override;
     tensorflow::Status save(const std::string& embedding_name, const std::string& save_name) override;
     tensorflow::Status restore(const std::string& embedding_name, const std::string& file_name) override;
+    tensorflow::Status get_events(std::vector<cudaEvent_t>& events) override;
 
     void evaluate();
     
@@ -214,6 +216,7 @@ private:
     std::map<std::string, std::shared_ptr<DistributeKeysSpaces>> distribute_keys_spaces_; // <space_name, DistributeKeysSpaces>
     std::unique_ptr<DoDistributeKeysFunctor> do_distribute_keys_functor_; // this should have multiple instance ??
     std::unique_ptr<CudaUtils::ConvertDenseToCSRFunctor> convert_dense_to_csr_functor_;
+    std::vector<cudaEvent_t> events_; // events for each GPU
 
     tensorflow::Status set_embedding_params(const std::string& name, const HugeCTR::Embedding_t& embedding_type, 
                 const HugeCTR::Optimizer_t& optimizer_type,
@@ -245,6 +248,8 @@ private:
                                                         std::vector<tensorflow::Tensor*>& value_tensor_output,
                                                         tensorflow::Tensor* nnz_array_output);
     tensorflow::Status localized_embedding_distribute_keys_helper();
+    tensorflow::Status get_event(const unsigned int dev_id, cudaEvent_t& event);
+    
 private:
     long long batch_size_;
     long long batch_size_eval_;

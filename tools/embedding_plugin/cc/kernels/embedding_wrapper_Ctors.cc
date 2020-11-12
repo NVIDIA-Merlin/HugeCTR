@@ -36,7 +36,31 @@ EmbeddingWrapper<TypeKey, TypeFP>::EmbeddingWrapper(const std::vector<std::vecto
                                                     unsigned long long seed,
                                                     long long batch_size, long long batch_size_eval)
     : resource_manager_(HugeCTR::ResourceManager::create(vvgpu, seed)),
-    batch_size_(batch_size), batch_size_eval_(batch_size_eval) {}
+    batch_size_(batch_size), batch_size_eval_(batch_size_eval) {
+    /*create events*/
+    auto local_gpu_count = resource_manager_->get_local_gpu_count();
+    events_.insert(events_.begin(), local_gpu_count, nullptr);
+    for (size_t dev_id = 0; dev_id < local_gpu_count; ++dev_id) {
+        CudaDeviceContext context(resource_manager_->get_local_gpu(dev_id)->get_device_id());
+
+        cudaError_t error = cudaEventCreateWithFlags(&(events_[dev_id]), cudaEventDisableTiming);
+        if (error != cudaSuccess) {
+            std::cout << __FILE__ << ":" << __LINE__ << " " << cudaGetErrorString(error) << std::endl;
+            exit(-1);
+        }
+    }
+
+}
+
+
+/*destructor*/
+template <typename TypeKey, typename TypeFP>
+EmbeddingWrapper<TypeKey, TypeFP>::~EmbeddingWrapper(){
+    for (auto event : events_) {
+        cudaEventDestroy(event);
+    }
+}
+
 
 
 template EmbeddingWrapper<long long, float>::EmbeddingWrapper(const std::vector<std::vector<int>>&,
@@ -47,6 +71,11 @@ template EmbeddingWrapper<long long, __half>::EmbeddingWrapper(const std::vector
             unsigned long long, long long, long long);
 template EmbeddingWrapper<unsigned int, __half>::EmbeddingWrapper(const std::vector<std::vector<int>>&, 
             unsigned long long, long long, long long);
+
+template EmbeddingWrapper<long long, float>::~EmbeddingWrapper();
+template EmbeddingWrapper<long long, __half>::~EmbeddingWrapper();
+template EmbeddingWrapper<unsigned int, float>::~EmbeddingWrapper();
+template EmbeddingWrapper<unsigned int, __half>::~EmbeddingWrapper();
 
 } //namespace Version1
 } //namespace HugeCTR
