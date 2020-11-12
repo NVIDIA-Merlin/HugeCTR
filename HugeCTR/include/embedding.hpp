@@ -28,13 +28,22 @@ class IEmbedding {
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;
-  virtual void upload_params_to_device(std::ifstream& weight_stream) = 0;
-  virtual void download_params_to_host(std::ofstream& weight_stream) const = 0;
+  virtual void load_parameters(std::ifstream& stream) = 0;
+  virtual void dump_parameters(std::ofstream& stream) const = 0;
   virtual void set_learning_rate(float lr) = 0;
   virtual size_t get_params_num() const = 0;
+  virtual size_t get_vocabulary_size() const = 0;
+  virtual size_t get_max_vocabulary_size() const = 0;
+  virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
+                               size_t num) = 0;
+  virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
+  virtual void reset() = 0;
+
   virtual std::vector<TensorBag2> get_train_output_tensors() const = 0;
   virtual std::vector<TensorBag2> get_evaluate_output_tensors() const = 0;
   virtual void check_overflow() const = 0;
+  virtual void get_forward_results_tf(const bool is_train, const bool on_gpu, void* const forward_result) = 0;
+  virtual cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) = 0;
 };
 
 template <typename TypeEmbeddingComp>

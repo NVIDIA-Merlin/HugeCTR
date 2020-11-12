@@ -42,7 +42,7 @@ $ ./criteo2hugectr ../../tools/criteo_script/deepfm_data/val criteo_test/sparse_
 
 #### Preprocessing by NVTabular ####
 
-HugeCTR supports data processing by NVTabular since version 2.2.1. Please make sure NVTabular docker environment has been set up successfully according to [NVTAbular github](https://github.com/NVIDIA/NVTabular).
+HugeCTR supports data processing by NVTabular since version 2.2.1. Please make sure NVTabular docker environment has been set up successfully according to [NVTAbular github](https://github.com/NVIDIA/NVTabular).  Make sure to use the latest version(0.2) of NVTabular.
 And bind mount HugeCTR ${project_home} volume to NVTabular docker. Run NVTabular docker and execute the following preprocessing commands.
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
 download kaggle-display dataset into the folder "${project_home}/samples/deepfm/". 
@@ -53,9 +53,13 @@ $ mkdir -p deepfm_data/val
 $ head -n 36672493 train.txt > deepfm_data/train/train.txt 
 $ tail -n 9168124 train.txt > deepfm_data/val/test.txt 
 $ cp ../../tools/criteo_script/preprocess_nvt.py ./
-#The default output of NVTabular is the parquet format, if need the norm binary format, please add argument --parquet_format=0
-$ python3 preprocess_nvt.py --src_csv_path=deepfm_data/train/train.txt --dst_csv_path=deepfm_data/train/ --normalize_dense=1 --feature_cross=0 --criteo_mode=0
-$ python3 preprocess_nvt.py --src_csv_path=deepfm_data/val/test.txt --dst_csv_path=deepfm_data/val/ --normalize_dense=1 --feature_cross=0 --criteo_mode=0
+#--help:show help message and explan usage of each parameters.
+#--parquet_format=1 The default output of NVTabular is the parquet format, if need the norm binary format, please add argument with 0
+#--device_limit_frac：Worker device-memory limit as a fraction of GPU capacity, which should be determined by the gpu with the leatest memory
+#--device_pool_frac：The RMM pool frac is the same for all GPUs, make sure each one has enough memory size
+#--num_io_threads: Number of threads to use when writing output data.
+$ python3 preprocess_nvt.py --data_path deepfm_data/train/train.txt --out_path deepfm_data/train/ --freq_limit 6 --device_limit_frac 0.2 --device_pool_frac 0.2 --out_files_per_proc 8  --devices "0" --num_io_threads 2 
+$ python3 preprocess_nvt.py --data_path deepfm_data/val/test.txt --out_path deepfm_data/val/ --freq_limit 6 --device_limit_frac 0.2 --device_pool_frac 0.2 --out_files_per_proc 8  --devices "0" --num_io_threads 2
 ```
 Exit from the NVTabular docker environment and then run HugeCTR docker with interaction mode under home directory again.
 

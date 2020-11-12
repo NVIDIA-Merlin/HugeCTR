@@ -14,7 +14,7 @@
   
   "optimizer": {
     "type": "Adam",
-    "global_update": true,
+    "update_type": "Global",
     "adam_hparam": {
       "learning_rate": 0.001,
       "beta1": 0.9,
@@ -43,7 +43,7 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "DistributedSlot",
+          "type": "LocalizedSlot",
           "max_feature_num_per_sample": 30,
           "slot_num": 26
         }        
@@ -52,7 +52,7 @@
 
     {
       "name": "sparse_embedding1",
-      "type": "DistributedSlotSparseEmbeddingHash",
+      "type": "LocalizedSlotSparseEmbeddingHash",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include <fstream>
 #include <thread>
 #include "HugeCTR/include/data_generator.hpp"
@@ -59,7 +59,7 @@ TEST(data_reader_worker, data_reader_worker_test) {
       new HeapEx<CSRChunk<T>>(1, num_devices, batchsize, label_dim + dense_dim, params));
 
   // setup a data reader
-  DataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length, CHK, params);
+  DataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length, true, CHK, params);
 
   // call read a batch
   data_reader.read_a_batch();
@@ -86,7 +86,7 @@ TEST(data_reader_test, data_reader_simple_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, 12);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 12);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -126,7 +126,7 @@ TEST(data_reader_test, data_reader_localized_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, 1);
+  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -170,7 +170,7 @@ TEST(data_reader_test, data_reader_mixed_test) {
   params.push_back(param_localized);
   params.push_back(param_distributed);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, 1, true);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, true);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -222,7 +222,7 @@ TEST(data_reader_test, two_nodes_localized) {
     std::vector<DataReaderSparseParam> params;
     params.push_back(param_localized);
 
-    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, 1);
+    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1);
 
     data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -251,7 +251,7 @@ TEST(data_reader_test, two_nodes_localized) {
     std::vector<DataReaderSparseParam> params;
     params.push_back(param_localized);
 
-    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, 1);
+    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1);
 
     data_reader.create_drwg_norm(file_list_name, CHK);
 

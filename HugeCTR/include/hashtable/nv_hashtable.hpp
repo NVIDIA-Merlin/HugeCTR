@@ -122,17 +122,13 @@ class HashTable {
    * <key,value> pairs of the hash table.
    */
   size_t get_capacity() const;
+
   /**
    * Get the head of the value from the device counter. It's equal to the
    * number of the <key,value> pairs in the hash table.
    */
-  size_t get_value_head(cudaStream_t stream) {
-    size_t counter;
-    CK_CUDA_THROW_(
-        cudaMemcpyAsync(&counter, d_counter_, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
-    CK_CUDA_THROW_(cudaStreamSynchronize(stream));
-    return counter;
-  }
+  size_t get_value_head(cudaStream_t stream) const;
+
   /**
    * Set the head of the value. This will reset a new value to the device counter.
    * @param counter_value the new counter value to be set.
@@ -141,6 +137,7 @@ class HashTable {
     CK_CUDA_THROW_(cudaMemcpyAsync(d_counter_, &counter_value, sizeof(size_t),
                                    cudaMemcpyHostToDevice, stream));
   }
+
   /**
    * Add a number to the head of the value. This will add the given value to the
    * current value of the device counter.
@@ -157,6 +154,11 @@ class HashTable {
     return counter;
   }
 
+  /**
+   * Clear the hash table
+   */
+  void clear(cudaStream_t stream);
+  
  private:
   static const int BLOCK_SIZE_ =
       256; /**< The block size of the CUDA kernels. The default value is 256. */

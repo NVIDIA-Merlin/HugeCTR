@@ -30,11 +30,13 @@ void convert_parquet_dense_columns(std::vector<T*>& dense_column_data_ptr,
 template <typename T>
 size_t convert_parquet_cat_columns(std::vector<T*>& cat_column_data_ptr, int num_params,
                                    int param_id, int num_slots, int batch_size, int num_csr_buffers,
-                                   int num_devices, bool distributed_slot,
+                                   int num_devices, bool distributed_slot, int pid_,
+                                   const std::shared_ptr<ResourceManager> resource_manager,
                                    std::vector<rmm::device_buffer>& csr_value_buffers,
                                    std::vector<rmm::device_buffer>& csr_row_offset_buffers,
                                    int64_t* dev_ptr_staging, uint32_t* dev_embed_param_offset_buf,
                                    T* dev_slot_offset_ptr,
                                    std::deque<rmm::device_buffer>& rmm_resources,
-                                   rmm::mr::device_memory_resource* mr, cudaStream_t task_stream);
+                                   rmm::mr::device_memory_resource *mr,
+                                   cudaStream_t task_stream);
 }  // namespace HugeCTR

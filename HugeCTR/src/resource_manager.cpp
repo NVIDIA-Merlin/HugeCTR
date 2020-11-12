@@ -19,7 +19,10 @@
 #include <utils.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-#include <rmm/mr/device/cnmem_memory_resource.hpp>
+//#include <rmm/mr/device/cnmem_memory_resource.hpp>
+#include <rmm/mr/device/cuda_memory_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #pragma GCC diagnostic pop
 
 namespace HugeCTR {
@@ -72,37 +75,29 @@ ResourceManager::ResourceManager(int num_process, int pid, DeviceMap&& device_ma
     }
   }
 
-  int total_gpu_count = device_map_.size();
-  // if ther are multiple GPUs within a node or/and across nodes
-  if (total_gpu_count > 1) {
-    std::vector<ncclComm_t> comms(local_gpu_count);
+  std::vector<ncclComm_t> comms(local_gpu_count);
 #ifdef ENABLE_MPI
-    ncclUniqueId nid;
-    if (pid_ == 0) CK_NCCL_THROW_(ncclGetUniqueId(&nid));
-    CK_MPI_THROW_(MPI_Bcast((void*)&nid, sizeof(nid), MPI_BYTE, 0, MPI_COMM_WORLD));
+  ncclUniqueId nid;
+  if (pid_ == 0) CK_NCCL_THROW_(ncclGetUniqueId(&nid));
+  CK_MPI_THROW_(MPI_Bcast((void*)&nid, sizeof(nid), MPI_BYTE, 0, MPI_COMM_WORLD));
 
-    CK_NCCL_THROW_(ncclGroupStart());
-    for (size_t i = 0; i < local_gpu_count; i++) {
-      CK_CUDA_THROW_(cudaSetDevice(local_gpu_device_id_list[i]));
-      CK_NCCL_THROW_(ncclCommInitRank(&comms[i], total_gpu_count, nid,
-                                      device_map_.get_global_id(local_gpu_device_id_list[i])));
-    }
-    CK_NCCL_THROW_(ncclGroupEnd());
-#else
-    CK_NCCL_THROW_(ncclCommInitAll(comms.data(), local_gpu_device_id_list.size(),
-                                   local_gpu_device_id_list.data()));
-#endif
-    for (size_t i = 0; i < local_gpu_count; i++) {
-      gpu_resources_.emplace_back(new GPUResource(
-          local_gpu_device_id_list[i], device_map_.get_global_id(local_gpu_device_id_list[i]),
-          dis(gen), comms[i]));
-    }
-  } else {
-    gpu_resources_.emplace_back(
-        new GPUResource(local_gpu_device_id_list[0],
-                        device_map_.get_global_id(local_gpu_device_id_list[0]), dis(gen)));
+  CK_NCCL_THROW_(ncclGroupStart());
+  for (size_t i = 0; i < local_gpu_count; i++) {
+    CK_CUDA_THROW_(cudaSetDevice(local_gpu_device_id_list[i]));
+    CK_NCCL_THROW_(ncclCommInitRank(&comms[i], device_map_.size(), nid,
+                                    device_map_.get_global_id(i)));
   }
-
+  CK_NCCL_THROW_(ncclGroupEnd());
+#else
+  CK_NCCL_THROW_(ncclCommInitAll(comms.data(), local_gpu_device_id_list.size(),
+                                 local_gpu_device_id_list.data()));
+#endif
+  for (size_t i = 0; i < local_gpu_count; i++) {
+    gpu_resources_.emplace_back(new GPUResource(
+        local_gpu_device_id_list[i], device_map_.get_global_id(i),
+        dis(gen), comms[i]));
+  }
+  
   cpu_resource_.reset(new CPUResource(dis(gen), device_map_.get_device_list().size()));
 
   for (size_t i = 0; i < local_gpu_count; i++) {
@@ -116,8 +111,20 @@ ResourceManager::ResourceManager(int num_process, int pid, DeviceMap&& device_ma
 
   const size_t pool_alloc_size = 256 * 1024 * 1024;
   std::vector<int> device_id_list = device_map_.get_device_list();
-  memory_resource_ =
-      std::make_shared<rmm::mr::cnmem_memory_resource>(pool_alloc_size, device_id_list);
+
+  int curr_gpu_device = -1;
+  CK_CUDA_THROW_(cudaGetDevice(&curr_gpu_device));
+  using dmmr = rmm::mr::device_memory_resource;
+  for (size_t i = 0; i < device_id_list.size(); i++) {
+    CK_CUDA_THROW_(cudaSetDevice(device_id_list[i]));
+    base_cuda_mr_.emplace_back(std::shared_ptr<rmm::mr::cuda_memory_resource>(
+                                          new rmm::mr::cuda_memory_resource()));
+    memory_resource_.emplace_back(std::shared_ptr<rmm::mr::pool_memory_resource<dmmr>>(
+                                      new rmm::mr::pool_memory_resource<dmmr>(base_cuda_mr_.back().get(),
+                                                                        pool_alloc_size)));
+    rmm::mr::set_current_device_resource(memory_resource_.back().get());
+  }
+  CK_CUDA_THROW_(cudaSetDevice(curr_gpu_device));
 }
 
 bool ResourceManager::p2p_enabled(int src_device_id, int dst_device_id) const {

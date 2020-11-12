@@ -275,8 +275,6 @@ class SparseEmbeddingFunctors {
    * @param temp_storage_scan the pointer of the temp buffer for the CUB lib scaning API
    * @param temp_storage_scan_bytes the bytes of the temp buffer for the CUB lib scaning API
    * @param wgrad the pointer of wgrad
-   * @param deltaw_hash_value_index the pointer of deltaw's corresponding hash value_index
-   * @param deltaw the pointer of deltaw, which is used to update the hash table value
    * @param hash_table_value the pointer of hash table value, which will be updated
    */
   template <typename TypeHashKey, typename TypeEmbeddingComp>
@@ -290,9 +288,8 @@ class SparseEmbeddingFunctors {
                      Tensor2<uint32_t> &hash_value_flag_sumed,
                      Tensor2<uint32_t> &hash_value_index_count_counter,
                      Tensor2<void> &temp_storage_sort, Tensor2<void> &temp_storage_scan,
-                     const Tensor2<TypeEmbeddingComp> &wgrad,
-                     Tensor2<size_t> &deltaw_hash_value_index, Tensor2<float> &deltaw,
-                     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
+                     const Tensor2<TypeEmbeddingComp> &wgrad, Tensor2<float> &hash_table_value,
+                     size_t sm_count, cudaStream_t stream);
 
   /**
    * update_params for LocalizedSlotSparseEmbeddingOneHot.
@@ -510,6 +507,17 @@ class SparseEmbeddingFunctors {
                            Tensor2<TypeEmbeddingComp> &embedding_feature,
                            Tensors2<TypeEmbeddingComp> &temp_tensors,
                            const ResourceManager &resource_manager);
+
+  /**
+   * get forward results from GPUs to TensorFlow's tensor.
+  */
+  template <typename TypeEmbeddingComp>
+  void get_forward_results(size_t memcpy_size,
+                           const Tensors2<TypeEmbeddingComp> &embedding_feature_tensors,
+                           void* const embedding_feature,
+                           Tensors2<TypeEmbeddingComp> &temp_tensors,
+                           const ResourceManager &resource_manager,
+                           const bool on_gpu);
 
   /**
    * get backward results from GPU to CPU. This functin is just used for utest.

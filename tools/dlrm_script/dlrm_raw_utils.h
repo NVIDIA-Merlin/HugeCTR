@@ -27,7 +27,7 @@
 #include <cstdlib>
 #include <numeric>
 #include <cuda_runtime_api.h>
-#include <cudf/io/functions.hpp>
+#include <cudf/io/csv.hpp>
 #include <cudf/types.hpp>
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
@@ -35,7 +35,9 @@
 #include <cudf/column/column.hpp>
 #include <cudf/strings/strings_column_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/cnmem_memory_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/mr/device/cuda_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include <hash/concurrent_unordered_map.cuh>
 #include <cudf/table/table.hpp>
 #include <HugeCTR/include/common.hpp>
@@ -549,23 +551,22 @@ size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string i
   binary_reader.close();
 
   size_t read_chunks = 128 * 1024 * 1024;
-  cudf_io::read_csv_args in_args{cudf_io::source_info{input_file_path}};
+  cudf_io::csv_reader_options in_args = cudf_io::csv_reader_options::builder(
+                                                cudf_io::source_info{input_file_path}).header(-1);
   // reader crashes without adding dtypes of data
-  in_args.dtype = column_dtypes; 
-  in_args.names = column_names;
-
-  in_args.delimiter = '\t';
-  in_args.byte_range_size = read_chunks;
-  in_args.skipfooter = 0;
-  in_args.skiprows = 0;
-  in_args.header = -1;
-  in_args.byte_range_offset = file_skip_bytes;
+  in_args.set_dtypes(column_dtypes);
+  in_args.set_names(column_names);
+  in_args.set_delimiter('\t');
+  in_args.set_byte_range_size(read_chunks); // how many bytes to read at one time.
+  in_args.set_skipfooter(0);
+  in_args.set_skiprows(0);
+  in_args.set_byte_range_offset(file_skip_bytes);
 
   int loop_count = 0;
   int32_t read_row_nums = 0; // already read how many rows
 
   while (true) {
-    process_read_bytes += in_args.byte_range_size;
+    process_read_bytes += in_args.get_byte_range_size();
     auto tbl_w_metadata = cudf_io::read_csv(in_args, mr);
     int32_t num_rows = tbl_w_metadata.tbl->num_rows();
     read_row_nums += num_rows;
@@ -650,12 +651,14 @@ size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string i
       }
     }
 
-    in_args.byte_range_offset += read_chunks;
-    if (in_args.byte_range_offset >= file_size)
+    size_t new_byte_range_offset = in_args.get_byte_range_offset() + read_chunks;
+    in_args.set_byte_range_offset(new_byte_range_offset);
+    if (in_args.get_byte_range_offset() >= file_size)
       break;
-    
-    if ((in_args.byte_range_offset + read_chunks) > file_size) {
-      in_args.byte_range_size = file_size - in_args.byte_range_offset;
+
+    if ((in_args.get_byte_range_offset() + read_chunks) > file_size) {
+      size_t new_byte_range_size = file_size - in_args.get_byte_range_offset();
+      in_args.set_byte_range_size(new_byte_range_size);
     }
     loop_count++;
     

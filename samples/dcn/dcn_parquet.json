@@ -14,7 +14,7 @@
   
   "optimizer": {
     "type": "Adam",
-    "global_update": true,
+    "update_type": "Global",
     "adam_hparam": {
       "learning_rate": 0.001,
       "beta1": 0.9,
@@ -56,7 +56,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 434428,
+        "max_vocabulary_size_per_gpu": 1737715,
         "embedding_vec_size": 16,
         "combiner": 0
       }

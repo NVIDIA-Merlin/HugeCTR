@@ -99,7 +99,7 @@ __forceinline__ void mpi_init() {
 #endif
 }
 
-__forceinline__ void mpi_finialize() {
+__forceinline__ void mpi_finalize() {
 #ifdef ENABLE_MPI
   MPI_Finalize();
 #endif

@@ -18,7 +18,7 @@
 
 namespace HugeCTR {
 
-SolverParser::SolverParser(const std::string& file) : configure_file(file) {
+SolverParser::SolverParser(const std::string& file) {
   try {
     int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
@@ -28,9 +28,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
 
     /* file read to json */
     nlohmann::json config;
-    std::ifstream file_stream(configure_file);
+    std::ifstream file_stream(file);
     if (!file_stream.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + configure_file);
+      CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + file);
     }
     file_stream >> config;
     file_stream.close();
@@ -52,7 +52,27 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
     }
 
     display = get_value_from_json<int>(j, "display");
-    max_iter = get_value_from_json<int>(j, "max_iter");
+
+    bool has_max_iter = has_key_(j, "max_iter");
+    bool has_num_epochs = has_key_(j, "num_epochs");
+    if (has_max_iter && has_num_epochs) {
+      CK_THROW_(Error_t::WrongInput, "max_iter and num_epochs cannot be used together.");
+    }
+    else {
+      if (has_max_iter) {
+        max_iter = get_value_from_json<int>(j, "max_iter");
+        num_epochs = 0;
+      }
+      else if (has_num_epochs) {
+        max_iter = 0;
+        num_epochs = get_value_from_json<int>(j, "num_epochs");
+      }
+      else {
+        max_iter = 0;
+        num_epochs = 1;
+      }
+    }
+
     snapshot = get_value_from_json<int>(j, "snapshot");
     batchsize = get_value_from_json<int>(j, "batchsize");
     // batchsize_eval = get_value_from_json<int>(j, "batchsize_eval");

@@ -1,30 +1,27 @@
 # <img src="docs/user_guide_src/merlin_logo.png" alt="logo" width="85"/> Merlin: HugeCTR #
-[![v22](docs/user_guide_src/version.JPG)](docs/hugectr_user_guide.md#newly-added-features-in-version-22)
+[![v23](docs/user_guide_src/version.JPG)](docs/hugectr_user_guide.md/#whats-new-in-version-23)
 
 HugeCTR is a recommender specific framework which is capable of distributed training across multiple GPUs and nodes for Click-Through-Rate (CTR) estimation.
-It is a component of [**NVIDIA Merlin**](https://developer.nvidia.com/nvidia-merlin#getstarted),
+It is the training component of [**NVIDIA Merlin**](https://developer.nvidia.com/nvidia-merlin#getstarted),
 which is an open beta framework accelerating the entire pipeline from data ingestion and training to deploying GPU-accelerated recommender systems.
+This document contains the instructions on how to quickly get started with HugeCTR, including the use of our docker image and one of our samples.
+For more detailed information, please refer to [**HugeCTR User Guide**](docs/hugectr_user_guide.md). 
 
 Design Goals:
-* Fast: it's a speed-of-light CTR training framework;
-* Dedicated: we consider everything you need in CTR training;
-* Easy: you can start your work now, no matter if you are a data scientist, a learner, or a developer.
+* Fast: HugeCTR is a speed-of-light CTR model framework.
+* Dedicated: HugeCTR focuses on essential things which you need in training your CTR model.
+* Easy: you can quickly be used to HugeCTR, regardless of whether you are a data scientist or machine learning practitioner. 
 
-## Version 2.2.1
-HugeCTR version 2.2.1 is a minor update to v2.2, which includes the Parquet data support, the sample preprocessing script rewritten in nvTabular, etc. Find the full list of changes [**here**](docs/hugectr_user_guide.md#whats-new-in-version-221).
-
-## Version 2.2
-In HugeCTR version 2.2, we add [**the new features**](docs/hugectr_user_guide.md#whats-new-in-version-22) like *full fp16 pipeline*, *algorithm search*, *AUC calculation*, etc, 
-whilst enabling the support of the world's most advanced accelerator, NVIDIA A100 Tensor Core GPU and the modern models such as *Wide and Deep*, *Deep Cross Network*, *DeepFM*, *Deep Learning Recommendation Model (DLRM)*.
-This document describes how to set up the environment and run HugeCTR.
-For more details such as HugeCTR architecture and supported features, please refer to [**HugeCTR User Guide**](docs/hugectr_user_guide.md) and [**Questions and Answers**](docs/QAList.md) in directory `docs/`
+## Version 2.3
+HugeCTR version 2.3 includes the features which enrich interoperability and user convenience such as Python Interface, HugeCTR embedding as Tensorflow Op, Model Prefetching. You can also find the full list of changes [**here**](docs/hugectr_user_guide.md#whats-new-in-version-23).
 
 ## Getting Started with NGC
 A production docker image of HugeCTR is available in the NVIDIA container repository at the following location: https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
 
 You can pull and launch the container using the following command:
 ```shell
-docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.2.1 bash
+docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.3
+# To use Tensorflow, especially if you want to try the HugeCTR embedding op, please use tag `v2.3_tf` instead.
 ```
 If you are running on a docker version 19+, change `--runtime=nvidia` to `--gpus all`.
 
@@ -43,15 +40,15 @@ git submodule update --init --recursive
 Inside the HugeCTR directory, build a docker image:
 ```shell
 # It may take a long time to download and build all the dependencies.
-docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile . #docker support A100. To use Tensorflow please use dev.tf.Dockerfile instead.
+docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile . # To use Tensorflow, especially if you want to try our HugeCTR embedding op with Tensorflow, please use dev.tfplugin.Dockerfile instead.
 ```
 If you have Docker 19.03 or later, run the container with the following command: 
 ```shell
-docker run --gpus all --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+docker run --gpus all --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
 ```
 Otherwise, run the container with the following command: 
 ```shell
-docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
 ```
 
 
@@ -104,17 +101,19 @@ The other sample models and their end-to-end instructions are available inside [
 ## Requirements ##
 * cuBLAS >= 10.1
 * Compute Capability >= 70 (V100)
-* CMake >= 3.8
+* CMake >= 3.17.0
 * cuDNN >= 7.5
 * NCCL >= 2.0
+* RMM >= 0.16
+* CUDF >= 0.16
 * Clang-Format 3.8
 * GCC >= 7.4.0
-* ortools
+* ortools >= 7.6.7691
 ### Optional, if require multi-nodes training ###
 * OpenMPI >= 4.0
-* UCX library >= 1.6
-* HWLOC library >= 2.1.0
-* mpi4py
+* UCX library >= 1.8.0
+* HWLOC library >= 2.2.0
+* mpi4py >= 3.0.3
 
 ## Supported Compute Capabilities ##
 |Compute Compatibility|GPU|
@@ -137,7 +136,7 @@ $ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile .
 ```
 Run with interaction mode (mount the home directory of repo into container for easy development and try):
 ```shell
-$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
 ```
 
 To build a docker image of **production environment**, run the command below.
@@ -179,7 +178,7 @@ $ cmake -DVAL_MODE=ON ..
 $ make -j
 ```
 
-### Build with Multi-Nodes Training Supported ###
+### Build with Multi-Node Training Supported ###
 To run with multi-nodes please build in this way and run HugeCTR with `mpirun`. For more details please refer to `samples/dcn2nodes`
 ```shell
 $ mkdir -p build
@@ -198,15 +197,16 @@ $ make -j
 ```
 
 ## Synthetic Data Generation and Benchmark ##
-For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`.
+For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`. For categorical features, you can configure the probability distribution to be uniform or power-law.
+The default distribution is uniform.
 - For `Norm` format: <br>
 ```bash
-$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (num_files) (num_samples_per_file)
+$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
 $ ./huge_ctr --train your_config.json
 ```
 - For `Raw` format: <br>
 ```bash
-$ ./data_generator your_config.json
+$ ./data_generator your_config.json (--long-tail <long|medium|short>)
 $ ./huge_ctr --train your_config.json
 ```
 
@@ -214,96 +214,9 @@ Parameters:
 + `data_folder`: Directory where the generated dataset is stored.
 + `vocabulary_size`: Total vocabulary size of your target dataset, which cannot be exceed `max_vocabulary_size_per_gpu` **x** the number of active GPUs. 
 + `max_nnz`: You can use this parameter to simulate one-/multi-hot encodings. If you just want to use the one-hot encoding, set this parameter to 1. Otherwise, [1, max_nnz] values will be generated for each slot. **Note** that `max_nnz * slot_num` must be less than `max_feature_num_per_sample` in the data layer of the used JSON config file.
-+ `num_files`: Number of data file will be generated (optional)
-+ `num_samples_per_file`: Number of samples per file (optional)
-
-## File Format ##
-In total, there are three types of files used in HugeCTR training: a configuration file, model file and dataset.
-
-### Configuration File ###
-Configuration file must be in a json format, e.g., [simple_sparse_embedding_fp32.json](test/utest/simple_sparse_embedding_fp32.json)
-
-There are three main JSON objects in a configuration file: "solver", "optimizer", and "layers". They can be specified in any order.
-* solver: the active GPU list, batchsize, model_file, etc are specified.
-* optimizer: The type of optimizer and its hyperparameters are specified.
-* layers: training/evaluation data (and their paths), embeddings and dense layers are specified. Note that embeddings must precede the dense layers.
-
-### Model File ###
-Model file is a binary file that will be loaded to initialize weights.
-In that file, the weights are stored in the same order with the layers in the configuration file. 
-
-We provide a tutorial on [**how to dump a model to TensorFlow**](./tutorial/dump_to_tf/readMe.md). You can find more details on `Model file and it format` there.
-
-### Data Set ###
-Two format of data set are supported in HugeCTR:
-#### Norm ####
-Norm format consists of a collection of data files and a file list.
-
-The first line of a file list is the number of data files in the dataset.
-It is followed by the paths to those files.
-```shell
-$ cat simple_sparse_embedding_file_list.txt
-10
-./simple_sparse_embedding/simple_sparse_embedding0.data
-./simple_sparse_embedding/simple_sparse_embedding1.data
-./simple_sparse_embedding/simple_sparse_embedding2.data
-./simple_sparse_embedding/simple_sparse_embedding3.data
-./simple_sparse_embedding/simple_sparse_embedding4.data
-./simple_sparse_embedding/simple_sparse_embedding5.data
-./simple_sparse_embedding/simple_sparse_embedding6.data
-./simple_sparse_embedding/simple_sparse_embedding7.data
-./simple_sparse_embedding/simple_sparse_embedding8.data
-./simple_sparse_embedding/simple_sparse_embedding9.data
-```
-
-A data file (binary) consists of a header and actual tabular data.
-
-Header Definition:
-```c
-typedef struct DataSetHeader_ {
-  long long error_check;        // 0: no error check; 1: check_num
-  long long number_of_records;  // the number of samples in this data file
-  long long label_dim;          // dimension of label
-  long long dense_dim;          // dimension of dense feature
-  long long slot_num;           // slot_num for each embedding
-  long long reserved[3];        // reserved for future use
-} DataSetHeader;
-
-```
-
-Data Definition (each sample):
-```c
-typedef struct Data_{
-  int length;                   // bytes in this sample (optional: only in check_sum mode )
-  float label[label_dim];       
-  float dense[dense_dim];
-  Slot slots[slot_num];          
-  char checkbits;                // checkbit for this sample (optional: only in checksum mode)
-} Data;
-
-typedef struct Slot_{
-  int nnz;
-  unsigned int*  keys; // changeable to `long long` with `"input_key_type"` in `solver` object of JSON config file.
-} Slot;
-```
-
-#### RAW ####
-RAW format is introduced in HugeCTR v2.2
-
-Different to `Norm` format, The training Data in `RAW` format is all in one binary file and in int32, no matter Label / Dense Feature / Category Features.
-
-The number of Samples / Dense feature / Category feature / label dimension are all declared in the configure json file.
-
-Note that only one-hot data is accepted with this format.
-
-Data Definition (each sample):
-```c
-typedef struct Data_{
-  int label[label_dim];       
-  int dense[dense_dim];
-  int category[sparse_dim];
-} Data;
-```
++ `--files`: Number of data files will be generated (optional). The default value is `128`.
++ `--samples`: Number of samples per file (optional). The default value is `40960`.
++ `--long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. There are three option values to be chosen from, i.e., `long`, `medium` and `short`, which characterize the properties of the tail. The scaling exponent will be 1, 3, and 5 correspondingly.
 
 ## Coding Style and Refactor ##
 Default coding style follows Google C++ coding style [(link)](https://google.github.io/styleguide/cppguide.html).
@@ -329,7 +242,9 @@ $ git diff
 ```
 
 ## Document Generation ##
-Doxygen is supported in HugeCTR and by default an on-line documentation browser (in HTML) and an off-line reference manual (in LaTeX) can be generated within `docs/`.
+You can consider to use Doxygen if you are interested in understanding HugeCTR's C++ class hierarchy and their functions.
+By default, inside the  `docs` directory, a HTML document and a LaTeX based reference manual are generated.
+
 ### Install ###
 [Download doxygen](http://www.doxygen.nl/download.html)
 ### Generation ###

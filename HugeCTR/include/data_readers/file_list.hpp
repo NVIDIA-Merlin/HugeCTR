@@ -101,9 +101,18 @@ class FileList {
    * Get a file name from the list.
    * @return the file name and id.
    */
-  std::string get_a_file_with_id(unsigned int id) {
-    int current_file_idx = id % num_of_files_;
-    return file_vector_[current_file_idx];
+  std::string get_a_file_with_id(unsigned int id, bool repeat) {
+    if (repeat) {
+      int current_file_idx = id % num_of_files_;
+      return file_vector_[current_file_idx];
+    }
+    else {
+      if (static_cast<int>(id) < num_of_files_) {
+        return file_vector_[id];
+      } else {
+        return std::string();
+      }
+    }
   }
 
   std::string get_file_type() { return file_type_; }

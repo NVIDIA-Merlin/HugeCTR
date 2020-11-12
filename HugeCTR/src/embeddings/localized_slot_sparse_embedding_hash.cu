@@ -15,6 +15,7 @@
  */
 #include "HugeCTR/include/data_simulator.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/utils.cuh"
 #include "HugeCTR/include/utils.hpp"
 #include "cub/cub/device/device_radix_sort.cuh"
 #include "cub/cub/device/device_scan.cuh"
@@ -155,11 +156,18 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
       switch (Base::get_optimizer()) {
         case Optimizer_t::Adam:  // adam
         {
-          Tensor2<TypeEmbeddingComp> tensor;
-          buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-          opt_m_tensors_.push_back(tensor);
-          buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-          opt_v_tensors_.push_back(tensor);
+          {
+            Tensor2<TypeEmbeddingComp> tensor;
+            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
+            opt_m_tensors_.push_back(tensor);
+            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
+            opt_v_tensors_.push_back(tensor);
+          }
+          if (Base::get_update_type() == Update_t::LazyGlobal) {
+            Tensor2<uint64_t> tensor;
+            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
+            opt_prev_time_tensors_.push_back(tensor);
+          }
           break;
         }
 
@@ -221,18 +229,6 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
         Tensor2<uint32_t> tensor;
         buf->reserve({1, 1}, &tensor);
         hash_value_index_count_counter_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<size_t> tensor;
-        buf->reserve({1, Base::get_batch_size(true) * Base::get_max_feature_num()}, &tensor);
-        deltaw_hash_value_index_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<float> tensor;
-        buf->reserve({Base::get_batch_size(true) * Base::get_max_feature_num(),
-                      Base::get_embedding_vec_size()},
-                     &tensor);
-        deltaw_tensors_.push_back(tensor);
       }
       {
         // cal the temp storage bytes for CUB radix sort
@@ -319,6 +315,14 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
           CK_CUDA_THROW_(cudaMemsetAsync(opt_v_tensors_[id].get_ptr(), 0,
                                          opt_v_tensors_[id].get_size_in_bytes(),
                                          Base::get_local_gpu(id).get_stream()));
+          if (Base::get_update_type() == Update_t::LazyGlobal) {
+            dim3 grid(Base::get_local_gpu(id).get_sm_count() * 4, 1, 1);
+            dim3 block(512, 1, 1);
+            initialize_array<<<grid, block, 0, Base::get_local_gpu(id).get_stream()>>>(
+                opt_prev_time_tensors_[id].get_ptr(), opt_prev_time_tensors_[id].get_num_elements(),
+                uint64_t(1));
+            target_opt_param.hyperparams.adam.prev_time_ptr = opt_prev_time_tensors_[id].get_ptr();
+          }
           target_opt_param.hyperparams.adam.times = 0;
           target_opt_param.hyperparams.adam.beta1 = source_opt_param.hyperparams.adam.beta1;
           target_opt_param.hyperparams.adam.beta2 = source_opt_param.hyperparams.adam.beta2;
@@ -417,7 +421,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_params_to_device(
+void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
     std::ifstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
     size_t max_vocabulary_size_per_gpu, Tensors2<float> &hash_table_value_tensors,
     Tensors2<size_t> &hash_table_slot_id_tensors,
@@ -745,7 +749,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::upload_pa
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::download_params_to_host(
+void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
     std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
     const Tensors2<float> &hash_table_value_tensors,
     const Tensors2<size_t> &hash_table_slot_id_tensors,
@@ -993,6 +997,30 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::init_embe
   }
 
   return;
+}
+
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::reset() {
+  CudaDeviceContext context;
+  for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+    context.set_device(Base::get_local_gpu(i).get_device_id());
+    hash_tables_[i]->clear(Base::get_local_gpu(i).get_stream());
+
+    if (slot_size_array_.empty()) {
+      HugeCTR::UniformGenerator::fill(hash_table_value_tensors_[i], -0.05f, 0.05f,
+                                      Base::get_local_gpu(i));
+    } else {
+      functors_.init_embedding_per_gpu(Base::get_local_gpu(i).get_global_gpu_id(),
+                                       Base::get_resource_manager().get_global_gpu_count(),
+                                       slot_size_array_, Base::get_embedding_vec_size(),
+                                       value_table_tensors_[i], hash_table_slot_id_tensors_[i],
+                                       Base::get_local_gpu(i));
+    }
+  }
+
+  for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
+    CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(i).get_stream()));
+  }
 }
 
 template class LocalizedSlotSparseEmbeddingHash<unsigned int, float>;

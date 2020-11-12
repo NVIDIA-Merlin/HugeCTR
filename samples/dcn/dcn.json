@@ -13,7 +13,7 @@
   
   "optimizer": {
     "type": "Adam",
-    "global_update": true,
+    "update_type": "Global",
     "adam_hparam": {
       "learning_rate": 0.001,
       "beta1": 0.9,

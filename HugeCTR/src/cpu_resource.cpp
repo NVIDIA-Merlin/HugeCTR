@@ -22,11 +22,6 @@ namespace HugeCTR {
 CPUResource::CPUResource(unsigned long long seed, size_t thread_num) {
   CK_CURAND_THROW_(curandCreateGeneratorHost(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
   CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(curand_generator_, seed));
-
-  thread_pool_ = std::make_shared<ctpl::thread_pool>(thread_num);
-  for (size_t i = 0; i < thread_num; i++) {
-    set_affinity(thread_pool_->get_thread(i), {}, true);
-  }
 }
 
 CPUResource::~CPUResource() { curandDestroyGenerator(curand_generator_); }

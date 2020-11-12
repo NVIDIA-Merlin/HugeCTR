@@ -15,7 +15,7 @@
   
   "optimizer": {
     "type": "SGD",
-    "global_update": false,
+    "update_type": "Local",
     "sgd_hparam": {
       "learning_rate": 24.0,
       "atomic_update": true,

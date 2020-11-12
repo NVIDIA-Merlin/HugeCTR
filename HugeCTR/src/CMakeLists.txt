@@ -88,6 +88,10 @@ file(GLOB huge_ctr_src
   embeddings/distributed_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_one_hot.cu
+  model_oversubscriber/distributed_parameter_server_delegate.cpp
+  model_oversubscriber/model_oversubscriber_impl.cpp
+  model_oversubscriber/parameter_server.cpp
+  model_oversubscriber/parameter_server_manager.cpp
   diagnose.cu
 )
 
@@ -95,10 +99,10 @@ set(CMAKE_CXX_STANDARD 14)
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf rmm)
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf)
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
-  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf rmm)
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf)
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
