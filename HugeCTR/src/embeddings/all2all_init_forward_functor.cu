@@ -71,11 +71,11 @@ void SparseEmbeddingFunctors::all2all_init_forward(std::unique_ptr<GossipComm::F
   }
   std::cout << "}, gpu global ids: {";
   for (auto dev : device_ids) {
-    std::cout << device_resources->get_global_id(dev) << " ";
+    std::cout << device_resources->get_global_id_from_device_id(dev) << " ";
   }
   std::cout << "}, gpu local ids: {";
   for (auto dev : device_ids) {
-    std::cout << device_resources->get_local_id(device_resources->get_global_id(dev)) << " ";
+    std::cout << device_resources->get_local_id(device_resources->get_global_id_from_device_id(dev)) << " ";
   }
   std::cout << "}" << std::endl;
 #endif
@@ -98,7 +98,7 @@ void SparseEmbeddingFunctors::all2all_init_forward(std::unique_ptr<GossipComm::F
 
   // Fill in sending partition table, ith Topo GPU send to jth global GPU
   for (size_t i = 0; i < local_gpu_count; i++) {
-    size_t global_id = resource_manager.get_local_gpu(i)->get_global_gpu_id();
+    size_t global_id = resource_manager.get_gpu_global_id_from_local_id(i);	
     size_t slot_num_per_gpu =
         slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
     size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;

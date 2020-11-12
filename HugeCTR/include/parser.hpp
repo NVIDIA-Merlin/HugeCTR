@@ -16,7 +16,7 @@
 
 #pragma once
 #include <common.hpp>
-#include <data_reader.hpp>
+#include <data_readers/data_reader.hpp>
 #include <embedding.hpp>
 #include <fstream>
 #include <functional>
@@ -44,6 +44,8 @@ class Parser {
   nlohmann::json config_;  /**< configure file. */
   size_t batch_size_;      /**< batch size. */
   size_t batch_size_eval_; /**< batch size. */
+  const bool repeat_dataset_;
+  const bool i64_input_key_{false};
   const bool use_mixed_precision_{false};
   const float scaler_{1.f};
   const bool use_algorithm_search_;
@@ -55,13 +57,19 @@ class Parser {
    * Ctor only verify the configure file, doesn't create pipeline.
    */
 
-  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
+  Parser(const std::string& configure_file,
+         size_t batch_size,
+         size_t batch_size_eval,
+         bool repeat_dataset,
+         bool i64_input_key = false,
          bool use_mixed_precision = false,
          float scaler = 1.0f,
          bool use_algorithm_search = true,
          bool use_cuda_graph = true)
       : batch_size_(batch_size),
         batch_size_eval_(batch_size_eval),
+        repeat_dataset_(repeat_dataset),
+        i64_input_key_(i64_input_key),
         use_mixed_precision_(use_mixed_precision),
         scaler_(scaler),
         use_algorithm_search_(use_algorithm_search),
@@ -79,26 +87,24 @@ class Parser {
     }
     return;
   }
-  typedef long long TYPE_1;
-  typedef unsigned int TYPE_2;
 
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
-                       std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
-                       std::vector<std::unique_ptr<IEmbedding>>& embedding,
+  void create_pipeline(std::shared_ptr<IDataReader>& data_reader,
+                       std::shared_ptr<IDataReader>& data_reader_eval,
+                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<ResourceManager>& resource_manager);
 
-  /**
-   * Create the pipeline, which includes data reader, embedding.
-   */
-  void create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
-                       std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
-                       std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<Network>>& network,
-                       const std::shared_ptr<ResourceManager>& resource_manager);
+  template <typename TypeKey>
+  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
+                                       std::shared_ptr<IDataReader>& data_reader_eval,
+                                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                                       std::vector<std::unique_ptr<Network>>& network,
+                                       const std::shared_ptr<ResourceManager>& resource_manager,
+                                       Parser& parser);
+
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -109,11 +115,12 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
  * This class is designed to parse the solver clause of the configure file.
  */
 struct SolverParser {
-  std::string configure_file;
+  //  std::string configure_file;
   unsigned long long seed;                  /**< seed of data simulator */
   LrPolicy_t lr_policy;                     /**< the only fixed lr is supported now. */
   int display;                              /**< the interval of loss display. */
   int max_iter;                             /**< the number of iterations for training */
+  int num_epochs;                           /**< the number of epochs for training */
   int snapshot;                             /**< the number of iterations for a snapshot */
   std::string snapshot_prefix;              /**< naming prefix of snapshot file */
   int eval_interval;                        /**< the interval of evaluations */
@@ -130,7 +137,9 @@ struct SolverParser {
   bool use_algorithm_search;
   bool use_cuda_graph;
   SolverParser(const std::string& file);
+  SolverParser(){}
 };
+
 
 template <typename T>
 struct SparseInput {
@@ -182,6 +191,11 @@ static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"MomentumSGD", Optimizer_t::MomentumSGD},
     {"Nesterov", Optimizer_t::Nesterov},
     {"SGD", Optimizer_t::SGD}};
+
+static const std::map<std::string, Update_t> UPDATE_TYPE_MAP = {
+    {"Local", Update_t::Local},
+    {"Global", Update_t::Global},
+    {"LazyGlobal", Update_t::LazyGlobal}};
 
 static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
     {"L1", Regularizer_t::L1},

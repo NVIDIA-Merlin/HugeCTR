@@ -22,6 +22,7 @@
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <vector>
 #include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/resource_manager.hpp"
 
 namespace HugeCTR {
 
@@ -419,6 +420,8 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
  * @param num_csr_buffers number of csr buffers in csr heap
  * @param num_devices number of gpu devices
  * @param distributed_slot flag to set distributed slot processing
+ * @param pid pid of node
+ * @param resource_manager ResourceManager handle for session
  * @param csr_value_buffers vector of device buffers to write csr values
  * @param csr_row_offset_buffers vector of device buffers to write csr row offset values
  * @param dev_ptr_staging pointer to pinned memory for copying pointer address from h2d
@@ -432,13 +435,15 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
 template <typename T>
 size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int num_params,
                                    int param_id, int num_slots, int batch_size, int num_csr_buffers,
-                                   int num_devices, bool distributed_slot,
+                                   int num_devices, bool distributed_slot, int pid,
+                                   const std::shared_ptr<ResourceManager> resource_manager,
                                    std::vector<rmm::device_buffer> &csr_value_buffers,
                                    std::vector<rmm::device_buffer> &csr_row_offset_buffers,
                                    int64_t *dev_ptr_staging, uint32_t *dev_embed_param_offset_buf,
                                    T *dev_slot_offset_ptr,
                                    std::deque<rmm::device_buffer> &rmm_resources,
-                                   rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
+                                   rmm::mr::device_memory_resource *mr,
+                                   cudaStream_t task_stream) {
   size_t pinned_staging_elements_used = 0;
   // tiled load and transpose
   size_t size_of_col_ptrs = cat_column_data_ptr.size() * sizeof(int64_t *);
@@ -543,12 +548,16 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
     // dont need all that per param csr buffers are different
     // exscan on only current param's csr buffers
     for (int i = 0; i < num_devices; i++) {
-      int buffer_id = i * num_params + param_id;
-      CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum(
-          cub_tmp_storage.data(), temp_storage_bytes,
-          reinterpret_cast<T *>(pinned_csr_row_offset_staging[buffer_id]),
-          reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]), prefix_sum_items,
-          task_stream));
+      if (pid == resource_manager->get_pid_from_gpu_global_id(i)) {
+        int buffer_id = i * num_params + param_id;
+        CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum(
+            cub_tmp_storage.data(), temp_storage_bytes,
+            reinterpret_cast<T *>(pinned_csr_row_offset_staging[buffer_id]),
+            reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]), prefix_sum_items,
+            task_stream));
+      } else {
+        // pinned_csr_row_offset_buffer[x] are init'd to zero - no need to set again
+      }
     }
 
     // kernel to set csr value based on idx generated in prefix scan - everything is single-hot
@@ -603,10 +612,13 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
     dim3 block_2(1024, 1, 1);
     dim3 grid_2((max_elements_csr_row - 1) / block_2.x + 1, 1, 1);
 
-    for (int i = 0; i < num_csr_buffers; i++) {
-      check_and_set_csr_row_kernel_<T><<<grid_2, block_2, 0, task_stream>>>(
-          (int64_t *)dev_csr_row_offset_ptr.data(), dev_embed_param_offset_buf,
-          max_elements_csr_row, i);
+    for (int device = 0; device < num_devices; device++) {
+      if (pid == resource_manager->get_pid_from_gpu_global_id(device)) {
+        int buf_id = device * num_params + param_id;
+        check_and_set_csr_row_kernel_<T><<<grid_2, block_2, 0, task_stream>>>(
+            (int64_t *)dev_csr_row_offset_ptr.data(), dev_embed_param_offset_buf,
+            max_elements_csr_row, buf_id);
+      }
     }
   }
 
@@ -624,7 +636,8 @@ template void convert_parquet_dense_columns<float>(
 
 template size_t convert_parquet_cat_columns<long long int>(
     std::vector<long long int *> &cat_column_data_ptr, int num_params, int param_id, int num_slots,
-    int batch_size, int num_csr_buffers, int num_devices, bool distributed_slot,
+    int batch_size, int num_csr_buffers, int num_devices, bool distributed_slot, int pid,
+    const std::shared_ptr<ResourceManager> resource_manager,
     std::vector<rmm::device_buffer> &csr_value_buffers,
     std::vector<rmm::device_buffer> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
     uint32_t *dev_embed_param_offset_buf, long long *dev_slot_offset_ptr,
@@ -633,7 +646,8 @@ template size_t convert_parquet_cat_columns<long long int>(
 
 template size_t convert_parquet_cat_columns<unsigned int>(
     std::vector<unsigned int *> &cat_column_data_ptr, int num_params, int param_id, int num_slots,
-    int batch_size, int num_csr_buffers, int num_devices, bool distributed_slot,
+    int batch_size, int num_csr_buffers, int num_devices, bool distributed_slot, int pid,
+    const std::shared_ptr<ResourceManager> resource_manager,
     std::vector<rmm::device_buffer> &csr_value_buffers,
     std::vector<rmm::device_buffer> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
     uint32_t *dev_embed_param_offset_buf, unsigned int *dev_slot_offset_ptr,

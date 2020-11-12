@@ -21,7 +21,7 @@
 #include <functional>
 #include <random>
 #include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
@@ -87,11 +87,17 @@ std::vector<size_t> slot_sizes = {100, 100, 100, 100, 100, 100, 100, 100, 100,
 
 template <typename TypeEmbeddingComp>
 void train_and_test(const std::vector<int> &device_list, const Optimizer_t &optimizer,
-                    bool global_update) {
+                    const Update_t &update_type) {
   OptHyperParams<TypeEmbeddingComp> hyper_params;
   hyper_params.sgd.atomic_update = true;
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, global_update,
+  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
                                                    scaler};
+  float tolerance;
+  if (std::is_same<TypeEmbeddingComp, __half>::value) {
+    tolerance = 5e-3f;
+  } else {
+    tolerance = 1e-4f;
+  }
 
   test::mpi_init();
   int numprocs = 1;
@@ -149,12 +155,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, num_chunk_threads));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
   std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
-      test_batchsize, label_dim, dense_dim, params, resource_manager, num_chunk_threads));
+      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
 
   test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
@@ -222,7 +228,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   {
     // upload hash table to device
     std::ifstream fs(hash_table_file_name);
-    embedding->upload_params_to_device(fs);
+    embedding->load_parameters(fs);
     fs.close();
   }
 
@@ -273,9 +279,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       embedding_cpu->forward();
 
       printf("Rank0: check forward results\n");
-      ASSERT_EQ(true, compare_embedding_feature(train_batchsize * slot_num * embedding_vec_size,
-                                                embedding_feature_from_gpu.get_ptr(),
-                                                embedding_feature_from_cpu));
+      ASSERT_TRUE(compare_embedding_feature(train_batchsize * slot_num * embedding_vec_size,
+                                            embedding_feature_from_gpu.get_ptr(),
+                                            embedding_feature_from_cpu, tolerance));
     }
 
 #ifdef ENABLE_MPI
@@ -296,8 +302,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       embedding_cpu->backward();
 
       printf("Rank0: check backward results: GPU and CPU\n");
-      ASSERT_EQ(true, compare_wgrad(train_batchsize * slot_num * embedding_vec_size,
-                                    wgrad_from_gpu.get_ptr(), wgrad_from_cpu));
+      ASSERT_TRUE(compare_wgrad(train_batchsize * slot_num * embedding_vec_size,
+                                wgrad_from_gpu.get_ptr(), wgrad_from_cpu, tolerance));
     }
 
 #ifdef ENABLE_MPI
@@ -325,7 +331,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   // create new obj for eval()
   {
     std::ofstream fs(hash_table_file_name);
-    embedding->download_params_to_host(fs);
+    embedding->dump_parameters(fs);
     fs.close();
   }
 
@@ -362,45 +368,45 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       test_embedding_cpu->forward();
 
       printf("Rank0: check forward results\n");
-      ASSERT_EQ(true, compare_embedding_feature(test_batchsize * slot_num * embedding_vec_size,
-                                                embedding_feature_from_gpu_eval.get_ptr(),
-                                                embedding_feature_from_cpu_eval));
+      ASSERT_TRUE(compare_embedding_feature(test_batchsize * slot_num * embedding_vec_size,
+                                            embedding_feature_from_gpu_eval.get_ptr(),
+                                            embedding_feature_from_cpu_eval, tolerance));
     }
   }
 
-  test::mpi_finialize();
+  test::mpi_finalize();
 }
 
 }  // namespace
 
 TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_1gpu) {
-  train_and_test<float>({0}, Optimizer_t::SGD, false);
+  train_and_test<float>({0}, Optimizer_t::SGD, Update_t::Local);
 }
 
 TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_4gpu) {
-  train_and_test<float>({0, 1, 2, 3}, Optimizer_t::SGD, false);
+  train_and_test<float>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Local);
 }
 
 TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_global_update_1gpu) {
-  train_and_test<float>({0}, Optimizer_t::SGD, true);
+  train_and_test<float>({0}, Optimizer_t::SGD, Update_t::Global);
 }
 
 TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_global_update_4gpu) {
-  train_and_test<float>({0, 1, 2, 3}, Optimizer_t::SGD, true);
+  train_and_test<float>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global);
 }
 
 TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_1gpu) {
-  train_and_test<__half>({0}, Optimizer_t::SGD, false);
+  train_and_test<__half>({0}, Optimizer_t::SGD, Update_t::Local);
 }
 
 TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_4gpu) {
-  train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, false);
+  train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Local);
 }
 
 TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_global_update_1gpu) {
-  train_and_test<__half>({0}, Optimizer_t::SGD, true);
+  train_and_test<__half>({0}, Optimizer_t::SGD, Update_t::Global);
 }
 
 TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_global_update_4gpu) {
-  train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, true);
+  train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global);
 }

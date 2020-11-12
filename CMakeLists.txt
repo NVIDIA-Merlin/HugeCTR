@@ -111,7 +111,7 @@ set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -Wall -Werror")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Wall -Werror -Wno-unknown-pragmas")
 set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp")
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
 # setting output folder
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -169,8 +169,11 @@ link_directories(
 
 #setting binary files install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
+#setting python interface file install path
+install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local/hugectr)
 
 add_subdirectory(HugeCTR/src)
+add_subdirectory(HugeCTR/pybind)
 add_subdirectory(third_party/googletest)
 add_subdirectory(third_party/json)
 add_subdirectory(test/utest)

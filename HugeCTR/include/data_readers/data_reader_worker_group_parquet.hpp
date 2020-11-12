@@ -29,7 +29,7 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
                                std::string file_list,
                                const std::vector<DataReaderSparseParam> params,
                                const std::vector<long long> slot_offset,
-                               std::shared_ptr<rmm::mr::device_memory_resource> rmm_mr,
+                               const std::shared_ptr<ResourceManager> resource_manager,
                                bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning) {
     if (file_list.empty()) {
@@ -45,11 +45,13 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
       }
     }
 
+    this->set_resource_manager(resource_manager);
+    auto local_device_list = resource_manager_->get_local_gpu_device_id_list();
     int NumThreads = csr_heap->get_size();
     for (int i = 0; i < NumThreads; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
           i, NumThreads, csr_heap, file_list, max_feature_num_per_sample, params, slot_offset,
-          rmm_mr));
+          local_device_list[i], resource_manager_));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();

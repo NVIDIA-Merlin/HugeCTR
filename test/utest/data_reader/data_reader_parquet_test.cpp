@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_reader.hpp"
+#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include <fstream>
 #include "HugeCTR/include/data_readers/parquet_data_reader_worker.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
@@ -25,7 +25,7 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
-#include <cudf/io/functions.hpp>
+#include <cudf/io/parquet.hpp>
 #include <rmm/device_buffer.hpp>
 #pragma GCC diagnostic pop
 
@@ -93,8 +93,10 @@ void generate_parquet_input_files(int num_files, int sample_per_file) {
     cudf::table input_table(std::move(cols));
 
     std::string filepath = prefix + std::to_string(file_num) + std::string(".parquet");
-    cudf::io::write_parquet_args args{cudf::io::sink_info{filepath}, input_table.view()};
-    cudf::io::write_parquet(args);
+    cudf::io::parquet_writer_options writer_args = cudf_io::parquet_writer_options::builder(
+                                                        cudf::io::sink_info{filepath},
+                                                        input_table.view());
+    cudf::io::write_parquet(writer_args);
   }
 
   std::ofstream output_file_stream;
@@ -147,20 +149,20 @@ void generate_parquet_input_files(int num_files, int sample_per_file) {
 }
 
 TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
-  int device_id = 0;
-  size_t pool_alloc_size = 256 * 1024 * 1024;
-  std::vector<int> dev{device_id};
-  std::shared_ptr<rmm::mr::device_memory_resource> mr =
-              std::make_shared<rmm::mr::cnmem_memory_resource>(pool_alloc_size, dev);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::set_default_resource(mr.get());
-#pragma GCC diagnostic pop
+  auto p_mr = rmm::mr::get_current_device_resource();
   generate_parquet_input_files(3, 1024);
 
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 128;
+
+  int numprocs = 1;
+  std::vector<std::vector<int>> vvgpu;
+  std::vector<int> device_list = {0};
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
   
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
                                        slot_num};
@@ -178,29 +180,25 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
 
   // setup a data reader
   ParquetDataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length,
-                                          params, slot_offset, mr);
+                                          params, slot_offset, 0, gpu_resource_group);
 
   // call read a batch
   data_reader.read_a_batch();
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  rmm::mr::set_default_resource(p_mr);
-#pragma GCC diagnostic pop
+  rmm::mr::set_current_device_resource(p_mr);
 }
 
 TEST(data_reader_parquet_worker, data_reader_parquet_worker_localized_test) {
-  int device_id = 0;
-  size_t pool_alloc_size = 256 * 1024 * 1024;
-  std::vector<int> dev{device_id};
-  std::shared_ptr<rmm::mr::device_memory_resource> mr =
-              std::make_shared<rmm::mr::cnmem_memory_resource>(pool_alloc_size, dev);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::set_default_resource(mr.get());
-#pragma GCC diagnostic pop
+  auto p_mr = rmm::mr::get_current_device_resource();
   generate_parquet_input_files(3, 2048);
 
+  int numprocs = 1;
+  std::vector<std::vector<int>> vvgpu;
+  std::vector<int> device_list = {0};
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 1024;
@@ -220,22 +218,16 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_localized_test) {
 
   // setup a data reader
   ParquetDataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length,
-                                          params, slot_offset, mr);
+                                          params, slot_offset, 0, gpu_resource_group);
 
   // call read a batch
   data_reader.read_a_batch();
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  rmm::mr::set_default_resource(p_mr);
-#pragma GCC diagnostic pop
+  rmm::mr::set_current_device_resource(p_mr);
 }
 
 TEST(data_reader_group_test, data_reader_parquet_distributed_test) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::get_default_resource();
-#pragma GCC diagnostic pop
+  auto p_mr = rmm::mr::get_current_device_resource();
   generate_parquet_input_files(4, 2048);
 
   const int batchsize = 1024;
@@ -256,22 +248,16 @@ TEST(data_reader_group_test, data_reader_parquet_distributed_test) {
     slot_offset[i] = slot_offset[i-1] + slot_size[i-1];
   }
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, device_list.size());
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, device_list.size());
   data_reader.create_drwg_parquet(file_list_name, slot_offset, true);
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  rmm::mr::set_default_resource(p_mr);
-#pragma GCC diagnostic pop
+  rmm::mr::set_current_device_resource(p_mr);
 }
 
 TEST(data_reader_group_test, data_reader_parquet_localized_test) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  auto p_mr = rmm::mr::get_default_resource();
-#pragma GCC diagnostic pop
+  auto p_mr = rmm::mr::get_current_device_resource();
   generate_parquet_input_files(4, 2048);
 
   const int batchsize = 1024;
@@ -292,13 +278,11 @@ TEST(data_reader_group_test, data_reader_parquet_localized_test) {
     slot_offset[i] = slot_offset[i-1] + slot_size[i-1];
   }
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, device_list.size());
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, device_list.size());
   data_reader.create_drwg_parquet(file_list_name, slot_offset, true);
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  rmm::mr::set_default_resource(p_mr);
-#pragma GCC diagnostic pop
+
+  rmm::mr::set_current_device_resource(p_mr);
 }

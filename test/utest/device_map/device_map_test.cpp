@@ -32,20 +32,20 @@ TEST(device_map, device_map_basic_teste) {
     for (int i = 0; i < 10; i++) {
       std::cout << "global_id= " << i << "local_id= " << dm0.get_local_device_id(i) << std::endl;
       std::cout << "global_id= " << i << "local_id= " << dm0.get_pid(i) << std::endl;
-      std::cout << "local_id= " << i << "global_id= " << dm0.get_global_id(i) << std::endl;
+      std::cout << "local_id= " << i << "global_id= " << dm0.get_global_id_from_device_id(i) << std::endl;
     } */
 
   /*   std::cout << "dm1.size= " << dm1.size() << std::endl;
     for (int i = 0; i < 10; i++) {
       std::cout << "global_id= " << i << "local_id= " << dm1.get_local_device_id(i) << std::endl;
       std::cout << "global_id= " << i << "local_id= " << dm1.get_pid(i) << std::endl;
-      std::cout << "local_id= " << i << "global_id= " << dm1.get_global_id(i) << std::endl;
+      std::cout << "local_id= " << i << "global_id= " << dm1.get_global_id_from_device_id(i) << std::endl;
     } */
 
   /*   std::cout << "dm2.size= " << dm2.size() << std::endl;
     for (int i = 0; i < 10; i++) {
       std::cout << "global_id= " << i << "local_id= " << dm2.get_local_device_id(i) << std::endl;
       std::cout << "global_id= " << i << "local_id= " << dm2.get_pid(i) << std::endl;
-      std::cout << "local_id= " << i << "global_id= " << dm2.get_global_id(i) << std::endl;
+      std::cout << "local_id= " << i << "global_id= " << dm2.get_global_id_from_device_id(i) << std::endl;
     } */
 }

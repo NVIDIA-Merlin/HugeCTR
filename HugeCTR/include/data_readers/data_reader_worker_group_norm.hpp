@@ -27,7 +27,9 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
  public:
   // Ctor
   DataReaderWorkerGroupNorm(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap,
-                            std::string file_list, Check_t check_type,
+                            std::string file_list,
+                            bool repeat,
+                            Check_t check_type,
                             const std::vector<DataReaderSparseParam> params,
                             bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning) {
@@ -46,7 +48,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
     int NumThreads = csr_heap->get_size();
     for (int i = 0; i < NumThreads; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorker<TypeKey>(
-          i, NumThreads, csr_heap, file_list, max_feature_num_per_sample, check_type, params));
+          i, NumThreads, csr_heap, file_list, max_feature_num_per_sample, repeat, check_type, params));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();

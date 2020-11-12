@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <data_readers/data_reader.hpp>
 #include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
@@ -138,8 +139,18 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
   memset(&opt_hyper_params, 0, sizeof(opt_hyper_params));
   OptParams<Type> opt_params;
 
-  bool global_update = false;
-  global_update = get_value_from_json<bool>(j_optimizer, "global_update");
+  Update_t update_type = Update_t::Local;
+  if (has_key_(j_optimizer, "update_type")) {
+    std::string update_name = get_value_from_json<std::string>(j_optimizer, "update_type");
+    if (!find_item_in_map(update_type, update_name, UPDATE_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "No such update type: " + update_name);
+    }
+  } else if (has_key_(j_optimizer, "global_update")) {
+    bool global_update = get_value_from_json<bool>(j_optimizer, "global_update");
+    if (global_update) update_type = Update_t::Global;
+  } else {
+    MESSAGE_("update_type is not specified, using default: local");
+  }
 
   switch (optimizer_type) {
     case Optimizer_t::Adam: {
@@ -151,7 +162,7 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       opt_hyper_params.adam.beta1 = beta1;
       opt_hyper_params.adam.beta2 = beta2;
       opt_hyper_params.adam.epsilon = epsilon;
-      opt_params = {Optimizer_t::Adam, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::Adam, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::MomentumSGD: {
@@ -159,7 +170,7 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       float momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.momentum.factor = momentum_factor;
-      opt_params = {Optimizer_t::MomentumSGD, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::MomentumSGD, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::Nesterov: {
@@ -167,7 +178,7 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       float momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.nesterov.mu = momentum_factor;
-      opt_params = {Optimizer_t::Nesterov, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::Nesterov, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::SGD: {
@@ -176,7 +187,7 @@ static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       if (has_key_(j_hparam, "atomic_update")) {
         opt_hyper_params.sgd.atomic_update = get_value_from_json<bool>(j_hparam, "atomic_update");
       }
-      opt_params = {Optimizer_t::SGD, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::SGD, learning_rate, opt_hyper_params, update_type};
       break;
     }
     default:
@@ -263,14 +274,10 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
                         const std::shared_ptr<CPUResource>& cpu_resource,
-                        const std::shared_ptr<GPUResource>& gpu_resource,
-                        bool use_mixed_precision,
-                        float scaler,
-                        bool use_algorithm_search,
-                        bool use_cuda_graph) {
-  std::unique_ptr<Network> network(new Network(cpu_resource, gpu_resource,
-                                               use_mixed_precision,
-                                               use_cuda_graph));
+                        const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+                        float scaler, bool use_algorithm_search, bool use_cuda_graph) {
+  std::unique_ptr<Network> network(
+      new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
 
   auto& layers = network->layers_;
   auto& loss_tensor = network->loss_tensor_;
@@ -1033,7 +1040,7 @@ void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense
 template <typename TypeKey, typename TypeFP>
 static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                              std::vector<TensorEntry>* tensor_entries_list,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
+                             std::vector<std::shared_ptr<IEmbedding>>& embedding,
                              Embedding_t embedding_type, const nlohmann::json& config,
                              const std::shared_ptr<ResourceManager>& resource_manager,
                              size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
@@ -1192,20 +1199,23 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
   }
 }
 
+
 template <typename TypeKey>
-static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_reader,
-                                     std::unique_ptr<DataReader<TypeKey>>& data_reader_eval,
-                                     std::vector<std::unique_ptr<IEmbedding>>& embedding,
+static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
+                                     std::shared_ptr<IDataReader>& data_reader_eval,
+                                     std::vector<std::shared_ptr<IEmbedding>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
                                      const std::shared_ptr<ResourceManager>& resource_manager,
-                                     nlohmann::json config,
-                                     size_t batch_size,
-                                     size_t batch_size_eval,
-                                     bool use_mixed_precision,
-                                     float scaler,
-                                     bool use_algorithm_search,
-                                     bool use_cuda_graph) {
+                                     Parser& parser) {
   try {
+    nlohmann::json config = parser.config_;
+    size_t batch_size = parser.batch_size_;
+    size_t batch_size_eval = parser.batch_size_eval_;
+    bool use_mixed_precision = parser.use_mixed_precision_;
+    float scaler = parser.scaler_;
+    bool use_algorithm_search = parser.use_algorithm_search_;
+    bool use_cuda_graph = parser.use_cuda_graph_;
+
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
     std::vector<TensorEntry> tensor_entries_list[resource_manager->get_local_gpu_count()];
     {
@@ -1294,15 +1304,23 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         const int NUM_THREADS = 1;
 #else
         const int NUM_THREADS =
-            format == DataReaderType_t::Parquet ? resource_manager->get_global_gpu_count() : 12;
+            format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
 #endif
 
-        data_reader.reset(new DataReader<TypeKey>(batch_size, label_dim, dense_dim,
-                                                  data_reader_sparse_param_array, resource_manager,
-                                                  NUM_THREADS, use_mixed_precision, false));
-        data_reader_eval.reset(new DataReader<TypeKey>(
-            batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-            NUM_THREADS, use_mixed_precision, cache_eval_data));
+        DataReader<TypeKey> *data_reader_tk = new DataReader<TypeKey>(
+            batch_size, label_dim, dense_dim,
+            data_reader_sparse_param_array,
+            resource_manager,
+            parser.repeat_dataset_,
+            NUM_THREADS, use_mixed_precision, false);
+        data_reader.reset(data_reader_tk);
+        DataReader<TypeKey> *data_reader_eval_tk = new DataReader<TypeKey>(
+            batch_size_eval, label_dim, dense_dim,
+            data_reader_sparse_param_array,
+            resource_manager,
+            parser.repeat_dataset_,
+            NUM_THREADS, use_mixed_precision, cache_eval_data);
+        data_reader_eval.reset(data_reader_eval_tk);
 
         auto f = [&j]() -> std::vector<long long> {
           std::vector<long long> slot_offset;
@@ -1324,8 +1342,11 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
         switch (format) {
           case DataReaderType_t::Norm: {
-            data_reader->create_drwg_norm(source_data, check_type);
-            data_reader_eval->create_drwg_norm(eval_source, check_type);
+            bool start_right_now = parser.repeat_dataset_;
+            data_reader->create_drwg_norm(
+                source_data, check_type, start_right_now);
+            data_reader_eval->create_drwg_norm(
+                eval_source, check_type, start_right_now);
             break;
           }
           case DataReaderType_t::Raw: {
@@ -1341,11 +1362,6 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
             break;
           }
           case DataReaderType_t::Parquet: {
-            const auto& memory_resource = resource_manager->get_rmm_mr_device_memory_resource();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            rmm::mr::set_default_resource(memory_resource.get());
-#pragma GCC diagnostic pop
             // @Future: Should be slot_offset here and data_reader ctor should
             // be TypeKey not long long
             std::vector<long long> slot_offset = f();
@@ -1358,31 +1374,31 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
 
         for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
           tensor_entries_list[i].push_back(
-              {top_strs_label, TensorUse::Train, data_reader->get_label_tensors()[i].shrink()});
+              {top_strs_label, TensorUse::Train, data_reader_tk->get_label_tensors()[i].shrink()});
           tensor_entries_list[i].push_back({top_strs_label, TensorUse::Evaluate,
-                                            data_reader_eval->get_label_tensors()[i].shrink()});
+                                            data_reader_eval_tk->get_label_tensors()[i].shrink()});
 
           if (use_mixed_precision) {
             tensor_entries_list[i].push_back(
-                {top_strs_dense, TensorUse::Train, data_reader->get_dense_tensors()[i]});
+                {top_strs_dense, TensorUse::Train, data_reader_tk->get_dense_tensors()[i]});
             tensor_entries_list[i].push_back(
-                {top_strs_dense, TensorUse::Evaluate, data_reader_eval->get_dense_tensors()[i]});
+                {top_strs_dense, TensorUse::Evaluate, data_reader_eval_tk->get_dense_tensors()[i]});
           } else {
             tensor_entries_list[i].push_back(
-                {top_strs_dense, TensorUse::Train, data_reader->get_dense_tensors()[i]});
+                {top_strs_dense, TensorUse::Train, data_reader_tk->get_dense_tensors()[i]});
             tensor_entries_list[i].push_back(
-                {top_strs_dense, TensorUse::Evaluate, data_reader_eval->get_dense_tensors()[i]});
+                {top_strs_dense, TensorUse::Evaluate, data_reader_eval_tk->get_dense_tensors()[i]});
           }
         }
 
         for (unsigned int i = 0; i < j_sparse.size(); i++) {
           const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
-          sparse_input->second.train_row_offsets = data_reader->get_row_offsets_tensors(i);
-          sparse_input->second.train_values = data_reader->get_value_tensors(i);
-          sparse_input->second.train_nnz = data_reader->get_nnz_array(i);
-          sparse_input->second.evaluate_row_offsets = data_reader_eval->get_row_offsets_tensors(i);
-          sparse_input->second.evaluate_values = data_reader_eval->get_value_tensors(i);
-          sparse_input->second.evaluate_nnz = data_reader_eval->get_nnz_array(i);
+          sparse_input->second.train_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
+          sparse_input->second.train_values = data_reader_tk->get_value_tensors(i);
+          sparse_input->second.train_nnz = data_reader_tk->get_nnz_array(i);
+          sparse_input->second.evaluate_row_offsets = data_reader_eval_tk->get_row_offsets_tensors(i);
+          sparse_input->second.evaluate_values = data_reader_eval_tk->get_value_tensors(i);
+          sparse_input->second.evaluate_nnz = data_reader_eval_tk->get_nnz_array(i);
         }
       }
 
@@ -1422,11 +1438,8 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
                                             total_gpu_count, resource_manager->get_local_cpu(),
-                                            resource_manager->get_local_gpu(i),
-                                            use_mixed_precision,
-                                            scaler,
-                                            use_algorithm_search,
-                                            use_cuda_graph));
+                                            resource_manager->get_local_gpu(i), use_mixed_precision,
+                                            scaler, use_algorithm_search, use_cuda_graph));
       }
     }
 
@@ -1434,28 +1447,23 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
+
 }
 
-void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
-                             std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
+
+void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
+                             std::shared_ptr<IDataReader>& data_reader_eval,
+                             std::vector<std::shared_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
                              const std::shared_ptr<ResourceManager>& resource_manager) {
-  create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, network,
-                                   resource_manager, config_, batch_size_, batch_size_eval_,
-                                   use_mixed_precision_, scaler_, use_algorithm_search_,
-                                   use_cuda_graph_);
+  if (i64_input_key_) {
+    create_pipeline_internal<long long>(data_reader, data_reader_eval, embedding, network,
+                                        resource_manager, *this);
+  } else {
+    create_pipeline_internal<unsigned int>(data_reader, data_reader_eval, embedding, network,
+                                           resource_manager, *this);
+  }
 }
 
-void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
-                             std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                             std::vector<std::unique_ptr<Network>>& network,
-                             const std::shared_ptr<ResourceManager>& resource_manager) {
-  create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, network,
-                                   resource_manager, config_, batch_size_, batch_size_eval_,
-                                   use_mixed_precision_, scaler_, use_algorithm_search_,
-                                   use_cuda_graph_);
-}
 
 }  // namespace HugeCTR

@@ -23,18 +23,24 @@
 #include <vector>
 #include "HugeCTR/include/parser.hpp"
 #include "nlohmann/json.hpp"
+#include "HugeCTR/include/utils.hpp"
+#include <unordered_set>
 
 using namespace HugeCTR;
 
-static std::string usage_str_raw = "usage: ./data_generator your_config.json";
+static std::string usage_str_raw = "usage: ./data_generator your_config.json [option:--long-tail <long|medium|short>]";
 static std::string usage_str =
-    "usage: ./data_generator your_config.json data_folder vocabulary_size max_nnz [option:#files] "
-    "[option:#samples per file]";
+    "usage: ./data_generator your_config.json data_folder vocabulary_size max_nnz [option:--files <number of files>] "
+    "[option:--samples <samples per file>] [option:--long-tail <long|medium|short>]";
 static int NUM_FILES = 128;
 static int NUM_SAMPLES_PER_FILE = 40960;
+static std::unordered_set<std::string> TAIL_TYPE{"long", "medium", "short"};
+static std::string TAIL{"medium"};
+static bool use_long_tail = false;
+static float alpha = 0.0;
 
 int main(int argc, char* argv[]) {
-  if (argc != 2 && argc != 5 && argc != 6 && argc != 7) {
+  if (argc != 2 && argc != 4 && argc != 5 && argc != 7 && argc != 9 && argc != 11) {
     std::cout << "To generate raw format: " << usage_str_raw << std::endl;
     std::cout << "To generate norm format: " << usage_str << std::endl;
     exit(-1);
@@ -67,17 +73,20 @@ int main(int argc, char* argv[]) {
       std::string data_folder = argv[2];
       size_t vocabulary_size = std::stoul(argv[3]);
       int max_nnz = atoi(argv[4]);
-      if (argc == 6 || argc == 7) {
-        NUM_FILES = atoi(argv[5]);
-      }
-      if (argc == 7) {
-        NUM_SAMPLES_PER_FILE = atoi(argv[6]);
-      }
 
+      HugeCTR::ArgParser::parse_data_generator_args(argc, argv, NUM_FILES, NUM_SAMPLES_PER_FILE, TAIL, use_long_tail);
+      if (use_long_tail && TAIL_TYPE.find(TAIL) != std::end(TAIL_TYPE)) {
+        if (TAIL == "long")
+          alpha = 1.0;
+        else if (TAIL == "medium")
+          alpha = 3.0;
+        else
+          alpha = 5.0;
+      }
       std::cout << "Configure File: " << config_file << ", Data Folder: " << data_folder
                 << ", Vocabulary Size: " << vocabulary_size << ", Max NNZ:" << max_nnz
                 << ", #files: " << NUM_FILES << ", #samples per file: " << NUM_SAMPLES_PER_FILE
-                << std::endl;
+                << ", Use power law distribution: " << use_long_tail << ", alpha of power law: " << alpha << std::endl;
 
       int label_dim = 0, dense_dim = 0;
       Check_t check_type;
@@ -127,43 +136,57 @@ int main(int argc, char* argv[]) {
         if (i64_input_key) {  // I64 = long long
           data_generation_for_test<long long, Check_t::Sum>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz);
+              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
           data_generation_for_test<long long, Check_t::Sum>(
               eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz);
+              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
         } else {  // I32 = unsigned int
           data_generation_for_test<unsigned int, Check_t::Sum>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz);
+              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
           data_generation_for_test<unsigned int, Check_t::Sum>(
               eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz);
+              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
         }
       } else {
         if (i64_input_key) {  // I64 = long long
           data_generation_for_test<long long, Check_t::None>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz);
+              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
           data_generation_for_test<long long, Check_t::None>(
               eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz);
+              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
         } else {  // I32 = unsigned int
           data_generation_for_test<unsigned int, Check_t::None>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz);
+              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
           data_generation_for_test<unsigned int, Check_t::None>(
               eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz);
+              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
         }
       }
       break;
     }
     case DataReaderType_t::Raw: {
-      std::cout << "Configure File: " << config_file << std::endl;
-
+      // NUM_FILES and NUM_SAMPLES_PER_FILE will not be used for generating data of Type Raw
+      HugeCTR::ArgParser::parse_data_generator_args(argc, argv, NUM_FILES, NUM_SAMPLES_PER_FILE, TAIL, use_long_tail);
+      if (use_long_tail && TAIL_TYPE.find(TAIL) != std::end(TAIL_TYPE)) {
+        if (TAIL == "long")
+          alpha = 1.0;
+        else if (TAIL == "medium")
+          alpha = 3.0;
+        else
+          alpha = 5.0;
+      }
       const auto num_samples = get_value_from_json<long long>(j_layers_array[0], "num_samples");
       const auto eval_num_samples =
           get_value_from_json<long long>(j_layers_array[0], "eval_num_samples");
+
+      std::cout << "Configure File: " << config_file
+                << ", Number of train samples: " << num_samples
+                << ", Number of eval samples: " << eval_num_samples
+                << ", Use power law distribution: " << use_long_tail 
+                << ", alpha of power law: " << alpha << std::endl;
 
       std::vector<long long> slot_size_array;
       if (has_key_(j_layers_array[0], "slot_size_array")) {
@@ -218,10 +241,12 @@ int main(int argc, char* argv[]) {
 
       // train data
       data_generation_for_raw(source_data, num_samples, label_dim, dense_dim,
-                              slot_size_array.size(), float_label_dense, slot_size_array);
+                              slot_size_array.size(), float_label_dense, slot_size_array, 
+                              use_long_tail, alpha);
       // eval data
       data_generation_for_raw(eval_source, eval_num_samples, label_dim, dense_dim,
-                              slot_size_array.size(), float_label_dense, slot_size_array);
+                              slot_size_array.size(), float_label_dense, slot_size_array,
+                              use_long_tail, alpha);
       break;
     }
     default: {

@@ -35,10 +35,10 @@ void test_parser(std::string& json_name) {
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
   int batch_size = 4096;
-  Parser p(json_name, batch_size, batch_size);
-  std::unique_ptr<DataReader<TypeKey>> data_reader;
-  std::unique_ptr<DataReader<TypeKey>> data_reader_eval;
-  std::vector<std::unique_ptr<IEmbedding>> embedding;
+  Parser p(json_name, batch_size, batch_size, true, false);
+  std::shared_ptr<IDataReader> data_reader;
+  std::shared_ptr<IDataReader> data_reader_eval;
+  std::vector<std::shared_ptr<IEmbedding>> embedding;
   std::vector<std::unique_ptr<Network>> networks;
   const auto& resource_manager = ResourceManager::create(vvgpu, 0);
 

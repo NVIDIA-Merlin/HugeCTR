@@ -4,18 +4,18 @@
     "display": 100,
     "max_iter": 6000,
     "gpu": [0],
-    "batchsize": 16384,
+    "batchsize": 4096,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 2000,
     "eval_batches": 16384,
-    "batchsize_eval": 16384,
+    "batchsize_eval": 4096,
     "input_key_type": "I64"
   },
   
   "optimizer": {
     "type": "Adam",
-    "global_update": true,
+    "update_type": "Global",
     "adam_hparam": {
       "learning_rate": 0.001,
       "beta1": 0.9,

@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <cmath>
 #include <fstream>
+#include <type_traits>
 #include <unordered_set>
 #include "HugeCTR/include/common.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
@@ -27,27 +28,25 @@ namespace HugeCTR {
 
 namespace embedding_test {
 
-const float EPSILON = 1e-4f;
-
-inline bool compare_element(float a, float b) {
+inline bool compare_element(float a, float b, float epsilon) {
   // compare absolute error
-  if (fabs(a - b) < EPSILON) return true;
+  if (fabs(a - b) < epsilon) return true;
 
   // compare relative error
   if (fabs(a) >= fabs(b))
-    if (fabs((a - b) / a) < EPSILON)
+    if (fabs((a - b) / a) < epsilon)
       return true;
     else
       return false;
-  else if (fabs((a - b) / b) < EPSILON)
+  else if (fabs((a - b) / b) < epsilon)
     return true;
   else
     return false;
 }
 
-inline bool compare_array(size_t len, const float *a, const float *b) {
+inline bool compare_array(size_t len, const float *a, const float *b, float epsilon) {
   for (size_t i = 0; i < len; i++) {
-    if (compare_element(a[i], b[i]) != true) {
+    if (!compare_element(a[i], b[i], epsilon)) {
       printf("Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, a[i], b[i]);
       return false;
     }
@@ -57,11 +56,11 @@ inline bool compare_array(size_t len, const float *a, const float *b) {
 }
 
 // overload for fp16 on GPU
-inline bool compare_array(size_t len, const __half *a, const __half *b) {
+inline bool compare_array(size_t len, const __half *a, const __half *b, float epsilon) {
   for (size_t i = 0; i < len; i++) {
     float fa = __half2float(a[i]);
     float fb = __half2float(b[i]);
-    if (compare_element(fa, fb) != true) {
+    if (!compare_element(fa, fb, epsilon)) {
       printf("Error in compare_array: i=%zu, a=%.8f, b=%.8f\n", i, fa, fb);
       return false;
     }
@@ -71,7 +70,7 @@ inline bool compare_array(size_t len, const __half *a, const __half *b) {
 }
 
 template <typename T>
-bool compare_file(std::string file1, std::string file2) {
+bool compare_file(std::string file1, std::string file2, float epsilon) {
   std::ifstream file_stream1(file1);
   std::ifstream file_stream2(file2);
 
@@ -105,7 +104,7 @@ bool compare_file(std::string file1, std::string file2) {
     T val1, val2;
     file_stream1.read((char *)&val1, sizeof(T));
     file_stream2.read((char *)&val2, sizeof(T));
-    if (!compare_element(val1, val2)) {
+    if (!compare_element(val1, val2, epsilon)) {
       rtn = false;
       break;
     }
@@ -119,7 +118,7 @@ bool compare_file(std::string file1, std::string file2) {
 
 // hash table files have same keys and values, but they may be unordered
 template <typename TypeHashKey, typename TypeHashValue>
-bool compare_distributed_hash_table_files(std::string file1, std::string file2) {
+bool compare_distributed_hash_table_files(std::string file1, std::string file2, float epsilon) {
   bool rtn = true;
 
   std::ifstream file_stream1(file1);
@@ -186,7 +185,7 @@ bool compare_distributed_hash_table_files(std::string file1, std::string file2) 
     value1 = (TypeHashValue *)(buf + sizeof(TypeHashKey));
     hash_table->get(key, value2, 1);
 
-    if (!compare_array(value_len, (float *)value1, (float *)value2)) {
+    if (!compare_array(value_len, (float *)value1, (float *)value2, epsilon)) {
       rtn = false;
       break;
     }
@@ -200,7 +199,7 @@ bool compare_distributed_hash_table_files(std::string file1, std::string file2) 
 
 // hash table files have same keys and values, but they may be unordered
 template <typename TypeHashKey, typename TypeSlotId, typename TypeHashValue>
-bool compare_localized_hash_table_files(std::string file1, std::string file2) {
+bool compare_localized_hash_table_files(std::string file1, std::string file2, float epsilon) {
   bool rtn = true;
 
   std::ifstream file_stream1(file1);
@@ -278,7 +277,7 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
 
     hash_table->get(key, value2, 1);
 
-    if (!compare_array(value_len, (float *)value1, (float *)value2)) {
+    if (!compare_array(value_len, (float *)value1, (float *)value2, epsilon)) {
       rtn = false;
       break;
     }
@@ -291,35 +290,35 @@ bool compare_localized_hash_table_files(std::string file1, std::string file2) {
 }
 
 inline bool compare_embedding_feature(int num, float *embedding_feature_from_gpu,
-                                      float *embedding_feature_from_cpu) {
-  return compare_array(num, embedding_feature_from_gpu, embedding_feature_from_cpu);
+                                      float *embedding_feature_from_cpu, float epsilon) {
+  return compare_array(num, embedding_feature_from_gpu, embedding_feature_from_cpu, epsilon);
 }
 
 // overload for fp16 on GPU
 inline bool compare_embedding_feature(int num, __half *embedding_feature_from_gpu,
-                                      __half *embedding_feature_from_cpu) {
-  return compare_array(num, embedding_feature_from_gpu, embedding_feature_from_cpu);
+                                      __half *embedding_feature_from_cpu, float epsilon) {
+  return compare_array(num, embedding_feature_from_gpu, embedding_feature_from_cpu, epsilon);
 }
 
-inline bool compare_wgrad(int num, float *wgrad_from_gpu, float *wgrad_from_cpu) {
-  return compare_array(num, wgrad_from_gpu, wgrad_from_cpu);
+inline bool compare_wgrad(int num, float *wgrad_from_gpu, float *wgrad_from_cpu, float epsilon) {
+  return compare_array(num, wgrad_from_gpu, wgrad_from_cpu, epsilon);
 }
 
 // overlaod for fp16 on GPU
-inline bool compare_wgrad(int num, __half *wgrad_from_gpu, __half *wgrad_from_cpu) {
-  return compare_array(num, wgrad_from_gpu, wgrad_from_cpu);
+inline bool compare_wgrad(int num, __half *wgrad_from_gpu, __half *wgrad_from_cpu, float epsilon) {
+  return compare_array(num, wgrad_from_gpu, wgrad_from_cpu, epsilon);
 }
 
 inline bool compare_embedding_table(long long num, float *embedding_table_from_gpu,
-                                    float *embedding_table_from_cpu) {
-  return compare_array(num, embedding_table_from_gpu, embedding_table_from_cpu);
+                                    float *embedding_table_from_cpu, float epsilon) {
+  return compare_array(num, embedding_table_from_gpu, embedding_table_from_cpu, epsilon);
 }
 
 template <typename TypeHashKey, typename TypeHashValue>
 bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu,
                         TypeHashValue *hash_table_value_from_gpu,
                         TypeHashKey *hash_table_key_from_cpu,
-                        TypeHashValue *hash_table_value_from_cpu) {
+                        TypeHashValue *hash_table_value_from_cpu, float epsilon) {
   bool rtn = true;
 
   // Since the <key1,value1> and <key2,value2> is not the same ordered, we need to insert <key1,
@@ -338,7 +337,7 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
 
     hash_table->get(key, value1, 1);
 
-    if (!compare_array(value_len, (float *)value1, (float *)value2)) {
+    if (!compare_array(value_len, (float *)value1, (float *)value2, epsilon)) {
       std::cout << "Error in compare_hash_table: <key, value> pair number=" << i << std::endl;
       rtn = false;
       break;
