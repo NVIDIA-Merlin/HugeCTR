@@ -49,11 +49,12 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::bprop(const std::string& e
     embedding->backward();
     embedding->update_params();
 
-    /*sync each GPU*/
-    for (size_t dev_id = 0; dev_id < resource_manager_->get_local_gpu_count(); ++dev_id){
+    /*record event on each GPU*/
+    for (size_t dev_id = 0; dev_id < resource_manager_->get_local_gpu_count(); ++dev_id) {
         const auto& local_gpu = resource_manager_->get_local_gpu(dev_id);
         CudaDeviceContext context(local_gpu->get_device_id());
-        WRAPPER_CUDA_CHECK(cudaStreamSynchronize(local_gpu->get_stream()));
+
+        WRAPPER_CUDA_CHECK(cudaEventRecord(events_[dev_id], local_gpu->get_stream()));
     }
 
     return tensorflow::Status::OK();

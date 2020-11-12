@@ -34,6 +34,17 @@ namespace CudaUtils {
         }                                                                           \
     } while (0)
 
+#define PLUGIN_CUDA_CHECK_ASYNC(ctx, cmd, callback)                                     \
+    do {                                                                                \
+        cudaError_t error = (cmd);                                                      \
+        if (error != cudaSuccess) {                                                     \
+            (ctx)->CtxFailure(tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ", \
+                              cudaGetErrorString(error)));                              \
+            (callback)();                                                               \
+            return;                                                                     \
+        }                                                                               \
+    } while (0)    
+
 #define WRAPPER_CUDA_CHECK(cmd)                                                 \
     do {                                                                        \
         cudaError_t error = (cmd);                                              \

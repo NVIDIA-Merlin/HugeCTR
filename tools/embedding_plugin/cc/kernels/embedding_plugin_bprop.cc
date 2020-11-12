@@ -17,6 +17,7 @@
 #include "wrapper_variables.h"
 #include "embedding_utils.hpp"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
 #include "cuda_utils.h"
 #include <memory>
 #include <type_traits>
@@ -33,19 +34,24 @@ It take top gradients (gathered from each output top_gradient) as input,
 and will compute the embedding gradient, then update those parameters.
 */
 template <typename Device>
-class EmbeddingBpropOp : public OpKernel {
+class EmbeddingBpropOp : public AsyncOpKernel {
 public:
-    explicit EmbeddingBpropOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
+    explicit EmbeddingBpropOp(OpKernelConstruction* ctx) : AsyncOpKernel(ctx) {
     }
 
-    void Compute(OpKernelContext* ctx) override {
+    void ComputeAsync(OpKernelContext* ctx, DoneCallback done) override {
+        /*get input*/ 
         const Tensor* top_gradients = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->input("top_gradients", &top_gradients));
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("top_gradients", &top_gradients), done);
         const Tensor* embedding_name = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->input("embedding_name", &embedding_name));
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("embedding_name", &embedding_name), done);
         std::string embedding_name_(embedding_name->flat<tstring>()(0));
         const Tensor* bp_trigger = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->input("bp_trigger", &bp_trigger));
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->input("bp_trigger", &bp_trigger), done);
+
+        /*allocate output*/
+        Tensor* bp_trigger_grad = nullptr;
+        OP_REQUIRES_OK_ASYNC(ctx, ctx->allocate_output(0, bp_trigger->shape(), &bp_trigger_grad), done);
 
         /*do bprop*/
         bool on_gpu = false;
@@ -54,18 +60,34 @@ public:
         } else if (std::is_same<Device, GPUDevice>::value) { 
             on_gpu = true;
         }
-        OP_REQUIRES(ctx, wrapper, errors::Unavailable(__FILE__, ":", __FILE__, " ",
-                            "There is no wrapper instance, you should call hugectr.init() first."));
-        OP_REQUIRES_OK(ctx, wrapper->bprop(embedding_name_, top_gradients, on_gpu));
+        OP_REQUIRES_ASYNC(ctx, wrapper, errors::Unavailable(__FILE__, ":", __FILE__, " ",
+                            "There is no wrapper instance, you should call hugectr.init() first."), done);
 
-        /*give output*/
-        Tensor* bp_trigger_grad = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->allocate_output(0, bp_trigger->shape(), &bp_trigger_grad));
+        auto func = [this, ctx, embedding_name_, top_gradients, on_gpu, done]() -> void {
+            OP_REQUIRES_OK_ASYNC(ctx, wrapper->bprop(embedding_name_, top_gradients, on_gpu), done);
+
+            /*sync TF stream with wrapper stream via event*/
+            OP_REQUIRES_OK_ASYNC(ctx, wrapper->get_events(wrapper_events_), done);
+            const auto& tf_stream = ctx->eigen_gpu_device().stream();
+            for (auto event : wrapper_events_) {
+                PLUGIN_CUDA_CHECK_ASYNC(ctx, cudaStreamWaitEvent(tf_stream, event, 0), done);
+            }
+            done();
+        };
+
+        DeviceContext* device_ctx = ctx->op_device_context();
+        se::Stream* stream = device_ctx->stream();
+        DeviceBase* device = ctx->device();
+        const DeviceBase::GpuDeviceInfo* device_info = device->tensorflow_gpu_device_info();
+        device_info->event_mgr->ThenExecute(stream, std::move(func));
     }
+
+private:
+    std::vector<cudaEvent_t> wrapper_events_;
 };
 
-REGISTER_KERNEL_BUILDER(Name("HugectrEmbeddingBprop").Device(DEVICE_CPU), 
-                        EmbeddingBpropOp<CPUDevice>);
+// REGISTER_KERNEL_BUILDER(Name("HugectrEmbeddingBprop").Device(DEVICE_CPU), 
+                        // EmbeddingBpropOp<CPUDevice>);
 REGISTER_KERNEL_BUILDER(Name("HugectrEmbeddingBprop").Device(DEVICE_GPU), 
                         EmbeddingBpropOp<GPUDevice>);
 
