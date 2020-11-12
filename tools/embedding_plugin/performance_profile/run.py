@@ -103,8 +103,8 @@ def main(args):
             display_end = time.time()
             logging.info("step: %d, loss: %.5f, elapsed time: %.5f seconds." %(step, loss_value, (display_end - display_begin)))
             display_begin = display_end
-        # if step >= 50:
-            # break
+        if step >= 50:
+            break
 
     end_time = time.time()
     logging.info("Train End. Elapsed Time: %.3f seconds." %(end_time - begin_time))
