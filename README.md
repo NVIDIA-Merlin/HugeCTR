@@ -104,14 +104,16 @@ The other sample models and their end-to-end instructions are available inside [
 * CMake >= 3.17.0
 * cuDNN >= 7.5
 * NCCL >= 2.0
+* RMM >= 0.16
+* CUDF >= 0.16
 * Clang-Format 3.8
 * GCC >= 7.4.0
-* ortools
+* ortools >= 7.6.7691
 ### Optional, if require multi-nodes training ###
 * OpenMPI >= 4.0
-* UCX library >= 1.6
-* HWLOC library >= 2.1.0
-* mpi4py
+* UCX library >= 1.8.0
+* HWLOC library >= 2.2.0
+* mpi4py >= 3.0.3
 
 ## Supported Compute Capabilities ##
 |Compute Compatibility|GPU|
