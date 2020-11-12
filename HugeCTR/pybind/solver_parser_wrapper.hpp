@@ -30,12 +30,13 @@ namespace HugeCTR {
 namespace python_lib {
 
 std::unique_ptr<SolverParser> solver_parser_helper(
-    unsigned long long seed, int batchsize_eval, int batchsize, std::string model_file,
+    unsigned long long seed, int eval_batches, int batchsize_eval, int batchsize, std::string model_file,
     std::vector<std::string> embedding_files, std::vector<std::vector<int>> vvgpu,
     bool use_mixed_precision, float scaler, bool i64_input_key, 
     bool use_algorithm_search, bool use_cuda_graph, bool repeat_dataset) {
   std::unique_ptr<SolverParser> solver_config(new SolverParser());
   solver_config->seed = seed;
+  solver_config->eval_batches = eval_batches;
   solver_config->batchsize_eval = batchsize_eval;
   solver_config->batchsize = batchsize;
   solver_config->model_file = model_file;
@@ -46,8 +47,13 @@ std::unique_ptr<SolverParser> solver_parser_helper(
   solver_config->i64_input_key = i64_input_key;
   solver_config->use_algorithm_search = use_algorithm_search;
   solver_config->use_cuda_graph = use_cuda_graph;
-  solver_config->eval_batches = 100;
+  solver_config->lr_policy = LrPolicy_t::fixed;
+  solver_config->display = 0;
+  solver_config->max_iter = 0;
   solver_config->num_epochs = repeat_dataset?0:1;
+  solver_config->snapshot = 0;
+  solver_config->snapshot_prefix = "./";
+  solver_config->eval_interval = 0;
   solver_config->metrics_spec[metrics::Type::AUC] = 1.f;
   return solver_config;
 }
@@ -69,6 +75,7 @@ void SolverParserPybind(pybind11::module& m) {
       .def_readonly("use_cuda_graph", &HugeCTR::SolverParser::use_cuda_graph);
   m.def("solver_parser_helper", &HugeCTR::python_lib::solver_parser_helper,
         pybind11::arg("seed") = 0,
+	pybind11::arg("eval_batches") = 100,
         pybind11::arg("batchsize_eval") = 16384, 
 	pybind11::arg("batchsize") = 16384,
         pybind11::arg("model_file") = "",
