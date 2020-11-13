@@ -128,9 +128,11 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
   load_params_for_dense_(solver_config.model_file);
   if (use_model_oversubscriber) {
     if (solver_config.use_mixed_precision) {
-      model_oversubscriber_ = create_model_oversubscriber_<__half>(solver_config, temp_embedding_dir);
+      model_oversubscriber_ =
+          create_model_oversubscriber_<__half>(solver_config, temp_embedding_dir);
     } else {
-      model_oversubscriber_ = create_model_oversubscriber_<float>(solver_config, temp_embedding_dir);
+      model_oversubscriber_ =
+          create_model_oversubscriber_<float>(solver_config, temp_embedding_dir);
     }
   } else {
     init_or_load_params_for_sparse_(solver_config.embedding_files);
@@ -211,7 +213,7 @@ bool Session::train() {
   try {
     if (data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall,
-          "Start the data reader first before calling Session::train()");
+                "Start the data reader first before calling Session::train()");
     }
 
 #ifndef DATA_READING_TEST
@@ -219,10 +221,10 @@ bool Session::train() {
     if (!current_batchsize) {
       return false;
     }
+    data_reader_->ready_to_collect();
     for (auto& one_embedding : embedding_) {
       one_embedding->forward(true);
     }
-    data_reader_->ready_to_collect();
     if (networks_.size() > 1) {
 // execute dense forward and backward with multi-cpu threads
 #pragma omp parallel num_threads(networks_.size())
@@ -233,12 +235,15 @@ bool Session::train() {
         networks_[id]->exchange_wgrad();
         networks_[id]->update_params();
       }
-    } else if (networks_.size() == 1) {
+    } else if (resource_manager_->get_global_gpu_count() > 1) {
+      long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(0);
+      networks_[0]->train(current_batchsize_per_device);
+      networks_[0]->exchange_wgrad();
+      networks_[0]->update_params();
+    } else {
       long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(0);
       networks_[0]->train(current_batchsize_per_device);
       networks_[0]->update_params();
-    } else {
-      assert(!"networks_.size() should not less than 1.");
     }
     for (auto& one_embedding : embedding_) {
       one_embedding->backward();
@@ -262,8 +267,7 @@ bool Session::eval() {
     if (data_reader_eval_ == nullptr) return true;
 
     if (data_reader_eval_->is_started() == false) {
-      CK_THROW_(Error_t::IllegalCall,
-          "Start the data reader first before calling Session::eval()");
+      CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Session::eval()");
     }
 
     long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
@@ -416,8 +420,8 @@ std::shared_ptr<ModelOversubscriber> Session::create_model_oversubscriber_(
     }
 
     std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>> embedding_params;
-    return std::shared_ptr<ModelOversubscriber>(new ModelOversubscriber(
-        embedding_, embedding_params, solver_config, temp_embedding_dir));
+    return std::shared_ptr<ModelOversubscriber>(
+        new ModelOversubscriber(embedding_, embedding_params, solver_config, temp_embedding_dir));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
