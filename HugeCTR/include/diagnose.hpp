@@ -33,6 +33,9 @@ template <typename T>
 void sample_and_print(const char* category, const Tensor2<T>& tensor, int begin, int end,
                       const cudaStream_t& stream);
 
+template <typename T>
+void dump(const char* filename, const Tensor2<T>& tensor, const cudaStream_t& stream);
+
 }  // namespace diagnose
 
 }  // namespace HugeCTR

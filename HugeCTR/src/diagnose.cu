@@ -15,6 +15,7 @@
  */
 
 #include <diagnose.hpp>
+#include <fstream>
 #include <limits>
 #include <utils.cuh>
 
@@ -174,8 +175,25 @@ void sample_and_print(const char* category, const Tensor2<T>& tensor, int begin,
   MESSAGE_(ss.str());
 }
 
+template <typename T>
+void dump(const char* filename, const Tensor2<T>& tensor, const cudaStream_t& stream) {
+  std::unique_ptr<T[]> h_array(new T[tensor.get_num_elements()]);
+  CK_CUDA_THROW_(cudaMemcpyAsync(h_array.get(), tensor.get_ptr(), tensor.get_size_in_bytes(),
+                                 cudaMemcpyDeviceToHost, stream));
+  CK_CUDA_THROW_(cudaStreamSynchronize(stream));
+
+  std::ofstream s(filename, std::ios::out | std::ios::binary);
+  s.write(reinterpret_cast<const char*>(h_array.get()), tensor.get_size_in_bytes());
+  s.close();
+}
+
 template void verify_and_histogram<float>(const char* category, const Tensor2<float>& tensor,
                                           const cudaStream_t& stream);
+
+template void dump<unsigned int>(const char* filename, const Tensor2<unsigned int>& tensor,
+                                 const cudaStream_t& stream);
+template void dump<long long>(const char* filename, const Tensor2<long long>& tensor,
+                              const cudaStream_t& stream);
 
 }  // namespace diagnose
 
