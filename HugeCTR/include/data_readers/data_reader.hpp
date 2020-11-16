@@ -29,8 +29,8 @@
 #include <data_readers/file_list.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
-#include <utils.hpp>
 #include <tensor2.hpp>
+#include <utils.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -48,8 +48,6 @@ namespace HugeCTR {
 template <typename TypeKey>
 class DataReader : public IDataReader {
  private:
-
-
   std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap_; /**< heap to cache the data set */
   Tensors2<float> label_tensors_;                       /**< Label tensors for the usage of loss */
   std::vector<TensorBag2> dense_tensors_;               /**< Dense tensors for the usage of loss */
@@ -75,39 +73,39 @@ class DataReader : public IDataReader {
   /**
    * Reading a batch from cpu to gpu (embedding)
    */
-  TensorScalarType get_scalar_type() const override { return TensorScalarTypeFunc<TypeKey>::get_type(); }
+  TensorScalarType get_scalar_type() const override {
+    return TensorScalarTypeFunc<TypeKey>::get_type();
+  }
 
   long long read_a_batch_to_device() override;  // read data from csr to tensors
 
   long long read_a_batch_to_device_delay_release() override;
 
   long long get_current_batchsize_per_device(size_t local_id) override {
-    if(batchsize_ % resource_manager_->get_global_gpu_count() != 0){
-      CK_THROW_(Error_t::UnspecificError,"batchsize_ % resource_manager_->get_global_gpu_count() != 0");
+    if (batchsize_ % resource_manager_->get_global_gpu_count() != 0) {
+      CK_THROW_(Error_t::UnspecificError,
+                "batchsize_ % resource_manager_->get_global_gpu_count() != 0");
     }
     long long batchsize_per_device = batchsize_ / resource_manager_->get_global_gpu_count();
     size_t global_id = resource_manager_->get_gpu_global_id_from_local_id(local_id);
-    long long remain_samples = current_batchsize_ - global_id*batchsize_per_device;
-    if(remain_samples >= batchsize_per_device){
+    long long remain_samples = current_batchsize_ - global_id * batchsize_per_device;
+    if (remain_samples >= batchsize_per_device) {
       return batchsize_per_device;
-    }
-    else if (remain_samples > 0){
+    } else if (remain_samples > 0) {
       return remain_samples;
-    }
-    else{
+    } else {
       return 0;
     }
   }
 
-  void ready_to_collect() override { data_collector_->set_ready_to_write(); }
+  void ready_to_collect() override { data_collector_->set_ready_to_write_sync(); }
 
   bool is_started() const override { return worker_group_->is_started(); }
   void start() override { worker_group_->start(); }
 
   DataReader(int batchsize, size_t label_dim, int dense_dim,
              std::vector<DataReaderSparseParam>& params,
-             const std::shared_ptr<ResourceManager>& resource_manager, 
-             bool repeat,
+             const std::shared_ptr<ResourceManager>& resource_manager, bool repeat,
              int num_chunk_threads = 31, bool use_mixed_precision = false, int cache_num_iters = 0);
 
   const Tensors2<float>& get_label_tensors() const { return label_tensors_; }
@@ -140,14 +138,14 @@ class DataReader : public IDataReader {
   void create_drwg_norm(std::string file_list, Check_t check_type,
                         bool start_reading_from_beginning = true) override {
     worker_group_.reset(new DataReaderWorkerGroupNorm<TypeKey>(
-        csr_heap_, file_list, repeat_,
-        check_type, params_, start_reading_from_beginning));
+        csr_heap_, file_list, repeat_, check_type, params_, start_reading_from_beginning));
     file_list_path_ = file_list;
   }
 
   void create_drwg_raw(std::string file_name, long long num_samples,
                        const std::vector<long long> slot_offset, bool float_label_dense,
-                       bool data_shuffle = false, bool start_reading_from_beginning = true) override {
+                       bool data_shuffle = false,
+                       bool start_reading_from_beginning = true) override {
     worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
         csr_heap_, file_name, num_samples, params_, slot_offset, label_dim_, dense_dim_, batchsize_,
         float_label_dense, data_shuffle, start_reading_from_beginning));
@@ -156,9 +154,9 @@ class DataReader : public IDataReader {
   void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
     // worker_group_.empty
-    worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
-        csr_heap_, file_list, params_, slot_offset,
-        resource_manager_, start_reading_from_beginning));
+    worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(csr_heap_, file_list, params_,
+                                                                  slot_offset, resource_manager_,
+                                                                  start_reading_from_beginning));
   }
 
   void set_file_list_source(std::string file_list = std::string()) override {
@@ -167,27 +165,21 @@ class DataReader : public IDataReader {
       if (worker_group_ != nullptr) {
         if (file_list.empty()) {
           if (file_list_path_.empty()) {
-            throw internal_runtime_error(Error_t::NotInitialized,
-                                         "invalid file_list path");
-          }
-          else {
+            throw internal_runtime_error(Error_t::NotInitialized, "invalid file_list path");
+          } else {
             file_list = file_list_path_;
           }
         }
         bool repeat = repeat_;
         auto op = [file_list, repeat](int worker_id, int num_workers) {
-          return std::shared_ptr<Source>(
-              new FileSource(worker_id, num_workers, file_list, repeat));
+          return std::shared_ptr<Source>(new FileSource(worker_id, num_workers, file_list, repeat));
         };
         csr_heap_->reset();
         worker_group_->set_source(op);
+      } else {
+        throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
       }
-      else {
-        throw internal_runtime_error(Error_t::NotInitialized,
-                                     "worker_group_ == nullptr");
-      }
-    }
-    catch (const internal_runtime_error& rt_err) {
+    } catch (const internal_runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
       throw;
     }
@@ -200,8 +192,7 @@ template <typename TypeKey>
 DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<ResourceManager>& resource_manager,
-                                bool repeat,
-                                int num_chunk_threads, bool use_mixed_precision,
+                                bool repeat, int num_chunk_threads, bool use_mixed_precision,
                                 int cache_num_iters)
     : params_(params),
       resource_manager_(resource_manager),
@@ -349,4 +340,4 @@ DataReader<TypeKey>::~DataReader() {
   }
 }
 
-}// namespace HugeCTR
+}  // namespace HugeCTR
