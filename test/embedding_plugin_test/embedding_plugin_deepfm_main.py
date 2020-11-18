@@ -18,7 +18,7 @@ import sys
 sys.path.append("../../tools/embedding_plugin/python/")
 sys.path.append("../../tools/embedding_plugin/performance_profile/")
 
-import hugectr
+import hugectr_tf_ops
 from read_data import create_dataset
 import txt2tfrecord as utils
 from model import DeepFM_PluginEmbedding

@@ -26,7 +26,7 @@ from read_data import create_dataset
 import tensorflow as tf
 import sys
 sys.path.append("../python")
-import hugectr
+import hugectr_tf_ops
 from model import DeepFM_PluginEmbedding, DeepFM_OriginalEmbedding
 import argparse
 import logging
