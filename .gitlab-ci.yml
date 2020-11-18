@@ -198,16 +198,14 @@ python_interface:
 
 # embedding_plugin
 embedding_plugin:
-  image: gitlab-master.nvidia.com/zehuanw/hugectr:devel_tf
   tags:
     - hugectr
   stage: test
   script:
     # build
     - cd ${CI_PROJECT_DIR} && git submodule update --init --recursive
-    - mkdir -p build && cd build
-    - cd ${CI_PROJECT_DIR}/build/
-    - rm -rf ./* && cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. && make -j$(nproc)
+    - rm -rf build && mkdir build && cd build
+    - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. && make -j$(nproc)
     # 1 gpu
     - cd ${CI_PROJECT_DIR}/test/embedding_plugin_test/
     - python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/
