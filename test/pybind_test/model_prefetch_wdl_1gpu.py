@@ -1,6 +1,6 @@
 from hugectr import Session, solver_parser_helper
 import sys
-
+from mpi4py import MPI
 def model_oversubscriber_test(json_file):
   dataset = [("file_list."+str(i)+".txt", "file_list."+str(i)+".keyset") for i in range(5)]
   solver_config = solver_parser_helper(seed = 0,

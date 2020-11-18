@@ -25,7 +25,7 @@ import txt2tfrecord as utils
 import tensorflow as tf
 import sys
 sys.path.append("../python")
-import hugectr
+import hugectr_tf_ops
 from model import DeepFM_PluginEmbedding, DeepFM_OriginalEmbedding
 import argparse
 import logging
@@ -245,7 +245,7 @@ def create_dataset(dataset_names, feature_desc, batch_size, n_epochs=-1,
                 # convert cate to SparseTensor
                 # indices = tf.where(cate != -1)
                 # values = tf.gather_nd(cate, indices)
-                # row_offsets, value_tensors, nnz_array = hugectr.distribute_keys(indices, values, cate.shape,
+                # row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys(indices, values, cate.shape,
                 #                                             gpu_count = gpu_count, embedding_type='localized', max_nnz=1)
                 row_offsets, value_tensors, nnz_array = _distribute_kyes(all_keys=cate, 
                                                     gpu_count=gpu_count,
