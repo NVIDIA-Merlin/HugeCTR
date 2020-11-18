@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 from tensorflow.python.framework import load_library, ops, dtypes
+from mpi4py import MPI
 import subprocess
 
 lib_file = r"libembedding_plugin.so"
@@ -23,7 +24,7 @@ try:
 except subprocess.CalledProcessError as error:
     print(error)
 
-embedding_plugin_ops = load_library.load_op_library(lib_file)
+embedding_plugin_ops = load_library.load_op_library(lib_file.split('\n')[0].strip())
 # for item in dir(embedding_plugin_ops):
     # print(item)
 

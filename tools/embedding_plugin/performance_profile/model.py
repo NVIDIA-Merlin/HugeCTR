@@ -21,7 +21,7 @@ from __future__ import unicode_literals
 
 import sys
 sys.path.append("../python")
-import hugectr
+import hugectr_tf_ops
 import tensorflow as tf
 
 
@@ -118,7 +118,7 @@ class PluginEmbedding(tf.keras.layers.Layer):
         self.combiner = combiner
         self.gpu_count = gpu_count
 
-        self.name_ = hugectr.create_embedding(initializer, name_=name, embedding_type=self.embedding_type, 
+        self.name_ = hugectr_tf_ops.create_embedding(initializer, name_=name, embedding_type=self.embedding_type, 
                                              optimizer_type=self.optimizer_type, 
                                              max_vocabulary_size_per_gpu=self.vocabulary_size_each_gpu,
                                              opt_hparams=self.opt_hparam, update_type=self.update_type,
@@ -136,7 +136,7 @@ class PluginEmbedding(tf.keras.layers.Layer):
     #                               tf.TensorSpec(shape=(None,), dtype=tf.int64)))
     @tf.function
     def call(self, row_offsets, value_tensors, nnz_array, output_shape, training=False):
-        return hugectr.fprop_v3(embedding_name=self.name_, row_offsets=row_offsets, value_tensors=value_tensors, 
+        return hugectr_tf_ops.fprop_v3(embedding_name=self.name_, row_offsets=row_offsets, value_tensors=value_tensors, 
                                 nnz_array=nnz_array, bp_trigger=self.bp_trigger, is_training=training,
                                 output_shape=output_shape)
 
@@ -286,7 +286,7 @@ class DeepFM_PluginEmbedding(tf.keras.models.Model):
 
         if isinstance(initializer, str):
             initializer = False
-        hugectr.init(visiable_gpus=gpus, seed=seed, key_type='int64', value_type='float', 
+        hugectr_tf_ops.init(visiable_gpus=gpus, seed=seed, key_type='int64', value_type='float', 
                         batch_size=batch_size, batch_size_eval=batch_size_eval)
         self.plugin_embedding_layer = PluginEmbedding(vocabulary_size=vocabulary_size, slot_num=slot_num, 
                                             embedding_vec_size=embedding_vec_size + 1, 
@@ -397,11 +397,11 @@ if __name__ == "__main__":
 
 
     # ---------------- test PluginEmbedding ----------------------------- #
-    # hugectr.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
+    # hugectr_tf_ops.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
 
     # sparse_indices = tf.where(keys != -1) #[N, ndims]
     # values = tf.gather_nd(keys, sparse_indices) # [N]
-    # row_offsets, value_tensors, nnz_array = hugectr.distribute_keys(sparse_indices, values, keys.shape,
+    # row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys(sparse_indices, values, keys.shape,
     #                                 gpu_count = 4, embedding_type='localized', max_nnz=2)
                             
     # init_value = np.float32([i for i in range(1, 10 * 4 + 1)]).reshape(10, 4)
@@ -431,7 +431,7 @@ if __name__ == "__main__":
 
     indices = tf.where(keys != -1)
     values = tf.gather_nd(keys, indices)
-    row_offsets, value_tensors, nnz_array = hugectr.distribute_keys(indices, values, keys.shape,
+    row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys(indices, values, keys.shape,
                                                 gpu_count=4, embedding_type='localized', max_nnz=2)
     result = model(np.ones(shape=(4, 13), dtype=np.float32), [row_offsets, value_tensors, nnz_array], training=True)
     print("result = ", result)

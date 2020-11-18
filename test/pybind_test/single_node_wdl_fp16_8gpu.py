@@ -1,6 +1,6 @@
 from hugectr import Session, solver_parser_helper
 import sys
-
+from mpi4py import MPI
 def session_impl_test(json_file):
   solver_config = solver_parser_helper(seed = 0,
                                      batchsize = 16384,
