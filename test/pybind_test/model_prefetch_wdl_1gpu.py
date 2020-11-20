@@ -1,4 +1,4 @@
-from hugectr import Session, solver_parser_helper
+from hugectr import Session, solver_parser_helper, get_learning_rate_scheduler
 import sys
 from mpi4py import MPI
 def model_oversubscriber_test(json_file):
@@ -16,6 +16,7 @@ def model_oversubscriber_test(json_file):
                                      use_cuda_graph = True,
                                      repeat_dataset = False
                                     )
+  lr_sch = get_learning_rate_scheduler(json_file)
   sess = Session(solver_config, json_file, True, "./temp_embedding")
   data_reader_train = sess.get_data_reader_train()
   data_reader_eval = sess.get_data_reader_eval()
@@ -26,6 +27,8 @@ def model_oversubscriber_test(json_file):
     data_reader_train.set_file_list_source(file_list)
     model_oversubscriber.update(keyset_file)
     while True:
+      lr = lr_sch.get_next()
+      sess.set_learning_rate(lr)
       good = sess.train()
       if good == False:
         break
