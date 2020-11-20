@@ -2,33 +2,35 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 10000,
-    "gpu": [0,1],
-    "batchsize": 16384,
+    "max_iter": 20000,
+    "gpu": [0],
+    "batchsize": 20480,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 20,
+    "eval_batches": 2048,
+    "batchsize_eval": 10240,
     "input_key_type":"I64"
   },
   
-  "optimizer": {
+
+"optimizer": {
     "type": "Adam",
     "update_type": "Global",
     "adam_hparam": {
-      "learning_rate": 0.001,
+      "learning_rate": 0.00010,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.0000001
+      "epsilon": 0.0001
     }
   },
 
-  "layers": [ 
+"layers": [ 
     {
       "name": "data",
       "type": "Data",
       "format":"Parquet",
-      "slot_size_array": [370957, 335015, 1461, 558, 335378, 211710, 306, 20, 12136, 634, 4, 51298, 5302, 332600, 3179, 27, 12191, 301211, 11, 4841, 2086, 4, 324273, 17, 16, 79734, 96, 58622],
+      "slot_size_array":[310541, 271381, 1461, 554, 271623, 179053, 306, 20, 11998, 634, 4, 47726, 5218, 269739, 3161, 27, 11792, 247606, 11, 4758, 2068, 4, 263958, 17, 16, 71349, 93, 53128],
       "source": "./wdl_data/train/_file_list.txt",
       "eval_source": "./wdl_data/val/_file_list.txt",
       "check":"None",
@@ -45,13 +47,13 @@
           "top": "wide_data",
           "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
-          "slot_num": 1
+          "slot_num": 2
         },
         {
           "top": "deep_data",
           "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
-          "slot_num": 27
+          "slot_num": 26
         }
       ]
     },
@@ -82,12 +84,13 @@
       }
     },
 
+
     {
       "name": "reshape1",
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 432
+      "leading_dim": 416
     },
 
     {
@@ -95,10 +98,17 @@
       "type": "Reshape",
       "bottom": "sparse_embedding2",
       "top": "reshape2",
-      "leading_dim": 1
+      "leading_dim": 2
     },
 
 
+    {
+      "name": "wide_redn",
+      "type": "ReduceSum",
+      "bottom": "reshape2",
+      "axis": 1,
+      "top": "wide_redn"
+    },
     {
       "name": "concat1",
       "type": "Concat",
@@ -171,7 +181,7 @@
     {
       "name": "add1",
       "type": "Add",
-      "bottom": ["fc4","reshape2"],
+      "bottom": ["fc4","wide_redn"],
       "top": "add1"
     },
 
