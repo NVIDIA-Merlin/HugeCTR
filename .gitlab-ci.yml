@@ -2,7 +2,7 @@ stages:
   - build
   - test
 
-image: gitlab-master.nvidia.com/zehuanw/hugectr:devel_tf
+image: gitlab-master.nvidia.com/zehuanw/hugectr:devel_nightly
 
 variables:
   NCCL_LAUNCH_MODE: "PARALLEL"
