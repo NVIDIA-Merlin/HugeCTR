@@ -30,7 +30,7 @@ ENV PATH=/usr/local/bin:$PATH
 # pip
 RUN echo alias python='/usr/bin/python3' >> /etc/bash.bashrc && \
     pip3 install --upgrade pip && \
-    pip3 install numpy pandas sklearn ortools tensorflow jupyter
+    pip3 install numpy pandas sklearn ortools jupyter tf-nightly-gpu
 
 # UCX-1.8.0
 RUN apt-get update -y && \
@@ -93,7 +93,8 @@ RUN if [ $(lsb_release --codename --short) = "stretch" ]; then \
     fi && \
     wget https://apache.bintray.com/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb && \
     apt install -y -V ./apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb && \
-    apt update && apt install -y libarrow-dev=0.17.1-1 libarrow-cuda-dev=0.17.1-1
+    apt update && apt install -y libarrow-dev libarrow-cuda-dev && \
+    dpkg -r --force-depends libnvidia-compute-450-server
 
 # RMM-0.16
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.16 https://github.com/rapidsai/rmm.git rmm && cd - && \
