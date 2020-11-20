@@ -36,7 +36,7 @@ LABEL_COLUMNS = ['label']
 COLUMNS =  LABEL_COLUMNS + CONTINUOUS_COLUMNS +  CATEGORICAL_COLUMNS
 #/samples/criteo mode doesn't have dense features
 criteo_COLUMN=LABEL_COLUMNS +  CATEGORICAL_COLUMNS
-#For new feature cross columns 
+#For new feature cross columns
 CROSS_COLUMNS = []
 
 
@@ -51,7 +51,7 @@ def setup_rmm_pool(client, pool_size):
     return None
 
 #compute the partition size with GB
-def bytesto(bytes, to, bsize=1024): 
+def bytesto(bytes, to, bsize=1024):
     a = {'k' : 1, 'm': 2, 'g' : 3, 't' : 4, 'p' : 5, 'e' : 6 }
     r = float(bytes)
     return bytes / (bsize ** a[to])
@@ -59,19 +59,27 @@ def bytesto(bytes, to, bsize=1024):
 
 #process the data with NVTabular
 def process_NVT(args):
-    
+
     if args.feature_cross_list:
         feature_pairs = [pair.split("_") for pair in args.feature_cross_list.split(",")]
         for pair in feature_pairs:
             CROSS_COLUMNS.append(pair[0]+'_'+pair[1])
-            
-            
+
+
     logging.info('NVTabular processing')
-    PREPROCESS_DIR_temp = os.path.join(args.out_path, 'temp-parquet-after-conversion')
+    train_input = os.path.join(args.data_path, "train/train.txt")
+    val_input = os.path.join(args.data_path, "val/test.txt")
+    PREPROCESS_DIR_temp_train = os.path.join(args.out_path, 'train/temp-parquet-after-conversion')
+    PREPROCESS_DIR_temp_val = os.path.join(args.out_path, 'val/temp-parquet-after-conversion')
+    train_output = os.path.join(args.out_path, "train")
+    val_output = os.path.join(args.out_path, "val")
+    paths = [train_output, val_output,PREPROCESS_DIR_temp_train, PREPROCESS_DIR_temp_val]
+
     # Make sure we have a clean parquet space for cudf conversion
-    if os.path.exists(PREPROCESS_DIR_temp):
-        shutil.rmtree(PREPROCESS_DIR_temp)
-    os.mkdir(PREPROCESS_DIR_temp)
+    for one_path in paths:
+        if os.path.exists(one_path):
+           shutil.rmtree(one_path)
+        os.mkdir(one_path)
 
 
     ## Get Dask Client
@@ -100,7 +108,7 @@ def process_NVT(args):
         )
 
 
-        
+
     # Create the distributed client
     client = Client(cluster)
     if args.device_pool_frac > 0.01:
@@ -109,35 +117,36 @@ def process_NVT(args):
 
     #calculate the total processing time
     runtime = time.time()
-    
+
     #test dataset without the label feature
     if args.dataset_type == 'test':
         global LABEL_COLUMNS
         LABEL_COLUMNS = []
-        
-        
+
     ##-----------------------------------##
-    ## Dask rapids converts txt to parquet
-    ## Dask cudf dataframe = ddf
-    ddf = dask_cudf.read_csv(args.data_path,sep='\t',names=LABEL_COLUMNS + CONTINUOUS_COLUMNS + CATEGORICAL_COLUMNS)
+    # Dask rapids converts txt to parquet
+    # Dask cudf dataframe = ddf
 
+    ## train/valid txt to parquet
+    train_valid_paths = [(train_input,PREPROCESS_DIR_temp_train),(val_input,PREPROCESS_DIR_temp_val)]
 
-    ## Convert label col to FP32
-    if args.parquet_format and args.dataset_type == 'train':
-        ddf["label"] = ddf['label'].astype('float32')
+    for input, temp_output in train_valid_paths:
 
-    ## Save it as parquet format for better memory usage
-    ddf.to_parquet(PREPROCESS_DIR_temp,header=True)
-    ##-----------------------------------##
-    
+        ddf = dask_cudf.read_csv(input,sep='\t',names=LABEL_COLUMNS + CONTINUOUS_COLUMNS + CATEGORICAL_COLUMNS)
 
-    train_paths = glob.glob(os.path.join(PREPROCESS_DIR_temp, "*.parquet"))
-    ##-----------------------------------##
-    
+        ## Convert label col to FP32
+        if args.parquet_format and args.dataset_type == 'train':
+            ddf["label"] = ddf['label'].astype('float32')
+
+        # Save it as parquet format for better memory usage
+        ddf.to_parquet(temp_output,header=True)
+        ##-----------------------------------##
+
     COLUMNS =  LABEL_COLUMNS + CONTINUOUS_COLUMNS + CROSS_COLUMNS + CATEGORICAL_COLUMNS
-
+    train_paths = glob.glob(os.path.join(PREPROCESS_DIR_temp_train, "*.parquet"))
+    valid_paths = glob.glob(os.path.join(PREPROCESS_DIR_temp_val, "*.parquet"))
     if args.criteo_mode==0:
-        proc = nvt.Workflow(cat_names=CROSS_COLUMNS + CATEGORICAL_COLUMNS,cont_names=CONTINUOUS_COLUMNS,label_name=LABEL_COLUMNS,client=client)
+        proc = nvt.Workflow(cat_names= CROSS_COLUMNS + CATEGORICAL_COLUMNS,cont_names=CONTINUOUS_COLUMNS,label_name=LABEL_COLUMNS,client=client)
         logging.info('Fillmissing processing')
         proc.add_cont_feature(nvt.ops.FillMissing())
         #For feature Cross
@@ -166,24 +175,46 @@ def process_NVT(args):
 
     # just for /samples/criteo model
     train_ds_iterator = nvt.Dataset(train_paths, engine='parquet', part_size=int(args.part_mem_frac * device_size))
+    valid_ds_iterator = nvt.Dataset(valid_paths, engine='parquet', part_size=int(args.part_mem_frac * device_size))
 
     shuffle = None
     if args.shuffle == "PER_WORKER":
         shuffle = nvt.io.Shuffle.PER_WORKER
     elif args.shuffle == "PER_PARTITION":
         shuffle = nvt.io.Shuffle.PER_PARTITION
-    output_path = args.out_path
+
+    logging.info('Train Datasets Preprocessing.....')
 
     proc.apply(
         train_ds_iterator,
-        output_path=output_path,
+        output_path=train_output,
         out_files_per_proc=args.out_files_per_proc,
         output_format=output_format,
         shuffle=shuffle,
         num_io_threads=args.num_io_threads,
     )
 
+    #--------------------##
+    embeddings=nvt.ops.get_embedding_sizes(proc)
+    print(embeddings)
+    slot_size=[]
+    #Output slot_size for each categorical feature
+    for item in CROSS_COLUMNS + CATEGORICAL_COLUMNS:
+        slot_size.append(embeddings[item][0])
+    print(slot_size)
     ##--------------------##
+
+    logging.info('Valid Datasets Preprocessing.....')
+    proc.apply(
+        valid_ds_iterator,
+        record_stats=False,
+        output_path=val_output,
+        out_files_per_proc=args.out_files_per_proc,
+        output_format=output_format,
+        shuffle=shuffle,
+        num_io_threads=args.num_io_threads,
+    )
+
     embeddings=nvt.ops.get_embedding_sizes(proc)
     print(embeddings)
     slot_size=[]
