@@ -1,4 +1,4 @@
-from hugectr import Session, solver_parser_helper
+from hugectr import Session, solver_parser_helper, get_learning_rate_scheduler
 from mpi4py import MPI
 import threading
 import sys
@@ -17,9 +17,12 @@ def session_impl_test(json_file):
                                      use_cuda_graph = True,
                                      repeat_dataset = True
                                     )
+  lr_sch = get_learning_rate_scheduler(json_file)
   sess = Session(solver_config, json_file)
   sess.start_data_reading()
   for i in range(10000):
+    lr = lr_sch.get_next()
+    sess.set_learning_rate(lr)
     sess.train()
     if (i%100 == 0):
       loss = sess.get_current_loss()
