@@ -49,8 +49,7 @@ $ cp ../../tools/criteo_script/preprocess_nvt.py ./
 #--device_limit_frac：Worker device-memory limit as a fraction of GPU capacity, which should be determined by the gpu with the leatest memory
 #--device_pool_frac：The RMM pool frac is the same for all GPUs, make sure each one has enough memory size
 #--num_io_threads: Number of threads to use when writing output data.
-$ python3 preprocess_nvt.py --data_path criteo_data/train/train.txt --out_path criteo_data/train/ --freq_limit 6 --device_limit_frac 0.2 --device_pool_frac 0.2 --out_files_per_proc 8  --devices "0" --num_io_threads 2 --criteo_mode=1
-$ python3 preprocess_nvt.py --data_path criteo_data/val/test.txt --out_path criteo_data/val/ --freq_limit 6 --device_limit_frac 0.2 --device_pool_frac 0.2 --out_files_per_proc 8  --devices "0" --num_io_threads 2 --criteo_mode=1
+$ python3 preprocess_nvt.py --data_path criteo_data --out_path criteo_data --freq_limit 6 --device_limit_frac 0.2 --device_pool_frac 0.2 --out_files_per_proc 8  --devices "0" --num_io_threads 2 --criteo_mode=1
 ```
 Exit from the NVTabular docker environment and then run HugeCTR docker with interaction mode under home directory again.
 
