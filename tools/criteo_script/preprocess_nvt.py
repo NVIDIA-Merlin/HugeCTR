@@ -71,12 +71,12 @@ def process_NVT(args):
     val_input = os.path.join(args.data_path, "val/test.txt")
     PREPROCESS_DIR_temp_train = os.path.join(args.out_path, 'train/temp-parquet-after-conversion')
     PREPROCESS_DIR_temp_val = os.path.join(args.out_path, 'val/temp-parquet-after-conversion')
+    PREPROCESS_DIR_temp = [PREPROCESS_DIR_temp_train, PREPROCESS_DIR_temp_val]
     train_output = os.path.join(args.out_path, "train")
     val_output = os.path.join(args.out_path, "val")
-    paths = [train_output, val_output,PREPROCESS_DIR_temp_train, PREPROCESS_DIR_temp_val]
 
     # Make sure we have a clean parquet space for cudf conversion
-    for one_path in paths:
+    for one_path in PREPROCESS_DIR_temp:
         if os.path.exists(one_path):
            shutil.rmtree(one_path)
         os.mkdir(one_path)
