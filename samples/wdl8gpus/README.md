@@ -13,7 +13,7 @@ The original test set doesn't contain labels, so it's not used.
 * Pandas 1.0.1
 * Sklearn 0.22.1
 
-1. Download the dataset and preprocess
+### 1. Download the dataset and preprocess
 
 Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
 and download the kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
@@ -30,9 +30,9 @@ $ bash preprocess.sh wdl 1 1
 $ cd ../../samples/wdl8gpus/
 ```
 
-2. Build HugeCTR with the instructions on README.md under home directory.
+### 2. Build HugeCTR with the instructions on README.md under home directory.
 
-3. Convert the dataset to HugeCTR format
+### 3. Convert the dataset to HugeCTR format
 ```shell
 $ cp ../../build/bin/criteo2hugectr ./
 $ ./criteo2hugectr ../../tools/criteo_script/wdl_data/train criteo/sparse_embedding file_list.txt 2
