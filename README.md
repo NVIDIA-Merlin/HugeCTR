@@ -10,7 +10,7 @@ Design Goals:
 ## Table of Contents
 * [Performance](#performance)
 * [Release Notes](#release-notes)
-* [Getting Started](#getting-started)
+* [Getting Started](#getting-started-with-hugectr)
 * [Support and Feedback](#support-and-feedback)
 
 ## Performance ##
@@ -66,7 +66,7 @@ We’ve implemented the following enhancements to improve usability and performa
 
 + **HugeCTR Embedding with Tensorflow**: To help users easily integrate HugeCTR’s optimized embedding into their Tensorflow workflow, we now offer the HugeCTR embedding layer as a Tensorflow plugin. To better understand how to intall, use, and verify it, see our [Jupyter notebook tutorial](notebooks/embedding_plugin.ipynb). It also demonstrates how you can create a new Keras layer `EmbeddingLayer` based on the [`hugectr_tf_ops.py`](tools/embedding_plugin/python/hugectr_tf_ops.py) helper code that we provide.
 
-+ **Model Oversubscription**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we added a new model prefetching feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](#norm-dataset) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
++ **Model Oversubscription**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we added a new model prefetching feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](docs/hugectr_user_guide.md#norm) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
 
 + **Enhanced AUC Implementation**: To enhance the performance of our AUC computation on multi-node environments, we redesigned our AUC implementation to improve how the computational load gets distributed across nodes.
 
