@@ -94,7 +94,7 @@ We’ve implemented the following enhancements to improve usability and performa
 To get started, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 If you'd like to quickly train a model using the Python interface, follow these six steps:
-1. Start a NGC container by running the following command:
+1. Start a HugeCTR container from [NVIDIA NGC](https://ngc.nvidia.com/catalog/containers/nvidia:hugectr) by running the following command:
    ```
    docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v2.3
    ```
