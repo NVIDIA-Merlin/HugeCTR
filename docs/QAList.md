@@ -26,9 +26,9 @@ However, InfiniBand with GPU RDMA support will maximize performance of inter-nod
 HugeCTR's approach is to offload the computational workloads to GPUs with the memory operations overlapped with them.
 So HugeCTR performance is mainly decided by what kinds of GPUs and I/O devices are used.
 ### 10. What is the specific format of files as input in HugeCTR? ###
-We have specific file format support. Please refer to the [tutorial](../tutorial/dump_to_tf) in HugeCTR.
+We have specific file format support. Please refer to the [Dataset File](hugectr_user_guide.md#dataset-file).
 ### 11.	 Does HugeCTR support Python interface? ###
-Not currently. We will consider to add Python interface in the future version.
+Yes we introduced our first version of Python interface. Check out our [Getting Started with HugeCTR](../../README.md#getting-started-with-hugectr) and [Jupyter Notebook](../../notebooks/python_interface.ipynb).
 ### 12. Does HugeCTR do synchronous training with multiple GPUs (and nodes)? Otherwise, does it do asynchronous training? ###
 HugeCTR only supports synchronous training.
 ### 13. Does HugeCTR support stream training? ###
@@ -83,7 +83,7 @@ Firstly, you should construct your own configure file. You can refer to our [Use
 Secondly, using our `data_generator` to generate a random dataset. Seeing [introductions](../README.md#benchmark).
 Thirdly, run with `./huge_ctr --train ./your_config.json`
 ### 24. What is "plan_file"? How to provide it?  ###
-Plan_file is used by the Gossip communication library. the GPUs topology and connection in the server are defined in this file. We provide a plan_file generator [tool](../tools/plan_generation) for users to generate plan_file easily based on your server configuration. Please refer to [dcn](../samples/dcn) or [dcn2nodes](../samples/dcn2nodes). Please note that if you prefer NCCL library other than Gossip here you don't have to provide a plan_file. Please refer to our [README](../README.md) "Build with NCCL All2All Supported".
+Plan_file is used by the Gossip communication library. the GPUs topology and connection in the server are defined in this file. We provide a plan_file generator [tool](../tools/plan_generation) for users to generate plan_file easily based on your server configuration. Please refer to [dcn](../samples/dcn) or [dcn2nodes](../samples/dcn2nodes). Please note that if you prefer NCCL library other than Gossip here you don't have to provide a plan_file. Please refer to [Build with NCCL All2All](hugectr_user_guide.md#build-with-nccl-all2all).
 ### 25. How to set max_vocabulary_size_per_gpu and slot_size_array in .json file? ###
 As embeddings are model parallel in HugeCTR,
 it's a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset.

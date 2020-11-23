@@ -1,261 +1,146 @@
 # <img src="docs/user_guide_src/merlin_logo.png" alt="logo" width="85"/> Merlin: HugeCTR #
-[![v23](docs/user_guide_src/version.JPG)](docs/hugectr_user_guide.md/#whats-new-in-version-23)
 
-HugeCTR is a recommender specific framework which is capable of distributed training across multiple GPUs and nodes for Click-Through-Rate (CTR) estimation.
-It is the training component of [**NVIDIA Merlin**](https://developer.nvidia.com/nvidia-merlin#getstarted),
-which is an open beta framework accelerating the entire pipeline from data ingestion and training to deploying GPU-accelerated recommender systems.
-This document contains the instructions on how to quickly get started with HugeCTR, including the use of our docker image and one of our samples.
-For more detailed information, please refer to [**HugeCTR User Guide**](docs/hugectr_user_guide.md). 
+HugeCTR, a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin#getstarted), is a GPU-accelerated recommender framework. It was designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/). For additional information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 Design Goals:
 * Fast: HugeCTR is a speed-of-light CTR model framework.
-* Dedicated: HugeCTR focuses on essential things which you need in training your CTR model.
-* Easy: you can quickly be used to HugeCTR, regardless of whether you are a data scientist or machine learning practitioner. 
-
-## Version 2.3
-HugeCTR version 2.3 includes the features which enrich interoperability and user convenience such as Python Interface, HugeCTR embedding as Tensorflow Op, Model Prefetching. You can also find the full list of changes [**here**](docs/hugectr_user_guide.md#whats-new-in-version-23).
-
-## Getting Started with NGC
-A production docker image of HugeCTR is available in the NVIDIA container repository at the following location: https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
-
-You can pull and launch the container using the following command:
-```shell
-docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.3
-# To use Tensorflow, especially if you want to try the HugeCTR embedding op, please use tag `v2.3_tf` instead.
-```
-If you are running on a docker version 19+, change `--runtime=nvidia` to `--gpus all`.
-
-This image contains the executable files only enough for production use cases. For the full installation, please refer to [the quick start section](quick-start).
-
-## Quick Start
-
-### 1. Download Repository ###
-You can download the HugeCTR repository and the third party modules which it relies upon:
-```shell
-git clone https://github.com/NVIDIA/HugeCTR.git
-cd HugeCTR
-git submodule update --init --recursive
-```
-###  2. Build Docker Image and HugeCTR ###
-Inside the HugeCTR directory, build a docker image:
-```shell
-# It may take a long time to download and build all the dependencies.
-docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile . # To use Tensorflow, especially if you want to try our HugeCTR embedding op with Tensorflow, please use dev.tfplugin.Dockerfile instead.
-```
-If you have Docker 19.03 or later, run the container with the following command: 
-```shell
-docker run --gpus all --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
-```
-Otherwise, run the container with the following command: 
-```shell
-docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
-```
-
-
-Then build HugeCTR with the build type and compute capability specified. Please see [**Build Options**](#build-options) for more details.
-
-First, make a build directory and get inside it:
-```shell
-mkdir -p build
-cd build
-```
-If your target graphic card is NVIDIA A100, run the following command. If you are using NVIDIA V100 or NVIDIA T4, change `-DSM=80` to `-DSM=70` or `-DSM=75`.
-```shell
-cmake -DCMAKE_BUILD_TYPE=Release -DSM=80 .. # Target is NVIDIA A100
-```
-Finally build it. HugeCTR executable file and unit tests are located inside `build/bin`.
-```shell
-make -j
-```
-
-###  3. Download and Preprocess Dataset ###
-Let’s download [the Kaggle Display Advertising Challenge Dataset](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset) to `$HugeCTR/tools/criteo_script/` and preprocess it to train [the Deep & Cross Network](https://arxiv.org/pdf/1708.05123.pdf) (DCN) example:
-```shell
-cd ../../tools/criteo_script/ # assume that the downloaded dataset is here
-bash preprocess.sh dcn 1 0
-```
-
-Alternatively you can generate a synthetic dataset:
-```shell
-cd /hugectr/build
-mkdir dataset_dir
-bin/data_generator ../samples/dcn/dcn.json ./dataset_dir 434428 1
-```
-
-### 4. Train an example DCN model ###
-```shell
-cd /hugectr/build
-bin/huge_ctr --train ../samples/dcn/dcn.json
-```
-The other sample models and their end-to-end instructions are available inside [this directory](/samples).
+* Dedicated: HugeCTR provides the essentials so that you can train your CTR model in an efficient manner.
+* Easy: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR.
 
 ## Table of Contents
-* [Requirements](#requirements)
-* [**Supported Compute Capabilities**](#supported-compute-capabilities)
-* [Build Options](#build-options)
-* [Synthetic Data Generation and Benchmark](#synthetic-data-generation-and-benchmark)
-* [File Format](#file-format)
-* [Document Generation](#document-generation)
-* [Coding Style and Refactor](#coding-style-and-refactor)
+* [Performance](#performance)
+* [Release Notes](#release-notes)
+* [Getting Started](#getting-started)
+* [Support and Feedback](#support-and-feedback)
 
-## Requirements ##
-* cuBLAS >= 10.1
-* Compute Capability >= 70 (V100)
-* CMake >= 3.17.0
-* cuDNN >= 7.5
-* NCCL >= 2.0
-* RMM >= 0.16
-* CUDF >= 0.16
-* Clang-Format 3.8
-* GCC >= 7.4.0
-* ortools >= 7.6.7691
-### Optional, if require multi-nodes training ###
-* OpenMPI >= 4.0
-* UCX library >= 1.8.0
-* HWLOC library >= 2.2.0
-* mpi4py >= 3.0.3
+## Performance ##
+We've tested HugeCTR's performance on the following systems:
+* DGX-2 and DGX A100
+* Versus TensorFlow (TF)
 
-## Supported Compute Capabilities ##
-|Compute Compatibility|GPU|
-|----|----|
-|60|NVIDIA P100 (Pascal)|
-|70|NVIDIA V100 (Volta)|
-|75|NVIDIA T4 (Turing)|
-|80|NVIDIA A100 (Ampere)|
+### Evaluating HugeCTR's Performance on the DGX-2 and DGX A100
+We submitted the DLRM benchmark with HugeCTR version 2.2 to [MLPerf Training v0.7](https://mlperf.org/training-results-0-7). The dataset was [Criteo Terabyte Click Logs](https://labs.criteo.com/2013/12/download-terabyte-click-logs/), which contains 4 billion user and item interactions over 24 days. The target machines were DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs. Fig. 1 summarizes the performance. For more details, see [this blog post](https://developer.nvidia.com/blog/accelerating-recommender-systems-training-with-nvidia-merlin-open-beta/).
 
-## Build Options ##
-### Use Docker Container ###
-You can choose to use Docker to simplify the environment setting up.
-Mare sure that you have installed [**Nvidia Docker**](https://github.com/NVIDIA/nvidia-docker) .
+<div align=center><img  width='624' height='385' src ="docs/user_guide_src/mlperf_dlrm_training.png"/></div>
+<div align=center>Fig. 1 MLPerf v0.7 DLRM training performance across different platforms.</div>
 
-To build a docker image of **development environment** from the corresponding Dockerfile, run the command below.
-It will install the libraries and tools required to use HugeCTR.
-HugeCTR build itself must be done by yourself.
-```shell
-$ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.a100.Dockerfile .
-```
-Run with interaction mode (mount the home directory of repo into container for easy development and try):
-```shell
-$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
-```
+#### HugeCTR Strong Scaling Results on DGX A100
+Fig. 2 shows the strong scaling result for both the full precision mode (FP32) and mixed-precision mode (FP16) on a single NVIDIA DGX A100. Bars represent the average iteration time in ms.
+<div align=center><img  width='600' height='371' src ="docs/user_guide_src/a100_scaling.png"/></div>
+<div align=center>Fig. 2 The strong scaling result of HugeCTR with a W&D model on a single DGX A100, the lower the better.</div>
 
-To build a docker image of **production environment**, run the command below.
-In addition to resolving dependencies, it will build and install HugeCTR to `/usr/local/hugectr`.
-Note that `SM` (the target GPU architecture list) and `NCCL_A2A` (use NCCL ALL-to-ALL or not) are also specified.
-You can change them according to your environment.
-```shell
-$ docker build --build-arg SM="70;75;80" \
-               --build-arg NCCL_A2A=on \
-               -t hugectr:build \
-               -f ./tools/dockerfiles/build.Dockerfile .
-```
+### Evaluating HugeCTR's Performance on the TensorFlow
+In the TensorFlow test case below, HugeCTR exhibits a speedup up to 114x compared to a CPU server that is running TensorFlow with only one V100 GPU and almost the same loss curve.
 
-### Build with Release ###
-Compute Capability can be specified by `-DSM=[Compute Compatibilities]`, which is SM70 by default (NVIDIA V100). It is also possible to set multiple Compute Capabilities, e.g., `-DSM=70` for NVIDIA V100 and `-DSM="70;75"` for both NVIDIA V100 and NVIDIA T4.
-```shell
-$ mkdir -p build
-$ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is NVIDIA V100
-$ make -j
-```
+* Test environment:
+  - CPU Server: Dual 20-core Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz
+  - TensorFlow version 2.0.0
+  - V100 16GB: NVIDIA DGX1 servers
 
-### Build with Debug ###
-If the build type is `Debug`, HugeCTR will print more verbose logs and execute GPU tasks in a synchronous manner.
-The other options remain the same as `Release` build.
-```shell
-$ mkdir -p build
-$ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM=70 .. # Target is NVIDIA V100
-$ make -j
-```
+* Network:
+  - `Wide Deep Learning`: Nx 1024-unit FC layers with ReLU and dropout, emb_dim: 16; Optimizer: Adam for both Linear and DNN models
+  - `Deep Cross Network`: Nx 1024-unit FC layers with ReLU and dropout, emb_dim: 16, 6x cross layers; Optimizer: Adam for both Linear and DNN models
 
-### Build with Validation Mode ###
-This mode is designed for framework validation. In this mode loss of training will be shown as the average of `eval_batches` results. Only one thread and chunk will be used in DataReader. Performance will be lower than turning off.
-```shell
-$ mkdir -p build
-$ cd build
-$ cmake -DVAL_MODE=ON ..
-$ make -j
-```
+* Dataset:
+  - The data is provided by [CriteoLabs](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/). The original training set contains 45,840,617 examples. Each example contains a label (0 by default OR 1 if the ad was clicked) and 39 features in which 13 are integer and 26 are categorical.
 
-### Build with Multi-Node Training Supported ###
-To run with multi-nodes please build in this way and run HugeCTR with `mpirun`. For more details please refer to `samples/dcn2nodes`
-```shell
-$ mkdir -p build
-$ cd build
-$ cmake -DENABLE_MULTINODES=ON ..
-$ make -j
-```
+* Preprocessing:
+  - Common: Preprocessed by using the scripts available in tools/criteo_script.
+  - HugeCTR: Converted to the HugeCTR data format with criteo2hugectr.
+  - TF: Converted to the TFRecord format for the efficient training on Tensorflow.
 
-### Build with NCCL All2All Supported ###
-The default collection communication library used in LocalizedSlotSparseEmbedding is [Gossip](https://github.com/Funatiq/gossip). [NCCL all2all](https://github.com/NVIDIA/nccl/tree/p2p) is also supported in HugeCTR. If you want to run with NCCL all2all, please turn on the NCCL_A2A switch in cmake. 
-```shell
-$ mkdir -p build
-$ cd build
-$ cmake -DNCCL_A2A=ON ..
-$ make -j
-```
+<div align=center><img width='800' height='339' src ="docs/user_guide_src/WDL.JPG"/></div>
+<div align=center>Fig. 3 WDL Performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
 
-## Synthetic Data Generation and Benchmark ##
-For quick benchmarking and research use, you can generate a synthetic dataset like below. Without any additional modification to JSON file. Both [**Norm** format](#norm) (with Header) and [**Raw** format](#raw) (without Header) dataset can be generated with `data_generator`. For categorical features, you can configure the probability distribution to be uniform or power-law.
-The default distribution is uniform.
-- For `Norm` format: <br>
-```bash
-$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
-$ ./huge_ctr --train your_config.json
-```
-- For `Raw` format: <br>
-```bash
-$ ./data_generator your_config.json (--long-tail <long|medium|short>)
-$ ./huge_ctr --train your_config.json
-```
+<br></br>
 
-Parameters:
-+ `data_folder`: Directory where the generated dataset is stored.
-+ `vocabulary_size`: Total vocabulary size of your target dataset, which cannot be exceed `max_vocabulary_size_per_gpu` **x** the number of active GPUs. 
-+ `max_nnz`: You can use this parameter to simulate one-/multi-hot encodings. If you just want to use the one-hot encoding, set this parameter to 1. Otherwise, [1, max_nnz] values will be generated for each slot. **Note** that `max_nnz * slot_num` must be less than `max_feature_num_per_sample` in the data layer of the used JSON config file.
-+ `--files`: Number of data files will be generated (optional). The default value is `128`.
-+ `--samples`: Number of samples per file (optional). The default value is `40960`.
-+ `--long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. There are three option values to be chosen from, i.e., `long`, `medium` and `short`, which characterize the properties of the tail. The scaling exponent will be 1, 3, and 5 correspondingly.
+<div align=center><img width='800' height='339' src ="docs/user_guide_src/DCN.JPG"/></div>
+<div align=center>Fig. 4 DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
 
-## Coding Style and Refactor ##
-Default coding style follows Google C++ coding style [(link)](https://google.github.io/styleguide/cppguide.html).
-This project also uses `Clang-Format`[(link)](https://clang.llvm.org/docs/ClangFormat.html) to help developers to fix style issue, such as indent, number of spaces to tab, etc.
-The Clang-Format is a tool that can auto-refactor source code.
-Use following instructions to install and enable Clang-Format:
-### Install ###
-```shell
-$ sudo apt-get install clang-format
-```
-### Run ###
-```shell
-# First, configure Cmake as usual 
-$ mkdir -p build
-$ cd build
-$ cmake -DCLANGFORMAT=ON ..
-# Second, run Clang-Format
-$ cmake --build . --target clangformat
-# Third, check what Clang-Format did modify
-$ git status
-# or
-$ git diff
-```
 
-## Document Generation ##
-You can consider to use Doxygen if you are interested in understanding HugeCTR's C++ class hierarchy and their functions.
-By default, inside the  `docs` directory, a HTML document and a LaTeX based reference manual are generated.
+## Release Notes ##
 
-### Install ###
-[Download doxygen](http://www.doxygen.nl/download.html)
-### Generation ###
-Within project `home` directory
-```shell
-$ doxygen
-```
+### What's New in Version 2.3
+We’ve implemented the following enhancements to improve usability and performance:
++ **Python Interface**: To enhance the interoperability with [NVTabular](https://github.com/NVIDIA/NVTabular) and other Python-based libraries, we're introducing a new Python interface for HugeCTR. If you are already using HugeCTR with JSON, the transition to Python will be seamless for you as you'll only have to locate the `hugectr.so` file and set the `PYTHONPATH` environment variable. You can still configure your model in your JSON config file, but the training options such as `batch_size` must be specified through `hugectr.solver_parser_helper()` in Python. For additional information regarding how to use the HugeCTR Python API and comprehend its API signature, see our [Jupyter Notebook tutorial](notebooks/python_interface.ipynb).
 
-## Contributing ##
-Merlin HugeCTR is an industry oriented framework and we are keen on making sure that it satisfies your needs and that it provides an overall pleasant experience.
-If you face any problem or have any question, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can discuss it together.
-We would also be grateful if you have any suggestions or feature requests to enrich HugeCTR. 
-To further advance the Merlin/HugeCTR Roadmap, we would like to invite you to share the gist of your recommender system pipeline via [this survey](https://developer.nvidia.com/merlin-devzone-survey)
++ **HugeCTR Embedding with Tensorflow**: To help users easily integrate HugeCTR’s optimized embedding into their Tensorflow workflow, we now offer the HugeCTR embedding layer as a Tensorflow plugin. To better understand how to intall, use, and verify it, see our [Jupyter notebook tutorial](notebooks/embedding_plugin.ipynb). It also demonstrates how you can create a new Keras layer `EmbeddingLayer` based on the [`hugectr_tf_ops.py`](tools/embedding_plugin/python/hugectr_tf_ops.py) helper code that we provide.
 
++ **Model Oversubscription**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we added a new model prefetching feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](#norm-dataset) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
+
++ **Enhanced AUC Implementation**: To enhance the performance of our AUC computation on multi-node environments, we redesigned our AUC implementation to improve how the computational load gets distributed across nodes.
+
++ **Epoch-Based Training**: In addition to `max_iter`, a HugeCTR user can set `num_epochs` in the **Solver** clause of their JSON config file. This mode can only currently be used with `Norm` dataset formats and their corresponding file lists. All dataset formats will be supported in the future.
+
++ **Multi-Node Training Tutorial**: To better support multi-node training use cases, we added a new [a step-by-step tutorial](tutorial/multinode-training).
+
++ **Power Law Distribution Support with Data Generator**: Because of the increased need for generating a random dataset whose categorical features follows the power-law distribution, we revised our data generation tool to support this use case. For additional information, refer to the `--long-tail` description [here](docs/hugectr_user_guide.md#generating-synthetic-data-and-benchmarks).
+
++ **Multi-GPU Preprocessing Script for Criteo Samples**: Multiple GPUs can now be used when preparing the dataset for our [samples](samples). For additional information, see how [preprocess_nvt.py](tools/criteo_script/preprocess_nvt.py) is used to preprocess the Criteo dataset for DCN, DeepFM, and W&D samples.
+
+### Known Issues
+* Since the automatic plan file generator is not able to handle systems that contain one GPU, a user must manually create a JSON plan file with the following parameters and rename using the name listed in the HugeCTR configuration file: ` {"type": "all2all", "num_gpus": 1, "main_gpu": 0, "num_steps": 1, "num_chunks": 1, "plan": [[0, 0]], "chunks": [1]} `.
+* If using a system that contains two GPUs with two NVLink connections, the auto plan file generator will print the following warning message: `RuntimeWarning: divide by zero encountered in true_divide`. This is an erroneous warning message and should be ignored.
+* The current plan file generator doesn't support a system where the NVSwitch or a full peer-to-peer connection between all nodes is unavailable.
+* Users need to set an `export CUDA_DEVICE_ORDER=PCI_BUS_ID` environment variable to ensure that the CUDA runtime and driver have a consistent GPU numbering.
+* `LocalizedSlotSparseEmbeddingOneHot` only supports a single-node machine where all the GPUs are fully connected such as NVSwitch.
+* HugeCTR version 2.2.1 crashes when running our DLRM sample on DGX2 due to a CUDA Graph issue. To run the sample on DGX2, disable the use of CUDA Graph with `"cuda_graph": false` even if it degrades the performance a bit. We are working on fixing this issue. This issue doesn't exist when using the DGX A100.
+* The model prefetching feature is only available in Python. Currently, a user can only use this feature with the `DistributedSlotSparseEmbeddingHash` embedding and the `Norm` dataset format on single GPUs. This feature will eventually support all embedding types and dataset formats.
+* The HugeCTR embedding TensorFlow plugin only works with single-node machines.
+* The HugeCTR embedding TensorFlow plugin assumes that the input keys are in `int64` and its output is in `float`.
+* When using our embedding plugin, please note that the `fprop_v3` function, which is available in `tools/embedding_plugin/python/hugectr_tf_ops.py`, only works with `DistributedSlotSparseEmbeddingHash`.
+
+## Getting Started with HugeCTR ##
+To get started, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
+
+If you'd like to quickly train a model using the Python interface, follow these six steps:
+1. Start a NGC container by running the following command:
+   ```
+   docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v2.3
+   ```
+
+2. Inside the container, copy [the DCN JSON config file](samples/dcn/dcn.json) to your home directory or anywhere you want.
+
+   This config file specifies the DCN model architecture and its optimizer. With any Python use case, the solver clause within the config file is not used at all.
+
+3. Generate a synthetic dataset based on the config file by running the following command:
+   ```
+   data_generator ./dcn.json ./dataset_dir 434428 1
+   ```
+
+   The following set of files are created: ./file_list.txt, ./file_list_test.txt, and ./dataset_dir/*.
+
+5. Write a simple Python code using the hugectr module as shown here:
+   ```python
+   # train.py
+   import sys
+   import hugectr
+   from mpi4py import MPI
+
+   def train(json_config_file):
+     solver_config = hugectr.solver_parser_helper(batchsize = 16384,
+                                                  batchsize_eval = 16384,
+                                                  vvgpu = [[0,1,2,3,4,5,6,7]],
+                                                  repeat_dataset = True)
+   sess = hugectr.Session(solver_config, json_config_file)
+   sess.start_data_reading()
+   for i in range(10000):
+     sess.train()
+     if (i % 100 == 0):
+       loss = sess.get_current_loss()
+       print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
+
+   if __name__ == "__main__":
+     json_config_file = sys.argv[1]
+     train(json_config_file)
+   ```
+
+   **NOTE**: Update the vvgpu (the active GPUs), batchsize, and batchsize_eval parameters according to your GPU system.
+
+6. Train the model by running the following command:
+   ```
+   python train.py dcn.json
+   ```
+
+## Support and Feedback ##
+If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
