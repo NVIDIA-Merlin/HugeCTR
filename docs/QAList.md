@@ -28,7 +28,7 @@ So HugeCTR performance is mainly decided by what kinds of GPUs and I/O devices a
 ### 10. What is the specific format of files as input in HugeCTR? ###
 We have specific file format support. Please refer to the [Dataset File](hugectr_user_guide.md#dataset-file).
 ### 11.	 Does HugeCTR support Python interface? ###
-Yes we introduced our first version of Python interface. Check out our [Getting Started with HugeCTR](../../README.md#getting-started-with-hugectr) and [Jupyter Notebook](../../notebooks/python_interface.ipynb).
+Yes we introduced our first version of Python interface. Check out our [Getting Started with HugeCTR](../README.md#getting-started-with-hugectr) and [Jupyter Notebook](../notebooks/python_interface.ipynb).
 ### 12. Does HugeCTR do synchronous training with multiple GPUs (and nodes)? Otherwise, does it do asynchronous training? ###
 HugeCTR only supports synchronous training.
 ### 13. Does HugeCTR support stream training? ###
