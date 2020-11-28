@@ -14,36 +14,37 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/parser.hpp"
-#include "HugeCTR/include/device_map.hpp"
-#include "HugeCTR/include/layer.hpp"
-#include "HugeCTR/include/layers/add_layer.hpp"
-#include "HugeCTR/include/layers/batch_norm_layer.hpp"
-#include "HugeCTR/include/layers/cast_layer.hpp"
-#include "HugeCTR/include/layers/concat_layer.hpp"
-#include "HugeCTR/include/layers/dot_product_layer.hpp"
-#include "HugeCTR/include/layers/dropout_layer.hpp"
-#include "HugeCTR/include/layers/elu_layer.hpp"
-#include "HugeCTR/include/layers/fm_order2_layer.hpp"
-#include "HugeCTR/include/layers/fully_connected_layer.hpp"
-#include "HugeCTR/include/layers/fully_connected_layer_half.hpp"
-#include "HugeCTR/include/layers/fused_fully_connected_layer.hpp"
-#include "HugeCTR/include/layers/interaction_layer.hpp"
-#include "HugeCTR/include/layers/multi_cross_layer.hpp"
-#include "HugeCTR/include/layers/multiply_layer.hpp"
-#include "HugeCTR/include/layers/reduce_sum_layer.hpp"
-#include "HugeCTR/include/layers/relu_layer.hpp"
-#include "HugeCTR/include/layers/reshape_layer.hpp"
-#include "HugeCTR/include/layers/slice_layer.hpp"
-#include "HugeCTR/include/loss.hpp"
-#include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/optimizers/adam_optimizer.hpp"
-#include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
-#include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
-#include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
-#include "HugeCTR/include/regularizers/l1_regularizer.hpp"
-#include "HugeCTR/include/regularizers/l2_regularizer.hpp"
-#include "HugeCTR/include/regularizers/no_regularizer.hpp"
+#include <data_readers/data_reader.hpp>
+#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
+#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
+#include <layer.hpp>
+#include <layers/add_layer.hpp>
+#include <layers/batch_norm_layer.hpp>
+#include <layers/cast_layer.hpp>
+#include <layers/concat_layer.hpp>
+#include <layers/dot_product_layer.hpp>
+#include <layers/dropout_cudnn_layer.hpp>
+#include <layers/dropout_layer.hpp>
+#include <layers/elu_layer.hpp>
+#include <layers/fm_order2_layer.hpp>
+#include <layers/fully_connected_layer.hpp>
+#include <layers/fully_connected_layer_half.hpp>
+#include <layers/fused_fully_connected_layer.hpp>
+#include <layers/interaction_layer.hpp>
+#include <layers/multi_cross_layer.hpp>
+#include <layers/multiply_layer.hpp>
+#include <layers/reduce_sum_layer.hpp>
+#include <layers/relu_layer.hpp>
+#include <layers/reshape_layer.hpp>
+#include <layers/slice_layer.hpp>
+#include <loss.hpp>
+#include <metrics.hpp>
+#include <optimizer.hpp>
+#include <parser.hpp>
+#include <regularizers/l1_regularizer.hpp>
+#include <regularizers/l2_regularizer.hpp>
+#include <regularizers/no_regularizer.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -51,23 +52,27 @@
 
 namespace HugeCTR {
 
-void assign_first_tensor(std::map<std::string, std::shared_ptr<Tensor<float>>>& tensor_list,
-                         const nlohmann::json& j_array,
-                         const std::shared_ptr<Tensor<float>>& in_tensor) {
-  // get the top of embedding layer
-  auto tensor_name = get_value_from_json<std::string>(j_array[0], "top");
-  auto p = tensor_list.emplace(tensor_name, in_tensor);
-  if (p.second == false) {
-    CK_THROW_(Error_t::WrongInput, "Tensor insert failed");
-  }
-}
-
 struct InputOutputInfo {
-  ITensors input;
+  std::vector<TensorBag2> train_input;
+  std::vector<TensorBag2> evaluate_input;
   std::vector<std::string> output;
 };
 
-std::vector<std::string> get_layer_names(const nlohmann::json& json) {
+static bool get_tensor_from_entries(const std::vector<TensorEntry> tensor_entries,
+                                    const std::string& name, TensorUse use, TensorBag2* bag) {
+  if (use == TensorUse::General) {
+    CK_THROW_(Error_t::WrongInput, "Type should not be general");
+  }
+  for (const TensorEntry& entry : tensor_entries) {
+    if (entry.name == name && (entry.use == TensorUse::General || entry.use == use)) {
+      *bag = entry.bag;
+      return true;
+    }
+  }
+  return false;
+}
+
+static std::vector<std::string> get_layer_names(const nlohmann::json& json) {
   std::vector<std::string> layer_names;
   if (json.is_array()) {
     for (auto j : json) {
@@ -80,47 +85,49 @@ std::vector<std::string> get_layer_names(const nlohmann::json& json) {
   return layer_names;
 }
 
-InputOutputInfo get_input_tensor_and_output_name(
-    const nlohmann::json& json, std::map<std::string, std::shared_ptr<ITensor>> tensor_list) {
+static InputOutputInfo get_input_tensor_and_output_name(
+    const nlohmann::json& json, const std::vector<TensorEntry>& tensor_entries) {
   auto bottom = get_json(json, "bottom");
   std::vector<std::string> bottom_strs = get_layer_names(bottom);
 
   auto top = get_json(json, "top");
   std::vector<std::string> top_strs = get_layer_names(top);
 
-  ITensors bottom_tensors;
+  std::vector<TensorBag2> bottom_train_tensors;
+  std::vector<TensorBag2> bottom_evaluate_tensors;
+
   for (auto& bstr : bottom_strs) {
     for (auto& tstr : top_strs) {
       if (bstr == tstr) {
         CK_THROW_(Error_t::WrongInput, "bottom and top include a same layer name");
       }
     }
-    std::shared_ptr<ITensor> tensor;
-    if (!find_item_in_map(tensor, bstr, tensor_list)) {
+    TensorBag2 tensor;
+    if (!get_tensor_from_entries(tensor_entries, bstr, TensorUse::Train, &tensor)) {
       CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
     }
-    bottom_tensors.push_back(tensor);
+    bottom_train_tensors.push_back(tensor);
+    if (!get_tensor_from_entries(tensor_entries, bstr, TensorUse::Evaluate, &tensor)) {
+      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
+    }
+    bottom_evaluate_tensors.push_back(tensor);
   }
-  return {bottom_tensors, top_strs};
+  return {bottom_train_tensors, bottom_evaluate_tensors, top_strs};
 }
 
 struct TensorPair {
-  std::shared_ptr<ITensor> tensor;
+  TensorBag2 tensor;
   std::string name;
 };
 
-void add_tensor_to_network(TensorPair& output_tensor_pair,
-                           std::map<std::string, std::shared_ptr<ITensor>>& tensor_list) {
-  auto p = tensor_list.emplace(output_tensor_pair.name, output_tensor_pair.tensor);
-
-  if (p.second == false) {
-    std::cout << "tensor name:" << output_tensor_pair.name << std::endl;
-    CK_THROW_(Error_t::WrongInput, "Tensor insert failed");
-  }
+static void add_tensor_to_network(TensorPair& output_tensor_pair,
+                                  std::vector<TensorEntry>& tensor_entries) {
+  tensor_entries.push_back(
+      {output_tensor_pair.name, TensorUse::General, output_tensor_pair.tensor});
 }
 
 template <typename Type>
-OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
+static OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
   // create optimizer
   auto optimizer_name = get_value_from_json<std::string>(j_optimizer, "type");
   Optimizer_t optimizer_type;
@@ -132,8 +139,18 @@ OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
   memset(&opt_hyper_params, 0, sizeof(opt_hyper_params));
   OptParams<Type> opt_params;
 
-  bool global_update = false;
-  global_update = get_value_from_json<bool>(j_optimizer, "global_update");
+  Update_t update_type = Update_t::Local;
+  if (has_key_(j_optimizer, "update_type")) {
+    std::string update_name = get_value_from_json<std::string>(j_optimizer, "update_type");
+    if (!find_item_in_map(update_type, update_name, UPDATE_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "No such update type: " + update_name);
+    }
+  } else if (has_key_(j_optimizer, "global_update")) {
+    bool global_update = get_value_from_json<bool>(j_optimizer, "global_update");
+    if (global_update) update_type = Update_t::Global;
+  } else {
+    MESSAGE_("update_type is not specified, using default: local");
+  }
 
   switch (optimizer_type) {
     case Optimizer_t::Adam: {
@@ -145,7 +162,7 @@ OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       opt_hyper_params.adam.beta1 = beta1;
       opt_hyper_params.adam.beta2 = beta2;
       opt_hyper_params.adam.epsilon = epsilon;
-      opt_params = {Optimizer_t::Adam, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::Adam, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::MomentumSGD: {
@@ -153,7 +170,7 @@ OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       float momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.momentum.factor = momentum_factor;
-      opt_params = {Optimizer_t::MomentumSGD, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::MomentumSGD, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::Nesterov: {
@@ -161,13 +178,16 @@ OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
       float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
       float momentum_factor = get_value_from_json<float>(j_hparam, "momentum_factor");
       opt_hyper_params.nesterov.mu = momentum_factor;
-      opt_params = {Optimizer_t::Nesterov, learning_rate, opt_hyper_params, global_update};
+      opt_params = {Optimizer_t::Nesterov, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::SGD: {
       auto j_hparam = get_json(j_optimizer, "sgd_hparam");
       auto learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
-      opt_params = {Optimizer_t::SGD, learning_rate, opt_hyper_params, global_update};
+      if (has_key_(j_hparam, "atomic_update")) {
+        opt_hyper_params.sgd.atomic_update = get_value_from_json<bool>(j_hparam, "atomic_update");
+      }
+      opt_params = {Optimizer_t::SGD, learning_rate, opt_hyper_params, update_type};
       break;
     }
     default:
@@ -177,12 +197,11 @@ OptParams<Type> get_optimizer_param(const nlohmann::json& j_optimizer) {
 }
 
 template <typename T>
-std::shared_ptr<Regularizer<T>> create_regularizer(
-    const nlohmann::json& j, const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-    const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff, const int batch_size,
-    cublasHandle_t cublas_handle, const int device_id) {
+static std::shared_ptr<Regularizer<T>> create_regularizer(
+    const nlohmann::json& j, const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
+    const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource) {
   std::shared_ptr<Regularizer<T>> reg(
-      new NoRegularizer<T>(weight_buff, wgrad_buff, batch_size, device_id));
+      new NoRegularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource));
   auto reg_it = j.find("regularizer");
   if (reg_it != j.end()) {
     Regularizer_t reg_type;
@@ -193,14 +212,12 @@ std::shared_ptr<Regularizer<T>> create_regularizer(
     switch (reg_type) {
       case Regularizer_t::L1: {
         const auto lambda = get_value_from_json<float>(j, "lambda");
-        reg.reset(new L1Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle,
-                                       device_id));
+        reg.reset(new L1Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
         break;
       }
       case Regularizer_t::L2: {
         const auto lambda = get_value_from_json<float>(j, "lambda");
-        reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, cublas_handle,
-                                       device_id));
+        reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
         break;
       }
       default: { assert(!"Error: no such regularizer!"); }
@@ -255,22 +272,24 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
  *
  */
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
-                        const std::map<std::string, std::shared_ptr<ITensor>>& tensor_list_in,
-                        int device_id, int num_networks_in_global,
-                        const std::shared_ptr<const GPUResource>& gpu_resource,
-                        bool use_mixed_precision, float scaler, bool use_algorithm_search) {
-  std::unique_ptr<Network> network(new Network(device_id, gpu_resource, use_mixed_precision));
-  std::map<std::string, std::shared_ptr<ITensor>> tensor_list(tensor_list_in);
+                        std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
+                        const std::shared_ptr<CPUResource>& cpu_resource,
+                        const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+                        float scaler, bool use_algorithm_search, bool use_cuda_graph) {
+  std::unique_ptr<Network> network(
+      new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
 
   auto& layers = network->layers_;
-  const auto& blobs_buff = network->blobs_buff_;
-  const auto& blobs_buff_half = network->blobs_buff_half_;
-  const auto& weight_buff = network->weight_buff_;
-  const auto& weight_buff_half = network->weight_buff_half_;
-  const auto& wgrad_buff = network->wgrad_buff_;
-  const auto& wgrad_buff_half = network->wgrad_buff_half_;
   auto& loss_tensor = network->loss_tensor_;
   auto& loss = network->loss_;
+
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
+      GeneralBuffer2<CudaAllocator>::create();
+
+  std::shared_ptr<BufferBlock2<float>> weight_buff = blobs_buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<__half>> weight_buff_half = blobs_buff->create_block<__half>();
+  std::shared_ptr<BufferBlock2<float>> wgrad_buff = blobs_buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = blobs_buff->create_block<__half>();
 
   assert(layers.empty());
 
@@ -290,14 +309,15 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
     }
 
     std::vector<TensorPair> output_tensor_pairs;
-    auto input_output_info = get_input_tensor_and_output_name(j, tensor_list);
+    auto input_output_info = get_input_tensor_and_output_name(j, tensor_entries);
     switch (layer_type) {
       case Layer_t::BatchNorm: {
-        const auto& bn_in_tensor = input_output_info.input[0];
+        Tensor2<float> bn_in_tensor =
+            Tensor2<float>::stretch_from(input_output_info.train_input[0]);
         // establish out tensor
-        TensorPtr<float> bn_out_tensor(
-            new Tensor<float>(bn_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
-        output_tensor_pairs.push_back({bn_out_tensor, input_output_info.output[0]});
+        Tensor2<float> bn_out_tensor;
+        blobs_buff->reserve(bn_in_tensor.get_dimensions(), &bn_out_tensor);
+        output_tensor_pairs.push_back({bn_out_tensor.shrink(), input_output_info.output[0]});
 
         // get BN params
         auto j_bn_hparam = get_json(j, "bn_param");
@@ -325,127 +345,163 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
 
         BatchNormLayer::Params params = {factor, eps};
-        layers.emplace_back(new BatchNormLayer(
-            weight_buff, wgrad_buff, dynamic_tensor_cast<float>(bn_in_tensor), bn_out_tensor,
-            params, gpu_resource->get_cudnn_handle(), device_id, initializer_types));
+        layers.emplace_back(new BatchNormLayer(weight_buff, wgrad_buff, blobs_buff, bn_in_tensor,
+                                               bn_out_tensor, params, gpu_resource,
+                                               initializer_types));
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
-        if (input_output_info.input.size() != 2) {
+        if (input_output_info.train_input.size() != 2 ||
+            input_output_info.evaluate_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
         }
-        const auto& binary_cross_entropy_loss_in_tensor = input_output_info.input[0];
-        const auto& label_tensor = input_output_info.input[1];
-        loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
+        Tensor2<float> train_label_tensor =
+            Tensor2<float>::stretch_from(input_output_info.train_input[1]);
+        Tensor2<float> evaluate_label_tensor =
+            Tensor2<float>::stretch_from(input_output_info.evaluate_input[1]);
+        blobs_buff->reserve({1, 1}, &loss_tensor);
         if (use_mixed_precision) {
+          Tensor2<__half> train_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> evaluate_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+
           loss.reset(new BinaryCrossEntropyLoss<__half>(
-              dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<__half>(binary_cross_entropy_loss_in_tensor), loss_tensor,
-              create_regularizer(j, weight_buff, wgrad_buff_half,
-                                 (binary_cross_entropy_loss_in_tensor->get_dims())[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              device_id, num_networks_in_global, scaler));
+              train_label_tensor, train_in_tensor, evaluate_label_tensor, evaluate_in_tensor,
+              loss_tensor,
+              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+                                 train_in_tensor.get_dimensions()[0], gpu_resource),
+              gpu_resource, num_networks_in_global, scaler));
         } else {
+          Tensor2<float> train_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> evaluate_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+
           loss.reset(new BinaryCrossEntropyLoss<float>(
-              dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<float>(binary_cross_entropy_loss_in_tensor), loss_tensor,
-              create_regularizer(j, weight_buff, wgrad_buff,
-                                 (binary_cross_entropy_loss_in_tensor->get_dims())[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              device_id, num_networks_in_global, scaler));
+              train_label_tensor, train_in_tensor, evaluate_label_tensor, evaluate_in_tensor,
+              loss_tensor,
+              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                                 train_in_tensor.get_dimensions()[0], gpu_resource),
+              gpu_resource, num_networks_in_global, scaler));
         }
         break;
       }
       case Layer_t::Concat: {
-        auto& in_tensors = input_output_info.input;
         if (use_mixed_precision) {
-          std::shared_ptr<Tensor<__half>> out_tensor;
-          layers.emplace_back(new ConcatLayer<__half>(tensor_vec_dynamic_cast<__half>(in_tensors),
-                                                      out_tensor, blobs_buff_half, device_id));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          Tensors2<__half> train_in_tensors;
+          for (const TensorBag2& t : input_output_info.train_input) {
+            train_in_tensors.push_back(Tensor2<__half>::stretch_from(t));
+          }
+          Tensors2<__half> evaluate_in_tensors;
+          for (const TensorBag2& t : input_output_info.evaluate_input) {
+            evaluate_in_tensors.push_back(Tensor2<__half>::stretch_from(t));
+          }
+          Tensor2<__half> out_tensor;
+          layers.emplace_back(new ConcatLayer<__half>(train_in_tensors, evaluate_in_tensors,
+                                                      out_tensor, blobs_buff, gpu_resource));
+          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         } else {
-          std::shared_ptr<Tensor<float>> out_tensor;
-          layers.emplace_back(new ConcatLayer<float>(tensor_vec_dynamic_cast<float>(in_tensors),
-                                                     out_tensor, blobs_buff, device_id));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          Tensors2<float> train_in_tensors;
+          for (const TensorBag2& t : input_output_info.train_input) {
+            train_in_tensors.push_back(Tensor2<float>::stretch_from(t));
+          }
+          Tensors2<float> evaluate_in_tensors;
+          for (const TensorBag2& t : input_output_info.evaluate_input) {
+            evaluate_in_tensors.push_back(Tensor2<float>::stretch_from(t));
+          }
+          Tensor2<float> out_tensor;
+          layers.emplace_back(new ConcatLayer<float>(train_in_tensors, evaluate_in_tensors,
+                                                     out_tensor, blobs_buff, gpu_resource));
+          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
       }
       case Layer_t::CrossEntropyLoss: {
-        if (input_output_info.input.size() != 2) {
+        if (input_output_info.train_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
         }
-        const auto& cross_entropy_loss_in_tensor = input_output_info.input[0];
-        const auto& label_tensor = input_output_info.input[1];
-        loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
+        Tensor2<float> label_tensor =
+            Tensor2<float>::stretch_from(input_output_info.train_input[1]);
+        blobs_buff->reserve({1, 1}, &loss_tensor);
         if (use_mixed_precision) {
+          Tensor2<__half> cross_entropy_loss_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+
           loss.reset(new CrossEntropyLoss<__half>(
-              dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<__half>(cross_entropy_loss_in_tensor), loss_tensor,
-              create_regularizer(j, weight_buff, wgrad_buff_half,
-                                 (cross_entropy_loss_in_tensor->get_dims())[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              device_id, num_networks_in_global, scaler));
+              label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
+              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+                                 cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
+              gpu_resource, num_networks_in_global, scaler));
         } else {
+          Tensor2<float> cross_entropy_loss_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+
           loss.reset(new CrossEntropyLoss<float>(
-              dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<float>(cross_entropy_loss_in_tensor), loss_tensor,
-              create_regularizer(j, weight_buff, wgrad_buff,
-                                 (cross_entropy_loss_in_tensor->get_dims())[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              device_id, num_networks_in_global, scaler));
+              label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
+              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                                 cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
+              gpu_resource, num_networks_in_global, scaler));
         }
         break;
       }
       case Layer_t::Dropout: {
-        const auto& do_in_tensor = input_output_info.input[0];
-
         if (use_mixed_precision) {
+          Tensor2<__half> do_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
           // establish out tensor
-          std::shared_ptr<Tensor<__half>> do_out_tensor(
-              new Tensor<__half>(do_in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
-          output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
+          Tensor2<__half> do_out_tensor;
+          blobs_buff->reserve(do_in_tensor.get_dimensions(), &do_out_tensor);
+          output_tensor_pairs.push_back({do_out_tensor.shrink(), input_output_info.output[0]});
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-          layers.emplace_back(
-              new DropoutLayer<__half>(dynamic_tensor_cast<__half>(do_in_tensor), do_out_tensor,
-                                       rate, gpu_resource->get_curand_generator(), device_id));
+#ifndef PREFER_CUDNN
+          layers.emplace_back(new DropoutLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
+                                                       rate, gpu_resource));
+#else
+          layers.emplace_back(new DropoutCudnnLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
+                                                            rate, gpu_resource));
+#endif
         } else {
           // establish out tensor
-          std::shared_ptr<Tensor<float>> do_out_tensor(
-              new Tensor<float>(do_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
-          output_tensor_pairs.push_back({do_out_tensor, input_output_info.output[0]});
+          Tensor2<float> do_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> do_out_tensor;
+          blobs_buff->reserve(do_in_tensor.get_dimensions(), &do_out_tensor);
+          output_tensor_pairs.push_back({do_out_tensor.shrink(), input_output_info.output[0]});
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
+#ifndef PREFER_CUDNN
           layers.emplace_back(
-              new DropoutLayer<float>(dynamic_tensor_cast<float>(do_in_tensor), do_out_tensor, rate,
-                                      gpu_resource->get_curand_generator(), device_id));
+              new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
+#else
+          layers.emplace_back(new DropoutCudnnLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
+                                                           rate, gpu_resource));
+#endif
         }
         network->enable_cuda_graph_ = false;
 
         break;
       }
       case Layer_t::ELU: {
-        const auto& elu_in_tensor = input_output_info.input[0];
+        Tensor2<float> elu_in_tensor =
+            Tensor2<float>::stretch_from(input_output_info.train_input[0]);
 
         // establish out tensor
-        std::shared_ptr<Tensor<float>> elu_out_tensor(
-            new Tensor<float>(elu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
-        output_tensor_pairs.push_back({elu_out_tensor, input_output_info.output[0]});
+        Tensor2<float> elu_out_tensor;
+        blobs_buff->reserve(elu_in_tensor.get_dimensions(), &elu_out_tensor);
+        output_tensor_pairs.push_back({elu_out_tensor.shrink(), input_output_info.output[0]});
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
         auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
-        layers.emplace_back(new EluLayer(dynamic_tensor_cast<float>(elu_in_tensor), elu_out_tensor,
-                                         alpha, device_id));
+        layers.emplace_back(new EluLayer(elu_in_tensor, elu_out_tensor, alpha, gpu_resource));
 
         break;
       }
 
       case Layer_t::FusedInnerProduct: {
-        const auto& fc_in_tensor = input_output_info.input[0];
-
         auto j_fc_param = get_json(j, "fc_param");
         // establish initializer
         std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
@@ -470,16 +526,18 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         // establish out tensor
         auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
         if (use_mixed_precision) {
-          std::shared_ptr<Tensor<__half>> out_tensor(new Tensor<__half>(
-              {(fc_in_tensor->get_dims())[0], output}, blobs_buff_half, TensorFormat_t::HW));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          Tensor2<__half> train_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> evaluate_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<__half> fc_out_tensor;
+          blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &fc_out_tensor);
+          output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
 
           // establish layer
-          Layer* fc_layer = new FusedFullyConnectedLayer(
-              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, blobs_buff_half,
-              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor, TensorFormat_t::HW,
-              gpu_resource->get_cublas_handle(), device_id, initializer_types);
-          layers.emplace_back(fc_layer);
+          layers.emplace_back(new FusedFullyConnectedLayer(
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
+              evaluate_in_tensor, fc_out_tensor, gpu_resource, initializer_types));
         } else {
           CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
         }
@@ -487,13 +545,12 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
 
       case Layer_t::Cast: {
-        const auto& in_tensor = input_output_info.input[0];
         if (use_mixed_precision) {
-          std::shared_ptr<Tensor<__half>> out_tensor(
-              new Tensor<__half>(in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
-          layers.emplace_back(
-              new CastLayer(dynamic_tensor_cast<float>(in_tensor), out_tensor, device_id));
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> out_tensor;
+          blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+          layers.emplace_back(new CastLayer(in_tensor, out_tensor, gpu_resource));
         } else {
           CK_THROW_(Error_t::WrongInput, "Cast supports half only");
         }
@@ -501,8 +558,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       }
 
       case Layer_t::InnerProduct: {
-        const auto& fc_in_tensor = input_output_info.input[0];
-
         auto j_fc_param = get_json(j, "fc_param");
         // establish initializer
         std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
@@ -529,57 +584,79 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
 
         if (use_mixed_precision) {
-          std::shared_ptr<Tensor<__half>> out_tensor(new Tensor<__half>(
-              {(fc_in_tensor->get_dims())[0], output}, blobs_buff_half, TensorFormat_t::HW));
+          Tensor2<__half> train_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> evaluate_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<__half> fc_out_tensor;
+          blobs_buff->reserve({train_in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+
           // establish layer
-          Layer* fc_layer = new FullyConnectedLayerHalf(
-              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff_half,
-              dynamic_tensor_cast<__half>(fc_in_tensor), out_tensor, TensorFormat_t::HW,
-              gpu_resource->get_cublas_handle(), device_id, initializer_types);
-          layers.emplace_back(fc_layer);
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          layers.emplace_back(new FullyConnectedLayerHalf(
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
+              evaluate_in_tensor, fc_out_tensor, gpu_resource, initializer_types));
+          output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
         } else {
-          std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
-              {(fc_in_tensor->get_dims())[0], output}, blobs_buff, TensorFormat_t::HW));
+          Tensor2<float> train_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> evaluate_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<float> fc_out_tensor;
+          blobs_buff->reserve({train_in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
           // establish layer
-          Layer* fc_layer = new FullyConnectedLayer(
-              weight_buff, wgrad_buff, dynamic_tensor_cast<float>(fc_in_tensor), out_tensor,
-              TensorFormat_t::HW, gpu_resource->get_cublas_handle(), device_id, use_mixed_precision,
-              initializer_types);
-          layers.emplace_back(fc_layer);
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          layers.emplace_back(new FullyConnectedLayer(
+              weight_buff, wgrad_buff, train_in_tensor, evaluate_in_tensor, fc_out_tensor,
+              gpu_resource, use_mixed_precision, initializer_types));
+          output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
       }
 
       case Layer_t::Interaction: {
         // lambda template could be a better solution here, but there's not support in c++11
-        auto input_output_info = get_input_tensor_and_output_name(j, tensor_list);
-        auto& in_mlp_tensor = input_output_info.input[0];
-        auto& in_emb_tensor = input_output_info.input[1];
         if (use_mixed_precision) {
-          std::shared_ptr<Tensor<__half>> out_tensor;
+          if (gpu_resource->get_cc_major() < 7) {
+            CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
+                                               std::to_string(gpu_resource->get_cc_major()) + "." +
+                                               std::to_string(gpu_resource->get_cc_minor()));
+          }
+
+          Tensor2<__half> train_in_mlp_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> evaluate_in_mlp_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<__half> train_in_emb_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[1]);
+          Tensor2<__half> evaluate_in_emb_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[1]);
+          Tensor2<__half> out_tensor;
+
           layers.emplace_back(new InteractionLayer<__half>(
-              dynamic_tensor_cast<__half>(in_mlp_tensor),
-              dynamic_tensor_cast<__half>(in_emb_tensor), out_tensor,
-              blobs_buff_half,  // todo cannot use this blobs_buff here need half
-              gpu_resource->get_cublas_handle(), use_mixed_precision, device_id));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+              train_in_mlp_tensor, evaluate_in_mlp_tensor, train_in_emb_tensor,
+              evaluate_in_emb_tensor, out_tensor,
+              blobs_buff,  // todo cannot use this blobs_buff here need half
+              gpu_resource, use_mixed_precision));
+          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
 
         } else {
-          std::shared_ptr<Tensor<float>> out_tensor;
+          Tensor2<float> train_in_mlp_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> evaluate_in_mlp_tensor =
+              Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<float> train_emb_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[1]);
+          Tensor2<float> evaluate_emb_tensor =
+              Tensor2<float>::stretch_from(input_output_info.evaluate_input[1]);
+          Tensor2<float> out_tensor;
           layers.emplace_back(new InteractionLayer<float>(
-              dynamic_tensor_cast<float>(in_mlp_tensor), dynamic_tensor_cast<float>(in_emb_tensor),
-              out_tensor, blobs_buff, gpu_resource->get_cublas_handle(), use_mixed_precision,
-              device_id));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+              train_in_mlp_tensor, evaluate_in_mlp_tensor, train_emb_tensor, evaluate_emb_tensor,
+              out_tensor, blobs_buff, gpu_resource, use_mixed_precision));
+          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
 
         break;
       }
       case Layer_t::MultiCross: {
-        auto& mc_in_tensor = input_output_info.input[0];
-
         auto j_mc_param = get_json(j, "mc_param");
         // establish initializer
         std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
@@ -604,24 +681,22 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 
         // establish out tensor
         auto num_layers = get_value_from_json<int>(j_mc_param, "num_layers");
-        std::shared_ptr<Tensor<float>> out_tensor(
-            new Tensor<float>(mc_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        Tensor2<float> mc_in_tensor =
+            Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         // establish layer
-        Layer* mc_layer =
-            new MultiCrossLayer(weight_buff, wgrad_buff, dynamic_tensor_cast<float>(mc_in_tensor),
-                                out_tensor, num_layers, device_id, initializer_types);
-        layers.emplace_back(mc_layer);
+        layers.emplace_back(new MultiCrossLayer(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
+                                                out_tensor, gpu_resource, num_layers,
+                                                initializer_types));
         break;
       }
 
       case Layer_t::MultiCrossEntropyLoss: {
-        if (input_output_info.input.size() != 2) {
+        if (input_output_info.train_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
         }
-        const auto& multi_cross_entropy_loss_in_tensor = input_output_info.input[0];
-        const auto& label_tensor = input_output_info.input[1];
-        loss_tensor.reset(new Tensor<float>({1, 1}, blobs_buff, TensorFormat_t::HW));
 
         auto tweight = get_json(j, "target_weight");
         std::vector<float> target_weight_vec;
@@ -630,50 +705,52 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           target_weight_vec.push_back(tweight_val);
         }
 
+        Tensor2<float> label_tensor =
+            Tensor2<float>::stretch_from(input_output_info.train_input[1]);
+        blobs_buff->reserve({1, 1}, &loss_tensor);
+
         if (use_mixed_precision) {
+          Tensor2<__half> multi_cross_entropy_loss_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
           loss.reset(new MultiCrossEntropyLoss<__half>(
-              dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<__half>(multi_cross_entropy_loss_in_tensor), loss_tensor,
-              create_regularizer(j, weight_buff, wgrad_buff_half,
-                                 (multi_cross_entropy_loss_in_tensor->get_dims())[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              target_weight_vec, device_id, num_networks_in_global, scaler));
+              label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
+              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+                                 multi_cross_entropy_loss_in_tensor.get_dimensions()[0],
+                                 gpu_resource),
+              target_weight_vec, gpu_resource, num_networks_in_global, scaler));
         } else {
+          Tensor2<float> multi_cross_entropy_loss_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
           loss.reset(new MultiCrossEntropyLoss<float>(
-              dynamic_tensor_cast<float>(label_tensor),
-              dynamic_tensor_cast<float>(multi_cross_entropy_loss_in_tensor), loss_tensor,
-              create_regularizer(j, weight_buff, wgrad_buff,
-                                 (multi_cross_entropy_loss_in_tensor->get_dims())[0],
-                                 gpu_resource->get_cublas_handle(), device_id),
-              target_weight_vec, device_id, num_networks_in_global, scaler));
+              label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
+              create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                                 multi_cross_entropy_loss_in_tensor.get_dimensions()[0],
+                                 gpu_resource),
+              target_weight_vec, gpu_resource, num_networks_in_global, scaler));
         }
         break;
       }
       case Layer_t::ReLU: {
-        const auto& relu_in_tensor = input_output_info.input[0];
-
         if (use_mixed_precision) {
-          std::shared_ptr<Tensor<__half>> relu_out_tensor(
-              new Tensor<__half>(relu_in_tensor->get_dims(), blobs_buff_half, TensorFormat_t::HW));
-          layers.emplace_back(
-              new ReluLayer<__half>(std::dynamic_pointer_cast<Tensor<__half>>(relu_in_tensor),
-                                    relu_out_tensor, device_id));
-          output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
+          Tensor2<__half> relu_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> relu_out_tensor;
+          blobs_buff->reserve(relu_in_tensor.get_dimensions(), &relu_out_tensor);
+          layers.emplace_back(new ReluLayer<__half>(relu_in_tensor, relu_out_tensor, gpu_resource));
+          output_tensor_pairs.push_back({relu_out_tensor.shrink(), input_output_info.output[0]});
         } else {
           // establish out tensor
-          std::shared_ptr<Tensor<float>> relu_out_tensor(
-              new Tensor<float>(relu_in_tensor->get_dims(), blobs_buff, TensorFormat_t::HW));
-          layers.emplace_back(
-              new ReluLayer<float>(std::dynamic_pointer_cast<Tensor<float>>(relu_in_tensor),
-                                   relu_out_tensor, device_id));
-          output_tensor_pairs.push_back({relu_out_tensor, input_output_info.output[0]});
+          Tensor2<float> relu_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> relu_out_tensor;
+          blobs_buff->reserve(relu_in_tensor.get_dimensions(), &relu_out_tensor);
+          layers.emplace_back(new ReluLayer<float>(relu_in_tensor, relu_out_tensor, gpu_resource));
+          output_tensor_pairs.push_back({relu_out_tensor.shrink(), input_output_info.output[0]});
         }
 
         break;
       }
       case Layer_t::Reshape: {
-        const auto& in_tensor = input_output_info.input[0];
-
         auto selected_it = j.find("selected");
         // selective reshape
         if (selected_it != j.end()) {
@@ -686,44 +763,60 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           }
 
           if (use_mixed_precision) {
-            std::shared_ptr<Tensor<__half>> out_tensor;
-            layers.emplace_back(new ReshapeLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
-                                                         out_tensor, blobs_buff_half, selected,
-                                                         device_id));
-            output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+            Tensor2<__half> in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+            Tensor2<__half> out_tensor;
+            layers.emplace_back(new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff,
+                                                         selected, gpu_resource));
+            output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           } else {
-            std::shared_ptr<Tensor<float>> out_tensor;
-            layers.emplace_back(new ReshapeLayer<float>(dynamic_tensor_cast<float>(in_tensor),
-                                                        out_tensor, blobs_buff, selected,
-                                                        device_id));
-            output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+            Tensor2<float> in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+            Tensor2<float> out_tensor;
+            layers.emplace_back(
+                new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff, selected, gpu_resource));
+            output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           }
         }
         // general purpose reshape
         else {
           auto leading_dim_it = j.find("leading_dim");
-          auto in_dims = in_tensor->get_dims();
+
           // if leading_dim is not specified, default leading_dim = n_slots * vector_length
-          int leading_dim = (leading_dim_it != j.end())
-                                ? (*leading_dim_it).get<int>()
-                                : in_tensor->get_num_elements() / in_dims[0];
+
           if (use_mixed_precision) {
-            std::shared_ptr<Tensor<__half>> out_tensor;
-            layers.emplace_back(new ReshapeLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
-                                                         out_tensor, leading_dim, device_id));
-            output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+            Tensor2<__half> train_in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+            Tensor2<__half> evaluate_in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+            Tensor2<__half> out_tensor;
+            const auto& in_dims = train_in_tensor.get_dimensions();
+            size_t leading_dim = (leading_dim_it != j.end())
+                                     ? (*leading_dim_it).get<int>()
+                                     : train_in_tensor.get_num_elements() / in_dims[0];
+            layers.emplace_back(new ReshapeLayer<__half>(train_in_tensor, evaluate_in_tensor,
+                                                         out_tensor, blobs_buff, leading_dim,
+                                                         gpu_resource));
+            output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           } else {
-            std::shared_ptr<Tensor<float>> out_tensor;
-            layers.emplace_back(new ReshapeLayer<float>(dynamic_tensor_cast<float>(in_tensor),
-                                                        out_tensor, leading_dim, device_id));
-            output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+            Tensor2<float> train_in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+            Tensor2<float> evaluate_in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+            Tensor2<float> out_tensor;
+            const auto& in_dims = train_in_tensor.get_dimensions();
+            size_t leading_dim = (leading_dim_it != j.end())
+                                     ? (*leading_dim_it).get<int>()
+                                     : train_in_tensor.get_num_elements() / in_dims[0];
+            layers.emplace_back(new ReshapeLayer<float>(train_in_tensor, evaluate_in_tensor,
+                                                        out_tensor, blobs_buff, leading_dim,
+                                                        gpu_resource));
+            output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           }
         }
         break;
       }
       case Layer_t::Slice: {
-        const auto& in_tensor = input_output_info.input[0];
-
         std::vector<std::pair<int, int>> ranges;
         auto j_ranges = get_json(j, "ranges");
         assert(j_ranges.is_array());
@@ -733,26 +826,31 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         }
 
         if (use_mixed_precision) {
-          Tensors<__half> out_tensors;
-          layers.emplace_back(new SliceLayer<__half>(dynamic_tensor_cast<__half>(in_tensor),
-                                                     out_tensors, blobs_buff_half, ranges,
-                                                     device_id));
+          Tensor2<__half> train_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> evaluate_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensors2<__half> out_tensors;
+          layers.emplace_back(new SliceLayer<__half>(
+              train_in_tensor, evaluate_in_tensor, out_tensors, blobs_buff, ranges, gpu_resource));
           for (size_t i = 0; i < out_tensors.size(); i++) {
-            output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
+            output_tensor_pairs.push_back({out_tensors[i].shrink(), input_output_info.output[i]});
           }
         } else {
-          Tensors<float> out_tensors;
-          layers.emplace_back(new SliceLayer<float>(dynamic_tensor_cast<float>(in_tensor),
-                                                    out_tensors, blobs_buff, ranges, device_id));
+          Tensor2<float> train_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> evaluate_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensors2<float> out_tensors;
+          layers.emplace_back(new SliceLayer<float>(train_in_tensor, evaluate_in_tensor,
+                                                    out_tensors, blobs_buff, ranges, gpu_resource));
           for (size_t i = 0; i < out_tensors.size(); i++) {
-            output_tensor_pairs.push_back({out_tensors[i], input_output_info.output[i]});
+            output_tensor_pairs.push_back({out_tensors[i].shrink(), input_output_info.output[i]});
           }
         }
         break;
       }
       case Layer_t::Multiply: {
-        const auto& in_tensor = input_output_info.input[0];
-
         std::vector<size_t> weight_dims;
         auto dims = get_json(j, "weight_dims");
         assert(dims.is_array());
@@ -772,62 +870,68 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           }
         }
 
-        std::shared_ptr<Tensor<float>> out_tensor;
-        Layer* mul_layer = new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff,
-                                             dynamic_tensor_cast<float>(in_tensor), out_tensor,
-                                             weight_dims, device_id, initializer_types);
-        layers.emplace_back(mul_layer);
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> out_tensor;
+        layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff, in_tensor,
+                                              out_tensor, weight_dims, gpu_resource,
+                                              initializer_types));
+        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         break;
       }
       case Layer_t::FmOrder2: {
-        const auto& in_tensor = input_output_info.input[0];
         auto out_dim = get_json(j, "out_dim").get<size_t>();
 
-        // std::shared_ptr<Tensor<float>> out_tensor(
-        //     new Tensor<float>({batch_size, out_dim}, blobs_buff, TensorFormat_t::HW));
-        std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
-            {(in_tensor->get_dims())[0], out_dim}, blobs_buff, TensorFormat_t::HW));
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve({in_tensor.get_dimensions()[0], out_dim}, &out_tensor);
 
-        layers.emplace_back(
-            new FmOrder2Layer(dynamic_tensor_cast<float>(in_tensor), out_tensor, device_id));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, gpu_resource));
+        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         break;
       }
       case Layer_t::Add: {
-        auto& in_tensors = input_output_info.input;
-
         if (use_mixed_precision) {
-          std::shared_ptr<Tensor<__half>> out_tensor(new Tensor<__half>(
-              in_tensors[0]->get_dims(), blobs_buff_half, in_tensors[0]->get_format()));
-          layers.emplace_back(new AddLayer<__half>(tensor_vec_dynamic_cast<__half>(in_tensors),
-                                                   out_tensor, device_id));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          Tensors2<__half> in_tensors;
+          for (const auto& t : input_output_info.train_input) {
+            in_tensors.push_back(Tensor2<__half>::stretch_from(t));
+          }
+          Tensor2<__half> out_tensor;
+          blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+          layers.emplace_back(
+              new AddLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         } else {
-          std::shared_ptr<Tensor<float>> out_tensor(new Tensor<float>(
-              in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
-          layers.emplace_back(new AddLayer<float>(tensor_vec_dynamic_cast<float>(in_tensors),
-                                                  out_tensor, device_id));
-          output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+          Tensors2<float> in_tensors;
+          for (const auto& t : input_output_info.train_input) {
+            in_tensors.push_back(Tensor2<float>::stretch_from(t));
+          }
+          Tensor2<float> out_tensor;
+          blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+          layers.emplace_back(
+              new AddLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
       }
       case Layer_t::ReduceSum: {
-        auto& in_tensor = input_output_info.input[0];
-        std::shared_ptr<Tensor<float>> out_tensor;
         int axis = get_json(j, "axis").get<int>();
-        layers.emplace_back(new ReduceSumLayer(dynamic_tensor_cast<float>(in_tensor), out_tensor,
-                                               blobs_buff, axis, device_id));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> out_tensor;
+        layers.emplace_back(
+            new ReduceSumLayer(in_tensor, out_tensor, blobs_buff, axis, gpu_resource));
+        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         break;
       }
       case Layer_t::DotProduct: {
-        auto& in_tensors = input_output_info.input;
-        std::shared_ptr<Tensor<float>> out_tensor(
-            new Tensor<float>(in_tensors[0]->get_dims(), blobs_buff, in_tensors[0]->get_format()));
-        layers.emplace_back(
-            new DotProductLayer(tensor_vec_dynamic_cast<float>(in_tensors), out_tensor, device_id));
-        output_tensor_pairs.push_back({out_tensor, input_output_info.output[0]});
+        Tensors2<float> in_tensors;
+        for (const auto& t : input_output_info.train_input) {
+          in_tensors.push_back(Tensor2<float>::stretch_from(t));
+        }
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+        layers.emplace_back(new DotProductLayer(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         break;
       }
       default:
@@ -838,12 +942,12 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           layer_type == Layer_t::BinaryCrossEntropyLoss ||
           layer_type == Layer_t::MultiCrossEntropyLoss)) {
       for (auto& output_tensor_pair : output_tensor_pairs) {
-        add_tensor_to_network(output_tensor_pair, tensor_list);
+        add_tensor_to_network(output_tensor_pair, tensor_entries);
       }
     } else {
-      network->raw_metrics_[metrics::RawType::Loss] = loss_tensor;
-      network->raw_metrics_[metrics::RawType::Pred] = input_output_info.input[0];
-      network->raw_metrics_[metrics::RawType::Label] = input_output_info.input[1];
+      network->raw_metrics_[metrics::RawType::Loss] = loss_tensor.shrink();
+      network->raw_metrics_[metrics::RawType::Pred] = input_output_info.evaluate_input[0];
+      network->raw_metrics_[metrics::RawType::Label] = input_output_info.evaluate_input[1];
     }
   }  // for layers
 
@@ -851,15 +955,16 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   auto opt_param = get_optimizer_param<float>(j_optimizer);
 
   network->optimizer_ = std::move(Optimizer::Create(
-      opt_param, weight_buff, wgrad_buff, wgrad_buff_half, use_mixed_precision, scaler, device_id));
-  weight_buff->init(device_id);
-  wgrad_buff->init(device_id);
-  blobs_buff->init(device_id);
-  if (use_mixed_precision) {
-    weight_buff_half->init(device_id);
-    wgrad_buff_half->init(device_id);
-    blobs_buff_half->init(device_id);
-  }
+      opt_param, weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+      use_mixed_precision, scaler, blobs_buff, gpu_resource));
+
+  network->weight_tensor_ = weight_buff->as_tensor();
+  network->wgrad_tensor_ = wgrad_buff->as_tensor();
+  network->weight_tensor_half_ = weight_buff_half->as_tensor();
+  network->wgrad_tensor_half_ = wgrad_buff_half->as_tensor();
+
+  CudaDeviceContext context(gpu_resource->get_device_id());
+  blobs_buff->allocate();
 
 #ifndef DATA_READING_TEST
   network->initialize();
@@ -872,12 +977,12 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
 }
 
 template <typename TypeKey>
-void parse_data_layer(const nlohmann::json& j, int& label_dim, int& dense_dim, Check_t& check_type,
-                      std::string& source_data,
-                      std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-                      std::string& eval_source, std::string& top_strs_label,
-                      std::string& top_strs_dense, std::vector<std::string>& sparse_names,
-                      std::map<std::string, SparseInput<TypeKey>>& sparse_input_map) {
+static void parse_data_layer(const nlohmann::json& j, int& label_dim, int& dense_dim,
+                             Check_t& check_type, std::string& source_data,
+                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
+                             std::string& eval_source, std::string& top_strs_label,
+                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
+                             std::map<std::string, SparseInput<TypeKey>>& sparse_input_map) {
   source_data = get_value_from_json<std::string>(j, "source");
 
   auto j_label = get_json(j, "label");
@@ -934,12 +1039,10 @@ void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense
 
 template <typename TypeKey, typename TypeFP>
 static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                             std::map<std::string, std::shared_ptr<ITensor>>* tensor_maps,
-                             std::map<std::string, std::shared_ptr<ITensor>>* tensor_maps_eval,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+                             std::vector<TensorEntry>* tensor_entries_list,
+                             std::vector<std::shared_ptr<IEmbedding>>& embedding,
                              Embedding_t embedding_type, const nlohmann::json& config,
-                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
+                             const std::shared_ptr<ResourceManager>& resource_manager,
                              size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
                              float scaler, const nlohmann::json& j_layers) {
 #ifdef ENABLE_MPI
@@ -988,6 +1091,7 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
     case Embedding_t::DistributedSlotSparseEmbeddingHash: {
       const SparseEmbeddingHashParams<TypeFP> embedding_params = {
           batch_size,
+          batch_size_eval,
           max_vocabulary_size_per_gpu,
           {},
           embedding_vec_size,
@@ -995,14 +1099,11 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
           sparse_input.slot_num,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
-      auto emb_ptr = EmbeddingCreator::create_distributed_sparse_embedding_hash(
-          sparse_input.row, sparse_input.value, embedding_params, gpu_resource_group);
-      embedding.emplace_back(emb_ptr);
-      // todo:
-      embedding_eval.emplace_back(
-          EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
-                                       batch_size_eval, gpu_resource_group, emb_ptr));
 
+      embedding.emplace_back(new DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
+          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
+          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
+          sparse_input.evaluate_nnz, embedding_params, resource_manager));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
@@ -1046,6 +1147,7 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
 
       const SparseEmbeddingHashParams<TypeFP> embedding_params = {
           batch_size,
+          batch_size_eval,
           max_vocabulary_size_per_gpu,
           slot_size_array,
           embedding_vec_size,
@@ -1053,12 +1155,11 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
           sparse_input.slot_num,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
-      auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_hash(
-          sparse_input.row, sparse_input.value, embedding_params, plan_file, gpu_resource_group);
-      embedding.emplace_back(emb_ptr);
-      embedding_eval.emplace_back(
-          EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
-                                       batch_size_eval, gpu_resource_group, emb_ptr));
+
+      embedding.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
+          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
+          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
+          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
 
       break;
     }
@@ -1073,6 +1174,7 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
 
       const SparseEmbeddingHashParams<TypeFP> embedding_params = {
           batch_size,
+          batch_size_eval,
           0,
           slot_size_array,
           embedding_vec_size,
@@ -1080,37 +1182,42 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
           sparse_input.slot_num,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
-      auto emb_ptr = EmbeddingCreator::create_localized_sparse_embedding_one_hot(
-          sparse_input.row, sparse_input.value, embedding_params, plan_file, gpu_resource_group);
-      embedding.emplace_back(emb_ptr);
-      embedding_eval.emplace_back(
-          EmbeddingCreator::clone_eval(sparse_input.row_eval, sparse_input.value_eval,
-                                       batch_size_eval, gpu_resource_group, emb_ptr));
+
+      embedding.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
+          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
+          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
+          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
 
       break;
     }
   }  // switch
-  for (unsigned int i = 0; i < gpu_resource_group->size(); i++) {
-    tensor_maps[i].emplace(top_name, (embedding.back()->get_output_tensors())[i]);
-    tensor_maps_eval[i].emplace(top_name, (embedding_eval.back()->get_output_tensors())[i]);
+  for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+    tensor_entries_list[i].push_back(
+        {top_name, TensorUse::Train, (embedding.back()->get_train_output_tensors())[i]});
+    tensor_entries_list[i].push_back(
+        {top_name, TensorUse::Evaluate, (embedding.back()->get_evaluate_output_tensors())[i]});
   }
 }
 
+
 template <typename TypeKey>
-static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_reader,
-                                     std::unique_ptr<DataReader<TypeKey>>& data_reader_eval,
-                                     std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                                     std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
+                                     std::shared_ptr<IDataReader>& data_reader_eval,
+                                     std::vector<std::shared_ptr<IEmbedding>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,
-                                     std::vector<std::unique_ptr<Network>>& network_eval,
-                                     const std::shared_ptr<GPUResourceGroup>& gpu_resource_group,
-                                     nlohmann::json config, size_t batch_size,
-                                     size_t batch_size_eval, bool use_mixed_precision, float scaler,
-                                     bool use_algorithm_search) {
+                                     const std::shared_ptr<ResourceManager>& resource_manager,
+                                     Parser& parser) {
   try {
+    nlohmann::json config = parser.config_;
+    size_t batch_size = parser.batch_size_;
+    size_t batch_size_eval = parser.batch_size_eval_;
+    bool use_mixed_precision = parser.use_mixed_precision_;
+    float scaler = parser.scaler_;
+    bool use_algorithm_search = parser.use_algorithm_search_;
+    bool use_cuda_graph = parser.use_cuda_graph_;
+
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
-    std::map<std::string, std::shared_ptr<ITensor>> tensor_maps[gpu_resource_group->size()];
-    std::map<std::string, std::shared_ptr<ITensor>> tensor_maps_eval[gpu_resource_group->size()];
+    std::vector<TensorEntry> tensor_entries_list[resource_manager->get_local_gpu_count()];
     {
       if (!network.empty()) {
         CK_THROW_(Error_t::WrongInput, "vector network is not empty");
@@ -1128,7 +1235,9 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         }
 
         const std::map<std::string, DataReaderType_t> DATA_READER_MAP = {
-            {"Norm", DataReaderType_t::Norm}, {"Raw", DataReaderType_t::Raw}};
+            {"Norm", DataReaderType_t::Norm},
+            {"Raw", DataReaderType_t::Raw},
+            {"Parquet", DataReaderType_t::Parquet}};
 
         DataReaderType_t format = DataReaderType_t::Norm;
         if (has_key_(j, "format")) {
@@ -1138,7 +1247,7 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           }
         }
 
-        auto cache_eval_data = get_value_from_json_soft<bool>(j, "cache_eval_data", false);
+        auto cache_eval_data = get_value_from_json_soft<int>(j, "cache_eval_data", 0);
 
         std::string source_data = get_value_from_json<std::string>(j, "source");
 
@@ -1191,101 +1300,105 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
         std::string eval_source;
         FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
 
+#ifdef VAL
+        const int NUM_THREADS = 1;
+#else
+        const int NUM_THREADS =
+            format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
+#endif
+
+        DataReader<TypeKey> *data_reader_tk = new DataReader<TypeKey>(
+            batch_size, label_dim, dense_dim,
+            data_reader_sparse_param_array,
+            resource_manager,
+            parser.repeat_dataset_,
+            NUM_THREADS, use_mixed_precision, false);
+        data_reader.reset(data_reader_tk);
+        DataReader<TypeKey> *data_reader_eval_tk = new DataReader<TypeKey>(
+            batch_size_eval, label_dim, dense_dim,
+            data_reader_sparse_param_array,
+            resource_manager,
+            parser.repeat_dataset_,
+            NUM_THREADS, use_mixed_precision, cache_eval_data);
+        data_reader_eval.reset(data_reader_eval_tk);
+
+        auto f = [&j]() -> std::vector<long long> {
+          std::vector<long long> slot_offset;
+          if (has_key_(j, "slot_size_array")) {
+            auto slot_size_array = get_json(j, "slot_size_array");
+            if (!slot_size_array.is_array()) {
+              CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
+            }
+            long long slot_sum = 0;
+            for (auto j_slot_size : slot_size_array) {
+              slot_offset.push_back(slot_sum);
+              long long slot_size = j_slot_size.get<long long>();
+              slot_sum += slot_size;
+            }
+            MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+          }
+          return slot_offset;
+        };
+
         switch (format) {
           case DataReaderType_t::Norm: {
-#ifdef VAL
-            data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 1, use_mixed_precision));
-#else
-            data_reader.reset(new DataReader<TypeKey>(source_data, batch_size, label_dim, dense_dim,
-                                                      check_type, data_reader_sparse_param_array,
-                                                      gpu_resource_group, 31, use_mixed_precision));
-
-#endif
-
-#ifdef VAL
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision));
-#else
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 31, use_mixed_precision));
-
-#endif
-
+            bool start_right_now = parser.repeat_dataset_;
+            data_reader->create_drwg_norm(
+                source_data, check_type, start_right_now);
+            data_reader_eval->create_drwg_norm(
+                eval_source, check_type, start_right_now);
             break;
           }
           case DataReaderType_t::Raw: {
             const auto num_samples = get_value_from_json<long long>(j, "num_samples");
             const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
-            std::vector<long long> slot_offset;
-            if (has_key_(j, "slot_size_array")) {
-              auto slot_size_array = get_json(j, "slot_size_array");
-              if (!slot_size_array.is_array()) {
-                CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
-              }
-              long long slot_sum = 0;
-              for (auto j_slot_size : slot_size_array) {
-                slot_offset.push_back(slot_sum);
-                long long slot_size = j_slot_size.get<long long>();
-                slot_sum += slot_size;
-              }
-              MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
-            }
+            std::vector<long long> slot_offset = f();
+            bool float_label_dense = get_value_from_json_soft<bool>(j, "float_label_dense", false);
+            data_reader->create_drwg_raw(source_data, num_samples, slot_offset, float_label_dense,
+                                         true, false);
+            data_reader_eval->create_drwg_raw(eval_source, eval_num_samples, slot_offset,
+                                              float_label_dense, false, false);
 
-#ifdef VAL
-            data_reader.reset(new DataReader<TypeKey>(
-                source_data, batch_size, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format,
-                num_samples, slot_offset, false, false, true));
-#else
-            data_reader.reset(new DataReader<TypeKey>(
-                source_data, batch_size, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 12, use_mixed_precision, format,
-                num_samples, slot_offset, false, false, true));
-
-#endif
-
-            //            if (eval_source.empty() == false) {
-            // data_reader_eval.reset(
-            //     data_reader->clone_eval_with_shared_output(eval_source, eval_num_samples));
-#ifdef VAL
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 1, use_mixed_precision, format,
-                eval_num_samples, slot_offset, cache_eval_data, false, false));
-#else
-            data_reader_eval.reset(new DataReader<TypeKey>(
-                eval_source, batch_size_eval, label_dim, dense_dim, check_type,
-                data_reader_sparse_param_array, gpu_resource_group, 12, use_mixed_precision, format,
-                eval_num_samples, slot_offset, cache_eval_data, false, false));
-
-#endif
-
-            //            }
-
+            break;
+          }
+          case DataReaderType_t::Parquet: {
+            // @Future: Should be slot_offset here and data_reader ctor should
+            // be TypeKey not long long
+            std::vector<long long> slot_offset = f();
+            data_reader->create_drwg_parquet(source_data, slot_offset, true);
+            data_reader_eval->create_drwg_parquet(eval_source, slot_offset, true);
             break;
           }
           default: { assert(!"Error: no such option && should never get here!"); }
         }
 
-        for (unsigned int i = 0; i < gpu_resource_group->size(); i++) {
-          tensor_maps[i].emplace(top_strs_label, (data_reader->get_label_tensors())[i]);
-          tensor_maps[i].emplace(top_strs_dense, (data_reader->get_dense_tensors())[i]);
+        for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+          tensor_entries_list[i].push_back(
+              {top_strs_label, TensorUse::Train, data_reader_tk->get_label_tensors()[i].shrink()});
+          tensor_entries_list[i].push_back({top_strs_label, TensorUse::Evaluate,
+                                            data_reader_eval_tk->get_label_tensors()[i].shrink()});
 
-          // todo should be replaced to data_reader_eval then
-          tensor_maps_eval[i].emplace(top_strs_label, (data_reader_eval->get_label_tensors())[i]);
-          tensor_maps_eval[i].emplace(top_strs_dense, (data_reader_eval->get_dense_tensors())[i]);
+          if (use_mixed_precision) {
+            tensor_entries_list[i].push_back(
+                {top_strs_dense, TensorUse::Train, data_reader_tk->get_dense_tensors()[i]});
+            tensor_entries_list[i].push_back(
+                {top_strs_dense, TensorUse::Evaluate, data_reader_eval_tk->get_dense_tensors()[i]});
+          } else {
+            tensor_entries_list[i].push_back(
+                {top_strs_dense, TensorUse::Train, data_reader_tk->get_dense_tensors()[i]});
+            tensor_entries_list[i].push_back(
+                {top_strs_dense, TensorUse::Evaluate, data_reader_eval_tk->get_dense_tensors()[i]});
+          }
         }
 
         for (unsigned int i = 0; i < j_sparse.size(); i++) {
           const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
-          sparse_input->second.row = data_reader->get_row_offsets_tensors(i);
-          sparse_input->second.value = data_reader->get_value_tensors(i);
-          sparse_input->second.row_eval = data_reader_eval->get_row_offsets_tensors(i);
-          sparse_input->second.value_eval = data_reader_eval->get_value_tensors(i);
+          sparse_input->second.train_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
+          sparse_input->second.train_values = data_reader_tk->get_value_tensors(i);
+          sparse_input->second.train_nnz = data_reader_tk->get_nnz_array(i);
+          sparse_input->second.evaluate_row_offsets = data_reader_eval_tk->get_row_offsets_tensors(i);
+          sparse_input->second.evaluate_values = data_reader_eval_tk->get_value_tensors(i);
+          sparse_input->second.evaluate_nnz = data_reader_eval_tk->get_nnz_array(i);
         }
       }
 
@@ -1306,41 +1419,27 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
           }
 
           if (use_mixed_precision) {
-            create_embedding<TypeKey, __half>(sparse_input_map, tensor_maps, tensor_maps_eval,
-                                              embedding, embedding_eval, embedding_type, config,
-                                              gpu_resource_group, batch_size, batch_size_eval,
-                                              use_mixed_precision, scaler, j);
-          }  //	  if(use_mixed_precision)
-          else {
-            create_embedding<TypeKey, float>(sparse_input_map, tensor_maps, tensor_maps_eval,
-                                             embedding, embedding_eval, embedding_type, config,
-                                             gpu_resource_group, batch_size, batch_size_eval,
-                                             use_mixed_precision, scaler, j);
-          }  //    if(!use_mixed_precision)
-        }    // for ()
-      }      // Create Embedding
+            create_embedding<TypeKey, __half>(sparse_input_map, tensor_entries_list, embedding,
+                                              embedding_type, config, resource_manager, batch_size,
+                                              batch_size_eval, use_mixed_precision, scaler, j);
+          } else {
+            create_embedding<TypeKey, float>(sparse_input_map, tensor_entries_list, embedding,
+                                             embedding_type, config, resource_manager, batch_size,
+                                             batch_size_eval, use_mixed_precision, scaler, j);
+          }
+        }  // for ()
+      }    // Create Embedding
 
       // create network
-      int i = 0;
-      int total_gpu_count = gpu_resource_group->get_total_gpu_count();
+      int total_gpu_count = resource_manager->get_global_gpu_count();
       if (0 != batch_size % total_gpu_count) {
         CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
       }
-      const auto& device_list = gpu_resource_group->get_device_list();
-      for (auto device_id : device_list) {
-        network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_maps[i], device_id,
-                                            total_gpu_count, (*gpu_resource_group)[i],
-                                            use_mixed_precision, scaler, use_algorithm_search));
-        network_eval.emplace_back(create_network(
-            j_layers_array, j_optimizer, tensor_maps_eval[i], device_id, total_gpu_count,
-            (*gpu_resource_group)[i], use_mixed_precision, scaler, use_algorithm_search));
-
-        if (use_mixed_precision) {
-          network_eval.back()->set_weight_half(network.back()->get_weight_half());
-        }
-        network_eval.back()->set_weight(
-            network.back()->get_weight());  // to do: should be unnecessary
-        i++;
+      for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+        network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
+                                            total_gpu_count, resource_manager->get_local_cpu(),
+                                            resource_manager->get_local_gpu(i), use_mixed_precision,
+                                            scaler, use_algorithm_search, use_cuda_graph));
       }
     }
 
@@ -1348,32 +1447,23 @@ static void create_pipeline_internal(std::unique_ptr<DataReader<TypeKey>>& data_
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
+
 }
 
-void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_1>>& data_reader,
-                             std::unique_ptr<DataReader<TYPE_1>>& data_reader_eval,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
+
+void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
+                             std::shared_ptr<IDataReader>& data_reader_eval,
+                             std::vector<std::shared_ptr<IEmbedding>>& embedding,
                              std::vector<std::unique_ptr<Network>>& network,
-                             std::vector<std::unique_ptr<Network>>& network_eval,
-                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
-  create_pipeline_internal<TYPE_1>(data_reader, data_reader_eval, embedding, embedding_eval,
-                                   network, network_eval, gpu_resource_group, config_, batch_size_,
-                                   batch_size_eval_, use_mixed_precision_, scaler_,
-                                   use_algorithm_search_);
+                             const std::shared_ptr<ResourceManager>& resource_manager) {
+  if (i64_input_key_) {
+    create_pipeline_internal<long long>(data_reader, data_reader_eval, embedding, network,
+                                        resource_manager, *this);
+  } else {
+    create_pipeline_internal<unsigned int>(data_reader, data_reader_eval, embedding, network,
+                                           resource_manager, *this);
+  }
 }
 
-void Parser::create_pipeline(std::unique_ptr<DataReader<TYPE_2>>& data_reader,
-                             std::unique_ptr<DataReader<TYPE_2>>& data_reader_eval,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding,
-                             std::vector<std::unique_ptr<IEmbedding>>& embedding_eval,
-                             std::vector<std::unique_ptr<Network>>& network,
-                             std::vector<std::unique_ptr<Network>>& network_eval,
-                             const std::shared_ptr<GPUResourceGroup>& gpu_resource_group) {
-  create_pipeline_internal<TYPE_2>(data_reader, data_reader_eval, embedding, embedding_eval,
-                                   network, network_eval, gpu_resource_group, config_, batch_size_,
-                                   batch_size_eval_, use_mixed_precision_, scaler_,
-                                   use_algorithm_search_);
-}
 
 }  // namespace HugeCTR

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <memory>
+#include <common.hpp>
+#include <random>
 #include "gtest/gtest.h"
 
 namespace HugeCTR {
@@ -36,8 +36,8 @@ template <typename T>
     auto expected = h_exp[i];
     T diff = abs(output - expected);
     if (diff > eps) {
-      return ::testing::AssertionFailure()
-             << "output: " << output << " != expected: " << expected << " at idx " << i;
+      return ::testing::AssertionFailure() << "output: " << output << " != expected: " << expected
+                                           << " at idx " << i;
     }
   }
   return ::testing::AssertionSuccess();
@@ -49,8 +49,8 @@ template <typename T>
     auto output = h_out[i];
     T diff = abs(output - expected);
     if (diff > eps) {
-      return ::testing::AssertionFailure()
-             << "output: " << output << " != expected: " << expected << " at idx " << i;
+      return ::testing::AssertionFailure() << "output: " << output << " != expected: " << expected
+                                           << " at idx " << i;
     }
   }
   return ::testing::AssertionSuccess();
@@ -99,10 +99,72 @@ __forceinline__ void mpi_init() {
 #endif
 }
 
-__forceinline__ void mpi_finialize() {
+__forceinline__ void mpi_finalize() {
 #ifdef ENABLE_MPI
   MPI_Finalize();
 #endif
+}
+
+inline size_t align_to_even(size_t n) { return (n % 2 != 0) ? n + 1 : n; }
+
+class GaussianDataSimulator {
+  float mean_, stddev_;
+  curandGenerator_t curand_generator_;
+
+ public:
+  GaussianDataSimulator(float mean, float stddev) : mean_(mean), stddev_(stddev) {
+    CK_CURAND_THROW_(curandCreateGeneratorHost(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
+  }
+
+  ~GaussianDataSimulator() { curandDestroyGenerator(curand_generator_); }
+
+  void fill(float* arr, size_t len) {
+    CK_CURAND_THROW_(curandGenerateNormal(curand_generator_, arr, len, mean_, stddev_));
+  }
+
+  void fill(__half* arr, size_t len) {
+    std::unique_ptr<float[]> farr(new float[len]);
+    CK_CURAND_THROW_(curandGenerateNormal(curand_generator_, farr.get(), len, mean_, stddev_));
+    for (size_t i = 0; i < len; i++) {
+      arr[i] = __float2half(farr[i]);
+    }
+  }
+};
+
+class UniformDataSimulator {
+  curandGenerator_t curand_generator_;
+
+ public:
+  UniformDataSimulator() {
+    CK_CURAND_THROW_(curandCreateGeneratorHost(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
+  }
+
+  ~UniformDataSimulator() { curandDestroyGenerator(curand_generator_); }
+
+  void fill(int* arr, size_t len, int a, int b) {
+    if (a >= b) {
+      CK_THROW_(Error_t::WrongInput, "a must be smaller than b");
+    }
+    CK_CURAND_THROW_(curandGenerate(curand_generator_, reinterpret_cast<unsigned int*>(arr), len));
+    for (size_t i = 0; i < len; i++) {
+      arr[i] = arr[i] % (b - a) + a;
+    }
+  }
+
+  void fill(float* arr, size_t len, float a, float b) {
+    if (a >= b) {
+      CK_THROW_(Error_t::WrongInput, "a must be smaller than b");
+    }
+    CK_CURAND_THROW_(curandGenerateUniform(curand_generator_, arr, len));
+    for (size_t i = 0; i < len; i++) {
+      arr[i] = arr[i] * (b - a) + a;
+    }
+  }
+};
+
+static std::shared_ptr<GPUResource> get_default_gpu() {
+  std::random_device rd;
+  return std::make_shared<GPUResource>(0, 0, rd());
 }
 
 }  // end namespace test

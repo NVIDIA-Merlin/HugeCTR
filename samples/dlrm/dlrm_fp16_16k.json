@@ -2,7 +2,7 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 1000,
-    "max_iter":256054,
+    "max_iter": 256054,
     "gpu": [0,1,2,3,4,5,6,7],
     "batchsize": 16384,
     "snapshot": 10000000,
@@ -15,9 +15,10 @@
   
   "optimizer": {
     "type": "SGD",
-    "global_update": false,
+    "update_type": "Local",
     "sgd_hparam": {
-	    "learning_rate": 8.0,
+      "learning_rate": 8.0,
+      "atomic_update": true,
       "warmup_steps": 1000
     }
   },
@@ -34,7 +35,7 @@
 	  "eval_num_samples": 89137319,
 	  "eval_source": "/etc/workspace/dataset/test_data.bin",
 	  "check": "None",
-	  "cache_eval_data": true,
+	  "cache_eval_data": 5441,
 	  "label": {
               "top": "label",
               "label_dim": 1

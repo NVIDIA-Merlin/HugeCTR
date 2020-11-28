@@ -16,7 +16,6 @@
 cmake_minimum_required(VERSION 3.8)
 file(GLOB heap_test_src
   heapex_test.cpp
-  heap_test.cpp
 )
 
 add_executable(heap_test ${heap_test_src})

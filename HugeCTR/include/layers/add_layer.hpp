@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "HugeCTR/include/layer.hpp"
+#include <layer.hpp>
 
 #include <vector>
 
@@ -35,15 +35,15 @@ class AddLayer : public Layer {
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors<T> wgrad_;
+  Tensors2<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  std::vector<std::shared_ptr<Tensor<T>>> out_tensors_;
+  Tensors2<T> out_tensors_;
 
  public:
   /**
@@ -52,27 +52,28 @@ class AddLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  AddLayer(const std::vector<std::shared_ptr<Tensor<T>>> in_tensors,
-           const std::shared_ptr<Tensor<T>>& out_tensor, int device_id);
-  ~AddLayer();
+  AddLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
+           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+           const std::shared_ptr<GPUResource>& gpu_resource);
+
+  void initialize() override;
 
   /**
    * AddLayer's foward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void fprop(cudaStream_t stream) override;
+  void fprop(bool is_train) override;
   /**
    * AddLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
-  void bprop(cudaStream_t stream) override;
+  void bprop() override;
 
  private:
   int size_;
-  int num_;
-  T** h_inputs_ = NULL;
-  T** d_inputs_ = NULL;
-  bool initialized_{false};
+  size_t num_;
+  Tensor2<T*> h_inputs_;
+  Tensor2<T*> d_inputs_;
 };
 
 }  // namespace HugeCTR

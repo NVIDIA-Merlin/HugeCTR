@@ -16,7 +16,7 @@
 
 cmake_minimum_required(VERSION 3.8)
 project(HugeCTR LANGUAGES CXX CUDA)
-
+set(CMAKE_CXX_STANDARD 14)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
 option(CLANGFORMAT "Setup clangformat target" OFF)
@@ -83,7 +83,9 @@ endif()
 foreach(arch_name ${SM})
     if (arch_name STREQUAL 80 OR 
         arch_name STREQUAL 75 OR 
-        arch_name STREQUAL 70)
+        arch_name STREQUAL 70 OR 
+        arch_name STREQUAL 61 OR 
+        arch_name STREQUAL 60)
         list(APPEND cuda_arch_list ${arch_name})
         message(STATUS "-- Assign GPU architecture (sm=${arch_name})")
     else()
@@ -101,15 +103,15 @@ foreach(arch_name ${cuda_arch_list})
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch_name},code=sm_${arch_name}")
 endforeach()
 
-set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror")	
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror")
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp")
 
-set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
-set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G --Werror all-warnings -Xcompiler -Wall -Xcompiler -Werror")
+set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -Wall -Werror")
+set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Wall -Werror -Wno-unknown-pragmas")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp")
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
 # setting output folder
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -122,14 +124,25 @@ configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOU
 include_directories(
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/test
+  ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${CUDA_INCLUDE_DIRS}
-  ${PROJECT_SOURCE_DIR}/googletest/googletest/include
-  ${PROJECT_SOURCE_DIR}/json/single_include
+  ${PROJECT_SOURCE_DIR}/third_party/cutlass
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/include
+  ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/src_prims
+  ${PROJECT_SOURCE_DIR}/HugeCTR
+  ${PROJECT_SOURCE_DIR}/HugeCTR/include
+  ${PROJECT_SOURCE_DIR}/third_party
+  ${PROJECT_SOURCE_DIR}/third_party/cub
+  ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
+  ${PROJECT_SOURCE_DIR}/third_party/json/single_include
+
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
   ${UCX_INC_PATHS}
-  $ENV{CONDA_PREFIX}/include)
+  $ENV{CONDA_PREFIX}/include
+  $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx)
 
 if(ENABLE_MULTINODES)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_MPI")
@@ -156,9 +169,12 @@ link_directories(
 
 #setting binary files install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
+#setting python interface file install path
+install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local/hugectr)
 
 add_subdirectory(HugeCTR/src)
-add_subdirectory(googletest)
-add_subdirectory(json)
+add_subdirectory(HugeCTR/pybind)
+add_subdirectory(third_party/googletest)
+add_subdirectory(third_party/json)
 add_subdirectory(test/utest)
 add_subdirectory(tools)

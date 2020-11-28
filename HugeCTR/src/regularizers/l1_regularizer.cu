@@ -14,15 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/regularizers/l1_regularizer.hpp"
-
-#include "HugeCTR/include/utils.cuh"
-
+#include <regularizers/l1_regularizer.hpp>
 #include <utility>
-
-#ifndef NDEBUG
-#include <iostream>
-#endif
+#include <utils.cuh>
 
 namespace HugeCTR {
 
@@ -40,26 +34,24 @@ void launch_initialize_wgrad_kernel(const float* weight, T* wgrad, int num_eleme
 }  // namespace
 
 template <typename T>
-L1Regularizer<T>::L1Regularizer(const std::shared_ptr<GeneralBuffer<float>>& weight_buff,
-                                const std::shared_ptr<GeneralBuffer<T>>& wgrad_buff,
+L1Regularizer<T>::L1Regularizer(const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
                                 const int batch_size, const float lambda,
-                                cublasHandle_t cublas_handle, const int device_id)
-    : Regularizer<T>(weight_buff, wgrad_buff, batch_size, device_id),
-      lambda_(lambda),
-      cublas_handle_(cublas_handle) {}
+                                const std::shared_ptr<GPUResource>& gpu_resource)
+    : Regularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource), lambda_(lambda) {}
 
 template <typename T>
-void L1Regularizer<T>::do_compute_rterm(const float* weight, float* h_rterm, int num_elements,
-                                        cudaStream_t stream) {
-  CK_CUBLAS_THROW_(cublasSasum(cublas_handle_, num_elements, weight, 1, h_rterm));
+void L1Regularizer<T>::do_compute_rterm(const float* weight, float* h_rterm, int num_elements) {
+  CK_CUBLAS_THROW_(
+      cublasSasum(Regularizer<T>::get_gpu().get_cublas_handle(), num_elements, weight, 1, h_rterm));
   const float alpha = lambda_ / Regularizer<T>::get_batch_size();
   *h_rterm *= alpha;
 }
+
 template <typename T>
-void L1Regularizer<T>::do_initialize_wgrad(const float* weight, T* wgrad, int num_elements,
-                                           cudaStream_t stream) {
+void L1Regularizer<T>::do_initialize_wgrad(const float* weight, T* wgrad, int num_elements) {
   launch_initialize_wgrad_kernel(weight, wgrad, num_elements, Regularizer<T>::get_batch_size(),
-                                 lambda_, Regularizer<T>::get_n_sms(), stream);
+                                 lambda_, Regularizer<T>::get_gpu().get_sm_count(),
+                                 Regularizer<T>::get_gpu().get_stream());
 }
 
 template class L1Regularizer<__half>;

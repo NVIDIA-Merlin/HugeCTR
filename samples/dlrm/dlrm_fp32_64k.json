@@ -5,7 +5,6 @@
       "max_iter":64013,
       "gpu": [0,1,2,3,4,5,6,7],
       "batchsize": 65536,
-      "batchsize_eval": 131072,
       "snapshot": 10000000,
       "snapshot_prefix": "./",
       "eval_interval": 3200,
@@ -15,13 +14,14 @@
     
     "optimizer": {
       "type": "SGD",
-      "global_update": false,
+      "update_type": "Local",
       "sgd_hparam": {
         "learning_rate": 24.0,
-              "warmup_steps": 8000,
-              "decay_start": 48000,
-              "decay_steps": 24000
-          }
+        "atomic_update": true,
+        "warmup_steps": 8000,
+        "decay_start": 48000,
+        "decay_steps": 24000
+      }
     },
   
     "layers": [ 

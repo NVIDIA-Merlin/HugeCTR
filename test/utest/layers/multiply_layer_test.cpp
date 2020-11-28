@@ -15,13 +15,9 @@
  */
 
 #include "HugeCTR/include/layers/multiply_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
+#include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-
-#include <vector>
 
 using namespace std;
 using namespace HugeCTR;
@@ -72,34 +68,35 @@ void multiply_dgrad_cpu(const T* top_grad, const T* weight, T* dgrad, int batch_
 }
 
 void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size) {
-  size_t dev_id = 0;
-  std::shared_ptr<GeneralBuffer<float>> in_out_buf(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> weight_buf(new GeneralBuffer<float>());
-  std::shared_ptr<GeneralBuffer<float>> wgrad_buf(new GeneralBuffer<float>());
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+  std::shared_ptr<BufferBlock2<float>> weight_buff = buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<float>> wgrad_buff = buff->create_block<float>();
 
   vector<size_t> in_dims = {batch_size, slot_num};
   vector<size_t> weight_dims = {slot_num, embedding_vec_size};
 
-  std::shared_ptr<Tensor<float>> in_tensor(
-      new Tensor<float>(in_dims, in_out_buf, TensorFormat_t::HW));
-  std::shared_ptr<Tensor<float>> out_tensor;
+  Tensor2<float> in_tensor;
+  buff->reserve(in_dims, &in_tensor);
+  Tensor2<float> out_tensor;
 
-  GaussianDataSimulator<float> simulator(0.0, 1.0, -2.0, 2.0);
-  MultiplyLayer multiply_layer(weight_buf, wgrad_buf, in_out_buf, in_tensor, out_tensor,
-                               weight_dims, 0);
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
+  MultiplyLayer multiply_layer(weight_buff, wgrad_buff, buff, in_tensor, out_tensor, weight_dims,
+                               test::get_default_gpu());
 
-  in_out_buf->init(dev_id);
-  weight_buf->init(dev_id);
-  wgrad_buf->init(dev_id);
+  buff->allocate();
+  multiply_layer.initialize();
 
-  float* d_weight = weight_buf->get_ptr_with_offset(0);
-  float* d_wgrad = wgrad_buf->get_ptr_with_offset(0);
+  Tensor2<float> weight = weight_buff->as_tensor();
+  Tensor2<float> wgrad = wgrad_buff->as_tensor();
+
+  float* d_weight = weight.get_ptr();
+  float* d_wgrad = wgrad.get_ptr();
 
   const size_t len_in = batch_size * slot_num;
   const size_t len_out = batch_size * slot_num * embedding_vec_size;
   const size_t len_w = slot_num * embedding_vec_size;
-  float* d_in = in_tensor->get_ptr();
-  float* d_out = out_tensor->get_ptr();
+  float* d_in = in_tensor.get_ptr();
+  float* d_out = out_tensor.get_ptr();
   std::unique_ptr<float[]> h_in(new float[len_in]);
   std::unique_ptr<float[]> h_out(new float[len_out]);
   std::unique_ptr<float[]> h_weight(new float[len_w]);
@@ -108,38 +105,42 @@ void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size
   std::unique_ptr<float[]> h_expected_wgrad(new float[len_w]);
 
   // fprop
-  for (size_t i = 0; i < len_in; ++i) {
-    h_in[i] = simulator.get_num();
-  }
-  for (size_t i = 0; i < len_w; ++i) {
-    h_weight[i] = simulator.get_num();
-  }
-  cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice);
-  multiply_layer.fprop(cudaStreamDefault);
-  cudaMemcpy(h_out.get(), d_out, len_out * sizeof(float), cudaMemcpyDeviceToHost);
+  simulator.fill(h_in.get(), len_in);
+  simulator.fill(h_weight.get(), len_w);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  multiply_layer.fprop(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, len_out * sizeof(float), cudaMemcpyDeviceToHost));
 
   multiply_cpu(h_in.get(), h_weight.get(), h_expected.get(), batch_size, slot_num,
                embedding_vec_size);
   ASSERT_TRUE(test::compare_array_approx<float>(h_out.get(), h_expected.get(), len_out, eps));
 
   // bprop
+  simulator.fill(h_in.get(), len_in);
   for (size_t i = 0; i < len_in; ++i) {
-    h_in[i] = simulator.get_num();
     h_expected[i] = h_in[i];
   }
-  for (size_t i = 0; i < len_out; i++) {
-    h_out[i] = simulator.get_num();  // top_grad
-  }
-  for (size_t i = 0; i < len_w; ++i) {
-    h_weight[i] = simulator.get_num();
-  }
-  cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_out, h_out.get(), len_out * sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice);
-  multiply_layer.bprop(cudaStreamDefault);  // compute wgrad and dgrad
-  cudaMemcpy(h_wgrad.get(), d_wgrad, len_w * sizeof(float), cudaMemcpyDeviceToHost);  // wgrad
-  cudaMemcpy(h_in.get(), d_in, len_in * sizeof(float), cudaMemcpyDeviceToHost);       // dgrad
+  simulator.fill(h_out.get(), len_out);
+  simulator.fill(h_weight.get(), len_w);
+  CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), len_in * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_out, h_out.get(), len_out * sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_weight, h_weight.get(), len_w * sizeof(float), cudaMemcpyHostToDevice));
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  multiply_layer.bprop();  // compute wgrad and dgrad
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  CK_CUDA_THROW_(
+      cudaMemcpy(h_wgrad.get(), d_wgrad, len_w * sizeof(float), cudaMemcpyDeviceToHost));  // wgrad
+  CK_CUDA_THROW_(
+      cudaMemcpy(h_in.get(), d_in, len_in * sizeof(float), cudaMemcpyDeviceToHost));  // dgrad
 
   multiply_wgrad_cpu(h_out.get(), h_expected.get(), h_expected_wgrad.get(), batch_size, slot_num,
                      embedding_vec_size);
@@ -156,9 +157,4 @@ void multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size
 
 }  // namespace
 
-TEST(multiply_layer, fprop_and_bprop) {
-  // multiply_test(1, 1, 32);
-  // multiply_test(4, 8, 64);
-  // multiply_test(4096, 10, 128);
-  multiply_test(40960, 10, 128);
-}
+TEST(multiply_layer, fp32_40960x10x128) { multiply_test(40960, 10, 128); }

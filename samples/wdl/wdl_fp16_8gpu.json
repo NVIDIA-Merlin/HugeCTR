@@ -11,12 +11,11 @@
       "snapshot_prefix": "./",
       "eval_interval": 1000,
       "eval_batches": 2048,
-      "mixed_precision": 1024,
-      "eval_metrics": ["AUC:0.8025"]
+      "mixed_precision": 1024
     },
     "optimizer": {
       "type": "SGD",
-      "global_update": false,
+      "update_type": "Local",
       "sgd_hparam": {
          "learning_rate": 8.0,
          "warmup_steps": 1000
@@ -86,20 +85,14 @@
         "type": "Reshape",
         "bottom": "sparse_embedding2",
         "top": "reshape2",
-        "leading_dim": 2
-      },
-      {
-          "name": "cast1",
-          "type": "Cast",
-          "bottom": "dense",
-          "top": "cast1"
+        "leading_dim": 1
       },
       {
         "name": "concat1",
         "type": "Concat",
         "bottom": [
           "reshape1",
-          "cast1"
+          "dense"
         ],
         "top": "concat1"
       },
@@ -157,18 +150,11 @@
         }
       },
       {
-        "name": "slice1",
-        "type": "Slice",
-        "bottom": "reshape2",
-        "ranges": [[0,1], [1,2]],
-        "top": ["slice11", "slice12"]
-      },
-      {
         "name": "add1",
         "type": "Add",
         "bottom": [
           "fc4",
-          "slice11"
+          "reshape2"
         ],
         "top": "add1"
       },

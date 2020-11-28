@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "HugeCTR/include/common.hpp"
+#include <common.hpp>
 
 namespace HugeCTR {
 
@@ -64,6 +64,18 @@ struct TypeConvertFunc<float, float> {
   static __forceinline__ __device__ float convert(float val) { return val; }
 };
 
+template <>
+struct TypeConvertFunc<float, long long> {
+  static __forceinline__ __device__ float convert(long long val) { return static_cast<float>(val); }
+};
+
+template <>
+struct TypeConvertFunc<float, unsigned int> {
+  static __forceinline__ __device__ float convert(unsigned int val) {
+    return static_cast<float>(val);
+  }
+};
+
 template <typename T>
 __inline__ __device__ T warpReduceSum(T val) {
   const unsigned int FULL_MASK = 0xffffffff;
@@ -95,28 +107,28 @@ __inline__ __device__ T blockReduceSum(T val) {
 }
 
 template <typename T>
-__global__ void initialize_array(T* array, int num_elements, T value) {
-  const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;
-  const int num_threads = blockDim.x * gridDim.x;
-  for (int tid = tid_base; tid < num_elements; tid += num_threads) {
+__global__ void initialize_array(T* array, size_t num_elements, T value) {
+  const size_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
+  const size_t num_threads = blockDim.x * gridDim.x;
+  for (size_t tid = tid_base; tid < num_elements; tid += num_threads) {
     array[tid] = value;
   }
 }
 
 template <typename TIN, typename TOUT, typename Lambda>
-__global__ void transform_array(const TIN* in, TOUT* out, int num_elements, Lambda op) {
-  const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;
-  const int num_threads = blockDim.x * gridDim.x;
-  for (int tid = tid_base; tid < num_elements; tid += num_threads) {
+__global__ void transform_array(const TIN* in, TOUT* out, size_t num_elements, Lambda op) {
+  const size_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
+  const size_t num_threads = blockDim.x * gridDim.x;
+  for (size_t tid = tid_base; tid < num_elements; tid += num_threads) {
     out[tid] = op(in[tid]);
   }
 }
 
 template <typename TIN, typename TOUT>
-__global__ void convert_array(TOUT* out, const TIN* in, int num_elements) {
-  const int tid_base = blockIdx.x * blockDim.x + threadIdx.x;
-  const int num_threads = blockDim.x * gridDim.x;
-  for (int tid = tid_base; tid < num_elements; tid += num_threads) {
+__global__ void convert_array(TOUT* out, const TIN* in, size_t num_elements) {
+  const size_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
+  const size_t num_threads = blockDim.x * gridDim.x;
+  for (size_t tid = tid_base; tid < num_elements; tid += num_threads) {
     out[tid] = TypeConvertFunc<TOUT, TIN>::convert(__ldg(in + tid));
   }
 }

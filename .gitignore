@@ -1,4 +1,6 @@
 build
+debug_build
+release_build
 docs/html
 docs/latex
 .vscode
@@ -17,4 +19,10 @@ tools/criteo_script/train
 tools/criteo_script/val
 tools/criteo_script/valtest
 tools/criteo_script/*.gz
+tools/embedding_plugin/performance_profile/*.tfrecord
+tools/embedding_plugin/performance_profile/train
+tools/embedding_plugin/performance_profile/test
+tools/embedding_plugin/performance_profile/val
+tools/embedding_plugin/performance_profile/valtest
+tools/embedding_plugin/performance_profile/*.txt
 

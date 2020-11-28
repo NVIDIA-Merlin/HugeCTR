@@ -17,9 +17,10 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
-#include <sys/stat.h>
+#include <cudnn.h>
 #include <chrono>
 #include <cmath>
+#include <common.hpp>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -29,10 +30,54 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/data_parser.hpp"
+#include <unistd.h>
+#include <getopt.h>
 
 namespace HugeCTR {
+
+const static char* data_generator_options = "";
+const static struct option data_generator_long_options[] = {
+      {"files", required_argument, NULL, 'f'},
+      {"samples",  required_argument, NULL, 's'},
+      {"long-tail", required_argument, NULL, 'l'},
+      {NULL, 0, NULL, 0}
+};
+class ArgParser {
+public:
+  static void parse_data_generator_args(int argc, char* argv[], int& files, int& samples, std::string& tail, bool& use_long_tail) {
+    int opt;
+    int option_index;
+    while ( (opt = getopt_long(argc,
+                               argv,
+                               data_generator_options,
+                               data_generator_long_options,
+                               &option_index)) != EOF) {
+      if (optarg == NULL) {
+        std::string opt_temp = argv[optind-1];
+        CK_THROW_(Error_t::WrongInput, "Unrecognized option for data generator: " + opt_temp);
+      }
+      switch (opt)
+      {
+      case 'f': {
+        files = std::stoi(optarg);
+        break;
+      }
+      case 's': {
+        samples = std::stoi(optarg);
+        break;
+      }
+      case 'l': {
+        tail = optarg;
+        use_long_tail = true;
+        break;
+      }
+      default:
+        assert(!"Error: no such option && should never get here!!");
+      }
+    }
+  }
+};
+
 
 /**
  * CPU Timer.
@@ -68,41 +113,55 @@ class Timer {
 };
 
 /**
+ * GPU Timer
+ */
+class GPUTimer {
+ private:
+  cudaEvent_t start_;
+  cudaEvent_t stop_;
+  cudaStream_t stream_;
+
+ public:
+  GPUTimer() {
+    cudaEventCreate(&start_);
+    cudaEventCreate(&stop_);
+  }
+
+  ~GPUTimer() {
+    cudaEventDestroy(start_);
+    cudaEventDestroy(stop_);
+  }
+
+  void start(cudaStream_t st = 0) {
+    stream_ = st;
+    cudaEventRecord(start_, stream_);
+  }
+
+  float stop() {
+    float milliseconds = 0;
+    cudaEventRecord(stop_, stream_);
+    cudaEventSynchronize(stop_);
+    cudaEventElapsedTime(&milliseconds, start_, stop_);
+    return milliseconds;
+  }
+};
+
+/**
  * Helper class for switching device
  */
 class CudaDeviceContext {
-  int original_device;
-
-  /**
-   * Pop current cuda device and set new device.
-   * @param i_device device ID to set
-   * @param o_device device ID to pop, if o_device is NULL just set device to i_device.
-   * @return the same as cudaError_t
-   */
-  static inline cudaError_t get_set_device(int i_device, int* o_device = nullptr) {
-    int current_device = 0;
-    cudaError_t err = cudaSuccess;
-
-    err = cudaGetDevice(&current_device);
-    if (err != cudaSuccess) return err;
-
-    if (current_device != i_device) {
-      err = cudaSetDevice(i_device);
-      if (err != cudaSuccess) return err;
-    }
-
-    if (o_device) {
-      *o_device = current_device;
-    }
-
-    return cudaSuccess;
-  }
+  int original_device_;
 
  public:
-  CudaDeviceContext(int device) { CK_CUDA_THROW_(get_set_device(device, &original_device)); }
-  ~CudaDeviceContext() noexcept(false) { CK_CUDA_THROW_(get_set_device(original_device)); }
+  CudaDeviceContext() { CK_CUDA_THROW_(cudaGetDevice(&original_device_)); }
+  CudaDeviceContext(int device) : CudaDeviceContext() {
+    if (device != original_device_) {
+      set_device(device);
+    }
+  }
+  ~CudaDeviceContext() noexcept(false) { set_device(original_device_); }
 
-  void set_device(int device) const { CK_CUDA_THROW_(get_set_device(device)); }
+  void set_device(int device) const { CK_CUDA_THROW_(cudaSetDevice(device)); }
 };
 
 /**
@@ -114,307 +173,6 @@ inline size_t get_size_from_dims(const std::vector<size_t>& dims) {
     matrix_size = matrix_size * iter[0];
   }
   return matrix_size;
-}
-
-/**
- * Check if file exist.
- */
-inline bool file_exist(const std::string& name) {
-  if (FILE* file = fopen(name.c_str(), "r")) {
-    fclose(file);
-    return true;
-  } else {
-    return false;
-  }
-}
-
-/**
- * Check if file path exist if not create it.
- */
-inline void check_make_dir(const std::string& finalpath) {
-  if (mkdir(finalpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-    if (errno == EEXIST) {
-      std::cout << (finalpath + " exist") << std::endl;
-    } else {
-      // something else
-      std::cerr << ("cannot create" + finalpath + ": unexpected error") << std::endl;
-    }
-  }
-}
-
-/**
- * Generate random dataset for HugeCTR test.
- */
-
-template <Check_t T>
-class Checker_Traits;
-
-template <>
-class Checker_Traits<Check_t::Sum> {
- public:
-  static char zero() { return 0; }
-
-  static char accum(char pre, char x) { return pre + x; }
-
-  static void write(int N, char* array, char chk_bits, std::ofstream& stream) {
-    stream.write(reinterpret_cast<char*>(&N), sizeof(int));
-    stream.write(reinterpret_cast<char*>(array), N);
-    stream.write(reinterpret_cast<char*>(&chk_bits), sizeof(char));
-  }
-
-  static long long ID() { return 1; }
-};
-
-template <>
-class Checker_Traits<Check_t::None> {
- public:
-  static char zero() { return 0; }
-
-  static char accum(char pre, char x) { return 0; }
-
-  static void write(int N, char* array, char chk_bits, std::ofstream& stream) {
-    stream.write(reinterpret_cast<char*>(array), N);
-  }
-
-  static long long ID() { return 0; }
-};
-
-template <Check_t T>
-class DataWriter {
-  std::vector<char> array_;
-  std::ofstream& stream_;
-  char check_char_{0};
-
- public:
-  DataWriter(std::ofstream& stream) : stream_(stream) { check_char_ = Checker_Traits<T>::zero(); }
-  void append(char* array, int N) {
-    for (int i = 0; i < N; i++) {
-      array_.push_back(array[i]);
-      check_char_ = Checker_Traits<T>::accum(check_char_, array[i]);
-    }
-  }
-  void write() {
-    // if(array_.size() == 0){
-    //   std::cout << "array_.size() == 0" << std::endl;;
-    // }
-    Checker_Traits<T>::write(static_cast<int>(array_.size()), array_.data(), check_char_, stream_);
-    check_char_ = Checker_Traits<T>::zero();
-    array_.clear();
-  }
-};
-
-template <typename T, Check_t CK_T>
-void data_generation_for_test(std::string file_list_name, std::string data_prefix, int num_files,
-                              int num_records_per_file, int slot_num, int vocabulary_size,
-                              int label_dim, int dense_dim, int max_nnz) {
-  if (file_exist(file_list_name)) {
-    std::cout << "File (" + file_list_name +
-                     ") exist. To generate new dataset plesae remove this file."
-              << std::endl;
-    return;
-  }
-  std::string directory;
-  const size_t last_slash_idx = data_prefix.rfind('/');
-  if (std::string::npos != last_slash_idx) {
-    directory = data_prefix.substr(0, last_slash_idx);
-  }
-  check_make_dir(directory);
-
-  std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-  file_list_stream << (std::to_string(num_files) + "\n");
-  for (int k = 0; k < num_files; k++) {
-    std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
-    file_list_stream << (tmp_file_name + "\n");
-    std::cout << tmp_file_name << std::endl;
-    // data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-
-    DataWriter<CK_T> data_writer(out_stream);
-
-    DataSetHeader header = {
-        Checker_Traits<CK_T>::ID(), num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
-
-    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
-    data_writer.write();
-
-    for (int i = 0; i < num_records_per_file; i++) {
-      UnifiedDataSimulator<int> idata_sim(1, max_nnz);            // for nnz
-      UnifiedDataSimulator<float> fdata_sim(0, 1);                // for lable and dense
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);  // for key
-      for (int j = 0; j < label_dim + dense_dim; j++) {
-        float label_dense = fdata_sim.get_num();
-        data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
-      }
-      for (int k = 0; k < slot_num; k++) {
-        int nnz = idata_sim.get_num();
-        data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
-        for (int j = 0; j < nnz; j++) {
-          T key = ldata_sim.get_num();
-          while ((key % static_cast<T>(slot_num)) !=
-                 static_cast<T>(k)) {  // guarantee the key belongs to the current slot_id(=k)
-            key = ldata_sim.get_num();
-          }
-          data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
-        }
-      }
-      data_writer.write();
-    }
-    out_stream.close();
-  }
-  file_list_stream.close();
-  std::cout << file_list_name << " done!" << std::endl;
-  return;
-}
-
-// Add a new data_generation function for LocalizedSparseEmbedding testing
-// In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
-// Add a new data_generation function for LocalizedSparseEmbedding testing
-// In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
-template <typename T, Check_t CK_T>
-void data_generation_for_localized_test(std::string file_list_name, std::string data_prefix,
-                                        int num_files, int num_records_per_file, int slot_num,
-                                        int vocabulary_size, int label_dim, int dense_dim,
-                                        int max_nnz) {
-  if (file_exist(file_list_name)) {
-    return;
-  }
-  std::string directory;
-  const size_t last_slash_idx = data_prefix.rfind('/');
-  if (std::string::npos != last_slash_idx) {
-    directory = data_prefix.substr(0, last_slash_idx);
-  }
-  check_make_dir(directory);
-
-  std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-  file_list_stream << (std::to_string(num_files) + "\n");
-  for (int k = 0; k < num_files; k++) {
-    std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
-    file_list_stream << (tmp_file_name + "\n");
-
-    // data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-
-    DataWriter<CK_T> data_writer(out_stream);
-
-    DataSetHeader header = {1, num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
-
-    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
-    data_writer.write();
-
-    for (int i = 0; i < num_records_per_file; i++) {
-      UnifiedDataSimulator<int> idata_sim(1, max_nnz);            // for nnz
-      UnifiedDataSimulator<float> fdata_sim(0, 1);                // for lable and dense
-      UnifiedDataSimulator<T> ldata_sim(0, vocabulary_size - 1);  // for key
-      for (int j = 0; j < label_dim + dense_dim; j++) {
-        float label_dense = fdata_sim.get_num();
-        data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
-      }
-      for (int k = 0; k < slot_num; k++) {
-        int nnz = idata_sim.get_num();
-        data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
-        for (int j = 0; j < nnz; j++) {
-          T key = ldata_sim.get_num();
-          while ((key % slot_num) != k) {  // guarantee the key belongs to the current slot_id(=k)
-            key = ldata_sim.get_num();
-          }
-          data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
-        }
-      }
-      data_writer.write();
-    }
-    out_stream.close();
-  }
-  file_list_stream.close();
-  return;
-}
-
-template <typename T, Check_t CK_T>
-void data_generation_for_localized_test(std::string file_list_name, std::string data_prefix,
-                                        int num_files, int num_records_per_file, int slot_num,
-                                        int vocabulary_size, int label_dim, int dense_dim,
-                                        int max_nnz, const std::vector<size_t> slot_sizes) {
-  if (file_exist(file_list_name)) {
-    return;
-  }
-  std::string directory;
-  const size_t last_slash_idx = data_prefix.rfind('/');
-  if (std::string::npos != last_slash_idx) {
-    directory = data_prefix.substr(0, last_slash_idx);
-  }
-  check_make_dir(directory);
-
-  std::ofstream file_list_stream(file_list_name, std::ofstream::out);
-  file_list_stream << (std::to_string(num_files) + "\n");
-  for (int k = 0; k < num_files; k++) {
-    std::string tmp_file_name(data_prefix + std::to_string(k) + ".data");
-    file_list_stream << (tmp_file_name + "\n");
-
-    // data generation;
-    std::ofstream out_stream(tmp_file_name, std::ofstream::binary);
-
-    DataWriter<CK_T> data_writer(out_stream);
-
-    DataSetHeader header = {1, num_records_per_file, label_dim, dense_dim, slot_num, 0, 0, 0};
-
-    data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
-    data_writer.write();
-
-    for (int i = 0; i < num_records_per_file; i++) {
-      UnifiedDataSimulator<int> idata_sim(1, max_nnz);  // for nnz per slot
-      UnifiedDataSimulator<float> fdata_sim(0, 1);      // for lable and dense
-      for (int j = 0; j < label_dim + dense_dim; j++) {
-        float label_dense = fdata_sim.get_num();
-        data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
-      }
-      size_t offset = 0;
-      for (int k = 0; k < slot_num; k++) {
-        // int nnz = idata_sim.get_num();
-        int nnz = max_nnz;  // for test
-        data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
-        size_t slot_size = slot_sizes[k];
-        UnifiedDataSimulator<T> ldata_sim(0, slot_size - 1);  // for key
-        for (int j = 0; j < nnz; j++) {
-          T key = ldata_sim.get_num() + offset;
-          data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
-        }
-        offset += slot_size;
-      }
-      data_writer.write();
-    }
-    out_stream.close();
-  }
-  file_list_stream.close();
-  return;
-}
-
-inline void data_generation_for_raw(
-    std::string file_name, long long num_samples, int label_dim = 1, int dense_dim = 13,
-    int sparse_dim = 26, const std::vector<long long> slot_size = std::vector<long long>()) {
-  std::ofstream out_stream(file_name, std::ofstream::binary);
-  for (long long i = 0; i < num_samples; i++) {
-    for (int j = 0; j < label_dim; j++) {
-      int label = i % 2;
-      out_stream.write(reinterpret_cast<char*>(&label), sizeof(int));
-    }
-    for (int j = 0; j < dense_dim; j++) {
-      int dense = j;
-      out_stream.write(reinterpret_cast<char*>(&dense), sizeof(int));
-    }
-    for (int j = 0; j < sparse_dim; j++) {
-      int sparse = 0;
-      if (slot_size.size() != 0) {
-        UnifiedDataSimulator<long long> temp_sim(
-            0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1));  // range = [0, slot_size[j])
-        long long num_ = temp_sim.get_num();
-        sparse = num_ > std::numeric_limits<int>::max() ? std::numeric_limits<int>::max() : num_;
-      } else {
-        sparse = j;
-      }
-      out_stream.write(reinterpret_cast<char*>(&sparse), sizeof(int));
-    }
-  }
-  out_stream.close();
-  return;
 }
 
 /**
@@ -431,37 +189,6 @@ bool find_item_in_map(ITEM_TYPE& item, const std::string& str,
     item = it->second;
     return true;
   }
-}
-
-template <typename T>
-void print_cuda_buff(T* buf, int start, int end) {
-  T h_buf[end - start];
-  cudaMemcpy(h_buf, buf, (end - start) * sizeof(T), cudaMemcpyDeviceToHost);
-  std::cout << "Cuda Buff Print " << start << "-" << end << ": " << std::endl;
-  for (int i = 0; i < (end - start); i++) {
-    std::cout << h_buf[i] << ",";
-  }
-  std::cout << std::endl;
-}
-
-template <typename T>
-void print_cuda_buff_sum(T* buf, int num) {
-  T sum;
-  T h_buf[num];
-  cudaMemcpy(h_buf, buf, (num) * sizeof(T), cudaMemcpyDeviceToHost);
-  for (int i = 0; i < num; i++) {
-    sum += h_buf[i];
-  }
-  std::cout << "Cuda Buff Sum: " << sum << " size:" << num << std::endl;
-}
-
-template <typename TIN, typename TOUT>
-std::vector<std::shared_ptr<TOUT>> sp_vec_dynamic_cast(std::vector<std::shared_ptr<TIN>>& vin) {
-  std::vector<std::shared_ptr<TOUT>> vout;
-  for (auto& i : vin) {
-    vout.emplace_back(std::dynamic_pointer_cast<TOUT>(i));
-  }
-  return vout;
 }
 
 inline void set_affinity(std::thread& t, int core) {
@@ -506,12 +233,30 @@ inline void set_affinity(std::thread& t, std::set<int> set, bool excluded) {
 
 template <typename T>
 struct TypeConvert {
-  static __host__ T convert(const float val) { return (T)val; }
+  static __host__ T convert(const float val);
+};
+
+template <>
+struct TypeConvert<float> {
+  static __host__ float convert(const float val) { return val; }
 };
 
 template <>
 struct TypeConvert<__half> {
   static __host__ __half convert(const float val) { return __float2half(val); }
+};
+
+template <typename T>
+struct CudnnDataType;
+
+template <>
+struct CudnnDataType<float> {
+  static cudnnDataType_t getType() { return CUDNN_DATA_FLOAT; }
+};
+
+template <>
+struct CudnnDataType<__half> {
+  static cudnnDataType_t getType() { return CUDNN_DATA_FLOAT; }
 };
 
 }  // namespace HugeCTR

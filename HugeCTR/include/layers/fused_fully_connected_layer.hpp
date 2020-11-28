@@ -16,11 +16,10 @@
 
 #pragma once
 
+#include <cublas_v2.h>
 #include <functional>
+#include <layer.hpp>
 #include <vector>
-#include "HugeCTR/include/general_buffer.hpp"
-#include "HugeCTR/include/layer.hpp"
-#include "cublas_v2.h"
 
 namespace HugeCTR {
 /**
@@ -28,7 +27,6 @@ namespace HugeCTR {
  * This class implements the fully connected layer.
  */
 class FusedFullyConnectedLayer : public Layer {
-  const cublasHandle_t cublas_handle_;
   // Optimized cublasGemmEx algorithm selection
   cublasGemmAlgo_t falgo_k_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_k_{CUBLAS_GEMM_DEFAULT};
@@ -44,42 +42,56 @@ class FusedFullyConnectedLayer : public Layer {
    * stores the weight tensors for compute of this layer.
    */
   // std::vector<TensorPtr<__half>> weights_;
-  std::vector<TensorPtr<__half>> weights_half_;
+  Tensors2<__half> weights_half_;
 
   /*
    * stores the weight gradient tensors of this layer.
    */
-  std::vector<TensorPtr<__half>> weights_grad_;
+  Tensors2<__half> weights_grad_;
 
   /*
    * stores the references to the bottom tensors of this layer.
    */
-  TensorPtr<__half> bottom_tensor_;
+  Tensor2<__half> train_bottom_tensor_;
+  Tensor2<__half> evaluate_bottom_tensor_;
 
   /*
    * stores the references to the top tensors of this layer.
    */
-  TensorPtr<__half> top_tensor_;
+  Tensor2<__half> top_tensor_;
 
   /*
    * stores the references to the intermediate top tensors of this layer.
    */
-  TensorPtr<__half> middle_tensor_;
+  Tensor2<__half> middle_tensor_;
 
   /*
    * stores the references to the intermediate bias grad tensors of this layer.
    */
-  TensorPtr<float> bias_grad_tensor_;
+  Tensor2<float> bias_grad_tensor_;
+
+  std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
+  std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
+
+  Tensor2<__half>& get_bottom_tensor(bool is_train) {
+    if (is_train) {
+      return train_bottom_tensor_;
+    } else {
+      return evaluate_bottom_tensor_;
+    }
+  }
 
  public:
   /**
    * forward pass
    */
-  void fprop(cudaStream_t stream) final;
+  void fprop(bool is_train) final;
   /**
    * backward pass
    */
-  void bprop(cudaStream_t stream) final;
+  void bprop() final;
   /*
    * algorithm search for cublasGemmEx
    */
@@ -98,20 +110,14 @@ class FusedFullyConnectedLayer : public Layer {
    * (col-major)
    */
   FusedFullyConnectedLayer(
-      const GeneralBufferPtr<float>& master_weights_buff,
-      const GeneralBufferPtr<__half>& weights_buff,
-      const GeneralBufferPtr<__half>& weights_grad_buff, const GeneralBufferPtr<float>& blobs_buff,
-      const GeneralBufferPtr<__half>& blobs_half_buff, const TensorPtr<__half>& bottom_tensor,
-      const TensorPtr<__half>& top_tensor, TensorFormat_t weight_tensor_format,
-      cublasHandle_t const& cublas_handle, int device_id,
+      const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
+      const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
+      const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
+      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+      const Tensor2<__half>& train_bottom_tensor, const Tensor2<__half>& evaluate_bottom_tensor,
+      const Tensor2<__half>& top_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FusedFullyConnectedLayer(const FusedFullyConnectedLayer&) = delete;
   FusedFullyConnectedLayer& operator=(const FusedFullyConnectedLayer&);
-
- private:
-  std::unique_ptr<DataSimulator<float>> get_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_xavier_uniform_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_xavier_norm_initializer(const int index) override;
-  std::unique_ptr<DataSimulator<float>> get_default_initializer(const int index) override;
 };
 }  // namespace HugeCTR

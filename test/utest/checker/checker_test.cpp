@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/check_sum.hpp"
+#include "HugeCTR/include/data_readers/check_sum.hpp"
 #include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/file_source.hpp"
+#include "HugeCTR/include/data_readers/file_source.hpp"
 #include "gtest/gtest.h"
 
 using namespace HugeCTR;
@@ -46,8 +46,9 @@ TEST(checker, CheckSum) {
   const int NUM_CHAR = 7;
   const char str[] = {"abcdefg"};
   func("file1.txt", str);
+  const bool repeat = true;
 
-  FileSource file_source(0, 1, "file_list.txt");
+  FileSource file_source(0, 1, "file_list.txt", repeat);
   CheckSum check_sum(file_source);
   char tmp1[NUM_CHAR], tmp2[NUM_CHAR];
   check_sum.next_source();

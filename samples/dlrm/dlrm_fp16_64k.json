@@ -5,20 +5,20 @@
     "max_iter":64013,
     "gpu": [0,1,2,3,4,5,6,7],
     "batchsize": 65536,
-    "batchsize_eval": 131072,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 3200,
-    "eval_batches": 681,
+    "eval_batches": 1361,
     "mixed_precision": 1024,
     "eval_metrics": ["AUC:0.8025"]
   },
   
   "optimizer": {
     "type": "SGD",
-    "global_update": false,
+    "update_type": "Local",
     "sgd_hparam": {
       "learning_rate": 24.0,
+      "atomic_update": true,
       "warmup_steps": 8000,
       "decay_start": 48000,
       "decay_steps": 24000,
@@ -38,7 +38,7 @@
 	  "eval_num_samples": 89137319,
 	  "eval_source": "/etc/workspace/dataset/test_data.bin",
 	  "check": "None",
-	  "cache_eval_data": true,
+	  "cache_eval_data": 1361,
 	  "label": {
               "top": "label",
               "label_dim": 1

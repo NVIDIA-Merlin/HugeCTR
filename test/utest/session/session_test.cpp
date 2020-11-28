@@ -16,9 +16,10 @@
 
 #include "HugeCTR/include/session.hpp"
 #include <cuda_profiler_api.h>
-#include "HugeCTR/include/data_parser.hpp"
+#include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/parser.hpp"
 #include "gtest/gtest.h"
+#include <memory>
 #include "utest/test_utils.h"
 
 using namespace HugeCTR;
@@ -45,8 +46,7 @@ void test_impl(bool i64_input_key) {
       std::remove(file_list_name.c_str());
     }
     HugeCTR::data_generation_for_test<T, Check_t::Sum>(file_list_name, prefix, num_files,
-                                                       num_records, slot_num,
-                                                       vocabulary_size,
+                                                       num_records, slot_num, vocabulary_size,
                                                        label_dim, dense_dim, max_nnz);
   }
 
@@ -55,7 +55,7 @@ void test_impl(bool i64_input_key) {
   HugeCTR::SolverParser solver_config(json_name);
   solver_config.i64_input_key = i64_input_key;
 
-  std::shared_ptr<Session> session_instance = Session::Create(solver_config);
+  std::shared_ptr<Session> session_instance = std::make_shared<HugeCTR::Session>(solver_config, json_name);
   cudaProfilerStart();
   for (int i = 0; i < 100; i++) {
     session_instance->train();
@@ -68,12 +68,8 @@ void test_impl(bool i64_input_key) {
   cudaProfilerStop();
 }
 
-} // end namespace
+}  // end namespace
 
-TEST(session_test, basic_session_i32) {
-  test_impl<unsigned int>(false);
-}
+TEST(session_test, basic_session_i32) { test_impl<unsigned int>(false); }
 
-TEST(session_test, basic_session_i64) {
-  test_impl<long long>(true);
-}
+TEST(session_test, basic_session_i64) { test_impl<long long>(true); }

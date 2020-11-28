@@ -1,75 +1,213 @@
-image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+stages:
+  - build
+  - test
+
+image: gitlab-master.nvidia.com/zehuanw/hugectr:devel_nightly
 
 variables:
-  GIT_SUBMODULE_STRATEGY: recursive
-  FF_USE_LEGACY_GIT_CLEAN_STRATEGY: 1
+  NCCL_LAUNCH_MODE: "PARALLEL"
 
-before_script:
-  - apt update && apt install -y cmake
-  - mkdir ${CI_PROJECT_DIR}/build
-  - cd ${CI_PROJECT_DIR}/build
-  - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 ..
-  - make -j
-
-criteo:
+### Stage: build
+build:
   tags:
     - hugectr
+  stage: build
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}/build/
+    expire_in: 1 week
   script:
-    - cd /dataset/criteo_kaggle/criteo
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_8gpu.json
-    - cd /dataset/criteo_kaggle/criteo_multi_slots
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_8gpu.json
+    - cd ${CI_PROJECT_DIR} && git submodule update --init --recursive
+    - mkdir build && cd build
+    - mkdir build_single && cd build_single
+    - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 ../.. && make -j
+    - cd .. && mkdir build_multi_nccl && cd build_multi_nccl
+    - cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=70 ../.. && make -j
+    - cd .. && mkdir build_multi_gossip && cd build_multi_gossip
+    - cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=70 ../.. && make -j
 
-dcn:
-  tags:
-    - hugectr
-  script:
-    - cd /dataset/criteo_kaggle/dcn
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_8gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_8gpu.json
-
-wdl_deepfm:
-  tags:
-    - hugectr
-  script:
-    - cd /dataset/criteo_kaggle/wdl
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_8gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json
-    - cd /dataset/criteo_kaggle/deepfm
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_8gpu.json
-
-dlrm:
-  tags:
-    - hugectr
-  script:
-    - cd /dataset/criteo_kaggle/dcn
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_8gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_1gpu.json
-    - ${CI_PROJECT_DIR}/build/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_8gpu.json
-
+### Stage: test
+# unit test
 unit_tests:
   tags:
     - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
   script:
-    - cd ${CI_PROJECT_DIR}/build/bin
+    - cd ${CI_PROJECT_DIR}/build/build_single/bin
     - ./layers_test
     - ./embedding_test
     - ./checker_test
-    - ./data_parser_test
     - ./data_reader_test
     - ./device_map_test
     - ./heap_test
     - ./loss_test
     - ./optimizer_test
     - ./regularizers_test
+    - ./model_oversubscriber_test
     - ./parser_test
     - ./session_test
+    - ./auc_test
 
+# single node
+criteo:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - cd /dataset/criteo_kaggle/criteo
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_8gpu.json
+    - cd /dataset/criteo_kaggle/criteo_multi_slots
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_8gpu.json
+    - cd /dataset/criteo_kaggle/criteo_parquet_multi_slots
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_parquet_multi_slots_1gpu.json
+
+dcn:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - echo "$NCCL_LAUNCH_MODE"
+    - cd /dataset/criteo_kaggle/dcn
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_8gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_8gpu.json
+    - cd /dataset/criteo_kaggle/dcn_parquet
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_distributed_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_distributed_8gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_localized_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_localized_8gpu.json
+
+wdl_deepfm:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - cd /dataset/criteo_kaggle/wdl
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_8gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json
+    - cd /dataset/criteo_kaggle/deepfm
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/deepfm_8gpu.json
+
+dlrm:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - cd /dataset/criteo_kaggle/dcn
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_8gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_1gpu.json
+    - ${CI_PROJECT_DIR}/build/build_single/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_8gpu.json
+
+# multinode with nccl
+criteo_multinode:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - cd /dataset/criteo_kaggle/criteo
+    - mpirun --allow-run-as-root -np 2 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_2node_4gpu.json
+
+dcn_multinode:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - cd /dataset/criteo_kaggle/dcn
+    - mpirun --allow-run-as-root -np 4 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_4node_2gpu.json
+    - cd /dataset/criteo_kaggle/dcn_parquet
+    - mpirun --allow-run-as-root -np 2 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json
+    - mpirun --allow-run-as-root -np 2 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_distributed_2node_4gpu.json
+
+dlrm_multinode:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - cd /dataset/criteo_kaggle/dcn
+    - mpirun --allow-run-as-root -np 4 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_4node_2gpu.json
+    - mpirun --allow-run-as-root -np 4 ${CI_PROJECT_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp32_4node_2gpu.json
+
+# multinode with gossip
+criteo_multinode_gossip:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - cd /dataset/criteo_kaggle/criteo
+    - mpirun --allow-run-as-root -np 2 ${CI_PROJECT_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${CI_PROJECT_DIR}/test/scripts/criteo_2node_4gpu.json
+
+# python interface
+python_interface:
+  tags:
+    - hugectr
+  stage: test
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    # single node
+    - cd /dataset/criteo_kaggle/wdl
+    - cp ${CI_PROJECT_DIR}/build/build_single/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
+    - python3 ${CI_PROJECT_DIR}/test/pybind_test/single_node_wdl_fp16_8gpu.py ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json
+    # single node + model prefetch
+    - cd /dataset/criteo_kaggle/wdl_data_keyset && mkdir -p temp_embedding
+    - cp ${CI_PROJECT_DIR}/build/build_single/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
+    - python3 ${CI_PROJECT_DIR}/test/pybind_test/model_prefetch_wdl_1gpu.py /dataset/criteo_kaggle/wdl_data_keyset/wdl.json
+    # multi node + nccl
+    - cd /dataset/criteo_kaggle/dcn
+    - cp ${CI_PROJECT_DIR}/build/build_multi_nccl/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
+    - mpirun --allow-run-as-root -np 4 python3 ${CI_PROJECT_DIR}/test/pybind_test/multi_node_dcn_4node_2gpu.py ${CI_PROJECT_DIR}/test/scripts/dcn_4node_2gpu.json
+    # multi node + gossip
+    - cd /dataset/criteo_kaggle/criteo
+    - cp ${CI_PROJECT_DIR}/build/build_multi_gossip/lib/hugectr.so ${CI_PROJECT_DIR}/test/pybind_test/
+    - mpirun --allow-run-as-root -np 2 python3 ${CI_PROJECT_DIR}/test/pybind_test/multi_node_criteo_2node_4gpu.py ${CI_PROJECT_DIR}/test/scripts/criteo_2node_4gpu.json
+
+# embedding_plugin
+embedding_plugin:
+  tags:
+    - hugectr
+  stage: test
+  script:
+    # build
+    - cd ${CI_PROJECT_DIR} && git submodule update --init --recursive
+    - rm -rf build && mkdir build && cd build
+    - cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. && make -j$(nproc)
+    # 1 gpu
+    - cd ${CI_PROJECT_DIR}/test/embedding_plugin_test/
+    - python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/
+    # 4 gpu
+    - python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/

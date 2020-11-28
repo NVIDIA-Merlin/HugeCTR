@@ -15,15 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/reshape_layer.hpp"
-
-#include "HugeCTR/include/data_parser.hpp"
-#include "HugeCTR/include/general_buffer.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
-
 #include <math.h>
 #include <memory>
 #include <vector>
+#include "gtest/gtest.h"
+#include "utest/test_utils.h"
 
 using namespace std;
 using namespace HugeCTR;
@@ -35,22 +31,25 @@ const float eps = 1e-5;
 template <typename T>
 void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
                         std::vector<int> selected) {
-  std::shared_ptr<GeneralBuffer<T>> buff(new GeneralBuffer<T>());
-  TensorFormat_t in_format = TensorFormat_t::HSW;
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   int n_active_slot = selected.empty() ? n_slot : int(selected.size());
   std::vector<size_t> in_dims = {batch_size, n_slot, vector_length};
   std::vector<size_t> out_dims = {batch_size, n_active_slot * vector_length};
 
-  std::shared_ptr<Tensor<T>> in_tensor(new Tensor<T>(in_dims, buff, in_format));
-  std::shared_ptr<Tensor<T>> out_tensor;
-  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, buff, selected, 0);
+  Tensor2<T> in_tensor;
+  buff->reserve(in_dims, &in_tensor);
+  Tensor2<T> out_tensor;
+  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, buff, selected, test::get_default_gpu());
 
-  buff->init(0);
+  buff->allocate();
+  reshape_layer.initialize();
+
+  test::GaussianDataSimulator data_sim(0.0f, 1.0f);
 
   std::vector<T> h_in;
-  h_in.resize(in_tensor->get_num_elements());
-  GaussianDataSimulator<float> data_sim(0.0, 1.0, -10.0, 10.0);
-  for (unsigned int i = 0; i < h_in.size(); i++) h_in[i] = data_sim.get_num();
+  h_in.resize(in_tensor.get_num_elements());
+
+  data_sim.fill(h_in.data(), h_in.size());
 
   // fprop
   std::vector<T> h_ref;
@@ -69,15 +68,17 @@ void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
     }
   }
 
-  T* d_in = in_tensor->get_ptr();
-  cudaMemcpy(d_in, &h_in.front(), in_tensor->get_size(), cudaMemcpyHostToDevice);
+  T* d_in = in_tensor.get_ptr();
+  CK_CUDA_THROW_(
+      cudaMemcpy(d_in, &h_in.front(), in_tensor.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
-  reshape_layer.fprop(cudaStreamDefault);
+  reshape_layer.fprop(true);
 
   std::vector<T> h_result;
   h_result.resize(batch_size * n_active_slot * vector_length);
-  T* d_out = out_tensor->get_ptr();
-  cudaMemcpy(&h_result.front(), d_out, out_tensor->get_size(), cudaMemcpyDeviceToHost);
+  T* d_out = out_tensor.get_ptr();
+  CK_CUDA_THROW_(
+      cudaMemcpy(&h_result.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(
       test::compare_array_approx<T>(&h_result.front(), &h_ref.front(), h_result.size(), eps));
@@ -86,10 +87,10 @@ void reshape_layer_test(size_t batch_size, size_t n_slot, size_t vector_length,
   h_ref.resize(batch_size * n_slot * vector_length);
   h_ref = h_in;
 
-  reshape_layer.bprop(cudaStreamDefault);
+  reshape_layer.bprop();
 
   h_result.resize(batch_size * n_slot * vector_length);
-  cudaMemcpy(&h_result.front(), d_in, in_tensor->get_size(), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&h_result.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost);
 
   ASSERT_TRUE(
       test::compare_array_approx<T>(&h_result.front(), &h_in.front(), h_result.size(), eps));

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "HugeCTR/include/optimizer.hpp"
+#include <optimizer.hpp>
 
 namespace HugeCTR {
 
@@ -34,16 +34,16 @@ class SGDOptimizer : public Optimizer {
    * @param lr learning rate
    # @param scaler scaler factor for mixed precision
    */
-  SGDOptimizer(const GeneralBufferPtr<float>& weight_main,
-               const GeneralBufferPtr<float>& fp32_wgrad,
-               const GeneralBufferPtr<__half>& fp16_wgrad, bool mixed_precision, int device_id,
-               float lr = 0.001f, float scaler = 1.f);
+  SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
+               const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
+               const std::shared_ptr<GPUResource>& gpu_resource, float lr = 0.001f,
+               float scaler = 1.f);
 
   /**
    * update the weights using gradient
    * @param stream cuda stream used by update kernel
    */
-  void update(cudaStream_t stream) override;
+  void update() override;
 
  private:
 };

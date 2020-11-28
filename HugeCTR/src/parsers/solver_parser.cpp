@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/parser.hpp"
+#include <parser.hpp>
 
 namespace HugeCTR {
 
-SolverParser::SolverParser(const std::string& file) : configure_file(file) {
+SolverParser::SolverParser(const std::string& file) {
   try {
     int num_procs = 1, pid = 0;
 #ifdef ENABLE_MPI
@@ -28,9 +28,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
 
     /* file read to json */
     nlohmann::json config;
-    std::ifstream file_stream(configure_file);
+    std::ifstream file_stream(file);
     if (!file_stream.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + configure_file);
+      CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + file);
     }
     file_stream >> config;
     file_stream.close();
@@ -41,10 +41,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
     auto j = get_json(config, "solver");
 
     if (has_key_(j, "seed")) {
-      seed = get_value_from_json<unsigned int>(j, "seed");
+      seed = get_value_from_json<unsigned long long>(j, "seed");
     } else {
-      std::random_device rd;
-      seed = rd();
+      seed = 0ull;
     }
 
     auto lr_policy_string = get_value_from_json<std::string>(j, "lr_policy");
@@ -53,7 +52,27 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
     }
 
     display = get_value_from_json<int>(j, "display");
-    max_iter = get_value_from_json<int>(j, "max_iter");
+
+    bool has_max_iter = has_key_(j, "max_iter");
+    bool has_num_epochs = has_key_(j, "num_epochs");
+    if (has_max_iter && has_num_epochs) {
+      CK_THROW_(Error_t::WrongInput, "max_iter and num_epochs cannot be used together.");
+    }
+    else {
+      if (has_max_iter) {
+        max_iter = get_value_from_json<int>(j, "max_iter");
+        num_epochs = 0;
+      }
+      else if (has_num_epochs) {
+        max_iter = 0;
+        num_epochs = get_value_from_json<int>(j, "num_epochs");
+      }
+      else {
+        max_iter = 0;
+        num_epochs = 1;
+      }
+    }
+
     snapshot = get_value_from_json<int>(j, "snapshot");
     batchsize = get_value_from_json<int>(j, "batchsize");
     // batchsize_eval = get_value_from_json<int>(j, "batchsize_eval");
@@ -84,8 +103,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
       }
       scaler = i_scaler;
       if (pid == 0) {
-        std::cout << "Mixed Precision training with scaler: " << i_scaler << " is enabled."
-                  << std::endl;
+        std::stringstream ss;
+        ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
+        MESSAGE_(ss.str());
       }
 
     } else {
@@ -94,8 +114,7 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
     }
 
     auto gpu_array = get_json(j, "gpu");
-    assert(device_list.empty());
-    std::vector<std::vector<int>> vvgpu;
+    assert(vvgpu.empty());
     // todo: output the device map
     if (gpu_array[0].is_array()) {
       int num_nodes = gpu_array.size();
@@ -130,9 +149,6 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
       vvgpu.push_back(vgpu);
     }
 
-    device_map.reset(new DeviceMap(vvgpu, pid));
-    device_list = device_map->get_device_list();
-
     const std::map<std::string, metrics::Type> metrics_map = {
         {"AverageLoss", metrics::Type::AverageLoss}, {"AUC", metrics::Type::AUC}};
 
@@ -155,7 +171,7 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
                 break;
               }
               case metrics::Type::AUC: {
-                float val = std::stof(metric_strs[1]);
+                float val = (metric_strs.size() == 1) ? 1.f : std::stof(metric_strs[1]);
                 if (val < 0.0 || val > 1.0) {
                   CK_THROW_(Error_t::WrongInput, "0 <= AUC threshold <= 1 is not true");
                 }
@@ -195,6 +211,9 @@ SolverParser::SolverParser(const std::string& file) : configure_file(file) {
 
     use_algorithm_search = get_value_from_json_soft<bool>(j, "algorithm_search", true);
     MESSAGE_("Algorithm search: " + std::string(use_algorithm_search ? "ON" : "OFF"));
+
+    use_cuda_graph = get_value_from_json_soft<bool>(j, "cuda_graph", true);
+    MESSAGE_("CUDA Graph: " + std::string(use_cuda_graph? "ON" : "OFF"));
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
