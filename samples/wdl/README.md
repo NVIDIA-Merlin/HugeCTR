@@ -132,4 +132,4 @@ In this situation, b is the parameters in our embedding above and x is the input
     },
 ```
 
-The Reshape layer after embedding is usually has `leading_dim` = `slot_num`*`embedding_vec_size`, which means a concatenation of the category features.
+The Reshape layer after embedding usually has `leading_dim` = `slot_num`*`embedding_vec_size`, which means a concatenation of the category features.
