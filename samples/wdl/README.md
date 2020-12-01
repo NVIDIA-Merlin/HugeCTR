@@ -91,3 +91,33 @@ Binary output
 ```shell
 $ ./huge_ctr --train ./wdl_bin.json
 ```
+
+## More Explaination on The Network Configuration ##
+```
+ "sparse": [
+	{
+          "top": "wide_data",
+          "type": "DistributedSlot",
+          "max_feature_num_per_sample": 30,
+          "slot_num": 1
+        },
+  }
+```
+```
+  {
+      "name": "sparse_embedding2",
+      "type": "DistributedSlotSparseEmbeddingHash",
+      "bottom": "wide_data",
+      "top": "sparse_embedding2",
+      "sparse_embedding_hparam": {
+        "max_vocabulary_size_per_gpu": 2322444,
+        "embedding_vec_size": 1,
+        "combiner": 0
+      }
+    },
+```
+As wide model in WDL is Logistic Regression, the `slot_num` in data layer and `embedding_vec_size` in Embedding layer should be always 1. 
+
+P = sigmoid(b0 + b1*x1 + b2*x2 + b3*x3)
+
+Imagine b is the parameters in our embedding above and x is the input vector (multi-hot). A sum combiner in a slot in embedding can be used to simulate `b1*x1 + b2*x2 + b3*x3`
