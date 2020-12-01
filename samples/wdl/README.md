@@ -120,4 +120,16 @@ As wide model in WDL is Logistic Regression, the `slot_num` in data layer and `e
 
 P = sigmoid(b0 + b1*x1 + b2*x2 + b3*x3)
 
-Imagine b is the parameters in our embedding above and x is the input vector (multi-hot). A sum combiner in a slot in embedding can be used to simulate `b1*x1 + b2*x2 + b3*x3`
+In this situation, b is the parameters in our embedding above and x is the input vector (multi-hot). A sum combiner in a slot in embedding can be used to simulate `b1*x1 + b2*x2 + b3*x3`
+
+```
+    {
+      "name": "reshape1",
+      "type": "Reshape",
+      "bottom": "sparse_embedding1",
+      "top": "reshape1",
+      "leading_dim": 416
+    },
+```
+
+The Reshape layer after embedding is usually has `leading_dim` = `slot_num`*`embedding_vec_size`, which means a concatenation of the category features.
