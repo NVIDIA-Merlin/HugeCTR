@@ -69,6 +69,10 @@ We’ve implemented the following enhancements to improve usability and performa
 + **Model Oversubscription**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we added a new model prefetching feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](docs/hugectr_user_guide.md#norm) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
 
 + **Enhanced AUC Implementation**: To enhance the performance of our AUC computation on multi-node environments, we redesigned our AUC implementation to improve how the computational load gets distributed across nodes.
+    - **NOTE**: In using the AUC as your evaluation metric, you may encounter a warning message like below, which implies the specified GPU, e.g. 3, suffers from the load imbalance issue. It can happen when the generated predictions are very far from the uniform distribution. It is a normal behavior whilest its performance can be affected.
+    ```
+    [02d04h58m05s][HUGECTR][INFO]: GPU 3 has no samples in the AUC computation due to strongly uneven distribution of the scores. Performance may be impacted
+    ```
 
 + **Epoch-Based Training**: In addition to `max_iter`, a HugeCTR user can set `num_epochs` in the **Solver** clause of their JSON config file. This mode can only currently be used with `Norm` dataset formats and their corresponding file lists. All dataset formats will be supported in the future.
 
