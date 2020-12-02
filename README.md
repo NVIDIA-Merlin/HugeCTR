@@ -122,17 +122,18 @@ If you'd like to quickly train a model using the Python interface, follow these 
                                                   batchsize_eval = 16384,
                                                   vvgpu = [[0,1,2,3,4,5,6,7]],
                                                   repeat_dataset = True)
-   sess = hugectr.Session(solver_config, json_config_file)
-   sess.start_data_reading()
-   for i in range(10000):
-     sess.train()
-     if (i % 100 == 0):
-       loss = sess.get_current_loss()
-       print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
+     sess = hugectr.Session(solver_config, json_config_file)
+     sess.start_data_reading()
+     for i in range(10000):
+       sess.train()
+       if (i % 100 == 0):
+         loss = sess.get_current_loss()
+         print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
 
    if __name__ == "__main__":
      json_config_file = sys.argv[1]
      train(json_config_file)
+
    ```
 
    **NOTE**: Update the vvgpu (the active GPUs), batchsize, and batchsize_eval parameters according to your GPU system.
