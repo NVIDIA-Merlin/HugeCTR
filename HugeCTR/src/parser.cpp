@@ -966,13 +966,6 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   CudaDeviceContext context(gpu_resource->get_device_id());
   blobs_buff->allocate();
 
-#ifndef DATA_READING_TEST
-  network->initialize();
-  if (use_algorithm_search) {
-    network->search_algorithm();
-  }
-#endif
-
   return network.release();
 }
 
@@ -1045,11 +1038,6 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
                              const std::shared_ptr<ResourceManager>& resource_manager,
                              size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
                              float scaler, const nlohmann::json& j_layers) {
-#ifdef ENABLE_MPI
-  int num_procs = 1, pid = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-#endif
 
   auto j_optimizer = get_json(config, "optimizer");
   auto embedding_name = get_value_from_json<std::string>(j_layers, "type");
@@ -1108,22 +1096,17 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
 #ifndef NCCL_A2A
-      int num_procs = 1, pid = 0;
-#ifdef ENABLE_MPI
-      MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-      MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-#endif
 
       auto j_plan = get_json(j_layers, "plan_file");
       std::string plan_file;
       if (j_plan.is_array()) {
         int num_nodes = j_plan.size();
-        if (num_nodes != num_procs) {
+        if (num_nodes != resource_manager->get_num_process()) {
           CK_THROW_(Error_t::WrongInput, "num_nodes != num_procs");
         }
-        plan_file = j_plan[pid].get<std::string>();
+        plan_file = j_plan[resource_manager->get_process_id()].get<std::string>();
       } else {
-        if (num_procs > 1) {
+        if (resource_manager->get_num_process() > 1) {
           CK_THROW_(Error_t::WrongInput, "num_procs > 1");
         }
         plan_file = get_value_from_json<std::string>(j_layers, "plan_file");

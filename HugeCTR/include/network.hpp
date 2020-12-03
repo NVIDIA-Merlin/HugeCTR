@@ -147,12 +147,7 @@ class Network {
   /**
    * Init parameters and write to fstream.
    */
-  void init_params(const std::string& model_file_name);
-
-  /**
-   * Copy parameters from a network.
-   */
-  void copy_params(const Network& n);
+  void init_params(size_t index);
 
   /**
    * Exchange wgrad between gpus.
@@ -172,20 +167,13 @@ class Network {
   /**
    * initialize layer by layer
    */
-  void initialize() {
-    for (auto& n : layers_) {
-      n->initialize();
-    }
-  }
+  void initialize();
 
   /**
    * search_algorithm layer by layer
    */
-  void search_algorithm() {
-    for (auto& n : layers_) {
-      n->search_algorithm();
-    }
-  }
+  void search_algorithm();
+  
 };  // namespace HugeCTR
 
 }  // namespace HugeCTR
