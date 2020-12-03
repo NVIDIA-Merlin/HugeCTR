@@ -41,27 +41,29 @@ namespace HugeCTR {
 template <typename T>
 class CSR {
  private:
-  const int num_rows_;       /**< num rows. */
-  const int max_value_size_; /**< number of element of value the CSR matrix will have for num_rows
+  const size_t num_rows_;       /**< num rows. */
+  const size_t max_value_size_; /**< number of element of value the CSR matrix will have for num_rows
                                 rows. */
 
-  Tensor2<T> row_offset_value_buffer_; /**< a unified buffer for row offset and value. */
-  T* row_offset_; /**< just offset on the buffer, note that the length of it is slot*batchsize+1.
+  Tensor2<T> row_offset_tensor_;
+  Tensor2<T> value_tensor_; /**< a unified buffer for row offset and value. */
+  T* row_offset_ptr_; /**< just offset on the buffer, note that the length of it is slot*batchsize+1.
                    */
-  T* value_;      /**< pointer of value buffer. */
+  T* value_ptr_;      /**< pointer of value buffer. */
 
-  int size_of_value_{0};      /**< num of values in this CSR buffer */
-  int size_of_row_offset_{0}; /**< num of rows in this CSR buffer */
+  size_t size_of_row_offset_; /**< num of rows in this CSR buffer */
+  size_t size_of_value_;      /**< num of values in this CSR buffer */
 
-  int check_point_row_;   /**< check point of size_of_row_offset_. */
-  int check_point_value_; /**< check point of size_of_value__. */
+  size_t check_point_row_;   /**< check point of size_of_row_offset_. */
+  size_t check_point_value_; /**< check point of size_of_value__. */
  public:
   /**
    * Ctor
    * @param num_rows num of rows is expected
    * @param max_value_size max size of value buffer.
    */
-  CSR(int num_rows, int max_value_size) : num_rows_(num_rows), max_value_size_(max_value_size) {
+  CSR(size_t num_rows, size_t max_value_size) : num_rows_(num_rows), max_value_size_(max_value_size),
+  size_of_row_offset_(0), size_of_value_(0) {
     static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                   "type not support");
     if (max_value_size <= 0 && num_rows <= 0) {
@@ -70,20 +72,21 @@ class CSR {
 
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
         GeneralBuffer2<CudaHostAllocator>::create();
-    buff->reserve({static_cast<size_t>(num_rows + 1 + max_value_size)}, &row_offset_value_buffer_);
+    buff->reserve({num_rows + 1}, &row_offset_tensor_);
+    buff->reserve({max_value_size}, &value_tensor_);
     buff->allocate();
 
-    row_offset_ = row_offset_value_buffer_.get_ptr();
-    value_ = row_offset_value_buffer_.get_ptr() + num_rows + 1;
+    row_offset_ptr_ = row_offset_tensor_.get_ptr();
+    value_ptr_ = value_tensor_.get_ptr();
   }
   CSR(const CSR&) = delete;
   CSR& operator=(const CSR&) = delete;
   CSR(CSR&&) = default;
 
   inline void push_back_new_row(const T& value) {
-    row_offset_[size_of_row_offset_] = static_cast<T>(size_of_value_);
+    row_offset_ptr_[size_of_row_offset_] = static_cast<T>(size_of_value_);
     size_of_row_offset_++;
-    value_[size_of_value_] = value;
+    value_ptr_[size_of_value_] = value;
     size_of_value_++;
   }
 
@@ -95,7 +98,7 @@ class CSR {
     if (size_of_value_ >= max_value_size_)
       CK_THROW_(Error_t::OutOfBound, "CSR out of bound " + std::to_string(max_value_size_) +
                                          "offset" + std::to_string(size_of_value_));
-    value_[size_of_value_] = value;
+    value_ptr_[size_of_value_] = value;
     size_of_value_++;
   }
 
@@ -107,7 +110,7 @@ class CSR {
    */
   inline void new_row() {  // call before push_back values in this line
     if (size_of_row_offset_ > num_rows_) CK_THROW_(Error_t::OutOfBound, "CSR out of bound");
-    row_offset_[size_of_row_offset_] = static_cast<T>(size_of_value_);
+    row_offset_ptr_[size_of_row_offset_] = static_cast<T>(size_of_value_);
     size_of_row_offset_++;
   }
 
@@ -135,16 +138,12 @@ class CSR {
     size_of_row_offset_ = 0;
   }
 
-  const T* get_row_offset() const { return row_offset_; }
-  const T* get_value() const { return value_; }
-  int get_sizeof_value() const { return size_of_value_; }
-  int get_num_rows() const { return num_rows_; }
-  int get_max_value_size() const { return max_value_size_; }
-  const T* get_buffer() const { return row_offset_value_buffer_.get_ptr(); }
-  T* get_value_buffer() { return value_; };
-  T* get_row_offset_buffer() { return row_offset_; };
-  void update_value_size(int update_size) { size_of_value_ += update_size; };
-  void update_row_offset(int update_size) { size_of_row_offset_ += update_size; };
+  size_t get_num_values() const { return size_of_value_; }
+  size_t get_num_rows() const { return num_rows_; }
+  Tensor2<T>& get_row_offset_tensor() { return row_offset_tensor_; };
+  Tensor2<T>& get_value_tensor() { return value_tensor_; };
+  void update_value_size(size_t update_size) { size_of_value_ += update_size; };
+  void update_row_offset(size_t update_size) { size_of_row_offset_ += update_size; };
 };
 
 }  // namespace HugeCTR

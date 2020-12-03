@@ -50,8 +50,6 @@ class Metric {
   void set_current_batch_size(int batch_size) { current_batch_size_ = batch_size; }
 
  protected:
-  int num_procs_;
-  int pid_;
   int current_batch_size_;
 };
 

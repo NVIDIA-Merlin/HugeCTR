@@ -19,10 +19,33 @@
 #include <utils.hpp>
 
 namespace HugeCTR {
-CPUResource::CPUResource(unsigned long long seed, size_t thread_num) {
-  CK_CURAND_THROW_(curandCreateGeneratorHost(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
-  CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(curand_generator_, seed));
+CPUResource::CPUResource(unsigned long long replica_uniform_seed,
+                         const std::vector<unsigned long long> replica_variant_seeds) {
+  replica_uniform_curand_generators_.resize(replica_variant_seeds.size());
+  replica_variant_curand_generators_.resize(replica_variant_seeds.size());
+
+  for (size_t i = 0; i < replica_variant_seeds.size(); i++) {
+    CK_CURAND_THROW_(curandCreateGeneratorHost(&replica_uniform_curand_generators_[i],
+                                               CURAND_RNG_PSEUDO_DEFAULT));
+    CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(replica_uniform_curand_generators_[i],
+                                                        replica_uniform_seed));
+    CK_CURAND_THROW_(curandCreateGeneratorHost(&replica_variant_curand_generators_[i],
+                                               CURAND_RNG_PSEUDO_DEFAULT));
+    CK_CURAND_THROW_(curandSetPseudoRandomGeneratorSeed(replica_variant_curand_generators_[i],
+                                                        replica_variant_seeds[i]));
+  }
 }
 
-CPUResource::~CPUResource() { curandDestroyGenerator(curand_generator_); }
+CPUResource::~CPUResource() {
+  try {
+    for (auto generator : replica_uniform_curand_generators_) {
+      CK_CURAND_THROW_(curandDestroyGenerator(generator));
+    }
+    for (auto generator : replica_variant_curand_generators_) {
+      CK_CURAND_THROW_(curandDestroyGenerator(generator));
+    }
+  } catch (const std::runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+  }
+}
 }  // namespace HugeCTR
