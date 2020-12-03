@@ -164,7 +164,7 @@ class UniformDataSimulator {
 
 static std::shared_ptr<GPUResource> get_default_gpu() {
   std::random_device rd;
-  return std::make_shared<GPUResource>(0, 0, rd());
+  return std::make_shared<GPUResource>(0, 0, rd(), rd(), nullptr);
 }
 
 }  // end namespace test

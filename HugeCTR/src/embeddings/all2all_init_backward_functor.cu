@@ -47,15 +47,12 @@ void SparseEmbeddingFunctors::all2all_init_backward(
     CK_THROW_(Error_t::WrongInput, "Error: the local device_list doesn't match all2all plan_file");
   }
 
-  int total_rank = 1;
-  int my_rank = 0;
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
-  if (total_gpu_count != (total_rank * local_gpu_count)) {
+  if (total_gpu_count != (resource_manager.get_num_process() * local_gpu_count)) {
     CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
   }
 #ifndef NDEBUG
-  std::cout << "total_rank=" << total_rank << ", my_rank=" << my_rank
+  std::cout << "total_rank=" << resource_manager.get_num_process()
+            << ", my_rank=" << resource_manager.get_process_id()
             << ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" << local_gpu_count
             << std::endl;
 #endif
@@ -71,7 +68,8 @@ void SparseEmbeddingFunctors::all2all_init_backward(
 
   // The all2all communication class
   auto faster_gossip_comm = new GossipComm::FasterGossipCommMulti<Type>(
-      plan_file, device_ids, total_rank, my_rank, MPI_COMM_WORLD);
+      plan_file, device_ids, resource_manager.get_num_process(), resource_manager.get_process_id(),
+      MPI_COMM_WORLD);
 
   std::vector<Type *> src(local_gpu_count);
   std::vector<Type *> dst(local_gpu_count);
@@ -87,7 +85,7 @@ void SparseEmbeddingFunctors::all2all_init_backward(
 
   // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
   for (size_t i = 0; i < local_gpu_count; i++) {
-    size_t global_id = resource_manager.get_local_gpu(i)->get_global_gpu_id();
+    size_t global_id = resource_manager.get_local_gpu(i)->get_global_id();
     size_t slot_num_per_gpu =
         slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
     size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;

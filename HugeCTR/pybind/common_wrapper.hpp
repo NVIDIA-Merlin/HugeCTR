@@ -45,15 +45,6 @@ void CommonPybind(pybind11::module& m) {
       .value("Sum", HugeCTR::Check_t::Sum)
       .value("None", HugeCTR::Check_t::None)
       .export_values();
-  // pybind11::enum_<HugeCTR::Tensor_t>(m, "Tensor_t")
-  //  .value("FP16", HugeCTR::Tensor_t::FP16)
-  //  .value("FP32", HugeCTR::Tensor_t::FP32)
-  //  .value("FP64", HugeCTR::Tensor_t::FP64)
-  //  .value("INT32", HugeCTR::Tensor_t::INT32)
-  //  .value("INT64", HugeCTR::Tensor_t::INT64)
-  //  .value("UINT32", HugeCTR::Tensor_t::UINT32)
-  //  .value("UINT64", HugeCTR::Tensor_t::UINT64)
-  //  .export_values();
   pybind11::enum_<HugeCTR::DataReaderSparse_t>(m, "DataReaderSparse_t")
       .value("Distributed", HugeCTR::DataReaderSparse_t::Distributed)
       .value("Localized", HugeCTR::DataReaderSparse_t::Localized)
@@ -81,11 +72,6 @@ void CommonPybind(pybind11::module& m) {
       .value("L1", HugeCTR::Regularizer_t::L1)
       .value("L2", HugeCTR::Regularizer_t::L2)
       .export_values();
-  // pybind11::enum_<HugeCTR::TensorFormat_t>(m, "TensorFormat_t")
-  //  .value("WH", HugeCTR::TensorFormat_t::WH)
-  //  .value("HW", HugeCTR::TensorFormat_t::HW)
-  //  .value("HSW", HugeCTR::TensorFormat_t::HSW)
-  //  .export_values();
 }
 
 }  // namespace python_lib

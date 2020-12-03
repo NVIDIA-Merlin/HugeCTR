@@ -63,7 +63,7 @@ class Layer {
   virtual void bprop() = 0;
 
   virtual std::string get_no_trained_params_in_string() { return std::string(); }
-  void init_params(std::ofstream& out_stream, const CPUResource& cpu_resource);
+  void init_params(const curandGenerator_t& generator);
 
   Layer(const std::shared_ptr<GPUResource>& gpu_resource,
         std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>())
@@ -82,7 +82,6 @@ class Layer {
   virtual void search_algorithm() {}
 
  private:
-  Tensor2<float> get_initializer(const CPUResource& cpu_resource);
   /*
    * Layer initializer. If a layer wants the specific weight initialization,
    * Override each private function accordingly, e.g., BatchNormLayer

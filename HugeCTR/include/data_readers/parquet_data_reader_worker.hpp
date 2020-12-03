@@ -79,7 +79,6 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   long long row_group_carry_forward_;
   long long view_offset_;
   std::shared_ptr<ResourceManager> resource_manager_;
-  int pid_{0}, num_procs_{1};
 
   ParquetFileSource* parquet_file_source() const { 
     return static_cast<ParquetFileSource*>(source_.get());
@@ -175,11 +174,6 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
       else
         CK_THROW_(Error_t::DataCheckError, "Slot offset value exceed the key type range");
     }
-#ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid_));
-    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &num_procs_));
-#endif
-
   }
 
   ~ParquetDataReaderWorker() {
@@ -434,7 +428,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           // csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
           pinned_buffer_offset_count += convert_parquet_cat_columns(
               cat_column_data_ptr, param_size, param_id, slot_count, batch_size, num_csr_buffers,
-              csr_chunk_devices, distributed_slot, pid_, resource_manager_,
+              csr_chunk_devices, distributed_slot, resource_manager_->get_process_id(), resource_manager_,
               device_csr_value_buffers, device_csr_row_offset_buffers, pinned_staging_buffer_param,
               (uint32_t*)device_embed_param_start_offset.data(), dev_slot_offset_ptr, rmm_resources,
               memory_resource_.get(), task_stream_);
@@ -454,7 +448,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
 
           pinned_buffer_offset_count += convert_parquet_cat_columns(
               cat_column_data_ptr, param_size, param_id, slot_count, batch_size, num_csr_buffers,
-              csr_chunk_devices, distributed_slot, pid_, resource_manager_,
+              csr_chunk_devices, distributed_slot, resource_manager_->get_process_id(), resource_manager_,
               device_csr_value_buffers, device_csr_row_offset_buffers, pinned_staging_buffer_param,
               (uint32_t*)device_embed_param_start_offset.data(), dev_slot_offset_ptr, rmm_resources,
               memory_resource_.get(), task_stream_);
@@ -479,9 +473,9 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           int buf_id = device * param_size + param_idx;
 
           // save on memcpy to host bottlenecks
-          if (pid_ == resource_manager_->get_pid_from_gpu_global_id(device)) {
+          if (resource_manager_->get_process_id() == resource_manager_->get_process_id_from_gpu_global_id(device)) {
             size_t copy_size = host_pinned_csr_inc_.get_ptr()[buf_id] * sizeof(T);
-            CK_CUDA_THROW_(cudaMemcpyAsync(csr_chunk->get_csr_buffer(buf_id).get_value_buffer(),
+            CK_CUDA_THROW_(cudaMemcpyAsync(csr_chunk->get_csr_buffer(buf_id).get_value_tensor().get_ptr(),
                                           device_csr_value_buffers[buf_id].data(), copy_size,
                                           cudaMemcpyDeviceToHost, task_stream_));
 
@@ -491,7 +485,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
               copy_size += sizeof(T);
             }
 
-            CK_CUDA_THROW_(cudaMemcpyAsync(csr_chunk->get_csr_buffer(buf_id).get_row_offset_buffer(),
+            CK_CUDA_THROW_(cudaMemcpyAsync(csr_chunk->get_csr_buffer(buf_id).get_row_offset_tensor().get_ptr(),
                                           device_csr_row_offset_buffers[buf_id].data(), copy_size,
                                           cudaMemcpyDeviceToHost, task_stream_));
           }
