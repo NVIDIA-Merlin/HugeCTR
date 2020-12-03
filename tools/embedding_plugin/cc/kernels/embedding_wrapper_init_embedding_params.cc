@@ -33,24 +33,29 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::init_embedding_params(cons
         return tensorflow::errors::NotFound("Did not find ", embedding_name, " in embeddings_.");
     }
 
-    if (init_value->dtype() == tensorflow::DT_BOOL) {
-        embedding->init_params();
-    } else {
-        /*save initial values to file*/
-        std::string embedding_file = "TMP_EMBEDDING_INITIAL_VALUES";
-        tensorflow::Status status = save_initial_to_file(embedding_name, init_value, embedding_file, on_gpu);
-        if (status != tensorflow::Status::OK()) return status;
+    try{
+        if (init_value->dtype() == tensorflow::DT_BOOL) {
+            embedding->init_params();
+        } else {
+            /*save initial values to file*/
+            std::string embedding_file = "TMP_EMBEDDING_INITIAL_VALUES";
+            tensorflow::Status status = save_initial_to_file(embedding_name, init_value, embedding_file, on_gpu);
+            if (status != tensorflow::Status::OK()) return status;
 
-        /*load initial values to memory*/
-        std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
-        if (!embedding_stream.is_open()) 
-            return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " embedding_stream is not open.");
-        embedding->load_parameters(embedding_stream);
-        embedding_stream.close();
+            /*load initial values to memory*/
+            std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
+            if (!embedding_stream.is_open()) 
+                return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " embedding_stream is not open.");
+            embedding->load_parameters(embedding_stream);
+            embedding_stream.close();
 
-        /*delete embedding_file*/
-        if (std::remove(embedding_file.c_str()) != 0)
-            return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " Cannot delete ", embedding_file);
+            /*delete embedding_file*/
+            if (std::remove(embedding_file.c_str()) != 0)
+                return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " Cannot delete ", embedding_file);
+        }
+
+    } catch (const HugeCTR::internal_runtime_error& rt_err){
+        return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ", rt_err.what());
     }
     return tensorflow::Status::OK();
 }
