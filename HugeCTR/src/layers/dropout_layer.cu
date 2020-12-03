@@ -48,7 +48,7 @@ void DropoutLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   if (is_train) {
-    CK_CURAND_THROW_(curandGenerateUniform(get_gpu().get_curand_generator(), mask_.get_ptr(),
+    CK_CURAND_THROW_(curandGenerateUniform(get_gpu().get_replica_variant_curand_generator(), mask_.get_ptr(),
                                            in_tensors_[0].get_num_elements()));
     prop_common(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(), get_gpu().get_stream());
   } else {

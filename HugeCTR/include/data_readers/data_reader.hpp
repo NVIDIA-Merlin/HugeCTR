@@ -52,7 +52,6 @@ class DataReader : public IDataReader {
   Tensors2<float> label_tensors_;                       /**< Label tensors for the usage of loss */
   std::vector<TensorBag2> dense_tensors_;               /**< Dense tensors for the usage of loss */
   /* Each gpu will have several csr output for different embedding */
-  Tensors2<TypeKey> csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
   Tensors2<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
   Tensors2<TypeKey> value_tensors_;       /**< value tensors */
   std::vector<std::shared_ptr<size_t>> nnz_array_;
@@ -252,7 +251,7 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
         one_hot = false;
       } else if (param.type == DataReaderSparse_t::Localized) {
         size_t mod_slots = static_cast<size_t>(param.slot_num) % total_gpu_count;  // ceiling
-        size_t global_id = resource_manager_->get_local_gpu(i)->get_global_gpu_id();
+        size_t global_id = resource_manager_->get_local_gpu(i)->get_global_id();
         if (global_id < mod_slots) {
           slots = param.slot_num / total_gpu_count + 1;
         } else {
@@ -281,16 +280,15 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
       row_offsets_tensors_.emplace_back(tmp_row_offset);
       value_tensors_.emplace_back(tmp_value);
       nnz_array_.emplace_back(new size_t);
-      csr_buffers_.emplace_back(blockbuff->as_tensor());
     }
   }
 
   if (cache_num_iters) {
     data_collector_.reset(new DataCollector<TypeKey>(
-        label_tensors_, dense_tensors_, csr_buffers_, nnz_array_, buffs, resource_manager_,
+        label_tensors_, dense_tensors_, row_offsets_tensors_, value_tensors_, nnz_array_, buffs, resource_manager_,
         csr_heap_, use_mixed_precision_, one_hot, cache_num_iters));
   } else {
-    data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
+    data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, row_offsets_tensors_, value_tensors_,
                                                      nnz_array_, buffs, resource_manager_,
                                                      csr_heap_, use_mixed_precision_, one_hot));
   }

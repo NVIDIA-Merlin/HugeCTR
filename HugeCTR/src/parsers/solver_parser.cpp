@@ -20,11 +20,6 @@ namespace HugeCTR {
 
 SolverParser::SolverParser(const std::string& file) {
   try {
-    int num_procs = 1, pid = 0;
-#ifdef ENABLE_MPI
-    MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-#endif
 
     /* file read to json */
     nlohmann::json config;
@@ -102,11 +97,9 @@ SolverParser::SolverParser(const std::string& file) {
                   "Scaler of mixed_precision training should be either 128/256/512/1024");
       }
       scaler = i_scaler;
-      if (pid == 0) {
-        std::stringstream ss;
-        ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
-        MESSAGE_(ss.str());
-      }
+      std::stringstream ss;
+      ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
+      MESSAGE_(ss.str());
 
     } else {
       use_mixed_precision = false;
@@ -117,27 +110,19 @@ SolverParser::SolverParser(const std::string& file) {
     assert(vvgpu.empty());
     // todo: output the device map
     if (gpu_array[0].is_array()) {
-      int num_nodes = gpu_array.size();
-      if (num_nodes != num_procs) {
-        CK_THROW_(Error_t::WrongInput, "num_nodes != num_procs");
-      } else {
-        for (auto gpu : gpu_array) {
-          std::vector<int> vgpu;
-          assert(vgpu.empty());
-          for (auto gpu_tmp : gpu) {
-            int gpu_id = gpu_tmp.get<int>();
-            vgpu.push_back(gpu_id);
-            if (gpu_id < 0) {
-              CK_THROW_(Error_t::WrongInput, "gpu_id < 0");
-            }
+      for (auto gpu : gpu_array) {
+        std::vector<int> vgpu;
+        assert(vgpu.empty());
+        for (auto gpu_tmp : gpu) {
+          int gpu_id = gpu_tmp.get<int>();
+          vgpu.push_back(gpu_id);
+          if (gpu_id < 0) {
+            CK_THROW_(Error_t::WrongInput, "gpu_id < 0");
           }
-          vvgpu.push_back(vgpu);
         }
+        vvgpu.push_back(vgpu);
       }
     } else {
-      if (num_procs > 1) {
-        CK_THROW_(Error_t::WrongInput, "num_procs > 1");
-      }
       std::vector<int> vgpu;
       for (auto gpu_tmp : gpu_array) {
         int gpu_id = gpu_tmp.get<int>();

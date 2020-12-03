@@ -128,7 +128,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
     size_t max_voc_size = 0;
     for (size_t id = 0; id < local_gpu_count; id++) {
-      size_t global_id = resource_manager.get_local_gpu(id)->get_global_gpu_id();
+      size_t global_id = resource_manager.get_local_gpu(id)->get_global_id();
 
       size_t total_size = 0;
       for (size_t i = 0; i < slot_sizes.size(); i++) {

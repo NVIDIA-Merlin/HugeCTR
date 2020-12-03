@@ -38,7 +38,6 @@ class DeviceMap {
  private:
   const std::vector<std::vector<int>> device_list_total_; /**< device list for all the nodes*/
   std::map<int, int> global_local_map_;                   /**< global to device id (gpu id) map */
-  std::map<int, int> local_global_map_;    /**< device id (gpu id) to global id map */
   std::map<int, int> global_pid_map_;      /**< global id to process id map */
   std::map<int, int> global_local_id_map_; /**< global id to local id map */
   std::map<int, int> local_global_id_map_; /**< local id to global id map */
@@ -73,7 +72,6 @@ class DeviceMap {
         for (auto tmp_device : tmp_device_list) {
           if (pid == my_pid_) {
             global_local_map_.insert(std::pair<int, int>(global_id, tmp_device));
-            local_global_map_.insert(std::pair<int, int>(tmp_device, global_id));
             global_local_id_map_.insert(std::pair<int, int>(global_id, local_id));
             local_global_id_map_.insert(std::pair<int, int>(local_id, global_id));
             local_id++;
@@ -89,21 +87,6 @@ class DeviceMap {
   }
 
   const std::vector<int>& get_device_list() const { return device_list_; }
-
-
-  /**
-   * Get global id according to device id.
-   * @param local_device_id device id.
-   * @return global id, if cannot find this local device in current node return -1.
-   */
-  int get_global_id_from_device_id(int local_device_id) const {
-    std::map<int, int>::const_iterator it = local_global_map_.find(local_device_id);
-    if (it == local_global_map_.end()) {
-      return -1;
-    } else {
-      return it->second;
-    }
-  }
 
   /**
    * Get global id according to local id.
