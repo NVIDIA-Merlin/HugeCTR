@@ -94,6 +94,10 @@ SolverParser::SolverParser(const std::string& file) {
       }
     }
 
+    if (has_key_(j, "mixed_precision") && has_key_(j, "enable_tf32_compute")) {
+      CK_THROW_(Error_t::WrongInput, "mixed_precision and enable_tf32_compute MUST not coexist");
+    }
+
     if (has_key_(j, "mixed_precision")) {
       use_mixed_precision = true;
       int i_scaler = get_value_from_json<int>(j, "mixed_precision");
@@ -112,6 +116,9 @@ SolverParser::SolverParser(const std::string& file) {
       use_mixed_precision = false;
       scaler = 1.f;
     }
+
+    enable_tf32_compute = get_value_from_json_soft<bool>(j, "enable_tf32_compute", false);
+    MESSAGE_("TF32 Compute: " + std::string(enable_tf32_compute ? "ON" : "OFF"));
 
     auto gpu_array = get_json(j, "gpu");
     assert(vvgpu.empty());
