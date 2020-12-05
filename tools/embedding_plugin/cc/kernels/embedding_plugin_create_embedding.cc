@@ -17,6 +17,8 @@
 #include "wrapper_variables.h"
 #include "embedding_utils.hpp"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
+#include "tensorflow/stream_executor/cuda/cuda_activation.h"
 #include "cuda_utils.h"
 #include <memory>
 #include <type_traits>
@@ -91,6 +93,11 @@ public:
         } else if (std::is_same<Device, GPUDevice>::value) {
             on_gpu = true;
         }
+
+        /*set TF device*/
+        auto stream = ctx->op_device_context()->stream();
+        stream_executor::cuda::ScopedActivateExecutorContext scoped_activation{ stream->parent() };
+
         const Tensor* initial_value = nullptr;
         OP_REQUIRES_OK(ctx, ctx->input("init_value", &initial_value));
         OP_REQUIRES_OK(ctx, wrapper->init_embedding_params(name_, initial_value, on_gpu));
@@ -120,8 +127,8 @@ private:
     int combiner_;
 };
 
-REGISTER_KERNEL_BUILDER(Name("HugectrCreateEmbedding").Device(DEVICE_CPU), 
-                        CreateEmbeddingOp<CPUDevice>);
+// REGISTER_KERNEL_BUILDER(Name("HugectrCreateEmbedding").Device(DEVICE_CPU), 
+//                         CreateEmbeddingOp<CPUDevice>);
 REGISTER_KERNEL_BUILDER(Name("HugectrCreateEmbedding").Device(DEVICE_GPU), 
                         CreateEmbeddingOp<GPUDevice>);
 

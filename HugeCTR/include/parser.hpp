@@ -47,6 +47,8 @@ class Parser {
   const bool repeat_dataset_;
   const bool i64_input_key_{false};
   const bool use_mixed_precision_{false};
+  const bool enable_tf32_compute_{false};
+
   const float scaler_{1.f};
   const bool use_algorithm_search_;
   const bool use_cuda_graph_;
@@ -63,6 +65,7 @@ class Parser {
          bool repeat_dataset,
          bool i64_input_key = false,
          bool use_mixed_precision = false,
+         bool enable_tf32_compute = false,
          float scaler = 1.0f,
          bool use_algorithm_search = true,
          bool use_cuda_graph = true)
@@ -71,6 +74,7 @@ class Parser {
         repeat_dataset_(repeat_dataset),
         i64_input_key_(i64_input_key),
         use_mixed_precision_(use_mixed_precision),
+        enable_tf32_compute_(enable_tf32_compute),
         scaler_(scaler),
         use_algorithm_search_(use_algorithm_search),
         use_cuda_graph_(use_cuda_graph) {
@@ -131,6 +135,7 @@ struct SolverParser {
   std::vector<std::string> embedding_files; /**< name of embedding file */
   std::vector<std::vector<int>> vvgpu;      /**< device map */
   bool use_mixed_precision;
+  bool enable_tf32_compute;
   float scaler;
   std::map<metrics::Type, float> metrics_spec;
   bool i64_input_key;
