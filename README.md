@@ -10,7 +10,7 @@ Design Goals:
 ## Table of Contents
 * [Performance](#performance)
 * [Release Notes](#release-notes)
-* [Getting Started](#getting-started)
+* [Getting Started](#getting-started-with-hugectr)
 * [Support and Feedback](#support-and-feedback)
 
 ## Performance ##
@@ -66,11 +66,15 @@ We’ve implemented the following enhancements to improve usability and performa
 
 + **HugeCTR Embedding with Tensorflow**: To help users easily integrate HugeCTR’s optimized embedding into their Tensorflow workflow, we now offer the HugeCTR embedding layer as a Tensorflow plugin. To better understand how to intall, use, and verify it, see our [Jupyter notebook tutorial](notebooks/embedding_plugin.ipynb). It also demonstrates how you can create a new Keras layer `EmbeddingLayer` based on the [`hugectr_tf_ops.py`](tools/embedding_plugin/python/hugectr_tf_ops.py) helper code that we provide.
 
-+ **Model Oversubscription**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we added a new model prefetching feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](#norm-dataset) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
++ **Model Oversubscription**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we added a new model prefetching feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](docs/hugectr_user_guide.md#norm) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
 
 + **TF32 Support**: The third-generation Tensor Cores on Ampere support a novel math mode: TensorFloat-32 (TF32). TF32 uses the same 10-bit mantissa as FP16 to ensure accuracy while sporting the same range as FP32, thanks to using an 8-bit exponent. Because TF32 is an internal data type which accelerates FP32 GEMM computations with tensor cores, a user can simply turn it on with a newly added configuration option. Please check out [this like](docs/hugectr_user_guide.md#solver) for more details.
 
 + **Enhanced AUC Implementation**: To enhance the performance of our AUC computation on multi-node environments, we redesigned our AUC implementation to improve how the computational load gets distributed across nodes.
+    - **NOTE**: In using the AUC as your evaluation metric, you may encounter a warning message like below, which implies the specified GPU, e.g. 3, suffers from the load imbalance issue. It can happen when the generated predictions are very far from the uniform distribution. It is a normal behavior whilest its performance can be affected.
+    ```
+    [02d04h58m05s][HUGECTR][INFO]: GPU 3 has no samples in the AUC computation due to strongly uneven distribution of the scores. Performance may be impacted
+    ```
 
 + **Epoch-Based Training**: In addition to `max_iter`, a HugeCTR user can set `num_epochs` in the **Solver** clause of their JSON config file. This mode can only currently be used with `Norm` dataset formats and their corresponding file lists. All dataset formats will be supported in the future.
 
@@ -96,7 +100,7 @@ We’ve implemented the following enhancements to improve usability and performa
 To get started, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 If you'd like to quickly train a model using the Python interface, follow these six steps:
-1. Start a NGC container by running the following command:
+1. Start a HugeCTR container from [NVIDIA NGC](https://ngc.nvidia.com/catalog/containers/nvidia:hugectr) by running the following command:
    ```
    docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v2.3
    ```
@@ -124,17 +128,18 @@ If you'd like to quickly train a model using the Python interface, follow these 
                                                   batchsize_eval = 16384,
                                                   vvgpu = [[0,1,2,3,4,5,6,7]],
                                                   repeat_dataset = True)
-   sess = hugectr.Session(solver_config, json_config_file)
-   sess.start_data_reading()
-   for i in range(10000):
-     sess.train()
-     if (i % 100 == 0):
-       loss = sess.get_current_loss()
-       print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
+     sess = hugectr.Session(solver_config, json_config_file)
+     sess.start_data_reading()
+     for i in range(10000):
+       sess.train()
+       if (i % 100 == 0):
+         loss = sess.get_current_loss()
+         print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
 
    if __name__ == "__main__":
      json_config_file = sys.argv[1]
      train(json_config_file)
+
    ```
 
    **NOTE**: Update the vvgpu (the active GPUs), batchsize, and batchsize_eval parameters according to your GPU system.
