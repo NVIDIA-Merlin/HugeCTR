@@ -274,8 +274,9 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
                         const std::shared_ptr<CPUResource>& cpu_resource,
-                        const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-                        float scaler, bool use_algorithm_search, bool use_cuda_graph) {
+                        const std::shared_ptr<GPUResource>& gpu_resource,
+                        bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                        bool use_algorithm_search, bool use_cuda_graph) {
   std::unique_ptr<Network> network(
       new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
 
@@ -606,7 +607,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           layers.emplace_back(new FullyConnectedLayer(
               weight_buff, wgrad_buff, train_in_tensor, evaluate_in_tensor, fc_out_tensor,
-              gpu_resource, use_mixed_precision, initializer_types));
+              gpu_resource, use_mixed_precision, enable_tf32_compute, initializer_types));
           output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
@@ -635,7 +636,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_in_emb_tensor,
               evaluate_in_emb_tensor, out_tensor,
               blobs_buff,  // todo cannot use this blobs_buff here need half
-              gpu_resource, use_mixed_precision));
+              gpu_resource, use_mixed_precision, enable_tf32_compute));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
 
         } else {
@@ -650,7 +651,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           Tensor2<float> out_tensor;
           layers.emplace_back(new InteractionLayer<float>(
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_emb_tensor, evaluate_emb_tensor,
-              out_tensor, blobs_buff, gpu_resource, use_mixed_precision));
+              out_tensor, blobs_buff, gpu_resource, use_mixed_precision, enable_tf32_compute));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
 
@@ -1213,6 +1214,7 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
     size_t batch_size_eval = parser.batch_size_eval_;
     bool use_mixed_precision = parser.use_mixed_precision_;
     float scaler = parser.scaler_;
+    bool enable_tf32_compute = parser.enable_tf32_compute_;
     bool use_algorithm_search = parser.use_algorithm_search_;
     bool use_cuda_graph = parser.use_cuda_graph_;
 
@@ -1438,7 +1440,8 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
                                             total_gpu_count, resource_manager->get_local_cpu(),
-                                            resource_manager->get_local_gpu(i), use_mixed_precision,
+                                            resource_manager->get_local_gpu(i),
+                                            use_mixed_precision, enable_tf32_compute,
                                             scaler, use_algorithm_search, use_cuda_graph));
       }
     }
