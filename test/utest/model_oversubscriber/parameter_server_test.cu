@@ -122,9 +122,9 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   data_reader_params.push_back(param);
 
   std::unique_ptr<DataReader<KeyType>> data_reader_train(new DataReader<KeyType>(
-      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, num_workers));
+      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false, 0));
   std::unique_ptr<DataReader<KeyType>> data_reader_eval(new DataReader<KeyType>(
-      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, num_workers));
+      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false, 0));
 
   data_reader_train->create_drwg_norm(file_list_name_train, check);
   data_reader_eval->create_drwg_norm(file_list_name_eval, check);
