@@ -126,12 +126,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
   std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
-      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
+      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
 
   test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
@@ -387,7 +387,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 

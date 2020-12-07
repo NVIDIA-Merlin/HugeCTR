@@ -1251,6 +1251,14 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
           CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
         }
 
+#ifdef VAL
+        const int num_workers = 1;
+#else
+        int num_workers_default =
+            format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
+        const int num_workers = get_value_from_json_soft<int>(j, "num_workers", num_workers_default);
+#endif
+
         std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
 
         const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
@@ -1283,26 +1291,19 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
         std::string eval_source;
         FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
 
-#ifdef VAL
-        const int NUM_THREADS = 1;
-#else
-        const int NUM_THREADS =
-            format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
-#endif
-
         DataReader<TypeKey> *data_reader_tk = new DataReader<TypeKey>(
             batch_size, label_dim, dense_dim,
             data_reader_sparse_param_array,
             resource_manager,
             parser.repeat_dataset_,
-            NUM_THREADS, use_mixed_precision, false);
+            num_workers, use_mixed_precision, 0);
         data_reader.reset(data_reader_tk);
         DataReader<TypeKey> *data_reader_eval_tk = new DataReader<TypeKey>(
             batch_size_eval, label_dim, dense_dim,
             data_reader_sparse_param_array,
             resource_manager,
             parser.repeat_dataset_,
-            NUM_THREADS, use_mixed_precision, cache_eval_data);
+            num_workers, use_mixed_precision, cache_eval_data);
         data_reader_eval.reset(data_reader_eval_tk);
 
         auto f = [&j]() -> std::vector<long long> {
