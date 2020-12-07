@@ -97,7 +97,7 @@ Make sure that you've installed the NVIDIA Docker. HugeCTR's docker images is av
 
 You can pull and launch the container by running the following command:
 ```
-docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.3 bash
+docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) nvcr.io/nvidia/hugectr:v2.3
 ```
 
 ##### Build the HugeCTR Development Environment with the Docker Image
@@ -108,7 +108,7 @@ $ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
 
 You can run in interaction mode (mount the home directory of repo into container for easy development) using the following command:
 ```
-$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
 ```
 
 **NOTE**: If you are running on a docker version 19+, change --runtime=nvidia to --gpus all.
