@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "hugectrmodel.hpp"
-
 #include <fstream>
 #include <iomanip>
 #include <iostream>
