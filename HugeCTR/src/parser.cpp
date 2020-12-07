@@ -1258,7 +1258,7 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
             format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
         const int num_workers = get_value_from_json_soft<int>(j, "num_workers", num_workers_default);
 #endif
-        MESSAGE_("Num of DataReader workers: " + std::to_string(num_workers));
+        MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
 
         std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
 
