@@ -107,11 +107,12 @@ void DataReaderPybind(pybind11::module& m) {
 
   pybind11::class_<HugeCTR::DataReader<unsigned int>, std::shared_ptr<HugeCTR::DataReader<unsigned int>>, HugeCTR::IDataReader>(m, "DataReader32")
       .def(pybind11::init<int, size_t, int, std::vector<DataReaderSparseParam>&,
-                          const std::shared_ptr<ResourceManager>&, int, bool, int>(),
+                          const std::shared_ptr<ResourceManager>&, bool, int, bool, int>(),
            pybind11::arg("batchsize"), pybind11::arg("label_dim"), pybind11::arg("dense_dim"),
            pybind11::arg("params"), pybind11::arg("resource_manager"),
-           pybind11::arg("num_chunk_threads") = 31, pybind11::arg("use_mixed_precision") = false,
-           pybind11::arg("cache_num_iters") = 0)
+           pybind11::arg("repeat"),
+           pybind11::arg("num_chunk_threads"), pybind11::arg("use_mixed_precision"),
+           pybind11::arg("cache_num_iters"))
       .def("create_drwg_norm", &HugeCTR::DataReader<unsigned int>::create_drwg_norm,
            pybind11::arg("file_list"), pybind11::arg("Check_t"),
            pybind11::arg("start_reading_from_beginning") = true)
