@@ -398,7 +398,7 @@ For example:
 
    ```
 
-* **Loss**: Computes the current loss value based on the model outputs and the true labels based on the given inputs. You can specify which `regularization` is used to train your model here. By default, no regularization will be used.
+* **Loss**: Computes the current loss value based on the model outputs and the true labels based on the given inputs. You can specify which `regularization` is used to train your model here. By default, no regularization will be used. Both "L1" and "L2" Regularization are supported in HugeCTR. Please **Note** that `lambda` should be also specified together with 'regularizer'.
 
   For example:
   ```json
@@ -434,6 +434,7 @@ For example:
    "type": "BinaryCrossEntropyLoss",
    "bottom": ["fc8","label"],
    "regularizer": "L2",
+   "lambda": 0.01,
    "top": "loss"
   }
 
