@@ -42,6 +42,10 @@ file(GLOB huge_ctr_src
   loss.cu
   network.cu
   network.cpp
+  inference/hugectrmodel.cpp
+  inference/inference_utils.cpp
+  inference/embedding_cache.cpp
+  inference/session_inference.cpp
   data_readers/metadata.cpp
   metrics.cu
   optimizers/adam_optimizer.cu
