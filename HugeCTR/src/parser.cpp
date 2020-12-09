@@ -271,11 +271,11 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
  * Create single network
  *
  */
-Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
+std::unique_ptr<Network> Network::create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
                         const std::shared_ptr<CPUResource>& cpu_resource,
                         const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-                        float scaler, bool use_algorithm_search, bool use_cuda_graph) {
+                        float scaler, bool use_algorithm_search, bool use_cuda_graph, bool inference_flag) {
   std::unique_ptr<Network> network(
       new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
 
@@ -355,6 +355,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
             input_output_info.evaluate_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
         }
+        if(inference_flag){
+          CK_THROW_(Error_t::WrongInput, "inference network must NOT have BinaryCrossEntropyLoss");
+        }
         Tensor2<float> train_label_tensor =
             Tensor2<float>::stretch_from(input_output_info.train_input[1]);
         Tensor2<float> evaluate_label_tensor =
@@ -420,6 +423,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
       case Layer_t::CrossEntropyLoss: {
         if (input_output_info.train_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
+        }
+        if(inference_flag){
+          CK_THROW_(Error_t::WrongInput, "inference network must NOT have CrossEntropyLoss");
         }
         Tensor2<float> label_tensor =
             Tensor2<float>::stretch_from(input_output_info.train_input[1]);
@@ -697,7 +703,9 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         if (input_output_info.train_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
         }
-
+        if(inference_flag){
+          CK_THROW_(Error_t::WrongInput, "inference network must NOT have CrossEntropyLoss");
+        }
         auto tweight = get_json(j, "target_weight");
         std::vector<float> target_weight_vec;
         for (auto tweight_tmp : tweight) {
@@ -945,18 +953,24 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
         add_tensor_to_network(output_tensor_pair, tensor_entries);
       }
     } else {
-      network->raw_metrics_[metrics::RawType::Loss] = loss_tensor.shrink();
-      network->raw_metrics_[metrics::RawType::Pred] = input_output_info.evaluate_input[0];
-      network->raw_metrics_[metrics::RawType::Label] = input_output_info.evaluate_input[1];
+      if(!inference_flag){
+        network->raw_metrics_[metrics::RawType::Loss] = loss_tensor.shrink();
+        network->raw_metrics_[metrics::RawType::Pred] = input_output_info.evaluate_input[0];
+        network->raw_metrics_[metrics::RawType::Label] = input_output_info.evaluate_input[1];
+      }
+      
     }
   }  // for layers
 
   // create optimizer
-  auto opt_param = get_optimizer_param<float>(j_optimizer);
+  if(!inference_flag){
+    auto opt_param = get_optimizer_param<float>(j_optimizer);
 
-  network->optimizer_ = std::move(Optimizer::Create(
-      opt_param, weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-      use_mixed_precision, scaler, blobs_buff, gpu_resource));
+    network->optimizer_ = std::move(Optimizer::Create(
+        opt_param, weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+        use_mixed_precision, scaler, blobs_buff, gpu_resource));
+  }
+  
 
   network->weight_tensor_ = weight_buff->as_tensor();
   network->wgrad_tensor_ = wgrad_buff->as_tensor();
@@ -966,7 +980,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
   CudaDeviceContext context(gpu_resource->get_device_id());
   blobs_buff->allocate();
 
-  return network.release();
+  return network;
 }
 
 template <typename TypeKey>
@@ -1419,10 +1433,10 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
         CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
       }
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-        network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
+        network.emplace_back(Network::create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
                                             total_gpu_count, resource_manager->get_local_cpu(),
                                             resource_manager->get_local_gpu(i), use_mixed_precision,
-                                            scaler, use_algorithm_search, use_cuda_graph));
+                                            scaler, use_algorithm_search, use_cuda_graph, false));
       }
     }
 

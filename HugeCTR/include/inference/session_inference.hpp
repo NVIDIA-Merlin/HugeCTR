@@ -15,28 +15,38 @@
  */
 
 #pragma once
-#include <common.hpp>
-#include <embedding.hpp>
-#include <metrics.hpp>
-#include <network.hpp>
-#include <parser.hpp>
+
 #include <string>
 #include <thread>
 #include <utility>
 #include <vector>
 
+#include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/inference/hugectrmodel.hpp"
-
+#include "HugeCTR/include/metrics.hpp"
+#include "HugeCTR/include/network.hpp"
+#include "HugeCTR/include/parser.hpp"
+#include "HugeCTR/include/tensor2.hpp"
 namespace HugeCTR {
 
-class session_inference : public HugeCTRModel {
- public:
-  session_inference(std::string model_name);
-  virtual ~session_inference();
-  void predict(float* dense, int* row, float* embeddingvector, float* output, int numofsamples);
+struct InferenceParser {
+  //  std::string configure_file;
+  int max_batchsize;                           /**< batchsize */
+  std::string dense_model_file;                /**< name of model file */
+  std::vector<std::string> sparse_model_files; /**< name of embedding file */
+  bool use_cuda_graph;
+  InferenceParser(const nlohmann::json& config);
+};
+class InferenceSession : public HugeCTRModel {
+  nlohmann::json config_;
+  std::shared_ptr<ResourceManager> resource_manager;
+  std::unique_ptr<Network> network_;
 
- private:
-  std::string model_name;
+ public:
+  InferenceSession(const std::string& config_file, int device_id);
+  virtual ~InferenceSession();
+  void predict(float* dense, int* row, float* embeddingvector, float* output, int numofsamples);
 };
 
 }  // namespace HugeCTR

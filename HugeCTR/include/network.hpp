@@ -46,14 +46,6 @@ struct TensorEntry {
  * forward/backward/loss/update of the dense layers.
  */
 class Network {
-  friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-                                 std::vector<TensorEntry>& tensor_entries,
-                                 int num_networks_in_global,
-                                 const std::shared_ptr<CPUResource>& cpu_resource,
-                                 const std::shared_ptr<GPUResource>& gpu_resource,
-                                 bool use_mixed_precision, float scaler, bool use_algorithm_search,
-                                 bool use_cuda_graph);
-
  private:
   std::vector<std::unique_ptr<Layer>> layers_; /**< vector of layers */
 
@@ -173,6 +165,18 @@ class Network {
    * search_algorithm layer by layer
    */
   void search_algorithm();
+
+  /**
+   * factory method to create network
+   */
+  static std::unique_ptr<Network> create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
+                                 std::vector<TensorEntry>& tensor_entries,
+                                 int num_networks_in_global,
+                                 const std::shared_ptr<CPUResource>& cpu_resource,
+                                 const std::shared_ptr<GPUResource>& gpu_resource,
+                                 bool use_mixed_precision, float scaler, bool use_algorithm_search,
+                                 bool use_cuda_graph,
+                                 bool need_optimizer);
   
 };  // namespace HugeCTR
 
