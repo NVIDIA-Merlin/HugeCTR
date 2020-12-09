@@ -33,6 +33,7 @@ class ParameterServerManager {
 public:
   ParameterServerManager(
       const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+      const Embedding_t embedding_type,
       const SolverParser& solver_config,
       const std::string& temp_embedding_dir,
       size_t buffer_size);

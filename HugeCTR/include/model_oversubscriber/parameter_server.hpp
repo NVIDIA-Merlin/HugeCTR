@@ -71,7 +71,7 @@ public:
       const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
       const std::string& snapshot_src_file,
       const std::string& temp_embedding_dir,
-      const Embedding_t embedding_type = Embedding_t::DistributedSlotSparseEmbeddingHash);
+      const Embedding_t embedding_type);
 
   ParameterServer(const ParameterServer&) = delete;
   ParameterServer& operator=(const ParameterServer&) = delete;

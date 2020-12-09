@@ -170,7 +170,7 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
 
   // Create a ParameterServer
   ParameterServer<KeyType, EmbeddingCompType> parameter_server(embedding_params, snapshot_src_file,
-                                                               temp_embedding_dir);
+      temp_embedding_dir, Embedding_t::DistributedSlotSparseEmbeddingHash);
 
   // Make a synthetic keyset files
   auto keys = parameter_server.get_keys_from_hash_table();
