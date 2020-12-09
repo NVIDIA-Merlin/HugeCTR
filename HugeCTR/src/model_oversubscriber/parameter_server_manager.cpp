@@ -21,6 +21,7 @@ namespace HugeCTR {
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
     const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+    const Embedding_t embedding_type,
     const SolverParser& solver_config,
     const std::string& temp_embedding_dir,
     size_t buffer_size) {
@@ -39,10 +40,10 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
 
       if (!solver_config.embedding_files.size()) {
         ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
-          (embedding_params[i], std::string(), temp_embedding_dir));
+          (embedding_params[i], std::string(), temp_embedding_dir, embedding_type));
       } else {
         ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
-          (embedding_params[i], solver_config.embedding_files[i], temp_embedding_dir));
+          (embedding_params[i], solver_config.embedding_files[i], temp_embedding_dir, embedding_type));
       }
     }
 

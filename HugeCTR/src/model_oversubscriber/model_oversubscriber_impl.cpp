@@ -24,7 +24,7 @@ ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::ModelOversubscriberImpl
     const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
     const SolverParser& solver_config, const std::string& temp_embedding_dir)
     : embeddings_(embeddings),
-      ps_manager_(embedding_params, solver_config, temp_embedding_dir, get_max_embedding_size_()) {}
+      ps_manager_(embedding_params, get_embedding_type_(embeddings), solver_config, temp_embedding_dir, get_max_embedding_size_()) {}
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
