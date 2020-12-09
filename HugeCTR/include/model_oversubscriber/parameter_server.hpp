@@ -16,8 +16,11 @@
 
 #pragma once
 
+#include <tensor2.hpp>
 #include <embedding.hpp>
 #include <model_oversubscriber/parameter_server_delegate.hpp>
+#include <model_oversubscriber/localized_parameter_server_delegate.hpp>
+#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -31,7 +34,7 @@ class ParameterServer {
   SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params_;
   std::string embedding_table_path_;
   std::unique_ptr<ParameterServerDelegate<TypeHashKey>> parameter_server_delegate_;
-  std::unordered_map<TypeHashKey, size_t> hash_table_;
+  std::unordered_map<TypeHashKey, std::pair<size_t, size_t>> hash_table_; // <key, <slot_id, offset>>
   std::vector<TypeHashKey> keyset_;
 
   size_t file_size_in_byte_; /**< Size of embedding file in bytes */
@@ -41,6 +44,20 @@ class ParameterServer {
   
   void map_embedding_to_memory_();
   void unmap_embedding_from_memory_();
+
+  std::unique_ptr<ParameterServerDelegate<TypeHashKey>> get_parameter_server_delegate_(
+      Embedding_t embedding_type) {
+    const bool is_distributed =
+      (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) ? true : false;
+
+    if (is_distributed) {
+      std::unique_ptr<ParameterServerDelegate<TypeHashKey>> ptr_tmp(new DistributedParameterServerDelegate<TypeHashKey>());
+      return ptr_tmp;
+    } else {
+      std::unique_ptr<ParameterServerDelegate<TypeHashKey>> ptr_tmp(new LocalizedParameterServerDelegate<TypeHashKey>());
+      return ptr_tmp;
+    }
+  }
 
 public:
   /**
@@ -53,7 +70,8 @@ public:
   ParameterServer(
       const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
       const std::string& snapshot_src_file,
-      const std::string& temp_embedding_dir);
+      const std::string& temp_embedding_dir,
+      const Embedding_t embedding_type = Embedding_t::DistributedSlotSparseEmbeddingHash);
 
   ParameterServer(const ParameterServer&) = delete;
   ParameterServer& operator=(const ParameterServer&) = delete;
@@ -74,7 +92,7 @@ public:
    * @param      keys      The keys corresponding to hash_table_val, and they exist in hash_table_.
    * @param      hit_size  The number of keys in keys.
    */
-  void load_param_from_embedding_file(float* hash_table_val, TypeHashKey* keys, size_t* hit_size);
+  void load_param_from_embedding_file(BufferBag &buf_bag, size_t& hit_size);
 
   /**
    * @brief      Dumps the embedding table to the embedding file.
@@ -82,7 +100,7 @@ public:
    * @param      keys            The keys corresponding to the downloaded embedding table.
    * @param      dump_size       The size of keys in buffer keys or vectors in embedding_table.
    */
-  void dump_param_to_embedding_file(float* hash_table_val, TypeHashKey* keys, size_t dump_size);
+  void dump_param_to_embedding_file(BufferBag &buf_bag, const size_t dump_size);
 
   /**
    * @brief      Dump to snapshot_dst_file in a format of <key embedding_vector> for

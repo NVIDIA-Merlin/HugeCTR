@@ -176,8 +176,22 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   auto keys = parameter_server.get_keys_from_hash_table();
   create_keyset_files<KeyType>(keys, batch_num_train, num_total_passes);
 
-  std::shared_ptr<KeyType[]> keys_buf(new KeyType[vocabulary_size]);
-  std::shared_ptr<float[]> param_buf(new float[vocabulary_size * embedding_vector_size]);
+  BufferBag buf_bag;
+  {
+    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
+      GeneralBuffer2<CudaHostAllocator>::create();
+
+    Tensor2<KeyType> tensor_keys;
+    Tensor2<size_t> tensor_slot_id;
+    blobs_buff->reserve({vocabulary_size}, &tensor_keys);
+    blobs_buff->reserve({vocabulary_size}, &tensor_slot_id);
+
+    blobs_buff->reserve({vocabulary_size, embedding_vector_size}, &(buf_bag.embedding));
+    blobs_buff->allocate();
+
+    buf_bag.keys = tensor_keys.shrink();
+    buf_bag.slot_id = tensor_slot_id.shrink();
+  }
 
   Timer timer_ps;
   timer_ps.start();
@@ -187,8 +201,8 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
     parameter_server.load_keyset_from_file(keyset_file_name);
 
     size_t size_tmp = 0;
-    parameter_server.load_param_from_embedding_file(param_buf.get(), keys_buf.get(), &size_tmp);
-    parameter_server.dump_param_to_embedding_file(param_buf.get(), keys_buf.get(), size_tmp);
+    parameter_server.load_param_from_embedding_file(buf_bag, size_tmp);
+    parameter_server.dump_param_to_embedding_file(buf_bag, size_tmp);
   }
   // transfer the internal embedding table to the snapshot
   parameter_server.dump_to_snapshot(snapshot_dst_file);

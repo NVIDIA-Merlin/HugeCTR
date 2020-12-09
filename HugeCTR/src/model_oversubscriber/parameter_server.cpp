@@ -23,7 +23,6 @@
 #include <fstream>
 #include <limits>
 #include <random>
-#include <omp.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/io.h>
@@ -104,6 +103,10 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::map_embedding_to_memory_()
     }
 
     maped_to_memory_ = true;
+    if (fd_ != -1) {
+      close(fd_);
+      fd_ = -1;
+    }
   }
   catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -118,10 +121,8 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::map_embedding_to_memory_()
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ParameterServer<TypeHashKey, TypeEmbeddingComp>::unmap_embedding_from_memory_() {
   try {
-    if (maped_to_memory_ && fd_ != -1 && mmaped_table_ != nullptr) {
+    if (maped_to_memory_ && mmaped_table_ != nullptr) {
       munmap(mmaped_table_, file_size_in_byte_);
-      close(fd_);
-      fd_ = -1;
       mmaped_table_ = nullptr;
       maped_to_memory_ = false;
     } else {
@@ -142,11 +143,11 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 ParameterServer<TypeHashKey, TypeEmbeddingComp>::ParameterServer(
     const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
     const std::string& snapshot_src_file,
-    const std::string& temp_embedding_dir)
+    const std::string& temp_embedding_dir,
+    const Embedding_t embedding_type)
   : embedding_params_(embedding_params),
     embedding_table_path_(temp_embedding_dir + "/" + generate_random_file_name()),
-    // TODO(minseok, 10282020): handle the different types of Embeddings
-    parameter_server_delegate_(new DistributedParameterServerDelegate<TypeHashKey>()),
+    parameter_server_delegate_(get_parameter_server_delegate_(embedding_type)),
     file_size_in_byte_{0},
     mmaped_table_{nullptr},
     fd_{-1},
@@ -214,52 +215,19 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_keyset_from_file(
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_param_from_embedding_file(
-    float* hash_table_val, TypeHashKey* keys, size_t* hit_size) {
+     BufferBag &buf_bag, size_t& hit_size) {
   try {
     if (!keyset_.size()) {
       CK_THROW_(Error_t::WrongInput, "Keyset_ is empty");
     }
 
-    std::vector<size_t> idx_exist;
-    std::map<size_t, TypeHashKey> pair_exist;
-    for (size_t cnt = 0; cnt < keyset_.size(); cnt++) {
-      auto iter = hash_table_.find(keyset_[cnt]);
-      if (iter == hash_table_.end()) continue;
-      pair_exist.insert({iter->second, iter->first});
-    }
-
-    size_t cnt_hit_keys = 0;
-    idx_exist.reserve(pair_exist.size());
-    for (auto& pair : pair_exist) {
-      keys[cnt_hit_keys++] = pair.second;
-      idx_exist.push_back(pair.first);
-    }
-
-    const size_t embedding_vec_size = embedding_params_.embedding_vec_size;
-    const size_t embedding_vector_size_in_byte = sizeof(float) * embedding_vec_size;
-
     if (!maped_to_memory_) {
       map_embedding_to_memory_();
     }
 
-#pragma omp parallel num_threads(8)
-    {
-      const size_t tid = omp_get_thread_num();
-      const size_t thread_num = omp_get_num_threads();
-      size_t sub_chunk_size = idx_exist.size() / thread_num;
-      size_t res_chunk_size = idx_exist.size() % thread_num;
-      const size_t idx = tid * sub_chunk_size;
+    parameter_server_delegate_->load_from_embedding_file(mmaped_table_, buf_bag,
+        keyset_, embedding_params_.embedding_vec_size, hash_table_, hit_size);
 
-      if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
-
-      for (size_t i = 0; i < sub_chunk_size; i++) {
-        size_t src_idx = idx_exist[idx + i] * embedding_vec_size;
-        size_t dst_idx = (idx + i) * embedding_vec_size;
-        memcpy(&hash_table_val[dst_idx], &mmaped_table_[src_idx], embedding_vector_size_in_byte);
-      }
-    }
-
-    *hit_size = cnt_hit_keys;
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -271,67 +239,15 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_param_from_embedding_
   
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_param_to_embedding_file(
-    float* hash_table_val, TypeHashKey* keys, size_t dump_size) {
+     BufferBag &buf_bag, const size_t dump_size) {
   try {
-    size_t cnt_new_keys = 0;
-    const size_t hash_table_size = hash_table_.size();
-
-    std::vector<size_t> idx_exist_src, idx_exist_dst, idx_miss_src;
-    std::map<size_t, size_t> idx_exist;
-    for (size_t cnt = 0; cnt < dump_size; cnt++) {
-      auto iter = hash_table_.find(keys[cnt]);
-      if (iter == hash_table_.end()) {
-        hash_table_.insert({keys[cnt], hash_table_size + cnt_new_keys});
-        idx_miss_src.push_back(cnt);
-        cnt_new_keys++;
-      } else {
-        idx_exist.insert({iter->second, cnt});
-      }
-    }
-
-    idx_exist_src.reserve(idx_exist.size());
-    idx_exist_dst.reserve(idx_exist.size());
-    for (auto& pair : idx_exist) {
-      idx_exist_src.push_back(pair.second);
-      idx_exist_dst.push_back(pair.first);
-    }
-
-    const size_t embedding_vec_size = embedding_params_.embedding_vec_size;
-    const size_t embedding_vector_size_in_byte = sizeof(float) * embedding_vec_size;
-
     // update existed embedding
     if (!maped_to_memory_) {
       map_embedding_to_memory_();
     }
 
-#pragma omp parallel num_threads(8)
-    {
-      const size_t tid = omp_get_thread_num();
-      const size_t thread_num = omp_get_num_threads();
-      size_t sub_chunk_size = idx_exist_src.size() / thread_num;
-      size_t res_chunk_size = idx_exist_src.size() % thread_num;
-      const size_t idx = tid * sub_chunk_size;
-
-      if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
-
-      for (size_t i = 0; i < sub_chunk_size; i++) {
-        size_t src_idx = idx_exist_src[idx + i] * embedding_vec_size;
-        size_t dst_idx = idx_exist_dst[idx + i] * embedding_vec_size;
-        memcpy(&mmaped_table_[dst_idx], &hash_table_val[src_idx], embedding_vector_size_in_byte);
-      }
-    }
-    unmap_embedding_from_memory_();
-
-    // append new embedding to file
-    std::ofstream embedding_file;
-    embedding_file.open(embedding_table_path_, std::ofstream::binary | std::ofstream::app);
-    if (!embedding_file.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + embedding_table_path_);
-    }
-    for (size_t cnt = 0; cnt < cnt_new_keys; cnt++) {
-      size_t src_idx = idx_miss_src[cnt] * embedding_vec_size;
-      embedding_file.write((char*)(&hash_table_val[src_idx]), embedding_vector_size_in_byte);
-    }
+    parameter_server_delegate_->dump_to_embedding_file(mmaped_table_, buf_bag,
+        embedding_params_.embedding_vec_size, embedding_table_path_, hash_table_, dump_size);
 
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
