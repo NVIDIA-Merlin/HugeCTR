@@ -86,7 +86,8 @@ static std::vector<std::string> get_layer_names(const nlohmann::json& json) {
 }
 
 static InputOutputInfo get_input_tensor_and_output_name(
-    const nlohmann::json& json, const std::vector<TensorEntry>& tensor_entries) {
+    const nlohmann::json& json, const std::vector<TensorEntry>& tensor_entries,
+    bool inference_flag) {
   auto bottom = get_json(json, "bottom");
   std::vector<std::string> bottom_strs = get_layer_names(bottom);
 
@@ -107,9 +108,12 @@ static InputOutputInfo get_input_tensor_and_output_name(
       CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
     }
     bottom_train_tensors.push_back(tensor);
-    if (!get_tensor_from_entries(tensor_entries, bstr, TensorUse::Evaluate, &tensor)) {
-      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
+    if (!inference_flag) {
+      if (!get_tensor_from_entries(tensor_entries, bstr, TensorUse::Evaluate, &tensor)) {
+        CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
+      }
     }
+
     bottom_evaluate_tensors.push_back(tensor);
   }
   return {bottom_train_tensors, bottom_evaluate_tensors, top_strs};
@@ -220,7 +224,9 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
         reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
         break;
       }
-      default: { assert(!"Error: no such regularizer!"); }
+      default: {
+        assert(!"Error: no such regularizer!");
+      }
     }
   }
   return reg;
@@ -271,11 +277,12 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
  * Create single network
  *
  */
-std::unique_ptr<Network> Network::create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
-                        std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
-                        const std::shared_ptr<CPUResource>& cpu_resource,
-                        const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-                        float scaler, bool use_algorithm_search, bool use_cuda_graph, bool inference_flag) {
+std::unique_ptr<Network> Network::create_network(
+    const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
+    std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
+    const std::shared_ptr<CPUResource>& cpu_resource,
+    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision, float scaler,
+    bool use_algorithm_search, bool use_cuda_graph, bool inference_flag) {
   std::unique_ptr<Network> network(
       new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
 
@@ -296,6 +303,8 @@ std::unique_ptr<Network> Network::create_network(const nlohmann::json& j_array, 
   for (unsigned int i = 1; i < j_array.size(); i++) {
     const nlohmann::json& j = j_array[i];
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
+    const std::string layer_name = get_value_from_json<std::string>(j, "name");
+    MESSAGE_("layer name: " + layer_name);
     Layer_t layer_type;
 
     const auto& layer_map = use_mixed_precision ? LAYER_TYPE_MAP_MP : LAYER_TYPE_MAP;
@@ -309,7 +318,8 @@ std::unique_ptr<Network> Network::create_network(const nlohmann::json& j_array, 
     }
 
     std::vector<TensorPair> output_tensor_pairs;
-    auto input_output_info = get_input_tensor_and_output_name(j, tensor_entries);
+    auto input_output_info =
+        get_input_tensor_and_output_name(j, tensor_entries, inference_flag);
     switch (layer_type) {
       case Layer_t::BatchNorm: {
         Tensor2<float> bn_in_tensor =
@@ -355,7 +365,7 @@ std::unique_ptr<Network> Network::create_network(const nlohmann::json& j_array, 
             input_output_info.evaluate_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
         }
-        if(inference_flag){
+        if (inference_flag) {
           CK_THROW_(Error_t::WrongInput, "inference network must NOT have BinaryCrossEntropyLoss");
         }
         Tensor2<float> train_label_tensor =
@@ -424,7 +434,7 @@ std::unique_ptr<Network> Network::create_network(const nlohmann::json& j_array, 
         if (input_output_info.train_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
         }
-        if(inference_flag){
+        if (inference_flag) {
           CK_THROW_(Error_t::WrongInput, "inference network must NOT have CrossEntropyLoss");
         }
         Tensor2<float> label_tensor =
@@ -703,7 +713,7 @@ std::unique_ptr<Network> Network::create_network(const nlohmann::json& j_array, 
         if (input_output_info.train_input.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
         }
-        if(inference_flag){
+        if (inference_flag) {
           CK_THROW_(Error_t::WrongInput, "inference network must NOT have CrossEntropyLoss");
         }
         auto tweight = get_json(j, "target_weight");
@@ -953,24 +963,22 @@ std::unique_ptr<Network> Network::create_network(const nlohmann::json& j_array, 
         add_tensor_to_network(output_tensor_pair, tensor_entries);
       }
     } else {
-      if(!inference_flag){
+      if (!inference_flag) {
         network->raw_metrics_[metrics::RawType::Loss] = loss_tensor.shrink();
         network->raw_metrics_[metrics::RawType::Pred] = input_output_info.evaluate_input[0];
         network->raw_metrics_[metrics::RawType::Label] = input_output_info.evaluate_input[1];
       }
-      
     }
   }  // for layers
 
   // create optimizer
-  if(!inference_flag){
+  if (!inference_flag) {
     auto opt_param = get_optimizer_param<float>(j_optimizer);
 
     network->optimizer_ = std::move(Optimizer::Create(
         opt_param, weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
         use_mixed_precision, scaler, blobs_buff, gpu_resource));
   }
-  
 
   network->weight_tensor_ = weight_buff->as_tensor();
   network->wgrad_tensor_ = wgrad_buff->as_tensor();
@@ -1052,7 +1060,6 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
                              const std::shared_ptr<ResourceManager>& resource_manager,
                              size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
                              float scaler, const nlohmann::json& j_layers) {
-
   auto j_optimizer = get_json(config, "optimizer");
   auto embedding_name = get_value_from_json<std::string>(j_layers, "type");
 
@@ -1196,7 +1203,6 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
   }
 }
 
-
 template <typename TypeKey>
 static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
                                      std::shared_ptr<IDataReader>& data_reader_eval,
@@ -1304,19 +1310,13 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
             format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
 #endif
 
-        DataReader<TypeKey> *data_reader_tk = new DataReader<TypeKey>(
-            batch_size, label_dim, dense_dim,
-            data_reader_sparse_param_array,
-            resource_manager,
-            parser.repeat_dataset_,
-            NUM_THREADS, use_mixed_precision, false);
+        DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
+            batch_size, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
+            parser.repeat_dataset_, NUM_THREADS, use_mixed_precision, false);
         data_reader.reset(data_reader_tk);
-        DataReader<TypeKey> *data_reader_eval_tk = new DataReader<TypeKey>(
-            batch_size_eval, label_dim, dense_dim,
-            data_reader_sparse_param_array,
-            resource_manager,
-            parser.repeat_dataset_,
-            NUM_THREADS, use_mixed_precision, cache_eval_data);
+        DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
+            batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
+            parser.repeat_dataset_, NUM_THREADS, use_mixed_precision, cache_eval_data);
         data_reader_eval.reset(data_reader_eval_tk);
 
         auto f = [&j]() -> std::vector<long long> {
@@ -1340,10 +1340,8 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
         switch (format) {
           case DataReaderType_t::Norm: {
             bool start_right_now = parser.repeat_dataset_;
-            data_reader->create_drwg_norm(
-                source_data, check_type, start_right_now);
-            data_reader_eval->create_drwg_norm(
-                eval_source, check_type, start_right_now);
+            data_reader->create_drwg_norm(source_data, check_type, start_right_now);
+            data_reader_eval->create_drwg_norm(eval_source, check_type, start_right_now);
             break;
           }
           case DataReaderType_t::Raw: {
@@ -1366,7 +1364,9 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
             data_reader_eval->create_drwg_parquet(eval_source, slot_offset, true);
             break;
           }
-          default: { assert(!"Error: no such option && should never get here!"); }
+          default: {
+            assert(!"Error: no such option && should never get here!");
+          }
         }
 
         for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
@@ -1393,7 +1393,8 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
           sparse_input->second.train_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
           sparse_input->second.train_values = data_reader_tk->get_value_tensors(i);
           sparse_input->second.train_nnz = data_reader_tk->get_nnz_array(i);
-          sparse_input->second.evaluate_row_offsets = data_reader_eval_tk->get_row_offsets_tensors(i);
+          sparse_input->second.evaluate_row_offsets =
+              data_reader_eval_tk->get_row_offsets_tensors(i);
           sparse_input->second.evaluate_values = data_reader_eval_tk->get_value_tensors(i);
           sparse_input->second.evaluate_nnz = data_reader_eval_tk->get_nnz_array(i);
         }
@@ -1433,10 +1434,10 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
         CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
       }
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-        network.emplace_back(Network::create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
-                                            total_gpu_count, resource_manager->get_local_cpu(),
-                                            resource_manager->get_local_gpu(i), use_mixed_precision,
-                                            scaler, use_algorithm_search, use_cuda_graph, false));
+        network.emplace_back(Network::create_network(
+            j_layers_array, j_optimizer, tensor_entries_list[i], total_gpu_count,
+            resource_manager->get_local_cpu(), resource_manager->get_local_gpu(i),
+            use_mixed_precision, scaler, use_algorithm_search, use_cuda_graph, false));
       }
     }
 
@@ -1444,9 +1445,7 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
-
 }
-
 
 void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
                              std::shared_ptr<IDataReader>& data_reader_eval,
@@ -1461,6 +1460,5 @@ void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
                                            resource_manager, *this);
   }
 }
-
 
 }  // namespace HugeCTR
