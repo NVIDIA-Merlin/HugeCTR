@@ -20,7 +20,7 @@
 namespace HugeCTR {
 
 template <typename KeyType>
-class DistributedParameterServerDelegate : public ParameterServerDelegate<KeyType> {
+class LocalizedParameterServerDelegate : public ParameterServerDelegate<KeyType> {
  public:
   using HashTable = typename ParameterServerDelegate<KeyType>::HashTable;
 

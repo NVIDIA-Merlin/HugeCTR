@@ -21,7 +21,7 @@
 
 namespace HugeCTR {
 
-enum class TensorScalarType { None, Void, Float32, Float16, Int64, UInt64, Int32, UInt32 };
+enum class TensorScalarType { None, Void, Float32, Float16, Int64, UInt64, Int32, UInt32, Size_t };
 
 namespace {
 
@@ -58,6 +58,11 @@ struct TensorScalarTypeFunc<float> {
 template <>
 struct TensorScalarTypeFunc<__half> {
   static TensorScalarType get_type() { return TensorScalarType::Float16; }
+};
+
+template <>
+struct TensorScalarTypeFunc<size_t> {
+  static TensorScalarType get_type() { return TensorScalarType::Size_t; }
 };
 
 template <>

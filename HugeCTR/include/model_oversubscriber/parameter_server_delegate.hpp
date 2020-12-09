@@ -15,27 +15,50 @@
  */
 
 #pragma once
+
+#include <tensor2.hpp>
+
 #include <unordered_map>
 #include <fstream>
 
 namespace HugeCTR {
 
+struct BufferBag {
+  TensorBag2 keys;
+  TensorBag2 slot_id;
+  Tensor2<float> embedding;
+};
+
 template <typename KeyType>
 class ParameterServerDelegate {
  public:
-  using HashTable = std::unordered_map<KeyType, size_t>; // in case of its replacement
+  using HashTable = std::unordered_map<KeyType, std::pair<size_t, size_t>>; // in case of its replacement
 
   virtual void load(std::ofstream& embeding_table,
                     std::ifstream& snapshot,
                     const size_t file_size_in_byte,
                     const size_t embedding_vec_size,
                     HashTable& hash_table) = 0;
+
   virtual void store(std::ofstream& snapshot,
                      std::ifstream& embedding_table,
                      const size_t file_size_in_byte,
                      const size_t embedding_vec_size,
                      HashTable& hash_table) = 0;
-             
+
+  virtual void load_from_embedding_file(float* mmaped_table,
+                                        BufferBag& buf_bag,
+                                        const std::vector<KeyType>& keyset,
+                                        const size_t embedding_vec_size,
+                                        const HashTable& hash_table,
+                                        size_t& hit_size) = 0;
+
+  virtual void dump_to_embedding_file(float* mmaped_table,
+                                      BufferBag& buf_bag,
+                                      const size_t embedding_vec_size,
+                                      const std::string& embedding_table_path,
+                                      HashTable& hash_table,
+                                      const size_t dump_size) = 0;
 };
 
 }  // namespace HugeCTR

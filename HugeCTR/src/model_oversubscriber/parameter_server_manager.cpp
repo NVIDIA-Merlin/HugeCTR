@@ -50,12 +50,15 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
       GeneralBuffer2<CudaHostAllocator>::create();
 
     Tensor2<TypeHashKey> tensor_keys;
+    Tensor2<size_t> tensor_slot_id;
     blobs_buff->reserve({buffer_size}, &tensor_keys);
+    blobs_buff->reserve({buffer_size}, &tensor_slot_id);
 
-    blobs_buff->reserve({buffer_size, max_vec_size}, &embedding_);
+    blobs_buff->reserve({buffer_size, max_vec_size}, &(buf_bag_.embedding));
     blobs_buff->allocate();
 
-    keys_ = tensor_keys.shrink();
+    buf_bag_.keys = tensor_keys.shrink();
+    buf_bag_.slot_id = tensor_slot_id.shrink();
     
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

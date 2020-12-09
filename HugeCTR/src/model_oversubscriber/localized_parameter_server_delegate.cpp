@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
+#include <model_oversubscriber/localized_parameter_server_delegate.hpp>
 
 #include <cstring>
 #include <memory>
@@ -26,7 +26,7 @@
 namespace HugeCTR {
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::load(
+void LocalizedParameterServerDelegate<KeyType>::load(
     std::ofstream& embedding_table,
     std::ifstream& snapshot,
     const size_t file_size_in_byte,
@@ -78,7 +78,7 @@ void DistributedParameterServerDelegate<KeyType>::load(
 }
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::store(
+void LocalizedParameterServerDelegate<KeyType>::store(
     std::ofstream& snapshot,
     std::ifstream& embedding_table,
     const size_t file_size_in_byte,
@@ -124,7 +124,7 @@ void DistributedParameterServerDelegate<KeyType>::store(
 }
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::load_from_embedding_file(
+void LocalizedParameterServerDelegate<KeyType>::load_from_embedding_file(
     float* mmaped_table,
     BufferBag& buf_bag,
     const std::vector<KeyType>& keyset,
@@ -173,7 +173,7 @@ void DistributedParameterServerDelegate<KeyType>::load_from_embedding_file(
 }
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::dump_to_embedding_file(
+void LocalizedParameterServerDelegate<KeyType>::dump_to_embedding_file(
     float* mmaped_table,
     BufferBag& buf_bag,
     const size_t embedding_vec_size,
@@ -238,7 +238,7 @@ void DistributedParameterServerDelegate<KeyType>::dump_to_embedding_file(
   }
 }
 
-template class DistributedParameterServerDelegate<unsigned int>;
-template class DistributedParameterServerDelegate<long long>;
+template class LocalizedParameterServerDelegate<unsigned int>;
+template class LocalizedParameterServerDelegate<long long>;
 
 }  // namespace HugeCTR
