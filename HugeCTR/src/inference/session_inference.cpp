@@ -75,8 +75,10 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
     }
 
     Tensor2<float> sparse_embedding1;
+    input_buffer->reserve({max_batch_size, 640}, &sparse_embedding1);
     tensor_entries.push_back({"sparse_embedding1", TensorUse::Train, sparse_embedding1.shrink()});
     Tensor2<float> sparse_embedding2;
+    input_buffer->reserve({max_batch_size, 640}, &sparse_embedding2);
     tensor_entries.push_back({"sparse_embedding2", TensorUse::Train, sparse_embedding2.shrink()});
 
     // create network
