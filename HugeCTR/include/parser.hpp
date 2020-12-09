@@ -242,4 +242,5 @@ void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense
                              std::string& top_strs_dense, std::vector<std::string>& sparse_names,
                              std::map<std::string, SparseInput<long long>>& sparse_input_map);
 
+
 }  // namespace HugeCTR
