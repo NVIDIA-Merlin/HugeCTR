@@ -60,7 +60,7 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
     bool use_cuda_graph = inference_parser.use_cuda_graph;
 
     std::vector<TensorEntry> tensor_entries;
-    std::shared_ptr < GeneralBuffer2<CudaAllocator>> input_buffer =
+    std::shared_ptr<GeneralBuffer2<CudaAllocator>> input_buffer =
         GeneralBuffer2<CudaAllocator>::create();
     auto j_layers_array = get_json(config_, "layers");
     {
@@ -74,12 +74,21 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
       tensor_entries.push_back({top_strs_dense, TensorUse::General, dense_input_tensor.shrink()});
     }
 
-    Tensor2<float> sparse_embedding1;
-    input_buffer->reserve({max_batch_size, 640}, &sparse_embedding1);
-    tensor_entries.push_back({"sparse_embedding1", TensorUse::Train, sparse_embedding1.shrink()});
-    Tensor2<float> sparse_embedding2;
-    input_buffer->reserve({max_batch_size, 640}, &sparse_embedding2);
-    tensor_entries.push_back({"sparse_embedding2", TensorUse::Train, sparse_embedding2.shrink()});
+    // Add fake embedding layer input; will be deleted after merge Embedding Compute layer
+    size_t slot_num = 10;
+    for (unsigned int i = 1; i < j_layers_array.size(); i++) {
+      const nlohmann::json& j = j_layers_array[i];
+      const auto layer_type_name = get_value_from_json<std::string>(j, "type");
+      if (layer_type_name.find("Embedding") != std::string::npos) {
+        const std::string layer_name = get_value_from_json<std::string>(j, "name");
+        const std::string layer_top = get_value_from_json<std::string>(j, "top");
+        const auto& j_hparam = get_json(j, "sparse_embedding_hparam");
+        size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+        Tensor2<float> sparse_embedding;
+        input_buffer->reserve({max_batch_size, slot_num * embedding_vec_size}, &sparse_embedding);
+        tensor_entries.push_back({layer_top, TensorUse::General, sparse_embedding.shrink()});
+      }
+    }
 
     // create network
     network_ = std::move(Network::create_network(
