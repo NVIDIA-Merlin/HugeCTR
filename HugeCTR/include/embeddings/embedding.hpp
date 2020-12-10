@@ -262,6 +262,8 @@ class Embedding : public IEmbedding {
   virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
                                size_t num) = 0;
 
+  virtual void load_parameters(BufferBag& buf_bag, size_t num) = 0;
+
   /**
    * Download the embedding table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
@@ -271,6 +273,8 @@ class Embedding : public IEmbedding {
       std::ofstream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
 
   virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
+
+  virtual void dump_parameters(BufferBag& buf_bag, size_t* num) const = 0;
 
   /**
    * Reset the embedding
