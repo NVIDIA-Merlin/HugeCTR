@@ -51,9 +51,13 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
     return max_embedding_size;
   }
 
-  Embedding_t get_embedding_type_(const std::vector<std::shared_ptr<IEmbedding>>& embeddings) {
-    const std::type_info& distributed_t = typeid(DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>);
+  // static: avoid refer to non-initialized members during the initialization stage
+  static Embedding_t get_embedding_type_(
+      const std::vector<std::shared_ptr<IEmbedding>>& embeddings) {
+    const std::type_info& distributed_t =
+        typeid(DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>);
     const std::type_info& passed_t = typeid(*(embeddings[0].get()));
+
     if (passed_t == distributed_t) return Embedding_t::DistributedSlotSparseEmbeddingHash;
     else                           return Embedding_t::LocalizedSlotSparseEmbeddingHash;
   }
