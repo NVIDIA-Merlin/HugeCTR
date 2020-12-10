@@ -170,8 +170,20 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   }
 
   // Create a ParameterServer
-  ParameterServer<KeyType, EmbeddingCompType> parameter_server(embedding_param, snapshot_src_file,
-      temp_embedding_dir, Embedding_t::DistributedSlotSparseEmbeddingHash);
+  {
+    ParameterServer<KeyType, EmbeddingCompType> parameter_server(embedding_param, snapshot_src_file,
+        temp_embedding_dir, Embedding_t::DistributedSlotSparseEmbeddingHash);
+
+    // Make a synthetic keyset files
+    auto keys = parameter_server.get_keys_from_hash_table();
+    create_keyset_files<KeyType>(keys, batch_num_train, num_total_passes);
+  }
+
+  std::string keyset_file_name = std::to_string(0) + keyset_file_name_postfix;
+  std::vector<std::string> keyset_file_list;
+  keyset_file_list.push_back(keyset_file_name);
+  std::vector<std::string> snapshot_file_list;
+  snapshot_file_list.push_back(snapshot_dst_file);
 
   SolverParser solver_config;
   solver_config.embedding_files.push_back(snapshot_src_file);
@@ -186,20 +198,12 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   std::shared_ptr<ModelOversubscriber> model_oversubscriber(
       new ModelOversubscriber(embeddings, embedding_params, solver_config, temp_dir));
 
-  // Make a synthetic keyset files
-  auto keys = parameter_server.get_keys_from_hash_table();
-  create_keyset_files<KeyType>(keys, batch_num_train, num_total_passes);
-
-  std::string keyset_file_name = std::to_string(0) + keyset_file_name_postfix;
-  std::vector<std::string> keyset_file_list;
-  keyset_file_list.push_back(keyset_file_name);
-  std::vector<std::string> snapshot_file_list;
-  snapshot_file_list.push_back(snapshot_dst_file);
-
   Timer timer_ps;
   timer_ps.start();
 
+  // upload embedding table from disk according to keyset
   model_oversubscriber->update(keyset_file_list);
+
   // transfer the internal embedding table to the snapshot
   model_oversubscriber->store(snapshot_file_list);
 
