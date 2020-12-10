@@ -418,6 +418,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   void load_parameters(const TensorBag2 &keys, const Tensor2<float> &embeddings,
                        size_t num) override {}
 
+  void load_parameters(BufferBag& buf_bag, size_t num) override {}
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
@@ -438,6 +439,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
   void dump_parameters(TensorBag2 keys, Tensor2<float> &embeddings, size_t *num) const override {}
 
+  void dump_parameters(BufferBag& buf_bag, size_t *num) const override {}
   /**
    * Reset the embedding
    */
