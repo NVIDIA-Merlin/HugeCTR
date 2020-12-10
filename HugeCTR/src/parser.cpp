@@ -86,8 +86,7 @@ static std::vector<std::string> get_layer_names(const nlohmann::json& json) {
 }
 
 static InputOutputInfo get_input_tensor_and_output_name(
-    const nlohmann::json& json, const std::vector<TensorEntry>& tensor_entries,
-    bool inference_flag) {
+    const nlohmann::json& json, const std::vector<TensorEntry>& tensor_entries) {
   auto bottom = get_json(json, "bottom");
   std::vector<std::string> bottom_strs = get_layer_names(bottom);
 
@@ -108,10 +107,8 @@ static InputOutputInfo get_input_tensor_and_output_name(
       CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
     }
     bottom_train_tensors.push_back(tensor);
-    if (!inference_flag) {
-      if (!get_tensor_from_entries(tensor_entries, bstr, TensorUse::Evaluate, &tensor)) {
-        CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
-      }
+    if (!get_tensor_from_entries(tensor_entries, bstr, TensorUse::Evaluate, &tensor)) {
+      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
     }
 
     bottom_evaluate_tensors.push_back(tensor);
@@ -319,7 +316,7 @@ std::unique_ptr<Network> Network::create_network(
 
     std::vector<TensorPair> output_tensor_pairs;
     auto input_output_info =
-        get_input_tensor_and_output_name(j, tensor_entries, inference_flag);
+        get_input_tensor_and_output_name(j, tensor_entries);
     switch (layer_type) {
       case Layer_t::BatchNorm: {
         Tensor2<float> bn_in_tensor =
