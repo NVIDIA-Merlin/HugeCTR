@@ -35,7 +35,11 @@ HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type, std::string& confi
 
   switch (Infer_type) {
     case TRITON:
+<<<<<<< HEAD
       model = new InferenceSession(config, 0);
+=======
+      model = new session_inference("TRITON");
+>>>>>>> origin/v3.0-integration
       break;
     default:
       std::cout << "wrong type!" << std::endl;
