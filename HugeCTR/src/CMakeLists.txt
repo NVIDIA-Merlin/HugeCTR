@@ -42,6 +42,7 @@ file(GLOB huge_ctr_src
   loss.cu
   network.cu
   network.cpp
+  inference/embedding_feature_combiner.cu
   inference/hugectrmodel.cpp
   inference/inference_utils.cpp
   inference/embedding_cache.cpp
