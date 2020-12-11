@@ -273,8 +273,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
     return;
   }
-  void load_parameters(const TensorBag2 &keys, const Tensor2<float> &embeddings,
-                       size_t num) override {}
 
   void load_parameters(BufferBag& buf_bag, size_t num) override {}
   /**
@@ -294,8 +292,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
     return;
   }
-
-  void dump_parameters(TensorBag2 keys, Tensor2<float> &embeddings, size_t *num) const override {}
 
   void dump_parameters(BufferBag& buf_bag, size_t *num) const override {}
   /**

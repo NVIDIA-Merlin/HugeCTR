@@ -270,8 +270,6 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param weight_stream the host file stream for reading data from.
    */
   void load_parameters(std::ifstream &stream) override;
-  void load_parameters(const TensorBag2 &keys, const Tensor2<float> &embeddings,
-                       size_t num) override;
   void load_parameters(BufferBag& buf_bag, size_t num) override;
 
   /**
@@ -280,7 +278,6 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param weight_stream the host file stream for writing data to.
    */
   void dump_parameters(std::ofstream &weight_stream) const override;
-  void dump_parameters(TensorBag2 keys, Tensor2<float> &embeddings, size_t *num) const override;
   void dump_parameters(BufferBag& buf_bag, size_t *num) const override;
 
   /**

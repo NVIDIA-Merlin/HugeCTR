@@ -259,9 +259,6 @@ class Embedding : public IEmbedding {
    */
   virtual void load_parameters(std::ifstream& stream) = 0;
 
-  virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
-                               size_t num) = 0;
-
   virtual void load_parameters(BufferBag& buf_bag, size_t num) = 0;
 
   /**
@@ -271,8 +268,6 @@ class Embedding : public IEmbedding {
    */
   virtual void dump_parameters(
       std::ofstream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
-
-  virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
 
   virtual void dump_parameters(BufferBag& buf_bag, size_t* num) const = 0;
 
