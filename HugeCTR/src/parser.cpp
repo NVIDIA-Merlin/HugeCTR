@@ -37,6 +37,7 @@
 #include <layers/reduce_sum_layer.hpp>
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
+#include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
@@ -238,6 +239,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
     {"ReLU", Layer_t::ReLU},
     {"Reshape", Layer_t::Reshape},
+    {"Sigmoid", Layer_t::Sigmoid},
     {"Slice", Layer_t::Slice},
     {"Multiply", Layer_t::Multiply},
     {"FmOrder2", Layer_t::FmOrder2},
@@ -253,6 +255,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"FusedInnerProduct", Layer_t::FusedInnerProduct},
     {"Interaction", Layer_t::Interaction},
     {"Reshape", Layer_t::Reshape},
+    {"Sigmoid", Layer_t::Sigmoid},
     {"Slice", Layer_t::Slice},
     {"ReLU", Layer_t::ReLU},
     {"Dropout", Layer_t::Dropout},
@@ -813,6 +816,25 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                                                         gpu_resource));
             output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           }
+        }
+        break;
+      }
+      case Layer_t::Sigmoid: {
+        if (use_mixed_precision) {
+          Tensor2<__half> sigmoid_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> sigmoid_out_tensor;
+          blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+          layers.emplace_back(new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+          output_tensor_pairs.push_back({sigmoid_out_tensor.shrink(), input_output_info.output[0]});
+        } else {
+          // establish out tensor
+          Tensor2<float> sigmoid_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> sigmoid_out_tensor;
+          blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+          layers.emplace_back(new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+          output_tensor_pairs.push_back({sigmoid_out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
       }
