@@ -320,18 +320,12 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    const TensorBag2 &keys_bag, const Tensor2<float> &embeddings, size_t num) {
-  Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
-  load_parameters(keys, embeddings, num, max_vocabulary_size_, Base::get_embedding_vec_size(),
-                  max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_);
-}
-
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
     BufferBag& buf_bag, size_t num) {
   const TensorBag2 &keys_bag = buf_bag.keys;
   const Tensor2<float> &embeddings = buf_bag.embedding;
-  load_parameters(keys_bag, embeddings, num);
+  Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
+  load_parameters(keys, embeddings, num, max_vocabulary_size_, Base::get_embedding_vec_size(),
+                  max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_);
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
@@ -586,18 +580,12 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    TensorBag2 keys_bag, Tensor2<float> &embeddings, size_t *num) const {
-  Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
-  dump_parameters(keys, embeddings, num, max_vocabulary_size_, Base::get_embedding_vec_size(),
-                  hash_table_value_tensors_, hash_tables_);
-}
-
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
     BufferBag& buf_bag, size_t *num) const {
   TensorBag2 keys_bag = buf_bag.keys;
   Tensor2<float> &embeddings = buf_bag.embedding;
-  dump_parameters(keys_bag, embeddings, num);
+  Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
+  dump_parameters(keys, embeddings, num, max_vocabulary_size_, Base::get_embedding_vec_size(),
+                  hash_table_value_tensors_, hash_tables_);
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>

@@ -443,13 +443,17 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   blobs_buff->allocate();
 
+  BufferBag buf_bag;
+  buf_bag.keys = keys.shrink();
+  buf_bag.embedding = embeddings;
+
   size_t dump_size;
-  embedding->dump_parameters(keys.shrink(), embeddings, &dump_size);
+  embedding->dump_parameters(buf_bag, &dump_size);
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
-  embedding->dump_parameters(keys.shrink(), embeddings, &dump_size);
+  embedding->dump_parameters(buf_bag, &dump_size);
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
@@ -459,12 +463,12 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
          embedding->get_vocabulary_size());
 
-  embedding->load_parameters(keys.shrink(), embeddings, dump_size);
+  embedding->load_parameters(buf_bag, dump_size);
 
   printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
          embedding->get_vocabulary_size());
 
-  embedding->dump_parameters(keys.shrink(), embeddings, &dump_size);
+  embedding->dump_parameters(buf_bag, &dump_size);
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
