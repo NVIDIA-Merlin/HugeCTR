@@ -39,6 +39,7 @@ file(GLOB huge_ctr_src
   ../src/layers/interaction_layer.cu
   ../src/layers/relu_layer.cu
   ../src/layers/reshape_layer.cu
+  ../src/layers/sigmoid_layer.cu
   ../src/layers/slice_layer.cu
   ../src/layers/fm_order2_layer.cu
   ../src/layers/multiply_layer.cu
