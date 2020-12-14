@@ -17,6 +17,7 @@ cmake_minimum_required(VERSION 3.8)
 
 file(GLOB inference_test_src
   inference_session_test.cpp
+  embedding_feature_combiner_test.cpp
 )
 
 add_executable(inference_test ${inference_test_src})

@@ -19,7 +19,6 @@
 #include <iostream>
 #include <vector>
 namespace HugeCTR {
-<<<<<<< HEAD
 
 InferenceParser::InferenceParser(const nlohmann::json& config) {
   auto j = get_json(config, "inference");
@@ -106,12 +105,4 @@ InferenceSession::~InferenceSession() {}
 
 void InferenceSession::predict(float* dense, int* row, float* embeddingvector, float* output,
                                int numofsample) {}
-=======
-session_inference::session_inference(std::string model_name) { model_name = model_name; }
-
-session_inference::~session_inference() {}
-
-void session_inference::predict(float* dense, int* row, float* embeddingvector, float* output,
-                                int numofsample) {}
->>>>>>> origin/v3.0-integration
 }  // namespace HugeCTR
