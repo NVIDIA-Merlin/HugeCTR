@@ -46,19 +46,14 @@ class ParameterServer {
   void unmap_embedding_from_memory_();
 
   static std::unique_ptr<ParameterServerDelegate<TypeHashKey>> get_parameter_server_delegate_(
-      Embedding_t embedding_type) {
-    const bool is_distributed =
-      (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) ? true : false;
-
-    if (is_distributed) {
+      const Embedding_t embedding_type) {
+    if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
       std::unique_ptr<ParameterServerDelegate<TypeHashKey>> ptr_tmp(
           new DistributedParameterServerDelegate<TypeHashKey>());
-      MESSAGE_("ModelOversubscriber: DistributedSlotSparseEmbeddingHash");
       return ptr_tmp;
     } else {
       std::unique_ptr<ParameterServerDelegate<TypeHashKey>> ptr_tmp(
           new LocalizedParameterServerDelegate<TypeHashKey>());
-      MESSAGE_("ModelOversubscriber: LocalizedSlotSparseEmbeddingHash");
       return ptr_tmp;
     }
   }
