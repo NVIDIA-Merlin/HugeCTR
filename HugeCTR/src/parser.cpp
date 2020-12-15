@@ -1162,7 +1162,7 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
 }
 
 template <typename TypeKey>
-static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
+void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
                                      std::shared_ptr<IDataReader>& data_reader_eval,
                                      std::vector<std::shared_ptr<IEmbedding>>& embedding,
                                      std::vector<std::unique_ptr<Network>>& network,

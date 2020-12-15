@@ -51,6 +51,13 @@ class Parser {
   const bool use_algorithm_search_;
   const bool use_cuda_graph_;
 
+  template <typename TypeKey>
+  void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
+                                       std::shared_ptr<IDataReader>& data_reader_eval,
+                                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                                       std::vector<std::unique_ptr<Network>>& network,
+                                       const std::shared_ptr<ResourceManager>& resource_manager,
+                                       Parser& parser);
  public:
   /**
    * Ctor.
@@ -96,14 +103,6 @@ class Parser {
                        std::vector<std::shared_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<ResourceManager>& resource_manager);
-
-  template <typename TypeKey>
-  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
-                                       std::shared_ptr<IDataReader>& data_reader_eval,
-                                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                       std::vector<std::unique_ptr<Network>>& network,
-                                       const std::shared_ptr<ResourceManager>& resource_manager,
-                                       Parser& parser);
 
 };
 
