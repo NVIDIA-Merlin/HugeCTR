@@ -33,6 +33,7 @@ public:
   virtual void store(std::vector<std::string> snapshot_file_list) = 0;
   virtual void update(std::vector<std::string>& keyset_file_list) = 0;
   virtual void update(std::string& keyset_file) = 0;
+  virtual ~ModelOversubscriberImplBase() {}
 };
 
 
