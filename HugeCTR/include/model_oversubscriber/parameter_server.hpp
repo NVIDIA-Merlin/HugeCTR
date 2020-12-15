@@ -48,13 +48,11 @@ class ParameterServer {
   static std::unique_ptr<ParameterServerDelegate<TypeHashKey>> get_parameter_server_delegate_(
       const Embedding_t embedding_type) {
     if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
-      std::unique_ptr<ParameterServerDelegate<TypeHashKey>> ptr_tmp(
-          new DistributedParameterServerDelegate<TypeHashKey>());
-      return ptr_tmp;
+      return std::unique_ptr<ParameterServerDelegate<TypeHashKey>>(
+                new DistributedParameterServerDelegate<TypeHashKey>());
     } else {
-      std::unique_ptr<ParameterServerDelegate<TypeHashKey>> ptr_tmp(
-          new LocalizedParameterServerDelegate<TypeHashKey>());
-      return ptr_tmp;
+      return std::unique_ptr<ParameterServerDelegate<TypeHashKey>>(
+                new LocalizedParameterServerDelegate<TypeHashKey>());
     }
   }
 
