@@ -318,8 +318,7 @@ std::unique_ptr<Network> Network::create_network(
     }
 
     std::vector<TensorPair> output_tensor_pairs;
-    auto input_output_info =
-        get_input_tensor_and_output_name(j, tensor_entries);
+    auto input_output_info = get_input_tensor_and_output_name(j, tensor_entries);
     switch (layer_type) {
       case Layer_t::BatchNorm: {
         Tensor2<float> bn_in_tensor =
@@ -840,7 +839,8 @@ std::unique_ptr<Network> Network::create_network(
               Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
           Tensor2<__half> sigmoid_out_tensor;
           blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
-          layers.emplace_back(new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+          layers.emplace_back(
+              new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
           output_tensor_pairs.push_back({sigmoid_out_tensor.shrink(), input_output_info.output[0]});
         } else {
           // establish out tensor
@@ -848,7 +848,8 @@ std::unique_ptr<Network> Network::create_network(
               Tensor2<float>::stretch_from(input_output_info.train_input[0]);
           Tensor2<float> sigmoid_out_tensor;
           blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
-          layers.emplace_back(new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+          layers.emplace_back(
+              new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
           output_tensor_pairs.push_back({sigmoid_out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
@@ -1163,11 +1164,11 @@ static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse
 
 template <typename TypeKey>
 void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
-                                     std::shared_ptr<IDataReader>& data_reader_eval,
-                                     std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                     std::vector<std::unique_ptr<Network>>& network,
-                                     const std::shared_ptr<ResourceManager>& resource_manager,
-                                     Parser& parser) {
+                                      std::shared_ptr<IDataReader>& data_reader_eval,
+                                      std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                                      std::vector<std::unique_ptr<Network>>& network,
+                                      const std::shared_ptr<ResourceManager>& resource_manager,
+                                      Parser& parser) {
   try {
     nlohmann::json config = parser.config_;
     size_t batch_size = parser.batch_size_;
@@ -1419,4 +1420,28 @@ void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
   }
 }
 
+Parser::Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
+       bool repeat_dataset, bool i64_input_key, bool use_mixed_precision,
+       float scaler, bool use_algorithm_search, bool use_cuda_graph)
+    : batch_size_(batch_size),
+      batch_size_eval_(batch_size_eval),
+      repeat_dataset_(repeat_dataset),
+      i64_input_key_(i64_input_key),
+      use_mixed_precision_(use_mixed_precision),
+      scaler_(scaler),
+      use_algorithm_search_(use_algorithm_search),
+      use_cuda_graph_(use_cuda_graph) {
+  try {
+    std::ifstream file(configure_file);
+    if (!file.is_open()) {
+      CK_THROW_(Error_t::FileCannotOpen, "file.is_open() failed: " + configure_file);
+    }
+    file >> config_;
+    file.close();
+  } catch (const std::runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    throw;
+  }
+  return;
+}
 }  // namespace HugeCTR

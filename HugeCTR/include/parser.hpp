@@ -72,28 +72,7 @@ class Parser {
          bool use_mixed_precision = false,
          float scaler = 1.0f,
          bool use_algorithm_search = true,
-         bool use_cuda_graph = true)
-      : batch_size_(batch_size),
-        batch_size_eval_(batch_size_eval),
-        repeat_dataset_(repeat_dataset),
-        i64_input_key_(i64_input_key),
-        use_mixed_precision_(use_mixed_precision),
-        scaler_(scaler),
-        use_algorithm_search_(use_algorithm_search),
-        use_cuda_graph_(use_cuda_graph) {
-    try {
-      std::ifstream file(configure_file);
-      if (!file.is_open()) {
-        CK_THROW_(Error_t::FileCannotOpen, "file.is_open() failed: " + configure_file);
-      }
-      file >> config_;
-      file.close();
-    } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
-    }
-    return;
-  }
+         bool use_cuda_graph = true);
 
   /**
    * Create the pipeline, which includes data reader, embedding.
