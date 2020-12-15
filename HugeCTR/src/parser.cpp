@@ -1010,67 +1010,6 @@ std::unique_ptr<Network> Network::create_network(
   return network;
 }
 
-template <typename TypeKey>
-static void parse_data_layer(const nlohmann::json& j, int& label_dim, int& dense_dim,
-                             Check_t& check_type, std::string& source_data,
-                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-                             std::string& eval_source, std::string& top_strs_label,
-                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
-                             std::map<std::string, SparseInput<TypeKey>>& sparse_input_map) {
-  source_data = get_value_from_json<std::string>(j, "source");
-
-  auto j_label = get_json(j, "label");
-  top_strs_label = get_value_from_json<std::string>(j_label, "top");
-  label_dim = get_value_from_json<int>(j_label, "label_dim");
-
-  auto j_dense = get_json(j, "dense");
-  top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
-  dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
-
-  const std::map<std::string, Check_t> CHECK_TYPE_MAP = {{"Sum", Check_t::Sum},
-                                                         {"None", Check_t::None}};
-
-  const auto check_str = get_value_from_json<std::string>(j, "check");
-  if (!find_item_in_map(check_type, check_str, CHECK_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
-  }
-
-  const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
-      {"DistributedSlot", DataReaderSparse_t::Distributed},
-      {"LocalizedSlot", DataReaderSparse_t::Localized},
-  };
-
-  auto j_sparse = get_json(j, "sparse");
-  for (unsigned int i = 0; i < j_sparse.size(); i++) {
-    DataReaderSparseParam param;
-
-    const nlohmann::json& js = j_sparse[i];
-    const auto sparse_name = get_value_from_json<std::string>(js, "top");
-    const auto data_type_name = get_value_from_json<std::string>(js, "type");
-    if (!find_item_in_map(param.type, data_type_name, DATA_TYPE_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "Not supported data type: " + data_type_name);
-    }
-    param.max_feature_num = get_value_from_json<int>(js, "max_feature_num_per_sample");
-    param.max_nnz = get_value_from_json_soft<int>(js, "max_nnz", param.max_feature_num);
-    param.slot_num = get_value_from_json<int>(js, "slot_num");
-    data_reader_sparse_param_array.push_back(param);
-    SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
-    sparse_input_map.emplace(sparse_name, sparse_input);
-    sparse_names.push_back(sparse_name);
-  }
-  FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
-}
-
-void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense_dim,
-                             Check_t& check_type, std::string& source_data,
-                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-                             std::string& eval_source, std::string& top_strs_label,
-                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
-                             std::map<std::string, SparseInput<long long>>& sparse_input_map) {
-  parse_data_layer(j, label_dim, dense_dim, check_type, source_data, data_reader_sparse_param_array,
-                   eval_source, top_strs_label, top_strs_dense, sparse_names, sparse_input_map);
-}
-
 template <typename TypeKey, typename TypeFP>
 static void create_embedding(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                              std::vector<TensorEntry>* tensor_entries_list,
