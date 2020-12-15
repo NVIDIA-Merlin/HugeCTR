@@ -169,14 +169,14 @@ class Network {
   /**
    * factory method to create network
    */
-  static std::unique_ptr<Network> create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
+  static Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
                                  std::vector<TensorEntry>& tensor_entries,
                                  int num_networks_in_global,
                                  const std::shared_ptr<CPUResource>& cpu_resource,
                                  const std::shared_ptr<GPUResource>& gpu_resource,
                                  bool use_mixed_precision, float scaler, bool use_algorithm_search,
                                  bool use_cuda_graph,
-                                 bool need_optimizer);
+                                 bool inference_flag);
   
 };  // namespace HugeCTR
 
