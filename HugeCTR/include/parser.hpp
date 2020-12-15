@@ -53,26 +53,20 @@ class Parser {
 
   template <typename TypeKey>
   void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
-                                       std::shared_ptr<IDataReader>& data_reader_eval,
-                                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                       std::vector<std::unique_ptr<Network>>& network,
-                                       const std::shared_ptr<ResourceManager>& resource_manager,
-                                       Parser& parser);
+                                std::shared_ptr<IDataReader>& data_reader_eval,
+                                std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                                std::vector<std::unique_ptr<Network>>& network,
+                                const std::shared_ptr<ResourceManager>& resource_manager);
+
  public:
   /**
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
 
-  Parser(const std::string& configure_file,
-         size_t batch_size,
-         size_t batch_size_eval,
-         bool repeat_dataset,
-         bool i64_input_key = false,
-         bool use_mixed_precision = false,
-         float scaler = 1.0f,
-         bool use_algorithm_search = true,
-         bool use_cuda_graph = true);
+  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
+         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
+         float scaler = 1.0f, bool use_algorithm_search = true, bool use_cuda_graph = true);
 
   /**
    * Create the pipeline, which includes data reader, embedding.
@@ -82,7 +76,6 @@ class Parser {
                        std::vector<std::shared_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<ResourceManager>& resource_manager);
-
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -115,9 +108,8 @@ struct SolverParser {
   bool use_algorithm_search;
   bool use_cuda_graph;
   SolverParser(const std::string& file);
-  SolverParser(){}
+  SolverParser() {}
 };
-
 
 template <typename T>
 struct SparseInput {
@@ -214,9 +206,7 @@ static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"SGD", Optimizer_t::SGD}};
 
 static const std::map<std::string, Update_t> UPDATE_TYPE_MAP = {
-    {"Local", Update_t::Local},
-    {"Global", Update_t::Global},
-    {"LazyGlobal", Update_t::LazyGlobal}};
+    {"Local", Update_t::Local}, {"Global", Update_t::Global}, {"LazyGlobal", Update_t::LazyGlobal}};
 
 static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
     {"L1", Regularizer_t::L1},
@@ -257,19 +247,33 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
 }
 
 template <typename Type>
-struct get_optimizer_param{
-OptParams<Type> operator()(const nlohmann::json& j_optimizer);
+struct get_optimizer_param {
+  OptParams<Type> operator()(const nlohmann::json& j_optimizer);
 };
 
 template <typename TypeKey, typename TypeFP>
-struct create_embedding{
-void operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                             std::vector<TensorEntry>* tensor_entries_list,
-                             std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                             Embedding_t embedding_type, const nlohmann::json& config,
-                             const std::shared_ptr<ResourceManager>& resource_manager,
-                             size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
-                             float scaler, const nlohmann::json& j_layers);
+struct create_embedding {
+  void operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::vector<TensorEntry>* tensor_entries_list,
+                  std::vector<std::shared_ptr<IEmbedding>>& embedding, Embedding_t embedding_type,
+                  const nlohmann::json& config,
+                  const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
+                  size_t batch_size_eval, bool use_mixed_precision, float scaler,
+                  const nlohmann::json& j_layers);
+};
+
+template <typename TypeKey>
+struct create_datareader {
+  void operator()(const nlohmann::json& j,
+                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::vector<TensorEntry>* tensor_entries_list,
+                  std::shared_ptr<IDataReader> data_reader,
+                  std::shared_ptr<IDataReader> data_reader_eval,
+                  size_t batch_size,
+                  size_t batch_size_eval,
+                  bool use_mixed_precision,
+                  bool repeat_dataset,
+                  const std::shared_ptr<ResourceManager> resource_manager);
 };
 
 }  // namespace HugeCTR
