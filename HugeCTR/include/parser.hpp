@@ -213,5 +213,9 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
   }
 }
 
+template <typename Type>
+struct get_optimizer_param{
+OptParams<Type> operator()(const nlohmann::json& j_optimizer);
+};
 
 }  // namespace HugeCTR

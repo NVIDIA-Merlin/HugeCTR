@@ -62,6 +62,7 @@ file(GLOB huge_ctr_src
   parser.cpp
   parsers/solver_parser.cpp
   parsers/learning_rate_scheduler_parser.cpp
+  parsers/parser_functions.cpp
   session.cpp
   plan_parser.cpp 
   data_readers/data_collector.cu
