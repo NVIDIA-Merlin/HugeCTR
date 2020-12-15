@@ -14,31 +14,6 @@
  * limitations under the License.
  */
 
-#include <data_readers/data_reader.hpp>
-#include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
-#include <embeddings/localized_slot_sparse_embedding_hash.hpp>
-#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
-#include <layer.hpp>
-#include <layers/add_layer.hpp>
-#include <layers/batch_norm_layer.hpp>
-#include <layers/cast_layer.hpp>
-#include <layers/concat_layer.hpp>
-#include <layers/dot_product_layer.hpp>
-#include <layers/dropout_cudnn_layer.hpp>
-#include <layers/dropout_layer.hpp>
-#include <layers/elu_layer.hpp>
-#include <layers/fm_order2_layer.hpp>
-#include <layers/fully_connected_layer.hpp>
-#include <layers/fully_connected_layer_half.hpp>
-#include <layers/fused_fully_connected_layer.hpp>
-#include <layers/interaction_layer.hpp>
-#include <layers/multi_cross_layer.hpp>
-#include <layers/multiply_layer.hpp>
-#include <layers/reduce_sum_layer.hpp>
-#include <layers/relu_layer.hpp>
-#include <layers/reshape_layer.hpp>
-#include <layers/sigmoid_layer.hpp>
-#include <layers/slice_layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <optimizer.hpp>

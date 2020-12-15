@@ -164,6 +164,49 @@ struct SparseInput {
     }                                                   \
   } while (0)
 
+const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
+    {"BatchNorm", Layer_t::BatchNorm},
+    {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
+    {"Concat", Layer_t::Concat},
+    {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
+    {"Dropout", Layer_t::Dropout},
+    {"ELU", Layer_t::ELU},
+    {"InnerProduct", Layer_t::InnerProduct},
+    {"Interaction", Layer_t::Interaction},
+    {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
+    {"ReLU", Layer_t::ReLU},
+    {"Reshape", Layer_t::Reshape},
+    {"Sigmoid", Layer_t::Sigmoid},
+    {"Slice", Layer_t::Slice},
+    {"Multiply", Layer_t::Multiply},
+    {"FmOrder2", Layer_t::FmOrder2},
+    {"Add", Layer_t::Add},
+    {"ReduceSum", Layer_t::ReduceSum},
+    {"MultiCross", Layer_t::MultiCross},
+    {"DotProduct", Layer_t::DotProduct}};
+const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
+    {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
+    {"Concat", Layer_t::Concat},
+    {"Cast", Layer_t::Cast},
+    {"InnerProduct", Layer_t::InnerProduct},
+    {"FusedInnerProduct", Layer_t::FusedInnerProduct},
+    {"Interaction", Layer_t::Interaction},
+    {"Reshape", Layer_t::Reshape},
+    {"Sigmoid", Layer_t::Sigmoid},
+    {"Slice", Layer_t::Slice},
+    {"ReLU", Layer_t::ReLU},
+    {"Dropout", Layer_t::Dropout},
+    {"Add", Layer_t::Add}};
+const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
+    {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
+    {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},
+    {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot}};
+const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
+    {"Uniform", Initializer_t::Uniform},
+    {"XavierNorm", Initializer_t::XavierNorm},
+    {"XavierUniform", Initializer_t::XavierUniform},
+    {"Zero", Initializer_t::Zero}};
+
 static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"Adam", Optimizer_t::Adam},
     {"MomentumSGD", Optimizer_t::MomentumSGD},
@@ -216,6 +259,17 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
 template <typename Type>
 struct get_optimizer_param{
 OptParams<Type> operator()(const nlohmann::json& j_optimizer);
+};
+
+template <typename TypeKey, typename TypeFP>
+struct create_embedding{
+void operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                             std::vector<TensorEntry>* tensor_entries_list,
+                             std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                             Embedding_t embedding_type, const nlohmann::json& config,
+                             const std::shared_ptr<ResourceManager>& resource_manager,
+                             size_t batch_size, size_t batch_size_eval, bool use_mixed_precision,
+                             float scaler, const nlohmann::json& j_layers);
 };
 
 }  // namespace HugeCTR
