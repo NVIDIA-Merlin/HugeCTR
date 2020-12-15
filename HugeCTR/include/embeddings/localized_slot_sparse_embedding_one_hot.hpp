@@ -130,7 +130,11 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void load_parameters(std::ifstream &weight_stream, size_t embedding_vec_size,
+  void load_parameters(const Tensor2<TypeHashKey> &keys,
+                       const Tensor2<size_t> &slot_id,
+                       const Tensor2<float> &embeddings,
+                       size_t num,
+                       size_t embedding_vec_size,
                        Tensors2<float> &hash_table_value_tensors,
                        const std::vector<size_t> &slot_sizes,
                        const Tensors2<uint32_t> &mapping_offsets_per_gpu_tensors);
@@ -144,7 +148,14 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void dump_parameters(std::ofstream &weight_stream, size_t embedding_vec_size,
+  void dump_parameters(std::ofstream &stream, size_t embedding_vec_size,
+                       const Tensors2<float> &hash_table_value_tensors,
+                       const std::vector<size_t> &slot_sizes) const;
+  void dump_parameters(Tensor2<TypeHashKey> &keys,
+                       Tensor2<size_t> &slot_id,
+                       Tensor2<float> &embeddings,
+                       size_t *num,
+                       size_t embedding_vec_size,
                        const Tensors2<float> &hash_table_value_tensors,
                        const std::vector<size_t> &slot_sizes) const;
 
@@ -262,38 +273,15 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * upload it onto multi-GPUs global memory.
    * @param weight_stream the host file stream for reading data from.
    */
-  void load_parameters(std::ifstream &weight_stream) override {
-    // check if file is opened successfully
-    if (!weight_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
-    }
-
-    load_parameters(weight_stream, Base::get_embedding_vec_size(), hash_table_value_tensors_,
-                    slot_size_array_, mapping_offsets_per_gpu_tensors_);
-
-    return;
-  }
-
-  void load_parameters(BufferBag& buf_bag, size_t num) override {}
+  void load_parameters(std::ifstream &weight_stream) override;
+  void load_parameters(BufferBag& buf_bag, size_t num) override;
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
    * @param weight_stream the host file stream for writing data to.
    */
-  void dump_parameters(std::ofstream &weight_stream) const override {
-    // check if the file is opened successfully
-    if (!weight_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Error: file not open for writing");
-      return;
-    }
-
-    dump_parameters(weight_stream, Base::get_embedding_vec_size(), hash_table_value_tensors_,
-                    slot_size_array_);
-
-    return;
-  }
-
-  void dump_parameters(BufferBag& buf_bag, size_t *num) const override {}
+  void dump_parameters(std::ofstream &stream) const override;
+  void dump_parameters(BufferBag& buf_bag, size_t *num) const override;
   /**
    * Reset the embedding
    */
