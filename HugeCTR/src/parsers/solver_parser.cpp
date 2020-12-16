@@ -20,15 +20,8 @@ namespace HugeCTR {
 
 SolverParser::SolverParser(const std::string& file) {
   try {
-
     /* file read to json */
-    nlohmann::json config;
-    std::ifstream file_stream(file);
-    if (!file_stream.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + file);
-    }
-    file_stream >> config;
-    file_stream.close();
+    nlohmann::json config = read_json_file(file);
 
     const std::map<std::string, LrPolicy_t> LR_POLICY = {{"fixed", LrPolicy_t::fixed}};
 

@@ -21,13 +21,49 @@
 #include <fstream>
 #include <functional>
 #include <gpu_resource.hpp>
+#include <inference/embedding_feature_combiner.hpp>
 #include <learning_rate_scheduler.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
-#include <inference/embedding_feature_combiner.hpp>
 #include <nlohmann/json.hpp>
 
 namespace HugeCTR {
+
+nlohmann::json read_json_file(const std::string& filename);
+
+struct SolverParser {
+  //  std::string configure_file;
+  unsigned long long seed;                  /**< seed of data simulator */
+  LrPolicy_t lr_policy;                     /**< the only fixed lr is supported now. */
+  int display;                              /**< the interval of loss display. */
+  int max_iter;                             /**< the number of iterations for training */
+  int num_epochs;                           /**< the number of epochs for training */
+  int snapshot;                             /**< the number of iterations for a snapshot */
+  std::string snapshot_prefix;              /**< naming prefix of snapshot file */
+  int eval_interval;                        /**< the interval of evaluations */
+  int eval_batches;                         /**< the number of batches for evaluations */
+  int batchsize_eval;                       /**< batchsize for eval */
+  int batchsize;                            /**< batchsize */
+  std::string model_file;                   /**< name of model file */
+  std::vector<std::string> embedding_files; /**< name of embedding file */
+  std::vector<std::vector<int>> vvgpu;      /**< device map */
+  bool use_mixed_precision;
+  float scaler;
+  std::map<metrics::Type, float> metrics_spec;
+  bool i64_input_key;
+  bool use_algorithm_search;
+  bool use_cuda_graph;
+  SolverParser(const std::string& file);
+  SolverParser() {}
+};
+struct InferenceParser {
+  //  std::string configure_file;
+  int max_batchsize;                           /**< batchsize */
+  std::string dense_model_file;                /**< name of model file */
+  std::vector<std::string> sparse_model_files; /**< name of embedding file */
+  bool use_cuda_graph;
+  InferenceParser(const nlohmann::json& config);
+};
 
 /**
  * @brief The parser of configure file (in json format).
@@ -59,15 +95,26 @@ class Parser {
                                 std::vector<std::unique_ptr<Network>>& network,
                                 const std::shared_ptr<ResourceManager>& resource_manager);
 
+  template <typename TypeEmbeddingComp>
+  void create_pipeline_inference(const InferenceParser& inference_parser, Tensor2<int>& row,
+                                Tensor2<float>& embeddingvec,
+                                std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                                const std::shared_ptr<ResourceManager> resource_manager);
+
  public:
   /**
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
-
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
          bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
          float scaler = 1.0f, bool use_algorithm_search = true, bool use_cuda_graph = true);
+
+  /**
+   * Ctor.
+   * Ctor used in inference stage
+   */
+  Parser(const nlohmann::json& config);
 
   /**
    * Create the pipeline, which includes data reader, embedding.
@@ -77,12 +124,13 @@ class Parser {
                        std::vector<std::shared_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<ResourceManager>& resource_manager);
-  
+
   /**
    * Create inference pipeline, which only creates network and embedding
    */
-  template <typename TypeEmbeddingComp>
-  void create_pipeline(std::vector<EmbeddingFeatureCombiner<TypeEmbeddingComp>>* embedding, Network* network, const std::shared_ptr<ResourceManager> resource_manager)
+  void create_pipeline(const InferenceParser& inference_parser, Tensor2<int>& row,
+                       Tensor2<float>& embeddingvec, std::vector<std::shared_ptr<Layer>>* embedding,
+                       Network** network, const std::shared_ptr<ResourceManager> resource_manager);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -92,31 +140,6 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
  * Solver Parser.
  * This class is designed to parse the solver clause of the configure file.
  */
-struct SolverParser {
-  //  std::string configure_file;
-  unsigned long long seed;                  /**< seed of data simulator */
-  LrPolicy_t lr_policy;                     /**< the only fixed lr is supported now. */
-  int display;                              /**< the interval of loss display. */
-  int max_iter;                             /**< the number of iterations for training */
-  int num_epochs;                           /**< the number of epochs for training */
-  int snapshot;                             /**< the number of iterations for a snapshot */
-  std::string snapshot_prefix;              /**< naming prefix of snapshot file */
-  int eval_interval;                        /**< the interval of evaluations */
-  int eval_batches;                         /**< the number of batches for evaluations */
-  int batchsize_eval;                       /**< batchsize for eval */
-  int batchsize;                            /**< batchsize */
-  std::string model_file;                   /**< name of model file */
-  std::vector<std::string> embedding_files; /**< name of embedding file */
-  std::vector<std::vector<int>> vvgpu;      /**< device map */
-  bool use_mixed_precision;
-  float scaler;
-  std::map<metrics::Type, float> metrics_spec;
-  bool i64_input_key;
-  bool use_algorithm_search;
-  bool use_cuda_graph;
-  SolverParser(const std::string& file);
-  SolverParser() {}
-};
 
 template <typename T>
 struct SparseInput {
@@ -275,11 +298,8 @@ struct create_datareader {
                   std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::vector<TensorEntry>* tensor_entries_list,
                   std::shared_ptr<IDataReader> data_reader,
-                  std::shared_ptr<IDataReader> data_reader_eval,
-                  size_t batch_size,
-                  size_t batch_size_eval,
-                  bool use_mixed_precision,
-                  bool repeat_dataset,
+                  std::shared_ptr<IDataReader> data_reader_eval, size_t batch_size,
+                  size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
                   const std::shared_ptr<ResourceManager> resource_manager);
 };
 

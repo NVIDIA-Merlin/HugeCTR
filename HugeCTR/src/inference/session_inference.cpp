@@ -15,38 +15,20 @@
  */
 
 #include "HugeCTR/include/inference/session_inference.hpp"
+
 #include <iostream>
 #include <vector>
 namespace HugeCTR {
 
-InferenceParser::InferenceParser(const nlohmann::json& config) {
-  auto j = get_json(config, "inference");
-  if (has_key_(j, "max_batchsize")) {
-    max_batchsize = get_value_from_json<unsigned long long>(j, "max_batchsize");
-  } else {
-    max_batchsize = 1024;
-  }
-
-  bool has_dense_model_file = has_key_(j, "dense_model_file");
-  bool has_sparse_model_files = has_key_(j, "sparse_model_file");
-  if (!(has_dense_model_file && has_sparse_model_files)) {
-    CK_THROW_(Error_t::WrongInput, "dense_model_file and sparse_model_file must be specified");
-  }
-  dense_model_file = get_value_from_json<std::string>(j, "dense_model_file");
-  auto j_sparse_model_files = get_json(j, "sparse_model_file");
-  if (j_sparse_model_files.is_array()) {
-    for (auto j_embedding_tmp : j_sparse_model_files) {
-      sparse_model_files.push_back(j_embedding_tmp.get<std::string>());
-    }
-  } else {
-    sparse_model_files.push_back(get_value_from_json<std::string>(j, "sparse_model_file"));
-  }
-}
-
-InferenceSession::InferenceSession(const std::string& config_file, int device_id)
-    : resource_manager(ResourceManager::create({{device_id}}, 0)), parser_(config_file) {
+InferenceSession::InferenceSession(const std::string& config_file, cudaStream_t stream)
+    : config_(read_json_file(config_file)),
+      parser_(config_),
+      inference_parser_(config_),
+      resource_manager(ResourceManager::create({{0}}, 0)) {
   try {
-     parser_.create_pipeline(row_, );
+    Network* network;
+    parser_.create_pipeline(inference_parser_, row_, embeddingvector_, &embedding_, &network,
+                            resource_manager);
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
