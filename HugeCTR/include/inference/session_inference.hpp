@@ -29,25 +29,19 @@
 #include "HugeCTR/include/tensor2.hpp"
 namespace HugeCTR {
 
-struct InferenceParser {
-  //  std::string configure_file;
-  int max_batchsize;                           /**< batchsize */
-  std::string dense_model_file;                /**< name of model file */
-  std::vector<std::string> sparse_model_files; /**< name of embedding file */
-  bool use_cuda_graph;
-  InferenceParser(const nlohmann::json& config);
-};
+
 class InferenceSession : public HugeCTRModel {
-  nlohmann::json config_;
-  std::shared_ptr<ResourceManager> resource_manager;
-  std::unique_ptr<Network> network_;
+  nlohmann::json config_; // should be declared before parser_ and inference_parser_
   Parser parser_;
-  std::vector<std::shared_ptr<Layer>> embedding_;
+  InferenceParser inference_parser_;
   Tensor2<int> row_;
   Tensor2<float> embeddingvector_;
+  std::vector<std::shared_ptr<Layer>> embedding_;
+  std::unique_ptr<Network> network_;
+  std::shared_ptr<ResourceManager> resource_manager;
 
  public:
-  InferenceSession(const std::string& config_file, int device_id);
+  InferenceSession(const std::string& config_file, cudaStream_t stream);
   virtual ~InferenceSession();
   void predict(float* dense, int* row, float* embeddingvector, float* output, int numofsamples);
 };

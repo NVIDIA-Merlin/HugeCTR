@@ -66,6 +66,7 @@ file(GLOB huge_ctr_src
   parsers/create_network.cpp
   parsers/create_embedding.cpp
   parsers/create_datareader.cpp
+  parsers/inference_parser.cpp
   session.cpp
   plan_parser.cpp 
   data_readers/data_collector.cu
