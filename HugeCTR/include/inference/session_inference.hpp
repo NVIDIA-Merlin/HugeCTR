@@ -41,6 +41,10 @@ class InferenceSession : public HugeCTRModel {
   nlohmann::json config_;
   std::shared_ptr<ResourceManager> resource_manager;
   std::unique_ptr<Network> network_;
+  Parser parser_;
+  std::vector<std::shared_ptr<Layer>> embedding_;
+  Tensor2<int> row_;
+  Tensor2<float> embeddingvector_;
 
  public:
   InferenceSession(const std::string& config_file, int device_id);

@@ -169,7 +169,7 @@ class Network {
   /**
    * factory method to create network
    */
-  static std::unique_ptr<Network> create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
+  static Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
                                  std::vector<TensorEntry>& tensor_entries,
                                  int num_networks_in_global,
                                  const std::shared_ptr<CPUResource>& cpu_resource,

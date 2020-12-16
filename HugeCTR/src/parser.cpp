@@ -84,7 +84,7 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
                                       std::vector<std::unique_ptr<Network>>& network,
                                       const std::shared_ptr<ResourceManager>& resource_manager) {
   try {
-    nlohmann::json config = config_;
+    const nlohmann::json& config = config_;
     size_t batch_size = batch_size_;
     size_t batch_size_eval = batch_size_eval_;
     bool use_mixed_precision = use_mixed_precision_;
@@ -167,6 +167,45 @@ void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
     create_pipeline_internal<unsigned int>(data_reader, data_reader_eval, embedding, network,
                                            resource_manager);
   }
+}
+
+template <typename TypeEmbeddingComp>
+void Parser::create_pipeline(Tensor2<float>& row, Tensor2<float>& embeddingvec, std::vector<Layer>* embedding, Network* network, const std::shared_ptr<ResourceManager> resource_manager){
+  std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
+  std::vector<TensorEntry> tensor_entries_list[resource_manager->get_local_gpu_count()];
+
+  auto j_layers_array = get_json(config_, "layers");
+    {
+      const nlohmann::json& j_data = j_layers_array[0];
+      auto j_dense = get_json(j_data, "dense");
+      auto top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
+      auto dense_dim = get_value_from_json<size_t>(j_dense, "dense_dim");
+
+      Tensor2<float> dense_input_tensor;
+      input_buffer->reserve({max_batch_size, dense_dim}, &dense_input_tensor);
+      tensor_entries.push_back({top_strs_dense, TensorUse::General, dense_input_tensor.shrink()});
+    }
+
+    // Add fake embedding layer input; will be deleted after merge Embedding Compute layer
+    size_t slot_num = 10;
+    for (unsigned int i = 1; i < j_layers_array.size(); i++) {
+      const nlohmann::json& j = j_layers_array[i];
+      const auto layer_type_name = get_value_from_json<std::string>(j, "type");
+      if (layer_type_name.find("Embedding") != std::string::npos) {
+        const std::string layer_name = get_value_from_json<std::string>(j, "name");
+        const std::string layer_top = get_value_from_json<std::string>(j, "top");
+        const auto& j_hparam = get_json(j, "sparse_embedding_hparam");
+        size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+        Tensor2<float> sparse_embedding;
+        input_buffer->reserve({max_batch_size, slot_num * embedding_vec_size}, &sparse_embedding);
+        tensor_entries.push_back({layer_top, TensorUse::General, sparse_embedding.shrink()});
+      }
+    }
+
+    // create network
+    network = Network::create_network(
+        j_layers_array, "", tensor_entries, 1, resource_manager->get_local_cpu(),
+        resource_manager->get_local_gpu(0), false, 0.f, false, use_cuda_graph, true);
 }
 
 }  // namespace HugeCTR
