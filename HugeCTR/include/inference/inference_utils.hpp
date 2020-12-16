@@ -26,13 +26,13 @@
 
 namespace HugeCTR {
 
-template <typename T>
+template <typename TypeHashKey>
 class HugectrUtility {
  public:
   HugectrUtility();
   virtual ~HugectrUtility();
-  virtual void look_up(T* embeddingcolumns, T* length, float* embeddingoutputvector) = 0;
-  static HugectrUtility* Create_Embedding(INFER_TYPE Infer_type, std::string& config);
+  virtual void look_up(const TypeHashKey* embeddingcolumns, size_t length, float* embeddingoutputvector, cudaStream_t stream) = 0;
+  static HugectrUtility<TypeHashKey>* Create_Embedding(INFER_TYPE Infer_type, const nlohmann::json& model_config);
 };
 
 }  // namespace HugeCTR

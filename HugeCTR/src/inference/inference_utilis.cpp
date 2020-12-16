@@ -22,22 +22,23 @@
 #include <parser.hpp>
 #include <session.hpp>
 #include <utils.hpp>
-
-#include "HugeCTR/include/inference/embedding_cache.hpp"
-#include "HugeCTR/include/inference/inference_utils.hpp"
+#include <inference/parameter_server.hpp>
+#include <inference/inference_utils.hpp>
 
 namespace HugeCTR {
-template <typename T>
-HugectrUtility<T>::HugectrUtility() {}
-template <typename T>
-HugectrUtility<T>::~HugectrUtility() {}
-template <typename T>
-HugectrUtility<T>* HugectrUtility<T>::Create_Embedding(INFER_TYPE Infer_type, std::string& config) {
-  HugectrUtility<T>* embedding;
+template <typename TypeHashKey>
+HugectrUtility<TypeHashKey>::HugectrUtility() {}
+
+template <typename TypeHashKey>
+HugectrUtility<TypeHashKey>::~HugectrUtility() {}
+
+template <typename TypeHashKey>
+HugectrUtility<TypeHashKey>* HugectrUtility<TypeHashKey>::Create_Embedding(INFER_TYPE Infer_type, const nlohmann::json& model_config) {
+  HugectrUtility<TypeHashKey>* embedding;
 
   switch (Infer_type) {
     case TRITON:
-      embedding = new embedding_cache<T>("TRITON");
+      embedding = new parameter_server<TypeHashKey>("TRITON", model_config);
       break;
     default:
       std::cout << "wrong type!" << std::endl;
