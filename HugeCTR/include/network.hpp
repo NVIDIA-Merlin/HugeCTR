@@ -176,7 +176,7 @@ class Network {
                                  const std::shared_ptr<GPUResource>& gpu_resource,
                                  bool use_mixed_precision, float scaler, bool use_algorithm_search,
                                  bool use_cuda_graph,
-                                 bool need_optimizer);
+                                 bool inference_flag);
   
 };  // namespace HugeCTR
 

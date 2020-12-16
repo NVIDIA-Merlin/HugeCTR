@@ -26,9 +26,13 @@ InferenceSession::InferenceSession(const std::string& config_file, cudaStream_t 
       inference_parser_(config_),
       resource_manager(ResourceManager::create({{0}}, 0)) {
   try {
-    Network* network;
-    parser_.create_pipeline(inference_parser_, row_, embeddingvector_, &embedding_, &network,
+    Network* network_ptr;
+    parser_.create_pipeline(inference_parser_, row_, embeddingvector_, &embedding_, &network_ptr,
                             resource_manager);
+    network_ = std::move(std::unique_ptr<Network>(network_ptr));
+    if(inference_parser_.dense_model_file.size() > 0){
+      network_->upload_params_to_device(inference_parser_.dense_model_file);
+    }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
