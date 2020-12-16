@@ -40,6 +40,26 @@ InferenceParser::InferenceParser(const nlohmann::json& config) {
   } else {
     sparse_model_files.push_back(get_value_from_json<std::string>(j, "sparse_model_file"));
   }
+
+  if (has_key_(j, "mixed_precision")) {
+      use_mixed_precision = true;
+      int i_scaler = get_value_from_json<int>(j, "mixed_precision");
+      if (i_scaler != 128 && i_scaler != 256 && i_scaler != 512 && i_scaler != 1024) {
+        CK_THROW_(Error_t::WrongInput,
+                  "Scaler of mixed_precision training should be either 128/256/512/1024");
+      }
+      scaler = i_scaler;
+      std::stringstream ss;
+      ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
+      MESSAGE_(ss.str());
+
+    } else {
+      use_mixed_precision = false;
+      scaler = 1.f;
+    }
+    
+    use_algorithm_search = get_value_from_json_soft<bool>(j, "algorithm_search", true);
+    use_cuda_graph = get_value_from_json_soft<bool>(j, "cuda_graph", true);
 }
 
 }  // namespace HugeCTR

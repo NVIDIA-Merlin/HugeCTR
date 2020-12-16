@@ -19,14 +19,7 @@
           "type": "DistributedSlot",
           "max_feature_num_per_sample": 100,
           "slot_num": 10
-        },
-        
-        {
-          "top": "data2",
-          "type": "LocalizedSlot",
-          "max_feature_num_per_sample": 100,
-          "slot_num": 10
-        }   
+        }
       ]
     },
 
@@ -42,18 +35,6 @@
       }
     },
     {
-      "name": "sparse_embedding2",
-      "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "./all2all_plan.json",
-      "bottom": "data2",
-      "top": "sparse_embedding2",
-      "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1301808,
-        "embedding_vec_size": 64,
-        "combiner": 1
-      }
-    },
-    {
       "name": "reshape1",
       "type": "Reshape",
       "bottom": "sparse_embedding1",
@@ -61,18 +42,10 @@
       "leading_dim": 640
     },
     {
-      "name": "reshape2",
-      "type": "Reshape",
-      "bottom": "sparse_embedding2",
-      "top": "reshape2",
-      "leading_dim": 640
-    },
-    {
       "name": "concat1",
       "type": "Concat",
       "bottom": [
         "reshape1",
-        "reshape2",
         "dense"
       ],
       "top": "concat1"

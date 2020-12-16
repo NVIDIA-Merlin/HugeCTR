@@ -34,8 +34,8 @@ class InferenceSession : public HugeCTRModel {
   nlohmann::json config_; // should be declared before parser_ and inference_parser_
   Parser parser_;
   InferenceParser inference_parser_;
-  Tensor2<int> row_;
-  Tensor2<float> embeddingvector_;
+  Tensors2<int> row_; // embedding input row
+  Tensors2<float> embeddingvector_; // embedding input value vector
   std::vector<std::shared_ptr<Layer>> embedding_;
   std::unique_ptr<Network> network_;
   std::shared_ptr<ResourceManager> resource_manager;

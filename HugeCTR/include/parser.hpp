@@ -58,9 +58,12 @@ struct SolverParser {
 };
 struct InferenceParser {
   //  std::string configure_file;
-  int max_batchsize;                           /**< batchsize */
+  size_t max_batchsize;                        /**< batchsize */
   std::string dense_model_file;                /**< name of model file */
   std::vector<std::string> sparse_model_files; /**< name of embedding file */
+  bool use_mixed_precision;
+  float scaler;
+  bool use_algorithm_search;
   bool use_cuda_graph;
   InferenceParser(const nlohmann::json& config);
 };
@@ -96,10 +99,10 @@ class Parser {
                                 const std::shared_ptr<ResourceManager>& resource_manager);
 
   template <typename TypeEmbeddingComp>
-  void create_pipeline_inference(const InferenceParser& inference_parser, Tensor2<int>& row,
-                                Tensor2<float>& embeddingvec,
-                                std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
-                                const std::shared_ptr<ResourceManager> resource_manager);
+  void create_pipeline_inference(const InferenceParser& inference_parser, Tensors2<int>& row,
+                                 Tensors2<float>& embeddingvec,
+                                 std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                                 const std::shared_ptr<ResourceManager> resource_manager);
 
  public:
   /**
@@ -128,9 +131,10 @@ class Parser {
   /**
    * Create inference pipeline, which only creates network and embedding
    */
-  void create_pipeline(const InferenceParser& inference_parser, Tensor2<int>& row,
-                       Tensor2<float>& embeddingvec, std::vector<std::shared_ptr<Layer>>* embedding,
-                       Network** network, const std::shared_ptr<ResourceManager> resource_manager);
+  void create_pipeline(const InferenceParser& inference_parser, Tensors2<int>& row,
+                       Tensors2<float>& embeddingvec,
+                       std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                       const std::shared_ptr<ResourceManager> resource_manager);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -260,6 +264,7 @@ template <typename T>
 inline T get_value_from_json(const nlohmann::json& json, const std::string key) {
   HAS_KEY_(json, key);
   auto value = json.find(key).value();
+  MESSAGE_("get_value_from_json: " + key);
   CK_SIZE_(value, 1);
   return value.get<T>();
 }
@@ -290,6 +295,8 @@ struct create_embedding {
                   const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
                   size_t batch_size_eval, bool use_mixed_precision, float scaler,
                   const nlohmann::json& j_layers);
+
+  void operator()(const InferenceParser& inference_parser, const nlohmann::json& j_layers_array, Tensors2<int>& rows, Tensors2<float>& embeddingvecs, std::vector<TensorEntry>* tensor_entries, std::vector<std::shared_ptr<Layer>>* embeddings, const std::shared_ptr<GPUResource> gpu_resource);
 };
 
 template <typename TypeKey>

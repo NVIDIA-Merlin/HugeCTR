@@ -27,14 +27,13 @@
 
 namespace HugeCTR {
 template <typename TypeKey, typename TypeFP>
-void create_embedding<TypeKey, TypeFP>::operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                                  std::vector<TensorEntry>* tensor_entries_list,
-                                  std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                  Embedding_t embedding_type, const nlohmann::json& config,
-                                  const std::shared_ptr<ResourceManager>& resource_manager,
-                                  size_t batch_size, size_t batch_size_eval,
-                                  bool use_mixed_precision, float scaler,
-                                  const nlohmann::json& j_layers) {
+void create_embedding<TypeKey, TypeFP>::operator()(
+    std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+    std::vector<TensorEntry>* tensor_entries_list,
+    std::vector<std::shared_ptr<IEmbedding>>& embedding, Embedding_t embedding_type,
+    const nlohmann::json& config, const std::shared_ptr<ResourceManager>& resource_manager,
+    size_t batch_size, size_t batch_size_eval, bool use_mixed_precision, float scaler,
+    const nlohmann::json& j_layers) {
   auto j_optimizer = get_json(config, "optimizer");
   auto embedding_name = get_value_from_json<std::string>(j_layers, "type");
 
@@ -177,8 +176,79 @@ void create_embedding<TypeKey, TypeFP>::operator()(std::map<std::string, SparseI
         {top_name, TensorUse::Evaluate, (embedding.back()->get_evaluate_output_tensors())[i]});
   }
 }
+
+template <typename TypeKey, typename TypeFP>
+void create_embedding<TypeKey, TypeFP>::operator()(
+    const InferenceParser& inference_parser, const nlohmann::json& j_layers_array,
+    Tensors2<int>& rows, Tensors2<float>& embeddingvecs, std::vector<TensorEntry>* tensor_entries,
+    std::vector<std::shared_ptr<Layer>>* embeddings,
+    const std::shared_ptr<GPUResource> gpu_resource) {
+  MESSAGE_("start create embedding for inference");
+  auto j_data = j_layers_array[0];
+  if (!has_key_(j_data, "sparse")) {
+    MESSAGE_("no sparse data input");
+    return;
+  }
+  auto j_sparse_input = get_json(j_data, "sparse");
+  std::unordered_map<std::string, std::pair<int, int>> slot_nums_map;
+  for (unsigned int i = 0; i < j_sparse_input.size(); ++i) {
+    auto top = get_value_from_json<std::string>(j_sparse_input[i], "top");
+    auto slot_num = get_value_from_json<int>(j_sparse_input[i], "slot_num");
+    auto max_feature_num_per_sample = get_value_from_json<int>(j_sparse_input[i], "max_feature_num_per_sample");
+    MESSAGE_("sparse_input name " + top);
+    slot_nums_map[top] = std::make_pair(slot_num,max_feature_num_per_sample);
+  }
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
+      GeneralBuffer2<CudaAllocator>::create();
+  if(j_layers_array.size() < 1){
+    CK_THROW_(Error_t::WrongInput, "layer not defined in config");
+  }
+  for (unsigned int i = 1; i < j_layers_array.size(); i++) {
+    const nlohmann::json& j = j_layers_array[i];
+    auto bottom_array = get_json(j, "bottom");
+    if(bottom_array.is_array()){
+      continue;
+    }
+    std::string bottom = bottom_array.get<std::string>();;
+    auto slot_nums_map_iter = slot_nums_map.find(bottom);
+    if (slot_nums_map_iter == slot_nums_map.end()) {
+      continue;
+    }
+    const std::string layer_top = get_value_from_json<std::string>(j, "top");
+    int slot_num = slot_nums_map_iter->second.first;
+    int max_feature_num_per_sample = slot_nums_map_iter->second.second;
+    auto j_hparam = get_json(j, "sparse_embedding_hparam");
+    auto combiner = get_value_from_json<int>(j_hparam, "combiner");
+    EmbeddingFeatureCombiner_t feature_combiner_type;
+    if (combiner == 0) {
+      feature_combiner_type = EmbeddingFeatureCombiner_t::Sum;
+    } else if(combiner == 1){
+      feature_combiner_type = EmbeddingFeatureCombiner_t::Mean;
+    } else{
+      CK_THROW_(Error_t::WrongInput, "combiner need to be 0 or 1");
+    }
+    size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+    rows.push_back(
+        Tensor2<int>({inference_parser.max_batchsize * slot_num + 1}, nullptr));
+    embeddingvecs.push_back(Tensor2<float>(
+        {inference_parser.max_batchsize * max_feature_num_per_sample, embedding_vec_size},
+        nullptr));
+
+    Tensor2<TypeFP> embedding_output;
+    embeddings->push_back(std::make_shared<EmbeddingFeatureCombiner<TypeFP>>(
+        embeddingvecs.back(), rows.back(), embedding_output, inference_parser.max_batchsize,
+        slot_num, feature_combiner_type, blobs_buff, gpu_resource));
+    tensor_entries->push_back({layer_top, TensorUse::General, embedding_output.shrink()});
+  }
+
+  CudaDeviceContext context(gpu_resource->get_device_id());
+  blobs_buff->allocate();
+  MESSAGE_("create embedding for inference success");
+}
+
 template struct create_embedding<long long, float>;
 template struct create_embedding<long long, __half>;
 template struct create_embedding<unsigned int, float>;
 template struct create_embedding<unsigned int, __half>;
+
 }  // namespace HugeCTR
