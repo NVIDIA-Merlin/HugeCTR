@@ -24,6 +24,7 @@
 #include <learning_rate_scheduler.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
+#include <inference/embedding_feature_combiner.hpp>
 #include <nlohmann/json.hpp>
 
 namespace HugeCTR {
@@ -76,6 +77,12 @@ class Parser {
                        std::vector<std::shared_ptr<IEmbedding>>& embedding,
                        std::vector<std::unique_ptr<Network>>& network,
                        const std::shared_ptr<ResourceManager>& resource_manager);
+  
+  /**
+   * Create inference pipeline, which only creates network and embedding
+   */
+  template <typename TypeEmbeddingComp>
+  void create_pipeline(std::vector<EmbeddingFeatureCombiner<TypeEmbeddingComp>>* embedding, Network* network, const std::shared_ptr<ResourceManager> resource_manager)
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(

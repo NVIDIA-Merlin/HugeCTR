@@ -160,7 +160,7 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
  * Create single network
  *
  */
-std::unique_ptr<Network> Network::create_network(
+Network* Network::create_network(
     const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
     std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
     const std::shared_ptr<CPUResource>& cpu_resource,
@@ -891,7 +891,7 @@ std::unique_ptr<Network> Network::create_network(
   CudaDeviceContext context(gpu_resource->get_device_id());
   blobs_buff->allocate();
 
-  return network;
+  return network.release();
 }
 
 }  // namespace HugeCTR
