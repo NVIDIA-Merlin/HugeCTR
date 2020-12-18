@@ -23,16 +23,31 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
+#include <map>
+#include <inference/hugectrmodel.hpp>
 
 namespace HugeCTR {
 
+struct parameter_server_config{
+  std::map<std::string, size_t> model_name_id_map_;
+  // Each vector should have size of M(# of models), where each element in the vector should be a vector with size E(# of embedding tables in that model)
+  std::vector<std::vector<std::string>> emb_file_name_; // The file name per embedding table per model
+  std::vector<std::vector<bool>> distributed_emb_; // The file format flag per embedding table per model
+  std::vector<std::vector<size_t>> embedding_vec_size_; // The emb_vec_size per embedding table per model
+  std::vector<std::vector<float>> default_emb_vec_value_; // The defualt emb_vec value when emb_id cannot be found, per embedding table per model
+};
+
+// Base interface class for parameter_server
+// 1 instance per HugeCTR backend(1 instance per all models per all embedding tables)
 template <typename TypeHashKey>
 class HugectrUtility {
  public:
   HugectrUtility();
   virtual ~HugectrUtility();
-  virtual void look_up(const TypeHashKey* embeddingcolumns, size_t length, float* embeddingoutputvector, cudaStream_t stream) = 0;
-  static HugectrUtility<TypeHashKey>* Create_Embedding(INFER_TYPE Infer_type, const nlohmann::json& model_config);
+  // Should not be called directly, should be called by embedding cache
+  virtual void look_up(const TypeHashKey* h_embeddingcolumns, size_t length, float* h_embeddingoutputvector, const std::string& model_name, size_t embedding_table_id) = 0;
+  static HugectrUtility<TypeHashKey>* Create_Parameter_Server(INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path, const std::vector<std::string>& model_name);
 };
 
 }  // namespace HugeCTR

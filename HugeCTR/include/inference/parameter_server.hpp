@@ -27,38 +27,25 @@
 #include <utility>
 #include <vector>
 #include <unordered_map>
-
-#include <inference/hugectrmodel.hpp>
 #include <inference/inference_utils.hpp>
 
 namespace HugeCTR {
 
-struct parameter_server_config{
-  std::string emb_file_name_; // For multiple embedding tables, string vector is needed
-  bool distributed_emb_; // true for distributed, false for localized, for multiple embedding tables, bool vector is needed
-  size_t embedding_vec_size_; // For multiple embedding tables, size_t vector is needed
-  float default_emb_vec_value_; // Used when embedding id cannot be found in embedding table
-  size_t max_query_length_;
-};
-
 template <typename TypeHashKey>
 class parameter_server : public HugectrUtility<TypeHashKey> {
  public:
-  parameter_server(const std::string& model_name, const nlohmann::json& model_config);
+  parameter_server(const std::string& framework_name, const std::vector<std::string>& model_config_path, const std::vector<std::string>& model_name);
   virtual ~parameter_server();
-
-  void look_up(const TypeHashKey* embeddingcolumns, size_t length, float* embeddingoutputvector, cudaStream_t stream);
+  // Should not be called directly, should be called by embedding cache
+  virtual void look_up(const TypeHashKey* h_embeddingcolumns, size_t length, float* h_embeddingoutputvector, const std::string& model_name, size_t embedding_table_id);
 
  private:
-  // The model name
-  std::string model_name_;
-  // The embedding table stored on CPU
-  std::unordered_map<TypeHashKey, std::vector<float>> cpu_embedding_table_;
-  // The temp buffers used internally
-  TypeHashKey* h_embeddingcolumns_;
-  float* h_embeddingoutputvector_;
-  // The model configuration
-  parameter_server_config model_config_;
+  // The framework name
+  std::string framework_name_;
+  // Currently, embedding tables are implemented as CPU hashtable, 1 hashtable per embedding table per model
+  std::vector<std::vector<std::unordered_map<TypeHashKey, std::vector<float>>>> cpu_embedding_table_;
+  // The parameter server configuration
+  parameter_server_config ps_config_;
 };
 
 }  // namespace HugeCTR
