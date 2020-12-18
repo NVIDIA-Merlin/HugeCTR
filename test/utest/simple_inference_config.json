@@ -1,6 +1,6 @@
 {
   "inference": {
-    "max_batchsize": 1024,
+    "max_batchsize": 2,
     "dense_model_file": "",
     "sparse_model_file": ""
   },
@@ -11,14 +11,14 @@
       "check": "Sum",
       "dense": {
         "top": "dense",
-        "dense_dim": 64
+        "dense_dim": 10
       },
       "sparse": [
         {
           "top": "data1",
           "type": "DistributedSlot",
-          "max_feature_num_per_sample": 100,
-          "slot_num": 10
+          "max_feature_num_per_sample": 5,
+          "slot_num": 2
         }
       ]
     },
@@ -30,7 +30,7 @@
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
         "max_vocabulary_size_per_gpu": 2603616,
-        "embedding_vec_size": 64,
+        "embedding_vec_size": 10,
         "combiner": 1
       }
     },
@@ -39,7 +39,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 640
+      "leading_dim": 20
     },
     {
       "name": "concat1",
@@ -66,52 +66,9 @@
       "top": "relu1"
     },
     {
-      "name": "multiply1",
-      "type": "Multiply",
-      "bottom": "relu1",
-      "weight_dims": [
-        200,
-        10
-      ],
-      "top": "multiply1"
-    },
-    {
-      "name": "fmorder2_1",
-      "type": "FmOrder2",
-      "bottom": "reshape1",
-      "out_dim": 64,
-      "top": "fmorder2_1"
-    },
-    {
-      "name": "reducesum1",
-      "type": "ReduceSum",
-      "bottom": "fmorder2_1",
-      "axis": 1,
-      "top": "reducesum1"
-    },
-    {
-      "name": "slice1",
-      "type": "Slice",
-      "bottom": "concat1",
-      "ranges": [
-        [
-          0,
-          200
-        ],
-        [
-          300,
-          400
-        ]
-      ],
-      "top": [
-        "slice11",
-        "slice12"
-      ]
-    },
-    {
       "name": "fc2",
       "type": "InnerProduct",
-      "bottom": "slice11",
+      "bottom": "relu1",
       "top": "fc2",
       "fc_param": {
         "num_output": 200
@@ -124,18 +81,9 @@
       "top": "relu2"
     },
     {
-      "name": "multicross1",
-      "type": "MultiCross",
-      "bottom": "relu2",
-      "top": "multicross1",
-      "mc_param": {
-        "num_layers": 2
-      }
-    },
-    {
       "name": "fc3",
       "type": "InnerProduct",
-      "bottom": "multicross1",
+      "bottom": "relu2",
       "top": "fc3",
       "fc_param": {
         "num_output": 200
@@ -157,13 +105,10 @@
       }
     },
     {
-      "name": "add",
-      "type": "Add",
-      "bottom": [
-        "fc4",
-        "reducesum1"
-      ],
-      "top": "add"
+      "name": "sigmoid",
+      "type": "Sigmoid",
+      "bottom": "fc4",
+      "top": "sigmoid"
     }
   ]
 }

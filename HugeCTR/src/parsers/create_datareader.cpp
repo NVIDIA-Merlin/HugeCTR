@@ -56,8 +56,8 @@ template <typename TypeKey>
 void create_datareader<TypeKey>::operator()(
     const nlohmann::json& j, std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
     std::vector<TensorEntry>* tensor_entries_list,
-    std::shared_ptr<IDataReader> data_reader,
-    std::shared_ptr<IDataReader> data_reader_eval,
+    std::shared_ptr<IDataReader>& data_reader,
+    std::shared_ptr<IDataReader>& data_reader_eval,
     size_t batch_size,
     size_t batch_size_eval,
     bool use_mixed_precision,

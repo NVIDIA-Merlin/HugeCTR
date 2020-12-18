@@ -36,6 +36,7 @@ Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
 #else
       enable_cuda_graph_(false),
 #endif
+      predict_graph_created_(false),
       eval_graph_created_(false),
       train_fprop_graph_created_(false),
       train_bprop_graph_created_(false) {
@@ -133,6 +134,30 @@ void Network::eval() {
   }
   loss_->compute(false);
 
+  return;
+}
+
+
+void Network::predict() {
+  if (enable_cuda_graph_) {
+    if (!predict_graph_created_) {
+      CK_CUDA_THROW_(
+          cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+      // forward
+      for (auto& layer : layers_) {
+        layer->fprop(false);
+      }
+      CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &predict_graph_));
+      CK_CUDA_THROW_(cudaGraphInstantiate(&predict_instance_, predict_graph_, NULL, NULL, 0));
+      predict_graph_created_ = true;
+    }
+    CK_CUDA_THROW_(cudaGraphLaunch(predict_instance_, gpu_resource_->get_stream()));
+  } else {
+    // forward
+    for (auto& layer : layers_) {
+      layer->fprop(false);
+    }
+  }
   return;
 }
 

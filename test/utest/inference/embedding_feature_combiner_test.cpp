@@ -140,17 +140,17 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
 
 TEST(embedding_feature_combiner, fp32_10x1x64_10_Sum) { embedding_feature_combine_test<float>(10, 1, 64, 10, EmbeddingFeatureCombiner_t::Sum); }
 TEST(embedding_feature_combiner, fp32_10x10x64_1_Sum) { embedding_feature_combine_test<float>(10, 10, 64, 1, EmbeddingFeatureCombiner_t::Sum); }
-TEST(embedding_feature_combiner, fp32_40960x26x64_1_Sum) { embedding_feature_combine_test<float>(40960, 26, 64, 1, EmbeddingFeatureCombiner_t::Sum); }
-TEST(embedding_feature_combiner, fp32_40960x26x64_3_Sum) { embedding_feature_combine_test<float>(40960, 26, 64, 3, EmbeddingFeatureCombiner_t::Sum); }
+TEST(embedding_feature_combiner, fp32_4096x26x64_1_Sum) { embedding_feature_combine_test<float>(4096, 26, 64, 1, EmbeddingFeatureCombiner_t::Sum); }
+TEST(embedding_feature_combiner, fp32_4096x26x64_3_Sum) { embedding_feature_combine_test<float>(4096, 26, 64, 3, EmbeddingFeatureCombiner_t::Sum); }
 TEST(embedding_feature_combiner, fp32_10x1x64_10_Mean) { embedding_feature_combine_test<float>(10, 1, 64, 10, EmbeddingFeatureCombiner_t::Mean); }
 TEST(embedding_feature_combiner, fp32_10x10x64_1_Mean) { embedding_feature_combine_test<float>(10, 10, 64, 1, EmbeddingFeatureCombiner_t::Mean); }
-TEST(embedding_feature_combiner, fp32_40960x26x64_1_Mean) { embedding_feature_combine_test<float>(40960, 26, 64, 1, EmbeddingFeatureCombiner_t::Mean); }
-TEST(embedding_feature_combiner, fp32_40960x26x64_3_Mean) { embedding_feature_combine_test<float>(40960, 26, 64, 3, EmbeddingFeatureCombiner_t::Mean); }
+TEST(embedding_feature_combiner, fp32_4096x26x64_1_Mean) { embedding_feature_combine_test<float>(4096, 26, 64, 1, EmbeddingFeatureCombiner_t::Mean); }
+TEST(embedding_feature_combiner, fp32_40960x26x64_3_Mean) { embedding_feature_combine_test<float>(4096, 26, 64, 3, EmbeddingFeatureCombiner_t::Mean); }
 TEST(embedding_feature_combiner, fp16_10x1x64_10_Sum) { embedding_feature_combine_test<__half>(10, 1, 64, 10, EmbeddingFeatureCombiner_t::Sum); }
 TEST(embedding_feature_combiner, fp16_10x10x64_1_Sum) { embedding_feature_combine_test<__half>(10, 10, 64, 1, EmbeddingFeatureCombiner_t::Sum); }
-TEST(embedding_feature_combiner, fp16_40960x26x64_1_Sum) { embedding_feature_combine_test<__half>(40960, 26, 64, 1, EmbeddingFeatureCombiner_t::Sum); }
-TEST(embedding_feature_combiner, fp16_40960x26x64_3_Sum) { embedding_feature_combine_test<__half>(40960, 26, 64, 3, EmbeddingFeatureCombiner_t::Sum); }
+TEST(embedding_feature_combiner, fp16_4096x26x64_1_Sum) { embedding_feature_combine_test<__half>(4096, 26, 64, 1, EmbeddingFeatureCombiner_t::Sum); }
+TEST(embedding_feature_combiner, fp16_4096x26x64_3_Sum) { embedding_feature_combine_test<__half>(4096, 26, 64, 3, EmbeddingFeatureCombiner_t::Sum); }
 TEST(embedding_feature_combiner, fp16_10x1x64_10_Mean) { embedding_feature_combine_test<__half>(10, 1, 64, 10, EmbeddingFeatureCombiner_t::Mean); }
 TEST(embedding_feature_combiner, fp16_10x10x64_1_Mean) { embedding_feature_combine_test<__half>(10, 10, 64, 1, EmbeddingFeatureCombiner_t::Mean); }
-TEST(embedding_feature_combiner, fp16_40960x26x64_1_Mean) { embedding_feature_combine_test<__half>(40960, 26, 64, 1, EmbeddingFeatureCombiner_t::Mean); }
-TEST(embedding_feature_combiner, fp16_40960x26x64_3_Mean) { embedding_feature_combine_test<__half>(40960, 26, 64, 3, EmbeddingFeatureCombiner_t::Mean); }
+TEST(embedding_feature_combiner, fp16_4096x26x64_1_Mean) { embedding_feature_combine_test<__half>(4096, 26, 64, 1, EmbeddingFeatureCombiner_t::Mean); }
+TEST(embedding_feature_combiner, fp16_4096x26x64_3_Mean) { embedding_feature_combine_test<__half>(4096, 26, 64, 3, EmbeddingFeatureCombiner_t::Mean); }
