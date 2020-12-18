@@ -192,10 +192,9 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
 
   auto j_layers_array = get_json(config_, "layers");
   
-  create_embedding<unsigned int, TypeEmbeddingComp>()(inference_parser, j_layers_array, rows, embeddingvecs, &tensor_entries, embeddings, resource_manager->get_local_gpu(0));
+  auto input_buffer = GeneralBuffer2<CudaAllocator>::create();
   
   {
-    auto input_buffer = GeneralBuffer2<CudaAllocator>::create();
     const nlohmann::json& j_data = j_layers_array[0];
     auto j_dense = get_json(j_data, "dense");
     auto top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
@@ -206,10 +205,18 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
     tensor_entries.push_back({top_strs_dense, TensorUse::General, dense_input_tensor.shrink()});
   }
 
-  // create network
+  create_embedding<unsigned int, TypeEmbeddingComp>()(inference_parser, j_layers_array, rows, embeddingvecs, &tensor_entries,
+                                                    embeddings, resource_manager->get_local_gpu(0), input_buffer);
+  input_buffer->allocate();
+
+  //create network
   *network = Network::create_network(
       j_layers_array, "", tensor_entries, 1, resource_manager->get_local_cpu(),
       resource_manager->get_local_gpu(0), inference_parser.use_mixed_precision, inference_parser.scaler, false, inference_parser.use_cuda_graph, true);
+
+  for (auto tensor_entry:tensor_entries) {
+    std::cout << "[HUGECTR][INFO] tensor name: " << tensor_entry.name << ", tensor use: " << (int)tensor_entry.use << ", pointer: " << tensor_entry.bag.get_ptr() << std::endl;
+  }
 }
 
 void Parser::create_pipeline(const InferenceParser& inference_parser, std::vector<Tensor2<int>>& rows,

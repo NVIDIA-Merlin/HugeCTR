@@ -164,7 +164,8 @@ Network* Network::create_network(
     const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
     std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
     const std::shared_ptr<CPUResource>& cpu_resource,
-    const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision, float scaler,
+    const std::shared_ptr<GPUResource>& gpu_resource,
+    bool use_mixed_precision, float scaler,
     bool use_algorithm_search, bool use_cuda_graph, bool inference_flag) {
   std::unique_ptr<Network> network(
       new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
@@ -881,6 +882,14 @@ Network* Network::create_network(
     network->optimizer_ = std::move(Optimizer::Create(
         opt_param, weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
         use_mixed_precision, scaler, blobs_buff, gpu_resource));
+  } else {
+    try {
+      TensorEntry pred_tensor_entry = tensor_entries.back();
+      network->pred_tensor_ = Tensor2<float>::stretch_from(pred_tensor_entry.bag);
+    } catch (const std::runtime_error& rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+      throw;
+    }
   }
 
   network->weight_tensor_ = weight_buff->as_tensor();
@@ -890,7 +899,6 @@ Network* Network::create_network(
 
   CudaDeviceContext context(gpu_resource->get_device_id());
   blobs_buff->allocate();
-
   return network.release();
 }
 

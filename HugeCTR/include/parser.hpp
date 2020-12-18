@@ -264,7 +264,6 @@ template <typename T>
 inline T get_value_from_json(const nlohmann::json& json, const std::string key) {
   HAS_KEY_(json, key);
   auto value = json.find(key).value();
-  MESSAGE_("get_value_from_json: " + key);
   CK_SIZE_(value, 1);
   return value.get<T>();
 }
@@ -296,7 +295,14 @@ struct create_embedding {
                   size_t batch_size_eval, bool use_mixed_precision, float scaler,
                   const nlohmann::json& j_layers);
 
-  void operator()(const InferenceParser& inference_parser, const nlohmann::json& j_layers_array, Tensors2<int>& rows, Tensors2<float>& embeddingvecs, std::vector<TensorEntry>* tensor_entries, std::vector<std::shared_ptr<Layer>>* embeddings, const std::shared_ptr<GPUResource> gpu_resource);
+  void operator()(const InferenceParser& inference_parser,
+                  const nlohmann::json& j_layers_array,
+                  Tensors2<int>& rows,
+                  Tensors2<float>& embeddingvecs,
+                  std::vector<TensorEntry>* tensor_entries,
+                  std::vector<std::shared_ptr<Layer>>* embeddings,
+                  const std::shared_ptr<GPUResource> gpu_resource,
+                  std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff);
 };
 
 template <typename TypeKey>
@@ -304,8 +310,8 @@ struct create_datareader {
   void operator()(const nlohmann::json& j,
                   std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::vector<TensorEntry>* tensor_entries_list,
-                  std::shared_ptr<IDataReader> data_reader,
-                  std::shared_ptr<IDataReader> data_reader_eval, size_t batch_size,
+                  std::shared_ptr<IDataReader>& data_reader,
+                  std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
                   size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
                   const std::shared_ptr<ResourceManager> resource_manager);
 };
