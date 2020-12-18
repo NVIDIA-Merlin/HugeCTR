@@ -20,6 +20,7 @@
 #include <loss.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
+#include <inference/preallocated_buffer2.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -178,11 +179,12 @@ void create_embedding<TypeKey, TypeFP>::operator()(
 }
 
 template <typename TypeKey, typename TypeFP>
-void create_embedding<TypeKey, TypeFP>::operator()(
+void create_embedding<TypeKey, TypeFP>::operator() (
     const InferenceParser& inference_parser, const nlohmann::json& j_layers_array,
     Tensors2<int>& rows, Tensors2<float>& embeddingvecs, std::vector<TensorEntry>* tensor_entries,
     std::vector<std::shared_ptr<Layer>>* embeddings,
-    const std::shared_ptr<GPUResource> gpu_resource) {
+    const std::shared_ptr<GPUResource> gpu_resource,
+    std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff) {
   MESSAGE_("start create embedding for inference");
   auto j_data = j_layers_array[0];
   if (!has_key_(j_data, "sparse")) {
@@ -198,8 +200,6 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     MESSAGE_("sparse_input name " + top);
     slot_nums_map[top] = std::make_pair(slot_num,max_feature_num_per_sample);
   }
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
-      GeneralBuffer2<CudaAllocator>::create();
   if(j_layers_array.size() < 1){
     CK_THROW_(Error_t::WrongInput, "layer not defined in config");
   }
@@ -228,21 +228,24 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       CK_THROW_(Error_t::WrongInput, "combiner need to be 0 or 1");
     }
     size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
-    rows.push_back(
-        Tensor2<int>({inference_parser.max_batchsize * slot_num + 1}, nullptr));
-    embeddingvecs.push_back(Tensor2<float>(
-        {inference_parser.max_batchsize * max_feature_num_per_sample, embedding_vec_size},
-        nullptr));
 
+    std::vector<size_t> row_dims = { static_cast<size_t>(inference_parser.max_batchsize * slot_num + 1) };
+    std::vector<size_t> embeddingvecs_dims = { static_cast<size_t>(inference_parser.max_batchsize * max_feature_num_per_sample),
+                                               static_cast<size_t>(embedding_vec_size) };
+    Tensor2<int> row_tensor;
+    Tensor2<float> embeddingvecs_tensor;
+    blobs_buff->reserve(row_dims, &row_tensor);
+    blobs_buff->reserve(embeddingvecs_dims, &embeddingvecs_tensor);
+    rows.push_back(row_tensor);
+    embeddingvecs.push_back(embeddingvecs_tensor);
     Tensor2<TypeFP> embedding_output;
     embeddings->push_back(std::make_shared<EmbeddingFeatureCombiner<TypeFP>>(
-        embeddingvecs.back(), rows.back(), embedding_output, inference_parser.max_batchsize,
+        embeddingvecs[0], rows[0], embedding_output, inference_parser.max_batchsize,
         slot_num, feature_combiner_type, blobs_buff, gpu_resource));
     tensor_entries->push_back({layer_top, TensorUse::General, embedding_output.shrink()});
   }
 
   CudaDeviceContext context(gpu_resource->get_device_id());
-  blobs_buff->allocate();
   MESSAGE_("create embedding for inference success");
 }
 

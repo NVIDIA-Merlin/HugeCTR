@@ -93,6 +93,7 @@ class TensorBag2 {
 
  public:
   TensorBag2() : scalar_type_(TensorScalarType::None) {}
+  void* get_ptr() { return buffer_->get_ptr(); }
 };
 
 template <typename T>

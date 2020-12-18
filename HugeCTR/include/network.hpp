@@ -54,6 +54,8 @@ class Network {
   Tensor2<__half> weight_tensor_half_;
   Tensor2<__half> wgrad_tensor_half_;
 
+  Tensor2<float> pred_tensor_;
+
   std::shared_ptr<CPUResource> cpu_resource_;
   std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
   std::unique_ptr<Optimizer> optimizer_;      /**< optimizer */
@@ -64,12 +66,15 @@ class Network {
   void conv_weight_();
   metrics::RawMetricMap raw_metrics_;
 
+  bool predict_graph_created_;
   bool eval_graph_created_;
   bool train_fprop_graph_created_;
   bool train_bprop_graph_created_;
+  cudaGraph_t predict_graph_;
   cudaGraph_t eval_graph_;
   cudaGraph_t train_fprop_graph_;
   cudaGraph_t train_bprop_graph_;
+  cudaGraphExec_t predict_instance_;
   cudaGraphExec_t eval_instance_;
   cudaGraphExec_t train_fprop_instance_;
   cudaGraphExec_t train_bprop_instance_;
@@ -96,6 +101,19 @@ class Network {
    * Forward only.
    */
   void eval();
+
+
+  /**
+   * Forward only for inference.
+   */
+  void predict();
+
+  /**
+   * Get the pred tensor for inference.
+   */
+  Tensor2<float> get_pred_tensor() {
+    return pred_tensor_;
+  }
 
   /**
    * Get current loss and return.
