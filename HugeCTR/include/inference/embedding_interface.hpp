@@ -15,13 +15,7 @@
  */
 
 #pragma once
-#include <common.hpp>
 #include <iostream>
-#include <embedding.hpp>
-#include <metrics.hpp>
-#include <network.hpp>
-#include <parser.hpp>
-#include <utils.hpp>
 #include <string>
 #include <thread>
 #include <utility>
@@ -66,6 +60,16 @@ class embedding_interface{
                       const void* d_missing_embeddingcolumns,
                       const float* d_missing_emb_vec,
                       const std::vector<cudaStream_t>& streams) = 0;
+  template <typename TypeHashKey>
+  static embedding_interface* Create_Embedding_Cache(HugectrUtility<TypeHashKey>* parameter_server, // The backend PS
+                  int cuda_dev_id, // Which CUDA device this cache belongs to
+                  bool use_gpu_embedding_cache, // Whether enable GPU embedding cache or not
+                  // The ratio of (size of GPU embedding cache : size of embedding table) for all embedding table in this model. Should between (0.0, 1.0].
+                  float cache_size_percentage,
+                  const std::string& model_config_path,
+                  const std::string& model_name
+);
 };
 
 }  // namespace HugeCTR
+
