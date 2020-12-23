@@ -15,17 +15,10 @@
  */
 
 #pragma once
-#include <common.hpp>
-#include <embedding.hpp>
-#include <metrics.hpp>
-#include <network.hpp>
-#include <parser.hpp>
 #include <string>
 #include <thread>
-#include <utility>
-#include <vector>
 #include <map>
-#include <inference/hugectrmodel.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -51,3 +44,4 @@ class HugectrUtility {
 };
 
 }  // namespace HugeCTR
+
