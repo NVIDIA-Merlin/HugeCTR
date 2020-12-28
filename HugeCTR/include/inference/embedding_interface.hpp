@@ -40,7 +40,7 @@ class embedding_interface{
   embedding_interface();
   virtual ~embedding_interface();
 
-  virtual void look_up(const void* h_embeddingcolumns, // The input emb_id buffer(before shuffle) on host
+  virtual void look_up(const void* h_embeddingcolumns, // The input emb_id buffer(before shuffle) on host from Triton(origin embedding columns)
                        const std::vector<size_t>& h_embedding_offset, // The input offset on host, size = (# of samples * # of emb_table) + 1
                        void* d_shuffled_embeddingcolumns, // The shuffled emb_id buffer on device, same size as h_embeddingcolumns
                        void* h_shuffled_embeddingcolumns, // The shuffled emb_id buffer on host, same size as h_embeddingcolumns
