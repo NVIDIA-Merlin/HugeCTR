@@ -19,6 +19,7 @@
 #include <thread>
 #include <map>
 #include <vector>
+#include <inference/hugectrmodel.hpp>
 
 namespace HugeCTR {
 

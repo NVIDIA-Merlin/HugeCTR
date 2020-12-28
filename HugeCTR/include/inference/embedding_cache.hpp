@@ -27,7 +27,6 @@
 #include <utility>
 #include <vector>
 #include <inference/embedding_interface.hpp>
-#include <inference/inference_utils.hpp>
 
 namespace HugeCTR {
 
@@ -41,28 +40,24 @@ class embedding_cache : public embedding_interface {
                   float cache_size_percentage, 
                   const std::string& model_config_path, 
                   const std::string& model_name);
+
   virtual ~embedding_cache();
 
+  // Allocate a copy of workspace memory for a worker, should be called once by a worker
+  virtual void create_workspace(embedding_cache_workspace& workspace_handler);
+
+  // Free a copy of workspace memory for a worker, should be called once by a worker
+  virtual void destroy_workspace(embedding_cache_workspace& workspace_handler);
+
+  // Query embeddingcolumns
   virtual void look_up(const void* h_embeddingcolumns, // The input emb_id buffer(before shuffle) on host
                        const std::vector<size_t>& h_embedding_offset, // The input offset on host, size = (# of samples * # of emb_table) + 1
-                       void* d_shuffled_embeddingcolumns, // The shuffled emb_id buffer on device, same size as h_embeddingcolumns
-                       void* h_shuffled_embeddingcolumns, // The shuffled emb_id buffer on host, same size as h_embeddingcolumns
-                       std::vector<size_t>& h_shuffled_embedding_offset, // The offset of each emb_table in shuffled emb_id buffer on host, size = # of emb_table + 1
-                       void* d_missing_embeddingcolumns, // The buffer to hold missing emb_id for each emb_table on device, same size as h_embeddingcolumns
-                       void* h_missing_embeddingcolumns, // The buffer to hold missing emb_id for each emb_table on host, same size as h_embeddingcolumns
-                       size_t* d_missing_length, // The buffer to hold missing length for each emb_table on device, size = # of emb_table
-                       size_t* h_missing_length, // The buffer to hold missing length for each emb_table on host, size = # of emb_table
-                       uint64_t* d_missing_index, // The buffer to hold missing index for each emb_table on device, same size as h_embeddingcolumns
-                       float* d_missing_emb_vec, // The buffer to hold retrieved missing emb_vec on device, same size as d_shuffled_embeddingoutputvector
-                       float* h_missing_emb_vec, // The buffer to hold retrieved missing emb_vec from PS on host, same size as d_shuffled_embeddingoutputvector
                        float* d_shuffled_embeddingoutputvector, // The output buffer for emb_vec result on device
-                       const std::vector<cudaStream_t>& streams); // The CUDA stream to launch kernel to each embd_cache for each emb_table, size = # of emb_table(cache)
+                       embedding_cache_workspace& workspace_handler, // The handler to the workspace buffers
+                       const std::vector<cudaStream_t>& streams); // The CUDA stream to launch kernel to each emb_cache for each emb_table, size = # of emb_table(cache)
 
-  virtual void update(const std::vector<size_t>& h_shuffled_embedding_offset, // The same buffer as look_up
-                      const size_t* h_missing_length,
-                      const void* d_missing_embeddingcolumns,
-                      const float* d_missing_emb_vec,
-                      const std::vector<cudaStream_t>& streams);
+  // Update the embedding cache with missing embeddingcolumns from query API
+  virtual void update(const std::vector<cudaStream_t>& streams);
 
  private:
   // The back-end parameter server
