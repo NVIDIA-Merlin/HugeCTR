@@ -64,26 +64,44 @@ void SparseEmbeddingFunctors::get_forward_results(size_t memcpy_size,
 
   cudaMemcpyKind direction = (on_gpu ? cudaMemcpyDeviceToDevice : cudaMemcpyDeviceToHost);
 
-  CudaDeviceContext context;
   if (total_gpu_count > 1) {
-    // nccl allGather
-    all_gather(memcpy_size,
-               embedding_feature_tensors,  // send
-               temp_tensors,               // recv
-               resource_manager);
+    //if all p2p is enabled, use p2p, otherwise use all_gather
+    if (resource_manager.all_p2p_enabled()) {
+      /*p2p copy*/
+      TypeEmbeddingComp* embedding_feature_ptr = reinterpret_cast<TypeEmbeddingComp*>(embedding_feature);
+      for (size_t dev_id = 0; dev_id < total_gpu_count; ++dev_id){
+        CudaDeviceContext context;
+        const auto& local_gpu = resource_manager.get_local_gpu(dev_id);
+        context.set_device(local_gpu->get_device_id());
 
-    // memcpy D2H
-    context.set_device(local_gpu->get_device_id());
-    CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature, temp_tensors[0].get_ptr(),
-                                  total_gpu_count * memcpy_size * sizeof(TypeEmbeddingComp),
-                                  direction, local_gpu->get_stream())); 
-    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
+        size_t offset = dev_id * embedding_feature_tensors[0].get_num_elements();
+        CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature_ptr + offset,
+                                      embedding_feature_tensors[dev_id].get_ptr(),
+                                      embedding_feature_tensors[dev_id].get_size_in_bytes(),
+                                      cudaMemcpyDeviceToDevice,
+                                      local_gpu->get_stream()));
+      } // for dev_id
+    } else {
+      /*nccl all_gather*/
+      all_gather(memcpy_size,
+                 embedding_feature_tensors, // send
+                 temp_tensors, // recv
+                 resource_manager);
+
+      CudaDeviceContext context;
+      context.set_device(local_gpu->get_device_id());
+      CK_CUDA_THROW_(cudaMemcpyAsync(embedding_feature,
+                                     temp_tensors[0].get_ptr(),
+                                     total_gpu_count * memcpy_size * sizeof(TypeEmbeddingComp),
+                                     direction,
+                                     local_gpu->get_stream()));
+    }
   } else {
+    CudaDeviceContext context;
     context.set_device(local_gpu->get_device_id());
     CK_CUDA_THROW_(cudaMemcpyAsync(
         embedding_feature, embedding_feature_tensors[0].get_ptr(),
         memcpy_size * sizeof(TypeEmbeddingComp), direction, local_gpu->get_stream())); 
-    CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_stream()));
   }
 
   return;
