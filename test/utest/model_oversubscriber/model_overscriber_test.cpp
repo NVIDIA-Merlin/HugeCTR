@@ -176,6 +176,7 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   SolverParser solver_config;
   solver_config.embedding_files.push_back(snapshot_src_file);
   solver_config.i64_input_key = true;
+  solver_config.enable_tf32_compute = false;
 
   // Create a ModelOversubscriber
   std::vector<std::shared_ptr<IEmbedding>> embeddings;

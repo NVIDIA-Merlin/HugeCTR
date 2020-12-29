@@ -46,7 +46,7 @@ def main(args):
                              n_epochs=args.n_epochs,
                              distribute_keys=tf.constant(True, dtype=tf.bool),
                              gpu_count=len(args.gpus),
-                             embedding_type=tf.constant('distributed', dtype=tf.string))
+                             embedding_type='distributed')
 
     # ----------- build model and optimizers ---------------------------------------- #
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)

@@ -91,12 +91,14 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
 
   Parser parser(config_file, solver_config.batchsize, solver_config.batchsize_eval,
                 solver_config.num_epochs < 1, solver_config.i64_input_key,
-                solver_config.use_mixed_precision, solver_config.scaler,
+                solver_config.use_mixed_precision, solver_config.enable_tf32_compute,
+                solver_config.scaler,
                 solver_config.use_algorithm_search, solver_config.use_cuda_graph);
 
   parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_, resource_manager_);
 
-  #ifndef DATA_READING_TEST
+
+#ifndef DATA_READING_TEST
   for (auto& network : networks_) {
     network->initialize();
   }
