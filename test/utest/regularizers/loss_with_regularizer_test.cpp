@@ -174,8 +174,11 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   cudaMemcpy(label_tensor.get_ptr(), &h_label.front(), label_tensor.get_size_in_bytes(),
              cudaMemcpyHostToDevice);
 
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   fc_layer_no.fprop(true);
   loss_no.compute(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
   std::unique_ptr<float> loss_no_val(new float);
   cudaMemcpy(loss_no_val.get(), loss_tensor_no.get_ptr(), loss_tensor_no.get_size_in_bytes(),
              cudaMemcpyDeviceToHost);
@@ -183,22 +186,32 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   float ref_term = get_ref_term(type, h_weight, lambda, batch_size);
   *loss_no_val += ref_term;
 
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   fc_layer_re.fprop(true);
   loss_re.compute(true);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
   std::unique_ptr<float> loss_re_val(new float);
   cudaMemcpy(loss_re_val.get(), loss_tensor_re.get_ptr(), loss_tensor_re.get_size_in_bytes(),
              cudaMemcpyDeviceToHost);
 
   ASSERT_TRUE(test::compare_array_approx<float>(loss_re_val.get(), loss_no_val.get(), 1, eps));
 
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   fc_layer_no.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
   std::vector<float> h_wgrad_prev(wgrad_buff_no->as_tensor().get_num_elements());
   cudaMemcpy(&h_wgrad_prev.front(), wgrad_buff_no->as_tensor().get_ptr(),
              wgrad_buff_no->as_tensor().get_size_in_bytes(), cudaMemcpyDeviceToHost);
 
   cudaMemcpy(in_tensor.get_ptr(), &h_input.front(), in_tensor.get_size_in_bytes(),
              cudaMemcpyHostToDevice);
+
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   fc_layer_re.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
   std::vector<float> h_wgrad_next(wgrad_buff_re->as_tensor().get_num_elements());
   cudaMemcpy(&h_wgrad_next.front(), wgrad_buff_re->as_tensor().get_ptr(),
              wgrad_buff_re->as_tensor().get_size_in_bytes(), cudaMemcpyDeviceToHost);
