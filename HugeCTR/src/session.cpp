@@ -100,7 +100,12 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
   // init networks.
   std::string TMP_DENSE_NAME;
   if (resource_manager_->get_pid() == 0) {
-    TMP_DENSE_NAME = "./" + generate_random_file_name();
+    std::string TMP_DENSE_NAME_PREFIX(std::getenv("TMP_DIR"));
+    if(TMP_DENSE_NAME_PREFIX.empty()){
+      TMP_DENSE_NAME = "./" + generate_random_file_name();
+    }else{
+      TMP_DENSE_NAME = TMP_DENSE_NAME_PREFIX + "/"+ generate_random_file_name();
+    }
     networks_[0]->init_params(TMP_DENSE_NAME);
   }
 #ifdef ENABLE_MPI

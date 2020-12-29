@@ -1,7 +1,7 @@
 from hugectr import Session, solver_parser_helper, get_learning_rate_scheduler
 import sys
 from mpi4py import MPI
-def model_oversubscriber_test(json_file):
+def model_oversubscriber_test(json_file, temp_dir):
   dataset = [("file_list."+str(i)+".txt", "file_list."+str(i)+".keyset") for i in range(5)]
   solver_config = solver_parser_helper(seed = 0,
                                      batchsize = 16384,
@@ -17,7 +17,7 @@ def model_oversubscriber_test(json_file):
                                      repeat_dataset = False
                                     )
   lr_sch = get_learning_rate_scheduler(json_file)
-  sess = Session(solver_config, json_file, True, "./temp_embedding")
+  sess = Session(solver_config, json_file, True, temp_dir)
   data_reader_train = sess.get_data_reader_train()
   data_reader_eval = sess.get_data_reader_eval()
   data_reader_eval.set_file_list_source("file_list.5.txt")
@@ -41,4 +41,5 @@ def model_oversubscriber_test(json_file):
 
 if __name__ == "__main__":
   json_file = sys.argv[1]
-  model_oversubscriber_test(json_file)
+  temp_dir = sys.argv[2]
+  model_oversubscriber_test(json_file, temp_dir)
