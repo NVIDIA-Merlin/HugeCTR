@@ -57,7 +57,8 @@ class embedding_cache : public embedding_interface {
                        const std::vector<cudaStream_t>& streams); // The CUDA stream to launch kernel to each emb_cache for each emb_table, size = # of emb_table(cache)
 
   // Update the embedding cache with missing embeddingcolumns from query API
-  virtual void update(const std::vector<cudaStream_t>& streams);
+  virtual void update(embedding_cache_workspace& workspace_handler, 
+                      const std::vector<cudaStream_t>& streams);
 
  private:
   // The back-end parameter server
