@@ -51,8 +51,8 @@ class Network {
                                  int num_networks_in_global,
                                  const std::shared_ptr<CPUResource>& cpu_resource,
                                  const std::shared_ptr<GPUResource>& gpu_resource,
-                                 bool use_mixed_precision, float scaler, bool use_algorithm_search,
-                                 bool use_cuda_graph);
+                                 bool use_mixed_precision, bool enable_tf32_compute,
+                                 float scaler, bool use_algorithm_search, bool use_cuda_graph);
 
  private:
   std::vector<std::unique_ptr<Layer>> layers_; /**< vector of layers */
