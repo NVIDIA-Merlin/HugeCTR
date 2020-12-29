@@ -29,6 +29,7 @@ namespace HugeCTR {
 class FullyConnectedLayer : public Layer {
  private:
   const bool use_mixed_precision_{false};
+  const bool enable_tf32_compute_{false};
   // Optimized cublasGemmEx algorithm selection
   cublasGemmAlgo_t falgo_{CUBLAS_GEMM_DEFAULT};
   cublasGemmAlgo_t balgo_W_{CUBLAS_GEMM_DEFAULT};
@@ -91,7 +92,8 @@ class FullyConnectedLayer : public Layer {
                       const Tensor2<float>& train_in_tensor,
                       const Tensor2<float>& evaluate_in_tensor, const Tensor2<float>& out_tensor,
                       const std::shared_ptr<GPUResource>& gpu_resource,
-                      bool use_mixed_precision = false,
+                      bool use_mixed_precision,
+                      bool enable_tf32_compute,
                       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);

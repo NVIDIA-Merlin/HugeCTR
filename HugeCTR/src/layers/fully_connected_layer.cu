@@ -31,8 +31,10 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<floa
                                          const Tensor2<float>& out_tensor,
                                          const std::shared_ptr<GPUResource>& gpu_resource,
                                          bool use_mixed_precision,
+                                         bool enable_tf32_compute,
                                          std::vector<Initializer_t> initializer_types)
-    : Layer(gpu_resource, initializer_types), use_mixed_precision_(use_mixed_precision) {
+    : Layer(gpu_resource, initializer_types), use_mixed_precision_(use_mixed_precision),
+      enable_tf32_compute_(enable_tf32_compute) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = train_in_tensor.get_dimensions();
@@ -135,9 +137,12 @@ void FullyConnectedLayer::fprop(bool is_train) {
 
   float alpha = 1.0f, beta = 0.0f;
 
+  cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
+
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
                                 &alpha, weight, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out,
-                                CUDA_R_32F, n, CUDA_R_32F, falgo_));
+                                CUDA_R_32F, n, compute_type, falgo_));
   add_bias(out, bias, m, n, true, get_gpu().get_stream());
 }
 
@@ -163,14 +168,18 @@ void FullyConnectedLayer::bprop() {
   k = in_tensor_dim[1];
 
   float alpha = 1.0f, beta_w = 1.0f, beta_x = 0.0f;
+
+  cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
+
   // gradient respect to W
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
                                 &alpha, out, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta_w, wgrad,
-                                CUDA_R_32F, n, CUDA_R_32F, balgo_W_));
+                                CUDA_R_32F, n, compute_type, balgo_W_));
   // gradient respect to Xn
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
                                 &alpha, weight, CUDA_R_32F, n, out, CUDA_R_32F, n, &beta_x, in,
-                                CUDA_R_32F, k, CUDA_R_32F, balgo_Xn_));
+                                CUDA_R_32F, k, compute_type, balgo_Xn_));
   MLCommon::LinAlg::reduce(bias_grad, out, m, n, float(0), false, true, get_gpu().get_stream(),
                            true);
 }
@@ -217,6 +226,9 @@ void FullyConnectedLayer::search_algorithm() {
     endAlgo = (int)CUBLAS_GEMM_ALGO23;
   }
 
+  cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
+
   // Search all the algorithm for fprop
   for (int testAlgo = startAlgo; testAlgo <= endAlgo; testAlgo++) {
     float alpha = 1.0f, beta = 0.0f;
@@ -226,7 +238,7 @@ void FullyConnectedLayer::search_algorithm() {
     for (int i = 0; i < repeat_num; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
                             &alpha, weight, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out,
-                            CUDA_R_32F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+                            CUDA_R_32F, n, compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
@@ -257,7 +269,7 @@ void FullyConnectedLayer::search_algorithm() {
     for (int i = 0; i < repeat_num; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
                             &alpha, out, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta_w, wgrad,
-                            CUDA_R_32F, n, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+                            CUDA_R_32F, n, compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));
@@ -288,7 +300,7 @@ void FullyConnectedLayer::search_algorithm() {
     for (int i = 0; i < repeat_num; ++i) {
       status = cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
                             &alpha, weight, CUDA_R_32F, n, out, CUDA_R_32F, n, &beta_x, in,
-                            CUDA_R_32F, k, CUDA_R_32F, static_cast<cublasGemmAlgo_t>(testAlgo));
+                            CUDA_R_32F, k, compute_type, static_cast<cublasGemmAlgo_t>(testAlgo));
     }
     CK_CUDA_THROW_(cudaEventRecord(stop, get_gpu().get_stream()));
     CK_CUDA_THROW_(cudaEventSynchronize(stop));

@@ -54,6 +54,7 @@ void test_impl(bool i64_input_key) {
   std::string json_name = PROJECT_HOME_ + "utest/simple_sparse_embedding_sgd.json";
   HugeCTR::SolverParser solver_config(json_name);
   solver_config.i64_input_key = i64_input_key;
+  solver_config.enable_tf32_compute = false;
 
   std::shared_ptr<Session> session_instance = std::make_shared<HugeCTR::Session>(solver_config, json_name);
   cudaProfilerStart();

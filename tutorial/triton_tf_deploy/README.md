@@ -70,14 +70,14 @@ I1119 04:24:47.994344 1 http_server.cc:2724] Started Metrics Service at 0.0.0.0:
 You can use the Triton client SDK to make inference requests to the running Triton server and get the corresponding responses.
 1. Pull the NGC docker image of triton client SDK:
 ```bash
-docker pull  nvcr.io/nvidia/tritonserver:20.09-py3-clientsdk
+docker pull nvcr.io/nvidia/tritonserver:20.09-py3-clientsdk
 ```
 2. Start the docker container on the client:
 ```bash
-docker run --rm -it nvcr.io/nvidia/tritonserver:20.09-py3-clientsdk
+docker run --rm -it -v /absolute/path/to/client/examples:/client/examples nvcr.io/nvidia/tritonserver:20.09-py3-clientsdk
 ```
 
-We provide two python examples, i.e., `hugectr_tf_criteo_client.py` and  `hugectr_tf_dcn_client.py`, based on Python client libraries of Triton to send inference request and receiving response. You need to modify the IP address in the scripts according to the running Triton server to succesfully make inference requests:
+We provide two python examples, i.e., `hugectr_tf_criteo_client.py` and  `hugectr_tf_dcn_client.py`, based on Python client libraries of Triton to send inference request and receiving response. You should create a folder on the clinet for these examples and mount the directory `/absolute/path/to/client/examples` into the container. Remember to modify the IP address in the scripts according to the running Triton server to succesfully make inference requests:
 ```bash
 root@3e84dc39688f:/client/examples# python3 hugectr_tf_criteo_client.py
 INPUT0: [      2     365    5840    8106   11025  144676  150012  151981  152540
