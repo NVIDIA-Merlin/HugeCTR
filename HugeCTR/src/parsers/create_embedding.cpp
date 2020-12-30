@@ -181,7 +181,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
 template <typename TypeKey, typename TypeFP>
 void create_embedding<TypeKey, TypeFP>::operator() (
     const InferenceParser& inference_parser, const nlohmann::json& j_layers_array,
-    Tensors2<int>& rows, Tensors2<float>& embeddingvecs, std::vector<TensorEntry>* tensor_entries,
+    std::vector<std::shared_ptr<Tensor2<int>>>& rows, std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs, std::vector<TensorEntry>* tensor_entries,
     std::vector<std::shared_ptr<Layer>>* embeddings,
     const std::shared_ptr<GPUResource> gpu_resource,
     std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff) {
@@ -232,10 +232,10 @@ void create_embedding<TypeKey, TypeFP>::operator() (
     std::vector<size_t> row_dims = { static_cast<size_t>(inference_parser.max_batchsize * slot_num + 1) };
     std::vector<size_t> embeddingvecs_dims = { static_cast<size_t>(inference_parser.max_batchsize * max_feature_num_per_sample),
                                                static_cast<size_t>(embedding_vec_size) };
-    Tensor2<int> row_tensor;
-    Tensor2<float> embeddingvecs_tensor;
-    blobs_buff->reserve(row_dims, &row_tensor);
-    blobs_buff->reserve(embeddingvecs_dims, &embeddingvecs_tensor);
+    std::shared_ptr<Tensor2<int>> row_tensor = std::make_shared<Tensor2<int>>();
+    std::shared_ptr<Tensor2<float>> embeddingvecs_tensor = std::make_shared<Tensor2<float>>();
+    blobs_buff->reserve(row_dims, row_tensor.get());
+    blobs_buff->reserve(embeddingvecs_dims, embeddingvecs_tensor.get());
     rows.push_back(row_tensor);
     embeddingvecs.push_back(embeddingvecs_tensor);
     Tensor2<TypeFP> embedding_output;

@@ -49,11 +49,11 @@ void preallocated_buffer2_test(int batch_size, int slot_num, int embedding_vec_s
   size_t row_ptrs_size_in_bytes = row_ptrs_size * TensorScalarSizeFunc<int>::get_element_size();
   void* d_row_ptrs = allocator.allocate(row_ptrs_size_in_bytes);
   CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size_in_bytes, cudaMemcpyHostToDevice));
-  Tensor2<int> row_ptrs_tensor;
+  std::shared_ptr<Tensor2<int>> row_ptrs_tensor = std::make_shared<Tensor2<int>>();
 
   MESSAGE_("Bind the tensor to preallocated buffer for the first time");
   std::shared_ptr<TensorBuffer2> row_ptrs_buff = PreallocatedBuffer2<int>::create(d_row_ptrs, row_ptrs_dims);
-  bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, &row_ptrs_tensor);
+  bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, row_ptrs_tensor);
 
   // embedding_features: h_embedding_features, d_embedding_features, embedding_features_tensor
   size_t feature_num = h_row_ptrs[row_ptrs_size-1];
@@ -69,16 +69,16 @@ void preallocated_buffer2_test(int batch_size, int slot_num, int embedding_vec_s
   void* d_embedding_features = allocator.allocate(embedding_features_size_in_bytes);
   CK_CUDA_THROW_(cudaMemcpy(d_embedding_features, h_embedding_features.get(), embedding_features_size_in_bytes, cudaMemcpyHostToDevice));
   
-  Tensor2<float> embedding_features_tensor;
+  std::shared_ptr<Tensor2<float>> embedding_features_tensor = std::make_shared<Tensor2<float>>();
   std::shared_ptr<TensorBuffer2> embeddding_features_buff = PreallocatedBuffer2<float>::create(d_embedding_features, embedding_features_dims);
-  bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff, &embedding_features_tensor);
+  bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff, embedding_features_tensor);
 
   // copy Tensor2 back to cpu and compare with original buffer
   std::unique_ptr<int[]> h_row_ptrs_back(new int[row_ptrs_size]);
   std::unique_ptr<float[]> h_embedding_features_back(new float[embedding_features_size]);
   CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(h_row_ptrs_back.get(), row_ptrs_tensor.get_ptr(), row_ptrs_size_in_bytes, cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaMemcpy(h_embedding_features_back.get(), embedding_features_tensor.get_ptr(), embedding_features_size_in_bytes, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(h_row_ptrs_back.get(), row_ptrs_tensor->get_ptr(), row_ptrs_size_in_bytes, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(h_embedding_features_back.get(), embedding_features_tensor->get_ptr(), embedding_features_size_in_bytes, cudaMemcpyDeviceToHost));
   ASSERT_TRUE(test::compare_array_approx<int>(h_row_ptrs.get(), h_row_ptrs_back.get(), row_ptrs_size, eps));
   ASSERT_TRUE(test::compare_array_approx<float>(h_embedding_features.get(), h_embedding_features_back.get(), embedding_features_size, eps));
 
@@ -87,19 +87,19 @@ void preallocated_buffer2_test(int batch_size, int slot_num, int embedding_vec_s
   CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs2, h_row_ptrs.get(), row_ptrs_size_in_bytes, cudaMemcpyHostToDevice));
 
   std::shared_ptr<TensorBuffer2> row_ptrs_buff2 = PreallocatedBuffer2<int>::create(d_row_ptrs2, row_ptrs_dims);
-  bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff2, &row_ptrs_tensor);
+  bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff2, row_ptrs_tensor);
 
   // embedding_features: h_embedding_features, d_embedding_features, embedding_features_tensor
   void* d_embedding_features2 = allocator.allocate(embedding_features_size_in_bytes);
   CK_CUDA_THROW_(cudaMemcpy(d_embedding_features2, h_embedding_features.get(), embedding_features_size_in_bytes, cudaMemcpyHostToDevice));
 
   std::shared_ptr<TensorBuffer2> embeddding_features_buff2 = PreallocatedBuffer2<float>::create(d_embedding_features2, embedding_features_dims);
-  bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff2, &embedding_features_tensor);
+  bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff2, embedding_features_tensor);
 
   // copy Tensor2 back to cpu and compare with original buffer
   CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(h_row_ptrs_back.get(), row_ptrs_tensor.get_ptr(), row_ptrs_size_in_bytes, cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaMemcpy(h_embedding_features_back.get(), embedding_features_tensor.get_ptr(), embedding_features_size_in_bytes, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(h_row_ptrs_back.get(), row_ptrs_tensor->get_ptr(), row_ptrs_size_in_bytes, cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(h_embedding_features_back.get(), embedding_features_tensor->get_ptr(), embedding_features_size_in_bytes, cudaMemcpyDeviceToHost));
   ASSERT_TRUE(test::compare_array_approx<int>(h_row_ptrs.get(), h_row_ptrs_back.get(), row_ptrs_size, eps));
   ASSERT_TRUE(test::compare_array_approx<float>(h_embedding_features.get(), h_embedding_features_back.get(), embedding_features_size, eps));
   // deallocate: d_row_ptrs2, d_embedding_features2

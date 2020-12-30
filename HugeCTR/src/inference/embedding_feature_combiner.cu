@@ -180,15 +180,16 @@ void launch_embedding_feature_combine_kernel(const float* input, TypeEmbedding* 
 }  // end of namespace
 
 template <typename TypeEmbedding>
-EmbeddingFeatureCombiner<TypeEmbedding>::EmbeddingFeatureCombiner(const Tensor2<float>& in_tensor, const Tensor2<int>& row_ptrs_tensor, 
+EmbeddingFeatureCombiner<TypeEmbedding>::EmbeddingFeatureCombiner(const std::shared_ptr<Tensor2<float>>& in_tensor,
+                                                  const std::shared_ptr<Tensor2<int>>& row_ptrs_tensor,
                                                   Tensor2<TypeEmbedding>& out_tensor, int batch_size, int slot_num, EmbeddingFeatureCombiner_t combiner_type, 
                                                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                                                   const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource), slot_num_(slot_num), batch_size_(batch_size), combiner_type_(combiner_type) {
   try {
     // error input checking
-    const auto& in_dims = in_tensor.get_dimensions();
-    const auto& row_ptrs_dims =row_ptrs_tensor.get_dimensions();
+    const auto& in_dims = in_tensor->get_dimensions();
+    const auto& row_ptrs_dims =row_ptrs_tensor->get_dimensions();
     if ((int)in_dims.size() != 2)
       CK_THROW_(Error_t::WrongInput, "The input tensor must be 2D");
     for (auto i : in_dims) {
@@ -208,6 +209,8 @@ EmbeddingFeatureCombiner<TypeEmbedding>::EmbeddingFeatureCombiner(const Tensor2<
     out_tensors_.push_back(out_tensor);
     in_tensors_.push_back(in_tensor);
     row_ptrs_tensors_.push_back(row_ptrs_tensor);
+    const Tensor2<float>* iptr1 = in_tensor.get();
+    Tensor2<float>* iptr2 = in_tensors_[0].get();
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -220,14 +223,12 @@ void EmbeddingFeatureCombiner<TypeEmbedding>::fprop(bool is_train) {
     CK_THROW_(Error_t::IllegalCall, "The fprop() of EmbeddingFeatureCombiner should only be used for inference");
   
   CudaDeviceContext context(get_device_id());
-
-  float* input = in_tensors_[0].get_ptr();
+  float* input = in_tensors_[0]->get_ptr();
   TypeEmbedding* output = out_tensors_[0].get_ptr();
-  int* row_ptrs = row_ptrs_tensors_[0].get_ptr();
+  int* row_ptrs = row_ptrs_tensors_[0]->get_ptr();
  
-  auto in_dims = in_tensors_[0].get_dimensions();
+  auto in_dims = in_tensors_[0]->get_dimensions();
   auto out_dims = out_tensors_[0].get_dimensions();
-
   launch_embedding_feature_combine_kernel(input, output, row_ptrs, batch_size_, slot_num_, embedding_vec_size_, combiner_type_, get_gpu().get_stream());
 
 #ifndef NDEBUG

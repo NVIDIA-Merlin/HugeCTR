@@ -27,10 +27,10 @@ InferenceSession::InferenceSession(const std::string& config_file, cudaStream_t 
       resource_manager_(ResourceManager::create({{0}}, 0)) {
   try {
     Network* network_ptr;
-    parser_.create_pipeline(inference_parser_, row_ptrs_tensors_, embedding_features_tensors_, &embedding_feature_combiners_, &network_ptr,
+    parser_.create_pipeline(inference_parser_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, &embedding_feature_combiners_, &network_ptr,
                             resource_manager_);
     network_ = std::move(std::unique_ptr<Network>(network_ptr));
-    if(inference_parser_.dense_model_file.size() > 0){
+    if(inference_parser_.dense_model_file.size() > 0) {
       network_->upload_params_to_device(inference_parser_.dense_model_file);
     }
   } catch (const std::runtime_error& rt_err) {
@@ -42,7 +42,7 @@ InferenceSession::InferenceSession(const std::string& config_file, cudaStream_t 
 
 InferenceSession::~InferenceSession() {}
 
-void InferenceSession::predict(float* d_dense, int* d_row_ptrs, float* d_embeddingvectors, float* d_output, int num_samples) {
+void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_embeddingvectors, float* d_output, int num_samples) {
   
   size_t embedding_table_num = embedding_feature_combiners_.size();
   if (embedding_table_num !=  row_ptrs_tensors_.size() || 
@@ -50,24 +50,37 @@ void InferenceSession::predict(float* d_dense, int* d_row_ptrs, float* d_embeddi
       embedding_table_num <= 0) {
     CK_THROW_(Error_t::IllegalCall, "embedding feature combiner inconsistent");
   }
+
+  auto dense_dims = dense_input_tensor_.get_dimensions();
+  size_t dense_size = 1;
+  for (auto dim : dense_dims) {
+    dense_size *= dim;
+  }
+  size_t dense_size_in_bytes = dense_size * sizeof(float);
+  CK_CUDA_THROW_(cudaMemcpy(dense_input_tensor_.get_ptr(), d_dense, dense_size_in_bytes, cudaMemcpyDeviceToDevice));
   
-  auto row_ptrs_dims = row_ptrs_tensors_[0].get_dimensions();
+  auto row_ptrs_dims = row_ptrs_tensors_[0]->get_dimensions();
   std::shared_ptr<TensorBuffer2> row_ptrs_buff = PreallocatedBuffer2<int>::create(d_row_ptrs, row_ptrs_dims);
-  bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, &row_ptrs_tensors_[0]);
+  bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, row_ptrs_tensors_[0]);
 
   // to be done
   //embeddingcache->look_up(d_embeddingcolumns, d_embeddingvectors, ...);
 
-  auto embedding_features_dims = embedding_features_tensors_[0].get_dimensions();
+  auto embedding_features_dims = embedding_features_tensors_[0]->get_dimensions();
   std::shared_ptr<TensorBuffer2> embeddding_features_buff = PreallocatedBuffer2<float>::create(d_embeddingvectors, embedding_features_dims);
-  bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff, &embedding_features_tensors_[0]);
+  bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff, embedding_features_tensors_[0]);
 
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   embedding_feature_combiners_[0]->fprop(false);
   network_->predict();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   float* d_pred = network_->get_pred_tensor().get_ptr();
-  std::cout << "[HUGECTR][INFO] network output pointer: " << d_pred << std::endl;
-  std::cout << "[HUGECTR][INFO] output buffer pointer: " << d_output << std::endl;
   CK_CUDA_THROW_(cudaMemcpy(d_output, d_pred, inference_parser_.max_batchsize*sizeof(float), cudaMemcpyDeviceToDevice));
+
+  std::cout << "==========================tensor list===================" << std::endl;
+  for (auto tensor_entry:parser_.tensor_entries) {
+    std::cout << "[HUGECTR][INFO] tensor name: " << tensor_entry.name << ", tensor use: " << (int)tensor_entry.use << ", pointer: " << tensor_entry.bag.get_ptr() << std::endl;
+  }
 }
 
 }  // namespace HugeCTR
