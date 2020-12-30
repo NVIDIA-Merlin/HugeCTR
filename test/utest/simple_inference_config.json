@@ -1,6 +1,6 @@
 {
   "inference": {
-    "max_batchsize": 2,
+    "max_batchsize": 1,
     "dense_model_file": "",
     "sparse_model_file": ""
   },
@@ -11,14 +11,14 @@
       "check": "Sum",
       "dense": {
         "top": "dense",
-        "dense_dim": 10
+        "dense_dim": 13
       },
       "sparse": [
         {
           "top": "data1",
           "type": "DistributedSlot",
-          "max_feature_num_per_sample": 5,
-          "slot_num": 2
+          "max_feature_num_per_sample": 30,
+          "slot_num": 26
         }
       ]
     },
@@ -29,8 +29,8 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 2603616,
-        "embedding_vec_size": 10,
+        "max_vocabulary_size_per_gpu": 1737709,
+        "embedding_vec_size": 16,
         "combiner": 1
       }
     },
@@ -39,7 +39,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 20
+      "leading_dim": 416
     },
     {
       "name": "concat1",

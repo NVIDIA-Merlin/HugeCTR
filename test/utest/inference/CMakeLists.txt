@@ -16,8 +16,8 @@
 cmake_minimum_required(VERSION 3.8)
 
 file(GLOB inference_test_src
-  preallocated_buffer2_test.cpp
   embedding_feature_combiner_test.cpp
+  preallocated_buffer2_test.cpp
   session_inference_test.cpp
 )
 

@@ -183,12 +183,13 @@ void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
 }
 
 template <typename TypeEmbeddingComp>
-void Parser::create_pipeline_inference(const InferenceParser& inference_parser, Tensors2<int>& rows,
-                                      Tensors2<float>& embeddingvecs,
+void Parser::create_pipeline_inference(const InferenceParser& inference_parser, Tensor2<float>& dense_input,
+                                      std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                                      std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                                       std::vector<std::shared_ptr<Layer>>* embeddings,
                                       Network** network,
                                       const std::shared_ptr<ResourceManager> resource_manager) {
-  std::vector<TensorEntry> tensor_entries;
+  //std::vector<TensorEntry> tensor_entries;
 
   auto j_layers_array = get_json(config_, "layers");
   
@@ -200,9 +201,8 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
     auto top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
     auto dense_dim = get_value_from_json<size_t>(j_dense, "dense_dim");
 
-    Tensor2<float> dense_input_tensor;
-    input_buffer->reserve({inference_parser.max_batchsize, dense_dim}, &dense_input_tensor);
-    tensor_entries.push_back({top_strs_dense, TensorUse::General, dense_input_tensor.shrink()});
+    input_buffer->reserve({inference_parser.max_batchsize, dense_dim}, &dense_input);
+    tensor_entries.push_back({top_strs_dense, TensorUse::General, dense_input.shrink()});
   }
 
   create_embedding<unsigned int, TypeEmbeddingComp>()(inference_parser, j_layers_array, rows, embeddingvecs, &tensor_entries,
@@ -213,21 +213,18 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
   *network = Network::create_network(
       j_layers_array, "", tensor_entries, 1, resource_manager->get_local_cpu(),
       resource_manager->get_local_gpu(0), inference_parser.use_mixed_precision, inference_parser.scaler, false, inference_parser.use_cuda_graph, true);
-
-  for (auto tensor_entry:tensor_entries) {
-    std::cout << "[HUGECTR][INFO] tensor name: " << tensor_entry.name << ", tensor use: " << (int)tensor_entry.use << ", pointer: " << tensor_entry.bag.get_ptr() << std::endl;
-  }
 }
 
-void Parser::create_pipeline(const InferenceParser& inference_parser, std::vector<Tensor2<int>>& rows,
-                             std::vector<Tensor2<float>>& embeddingvecs,
+void Parser::create_pipeline(const InferenceParser& inference_parser, Tensor2<float>& dense_input,
+                             std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                             std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                              std::vector<std::shared_ptr<Layer>>* embeddings, Network** network,
                              const std::shared_ptr<ResourceManager> resource_manager) {
   if (inference_parser.use_mixed_precision) {
-    create_pipeline_inference<__half>(inference_parser, rows, embeddingvecs, embeddings, network,
+    create_pipeline_inference<__half>(inference_parser, dense_input, rows, embeddingvecs, embeddings, network,
                                      resource_manager);
   } else {
-    create_pipeline_inference<float>(inference_parser, rows, embeddingvecs, embeddings, network,
+    create_pipeline_inference<float>(inference_parser, dense_input, rows, embeddingvecs, embeddings, network,
                                     resource_manager);
   }
 }

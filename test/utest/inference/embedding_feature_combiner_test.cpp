@@ -79,9 +79,9 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
                                    int max_nnz, EmbeddingFeatureCombiner_t combiner_type) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   
-  Tensor2<int> row_ptrs_tensor;
+  std::shared_ptr<Tensor2<int>> row_ptrs_tensor = std::make_shared<Tensor2<int>>();
   vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
-  buff->reserve(row_ptrs_dims, &row_ptrs_tensor);
+  buff->reserve(row_ptrs_dims, row_ptrs_tensor.get());
   size_t row_ptrs_size = 1;
   for (auto dim : row_ptrs_dims) {
     row_ptrs_size *= dim;
@@ -95,9 +95,9 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
   }
 
   size_t feature_num = h_row_ptrs[row_ptrs_size-1];
-  Tensor2<float> in_tensor;
+  std::shared_ptr<Tensor2<float>> in_tensor = std::make_shared<Tensor2<float>>();
   vector<size_t> in_dims = {static_cast<size_t>(feature_num), static_cast<size_t>(embedding_vec_size)};  // 2D
-  buff->reserve(in_dims, &in_tensor);
+  buff->reserve(in_dims, in_tensor.get());
   
   Tensor2<TypeEmbedding> out_tensor;
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
@@ -114,8 +114,8 @@ void embedding_feature_combine_test(int batch_size, int slot_num, int embedding_
   for (auto dim : out_dims) {
     out_size *= dim;
   }
-  int* d_row_ptrs = row_ptrs_tensor.get_ptr();
-  float* d_in = in_tensor.get_ptr();
+  int* d_row_ptrs = row_ptrs_tensor->get_ptr();
+  float* d_in = in_tensor->get_ptr();
   TypeEmbedding* d_out = out_tensor.get_ptr();
   std::unique_ptr<float[]> h_in(new float[in_size]);
   std::unique_ptr<TypeEmbedding[]> h_out(new TypeEmbedding[out_size]);
@@ -145,7 +145,7 @@ TEST(embedding_feature_combiner, fp32_4096x26x64_3_Sum) { embedding_feature_comb
 TEST(embedding_feature_combiner, fp32_10x1x64_10_Mean) { embedding_feature_combine_test<float>(10, 1, 64, 10, EmbeddingFeatureCombiner_t::Mean); }
 TEST(embedding_feature_combiner, fp32_10x10x64_1_Mean) { embedding_feature_combine_test<float>(10, 10, 64, 1, EmbeddingFeatureCombiner_t::Mean); }
 TEST(embedding_feature_combiner, fp32_4096x26x64_1_Mean) { embedding_feature_combine_test<float>(4096, 26, 64, 1, EmbeddingFeatureCombiner_t::Mean); }
-TEST(embedding_feature_combiner, fp32_40960x26x64_3_Mean) { embedding_feature_combine_test<float>(4096, 26, 64, 3, EmbeddingFeatureCombiner_t::Mean); }
+TEST(embedding_feature_combiner, fp32_4096x26x64_3_Mean) { embedding_feature_combine_test<float>(4096, 26, 64, 3, EmbeddingFeatureCombiner_t::Mean); }
 TEST(embedding_feature_combiner, fp16_10x1x64_10_Sum) { embedding_feature_combine_test<__half>(10, 1, 64, 10, EmbeddingFeatureCombiner_t::Sum); }
 TEST(embedding_feature_combiner, fp16_10x10x64_1_Sum) { embedding_feature_combine_test<__half>(10, 10, 64, 1, EmbeddingFeatureCombiner_t::Sum); }
 TEST(embedding_feature_combiner, fp16_4096x26x64_1_Sum) { embedding_feature_combine_test<__half>(4096, 26, 64, 1, EmbeddingFeatureCombiner_t::Sum); }
