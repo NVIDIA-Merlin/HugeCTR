@@ -31,7 +31,7 @@ using namespace HugeCTR;
 
 namespace {
 
-const float eps = 1.5e-6;
+const float eps = 2.0e-6;
 
 template <typename T>
 float sklearn_auc(size_t num_total_samples, const std::vector<float>& labels, const std::vector<T>& scores) {

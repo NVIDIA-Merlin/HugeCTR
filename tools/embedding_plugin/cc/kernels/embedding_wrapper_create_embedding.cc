@@ -92,137 +92,165 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(std::stri
         } 
     }
 
-    /*set optimizer*/
-    HugeCTR::OptParams<TypeFP> embedding_opt_params;
-    HugeCTR::OptHyperParams<TypeFP> opt_hyper_params;
-    memset(&opt_hyper_params, 0, sizeof(opt_hyper_params));
-    switch (optimizer_type) {
-        case HugeCTR::Optimizer_t::Adam:{ // opt_hprams = {lr, beta1, beta2, epsilon}
-            if (opt_hparams.size() != 4) {
-                return tensorflow::errors::Unavailable("opt_hparams should be [lr, beta1, beta2, epsilon] when using Adam.");
+    try{
+        /*set optimizer*/
+        HugeCTR::OptParams<TypeFP> embedding_opt_params;
+        HugeCTR::OptHyperParams<TypeFP> opt_hyper_params;
+        memset(&opt_hyper_params, 0, sizeof(opt_hyper_params));
+        switch (optimizer_type) {
+            case HugeCTR::Optimizer_t::Adam:{ // opt_hprams = {lr, beta1, beta2, epsilon}
+                if (opt_hparams.size() != 4) {
+                    return tensorflow::errors::Unavailable("opt_hparams should be [lr, beta1, beta2, epsilon] when using Adam.");
+                }
+                opt_hyper_params.adam.beta1 = opt_hparams[1]; // beta1
+                opt_hyper_params.adam.beta2 = opt_hparams[2]; // beta2
+                opt_hyper_params.adam.epsilon = opt_hparams[3]; // epsilon
+                embedding_opt_params = {HugeCTR::Optimizer_t::Adam, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
+                break;
             }
-            opt_hyper_params.adam.beta1 = opt_hparams[1]; // beta1
-            opt_hyper_params.adam.beta2 = opt_hparams[2]; // beta2
-            opt_hyper_params.adam.epsilon = opt_hparams[3]; // epsilon
-            embedding_opt_params = {HugeCTR::Optimizer_t::Adam, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
-            break;
-        }
-        case HugeCTR::Optimizer_t::MomentumSGD: { // opt_hprams = {lr, momentum_factor}
-            if (opt_hparams.size() != 2) {
-                return tensorflow::errors::Unavailable("opt_hparams should be [lr, momentum_factor] when using MomentumSGD.");
+            case HugeCTR::Optimizer_t::MomentumSGD: { // opt_hprams = {lr, momentum_factor}
+                if (opt_hparams.size() != 2) {
+                    return tensorflow::errors::Unavailable("opt_hparams should be [lr, momentum_factor] when using MomentumSGD.");
+                }
+                opt_hyper_params.momentum.factor = opt_hparams[1]; // momentum_factor
+                embedding_opt_params = {HugeCTR::Optimizer_t::MomentumSGD, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
+                break;
             }
-            opt_hyper_params.momentum.factor = opt_hparams[1]; // momentum_factor
-            embedding_opt_params = {HugeCTR::Optimizer_t::MomentumSGD, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
-            break;
-        }
-        case HugeCTR::Optimizer_t::Nesterov:{  // opt_hprams = {lr, momentum_factor}
-            if (opt_hparams.size() != 2) {
-                return tensorflow::errors::Unavailable("opt_hparams should be [lr, momentum_factor] when using Nesterov.");
+            case HugeCTR::Optimizer_t::Nesterov:{  // opt_hprams = {lr, momentum_factor}
+                if (opt_hparams.size() != 2) {
+                    return tensorflow::errors::Unavailable("opt_hparams should be [lr, momentum_factor] when using Nesterov.");
+                }
+                opt_hyper_params.nesterov.mu = opt_hparams[1]; // momentum_fator
+                embedding_opt_params = {HugeCTR::Optimizer_t::Nesterov, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
+                break;
             }
-            opt_hyper_params.nesterov.mu = opt_hparams[1]; // momentum_fator
-            embedding_opt_params = {HugeCTR::Optimizer_t::Nesterov, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
-            break;
-        }
-        case HugeCTR::Optimizer_t::SGD: { // opt_hprams = {lr}
-            if (opt_hparams.size() != 1) {
-                return tensorflow::errors::Unavailable("opt_hparams should be [lr] when using SGD.");
+            case HugeCTR::Optimizer_t::SGD: { // opt_hprams = {lr}
+                if (opt_hparams.size() != 1) {
+                    return tensorflow::errors::Unavailable("opt_hparams should be [lr] when using SGD.");
+                }
+                opt_hyper_params.sgd.atomic_update = atomic_update;
+                embedding_opt_params = {HugeCTR::Optimizer_t::SGD, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
+                break;
             }
-            opt_hyper_params.sgd.atomic_update = atomic_update;
-            embedding_opt_params = {HugeCTR::Optimizer_t::SGD, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
+            default: {
+                return tensorflow::errors::InvalidArgument(__FILE__, ": ", __LINE__, " No such optimizer type.");
+            }
+        }
+        embedding_opt_params.scaler = scaler;
+
+        /*register input spaces*/
+        status = register_input_space(embedding_type, slot_num, batch_size_, max_nnz, max_feature_num, 
+                                        embedding_name, embedding_name + "_train");
+        if (status != tensorflow::Status::OK()) return status;
+        status = register_input_space(embedding_type, slot_num, batch_size_eval_, max_nnz, max_feature_num, 
+                                        embedding_name, embedding_name + "_eval");
+        if (status != tensorflow::Status::OK()) return status;
+
+        std::shared_ptr<InputSpace> train_space = get_input_space(embedding_name + "_train");
+        std::shared_ptr<InputSpace> eval_space = get_input_space(embedding_name + "_eval");
+        if (!train_space) {
+            return tensorflow::errors::NotFound("Did not find ", embedding_name + "_train", " in input_spaces.");
+        }
+        if (!eval_space) {
+            return tensorflow::errors::NotFound("Did not find ", embedding_name + "_eval", " in input_spaces.");
+        }
+
+        /*create embedding layer*/
+        std::shared_ptr<IEmbedding> embedding;
+        switch(embedding_type) {
+            case HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash: {
+                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                    static_cast<size_t>(batch_size_),
+                    static_cast<size_t>(batch_size_eval_),
+                    max_vocabulary_size_per_gpu, 
+                    {},
+                    embedding_vec_size,
+                    max_feature_num, 
+                    slot_num, 
+                    combiner,
+                    embedding_opt_params};
+                embedding.reset(new HugeCTR::DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
+                    train_space->row_offsets_tensors_, train_space->value_tensors_, train_space->nnz_array_,
+                    eval_space->row_offsets_tensors_, eval_space->value_tensors_, eval_space->nnz_array_,
+                    embedding_params, resource_manager_));
+                break;
+            }
+            case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash: {
+                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                    static_cast<size_t>(batch_size_),
+                    static_cast<size_t>(batch_size_eval_),
+                    max_vocabulary_size_per_gpu,
+                    slot_size_array,
+                    embedding_vec_size,
+                    max_feature_num,
+                    slot_num,
+                    combiner,
+                    embedding_opt_params};
+                std::string plan_file = "";
+                embedding.reset(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
+                    train_space->row_offsets_tensors_, train_space->value_tensors_, train_space->nnz_array_,
+                    eval_space->row_offsets_tensors_, eval_space->value_tensors_, eval_space->nnz_array_,
+                    embedding_params, plan_file, resource_manager_));
+                break;
+            }
+            case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot:{
+                std::string plan_file = "";
+                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                    static_cast<size_t>(batch_size_),
+                    static_cast<size_t>(batch_size_eval_),
+                    0,
+                    slot_size_array,
+                    embedding_vec_size,
+                    max_feature_num,
+                    slot_num,
+                    combiner,
+                    embedding_opt_params};
+                embedding.reset(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
+                    train_space->row_offsets_tensors_, train_space->value_tensors_, train_space->nnz_array_,
+                    eval_space->row_offsets_tensors_, eval_space->value_tensors_, eval_space->nnz_array_,
+                    embedding_params, plan_file, resource_manager_));
+                break;
+            }
+            default: {
+                return tensorflow::errors::InvalidArgument("Not supported embedding_type.");
+            }
+        }
+        embeddings_.emplace(std::make_pair(embedding_name, embedding));
+
+        /*allocate GPU spaces*/
+        auto buff = get_buff(embedding_name);
+        if (buff.empty()) return tensorflow::errors::Aborted(__FILE__, ": ", __LINE__, ": buffs for ", embedding_name, " is empty.");
+        for (size_t i = 0; i < local_gpu_count; ++i) {
+            CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
+            buff[i]->allocate();
+        }
+
+    } catch (const HugeCTR::internal_runtime_error& rt_error){
+        return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ", rt_error.what());
+    }
+
+    /*allocate internel spaces for fprop_v4*/
+    std::shared_ptr<DistributeKeysInternelSpaces> distribute_keys_spaces = 
+                    std::make_shared<DistributeKeysInternelSpaces>();
+    status = DistributeKeysInternelSpaces::create(resource_manager_, embedding_type, batch_size_, batch_size_eval_,
+                                                  slot_num, max_nnz, distribute_keys_spaces);
+    if (tensorflow::Status::OK() != status) return status;
+    emb_distribute_keys_internel_spaces_.emplace(std::make_pair(embedding_name, distribute_keys_spaces));
+
+    // /*distribte keys functor used in fprop_v4*/
+    distribute_keys_gpu_func_type distribute_keys_func;
+    switch (embedding_type) {
+        case HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash:{
+            distribute_keys_func = &EmbeddingWrapper<TypeKey, TypeFP>::distribute_keys_gpu_distributed;
             break;
         }
-        default: {
-            return tensorflow::errors::InvalidArgument(__FILE__, ": ", __LINE__, " No such optimizer type.");
-        }
-    }
-    embedding_opt_params.scaler = scaler;
-
-    /*register input spaces*/
-    status = register_input_space(embedding_type, slot_num, batch_size_, max_nnz, max_feature_num, 
-                                    embedding_name, embedding_name + "_train");
-    if (status != tensorflow::Status::OK()) return status;
-    status = register_input_space(embedding_type, slot_num, batch_size_eval_, max_nnz, max_feature_num, 
-                                    embedding_name, embedding_name + "_eval");
-    if (status != tensorflow::Status::OK()) return status;
-
-    std::shared_ptr<InputSpace> train_space = get_input_space(embedding_name + "_train");
-    std::shared_ptr<InputSpace> eval_space = get_input_space(embedding_name + "_eval");
-    if (!train_space) {
-        return tensorflow::errors::NotFound("Did not find ", embedding_name + "_train", " in input_spaces.");
-    }
-    if (!eval_space) {
-        return tensorflow::errors::NotFound("Did not find ", embedding_name + "_eval", " in input_spaces.");
-    }
-
-    /*create embedding layer*/
-    std::shared_ptr<IEmbedding> embedding;
-    switch(embedding_type) {
-        case HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash: {
-            const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
-                static_cast<size_t>(batch_size_),
-                static_cast<size_t>(batch_size_eval_),
-                max_vocabulary_size_per_gpu, 
-                {},
-                embedding_vec_size,
-                max_feature_num, 
-                slot_num, 
-                combiner,
-                embedding_opt_params};
-            embedding.reset(new HugeCTR::DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
-                train_space->row_offsets_tensors_, train_space->value_tensors_, train_space->nnz_array_,
-                eval_space->row_offsets_tensors_, eval_space->value_tensors_, eval_space->nnz_array_,
-                embedding_params, resource_manager_));
+        case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot:
+        case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash:{
+            distribute_keys_func = &EmbeddingWrapper<TypeKey, TypeFP>::distribute_keys_gpu_localized;
             break;
         }
-        case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-            const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
-                static_cast<size_t>(batch_size_),
-                static_cast<size_t>(batch_size_eval_),
-                max_vocabulary_size_per_gpu,
-                slot_size_array,
-                embedding_vec_size,
-                max_feature_num,
-                slot_num,
-                combiner,
-                embedding_opt_params};
-            std::string plan_file = "";
-            embedding.reset(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
-                train_space->row_offsets_tensors_, train_space->value_tensors_, train_space->nnz_array_,
-                eval_space->row_offsets_tensors_, eval_space->value_tensors_, eval_space->nnz_array_,
-                embedding_params, plan_file, resource_manager_));
-            break;
-        }
-        case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot:{
-            std::string plan_file = "";
-            const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
-                static_cast<size_t>(batch_size_),
-                static_cast<size_t>(batch_size_eval_),
-                0,
-                slot_size_array,
-                embedding_vec_size,
-                max_feature_num,
-                slot_num,
-                combiner,
-                embedding_opt_params};
-            embedding.reset(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
-                train_space->row_offsets_tensors_, train_space->value_tensors_, train_space->nnz_array_,
-                eval_space->row_offsets_tensors_, eval_space->value_tensors_, eval_space->nnz_array_,
-                embedding_params, plan_file, resource_manager_));
-            break;
-        }
-        default: {
-            return tensorflow::errors::InvalidArgument("Not supported embedding_type.");
-        }
     }
-    embeddings_.emplace(std::make_pair(embedding_name, embedding));
-
-    /*allocate GPU spaces*/
-    auto buff = get_buff(embedding_name);
-    if (buff.empty()) return tensorflow::errors::Aborted(__FILE__, ": ", __LINE__, ": buffs for ", embedding_name, " is empty.");
-    for (size_t i = 0; i < local_gpu_count; ++i) {
-        CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
-        buff[i]->allocate();
-    }
+    distribute_keys_on_gpu_func_.emplace(std::make_pair(embedding_name, distribute_keys_func));
 
     /*modify output name*/
     name = embedding_name;
