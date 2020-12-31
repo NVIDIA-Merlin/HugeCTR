@@ -42,7 +42,7 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
 
 InferenceSession::~InferenceSession() {}
 
-void InferenceSession::predict(float* d_dense, void* embeddingcolumns_ptr, void *row_ptr, float* d_output, int num_samples) {
+void InferenceSession::predict(float* d_dense, void* embeddingcolumns_ptr, int *row_ptr, float* d_output, int num_samples) {
   int* d_row_ptrs;
   float* d_embeddingvectors; // fake
 
