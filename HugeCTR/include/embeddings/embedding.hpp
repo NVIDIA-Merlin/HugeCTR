@@ -36,6 +36,7 @@ namespace HugeCTR {
  */
 template <typename TypeKey, typename TypeEmbeddingComp>
 class Embedding : public IEmbedding {
+  const Embedding_t embedding_type_;
   SparseEmbeddingHashParams<TypeEmbeddingComp>
       embedding_params_;                                 /**< Sparse embedding hash params. */
   std::vector<OptParams<TypeEmbeddingComp>> opt_params_; /**< Optimizer params. */
@@ -156,9 +157,11 @@ class Embedding : public IEmbedding {
             const Tensors2<TypeKey>& evaluate_row_offsets_tensors,
             const Tensors2<TypeKey>& evaluate_value_tensors,
             const std::vector<std::shared_ptr<size_t>>& evaluate_nnz_array,
+            const Embedding_t embedding_type,
             const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
             const std::shared_ptr<ResourceManager>& resource_manager)
-      : embedding_params_(embedding_params),
+      : embedding_type_(embedding_type),
+        embedding_params_(embedding_params),
         train_row_offsets_tensors_(train_row_offsets_tensors),
         train_value_tensors_(train_value_tensors),
         train_nnz_array_(train_nnz_array),
@@ -251,6 +254,10 @@ class Embedding : public IEmbedding {
    * Initialize the embedding table
    */
   virtual void init_params() = 0;
+
+  virtual Embedding_t get_embedding_type() const override {
+    return embedding_type_;
+  }
 
   /**
    * Read the embedding table from the weight_stream on the host, and

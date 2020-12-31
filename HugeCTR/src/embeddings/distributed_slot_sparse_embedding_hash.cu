@@ -34,6 +34,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
         const std::shared_ptr<ResourceManager> &resource_manager)
     : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
+           Embedding_t::DistributedSlotSparseEmbeddingHash,
            embedding_params, resource_manager) {
   try {
     CudaDeviceContext context;

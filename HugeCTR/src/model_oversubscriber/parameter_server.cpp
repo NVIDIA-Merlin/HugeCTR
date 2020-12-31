@@ -164,11 +164,11 @@ ParameterServer<TypeHashKey, TypeEmbeddingComp>::ParameterServer(
     }
 
     // let the delegate fill the hash table
-    parameter_server_delegate_->load(embedding_table_stream,
-                                     snapshot_stream,
-                                     file_size_in_byte,
-                                     embedding_params_.embedding_vec_size,
-                                     hash_table_);
+    parameter_server_delegate_->load_from_snapshot(embedding_table_stream,
+                                                   snapshot_stream,
+                                                   file_size_in_byte,
+                                                   embedding_params_.embedding_vec_size,
+                                                   hash_table_);
 
   }
   catch (const internal_runtime_error& rt_err) {
@@ -273,11 +273,11 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_to_snapshot(
     size_t file_size_in_byte = 0;
     open_and_get_size(embedding_table_path_, embedding_table, file_size_in_byte);
 
-    parameter_server_delegate_->store(snapshot,
-                                      embedding_table,
-                                      file_size_in_byte,
-                                      embedding_params_.embedding_vec_size,
-                                      hash_table_);
+    parameter_server_delegate_->store_to_snapshot(snapshot,
+                                                  embedding_table,
+                                                  file_size_in_byte,
+                                                  embedding_params_.embedding_vec_size,
+                                                  hash_table_);
   }
   catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

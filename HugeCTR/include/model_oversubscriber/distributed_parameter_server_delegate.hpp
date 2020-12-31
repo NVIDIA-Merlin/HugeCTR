@@ -24,17 +24,17 @@ class DistributedParameterServerDelegate : public ParameterServerDelegate<KeyTyp
  public:
   using HashTable = typename ParameterServerDelegate<KeyType>::HashTable;
 
-  void load(std::ofstream& embeding_table,
-            std::ifstream& snapshot,
-            const size_t file_size_in_byte,
-            const size_t embedding_vector_size,
-            HashTable& hash_table) override;
+  void load_from_snapshot(std::ofstream& embeding_table,
+                          std::ifstream& snapshot,
+                          const size_t file_size_in_byte,
+                          const size_t embedding_vector_size,
+                          HashTable& hash_table) override;
 
-  void store(std::ofstream& snapshot,
-             std::ifstream& embedding_table,
-             const size_t file_size_in_byte,
-             const size_t embedding_vector_size,
-             HashTable& hash_table) override;
+  void store_to_snapshot(std::ofstream& snapshot,
+                         std::ifstream& embedding_table,
+                         const size_t file_size_in_byte,
+                         const size_t embedding_vector_size,
+                         HashTable& hash_table) override;
              
   void load_from_embedding_file(float* mmaped_table,
                                 BufferBag& buf_bag,
