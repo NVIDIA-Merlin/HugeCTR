@@ -16,30 +16,60 @@
 
 #pragma once
 #include <common.hpp>
+#include <iostream>
 #include <embedding.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
 #include <parser.hpp>
+#include <utils.hpp>
 #include <string>
 #include <thread>
 #include <utility>
 #include <vector>
-
-#include "HugeCTR/include/inference/hugectrmodel.hpp"
-#include "HugeCTR/include/inference/inference_utils.hpp"
+#include <inference/embedding_interface.hpp>
 
 namespace HugeCTR {
 
-template <typename T>
-class embedding_cache : public HugectrUtility<T> {
+template <typename TypeHashKey>
+class embedding_cache : public embedding_interface {
  public:
-  embedding_cache(std::string model_name);
+  embedding_cache(HugectrUtility<TypeHashKey>* parameter_server, // The backend PS
+                  int cuda_dev_id, // Which CUDA device this cache belongs to
+                  bool use_gpu_embedding_cache, // Whether enable GPU embedding cache or not
+                  // The ratio of (size of GPU embedding cache : size of embedding table) for all embedding table in this model. Should between (0.0, 1.0].
+                  float cache_size_percentage, 
+                  const std::string& model_config_path, 
+                  const std::string& model_name);
+
   virtual ~embedding_cache();
 
-  void look_up(T* embeddingcolumns, T* length, float* embeddingoutputvector);
+  // Allocate a copy of workspace memory for a worker, should be called once by a worker
+  virtual void create_workspace(embedding_cache_workspace& workspace_handler);
+
+  // Free a copy of workspace memory for a worker, should be called once by a worker
+  virtual void destroy_workspace(embedding_cache_workspace& workspace_handler);
+
+  // Query embeddingcolumns
+  virtual void look_up(const void* h_embeddingcolumns, // The input emb_id buffer(before shuffle) on host
+                       const std::vector<size_t>& h_embedding_offset, // The input offset on host, size = (# of samples * # of emb_table) + 1
+                       float* d_shuffled_embeddingoutputvector, // The output buffer for emb_vec result on device
+                       embedding_cache_workspace& workspace_handler, // The handler to the workspace buffers
+                       const std::vector<cudaStream_t>& streams); // The CUDA stream to launch kernel to each emb_cache for each emb_table, size = # of emb_table(cache)
+
+  // Update the embedding cache with missing embeddingcolumns from query API
+  virtual void update(embedding_cache_workspace& workspace_handler, 
+                      const std::vector<cudaStream_t>& streams);
 
  private:
-  std::string model_name;
+  // The back-end parameter server
+  HugectrUtility<TypeHashKey>* parameter_server_;
+
+  // The shared thread-safe embedding cache
+  // Will be introduced later
+
+  // The cache configuration
+  embedding_cache_config cache_config_;
+  
 };
 
 }  // namespace HugeCTR

@@ -19,13 +19,13 @@
 #include <iostream>
 #include <vector>
 namespace HugeCTR {
-template <typename T>
-embedding_cache<T>::embedding_cache(std::string model_name) {
-  model_name = model_name;
-}
-template <typename T>
-embedding_cache<T>::~embedding_cache() {}
-template <typename T>
-void embedding_cache<T>::look_up(T* embeddingcolumns, T* length, float* embeddingoutputvector) {}
+// template <typename T>
+// embedding_cache<T>::embedding_cache(std::string model_name) {
+//   model_name = model_name;
+// }
+// template <typename T>
+// embedding_cache<T>::~embedding_cache() {}
+// template <typename T>
+// void embedding_cache<T>::look_up(T* embeddingcolumns, T* length, float* embeddingoutputvector) {}
 
 }  // namespace HugeCTR

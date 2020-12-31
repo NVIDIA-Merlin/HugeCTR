@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "HugeCTR/include/common.hpp"
-#include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/inference/hugectrmodel.hpp"
 #include "HugeCTR/include/inference/preallocated_buffer2.hpp"
 #include "HugeCTR/include/metrics.hpp"
@@ -45,9 +44,9 @@ class InferenceSession : public HugeCTRModel {
   Error_t load_params_for_dense_(const std::string& dense_model_file);
 
  public:
-  InferenceSession(const std::string& config_file, cudaStream_t stream);
+  InferenceSession(const std::string& config_file, int device_id, embedding_interface* embedding_ptr);
   virtual ~InferenceSession();
-  void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_embeddingvectors, float* d_output, int num_samples);
+  void predict(float* d_dense, void* embeddingcolumns_ptr, void *row_ptr, float* d_output, int num_samples);
 };
 
 }  // namespace HugeCTR
