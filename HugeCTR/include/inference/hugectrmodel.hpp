@@ -33,8 +33,8 @@ class HugeCTRModel {
  public:
   HugeCTRModel();
   virtual ~HugeCTRModel();
-  virtual void predict(float* dense, int* row, float* embeddingvector, float* output,
-                       int numofsamples) = 0;
+  virtual void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs,
+                      float* d_embeddingvectors, float* d_output, int num_samples) = 0;
   static HugeCTRModel* load_model(INFER_TYPE Infer_type, std::string& config);
 };
 

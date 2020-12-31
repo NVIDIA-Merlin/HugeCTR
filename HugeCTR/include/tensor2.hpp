@@ -132,6 +132,8 @@ class Tensor2 {
     return num_elements_ * TensorScalarSizeFunc<T>::get_element_size();
   }
 
+  void set_buffer(const std::shared_ptr<TensorBuffer2>& buffer) { buffer_ = buffer; }
+
   const T *get_ptr() const { return reinterpret_cast<const T *>(buffer_->get_ptr()); }
 
   T *get_ptr() { return reinterpret_cast<T *>(buffer_->get_ptr()); }

@@ -99,12 +99,14 @@ class Parser {
                                 const std::shared_ptr<ResourceManager>& resource_manager);
 
   template <typename TypeEmbeddingComp>
-  void create_pipeline_inference(const InferenceParser& inference_parser, Tensors2<int>& row,
-                                 Tensors2<float>& embeddingvec,
+  void create_pipeline_inference(const InferenceParser& inference_parser, Tensor2<float>& dense_input,
+                                 std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                                 std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                                  std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
                                  const std::shared_ptr<ResourceManager> resource_manager);
 
  public:
+  std::vector<TensorEntry> tensor_entries;
   /**
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
@@ -131,8 +133,10 @@ class Parser {
   /**
    * Create inference pipeline, which only creates network and embedding
    */
-  void create_pipeline(const InferenceParser& inference_parser, Tensors2<int>& row,
-                       Tensors2<float>& embeddingvec,
+  void create_pipeline(const InferenceParser& inference_parser,
+                       Tensor2<float>& dense_input,
+                       std::vector<std::shared_ptr<Tensor2<int>>>& row,
+                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvec,
                        std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
                        const std::shared_ptr<ResourceManager> resource_manager);
 };
@@ -297,8 +301,8 @@ struct create_embedding {
 
   void operator()(const InferenceParser& inference_parser,
                   const nlohmann::json& j_layers_array,
-                  Tensors2<int>& rows,
-                  Tensors2<float>& embeddingvecs,
+                  std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                  std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                   std::vector<TensorEntry>* tensor_entries,
                   std::vector<std::shared_ptr<Layer>>* embeddings,
                   const std::shared_ptr<GPUResource> gpu_resource,
