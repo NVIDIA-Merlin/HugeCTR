@@ -852,8 +852,9 @@ InteractionLayer<T>::InteractionLayer(
     const Tensor2<T> &train_in_bottom_mlp_tensor, const Tensor2<T> &evaluate_in_bottom_mlp_tensor,
     const Tensor2<T> &train_in_embeddings, const Tensor2<T> &evaluate_in_embeddings,
     Tensor2<T> &out_tensor, const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
-    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision)
-    : Layer(gpu_resource), use_mixed_precision_(use_mixed_precision) {
+    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision, bool enable_tf32_compute)
+    : Layer(gpu_resource), use_mixed_precision_(use_mixed_precision),
+      enable_tf32_compute_(enable_tf32_compute) {
   try {
     auto first_in_dims = train_in_bottom_mlp_tensor.get_dimensions();
     auto second_in_dims = train_in_embeddings.get_dimensions();
@@ -949,7 +950,9 @@ void InteractionLayer<T>::fprop(bool is_train) {
   cudaDataType_t a_type = CUDA_R_32F;
   cudaDataType_t b_type = CUDA_R_32F;
   cudaDataType_t c_type = CUDA_R_32F;
-  cudaDataType_t compute_type = CUDA_R_32F;
+
+  cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   cublasGemmAlgo_t algo =
       use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;
@@ -1028,7 +1031,9 @@ void InteractionLayer<T>::bprop() {
   cudaDataType_t a_type = CUDA_R_32F;
   cudaDataType_t b_type = CUDA_R_32F;
   cudaDataType_t c_type = CUDA_R_32F;
-  cudaDataType_t compute_type = CUDA_R_32F;
+
+  cublasComputeType_t compute_type =
+      enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 
   cublasGemmAlgo_t algo =
       use_mixed_precision_ ? CUBLAS_GEMM_DEFAULT_TENSOR_OP : CUBLAS_GEMM_DEFAULT;

@@ -45,6 +45,12 @@ namespace CudaUtils {
         }                                                                               \
     } while (0)    
 
+#define WRAPPER_REQUIRE_OK(cmd)                                             \
+    do {                                                                    \
+        tensorflow::Status status = (cmd);                                  \
+        if (tensorflow::Status::OK() != status) { return status; }          \
+    } while (0) 
+
 #define WRAPPER_CUDA_CHECK(cmd)                                                 \
     do {                                                                        \
         cudaError_t error = (cmd);                                              \
@@ -53,6 +59,15 @@ namespace CudaUtils {
                             cudaGetErrorString(error));                         \
         }                                                                       \
     } while(0)
+
+#define WRAPPER_NCCL_CHECK(cmd)                                                 \
+    do {                                                                        \
+        ncclResult_t r = (cmd);                                                 \
+        if (ncclSuccess != r) {                                                 \
+            return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",    \
+                            ncclGetErrorString(r));                             \
+        }                                                                       \
+    } while (0)
 
 #define PLUGIN_RETURN_IF_TRUE(ctx, condition, message)                              \
     do {                                                                             \
@@ -161,118 +176,39 @@ namespace CudaUtils {
         }                                                                                                               \
     } while(0)
 
-
-struct EraseEmbeddingKeysFunctor {
-    virtual void operator()(void* keys_ptr, const int dev_id, const size_t slot_num, const size_t max_nnz,
-                            const int gpu_count, const size_t elem_size, const size_t sm_count,
-                            cudaStream_t stream) = 0;
-};
-
-template <typename T>
-struct EraseDistributedEmbeddingKeysFunctor : public EraseEmbeddingKeysFunctor {
-    void operator()(void* keys_ptr, const int dev_id, const size_t slot_num, const size_t max_nnz,
-                    const int gpu_count, const size_t elem_size, const size_t sm_count,
-                    cudaStream_t stream) override;
-};
-
-template <typename T>
-struct EraseLocalizedEmbeddingKeysFunctor : public EraseEmbeddingKeysFunctor {
-    void operator()(void* keys_ptr, const int dev_id, const size_t slot_num, const size_t max_nnz,
-                    const int gpu_count, const size_t elem_size, const size_t sm_count,
-                    cudaStream_t stream) override;
-};
-
-
-struct ConvertDenseToCSRFunctor {
-    virtual void operator()(void* keys_ptr, int row, int col, const cusparseHandle_t& cusparse_handle,
-                            const cublasHandle_t& cublas_handle, void* csr_values, 
-                            int* csr_row_offsets, int* csr_col_indices,
-                            long long* total_nnz, cusparseMatDescr_t& desc, int* nnz_row,
-                            void* keys_ptr_transpose) = 0;
-};
-
-struct ConvertDenseToCSRDoubleFunctor : public ConvertDenseToCSRFunctor {
-    void operator()(void* keys_ptr, int row, int col, const cusparseHandle_t& cusparse_handle,
-                    const cublasHandle_t& cublas_handle, void* csr_values, 
-                    int* csr_row_offsets, int* csr_col_indices,
-                    long long* total_nnz, cusparseMatDescr_t& desc, int* nnz_row,
-                    void* keys_ptr_transpose) override;
-};
-
-struct ConvertDenseToCSRFloatFunctor : public ConvertDenseToCSRFunctor {
-    void operator()(void* keys_ptr, int row, int col, const cusparseHandle_t& cusparse_handle,
-                    const cublasHandle_t& cublas_handle, void* csr_values, 
-                    int* csr_row_offsets, int* csr_col_indices,
-                    long long* total_nnz, cusparseMatDescr_t& desc, int* nnz_row,
-                    void* keys_ptr_transpose) override;
-};
-
-
-template <typename T>
-void all_keys_plus_1(T* keys_ptr, const size_t elem_size, const size_t sm_count, cudaStream_t stream);
-
 template <typename input_type, typename output_type>
 void cast_elements(const input_type* input_ptr, output_type* output_ptr, const size_t elem_size,
                      const size_t sm_count, cudaStream_t stream);
-
-template <typename T>
-void erase_distributed_embedding_keys(T* keys_ptr, const int dev_id, const int gpu_count, 
-                                      const size_t elem_size, const size_t sm_count, cudaStream_t stream);
-
-template <typename T>
-void fuse_keys_plus_erase_distributed_embedding(T* keys_ptr, const int dev_id, const int gpu_count, 
-                                    const size_t elem_size, const size_t sm_count, cudaStream_t stream);
-
-template <typename T>
-void erase_localized_embedding_keys(T* keys_ptr, const int dev_id, const size_t slot_num, const size_t max_nnz, 
-                                    const int gpu_count, const size_t elem_size, const size_t sm_count, 
-                                    cudaStream_t stream);
-
-template <typename T>
-void convert_dense_to_csr(T* keys_ptr, int row, int col, 
-                          const cusparseHandle_t& handle,
-                          const cublasHandle_t& cublas_handle,
-                          T* csr_values, int* csr_row_offsets, int * csr_col_indices,
-                          long long* total_nnz, 
-                          cusparseMatDescr_t& desc, 
-                          int* nnz_row,
-                          T* keys_ptr_transpose);
-
-template <typename T>
-void value_tensors_subtract_1(T* values_ptr, const size_t elem_size, const size_t sm_count, cudaStream_t stream);
-
-
-/** This function is used for localized embedding.
-* To select dev-corresponding slots into output_ptr.
-* @param input_ptr, original all_keys. and the output_ptr
-* @param temp_ptr, temporary storage
-* @param elem_size, how many elements
-* @param binary_vec_ptr, binary vector, each value represet whether should be selected.
-*/
-template <typename flag_type>
-cudaError_t select_slots(int* input_ptr, int* output_ptr, const size_t elem_size, int* d_temp_storage,
-                        flag_type* binary_flag, size_t temp_storage_bytes, int* d_num_selected_out, 
-                        cudaStream_t stream);
-
-/** This function is used get binary flag vector for inputs.
-* The flag is used decide whether to copy its corresponding value to output.
-*/
-template <typename T>
-void generate_binary_vec(T* input_ptr, const size_t elem_size, const int dest_dev_id, 
-                        const size_t slot_num, const int gpu_count, const size_t sm_count, cudaStream_t stream);
-
-
-/** This function is used to decide the temporary device storage bytes.
-*/
-template <typename flag_type>
-cudaError_t get_temp_storage_bytes(int* input_ptr, flag_type* binary_flag, int* output_ptr,
-                                   const size_t elem_size, size_t& temp_storage_bytes);
 
 /** This function is used to get roof of the number by the specified base.
 * result = ((input + base - 1) / base) * base; 
 */
 size_t num_roof(const size_t number, const size_t base);
 
+
+/*warpper of cub::DeviceSelect*/
+template <typename input_type, typename flag_type, typename output_type>
+cudaError_t cub_flagged(void* d_temp_storage, size_t& temp_storage_bytes, input_type* d_in,
+                        flag_type* d_flags, output_type* d_out, size_t* d_num_selected_out,
+                        int num_items, cudaStream_t stream = 0, bool debug_synchronous = false);
+
+template <typename input_type>
+void distributed_binary_vector(const input_type* input_values, const size_t elem_size, 
+                               const size_t gpu_count, const size_t dev_id,
+                               bool* binary_out, cudaStream_t stream);
+template <typename input_type>
+void localized_binary_vector(const input_type* input_row_indices, const size_t elem_size,
+                             const size_t gpu_count, const size_t dev_id, const size_t slot_num,
+                             bool* binary_out, cudaStream_t stream);
+
+template <typename T>
+void localized_new_row_indices(const T* row_indices, T* dev_row_indices, const size_t slot_num, 
+                               const size_t dev_slot_num, const size_t gpu_count, const size_t elem_size,
+                               cudaStream_t stream);
+
+
+template <typename T>
+void kernel_print(T value, cudaStream_t stream);
 
 template <typename T>
 struct CudaAllocator {
@@ -292,7 +228,7 @@ struct CudaHostAllocator {
 
 
 template <typename T>
-void print_cuda_ptr(T* dev_ptr, const size_t elem_size);
+void print_cuda_ptr(T * dev_ptr, const size_t elem_size);
 
 } // namespace CudaUtils
 

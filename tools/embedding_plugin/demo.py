@@ -14,12 +14,12 @@
  * limitations under the License.
 """
 """
-This script is a demo about how to use hugectr's embedding plugin.
+This script is a demo about how to use hugectr_tf_ops's embedding plugin.
 """
 import tensorflow as tf
 import sys
 sys.path.append("./python")
-import hugectr
+import hugectr_tf_ops
 import numpy as np
 import scipy
 
@@ -29,7 +29,7 @@ devices = tf.config.list_physical_devices("GPU")
 for dev in devices:
     tf.config.experimental.set_memory_growth(dev, True)
 
-def test():
+def test(embedding_type):
     with tf.GradientTape() as tape:
         with tf.device("/gpu:0"):
             
@@ -41,16 +41,16 @@ def test():
             # init_value = False
             # print(init_value)
 
-            hugectr.init(visiable_gpus=[0,1,3,4], seed=123, key_type='uint32', value_type='float', batch_size=4, batch_size_eval=4)
-            embedding_name = hugectr.create_embedding(init_value=init_value, opt_hparams=[0.1, 0.9, 0.99, 1e-3], name_='test_embedding',
+            hugectr_tf_ops.init(visiable_gpus=[0,1,3,4], seed=123, key_type='uint32', value_type='float', batch_size=4, batch_size_eval=4)
+            embedding_name = hugectr_tf_ops.create_embedding(init_value=init_value, opt_hparams=[0.1, 0.9, 0.99, 1e-3], name_='test_embedding',
                                                     max_vocabulary_size_per_gpu=5, slot_num=slot_num, embedding_vec_size=embedding_vec_size,
-                                                    max_feature_num=4, embedding_type='localized', max_nnz=2)
+                                                    max_feature_num=4, embedding_type=embedding_type, max_nnz=2)
             # print(embedding_name)
-            # embedding_name = hugectr.create_embedding(init_value=init_value, opt_hparams=[0.001, 0.9, 0.99, 1e-3], name_='test_embedding',
+            # embedding_name = hugectr_tf_ops.create_embedding(init_value=init_value, opt_hparams=[0.001, 0.9, 0.99, 1e-3], name_='test_embedding',
             #                                           max_vocabulary_size_per_gpu=5, slot_num=slot_num, embedding_vec_size=embedding_vec_size,
             #                                           max_feature_num=4)
             # print(embedding_name)
-            # embedding_name = hugectr.create_embedding(init_value=init_value, opt_hparams=[0.001, 0.9, 0.99, 1e-3], name_='test_embedding',
+            # embedding_name = hugectr_tf_ops.create_embedding(init_value=init_value, opt_hparams=[0.001, 0.9, 0.99, 1e-3], name_='test_embedding',
             #                                           max_vocabulary_size_per_gpu=5, slot_num=slot_num, embedding_vec_size=embedding_vec_size,
             #                                           max_feature_num=4)
             # print(embedding_name)
@@ -79,27 +79,27 @@ def test():
             bp_trigger = tf.Variable(initial_value=[1.0, 2.0], trainable=True, dtype=tf.float32, 
                                     name='embedding_plugin_bprop_trigger') # must be trainable
 
-            forward_result = hugectr.fprop(embedding_name=embedding_name, sparse_indices=sparse_indices, values=values, dense_shape=keys.shape,
+            forward_result = hugectr_tf_ops.fprop(embedding_name=embedding_name, sparse_indices=sparse_indices, values=values, dense_shape=keys.shape,
                                             output_type=tf.float32, is_training=True, bp_trigger=bp_trigger)
             print("first step: \n", forward_result)
 
             grads = tape.gradient(forward_result, bp_trigger)
 
-            forward_result = hugectr.fprop(embedding_name=embedding_name, sparse_indices=sparse_indices, values=values, dense_shape=keys.shape,
+            forward_result = hugectr_tf_ops.fprop(embedding_name=embedding_name, sparse_indices=sparse_indices, values=values, dense_shape=keys.shape,
                                             output_type=tf.float32, is_training=False, bp_trigger=bp_trigger)
             print("second step: \n", forward_result)
 
 
             # tf embedding lookup op
-            # new_keys = np.reshape(keys, newshape=(-1, keys.shape[-1]))
+            new_keys = np.reshape(keys, newshape=(-1, keys.shape[-1]))
 
-            # indices = tf.where(new_keys != -1)
-            # values = tf.gather_nd(new_keys, indices)
-            # sparse_tensor = tf.sparse.SparseTensor(indices, values, new_keys.shape)
+            indices = tf.where(new_keys != -1)
+            values = tf.gather_nd(new_keys, indices)
+            sparse_tensor = tf.sparse.SparseTensor(indices, values, new_keys.shape)
 
-            # tf_forward = tf.nn.embedding_lookup_sparse(init_value, sparse_tensor,
-            #                                            sp_weights=None, combiner = "sum")
-            # print("tf: \n", tf_forward)
+            tf_forward = tf.nn.embedding_lookup_sparse(init_value, sparse_tensor,
+                                                       sp_weights=None, combiner = "sum")
+            print("tf: \n", tf_forward)
             
 
 def test_v2():
@@ -114,8 +114,8 @@ def test_v2():
             # init_value = False
             # print(init_value)
 
-            hugectr.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
-            embedding_name = hugectr.create_embedding(init_value=init_value, opt_hparams=[0.1, 0.9, 0.99, 1e-3], name_='test_embedding',
+            hugectr_tf_ops.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
+            embedding_name = hugectr_tf_ops.create_embedding(init_value=init_value, opt_hparams=[0.1, 0.9, 0.99, 1e-3], name_='test_embedding',
                                                     max_vocabulary_size_per_gpu=1737710, slot_num=slot_num, embedding_vec_size=embedding_vec_size,
                                                     max_feature_num=4, embedding_type='localized', max_nnz=2)
 
@@ -138,7 +138,7 @@ def test_v2():
             sparse_indices = tf.where(keys != -1) #[N, ndims]
             values = tf.gather_nd(keys, sparse_indices) # [N]
 
-            row_offsets, value_tensors, nnz_array = hugectr.distribute_keys(sparse_indices, values, keys.shape,
+            row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys(sparse_indices, values, keys.shape,
                                     gpu_count = 4, embedding_type='localized', max_nnz=2)
             print("row_offsets = ", row_offsets, "\n")
             print("value_tensors = ", value_tensors, "\n")
@@ -147,14 +147,14 @@ def test_v2():
             bp_trigger = tf.Variable(initial_value=[1.0, 2.0], trainable=True, dtype=tf.float32, 
                                     name='embedding_plugin_bprop_trigger') # must be trainable
 
-            forward_result = hugectr.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                               value_tensors=value_tensors, is_training=True, bp_trigger=bp_trigger,
                                               output_shape=[4, slot_num, embedding_vec_size])
             print("first step: \n", forward_result)
 
             grads = tape.gradient(forward_result, bp_trigger)
 
-            forward_result = hugectr.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                               value_tensors=value_tensors, is_training=False, bp_trigger=bp_trigger,
                                               output_shape=[4, slot_num, embedding_vec_size])
             print("second step: \n", forward_result)
@@ -178,7 +178,7 @@ def test_distribute_keys(embedding_type):
     indices = tf.where(keys != -1)
     values = tf.gather_nd(keys, indices)
     
-    row_offsets, value_tensors, nnz_array = hugectr.distribute_keys(indices, values, keys.shape,
+    row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys(indices, values, keys.shape,
                                                 gpu_count=4, embedding_type=embedding_type, max_nnz=2)
     print("\n")
     print("row_offsets:", row_offsets, "\n")
@@ -186,7 +186,7 @@ def test_distribute_keys(embedding_type):
     print("nnz_array:", nnz_array)
 
     # distribute keys v2
-    # row_offsets, value_tensors, nnz_array = hugectr.distribute_keys_v2(all_keys=keys, gpu_count=4, 
+    # row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys_v2(all_keys=keys, gpu_count=4, 
     #                                                                    embedding_type=embedding_type, max_nnz=2,
     #                                                                    batch_size=4, slot_num=3)
     # print("\n")
@@ -207,8 +207,8 @@ def test_forward_distribute_keys_v2(embedding_type):
             # init_value = False
             # print(init_value)
 
-            hugectr.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
-            embedding_name = hugectr.create_embedding(init_value=init_value, opt_hparams=[1.0, 0.9, 0.99, 1e-3], name_='test_embedding',
+            hugectr_tf_ops.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
+            embedding_name = hugectr_tf_ops.create_embedding(init_value=init_value, opt_hparams=[1.0, 0.9, 0.99, 1e-3], name_='test_embedding',
                                                     max_vocabulary_size_per_gpu=1737710, slot_num=slot_num, embedding_vec_size=embedding_vec_size,
                                                     max_feature_num=4, embedding_type=embedding_type, max_nnz=2)
 
@@ -231,7 +231,7 @@ def test_forward_distribute_keys_v2(embedding_type):
             sparse_indices = tf.where(keys != -1) #[N, ndims]
             values = tf.gather_nd(keys, sparse_indices) # [N]
 
-            row_offsets, value_tensors, nnz_array = hugectr.distribute_keys_v2(all_keys=keys, gpu_count=4, 
+            row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys_v2(all_keys=keys, gpu_count=4, 
                                                                        embedding_type=embedding_type, max_nnz=2,
                                                                        batch_size=4, slot_num=3)
             print("row_offsets = ", row_offsets, "\n")
@@ -241,14 +241,14 @@ def test_forward_distribute_keys_v2(embedding_type):
             bp_trigger = tf.Variable(initial_value=[1.0, 2.0], trainable=True, dtype=tf.float32, 
                                     name='embedding_plugin_bprop_trigger') # must be trainable
 
-            forward_result = hugectr.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                               value_tensors=value_tensors, is_training=True, bp_trigger=bp_trigger,
                                               output_shape=[4, slot_num, embedding_vec_size])
             print("first step: \n", forward_result)
 
             grads = tape.gradient(forward_result, bp_trigger)
 
-            forward_result = hugectr.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                               value_tensors=value_tensors, is_training=False, bp_trigger=bp_trigger,
                                               output_shape=[4, slot_num, embedding_vec_size])
             print("second step: \n", forward_result)
@@ -266,8 +266,8 @@ def test_forward_distribute_keys_v3(embedding_type):
             # init_value = False
             # print(init_value)
 
-            hugectr.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
-            embedding_name = hugectr.create_embedding(init_value=init_value, opt_hparams=[1.0, 0.9, 0.99, 1e-3], name_='test_embedding',
+            hugectr_tf_ops.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
+            embedding_name = hugectr_tf_ops.create_embedding(init_value=init_value, opt_hparams=[1.0, 0.9, 0.99, 1e-3], name_='test_embedding',
                                                     max_vocabulary_size_per_gpu=1737710, slot_num=slot_num, embedding_vec_size=embedding_vec_size,
                                                     max_feature_num=int(1e6), embedding_type=embedding_type, max_nnz=2)
 
@@ -290,7 +290,7 @@ def test_forward_distribute_keys_v3(embedding_type):
             sparse_indices = tf.where(keys != -1) #[N, ndims]
             values = tf.gather_nd(keys, sparse_indices) # [N]
 
-            row_offsets, value_tensors, nnz_array = hugectr.distribute_keys_v3(keys, 
+            row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys_v3(keys, 
                                                                                unique_name="distribute_keys_1",
                                                                                embedding_type=embedding_type,
                                                                                gpu_count=4,
@@ -304,14 +304,14 @@ def test_forward_distribute_keys_v3(embedding_type):
             bp_trigger = tf.Variable(initial_value=[1.0, 2.0], trainable=True, dtype=tf.float32, 
                                     name='embedding_plugin_bprop_trigger') # must be trainable
 
-            forward_result = hugectr.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                               value_tensors=value_tensors, is_training=True, bp_trigger=bp_trigger,
                                               output_shape=[4, slot_num, embedding_vec_size])
             print("first step: \n", forward_result)
 
             grads = tape.gradient(forward_result, bp_trigger)
 
-            forward_result = hugectr.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                               value_tensors=value_tensors, is_training=False, bp_trigger=bp_trigger,
                                               output_shape=[4, slot_num, embedding_vec_size])
             print("second step: \n", forward_result)
@@ -329,8 +329,8 @@ def test_forward_distribute_keys_v4(embedding_type):
             # init_value = False
             # print(init_value)
 
-            hugectr.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
-            embedding_name = hugectr.create_embedding(init_value=init_value, opt_hparams=[1.0, 0.9, 0.99, 1e-3], name_='test_embedding',
+            hugectr_tf_ops.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
+            embedding_name = hugectr_tf_ops.create_embedding(init_value=init_value, opt_hparams=[1.0, 0.9, 0.99, 1e-3], name_='test_embedding',
                                                     max_vocabulary_size_per_gpu=1737710, slot_num=slot_num, embedding_vec_size=embedding_vec_size,
                                                     max_feature_num=4, embedding_type=embedding_type, max_nnz=2)
 
@@ -353,7 +353,7 @@ def test_forward_distribute_keys_v4(embedding_type):
             sparse_indices = tf.where(keys != -1) #[N, ndims]
             values = tf.gather_nd(keys, sparse_indices) # [N]
 
-            row_offsets, value_tensors, nnz_array = hugectr.distribute_keys_v4(all_keys=keys, gpu_count=4, 
+            row_offsets, value_tensors, nnz_array = hugectr_tf_ops.distribute_keys_v4(all_keys=keys, gpu_count=4, 
                                                                        embedding_type=embedding_type, max_nnz=2,
                                                                        batch_size=4, slot_num=3)
             print("row_offsets = ", row_offsets, "\n")
@@ -363,14 +363,14 @@ def test_forward_distribute_keys_v4(embedding_type):
             bp_trigger = tf.Variable(initial_value=[1.0, 2.0], trainable=True, dtype=tf.float32, 
                                     name='embedding_plugin_bprop_trigger') # must be trainable
 
-            forward_result = hugectr.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                               value_tensors=value_tensors, is_training=True, bp_trigger=bp_trigger,
                                               output_shape=[4, slot_num, embedding_vec_size])
             print("first step: \n", forward_result)
 
             grads = tape.gradient(forward_result, bp_trigger)
 
-            forward_result = hugectr.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v2(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                               value_tensors=value_tensors, is_training=False, bp_trigger=bp_trigger,
                                               output_shape=[4, slot_num, embedding_vec_size])
             print("second step: \n", forward_result)
@@ -448,8 +448,8 @@ def tf_distribute_keys_fprop_v3(embedding_type):
             # init_value = False
             # print(init_value)
 
-            hugectr.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
-            embedding_name = hugectr.create_embedding(init_value=init_value, opt_hparams=[1.0, 0.9, 0.99, 1e-3], name_='test_embedding',
+            hugectr_tf_ops.init(visiable_gpus=[0,1,3,4], seed=123, key_type='int64', value_type='float', batch_size=4, batch_size_eval=4)
+            embedding_name = hugectr_tf_ops.create_embedding(init_value=init_value, opt_hparams=[1.0, 0.9, 0.99, 1e-3], name_='test_embedding',
                                                     max_vocabulary_size_per_gpu=1737710, slot_num=slot_num, embedding_vec_size=embedding_vec_size,
                                                     max_feature_num=4, embedding_type=embedding_type, max_nnz=2)
 
@@ -484,25 +484,25 @@ def tf_distribute_keys_fprop_v3(embedding_type):
             bp_trigger = tf.Variable(initial_value=[1.0, 2.0], trainable=True, dtype=tf.float32, 
                                     name='embedding_plugin_bprop_trigger') # must be trainable
 
-            forward_result = hugectr.fprop_v3(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v3(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                                 value_tensors=value_tensors, is_training=True, bp_trigger=bp_trigger,
                                                 output_shape=[4, slot_num, embedding_vec_size])
             print("first step: \n", forward_result)
 
             grads = tape.gradient(forward_result, bp_trigger)
 
-            forward_result = hugectr.fprop_v3(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
+            forward_result = hugectr_tf_ops.fprop_v3(embedding_name=embedding_name, row_offsets=row_offsets, nnz_array=nnz_array,
                                                 value_tensors=value_tensors, is_training=False, bp_trigger=bp_trigger,
                                                 output_shape=[4, slot_num, embedding_vec_size])
             print("second step: \n", forward_result)
 
 if __name__ == "__main__":
-    # test()
+    test(embedding_type="localized")
     # test_v2()
     # test_distribute_keys("distributed")
     # test_forward_distribute_keys_v2("distributed")
     # test_forward_distribute_keys_v3("distributed")
     # test_forward_distribute_keys_v4("distributed")
-    tf_distribute_keys_fprop_v3("distributed")
+    # tf_distribute_keys_fprop_v3("distributed")
 
     pass
