@@ -14,28 +14,23 @@
  * limitations under the License.
  */
 #pragma once
-#pragma once
 #include <common.hpp>
-#include <embedding.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
 #include <parser.hpp>
 #include <string>
 #include <thread>
 #include <utility>
-
-#include "HugeCTR/include/embeddings/embedding.hpp"
+#include "inference/embedding_interface.hpp"
 
 namespace HugeCTR {
-enum INFER_TYPE { TRITON, OTHER };
 
 class HugeCTRModel {
  public:
   HugeCTRModel();
   virtual ~HugeCTRModel();
-  virtual void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs,
-                      float* d_embeddingvectors, float* d_output, int num_samples) = 0;
-  static HugeCTRModel* load_model(INFER_TYPE Infer_type, std::string& config);
+  virtual void predict(float* d_dense, void* embeddingcolumns_ptr, void* row_ptr, float* d_output, int num_samples) = 0;
+  static HugeCTRModel* load_model(INFER_TYPE Infer_type, const std::string& config_file, int device_id, embedding_interface* embedding_ptr);
 };
 
 }  // namespace HugeCTR

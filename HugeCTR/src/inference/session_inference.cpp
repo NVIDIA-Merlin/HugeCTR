@@ -20,11 +20,11 @@
 #include <vector>
 namespace HugeCTR {
 
-InferenceSession::InferenceSession(const std::string& config_file, cudaStream_t stream)
+InferenceSession::InferenceSession(const std::string& config_file, int device_id, embedding_interface* embedding_ptr)
     : config_(read_json_file(config_file)),
       parser_(config_),
       inference_parser_(config_),
-      resource_manager_(ResourceManager::create({{0}}, 0)) {
+      resource_manager_(ResourceManager::create({{device_id}}, 0)) {
   try {
     Network* network_ptr;
     parser_.create_pipeline(inference_parser_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, &embedding_feature_combiners_, &network_ptr,
@@ -42,8 +42,10 @@ InferenceSession::InferenceSession(const std::string& config_file, cudaStream_t 
 
 InferenceSession::~InferenceSession() {}
 
-void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_embeddingvectors, float* d_output, int num_samples) {
-  
+void InferenceSession::predict(float* d_dense, void* embeddingcolumns_ptr, void *row_ptr, float* d_output, int num_samples) {
+  int* d_row_ptrs;
+  float* d_embeddingvectors; // fake
+
   size_t embedding_table_num = embedding_feature_combiners_.size();
   if (embedding_table_num !=  row_ptrs_tensors_.size() || 
       embedding_table_num != embedding_features_tensors_.size() ||
