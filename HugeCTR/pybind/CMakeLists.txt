@@ -97,6 +97,7 @@ file(GLOB huge_ctr_src
   ../src/embeddings/localized_slot_sparse_embedding_hash.cu
   ../src/embeddings/localized_slot_sparse_embedding_one_hot.cu
   ../src/model_oversubscriber/distributed_parameter_server_delegate.cpp
+  ../src/model_oversubscriber/localized_parameter_server_delegate.cpp
   ../src/model_oversubscriber/model_oversubscriber_impl.cpp
   ../src/model_oversubscriber/parameter_server.cpp
   ../src/model_oversubscriber/parameter_server_manager.cpp
