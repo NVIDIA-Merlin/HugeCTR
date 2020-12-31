@@ -26,7 +26,7 @@
 namespace HugeCTR {
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::load(
+void DistributedParameterServerDelegate<KeyType>::load_from_snapshot(
     std::ofstream& embedding_table,
     std::ifstream& snapshot,
     const size_t file_size_in_byte,
@@ -78,7 +78,7 @@ void DistributedParameterServerDelegate<KeyType>::load(
 }
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::store(
+void DistributedParameterServerDelegate<KeyType>::store_to_snapshot(
     std::ofstream& snapshot,
     std::ifstream& embedding_table,
     const size_t file_size_in_byte,
