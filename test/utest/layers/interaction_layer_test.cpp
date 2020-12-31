@@ -29,20 +29,21 @@ using namespace HugeCTR;
 namespace {
 
 template <typename T>
-T get_eps();
+T get_eps(bool use_tf32 = false);
 
 template <>
-float get_eps() {
-  return 1e-3;
+float get_eps(bool use_tf32) {
+  return (use_tf32 ? 5e-1 : 1e-3);
 }
 
 template <>
-__half get_eps() {
+__half get_eps(bool use_tf32) {
   return __float2half(1);
 }
 
 template <typename T>
-void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
+void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
+    bool enable_tf32_compute = false) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   Tensors2<T> in_tensors;
 
@@ -98,7 +99,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
 
   Tensor2<T> out_tensor;
   InteractionLayer<T> interaction_layer(in_mlp_tensor, in_mlp_tensor, in_emb_tensor, in_emb_tensor,
-                                        out_tensor, buff, test::get_default_gpu(), false);
+                                        out_tensor, buff, test::get_default_gpu(), false, enable_tf32_compute);
 
   buff->allocate();
   interaction_layer.initialize();
@@ -158,7 +159,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
       cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   ASSERT_TRUE(
-      test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), get_eps<T>()));
+      test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), get_eps<T>(enable_tf32_compute)));
 
   // device bprop
   CK_CUDA_THROW_(cudaDeviceSynchronize());
@@ -207,13 +208,14 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width) {
     std::vector<T>& h_ref = h_ins[i];
 
     ASSERT_TRUE(
-        test::compare_array_approx<T>(&h_in.front(), &h_ref.front(), h_in.size(), get_eps<T>()));
+        test::compare_array_approx<T>(&h_in.front(), &h_ref.front(), h_in.size(), get_eps<T>(enable_tf32_compute)));
   }
 }
 
 }  // namespace
 
 TEST(interaction_layer, fp32_512x479) { interaction_layer_test<float>(512, 26, 128); }
+TEST(interaction_layer, tf32_512x479) { interaction_layer_test<float>(512, 26, 128, true); }
 
 TEST(interaction_layer, fp16_512x479) {
   int major = 0;

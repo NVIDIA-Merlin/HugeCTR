@@ -14,18 +14,10 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-add_subdirectory(layers)
-add_subdirectory(data_reader)
-add_subdirectory(optimizer)
-add_subdirectory(loss)
-add_subdirectory(session)
-add_subdirectory(heap)
-add_subdirectory(parser)
-add_subdirectory(regularizers)
-add_subdirectory(device_map)
-add_subdirectory(embedding)
-add_subdirectory(model_oversubscriber)
-add_subdirectory(checker)
-add_subdirectory(prims)
-add_subdirectory(metrics)
-add_subdirectory(inference)
+file(GLOB inference_test_src
+  embedding_feature_combiner_test.cpp
+)
+
+add_executable(inference_test ${inference_test_src})
+target_compile_features(inference_test PUBLIC cxx_std_14)
+target_link_libraries(inference_test PUBLIC huge_ctr_static gtest gtest_main)

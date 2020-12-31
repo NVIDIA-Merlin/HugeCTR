@@ -29,6 +29,11 @@ REGISTER_OP("HugectrInit")
     .Attr("batch_size: int = 1")
     .Attr("batch_size_eval: int = 1");
 
+REGISTER_OP("HugectrReset")
+    .Doc(R"doc(
+    This op is used to explicitly release resources managed by hugectr_tf_ops.
+    )doc");
+
 REGISTER_OP("HugectrCreateEmbedding")
     .Input("init_value: T")
     .Output("embedding_name: string")
@@ -44,7 +49,7 @@ REGISTER_OP("HugectrCreateEmbedding")
     .Attr("scaler: float = 1.0")
     .Attr("slot_num: int = 1")
     .Attr("max_nnz: int = 1")
-    .Attr("max_feature_num: int = 1000000")
+    .Attr("max_feature_num: int = 1000")
     .Attr("embedding_vec_size: int = 1")
     .Attr("combiner: {'mean', 'sum'} = 'sum'");
 
@@ -77,43 +82,6 @@ REGISTER_OP("HugectrEmbeddingDistributeKeys")
     .Attr("embedding_type: {'distributed', 'localized'} = 'localized'")
     .Attr("max_feature_num: int = 1000000")
     .Attr("max_nnz: int");
-
-REGISTER_OP("HugectrEmbeddingDistributeKeysV2")
-    .Input("all_keys: int64")
-    .Output("row_offsets: gpu_count * int64")
-    .Output("value_tensors: gpu_count * int64")
-    .Output("nnz_array: int64")
-    .Attr("gpu_count: int")
-    .Attr("embedding_type: {'distributed', 'localized'} = 'localized'")
-    .Attr("max_feature_num: int = 1000000")
-    .Attr("max_nnz: int")
-    .Attr("batch_size: int")
-    .Attr("slot_num: int");
-
-REGISTER_OP("HugectrEmbeddingDistributeKeysV3")
-    .Input("all_keys: int64")
-    .Output("row_offsets: gpu_count * int64")
-    .Output("value_tensors: gpu_count * int64")
-    .Output("nnz_array: int64")
-    .Attr("unique_name: string")
-    .Attr("embedding_type: {'localized', 'distributed'} = 'distributed'")
-    .Attr("gpu_count: int >= 1")
-    .Attr("batch_size: int")
-    .Attr("slot_num: int")
-    .Attr("max_nnz: int");
-
-REGISTER_OP("HugectrEmbeddingDistributeKeysV4") // create streams in each Compute process. and the others are similar to v2.
-    .Input("all_keys: int64")
-    .Output("row_offsets: gpu_count * int64")
-    .Output("value_tensors: gpu_count * int64")
-    .Output("nnz_array: int64")
-    .Attr("gpu_count: int")
-    .Attr("embedding_type: {'distributed', 'localized'} = 'localized'")
-    .Attr("max_feature_num: int = 1000000")
-    .Attr("max_nnz: int")
-    .Attr("batch_size: int")
-    .Attr("slot_num: int");
-
 
 REGISTER_OP("HugectrEmbeddingFpropV2")
     .Input("embedding_name: string")
@@ -167,6 +135,44 @@ REGISTER_OP("HugectrEmbeddingFpropV3")
         ctx->set_output(0, output_shape);
         return Status::OK();
     });
+
+
+REGISTER_OP("HugectrEmbeddingFpropV4")
+    .Input("embedding_name: string")
+    .Input("row_indices: int64")
+    .Input("values: int64")
+    .Input("bp_trigger: float")
+    .Output("forward_result: float")
+    .Attr("is_training: bool = true")
+    .Attr("output_shape: list(int)")
+    .SetShapeFn([](InferenceContext* ctx) {
+        std::vector<int64> output_shape_attr;
+        TF_RETURN_IF_ERROR(ctx->GetAttr("output_shape", &output_shape_attr));
+        if (output_shape_attr.size() != 3)  return errors::Aborted(__FILE__, ":", __LINE__, " ",
+                                            "output_shape should be [batchsize, slot_num, embedding_vec_size].");
+        std::vector<DimensionHandle> dims;
+        for (const auto shape : output_shape_attr) {
+            DimensionHandle dim = ctx->MakeDim(shape);
+            dims.emplace_back(dim);
+        }
+
+        ShapeHandle output_shape = ctx->MakeShape(dims);
+        ctx->set_output(0, output_shape);
+        return Status::OK();
+    });
+
+REGISTER_OP("HugectrEmbeddingDistributeKeysGpu")
+    .Input("embedding_name: string")
+    .Input("row_indices: int64")
+    .Input("values: int64")
+    .Output("row_offsets: int64")
+    .Output("value_tensors: int64")
+    .Output("nnz_array: int64")
+    .Attr("embedding_type: {'distributed', 'localized'} = 'distributed'")
+    .Attr("batch_size: int")
+    .Attr("slot_num: int")
+    .Attr("max_nnz: int")
+    .Attr("gpu_count: int");
 
 REGISTER_OP("HugectrEmbeddingSave")
     .Input("embedding_name: string")

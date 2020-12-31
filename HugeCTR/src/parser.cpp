@@ -37,6 +37,7 @@
 #include <layers/reduce_sum_layer.hpp>
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
+#include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
@@ -238,6 +239,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
     {"ReLU", Layer_t::ReLU},
     {"Reshape", Layer_t::Reshape},
+    {"Sigmoid", Layer_t::Sigmoid},
     {"Slice", Layer_t::Slice},
     {"Multiply", Layer_t::Multiply},
     {"FmOrder2", Layer_t::FmOrder2},
@@ -253,6 +255,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"FusedInnerProduct", Layer_t::FusedInnerProduct},
     {"Interaction", Layer_t::Interaction},
     {"Reshape", Layer_t::Reshape},
+    {"Sigmoid", Layer_t::Sigmoid},
     {"Slice", Layer_t::Slice},
     {"ReLU", Layer_t::ReLU},
     {"Dropout", Layer_t::Dropout},
@@ -274,8 +277,9 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
 Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                         std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
                         const std::shared_ptr<CPUResource>& cpu_resource,
-                        const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
-                        float scaler, bool use_algorithm_search, bool use_cuda_graph) {
+                        const std::shared_ptr<GPUResource>& gpu_resource,
+                        bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                        bool use_algorithm_search, bool use_cuda_graph) {
   std::unique_ptr<Network> network(
       new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
 
@@ -606,7 +610,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           // establish layer
           layers.emplace_back(new FullyConnectedLayer(
               weight_buff, wgrad_buff, train_in_tensor, evaluate_in_tensor, fc_out_tensor,
-              gpu_resource, use_mixed_precision, initializer_types));
+              gpu_resource, use_mixed_precision, enable_tf32_compute, initializer_types));
           output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
@@ -635,7 +639,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_in_emb_tensor,
               evaluate_in_emb_tensor, out_tensor,
               blobs_buff,  // todo cannot use this blobs_buff here need half
-              gpu_resource, use_mixed_precision));
+              gpu_resource, use_mixed_precision, enable_tf32_compute));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
 
         } else {
@@ -650,7 +654,7 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
           Tensor2<float> out_tensor;
           layers.emplace_back(new InteractionLayer<float>(
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_emb_tensor, evaluate_emb_tensor,
-              out_tensor, blobs_buff, gpu_resource, use_mixed_precision));
+              out_tensor, blobs_buff, gpu_resource, use_mixed_precision, enable_tf32_compute));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
 
@@ -813,6 +817,25 @@ Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_o
                                                         gpu_resource));
             output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
           }
+        }
+        break;
+      }
+      case Layer_t::Sigmoid: {
+        if (use_mixed_precision) {
+          Tensor2<__half> sigmoid_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> sigmoid_out_tensor;
+          blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+          layers.emplace_back(new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+          output_tensor_pairs.push_back({sigmoid_out_tensor.shrink(), input_output_info.output[0]});
+        } else {
+          // establish out tensor
+          Tensor2<float> sigmoid_in_tensor =
+              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> sigmoid_out_tensor;
+          blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+          layers.emplace_back(new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+          output_tensor_pairs.push_back({sigmoid_out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
       }
@@ -1196,6 +1219,7 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
     size_t batch_size_eval = parser.batch_size_eval_;
     bool use_mixed_precision = parser.use_mixed_precision_;
     float scaler = parser.scaler_;
+    bool enable_tf32_compute = parser.enable_tf32_compute_;
     bool use_algorithm_search = parser.use_algorithm_search_;
     bool use_cuda_graph = parser.use_cuda_graph_;
 
@@ -1421,7 +1445,8 @@ static void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
         network.emplace_back(create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
                                             total_gpu_count, resource_manager->get_local_cpu(),
-                                            resource_manager->get_local_gpu(i), use_mixed_precision,
+                                            resource_manager->get_local_gpu(i),
+                                            use_mixed_precision, enable_tf32_compute,
                                             scaler, use_algorithm_search, use_cuda_graph));
       }
     }

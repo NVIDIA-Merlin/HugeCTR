@@ -70,7 +70,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
             }
             case Embedding_t::LocalizedSlotSparseEmbeddingOneHot:
             case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-                size_t slot_id = key % resource_manager_->get_local_gpu_count(); // slot_id
+                size_t slot_id = key % params->slot_num_; // slot_id
                 embedding_stream.write(reinterpret_cast<char*>(&slot_id), sizeof(size_t));
 
                 // embedding vector values

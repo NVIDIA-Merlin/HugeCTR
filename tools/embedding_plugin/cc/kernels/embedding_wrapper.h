@@ -56,20 +56,22 @@ public:
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
                     tensorflow::Tensor* const forward_result) = 0;
+    virtual tensorflow::Status fprop_v4(const tensorflow::Tensor* row_indices, 
+                                        const tensorflow::Tensor* values,
+                                        const std::string& embedding_name,
+                                        const bool is_training,
+                                        tensorflow::Tensor* const forward_result) = 0;
+    virtual tensorflow::Status distribute_keys_gpu(const tensorflow::Tensor* row_indices,
+                                                   const tensorflow::Tensor* values,
+                                                   const std::string& embedding_name, 
+                                                   const bool is_training, 
+                                                   tensorflow::Tensor* row_offsets_output,
+                                                   tensorflow::Tensor* value_tensors_output,
+                                                   tensorflow::Tensor* nnz_array_output) = 0;
     virtual tensorflow::Status get_output_tensor_shape(const std::string& embedding_name, const bool is_training,
                                                 tensorflow::TensorShape& shape) = 0;
     virtual tensorflow::Status bprop(const std::string& embedding_name, const tensorflow::Tensor* top_gradients,
                                      const bool on_gpu) = 0;
-    virtual tensorflow::Status try_allocate_distributing_spaces(const std::string& space_name, 
-                                                                const HugeCTR::Embedding_t& embedding_type,
-                                                                const long long& batch_size,
-                                                                const long long& slot_num,
-                                                                const long long& max_nnz) = 0;
-    virtual tensorflow::Status do_distributing_keys(const std::string& space_name, 
-                                        const tensorflow::Tensor* input_keys,
-                                        std::vector<tensorflow::Tensor*>& row_offset_output,
-                                        std::vector<tensorflow::Tensor*>& value_tensor_output,
-                                        tensorflow::Tensor* nnz_array_output) = 0;
     virtual tensorflow::Status save(const std::string& embedding_name, const std::string& save_name) = 0;
     virtual tensorflow::Status restore(const std::string& embedding_name, const std::string& file_name) = 0;
     virtual tensorflow::Status get_events(std::vector<cudaEvent_t>& events) = 0;
@@ -105,59 +107,36 @@ private:
         int combiner_;
     };
 
-    /*This class is a wrapper for spaces used in the process of distributing keys.*/
-    struct DistributeKeysSpaces{
-        DistributeKeysSpaces(const size_t gpu_count); 
-        ~DistributeKeysSpaces();
-        bool allocated_; // flag, indicate whether those spaces have been allocated GPU spaces.
-        size_t gpu_count_;
-        long long batch_size_;
-        long long slot_num_;
-        long long max_nnz_;
-        HugeCTR::Embedding_t embedding_type_;
+    /*This class is a wrapper of internel spaces used in distribute keys on GPU*/
+    struct DistributeKeysInternelSpaces {
+        static tensorflow::Status create(const std::shared_ptr<HugeCTR::ResourceManager>& resource_manager, 
+                    const HugeCTR::Embedding_t& embedding_type,
+                    const size_t& batch_size, const size_t& batch_size_eval,
+                    const size_t& slot_num, const size_t& max_nnz,
+                    std::shared_ptr<DistributeKeysInternelSpaces>& distribute_keys_space); // create an instance of this class.
 
-        std::vector<TypeKey*, CudaUtils::CudaAllocator<TypeKey*>> input_keys_copies_;
+        tensorflow::Status reset();
+
+        HugeCTR::Tensors2<bool> binary_flags_;
+        std::vector<size_t> cub_temp_storage_bytes_;
+        std::vector<void*, CudaUtils::CudaAllocator<void*>> cub_d_temp_storage_;
+        HugeCTR::Tensors2<int> cub_coo_indices_output_;
+        HugeCTR::Tensors2<TypeKey> cub_values_output_;
+        std::vector<size_t*, CudaUtils::CudaHostAllocator<size_t*>> cub_host_num_selected_;
+        std::vector<size_t*, CudaUtils::CudaAllocator<size_t*>> cub_dev_num_selected_;
         std::vector<cusparseHandle_t> cusparse_handles_;
-        std::vector<cublasHandle_t> cublas_handles_;
+        HugeCTR::Tensors2<int> cusparse_csr_row_offsets_output_;
+        HugeCTR::Tensors2<TypeKey> csr_row_offsets_cast_; 
+        HugeCTR::Tensors2<long long> copy_input_row_indices_;
+        HugeCTR::Tensors2<TypeKey> copy_input_values_;
+        std::vector<size_t> dev_slot_num_;
 
-        std::vector<TypeKey*, CudaUtils::CudaAllocator<TypeKey*>> csr_values_;
-        std::vector<int*, CudaUtils::CudaAllocator<int*>> csr_row_offsets_;
-        std::vector<long long*, CudaUtils::CudaAllocator<long long*>> csr_row_offsets_casts_;
-        std::vector<int*, CudaUtils::CudaAllocator<int*>> csr_col_indices_;
-        std::vector<int*, CudaUtils::CudaAllocator<int*>> csr_nnz_rows_;
-        std::vector<TypeKey*, CudaUtils::CudaAllocator<TypeKey*>> input_keys_transposes_;
-        std::vector<cusparseMatDescr_t> cusparse_mat_descs_;
-        std::vector<long long> total_nnzs_;
-        std::vector<cudaStream_t> cuda_streams_;
+        ~DistributeKeysInternelSpaces();
+    
+    private:
+        std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>> internel_buff_;
+        std::shared_ptr<HugeCTR::ResourceManager> resource_manager_;
     };
-
-    struct DoDistributeKeysFunctor {
-        virtual tensorflow::Status operator()(EmbeddingWrapper<TypeKey, TypeFP>* const wrapper,
-                                            std::shared_ptr<DistributeKeysSpaces>& distribute_keys_space,
-                                            const tensorflow::Tensor* input_keys,
-                                            std::vector<tensorflow::Tensor*> row_offset_output,
-                                            std::vector<tensorflow::Tensor*> value_tensor_output,
-                                            tensorflow::Tensor* nnz_array_output) = 0;
-    };
-
-    struct DoDistributedDistributeKeysFunctor : public DoDistributeKeysFunctor {
-        tensorflow::Status operator()(EmbeddingWrapper<TypeKey, TypeFP>* const wrapper,
-                                    std::shared_ptr<DistributeKeysSpaces>& distribute_keys_space,
-                                    const tensorflow::Tensor* input_keys,
-                                    std::vector<tensorflow::Tensor*> row_offset_output,
-                                    std::vector<tensorflow::Tensor*> value_tensor_output,
-                                    tensorflow::Tensor* nnz_array_output) override;
-    };
-
-    struct DoLocalizedDistributeKeysFunctor : public DoDistributeKeysFunctor {
-        tensorflow::Status operator()(EmbeddingWrapper<TypeKey, TypeFP>* const wrapper,
-                                    std::shared_ptr<DistributeKeysSpaces>& distribute_keys_space,
-                                    const tensorflow::Tensor* input_keys,
-                                    std::vector<tensorflow::Tensor*> row_offset_output,
-                                    std::vector<tensorflow::Tensor*> value_tensor_output,
-                                    tensorflow::Tensor* nnz_array_output) override;
-    };
-
 
 public:
     EmbeddingWrapper(const std::vector<std::vector<int>>& vvgpu, unsigned long long seed, 
@@ -187,20 +166,23 @@ public:
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
                     tensorflow::Tensor* const forward_result) override;
+    tensorflow::Status fprop_v4(const tensorflow::Tensor* row_indices, 
+                                const tensorflow::Tensor* values,
+                                const std::string& embedding_name,
+                                const bool is_training,
+                                tensorflow::Tensor* const forward_result) override;
+    tensorflow::Status distribute_keys_gpu(const tensorflow::Tensor* row_indices,
+                                            const tensorflow::Tensor* values,
+                                            const std::string& embedding_name, 
+                                            const bool is_training, 
+                                            tensorflow::Tensor* row_offsets_output,
+                                            tensorflow::Tensor* value_tensors_output,
+                                            tensorflow::Tensor* nnz_array_output);                            
     tensorflow::Status get_output_tensor_shape(const std::string& embedding_name, const bool is_training,
                                                 tensorflow::TensorShape& shape) override;
 
     tensorflow::Status bprop(const std::string& embedding_name, const tensorflow::Tensor* top_gradients,
                              const bool on_gpu) override;
-    tensorflow::Status try_allocate_distributing_spaces(const std::string& space_name, 
-                                                        const HugeCTR::Embedding_t& embedding_type,
-                                                        const long long& batch_size,
-                                                        const long long& slot_num,
-                                                        const long long& max_nnz) override;
-    tensorflow::Status do_distributing_keys(const std::string& space_name, const tensorflow::Tensor* input_keys,
-                                            std::vector<tensorflow::Tensor*>& row_offset_output,
-                                            std::vector<tensorflow::Tensor*>& value_tensor_output,
-                                            tensorflow::Tensor* nnz_array_output) override;
     tensorflow::Status save(const std::string& embedding_name, const std::string& save_name) override;
     tensorflow::Status restore(const std::string& embedding_name, const std::string& file_name) override;
     tensorflow::Status get_events(std::vector<cudaEvent_t>& events) override;
@@ -213,10 +195,16 @@ private:
     std::shared_ptr<HugeCTR::ResourceManager> resource_manager_; 
     std::map<std::string, std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>> buffs_; // <embedding_instance_name, buff>
     std::map<std::string, std::shared_ptr<EmbeddingParams>> embedding_params_; // <embedding_instance_name, EmbeddingParams>
-    std::map<std::string, std::shared_ptr<DistributeKeysSpaces>> distribute_keys_spaces_; // <space_name, DistributeKeysSpaces>
-    std::unique_ptr<DoDistributeKeysFunctor> do_distribute_keys_functor_; // this should have multiple instance ??
-    std::unique_ptr<CudaUtils::ConvertDenseToCSRFunctor> convert_dense_to_csr_functor_;
     std::vector<cudaEvent_t> events_; // events for each GPU
+    std::map<std::string, std::shared_ptr<DistributeKeysInternelSpaces>> emb_distribute_keys_internel_spaces_;
+
+    using distribute_keys_gpu_func_type = tensorflow::Status(EmbeddingWrapper<TypeKey, TypeFP>::*)(
+                                                                const tensorflow::Tensor*,
+                                                                const tensorflow::Tensor*,
+                                                                const std::string&,
+                                                                const bool,
+                                                                std::shared_ptr<InputSpace>&);
+    std::map<std::string, distribute_keys_gpu_func_type> distribute_keys_on_gpu_func_;
 
     tensorflow::Status set_embedding_params(const std::string& name, const HugeCTR::Embedding_t& embedding_type, 
                 const HugeCTR::Optimizer_t& optimizer_type,
@@ -231,28 +219,36 @@ private:
     std::shared_ptr<InputSpace> get_input_space(const std::string& space_name);
     std::shared_ptr<IEmbedding> get_embedding(const std::string& embedding_name);
     std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> get_buff(const std::string& embedding_name);
+
+    template <typename Item>
+    Item get_item_from_map(const std::map<std::string, Item>& map, 
+                            const std::string& map_key);
+
     tensorflow::Status distribute_keys(const tensorflow::Tensor* sparse_indices, 
             const tensorflow::Tensor* values, const tensorflow::Tensor* dense_shape, 
             const std::string& embedding_name, const bool is_training,
             const HugeCTR::Embedding_t& embedding_type, const bool on_gpu); // distribute input tensors for each GPU as CSR format.
+    
+    /*helper functions for distribute keys on GPU*/
+    tensorflow::Status distribute_keys_gpu_distributed(const tensorflow::Tensor* row_indices,
+                                                       const tensorflow::Tensor* values,
+                                                       const std::string& embedding_name,
+                                                       const bool is_training,
+                                                       std::shared_ptr<InputSpace>& input_space);
+    tensorflow::Status distribute_keys_gpu_localized(const tensorflow::Tensor* row_indices,
+                                                    const tensorflow::Tensor* values,
+                                                    const std::string& embedding_name,
+                                                    const bool is_training,
+                                                    std::shared_ptr<InputSpace>& input_space); 
+    
     tensorflow::Status save_initial_to_file(const std::string& embedding_name, 
                             const tensorflow::Tensor* const init_value, const std::string& save_name, const bool on_gpu);
-    std::shared_ptr<DistributeKeysSpaces> get_distribute_keys_spaces(const std::string& embedding_name);
-    tensorflow::Status allocate_distribute_keys_spaces_helper(const std::string& space_name, 
-                    const HugeCTR::Embedding_t& embedding_type, const long long& batch_size, 
-                    const long long& slot_num, const long long& max_nnz);
-    tensorflow::Status distributed_embedding_distribute_keys_helper(
-                                                        std::shared_ptr<DistributeKeysSpaces>& distribute_keys_space,
-                                                        const tensorflow::Tensor* input_keys,
-                                                        std::vector<tensorflow::Tensor*>& row_offset_output,
-                                                        std::vector<tensorflow::Tensor*>& value_tensor_output,
-                                                        tensorflow::Tensor* nnz_array_output);
-    tensorflow::Status localized_embedding_distribute_keys_helper();
     tensorflow::Status get_event(const unsigned int dev_id, cudaEvent_t& event);
     
 private:
     long long batch_size_;
     long long batch_size_eval_;
+    ncclDataType_t nccl_type_;
 }; // class EmbeddingWrapper
 
 } // namespace Version1

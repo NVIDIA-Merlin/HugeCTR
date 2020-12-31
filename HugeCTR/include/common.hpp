@@ -127,6 +127,7 @@ enum class Layer_t {
   MultiCrossEntropyLoss,
   ReLU,
   ReLUHalf,
+  Sigmoid,
   Slice,
   Multiply,
   FmOrder2,
