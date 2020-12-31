@@ -112,7 +112,9 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 
   /**
    * load_parameters for DistributedSlotSparseEmbeddingHash.
-   * @param weight_stream weight file stream to read.
+   * @param keys the memory buffer storing keys.
+   * @param embeddings the memory buffer storing embedding vectors.
+   * @param num the number of unique keys (embedding vectors) in keys (embeddings).
    * @param vocabulary_size the total row number of hash table.
    * @param embedding_vec_size embedding vector size.
    * @param max_vocabulary_size_per_gpu max vocabulary size for each GPU
@@ -267,7 +269,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   /**
    * Read the hash table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param weight_stream the host file stream for reading data from.
+   * @param stream the host file stream for reading data from.
    */
   void load_parameters(std::ifstream &stream) override;
   void load_parameters(BufferBag& buf_bag, size_t num) override;
