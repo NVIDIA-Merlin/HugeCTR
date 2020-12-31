@@ -16,6 +16,7 @@
 
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/inference/session_inference.hpp"
+#include "HugeCTR/include/inference/embedding_interface.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
 #include <vector>
 #include "gtest/gtest.h"
@@ -132,11 +133,12 @@ void session_inference_test(const std::string& config_file, int num_samples) {
   int* row_ptrs = reinterpret_cast<int*>(d_row_ptrs);
   float* embedding_features = reinterpret_cast<float*>(d_embedding_features);
   std::unique_ptr<float[]> h_out(new float[batch_size]);
-  InferenceSession sess(config_file, 0);
+  embedding_interface* embedding_ptr = nullptr;
+  InferenceSession sess(config_file, 0, embedding_ptr);
 
   CK_CUDA_THROW_(cudaMemcpy(dense, h_dense.get(), dense_size_in_bytes, cudaMemcpyHostToDevice));  
   CK_CUDA_THROW_(cudaDeviceSynchronize());
-  sess.predict(dense, h_embeddingcolumns, row_ptrs, embedding_features, output, num_samples);
+  sess.predict(dense, h_embeddingcolumns, row_ptrs, embedding_features, num_samples);  //fake
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaMemcpy(h_out.get(), output, batch_size*sizeof(float), cudaMemcpyDeviceToHost));
 
