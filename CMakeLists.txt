@@ -171,9 +171,17 @@ link_directories(
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 #setting python interface file install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local/hugectr)
+add_subdirectory(third_party/json)
 
+option(ENABLE_TRAIN "Enable Train" ON)
+if(ENABLE_TRAIN)
 add_subdirectory(HugeCTR/src)
 add_subdirectory(third_party/googletest)
-add_subdirectory(third_party/json)
 add_subdirectory(test/utest)
 add_subdirectory(tools)
+endif()
+
+option(ENABLE_INFERENCE "Enable Inference" OFF)
+if(ENABLE_INFERENCE)
+add_subdirectory(HugeCTR/src/inference)
+endif()
