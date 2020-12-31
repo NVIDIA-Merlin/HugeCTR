@@ -25,13 +25,64 @@
 using namespace HugeCTR;
 namespace {
 
-void session_inference_test(int batch_size, int slot_num, int embedding_vec_size,
-                            int num_samples, int max_nnz, int max_feature_num_per_sample, int dense_dim,
-                            EmbeddingFeatureCombiner_t combiner_type,
-                            const std::string& config_file_path) {
-  
-  CudaAllocator allocator;
+struct InferenceParams {
+  int max_batchsize;
+  int dense_dim;           
+  std::vector<int> slot_num;
+  std::vector<int> max_feature_num_per_sample;
+  std::vector<int> embedding_vec_size;
+  std::vector<EmbeddingFeatureCombiner_t> combiner_type;
+  InferenceParams(const nlohmann::json& config);
+};
 
+InferenceParams::InferenceParams(const nlohmann::json& config) {
+  auto j = get_json(config, "inference");
+  max_batchsize = get_value_from_json<int>(j, "max_batchsize");
+  auto j_layers_array = get_json(config, "layers");
+  const nlohmann::json& j_data = j_layers_array[0];
+  auto j_dense = get_json(j_data, "dense");
+  dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
+  auto j_sparse_inputs = get_json(j_data, "sparse");
+
+  for (unsigned int i = 0; i < j_sparse_inputs.size(); i++) {
+    const nlohmann::json& j_sparse = j_sparse_inputs[0];
+    slot_num.push_back(get_value_from_json<int>(j_sparse, "slot_num"));
+    max_feature_num_per_sample.push_back(get_value_from_json<int>(j_sparse, "max_feature_num_per_sample"));
+  }
+  // get embedding params: embedding_vec_size, combiner_type
+  {
+    for (unsigned int i = 1; i < j_layers_array.size(); i++) {
+      // if not embedding then break
+      const nlohmann::json& j = j_layers_array[i];
+      auto embedding_name = get_value_from_json<std::string>(j, "type");
+      if (embedding_name != "DistributedSlotSparseEmbeddingHash" &&
+          embedding_name != "LocalizedSlotSparseEmbeddingHash" &&
+          embedding_name != "LocalizedSlotSparseEmbeddingOneHot") {
+        break;
+      }
+      auto j_embed_params =  get_json(j, "sparse_embedding_hparam");
+      auto vec_size = get_value_from_json<int>(j_embed_params, "embedding_vec_size");
+      auto combiner = get_value_from_json<int>(j_embed_params, "combiner");
+      embedding_vec_size.push_back(vec_size);
+      if (combiner == 1) {
+        combiner_type.push_back(EmbeddingFeatureCombiner_t::Mean);
+      } else {
+        combiner_type.push_back(EmbeddingFeatureCombiner_t::Sum);
+      }
+    }  // for ()
+  }    // get embedding params
+}
+void session_inference_test(const std::string& config_file, int num_samples) {
+  InferenceParams inference_params(read_json_file(config_file));
+  int batch_size = inference_params.max_batchsize;
+  int dense_dim = inference_params.dense_dim;
+  int slot_num = inference_params.slot_num[0];
+  int max_feature_num_per_sample = inference_params.max_feature_num_per_sample[0];
+  int embedding_vec_size = inference_params.embedding_vec_size[0];
+  int max_nnz = max_feature_num_per_sample / slot_num;
+  num_samples = num_samples < batch_size? num_samples:batch_size;
+  CudaAllocator allocator;
+  CudaHostAllocator host_allocator;
   std::vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
   size_t row_ptrs_size = 1;
   for (auto dim : row_ptrs_dims) {
@@ -46,51 +97,48 @@ void session_inference_test(int batch_size, int slot_num, int embedding_vec_size
   }
   
   std::cout << "batch_size: " << batch_size << ", slot_num: " << slot_num << ", embedding_vec_size: " << embedding_vec_size 
-            << ", max_nnz:" << max_nnz << ", num_samples: " << num_samples << std::endl;
+            << ", max_nnz:" << max_nnz << ", num_samples: " << num_samples << ", max_feature_num_per_sample: " << max_feature_num_per_sample 
+            << std::endl;
 
-  std::cout << "==========================row offset ptrs===================" << std::endl;
-  for (int i = 0; i < (int)row_ptrs_size; i++) {
-    std::cout << h_row_ptrs[i] << " ";
-  }
-  std::cout << std::endl;
-  
-  
   size_t row_ptrs_size_in_bytes = row_ptrs_size * TensorScalarSizeFunc<int>::get_element_size();
   void* d_row_ptrs = allocator.allocate(row_ptrs_size_in_bytes);
   CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size_in_bytes, cudaMemcpyHostToDevice));
   
-  std::vector<size_t> embedding_features_dims = {static_cast<size_t>(max_feature_num_per_sample), static_cast<size_t>(embedding_vec_size)};
+  max_feature_num_per_sample = max_feature_num_per_sample < slot_num*max_nnz? max_feature_num_per_sample:slot_num*max_nnz;
+  std::vector<size_t> embedding_features_dims = {static_cast<size_t>(batch_size), static_cast<size_t>(max_feature_num_per_sample), static_cast<size_t>(embedding_vec_size)};
   size_t embedding_features_size = 1;
   for (auto dim : embedding_features_dims) {
     embedding_features_size *= dim;
   }
+
   size_t embedding_features_size_in_bytes = embedding_features_size * TensorScalarSizeFunc<float>::get_element_size();
   std::unique_ptr<float[]> h_embedding_features(new float[embedding_features_size]);
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
   simulator.fill(h_embedding_features.get(), embedding_features_size);
-  
-  std::cout << "==========================embedding features===================" << std::endl;
-  for (int i = 0; i < h_row_ptrs[row_ptrs_size-1]; i++) {
-    for (int j = 0; j < embedding_vec_size; j++) {
-        std::cout << h_embedding_features[i*embedding_vec_size + j] <<" ";
-    }
-    std::cout << std::endl;
-  }
-  
+
   void* d_embedding_features = allocator.allocate(embedding_features_size_in_bytes);
   CK_CUDA_THROW_(cudaMemcpy(d_embedding_features, h_embedding_features.get(), embedding_features_size_in_bytes, cudaMemcpyHostToDevice));
 
+  size_t dense_size = batch_size * dense_dim;
+  std::unique_ptr<float[]> h_dense(new float[dense_size]);
+  FloatUniformDataSimulator<float> fdata_sim(0, 1);     
+  for (int i = 0; i < (int)dense_size; i++)
+    h_dense[i] = fdata_sim.get_num();
+
+  size_t dense_size_in_bytes = dense_size * TensorScalarSizeFunc<float>::get_element_size();
   float* dense = reinterpret_cast<float*>(allocator.allocate(batch_size*dense_dim*sizeof(float)));
   float* output = reinterpret_cast<float*>(allocator.allocate(batch_size*sizeof(float)));
+  void* h_embeddingcolumns = host_allocator.allocate(batch_size*max_feature_num_per_sample*sizeof(int));
   int* row_ptrs = reinterpret_cast<int*>(d_row_ptrs);
   float* embedding_features = reinterpret_cast<float*>(d_embedding_features);
-
-  InferenceSession sess(config_file_path, 0);
-  sess.predict(dense, row_ptrs, embedding_features, output, num_samples);
-  
   std::unique_ptr<float[]> h_out(new float[batch_size]);
+  InferenceSession sess(config_file, 0);
+
+  CK_CUDA_THROW_(cudaMemcpy(dense, h_dense.get(), dense_size_in_bytes, cudaMemcpyHostToDevice));  
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  sess.predict(dense, h_embeddingcolumns, row_ptrs, embedding_features, output, num_samples);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaMemcpy(h_out.get(), output, batch_size*sizeof(float), cudaMemcpyDeviceToHost));
-  
 
   std::cout << "==========================prediction result===================" << std::endl;
   for (int i = 0; i < batch_size; i++) {
@@ -98,6 +146,7 @@ void session_inference_test(int batch_size, int slot_num, int embedding_vec_size
   }
   std::cout << std::endl;
 
+  host_allocator.deallocate(h_embeddingcolumns);
   allocator.deallocate(d_row_ptrs);
   allocator.deallocate(d_embedding_features);
   allocator.deallocate(dense);
@@ -106,9 +155,4 @@ void session_inference_test(int batch_size, int slot_num, int embedding_vec_size
 
 }  // namespace
 
-//TEST(inference_session_test, inference_parser_test) {
-//  std::string json_name = PROJECT_HOME_ + "utest/simple_inference_config.json";
-//  test_inference_session(json_name);
-//}
-
-TEST(session_inference, fp32_2x2x10x1x3_10_Sum) { session_inference_test(2, 2, 10, 1, 3, 10, 10, EmbeddingFeatureCombiner_t::Sum, "/hugectr/test/utest/simple_inference_config.json"); }
+TEST(session_inference, fp32_1x26x16x1x1_30_Sum) { session_inference_test("/hugectr/test/utest/simple_inference_config.json", 1); }

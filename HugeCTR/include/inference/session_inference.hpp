@@ -30,23 +30,24 @@
 #include "HugeCTR/include/tensor2.hpp"
 namespace HugeCTR {
 
-
 class InferenceSession : public HugeCTRModel {
   nlohmann::json config_; // should be declared before parser_ and inference_parser_
   Parser parser_;
   InferenceParser inference_parser_;
 
-  Tensors2<int> row_ptrs_tensors_; // embedding input row
-  Tensors2<float> embedding_features_tensors_; // embedding input value vector
+  std::vector<std::shared_ptr<Tensor2<int>>> row_ptrs_tensors_; // embedding input row
+  std::vector<std::shared_ptr<Tensor2<float>>> embedding_features_tensors_; // embedding input value vector
+  Tensor2<float> dense_input_tensor_;  // dense input vector
 
   std::vector<std::shared_ptr<Layer>> embedding_feature_combiners_;
   std::unique_ptr<Network> network_;
   std::shared_ptr<ResourceManager> resource_manager_;
+  Error_t load_params_for_dense_(const std::string& dense_model_file);
 
  public:
   InferenceSession(const std::string& config_file, cudaStream_t stream);
   virtual ~InferenceSession();
-  void predict(float* d_dense, int* d_row_ptrs, float* d_embeddingvectors, float* d_output, int num_samples);
+  void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_embeddingvectors, float* d_output, int num_samples);
 };
 
 }  // namespace HugeCTR

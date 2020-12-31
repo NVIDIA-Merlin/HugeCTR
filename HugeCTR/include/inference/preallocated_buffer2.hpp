@@ -56,11 +56,12 @@ public:
 }; // class PreallocatedBuffer2
 
 template <typename TypeTensor>
-void bind_tensor_to_buffer(const std::vector<size_t> &dimensions, const std::shared_ptr<TensorBuffer2> &buffer, Tensor2<TypeTensor> *tensor) {
+void bind_tensor_to_buffer(const std::vector<size_t> &dimensions, const std::shared_ptr<TensorBuffer2> &buffer, std::shared_ptr<Tensor2<TypeTensor>>& tensor) {
   try {
-    if (!buffer->allocated())
+    if (!buffer->allocated()) {
       CK_THROW_(Error_t::IllegalCall, "Cannot bind tensor to buffer that is not allocated");
-    *tensor = Tensor2<TypeTensor>(dimensions, buffer);
+    }
+    tensor->set_buffer(buffer);
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
