@@ -85,17 +85,15 @@ public:
    * @brief      Load embedding vectors from SSD according to keyset_. It only loads embedding
    *             vectors that their corresponding keys exist in hash_table, return pointers of
    *             loaded embedding vectors and their corresponding keys.
-   * @param      hash_table_val  embedding vectors loaded from SSD, the num of vecs is hit_size.
-   * @param      keys      The keys corresponding to hash_table_val, and they exist in hash_table_.
+   * @param      buf_bag   The buffer bag for keys, slot_id, and hash_table_val.
    * @param      hit_size  The number of keys in keys.
    */
   void load_param_from_embedding_file(BufferBag &buf_bag, size_t& hit_size);
 
   /**
    * @brief      Dumps the embedding table to the embedding file.
-   * @param      hash_table_val  The embedding table downloaded from device memory.
-   * @param      keys            The keys corresponding to the downloaded embedding table.
-   * @param      dump_size       The size of keys in buffer keys or vectors in embedding_table.
+   * @param      buf_bag    The buffer bag for keys, slot_id, and hash_table_val.
+   * @param      dump_size  The size of keys in buffer keys or vectors in embedding_table.
    */
   void dump_param_to_embedding_file(BufferBag &buf_bag, const size_t dump_size);
 

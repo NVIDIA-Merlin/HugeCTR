@@ -262,10 +262,15 @@ class Embedding : public IEmbedding {
   /**
    * Read the embedding table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param weight_stream the host file stream for reading data from.
+   * @param stream the host file stream for reading data from.
    */
   virtual void load_parameters(std::ifstream& stream) = 0;
 
+  /**
+   * Read the embedding table from the weight_stream on the host, and
+   * upload it onto multi-GPUs global memory.
+   * @param buf_bag the buffer bag for model oversubscriber.
+   */
   virtual void load_parameters(BufferBag& buf_bag, size_t num) = 0;
 
   /**
@@ -276,6 +281,11 @@ class Embedding : public IEmbedding {
   virtual void dump_parameters(
       std::ofstream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
 
+  /**
+   * Download the embedding table from multi-GPUs global memroy to CPU memory
+   * and write it to the weight_stream on the host.
+   * @param buf_bag the buffer bag for model oversubscriber.
+   */
   virtual void dump_parameters(BufferBag& buf_bag, size_t* num) const = 0;
 
   /**

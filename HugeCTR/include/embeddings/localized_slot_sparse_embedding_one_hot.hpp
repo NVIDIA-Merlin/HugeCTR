@@ -114,7 +114,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors embedding table tensors.
    * @param hash_table_slot_id_tensors slot ids tensors.
-   * @param device_resources GPU device resources.
    */
   void init_embedding(const std::vector<size_t> slot_sizes, size_t embedding_vec_size,
                       std::vector<Tensors2<float>> &hash_table_value_tensors,
@@ -122,13 +121,14 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
   /**
    * load_parameters() for LocalizedSlotSparseEmbeddingOnehot
-   * @param weight_stream weight file stream to read.
+   * @param keys the memory buffer storing keys.
+   * @param slot_id the memory buffer storing slot_id.
+   * @param embeddings the memory buffer storing embedding vectors.
+   * @param num the number of unique keys (embedding vectors) in keys (embeddings).
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors the hash table value on multi GPUs.
    * @param slot_sizes the size for each slot
    * @param mapping_offsets_per_gpu_tensors the mapping offset of each slot on every GPU
-   * @param device_resources all gpus device resources.
-   * @param context gpu device context, for switching device
    */
   void load_parameters(const Tensor2<TypeHashKey> &keys,
                        const Tensor2<size_t> &slot_id,
@@ -141,16 +141,25 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
   /**
    * dump_parameters for LocalizedSlotSparseEmbeddingOnehot.
-   * @param weight_stream weight file stream to write.
+   * @param stream weight file stream to write.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors the hash table value on multi-GPU.
    * @param slot_sizes the size for each slot
-   * @param device_resources all gpus device resources.
-   * @param context gpu device context, for switching device
    */
   void dump_parameters(std::ofstream &stream, size_t embedding_vec_size,
                        const Tensors2<float> &hash_table_value_tensors,
                        const std::vector<size_t> &slot_sizes) const;
+
+  /**
+   * dump_parameters for LocalizedSlotSparseEmbeddingOnehot.
+   * @param keys the memory buffer to store keys.
+   * @param slot_id the memory buffer to store slot_id.
+   * @param embeddings the memory buffer to store embedding vectors.
+   * @param num pointer to store the number of unique keys (embedding vectors).
+   * @param embedding_vec_size embedding vector size.
+   * @param hash_table_value_tensors the hash table value on multi-GPU.
+   * @param slot_sizes the size for each slot
+   */
   void dump_parameters(Tensor2<TypeHashKey> &keys,
                        Tensor2<size_t> &slot_id,
                        Tensor2<float> &embeddings,
