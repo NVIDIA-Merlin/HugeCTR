@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <data_readers/data_reader.hpp>
 #include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>

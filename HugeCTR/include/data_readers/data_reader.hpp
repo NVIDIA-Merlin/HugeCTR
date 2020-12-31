@@ -35,6 +35,8 @@
 
 namespace HugeCTR {
 
+static int core_offset_ = 0;
+
 /**
  * @brief Data reading controller.
  *

@@ -16,7 +16,7 @@
 
 #pragma once
 #include <common.hpp>
-#include <data_readers/data_reader.hpp>
+#include <data_reader.hpp>
 #include <embedding.hpp>
 #include <fstream>
 #include <functional>
