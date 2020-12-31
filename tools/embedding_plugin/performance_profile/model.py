@@ -68,7 +68,8 @@ class OriginalEmbedding(tf.keras.layers.Layer):
                                                         shape=(self.vocabulary_size, self.embedding_vec_size),
                                                         initializer=self.initializer)
         else:
-            self.embeddings_params = self.initializer
+            self.embeddings_params = self.add_weight(shape=(self.vocabulary_size, self.embedding_vec_size),
+                                                     initializer=tf.constant_initializer(value=self.initializer))
 
     @tf.function
     def call(self, keys, output_shape):
@@ -102,6 +103,7 @@ class PluginEmbedding(tf.keras.layers.Layer):
                  max_feature_num=int(1e3),
                  max_nnz=1,
                  combiner='sum',
+                 fprop_version='v3'
                  ):
         super(PluginEmbedding, self).__init__()
 
@@ -117,6 +119,7 @@ class PluginEmbedding(tf.keras.layers.Layer):
         self.max_nnz = max_nnz
         self.combiner = combiner
         self.gpu_count = gpu_count
+        self.fprop_version = fprop_version
 
         self.name_ = hugectr_tf_ops.create_embedding(initializer, name_=name, embedding_type=self.embedding_type, 
                                              optimizer_type=self.optimizer_type, 
@@ -127,18 +130,35 @@ class PluginEmbedding(tf.keras.layers.Layer):
                                              embedding_vec_size=self.embedding_vec_size, 
                                              combiner=self.combiner)
 
+        if (fprop_version == 'v3'):
+            print("[INFO]: using fprop_v3...")
+            self.call_func = self.call_v3
+        elif (fprop_version == 'v4'):
+            print("[INFO]: using fprop_v4...")
+            self.call_func = self.call_v4
+        else:
+            raise RuntimeError("fprop_version can only be one of {'v3', 'v4'}.")
+
     def build(self, _):
         self.bp_trigger = self.add_weight(name="bp_trigger",
                                           shape=(1,), dtype=tf.float32, trainable=True)
 
-    # @tf.function(input_signature=(tf.TensorSpec(shape=(None, None), dtype=tf.int64),
-    #                               tf.TensorSpec(shape=(None, None), dtype=tf.int64),
-    #                               tf.TensorSpec(shape=(None,), dtype=tf.int64)))
     @tf.function
-    def call(self, row_offsets, value_tensors, nnz_array, output_shape, training=False):
+    def call_v3(self, row_offsets, value_tensors, nnz_array, output_shape, training=False):
+        # ------------------ fprop_v3 ----------------------------------- #
         return hugectr_tf_ops.fprop_v3(embedding_name=self.name_, row_offsets=row_offsets, value_tensors=value_tensors, 
                                 nnz_array=nnz_array, bp_trigger=self.bp_trigger, is_training=training,
                                 output_shape=output_shape)
+
+    @tf.function
+    def call_v4(self, row_indices, values, output_shape, training=False):
+        return hugectr_tf_ops.fprop_v4(embedding_name=self.name_, row_indices=row_indices, values=values,
+                                        bp_trigger=self.bp_trigger, is_training=training,
+                                        output_shape=output_shape)
+
+    @tf.function
+    def call(self, input_placeholder, **kwargs):
+        return self.call_func(**kwargs)
 
 
 class Multiply(tf.keras.layers.Layer):
@@ -291,7 +311,8 @@ class DeepFM_PluginEmbedding(tf.keras.models.Model):
         self.plugin_embedding_layer = PluginEmbedding(vocabulary_size=vocabulary_size, slot_num=slot_num, 
                                             embedding_vec_size=embedding_vec_size + 1, 
                                             embedding_type=embedding_type,
-                                            gpu_count=len(gpus), initializer=initializer)
+                                            gpu_count=len(gpus), initializer=initializer,
+                                            fprop_version='v3')
         self.deep_dense = []
         for i, deep_units in enumerate(self.deep_layers):
             self.deep_dense.append(tf.keras.layers.Dense(units=deep_units, activation=None, use_bias=True,
@@ -326,7 +347,9 @@ class DeepFM_PluginEmbedding(tf.keras.models.Model):
             dense_mul = tf.reshape(dense_mul, [dense_mul.shape[0], -1]) # [batchsize, dense_dim * 1]
             dense_emb = tf.reshape(dense_emb, [dense_emb.shape[0], -1]) # [batchsize, dense_dim * embedding_vec_size]
 
-            sparse = self.plugin_embedding_layer(sparse_feature[0], sparse_feature[1], sparse_feature[2],
+            sparse = self.plugin_embedding_layer(0, row_offsets=sparse_feature[0], 
+                                                value_tensors=sparse_feature[1], 
+                                                nnz_array=sparse_feature[2],
                                                 output_shape=[self.batch_size, self.slot_num, self.embedding_vec_size + 1],
                                                 training=training) # [batch_size, self.slot_num, self.embedding_vec_size + 1]
 

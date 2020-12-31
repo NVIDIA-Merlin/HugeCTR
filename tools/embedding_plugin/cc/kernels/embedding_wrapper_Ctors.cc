@@ -50,6 +50,18 @@ EmbeddingWrapper<TypeKey, TypeFP>::EmbeddingWrapper(const std::vector<std::vecto
         }
     }
 
+    /*set nccl data type*/
+    switch(sizeof(TypeKey)) {
+        case 4: { // unsigned int
+            nccl_type_ = ncclUint32;
+            break;
+        }
+        case 8: { // long long
+            nccl_type_ = ncclInt64;
+            break;
+        }
+    } // switch
+
 }
 
 
