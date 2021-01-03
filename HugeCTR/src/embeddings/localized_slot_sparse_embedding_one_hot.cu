@@ -410,7 +410,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
     float *value_dst_buf;
     size_t *tensor_index_dst_buf;
     for (size_t k = 0; k < chunk_size; k++) {  // process a tile in each loop
-      size_t slot_id = slot_id_ptr[loop_num * chunk_size + i];
+      size_t slot_id = slot_id_ptr[i * chunk_size + k];
       size_t gid = slot_id % total_gpu_count;  // global GPU ID
       size_t id = Base::get_resource_manager().get_gpu_local_id_from_global_id(
           gid);  // local GPU ID (not gpudevice id)
@@ -484,7 +484,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   float *value_dst_buf;
   size_t *tensor_index_dst_buf;
   for (size_t i = 0; i < remain_loop_num; i++) {  // process one tile in each loop
-    TypeHashKey key = key_ptr[loop_num * chunk_size + i];
+
     size_t slot_id = slot_id_ptr[loop_num * chunk_size + i];
     size_t gid = slot_id % total_gpu_count;  // global GPU ID
     size_t id = Base::get_resource_manager().get_gpu_local_id_from_global_id(
@@ -492,8 +492,9 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
     int dst_rank = Base::get_resource_manager().get_process_id_from_gpu_global_id(gid);  // node id
 
     if (Base::get_resource_manager().get_process_id() == dst_rank) {
+      TypeHashKey tile_key = key_ptr[loop_num * chunk_size + i];
       size_t tensor_index =
-          key - (h_mapping_offsets_per_gpu_tensors[id][local_slot_id[slot_id]]);
+          tile_key - (h_mapping_offsets_per_gpu_tensors[id][local_slot_id[slot_id]]);
 
       // memcpy hash_table_value to corresponding GPU
       value_dst_buf = h_hash_table_value_chunk_per_gpu[id] +
