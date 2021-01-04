@@ -324,7 +324,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
     BufferBag& buf_bag, size_t num) {
   const TensorBag2 &keys_bag = buf_bag.keys;
   const Tensor2<float> &embeddings = buf_bag.embedding;
-  Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
+  const Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
   load_parameters(keys, embeddings, num, max_vocabulary_size_, Base::get_embedding_vec_size(),
                   max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_);
 }
@@ -550,7 +550,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
   }  // end of if(remain_loop_num)
 
-  // MESSAGE_("Done");
+  MESSAGE_("Done");
 
   // release resources
   for (size_t id = 0; id < local_gpu_count; id++) {
