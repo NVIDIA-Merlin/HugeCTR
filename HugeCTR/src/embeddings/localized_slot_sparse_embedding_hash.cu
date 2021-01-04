@@ -768,7 +768,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_para
   // sync wait
   functors_.sync_all_gpus(Base::get_resource_manager());
 
-  // MESSAGE_("Done");
+  MESSAGE_("Done");
 
   // release resources
   for (size_t id = 0; id < local_gpu_count; id++) {
