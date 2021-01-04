@@ -42,9 +42,8 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
 
 InferenceSession::~InferenceSession() {}
 
-void InferenceSession::predict(float* d_dense, void* embeddingcolumns_ptr, int *row_ptr, float* d_output, int num_samples) {
-  int* d_row_ptrs;
-  float* d_embeddingvectors; // fake
+void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_row_ptrs, float* d_output, int num_samples) {
+  float* d_embeddingvectors = d_output; // fake
 
   size_t embedding_table_num = embedding_feature_combiners_.size();
   if (embedding_table_num !=  row_ptrs_tensors_.size() || 
@@ -78,11 +77,6 @@ void InferenceSession::predict(float* d_dense, void* embeddingcolumns_ptr, int *
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   float* d_pred = network_->get_pred_tensor().get_ptr();
   CK_CUDA_THROW_(cudaMemcpy(d_output, d_pred, inference_parser_.max_batchsize*sizeof(float), cudaMemcpyDeviceToDevice));
-
-  std::cout << "==========================tensor list===================" << std::endl;
-  for (auto tensor_entry:parser_.tensor_entries) {
-    std::cout << "[HUGECTR][INFO] tensor name: " << tensor_entry.name << ", tensor use: " << (int)tensor_entry.use << ", pointer: " << tensor_entry.bag.get_ptr() << std::endl;
-  }
 }
 
 }  // namespace HugeCTR
