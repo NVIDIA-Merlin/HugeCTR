@@ -24,11 +24,11 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
     : config_(read_json_file(config_file)),
       parser_(config_),
       inference_parser_(config_),
+      embedding_table_slot_size({0}),
       resource_manager_(ResourceManager::create({{device_id}}, 0)) {
   try {
     Network* network_ptr;
-    parser_.create_pipeline(inference_parser_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, &embedding_feature_combiners_, &network_ptr,
-                            resource_manager_);
+    parser_.create_pipeline(inference_parser_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, embedding_table_slot_size, &embedding_feature_combiners_, &network_ptr,  resource_manager_);
     network_ = std::move(std::unique_ptr<Network>(network_ptr));
     if(inference_parser_.dense_model_file.size() > 0) {
       network_->upload_params_to_device(inference_parser_.dense_model_file);

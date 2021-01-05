@@ -186,6 +186,7 @@ template <typename TypeEmbeddingComp>
 void Parser::create_pipeline_inference(const InferenceParser& inference_parser, Tensor2<float>& dense_input,
                                       std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                                      std::vector<size_t>& embedding_table_slot_size,
                                       std::vector<std::shared_ptr<Layer>>* embeddings,
                                       Network** network,
                                       const std::shared_ptr<ResourceManager> resource_manager) {
@@ -205,7 +206,7 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
     tensor_entries.push_back({top_strs_dense, TensorUse::General, dense_input.shrink()});
   }
 
-  create_embedding<unsigned int, TypeEmbeddingComp>()(inference_parser, j_layers_array, rows, embeddingvecs, &tensor_entries,
+  create_embedding<unsigned int, TypeEmbeddingComp>()(inference_parser, j_layers_array, rows, embeddingvecs, embedding_table_slot_size, &tensor_entries,
                                                     embeddings, resource_manager->get_local_gpu(0), input_buffer);
   input_buffer->allocate();
 
@@ -218,13 +219,14 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
 void Parser::create_pipeline(const InferenceParser& inference_parser, Tensor2<float>& dense_input,
                              std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                              std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                             std::vector<size_t>& embedding_table_slot_size,
                              std::vector<std::shared_ptr<Layer>>* embeddings, Network** network,
                              const std::shared_ptr<ResourceManager> resource_manager) {
   if (inference_parser.use_mixed_precision) {
-    create_pipeline_inference<__half>(inference_parser, dense_input, rows, embeddingvecs, embeddings, network,
+    create_pipeline_inference<__half>(inference_parser, dense_input, rows, embeddingvecs, embedding_table_slot_size, embeddings, network,
                                      resource_manager);
   } else {
-    create_pipeline_inference<float>(inference_parser, dense_input, rows, embeddingvecs, embeddings, network,
+    create_pipeline_inference<float>(inference_parser, dense_input, rows, embeddingvecs, embedding_table_slot_size, embeddings, network,
                                     resource_manager);
   }
 }
