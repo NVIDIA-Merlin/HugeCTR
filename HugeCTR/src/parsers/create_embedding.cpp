@@ -181,7 +181,9 @@ void create_embedding<TypeKey, TypeFP>::operator()(
 template <typename TypeKey, typename TypeFP>
 void create_embedding<TypeKey, TypeFP>::operator() (
     const InferenceParser& inference_parser, const nlohmann::json& j_layers_array,
-    std::vector<std::shared_ptr<Tensor2<int>>>& rows, std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs, std::vector<TensorEntry>* tensor_entries,
+    std::vector<std::shared_ptr<Tensor2<int>>>& rows, std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+    std::vector<size_t>& embedding_table_slot_size,
+    std::vector<TensorEntry>* tensor_entries,
     std::vector<std::shared_ptr<Layer>>* embeddings,
     const std::shared_ptr<GPUResource> gpu_resource,
     std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff) {
@@ -228,6 +230,9 @@ void create_embedding<TypeKey, TypeFP>::operator() (
       CK_THROW_(Error_t::WrongInput, "combiner need to be 0 or 1");
     }
     size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+
+    size_t prefix_slot_num = embedding_table_slot_size.back();
+    embedding_table_slot_size.push_back(prefix_slot_num + slot_num);
 
     std::vector<size_t> row_dims = { static_cast<size_t>(inference_parser.max_batchsize * slot_num + 1) };
     std::vector<size_t> embeddingvecs_dims = { static_cast<size_t>(inference_parser.max_batchsize * max_feature_num_per_sample),
