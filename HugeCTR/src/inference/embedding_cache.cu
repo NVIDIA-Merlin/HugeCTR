@@ -17,6 +17,8 @@
 #include <inference/embedding_cache.hpp>
 
 namespace HugeCTR {
+// Temp interface, should be delete later
+nlohmann::json read_json_file(const std::string& filename);
 
 // Kernels to combine the value buffer
 __global__ void merge_emb_vec(
