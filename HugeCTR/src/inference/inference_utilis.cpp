@@ -15,6 +15,7 @@
  */
 
 #include <inference/inference_utils.hpp>
+#include <inference/parameter_server.hpp>
 
 namespace HugeCTR {
 template <typename TypeHashKey>

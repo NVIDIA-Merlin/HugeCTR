@@ -84,7 +84,7 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
 
   if(ps_config_.distributed_emb_.size() != model_config_path.size() ||
      ps_config_.embedding_vec_size_.size() != model_config_path.size() ||
-     ps_config_.default_emb_vec_value_.size() != model_config_path.size())){
+     ps_config_.default_emb_vec_value_.size() != model_config_path.size()){
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of parameter server parameters are not correct.");
   }
 
@@ -139,7 +139,7 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
         for(size_t pair = 0; pair < row_num; pair++){
           // Read out the emb_id, slot_id and emb_vec
           emb_file.read(reinterpret_cast<char *>(&read_key), sizeof(TypeHashKey));
-          emb_file.read(reinterpret_cast<char *>(&slod_id), sizeof(size_t));
+          emb_file.read(reinterpret_cast<char *>(&read_slod_id), sizeof(size_t));
           emb_file.read(reinterpret_cast<char *>(read_emb_vec.data()),
                         sizeof(float) * ps_config_.embedding_vec_size_[i][j]);
 

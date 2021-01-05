@@ -20,6 +20,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <common.hpp>
 #include <inference/inference_utils.hpp>
 
 namespace HugeCTR {
