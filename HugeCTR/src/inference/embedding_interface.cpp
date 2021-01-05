@@ -15,6 +15,7 @@
  */
 
 #include <inference/embedding_interface.hpp>
+#include <inference/embedding_cache.hpp>
 
 namespace HugeCTR{
 
@@ -39,13 +40,13 @@ embedding_interface* embedding_interface::Create_Embedding_Cache(HugectrUtility<
   return embedding_cache;
 }
 
-template embedding_interface* embedding_interface::Create_Embedding_Cache<unsigned int>(HugectrUtility<unsigned int>*
+template embedding_interface* embedding_interface::Create_Embedding_Cache<unsigned int>(HugectrUtility<unsigned int>*,
                                                                                         int,
                                                                                         bool,
                                                                                         float,
                                                                                         const std::string&,
                                                                                         const std::string&);
-template embedding_interface* embedding_interface::Create_Embedding_Cache<long long>(HugectrUtility<long long>*
+template embedding_interface* embedding_interface::Create_Embedding_Cache<long long>(HugectrUtility<long long>*,
                                                                                         int,
                                                                                         bool,
                                                                                         float,

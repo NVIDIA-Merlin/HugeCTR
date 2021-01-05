@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "<inference/gpu_cache/nv_gpu_cache.hpp>"
+#include <inference/gpu_cache/nv_gpu_cache.hpp>
 
 // Overload CUDA atomic for other 64bit unsinged/signed integer type
 __forceinline__
