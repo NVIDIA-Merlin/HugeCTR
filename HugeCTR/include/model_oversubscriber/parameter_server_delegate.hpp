@@ -45,20 +45,6 @@ class ParameterServerDelegate {
                                  const size_t file_size_in_byte,
                                  const size_t embedding_vec_size,
                                  HashTable& hash_table) = 0;
-
-  virtual void load_from_embedding_file(float* mmaped_table,
-                                        BufferBag& buf_bag,
-                                        const std::vector<KeyType>& keyset,
-                                        const size_t embedding_vec_size,
-                                        const HashTable& hash_table,
-                                        size_t& hit_size) = 0;
-
-  virtual void dump_to_embedding_file(float* mmaped_table,
-                                      BufferBag& buf_bag,
-                                      const size_t embedding_vec_size,
-                                      const std::string& embedding_table_path,
-                                      HashTable& hash_table,
-                                      const size_t dump_size) = 0;
 };
 
 }  // namespace HugeCTR
