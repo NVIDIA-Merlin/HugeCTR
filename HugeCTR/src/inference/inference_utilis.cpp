@@ -41,4 +41,6 @@ HugectrUtility<TypeHashKey>* HugectrUtility<TypeHashKey>::Create_Parameter_Serve
   return parameter_server;
 }
 
+template class HugectrUtility<unsigned int>;
+template class HugectrUtility<long long>;
 }  // namespace HugeCTR

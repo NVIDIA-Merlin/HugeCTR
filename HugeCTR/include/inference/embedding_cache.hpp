@@ -28,9 +28,6 @@
 #include <inference/embedding_interface.hpp>
 #include <inference/gpu_cache/nv_gpu_cache.hpp>
 
-#define SET_ASSOCIATIVITY 2
-#define SLAB_SIZE 32
-
 namespace HugeCTR {
 
 template <typename TypeHashKey>
