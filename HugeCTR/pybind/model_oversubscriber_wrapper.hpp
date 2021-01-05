@@ -1,12 +1,4 @@
 /*
- * @Author: your name
- * @Date: 2020-11-06 16:26:09
- * @LastEditTime: 2020-11-06 16:26:23
- * @LastEditors: your name
- * @Description: In User Settings Edit
- * @FilePath: /hugectr/HugeCTR/pybind/model_oversubscriber_wrapper.hpp
- */
-/*
  * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
