@@ -19,9 +19,9 @@
 #include <thread>
 #include <map>
 #include <vector>
-#include <inference/hugectrmodel.hpp>
 
 namespace HugeCTR {
+enum INFER_TYPE { TRITON, OTHER };
 
 struct parameter_server_config{
   std::map<std::string, size_t> model_name_id_map_;
