@@ -13,6 +13,24 @@
 
 cmake_minimum_required(VERSION 3.8)
 include_directories(/opt/conda/include)
+
+include(FetchContent)
+
+FetchContent_Declare(
+  pybind11_sources
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG        v2.2
+)
+FetchContent_GetProperties(pybind11_sources)
+
+if(NOT pybind11_sources_POPULATED)
+  FetchContent_Populate(pybind11_sources)
+  add_subdirectory(
+    ${pybind11_sources_SOURCE_DIR}
+    ${pybind11_sources_BINARY_DIR}
+    )
+endif()
+
 file(GLOB huge_ctr_src
   cpu_resource.cpp
   gpu_resource.cpp
@@ -94,6 +112,7 @@ file(GLOB huge_ctr_src
   embeddings/distributed_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_one_hot.cu
+  model_oversubscriber/localized_parameter_server_delegate.cpp
   model_oversubscriber/distributed_parameter_server_delegate.cpp
   model_oversubscriber/model_oversubscriber_impl.cpp
   model_oversubscriber/parameter_server.cpp
@@ -103,20 +122,29 @@ file(GLOB huge_ctr_src
 
 set(CMAKE_CXX_STANDARD 14)
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
+add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
 if(MPI_FOUND)
   target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf)
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
   target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf)
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
-
 target_compile_features(huge_ctr_static PUBLIC cxx_std_14)
-
 set_target_properties(huge_ctr_static PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
+target_link_libraries(huge_ctr_shared PRIVATE nlohmann_json::nlohmann_json)
+target_compile_features(huge_ctr_shared PUBLIC cxx_std_14)
+set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 add_executable(huge_ctr main.cpp)
 target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
 target_compile_features(huge_ctr PUBLIC cxx_std_14)
+
+add_library(hugectr MODULE ../pybind/module_main.cpp)
+target_link_libraries(hugectr PUBLIC pybind11::module ${PYTHON_LIBRARIES} ${CUDA_LIBRARIES} huge_ctr_shared)
+set_target_properties(hugectr PROPERTIES PREFIX "")

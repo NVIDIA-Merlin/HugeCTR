@@ -17,6 +17,8 @@
 #pragma once
 #include <optimizer.hpp>
 #include <tensor2.hpp>
+#include <model_oversubscriber/parameter_server_delegate.hpp>
+
 #include <vector>
 
 namespace HugeCTR {
@@ -34,9 +36,10 @@ class IEmbedding {
   virtual size_t get_params_num() const = 0;
   virtual size_t get_vocabulary_size() const = 0;
   virtual size_t get_max_vocabulary_size() const = 0;
-  virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
-                               size_t num) = 0;
-  virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
+
+  virtual Embedding_t get_embedding_type() const = 0;
+  virtual void load_parameters(BufferBag& buf_bag, size_t num) = 0;
+  virtual void dump_parameters(BufferBag& buf_bag, size_t* num) const = 0;
   virtual void reset() = 0;
 
   virtual std::vector<TensorBag2> get_train_output_tensors() const = 0;
