@@ -20,8 +20,6 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-#include <map>
-#include <omp.h>
 
 namespace HugeCTR {
 
@@ -120,121 +118,6 @@ void DistributedParameterServerDelegate<KeyType>::store_to_snapshot(
       memcpy(dst_emb, src_emb, embedding_vector_size_in_byte);
     }
     snapshot.write(read_snapshot_chunk.get(), num_embs * (row_size_in_byte));
-  }
-}
-
-template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::load_from_embedding_file(
-    float* mmaped_table,
-    BufferBag& buf_bag,
-    const std::vector<KeyType>& keyset,
-    const size_t embedding_vec_size,
-    const HashTable& hash_table,
-    size_t& hit_size)
-{
-  KeyType* keys = Tensor2<KeyType>::stretch_from(buf_bag.keys).get_ptr();
-  float* hash_table_val = buf_bag.embedding.get_ptr();
-
-  std::vector<size_t> idx_exist;
-  std::map<size_t, KeyType> pair_exist;
-  for (size_t cnt = 0; cnt < keyset.size(); cnt++) {
-    auto iter = hash_table.find(keyset[cnt]);
-    if (iter == hash_table.end()) continue;
-    pair_exist.insert({iter->second.second, iter->first});
-  }
-
-  size_t cnt_hit_keys = 0;
-  idx_exist.reserve(pair_exist.size());
-  for (auto& pair : pair_exist) {
-    keys[cnt_hit_keys++] = pair.second;
-    idx_exist.push_back(pair.first);
-  }
-
-  const size_t embedding_vector_size_in_byte = sizeof(float) * embedding_vec_size;
-
-#pragma omp parallel num_threads(8)
-  {
-    const size_t tid = omp_get_thread_num();
-    const size_t thread_num = omp_get_num_threads();
-    size_t sub_chunk_size = idx_exist.size() / thread_num;
-    size_t res_chunk_size = idx_exist.size() % thread_num;
-    const size_t idx = tid * sub_chunk_size;
-
-    if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
-
-    for (size_t i = 0; i < sub_chunk_size; i++) {
-      size_t src_idx = idx_exist[idx + i] * embedding_vec_size;
-      size_t dst_idx = (idx + i) * embedding_vec_size;
-      memcpy(&hash_table_val[dst_idx], &mmaped_table[src_idx], embedding_vector_size_in_byte);
-    }
-  }
-
-  hit_size = cnt_hit_keys;
-}
-
-template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::dump_to_embedding_file(
-    float* mmaped_table,
-    BufferBag& buf_bag,
-    const size_t embedding_vec_size,
-    const std::string& embedding_table_path,
-    HashTable& hash_table,
-    const size_t dump_size)
-{
-  const KeyType* keys = Tensor2<KeyType>::stretch_from(buf_bag.keys).get_ptr();
-  const float* hash_table_val = buf_bag.embedding.get_ptr();
-  
-  size_t cnt_new_keys = 0;
-  const size_t hash_table_size = hash_table.size();
-
-  std::vector<size_t> idx_exist_src, idx_exist_dst, idx_miss_src;
-  std::map<size_t, size_t> idx_exist;
-  for (size_t cnt = 0; cnt < dump_size; cnt++) {
-    auto iter = hash_table.find(keys[cnt]);
-    if (iter == hash_table.end()) {
-      hash_table.insert({keys[cnt], {0, hash_table_size + cnt_new_keys}});
-      idx_miss_src.push_back(cnt);
-      cnt_new_keys++;
-    } else {
-      idx_exist.insert({iter->second.second, cnt});
-    }
-  }
-
-  idx_exist_src.reserve(idx_exist.size());
-  idx_exist_dst.reserve(idx_exist.size());
-  for (auto& pair : idx_exist) {
-    idx_exist_src.push_back(pair.second);
-    idx_exist_dst.push_back(pair.first);
-  }
-
-  const size_t embedding_vector_size_in_byte = sizeof(float) * embedding_vec_size;
-
-#pragma omp parallel num_threads(8)
-  {
-    const size_t tid = omp_get_thread_num();
-    const size_t thread_num = omp_get_num_threads();
-    size_t sub_chunk_size = idx_exist_src.size() / thread_num;
-    size_t res_chunk_size = idx_exist_src.size() % thread_num;
-    const size_t idx = tid * sub_chunk_size;
-
-    if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
-
-    for (size_t i = 0; i < sub_chunk_size; i++) {
-      size_t src_idx = idx_exist_src[idx + i] * embedding_vec_size;
-      size_t dst_idx = idx_exist_dst[idx + i] * embedding_vec_size;
-      memcpy(&mmaped_table[dst_idx], &hash_table_val[src_idx], embedding_vector_size_in_byte);
-    }
-  }
-
-  // append new embedding to file
-  std::ofstream embedding_file;
-  embedding_file.open(embedding_table_path, std::ofstream::binary | std::ofstream::app);
-  if (!embedding_file.is_open()) {
-    CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + embedding_table_path);
-  }
-  for (size_t cnt = 0; cnt < cnt_new_keys; cnt++) {
-    size_t src_idx = idx_miss_src[cnt] * embedding_vec_size;
-    embedding_file.write((char*)(&hash_table_val[src_idx]), embedding_vector_size_in_byte);
   }
 }
 

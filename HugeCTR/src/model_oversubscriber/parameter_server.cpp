@@ -18,6 +18,7 @@
 #include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
 
 #include <map>
+#include <omp.h>
 #include <cstdio>
 #include <algorithm>
 #include <fstream>
@@ -147,6 +148,8 @@ ParameterServer<TypeHashKey, TypeEmbeddingComp>::ParameterServer(
     const Embedding_t embedding_type)
   : embedding_params_(embedding_params),
     embedding_table_path_(temp_embedding_dir + "/" + generate_random_file_name()),
+    is_distributed_(embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash
+                    ? true : false),
     parameter_server_delegate_(get_parameter_server_delegate_(embedding_type)),
     file_size_in_byte_{0},
     mmaped_table_{nullptr},
@@ -221,12 +224,68 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_param_from_embedding_
       CK_THROW_(Error_t::WrongInput, "Keyset_ is empty");
     }
 
+    TypeHashKey* keys = Tensor2<TypeHashKey>::stretch_from(buf_bag.keys).get_ptr();
+    float* hash_table_val = buf_bag.embedding.get_ptr();
+
+    std::vector<size_t> idx_exist;
+    size_t cnt_hit_keys = 0;
+
+    if (is_distributed_) {
+      std::map<size_t, TypeHashKey> pair_exist;
+      for (size_t cnt = 0; cnt < keyset_.size(); cnt++) {
+        auto iter = hash_table_.find(keyset_[cnt]);
+        if (iter == hash_table_.end()) continue;
+        pair_exist.insert({iter->second.second, iter->first});
+      }
+
+      idx_exist.reserve(pair_exist.size());
+      for (auto& pair : pair_exist) {
+        keys[cnt_hit_keys++] = pair.second;
+        idx_exist.push_back(pair.first);
+      }
+    } else {
+      size_t* slot_id = Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr();
+      std::map<size_t, std::pair<TypeHashKey, size_t>> pair_exist;
+      for (size_t cnt = 0; cnt < keyset_.size(); cnt++) {
+        auto iter = hash_table_.find(keyset_[cnt]);
+        if (iter == hash_table_.end()) continue;
+        pair_exist.insert({iter->second.second, {iter->first, iter->second.first}});
+      }
+
+      idx_exist.reserve(pair_exist.size());
+      for (auto& pair : pair_exist) {
+        keys[cnt_hit_keys] = pair.second.first;
+        slot_id[cnt_hit_keys] = pair.second.second;
+        idx_exist.push_back(pair.first);
+        cnt_hit_keys++;
+      }
+    }
+
+    const size_t embedding_vec_size = embedding_params_.embedding_vec_size;
+    const size_t embedding_vector_size_in_byte = sizeof(float) * embedding_vec_size;
+
     if (!maped_to_memory_) {
       map_embedding_to_memory_();
     }
 
-    parameter_server_delegate_->load_from_embedding_file(mmaped_table_, buf_bag,
-        keyset_, embedding_params_.embedding_vec_size, hash_table_, hit_size);
+  #pragma omp parallel num_threads(8)
+    {
+      const size_t tid = omp_get_thread_num();
+      const size_t thread_num = omp_get_num_threads();
+      size_t sub_chunk_size = idx_exist.size() / thread_num;
+      size_t res_chunk_size = idx_exist.size() % thread_num;
+      const size_t idx = tid * sub_chunk_size;
+
+      if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
+
+      for (size_t i = 0; i < sub_chunk_size; i++) {
+        size_t src_idx = idx_exist[idx + i] * embedding_vec_size;
+        size_t dst_idx = (idx + i) * embedding_vec_size;
+        memcpy(&hash_table_val[dst_idx], &mmaped_table_[src_idx], embedding_vector_size_in_byte);
+      }
+    }
+
+    hit_size = cnt_hit_keys;
 
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -241,13 +300,83 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_param_to_embedding_file(
      BufferBag &buf_bag, const size_t dump_size) {
   try {
+
+    const TypeHashKey* keys = Tensor2<TypeHashKey>::stretch_from(buf_bag.keys).get_ptr();
+    const float* hash_table_val = buf_bag.embedding.get_ptr();
+
+    size_t cnt_new_keys = 0;
+    const size_t hash_table_size = hash_table_.size();
+
+    std::vector<size_t> idx_exist_src, idx_exist_dst, idx_miss_src;
+    std::map<size_t, size_t> idx_exist;
+    if (is_distributed_) {
+      for (size_t cnt = 0; cnt < dump_size; cnt++) {
+        auto iter = hash_table_.find(keys[cnt]);
+        if (iter == hash_table_.end()) {
+          hash_table_.insert({keys[cnt], {0, hash_table_size + cnt_new_keys}});
+          idx_miss_src.push_back(cnt);
+          cnt_new_keys++;
+        } else {
+          idx_exist.insert({iter->second.second, cnt});
+        }
+      }
+    } else {
+      const size_t* slot_id = Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr();
+      for (size_t cnt = 0; cnt < dump_size; cnt++) {
+        auto iter = hash_table_.find(keys[cnt]);
+        if (iter == hash_table_.end()) {
+          hash_table_.insert({keys[cnt], {slot_id[cnt], hash_table_size + cnt_new_keys}});
+          idx_miss_src.push_back(cnt);
+          cnt_new_keys++;
+        } else {
+          idx_exist.insert({iter->second.second, cnt});
+        }
+      }
+    }
+
+    idx_exist_src.reserve(idx_exist.size());
+    idx_exist_dst.reserve(idx_exist.size());
+    for (auto& pair : idx_exist) {
+      idx_exist_src.push_back(pair.second);
+      idx_exist_dst.push_back(pair.first);
+    }
+
+    const size_t embedding_vec_size = embedding_params_.embedding_vec_size;
+    const size_t embedding_vector_size_in_byte = sizeof(float) * embedding_vec_size;
+
     // update existed embedding
     if (!maped_to_memory_) {
       map_embedding_to_memory_();
     }
 
-    parameter_server_delegate_->dump_to_embedding_file(mmaped_table_, buf_bag,
-        embedding_params_.embedding_vec_size, embedding_table_path_, hash_table_, dump_size);
+#pragma omp parallel num_threads(8)
+    {
+      const size_t tid = omp_get_thread_num();
+      const size_t thread_num = omp_get_num_threads();
+      size_t sub_chunk_size = idx_exist_src.size() / thread_num;
+      size_t res_chunk_size = idx_exist_src.size() % thread_num;
+      const size_t idx = tid * sub_chunk_size;
+
+      if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
+
+      for (size_t i = 0; i < sub_chunk_size; i++) {
+        size_t src_idx = idx_exist_src[idx + i] * embedding_vec_size;
+        size_t dst_idx = idx_exist_dst[idx + i] * embedding_vec_size;
+        memcpy(&mmaped_table_[dst_idx], &hash_table_val[src_idx], embedding_vector_size_in_byte);
+      }
+    }
+    unmap_embedding_from_memory_();
+
+    // append new embedding to file
+    std::ofstream embedding_file;
+    embedding_file.open(embedding_table_path_, std::ofstream::binary | std::ofstream::app);
+    if (!embedding_file.is_open()) {
+      CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + embedding_table_path_);
+    }
+    for (size_t cnt = 0; cnt < cnt_new_keys; cnt++) {
+      size_t src_idx = idx_miss_src[cnt] * embedding_vec_size;
+      embedding_file.write((char*)(&hash_table_val[src_idx]), embedding_vector_size_in_byte);
+    }
 
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

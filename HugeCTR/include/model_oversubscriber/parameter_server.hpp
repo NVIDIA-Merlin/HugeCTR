@@ -33,6 +33,7 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 class ParameterServer {
   SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params_;
   std::string embedding_table_path_;
+  bool is_distributed_;
   std::unique_ptr<ParameterServerDelegate<TypeHashKey>> parameter_server_delegate_;
   std::unordered_map<TypeHashKey, std::pair<size_t, size_t>> hash_table_; // <key, <slot_id, offset>>
   std::vector<TypeHashKey> keyset_;
