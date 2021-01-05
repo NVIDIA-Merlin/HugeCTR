@@ -39,4 +39,16 @@ embedding_interface* embedding_interface::Create_Embedding_Cache(HugectrUtility<
   return embedding_cache;
 }
 
+template embedding_interface* embedding_interface::Create_Embedding_Cache<unsigned int>(HugectrUtility<unsigned int>*
+                                                                                        int,
+                                                                                        bool,
+                                                                                        float,
+                                                                                        const std::string&,
+                                                                                        const std::string&);
+template embedding_interface* embedding_interface::Create_Embedding_Cache<long long>(HugectrUtility<long long>*
+                                                                                        int,
+                                                                                        bool,
+                                                                                        float,
+                                                                                        const std::string&,
+                                                                                        const std::string&);
 }  // namespace HugeCTR

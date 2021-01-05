@@ -196,4 +196,6 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
   }
 }
 
+template class parameter_server<unsigned int>;
+template class parameter_server<long long>;
 }  // namespace HugeCTR

@@ -1231,5 +1231,7 @@ Replace(const key_type* d_keys,
 }
 #endif
 
+template class gpu_cache<unsigned int, uint64_t, std::numeric_limits<unsigned int>::max(), SET_ASSOCIATIVITY, SLAB_SIZE>;
+template class gpu_cache<long long, uint64_t, std::numeric_limits<long long>::max(), SET_ASSOCIATIVITY, SLAB_SIZE>;
 } // namespace gpu_cache
 } // namespace HugeCTR

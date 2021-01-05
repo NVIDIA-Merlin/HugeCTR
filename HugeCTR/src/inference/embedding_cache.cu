@@ -407,4 +407,6 @@ void embedding_cache<TypeHashKey>::destroy_workspace(embedding_cache_workspace& 
   }
 }
 
+template class embedding_cache<unsigned int>;
+template class embedding_cache<long long>;
 }  // namespace HugeCTR

@@ -23,6 +23,9 @@
 #include <cuda/std/semaphore>
 #endif
 
+#define SET_ASSOCIATIVITY 2
+#define SLAB_SIZE 32
+
 namespace cg = cooperative_groups;
 
 namespace HugeCTR {
