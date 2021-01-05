@@ -17,6 +17,8 @@
 #include <inference/parameter_server.hpp>
 
 namespace HugeCTR {
+// Temp interface, should be delete later
+nlohmann::json read_json_file(const std::string& filename);
 
 template <typename TypeHashKey>
 parameter_server<TypeHashKey>::parameter_server(const std::string& framework_name, 
