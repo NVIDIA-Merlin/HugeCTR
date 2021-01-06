@@ -33,6 +33,17 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
     if(inference_parser_.dense_model_file.size() > 0) {
       network_->upload_params_to_device(inference_parser_.dense_model_file);
     }
+    CudaDeviceContext ctx;
+    ctx.set_device(device_id);
+    for(unsigned int idx_embedding_table = 1; idx_embedding_table < embedding_table_slot_size.size(); ++idx_embedding_table){
+      cudaStream_t lookup_stream;
+      cudaStreamCreateWithFlags(&lookup_stream, cudaStreamNonBlocking);
+      lookup_streams_.push_back(lookup_stream);
+
+      cudaStream_t update_stream;
+      cudaStreamCreateWithFlags(&update_stream, cudaStreamNonBlocking);
+      update_streams_.push_back(update_stream);
+    }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
