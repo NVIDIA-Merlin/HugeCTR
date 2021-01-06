@@ -28,6 +28,8 @@
 
 namespace HugeCTR {
 
+nlohmann::json read_json_file(const std::string& filename);
+
 /**
  * @brief The parser of configure file (in json format).
  *

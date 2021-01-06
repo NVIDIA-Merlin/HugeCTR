@@ -17,7 +17,6 @@
 #pragma once
 #include <utils.hpp>
 #include <inference/gpu_cache/hash_functions.cuh>
-#include <cooperative_groups.h>
 #ifdef LIBCUDACXX_VERSION
 #include <cuda/std/atomic>
 #include <cuda/std/semaphore>
@@ -25,8 +24,6 @@
 
 #define SET_ASSOCIATIVITY 2
 #define SLAB_SIZE 32
-
-namespace cg = cooperative_groups;
 
 namespace HugeCTR {
 namespace gpu_cache{

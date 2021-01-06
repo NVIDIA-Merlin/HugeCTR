@@ -15,6 +15,9 @@
  */
 
 #include <inference/gpu_cache/nv_gpu_cache.hpp>
+#include <cooperative_groups.h>
+
+namespace cg = cooperative_groups;
 
 // Overload CUDA atomic for other 64bit unsinged/signed integer type
 __forceinline__
@@ -1032,20 +1035,20 @@ gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, s
   CudaDeviceContext dev_restorer;
 
   // Set device
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  cudaSetDevice(dev_);
 
   // Destruct CUDA std object
   destruct_kernel<<<((capacity_in_set_-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_>>>(global_counter_, set_mutex_, capacity_in_set_);
   // Wait for destruction to finish
-  CK_CUDA_THROW_(cudaStreamSynchronize(0));
+  cudaStreamSynchronize(0);
 
   // Free GPU memory for cache
-  CK_CUDA_THROW_(cudaFree( keys_ ));
-  CK_CUDA_THROW_(cudaFree( vals_ ));
-  CK_CUDA_THROW_(cudaFree( slot_counter_ ));
-  CK_CUDA_THROW_(cudaFree( global_counter_ ));
+  cudaFree( keys_ );
+  cudaFree( vals_ );
+  cudaFree( slot_counter_ );
+  cudaFree( global_counter_ );
   // Free GPU memory for set mutex
-  CK_CUDA_THROW_(cudaFree( set_mutex_ ));
+  cudaFree( set_mutex_ );
 
 }
 #else
@@ -1062,15 +1065,15 @@ gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, s
   CudaDeviceContext dev_restorer;
 
   // Set device
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  cudaSetDevice(dev_);
 
   // Free GPU memory for cache
-  CK_CUDA_THROW_(cudaFree( keys_ ));
-  CK_CUDA_THROW_(cudaFree( vals_ ));
-  CK_CUDA_THROW_(cudaFree( slot_counter_ ));
-  CK_CUDA_THROW_(cudaFree( global_counter_ ));
+  cudaFree( keys_ );
+  cudaFree( vals_ );
+  cudaFree( slot_counter_ );
+  cudaFree( global_counter_ );
   // Free GPU memory for set mutex
-  CK_CUDA_THROW_(cudaFree( set_mutex_ ));
+  cudaFree( set_mutex_ );
 
 }
 #endif
