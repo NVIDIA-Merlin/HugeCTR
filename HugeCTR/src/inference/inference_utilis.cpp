@@ -28,18 +28,18 @@ template <typename TypeHashKey>
 HugectrUtility<TypeHashKey>* HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE Infer_type, 
                                                                                   const std::vector<std::string>& model_config_path, 
                                                                                   const std::vector<std::string>& model_name){
-  HugectrUtility<TypeHashKey>* parameter_server;
+  HugectrUtility<TypeHashKey>* new_parameter_server;
 
   switch(Infer_type){
     case TRITON:
-      parameter_server = new parameter_server<TypeHashKey>("TRITON", model_config_path, model_name);
+      new_parameter_server = new parameter_server<TypeHashKey>("TRITON", model_config_path, model_name);
       break;
     default:
       CK_THROW_(Error_t::WrongInput, "Error: unknown framework name.");
       break;
   }
 
-  return parameter_server;
+  return new_parameter_server;
 }
 
 template class HugectrUtility<unsigned int>;

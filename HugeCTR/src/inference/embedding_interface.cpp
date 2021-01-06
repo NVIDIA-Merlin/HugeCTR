@@ -30,14 +30,14 @@ embedding_interface* embedding_interface::Create_Embedding_Cache(HugectrUtility<
                                                                  float cache_size_percentage,
                                                                  const std::string& model_config_path,
                                                                  const std::string& model_name){
-  embedding_interface* embedding_cache;
-  embedding_cache = new embedding_cache<TypeHashKey>(parameter_server, 
-                                                     cuda_dev_id,
-                                                     use_gpu_embedding_cache,
-                                                     cache_size_percentage,
-                                                     model_config_path,
-                                                     model_name);
-  return embedding_cache;
+  embedding_interface* new_embedding_cache;
+  new_embedding_cache = new embedding_cache<TypeHashKey>(parameter_server, 
+                                                         cuda_dev_id,
+                                                         use_gpu_embedding_cache,
+                                                         cache_size_percentage,
+                                                         model_config_path,
+                                                         model_name);
+  return new_embedding_cache;
 }
 
 template embedding_interface* embedding_interface::Create_Embedding_Cache<unsigned int>(HugectrUtility<unsigned int>*,

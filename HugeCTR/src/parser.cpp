@@ -52,6 +52,18 @@
 
 namespace HugeCTR {
 
+nlohmann::json read_json_file(const std::string& filename) {
+  nlohmann::json config;
+  std::ifstream file_stream(filename);
+  if (!file_stream.is_open()) {
+    CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + filename);
+  }
+  file_stream >> config;
+  file_stream.close();
+  return config;
+}
+
+
 struct InputOutputInfo {
   std::vector<TensorBag2> train_input;
   std::vector<TensorBag2> evaluate_input;

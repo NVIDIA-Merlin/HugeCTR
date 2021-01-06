@@ -43,7 +43,6 @@ file(GLOB huge_ctr_src
   network.cu
   network.cpp
   inference/hugectrmodel.cpp
-  inference/inference_utils.cpp
   inference/embedding_cache.cpp
   inference/session_inference.cpp
   inference/embedding_cache.cu
