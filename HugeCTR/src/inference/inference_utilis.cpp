@@ -14,37 +14,34 @@
  * limitations under the License.
  */
 
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <memory>
-#include <optimizer.hpp>
-#include <parser.hpp>
-#include <session.hpp>
-#include <utils.hpp>
-
-#include "HugeCTR/include/inference/embedding_cache.hpp"
-#include "HugeCTR/include/inference/inference_utils.hpp"
+#include <inference/inference_utils.hpp>
+#include <inference/parameter_server.hpp>
 
 namespace HugeCTR {
-template <typename T>
-HugectrUtility<T>::HugectrUtility() {}
-template <typename T>
-HugectrUtility<T>::~HugectrUtility() {}
-template <typename T>
-HugectrUtility<T>* HugectrUtility<T>::Create_Embedding(INFER_TYPE Infer_type, std::string& config) {
-  HugectrUtility<T>* embedding;
+template <typename TypeHashKey>
+HugectrUtility<TypeHashKey>::HugectrUtility(){}
 
-  switch (Infer_type) {
+template <typename TypeHashKey>
+HugectrUtility<TypeHashKey>::~HugectrUtility(){}
+
+template <typename TypeHashKey>
+HugectrUtility<TypeHashKey>* HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE Infer_type, 
+                                                                                  const std::vector<std::string>& model_config_path, 
+                                                                                  const std::vector<std::string>& model_name){
+  HugectrUtility<TypeHashKey>* new_parameter_server;
+
+  switch(Infer_type){
     case TRITON:
-      embedding = new embedding_cache<T>("TRITON");
+      new_parameter_server = new parameter_server<TypeHashKey>("TRITON", model_config_path, model_name);
       break;
     default:
-      std::cout << "wrong type!" << std::endl;
-      return NULL;
+      CK_THROW_(Error_t::WrongInput, "Error: unknown framework name.");
+      break;
   }
 
-  return embedding;
+  return new_parameter_server;
 }
 
+template class HugectrUtility<unsigned int>;
+template class HugectrUtility<long long>;
 }  // namespace HugeCTR

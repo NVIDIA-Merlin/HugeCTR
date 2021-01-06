@@ -63,9 +63,13 @@ file(GLOB huge_ctr_src
   network.cpp
   inference/embedding_feature_combiner.cu
   inference/hugectrmodel.cpp
-  inference/inference_utils.cpp
   inference/embedding_cache.cpp
   inference/session_inference.cpp
+  inference/embedding_cache.cu
+  inference/embedding_interface.cpp
+  inference/parameter_server.cpp
+  inference/inference_utilis.cpp
+  inference/gpu_cache/nv_gpu_cache.cu
   data_readers/metadata.cpp
   metrics.cu
   optimizers/adam_optimizer.cu
