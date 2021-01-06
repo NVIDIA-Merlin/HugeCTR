@@ -155,12 +155,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
   std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
-      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
+      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
 
   test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
@@ -377,6 +377,161 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   test::mpi_finalize();
 }
 
+template <typename TypeEmbeddingComp>
+void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optimizer,
+                   const Update_t &update_type) {
+  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  hyper_params.sgd.atomic_update = true;
+  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
+                                                   scaler};
+  std::vector<std::vector<int>> vvgpu;
+  vvgpu.push_back(device_list);
+  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+
+  // re-generate the dataset files
+  {
+    std::ifstream fs(train_file_list_name);
+    if (fs.good()) {
+      std::remove(train_file_list_name);
+    }
+  }
+
+  // data generation: key's corresponding slot_id=(key%slot_num)
+  if (slot_sizes.size() > 0) {
+    HugeCTR::data_generation_for_localized_test<T, CHK>(
+        train_file_list_name, prefix, num_files, train_batch_num * train_batchsize, slot_num,
+        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
+    HugeCTR::data_generation_for_localized_test<T, CHK>(
+        test_file_list_name, prefix, num_files, test_batch_num * test_batchsize, slot_num,
+        vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
+  } else {
+    CK_THROW_(
+        Error_t::WrongInput,
+        "Must set slot_sizes since there is no hashtable in LocalizedSlotSpasrseEmbeddingOneHot");
+  }
+
+  // setup a data reader
+  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
+                                       max_nnz_per_slot, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+
+  std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+
+  train_data_reader->create_drwg_norm(train_file_list_name, CHK);
+
+  // generate hashtable
+  std::cout << "Init hash table";
+  // init hash table file: <key, solt_id, value>
+  std::ofstream weight_stream(hash_table_file_name);
+  if (!weight_stream.is_open()) {
+    ERROR_MESSAGE_("Error: file not open for writing");
+  }
+  // UnifiedDataSimulator<T> ldata_sim(0, slot_num-1); // for slot_id
+  test::UniformDataSimulator fdata_sim;  // for value
+  std::unique_ptr<float[]> buf(new float[embedding_vec_size]);
+  for (long long i = 0; i < vocabulary_size; i++) {
+    T key = (T)i;
+    // T key = ldata_sim.get_num();
+    // CAUSION: can not set random keys here, because we need to ensure that:
+    // 1) we can find keys in the data file from this hash table
+    // 2) there are no repeated keys
+    weight_stream.write((char *)&key, sizeof(T));
+    T slot_id;
+    if (slot_sizes.size() == 0) {
+      // slot_id = key % slot_num;  // CAUSION: need to dedicate the slot_id for each key for
+      //                            // correctness verification
+      CK_THROW_(Error_t::WrongInput,
+                "Must set slot_sizes since there is no hashtable in "
+                "LocalizedSlotSpasrseEmbeddingOneHot");
+    } else {
+      size_t offset = 0;
+      for (size_t j = 0; j < slot_sizes.size(); j++) {
+        if ((key >= static_cast<T>(offset)) && (key < static_cast<T>(offset + slot_sizes[j]))) {
+          slot_id = (T)j;
+          break;
+        }
+        offset += slot_sizes[j];
+      }
+    }
+    weight_stream.write((char *)&slot_id, sizeof(T));
+    // float val = (float)i;
+    // float val = 0.1f;
+    fdata_sim.fill(buf.get(), embedding_vec_size, -0.1f, 0.1f);
+    weight_stream.write(reinterpret_cast<const char *>(buf.get()),
+                        embedding_vec_size * sizeof(float));
+  }
+  weight_stream.close();
+  std::cout << " Done" << std::endl;
+
+  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+      train_batchsize, test_batchsize, 0,        slot_sizes, embedding_vec_size,
+      max_feature_num, slot_num,       combiner, opt_params};
+
+  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
+      new LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>(
+          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
+          train_data_reader->get_nnz_array(), train_data_reader->get_row_offsets_tensors(),
+          train_data_reader->get_value_tensors(), train_data_reader->get_nnz_array(),
+          embedding_params, plan_file, resource_manager));
+
+  {
+    // upload hash table to device
+    std::ifstream fs(hash_table_file_name);
+    embedding->load_parameters(fs);
+    fs.close();
+  }
+
+  printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
+         embedding->get_vocabulary_size());
+
+  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
+      GeneralBuffer2<CudaHostAllocator>::create();
+
+  Tensor2<T> keys;
+  blobs_buff->reserve({embedding->get_max_vocabulary_size()}, &keys);
+
+  Tensor2<size_t> slot_id;
+  blobs_buff->reserve({embedding->get_max_vocabulary_size()}, &slot_id);
+
+  Tensor2<float> embeddings;
+  blobs_buff->reserve({embedding->get_max_vocabulary_size(), embedding_vec_size}, &embeddings);
+
+  blobs_buff->allocate();
+
+  BufferBag buf_bag;
+  buf_bag.keys = keys.shrink();
+  buf_bag.slot_id = slot_id.shrink();
+  buf_bag.embedding = embeddings;
+
+  size_t dump_size;
+  embedding->dump_parameters(buf_bag, &dump_size);
+
+  printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
+         embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+
+  embedding->dump_parameters(buf_bag, &dump_size);
+
+  printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
+         embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+
+  embedding->reset();
+
+  printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
+         embedding->get_vocabulary_size());
+
+  embedding->load_parameters(buf_bag, dump_size);
+
+  printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
+         embedding->get_vocabulary_size());
+
+  embedding->dump_parameters(buf_bag, &dump_size);
+
+  printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
+         embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+}
+
 }  // namespace
 
 TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_1gpu) {
@@ -409,4 +564,8 @@ TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_global_update_1gpu) {
 
 TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_global_update_4gpu) {
   train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, load_and_dump) {
+  load_and_dump<float>({0}, Optimizer_t::SGD, Update_t::Global);
 }

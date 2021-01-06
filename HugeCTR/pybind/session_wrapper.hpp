@@ -1,12 +1,4 @@
 /*
- * @Author: your name
- * @Date: 2020-11-06 15:00:46
- * @LastEditTime: 2020-11-06 16:25:36
- * @LastEditors: your name
- * @Description: In User Settings Edit
- * @FilePath: /hugectr/HugeCTR/pybind/session_wrapper.hpp
- */
-/*
  * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");

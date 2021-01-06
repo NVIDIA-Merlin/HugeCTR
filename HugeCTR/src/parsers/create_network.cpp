@@ -162,11 +162,11 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
  */
 Network* Network::create_network(
     const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
-    std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
-    const std::shared_ptr<CPUResource>& cpu_resource,
-    const std::shared_ptr<GPUResource>& gpu_resource,
-    bool use_mixed_precision, float scaler,
-    bool use_algorithm_search, bool use_cuda_graph, bool inference_flag) {
+                        std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
+                        const std::shared_ptr<CPUResource>& cpu_resource,
+                        const std::shared_ptr<GPUResource>& gpu_resource,
+                        bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                        bool use_algorithm_search, bool use_cuda_graph, bool inference_flag) {
   std::unique_ptr<Network> network(
       new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
 
@@ -505,7 +505,7 @@ Network* Network::create_network(
           // establish layer
           layers.emplace_back(new FullyConnectedLayer(
               weight_buff, wgrad_buff, train_in_tensor, evaluate_in_tensor, fc_out_tensor,
-              gpu_resource, use_mixed_precision, initializer_types));
+              gpu_resource, use_mixed_precision, enable_tf32_compute, initializer_types));
           output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
         }
         break;
@@ -534,7 +534,7 @@ Network* Network::create_network(
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_in_emb_tensor,
               evaluate_in_emb_tensor, out_tensor,
               blobs_buff,  // todo cannot use this blobs_buff here need half
-              gpu_resource, use_mixed_precision));
+              gpu_resource, use_mixed_precision, enable_tf32_compute));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
 
         } else {
@@ -549,7 +549,7 @@ Network* Network::create_network(
           Tensor2<float> out_tensor;
           layers.emplace_back(new InteractionLayer<float>(
               train_in_mlp_tensor, evaluate_in_mlp_tensor, train_emb_tensor, evaluate_emb_tensor,
-              out_tensor, blobs_buff, gpu_resource, use_mixed_precision));
+              out_tensor, blobs_buff, gpu_resource, use_mixed_precision, enable_tf32_compute));
           output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
         }
 

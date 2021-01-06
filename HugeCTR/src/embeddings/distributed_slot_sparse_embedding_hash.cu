@@ -34,6 +34,7 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
         const std::shared_ptr<ResourceManager> &resource_manager)
     : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
+           Embedding_t::DistributedSlotSparseEmbeddingHash,
            embedding_params, resource_manager) {
   try {
     CudaDeviceContext context;
@@ -320,8 +321,10 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    const TensorBag2 &keys_bag, const Tensor2<float> &embeddings, size_t num) {
-  Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
+    BufferBag& buf_bag, size_t num) {
+  const TensorBag2 &keys_bag = buf_bag.keys;
+  const Tensor2<float> &embeddings = buf_bag.embedding;
+  const Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
   load_parameters(keys, embeddings, num, max_vocabulary_size_, Base::get_embedding_vec_size(),
                   max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_);
 }
@@ -547,7 +550,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
   }  // end of if(remain_loop_num)
 
-  // MESSAGE_("Done");
+  MESSAGE_("Done");
 
   // release resources
   for (size_t id = 0; id < local_gpu_count; id++) {
@@ -578,7 +581,9 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    TensorBag2 keys_bag, Tensor2<float> &embeddings, size_t *num) const {
+    BufferBag& buf_bag, size_t *num) const {
+  TensorBag2 keys_bag = buf_bag.keys;
+  Tensor2<float> &embeddings = buf_bag.embedding;
   Tensor2<TypeHashKey> keys = Tensor2<TypeHashKey>::stretch_from(keys_bag);
   dump_parameters(keys, embeddings, num, max_vocabulary_size_, Base::get_embedding_vec_size(),
                   hash_table_value_tensors_, hash_tables_);

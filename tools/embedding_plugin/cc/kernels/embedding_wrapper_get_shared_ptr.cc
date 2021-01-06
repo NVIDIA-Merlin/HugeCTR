@@ -79,19 +79,34 @@ EmbeddingWrapper<TypeKey, TypeFP>::get_buff(const std::string& embedding_name) {
     }
 }
 
-/** This function is used to get distribute keys spaces which are created for 
-* distributing keys to each GPU csr format.
-*/
+
 template <typename TypeKey, typename TypeFP>
-auto EmbeddingWrapper<TypeKey, TypeFP>::get_distribute_keys_spaces(const std::string& embedding_name) 
--> std::shared_ptr<DistributeKeysSpaces>  {
-    auto it = distribute_keys_spaces_.find(embedding_name);
-    if (it != distribute_keys_spaces_.end()) {
+template <typename Item>
+Item EmbeddingWrapper<TypeKey, TypeFP>::get_item_from_map(
+    const std::map<std::string, Item>& map,
+    const std::string& map_key) {
+    auto it = map.find(map_key);
+    if (it != map.end()) {
         return it->second;
     } else {
         return nullptr;
     }
 }
+
+
+// /** This function is used to get distribute keys spaces which are created for 
+// * distributing keys to each GPU csr format.
+// */
+// template <typename TypeKey, typename TypeFP>
+// auto EmbeddingWrapper<TypeKey, TypeFP>::get_distribute_keys_spaces(const std::string& embedding_name) 
+// -> std::shared_ptr<DistributeKeysSpaces>  {
+//     auto it = distribute_keys_spaces_.find(embedding_name);
+//     if (it != distribute_keys_spaces_.end()) {
+//         return it->second;
+//     } else {
+//         return nullptr;
+//     }
+// }
 
 
 template auto EmbeddingWrapper<long long, float>::get_embedding_params(const std::string& name) 
@@ -126,14 +141,46 @@ template std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>
 EmbeddingWrapper<unsigned int, float>::get_buff(const std::string& embedding_name);
 template std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> 
 EmbeddingWrapper<unsigned int, __half>::get_buff(const std::string& embedding_name);
-template auto EmbeddingWrapper<long long, float>::get_distribute_keys_spaces(const std::string& embedding_name) 
--> std::shared_ptr<DistributeKeysSpaces>;
-template auto EmbeddingWrapper<long long, __half>::get_distribute_keys_spaces(const std::string& embedding_name) 
--> std::shared_ptr<DistributeKeysSpaces>;
-template auto EmbeddingWrapper<unsigned int, float>::get_distribute_keys_spaces(const std::string& embedding_name) 
--> std::shared_ptr<DistributeKeysSpaces>;
-template auto EmbeddingWrapper<unsigned int, __half>::get_distribute_keys_spaces(const std::string& embedding_name) 
--> std::shared_ptr<DistributeKeysSpaces>;
+
+
+template auto EmbeddingWrapper<unsigned int, float>::get_item_from_map(
+    const std::map<std::string, std::shared_ptr<EmbeddingParams>>& map, const std::string& map_key)
+    -> std::shared_ptr<EmbeddingParams>;
+template auto EmbeddingWrapper<long long, float>::get_item_from_map(
+    const std::map<std::string, std::shared_ptr<EmbeddingParams>>& map, const std::string& map_key)
+    -> std::shared_ptr<EmbeddingParams>;
+template auto EmbeddingWrapper<unsigned int, __half>::get_item_from_map(
+    const std::map<std::string, std::shared_ptr<EmbeddingParams>>& map, const std::string& map_key)
+    -> std::shared_ptr<EmbeddingParams>;
+template auto EmbeddingWrapper<long long, __half>::get_item_from_map(
+    const std::map<std::string, std::shared_ptr<EmbeddingParams>>& map, const std::string& map_key)
+    -> std::shared_ptr<EmbeddingParams>;
+
+template auto EmbeddingWrapper<unsigned int, float>::get_item_from_map(
+    const std::map<std::string, std::shared_ptr<DistributeKeysInternelSpaces>>& map, const std::string& map_key)
+    -> std::shared_ptr<DistributeKeysInternelSpaces>;
+template auto EmbeddingWrapper<long long, float>::get_item_from_map(
+    const std::map<std::string, std::shared_ptr<DistributeKeysInternelSpaces>>& map, const std::string& map_key)
+    -> std::shared_ptr<DistributeKeysInternelSpaces>;
+template auto EmbeddingWrapper<unsigned int, __half>::get_item_from_map(
+    const std::map<std::string, std::shared_ptr<DistributeKeysInternelSpaces>>& map, const std::string& map_key)
+    -> std::shared_ptr<DistributeKeysInternelSpaces>;
+template auto EmbeddingWrapper<long long, __half>::get_item_from_map(
+    const std::map<std::string, std::shared_ptr<DistributeKeysInternelSpaces>>& map, const std::string& map_key)
+    -> std::shared_ptr<DistributeKeysInternelSpaces>;
+
+template auto EmbeddingWrapper<unsigned int, float>::get_item_from_map(
+    const std::map<std::string, distribute_keys_gpu_func_type>& map, const std::string& map_key)
+    -> distribute_keys_gpu_func_type;
+template auto EmbeddingWrapper<long long, float>::get_item_from_map(
+    const std::map<std::string, distribute_keys_gpu_func_type>& map, const std::string& map_key)
+    -> distribute_keys_gpu_func_type;
+template auto EmbeddingWrapper<unsigned int, __half>::get_item_from_map(
+    const std::map<std::string, distribute_keys_gpu_func_type>& map, const std::string& map_key)
+    -> distribute_keys_gpu_func_type;
+template auto EmbeddingWrapper<long long, __half>::get_item_from_map(
+    const std::map<std::string, distribute_keys_gpu_func_type>& map, const std::string& map_key)
+    -> distribute_keys_gpu_func_type;
 
 } // namespace Version1
 } // namespace HugeCTR

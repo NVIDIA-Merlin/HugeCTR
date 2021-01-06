@@ -31,6 +31,10 @@ namespace HugeCTR {
 
 nlohmann::json read_json_file(const std::string& filename);
 
+/**
+ * Solver Parser.
+ * This class is designed to parse the solver clause of the configure file.
+ */
 struct SolverParser {
   //  std::string configure_file;
   unsigned long long seed;                  /**< seed of data simulator */
@@ -48,14 +52,16 @@ struct SolverParser {
   std::vector<std::string> embedding_files; /**< name of embedding file */
   std::vector<std::vector<int>> vvgpu;      /**< device map */
   bool use_mixed_precision;
+  bool enable_tf32_compute;
   float scaler;
   std::map<metrics::Type, float> metrics_spec;
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
   SolverParser(const std::string& file);
-  SolverParser() {}
+  SolverParser(){}
 };
+
 struct InferenceParser {
   //  std::string configure_file;
   size_t max_batchsize;                        /**< batchsize */
@@ -87,6 +93,8 @@ class Parser {
   const bool repeat_dataset_;
   const bool i64_input_key_{false};
   const bool use_mixed_precision_{false};
+  const bool enable_tf32_compute_{false};
+
   const float scaler_{1.f};
   const bool use_algorithm_search_;
   const bool use_cuda_graph_;
@@ -114,7 +122,7 @@ class Parser {
    * Ctor only verify the configure file, doesn't create pipeline.
    */
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
+         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false, bool enable_tf32_compute = false,
          float scaler = 1.0f, bool use_algorithm_search = true, bool use_cuda_graph = true);
 
   /**
@@ -145,11 +153,6 @@ class Parser {
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
     const std::string configure_file);
-
-/**
- * Solver Parser.
- * This class is designed to parse the solver clause of the configure file.
- */
 
 template <typename T>
 struct SparseInput {

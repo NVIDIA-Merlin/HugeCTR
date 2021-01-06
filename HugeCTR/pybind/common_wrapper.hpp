@@ -22,6 +22,9 @@ namespace HugeCTR {
 namespace python_lib {
 
 void CommonPybind(pybind11::module& m) {
+  m.attr("__version__") = std::to_string(HUGECTR_VERSION_MAJOR) 
+	                  + "." + std::to_string(HUGECTR_VERSION_MINOR)
+  	                  + "." + std::to_string(HUGECTR_VERSION_PATCH);
   pybind11::enum_<HugeCTR::Error_t>(m, "Error_t")
       .value("Success", HugeCTR::Error_t::Success)
       .value("FileCannotOpen", HugeCTR::Error_t::FileCannotOpen)

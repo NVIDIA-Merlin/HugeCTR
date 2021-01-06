@@ -16,6 +16,7 @@
 
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader.hpp"
+#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
 #include "HugeCTR/include/utils.hpp"
@@ -36,6 +37,8 @@ const char* snapshot_src_file = "distributed_snapshot_src.bin";
 const char* snapshot_dst_file = "distributed_snapshot_dst.bin";
 const char* keyset_file_name_postfix = "_keyset_file.bin";
 const char* temp_embedding_dir = "./";
+
+const std::string plan_file = "";
 
 const int batchsize = 4096;
 const long long label_dim = 1;
@@ -86,7 +89,37 @@ std::vector<char> load_to_vector(std::ifstream& stream) {
 }
 
 template <typename KeyType, typename EmbeddingCompType>
-void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_vector_size) {
+std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> init_embedding(
+    const Tensors2<KeyType> &train_row_offsets_tensors,
+    const Tensors2<KeyType> &train_value_tensors,
+    const std::vector<std::shared_ptr<size_t>> &train_nnz_array,
+    const Tensors2<KeyType> &evaluate_row_offsets_tensors,
+    const Tensors2<KeyType> &evaluate_value_tensors,
+    const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
+    const SparseEmbeddingHashParams<EmbeddingCompType> &embedding_params,
+    const std::string plan_file,
+    const std::shared_ptr<ResourceManager> &resource_manager,
+    const Embedding_t embedding_type) {
+  if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
+    std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> embedding(
+        new DistributedSlotSparseEmbeddingHash<KeyType, EmbeddingCompType>(
+            train_row_offsets_tensors, train_value_tensors, train_nnz_array,
+            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
+            embedding_params, resource_manager));
+    return embedding;
+  } else {
+    std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> embedding(
+        new LocalizedSlotSparseEmbeddingHash<KeyType, EmbeddingCompType>(
+            train_row_offsets_tensors, train_value_tensors, train_nnz_array,
+            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
+            embedding_params, plan_file, resource_manager));
+    return embedding;
+  }
+}
+
+template <typename KeyType, typename EmbeddingCompType>
+void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_vector_size,
+    Embedding_t embedding_type) {
   const size_t num_total_passes = batch_num_train / pass_size;
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
@@ -122,9 +155,9 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   data_reader_params.push_back(param);
 
   std::unique_ptr<DataReader<KeyType>> data_reader_train(new DataReader<KeyType>(
-      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, num_workers));
+      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false, 0));
   std::unique_ptr<DataReader<KeyType>> data_reader_eval(new DataReader<KeyType>(
-      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, num_workers));
+      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false, 0));
 
   data_reader_train->create_drwg_norm(file_list_name_train, check);
   data_reader_eval->create_drwg_norm(file_list_name_eval, check);
@@ -148,12 +181,11 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
       batchsize,       batchsize, vocabulary_size, {},        embedding_vector_size,
       max_feature_num, slot_num,  combiner,        opt_params};
 
-  std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> embedding(
-      new DistributedSlotSparseEmbeddingHash<KeyType, EmbeddingCompType>(
+  std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> embedding = init_embedding(
           data_reader_train->get_row_offsets_tensors(), data_reader_train->get_value_tensors(),
           data_reader_train->get_nnz_array(), data_reader_eval->get_row_offsets_tensors(),
           data_reader_eval->get_value_tensors(), data_reader_eval->get_nnz_array(),
-          embedding_params, resource_manager));
+          embedding_params, plan_file, resource_manager, embedding_type);
   embedding->init_params();
 
   // train the embedding
@@ -170,14 +202,28 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
 
   // Create a ParameterServer
   ParameterServer<KeyType, EmbeddingCompType> parameter_server(embedding_params, snapshot_src_file,
-                                                               temp_embedding_dir);
+      temp_embedding_dir, embedding_type);
 
   // Make a synthetic keyset files
   auto keys = parameter_server.get_keys_from_hash_table();
   create_keyset_files<KeyType>(keys, batch_num_train, num_total_passes);
 
-  std::shared_ptr<KeyType[]> keys_buf(new KeyType[vocabulary_size]);
-  std::shared_ptr<float[]> param_buf(new float[vocabulary_size * embedding_vector_size]);
+  BufferBag buf_bag;
+  {
+    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
+      GeneralBuffer2<CudaHostAllocator>::create();
+
+    Tensor2<KeyType> tensor_keys;
+    Tensor2<size_t> tensor_slot_id;
+    blobs_buff->reserve({vocabulary_size}, &tensor_keys);
+    blobs_buff->reserve({vocabulary_size}, &tensor_slot_id);
+
+    blobs_buff->reserve({vocabulary_size, embedding_vector_size}, &(buf_bag.embedding));
+    blobs_buff->allocate();
+
+    buf_bag.keys = tensor_keys.shrink();
+    buf_bag.slot_id = tensor_slot_id.shrink();
+  }
 
   Timer timer_ps;
   timer_ps.start();
@@ -187,8 +233,8 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
     parameter_server.load_keyset_from_file(keyset_file_name);
 
     size_t size_tmp = 0;
-    parameter_server.load_param_from_embedding_file(param_buf.get(), keys_buf.get(), &size_tmp);
-    parameter_server.dump_param_to_embedding_file(param_buf.get(), keys_buf.get(), size_tmp);
+    parameter_server.load_param_from_embedding_file(buf_bag, size_tmp);
+    parameter_server.dump_param_to_embedding_file(buf_bag, size_tmp);
   }
   // transfer the internal embedding table to the snapshot
   parameter_server.dump_to_snapshot(snapshot_dst_file);
@@ -221,9 +267,20 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
 //   }
 // }
 
-TEST(distributed_parameter_server_test, long_long_float) {
+TEST(parameter_server_distributed_embedding_test, long_long_float) {
   // test_wrapper();
-  do_upload_and_download_snapshot<long long, float>(20, 64);
+  const Embedding_t dis_embedding = Embedding_t::DistributedSlotSparseEmbeddingHash;
+  do_upload_and_download_snapshot<long long, float>(20, 64, dis_embedding);
+}
+
+TEST(parameter_server_localized_embedding_test, long_long_float) {
+  const Embedding_t loc_embedding = Embedding_t::LocalizedSlotSparseEmbeddingHash;
+  do_upload_and_download_snapshot<long long, float>(20, 64, loc_embedding);
+}
+
+TEST(parameter_server_test_localized_embedding_one_hot_test, long_long_float) {
+  const Embedding_t loc_oh_embedding = Embedding_t::LocalizedSlotSparseEmbeddingOneHot;
+  do_upload_and_download_snapshot<long long, float>(20, 64, loc_oh_embedding);
 }
 
 }  // namespace
