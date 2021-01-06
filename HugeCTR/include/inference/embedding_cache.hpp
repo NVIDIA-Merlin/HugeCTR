@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <common.hpp>
+#include <utils.hpp> 
 #include <iostream>
 #include <embedding.hpp>
 #include <metrics.hpp>
@@ -27,6 +27,7 @@
 #include <utility>
 #include <vector>
 #include <inference/embedding_interface.hpp>
+#include <inference/gpu_cache/nv_gpu_cache.hpp>
 
 namespace HugeCTR {
 
@@ -61,11 +62,16 @@ class embedding_cache : public embedding_interface {
                       const std::vector<cudaStream_t>& streams);
 
  private:
+  static const size_t BLOCK_SIZE_ = 64;
+  
+  // The GPU embedding cache type
+  using cache_ = gpu_cache::gpu_cache<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(), SET_ASSOCIATIVITY, SLAB_SIZE>;
+
   // The back-end parameter server
   HugectrUtility<TypeHashKey>* parameter_server_;
 
   // The shared thread-safe embedding cache
-  // Will be introduced later
+  std::vector<cache_*> gpu_emb_caches_;
 
   // The cache configuration
   embedding_cache_config cache_config_;
