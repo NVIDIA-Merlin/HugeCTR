@@ -26,6 +26,7 @@ namespace HugeCTR {
  */
 template <typename T>
 class InteractionLayer : public Layer {
+  bool enable_tf32_compute_;
   /*
    * stores the weight tensors of this layer.
    */
@@ -70,7 +71,8 @@ class InteractionLayer : public Layer {
                    const Tensor2<T>& train_in_embeddings, const Tensor2<T>& evaluate_in_embeddings,
                    Tensor2<T>& out_tensor,
                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                   const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision);
+                   const std::shared_ptr<GPUResource>& gpu_resource,
+                   bool use_mixed_precision, bool enable_tf32_compute);
   ~InteractionLayer() override;
 
   /**

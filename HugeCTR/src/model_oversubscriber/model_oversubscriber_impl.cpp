@@ -24,7 +24,8 @@ ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::ModelOversubscriberImpl
     const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
     const SolverParser& solver_config, const std::string& temp_embedding_dir)
     : embeddings_(embeddings),
-      ps_manager_(embedding_params, solver_config, temp_embedding_dir, get_max_embedding_size_()) {}
+      ps_manager_(embedding_params, embeddings[0]->get_embedding_type(),
+                  solver_config, temp_embedding_dir, get_max_embedding_size_()) {}
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
@@ -42,11 +43,8 @@ void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
       auto ptr_ps = ps_manager_.get_parameter_server(i);
 
       size_t hit_size = 0;
-      ptr_ps->load_param_from_embedding_file(ps_manager_.get_embedding_ptr(),
-                                             ps_manager_.get_keyset_ptr(), &hit_size);
-
-      embeddings_[i]->load_parameters(ps_manager_.get_keyset_tensor(),
-                                      ps_manager_.get_embedding_tensor(), hit_size);
+      ptr_ps->load_param_from_embedding_file(ps_manager_.get_buffer_bag(), hit_size);
+      embeddings_[i]->load_parameters(ps_manager_.get_buffer_bag(), hit_size);
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -66,17 +64,13 @@ void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::store(
     }
 
     for (int i = 0; i < static_cast<int>(embeddings_.size()); i++) {
-      size_t dump_size = 0;
-      embeddings_[i]->dump_parameters(ps_manager_.get_keyset_tensor(),
-                                      ps_manager_.get_embedding_tensor(), &dump_size);
-
       auto ptr_ps = ps_manager_.get_parameter_server(i);
-      ptr_ps->dump_param_to_embedding_file(ps_manager_.get_embedding_ptr(),
-                                           ps_manager_.get_keyset_ptr(), dump_size);
 
-      if (!snapshot_file_list.size()) {
-        continue;
-      }
+      size_t dump_size = 0;
+      embeddings_[i]->dump_parameters(ps_manager_.get_buffer_bag(), &dump_size);
+      ptr_ps->dump_param_to_embedding_file(ps_manager_.get_buffer_bag(), dump_size);
+
+      if (!snapshot_file_list.size()) continue;
       ptr_ps->dump_to_snapshot(snapshot_file_list[i]);
     }
   } catch (const internal_runtime_error& rt_err) {

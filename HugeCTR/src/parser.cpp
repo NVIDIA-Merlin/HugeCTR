@@ -64,7 +64,7 @@ nlohmann::json read_json_file(const std::string& filename) {
 }
 
 Parser::Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-               bool repeat_dataset, bool i64_input_key, bool use_mixed_precision, float scaler,
+               bool repeat_dataset, bool i64_input_key, bool use_mixed_precision, bool enable_tf32_compute, float scaler,
                bool use_algorithm_search, bool use_cuda_graph)
     : config_(read_json_file(configure_file)),
       batch_size_(batch_size),
@@ -72,6 +72,7 @@ Parser::Parser(const std::string& configure_file, size_t batch_size, size_t batc
       repeat_dataset_(repeat_dataset),
       i64_input_key_(i64_input_key),
       use_mixed_precision_(use_mixed_precision),
+      enable_tf32_compute_(enable_tf32_compute),
       scaler_(scaler),
       use_algorithm_search_(use_algorithm_search),
       use_cuda_graph_(use_cuda_graph) {}
@@ -99,9 +100,10 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
     size_t batch_size_eval = batch_size_eval_;
     bool use_mixed_precision = use_mixed_precision_;
     float scaler = scaler_;
+    bool enable_tf32_compute = enable_tf32_compute_;
     bool use_algorithm_search = use_algorithm_search_;
     bool use_cuda_graph = use_cuda_graph_;
-
+    
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
     std::vector<TensorEntry> tensor_entries_list[resource_manager->get_local_gpu_count()];
     {
@@ -154,10 +156,11 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
         CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
       }
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-        network.emplace_back(Network::create_network(
-            j_layers_array, j_optimizer, tensor_entries_list[i], total_gpu_count,
-            resource_manager->get_local_cpu(), resource_manager->get_local_gpu(i),
-            use_mixed_precision, scaler, use_algorithm_search, use_cuda_graph, false));
+        network.emplace_back(Network::create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
+                                            total_gpu_count, resource_manager->get_local_cpu(),
+                                            resource_manager->get_local_gpu(i),
+                                            use_mixed_precision, enable_tf32_compute,
+                                            scaler, use_algorithm_search, use_cuda_graph, false));
       }
     }
 
@@ -212,7 +215,8 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
   //create network
   *network = Network::create_network(
       j_layers_array, "", tensor_entries, 1, resource_manager->get_local_cpu(),
-      resource_manager->get_local_gpu(0), inference_parser.use_mixed_precision, inference_parser.scaler, false, inference_parser.use_cuda_graph, true);
+      resource_manager->get_local_gpu(0), inference_parser.use_mixed_precision,
+      false, inference_parser.scaler, false, inference_parser.use_cuda_graph, true);
 }
 
 void Parser::create_pipeline(const InferenceParser& inference_parser, Tensor2<float>& dense_input,

@@ -1,12 +1,4 @@
 /*
- * @Author: your name
- * @Date: 2020-11-06 15:00:46
- * @LastEditTime: 2020-11-06 16:25:18
- * @LastEditors: your name
- * @Description: In User Settings Edit
- * @FilePath: /hugectr/HugeCTR/pybind/solver_parser_wrapper.hpp
- */
-/*
  * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +24,7 @@ namespace python_lib {
 std::unique_ptr<SolverParser> solver_parser_helper(
     unsigned long long seed, int eval_batches, int batchsize_eval, int batchsize, std::string model_file,
     std::vector<std::string> embedding_files, std::vector<std::vector<int>> vvgpu,
-    bool use_mixed_precision, float scaler, bool i64_input_key, 
+    bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool i64_input_key,
     bool use_algorithm_search, bool use_cuda_graph, bool repeat_dataset) {
   std::unique_ptr<SolverParser> solver_config(new SolverParser());
   solver_config->seed = seed;
@@ -43,6 +35,7 @@ std::unique_ptr<SolverParser> solver_parser_helper(
   solver_config->embedding_files.assign(embedding_files.begin(), embedding_files.end());
   solver_config->vvgpu.assign(vvgpu.begin(), vvgpu.end());
   solver_config->use_mixed_precision = use_mixed_precision;
+  solver_config->enable_tf32_compute = enable_tf32_compute;
   solver_config->scaler = scaler;
   solver_config->i64_input_key = i64_input_key;
   solver_config->use_algorithm_search = use_algorithm_search;
@@ -69,24 +62,26 @@ void SolverParserPybind(pybind11::module& m) {
       .def_readonly("embedding_files", &HugeCTR::SolverParser::embedding_files)
       .def_readonly("vvgpu", &HugeCTR::SolverParser::vvgpu)
       .def_readonly("use_mixed_precision", &HugeCTR::SolverParser::use_mixed_precision)
+      .def_readonly("enable_tf32_compute", &HugeCTR::SolverParser::enable_tf32_compute)
       .def_readonly("scaler", &HugeCTR::SolverParser::scaler)
       .def_readonly("i64_input_key", &HugeCTR::SolverParser::i64_input_key)
       .def_readonly("use_algorithm_search", &HugeCTR::SolverParser::use_algorithm_search)
       .def_readonly("use_cuda_graph", &HugeCTR::SolverParser::use_cuda_graph);
   m.def("solver_parser_helper", &HugeCTR::python_lib::solver_parser_helper,
-        pybind11::arg("seed") = 0,
-	pybind11::arg("eval_batches") = 100,
-        pybind11::arg("batchsize_eval") = 16384, 
-	pybind11::arg("batchsize") = 16384,
-        pybind11::arg("model_file") = "",
-        pybind11::arg("embedding_files") = std::vector<std::string>(),
-        pybind11::arg("vvgpu") = std::vector<std::vector<int>>(1, std::vector<int>(1, 0)),
-        pybind11::arg("use_mixed_precision") = false, 
-	pybind11::arg("scaler") = 1.f,
-        pybind11::arg("i64_input_key") = false,
-        pybind11::arg("use_algorithm_search") = true, 
-	pybind11::arg("use_cuda_graph") = true,
-	pybind11::arg("repeat_dataset") = false);
+       pybind11::arg("seed") = 0,
+       pybind11::arg("eval_batches") = 100,
+       pybind11::arg("batchsize_eval") = 16384,
+       pybind11::arg("batchsize") = 16384,
+       pybind11::arg("model_file") = "",
+       pybind11::arg("embedding_files") = std::vector<std::string>(),
+       pybind11::arg("vvgpu") = std::vector<std::vector<int>>(1, std::vector<int>(1, 0)),
+       pybind11::arg("use_mixed_precision") = false,
+       pybind11::arg("enable_tf32_compute") = false,
+       pybind11::arg("scaler") = 1.f,
+       pybind11::arg("i64_input_key") = false,
+       pybind11::arg("use_algorithm_search") = true,
+       pybind11::arg("use_cuda_graph") = true,
+       pybind11::arg("repeat_dataset") = false);
 }
 
 }  // namespace python_lib

@@ -107,7 +107,7 @@ class DataReader : public IDataReader {
   DataReader(int batchsize, size_t label_dim, int dense_dim,
              std::vector<DataReaderSparseParam>& params,
              const std::shared_ptr<ResourceManager>& resource_manager, bool repeat,
-             int num_chunk_threads = 31, bool use_mixed_precision = false, int cache_num_iters = 0);
+             int num_chunk_threads, bool use_mixed_precision, int cache_num_iters);
 
   const Tensors2<float>& get_label_tensors() const { return label_tensors_; }
   const std::vector<TensorBag2>& get_dense_tensors() const { return dense_tensors_; }
