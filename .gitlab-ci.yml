@@ -70,7 +70,8 @@ unit_tests:
         ./model_oversubscriber_test &&
         ./parser_test &&
         ./session_test &&
-        ./auc_test"
+        ./auc_test &&
+        ./inference_test"
 
 # single node
 criteo:
