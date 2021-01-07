@@ -17,6 +17,7 @@
 #pragma once
 #include <common.hpp>
 #include <data_readers/data_reader.hpp>
+#include <device_map.hpp>
 #include <embedding.hpp>
 #include <fstream>
 #include <functional>
@@ -95,20 +96,19 @@ class Parser {
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(std::shared_ptr<IDataReader>& data_reader,
-                       std::shared_ptr<IDataReader>& data_reader_eval,
-                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<Network>>& network,
+  void create_pipeline(std::shared_ptr<IDataReader>& train_data_reader,
+                       std::shared_ptr<IDataReader>& evaluate_data_reader,
+                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                       std::vector<std::shared_ptr<Network>>& networks,
                        const std::shared_ptr<ResourceManager>& resource_manager);
 
   template <typename TypeKey>
-  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
-                                       std::shared_ptr<IDataReader>& data_reader_eval,
-                                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                       std::vector<std::unique_ptr<Network>>& network,
+  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& train_data_reader,
+                                       std::shared_ptr<IDataReader>& evaluate_data_reader,
+                                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                                       std::vector<std::shared_ptr<Network>>& networks,
                                        const std::shared_ptr<ResourceManager>& resource_manager,
                                        Parser& parser);
-
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -142,9 +142,8 @@ struct SolverParser {
   bool use_algorithm_search;
   bool use_cuda_graph;
   SolverParser(const std::string& file);
-  SolverParser(){}
+  SolverParser() {}
 };
-
 
 template <typename T>
 struct SparseInput {
@@ -198,9 +197,7 @@ static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"SGD", Optimizer_t::SGD}};
 
 static const std::map<std::string, Update_t> UPDATE_TYPE_MAP = {
-    {"Local", Update_t::Local},
-    {"Global", Update_t::Global},
-    {"LazyGlobal", Update_t::LazyGlobal}};
+    {"Local", Update_t::Local}, {"Global", Update_t::Global}, {"LazyGlobal", Update_t::LazyGlobal}};
 
 static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
     {"L1", Regularizer_t::L1},

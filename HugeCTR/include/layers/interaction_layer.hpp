@@ -38,8 +38,7 @@ class InteractionLayer : public Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<T> train_in_tensors_;
-  Tensors2<T> evaluate_in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
@@ -49,13 +48,7 @@ class InteractionLayer : public Layer {
 
   Tensors2<T> internal_tensors_;
 
-  Tensors2<T>& get_in_tensors(bool is_train) {
-    if (is_train) {
-      return train_in_tensors_;
-    } else {
-      return evaluate_in_tensors_;
-    }
-  }
+  Tensors2<T>& get_in_tensors(bool is_train) { return in_tensors_; }
 
  public:
   /**
@@ -66,9 +59,7 @@ class InteractionLayer : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  InteractionLayer(const Tensor2<T>& train_in_bottom_mlp_tensor,
-                   const Tensor2<T>& evaluate_in_bottom_mlp_tensor,
-                   const Tensor2<T>& train_in_embeddings, const Tensor2<T>& evaluate_in_embeddings,
+  InteractionLayer(const Tensor2<T>& in_bottom_mlp_tensor, const Tensor2<T>& in_embeddings,
                    Tensor2<T>& out_tensor,
                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                    const std::shared_ptr<GPUResource>& gpu_resource,
