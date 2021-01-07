@@ -157,4 +157,4 @@ void session_inference_test(const std::string& config_file, int num_samples) {
 
 }  // namespace
 
-TEST(session_inference, fp32_1x26x16x1x1_30_Sum) { session_inference_test("/hugectr/test/utest/simple_inference_config.json", 1); }
+TEST(session_inference, fp32_1x26x16x1x1_30_Sum) { session_inference_test("/hugectr_ci_workdir/test/utest/simple_inference_config.json", 1); }
