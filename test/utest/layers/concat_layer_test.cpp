@@ -15,9 +15,12 @@
  */
 
 #include "HugeCTR/include/layers/concat_layer.hpp"
+
 #include <math.h>
+
 #include <memory>
 #include <vector>
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -54,7 +57,7 @@ void concat_layer_test(size_t height, std::vector<size_t> widths) {
   }
 
   Tensor2<T> out_tensor;
-  ConcatLayer<T> concat_layer(in_tensors, in_tensors, out_tensor, buff, test::get_default_gpu());
+  ConcatLayer<T> concat_layer(in_tensors, out_tensor, buff, test::get_default_gpu());
 
   buff->allocate();
   concat_layer.initialize();

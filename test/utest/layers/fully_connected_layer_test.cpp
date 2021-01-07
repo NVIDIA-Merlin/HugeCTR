@@ -15,9 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/fully_connected_layer.hpp"
+
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+
 #include "utest/test_utils.h"
 using namespace std;
 using namespace HugeCTR;
@@ -59,8 +61,8 @@ static void transpose(float *a, int m, int n) {
   for (int i = 0; i < m * n; ++i) a[i] = tmp[i];
 }
 
-static void fully_connected_layer_test(size_t m, size_t n, size_t k,
-    float tol = 1e-3, bool enable_tf32_compute = false) {
+static void fully_connected_layer_test(size_t m, size_t n, size_t k, float tol = 1e-3,
+                                       bool enable_tf32_compute = false) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
       GeneralBuffer2<CudaAllocator>::create();
   std::shared_ptr<BufferBlock2<float>> weight_buff = blobs_buff->create_block<float>();
@@ -71,9 +73,8 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k,
   Tensor2<float> out_tensor;
   blobs_buff->reserve({m, n}, &out_tensor);
 
-  FullyConnectedLayer fully_connected_layer(weight_buff, wgrad_buff, in_tensor, in_tensor,
-                                            out_tensor, test::get_default_gpu(),
-                                            false, enable_tf32_compute);
+  FullyConnectedLayer fully_connected_layer(weight_buff, wgrad_buff, in_tensor, out_tensor,
+                                            test::get_default_gpu(), false, enable_tf32_compute);
   // Initialize tensors to 0 and choose cublas algorithms
   blobs_buff->allocate();
   fully_connected_layer.initialize();
@@ -119,8 +120,8 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k,
   fully_connected_layer.fprop(true);
   CK_CUDA_THROW_(cudaDeviceSynchronize());
 
-  ASSERT_EQ(true, check_cpu_gpu(h_out.get(), d_out, m * n, tol)) << "fprop cross_check result fail"
-                                                            << endl;
+  ASSERT_EQ(true, check_cpu_gpu(h_out.get(), d_out, m * n, tol))
+      << "fprop cross_check result fail" << endl;
 
   simulator.fill(h_out.get(), test::align_to_even(m * n));
 
@@ -140,8 +141,8 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k,
   fully_connected_layer.bprop();
   CK_CUDA_THROW_(cudaDeviceSynchronize());
 
-  ASSERT_EQ(true, check_cpu_gpu(h_in.get(), d_in, m * k, tol)) << " bprop cross_check input_grad fail"
-                                                          << endl;
+  ASSERT_EQ(true, check_cpu_gpu(h_in.get(), d_in, m * k, tol))
+      << " bprop cross_check input_grad fail" << endl;
   ASSERT_EQ(true, check_cpu_gpu(h_weight_grad.get(), d_weight_grad, k * n, tol))
       << " bprop cross_check weight_grad fail" << endl;
   ASSERT_EQ(true, check_cpu_gpu(h_bias_grad.get(), d_weight_grad + k * n, n, tol))
@@ -156,5 +157,9 @@ TEST(fully_connected_layer, fp32_1024x1024x1) { fully_connected_layer_test(1024,
 TEST(fully_connected_layer, fp32_1x1x1) { fully_connected_layer_test(1, 1, 1); }
 TEST(fully_connected_layer, fp32_256x512x1024) { fully_connected_layer_test(256, 512, 1024); }
 TEST(fully_connected_layer, fp32_251x511x1023) { fully_connected_layer_test(251, 511, 1023); }
-TEST(fully_connected_layer, tf32_256x512x1024) { fully_connected_layer_test(256, 512, 1024, 5e-0, true); }
-TEST(fully_connected_layer, tf32_251x511x1023) { fully_connected_layer_test(251, 511, 1023, 5e-0, true); }
+TEST(fully_connected_layer, tf32_256x512x1024) {
+  fully_connected_layer_test(256, 512, 1024, 5e-0, true);
+}
+TEST(fully_connected_layer, tf32_251x511x1023) {
+  fully_connected_layer_test(251, 511, 1023, 5e-0, true);
+}
