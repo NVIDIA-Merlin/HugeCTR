@@ -17,12 +17,11 @@
 #pragma once
 #include <optimizer.hpp>
 #include <tensor2.hpp>
-#include <model_oversubscriber/parameter_server_delegate.hpp>
 
 #include <vector>
 
 namespace HugeCTR {
-
+struct BufferBag;
 class IEmbedding {
  public:
   virtual ~IEmbedding() {}
@@ -60,6 +59,11 @@ struct SparseEmbeddingHashParams {
   size_t slot_num;                          // slot number
   int combiner;                             // 0-sum, 1-mean
   OptParams<TypeEmbeddingComp> opt_params;  // optimizer params
+};
+struct BufferBag {
+  TensorBag2 keys;
+  TensorBag2 slot_id;
+  Tensor2<float> embedding;
 };
 
 }  // namespace HugeCTR
