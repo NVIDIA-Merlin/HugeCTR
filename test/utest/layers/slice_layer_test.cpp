@@ -15,10 +15,13 @@
  */
 
 #include "HugeCTR/include/layers/slice_layer.hpp"
+
 #include <math.h>
+
 #include <memory>
 #include <set>
 #include <vector>
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -43,8 +46,7 @@ void slice_layer_test(size_t height, size_t width, std::vector<std::pair<int, in
   data_sim.fill(h_in.data(), h_in.size());
 
   Tensors2<T> out_tensors;
-  SliceLayer<T> slice_layer(in_tensor, in_tensor, out_tensors, buff, ranges,
-                            test::get_default_gpu());
+  SliceLayer<T> slice_layer(in_tensor, out_tensors, buff, ranges, test::get_default_gpu());
 
   buff->allocate();
   slice_layer.initialize();

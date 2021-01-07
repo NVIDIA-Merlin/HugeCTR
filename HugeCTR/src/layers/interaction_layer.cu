@@ -19,6 +19,7 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <mma.h>
+
 #include <common.hpp>
 #include <layers/interaction_layer.hpp>
 #include <type_traits>
@@ -849,15 +850,16 @@ __global__ void gather_concat_bprop_kernel(const T *out, T *in0, T *mat, const i
 
 template <typename T>
 InteractionLayer<T>::InteractionLayer(
-    const Tensor2<T> &train_in_bottom_mlp_tensor, const Tensor2<T> &evaluate_in_bottom_mlp_tensor,
-    const Tensor2<T> &train_in_embeddings, const Tensor2<T> &evaluate_in_embeddings,
-    Tensor2<T> &out_tensor, const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
-    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision, bool enable_tf32_compute)
-    : Layer(gpu_resource), use_mixed_precision_(use_mixed_precision),
+    const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings, Tensor2<T> &out_tensor,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
+    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision,
+    bool enable_tf32_compute)
+    : Layer(gpu_resource),
+      use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
   try {
-    auto first_in_dims = train_in_bottom_mlp_tensor.get_dimensions();
-    auto second_in_dims = train_in_embeddings.get_dimensions();
+    auto first_in_dims = in_bottom_mlp_tensor.get_dimensions();
+    auto second_in_dims = in_embeddings.get_dimensions();
 
     if (first_in_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "Input Bottom MLP must be a 2D tensor");
@@ -902,10 +904,8 @@ InteractionLayer<T>::InteractionLayer(
     std::vector<size_t> out_dims = {first_in_dims[0], first_in_dims[1] + concat_len + 1};
     blobs_buff->reserve(out_dims, &out_tensor);
 
-    train_in_tensors_.push_back(train_in_bottom_mlp_tensor);
-    train_in_tensors_.push_back(train_in_embeddings);
-    evaluate_in_tensors_.push_back(evaluate_in_bottom_mlp_tensor);
-    evaluate_in_tensors_.push_back(evaluate_in_embeddings);
+    in_tensors_.push_back(in_bottom_mlp_tensor);
+    in_tensors_.push_back(in_embeddings);
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error &rt_err) {
