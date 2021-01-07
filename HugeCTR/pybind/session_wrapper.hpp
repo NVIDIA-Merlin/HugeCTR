@@ -46,7 +46,7 @@ void SessionPybind(pybind11::module &m) {
 	     do {
 	       good = self.eval();
 	       if (!good) {
-	         auto data_reader_eval = self.get_data_reader_eval();
+	         auto data_reader_eval = self.get_evaluate_data_reader();
 		 data_reader_eval->set_file_list_source();
 	       }
 	     } while(!good);
@@ -69,8 +69,8 @@ void SessionPybind(pybind11::module &m) {
            pybind11::arg("model_file"))
       .def("get_params_num", &HugeCTR::Session::get_params_num)
       .def("check_overflow", &HugeCTR::Session::check_overflow)
-      .def("get_data_reader_train", &HugeCTR::Session::get_data_reader_train)
-      .def("get_data_reader_eval", &HugeCTR::Session::get_data_reader_eval);
+      .def("get_data_reader_train", &HugeCTR::Session::get_train_data_reader)
+      .def("get_data_reader_eval", &HugeCTR::Session::get_evaluate_data_reader);
 }
 
 }  //  namespace python_lib

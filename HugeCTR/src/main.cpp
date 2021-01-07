@@ -45,20 +45,20 @@ enum class CmdOptions_t { Train, Version, Help };
 HugeCTR::Timer timer_log;
 
 bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
-          const HugeCTR::SolverParser& solver_config,
-          HugeCTR::Timer& timer, HugeCTR::Timer& timer_eval) {
-  if (solver_config.eval_interval > 0 &&
-      i % solver_config.eval_interval == 0 && i != 0) {
+          const HugeCTR::SolverParser& solver_config, HugeCTR::Timer& timer,
+          HugeCTR::Timer& timer_eval) {
+  if (solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0) {
     session_instance->check_overflow();
-    auto data_reader_eval = session_instance->get_data_reader_eval();
+    session_instance->copy_weights_for_evaluation();
+
+    auto data_reader_eval = session_instance->get_evaluate_data_reader();
 
     // The first eval
     if (solver_config.num_epochs > 0 && i == solver_config.eval_interval) {
       data_reader_eval->set_file_list_source();
     }
 
-    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
-                 float(i) / solver_config.max_iter);
+    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start", float(i) / solver_config.max_iter);
     timer_eval.start();
     bool good = true;
     for (int j = 0; j < solver_config.eval_batches; ++j) {
@@ -87,12 +87,12 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
 
           std::string epoch_num_str = std::to_string(float(i) / solver_config.max_iter);
 
-          std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) +
-                           " at epoch " + epoch_num_str + " with batchsize: "
+          std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at epoch " +
+                           epoch_num_str + " with batchsize: "
                     << solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
                     << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
-                    << float(i) * solver_config.batchsize / timer.elapsedSeconds()
-                    << " records/s." << std::endl;
+                    << float(i) * solver_config.batchsize / timer.elapsedSeconds() << " records/s."
+                    << std::endl;
 
           HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", epoch_num_str);
 
@@ -126,7 +126,8 @@ void train(std::string config_file) {
 #endif
 
   const HugeCTR::SolverParser solver_config(config_file);
-  std::shared_ptr<HugeCTR::Session> session_instance = std::make_shared<HugeCTR::Session>(solver_config, config_file);
+  std::shared_ptr<HugeCTR::Session> session_instance =
+      std::make_shared<HugeCTR::Session>(solver_config, config_file);
   std::unique_ptr<HugeCTR::LearningRateScheduler> lr_sch =
       HugeCTR::get_learning_rate_scheduler(config_file);
 
@@ -185,15 +186,14 @@ void train(std::string config_file) {
         return;
       }
     }
-  }
-  else {
+  } else {
     int i = 0;
     for (int e = 0; e < solver_config.num_epochs; e++) {
       bool good = false;
       if (pid == 0) {
         MESSAGE_("Epoch: " + std::to_string(e));
       }
-      auto data_reader_train = session_instance->get_data_reader_train();
+      auto data_reader_train = session_instance->get_train_data_reader();
       data_reader_train->set_file_list_source();
       do {
         float lr = lr_sch->get_next();
@@ -207,11 +207,12 @@ void train(std::string config_file) {
           float loss = 0;
           session_instance->get_current_loss(&loss);
           if (isnan(loss)) {
-            throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
-                                     __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+            throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") +
+                                     " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
           }
           if (pid == 0) {
-            MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
+            MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
+                     std::to_string(solver_config.display) +
                      " iters): " + std::to_string(timer_train.elapsedSeconds()) +
                      "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
           }
@@ -223,7 +224,7 @@ void train(std::string config_file) {
         }
 
         i++;
-      } while(good);
+      } while (good);
     }
   }
 
@@ -351,7 +352,9 @@ int main(int argc, char* argv[]) {
         train_thread.join();
         break;
       }
-      default: { assert(!"Error: no such option && should never get here!"); }
+      default: {
+        assert(!"Error: no such option && should never get here!");
+      }
     }
 #ifdef ENABLE_MPI
     CK_MPI_THROW__(MPI_Finalize());

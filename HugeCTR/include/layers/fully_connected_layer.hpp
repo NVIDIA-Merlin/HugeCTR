@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cublas_v2.h>
+
 #include <functional>
 #include <layer.hpp>
 #include <vector>
@@ -46,20 +47,13 @@ class FullyConnectedLayer : public Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<float> train_in_tensors_;
-  Tensors2<float> evaluate_in_tensors_;
+  Tensors2<float> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
   Tensors2<float> out_tensors_;
 
-  Tensors2<float>& get_in_tensors(bool is_train) {
-    if (is_train) {
-      return train_in_tensors_;
-    } else {
-      return evaluate_in_tensors_;
-    }
-  }
+  Tensors2<float>& get_in_tensors(bool is_train) { return in_tensors_; }
 
  public:
   /**
@@ -89,10 +83,8 @@ class FullyConnectedLayer : public Layer {
    */
   FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
                       const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                      const Tensor2<float>& train_in_tensor,
-                      const Tensor2<float>& evaluate_in_tensor, const Tensor2<float>& out_tensor,
-                      const std::shared_ptr<GPUResource>& gpu_resource,
-                      bool use_mixed_precision,
+                      const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
+                      const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
                       bool enable_tf32_compute,
                       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FullyConnectedLayer(const FullyConnectedLayer& C) = delete;

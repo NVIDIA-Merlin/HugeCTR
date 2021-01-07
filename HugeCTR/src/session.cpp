@@ -16,6 +16,7 @@
 
 #include <nvToolsExt.h>
 #include <omp.h>
+
 #include <algorithm>
 #include <embedding.hpp>
 #include <random>
@@ -92,19 +93,20 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
   Parser parser(config_file, solver_config.batchsize, solver_config.batchsize_eval,
                 solver_config.num_epochs < 1, solver_config.i64_input_key,
                 solver_config.use_mixed_precision, solver_config.enable_tf32_compute,
-                solver_config.scaler,
-                solver_config.use_algorithm_search, solver_config.use_cuda_graph);
+                solver_config.scaler, solver_config.use_algorithm_search,
+                solver_config.use_cuda_graph);
 
-  parser.create_pipeline(data_reader_, data_reader_eval_, embedding_, networks_, resource_manager_);
+  parser.create_pipeline(train_data_reader_, evaluate_data_reader_, embeddings_, networks_,
+                         resource_manager_);
 
   // init networks.
   std::string TMP_DENSE_NAME;
   if (resource_manager_->get_pid() == 0) {
     std::string TMP_DENSE_NAME_PREFIX(std::getenv("TMP_DIR"));
-    if(TMP_DENSE_NAME_PREFIX.empty()){
+    if (TMP_DENSE_NAME_PREFIX.empty()) {
       TMP_DENSE_NAME = "./" + generate_random_file_name();
-    }else{
-      TMP_DENSE_NAME = TMP_DENSE_NAME_PREFIX + "/"+ generate_random_file_name();
+    } else {
+      TMP_DENSE_NAME = TMP_DENSE_NAME_PREFIX + "/" + generate_random_file_name();
     }
     networks_[0]->init_params(TMP_DENSE_NAME);
   }
@@ -192,17 +194,17 @@ Error_t Session::load_params_for_dense_(const std::string& model_file) {
 Error_t Session::init_or_load_params_for_sparse_(
     const std::vector<std::string>& embedding_model_files) {
   try {
-    for (size_t i = 0; i < embedding_.size(); i++) {
+    for (size_t i = 0; i < embeddings_.size(); i++) {
       if (i < embedding_model_files.size()) {
         std::ifstream embedding_stream(embedding_model_files[i], std::ifstream::binary);
         if (!embedding_stream.is_open()) {
           CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
         }
         std::cout << "Loading sparse model: " << embedding_model_files[i] << std::endl;
-        embedding_[i]->load_parameters(embedding_stream);
+        embeddings_[i]->load_parameters(embedding_stream);
         embedding_stream.close();
       } else {
-        embedding_[i]->init_params();
+        embeddings_[i]->init_params();
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -217,18 +219,18 @@ Error_t Session::init_or_load_params_for_sparse_(
 
 bool Session::train() {
   try {
-    if (data_reader_->is_started() == false) {
+    if (train_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall,
                 "Start the data reader first before calling Session::train()");
     }
 
 #ifndef DATA_READING_TEST
-    long long current_batchsize = data_reader_->read_a_batch_to_device_delay_release();
+    long long current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release();
     if (!current_batchsize) {
       return false;
     }
-    data_reader_->ready_to_collect();
-    for (auto& one_embedding : embedding_) {
+    train_data_reader_->ready_to_collect();
+    for (auto& one_embedding : embeddings_) {
       one_embedding->forward(true);
     }
     if (networks_.size() > 1) {
@@ -236,22 +238,25 @@ bool Session::train() {
 #pragma omp parallel num_threads(networks_.size())
       {
         size_t id = omp_get_thread_num();
-        long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(id);
+        long long current_batchsize_per_device =
+            train_data_reader_->get_current_batchsize_per_device(id);
         networks_[id]->train(current_batchsize_per_device);
         networks_[id]->exchange_wgrad();
         networks_[id]->update_params();
       }
     } else if (resource_manager_->get_global_gpu_count() > 1) {
-      long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(0);
+      long long current_batchsize_per_device =
+          train_data_reader_->get_current_batchsize_per_device(0);
       networks_[0]->train(current_batchsize_per_device);
       networks_[0]->exchange_wgrad();
       networks_[0]->update_params();
     } else {
-      long long current_batchsize_per_device = data_reader_->get_current_batchsize_per_device(0);
+      long long current_batchsize_per_device =
+          train_data_reader_->get_current_batchsize_per_device(0);
       networks_[0]->train(current_batchsize_per_device);
       networks_[0]->update_params();
     }
-    for (auto& one_embedding : embedding_) {
+    for (auto& one_embedding : embeddings_) {
       one_embedding->backward();
       one_embedding->update_params();
     }
@@ -270,13 +275,13 @@ bool Session::train() {
 
 bool Session::eval() {
   try {
-    if (data_reader_eval_ == nullptr) return true;
+    if (evaluate_data_reader_ == nullptr) return true;
 
-    if (data_reader_eval_->is_started() == false) {
+    if (evaluate_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Session::eval()");
     }
 
-    long long current_batchsize = data_reader_eval_->read_a_batch_to_device();
+    long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device();
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
     }
@@ -285,7 +290,7 @@ bool Session::eval() {
     }
 
 #ifndef DATA_READING_TEST
-    for (auto& one_embedding : embedding_) {
+    for (auto& one_embedding : embeddings_) {
       one_embedding->forward(false);
     }
 
@@ -337,7 +342,7 @@ Error_t Session::download_params_to_files(std::string prefix, int iter) {
     return Error_t::WrongInput;
   }
 
-  for (unsigned int i = 0; i < embedding_.size(); i++) {
+  for (unsigned int i = 0; i < embeddings_.size(); i++) {
     snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) +
                                     ".model");
   }
@@ -351,7 +356,7 @@ Error_t Session::download_params_to_files_(std::string weights_file,
       int i = 0;
       for (auto& embedding_file : embedding_files) {
         std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
-        embedding_[i]->dump_parameters(out_stream_embedding);
+        embeddings_[i]->dump_parameters(out_stream_embedding);
         out_stream_embedding.close();
         i++;
       }
@@ -427,7 +432,7 @@ std::shared_ptr<ModelOversubscriber> Session::create_model_oversubscriber_(
 
     std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>> embedding_params;
     return std::shared_ptr<ModelOversubscriber>(
-        new ModelOversubscriber(embedding_, embedding_params, solver_config, temp_embedding_dir));
+        new ModelOversubscriber(embeddings_, embedding_params, solver_config, temp_embedding_dir));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -438,7 +443,7 @@ std::shared_ptr<ModelOversubscriber> Session::create_model_oversubscriber_(
 }
 
 void Session::check_overflow() const {
-  for (auto& one_embedding : embedding_) {
+  for (auto& one_embedding : embeddings_) {
     one_embedding->check_overflow();
   }
 }
@@ -454,6 +459,12 @@ Session::~Session() {
     std::cerr << rt_err.what() << std::endl;
   } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
+  }
+}
+
+void Session::copy_weights_for_evaluation() {
+  for (auto& network : networks_) {
+    network->copy_weights_from_train_layers_to_evaluate_layers();
   }
 }
 
