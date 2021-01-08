@@ -65,8 +65,14 @@ struct SolverParser {
 struct InferenceParser {
   //  std::string configure_file;
   size_t max_batchsize;                        /**< batchsize */
+  size_t num_embedding_tables;                 /**< number of embedding tables */
+  size_t max_embedding_vector_size_per_sample; /**< max embedding vector size per sample */
+  size_t slot_num;                             /**< total slot number */
   std::string dense_model_file;                /**< name of model file */
   std::vector<std::string> sparse_model_files; /**< name of embedding file */
+  std::vector<std::size_t> max_feature_num_for_tables; /**< max feature number of each embedding table */
+  std::vector<std::size_t> embed_vec_size_for_tables; /**< embedding vector size for each embedding table */ 
+  std::vector<std::size_t> slot_num_for_tables; /**< slot_num for each embedding table */ 
   bool use_mixed_precision;
   float scaler;
   bool use_algorithm_search;
