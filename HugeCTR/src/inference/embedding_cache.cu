@@ -42,6 +42,9 @@ void merge_emb_vec_async(float* d_vals_merge_dst_ptr,
                          const size_t emb_vec_size, 
                          const size_t BLOCK_SIZE, 
                          cudaStream_t stream){
+  if (missing_len == 0) {
+    return;
+  }
   size_t missing_len_in_float = missing_len * emb_vec_size;
   merge_emb_vec<<<((missing_len_in_float - 1) / BLOCK_SIZE) + 1, BLOCK_SIZE, 0, stream>>>(d_vals_merge_dst_ptr, 
                                                                                           d_vals_retrieved_ptr, 
