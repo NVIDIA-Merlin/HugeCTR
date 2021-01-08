@@ -53,13 +53,49 @@ InferenceParser::InferenceParser(const nlohmann::json& config) {
       ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
       MESSAGE_(ss.str());
 
-    } else {
+  } else {
       use_mixed_precision = false;
       scaler = 1.f;
-    }
+  }
     
-    use_algorithm_search = get_value_from_json_soft<bool>(j, "algorithm_search", true);
-    use_cuda_graph = get_value_from_json_soft<bool>(j, "cuda_graph", true);
+  use_algorithm_search = get_value_from_json_soft<bool>(j, "algorithm_search", true);
+  use_cuda_graph = get_value_from_json_soft<bool>(j, "cuda_graph", true);
+
+  auto j_layers_array = get_json(config, "layers");
+  const nlohmann::json& j_data = j_layers_array[0];
+  auto j_sparse_data = get_json(j_data, "sparse");
+  num_embedding_tables = static_cast<size_t>(j_sparse_data.size());
+  slot_num = 0;
+  {
+    for (int i = 0; i < (int)num_embedding_tables; i++) {
+      const nlohmann::json& j = j_sparse_data[i];
+      auto max_feature_num_per_sample = get_value_from_json<size_t>(j, "max_feature_num_per_sample");
+      auto current_slot_num = get_value_from_json<size_t>(j, "slot_num");
+      max_feature_num_for_tables.push_back(max_feature_num_per_sample);
+      slot_num_for_tables.push_back(current_slot_num);
+      slot_num += current_slot_num;
+    }
+  }
+  {
+    for (int i = 1; i < (int)j_layers_array.size(); i++) {
+      // if not embedding then break
+      const nlohmann::json& j = j_layers_array[i];
+      auto embedding_name = get_value_from_json<std::string>(j, "type");
+      if (embedding_name.compare("DistributedSlotSparseEmbeddingHash") != 0 &&
+          embedding_name.compare("LocalizedSlotSparseEmbeddingHash") != 0 &&
+          embedding_name.compare("LocalizedSlotSparseEmbeddingOneHot") != 0) {
+        break;
+      }
+      auto j_embed_params =  get_json(j, "sparse_embedding_hparam");
+      auto embedding_vec_size = get_value_from_json<int>(j_embed_params, "embedding_vec_size");
+      embed_vec_size_for_tables.push_back(embedding_vec_size);
+    }  // for ()
+  }    // get embedding params
+
+  max_embedding_vector_size_per_sample = 0;
+  for (int i = 0; i < (int)num_embedding_tables; i++) {
+    max_embedding_vector_size_per_sample += (max_feature_num_for_tables[i] * embed_vec_size_for_tables[i]);
+  }
 }
 
 }  // namespace HugeCTR
