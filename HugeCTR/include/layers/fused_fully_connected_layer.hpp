@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cublas_v2.h>
+
 #include <functional>
 #include <layer.hpp>
 #include <vector>
@@ -52,8 +53,7 @@ class FusedFullyConnectedLayer : public Layer {
   /*
    * stores the references to the bottom tensors of this layer.
    */
-  Tensor2<__half> train_bottom_tensor_;
-  Tensor2<__half> evaluate_bottom_tensor_;
+  Tensor2<__half> bottom_tensor_;
 
   /*
    * stores the references to the top tensors of this layer.
@@ -75,13 +75,7 @@ class FusedFullyConnectedLayer : public Layer {
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 
-  Tensor2<__half>& get_bottom_tensor(bool is_train) {
-    if (is_train) {
-      return train_bottom_tensor_;
-    } else {
-      return evaluate_bottom_tensor_;
-    }
-  }
+  Tensor2<__half>& get_bottom_tensor(bool is_train) { return bottom_tensor_; }
 
  public:
   /**
@@ -114,8 +108,8 @@ class FusedFullyConnectedLayer : public Layer {
       const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
       const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
       const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-      const Tensor2<__half>& train_bottom_tensor, const Tensor2<__half>& evaluate_bottom_tensor,
-      const Tensor2<__half>& top_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
+      const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
+      const std::shared_ptr<GPUResource>& gpu_resource,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FusedFullyConnectedLayer(const FusedFullyConnectedLayer&) = delete;
   FusedFullyConnectedLayer& operator=(const FusedFullyConnectedLayer&);
