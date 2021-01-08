@@ -74,10 +74,6 @@ file(GLOB huge_ctr_src
   ../parsers/inference_parser.cpp
   ../session.cpp
   ../plan_parser.cpp 
-  ../model_oversubscriber/distributed_parameter_server_delegate.cpp
-  ../model_oversubscriber/model_oversubscriber_impl.cpp
-  ../model_oversubscriber/parameter_server.cpp
-  ../model_oversubscriber/parameter_server_manager.cpp
   ../diagnose.cu
 )
 
