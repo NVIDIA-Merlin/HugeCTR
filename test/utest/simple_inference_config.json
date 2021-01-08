@@ -1,8 +1,8 @@
 {
   "inference": {
-    "max_batchsize": 1,
-    "dense_model_file": "",
-    "sparse_model_file": ""
+    "max_batchsize": 32,
+    "dense_model_file": "/hugectr/test/utest/_dense_10000.model",
+    "sparse_model_file": "/hugectr/test/utest/0_sparse_10000.model"
   },
   "layers": [
     {
