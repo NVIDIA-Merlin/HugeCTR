@@ -16,18 +16,12 @@
 
 #pragma once
 
-#include <tensor2.hpp>
 
 #include <unordered_map>
 #include <fstream>
 
 namespace HugeCTR {
 
-struct BufferBag {
-  TensorBag2 keys;
-  TensorBag2 slot_id;
-  Tensor2<float> embedding;
-};
 
 template <typename KeyType>
 class ParameterServerDelegate {
