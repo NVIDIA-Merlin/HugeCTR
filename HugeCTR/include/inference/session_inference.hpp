@@ -33,7 +33,7 @@ class InferenceSession : public HugeCTRModel {
   nlohmann::json config_; // should be declared before parser_ and inference_parser_
   Parser parser_;
   InferenceParser inference_parser_;
-  std::vector<size_t> embedding_table_slot_size;
+  std::vector<size_t> embedding_table_slot_size_;
   std::vector<cudaStream_t> lookup_streams_;
   std::vector<cudaStream_t> update_streams_;
 
@@ -44,11 +44,20 @@ class InferenceSession : public HugeCTRModel {
   std::vector<std::shared_ptr<Layer>> embedding_feature_combiners_;
   std::unique_ptr<Network> network_;
   std::shared_ptr<ResourceManager> resource_manager_;
+  embedding_interface* embedding_cache_;
+
+  std::vector<size_t> h_embedding_offset_; // embedding offset to indicate which embeddingcolumns belong to the same embedding table
+  std::vector<int*> d_row_ptrs_vec_; // row ptrs (on device) for each embedding table
+
+  embedding_cache_workspace workspace_handler_;
+  float* d_embeddingvectors_;
+  
+  void separate_keys_by_table_(int* d_row_ptrs, const std::vector<size_t>& embedding_table_slot_size, int num_samples);
 
  public:
   InferenceSession(const std::string& config_file, int device_id, embedding_interface* embedding_ptr);
   virtual ~InferenceSession();
-  void predict(float* d_dense, void* h_embeddingcolumns, int *d_row_ptrs, float* d_output, int num_samples);
+  void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output, int num_samples);
 };
 
 }  // namespace HugeCTR
