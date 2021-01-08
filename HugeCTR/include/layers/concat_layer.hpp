@@ -17,7 +17,6 @@
 #pragma once
 
 #include <layer.hpp>
-
 #include <vector>
 
 namespace HugeCTR {
@@ -43,8 +42,7 @@ class ConcatLayer : public Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<T> train_in_tensors_;
-  Tensors2<T> evaluate_in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
@@ -69,8 +67,7 @@ class ConcatLayer : public Layer {
    * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  ConcatLayer(const Tensors2<T>& train_in_tensors, const Tensors2<T>& evaluate_in_tensors,
-              Tensor2<T>& out_tensor,
+  ConcatLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
               const std::shared_ptr<GPUResource>& gpu_resource);
   ~ConcatLayer() override{};
