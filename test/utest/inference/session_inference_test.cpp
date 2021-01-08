@@ -21,10 +21,26 @@
 #include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
+#include <fstream>
+#include <vector>
 #include <cuda_profiler_api.h>
 
 using namespace HugeCTR;
 namespace {
+
+const int RANGE[] = {0,       1460,    2018,    337396,  549106,  549411,  549431,
+                     561567,  562200,  562203,  613501,  618803,  951403,  954582,
+                     954609,  966800,  1268011, 1268021, 1272862, 1274948, 1274952,
+                     1599225, 1599242, 1599257, 1678991, 1679087, 1737709};
+
+std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
+  std::stringstream ss(s);
+  std::string item;
+  while (std::getline(ss, item, delim)) {
+    elems.push_back(item);
+  }
+  return elems;
+}
 
 struct InferenceParams {
   int max_batchsize;
@@ -45,20 +61,20 @@ InferenceParams::InferenceParams(const nlohmann::json& config) {
   dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
   auto j_sparse_inputs = get_json(j_data, "sparse");
 
-  for (unsigned int i = 0; i < j_sparse_inputs.size(); i++) {
+  for (int i = 0; i < (int)j_sparse_inputs.size(); i++) {
     const nlohmann::json& j_sparse = j_sparse_inputs[0];
     slot_num.push_back(get_value_from_json<int>(j_sparse, "slot_num"));
     max_feature_num_per_sample.push_back(get_value_from_json<int>(j_sparse, "max_feature_num_per_sample"));
   }
   // get embedding params: embedding_vec_size, combiner_type
   {
-    for (unsigned int i = 1; i < j_layers_array.size(); i++) {
+    for (int i = 1; i < (int)j_layers_array.size(); i++) {
       // if not embedding then break
       const nlohmann::json& j = j_layers_array[i];
       auto embedding_name = get_value_from_json<std::string>(j, "type");
-      if (embedding_name != "DistributedSlotSparseEmbeddingHash" &&
-          embedding_name != "LocalizedSlotSparseEmbeddingHash" &&
-          embedding_name != "LocalizedSlotSparseEmbeddingOneHot") {
+      if (embedding_name.compare("DistributedSlotSparseEmbeddingHash") != 0 &&
+          embedding_name.compare("LocalizedSlotSparseEmbeddingHash") != 0 &&
+          embedding_name.compare("LocalizedSlotSparseEmbeddingOneHot") != 0) {
         break;
       }
       auto j_embed_params =  get_json(j, "sparse_embedding_hparam");
@@ -73,88 +89,237 @@ InferenceParams::InferenceParams(const nlohmann::json& config) {
     }  // for ()
   }    // get embedding params
 }
-void session_inference_test(const std::string& config_file, int num_samples) {
+
+void session_inference_criteo_test(const std::string& config_file, const std::string& model, const std::string& criteo_data_path) {
   InferenceParams inference_params(read_json_file(config_file));
   int batch_size = inference_params.max_batchsize;
   int dense_dim = inference_params.dense_dim;
   int slot_num = inference_params.slot_num[0];
   int max_feature_num_per_sample = inference_params.max_feature_num_per_sample[0];
-  int embedding_vec_size = inference_params.embedding_vec_size[0];
-  int max_nnz = max_feature_num_per_sample / slot_num;
-  num_samples = num_samples < batch_size? num_samples:batch_size;
+  int num_samples = 0;
+  std::vector<int> labels;
+  std::vector<float> dense_features;
+  std::vector<unsigned int> keys;
+  std::vector<int> row_ptrs;
   CudaAllocator allocator;
   CudaHostAllocator host_allocator;
+
+  // open criteo data file
+  std::ifstream criteo_data_file(criteo_data_path, std::ifstream::binary);
+  if (!criteo_data_file.is_open()) {
+    std::cerr << "Cannot open " << criteo_data_path << std::endl;
+  }
+
+  // 4 lines: labels, dense_features, keys, row_ptrs
+  for (int i = 0; i < 4; i++) {
+    std::string line;
+    std::getline(criteo_data_file, line);
+    std::vector<std::string> vec_string;
+    split(line, ' ', vec_string);
+    switch (i) {
+      case 0: {
+        num_samples = static_cast<int>(vec_string.size());
+        for (int j = 0; j < num_samples; j++) {
+          int label = std::stoi(vec_string[j]);
+          labels.push_back(label);
+        }
+        break;
+      }
+      case 1: {
+        int dense_features_dim = static_cast<int>(vec_string.size());
+        if (dense_features_dim != num_samples * dense_dim) {
+          std::cerr << "dense_features_dim does not equal to num_samples*dense_dim" << std::endl;
+        }
+        for (int j = 0; j < dense_features_dim; j++) {
+          float dense_feature = std::stod(vec_string[j]);
+          dense_features.push_back(dense_feature);
+        }
+        break;
+      }
+      case 2: {
+        int keys_dim = static_cast<int>(vec_string.size());
+        if (keys_dim != num_samples * slot_num) {
+          std::cerr << "keys_dim does not equal to num_samples*slot_num" << std::endl;
+        }
+        for (int j = 0; j < keys_dim; j++) {
+          unsigned int key = static_cast<unsigned int>(std::stoll(vec_string[j]));
+          keys.push_back(key);
+        }
+        break;
+      }
+      case 3: {
+        int row_ptrs_dim = static_cast<int>(vec_string.size());
+        if (row_ptrs_dim != num_samples * slot_num + 1) {
+          std::cerr << "row_ptrs_dim does not equal to num_samples*slot_num + 1" << std::endl;
+        }
+        for (int j = 0; j < row_ptrs_dim; j++) {
+          int row_ptr = std::stoi(vec_string[j]);
+          row_ptrs.push_back(row_ptr);
+        }
+        break;
+      }
+      default: {
+        assert(!"Error: Should never get here!");
+      }
+    }
+  }
+
+  if (batch_size == 0) {
+    CK_THROW_(Error_t::WrongInput, "batch size should not be zero!");
+  }
+  num_samples = num_samples < batch_size? num_samples : batch_size;
+
+  // d_row_ptrs
   std::vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
   size_t row_ptrs_size = 1;
   for (auto dim : row_ptrs_dims) {
     row_ptrs_size *= dim;
   }
-  std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size]);
-  std::shared_ptr<IDataSimulator<int>> ldata_sim;
-  ldata_sim.reset(new IntUniformDataSimulator<int>(1, max_nnz));
-  h_row_ptrs[0] = 0;
-  for (int i = 1; i < (int)row_ptrs_size; i++) {
-    h_row_ptrs[i] = (h_row_ptrs[i-1] + ldata_sim->get_num());
-  }
-  
-  std::cout << "batch_size: " << batch_size << ", slot_num: " << slot_num << ", embedding_vec_size: " << embedding_vec_size 
-            << ", max_nnz:" << max_nnz << ", num_samples: " << num_samples << ", max_feature_num_per_sample: " << max_feature_num_per_sample 
-            << std::endl;
+  size_t row_ptrs_size_samples = num_samples * slot_num + 1;
+  size_t row_ptrs_size_in_bytes = row_ptrs_size * sizeof(int);
+  size_t row_ptrs_size_in_bytes_samples = row_ptrs_size_samples * sizeof(int);
+  int* d_row_ptrs = reinterpret_cast<int*>(allocator.allocate(row_ptrs_size_in_bytes));
 
-  size_t row_ptrs_size_in_bytes = row_ptrs_size * TensorScalarSizeFunc<int>::get_element_size();
-  void* d_row_ptrs = allocator.allocate(row_ptrs_size_in_bytes);
-  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size_in_bytes, cudaMemcpyHostToDevice));
-  
-  max_feature_num_per_sample = max_feature_num_per_sample < slot_num*max_nnz? max_feature_num_per_sample:slot_num*max_nnz;
-  std::vector<size_t> embedding_features_dims = {static_cast<size_t>(batch_size), static_cast<size_t>(max_feature_num_per_sample), static_cast<size_t>(embedding_vec_size)};
-  size_t embedding_features_size = 1;
-  for (auto dim : embedding_features_dims) {
-    embedding_features_size *= dim;
-  }
-
-  size_t embedding_features_size_in_bytes = embedding_features_size * TensorScalarSizeFunc<float>::get_element_size();
-  std::unique_ptr<float[]> h_embedding_features(new float[embedding_features_size]);
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  simulator.fill(h_embedding_features.get(), embedding_features_size);
-
-  void* d_embedding_features = allocator.allocate(embedding_features_size_in_bytes);
-  CK_CUDA_THROW_(cudaMemcpy(d_embedding_features, h_embedding_features.get(), embedding_features_size_in_bytes, cudaMemcpyHostToDevice));
-
+  // d_dense_features
   size_t dense_size = batch_size * dense_dim;
-  std::unique_ptr<float[]> h_dense(new float[dense_size]);
-  FloatUniformDataSimulator<float> fdata_sim(0, 1);     
-  for (int i = 0; i < (int)dense_size; i++)
-    h_dense[i] = fdata_sim.get_num();
+  size_t dense_size_samples = num_samples * dense_dim;
+  size_t dense_size_in_bytes = dense_size * sizeof(float);
+  size_t dense_size_in_bytes_samples = dense_size_samples * sizeof(float);
+  float* d_dense_features = reinterpret_cast<float*>(allocator.allocate(dense_size_in_bytes));
+  
+  // h_embeddingcolumns
+  size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
+  size_t embeddingcolumns_size_samples = num_samples * max_feature_num_per_sample;
+  size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(unsigned int);
+  size_t embeddingcolumns_size_in_bytes_samples = embeddingcolumns_size_samples * sizeof(unsigned int);
+  void* h_embeddingcolumns = host_allocator.allocate(embeddingcolumns_size_in_bytes);
+  //unsigned int* h_keys = reinterpret_cast<unsigned int*>(h_embeddingcolumns);
 
-  size_t dense_size_in_bytes = dense_size * TensorScalarSizeFunc<float>::get_element_size();
-  float* dense = reinterpret_cast<float*>(allocator.allocate(batch_size*dense_dim*sizeof(float)));
-  float* output = reinterpret_cast<float*>(allocator.allocate(batch_size*sizeof(float)));
-  void* h_embeddingcolumns = host_allocator.allocate(batch_size*max_feature_num_per_sample*sizeof(int));
-  int* row_ptrs = reinterpret_cast<int*>(d_row_ptrs);
-  float* embedding_features = reinterpret_cast<float*>(d_embedding_features);
-  std::unique_ptr<float[]> h_out(new float[batch_size]);
-  embedding_interface* embedding_ptr = nullptr;
-  InferenceSession sess(config_file, 0, embedding_ptr);
+  // d_output 
+  float* d_output = reinterpret_cast<float*>(allocator.allocate(batch_size*sizeof(float)));
+  std::unique_ptr<float[]> h_out(new float[num_samples]);
 
-  CK_CUDA_THROW_(cudaMemcpy(dense, h_dense.get(), dense_size_in_bytes, cudaMemcpyHostToDevice));  
+  // memory copy
+  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, row_ptrs.data(), row_ptrs_size_in_bytes_samples, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_dense_features, dense_features.data(), dense_size_in_bytes_samples, cudaMemcpyHostToDevice)); 
+  memcpy(h_embeddingcolumns, keys.data(), embeddingcolumns_size_in_bytes_samples);
+
+  // inference session
+  std::vector<std::string> model_config_path{config_file};
+  std::vector<std::string> model_name{model};
+  HugectrUtility<unsigned int>* parameter_server = HugectrUtility<unsigned int>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
+  embedding_interface* embedding_cache = embedding_interface::Create_Embedding_Cache<unsigned int>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]);
+  
+  InferenceSession sess(config_file, 0, embedding_cache);
   CK_CUDA_THROW_(cudaDeviceSynchronize());
-  sess.predict(dense, h_embeddingcolumns, row_ptrs, embedding_features, num_samples);  //fake
+  sess.predict(d_dense_features, h_embeddingcolumns, d_row_ptrs, d_output, num_samples);
   CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), output, batch_size*sizeof(float), cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_output, num_samples*sizeof(float), cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
+  std::cout << "==========================labels===================" << std::endl;
+  for (int i = 0; i < num_samples; i++)
+    std::cout << labels[i] << " ";
+  std::cout << std::endl;
+  
   std::cout << "==========================prediction result===================" << std::endl;
-  for (int i = 0; i < batch_size; i++) {
+  for (int i = 0; i < num_samples; i++) {
       std::cout << h_out[i] << " ";
   }
   std::cout << std::endl;
 
   host_allocator.deallocate(h_embeddingcolumns);
   allocator.deallocate(d_row_ptrs);
-  allocator.deallocate(d_embedding_features);
-  allocator.deallocate(dense);
-  allocator.deallocate(output);
+  allocator.deallocate(d_dense_features);
+  allocator.deallocate(d_output);
+}
+
+void session_inference_generated_test(const std::string& config_file, const std::string& model, int num_samples) {
+  InferenceParams inference_params(read_json_file(config_file));
+  int batch_size = inference_params.max_batchsize;
+  int dense_dim = inference_params.dense_dim;
+  int slot_num = inference_params.slot_num[0];
+  int max_feature_num_per_sample = inference_params.max_feature_num_per_sample[0];
+  int max_nnz = max_feature_num_per_sample / slot_num;
+  num_samples = num_samples < batch_size? num_samples:batch_size;
+  CudaAllocator allocator;
+  CudaHostAllocator host_allocator;
+
+  //d_row_ptrs
+  std::vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
+  size_t row_ptrs_size = 1;
+  for (auto dim : row_ptrs_dims) {
+    row_ptrs_size *= dim;
+  }
+  size_t row_ptrs_size_samples = num_samples * slot_num + 1;
+  std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size_samples]);
+  std::shared_ptr<IDataSimulator<int>> ldata_sim;
+  ldata_sim.reset(new IntUniformDataSimulator<int>(1, max_nnz));
+  h_row_ptrs[0] = 0;
+  for (int i = 1; i < (int)row_ptrs_size_samples; i++) {
+    h_row_ptrs[i] = (h_row_ptrs[i-1] + ldata_sim->get_num());
+  }
+  size_t row_ptrs_size_in_bytes = row_ptrs_size * sizeof(int);
+  size_t row_ptrs_size_in_bytes_samples = row_ptrs_size_samples * sizeof(int);
+  int* d_row_ptrs = reinterpret_cast<int*>(allocator.allocate(row_ptrs_size_in_bytes));
+
+  // d_dense_features
+  size_t dense_size = batch_size * dense_dim;
+  size_t dense_size_samples = num_samples * dense_dim;
+  std::unique_ptr<float[]> h_dense(new float[dense_size_samples]);
+  FloatUniformDataSimulator<float> fdata_sim(0, 1);     
+  for (int i = 0; i < (int)dense_size_samples; i++)
+    h_dense[i] = fdata_sim.get_num();
+  size_t dense_size_in_bytes = dense_size * sizeof(float);
+  size_t dense_size_in_bytes_samples = dense_size_samples * sizeof(float);
+  float* d_dense_features = reinterpret_cast<float*>(allocator.allocate(dense_size_in_bytes));
+
+  // h_embeddingcolumns
+  size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
+  size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(unsigned int);
+  void* h_embeddingcolumns = host_allocator.allocate(embeddingcolumns_size_in_bytes);
+  unsigned int* h_keys = reinterpret_cast<unsigned int*>(h_embeddingcolumns);
+  for (int i = 0; i < num_samples; i++) {
+    for (int j = 0; j < slot_num; j++) {
+      ldata_sim.reset(new IntUniformDataSimulator<int>(RANGE[j], RANGE[j+1]-1));
+      h_keys[i*slot_num + j] = static_cast<unsigned int>(ldata_sim->get_num());
+    }
+  }
+
+  // memory copy
+  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size_in_bytes_samples, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_dense_features, h_dense.get(), dense_size_in_bytes_samples, cudaMemcpyHostToDevice)); 
+
+  // d_output
+  float* d_output = reinterpret_cast<float*>(allocator.allocate(batch_size*sizeof(float)));
+  std::unique_ptr<float[]> h_out(new float[num_samples]);
+
+  // inference session
+  std::vector<std::string> model_config_path{config_file};
+  std::vector<std::string> model_name{model};
+  HugectrUtility<unsigned int>* parameter_server = HugectrUtility<unsigned int>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
+  embedding_interface* embedding_cache = embedding_interface::Create_Embedding_Cache<unsigned int>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]);
+
+  InferenceSession sess(config_file, 0, embedding_cache);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  sess.predict(d_dense_features, h_embeddingcolumns, d_row_ptrs, d_output, num_samples);
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_output, num_samples*sizeof(float), cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
+  std::cout << "==========================prediction result===================" << std::endl;
+  for (int i = 0; i < num_samples; i++) {
+      std::cout << h_out[i] << " ";
+  }
+  std::cout << std::endl;
+
+  host_allocator.deallocate(h_embeddingcolumns);
+  allocator.deallocate(d_row_ptrs);
+  allocator.deallocate(d_dense_features);
+  allocator.deallocate(d_output);
 }
 
 }  // namespace
 
-TEST(session_inference, fp32_1x26x16x1x1_30_Sum) { session_inference_test("/hugectr_ci_workdir/test/utest/simple_inference_config.json", 1); }
+TEST(session_inference, criteo_dcn) { session_inference_criteo_test("/hugectr/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt"); }
+TEST(session_inference, generated_dcn_32) { session_inference_generated_test("/hugectr/test/utest/simple_inference_config.json", "DCN", 32); }
