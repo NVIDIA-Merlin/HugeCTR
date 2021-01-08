@@ -20,7 +20,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
-#include <common.hpp>
+#include <cuda_runtime_api.h>
 #include <inference/inference_utils.hpp>
 
 namespace HugeCTR {
