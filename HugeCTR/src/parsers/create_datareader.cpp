@@ -28,13 +28,9 @@ namespace HugeCTR {
 template <typename TypeKey>
 void create_datareader<TypeKey>::operator()(
     const nlohmann::json& j, std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-    std::vector<TensorEntry>* tensor_entries_list,
-    std::shared_ptr<IDataReader>& data_reader,
-    std::shared_ptr<IDataReader>& data_reader_eval,
-    size_t batch_size,
-    size_t batch_size_eval,
-    bool use_mixed_precision,
-    bool repeat_dataset,
+    std::vector<TensorEntry>* train_tensor_entries_list, std::vector<TensorEntry>* evaluate_tensor_entries_list,std::shared_ptr<IDataReader>& train_data_reader,
+    std::shared_ptr<IDataReader>& evaluate_data_reader, size_t batch_size, size_t batch_size_eval,
+    bool use_mixed_precision, bool repeat_dataset_,
     const std::shared_ptr<ResourceManager> resource_manager) {
   const auto layer_type_name = get_value_from_json<std::string>(j, "type");
   if (layer_type_name.compare("Data") != 0) {
@@ -75,6 +71,15 @@ void create_datareader<TypeKey>::operator()(
     CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
   }
 
+#ifdef VAL
+  const int num_workers = 1;
+#else
+  int num_workers_default =
+      format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
+  const int num_workers = get_value_from_json_soft<int>(j, "num_workers", num_workers_default);
+#endif
+  MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
+
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
 
   const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
@@ -103,25 +108,18 @@ void create_datareader<TypeKey>::operator()(
     sparse_names.push_back(sparse_name);
   }
 
-  data_reader_eval = nullptr;
+  evaluate_data_reader = nullptr;
   std::string eval_source;
   FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
 
-#ifdef VAL
-  const int NUM_THREADS = 1;
-#else
-  const int NUM_THREADS =
-      format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
-#endif
-
   DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
       batch_size, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-      repeat_dataset, NUM_THREADS, use_mixed_precision, false);
-  data_reader.reset(data_reader_tk);
+      repeat_dataset_, num_workers, use_mixed_precision, false);
+  train_data_reader.reset(data_reader_tk);
   DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
       batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-      repeat_dataset, NUM_THREADS, use_mixed_precision, cache_eval_data);
-  data_reader_eval.reset(data_reader_eval_tk);
+      repeat_dataset_, num_workers, use_mixed_precision, cache_eval_data);
+  evaluate_data_reader.reset(data_reader_eval_tk);
 
   auto f = [&j]() -> std::vector<long long> {
     std::vector<long long> slot_offset;
@@ -143,9 +141,9 @@ void create_datareader<TypeKey>::operator()(
 
   switch (format) {
     case DataReaderType_t::Norm: {
-      bool start_right_now = repeat_dataset;
-      data_reader->create_drwg_norm(source_data, check_type, start_right_now);
-      data_reader_eval->create_drwg_norm(eval_source, check_type, start_right_now);
+      bool start_right_now = repeat_dataset_;
+      train_data_reader->create_drwg_norm(source_data, check_type, start_right_now);
+      evaluate_data_reader->create_drwg_norm(eval_source, check_type, start_right_now);
       break;
     }
     case DataReaderType_t::Raw: {
@@ -153,10 +151,10 @@ void create_datareader<TypeKey>::operator()(
       const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
       std::vector<long long> slot_offset = f();
       bool float_label_dense = get_value_from_json_soft<bool>(j, "float_label_dense", false);
-      data_reader->create_drwg_raw(source_data, num_samples, slot_offset, float_label_dense, true,
-                                   false);
-      data_reader_eval->create_drwg_raw(eval_source, eval_num_samples, slot_offset,
-                                        float_label_dense, false, false);
+      train_data_reader->create_drwg_raw(source_data, num_samples, slot_offset, float_label_dense,
+                                         true, false);
+      evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples, slot_offset,
+                                            float_label_dense, false, false);
 
       break;
     }
@@ -164,8 +162,8 @@ void create_datareader<TypeKey>::operator()(
       // @Future: Should be slot_offset here and data_reader ctor should
       // be TypeKey not long long
       std::vector<long long> slot_offset = f();
-      data_reader->create_drwg_parquet(source_data, slot_offset, true);
-      data_reader_eval->create_drwg_parquet(eval_source, slot_offset, true);
+      train_data_reader->create_drwg_parquet(source_data, slot_offset, true);
+      evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, true);
       break;
     }
     default: {
@@ -174,21 +172,21 @@ void create_datareader<TypeKey>::operator()(
   }
 
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-    tensor_entries_list[i].push_back(
-        {top_strs_label, TensorUse::Train, data_reader_tk->get_label_tensors()[i].shrink()});
-    tensor_entries_list[i].push_back({top_strs_label, TensorUse::Evaluate,
-                                      data_reader_eval_tk->get_label_tensors()[i].shrink()});
+    train_tensor_entries_list[i].push_back(
+        {top_strs_label, data_reader_tk->get_label_tensors()[i].shrink()});
+    evaluate_tensor_entries_list[i].push_back(
+        {top_strs_label, data_reader_eval_tk->get_label_tensors()[i].shrink()});
 
     if (use_mixed_precision) {
-      tensor_entries_list[i].push_back(
-          {top_strs_dense, TensorUse::Train, data_reader_tk->get_dense_tensors()[i]});
-      tensor_entries_list[i].push_back(
-          {top_strs_dense, TensorUse::Evaluate, data_reader_eval_tk->get_dense_tensors()[i]});
+      train_tensor_entries_list[i].push_back(
+          {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
+      evaluate_tensor_entries_list[i].push_back(
+          {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
     } else {
-      tensor_entries_list[i].push_back(
-          {top_strs_dense, TensorUse::Train, data_reader_tk->get_dense_tensors()[i]});
-      tensor_entries_list[i].push_back(
-          {top_strs_dense, TensorUse::Evaluate, data_reader_eval_tk->get_dense_tensors()[i]});
+      train_tensor_entries_list[i].push_back(
+          {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
+      evaluate_tensor_entries_list[i].push_back(
+          {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
     }
   }
 

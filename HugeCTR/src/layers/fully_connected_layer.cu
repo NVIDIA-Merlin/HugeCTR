@@ -26,8 +26,7 @@ namespace HugeCTR {
 
 FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
                                          const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                                         const Tensor2<float>& train_in_tensor,
-                                         const Tensor2<float>& evaluate_in_tensor,
+                                         const Tensor2<float>& in_tensor,
                                          const Tensor2<float>& out_tensor,
                                          const std::shared_ptr<GPUResource>& gpu_resource,
                                          bool use_mixed_precision,
@@ -37,7 +36,7 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<floa
       enable_tf32_compute_(enable_tf32_compute) {
   try {
     // check the in_tensor and out_tensor
-    const auto& in_tensor_dim = train_in_tensor.get_dimensions();
+    const auto& in_tensor_dim = in_tensor.get_dimensions();
     const auto& out_tensor_dim = out_tensor.get_dimensions();
     // 1. two dim?
     if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
@@ -75,8 +74,7 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<floa
       wgrad_buff->reserve(bias_dim, &tensor);
       wgrad_.push_back(tensor);
     }
-    train_in_tensors_.push_back(train_in_tensor);
-    evaluate_in_tensors_.push_back(evaluate_in_tensor);
+    in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
     // Where should we create this cuBLAS handle?
   } catch (const std::runtime_error& rt_err) {

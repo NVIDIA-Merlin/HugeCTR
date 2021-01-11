@@ -37,7 +37,7 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
                                       std::vector<std::shared_ptr<Layer>>* embeddings,
                                       Network** network,
                                       const std::shared_ptr<ResourceManager> resource_manager) {
-  //std::vector<TensorEntry> tensor_entries;
+  std::vector<TensorEntry> tensor_entries;
 
   auto j_layers_array = get_json(config_, "layers");
 
@@ -50,16 +50,17 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
     auto dense_dim = get_value_from_json<size_t>(j_dense, "dense_dim");
 
     input_buffer->reserve({inference_parser.max_batchsize, dense_dim}, &dense_input);
-    tensor_entries.push_back({top_strs_dense, TensorUse::General, dense_input.shrink()});
+    tensor_entries.push_back({top_strs_dense, dense_input.shrink()});
   }
 
   create_embedding<unsigned int, TypeEmbeddingComp>()(inference_parser, j_layers_array, rows, embeddingvecs, embedding_table_slot_size, &tensor_entries,
                                                     embeddings, resource_manager->get_local_gpu(0), input_buffer);
   input_buffer->allocate();
 
+  std::vector<TensorEntry> train_tensor_entries;
   //create network
   *network = Network::create_network(
-      j_layers_array, "", tensor_entries, 1, resource_manager->get_local_cpu(),
+      j_layers_array, "", train_tensor_entries, tensor_entries, 1, resource_manager->get_local_cpu(),
       resource_manager->get_local_gpu(0), inference_parser.use_mixed_precision,
       false, inference_parser.scaler, false, inference_parser.use_cuda_graph, true);
 }
@@ -229,7 +230,7 @@ void create_embedding<TypeKey, TypeFP>::operator() (
     embeddings->push_back(std::make_shared<EmbeddingFeatureCombiner<TypeFP>>(
         embeddingvecs[0], rows[0], embedding_output, inference_parser.max_batchsize,
         slot_num, feature_combiner_type, blobs_buff, gpu_resource));
-    tensor_entries->push_back({layer_top, TensorUse::General, embedding_output.shrink()});
+    tensor_entries->push_back({layer_top, embedding_output.shrink()});
   }
 
   CudaDeviceContext context(gpu_resource->get_device_id());
