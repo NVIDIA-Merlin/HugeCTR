@@ -62,8 +62,7 @@ __global__ void slice_kernel(bool forward, T* in, const int h, const int in_w, c
 }  // anonymous namespace
 
 template <typename T>
-SliceLayer<T>::SliceLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& evaluate_in_tensor,
-                          Tensors2<T>& out_tensors,
+SliceLayer<T>::SliceLayer(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
                           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                           std::vector<std::pair<int, int>>& ranges,
                           const std::shared_ptr<GPUResource>& gpu_resource)
@@ -77,7 +76,7 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& e
       CK_THROW_(Error_t::WrongInput, "output tensor vector must be empty");
     }
 
-    auto in_dims = train_in_tensor.get_dimensions();
+    auto in_dims = in_tensor.get_dimensions();
     if (in_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "Only 2D tensors can be concatenated");
     }
@@ -115,8 +114,7 @@ SliceLayer<T>::SliceLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& e
       prev_max = cur_max;
     }
 
-    train_in_tensors_.push_back(train_in_tensor);
-    evaluate_in_tensors_.push_back(evaluate_in_tensor);
+    in_tensors_.push_back(in_tensor);
     for (auto& out_tensor : out_tensors) {
       out_tensors_.push_back(out_tensor);
     }

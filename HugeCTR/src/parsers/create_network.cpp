@@ -49,18 +49,14 @@
 
 namespace HugeCTR {
 struct InputOutputInfo {
-  std::vector<TensorBag2> train_input;
-  std::vector<TensorBag2> evaluate_input;
-  std::vector<std::string> output;
+  std::vector<TensorBag2> inputs;
+  std::vector<std::string> output_names;
 };
 
 static bool get_tensor_from_entries(const std::vector<TensorEntry> tensor_entries,
-                                    const std::string& name, TensorUse use, TensorBag2* bag) {
-  if (use == TensorUse::General) {
-    CK_THROW_(Error_t::WrongInput, "Type should not be general");
-  }
+                                    const std::string& name, TensorBag2* bag) {
   for (const TensorEntry& entry : tensor_entries) {
-    if (entry.name == name && (entry.use == TensorUse::General || entry.use == use)) {
+    if (entry.name == name) {
       *bag = entry.bag;
       return true;
     }
@@ -84,43 +80,26 @@ static std::vector<std::string> get_layer_names(const nlohmann::json& json) {
 static InputOutputInfo get_input_tensor_and_output_name(
     const nlohmann::json& json, const std::vector<TensorEntry>& tensor_entries) {
   auto bottom = get_json(json, "bottom");
-  std::vector<std::string> bottom_strs = get_layer_names(bottom);
-
   auto top = get_json(json, "top");
-  std::vector<std::string> top_strs = get_layer_names(top);
 
-  std::vector<TensorBag2> bottom_train_tensors;
-  std::vector<TensorBag2> bottom_evaluate_tensors;
+  std::vector<std::string> bottom_names = get_layer_names(bottom);
+  std::vector<std::string> top_names = get_layer_names(top);
 
-  for (auto& bstr : bottom_strs) {
-    for (auto& tstr : top_strs) {
-      if (bstr == tstr) {
+  std::vector<TensorBag2> bottom_bags;
+
+  for (auto& bottom_name : bottom_names) {
+    for (auto& top_name : top_names) {
+      if (bottom_name == top_name) {
         CK_THROW_(Error_t::WrongInput, "bottom and top include a same layer name");
       }
     }
-    TensorBag2 tensor;
-    if (!get_tensor_from_entries(tensor_entries, bstr, TensorUse::Train, &tensor)) {
-      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
+    TensorBag2 bag;
+    if (!get_tensor_from_entries(tensor_entries, bottom_name, &bag)) {
+      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bottom_name);
     }
-    bottom_train_tensors.push_back(tensor);
-    if (!get_tensor_from_entries(tensor_entries, bstr, TensorUse::Evaluate, &tensor)) {
-      CK_THROW_(Error_t::WrongInput, "No such bottom: " + bstr);
-    }
-
-    bottom_evaluate_tensors.push_back(tensor);
+    bottom_bags.push_back(bag);
   }
-  return {bottom_train_tensors, bottom_evaluate_tensors, top_strs};
-}
-
-struct TensorPair {
-  TensorBag2 tensor;
-  std::string name;
-};
-
-static void add_tensor_to_network(TensorPair& output_tensor_pair,
-                                  std::vector<TensorEntry>& tensor_entries) {
-  tensor_entries.push_back(
-      {output_tensor_pair.name, TensorUse::General, output_tensor_pair.tensor});
+  return {bottom_bags, top_names};
 }
 
 template <typename T>
@@ -155,40 +134,20 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
   return reg;
 }
 
-
-/*
- * Create single network
- *
- */
-Network* Network::create_network(
-    const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
-                        std::vector<TensorEntry>& tensor_entries, int num_networks_in_global,
-                        const std::shared_ptr<CPUResource>& cpu_resource,
-                        const std::shared_ptr<GPUResource>& gpu_resource,
-                        bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                        bool use_algorithm_search, bool use_cuda_graph, bool inference_flag) {
-  std::unique_ptr<Network> network(
-      new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph));
-
-  auto& layers = network->layers_;
-  auto& loss_tensor = network->loss_tensor_;
-  auto& loss = network->loss_;
-
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
-      GeneralBuffer2<CudaAllocator>::create();
-
-  std::shared_ptr<BufferBlock2<float>> weight_buff = blobs_buff->create_block<float>();
-  std::shared_ptr<BufferBlock2<__half>> weight_buff_half = blobs_buff->create_block<__half>();
-  std::shared_ptr<BufferBlock2<float>> wgrad_buff = blobs_buff->create_block<float>();
-  std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = blobs_buff->create_block<__half>();
-
-  assert(layers.empty());
-
+void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tensor_entries,
+                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                   const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                   const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
+                   const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                   const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
+                   Tensor2<float>& loss_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
+                   bool use_mixed_precision, bool enable_tf32_compute, int num_networks_in_global,
+                   float scaler, bool& enable_cuda_graph, bool inference_flag,
+                   std::vector<std::unique_ptr<Layer>>& layers, std::unique_ptr<ILoss>& loss,
+                   metrics::RawMetricMap* raw_metrics) {
   for (unsigned int i = 1; i < j_array.size(); i++) {
     const nlohmann::json& j = j_array[i];
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
-    const std::string layer_name = get_value_from_json<std::string>(j, "name");
-    MESSAGE_("layer name: " + layer_name);
     Layer_t layer_type;
 
     const auto& layer_map = use_mixed_precision ? LAYER_TYPE_MAP_MP : LAYER_TYPE_MAP;
@@ -201,16 +160,16 @@ Network* Network::create_network(
       continue;
     }
 
-    std::vector<TensorPair> output_tensor_pairs;
+    std::vector<TensorEntry> output_tensor_entries;
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_entries);
     switch (layer_type) {
       case Layer_t::BatchNorm: {
-        Tensor2<float> bn_in_tensor =
-            Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> bn_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         // establish out tensor
         Tensor2<float> bn_out_tensor;
         blobs_buff->reserve(bn_in_tensor.get_dimensions(), &bn_out_tensor);
-        output_tensor_pairs.push_back({bn_out_tensor.shrink(), input_output_info.output[0]});
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], bn_out_tensor.shrink()});
 
         // get BN params
         auto j_bn_hparam = get_json(j, "bn_param");
@@ -244,88 +203,67 @@ Network* Network::create_network(
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
-        if (input_output_info.train_input.size() != 2 ||
-            input_output_info.evaluate_input.size() != 2) {
+        if (input_output_info.inputs.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
           CK_THROW_(Error_t::WrongInput, "inference network must NOT have BinaryCrossEntropyLoss");
         }
-        Tensor2<float> train_label_tensor =
-            Tensor2<float>::stretch_from(input_output_info.train_input[1]);
-        Tensor2<float> evaluate_label_tensor =
-            Tensor2<float>::stretch_from(input_output_info.evaluate_input[1]);
+        Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
         blobs_buff->reserve({1, 1}, &loss_tensor);
         if (use_mixed_precision) {
-          Tensor2<__half> train_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<__half> evaluate_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
 
           loss.reset(new BinaryCrossEntropyLoss<__half>(
-              train_label_tensor, train_in_tensor, evaluate_label_tensor, evaluate_in_tensor,
-              loss_tensor,
+              label_tensor, in_tensor, loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-                                 train_in_tensor.get_dimensions()[0], gpu_resource),
+                                 in_tensor.get_dimensions()[0], gpu_resource),
               gpu_resource, num_networks_in_global, scaler));
         } else {
-          Tensor2<float> train_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<float> evaluate_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
 
           loss.reset(new BinaryCrossEntropyLoss<float>(
-              train_label_tensor, train_in_tensor, evaluate_label_tensor, evaluate_in_tensor,
-              loss_tensor,
+              label_tensor, in_tensor, loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                                 train_in_tensor.get_dimensions()[0], gpu_resource),
+                                 in_tensor.get_dimensions()[0], gpu_resource),
               gpu_resource, num_networks_in_global, scaler));
         }
         break;
       }
       case Layer_t::Concat: {
         if (use_mixed_precision) {
-          Tensors2<__half> train_in_tensors;
-          for (const TensorBag2& t : input_output_info.train_input) {
-            train_in_tensors.push_back(Tensor2<__half>::stretch_from(t));
-          }
-          Tensors2<__half> evaluate_in_tensors;
-          for (const TensorBag2& t : input_output_info.evaluate_input) {
-            evaluate_in_tensors.push_back(Tensor2<__half>::stretch_from(t));
+          Tensors2<__half> in_tensors;
+          for (const TensorBag2& bag : input_output_info.inputs) {
+            in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
           }
           Tensor2<__half> out_tensor;
-          layers.emplace_back(new ConcatLayer<__half>(train_in_tensors, evaluate_in_tensors,
-                                                      out_tensor, blobs_buff, gpu_resource));
-          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+          layers.emplace_back(
+              new ConcatLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
-          Tensors2<float> train_in_tensors;
-          for (const TensorBag2& t : input_output_info.train_input) {
-            train_in_tensors.push_back(Tensor2<float>::stretch_from(t));
-          }
-          Tensors2<float> evaluate_in_tensors;
-          for (const TensorBag2& t : input_output_info.evaluate_input) {
-            evaluate_in_tensors.push_back(Tensor2<float>::stretch_from(t));
+          Tensors2<float> in_tensors;
+          for (const TensorBag2& bag : input_output_info.inputs) {
+            in_tensors.push_back(Tensor2<float>::stretch_from(bag));
           }
           Tensor2<float> out_tensor;
-          layers.emplace_back(new ConcatLayer<float>(train_in_tensors, evaluate_in_tensors,
-                                                     out_tensor, blobs_buff, gpu_resource));
-          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+          layers.emplace_back(
+              new ConcatLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;
       }
       case Layer_t::CrossEntropyLoss: {
-        if (input_output_info.train_input.size() != 2) {
+        if (input_output_info.inputs.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
           CK_THROW_(Error_t::WrongInput, "inference network must NOT have CrossEntropyLoss");
         }
-        Tensor2<float> label_tensor =
-            Tensor2<float>::stretch_from(input_output_info.train_input[1]);
+        Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
         blobs_buff->reserve({1, 1}, &loss_tensor);
         if (use_mixed_precision) {
           Tensor2<__half> cross_entropy_loss_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
 
           loss.reset(new CrossEntropyLoss<__half>(
               label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
@@ -334,7 +272,7 @@ Network* Network::create_network(
               gpu_resource, num_networks_in_global, scaler));
         } else {
           Tensor2<float> cross_entropy_loss_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+              Tensor2<float>::stretch_from(input_output_info.inputs[0]);
 
           loss.reset(new CrossEntropyLoss<float>(
               label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
@@ -346,12 +284,12 @@ Network* Network::create_network(
       }
       case Layer_t::Dropout: {
         if (use_mixed_precision) {
-          Tensor2<__half> do_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<__half> do_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           // establish out tensor
           Tensor2<__half> do_out_tensor;
           blobs_buff->reserve(do_in_tensor.get_dimensions(), &do_out_tensor);
-          output_tensor_pairs.push_back({do_out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], do_out_tensor.shrink()});
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
@@ -364,11 +302,11 @@ Network* Network::create_network(
 #endif
         } else {
           // establish out tensor
-          Tensor2<float> do_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> do_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> do_out_tensor;
           blobs_buff->reserve(do_in_tensor.get_dimensions(), &do_out_tensor);
-          output_tensor_pairs.push_back({do_out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], do_out_tensor.shrink()});
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
@@ -380,18 +318,18 @@ Network* Network::create_network(
                                                            rate, gpu_resource));
 #endif
         }
-        network->enable_cuda_graph_ = false;
+        enable_cuda_graph = false;
 
         break;
       }
       case Layer_t::ELU: {
-        Tensor2<float> elu_in_tensor =
-            Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> elu_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
 
         // establish out tensor
         Tensor2<float> elu_out_tensor;
         blobs_buff->reserve(elu_in_tensor.get_dimensions(), &elu_out_tensor);
-        output_tensor_pairs.push_back({elu_out_tensor.shrink(), input_output_info.output[0]});
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], elu_out_tensor.shrink()});
         // get ELU params
         auto j_elu_hparam = get_json(j, "elu_param");
         auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
@@ -425,18 +363,16 @@ Network* Network::create_network(
         // establish out tensor
         auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
         if (use_mixed_precision) {
-          Tensor2<__half> train_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<__half> evaluate_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> fc_out_tensor;
-          blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &fc_out_tensor);
-          output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
+          blobs_buff->reserve({(in_tensor.get_dimensions())[0], output}, &fc_out_tensor);
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], fc_out_tensor.shrink()});
 
           // establish layer
           layers.emplace_back(new FusedFullyConnectedLayer(
-              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
-              evaluate_in_tensor, fc_out_tensor, gpu_resource, initializer_types));
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, fc_out_tensor,
+              gpu_resource, initializer_types));
         } else {
           CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
         }
@@ -445,10 +381,10 @@ Network* Network::create_network(
 
       case Layer_t::Cast: {
         if (use_mixed_precision) {
-          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> out_tensor;
           blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
-          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
           layers.emplace_back(new CastLayer(in_tensor, out_tensor, gpu_resource));
         } else {
           CK_THROW_(Error_t::WrongInput, "Cast supports half only");
@@ -483,30 +419,26 @@ Network* Network::create_network(
         auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
 
         if (use_mixed_precision) {
-          Tensor2<__half> train_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<__half> evaluate_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> fc_out_tensor;
-          blobs_buff->reserve({train_in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+          blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
 
           // establish layer
           layers.emplace_back(new FullyConnectedLayerHalf(
-              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
-              evaluate_in_tensor, fc_out_tensor, gpu_resource, initializer_types));
-          output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, fc_out_tensor,
+              gpu_resource, initializer_types));
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], fc_out_tensor.shrink()});
         } else {
-          Tensor2<float> train_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<float> evaluate_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> fc_out_tensor;
-          blobs_buff->reserve({train_in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
+          blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
           // establish layer
           layers.emplace_back(new FullyConnectedLayer(
-              weight_buff, wgrad_buff, train_in_tensor, evaluate_in_tensor, fc_out_tensor,
-              gpu_resource, use_mixed_precision, enable_tf32_compute, initializer_types));
-          output_tensor_pairs.push_back({fc_out_tensor.shrink(), input_output_info.output[0]});
+              weight_buff, wgrad_buff, in_tensor, fc_out_tensor, gpu_resource, use_mixed_precision,
+              enable_tf32_compute, initializer_types));
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], fc_out_tensor.shrink()});
         }
         break;
       }
@@ -520,37 +452,26 @@ Network* Network::create_network(
                                                std::to_string(gpu_resource->get_cc_minor()));
           }
 
-          Tensor2<__half> train_in_mlp_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<__half> evaluate_in_mlp_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
-          Tensor2<__half> train_in_emb_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[1]);
-          Tensor2<__half> evaluate_in_emb_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[1]);
+          Tensor2<__half> in_mlp_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<__half> in_emb_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
           Tensor2<__half> out_tensor;
 
           layers.emplace_back(new InteractionLayer<__half>(
-              train_in_mlp_tensor, evaluate_in_mlp_tensor, train_in_emb_tensor,
-              evaluate_in_emb_tensor, out_tensor,
+              in_mlp_tensor, in_emb_tensor, out_tensor,
               blobs_buff,  // todo cannot use this blobs_buff here need half
               gpu_resource, use_mixed_precision, enable_tf32_compute));
-          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
 
         } else {
-          Tensor2<float> train_in_mlp_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<float> evaluate_in_mlp_tensor =
-              Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
-          Tensor2<float> train_emb_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[1]);
-          Tensor2<float> evaluate_emb_tensor =
-              Tensor2<float>::stretch_from(input_output_info.evaluate_input[1]);
+          Tensor2<float> in_mlp_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> in_emb_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
           Tensor2<float> out_tensor;
-          layers.emplace_back(new InteractionLayer<float>(
-              train_in_mlp_tensor, evaluate_in_mlp_tensor, train_emb_tensor, evaluate_emb_tensor,
-              out_tensor, blobs_buff, gpu_resource, use_mixed_precision, enable_tf32_compute));
-          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+          layers.emplace_back(
+              new InteractionLayer<float>(in_mlp_tensor, in_emb_tensor, out_tensor, blobs_buff,
+                                          gpu_resource, use_mixed_precision, enable_tf32_compute));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
 
         break;
@@ -580,11 +501,10 @@ Network* Network::create_network(
 
         // establish out tensor
         auto num_layers = get_value_from_json<int>(j_mc_param, "num_layers");
-        Tensor2<float> mc_in_tensor =
-            Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
         blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
-        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         // establish layer
         layers.emplace_back(new MultiCrossLayer(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
                                                 out_tensor, gpu_resource, num_layers,
@@ -593,11 +513,11 @@ Network* Network::create_network(
       }
 
       case Layer_t::MultiCrossEntropyLoss: {
-        if (input_output_info.train_input.size() != 2) {
+        if (input_output_info.inputs.size() != 2) {
           CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          CK_THROW_(Error_t::WrongInput, "inference network must NOT have CrossEntropyLoss");
+          CK_THROW_(Error_t::WrongInput, "inference network must NOT have MultiCrossEntropyLoss");
         }
         auto tweight = get_json(j, "target_weight");
         std::vector<float> target_weight_vec;
@@ -606,13 +526,12 @@ Network* Network::create_network(
           target_weight_vec.push_back(tweight_val);
         }
 
-        Tensor2<float> label_tensor =
-            Tensor2<float>::stretch_from(input_output_info.train_input[1]);
+        Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
         blobs_buff->reserve({1, 1}, &loss_tensor);
 
         if (use_mixed_precision) {
           Tensor2<__half> multi_cross_entropy_loss_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           loss.reset(new MultiCrossEntropyLoss<__half>(
               label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
@@ -621,7 +540,7 @@ Network* Network::create_network(
               target_weight_vec, gpu_resource, num_networks_in_global, scaler));
         } else {
           Tensor2<float> multi_cross_entropy_loss_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+              Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           loss.reset(new MultiCrossEntropyLoss<float>(
               label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
               create_regularizer(j, weight_buff->as_tensor(), wgrad_buff->as_tensor(),
@@ -634,19 +553,20 @@ Network* Network::create_network(
       case Layer_t::ReLU: {
         if (use_mixed_precision) {
           Tensor2<__half> relu_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> relu_out_tensor;
           blobs_buff->reserve(relu_in_tensor.get_dimensions(), &relu_out_tensor);
           layers.emplace_back(new ReluLayer<__half>(relu_in_tensor, relu_out_tensor, gpu_resource));
-          output_tensor_pairs.push_back({relu_out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], relu_out_tensor.shrink()});
         } else {
           // establish out tensor
-          Tensor2<float> relu_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+          Tensor2<float> relu_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> relu_out_tensor;
           blobs_buff->reserve(relu_in_tensor.get_dimensions(), &relu_out_tensor);
           layers.emplace_back(new ReluLayer<float>(relu_in_tensor, relu_out_tensor, gpu_resource));
-          output_tensor_pairs.push_back({relu_out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], relu_out_tensor.shrink()});
         }
 
         break;
@@ -664,19 +584,19 @@ Network* Network::create_network(
           }
 
           if (use_mixed_precision) {
-            Tensor2<__half> in_tensor =
-                Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+            Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
             Tensor2<__half> out_tensor;
             layers.emplace_back(new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff,
                                                          selected, gpu_resource));
-            output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
           } else {
-            Tensor2<float> in_tensor =
-                Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+            Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
             Tensor2<float> out_tensor;
             layers.emplace_back(
                 new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff, selected, gpu_resource));
-            output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
           }
         }
         // general purpose reshape
@@ -686,33 +606,27 @@ Network* Network::create_network(
           // if leading_dim is not specified, default leading_dim = n_slots * vector_length
 
           if (use_mixed_precision) {
-            Tensor2<__half> train_in_tensor =
-                Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
-            Tensor2<__half> evaluate_in_tensor =
-                Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+            Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
             Tensor2<__half> out_tensor;
-            const auto& in_dims = train_in_tensor.get_dimensions();
+            const auto& in_dims = in_tensor.get_dimensions();
             size_t leading_dim = (leading_dim_it != j.end())
                                      ? (*leading_dim_it).get<int>()
-                                     : train_in_tensor.get_num_elements() / in_dims[0];
-            layers.emplace_back(new ReshapeLayer<__half>(train_in_tensor, evaluate_in_tensor,
-                                                         out_tensor, blobs_buff, leading_dim,
-                                                         gpu_resource));
-            output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+                                     : in_tensor.get_num_elements() / in_dims[0];
+            layers.emplace_back(new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff,
+                                                         leading_dim, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
           } else {
-            Tensor2<float> train_in_tensor =
-                Tensor2<float>::stretch_from(input_output_info.train_input[0]);
-            Tensor2<float> evaluate_in_tensor =
-                Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+            Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
             Tensor2<float> out_tensor;
-            const auto& in_dims = train_in_tensor.get_dimensions();
+            const auto& in_dims = in_tensor.get_dimensions();
             size_t leading_dim = (leading_dim_it != j.end())
                                      ? (*leading_dim_it).get<int>()
-                                     : train_in_tensor.get_num_elements() / in_dims[0];
-            layers.emplace_back(new ReshapeLayer<float>(train_in_tensor, evaluate_in_tensor,
-                                                        out_tensor, blobs_buff, leading_dim,
-                                                        gpu_resource));
-            output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+                                     : in_tensor.get_num_elements() / in_dims[0];
+            layers.emplace_back(new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff,
+                                                        leading_dim, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], out_tensor.shrink()});
           }
         }
         break;
@@ -720,21 +634,23 @@ Network* Network::create_network(
       case Layer_t::Sigmoid: {
         if (use_mixed_precision) {
           Tensor2<__half> sigmoid_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> sigmoid_out_tensor;
           blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
           layers.emplace_back(
               new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-          output_tensor_pairs.push_back({sigmoid_out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
         } else {
           // establish out tensor
           Tensor2<float> sigmoid_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+              Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> sigmoid_out_tensor;
           blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
           layers.emplace_back(
               new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-          output_tensor_pairs.push_back({sigmoid_out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
         }
         break;
       }
@@ -748,26 +664,22 @@ Network* Network::create_network(
         }
 
         if (use_mixed_precision) {
-          Tensor2<__half> train_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<__half> evaluate_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensors2<__half> out_tensors;
-          layers.emplace_back(new SliceLayer<__half>(
-              train_in_tensor, evaluate_in_tensor, out_tensors, blobs_buff, ranges, gpu_resource));
+          layers.emplace_back(
+              new SliceLayer<__half>(in_tensor, out_tensors, blobs_buff, ranges, gpu_resource));
           for (size_t i = 0; i < out_tensors.size(); i++) {
-            output_tensor_pairs.push_back({out_tensors[i].shrink(), input_output_info.output[i]});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[i], out_tensors[i].shrink()});
           }
         } else {
-          Tensor2<float> train_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.train_input[0]);
-          Tensor2<float> evaluate_in_tensor =
-              Tensor2<float>::stretch_from(input_output_info.evaluate_input[0]);
+          Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensors2<float> out_tensors;
-          layers.emplace_back(new SliceLayer<float>(train_in_tensor, evaluate_in_tensor,
-                                                    out_tensors, blobs_buff, ranges, gpu_resource));
+          layers.emplace_back(
+              new SliceLayer<float>(in_tensor, out_tensors, blobs_buff, ranges, gpu_resource));
           for (size_t i = 0; i < out_tensors.size(); i++) {
-            output_tensor_pairs.push_back({out_tensors[i].shrink(), input_output_info.output[i]});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[i], out_tensors[i].shrink()});
           }
         }
         break;
@@ -792,68 +704,68 @@ Network* Network::create_network(
           }
         }
 
-        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
         layers.emplace_back(new MultiplyLayer(weight_buff, wgrad_buff, blobs_buff, in_tensor,
                                               out_tensor, weight_dims, gpu_resource,
                                               initializer_types));
-        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         break;
       }
       case Layer_t::FmOrder2: {
         auto out_dim = get_json(j, "out_dim").get<size_t>();
 
-        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
         blobs_buff->reserve({in_tensor.get_dimensions()[0], out_dim}, &out_tensor);
 
         layers.emplace_back(new FmOrder2Layer(in_tensor, out_tensor, gpu_resource));
-        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         break;
       }
       case Layer_t::Add: {
         if (use_mixed_precision) {
           Tensors2<__half> in_tensors;
-          for (const auto& t : input_output_info.train_input) {
-            in_tensors.push_back(Tensor2<__half>::stretch_from(t));
+          for (const auto& bag : input_output_info.inputs) {
+            in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
           }
           Tensor2<__half> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
           layers.emplace_back(
               new AddLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
-          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensors2<float> in_tensors;
-          for (const auto& t : input_output_info.train_input) {
-            in_tensors.push_back(Tensor2<float>::stretch_from(t));
+          for (const auto& bag : input_output_info.inputs) {
+            in_tensors.push_back(Tensor2<float>::stretch_from(bag));
           }
           Tensor2<float> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
           layers.emplace_back(
               new AddLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
-          output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;
       }
       case Layer_t::ReduceSum: {
         int axis = get_json(j, "axis").get<int>();
 
-        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.train_input[0]);
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
         layers.emplace_back(
             new ReduceSumLayer(in_tensor, out_tensor, blobs_buff, axis, gpu_resource));
-        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         break;
       }
       case Layer_t::DotProduct: {
         Tensors2<float> in_tensors;
-        for (const auto& t : input_output_info.train_input) {
-          in_tensors.push_back(Tensor2<float>::stretch_from(t));
+        for (const auto& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<float>::stretch_from(bag));
         }
         Tensor2<float> out_tensor;
         blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
         layers.emplace_back(new DotProductLayer(in_tensors, out_tensor, blobs_buff, gpu_resource));
-        output_tensor_pairs.push_back({out_tensor.shrink(), input_output_info.output[0]});
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         break;
       }
       default:
@@ -863,28 +775,80 @@ Network* Network::create_network(
     if (!(layer_type == Layer_t::CrossEntropyLoss ||
           layer_type == Layer_t::BinaryCrossEntropyLoss ||
           layer_type == Layer_t::MultiCrossEntropyLoss)) {
-      for (auto& output_tensor_pair : output_tensor_pairs) {
-        add_tensor_to_network(output_tensor_pair, tensor_entries);
+      for (auto& output_tensor_entry : output_tensor_entries) {
+        tensor_entries.push_back(output_tensor_entry);
       }
-    } else {
-      if (!inference_flag) {
-        network->raw_metrics_[metrics::RawType::Loss] = loss_tensor.shrink();
-        network->raw_metrics_[metrics::RawType::Pred] = input_output_info.evaluate_input[0];
-        network->raw_metrics_[metrics::RawType::Label] = input_output_info.evaluate_input[1];
-      }
+    } else if (raw_metrics && !inference_flag) {
+      (*raw_metrics)[metrics::RawType::Loss] = loss_tensor.shrink();
+      (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
+      (*raw_metrics)[metrics::RawType::Label] = input_output_info.inputs[1];
     }
   }  // for layers
+}
+
+/*
+ * Create single network
+ *
+ */
+Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
+                                 std::vector<TensorEntry>& train_tensor_entries,
+                                 std::vector<TensorEntry>& evaluate_tensor_entries,
+                                 int num_networks_in_global,
+                                 const std::shared_ptr<CPUResource>& cpu_resource,
+                                 const std::shared_ptr<GPUResource>& gpu_resource,
+                                 bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                                 bool use_algorithm_search, bool use_cuda_graph,
+                                 bool inference_flag) {
+  Network* network = new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph);
+
+  auto& train_layers = network->train_layers_;
+  auto& evaluate_layers = network->evaluate_layers_;
+  auto& train_loss_tensor = network->train_loss_tensor_;
+  auto& evaluate_loss_tensor = network->evaluate_loss_tensor_;
+  auto& train_loss = network->train_loss_;
+  auto& evaluate_loss = network->evaluate_loss_;
+  auto& enable_cuda_graph = network->enable_cuda_graph_;
+  auto& raw_metrics = network->raw_metrics_;
+
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff =
+      GeneralBuffer2<CudaAllocator>::create();
+
+  std::shared_ptr<BufferBlock2<float>> train_weight_buff = blobs_buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<__half>> train_weight_buff_half = blobs_buff->create_block<__half>();
+  std::shared_ptr<BufferBlock2<float>> wgrad_buff = blobs_buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = blobs_buff->create_block<__half>();
+  std::shared_ptr<BufferBlock2<float>> evaluate_weight_buff = blobs_buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<__half>> evaluate_weight_buff_half =
+      blobs_buff->create_block<__half>();
+  std::shared_ptr<BufferBlock2<float>> wgrad_buff_placeholder = blobs_buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half_placeholder =
+      blobs_buff->create_block<__half>();
+
+  if(!inference_flag){
+    // create train layers
+    create_layers(j_array, train_tensor_entries, blobs_buff, train_weight_buff,
+                train_weight_buff_half, wgrad_buff, wgrad_buff_half, train_loss_tensor,
+                gpu_resource, use_mixed_precision, enable_tf32_compute, num_networks_in_global,
+                scaler, enable_cuda_graph, inference_flag, train_layers, train_loss, nullptr);
+  }
+
+  // create evaluate layers
+  create_layers(j_array, evaluate_tensor_entries, blobs_buff, evaluate_weight_buff,
+                evaluate_weight_buff_half, wgrad_buff_placeholder, wgrad_buff_half_placeholder,
+                evaluate_loss_tensor, gpu_resource, use_mixed_precision, enable_tf32_compute,
+                num_networks_in_global, scaler, enable_cuda_graph, inference_flag, evaluate_layers,
+                evaluate_loss, &raw_metrics);
 
   // create optimizer
   if (!inference_flag) {
     auto opt_param = get_optimizer_param<float>()(j_optimizer);
 
     network->optimizer_ = std::move(Optimizer::Create(
-        opt_param, weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+        opt_param, train_weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
         use_mixed_precision, scaler, blobs_buff, gpu_resource));
   } else {
     try {
-      TensorEntry pred_tensor_entry = tensor_entries.back();
+      TensorEntry pred_tensor_entry = evaluate_tensor_entries.back();
       network->pred_tensor_ = Tensor2<float>::stretch_from(pred_tensor_entry.bag);
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -892,14 +856,24 @@ Network* Network::create_network(
     }
   }
 
-  network->weight_tensor_ = weight_buff->as_tensor();
+  network->train_weight_tensor_ = train_weight_buff->as_tensor();
+  network->train_weight_tensor_half_ = train_weight_buff_half->as_tensor();
   network->wgrad_tensor_ = wgrad_buff->as_tensor();
-  network->weight_tensor_half_ = weight_buff_half->as_tensor();
   network->wgrad_tensor_half_ = wgrad_buff_half->as_tensor();
+  network->evaluate_weight_tensor_ = evaluate_weight_buff->as_tensor();
+  network->evaluate_weight_tensor_half_ = evaluate_weight_buff_half->as_tensor();
 
   CudaDeviceContext context(gpu_resource->get_device_id());
   blobs_buff->allocate();
-  return network.release();
+
+#ifndef DATA_READING_TEST
+  network->initialize();
+  if (use_algorithm_search) {
+    network->search_algorithm();
+  }
+#endif
+
+  return network;
 }
 
 }  // namespace HugeCTR

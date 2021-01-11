@@ -6,7 +6,6 @@ include:
 stages:
   - build
   - test
-  - cleanup
 
 variables:
   IMAGE: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel"
@@ -361,29 +360,3 @@ embedding_plugin2:
         bash -cx "
         cd ${WORK_DIR}/test/embedding_plugin_test;
         python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
-
-cleanup_containerr:
-  stage: cleanup
-  dependencies:
-    - unit_tests
-    - criteo
-    - dcn
-    - wdl_deepfm
-    - dlrm
-    - criteo_multinode
-    - dcn_multinode
-    - dcn_multinode_parquet_localized
-    - dcn_multinode_parquet_distributed
-    - dlrm_multinode_fp16
-    - dlrm_multinode_fp32
-    - criteo_multinode_gossip
-    - python_interface_single_node
-    - python_interface_single_node_model_prefetch
-    - python_interface_multi_node_nccl
-    - python_interface_multi_node_gossip
-    - embedding_plugin1
-    - embedding_plugin2
-  script:
-    - bash -cx "curl --request DELETE  --header PRIVATE-TOKEN:${CI_PRIVATE_KEY} https://gitlab-master.nvidia.com/api/v4/projects/36129/registry/repositories/12086/tags/devel_${CI_PIPELINE_ID}"
-  when:
-    always
