@@ -19,8 +19,9 @@
 namespace HugeCTR {
 
 Parser::Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-               bool repeat_dataset, bool i64_input_key, bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-               bool use_algorithm_search, bool use_cuda_graph)
+               bool repeat_dataset, bool i64_input_key, bool use_mixed_precision,
+               bool enable_tf32_compute, float scaler, bool use_algorithm_search,
+               bool use_cuda_graph)
     : config_(read_json_file(configure_file)),
       batch_size_(batch_size),
       batch_size_eval_(batch_size_eval),
@@ -33,37 +34,30 @@ Parser::Parser(const std::string& configure_file, size_t batch_size, size_t batc
       use_cuda_graph_(use_cuda_graph) {}
 
 template <typename TypeKey>
-void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
-                                      std::shared_ptr<IDataReader>& data_reader_eval,
-                                      std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                      std::vector<std::unique_ptr<Network>>& network,
+void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& train_data_reader,
+                                      std::shared_ptr<IDataReader>& evaluate_data_reader,
+                                      std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                                      std::vector<std::shared_ptr<Network>>& network,
                                       const std::shared_ptr<ResourceManager>& resource_manager) {
   try {
-    const nlohmann::json& config = config_;
-    size_t batch_size = batch_size_;
-    size_t batch_size_eval = batch_size_eval_;
-    bool use_mixed_precision = use_mixed_precision_;
-    float scaler = scaler_;
-    bool enable_tf32_compute = enable_tf32_compute_;
-    bool use_algorithm_search = use_algorithm_search_;
-    bool use_cuda_graph = use_cuda_graph_;
-    
     std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
-    std::vector<TensorEntry> tensor_entries_list[resource_manager->get_local_gpu_count()];
+    std::vector<TensorEntry> train_tensor_entries_list[resource_manager->get_local_gpu_count()];
+    std::vector<TensorEntry> evaluate_tensor_entries_list[resource_manager->get_local_gpu_count()];
     {
       if (!network.empty()) {
         CK_THROW_(Error_t::WrongInput, "vector network is not empty");
       }
 
-      auto j_layers_array = get_json(config, "layers");
-      auto j_optimizer = get_json(config, "optimizer");
+      auto j_layers_array = get_json(config_, "layers");
+      auto j_optimizer = get_json(config_, "optimizer");
 
       // Create Data Reader
       {
         const nlohmann::json& j = j_layers_array[0];
-        create_datareader<TypeKey>()(j, sparse_input_map, tensor_entries_list, data_reader,
-                                     data_reader_eval, batch_size, batch_size_, use_mixed_precision,
-                                     repeat_dataset_, resource_manager);
+        create_datareader<TypeKey>()(j, sparse_input_map, train_tensor_entries_list,
+                                     evaluate_tensor_entries_list, train_data_reader, evaluate_data_reader,
+                                     batch_size_, batch_size_eval_, use_mixed_precision_, repeat_dataset_,
+                                     resource_manager);
       }
 
       // Create Embedding
@@ -82,29 +76,31 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
             break;
           }
 
-          if (use_mixed_precision) {
+          if (use_mixed_precision_) {
             create_embedding<TypeKey, __half>()(
-                sparse_input_map, tensor_entries_list, embedding, embedding_type, config,
-                resource_manager, batch_size, batch_size_eval, use_mixed_precision, scaler, j);
+                sparse_input_map, train_tensor_entries_list, evaluate_tensor_entries_list,
+                embeddings, embedding_type, config_, resource_manager, batch_size_, batch_size_eval_,
+                use_mixed_precision_, scaler_, j);
           } else {
-            create_embedding<TypeKey, float>()(sparse_input_map, tensor_entries_list, embedding,
-                                               embedding_type, config, resource_manager, batch_size,
-                                               batch_size_eval, use_mixed_precision, scaler, j);
+            create_embedding<TypeKey, float>()(sparse_input_map, train_tensor_entries_list,
+                                               evaluate_tensor_entries_list, embeddings,
+                                               embedding_type, config_, resource_manager, batch_size_,
+                                               batch_size_eval_, use_mixed_precision_, scaler_, j);
           }
         }  // for ()
       }    // Create Embedding
 
       // create network
       int total_gpu_count = resource_manager->get_global_gpu_count();
-      if (0 != batch_size % total_gpu_count) {
+      if (0 != batch_size_ % total_gpu_count) {
         CK_THROW_(Error_t::WrongInput, "0 != batch_size\%total_gpu_count");
       }
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-        network.emplace_back(Network::create_network(j_layers_array, j_optimizer, tensor_entries_list[i],
-                                            total_gpu_count, resource_manager->get_local_cpu(),
-                                            resource_manager->get_local_gpu(i),
-                                            use_mixed_precision, enable_tf32_compute,
-                                            scaler, use_algorithm_search, use_cuda_graph, false));
+        network.emplace_back(Network::create_network(
+            j_layers_array, j_optimizer, train_tensor_entries_list[i],
+            evaluate_tensor_entries_list[i], total_gpu_count, resource_manager->get_local_cpu(),
+            resource_manager->get_local_gpu(i), use_mixed_precision_, enable_tf32_compute_, scaler_,
+            use_algorithm_search_, use_cuda_graph_, false));
       }
     }
 
@@ -117,7 +113,7 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
 void Parser::create_pipeline(std::shared_ptr<IDataReader>& data_reader,
                              std::shared_ptr<IDataReader>& data_reader_eval,
                              std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                             std::vector<std::unique_ptr<Network>>& network,
+                             std::vector<std::shared_ptr<Network>>& network,
                              const std::shared_ptr<ResourceManager>& resource_manager) {
   if (i64_input_key_) {
     create_pipeline_internal<long long>(data_reader, data_reader_eval, embedding, network,

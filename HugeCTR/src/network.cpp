@@ -21,16 +21,15 @@
 
 namespace HugeCTR {
 
-void conv_weight_gpu(size_t grid, size_t block, __half* dst, float* src, int elems,
+void conv_weight_gpu(size_t grid, size_t block, __half* dst, const float* src, int elems,
                      cudaStream_t stream);
 
 Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
-                 const std::shared_ptr<GPUResource>& gpu_resource,
-                 bool full_fp16,
+                 const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
                  bool enable_cuda_graph)
     : cpu_resource_(cpu_resource),
       gpu_resource_(gpu_resource),
-      full_fp16_(full_fp16),
+      use_mixed_precision_(use_mixed_precision),
 #ifdef NDEBUG
       enable_cuda_graph_(enable_cuda_graph),
 #else
@@ -47,30 +46,29 @@ void Network::update_params() {
   return;
 }
 
-void Network::conv_weight_() {
+void Network::conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source) {
   CudaDeviceContext context(get_device_id());
-  size_t elems = weight_tensor_half_.get_num_elements();
-  if (weight_tensor_half_.get_num_elements() != weight_tensor_.get_num_elements())
-    CK_THROW_(Error_t::WrongInput, "weight_buff_half_ != weight_buff");
+  size_t elems = source.get_num_elements();
+  if (target.get_num_elements() != source.get_num_elements())
+    CK_THROW_(Error_t::WrongInput, "weight size of target != weight size of in");
   const size_t BLOCK = 256;
   size_t GRID = (elems - 1) / BLOCK + 1;
   GRID = GRID > 10 * gpu_resource_->get_sm_count() ? 10 * gpu_resource_->get_sm_count() : GRID;
-  conv_weight_gpu(GRID, BLOCK, weight_tensor_half_.get_ptr(), weight_tensor_.get_ptr(), elems,
+  conv_weight_gpu(GRID, BLOCK, target.get_ptr(), source.get_ptr(), elems,
                   gpu_resource_->get_stream());
 }
 
 void Network::train(long long current_batchsize) {
-
   // forward
-  if (full_fp16_) {
-    conv_weight_();
+  if (use_mixed_precision_) {
+    conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
   }
 
   if (enable_cuda_graph_) {
     if (!train_fprop_graph_created_) {
       CK_CUDA_THROW_(
           cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
-      for (auto& layer : layers_) {
+      for (auto& layer : train_layers_) {
         layer->fprop(true);
       }
       CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_fprop_graph_));
@@ -80,12 +78,12 @@ void Network::train(long long current_batchsize) {
     }
     CK_CUDA_THROW_(cudaGraphLaunch(train_fprop_instance_, gpu_resource_->get_stream()));
   } else {
-    for (auto& layer : layers_) {
+    for (auto& layer : train_layers_) {
       layer->fprop(true);
     }
   }
 
-  loss_->compute(true, current_batchsize);
+  train_loss_->compute(true, current_batchsize);
 
   if (enable_cuda_graph_) {
     if (!train_bprop_graph_created_) {
@@ -93,7 +91,7 @@ void Network::train(long long current_batchsize) {
           cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
 
       // backward
-      for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
+      for (auto it = train_layers_.rbegin(); it != train_layers_.rend(); it++) {
         (*it)->bprop();
       }
       CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &train_bprop_graph_));
@@ -104,7 +102,7 @@ void Network::train(long long current_batchsize) {
     CK_CUDA_THROW_(cudaGraphLaunch(train_bprop_instance_, gpu_resource_->get_stream()));
   } else {
     // backward
-    for (auto it = layers_.rbegin(); it != layers_.rend(); it++) {
+    for (auto it = train_layers_.rbegin(); it != train_layers_.rend(); it++) {
       (*it)->bprop();
     }
   }
@@ -118,7 +116,7 @@ void Network::eval() {
       CK_CUDA_THROW_(
           cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
       // forward
-      for (auto& layer : layers_) {
+      for (auto& layer : evaluate_layers_) {
         layer->fprop(false);
       }
       CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &eval_graph_));
@@ -128,11 +126,11 @@ void Network::eval() {
     CK_CUDA_THROW_(cudaGraphLaunch(eval_instance_, gpu_resource_->get_stream()));
   } else {
     // forward
-    for (auto& layer : layers_) {
+    for (auto& layer : evaluate_layers_) {
       layer->fprop(false);
     }
   }
-  loss_->compute(false);
+  evaluate_loss_->compute(false);
 
   return;
 }
@@ -144,7 +142,7 @@ void Network::predict() {
       CK_CUDA_THROW_(
           cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
       // forward
-      for (auto& layer : layers_) {
+      for (auto& layer : evaluate_layers_) {
         layer->fprop(false);
       }
       CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &predict_graph_));
@@ -154,7 +152,7 @@ void Network::predict() {
     CK_CUDA_THROW_(cudaGraphLaunch(predict_instance_, gpu_resource_->get_stream()));
   } else {
     // forward
-    for (auto& layer : layers_) {
+    for (auto& layer : evaluate_layers_) {
       layer->fprop(false);
     }
   }
@@ -165,10 +163,10 @@ void Network::download_params_to_host(std::ofstream& weight_stream) {
   // forward
   CudaDeviceContext context(get_device_id());
 
-  std::unique_ptr<char[]> weight(new char[weight_tensor_.get_size_in_bytes()]);
-  CK_CUDA_THROW_(cudaMemcpy(weight.get(), weight_tensor_.get_ptr(),
-                            weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-  weight_stream.write(weight.get(), weight_tensor_.get_size_in_bytes());
+  std::unique_ptr<char[]> weight(new char[train_weight_tensor_.get_size_in_bytes()]);
+  CK_CUDA_THROW_(cudaMemcpy(weight.get(), train_weight_tensor_.get_ptr(),
+                            train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
+  weight_stream.write(weight.get(), train_weight_tensor_.get_size_in_bytes());
 
   return;
 }
@@ -176,7 +174,7 @@ void Network::download_params_to_host(std::ofstream& weight_stream) {
 std::string Network::get_no_trained_params_in_string() {
   bool prev_exist = false;
   std::string net_str;
-  for (auto& layer : layers_) {
+  for (auto& layer : train_layers_) {
     std::string layer_str = layer->get_no_trained_params_in_string();
     if (layer_str.length() != 0) {
       if (prev_exist) net_str += ",\n";
@@ -202,10 +200,10 @@ void Network::upload_params_to_device(const std::string& model_file) {
   }
   CudaDeviceContext context(get_device_id());
 
-  std::unique_ptr<char[]> params(new char[weight_tensor_.get_size_in_bytes()]);
-  model_stream.read(params.get(), weight_tensor_.get_size_in_bytes());
-  CK_CUDA_THROW_(cudaMemcpy(weight_tensor_.get_ptr(), params.get(),
-                            weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
+  std::unique_ptr<char[]> params(new char[train_weight_tensor_.get_size_in_bytes()]);
+  model_stream.read(params.get(), train_weight_tensor_.get_size_in_bytes());
+  CK_CUDA_THROW_(cudaMemcpy(train_weight_tensor_.get_ptr(), params.get(),
+                            train_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
   model_stream.close();
   return;
 }
@@ -213,8 +211,8 @@ void Network::upload_params_to_device(const std::string& model_file) {
 void Network::download_params_to_host(float* weight) {
   CudaDeviceContext context(get_device_id());
 
-  CK_CUDA_THROW_(cudaMemcpy(weight, weight_tensor_.get_ptr(), weight_tensor_.get_size_in_bytes(),
-                            cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(weight, train_weight_tensor_.get_ptr(),
+                            train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
   return;
 }
@@ -222,32 +220,39 @@ void Network::download_params_to_host(float* weight) {
 void Network::upload_params_to_device(float* params) {
   CudaDeviceContext context(get_device_id());
 
-  CK_CUDA_THROW_(cudaMemcpy(weight_tensor_.get_ptr(), params, weight_tensor_.get_size_in_bytes(),
-                            cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(train_weight_tensor_.get_ptr(), params,
+                            train_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
 
   return;
 }
 
 void Network::init_params(size_t index) {
   CudaDeviceContext context(get_device_id());
-  for (auto& layer : layers_) {
+  for (auto& layer : train_layers_) {
     layer->init_params(cpu_resource_->get_replica_uniform_curand_generator(index));
   }
 }
 
+
 void Network::initialize() {
   CudaDeviceContext context(get_device_id());
-  for (auto& layer : layers_) {
+  for (auto& layer : train_layers_) {
+    layer->initialize();
+  }
+  for (auto& layer : evaluate_layers_) {
     layer->initialize();
   }
   optimizer_->initialize();
 }
 
 void Network::search_algorithm() {
-  CudaDeviceContext context(get_device_id());
-  for (auto& layer : layers_) {
-    layer->search_algorithm();
-  }
+    CudaDeviceContext context(get_device_id());
+    for (auto& layer : train_layers_) {
+      layer->search_algorithm();
+    }
+    for (auto& layer : evaluate_layers_) {
+      layer->search_algorithm();
+    }
 }
 
 float Network::get_loss() {
@@ -256,7 +261,7 @@ float Network::get_loss() {
   CudaDeviceContext context(get_device_id());
 
   CK_CUDA_THROW_(
-      cudaMemcpy(&loss_host, loss_tensor_.get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
+      cudaMemcpy(&loss_host, train_loss_tensor_.get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
 
   return loss_host;
 }
@@ -265,7 +270,7 @@ metrics::RawMetricMap Network::get_raw_metrics() const { return raw_metrics_; }
 
 void Network::exchange_wgrad() {
     CudaDeviceContext context(get_device_id());
-    if (full_fp16_) {
+    if (use_mixed_precision_) {
       CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_half_.get_ptr(),
                                    (void*)wgrad_tensor_half_.get_ptr(),
                                    wgrad_tensor_half_.get_num_elements(), ncclHalf, ncclSum,
@@ -277,5 +282,16 @@ void Network::exchange_wgrad() {
                                    gpu_resource_->get_stream()));
     }
  }
+
+void Network::copy_weights_from_train_layers_to_evaluate_layers() {
+  CudaDeviceContext context(get_device_id());
+  cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), train_weight_tensor_.get_ptr(),
+                  train_weight_tensor_.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                  gpu_resource_->get_stream());
+
+  if (use_mixed_precision_) {
+    conv_weight_(evaluate_weight_tensor_half_, evaluate_weight_tensor_);
+  }
+}
 
 }  // namespace HugeCTR

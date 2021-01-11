@@ -94,14 +94,13 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
     const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
     const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-    const Tensor2<__half>& train_bottom_tensor, const Tensor2<__half>& evaluate_bottom_tensor,
-    const Tensor2<__half>& top_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
-    std::vector<Initializer_t> initializer_types)
+    const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
+    const std::shared_ptr<GPUResource>& gpu_resource, std::vector<Initializer_t> initializer_types)
     : Layer(gpu_resource, initializer_types),
       falgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_k_(CUBLAS_GEMM_DEFAULT_TENSOR_OP),
       balgo_x_(CUBLAS_GEMM_DEFAULT_TENSOR_OP) {
-  const auto& bottom_tensor_dim = train_bottom_tensor.get_dimensions();
+  const auto& bottom_tensor_dim = bottom_tensor.get_dimensions();
   const auto& top_tensor_dim = top_tensor.get_dimensions();
 
   if (bottom_tensor_dim.size() != 2 || top_tensor_dim.size() != 2) {
@@ -152,8 +151,7 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
     weights_grad_.push_back(tensor);
   }
 
-  train_bottom_tensor_ = train_bottom_tensor;
-  evaluate_bottom_tensor_ = evaluate_bottom_tensor;
+  bottom_tensor_ = bottom_tensor;
   top_tensor_ = top_tensor;
   blobs_buff->reserve(top_tensor_.get_dimensions(), &middle_tensor_);
   blobs_buff->reserve(bias_dim, &bias_grad_tensor_);

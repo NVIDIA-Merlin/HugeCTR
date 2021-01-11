@@ -15,9 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/fully_connected_layer_half.hpp"
+
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+
 #include "utest/test_utils.h"
 using namespace std;
 using namespace HugeCTR;
@@ -83,7 +85,7 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
 
   FullyConnectedLayerHalf fully_connected_layer(master_weights_buff, weights_buff,
                                                 weights_grad_buff, blobs_buff, bottom_tensor,
-                                                bottom_tensor, top_tensor, test::get_default_gpu());
+                                                top_tensor, test::get_default_gpu());
   // Initialize tensors to 0 and choose cublas algorithms
   blobs_buff->allocate();
   fully_connected_layer.initialize();
