@@ -68,7 +68,7 @@ struct SolverParser {
   bool use_algorithm_search;
   bool use_cuda_graph;
   SolverParser(const std::string& file);
-  SolverParser(){}
+  SolverParser() {}
 };
 
 struct InferenceParser {
@@ -79,9 +79,11 @@ struct InferenceParser {
   size_t slot_num;                             /**< total slot number */
   std::string dense_model_file;                /**< name of model file */
   std::vector<std::string> sparse_model_files; /**< name of embedding file */
-  std::vector<std::size_t> max_feature_num_for_tables; /**< max feature number of each embedding table */
-  std::vector<std::size_t> embed_vec_size_for_tables; /**< embedding vector size for each embedding table */ 
-  std::vector<std::size_t> slot_num_for_tables; /**< slot_num for each embedding table */ 
+  std::vector<std::size_t>
+      max_feature_num_for_tables; /**< max feature number of each embedding table */
+  std::vector<std::size_t>
+      embed_vec_size_for_tables; /**< embedding vector size for each embedding table */
+  std::vector<std::size_t> slot_num_for_tables; /**< slot_num for each embedding table */
   bool use_mixed_precision;
   float scaler;
   bool use_algorithm_search;
@@ -117,8 +119,8 @@ class Parser {
   template <typename TypeKey>
   void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
                                 std::shared_ptr<IDataReader>& data_reader_eval,
-                                std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                std::vector<std::unique_ptr<Network>>& network,
+                                std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                                std::vector<std::shared_ptr<Network>>& network,
                                 const std::shared_ptr<ResourceManager>& resource_manager);
 
   template <typename TypeEmbeddingComp>
@@ -137,8 +139,9 @@ class Parser {
    * Ctor only verify the configure file, doesn't create pipeline.
    */
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false, bool enable_tf32_compute = false,
-         float scaler = 1.0f, bool use_algorithm_search = true, bool use_cuda_graph = true);
+         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
+         bool enable_tf32_compute = false, float scaler = 1.0f, bool use_algorithm_search = true,
+         bool use_cuda_graph = true);
 
   /**
    * Ctor.
@@ -149,10 +152,10 @@ class Parser {
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(std::shared_ptr<IDataReader>& data_reader,
-                       std::shared_ptr<IDataReader>& data_reader_eval,
-                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<Network>>& network,
+  void create_pipeline(std::shared_ptr<IDataReader>& train_data_reader,
+                       std::shared_ptr<IDataReader>& evaluate_data_reader,
+                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                       std::vector<std::shared_ptr<Network>>& networks,
                        const std::shared_ptr<ResourceManager>& resource_manager);
 
   /**
@@ -312,8 +315,9 @@ struct get_optimizer_param {
 template <typename TypeKey, typename TypeFP>
 struct create_embedding {
   void operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                  std::vector<TensorEntry>* tensor_entries_list,
-                  std::vector<std::shared_ptr<IEmbedding>>& embedding, Embedding_t embedding_type,
+                  std::vector<TensorEntry>* train_tensor_entries_list,
+                  std::vector<TensorEntry>* evaluate_tensor_entries_list,
+                  std::vector<std::shared_ptr<IEmbedding>>& embeddings, Embedding_t embedding_type,
                   const nlohmann::json& config,
                   const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
                   size_t batch_size_eval, bool use_mixed_precision, float scaler,
@@ -333,7 +337,8 @@ template <typename TypeKey>
 struct create_datareader {
   void operator()(const nlohmann::json& j,
                   std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-                  std::vector<TensorEntry>* tensor_entries_list,
+                  std::vector<TensorEntry>* train_tensor_entries_list,
+                  std::vector<TensorEntry>* evaluate_tensor_entries_list,
                   std::shared_ptr<IDataReader>& data_reader,
                   std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
                   size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,

@@ -29,11 +29,18 @@ namespace HugeCTR {
 template <typename TypeKey, typename TypeFP>
 void create_embedding<TypeKey, TypeFP>::operator()(
     std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-    std::vector<TensorEntry>* tensor_entries_list,
-    std::vector<std::shared_ptr<IEmbedding>>& embedding, Embedding_t embedding_type,
+    std::vector<TensorEntry>* train_tensor_entries_list,
+    std::vector<TensorEntry>* evaluate_tensor_entries_list,
+    std::vector<std::shared_ptr<IEmbedding>>& embeddings, Embedding_t embedding_type,
     const nlohmann::json& config, const std::shared_ptr<ResourceManager>& resource_manager,
     size_t batch_size, size_t batch_size_eval, bool use_mixed_precision, float scaler,
     const nlohmann::json& j_layers) {
+#ifdef ENABLE_MPI
+  int num_procs = 1, pid = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+#endif
+
   auto j_optimizer = get_json(config, "optimizer");
   auto embedding_name = get_value_from_json<std::string>(j_layers, "type");
 
@@ -83,7 +90,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
 
-      embedding.emplace_back(new DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
+      embeddings.emplace_back(new DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
           sparse_input.evaluate_nnz, embedding_params, resource_manager));
@@ -134,7 +141,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
 
-      embedding.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
+      embeddings.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
           sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
@@ -161,7 +168,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
 
-      embedding.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
+      embeddings.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
           sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
@@ -170,10 +177,10 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     }
   }  // switch
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-    tensor_entries_list[i].push_back(
-        {top_name, TensorUse::Train, (embedding.back()->get_train_output_tensors())[i]});
-    tensor_entries_list[i].push_back(
-        {top_name, TensorUse::Evaluate, (embedding.back()->get_evaluate_output_tensors())[i]});
+    train_tensor_entries_list[i].push_back(
+        {top_name, (embeddings.back()->get_train_output_tensors())[i]});
+    evaluate_tensor_entries_list[i].push_back(
+        {top_name, (embeddings.back()->get_evaluate_output_tensors())[i]});
   }
 }
 

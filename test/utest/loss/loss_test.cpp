@@ -15,8 +15,10 @@
  */
 
 #include "HugeCTR/include/loss.hpp"
+
 #include <cstdlib>
 #include <vector>
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 using namespace std;
@@ -110,8 +112,8 @@ void binary_cross_entropy_loss(size_t batch_size) {
   Tensor2<float> loss_tensor;
   buff->reserve({1, 1}, &loss_tensor);
 
-  BinaryCrossEntropyLoss<float> bce(label_tensor, input_tensor, label_tensor, input_tensor,
-                                    loss_tensor, nullptr, test::get_default_gpu(), 1);
+  BinaryCrossEntropyLoss<float> bce(label_tensor, input_tensor, loss_tensor, nullptr,
+                                    test::get_default_gpu(), 1);
 
   buff->allocate();
 

@@ -15,10 +15,12 @@
  */
 
 #include "HugeCTR/include/layers/interaction_layer.hpp"
+
 #include <cublas_v2.h>
 #include <gtest/gtest.h>
 #include <math.h>
 #include <utest/test_utils.h>
+
 #include <memory>
 #include <utils.hpp>
 #include <vector>
@@ -43,7 +45,7 @@ __half get_eps(bool use_tf32) {
 
 template <typename T>
 void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
-    bool enable_tf32_compute = false) {
+                            bool enable_tf32_compute = false) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
   Tensors2<T> in_tensors;
 
@@ -98,8 +100,8 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
   };
 
   Tensor2<T> out_tensor;
-  InteractionLayer<T> interaction_layer(in_mlp_tensor, in_mlp_tensor, in_emb_tensor, in_emb_tensor,
-                                        out_tensor, buff, test::get_default_gpu(), false, enable_tf32_compute);
+  InteractionLayer<T> interaction_layer(in_mlp_tensor, in_emb_tensor, out_tensor, buff,
+                                        test::get_default_gpu(), false, enable_tf32_compute);
 
   buff->allocate();
   interaction_layer.initialize();
@@ -158,8 +160,8 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
   CK_CUDA_THROW_(
       cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
 
-  ASSERT_TRUE(
-      test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(), get_eps<T>(enable_tf32_compute)));
+  ASSERT_TRUE(test::compare_array_approx<T>(&h_out.front(), &h_ref.front(), h_out.size(),
+                                            get_eps<T>(enable_tf32_compute)));
 
   // device bprop
   CK_CUDA_THROW_(cudaDeviceSynchronize());
@@ -207,8 +209,8 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
         cudaMemcpy(&h_in.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
     std::vector<T>& h_ref = h_ins[i];
 
-    ASSERT_TRUE(
-        test::compare_array_approx<T>(&h_in.front(), &h_ref.front(), h_in.size(), get_eps<T>(enable_tf32_compute)));
+    ASSERT_TRUE(test::compare_array_approx<T>(&h_in.front(), &h_ref.front(), h_in.size(),
+                                              get_eps<T>(enable_tf32_compute)));
   }
 }
 

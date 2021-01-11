@@ -40,8 +40,7 @@ class ReshapeLayer : public Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<T> train_in_tensors_;
-  Tensors2<T> evaluate_in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
@@ -70,8 +69,7 @@ class ReshapeLayer : public Layer {
    * e.g., batch_size * n_slots * vector_size % leading_dim == 0
    * @param device_id the id of GPU where this layer belongs
    */
-  ReshapeLayer(const Tensor2<T>& train_in_tensor, const Tensor2<T>& evaluate_in_tensor,
-               Tensor2<T>& out_tensor,
+  ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, size_t leading_dim,
                const std::shared_ptr<GPUResource>& gpu_resource);
   /**
