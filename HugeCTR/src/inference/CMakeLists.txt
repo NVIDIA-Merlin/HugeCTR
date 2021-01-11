@@ -64,15 +64,11 @@ file(GLOB huge_ctr_src
   ../regularizers/l1_regularizer.cu
   ../regularizers/l2_regularizer.cu
   ../regularizers/no_regularizer.cu
-  ../parser.cpp
   ../parsers/solver_parser.cpp
   ../parsers/learning_rate_scheduler_parser.cpp
   ../parsers/create_optimizer.cpp
   ../parsers/create_network.cpp
-#   ../parsers/create_embedding.cpp
-#   ../parsers/create_datareader.cpp
   ../parsers/inference_parser.cpp
-  ../session.cpp
   ../plan_parser.cpp 
   ../diagnose.cu
 )
@@ -80,7 +76,7 @@ file(GLOB huge_ctr_src
 set(CMAKE_CXX_STANDARD 14)
 add_library(hugectr_inference SHARED ${huge_ctr_src})
 
-target_link_libraries(hugectr_inference PUBLIC cublas curand cudnn nccl ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json)
 
