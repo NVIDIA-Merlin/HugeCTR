@@ -21,7 +21,6 @@
 #include <fstream>
 #include <functional>
 #include <gpu_resource.hpp>
-#include <inference/embedding_feature_combiner.hpp>
 #include <learning_rate_scheduler.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
@@ -29,7 +28,17 @@
 
 namespace HugeCTR {
 
-nlohmann::json read_json_file(const std::string& filename);
+// inline to avoid build error: multiple definition
+inline nlohmann::json read_json_file(const std::string& filename) {
+  nlohmann::json config;
+  std::ifstream file_stream(filename);
+  if (!file_stream.is_open()) {
+    CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + filename);
+  }
+  file_stream >> config;
+  file_stream.close();
+  return config;
+}
 
 /**
  * Solver Parser.

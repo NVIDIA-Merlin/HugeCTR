@@ -32,7 +32,7 @@ build:
     - echo "FROM ${IMAGE}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
     - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && mkdir build_single && cd build_single && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j && cd .. && mkdir build_multi_nccl && cd build_multi_nccl && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=\$SM ../.. && make -j && cd .. && mkdir build_multi_gossip && cd build_multi_gossip && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=\$SM ../.. && make -j
+      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && mkdir build_single && cd build_single && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j && cd .. && mkdir build_multi_nccl && cd build_multi_nccl && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=\$SM ../.. && make -j && cd .. && mkdir build_multi_gossip && cd build_multi_gossip && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=\$SM ../.. && make -j && cd .. && mkdir build_inference && cd build_inference && cmake -DENABLE_TRAIN=OFF -DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j
       " >> ${JOB_DOCKERFILE}
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
@@ -71,6 +71,7 @@ unit_tests:
         ./parser_test &&
         ./session_test &&
         ./auc_test &&
+        cd ${WORK_DIR}/build/build_inference/bin &&
         ./inference_test"
 
 # single node

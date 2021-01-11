@@ -17,6 +17,7 @@
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/inference/session_inference.hpp"
 #include "HugeCTR/include/inference/embedding_interface.hpp"
+#include <inference/embedding_feature_combiner.hpp>
 #include "HugeCTR/include/general_buffer2.hpp"
 #include <vector>
 #include "gtest/gtest.h"
