@@ -866,13 +866,6 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
   CudaDeviceContext context(gpu_resource->get_device_id());
   blobs_buff->allocate();
 
-#ifndef DATA_READING_TEST
-  network->initialize();
-  if (use_algorithm_search) {
-    network->search_algorithm();
-  }
-#endif
-
   return network;
 }
 

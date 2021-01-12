@@ -37,8 +37,6 @@ void Parser::create_pipeline_inference(const InferenceParser& inference_parser, 
                                       std::vector<std::shared_ptr<Layer>>* embeddings,
                                       Network** network,
                                       const std::shared_ptr<ResourceManager> resource_manager) {
-  std::vector<TensorEntry> tensor_entries;
-
   auto j_layers_array = get_json(config_, "layers");
 
   auto input_buffer = GeneralBuffer2<CudaAllocator>::create();
