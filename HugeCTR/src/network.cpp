@@ -208,6 +208,22 @@ void Network::upload_params_to_device(const std::string& model_file) {
   return;
 }
 
+void Network::upload_params_to_device_inference(const std::string& model_file) {
+  std::ifstream model_stream(model_file, std::ifstream::binary);
+  if (!model_stream.is_open()) {
+    CK_THROW_(Error_t::WrongInput,
+              std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
+  }
+  CudaDeviceContext context(get_device_id());
+
+  std::unique_ptr<char[]> params(new char[evaluate_weight_tensor_.get_size_in_bytes()]);
+  model_stream.read(params.get(), evaluate_weight_tensor_.get_size_in_bytes());
+  CK_CUDA_THROW_(cudaMemcpy(evaluate_weight_tensor_.get_ptr(), params.get(),
+                            evaluate_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
+  model_stream.close();
+  return;
+}
+
 void Network::download_params_to_host(float* weight) {
   CudaDeviceContext context(get_device_id());
 

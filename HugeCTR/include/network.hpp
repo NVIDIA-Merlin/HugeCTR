@@ -150,6 +150,11 @@ class Network {
   void upload_params_to_device(const std::string& model_file);
 
   /**
+   * Read parameters from model_file.
+   */
+  void upload_params_to_device_inference(const std::string& model_file);
+
+  /**
    * Writting paramters to cpu buffer.
    */
   void download_params_to_host(float* weight);
