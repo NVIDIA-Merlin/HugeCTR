@@ -54,7 +54,7 @@ unit_tests:
   script:
     - srun --ntasks=1
         --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/hpc-hugectr/inference/:/hugectr/test/utest/
         bash -cx "
         cd ${WORK_DIR}/build/build_single/bin;
         ./layers_test &&
