@@ -322,5 +322,5 @@ void session_inference_generated_test(const std::string& config_file, const std:
 
 }  // namespace
 
-TEST(session_inference, criteo_dcn) { session_inference_criteo_test("/hugectr/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt"); }
-TEST(session_inference, generated_dcn_32) { session_inference_generated_test("/hugectr/test/utest/simple_inference_config.json", "DCN", 32); }
+TEST(session_inference, criteo_dcn) { session_inference_criteo_test("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt"); }
+TEST(session_inference, generated_dcn_32) { session_inference_generated_test("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", 32); }
