@@ -194,6 +194,7 @@ class MultiCrossLayerTest {
 
   void gpu_fprop_() {
     layer_->fprop(true);
+    CK_CUDA_THROW_(cudaDeviceSynchronize());
     return;
   }
 
@@ -222,6 +223,7 @@ class MultiCrossLayerTest {
 
   void gpu_bprop_() {
     layer_->bprop();
+    CK_CUDA_THROW_(cudaDeviceSynchronize());
     return;
   }
 
