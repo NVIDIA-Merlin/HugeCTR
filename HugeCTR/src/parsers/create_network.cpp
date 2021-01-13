@@ -207,7 +207,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          CK_THROW_(Error_t::WrongInput, "inference network must NOT have BinaryCrossEntropyLoss");
+          MESSAGE_("Inference stage skip BinaryCrossEntropyLoss layer");
+          break;
         }
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
         blobs_buff->reserve({1, 1}, &loss_tensor);
@@ -257,7 +258,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          CK_THROW_(Error_t::WrongInput, "inference network must NOT have CrossEntropyLoss");
+          MESSAGE_("Inference stage skip CrossEntropyLoss layer");
+          break;
         }
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
         blobs_buff->reserve({1, 1}, &loss_tensor);
@@ -517,7 +519,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          CK_THROW_(Error_t::WrongInput, "inference network must NOT have MultiCrossEntropyLoss");
+          MESSAGE_("Inference stage skip MultiCrossEntropyLoss layer");
+          break;
         }
         auto tweight = get_json(j, "target_weight");
         std::vector<float> target_weight_vec;
