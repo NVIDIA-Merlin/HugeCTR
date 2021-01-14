@@ -22,7 +22,7 @@
 #include <parser.hpp>
 #include <session.hpp>
 #include <utils.hpp>
-
+#include "HugeCTR/include/inference/hugectrmodel.hpp"
 #include "HugeCTR/include/inference/session_inference.hpp"
 
 namespace HugeCTR {
@@ -30,12 +30,12 @@ HugeCTRModel::HugeCTRModel() {}
 
 HugeCTRModel::~HugeCTRModel() {}
 
-HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type, std::string& config) {
+HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type, const std::string& config_file, int device_id, embedding_interface* embedding_ptr) {
   HugeCTRModel* model;
 
   switch (Infer_type) {
     case TRITON:
-      model = new session_inference("TRITON");
+      model = new InferenceSession(config_file, device_id, embedding_ptr);
       break;
     default:
       std::cout << "wrong type!" << std::endl;

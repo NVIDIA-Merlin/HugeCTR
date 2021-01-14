@@ -14,10 +14,13 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
+
 file(GLOB inference_test_src
   embedding_feature_combiner_test.cpp
+  preallocated_buffer2_test.cpp
+  session_inference_test.cpp
 )
 
 add_executable(inference_test ${inference_test_src})
 target_compile_features(inference_test PUBLIC cxx_std_14)
-target_link_libraries(inference_test PUBLIC huge_ctr_static gtest gtest_main)
+target_link_libraries(inference_test PUBLIC hugectr_inference gtest gtest_main)

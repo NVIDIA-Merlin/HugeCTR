@@ -61,11 +61,6 @@ file(GLOB huge_ctr_src
   loss.cu
   network.cu
   network.cpp
-  inference/embedding_feature_combiner.cu
-  inference/hugectrmodel.cpp
-  inference/inference_utils.cpp
-  inference/embedding_cache.cpp
-  inference/session_inference.cpp
   data_readers/metadata.cpp
   metrics.cu
   optimizers/adam_optimizer.cu
@@ -80,6 +75,10 @@ file(GLOB huge_ctr_src
   parser.cpp
   parsers/solver_parser.cpp
   parsers/learning_rate_scheduler_parser.cpp
+  parsers/create_optimizer.cpp
+  parsers/create_network.cpp
+  parsers/create_embedding.cpp
+  parsers/create_datareader.cpp
   session.cpp
   plan_parser.cpp 
   data_readers/data_collector.cu

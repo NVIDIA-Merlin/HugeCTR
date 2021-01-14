@@ -35,6 +35,7 @@ Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
 #else
       enable_cuda_graph_(false),
 #endif
+      predict_graph_created_(false),
       eval_graph_created_(false),
       train_fprop_graph_created_(false),
       train_bprop_graph_created_(false) {
@@ -134,6 +135,30 @@ void Network::eval() {
   return;
 }
 
+
+void Network::predict() {
+  if (enable_cuda_graph_) {
+    if (!predict_graph_created_) {
+      CK_CUDA_THROW_(
+          cudaStreamBeginCapture(gpu_resource_->get_stream(), cudaStreamCaptureModeRelaxed));
+      // forward
+      for (auto& layer : evaluate_layers_) {
+        layer->fprop(false);
+      }
+      CK_CUDA_THROW_(cudaStreamEndCapture(gpu_resource_->get_stream(), &predict_graph_));
+      CK_CUDA_THROW_(cudaGraphInstantiate(&predict_instance_, predict_graph_, NULL, NULL, 0));
+      predict_graph_created_ = true;
+    }
+    CK_CUDA_THROW_(cudaGraphLaunch(predict_instance_, gpu_resource_->get_stream()));
+  } else {
+    // forward
+    for (auto& layer : evaluate_layers_) {
+      layer->fprop(false);
+    }
+  }
+  return;
+}
+
 void Network::download_params_to_host(std::ofstream& weight_stream) {
   // forward
   CudaDeviceContext context(get_device_id());
@@ -179,6 +204,22 @@ void Network::upload_params_to_device(const std::string& model_file) {
   model_stream.read(params.get(), train_weight_tensor_.get_size_in_bytes());
   CK_CUDA_THROW_(cudaMemcpy(train_weight_tensor_.get_ptr(), params.get(),
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
+  model_stream.close();
+  return;
+}
+
+void Network::upload_params_to_device_inference(const std::string& model_file) {
+  std::ifstream model_stream(model_file, std::ifstream::binary);
+  if (!model_stream.is_open()) {
+    CK_THROW_(Error_t::WrongInput,
+              std::string("Cannot open dense model file (reason: ") + std::strerror(errno) + ")");
+  }
+  CudaDeviceContext context(get_device_id());
+
+  std::unique_ptr<char[]> params(new char[evaluate_weight_tensor_.get_size_in_bytes()]);
+  model_stream.read(params.get(), evaluate_weight_tensor_.get_size_in_bytes());
+  CK_CUDA_THROW_(cudaMemcpy(evaluate_weight_tensor_.get_ptr(), params.get(),
+                            evaluate_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
   model_stream.close();
   return;
 }

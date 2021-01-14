@@ -16,8 +16,7 @@
 
 #pragma once
 #include <common.hpp>
-#include <data_readers/data_reader.hpp>
-#include <device_map.hpp>
+#include <data_reader.hpp>
 #include <embedding.hpp>
 #include <fstream>
 #include <functional>
@@ -29,90 +28,17 @@
 
 namespace HugeCTR {
 
-/**
- * @brief The parser of configure file (in json format).
- *
- * The builder of each layer / optimizer in HugeCTR.
- * Please see User Guide to learn how to write a configure file.
- * @verbatim
- * Some Restrictions:
- *  1. Embedding should be the first element of layers.
- *  2. layers should be listed from bottom to top.
- * @endverbatim
- */
-class Parser {
- private:
-  nlohmann::json config_;  /**< configure file. */
-  size_t batch_size_;      /**< batch size. */
-  size_t batch_size_eval_; /**< batch size. */
-  const bool repeat_dataset_;
-  const bool i64_input_key_{false};
-  const bool use_mixed_precision_{false};
-  const bool enable_tf32_compute_{false};
-
-  const float scaler_{1.f};
-  const bool use_algorithm_search_;
-  const bool use_cuda_graph_;
-
- public:
-  /**
-   * Ctor.
-   * Ctor only verify the configure file, doesn't create pipeline.
-   */
-
-  Parser(const std::string& configure_file,
-         size_t batch_size,
-         size_t batch_size_eval,
-         bool repeat_dataset,
-         bool i64_input_key = false,
-         bool use_mixed_precision = false,
-         bool enable_tf32_compute = false,
-         float scaler = 1.0f,
-         bool use_algorithm_search = true,
-         bool use_cuda_graph = true)
-      : batch_size_(batch_size),
-        batch_size_eval_(batch_size_eval),
-        repeat_dataset_(repeat_dataset),
-        i64_input_key_(i64_input_key),
-        use_mixed_precision_(use_mixed_precision),
-        enable_tf32_compute_(enable_tf32_compute),
-        scaler_(scaler),
-        use_algorithm_search_(use_algorithm_search),
-        use_cuda_graph_(use_cuda_graph) {
-    try {
-      std::ifstream file(configure_file);
-      if (!file.is_open()) {
-        CK_THROW_(Error_t::FileCannotOpen, "file.is_open() failed: " + configure_file);
-      }
-      file >> config_;
-      file.close();
-    } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
-    }
-    return;
+// inline to avoid build error: multiple definition
+inline nlohmann::json read_json_file(const std::string& filename) {
+  nlohmann::json config;
+  std::ifstream file_stream(filename);
+  if (!file_stream.is_open()) {
+    CK_THROW_(Error_t::FileCannotOpen, "file_stream.is_open() failed: " + filename);
   }
-
-  /**
-   * Create the pipeline, which includes data reader, embedding.
-   */
-  void create_pipeline(std::shared_ptr<IDataReader>& train_data_reader,
-                       std::shared_ptr<IDataReader>& evaluate_data_reader,
-                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                       std::vector<std::shared_ptr<Network>>& networks,
-                       const std::shared_ptr<ResourceManager>& resource_manager);
-
-  template <typename TypeKey>
-  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& train_data_reader,
-                                       std::shared_ptr<IDataReader>& evaluate_data_reader,
-                                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                                       std::vector<std::shared_ptr<Network>>& networks,
-                                       const std::shared_ptr<ResourceManager>& resource_manager,
-                                       Parser& parser);
-};
-
-std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
-    const std::string configure_file);
+  file_stream >> config;
+  file_stream.close();
+  return config;
+}
 
 /**
  * Solver Parser.
@@ -144,6 +70,107 @@ struct SolverParser {
   SolverParser(const std::string& file);
   SolverParser() {}
 };
+
+struct InferenceParser {
+  //  std::string configure_file;
+  size_t max_batchsize;                        /**< batchsize */
+  size_t num_embedding_tables;                 /**< number of embedding tables */
+  size_t max_embedding_vector_size_per_sample; /**< max embedding vector size per sample */
+  size_t slot_num;                             /**< total slot number */
+  std::string dense_model_file;                /**< name of model file */
+  std::vector<std::string> sparse_model_files; /**< name of embedding file */
+  std::vector<std::size_t>
+      max_feature_num_for_tables; /**< max feature number of each embedding table */
+  std::vector<std::size_t>
+      embed_vec_size_for_tables; /**< embedding vector size for each embedding table */
+  std::vector<std::size_t> slot_num_for_tables; /**< slot_num for each embedding table */
+  bool use_mixed_precision;
+  float scaler;
+  bool use_algorithm_search;
+  bool use_cuda_graph;
+  InferenceParser(const nlohmann::json& config);
+};
+
+/**
+ * @brief The parser of configure file (in json format).
+ *
+ * The builder of each layer / optimizer in HugeCTR.
+ * Please see User Guide to learn how to write a configure file.
+ * @verbatim
+ * Some Restrictions:
+ *  1. Embedding should be the first element of layers.
+ *  2. layers should be listed from bottom to top.
+ * @endverbatim
+ */
+class Parser {
+ private:
+  nlohmann::json config_;  /**< configure file. */
+  size_t batch_size_;      /**< batch size. */
+  size_t batch_size_eval_; /**< batch size. */
+  const bool repeat_dataset_;
+  const bool i64_input_key_{false};
+  const bool use_mixed_precision_{false};
+  const bool enable_tf32_compute_{false};
+
+  const float scaler_{1.f};
+  const bool use_algorithm_search_;
+  const bool use_cuda_graph_;
+
+  template <typename TypeKey>
+  void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
+                                std::shared_ptr<IDataReader>& data_reader_eval,
+                                std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                                std::vector<std::shared_ptr<Network>>& network,
+                                const std::shared_ptr<ResourceManager>& resource_manager);
+
+  template <typename TypeEmbeddingComp>
+  void create_pipeline_inference(const InferenceParser& inference_parser,
+                                 Tensor2<float>& dense_input,
+                                 std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                                 std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                                 std::vector<size_t>& embedding_table_slot_size,
+                                 std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                                 const std::shared_ptr<ResourceManager> resource_manager);
+
+ public:
+  std::vector<TensorEntry> tensor_entries;
+  /**
+   * Ctor.
+   * Ctor only verify the configure file, doesn't create pipeline.
+   */
+  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
+         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
+         bool enable_tf32_compute = false, float scaler = 1.0f, bool use_algorithm_search = true,
+         bool use_cuda_graph = true);
+
+  /**
+   * Ctor.
+   * Ctor used in inference stage
+   */
+  Parser(const nlohmann::json& config);
+
+  /**
+   * Create the pipeline, which includes data reader, embedding.
+   */
+  void create_pipeline(std::shared_ptr<IDataReader>& train_data_reader,
+                       std::shared_ptr<IDataReader>& evaluate_data_reader,
+                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                       std::vector<std::shared_ptr<Network>>& networks,
+                       const std::shared_ptr<ResourceManager>& resource_manager);
+
+  /**
+   * Create inference pipeline, which only creates network and embedding
+   */
+  void create_pipeline(const InferenceParser& inference_parser, Tensor2<float>& dense_input,
+                       std::vector<std::shared_ptr<Tensor2<int>>>& row,
+                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvec,
+                       std::vector<size_t>& embedding_table_slot_size,
+                       std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                       const std::shared_ptr<ResourceManager> resource_manager);
+};
+
+std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
+    const std::string configure_file);
 
 template <typename T>
 struct SparseInput {
@@ -189,6 +216,49 @@ struct SparseInput {
       out = json.find(#out).value().get<std::string>(); \
     }                                                   \
   } while (0)
+
+const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
+    {"BatchNorm", Layer_t::BatchNorm},
+    {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
+    {"Concat", Layer_t::Concat},
+    {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
+    {"Dropout", Layer_t::Dropout},
+    {"ELU", Layer_t::ELU},
+    {"InnerProduct", Layer_t::InnerProduct},
+    {"Interaction", Layer_t::Interaction},
+    {"MultiCrossEntropyLoss", Layer_t::MultiCrossEntropyLoss},
+    {"ReLU", Layer_t::ReLU},
+    {"Reshape", Layer_t::Reshape},
+    {"Sigmoid", Layer_t::Sigmoid},
+    {"Slice", Layer_t::Slice},
+    {"Multiply", Layer_t::Multiply},
+    {"FmOrder2", Layer_t::FmOrder2},
+    {"Add", Layer_t::Add},
+    {"ReduceSum", Layer_t::ReduceSum},
+    {"MultiCross", Layer_t::MultiCross},
+    {"DotProduct", Layer_t::DotProduct}};
+const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
+    {"BinaryCrossEntropyLoss", Layer_t::BinaryCrossEntropyLoss},
+    {"Concat", Layer_t::Concat},
+    {"Cast", Layer_t::Cast},
+    {"InnerProduct", Layer_t::InnerProduct},
+    {"FusedInnerProduct", Layer_t::FusedInnerProduct},
+    {"Interaction", Layer_t::Interaction},
+    {"Reshape", Layer_t::Reshape},
+    {"Sigmoid", Layer_t::Sigmoid},
+    {"Slice", Layer_t::Slice},
+    {"ReLU", Layer_t::ReLU},
+    {"Dropout", Layer_t::Dropout},
+    {"Add", Layer_t::Add}};
+const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
+    {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
+    {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},
+    {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot}};
+const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
+    {"Uniform", Initializer_t::Uniform},
+    {"XavierNorm", Initializer_t::XavierNorm},
+    {"XavierUniform", Initializer_t::XavierUniform},
+    {"Zero", Initializer_t::Zero}};
 
 static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"Adam", Optimizer_t::Adam},
@@ -237,11 +307,42 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
   }
 }
 
-void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense_dim,
-                             Check_t& check_type, std::string& source_data,
-                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-                             std::string& eval_source, std::string& top_strs_label,
-                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
-                             std::map<std::string, SparseInput<long long>>& sparse_input_map);
+template <typename Type>
+struct get_optimizer_param {
+  OptParams<Type> operator()(const nlohmann::json& j_optimizer);
+};
+
+template <typename TypeKey, typename TypeFP>
+struct create_embedding {
+  void operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::vector<TensorEntry>* train_tensor_entries_list,
+                  std::vector<TensorEntry>* evaluate_tensor_entries_list,
+                  std::vector<std::shared_ptr<IEmbedding>>& embeddings, Embedding_t embedding_type,
+                  const nlohmann::json& config,
+                  const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
+                  size_t batch_size_eval, bool use_mixed_precision, float scaler,
+                  const nlohmann::json& j_layers);
+
+  void operator()(const InferenceParser& inference_parser, const nlohmann::json& j_layers_array,
+                  std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                  std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                  std::vector<size_t>& embedding_table_slot_size,
+                  std::vector<TensorEntry>* tensor_entries,
+                  std::vector<std::shared_ptr<Layer>>* embeddings,
+                  const std::shared_ptr<GPUResource> gpu_resource,
+                  std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff);
+};
+
+template <typename TypeKey>
+struct create_datareader {
+  void operator()(const nlohmann::json& j,
+                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::vector<TensorEntry>* train_tensor_entries_list,
+                  std::vector<TensorEntry>* evaluate_tensor_entries_list,
+                  std::shared_ptr<IDataReader>& data_reader,
+                  std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
+                  size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
+                  const std::shared_ptr<ResourceManager> resource_manager);
+};
 
 }  // namespace HugeCTR
