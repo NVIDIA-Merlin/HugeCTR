@@ -24,4 +24,5 @@ void conv_weight_gpu(size_t grid, size_t block, __half* dst, const float* src, i
   convert_array<<<grid, block, 0, stream>>>(dst, src, elems);
 }
 
+
 }  // end namespace HugeCTR

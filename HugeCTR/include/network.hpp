@@ -44,15 +44,6 @@ struct TensorEntry {
  * forward/backward/loss/update of the dense layers.
  */
 class Network {
-  friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-                                 std::vector<TensorEntry>& train_tensor_entries,
-                                 std::vector<TensorEntry>& evaluate_tensor_entries,
-                                 int num_networks_in_global,
-                                 const std::shared_ptr<CPUResource>& cpu_resource,
-                                 const std::shared_ptr<GPUResource>& gpu_resource,
-                                 bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                                 bool use_algorithm_search, bool use_cuda_graph);
-
  private:
   std::vector<std::unique_ptr<Layer>> train_layers_;    /**< vector of layers */
   std::vector<std::unique_ptr<Layer>> evaluate_layers_; /**< vector of layers */
@@ -70,18 +61,23 @@ class Network {
   Tensor2<float> evaluate_loss_tensor_; /**< loss tensor */
   metrics::RawMetricMap raw_metrics_;
 
+  Tensor2<float> pred_tensor_;
+
   std::shared_ptr<CPUResource> cpu_resource_;
   std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
 
   bool use_mixed_precision_;
   bool enable_cuda_graph_;
 
+  bool predict_graph_created_;
   bool eval_graph_created_;
   bool train_fprop_graph_created_;
   bool train_bprop_graph_created_;
+  cudaGraph_t predict_graph_;
   cudaGraph_t eval_graph_;
   cudaGraph_t train_fprop_graph_;
   cudaGraph_t train_bprop_graph_;
+  cudaGraphExec_t predict_instance_;
   cudaGraphExec_t eval_instance_;
   cudaGraphExec_t train_fprop_instance_;
   cudaGraphExec_t train_bprop_instance_;
@@ -111,6 +107,19 @@ class Network {
    */
   void eval();
 
+
+  /**
+   * Forward only for inference.
+   */
+  void predict();
+
+  /**
+   * Get the pred tensor for inference.
+   */
+  Tensor2<float> get_pred_tensor() {
+    return pred_tensor_;
+  }
+
   /**
    * Get current loss and return.
    */
@@ -139,6 +148,11 @@ class Network {
    * Read parameters from model_file.
    */
   void upload_params_to_device(const std::string& model_file);
+
+  /**
+   * Read parameters from model_file.
+   */
+  void upload_params_to_device_inference(const std::string& model_file);
 
   /**
    * Writting paramters to cpu buffer.
@@ -183,6 +197,19 @@ class Network {
   void search_algorithm();
 
   /**
+   * factory method to create network
+   */
+  static Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
+                                 std::vector<TensorEntry>& train_tensor_entries,
+                                 std::vector<TensorEntry>& evaluate_tensor_entries,
+                                 int num_networks_in_global,
+                                 const std::shared_ptr<CPUResource>& cpu_resource,
+                                 const std::shared_ptr<GPUResource>& gpu_resource,
+                                 bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                                 bool use_algorithm_search, bool use_cuda_graph,
+                                 bool inference_flag);
+  
+  /** 
    * copy weights from train layers to evaluate layers
    */
   void copy_weights_from_train_layers_to_evaluate_layers();
