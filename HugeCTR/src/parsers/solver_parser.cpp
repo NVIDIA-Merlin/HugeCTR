@@ -63,14 +63,45 @@ SolverParser::SolverParser(const std::string& file) {
 
     snapshot = get_value_from_json<int>(j, "snapshot");
     batchsize = get_value_from_json<int>(j, "batchsize");
-    // batchsize_eval = get_value_from_json<int>(j, "batchsize_eval");
     batchsize_eval = get_value_from_json_soft<int>(j, "batchsize_eval", batchsize);
     snapshot_prefix = get_value_from_json<std::string>(j, "snapshot_prefix");
     if (has_key_(j, "dense_model_file")) {
       model_file = get_value_from_json<std::string>(j, "dense_model_file");
     }
     FIND_AND_ASSIGN_INT_KEY(eval_interval, j);
-    FIND_AND_ASSIGN_INT_KEY(eval_batches, j);
+
+    if (has_key_(j, "eval_batches")) {
+      CK_THROW_(Error_t::WrongInput,
+                "eval_batches is deprecated, use max_eval_batches or max_eval_samples.");
+    }
+
+    bool has_max_eval_batches = has_key_(j, "max_eval_batches");
+    bool has_max_eval_samples = has_key_(j, "max_eval_samples");
+    if (has_max_eval_batches && has_max_eval_samples) {
+      CK_THROW_(Error_t::WrongInput,
+                "max_eval_batches and max_eval_samples cannot be used together.");
+    }
+    else {
+      if (has_max_eval_batches) {
+        max_eval_batches = get_value_from_json<int>(j, "max_eval_batches");
+      }
+      else if (has_max_eval_samples) {
+        int max_eval_samples = get_value_from_json<int>(j, "max_eval_samples");
+        int rem = max_eval_samples % batchsize_eval;
+        if (rem) {
+          MESSAGE_("max_eval_samples(" + std::to_string(max_eval_samples) +
+                   ") is not divisible by batchsize_eval(" +
+                   std::to_string(batchsize_eval) +
+                   ". The remainder is truncated.");
+        }
+        max_eval_batches = max_eval_samples / batchsize_eval;
+      }
+      else {
+        CK_THROW_(Error_t::WrongInput,
+                  "Either max_eval_batches or max_eval_samples must be specified.");
+      }
+    }
+
     if (has_key_(j, "sparse_model_file")) {
       auto j_embedding_files = get_json(j, "sparse_model_file");
       if (j_embedding_files.is_array()) {
