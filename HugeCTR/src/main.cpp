@@ -58,14 +58,21 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
       data_reader_eval->set_file_list_source();
     }
 
-    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start", float(i) / solver_config.max_iter);
-    timer_eval.start();
+    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
+                 float(i) / solver_config.max_iter);
+    int j = 0;
     bool good = true;
-    for (int j = 0; j < solver_config.eval_batches; ++j) {
-      good = session_instance->eval();
-      if (good == false) {
-        data_reader_eval->set_file_list_source();
+    timer_eval.start();
+    while (good) {
+      if (solver_config.max_eval_batches == 0 ||
+          j >= solver_config.max_eval_batches) {
+        break;
       }
+      good = session_instance->eval();
+      j++;
+    }
+    if (good == false) {
+      data_reader_eval->set_file_list_source();
     }
 
     auto eval_metrics = session_instance->get_eval_metrics();
@@ -107,7 +114,7 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
 
     timer_eval.stop();
 
-    MESSAGE_("Eval Time for " + std::to_string(solver_config.eval_batches) +
+    MESSAGE_("Eval Time for " + std::to_string(solver_config.max_eval_batches) +
              " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
 
     HugeCTR::LOG(
@@ -258,12 +265,12 @@ void train(std::string config_file) {
 
       loss += loss_tmp;
     }
-    if (i % solver_config.eval_interval == solver_config.eval_batches &&
-        i != solver_config.eval_batches) {
+    if (i % solver_config.eval_interval == solver_config.max_eval_batches &&
+        i != solver_config.max_eval_batches) {
       session_instance->check_overflow();
       session_instance->set_evaluate_stage();
-      loss = loss / solver_config.eval_batches;
-      for (int j = 0; j < solver_config.eval_batches; ++j) {
+      loss = loss / solver_config.max_eval_batches;
+      for (int j = 0; j < solver_config.max_eval_batches; ++j) {
         session_instance->eval();
       }
       if (pid == 0) {
