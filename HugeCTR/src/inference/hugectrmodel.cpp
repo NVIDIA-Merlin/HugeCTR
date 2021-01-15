@@ -30,7 +30,7 @@ HugeCTRModel::HugeCTRModel() {}
 
 HugeCTRModel::~HugeCTRModel() {}
 
-HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type, const std::string& config_file, int device_id, embedding_interface* embedding_ptr) {
+HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type, const std::string& config_file, int device_id, std::shared_ptr<embedding_interface>& embedding_ptr) {
   HugeCTRModel* model;
 
   switch (Infer_type) {

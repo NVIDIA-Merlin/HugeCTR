@@ -31,8 +31,13 @@
 
 namespace HugeCTR {
 
+class parameter_server_base {
+public:
+  virtual ~parameter_server_base() = 0;
+};
+
 template <typename TypeHashKey>
-class parameter_server : public HugectrUtility<TypeHashKey> {
+class parameter_server : public parameter_server_base, public HugectrUtility<TypeHashKey> {
  public:
   parameter_server(const std::string& framework_name, const std::vector<std::string>& model_config_path, const std::vector<std::string>& model_name);
   virtual ~parameter_server();

@@ -9,6 +9,9 @@
       "name": "data",
       "type": "Data",
       "check": "Sum",
+      "label": {
+        "label_dim": 1
+      },
       "dense": {
         "top": "dense",
         "dense_dim": 13
