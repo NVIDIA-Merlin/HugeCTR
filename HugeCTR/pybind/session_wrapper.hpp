@@ -32,19 +32,6 @@ void SessionPybind(pybind11::module &m) {
       .def("train", &HugeCTR::Session::train)
       .def("eval", &HugeCTR::Session::eval)
       .def("get_eval_metrics", &HugeCTR::Session::get_eval_metrics)
-      .def("evaluation",
-           [](HugeCTR::Session &self) {
-             bool good = false;
-	     do {
-	       good = self.eval();
-	       if (!good) {
-	         auto data_reader_eval = self.get_evaluate_data_reader();
-		 data_reader_eval->set_file_list_source();
-	       }
-	     } while(!good);
-	     auto metrics = self.get_eval_metrics();
-	     return metrics;
-           })
       .def("start_data_reading", &HugeCTR::Session::start_data_reading)
       .def("get_current_loss",
            [](HugeCTR::Session &self) {
@@ -62,7 +49,8 @@ void SessionPybind(pybind11::module &m) {
       .def("get_params_num", &HugeCTR::Session::get_params_num)
       .def("check_overflow", &HugeCTR::Session::check_overflow)
       .def("get_data_reader_train", &HugeCTR::Session::get_train_data_reader)
-      .def("get_data_reader_eval", &HugeCTR::Session::get_evaluate_data_reader);
+      .def("get_data_reader_eval", &HugeCTR::Session::get_evaluate_data_reader)
+      .def("copy_weights_for_evaluation", &HugeCTR::Session::copy_weights_for_evaluation);
 }
 
 }  //  namespace python_lib
