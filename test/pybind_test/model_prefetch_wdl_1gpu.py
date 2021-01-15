@@ -33,7 +33,19 @@ def model_oversubscriber_test(json_file, temp_dir):
       if good == False:
         break
       if iteration % 100 == 0:
-        metrics = sess.evaluation()
+        sess.check_overflow()
+        sess.copy_weights_for_evaluation()
+        data_reader_eval = sess.get_data_reader_eval()
+        good_eval = True
+        j = 0
+        while good_eval:
+          if j >= solver_config.max_eval_batches:
+            break
+          good_eval = sess.eval()
+          j += 1
+        if good_eval == False:
+          data_reader_eval.set_file_list_source()
+        metrics = sess.get_eval_metrics()
         print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iteration, metrics))
       iteration += 1
     print("[HUGECTR][INFO] trained with data in {}".format(file_list))

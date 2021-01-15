@@ -20,13 +20,13 @@
 #include <vector>
 namespace HugeCTR {
 
-InferenceSession::InferenceSession(const std::string& config_file, int device_id, embedding_interface* embedding_cache)
+InferenceSession::InferenceSession(const std::string& config_file, int device_id, std::shared_ptr<embedding_interface>& embedding_cache)
     : config_(read_json_file(config_file)),
       parser_(config_),
-      inference_parser_(config_),
       embedding_table_slot_size_({0}),
       resource_manager_(ResourceManager::create({{device_id}}, 0)),
-      embedding_cache_(embedding_cache) {
+      embedding_cache_(embedding_cache),
+      inference_parser_(config_) {
   try {
     Network* network_ptr;
     parser_.create_pipeline(inference_parser_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr,  resource_manager_);

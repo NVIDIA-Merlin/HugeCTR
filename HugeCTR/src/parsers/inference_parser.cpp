@@ -89,6 +89,20 @@ InferenceParser::InferenceParser(const nlohmann::json& config) {
 
   bool has_dense_model_file = has_key_(j, "dense_model_file");
   bool has_sparse_model_files = has_key_(j, "sparse_model_file");
+  
+  if (has_key_(j, "input_key_type")) {
+    auto str = get_value_from_json<std::string>(j, "input_key_type");
+    if (str.compare("I64") == 0) {
+      i64_input_key = true;
+    } else if (str.compare("I32") == 0) {
+      i64_input_key = false;
+    } else {
+      CK_THROW_(Error_t::WrongInput, "input_key_type is I64 or I32");
+    }
+  } else {
+    i64_input_key = false;
+  }
+
   if (!(has_dense_model_file && has_sparse_model_files)) {
     CK_THROW_(Error_t::WrongInput, "dense_model_file and sparse_model_file must be specified");
   }
@@ -124,7 +138,11 @@ InferenceParser::InferenceParser(const nlohmann::json& config) {
 
   auto j_layers_array = get_json(config, "layers");
   const nlohmann::json& j_data = j_layers_array[0];
+  auto j_label_data = get_json(j_data, "label");
+  auto j_dense_data = get_json(j_data, "dense");
   auto j_sparse_data = get_json(j_data, "sparse");
+  label_dim = get_value_from_json<size_t>(j_label_data, "label_dim");
+  dense_dim = get_value_from_json<size_t>(j_dense_data, "dense_dim");
   num_embedding_tables = static_cast<size_t>(j_sparse_data.size());
   slot_num = 0;
   {
@@ -154,8 +172,10 @@ InferenceParser::InferenceParser(const nlohmann::json& config) {
   }    // get embedding params
 
   max_embedding_vector_size_per_sample = 0;
+  max_feature_num_per_sample = 0;
   for (int i = 0; i < (int)num_embedding_tables; i++) {
     max_embedding_vector_size_per_sample += (max_feature_num_for_tables[i] * embed_vec_size_for_tables[i]);
+    max_feature_num_per_sample += max_feature_num_for_tables[i];
   }
 }
 
