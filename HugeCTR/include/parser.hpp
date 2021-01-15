@@ -54,7 +54,7 @@ struct SolverParser {
   int snapshot;                             /**< the number of iterations for a snapshot */
   std::string snapshot_prefix;              /**< naming prefix of snapshot file */
   int eval_interval;                        /**< the interval of evaluations */
-  int eval_batches;                         /**< the number of batches for evaluations */
+  int max_eval_batches;                         /**< the number of batches for evaluations */
   int batchsize_eval;                       /**< batchsize for eval */
   int batchsize;                            /**< batchsize */
   std::string model_file;                   /**< name of model file */

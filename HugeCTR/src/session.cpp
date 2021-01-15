@@ -129,7 +129,7 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
     metrics_.emplace_back(
         std::move(metrics::Metric::Create(metric.first, solver_config.use_mixed_precision,
                                           solver_config.batchsize_eval / num_total_gpus,
-                                          solver_config.eval_batches, resource_manager_)));
+                                          solver_config.max_eval_batches, resource_manager_)));
   }
 }
 

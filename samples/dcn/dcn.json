@@ -8,7 +8,7 @@
     "snapshot": 70999,
     "snapshot_prefix": "./",
     "eval_interval": 2000,
-    "eval_batches": 8000
+    "max_eval_batches": 8000
   },
   
   "optimizer": {
