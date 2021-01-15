@@ -49,7 +49,7 @@ struct InferenceParams {
   std::vector<int> slot_num;
   std::vector<int> max_feature_num_per_sample;
   std::vector<int> embedding_vec_size;
-  std::vector<EmbeddingFeatureCombiner_t> combiner_type;
+  std::vector<HugeCTR::EmbeddingFeatureCombiner_t> combiner_type;
   InferenceParams(const nlohmann::json& config);
 };
 
@@ -83,9 +83,9 @@ InferenceParams::InferenceParams(const nlohmann::json& config) {
       auto combiner = get_value_from_json<int>(j_embed_params, "combiner");
       embedding_vec_size.push_back(vec_size);
       if (combiner == 1) {
-        combiner_type.push_back(EmbeddingFeatureCombiner_t::Mean);
+        combiner_type.push_back(HugeCTR::EmbeddingFeatureCombiner_t::Mean);
       } else {
-        combiner_type.push_back(EmbeddingFeatureCombiner_t::Sum);
+        combiner_type.push_back(HugeCTR::EmbeddingFeatureCombiner_t::Sum);
       }
     }  // for ()
   }    // get embedding params
@@ -209,7 +209,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   std::vector<std::string> model_config_path{config_file};
   std::vector<std::string> model_name{model};
   HugectrUtility<unsigned int>* parameter_server = HugectrUtility<unsigned int>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
-  embedding_interface* embedding_cache = embedding_interface::Create_Embedding_Cache<unsigned int>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]);
+  std::shared_ptr<embedding_interface> embedding_cache(embedding_interface::Create_Embedding_Cache<unsigned int>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]));
   
   InferenceSession sess(config_file, 0, embedding_cache);
   CK_CUDA_THROW_(cudaDeviceSynchronize());
@@ -299,7 +299,7 @@ void session_inference_generated_test(const std::string& config_file, const std:
   std::vector<std::string> model_config_path{config_file};
   std::vector<std::string> model_name{model};
   HugectrUtility<unsigned int>* parameter_server = HugectrUtility<unsigned int>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
-  embedding_interface* embedding_cache = embedding_interface::Create_Embedding_Cache<unsigned int>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]);
+  std::shared_ptr<embedding_interface> embedding_cache(embedding_interface::Create_Embedding_Cache<unsigned int>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]));
 
   InferenceSession sess(config_file, 0, embedding_cache);
   CK_CUDA_THROW_(cudaDeviceSynchronize());

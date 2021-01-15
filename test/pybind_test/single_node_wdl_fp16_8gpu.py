@@ -26,7 +26,12 @@ def session_impl_test(json_file):
       loss = sess.get_current_loss()
       print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
     if (i%1000 == 0 and i != 0):
-      metrics = sess.evaluation()
+      sess.check_overflow()
+      sess.copy_weights_for_evaluation()
+      data_reader_eval = sess.get_data_reader_eval()
+      for _ in range(solver_config.max_eval_batches):
+        sess.eval()
+      metrics = sess.get_eval_metrics()
       print("[HUGECTR][INFO] iter: {}, {}".format(i, metrics))
   return
 

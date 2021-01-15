@@ -56,6 +56,7 @@ void SolverParserPybind(pybind11::module& m) {
       .def(pybind11::init<const std::string&>(), pybind11::arg("file"))
       .def(pybind11::init<>())
       .def_readonly("seed", &HugeCTR::SolverParser::seed)
+      .def_readonly("max_eval_batches", &HugeCTR::SolverParser::max_eval_batches)
       .def_readonly("batchsize_eval", &HugeCTR::SolverParser::batchsize_eval)
       .def_readonly("batchsize", &HugeCTR::SolverParser::batchsize)
       .def_readonly("model_file", &HugeCTR::SolverParser::model_file)

@@ -28,6 +28,7 @@
 #include <HugeCTR/pybind/data_reader_wrapper.hpp>
 #include <HugeCTR/pybind/model_oversubscriber_wrapper.hpp>
 #include <HugeCTR/pybind/session_wrapper.hpp>
+#include <HugeCTR/pybind/inference_wrapper.hpp>
 using namespace HugeCTR::python_lib;
 
 PYBIND11_MODULE(hugectr, m) {
@@ -45,4 +46,5 @@ PYBIND11_MODULE(hugectr, m) {
   DataReaderPybind(m);
   ModelOversubscriberPybind(m);
   SessionPybind(m);
+  InferencePybind(m);
 }

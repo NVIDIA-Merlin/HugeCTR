@@ -18,6 +18,8 @@
 
 namespace HugeCTR {
 
+parameter_server_base::~parameter_server_base() {}
+
 template <typename TypeHashKey>
 parameter_server<TypeHashKey>::parameter_server(const std::string& framework_name, 
                                                 const std::vector<std::string>& model_config_path, 
