@@ -222,6 +222,13 @@ SolverParser::SolverParser(const std::string& file) {
     use_cuda_graph = get_value_from_json_soft<bool>(j, "cuda_graph", true);
     MESSAGE_("CUDA Graph: " + std::string(use_cuda_graph? "ON" : "OFF"));
 
+    if(has_key_(j, "export_predictions_prefix")){
+      export_predictions_prefix = get_value_from_json<std::string>(j, "export_predictions_prefix");
+      MESSAGE_("Export prediction prefix: " + export_predictions_prefix);
+    }else {
+      export_predictions_prefix = "";
+      MESSAGE_("Export prediction: OFF");
+    }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
