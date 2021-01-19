@@ -83,7 +83,7 @@ class Session {
    * export predictions to file
    * @param output_file_name file name of destination filename
    */
-  Error_t export_predictions(const std::string& output_file_name);
+  Error_t export_predictions(const std::string& output_prediction_file_name, const std::string& output_label_file_name);
 
   /**
    * Set learning rate while training
