@@ -41,23 +41,31 @@ void SessionPybind(pybind11::module &m) {
       .def("get_eval_metrics", &HugeCTR::Session::get_eval_metrics)
       .def(
           "evaluation",
-          [](HugeCTR::Session &self, const std::string &export_predictions_out_file) {
+          [](HugeCTR::Session &self, const std::string &export_predictions_out_file, const std::string &export_label_out_file) {
             // clear output file
+            auto cleanup_files = [](const std::string& out_filename) {
+              std::ofstream ofs;
+              ofs.open(out_filename, std::ofstream::out | std::ofstream::trunc);
+              if(!ofs.is_open()){
+                throw std::runtime_error("Cannot open output prediction file " + out_filename + " \n");
+              }
+              ofs.close();
+            };
+            if (export_predictions_out_file.empty() != export_label_out_file.empty()){
+              throw std::runtime_error("must specify prediction and label file path both!");
+            }
             if (!export_predictions_out_file.empty()){
-               std::ofstream ofs;
-               ofs.open(export_predictions_out_file, std::ofstream::out | std::ofstream::trunc);
-               if (!ofs.is_open()) {
-               throw std::runtime_error("Cannot open output prediction file " +
-                                        export_predictions_out_file + " \n");
-               }
-               ofs.close();
+              cleanup_files(export_predictions_out_file);
+            }
+            if (!export_label_out_file.empty()) {
+              cleanup_files(export_label_out_file);
             }
 
             bool good = false;
             do {
               good = self.eval();
               if (!export_predictions_out_file.empty()) {
-                self.export_predictions(export_predictions_out_file);
+                self.export_predictions(export_predictions_out_file, export_label_out_file);
               }
               if (!good) {
                 auto data_reader_eval = self.get_evaluate_data_reader();
@@ -67,7 +75,7 @@ void SessionPybind(pybind11::module &m) {
             auto metrics = self.get_eval_metrics();
             return metrics;
           },
-          pybind11::arg("export_predictions_out_file") = std::string())
+          pybind11::arg("export_predictions_out_file") = std::string(), pybind11::arg("export_labels_out_file") = std::string())
       .def("start_data_reading", &HugeCTR::Session::start_data_reading)
       .def("get_current_loss",
            [](HugeCTR::Session &self) {
