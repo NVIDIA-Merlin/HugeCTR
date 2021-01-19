@@ -19,12 +19,23 @@
 #include <metrics.hpp>
 #include <utils.cuh>
 #include <omp.h>
+#include <general_buffer2.hpp>
 
 namespace HugeCTR {
 
 namespace metrics {
 
+
+
+
 namespace {
+
+__global__ void convert_half_to_float_kernel(__half* src_ptr, float* dst_ptr, size_t num){
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if(idx < num){
+    dst_ptr[idx] = TypeConvertFunc<float, __half>::convert(src_ptr[idx]);
+  }
+}
 
 __global__ void copy_all_kernel(float* y_pred, float* y_label, const __half* x_pred,
                                 const float* x_label, int num_elems) {
@@ -225,8 +236,8 @@ __global__ void trapz_kernel(float* y, float* x, float* halo_y, float* halo_x, f
     atomicAdd(auc, s_auc);
   }
 }
-
 }  // namespace
+
 
 namespace metric_comm {
 
@@ -293,6 +304,29 @@ void send_halo_right(T* srcptr, T* dstptr, int count,
 
 } // namespace metric_comm
 
+
+void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_type, bool mixed_precision, float *rst, size_t num){
+  Tensor2<float> device_prediction_result;
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buffer_ptr = GeneralBuffer2<CudaAllocator>::create();
+  
+  if(mixed_precision){
+    Tensor2<__half> raw_metric_tensor = Tensor2<__half>::stretch_from(metric_map[raw_type]);
+    if(raw_metric_tensor.get_num_elements() != num){
+      CK_THROW_(Error_t::WrongInput, "num elements: " + std::to_string(raw_metric_tensor.get_num_elements()) + " not match with " + std::to_string(num));
+    }
+    buffer_ptr->reserve(raw_metric_tensor.get_dimensions(), &device_prediction_result);
+    buffer_ptr->allocate();
+    dim3 blockSize(256, 1, 1);
+    dim3 gridSize((num + blockSize.x - 1) / blockSize.x, 1, 1);
+    convert_half_to_float_kernel<<<gridSize, blockSize>>>(raw_metric_tensor.get_ptr(), device_prediction_result.get_ptr(), num);
+  }else {
+    device_prediction_result = Tensor2<float>::stretch_from(metric_map[raw_type]);
+    if(num != device_prediction_result.get_num_elements()){
+      CK_THROW_(Error_t::WrongInput, "num elements: " + std::to_string(device_prediction_result.get_num_elements()) + " not match with " + std::to_string(num));
+    }
+  }
+  CK_CUDA_THROW_(cudaMemcpy(rst, device_prediction_result.get_ptr(), num * sizeof(float), cudaMemcpyDeviceToHost));
+}
 
 std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision,
                                        int batch_size_eval, int n_batches,

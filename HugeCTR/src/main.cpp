@@ -61,11 +61,29 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start", float(i) / solver_config.max_iter);
     timer_eval.start();
     bool good = true;
-    for (int j = 0; j < solver_config.eval_batches; ++j) {
+    for (int j = 0; j < solver_config.eval_batches && good; ++j) {
       good = session_instance->eval();
-      if (good == false) {
-        data_reader_eval->set_file_list_source();
+      if(!solver_config.export_predictions_prefix.empty()){
+        int pid = 0;
+#ifdef ENABLE_MPI
+      CK_MPI_THROW__(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+#endif
+        std::string out_filename = solver_config.export_predictions_prefix + std::to_string(i);
+        if(pid == 0 && j ==0){
+          // clear output file in first round
+          std::ofstream ofs;
+          ofs.open(out_filename, std::ofstream::out | std::ofstream::trunc);
+          if(!ofs.is_open()){
+            throw std::runtime_error("Cannot open output prediction file " + out_filename + " \n");
+          }
+          ofs.close();
+        }
+        
+        session_instance->export_predictions(out_filename);
       }
+    }
+    if (good == false) {
+      data_reader_eval->set_file_list_source();
     }
 
     auto eval_metrics = session_instance->get_eval_metrics();
