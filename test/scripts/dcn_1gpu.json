@@ -10,7 +10,8 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 2048
+    "eval_batches": 2048,
+    "export_predictions_prefix": "/home/ale/tmp/dcn_predictions"
   },
   "optimizer": {
     "type": "Adam",

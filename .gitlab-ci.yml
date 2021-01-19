@@ -85,6 +85,7 @@ criteo:
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd ${DATASET_MOUNT}/criteo;
+        mkdir ${WORK_DIR}/export_predictions_criteo_1gpu/;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_8gpu.json;
         cd /dataset/criteo_kaggle/criteo_multi_slots;
@@ -131,6 +132,7 @@ wdl_deepfm:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/wdl_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/wdl_8gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/wdl_fp16_1gpu.json;
+        mkdir ${WORK_DIR}/export_predictions_wdl_fp16_8gpu/;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json;
         cd /dataset/criteo_kaggle/deepfm;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/deepfm_1gpu.json;
@@ -230,6 +232,7 @@ dlrm_multinode_fp16:
         --ntasks-per-node 1
         bash -cx "
         cd /dataset/criteo_kaggle/dcn;
+        mkdir ${WORK_DIR}/export_predictions_dlrm_fp16_4node_2gpu;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dlrm_fp16_4node_2gpu.json"
 
 dlrm_multinode_fp32:
@@ -277,7 +280,15 @@ python_interface_single_node:
         bash -cx "
         cd /dataset/criteo_kaggle/wdl;
         cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-        python3 ${WORK_DIR}/test/pybind_test/single_node_wdl_fp16_8gpu.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json;"
+        python3 ${WORK_DIR}/test/pybind_test/single_node_wdl_fp16_8gpu.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json"
+    - srun --ntasks=1
+        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+        bash -cx "
+        cd /dataset/criteo_kaggle/wdl;
+        cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
+        mkdir ${WORK_DIR}/tmp;
+        python3 ${WORK_DIR}/test/pybind_test/export_prediction_wdl_1gpu.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json ${WORK_DIR}/tmp/;"
 
 # python interface single node + model prefetch
 python_interface_single_node_model_prefetch:
