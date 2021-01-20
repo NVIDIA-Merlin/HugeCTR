@@ -43,7 +43,7 @@ class Regularizer {
   /*
    * Destructor of Regularizer
    */
-  virtual ~Regularizer() {}
+  virtual ~Regularizer() = default;
 
   virtual void initialize() {}
 

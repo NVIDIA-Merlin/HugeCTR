@@ -99,18 +99,18 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
   parser.create_pipeline(train_data_reader_, evaluate_data_reader_, embeddings_, networks_,
                          resource_manager_);
 
-
 #ifndef DATA_READING_TEST
-  for (auto& network : networks_) {
-    network->initialize();
-  }
-  if (solver_config.use_algorithm_search) {
-    for (auto& network : networks_) {
-      network->search_algorithm();
+#pragma omp parallel num_threads(networks_.size())
+  {
+    size_t id = omp_get_thread_num();
+    networks_[id]->initialize();
+    if (solver_config.use_algorithm_search) {
+      networks_[id]->search_algorithm();
     }
+    CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
   }
 #endif
-  
+
   init_or_load_params_for_dense_(solver_config.model_file);
   if (use_model_oversubscriber) {
     if (solver_config.use_mixed_precision) {
@@ -154,12 +154,11 @@ Error_t Session::init_or_load_params_for_dense_(const std::string& model_file) {
       }
       model_stream.close();
     } else {
-      for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-        networks_[i]->init_params(i);
-      }
-
-      for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-        CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
+#pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
+      {
+        size_t id = omp_get_thread_num();
+        networks_[id]->init_params(id);
+        CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
       }
     }
   } catch (const internal_runtime_error& rt_err) {

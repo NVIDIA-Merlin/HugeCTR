@@ -126,7 +126,7 @@ SolverParser::SolverParser(const std::string& file) {
       }
       scaler = i_scaler;
       std::stringstream ss;
-      ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
+      ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled.";
       MESSAGE_(ss.str());
 
     } else {

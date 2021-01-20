@@ -15,6 +15,7 @@
  */
 
 #include <math.h>
+
 #include <layers/fully_connected_layer.hpp>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/reduce.cuh>
@@ -29,10 +30,10 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<floa
                                          const Tensor2<float>& in_tensor,
                                          const Tensor2<float>& out_tensor,
                                          const std::shared_ptr<GPUResource>& gpu_resource,
-                                         bool use_mixed_precision,
-                                         bool enable_tf32_compute,
+                                         bool use_mixed_precision, bool enable_tf32_compute,
                                          std::vector<Initializer_t> initializer_types)
-    : Layer(gpu_resource, initializer_types), use_mixed_precision_(use_mixed_precision),
+    : Layer(gpu_resource, initializer_types),
+      use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
   try {
     // check the in_tensor and out_tensor
@@ -185,7 +186,8 @@ void FullyConnectedLayer::bprop() {
 void FullyConnectedLayer::search_algorithm() {
   // Set to the CUDA device where this layer assigned to
   CudaDeviceContext context(get_device_id());
-  const int repeat_num = 5;
+
+  const int repeat_num = 100;
 
   // Device Tensors to be used
   Tensor2<float>& in_tensor = get_in_tensors(true)[0];

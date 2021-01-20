@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+#include <omp.h>
+
 #include <random>
 #include <resource_manager.hpp>
 #include <utils.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-//#include <rmm/mr/device/cnmem_memory_resource.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
@@ -112,10 +113,14 @@ ResourceManager::ResourceManager(int num_process, int process_id, DeviceMap&& de
   CK_NCCL_THROW_(ncclCommInitAll(comms.data(), local_gpu_device_id_list.size(),
                                  local_gpu_device_id_list.data()));
 #endif
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    gpu_resources_.emplace_back(new GPUResource(local_gpu_device_id_list[i],
-                                                device_map_.get_global_id(i), replica_uniform_seed,
-                                                local_replica_variant_seeds[i], comms[i]));
+
+  gpu_resources_.resize(local_gpu_count);
+#pragma omp parallel num_threads(local_gpu_count)
+  {
+    size_t id = omp_get_thread_num();
+    gpu_resources_[id].reset(new GPUResource(local_gpu_device_id_list[id],
+                                             device_map_.get_global_id(id), replica_uniform_seed,
+                                             local_replica_variant_seeds[id], comms[id]));
   }
 
   for (size_t i = 0; i < local_gpu_count; i++) {
@@ -165,15 +170,17 @@ void ResourceManager::enable_all_peer_accesses() {
 
   assert(local_gpu_count != 0);
 
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    CudaDeviceContext context(local_gpu_device_id_list[i]);
+#pragma omp parallel num_threads(local_gpu_count)
+  {
+    size_t id = omp_get_thread_num();
+    CudaDeviceContext context(local_gpu_device_id_list[id]);
     for (size_t j = 0; j < local_gpu_count; j++) {
-      if (i != j) {
+      if (id != j) {
         int can_access_peer;
-        CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, local_gpu_device_id_list[i],
+        CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, local_gpu_device_id_list[id],
                                                local_gpu_device_id_list[j]));
         if (can_access_peer == 1) {
-          p2p_matrix_[i][j] = true;
+          p2p_matrix_[id][j] = true;
           cudaError_t ret = cudaDeviceEnablePeerAccess(local_gpu_device_id_list[j], 0);
           if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
             CK_CUDA_THROW_(ret);

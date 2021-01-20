@@ -20,6 +20,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+
 #include "HugeCTR/include/cpu_resource.hpp"
 #include "HugeCTR/include/data_simulator.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
@@ -70,12 +71,13 @@ class Layer {
       : gpu_resource_(gpu_resource), initializer_types_(initializer_types) {}
   Layer(const Layer&) = delete;
   Layer& operator=(const Layer&) = delete;
-  virtual ~Layer() {}
+  virtual ~Layer() = default;
 
   /*
    * Some of the layers requires initialize like fully connected layer
    */
   virtual void initialize() {}
+
   /*
    * Some of the layers requires algorithm search like fully connected layer
    */

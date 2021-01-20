@@ -114,7 +114,7 @@ class Optimizer {
     }
   }
 
-  virtual ~Optimizer() {}
+  virtual ~Optimizer() = default;
 
   virtual void initialize() {}
 
