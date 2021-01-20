@@ -156,7 +156,7 @@ void train(std::string config_file) {
 
   // train
   if (pid == 0) {
-    std::cout << "HugeCTR training start:" << std::endl;
+    MESSAGE_("HugeCTR training start:");
   }
 #ifndef VAL
   HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0);  // just 1 epoch

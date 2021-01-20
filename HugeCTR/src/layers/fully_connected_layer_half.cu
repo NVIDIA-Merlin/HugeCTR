@@ -161,23 +161,19 @@ void FullyConnectedLayerHalf::bprop() {
 void FullyConnectedLayerHalf::initialize() {
   CudaDeviceContext context(get_device_id());
 
-  // CUDA stream to be used for cublas on this device
-  cudaStream_t stream;
-  CK_CUDA_THROW_(cudaStreamCreate(&stream));
-
   __half* identity = identity_tensor_.get_ptr();
   const auto& bottom_tensor_dim = get_bottom_tensor(true).get_dimensions();
   size_t m = bottom_tensor_dim[0];
 
   // Initialize identity vector
-  initialize_array<<<(m - 1) / 1024 + 1, 1024, 0, stream>>>(identity, m, __float2half(1.0f));
-
-  CK_CUDA_THROW_(cudaStreamDestroy(stream));
+  initialize_array<<<(m - 1) / 1024 + 1, 1024, 0, get_gpu().get_stream()>>>(identity, m,
+                                                                            __float2half(1.0f));
 }
 
 void FullyConnectedLayerHalf::search_algorithm() {
   // Set to the CUDA device where this layer assigned to
   CudaDeviceContext context(get_device_id());
+
   const size_t repeat_num = 100;
 
   // Device Tensors to be used

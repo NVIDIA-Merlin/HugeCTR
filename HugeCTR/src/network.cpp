@@ -135,7 +135,6 @@ void Network::eval() {
   return;
 }
 
-
 void Network::predict() {
   if (enable_cuda_graph_) {
     if (!predict_graph_created_) {
@@ -249,7 +248,6 @@ void Network::init_params(size_t index) {
   }
 }
 
-
 void Network::initialize() {
   CudaDeviceContext context(get_device_id());
   for (auto& layer : train_layers_) {
@@ -262,13 +260,12 @@ void Network::initialize() {
 }
 
 void Network::search_algorithm() {
-    CudaDeviceContext context(get_device_id());
-    for (auto& layer : train_layers_) {
-      layer->search_algorithm();
-    }
-    for (auto& layer : evaluate_layers_) {
-      layer->search_algorithm();
-    }
+  for (auto& layer : train_layers_) {
+    layer->search_algorithm();
+  }
+  for (auto& layer : evaluate_layers_) {
+    layer->search_algorithm();
+  }
 }
 
 float Network::get_loss() {
@@ -285,19 +282,19 @@ float Network::get_loss() {
 metrics::RawMetricMap Network::get_raw_metrics() const { return raw_metrics_; }
 
 void Network::exchange_wgrad() {
-    CudaDeviceContext context(get_device_id());
-    if (use_mixed_precision_) {
-      CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_half_.get_ptr(),
-                                   (void*)wgrad_tensor_half_.get_ptr(),
-                                   wgrad_tensor_half_.get_num_elements(), ncclHalf, ncclSum,
-                                   gpu_resource_->get_nccl(), gpu_resource_->get_stream()));
-    } else {
-      CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_.get_ptr(),
-                                   (void*)wgrad_tensor_.get_ptr(), wgrad_tensor_.get_num_elements(),
-                                   ncclFloat, ncclSum, gpu_resource_->get_nccl(),
-                                   gpu_resource_->get_stream()));
-    }
- }
+  CudaDeviceContext context(get_device_id());
+  if (use_mixed_precision_) {
+    CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_half_.get_ptr(),
+                                 (void*)wgrad_tensor_half_.get_ptr(),
+                                 wgrad_tensor_half_.get_num_elements(), ncclHalf, ncclSum,
+                                 gpu_resource_->get_nccl(), gpu_resource_->get_stream()));
+  } else {
+    CK_NCCL_THROW_(ncclAllReduce((const void*)wgrad_tensor_.get_ptr(),
+                                 (void*)wgrad_tensor_.get_ptr(), wgrad_tensor_.get_num_elements(),
+                                 ncclFloat, ncclSum, gpu_resource_->get_nccl(),
+                                 gpu_resource_->get_stream()));
+  }
+}
 
 void Network::copy_weights_from_train_layers_to_evaluate_layers() {
   CudaDeviceContext context(get_device_id());
