@@ -241,6 +241,7 @@ void FusedFullyConnectedLayer::bprop() {
 void FusedFullyConnectedLayer::search_algorithm() {
   // Set to the CUDA device where this layer assigned to
   CudaDeviceContext context(get_device_id());
+
   const size_t repeat_num = 100;
 
   // Device Tensors to be used

@@ -107,7 +107,6 @@ class Network {
    */
   void eval();
 
-
   /**
    * Forward only for inference.
    */
@@ -116,9 +115,7 @@ class Network {
   /**
    * Get the pred tensor for inference.
    */
-  Tensor2<float> get_pred_tensor() {
-    return pred_tensor_;
-  }
+  Tensor2<float> get_pred_tensor() { return pred_tensor_; }
 
   /**
    * Get current loss and return.
@@ -187,13 +184,11 @@ class Network {
   /**
    * initialize layer by layer
    */
-
   void initialize();
 
   /**
    * search_algorithm layer by layer
    */
-
   void search_algorithm();
 
   /**
@@ -208,12 +203,11 @@ class Network {
                                  bool use_mixed_precision, bool enable_tf32_compute, float scaler,
                                  bool use_algorithm_search, bool use_cuda_graph,
                                  bool inference_flag);
-  
-  /** 
+
+  /**
    * copy weights from train layers to evaluate layers
    */
   void copy_weights_from_train_layers_to_evaluate_layers();
 };
-
 
 }  // namespace HugeCTR
