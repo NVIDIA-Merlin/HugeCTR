@@ -48,8 +48,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
         const std::string plan_file, const std::shared_ptr<ResourceManager> &resource_manager)
     : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
-           Embedding_t::LocalizedSlotSparseEmbeddingOneHot,
-           embedding_params, resource_manager),
+           Embedding_t::LocalizedSlotSparseEmbeddingOneHot, embedding_params, resource_manager),
       slot_size_array_(embedding_params.slot_size_array) {
   try {
     max_vocabulary_size_ = 0;
@@ -64,8 +63,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 
     CudaDeviceContext context;
     for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
-      int cur_device = Base::get_local_gpu(id).get_device_id();
-      context.set_device(cur_device);
+      context.set_device(Base::get_local_gpu(id).get_device_id());
 
       size_t gid = Base::get_local_gpu(id).get_global_id();
       size_t slot_num_per_gpu =
@@ -181,7 +179,6 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 #ifndef NDEBUG
       std::cout << " max_feature_num_:" << Base::get_max_feature_num() << std::endl;
 #endif
-      buf->allocate();
 
       const OptParams<TypeEmbeddingComp> &source_opt_param = Base::get_opt_params();
       OptParams<TypeEmbeddingComp> &target_opt_param = Base::get_opt_params(id);
@@ -200,11 +197,17 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 
     }  // end of for(int id = 0; id < Base::get_local_gpu_count(); id++)
 
-    // sync
-    functors_.sync_all_gpus(Base::get_resource_manager());
+#pragma omp parallel num_threads(Base::get_resource_manager().get_local_gpu_count())
+    {
+      size_t id = omp_get_thread_num();
+      CudaDeviceContext context(Base::get_local_gpu(id).get_device_id());
+      Base::get_buffer(id)->allocate();
+      CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(id).get_stream()));
+    }
 
     // get the mapping table between local value_index and input value_index
     for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
+      context.set_device(Base::get_local_gpu(id).get_device_id());
       uint32_t slot_sizes_prefix_sum = 0;
       uint32_t slot_sizes_prefix_sum_local = 0;
       int slot_num = 0;
@@ -259,7 +262,7 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_parameters(
     std::ifstream &stream) {
-    // check if file is opened successfully
+  // check if file is opened successfully
   if (!stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
   }
@@ -268,7 +271,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   size_t file_size = stream.tellg();
   stream.seekg(0, stream.beg);
 
-  size_t row_size = sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * Base::get_embedding_vec_size();
+  size_t row_size =
+      sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * Base::get_embedding_vec_size();
   size_t row_num = file_size / row_size;
 
   if (file_size % row_size != 0) {
@@ -290,7 +294,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   blobs_buff->allocate();
 
   TypeHashKey *key_ptr = keys.get_ptr();
-  size_t *slot_id_ptr  = slot_id.get_ptr();
+  size_t *slot_id_ptr = slot_id.get_ptr();
   float *embedding_ptr = embeddings.get_ptr();
 
   for (size_t i = 0; i < row_num; i++) {
@@ -308,7 +312,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    BufferBag& buf_bag, size_t num) {
+    BufferBag &buf_bag, size_t num) {
   const TensorBag2 &keys_bag = buf_bag.keys;
   const TensorBag2 &slot_id_bag = buf_bag.slot_id;
   const Tensor2<float> &embeddings = buf_bag.embedding;
@@ -325,14 +329,13 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
     const Tensor2<float> &embeddings, size_t num, size_t embedding_vec_size,
     Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes,
     const Tensors2<uint32_t> &mapping_offsets_per_gpu_tensors) {
-
   CudaDeviceContext context;
   if (keys.get_dimensions()[0] < num || embeddings.get_dimensions()[0] < num) {
     CK_THROW_(Error_t::WrongInput, "The rows of keys and embeddings are not consistent.");
   }
 
   const TypeHashKey *key_ptr = keys.get_ptr();
-  const size_t *slot_id_ptr  = slot_id.get_ptr();
+  const size_t *slot_id_ptr = slot_id.get_ptr();
   const float *embedding_ptr = embeddings.get_ptr();
 
   // define size
@@ -405,7 +408,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
 
   // do upload
   size_t loop_num = num / chunk_size;
-  MESSAGE_("Start to upload embedding table file to GPUs, total loop_num: " + std::to_string(loop_num));
+  MESSAGE_("Start to upload embedding table file to GPUs, total loop_num: " +
+           std::to_string(loop_num));
   for (size_t i = 0; i < loop_num; i++) {
     float *value_dst_buf;
     size_t *tensor_index_dst_buf;
@@ -414,7 +418,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
       size_t gid = slot_id % total_gpu_count;  // global GPU ID
       size_t id = Base::get_resource_manager().get_gpu_local_id_from_global_id(
           gid);  // local GPU ID (not gpudevice id)
-      int dst_rank = Base::get_resource_manager().get_process_id_from_gpu_global_id(gid);  // node id
+      int dst_rank =
+          Base::get_resource_manager().get_process_id_from_gpu_global_id(gid);  // node id
 
       if (Base::get_resource_manager().get_process_id() == dst_rank) {
         TypeHashKey tile_key = key_ptr[i * chunk_size + k];
@@ -530,9 +535,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
     size_t *src_buf_index = h_hash_table_index_chunk_per_gpu[id];
     size_t *dst_buf_index = d_hash_table_index_chunk_per_gpu[id];
     value_chunk_size = tile_counter_in_chunk_per_gpu[id];
-    CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf_index, src_buf_index,
-                                   value_chunk_size * sizeof(size_t), cudaMemcpyHostToDevice,
-                                   Base::get_local_gpu(id).get_stream()));
+    CK_CUDA_THROW_(cudaMemcpyAsync(dst_buf_index, src_buf_index, value_chunk_size * sizeof(size_t),
+                                   cudaMemcpyHostToDevice, Base::get_local_gpu(id).get_stream()));
 
     // Call kernel to insert the value into embedding value tensor
     const size_t grid_size = (tile_counter_in_chunk_per_gpu[id] - 1) / 256 + 1;
@@ -577,7 +581,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    BufferBag& buf_bag, size_t *num) const {
+    BufferBag &buf_bag, size_t *num) const {
   TensorBag2 keys_bag = buf_bag.keys;
   TensorBag2 slot_id_bag = buf_bag.slot_id;
   Tensor2<float> &embeddings = buf_bag.embedding;
@@ -648,8 +652,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
       continue;
     }
 
-    MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) + ": Dump embedding table from GPU" +
-             std::to_string(id));
+    MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
+             ": Dump embedding table from GPU" + std::to_string(id));
 
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
@@ -718,16 +722,19 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
       offset += value_size;
     }
     if (Base::get_resource_manager().is_master_process()) {
-      MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) + ": Write hash table <key,value> pairs to file");
+      MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
+               ": Write hash table <key,value> pairs to file");
       weight_stream.write(file_buf.get(), size_in_B);
     }
 #ifdef ENABLE_MPI
     else {
-      MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) + ": Send hash table <key,value> pairs on GPU" +
-               std::to_string(id) + " to master node  ");
+      MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
+               ": Send hash table <key,value> pairs on GPU" + std::to_string(id) +
+               " to master node  ");
       int tag = (id << 8) | base_tag;
-      CK_MPI_THROW_(
-          MPI_Send(file_buf.get(), size_in_B, MPI_CHAR, Base::get_resource_manager().get_master_process_id(), tag, MPI_COMM_WORLD));
+      CK_MPI_THROW_(MPI_Send(file_buf.get(), size_in_B, MPI_CHAR,
+                             Base::get_resource_manager().get_master_process_id(), tag,
+                             MPI_COMM_WORLD));
     }
 #endif
   }
@@ -773,12 +780,11 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    Tensor2<TypeHashKey> &keys, Tensor2<size_t> &slot_id, Tensor2<float> &embeddings,
-    size_t *num, size_t embedding_vec_size,
-    const Tensors2<float> &hash_table_value_tensors,
+    Tensor2<TypeHashKey> &keys, Tensor2<size_t> &slot_id, Tensor2<float> &embeddings, size_t *num,
+    size_t embedding_vec_size, const Tensors2<float> &hash_table_value_tensors,
     const std::vector<size_t> &slot_sizes) const {
   TypeHashKey *key_ptr = keys.get_ptr();
-  size_t *slot_id_ptr  = slot_id.get_ptr();
+  size_t *slot_id_ptr = slot_id.get_ptr();
   float *embedding_ptr = embeddings.get_ptr();
 
   size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
@@ -837,8 +843,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
       continue;
     }
 
-    MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) + ": Dump embedding table from GPU" +
-             std::to_string(id));
+    MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
+             ": Dump embedding table from GPU" + std::to_string(id));
 
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
@@ -891,7 +897,6 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
   size_t offset = 0;
   for (size_t id = 0; id < local_gpu_count; id++) {
     for (unsigned int k = 0; k < count[id]; k++) {
-
       memcpy(key_ptr + offset, h_hash_table_key[id] + k, key_size);
       memcpy(slot_id_ptr + offset, h_hash_table_slot_id[id] + k, slot_id_size);
       memcpy(embedding_ptr + offset * embedding_vec_size,
@@ -933,11 +938,13 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::init_em
   size_t total_gpu_count = Base::get_resource_manager().get_global_gpu_count();
 
 #ifndef NDEBUG
-  MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) + ", total_gpu_count=" +
-           std::to_string(total_gpu_count));
+  MESSAGE_("local_gpu_count=" + std::to_string(local_gpu_count) +
+           ", total_gpu_count=" + std::to_string(total_gpu_count));
 #endif
 
-  for (size_t id = 0; id < local_gpu_count; id++) {
+#pragma omp parallel num_threads(Base::get_resource_manager().get_local_gpu_count())
+  {
+    size_t id = omp_get_thread_num();
     size_t device_id = Base::get_local_gpu(id).get_device_id();
     size_t global_id = Base::get_local_gpu(id).get_global_id();
 
@@ -949,9 +956,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::init_em
     functors_.init_embedding_per_gpu(global_id, total_gpu_count, slot_sizes, embedding_vec_size,
                                      hash_table_value_tensors[id], hash_table_slot_id_tensors[id],
                                      Base::get_local_gpu(id));
-  }
 
-  for (size_t id = 0; id < local_gpu_count; id++) {
     CK_CUDA_THROW_(cudaStreamSynchronize(Base::get_local_gpu(id).get_stream()));
     MESSAGE_("gpu" + std::to_string(id) + " init embedding done");
   }
@@ -963,11 +968,10 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::reset() {
   CudaDeviceContext context;
   for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
-    functors_.init_embedding_per_gpu(Base::get_local_gpu(i).get_global_id(),
-                                     Base::get_resource_manager().get_global_gpu_count(),
-                                     slot_size_array_, Base::get_embedding_vec_size(),
-                                     value_table_tensors_[i], hash_table_slot_id_tensors_[i],
-                                     Base::get_local_gpu(i));
+    functors_.init_embedding_per_gpu(
+        Base::get_local_gpu(i).get_global_id(), Base::get_resource_manager().get_global_gpu_count(),
+        slot_size_array_, Base::get_embedding_vec_size(), value_table_tensors_[i],
+        hash_table_slot_id_tensors_[i], Base::get_local_gpu(i));
   }
 
   for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
