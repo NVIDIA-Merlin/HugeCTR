@@ -55,7 +55,7 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
 
     // The first eval
     if (solver_config.num_epochs > 0 && i == solver_config.eval_interval) {
-      data_reader_eval->set_file_list_source();
+      data_reader_eval->set_source();
     }
 
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
@@ -72,7 +72,7 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
       j++;
     }
     if (good == false) {
-      data_reader_eval->set_file_list_source();
+      data_reader_eval->set_source();
     }
 
     auto eval_metrics = session_instance->get_eval_metrics();
@@ -201,7 +201,7 @@ void train(std::string config_file) {
         MESSAGE_("Epoch: " + std::to_string(e));
       }
       auto data_reader_train = session_instance->get_train_data_reader();
-      data_reader_train->set_file_list_source();
+      data_reader_train->set_source();
       do {
         float lr = lr_sch->get_next();
         session_instance->set_learning_rate(lr);

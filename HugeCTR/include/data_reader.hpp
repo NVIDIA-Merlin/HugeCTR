@@ -64,7 +64,8 @@ public:
                             const std::vector<long long> slot_offset,
                             bool start_reading_from_beginning = true) = 0;
 
-  virtual void set_file_list_source(std::string file_list = std::string()) = 0;
+  // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type
+  virtual void set_source(std::string file_name = std::string()) = 0;
 };
 
 
