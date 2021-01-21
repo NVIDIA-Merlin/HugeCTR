@@ -24,6 +24,7 @@
 #include <fstream>
 #include <thread>
 #include <vector>
+#include <tuple>
 
 namespace HugeCTR {
 
@@ -53,12 +54,11 @@ static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& d
 class DataReaderWorkerGroup {
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
   int data_reader_loop_flag_{0};                 /**< p_loop_flag a flag to control the loop */
+  DataReaderType_t data_reader_type_;
  protected:
   std::vector<std::shared_ptr<IDataReaderWorker>>
       data_readers_; /**< A vector of DataReaderWorker' pointer.*/
-  std::shared_ptr<ResourceManager> resource_manager_;
-  /**
-   * Create threads to run data reader workers
+  std::shared_ptr<ResourceManager> resource_manager_; /** * Create threads to run data reader workers
    */
   void create_data_reader_threads() {
     if (data_readers_.empty()) {
@@ -76,7 +76,8 @@ class DataReaderWorkerGroup {
   }
 
  public:
-  DataReaderWorkerGroup(bool start_reading_from_beginning) {
+  DataReaderWorkerGroup(bool start_reading_from_beginning, DataReaderType_t data_reader_type)
+      : data_reader_type_(data_reader_type) {
     if (start_reading_from_beginning) {
       data_reader_loop_flag_ = 1;
     }
@@ -97,15 +98,24 @@ class DataReaderWorkerGroup {
       data_reader_thread.join();
     }
   }
-  template <typename Op>
-  void set_source(Op op) {
+
+  void set_source(SourceType_t source_type, const std::string& file_name, bool repeat) {
+    if (!((source_type == SourceType_t::FileList && data_reader_type_ == DataReaderType_t::Norm) ||
+          (source_type == SourceType_t::Mmap && data_reader_type_ == DataReaderType_t::Raw))) {
+      CK_THROW_(Error_t::WrongInput, "set_source only supports FileList for Norm & Mmap for Raw");
+    }
     size_t num_workers = data_readers_.size();
     for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {
-      data_readers_[worker_id]->set_source(op(worker_id, num_workers));
+      data_readers_[worker_id]->set_source(
+          create_source(worker_id, num_workers, file_name, repeat));
     }
     if (data_reader_loop_flag_ == 0) {
       start();
     }
   }
+
+private:
+  virtual std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
+      const std::string& file_name, bool repeat) = 0;
 };
 }  // namespace HugeCTR

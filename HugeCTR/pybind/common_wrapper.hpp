@@ -55,6 +55,12 @@ void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::DataReaderType_t>(m, "DataReaderType_t")
       .value("Norm", HugeCTR::DataReaderType_t::Norm)
       .value("Raw", HugeCTR::DataReaderType_t::Raw)
+      .value("Parquet", HugeCTR::DataReaderType_t::Parquet)
+      .export_values();
+  pybind11::enum_<HugeCTR::SourceType_t>(m, "SourceType_t")
+      .value("FileList", HugeCTR::SourceType_t::FileList)
+      .value("Mmap", HugeCTR::SourceType_t::Mmap)
+      .value("Parquet", HugeCTR::SourceType_t::Parquet)
       .export_values();
   pybind11::class_<HugeCTR::DataReaderSparseParam>(m, "DataReaderSparseParam")
       .def(pybind11::init<HugeCTR::DataReaderSparse_t, int, int, int>(), pybind11::arg("type"),
