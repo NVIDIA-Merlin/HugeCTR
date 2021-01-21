@@ -8,12 +8,15 @@ stages:
   - test
 
 variables:
-  IMAGE: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel"
+  IMAGE_TRAIN: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel"
+  IMAGE_EMBEDDING: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding"
   DATASET: /lustre/fsw/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   WORK_DIR: /hugectr_ci_workdir
-  DEST_FW_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:devel_${CI_PIPELINE_ID}"
-  DEST_FW_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:devel_${CI_PIPELINE_ID}
+  TRAIN_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}"
+  TRAIN_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}
+  EMBEDDING_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:embedding_${CI_PIPELINE_ID}"
+  EMBEDDING_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:embedding_${CI_PIPELINE_ID}
 
 before_script:
   - export TMP_DIR=${CI_PROJECT_DIR}
@@ -22,26 +25,47 @@ before_script:
 
 
 ### Stage: build
-build:
+build_train:
   tags:
     - 1GPU
   stage: build
   script:
-    - export JOB_DOCKERFILE="Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
-    - echo "FROM ${IMAGE}" > ${JOB_DOCKERFILE}
+    - export JOB_DOCKERFILE="train.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
+    - echo "FROM ${IMAGE_TRAIN}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
     - echo "
       RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && mkdir build_single && cd build_single && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j && cd .. && mkdir build_multi_nccl && cd build_multi_nccl && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=\$SM ../.. && make -j && cd .. && mkdir build_multi_gossip && cd build_multi_gossip && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=\$SM ../.. && make -j && cd .. && mkdir build_inference && cd build_inference && cmake -DENABLE_TRAIN=OFF -DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j
       " >> ${JOB_DOCKERFILE}
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
-    - docker pull ${IMAGE}
+    - docker pull ${IMAGE_TRAIN}
     - docker build --pull
-                   -t "${DEST_FW_IMAGE_VERSIONED}"
+                   -t "${TRAIN_IMAGE_VERSIONED}"
                    -f "${JOB_DOCKERFILE}"
                    ${PWD}
-    - docker push "${DEST_FW_IMAGE_VERSIONED}"
+    - docker push "${TRAIN_IMAGE_VERSIONED}"
 
+build_embedding:
+  tags:
+    - 1GPU
+  stage: build
+  script:
+    - export JOB_DOCKERFILE="embedding.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
+    - echo "FROM ${IMAGE_EMBEDDING}" > ${JOB_DOCKERFILE}
+    - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
+    - echo "
+      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM -DONLY_EMB_PLUGIN=ON .. && make -j && make install
+      " >> ${JOB_DOCKERFILE}
+    - echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE}
+    - echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE}
+    - cat ${JOB_DOCKERFILE}
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker pull ${IMAGE_EMBEDDING}
+    - docker build --pull
+                   -t "${EMBEDDING_IMAGE_VERSIONED}"
+                   -f "${JOB_DOCKERFILE}"
+                   ${PWD}
+    - docker push "${EMBEDDING_IMAGE_VERSIONED}"
 
 ### Stage: test
 # unit test
@@ -50,10 +74,10 @@ unit_tests:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/hpc-hugectr/inference/:/hugectr/test/utest/
         bash -cx "
         cd ${WORK_DIR}/build/build_single/bin;
@@ -79,10 +103,10 @@ criteo:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd ${DATASET_MOUNT}/criteo;
@@ -100,10 +124,10 @@ dcn:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd /dataset/criteo_kaggle/dcn;
@@ -122,10 +146,10 @@ wdl_deepfm:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd /dataset/criteo_kaggle/wdl;
@@ -143,10 +167,10 @@ dlrm:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd /dataset/criteo_kaggle/dcn;
@@ -162,10 +186,10 @@ criteo_multinode:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=2
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -178,10 +202,10 @@ dcn_multinode:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=4
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -193,10 +217,10 @@ dcn_multinode_parquet_localized:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=2
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -208,10 +232,10 @@ dcn_multinode_parquet_distributed:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=2
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -222,11 +246,11 @@ dlrm_multinode_fp16:
   extends: .selene_job
   allow_failure: false
   stage: test
-  dependencies: 
-    - build
+  dependencies:
+    - build_train
   script:
     - srun --ntasks=4
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -238,10 +262,10 @@ dlrm_multinode_fp32:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=4
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -254,10 +278,10 @@ criteo_multinode_gossip:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=2
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -270,10 +294,10 @@ python_interface_single_node:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd /dataset/criteo_kaggle/wdl;
@@ -286,10 +310,10 @@ python_interface_single_node_model_prefetch:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd /dataset/criteo_kaggle/wdl_data_keyset;
@@ -303,10 +327,10 @@ python_interface_multi_node_nccl:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=4
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -320,10 +344,10 @@ python_interface_multi_node_gossip:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_train
   script:
     - srun --ntasks=2
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
@@ -337,10 +361,10 @@ embedding_plugin1:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_embedding
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd ${WORK_DIR}/test/embedding_plugin_test;
@@ -352,10 +376,10 @@ embedding_plugin2:
   allow_failure: false
   stage: test
   dependencies: 
-    - build
+    - build_embedding
   script:
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd ${WORK_DIR}/test/embedding_plugin_test;

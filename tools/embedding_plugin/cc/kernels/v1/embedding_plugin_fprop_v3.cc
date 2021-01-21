@@ -68,8 +68,10 @@ public:
         OP_REQUIRES_OK(ctx, ctx->allocate_output(0, shape, &forward_result));
 
         /*forward propagation*/
+        const auto& tf_stream = ctx->eigen_gpu_device().stream();
         OP_REQUIRES_OK(ctx, wrapper->fprop_v3(row_offsets_tensor, value_tensors, nnz_array,
-                                              embedding_name_string, is_training_, forward_result));
+                                              embedding_name_string, is_training_, tf_stream,
+                                              forward_result));
     }
 private:
     bool is_training_;

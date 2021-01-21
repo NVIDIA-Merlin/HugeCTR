@@ -55,11 +55,13 @@ public:
     virtual tensorflow::Status fprop_v3(const tensorflow::Tensor* row_offsets, const tensorflow::Tensor* value_tensors,
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
+                    const cudaStream_t& tf_stream,
                     tensorflow::Tensor* const forward_result) = 0;
     virtual tensorflow::Status fprop_v4(const tensorflow::Tensor* row_indices, 
                                         const tensorflow::Tensor* values,
                                         const std::string& embedding_name,
                                         const bool is_training,
+                                        const cudaStream_t& tf_stream,
                                         tensorflow::Tensor* const forward_result) = 0;
     virtual tensorflow::Status distribute_keys_gpu(const tensorflow::Tensor* row_indices,
                                                    const tensorflow::Tensor* values,
@@ -71,10 +73,9 @@ public:
     virtual tensorflow::Status get_output_tensor_shape(const std::string& embedding_name, const bool is_training,
                                                 tensorflow::TensorShape& shape) = 0;
     virtual tensorflow::Status bprop(const std::string& embedding_name, const tensorflow::Tensor* top_gradients,
-                                     const bool on_gpu) = 0;
+                                     const bool on_gpu, const cudaStream_t& tf_stream) = 0;
     virtual tensorflow::Status save(const std::string& embedding_name, const std::string& save_name) = 0;
     virtual tensorflow::Status restore(const std::string& embedding_name, const std::string& file_name) = 0;
-    virtual tensorflow::Status get_events(std::vector<cudaEvent_t>& events) = 0;
 };
 
 
@@ -165,11 +166,13 @@ public:
     tensorflow::Status fprop_v3(const tensorflow::Tensor* row_offsets, const tensorflow::Tensor* value_tensors,
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
+                    const cudaStream_t& tf_stream,
                     tensorflow::Tensor* const forward_result) override;
     tensorflow::Status fprop_v4(const tensorflow::Tensor* row_indices, 
                                 const tensorflow::Tensor* values,
                                 const std::string& embedding_name,
                                 const bool is_training,
+                                const cudaStream_t& tf_stream,
                                 tensorflow::Tensor* const forward_result) override;
     tensorflow::Status distribute_keys_gpu(const tensorflow::Tensor* row_indices,
                                             const tensorflow::Tensor* values,
@@ -182,10 +185,9 @@ public:
                                                 tensorflow::TensorShape& shape) override;
 
     tensorflow::Status bprop(const std::string& embedding_name, const tensorflow::Tensor* top_gradients,
-                             const bool on_gpu) override;
+                             const bool on_gpu, const cudaStream_t& tf_stream) override;
     tensorflow::Status save(const std::string& embedding_name, const std::string& save_name) override;
     tensorflow::Status restore(const std::string& embedding_name, const std::string& file_name) override;
-    tensorflow::Status get_events(std::vector<cudaEvent_t>& events) override;
 
     void evaluate();
     
@@ -195,7 +197,8 @@ private:
     std::shared_ptr<HugeCTR::ResourceManager> resource_manager_; 
     std::map<std::string, std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>> buffs_; // <embedding_instance_name, buff>
     std::map<std::string, std::shared_ptr<EmbeddingParams>> embedding_params_; // <embedding_instance_name, EmbeddingParams>
-    std::vector<cudaEvent_t> events_; // events for each GPU
+    std::map<std::string, std::vector<cudaEvent_t>> fprop_events_;
+    std::map<std::string, std::vector<cudaEvent_t>> bprop_events_;
     std::map<std::string, std::shared_ptr<DistributeKeysInternelSpaces>> emb_distribute_keys_internel_spaces_;
 
     using distribute_keys_gpu_func_type = tensorflow::Status(EmbeddingWrapper<TypeKey, TypeFP>::*)(
