@@ -77,7 +77,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::distribute_keys_gpu_distri
             WRAPPER_NCCL_CHECK(ncclBcast(internel_spaces->copy_input_values_[dev_id].get_ptr(),
                                          value_flat.size(),
                                          nccl_type_, 0/*root*/,
-                                         local_gpu->get_nccl(), local_gpu->get_stream()));                
+                                         local_gpu->get_nccl(), local_gpu->get_stream()));    
         } // for dev_id
         WRAPPER_NCCL_CHECK(ncclGroupEnd());
     } // if gpu_count > 1
@@ -220,7 +220,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::distribute_keys_gpu_locali
             WRAPPER_NCCL_CHECK(ncclBcast(internel_spaces->copy_input_values_[dev_id].get_ptr(),
                                          value_flat.size(),
                                          nccl_type_, 0/*root*/,
-                                         local_gpu->get_nccl(), local_gpu->get_stream()));                
+                                         local_gpu->get_nccl(), local_gpu->get_stream()));             
         } // for dev_id
         WRAPPER_NCCL_CHECK(ncclGroupEnd());
     } // if gpu_count > 1

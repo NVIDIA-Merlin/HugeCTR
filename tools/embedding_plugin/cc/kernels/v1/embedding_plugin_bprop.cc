@@ -64,14 +64,9 @@ public:
                             "There is no wrapper instance, you should call hugectr.init() first."), done);
 
         auto func = [this, ctx, embedding_name_, top_gradients, on_gpu, done]() -> void {
-            OP_REQUIRES_OK_ASYNC(ctx, wrapper->bprop(embedding_name_, top_gradients, on_gpu), done);
-
-            /*sync TF stream with wrapper stream via event*/
-            OP_REQUIRES_OK_ASYNC(ctx, wrapper->get_events(wrapper_events_), done);
             const auto& tf_stream = ctx->eigen_gpu_device().stream();
-            for (auto event : wrapper_events_) {
-                PLUGIN_CUDA_CHECK_ASYNC(ctx, cudaStreamWaitEvent(tf_stream, event, 0), done);
-            }
+            OP_REQUIRES_OK_ASYNC(ctx, wrapper->bprop(embedding_name_, top_gradients, 
+                                                    on_gpu, tf_stream), done);
             done();
         };
 

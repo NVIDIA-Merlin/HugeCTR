@@ -93,20 +93,42 @@ Item EmbeddingWrapper<TypeKey, TypeFP>::get_item_from_map(
     }
 }
 
-
-// /** This function is used to get distribute keys spaces which are created for 
-// * distributing keys to each GPU csr format.
-// */
-// template <typename TypeKey, typename TypeFP>
-// auto EmbeddingWrapper<TypeKey, TypeFP>::get_distribute_keys_spaces(const std::string& embedding_name) 
-// -> std::shared_ptr<DistributeKeysSpaces>  {
-//     auto it = distribute_keys_spaces_.find(embedding_name);
-//     if (it != distribute_keys_spaces_.end()) {
-//         return it->second;
-//     } else {
-//         return nullptr;
-//     }
-// }
+template <>
+template <>
+std::vector<cudaEvent_t> EmbeddingWrapper<long long, float>::get_item_from_map(
+    const std::map<std::string, std::vector<cudaEvent_t>>& map,
+    const std::string& map_key) {
+    auto it = map.find(map_key);
+    
+    return (it != map.end()) ? it->second : std::vector<cudaEvent_t>();
+}
+template <>
+template <>
+std::vector<cudaEvent_t> EmbeddingWrapper<long long, __half>::get_item_from_map(
+    const std::map<std::string, std::vector<cudaEvent_t>>& map,
+    const std::string& map_key) {
+    auto it = map.find(map_key);
+    
+    return (it != map.end()) ? it->second : std::vector<cudaEvent_t>();
+}
+template <>
+template <>
+std::vector<cudaEvent_t> EmbeddingWrapper<unsigned int, float>::get_item_from_map(
+    const std::map<std::string, std::vector<cudaEvent_t>>& map,
+    const std::string& map_key) {
+    auto it = map.find(map_key);
+    
+    return (it != map.end()) ? it->second : std::vector<cudaEvent_t>();
+}
+template <>
+template <>
+std::vector<cudaEvent_t> EmbeddingWrapper<unsigned int, __half>::get_item_from_map(
+    const std::map<std::string, std::vector<cudaEvent_t>>& map,
+    const std::string& map_key) {
+    auto it = map.find(map_key);
+    
+    return (it != map.end()) ? it->second : std::vector<cudaEvent_t>();
+}
 
 
 template auto EmbeddingWrapper<long long, float>::get_embedding_params(const std::string& name) 

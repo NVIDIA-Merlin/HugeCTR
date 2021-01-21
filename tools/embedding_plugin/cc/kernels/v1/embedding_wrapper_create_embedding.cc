@@ -252,6 +252,18 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(std::stri
     }
     distribute_keys_on_gpu_func_.emplace(std::make_pair(embedding_name, distribute_keys_func));
 
+    /*create cudaEvents for this embedding layer*/
+    std::vector<cudaEvent_t> fprop_events(local_gpu_count, nullptr);
+    std::vector<cudaEvent_t> bprop_events(local_gpu_count, nullptr);
+    for (size_t dev_id = 0; dev_id < local_gpu_count; ++dev_id) {
+        CudaDeviceContext context(resource_manager_->get_local_gpu(dev_id)->get_device_id());
+
+        WRAPPER_CUDA_CHECK(cudaEventCreateWithFlags(&(fprop_events[dev_id]), cudaEventDisableTiming));
+        WRAPPER_CUDA_CHECK(cudaEventCreateWithFlags(&(bprop_events[dev_id]), cudaEventDisableTiming));
+    } // for dev_id
+    fprop_events_.emplace(std::make_pair(embedding_name, std::move(fprop_events)));
+    bprop_events_.emplace(std::make_pair(embedding_name, std::move(bprop_events)));
+
     /*modify output name*/
     name = embedding_name;
     return tensorflow::Status::OK();
