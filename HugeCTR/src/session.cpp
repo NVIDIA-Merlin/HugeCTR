@@ -267,11 +267,9 @@ bool Session::eval() {
     }
 
     long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device();
+    if (!current_batchsize) return false;
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
-    }
-    if (!current_batchsize) {
-      return false;
     }
 
 #ifndef DATA_READING_TEST

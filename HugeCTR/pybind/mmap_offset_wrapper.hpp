@@ -24,9 +24,10 @@ namespace python_lib {
 void MmapOffsetPybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::MmapOffsetList, std::shared_ptr<HugeCTR::MmapOffsetList>>(
       m, "MmapOffsetList")
-      .def(pybind11::init<std::string, long long, long long, long long, bool, int>(),
+      .def(pybind11::init<std::string, long long, long long, long long, bool, int, bool>(),
            pybind11::arg("file_name"), pybind11::arg("num_samples"), pybind11::arg("stride"),
-           pybind11::arg("batchsize"), pybind11::arg("use_shuffle"), pybind11::arg("num_workers"))
+           pybind11::arg("batchsize"), pybind11::arg("use_shuffle"), pybind11::arg("num_workers"),
+           pybind11::arg("repeat"))
       .def("get_offset", &HugeCTR::MmapOffsetList::get_offset, pybind11::arg("round"),
            pybind11::arg("worker_id"));
 }

@@ -26,7 +26,6 @@
 #include <data_readers/data_reader_worker_group_norm.hpp>
 #include <data_readers/data_reader_worker_group_parquet.hpp>
 #include <data_readers/data_reader_worker_group_raw.hpp>
-#include <data_readers/file_list.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <tensor2.hpp>
@@ -68,7 +67,8 @@ class DataReader : public IDataReader {
   long long current_batchsize_;
 
   bool repeat_;
-  std::string file_list_path_;
+  std::string file_name_;
+  SourceType_t source_type_;
 
  public:
   /**
@@ -136,47 +136,45 @@ class DataReader : public IDataReader {
     return array;
   }
 
-  void create_drwg_norm(std::string file_list, Check_t check_type,
+  void create_drwg_norm(std::string file_name, Check_t check_type,
                         bool start_reading_from_beginning = true) override {
+    source_type_ = SourceType_t::FileList;
     worker_group_.reset(new DataReaderWorkerGroupNorm<TypeKey>(
-        csr_heap_, file_list, repeat_, check_type, params_, start_reading_from_beginning));
-    file_list_path_ = file_list;
+        csr_heap_, file_name, repeat_, check_type, params_, start_reading_from_beginning));
+    file_name_ = file_name;
   }
 
   void create_drwg_raw(std::string file_name, long long num_samples,
                        const std::vector<long long> slot_offset, bool float_label_dense,
                        bool data_shuffle = false,
                        bool start_reading_from_beginning = true) override {
+    source_type_ = SourceType_t::Mmap;
     worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
-        csr_heap_, file_name, num_samples, params_, slot_offset, label_dim_, dense_dim_, batchsize_,
-        float_label_dense, data_shuffle, start_reading_from_beginning));
+        csr_heap_, file_name, num_samples, repeat_, params_, slot_offset, label_dim_, dense_dim_,
+        batchsize_, float_label_dense, data_shuffle, start_reading_from_beginning));
   }
 
-  void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
+  void create_drwg_parquet(std::string file_name, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
+    source_type_ = SourceType_t::Parquet;
     // worker_group_.empty
-    worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(csr_heap_, file_list, params_,
-                                                                  slot_offset, resource_manager_,
-                                                                  start_reading_from_beginning));
+    worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
+          csr_heap_, file_name, params_, slot_offset, resource_manager_,
+          start_reading_from_beginning));
   }
 
-  void set_file_list_source(std::string file_list = std::string()) override {
-    // TODO: if the underlying workers are for Parquet, throw the exception
+  void set_source(std::string file_name = std::string()) override {
     try {
       if (worker_group_ != nullptr) {
-        if (file_list.empty()) {
-          if (file_list_path_.empty()) {
-            throw internal_runtime_error(Error_t::NotInitialized, "invalid file_list path");
+        if (file_name.empty()) {
+          if (file_name_.empty()) {
+            throw internal_runtime_error(Error_t::NotInitialized, "invalid file_name");
           } else {
-            file_list = file_list_path_;
+            file_name = file_name_;
           }
         }
-        bool repeat = repeat_;
-        auto op = [file_list, repeat](int worker_id, int num_workers) {
-          return std::shared_ptr<Source>(new FileSource(worker_id, num_workers, file_list, repeat));
-        };
         csr_heap_->reset();
-        worker_group_->set_source(op);
+        worker_group_->set_source(source_type_, file_name, repeat_);
       } else {
         throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
       }
