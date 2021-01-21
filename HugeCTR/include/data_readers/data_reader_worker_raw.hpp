@@ -41,8 +41,22 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   const int label_dim_{1};
   const bool float_label_dense_;
 
-  void read_new_file() { source_->next_source(); }
+  void read_new_file() {
+    Error_t flag = source_->next_source();
+    if (flag == Error_t::EndOfFile) {
+      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+    }
+  }
   //  std::vector<int> data_buffer_; /**< data buffer with size of full batchsize*/
+
+  std::condition_variable eof_cv_;
+  std::mutex eof_mtx_;
+
+  void post_set_source() override {
+    eof_cv_.notify_all();
+    is_eof_ = false;
+  }
+
  public:
   /**
    * Ctor
@@ -50,7 +64,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   DataReaderWorkerRaw(unsigned int worker_id, unsigned int worker_num,
                       std::shared_ptr<MmapOffsetList>& file_offset_list,
                       const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
-                      const std::string& file_name,
+                      bool repeat,
                       const std::vector<DataReaderSparseParam>& params,
                       const std::vector<long long>& slot_offset, int label_dim,
                       bool float_label_dense)
@@ -74,6 +88,10 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
     feature_ids_ = new int[slots_]();
 
     source_ = std::make_shared<MmapSource>(file_offset_list, worker_id);
+
+    if (!repeat) {
+      is_eof_ = true;
+    }
   }
   /**
    * read a batch of data from data set to heap.
@@ -83,7 +101,10 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   /**
    * skip data reading in read_a_batch()
    */
-  void skip_read() { skip_read_ = true; }
+  void skip_read() {
+    skip_read_ = true;
+    eof_cv_.notify_all();
+  }
 };
 
 template <class T>
@@ -213,6 +234,19 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
       csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
     }
     csr_heap_->commit_data_chunk(worker_id_, false);
+  } catch (const internal_runtime_error& rt_err) {
+    Error_t err = rt_err.get_error();
+    if (err == Error_t::EndOfFile) {
+      // push nop to singal to DataCollector that it is the EOF
+      csr_heap_->commit_data_chunk(worker_id_, true);
+      is_eof_ = true;
+      std::unique_lock<std::mutex> lock(eof_mtx_);
+      // wait for the new source is set
+      eof_cv_.wait(lock);
+    } else {
+      std::cerr << rt_err.what() << std::endl;
+      throw;
+    }
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;

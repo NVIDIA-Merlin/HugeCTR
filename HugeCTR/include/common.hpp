@@ -69,6 +69,8 @@ enum class DataReaderSparse_t { Distributed, Localized };
 
 enum class DataReaderType_t { Norm, Raw, Parquet };
 
+enum class SourceType_t { FileList, Mmap, Parquet };
+
 struct DataReaderSparseParam {
   DataReaderSparse_t type;
   int max_feature_num;

@@ -24,6 +24,12 @@ namespace HugeCTR {
 template <typename TypeKey>
 class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
   std::string file_list_; /**< file list of data set */
+
+  std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
+      const std::string& file_name, bool repeat) override {
+    return std::make_shared<FileSource>(worker_id, num_worker, file_name, repeat);
+  }
+
  public:
   // Ctor
   DataReaderWorkerGroupNorm(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap,
@@ -32,7 +38,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
                             Check_t check_type,
                             const std::vector<DataReaderSparseParam> params,
                             bool start_reading_from_beginning = true)
-      : DataReaderWorkerGroup(start_reading_from_beginning) {
+      : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Norm) {
     if (file_list.empty()) {
       CK_THROW_(Error_t::WrongInput, "file_name.empty()");
     }
