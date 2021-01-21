@@ -19,10 +19,10 @@
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
-#include "embedding_utils.hpp"
+#include "../v1/embedding_utils.hpp"
 
 namespace HugeCTR {
-namespace Version1 {
+namespace Version2 {
 
 /*create an instance of distribute_keys_space*/
 template <typename TypeKey, typename TypeFP>
@@ -82,23 +82,18 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::DistributeKeysInternelSpac
         temp_spaces->dev_slot_num_[dev_id] = dev_slot_num;
 
         try{
-            std::shared_ptr<HugeCTR::BufferBlock2<bool>> bool_block = temp_spaces->internel_buff_[dev_id]->template create_block<bool>();
-            std::shared_ptr<HugeCTR::BufferBlock2<TypeKey>> TypeKey_block = temp_spaces->internel_buff_[dev_id]->template create_block<TypeKey>();
-            std::shared_ptr<HugeCTR::BufferBlock2<int>> int_block = temp_spaces->internel_buff_[dev_id]->template create_block<int>();
-            std::shared_ptr<HugeCTR::BufferBlock2<long long>> longlong_block = temp_spaces->internel_buff_[dev_id]->template create_block<long long>();
-
             /*register memory space*/
             std::vector<size_t> binary_flags_dims = {1, big_batch_size * slot_num * max_nnz};
-            bool_block->reserve(binary_flags_dims, 
-                                &(temp_spaces->binary_flags_[dev_id]));
+            temp_spaces->internel_buff_[dev_id]->reserve(binary_flags_dims, 
+                                    &(temp_spaces->binary_flags_[dev_id]));
 
             std::vector<size_t> cub_coo_indices_output_dims = {1, big_batch_size * dev_slot_num * max_nnz};
-            int_block->reserve(cub_coo_indices_output_dims,
-                                &(temp_spaces->cub_coo_indices_output_[dev_id]));
+            temp_spaces->internel_buff_[dev_id]->reserve(cub_coo_indices_output_dims,
+                                    &(temp_spaces->cub_coo_indices_output_[dev_id]));
 
             std::vector<size_t> cub_values_output_dims = {1, big_batch_size * dev_slot_num * max_nnz};
-            TypeKey_block->reserve(cub_values_output_dims,
-                                &(temp_spaces->cub_values_output_[dev_id]));
+            temp_spaces->internel_buff_[dev_id]->reserve(cub_values_output_dims,
+                                    &(temp_spaces->cub_values_output_[dev_id]));
 
             WRAPPER_CUDA_CHECK(cudaMallocHost(&(temp_spaces->cub_host_num_selected_[dev_id]), sizeof(size_t) * 1));
             WRAPPER_CUDA_CHECK(cudaMalloc(&(temp_spaces->cub_dev_num_selected_[dev_id]), sizeof(size_t) * 1));
@@ -107,20 +102,20 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::DistributeKeysInternelSpac
             WRAPPER_CUSPARSE_CHECK(cusparseSetStream(temp_spaces->cusparse_handles_[dev_id], local_gpu->get_stream()));
 
             std::vector<size_t> cusparse_csr_row_offsets_output_dims = {1, big_batch_size * dev_slot_num + 1};
-            int_block->reserve(cusparse_csr_row_offsets_output_dims,
-                                &(temp_spaces->cusparse_csr_row_offsets_output_[dev_id]));
+            temp_spaces->internel_buff_[dev_id]->reserve(cusparse_csr_row_offsets_output_dims,
+                                    &(temp_spaces->cusparse_csr_row_offsets_output_[dev_id]));
 
             std::vector<size_t> csr_row_offsets_cast_dims = {1, big_batch_size * dev_slot_num + 1}; 
-            TypeKey_block->reserve(csr_row_offsets_cast_dims,
-                                &(temp_spaces->csr_row_offsets_cast_[dev_id]));
+            temp_spaces->internel_buff_[dev_id]->reserve(csr_row_offsets_cast_dims,
+                                    &(temp_spaces->csr_row_offsets_cast_[dev_id]));
                             
             std::vector<size_t> copy_input_row_indices_dims = {1, big_batch_size * slot_num * max_nnz};
-            longlong_block->reserve(copy_input_row_indices_dims,
-                                &(temp_spaces->copy_input_row_indices_[dev_id]));
+            temp_spaces->internel_buff_[dev_id]->reserve(copy_input_row_indices_dims,
+                                    &(temp_spaces->copy_input_row_indices_[dev_id]));
 
             std::vector<size_t> copy_input_values_dims = {1, big_batch_size * slot_num * max_nnz};
-            TypeKey_block->reserve(copy_input_values_dims,
-                                &(temp_spaces->copy_input_values_[dev_id]));
+            temp_spaces->internel_buff_[dev_id]->reserve(copy_input_values_dims,
+                                    &(temp_spaces->copy_input_values_[dev_id]));
 
             /*do allocate GPU memory*/
             temp_spaces->internel_buff_[dev_id]->allocate();
@@ -205,5 +200,5 @@ template class EmbeddingWrapper<long long, __half>::DistributeKeysInternelSpaces
 template class EmbeddingWrapper<unsigned int, float>::DistributeKeysInternelSpaces;
 template class EmbeddingWrapper<unsigned int, __half>::DistributeKeysInternelSpaces;
 
-} // namespace Version1
+} // namespace Version2
 } // namespace HugeCTR

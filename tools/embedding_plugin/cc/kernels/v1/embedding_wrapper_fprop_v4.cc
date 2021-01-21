@@ -34,6 +34,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::fprop_v4(
                                 const tensorflow::Tensor* values,
                                 const std::string& embedding_name,
                                 const bool is_training,
+                                const cudaStream_t& tf_stream,
                                 tensorflow::Tensor* const forward_result) {
     /*get input space*/
     std::string input_space_name = embedding_name;
@@ -96,7 +97,6 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::fprop_v4(
         embedding->forward(is_training);
 
         /*get forward results*/
-        /*TODO: replace cudaStreamSynchronize with eventRecord.*/
         if (std::is_same<TypeFP, float>::value) {
             embedding->get_forward_results_tf(is_training, true, reinterpret_cast<void*>(forward_result->flat<float>().data()));
         } else if (std::is_same<TypeFP, __half>::value) {
@@ -104,18 +104,30 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::fprop_v4(
         } else {
             return tensorflow::errors::Unimplemented(__FILE__, ":", __LINE__, " TypeFP should be {float, __half}.");
         }
+
     } catch (const HugeCTR::internal_runtime_error& rt_error) {
         return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ", rt_error.what());
     }
 
-    /*stream synchronize*/
+    /*record cudaEvent on each stream*/
+    std::vector<cudaEvent_t> fprop_events = get_item_from_map(fprop_events_, embedding_name);
+    if (fprop_events.empty()) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
+            "Cannot find fprop cudaEvent_t for embedding: ", embedding_name);
     for (size_t dev_id = 0; dev_id < resource_manager_->get_local_gpu_count(); ++dev_id){
       CudaDeviceContext context;
       const auto& local_gpu = resource_manager_->get_local_gpu(dev_id);
       context.set_device(local_gpu->get_device_id());
 
-      WRAPPER_CUDA_CHECK(cudaStreamSynchronize(local_gpu->get_stream()));
-    } // for dev_id
+      WRAPPER_CUDA_CHECK(cudaEventRecord(fprop_events[dev_id], local_gpu->get_stream()));
+    }
+    /*synchronize tf stream with cuda stream*/
+    for (size_t dev_id = 0; dev_id < resource_manager_->get_local_gpu_count(); ++dev_id){
+      CudaDeviceContext context;
+      const auto& local_gpu = resource_manager_->get_local_gpu(dev_id);
+      context.set_device(local_gpu->get_device_id());
+
+      WRAPPER_CUDA_CHECK(cudaStreamWaitEvent(tf_stream, fprop_events[dev_id], 0));
+    }
 
     return tensorflow::Status::OK();
 }
@@ -126,24 +138,28 @@ template tensorflow::Status EmbeddingWrapper<long long, float>::fprop_v4(
                                 const tensorflow::Tensor* values,
                                 const std::string& embedding_name,
                                 const bool is_training,
+                                const cudaStream_t& tf_stream,
                                 tensorflow::Tensor* const forward_result);
 template tensorflow::Status EmbeddingWrapper<long long, __half>::fprop_v4(
                                 const tensorflow::Tensor* row_indices, 
                                 const tensorflow::Tensor* values,
                                 const std::string& embedding_name,
                                 const bool is_training,
+                                const cudaStream_t& tf_stream,
                                 tensorflow::Tensor* const forward_result);
 template tensorflow::Status EmbeddingWrapper<unsigned int, float>::fprop_v4(
                                 const tensorflow::Tensor* row_indices, 
                                 const tensorflow::Tensor* values,
                                 const std::string& embedding_name,
                                 const bool is_training,
+                                const cudaStream_t& tf_stream,
                                 tensorflow::Tensor* const forward_result);
 template tensorflow::Status EmbeddingWrapper<unsigned int, __half>::fprop_v4(
                                 const tensorflow::Tensor* row_indices, 
                                 const tensorflow::Tensor* values,
                                 const std::string& embedding_name,
                                 const bool is_training,
+                                const cudaStream_t& tf_stream,
                                 tensorflow::Tensor* const forward_result);
 
 } // namespace Version1
