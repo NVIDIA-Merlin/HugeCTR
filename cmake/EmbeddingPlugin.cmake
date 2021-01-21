@@ -13,38 +13,8 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
-project(HugeCTR LANGUAGES CXX CUDA)
-
-option(ONLY_EMB_PLUGIN, "Only build embedding plugin" OFF)
-if (ONLY_EMB_PLUGIN)
-  message("-- Please be noted that only embedding plugin will be built.")
-  include(${PROJECT_SOURCE_DIR}/cmake/EmbeddingPlugin.cmake)
-  return()
-endif()
-
 set(CMAKE_CXX_STANDARD 14)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
-
-option(CLANGFORMAT "Setup clangformat target" OFF)
-if(CLANGFORMAT)
-  include(ClangFormat)
-
-  file(GLOB_RECURSE HUGECTR_SRC
-    ${PROJECT_SOURCE_DIR}/HugeCTR/*.hpp
-    ${PROJECT_SOURCE_DIR}/HugeCTR/*.cpp
-    ${PROJECT_SOURCE_DIR}/HugeCTR/*.cu
-    ${PROJECT_SOURCE_DIR}/HugeCTR/*.cuh
-    ${PROJECT_SOURCE_DIR}/utest/*.hpp
-    ${PROJECT_SOURCE_DIR}/utest/*.cpp
-    ${PROJECT_SOURCE_DIR}/utest/*.cu
-    ${PROJECT_SOURCE_DIR}/utest/*.cuh
-  )
-
-  set(clangformat_srcs ${HUGECTR_SRC})
-  clangformat_setup("${clangformat_srcs}")
-endif()
-
 
 option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" ON)
 if (NCCL_A2A) 
@@ -76,8 +46,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
-
-set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 option(VAL_MODE "Validation mode: set determined mode for data reader and csv format for loss print" OFF)
 if (VAL_MODE) 
@@ -130,7 +98,6 @@ configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOU
 # building
 include_directories(
   ${PROJECT_SOURCE_DIR}
-  ${PROJECT_SOURCE_DIR}/test
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${CUDA_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/third_party/cutlass
@@ -138,18 +105,14 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/include
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/src_prims
   ${PROJECT_SOURCE_DIR}/HugeCTR
-  ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
   ${PROJECT_SOURCE_DIR}/third_party/cub
-  ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
-  ${PROJECT_SOURCE_DIR}/third_party/json/single_include
 
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
   ${UCX_INC_PATHS}
-  $ENV{CONDA_PREFIX}/include
-  $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx)
+  $ENV{CONDA_PREFIX}/include)
 
 if(ENABLE_MULTINODES)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_MPI")
@@ -174,23 +137,8 @@ link_directories(
   ${UCX_LIB_PATHS}
   $ENV{CONDA_PREFIX}/lib)
 
-#setting binary files install path
-install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 #setting python interface file install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local/hugectr)
-add_subdirectory(third_party/json)
 
-option(ENABLE_TRAIN "Enable Train" ON)
-if(ENABLE_TRAIN)
-add_subdirectory(HugeCTR/src)
-add_subdirectory(third_party/googletest)
-add_subdirectory(test/utest)
-add_subdirectory(tools)
-endif()
 
-option(ENABLE_INFERENCE "Enable Inference" OFF)
-if(ENABLE_INFERENCE)
-add_subdirectory(third_party/googletest)
-add_subdirectory(HugeCTR/src/inference)
-add_subdirectory(test/utest/inference)
-endif()
+add_subdirectory(tools/embedding_plugin)

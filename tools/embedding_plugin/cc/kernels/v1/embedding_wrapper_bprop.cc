@@ -29,7 +29,8 @@ namespace Version1 {
 template <typename TypeKey, typename TypeFP>
 tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::bprop(const std::string& embedding_name, 
                                                             const tensorflow::Tensor* top_gradients,
-                                                            const bool on_gpu) {
+                                                            const bool on_gpu,
+                                                            const cudaStream_t& tf_stream) {
     /*get embedding instance*/
     std::shared_ptr<IEmbedding> embedding = get_embedding(embedding_name);
     if (!embedding) return tensorflow::errors::NotFound(__FILE__, ": ", __LINE__, " Not found ", embedding_name);
@@ -50,11 +51,21 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::bprop(const std::string& e
     embedding->update_params();
 
     /*record event on each GPU*/
+    std::vector<cudaEvent_t> bprop_events = get_item_from_map(bprop_events_, embedding_name);
+    if (bprop_events.empty()) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
+            "Cannot find backward cudaEvent_t for embedding: ", embedding_name);
     for (size_t dev_id = 0; dev_id < resource_manager_->get_local_gpu_count(); ++dev_id) {
         const auto& local_gpu = resource_manager_->get_local_gpu(dev_id);
         CudaDeviceContext context(local_gpu->get_device_id());
 
-        WRAPPER_CUDA_CHECK(cudaEventRecord(events_[dev_id], local_gpu->get_stream()));
+        WRAPPER_CUDA_CHECK(cudaEventRecord(bprop_events[dev_id], local_gpu->get_stream()));
+    }
+    /*synchronize tf stream with cuda stream*/
+    for (size_t dev_id = 0; dev_id < resource_manager_->get_local_gpu_count(); ++dev_id) {
+        const auto& local_gpu = resource_manager_->get_local_gpu(dev_id);
+        CudaDeviceContext context(local_gpu->get_device_id());
+
+        WRAPPER_CUDA_CHECK(cudaStreamWaitEvent(tf_stream, bprop_events[dev_id], 0));
     }
 
     return tensorflow::Status::OK();
@@ -62,16 +73,16 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::bprop(const std::string& e
 
 template tensorflow::Status EmbeddingWrapper<long long, float>::bprop(
                     const std::string& embedding_name, const tensorflow::Tensor* top_gradients,
-                    const bool on_gpu);
+                    const bool on_gpu, const cudaStream_t& tf_stream);
 template tensorflow::Status EmbeddingWrapper<long long, __half>::bprop(
                     const std::string& embedding_name, const tensorflow::Tensor* top_gradients,
-                    const bool on_gpu);
+                    const bool on_gpu, const cudaStream_t& tf_stream);
 template tensorflow::Status EmbeddingWrapper<unsigned int, float>::bprop(
                     const std::string& embedding_name, const tensorflow::Tensor* top_gradients,
-                    const bool on_gpu);
+                    const bool on_gpu, const cudaStream_t& tf_stream);
 template tensorflow::Status EmbeddingWrapper<unsigned int, __half>::bprop(
                     const std::string& embedding_name, const tensorflow::Tensor* top_gradients,
-                    const bool on_gpu);
+                    const bool on_gpu, const cudaStream_t& tf_stream);
                     
 } // namespace Version1
 } // HugeCTR

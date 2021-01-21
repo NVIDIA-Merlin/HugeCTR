@@ -33,6 +33,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::fprop_v3(const tensorflow:
                     const tensorflow::Tensor* value_tensors,
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
+                    const cudaStream_t& tf_stream,
                     tensorflow::Tensor* const forward_result) {
     tensorflow::Status status;
 
@@ -60,9 +61,12 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::fprop_v3(const tensorflow:
     HugeCTR::CudaDeviceContext context;
     std::unique_ptr<long long []> host_nnz_array(new long long[gpu_count]());
     auto nnz_array_flat = nnz_array->flat<TypeKey>();
-    WRAPPER_CUDA_CHECK(cudaMemcpy(host_nnz_array.get(), nnz_array_flat.data(),
+    /*register it as pinned memory*/
+    WRAPPER_CUDA_CHECK(cudaHostRegister(host_nnz_array.get(), sizeof(long long) * gpu_count, cudaHostRegisterDefault));
+    WRAPPER_CUDA_CHECK(cudaMemcpyAsync(host_nnz_array.get(), nnz_array_flat.data(),
                                 sizeof(long long) * nnz_array_flat.size(),
-                                cudaMemcpyDeviceToHost));
+                                cudaMemcpyDeviceToHost,
+                                tf_stream)); // TODO: use pinned memory??
 
     auto row_offsets_flat = row_offsets->flat<TypeKey>();
     auto value_tensors_flat = value_tensors->flat<TypeKey>();
@@ -107,6 +111,28 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::fprop_v3(const tensorflow:
         return tensorflow::errors::Unimplemented(__FILE__, ":", __LINE__, " TypeFP should be {float, __half}.");
     }
 
+    /*record cudaEvent on each stream*/
+    std::vector<cudaEvent_t> fprop_events = get_item_from_map(fprop_events_, embedding_name);
+    if (fprop_events.empty()) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
+                "Cannot find fprop cudaEvent_t for embedding: ", embedding_name);
+    for (size_t dev_id = 0; dev_id < gpu_count; ++dev_id) {
+        auto& local_gpu = resource_manager_->get_local_gpu(dev_id);
+        context.set_device(local_gpu->get_device_id());
+
+        WRAPPER_CUDA_CHECK(cudaEventRecord(fprop_events[dev_id], local_gpu->get_stream()));
+    }
+
+    /*synchronize with tf stream*/
+    for (size_t dev_id = 0; dev_id < gpu_count; ++dev_id) {
+        auto& local_gpu = resource_manager_->get_local_gpu(dev_id);
+        context.set_device(local_gpu->get_device_id());
+
+        WRAPPER_CUDA_CHECK(cudaStreamWaitEvent(tf_stream, fprop_events[dev_id], 0));
+    }
+
+    /*unregister pinned memory*/
+    WRAPPER_CUDA_CHECK(cudaHostUnregister(host_nnz_array.get()));
+
     return tensorflow::Status::OK();
 }
 
@@ -115,24 +141,28 @@ template tensorflow::Status EmbeddingWrapper<long long, float>::fprop_v3(
                     const tensorflow::Tensor* value_tensors,
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
+                    const cudaStream_t& tf_stream,
                     tensorflow::Tensor* const forward_result);
 template tensorflow::Status EmbeddingWrapper<long long, __half>::fprop_v3(
                     const tensorflow::Tensor* row_offsets, 
                     const tensorflow::Tensor* value_tensors,
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
+                    const cudaStream_t& tf_stream,
                     tensorflow::Tensor* const forward_result);
 template tensorflow::Status EmbeddingWrapper<unsigned int, float>::fprop_v3(
                     const tensorflow::Tensor* row_offsets, 
                     const tensorflow::Tensor* value_tensors,
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
+                    const cudaStream_t& tf_stream,
                     tensorflow::Tensor* const forward_result);
 template tensorflow::Status EmbeddingWrapper<unsigned int, __half>::fprop_v3(
                     const tensorflow::Tensor* row_offsets, 
                     const tensorflow::Tensor* value_tensors,
                     const tensorflow::Tensor* nnz_array,
                     const std::string& embedding_name, const bool is_training,
+                    const cudaStream_t& tf_stream,
                     tensorflow::Tensor* const forward_result);
 
 } // namespace Version1
