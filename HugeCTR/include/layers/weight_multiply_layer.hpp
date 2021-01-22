@@ -25,13 +25,13 @@ namespace HugeCTR {
  * Layer which does element-wise product by input tensor X and weight W.
  * The input tensor X has dimention: [batch_size, slot_num], while
  * the input weight W has dimention: [slot_num, embedding_vec_size].
- * The MultiplyLayer will broadcast the value of W to "batch_size" dim
+ * The WeightMultiplyLayer will broadcast the value of W to "batch_size" dim
  * and broadcast the value of X to embedding_vec_size dim automatically
  * when doing element-wise product with X. So, the output tensor has
  * the dimention: [batch_size, slot_num*embedding_vec_size].
  */
 template <typename T>
-class MultiplyLayer : public Layer {
+class WeightMultiplyLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
@@ -51,27 +51,27 @@ class MultiplyLayer : public Layer {
 
  public:
   /**
-   * Ctor of MultiplyLayer.
+   * Ctor of WeightMultiplyLayer.
    * @param in_tensor the input tensor
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  MultiplyLayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
-                const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
+  WeightMultiplyLayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+                      const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                 const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                 const std::vector<size_t>& weight_dims,
                 const std::shared_ptr<GPUResource>& gpu_resource,
                 std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
-  ~MultiplyLayer() override{};
+  ~WeightMultiplyLayer() override{};
 
   /**
-   * MultiplyLayer's foward propagation to do element-wise production
+   * WeightMultiplyLayer's foward propagation to do element-wise production
    * @param stream CUDA stream where the foward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
-   * MultiplyLayer's backward propagation
+   * WeightMultiplyLayer's backward propagation
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop() override;

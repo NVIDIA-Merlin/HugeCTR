@@ -100,25 +100,25 @@
     },
     
     {
-      "name": "multiply1",
-      "type": "Multiply",
+      "name": "weight_multiply1",
+      "type": "WeightMultiply",
       "bottom": "slice21",
       "weight_dims": [13, 10],
-      "top": "multiply1"
+      "top": "weight_multiply1"
     },
 
     {
-      "name": "multiply2",
-      "type": "Multiply",
+      "name": "weight_multiply2",
+      "type": "WeightMultiply",
       "bottom": "slice22",
       "weight_dims": [13, 1],
-      "top": "multiply2"
+      "top": "weight_multiply2"
     },
 
     {
       "name": "concat1",
       "type": "Concat",
-      "bottom": ["reshape2","multiply1"],
+      "bottom": ["reshape2","weight_multiply1"],
       "top": "concat1"
     },
     
@@ -236,7 +236,7 @@
     {
       "name": "concat2",
       "type": "Concat",
-      "bottom": ["reshape3","multiply2"],
+      "bottom": ["reshape3","weight_multiply2"],
       "top": "concat2"
     },
 

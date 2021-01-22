@@ -131,7 +131,7 @@ enum class Layer_t {
   ReLUHalf,
   Sigmoid,
   Slice,
-  Multiply,
+  WeightMultiply,
   FmOrder2,
   Add,
   ReduceSum,
