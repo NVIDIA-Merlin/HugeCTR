@@ -29,7 +29,7 @@
 #include <layers/fused_fully_connected_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
-#include <layers/multiply_layer.hpp>
+#include <layers/weight_multiply_layer.hpp>
 #include <layers/reduce_sum_layer.hpp>
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
@@ -723,7 +723,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         }
         break;
       }
-      case Layer_t::Multiply: {
+      case Layer_t::WeightMultiply: {
         std::vector<size_t> weight_dims;
         auto dims = get_json(j, "weight_dims");
         assert(dims.is_array());
@@ -747,15 +747,15 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> out_tensor;
           layers.emplace_back(
-              new MultiplyLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
-                                        out_tensor, weight_dims, gpu_resource, initializer_types));
+              new WeightMultiplyLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
+                                              out_tensor, weight_dims, gpu_resource, initializer_types));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
-          layers.emplace_back(new MultiplyLayer<float>(weight_buff, wgrad_buff, blobs_buff,
-                                                       in_tensor, out_tensor, weight_dims,
-                                                       gpu_resource, initializer_types));
+          layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, wgrad_buff, blobs_buff,
+                                                             in_tensor, out_tensor, weight_dims,
+                                                             gpu_resource, initializer_types));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;
