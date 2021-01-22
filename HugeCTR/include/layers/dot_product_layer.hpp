@@ -26,16 +26,17 @@ namespace HugeCTR {
  * Layer which does element-wise dot product by input tensors.
  * All the input tensors should have the same shape.
  */
+template <typename T>
 class DotProductLayer : public Layer {
  public:
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<float> in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  Tensors2<float> out_tensors_;
+  Tensors2<T> out_tensors_;
 
   /**
    * Ctor of DotProductLayer.
@@ -43,7 +44,7 @@ class DotProductLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  DotProductLayer(const Tensors2<float>& in_tensors, const Tensor2<float>& out_tensor,
+  DotProductLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                   const std::shared_ptr<GPUResource>& gpu_resource);
 
@@ -63,10 +64,10 @@ class DotProductLayer : public Layer {
  private:
   int size_;
   size_t num_;
-  Tensor2<float*> h_inputs_;
-  Tensor2<float*> d_inputs_;
+  Tensor2<T*> h_inputs_;
+  Tensor2<T*> d_inputs_;
   bool initialized_{false};
-  Tensor2<float> fprop_output_;
+  Tensor2<T> fprop_output_;
 };
 
 }  // namespace HugeCTR
