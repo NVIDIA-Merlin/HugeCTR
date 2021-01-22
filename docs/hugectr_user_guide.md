@@ -1,7 +1,7 @@
 HugeCTR User Guide
-===================================
+==================
 
-HugeCTR, a component of [**NVIDIA Merlin Open Beta**](https://developer.nvidia.com/nvidia-merlin#getstarted), is a GPU-accelerated framework. It was designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/).
+HugeCTR is a GPU-accelerated framework that was designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin#getstarted), which is used for building large-scale deep learning recommender systems.
 
 <div align=center><img src ="user_guide_src/merlin_arch.png"/></div>
 <div align=center>Fig. 1: Merlin Architecture</div>
@@ -37,7 +37,7 @@ Embedding initialization is not required before training since the input trainin
 ## Table of Contents
 * [Installing and Building HugeCTR](#installing-and-building-hugectr)
 * [Use Cases](#use-cases)
-* [Supported Features](#hugectr-features)
+* [Core Features](#core-features)
 * [Tools](#tools)
 
 ## Installing and Building HugeCTR ##
@@ -79,7 +79,6 @@ You can pull and launch the container by running the following command:
 ```
 docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v2.3  # Start interaction mode
 ```
-When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks in a synchronous manner.
 
 ### Building HugeCTR from Scratch
 Before building HugeCTR from scratch, you should download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
@@ -127,8 +126,8 @@ $ huge_ctr --train <config>.json
 
 You'll need to create a configuration file in order to train with one-hot and multi-hot data. To load a particular snapshot, modify the `dense_model_file` and `sparse_model_file` files within the solver clause for that snapshot. For additional information, see [Configuration File Setup](docs/configuration_file_setup.md) and [samples](../samples).
 
-## Supported Features ##
-In addition to single node and full precision training, HugeCTR supports the following features:
+## Core Features ##
+In addition to single node and full precision training, HugeCTR supports a variety of features including the following:
 * [multi-node training](#multi-node-training)
 * [mixed precision training](#mixed-precision-training)
 * [SGD optimizer and learning rate scheduling](#sgd-optimizer-and-learning-rate-scheduling)
