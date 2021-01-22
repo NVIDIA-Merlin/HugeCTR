@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <include/utils.cuh>
 #include <layers/element_wise_function.hpp>
 #include <layers/elu_layer.hpp>
 #include <linalg/binary_op.cuh>
@@ -27,8 +28,9 @@
 
 namespace HugeCTR {
 
-EluLayer::EluLayer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor, float alpha,
-                   const std::shared_ptr<GPUResource>& gpu_resource)
+template <typename T>
+EluLayer<T>::EluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, T alpha,
+                      const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource), alpha_(alpha) {
   assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
 
@@ -36,36 +38,80 @@ EluLayer::EluLayer(const Tensor2<float>& in_tensor, const Tensor2<float>& out_te
   out_tensors_.push_back(out_tensor);
 }
 
-void EluLayer::fprop(bool is_train) {
+template <typename T>
+void EluLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  const Tensor2<float>& in_tensor = in_tensors_[0];
-  Tensor2<float>& out_tensor = out_tensors_[0];
+  const Tensor2<T>& in_tensor = in_tensors_[0];
+  Tensor2<T>& out_tensor = out_tensors_[0];
 
   const int len = in_tensor.get_num_elements();
 
-  float alpha = alpha_;
-  auto fop = [alpha] __device__(float in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
+  T alpha = alpha_;
+  auto fop = [alpha] __device__(T in) { return (in < 0) ? alpha * (expf(in) - 1) : in; };
 
   MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len, fop,
                             get_gpu().get_stream());
 }
 
-void EluLayer::bprop() {
+template <typename T>
+void EluLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  Tensor2<float>& in_tensor = in_tensors_[0];
-  const Tensor2<float>& out_tensor = out_tensors_[0];
+  Tensor2<T>& in_tensor = in_tensors_[0];
+  const Tensor2<T>& out_tensor = out_tensors_[0];
 
   const int len = in_tensor.get_num_elements();
 
-  float alpha = alpha_;
-  auto bop = [alpha] __device__(float d_out, float d_in) {
+  T alpha = alpha_;
+  auto bop = [alpha] __device__(T d_out, T d_in) {
     return (d_in < 0) ? alpha * expf(d_in) * d_out : d_out;
   };
 
   MLCommon::LinAlg::binaryOp(in_tensor.get_ptr(), out_tensor.get_ptr(), in_tensor.get_ptr(), len,
                              bop, get_gpu().get_stream());
 }
+
+template <>
+void EluLayer<__half>::fprop(bool is_train) {
+  CudaDeviceContext context(get_device_id());
+
+  const Tensor2<__half>& in_tensor = in_tensors_[0];
+  Tensor2<__half>& out_tensor = out_tensors_[0];
+
+  const int len = in_tensor.get_num_elements();
+
+  __half alpha = alpha_;
+  const __half zero = __float2half(0.f);
+  const __half one = __float2half(1.f);
+  auto fop = [alpha, zero, one] __device__(__half in) {
+    return (in < zero) ? alpha * (hexp(in) - one) : in;
+  };
+
+  MLCommon::LinAlg::unaryOp(out_tensor.get_ptr(), in_tensor.get_ptr(), len, fop,
+                            get_gpu().get_stream());
+}
+
+template <>
+void EluLayer<__half>::bprop() {
+  CudaDeviceContext context(get_device_id());
+
+  Tensor2<__half>& in_tensor = in_tensors_[0];
+  const Tensor2<__half>& out_tensor = out_tensors_[0];
+
+  const int len = in_tensor.get_num_elements();
+
+  __half alpha = alpha_;
+  const __half zero = __float2half(0.f);
+  auto bop = [alpha, zero] __device__(__half d_out, __half d_in) {
+    return (d_in < zero) ? alpha * hexp(d_in) * d_out : d_out;
+  };
+
+  MLCommon::LinAlg::binaryOp(in_tensor.get_ptr(), out_tensor.get_ptr(), in_tensor.get_ptr(), len,
+                             bop, get_gpu().get_stream());
+}
+
+template class EluLayer<float>;
+template class EluLayer<__half>;
 
 }  // namespace HugeCTR

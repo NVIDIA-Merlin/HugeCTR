@@ -20,7 +20,7 @@
 
 namespace HugeCTR {
 
-FullyConnectedLayerHalf::FullyConnectedLayerHalf(
+FullyConnectedLayer<__half>::FullyConnectedLayer(
     const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
     const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
     const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
@@ -84,7 +84,7 @@ FullyConnectedLayerHalf::FullyConnectedLayerHalf(
   top_tensor_ = top_tensor;
 }
 
-void FullyConnectedLayerHalf::fprop(bool is_train) {
+void FullyConnectedLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   const __half* kernel = weights_half_[0].get_ptr();
@@ -118,7 +118,7 @@ void FullyConnectedLayerHalf::fprop(bool is_train) {
 #endif
 }
 
-void FullyConnectedLayerHalf::bprop() {
+void FullyConnectedLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
 
   const __half* kernel = weights_half_[0].get_ptr();
@@ -158,7 +158,7 @@ void FullyConnectedLayerHalf::bprop() {
 #endif
 }
 
-void FullyConnectedLayerHalf::initialize() {
+void FullyConnectedLayer<__half>::initialize() {
   CudaDeviceContext context(get_device_id());
 
   __half* identity = identity_tensor_.get_ptr();
@@ -170,7 +170,7 @@ void FullyConnectedLayerHalf::initialize() {
                                                                             __float2half(1.0f));
 }
 
-void FullyConnectedLayerHalf::search_algorithm() {
+void FullyConnectedLayer<__half>::search_algorithm() {
   // Set to the CUDA device where this layer assigned to
   CudaDeviceContext context(get_device_id());
 
@@ -388,7 +388,8 @@ void FullyConnectedLayerHalf::search_algorithm() {
   CK_CUDA_THROW_(cudaEventDestroy(stop));
 }  // namespace HugeCTR
 
-std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_uniform_initializer(const int index) {
+std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_uniform_initializer(
+    const int index) {
   size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
   size_t top_dim = top_tensor_.get_dimensions()[1];
 
@@ -396,7 +397,7 @@ std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_uniform_initializer(
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
 }
 
-std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_xavier_uniform_initializer(
+std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_xavier_uniform_initializer(
     const int index) {
   size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
   size_t top_dim = top_tensor_.get_dimensions()[1];
@@ -406,7 +407,7 @@ std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_xavier_uniform_initi
                                                     0 == index ? bottom_dim : 0, top_dim);
 }
 
-std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_xavier_norm_initializer(
+std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_xavier_norm_initializer(
     const int index) {
   size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
   size_t top_dim = top_tensor_.get_dimensions()[1];
@@ -416,7 +417,8 @@ std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_xavier_norm_initiali
                                                     0 == index ? bottom_dim : 0, top_dim);
 }
 
-std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_default_initializer(const int index) {
+std::unique_ptr<DataSimulator> FullyConnectedLayer<__half>::get_default_initializer(
+    const int index) {
   size_t bottom_dim = get_bottom_tensor(true).get_dimensions()[1];
   size_t top_dim = top_tensor_.get_dimensions()[1];
 
@@ -433,5 +435,7 @@ std::unique_ptr<DataSimulator> FullyConnectedLayerHalf::get_default_initializer(
 
   return simu;
 }
+
+template class FullyConnectedLayer<__half>;
 
 }  // namespace HugeCTR

@@ -25,13 +25,12 @@
 
 namespace HugeCTR {
 
-FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                                         const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                                         const Tensor2<float>& in_tensor,
-                                         const Tensor2<float>& out_tensor,
-                                         const std::shared_ptr<GPUResource>& gpu_resource,
-                                         bool use_mixed_precision, bool enable_tf32_compute,
-                                         std::vector<Initializer_t> initializer_types)
+FullyConnectedLayer<float>::FullyConnectedLayer(
+    const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff, const Tensor2<float>& in_tensor,
+    const Tensor2<float>& out_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
+    bool use_mixed_precision, bool enable_tf32_compute,
+    std::vector<Initializer_t> initializer_types)
     : Layer(gpu_resource, initializer_types),
       use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
@@ -114,7 +113,7 @@ void add_bias(float* data, const float* bias, const int m, const int n, bool row
 #endif
 }
 
-void FullyConnectedLayer::fprop(bool is_train) {
+void FullyConnectedLayer<float>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   Tensor2<float>& in_tensor = get_in_tensors(is_train)[0];
@@ -145,7 +144,7 @@ void FullyConnectedLayer::fprop(bool is_train) {
   add_bias(out, bias, m, n, true, get_gpu().get_stream());
 }
 
-void FullyConnectedLayer::bprop() {
+void FullyConnectedLayer<float>::bprop() {
   CudaDeviceContext context(get_device_id());
 
   Tensor2<float>& in_tensor = get_in_tensors(true)[0];
@@ -183,7 +182,7 @@ void FullyConnectedLayer::bprop() {
                            true);
 }
 
-void FullyConnectedLayer::search_algorithm() {
+void FullyConnectedLayer<float>::search_algorithm() {
   // Set to the CUDA device where this layer assigned to
   CudaDeviceContext context(get_device_id());
 
@@ -330,7 +329,8 @@ void FullyConnectedLayer::search_algorithm() {
   CK_CUDA_THROW_(cudaEventDestroy(stop));
 }
 
-std::unique_ptr<DataSimulator> FullyConnectedLayer::get_uniform_initializer(const int index) {
+std::unique_ptr<DataSimulator> FullyConnectedLayer<float>::get_uniform_initializer(
+    const int index) {
   const Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
   float bottom_dim = in_tensor.get_dimensions()[1];
@@ -340,7 +340,7 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer::get_uniform_initializer(cons
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
 }
 
-std::unique_ptr<DataSimulator> FullyConnectedLayer::get_xavier_uniform_initializer(
+std::unique_ptr<DataSimulator> FullyConnectedLayer<float>::get_xavier_uniform_initializer(
     const int index) {
   const Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
@@ -352,7 +352,8 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer::get_xavier_uniform_initializ
                                                     0 == index ? bottom_dim : 0, top_dim);
 }
 
-std::unique_ptr<DataSimulator> FullyConnectedLayer::get_xavier_norm_initializer(const int index) {
+std::unique_ptr<DataSimulator> FullyConnectedLayer<float>::get_xavier_norm_initializer(
+    const int index) {
   const Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
   float bottom_dim = in_tensor.get_dimensions()[1];
@@ -363,7 +364,8 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer::get_xavier_norm_initializer(
                                                     0 == index ? bottom_dim : 0, top_dim);
 }
 
-std::unique_ptr<DataSimulator> FullyConnectedLayer::get_default_initializer(const int index) {
+std::unique_ptr<DataSimulator> FullyConnectedLayer<float>::get_default_initializer(
+    const int index) {
   const Tensor2<float>& in_tensor = get_in_tensors(true)[0];
   const Tensor2<float>& out_tensor = out_tensors_[0];
   float bottom_dim = in_tensor.get_dimensions()[1];
@@ -382,5 +384,7 @@ std::unique_ptr<DataSimulator> FullyConnectedLayer::get_default_initializer(cons
 
   return simu;
 }
+
+template class FullyConnectedLayer<float>;
 
 }  // namespace HugeCTR

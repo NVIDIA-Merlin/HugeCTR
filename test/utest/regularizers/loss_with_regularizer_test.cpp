@@ -121,11 +121,11 @@ void loss_with_regularizer_test(Regularizer_t type, size_t batch_size, size_t nu
   Tensor2<float> out_tensor;
   buff->reserve({batch_size, 1}, &out_tensor);
 
-  FullyConnectedLayer fc_layer_no(weight_buff_no, wgrad_buff_no, in_tensor, out_tensor,
-                                  test::get_default_gpu(), false, false);
+  FullyConnectedLayer<float> fc_layer_no(weight_buff_no, wgrad_buff_no, in_tensor, out_tensor,
+                                         test::get_default_gpu(), false, false);
 
-  FullyConnectedLayer fc_layer_re(weight_buff_re, wgrad_buff_re, in_tensor, out_tensor,
-                                  test::get_default_gpu(), false, false);
+  FullyConnectedLayer<float> fc_layer_re(weight_buff_re, wgrad_buff_re, in_tensor, out_tensor,
+                                         test::get_default_gpu(), false, false);
 
   Tensor2<float> loss_tensor_no;
   buff->reserve({1, 1}, &loss_tensor_no);

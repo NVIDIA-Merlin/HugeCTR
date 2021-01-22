@@ -56,4 +56,40 @@ class ReluLayer : public Layer {
   void bprop() override;
 };
 
+/**
+ * Relu activation function as a derived class of Layer
+ */
+template <>
+class ReluLayer<__half> : public Layer {
+  /*
+   * stores the references to the input tensors of this layer.
+   */
+  Tensor2<__half> bottom_tensor_;
+  /*
+   * stores the references to the output tensors of this layer.
+   */
+  Tensor2<__half> top_tensor_;
+
+ public:
+  /**
+   * Ctor of ReluLayer.
+   * @param bottom_tensor the input tensor
+   * @param top_tensor the output tensor which has the same dim with in_tensor
+   * @param device_id the id of GPU where this layer belongs
+   */
+  ReluLayer(const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
+                const std::shared_ptr<GPUResource>& gpu_resource);
+
+  /**
+   * A method of implementing the forward pass of Relu
+   * @param stream CUDA stream where the foward propagation is executed
+   */
+  void fprop(bool is_train) override;
+  /**
+   * A method of implementing the backward pass of Relu
+   * @param stream CUDA stream where the backward propagation is executed
+   */
+  void bprop() override;
+};
+
 }  // namespace HugeCTR

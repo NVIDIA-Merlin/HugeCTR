@@ -21,13 +21,15 @@
 #include <vector>
 
 #include "cublas_v2.h"
+#include "fully_connected_layer.hpp"
 
 namespace HugeCTR {
 /**
  * @brief
  * This class implements the fully connected layer.
  */
-class FullyConnectedLayerHalf : public Layer {
+template <>
+class FullyConnectedLayer<__half> : public Layer {
   // Optimized cublasGemmEx algorithm selection
   cublasGemmAlgo_t falgo_b_;
   cublasGemmAlgo_t falgo_k_;
@@ -107,7 +109,7 @@ class FullyConnectedLayerHalf : public Layer {
    * @param tensor_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  FullyConnectedLayerHalf(
+  FullyConnectedLayer(
       const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
       const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
       const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
@@ -115,7 +117,7 @@ class FullyConnectedLayerHalf : public Layer {
       const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
       const std::shared_ptr<GPUResource>& gpu_resource,
       std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
-  FullyConnectedLayerHalf(const FullyConnectedLayerHalf&) = delete;
-  FullyConnectedLayerHalf& operator=(const FullyConnectedLayerHalf&);
+  FullyConnectedLayer(const FullyConnectedLayer&) = delete;
+  FullyConnectedLayer& operator=(const FullyConnectedLayer&);
 };
 }  // namespace HugeCTR
