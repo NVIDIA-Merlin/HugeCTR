@@ -25,6 +25,29 @@ before_script:
   - export NCCL_SHM_DISABLE=1
   - export NCCL_LAUNCH_MODE=PARALLEL
 
+.cluster_test_job:
+  extends: .selene_job
+  allow_failure: false
+  stage: test
+  only:
+    - merge_requests
+    - web
+  except:
+    - README.md
+    - docs/*
+    - notebooks/*
+    - samples/*
+    - tutorial/*
+
+.cluster_test_train_job:
+  extends: .cluster_test_job
+  dependencies: 
+    - build_train
+
+.cluster_test_embedding_job:
+  extends: .cluster_test_job
+  dependencies:
+    - build_embedding
 
 ### Stage: build
 build_train:
@@ -46,6 +69,16 @@ build_train:
                    -f "${JOB_DOCKERFILE}"
                    ${PWD}
     - docker push "${TRAIN_IMAGE_VERSIONED}"
+  only:
+    - pushes
+    - merge_requests
+    - web
+  except:
+    - README.md
+    - docs/*
+    - notebooks/*
+    - samples/*
+    - tutorial/*
 
 build_embedding:
   tags:
@@ -68,15 +101,21 @@ build_embedding:
                    -f "${JOB_DOCKERFILE}"
                    ${PWD}
     - docker push "${EMBEDDING_IMAGE_VERSIONED}"
-
+  only:
+    - pushes
+    - merge_requests
+    - web
+  except:
+    - README.md
+    - docs/*
+    - notebooks/*
+    - samples/*
+    - tutorial/*
+    
 ### Stage: test
 # unit test
 unit_tests:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -101,11 +140,7 @@ unit_tests:
 
 # single node
 criteo:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -119,14 +154,23 @@ criteo:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_multi_slots_8gpu.json;
         cd /dataset/criteo_kaggle/criteo_parquet_multi_slots;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_parquet_multi_slots_1gpu.json"
-  
+    - srun --ntasks=2
+        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+        --ntasks-per-node 1
+        bash -cx "
+        cd /dataset/criteo_kaggle/criteo;
+        ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
+    - srun --ntasks=2
+        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+        --ntasks-per-node 1
+        bash -cx "
+        cd /dataset/criteo_kaggle/criteo;
+        ${WORK_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
 
 dcn:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -144,11 +188,7 @@ dcn:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_localized_8gpu.json"
 
 dlrm_raw:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -158,11 +198,7 @@ dlrm_raw:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/samples/dlrm/dlrm_fp16_64k.json"
 
 wdl_deepfm:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -179,11 +215,7 @@ wdl_deepfm:
   
 
 dlrm:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -196,29 +228,8 @@ dlrm:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dlrm_fp16_8gpu.json"
   
 
-# multinode with nccl
-criteo_multinode:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
-  script:
-    - srun --ntasks=2
-        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-        --ntasks-per-node 1
-        bash -cx "
-        cd /dataset/criteo_kaggle/criteo;
-        ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
-
-
 dcn_multinode:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=4
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -227,14 +238,6 @@ dcn_multinode:
         bash -cx "
         cd /dataset/criteo_kaggle/dcn;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
-
-dcn_multinode_parquet_localized:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
-  script:
     - srun --ntasks=2
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
@@ -242,14 +245,6 @@ dcn_multinode_parquet_localized:
         bash -cx "
         cd /dataset/criteo_kaggle/dcn_parquet;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json"
-        
-dcn_multinode_parquet_distributed:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
-  script:
     - srun --ntasks=2
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
@@ -257,14 +252,6 @@ dcn_multinode_parquet_distributed:
         bash -cx "
         cd /dataset/criteo_kaggle/dcn_parquet;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_distributed_2node_4gpu.json"
-
-dlrm_multinode_fp16:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies:
-    - build_train
-  script:
     - srun --ntasks=4
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
@@ -272,14 +259,6 @@ dlrm_multinode_fp16:
         bash -cx "
         cd /dataset/criteo_kaggle/dcn;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dlrm_fp16_4node_2gpu.json"
-
-dlrm_multinode_fp32:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
-  script:
     - srun --ntasks=4
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
@@ -288,29 +267,9 @@ dlrm_multinode_fp32:
         cd /dataset/criteo_kaggle/dcn;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dlrm_fp32_4node_2gpu.json"
 
-# multinode with gossip
-criteo_multinode_gossip:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
-  script:
-    - srun --ntasks=2
-        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-        --ntasks-per-node 1
-        bash -cx "
-        cd /dataset/criteo_kaggle/criteo;
-        ${WORK_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
-
 # python interface single node
 py_single_node:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -319,14 +278,6 @@ py_single_node:
         cd /dataset/criteo_kaggle/wdl;
         cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
         python3 ${WORK_DIR}/test/pybind_test/single_node_wdl_fp16_8gpu.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json;"
-
-py_set_source_raw:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
-  script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DLRM_DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
@@ -334,15 +285,6 @@ py_set_source_raw:
         cd /dataset/criteo_kaggle;
         cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
         python3 ${WORK_DIR}/test/pybind_test/set_source_raw_dlrm_1gpu.py ${WORK_DIR}/test/scripts/dlrm_set_source.json"
-
-# python interface single node + model prefetch
-py_model_oversubscriber:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
-  script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
@@ -353,12 +295,8 @@ py_model_oversubscriber:
         python3 ${WORK_DIR}/test/pybind_test/model_prefetch_wdl_1gpu.py /dataset/criteo_kaggle/wdl_data_keyset/wdl.json ${TMP_DIR}/temp_embedding"
 
 # python interface multi node + nccl
-py_multi_node_nccl:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
+py_multi_node:
+  extends: .cluster_test_train_job
   script:
     - srun --ntasks=4
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -368,15 +306,6 @@ py_multi_node_nccl:
         cd /dataset/criteo_kaggle/dcn;
         cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
         python3 ${WORK_DIR}/test/pybind_test/multi_node_dcn_4node_2gpu.py ${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
-
-# python interface multi node + gossip
-py_multi_node_gossip:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_train
-  script:
     - srun --ntasks=2
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
@@ -388,11 +317,7 @@ py_multi_node_gossip:
     
 # embedding_plugin
 embedding_plugin1:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_embedding
+  extends: .cluster_test_embedding_job
   script:
     - srun --ntasks=1
         --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
@@ -400,18 +325,30 @@ embedding_plugin1:
         bash -cx "
         cd ${WORK_DIR}/test/embedding_plugin_test;
         python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
-
-# embedding_plugin
-embedding_plugin2:
-  extends: .selene_job
-  allow_failure: false
-  stage: test
-  dependencies: 
-    - build_embedding
-  script:
     - srun --ntasks=1
         --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd ${WORK_DIR}/test/embedding_plugin_test;
         python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
+
+
+nightly_build:
+  tags:
+    - 1GPU
+  stage: build
+  script:
+    - git submodule update --init --recursive
+    - export IMAGE_VERSIONED="${CI_REGISTRY}/dl/hugectr/hugectr:${CI_COMMIT_BRANCH}.${CI_PIPELINE_ID}"
+    - export IMAGE_LATEST="${CI_REGISTRY}/dl/hugectr/hugectr:${CI_COMMIT_BRANCH}.latest"
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker build --pull
+        -t "${IMAGE_VERSIONED}"
+        -f ./tools/dockerfiles/dev.Dockerfile
+        ${PWD}
+    - docker push "${IMAGE_VERSIONED}"
+    - docker tag ${IMAGE_VERSIONED} ${IMAGE_LATEST}
+    - docker push ${IMAGE_LATEST}
+  only:
+    variables:
+      - $NIGHTLY == "1"
