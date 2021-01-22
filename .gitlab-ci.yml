@@ -155,14 +155,14 @@ criteo:
         cd /dataset/criteo_kaggle/criteo_parquet_multi_slots;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_parquet_multi_slots_1gpu.json"
     - srun --ntasks=2
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
         cd /dataset/criteo_kaggle/criteo;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
     - srun --ntasks=2
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         --ntasks-per-node 1
         bash -cx "
