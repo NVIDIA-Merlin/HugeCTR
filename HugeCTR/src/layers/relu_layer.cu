@@ -29,6 +29,34 @@
 
 namespace HugeCTR {
 
+namespace {
+
+__global__ void forward_half2_relu_kernel(__half* top, const __half* bottom, int size) {
+  const __half2 zero = TypeFunc<__half2>::zero();
+  __half2* top2 = reinterpret_cast<__half2*>(top);
+  const __half2* bottom2 = reinterpret_cast<const __half2*>(bottom);
+
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < size; i += blockDim.x * gridDim.x) {
+    __half2 t = __ldg(bottom2 + i);
+    __half2 mask = __hgt2(t, zero);
+    top2[i] = __hmul2(t, mask);
+  }
+}
+
+__global__ void backward_half2_relu_kernel(__half* bottom, const __half* top, int size) {
+  const __half2 zero = TypeFunc<__half2>::zero();
+  __half2* bottom2 = reinterpret_cast<__half2*>(bottom);
+  const __half2* top2 = reinterpret_cast<const __half2*>(top);
+
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < size; i += blockDim.x * gridDim.x) {
+    __half2 t = bottom2[i];
+    half2 mask = __hgt2(t, zero);
+    bottom2[i] = __hmul2(__ldg(top2 + i), mask);
+  }
+}
+
+}  // namespace
+
 template <typename T>
 ReluLayer<T>::ReluLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
                         const std::shared_ptr<GPUResource>& gpu_resource)
@@ -67,6 +95,52 @@ void ReluLayer<T>::bprop() {
 
   MLCommon::LinAlg::binaryOp(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(),
                              in_tensors_[0].get_ptr(), len, bop, get_gpu().get_stream());
+
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
+}
+
+ReluLayer<__half>::ReluLayer(const Tensor2<__half>& bottom_tensor,
+                             const Tensor2<__half>& top_tensor,
+                             const std::shared_ptr<GPUResource>& gpu_resource)
+    : Layer(gpu_resource) {
+  assert(get_size_from_dims(bottom_tensor.get_dimensions()) ==
+         get_size_from_dims(top_tensor.get_dimensions()));
+  assert(get_size_from_dims(bottom_tensor.get_dimensions()) % 2 == 0);
+
+  bottom_tensor_ = bottom_tensor;
+  top_tensor_ = top_tensor;
+}
+
+void ReluLayer<__half>::fprop(bool is_train) {
+  CudaDeviceContext context(get_device_id());
+
+  const size_t BLOCK_DIM = 1024;
+  const size_t MAX_GRID_DIM = 1024;
+
+  const size_t size = bottom_tensor_.get_num_elements() / 2;
+  const size_t grid_dim = std::min((size - 1) / BLOCK_DIM + 1, MAX_GRID_DIM);
+  forward_half2_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
+      top_tensor_.get_ptr(), bottom_tensor_.get_ptr(), size);
+
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
+}
+
+void ReluLayer<__half>::bprop() {
+  CudaDeviceContext context(get_device_id());
+
+  const size_t BLOCK_DIM = 1024;
+  const size_t MAX_GRID_DIM = 1024;
+
+  const size_t size = bottom_tensor_.get_num_elements() / 2;
+  const size_t grid_dim = std::min((size - 1) / BLOCK_DIM + 1, MAX_GRID_DIM);
+  backward_half2_relu_kernel<<<grid_dim, BLOCK_DIM, 0, get_gpu().get_stream()>>>(
+      bottom_tensor_.get_ptr(), top_tensor_.get_ptr(), size);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
