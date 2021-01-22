@@ -53,7 +53,7 @@ file(GLOB huge_ctr_src
   layers/sigmoid_layer.cu
   layers/slice_layer.cu
   layers/fm_order2_layer.cu
-  layers/multiply_layer.cu
+  layers/weight_multiply_layer.cu
   layers/multi_cross_layer.cu
   layers/add_layer.cu
   layers/reduce_sum_layer.cu
