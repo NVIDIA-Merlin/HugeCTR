@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <functional>
 #include <layers/element_wise_function.hpp>
+#include <linalg/coalesced_reduction.cuh>
 #include <layers/multiply_layer.hpp>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/reduce.cuh>
@@ -95,8 +96,22 @@ void multiply_wgrad(const T* top_grad, const T* input, T* wgrad, T* wgrad_tmp_tr
   multiply_transpose_fuse_kernel<<<gridSize1, blockSize1, 0, stream>>>(
       batch_size, slot_num, embedding_vec_size, top_grad, input, wgrad_tmp_trans);
 
-  MLCommon::LinAlg::reduce(wgrad, wgrad_tmp_trans, batch_size, slot_num * embedding_vec_size,
-                           float(0), true, true, stream, true);
+  MLCommon::LinAlg::reduce(wgrad, wgrad_tmp_trans, batch_size, slot_num * embedding_vec_size, T(0),
+                           true, true, stream, true);
+}
+
+template <>
+void multiply_wgrad<__half>(const __half* top_grad, const __half* input, __half* wgrad,
+                            __half* wgrad_tmp_trans, int batch_size, int slot_num,
+                            int embedding_vec_size, cudaStream_t stream) {
+  dim3 blockSize1(BLOCK_DIM_SIZE, BLOCK_DIM_SIZE, 1);
+  dim3 gridSize1((slot_num * embedding_vec_size + blockSize1.x - 1) / blockSize1.x,
+                 (batch_size + blockSize1.y - 1) / blockSize1.y, 1);
+  multiply_transpose_fuse_kernel<<<gridSize1, blockSize1, 0, stream>>>(
+      batch_size, slot_num, embedding_vec_size, top_grad, input, wgrad_tmp_trans);
+
+  MLCommon::LinAlg::coalescedReduction(wgrad, wgrad_tmp_trans, batch_size,
+                                       slot_num * embedding_vec_size, __float2half(0.0f), stream);
 }
 
 template <typename T>
@@ -110,13 +125,14 @@ void multiply_dgrad(const T* top_grad, const T* weight, T* dgrad, int batch_size
 
 }  // end of namespace
 
-MultiplyLayer::MultiplyLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                             const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
-                             const Tensor2<float>& in_tensor, Tensor2<float>& out_tensor,
-                             const std::vector<size_t>& weight_dims,
-                             const std::shared_ptr<GPUResource>& gpu_resource,
-                             std::vector<Initializer_t> initializer_types)
+template <typename T>
+MultiplyLayer<T>::MultiplyLayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+                                const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
+                                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
+                                const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+                                const std::vector<size_t>& weight_dims,
+                                const std::shared_ptr<GPUResource>& gpu_resource,
+                                std::vector<Initializer_t> initializer_types)
     : Layer(gpu_resource, initializer_types) {
   try {
     const auto& in_dims = in_tensor.get_dimensions();
@@ -140,12 +156,12 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<BufferBlock2<float>>& weight_
     out_tensors_.push_back(out_tensor);
 
     {
-      Tensor2<float> tensor;
+      Tensor2<T> tensor;
       weight_buff->reserve(weight_dims, &tensor);
       weights_.push_back(tensor);
     }
     {
-      Tensor2<float> tensor;
+      Tensor2<T> tensor;
       wgrad_buff->reserve(weight_dims, &tensor);
       wgrad_.push_back(tensor);
     }
@@ -158,7 +174,8 @@ MultiplyLayer::MultiplyLayer(const std::shared_ptr<BufferBlock2<float>>& weight_
   }
 }
 
-std::unique_ptr<DataSimulator> MultiplyLayer::get_uniform_initializer(const int index) {
+template <typename T>
+std::unique_ptr<DataSimulator> MultiplyLayer<T>::get_uniform_initializer(const int index) {
   float bottom_dim = slot_num_;
   float top_dim = slot_num_ * embedding_vec_size_;
 
@@ -166,7 +183,8 @@ std::unique_ptr<DataSimulator> MultiplyLayer::get_uniform_initializer(const int 
   return std::make_unique<UniformDataSimulator>(-1 * limit, limit);
 }
 
-std::unique_ptr<DataSimulator> MultiplyLayer::get_xavier_uniform_initializer(const int index) {
+template <typename T>
+std::unique_ptr<DataSimulator> MultiplyLayer<T>::get_xavier_uniform_initializer(const int index) {
   float bottom_dim = slot_num_;
   float top_dim = slot_num_ * embedding_vec_size_;
 
@@ -175,7 +193,8 @@ std::unique_ptr<DataSimulator> MultiplyLayer::get_xavier_uniform_initializer(con
                                                     0 == index ? bottom_dim : 0, top_dim);
 }
 
-std::unique_ptr<DataSimulator> MultiplyLayer::get_xavier_norm_initializer(const int index) {
+template <typename T>
+std::unique_ptr<DataSimulator> MultiplyLayer<T>::get_xavier_norm_initializer(const int index) {
   float bottom_dim = slot_num_;
   float top_dim = slot_num_ * embedding_vec_size_;
 
@@ -184,7 +203,8 @@ std::unique_ptr<DataSimulator> MultiplyLayer::get_xavier_norm_initializer(const 
                                                     0 == index ? bottom_dim : 0, top_dim);
 }
 
-std::unique_ptr<DataSimulator> MultiplyLayer::get_default_initializer(const int index) {
+template <typename T>
+std::unique_ptr<DataSimulator> MultiplyLayer<T>::get_default_initializer(const int index) {
   float bottom_dim = slot_num_;
   float top_dim = slot_num_ * embedding_vec_size_;
 
@@ -193,12 +213,13 @@ std::unique_ptr<DataSimulator> MultiplyLayer::get_default_initializer(const int 
                                                     0 == index ? bottom_dim : 0, top_dim);
 }
 
-void MultiplyLayer::fprop(bool is_train) {
+template <typename T>
+void MultiplyLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  float* input = in_tensors_[0].get_ptr();
-  float* weight = weights_[0].get_ptr();
-  float* output = out_tensors_[0].get_ptr();
+  T* input = in_tensors_[0].get_ptr();
+  T* weight = weights_[0].get_ptr();
+  T* output = out_tensors_[0].get_ptr();
 
   dim3 blockSize(embedding_vec_size_, 1, 1);
   dim3 gridSize(batch_size_, 1, 1);
@@ -206,14 +227,15 @@ void MultiplyLayer::fprop(bool is_train) {
       input, weight, output, batch_size_, slot_num_, embedding_vec_size_);
 }
 
-void MultiplyLayer::bprop() {
+template <typename T>
+void MultiplyLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  float* weight = weights_[0].get_ptr();
-  float* wgrad = wgrad_[0].get_ptr();
-  float* wgrad_tmp_trans = wgrad_tmp_trans_.get_ptr();
-  float* input = in_tensors_[0].get_ptr();
-  float* output = out_tensors_[0].get_ptr();
+  T* weight = weights_[0].get_ptr();
+  T* wgrad = wgrad_[0].get_ptr();
+  T* wgrad_tmp_trans = wgrad_tmp_trans_.get_ptr();
+  T* input = in_tensors_[0].get_ptr();
+  T* output = out_tensors_[0].get_ptr();
 
   multiply_wgrad(output, input, wgrad, wgrad_tmp_trans, batch_size_, slot_num_, embedding_vec_size_,
                  get_gpu().get_stream());
@@ -222,5 +244,8 @@ void MultiplyLayer::bprop() {
   multiply_dgrad(output, weight, input, batch_size_, slot_num_, embedding_vec_size_,
                  get_gpu().get_stream());
 }
+
+template class MultiplyLayer<float>;
+template class MultiplyLayer<__half>;
 
 }  // namespace HugeCTR

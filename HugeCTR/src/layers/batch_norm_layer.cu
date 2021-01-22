@@ -25,13 +25,20 @@
 
 namespace HugeCTR {
 
-BatchNormLayer::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                               const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
-                               const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                               const Params& params,
-                               const std::shared_ptr<GPUResource>& gpu_resource,
-                               std::vector<Initializer_t> initializer_types)
+namespace {
+
+template <typename T>
+using ToStringType = typename std::conditional<std::is_same<T, __half>::value, float, T>::type;
+}
+
+template <typename T>
+BatchNormLayer<T>::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
+                                  const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
+                                  const Params& params,
+                                  const std::shared_ptr<GPUResource>& gpu_resource,
+                                  std::vector<Initializer_t> initializer_types)
     : Layer(gpu_resource, initializer_types),
       params_(params),
       mode_(CUDNN_BATCHNORM_PER_ACTIVATION) {
@@ -49,7 +56,7 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weigh
   size_t num_feature = in_tensor_dim[1];
   int batch_size = in_tensor_dim[0];
 
-  cudnnDataType_t data_type = CUDNN_DATA_FLOAT;
+  cudnnDataType_t data_type = std::is_same<T, __half>::value ? CUDNN_DATA_HALF : CUDNN_DATA_FLOAT;
   int n_stride = num_feature;
   int w_stride = 1;
 
@@ -88,7 +95,8 @@ BatchNormLayer::BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weigh
   blob_buff->reserve(gamma_dim, &result_save_inv_var_);
 }
 
-BatchNormLayer::~BatchNormLayer() {
+template <typename T>
+BatchNormLayer<T>::~BatchNormLayer() {
   try {
     CK_CUDNN_THROW_(cudnnDestroyTensorDescriptor(in_out_desc_));
     CK_CUDNN_THROW_(cudnnDestroyTensorDescriptor(gamma_beta_desc_));
@@ -97,7 +105,8 @@ BatchNormLayer::~BatchNormLayer() {
   }
 }
 
-void BatchNormLayer::initialize() {
+template <typename T>
+void BatchNormLayer<T>::initialize() {
   // host array to get running mean & var
 
   size_t num_feature = in_tensors_[0].get_dimensions()[1];
@@ -111,14 +120,15 @@ void BatchNormLayer::initialize() {
   internal_host_buf->allocate();
 }
 
-void BatchNormLayer::fprop(bool is_train) {
+template <typename T>
+void BatchNormLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
   float one = 1.0f, zero = 0.0f;
 
-  Tensor2<float>& in_tensor = in_tensors_[0];
-  Tensor2<float>& out_tensor = out_tensors_[0];
-  float* in = in_tensor.get_ptr();
-  float* out = out_tensor.get_ptr();
+  Tensor2<T>& in_tensor = in_tensors_[0];
+  Tensor2<T>& out_tensor = out_tensors_[0];
+  T* in = in_tensor.get_ptr();
+  T* out = out_tensor.get_ptr();
 
   float* gamma = gamma_.get_ptr();
   float* beta = beta_.get_ptr();
@@ -140,15 +150,16 @@ void BatchNormLayer::fprop(bool is_train) {
   }
 }
 
-void BatchNormLayer::bprop() {
+template <typename T>
+void BatchNormLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
   float one = 1.0f, zero = 0.0f;
 
-  Tensor2<float>& in_tensor = in_tensors_[0];
-  Tensor2<float>& out_tensor = out_tensors_[0];
-  float* in = in_tensor.get_ptr();
-  float* out = out_tensor.get_ptr();
+  Tensor2<T>& in_tensor = in_tensors_[0];
+  Tensor2<T>& out_tensor = out_tensors_[0];
+  T* in = in_tensor.get_ptr();
+  T* out = out_tensor.get_ptr();
 
   float* gamma = gamma_.get_ptr();
 
@@ -158,7 +169,7 @@ void BatchNormLayer::bprop() {
   float* result_save_mean = result_save_mean_.get_ptr();
   float* result_save_inv_var = result_save_inv_var_.get_ptr();
 
-  float* temp_in = temp_in_tensor_.get_ptr();
+  T* temp_in = temp_in_tensor_.get_ptr();
   size_t n_byte = temp_in_tensor_.get_size_in_bytes();
   CK_CUDA_THROW_(
       cudaMemcpyAsync(temp_in, in, n_byte, cudaMemcpyDeviceToDevice, get_gpu().get_stream()));
@@ -169,11 +180,12 @@ void BatchNormLayer::bprop() {
       params_.eps, result_save_mean, result_save_inv_var));
 }
 
-std::string BatchNormLayer::get_no_trained_params_in_string() {
+template <typename T>
+std::string BatchNormLayer<T>::get_no_trained_params_in_string() {
   float* d_result_running_mean = result_running_mean_.get_ptr();
   float* d_result_running_var = result_running_var_.get_ptr();
   size_t n_byte = result_running_mean_.get_size_in_bytes();
-  size_t n_elem = n_byte / sizeof(float);
+  size_t n_elem = n_byte / sizeof(T);
 
   CK_CUDA_THROW_(cudaMemcpy(h_result_running_mean_.get_ptr(), d_result_running_mean, n_byte,
                             cudaMemcpyDeviceToHost));
@@ -183,14 +195,14 @@ std::string BatchNormLayer::get_no_trained_params_in_string() {
   std::string result = "      \"type\": \"BatchNorm\",\n";
   result += "      \"mean\": [";
   for (size_t i = 0; i < n_elem; i++) {
-    result += std::to_string(h_result_running_mean_.get_ptr()[i]);
+    result += std::to_string(ToStringType<T>(h_result_running_mean_.get_ptr()[i]));
     if (i != (n_elem - 1)) result += ", ";
   }
   result += "],\n";
 
   result += "      \"var\": [";
   for (size_t i = 0; i < n_elem; i++) {
-    result += std::to_string(h_result_running_var_.get_ptr()[i]);
+    result += std::to_string(ToStringType<T>(h_result_running_var_.get_ptr()[i]));
     if (i != (n_elem - 1)) result += ", ";
   }
   result += "]";
@@ -198,7 +210,8 @@ std::string BatchNormLayer::get_no_trained_params_in_string() {
   return result;
 }
 
-std::unique_ptr<DataSimulator> BatchNormLayer::get_default_initializer(const int index) {
+template <typename T>
+std::unique_ptr<DataSimulator> BatchNormLayer<T>::get_default_initializer(const int index) {
   std::unique_ptr<DataSimulator> simu;
   if (0 == index) {
     simu.reset(new ConstantDataSimulator(1.0f));
@@ -209,5 +222,8 @@ std::unique_ptr<DataSimulator> BatchNormLayer::get_default_initializer(const int
   }
   return simu;
 }
+
+template class BatchNormLayer<float>;
+template class BatchNormLayer<__half>;
 
 }  // namespace HugeCTR

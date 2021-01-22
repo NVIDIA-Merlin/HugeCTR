@@ -30,23 +30,24 @@ namespace HugeCTR {
  * when doing element-wise product with X. So, the output tensor has
  * the dimention: [batch_size, slot_num*embedding_vec_size].
  */
+template <typename T>
 class MultiplyLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
+  Tensors2<T> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors2<float> wgrad_;
+  Tensors2<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<float> in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  Tensors2<float> out_tensors_;
+  Tensors2<T> out_tensors_;
 
  public:
   /**
@@ -55,10 +56,10 @@ class MultiplyLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  MultiplyLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+  MultiplyLayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+                const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
-                const Tensor2<float>& in_tensor, Tensor2<float>& out_tensor,
+                const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                 const std::vector<size_t>& weight_dims,
                 const std::shared_ptr<GPUResource>& gpu_resource,
                 std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
@@ -84,7 +85,7 @@ class MultiplyLayer : public Layer {
   size_t batch_size_;
   size_t slot_num_;
   size_t embedding_vec_size_;
-  Tensor2<float> wgrad_tmp_trans_;
+  Tensor2<T> wgrad_tmp_trans_;
 };
 
 }  // namespace HugeCTR
