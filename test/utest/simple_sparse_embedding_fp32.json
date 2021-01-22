@@ -122,11 +122,11 @@
     },
 
     {
-      "name": "multiply1",
-      "type": "Multiply",
+      "name": "weight_multiply1",
+      "type": "WeightMultiply",
       "bottom": "relu1",
       "weight_dims": [200, 10],
-      "top": "multiply1"
+      "top": "weight_multiply1"
     },
 
     {
