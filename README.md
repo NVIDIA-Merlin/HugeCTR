@@ -1,97 +1,25 @@
 # <img src="docs/user_guide_src/merlin_logo.png" alt="logo" width="85"/> Merlin: HugeCTR #
 
-HugeCTR, a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin#getstarted), is a GPU-accelerated recommender framework. It was designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/). For additional information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
+HugeCTR is a GPU-accelerated recommender framework that was designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin#getstarted), which is used for building large-scale deep learning recommender systems. For additional information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 Design Goals:
-* Fast: HugeCTR is a speed-of-light CTR model framework.
-* Dedicated: HugeCTR provides the essentials so that you can train your CTR model in an efficient manner.
-* Easy: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR.
+* **Fast**: HugeCTR is a speed-of-light CTR model framework that can [outperform](performance.md) popular recommender systems such as TensorFlow (TF).
+* **Efficient**: HugeCTR provides the essentials so that you can train your CTR model in an efficient manner.
+* **Easy**: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR.
 
 ## Table of Contents
-* [Performance](#performance)
-* [Release Notes](#release-notes)
+* [Core Features](#core-features)
 * [Getting Started](#getting-started)
 * [Support and Feedback](#support-and-feedback)
 
-## Performance ##
-We've tested HugeCTR's performance on the following systems:
-* DGX-2 and DGX A100
-* DGX-1
-* TensorFlow (TF)
+## Core Features ##
+HugeCTR supports a variety of features including the following:
+* [multi-node training](docs/hugectr_user_guide.md#multi-node-training)
+* [mixed precision training](docs/hugectr_user_guide.md#mixed-precision-training)
+* [SGD optimizer and learning rate scheduling](docs/hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling)
+* [model oversubscription](docs/hugectr_user_guide.md#model-oversubscription)
 
-### Evaluating HugeCTR's Performance on the DGX-2 and DGX A100
-We submitted the DLRM benchmark with HugeCTR version 2.2 to [MLPerf Training v0.7](https://mlperf.org/training-results-0-7). We used the [Criteo Terabyte Click Logs dataset](https://labs.criteo.com/2013/12/download-terabyte-click-logs/), which contains 4 billion user and item interactions over 24 days. The target machines were DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs. For additional information, see [this blog post](https://developer.nvidia.com/blog/optimizing-ai-performance-for-mlperf-v0-7-training/).
-
-### Evaluating HugeCTR's Performance on the DGX-1
-We tested the scalability of HugeCTR and compared its performance with TensorFlow running on NVIDIA V100 GPUs that are available in a single DGX-1 system. In summary, we can achieve about 114x speedup over multi-thread TensorFlow CPU with only one V100 and generate almost the same loss curves for both evaluation and training (see Fig. 2 and Fig. 3).
-
-Test environment:
-* CPU Server: Dual 20-core Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz
-* TensorFlow version 2.0.0
-* V100 16GB: NVIDIA DGX1 servers
-
-Network:
-* `Wide Deep Learning`: Nx 1024-unit FC layers with ReLU and dropout, emb_dim: 16; Optimizer: Adam for both Linear and DNN models
-* `Deep Cross Network`: Nx 1024-unit FC layers with ReLU and dropout, emb_dim: 16, 6x cross layers; Optimizer: Adam for both Linear and DNN models
-
-Dataset:
-The data is provided by [CriteoLabs](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/). The original training set contains 45,840,617 examples. Each example contains a label (0 by default OR 1 if the ad was clicked) and 39 features in which 13 are integer and 26 are categorical.
-
-Preprocessing:
-* Common: Preprocessed by using the scripts available in tools/criteo_script.
-* HugeCTR: Converted to the HugeCTR data format with criteo2hugectr.
-* TF: Converted to the TFRecord format for the efficient training on Tensorflow.
-
-The scalability of HugeCTR and the number of active GPUs have increased simply because of the high efficient data exchange and three-stage processing pipeline. In this pipeline, we overlap the data reading from the file, host to the device data transaction (inter-node and intra-node), and train the GPU. The following chart shows the scalability of HugeCTR with Batch Size=16384 and Layers=7 on DGX1 servers.
-
-<div align=center><img width = '800' height ='400' src ="user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
-<div align=center>Fig. 1: HugeCTR's Multi-GPU Performance</div>
-
-
-## Evaluating HugeCTR's Performance on the TensorFlow
-In the TensorFlow test case below, HugeCTR exhibits a speedup up to 114x compared to a CPU server that is running TensorFlow with only one V100 GPU and almost the same loss curve.
-
-<div align=center><img width = '800' height ='400' src ="user_guide_src/WDL.JPG"/></div>
-<div align=center>Fig. 2: WDL Performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
-
-<br></br>
-
-<div align=center><img width = '800' height ='400' src ="user_guide_src/DCN.JPG"/></div>
-<div align=center>Fig. 3: DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
-
-## Release Notes ##
-
-### What's New in Version 2.3
-We have implemented the following enhancements to improve usability and performance:
-+ **Python Interface**: To enhance the interoperability with [NVTabular](https://github.com/NVIDIA/NVTabular) and other Python-based libraries, we're introducing a new Python interface for HugeCTR.
-
-+ **HugeCTR Embedding with Tensorflow**: To help users easily integrate HugeCTR’s optimized embedding into their Tensorflow workflow, we now offer the HugeCTR embedding layer as a Tensorflow plugin. To better understand how to intall, use, and verify it, see our [Jupyter notebook tutorial](../notebooks/embedding_plugin.ipynb). It also demonstrates how you can create a new Keras layer `EmbeddingLayer` based on the [`hugectr.py`](../tools/embedding_plugin/python) helper code that we provide.
-
-+ **Model Oversubscription**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we added a new model oversubscription feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage.
-
-+ **TF32 Support**: The third-generation Tensor Cores on Ampere support, TensorFloat-32 (TF32), a novel math mode. TF32 uses the same 10-bit mantissa as FP16 to ensure accuracy while providing the same range as FP32 by using an 8-bit exponent. Since TF32 is an internal data type that accelerates FP32 GEMM computations with tensor cores, a user can simply turn it on with a newly added configuration option. For additional information, see [Solver](docs/hugectr_user_guide.md#solver).
-
-+ **Enhanced AUC Implementation**: To enhance the performance of our AUC computation on multi-node environments, we redesigned our AUC implementation to improve how the computational load gets distributed across nodes.
-
-+ **Epoch-Based Training**: In addition to `max_iter`, a HugeCTR user can set `num_epochs` in the **Solver** clause of their configuration file. This mode can only currently be used with `Norm` dataset formats and their corresponding file lists. All dataset formats will be supported in the future.
-
-+ **Multi-Node Training Tutorial**: To better support multi-node training use cases, we added a new [a step-by-step tutorial](../tutorial/multinode-training).
-
-+ **Power Law Distribution Support with Data Generator**: Because of the increased need for generating a random dataset whose categorical features follows the power-law distribution, we revised our data generation tool to support this use case. For additional information, refer to the `--long-tail` description [here](../docs/hugectr_user_guide.md#Generating Synthetic Data and Benchmarks).
-
-+ **Multi-GPU Preprocessing Script for Criteo Samples**: Multiple GPUs can now be used when preparing the dataset for our [samples](../samples). For additional information, see how [preprocess_nvt.py](../tools/criteo_script/preprocess_nvt.py) is used to preprocess the Criteo dataset for DCN, DeepFM, and W&D samples.
-
-### Known Issues
-* Since the automatic plan file generator is not able to handle systems that contain one GPU, a user must manually create a JSON plan file with the following parameters and rename using the name listed in the HugeCTR configuration file: ` {"type": "all2all", "num_gpus": 1, "main_gpu": 0, "num_steps": 1, "num_chunks": 1, "plan": [[0, 0]], "chunks": [1]} `.
-* If using a system that contains two GPUs with two NVLink connections, the auto plan file generator will print the following warning message: `RuntimeWarning: divide by zero encountered in true_divide`. This is an erroneous warning message and should be ignored.
-* The current plan file generator doesn't support a system where the NVSwitch or a full peer-to-peer connection between all nodes is unavailable.
-* Users need to set an `export CUDA_DEVICE_ORDER=PCI_BUS_ID` environment variable to ensure that the CUDA runtime and driver have a consistent GPU numbering.
-* `LocalizedSlotSparseEmbeddingOneHot` only supports a single-node machine where all the GPUs are fully connected such as NVSwitch.
-* HugeCTR version 2.2.1 crashes when running our DLRM sample on DGX2 due to a CUDA Graph issue. To run the sample on DGX2, disable the use of CUDA Graph with `"cuda_graph": false` even if it degrades the performance a bit. We are working on fixing this issue. This issue doesn't exist when using the DGX A100.
-* The model oversubscription feature is only available in Python. Currently a user can only use this feature with the `DistributedSlotSparseEmbeddingHash` embedding and the `Norm` dataset format on single GPUs. This feature will eventually support all embedding types and dataset formats.
-* The HugeCTR embedding TensorFlow plugin only works with single-node machines.
-* The HugeCTR embedding TensorFlow plugin assumes that the input keys are in `int64` and its output is in `float`.
-* When using our embedding plugin, please note that the `fprop_v3` function, which is available in `tools/embedding_plugin/python/hugectr.py`, only works with `DistributedSlotSparseEmbeddingHash`.
+To learn about our latest enhancements, see our [release notes](release_notes.md).
 
 ## Getting Started ##
 If you'd like to quickly train a model using the Python interface, follow these steps:
