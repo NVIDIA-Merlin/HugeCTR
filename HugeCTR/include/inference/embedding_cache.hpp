@@ -28,6 +28,7 @@
 #include <vector>
 #include <inference/embedding_interface.hpp>
 #include <inference/gpu_cache/nv_gpu_cache.hpp>
+#include <inference/gpu_cache/unique_op.hpp>
 
 namespace HugeCTR {
 
@@ -66,6 +67,8 @@ class embedding_cache : public embedding_interface {
   
   // The GPU embedding cache type
   using cache_ = gpu_cache::gpu_cache<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(), SET_ASSOCIATIVITY, SLAB_SIZE>;
+  // The GPU unique op type
+  using unique_op_ = unique_op::unique_op<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(), std::numeric_limits<uint64_t>::max()>;
 
   // The back-end parameter server
   HugectrUtility<TypeHashKey>* parameter_server_;

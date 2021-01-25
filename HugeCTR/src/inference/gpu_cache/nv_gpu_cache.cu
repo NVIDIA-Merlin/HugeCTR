@@ -1094,16 +1094,18 @@ Query(const key_type* d_keys,
       key_type* d_missing_keys, 
       size_t* d_missing_len, 
       cudaStream_t stream){
-  
-  // Check if it is a valid query
-  if(len == 0){
-    return;
-  }
 
   // Device Restorer
   CudaDeviceContext dev_restorer;
   // Set to the device of this cache
   CK_CUDA_THROW_(cudaSetDevice(dev_));
+  
+  // Check if it is a valid query
+  if(len == 0){
+    // Set the d_missing_len to 0 before return
+    CK_CUDA_THROW_(cudaMemsetAsync(d_missing_len, 0, sizeof(size_t), stream));
+    return;
+  }
 
   // Update the global counter as user perform a new(most recent) read operation to the cache
   // Resolve distance overflow issue as well.
