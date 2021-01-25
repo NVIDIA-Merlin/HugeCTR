@@ -68,6 +68,7 @@ file(GLOB huge_ctr_src
   inference/inference_utilis.cpp
   inference/parameter_server.cpp
   inference/gpu_cache/nv_gpu_cache.cu
+  inference/gpu_cache/unique_op.cu
   inference/embedding_feature_combiner.cu
   inference/embedding_cache.cu
   data_readers/metadata.cpp

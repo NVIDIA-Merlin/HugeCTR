@@ -89,10 +89,7 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_
   separate_keys_by_table_(d_row_ptrs, embedding_table_slot_size_, num_samples);
   embedding_cache_->look_up(h_embeddingcolumns, h_embedding_offset_, d_embeddingvectors_, workspace_handler_, lookup_streams_);
   CK_CUDA_THROW_(cudaStreamSynchronize(lookup_streams_[0]));
-  float hit_rate = 1.0 - static_cast<float>(workspace_handler_.h_missing_length_[0]) / 
-                         static_cast<float>(workspace_handler_.h_shuffled_embedding_offset_[1]
-                                          -workspace_handler_.h_shuffled_embedding_offset_[0]);
-  if (hit_rate < 0.5) {
+  if (workspace_handler_.h_hit_rate_[0] < inference_parser_.hit_rate_threshold) {
     embedding_cache_->update(workspace_handler_, lookup_streams_);
   }
   CK_CUDA_THROW_(cudaStreamSynchronize(update_streams_[0]));

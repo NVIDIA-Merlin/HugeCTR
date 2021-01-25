@@ -87,6 +87,12 @@ InferenceParser::InferenceParser(const nlohmann::json& config) {
     max_batchsize = 1024;
   }
 
+  if (has_key_(j, "hit_rate_threshold")) {
+    hit_rate_threshold = get_value_from_json<float>(j, "hit_rate_threshold");
+  } else {
+    hit_rate_threshold = 0.5;
+  }
+
   bool has_dense_model_file = has_key_(j, "dense_model_file");
   bool has_sparse_model_files = has_key_(j, "sparse_model_file");
   

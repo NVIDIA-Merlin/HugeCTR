@@ -29,6 +29,11 @@ struct embedding_cache_workspace{
   void* d_shuffled_embeddingcolumns_; // The shuffled emb_id buffer on device, same size as h_embeddingcolumns
   void* h_shuffled_embeddingcolumns_; // The shuffled emb_id buffer on host, same size as h_embeddingcolumns
   size_t* h_shuffled_embedding_offset_; // The offset of each emb_table in shuffled emb_id buffer on host, size = # of emb_table + 1
+  uint64_t* d_unique_output_index_; // The output index for each emb_id in d_shuffled_embeddingcolumns_ after unique on device, same size as h_embeddingcolumns
+  void* d_unique_output_embeddingcolumns_; // The output unique emb_id buffer on device, same size as h_embeddingcolumns
+  size_t* d_unique_length_; // The # of emb_id after the unique operation for each emb_table on device, size = # of emb_table
+  size_t* h_unique_length_; // The # of emb_id after the unique operation for each emb_table on host, size = # of emb_table
+  float* d_hit_emb_vec_; // The buffer to hold hit emb_vec on device, same size as d_shuffled_embeddingoutputvector
   void* d_missing_embeddingcolumns_; // The buffer to hold missing emb_id for each emb_table on device, same size as h_embeddingcolumns
   void* h_missing_embeddingcolumns_; // The buffer to hold missing emb_id for each emb_table on host, same size as h_embeddingcolumns
   size_t* d_missing_length_; // The buffer to hold missing length for each emb_table on device, size = # of emb_table
@@ -36,6 +41,8 @@ struct embedding_cache_workspace{
   uint64_t* d_missing_index_; // The buffer to hold missing index for each emb_table on device, same size as h_embeddingcolumns
   float* d_missing_emb_vec_; // The buffer to hold retrieved missing emb_vec on device, same size as d_shuffled_embeddingoutputvector
   float* h_missing_emb_vec_; // The buffer to hold retrieved missing emb_vec from PS on host, same size as d_shuffled_embeddingoutputvector
+  std::vector<void*> unique_op_obj_; // The unique op object for to de-duplicate queried emb_id to each emb_table, size = # of emb_table
+  double* h_hit_rate_; // The hit rate for each emb_table on host, size = # of emb_table
 };
 
 struct embedding_cache_config{
