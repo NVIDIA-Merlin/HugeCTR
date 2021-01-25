@@ -73,6 +73,7 @@ struct SolverParser {
 
 struct InferenceParser {
   //  std::string configure_file;
+  float hit_rate_threshold;                    /**< hit rate threshold for updateing embedding cache */
   size_t max_batchsize;                        /**< batchsize */
   size_t num_embedding_tables;                 /**< number of embedding tables */
   size_t max_embedding_vector_size_per_sample; /**< max embedding vector size per sample */

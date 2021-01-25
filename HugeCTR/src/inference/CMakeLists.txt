@@ -53,6 +53,7 @@ file(GLOB huge_ctr_src
   parameter_server.cpp
   inference_utilis.cpp
   gpu_cache/nv_gpu_cache.cu
+  gpu_cache/unique_op.cu
   ../data_readers/metadata.cpp
   ../metrics.cu
   ../optimizers/adam_optimizer.cu
