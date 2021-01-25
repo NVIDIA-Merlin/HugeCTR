@@ -128,6 +128,11 @@ file(GLOB huge_ctr_src
   model_oversubscriber/parameter_server.cpp
   model_oversubscriber/parameter_server_manager.cpp
   diagnose.cu
+  ../pybind/model.cpp
+  ../pybind/optimizer.cpp
+  ../pybind/add_input.cpp
+  ../pybind/add_sparse_embedding.cpp
+  ../pybind/add_dense_layer.cpp
 )
 
 set(CMAKE_CXX_STANDARD 14)

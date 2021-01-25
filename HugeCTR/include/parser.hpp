@@ -67,6 +67,8 @@ struct SolverParser {
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
+  bool use_model_oversubscriber;
+  std::string temp_embedding_dir;
   SolverParser(const std::string& file);
   SolverParser() {}
 };
