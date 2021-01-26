@@ -1117,11 +1117,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
   // sync wait
   functors_.sync_all_gpus(Base::get_resource_manager());
 
-#ifdef ENABLE_MPI
-  const int base_tag = 0xed;
-#endif
   // TODO: could be optimized ???
-
   const size_t key_size = sizeof(TypeHashKey);
   const size_t slot_id_size = sizeof(size_t);
   const size_t value_size = sizeof(float) * embedding_vec_size;
