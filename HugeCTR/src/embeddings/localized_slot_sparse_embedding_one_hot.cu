@@ -885,9 +885,6 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
   // sync wait
   functors_.sync_all_gpus(Base::get_resource_manager());
 
-#ifdef ENABLE_MPI
-  const int base_tag = 0xed;
-#endif
   // TODO: could be optimized ???
   // one pair in the file includes <key,slot_id,value>
   size_t key_size = sizeof(TypeHashKey);
