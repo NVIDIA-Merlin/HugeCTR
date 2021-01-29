@@ -43,6 +43,7 @@ struct embedding_cache_workspace{
   float* h_missing_emb_vec_; // The buffer to hold retrieved missing emb_vec from PS on host, same size as d_shuffled_embeddingoutputvector
   std::vector<void*> unique_op_obj_; // The unique op object for to de-duplicate queried emb_id to each emb_table, size = # of emb_table
   double* h_hit_rate_; // The hit rate for each emb_table on host, size = # of emb_table
+  bool use_gpu_embedding_cache_; // whether to use gpu embedding cache
 };
 
 struct embedding_cache_config{
