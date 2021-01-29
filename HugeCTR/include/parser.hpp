@@ -123,6 +123,8 @@ class Parser {
   const bool use_algorithm_search_;
   const bool use_cuda_graph_;
 
+  std::map<std::string, bool> tensor_active_; /**< whether a tensor is active. */
+
   template <typename TypeKey>
   void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
                                 std::shared_ptr<IDataReader>& data_reader_eval,
@@ -325,6 +327,64 @@ template <typename Type>
 struct get_optimizer_param {
   OptParams<Type> operator()(const nlohmann::json& j_optimizer);
 };
+
+inline void activate_tensor(std::map<std::string, bool>& tensor_active, std::string top_name) {
+  if (tensor_active.find(top_name) != tensor_active.end()) {
+    CK_THROW_(Error_t::WrongInput, top_name + ", top tensor name already exists");
+  }
+  tensor_active.insert(std::pair<std::string, bool>(top_name, true));
+}
+
+inline void deactivate_tensor(std::map<std::string, bool>& tensor_active, std::string bottom_name) {
+  if (tensor_active.find(bottom_name) == tensor_active.end()) {
+    CK_THROW_(Error_t::WrongInput, bottom_name + ", bottem tensor name does not exists");
+  }
+  if (tensor_active[bottom_name] == false) {
+    CK_THROW_(Error_t::WrongInput, bottom_name + ", bottem tensor already consumed");
+  }
+  tensor_active[bottom_name] = false;
+}
+
+inline std::vector<std::string> get_layer_names(const nlohmann::json& json) {
+  std::vector<std::string> layer_names;
+  if (json.is_array()) {
+    for (auto j : json) {
+      layer_names.push_back(j.get<std::string>());
+    }
+  } else {
+    layer_names.push_back(json.get<std::string>());
+  }
+  return layer_names;
+}
+
+inline void check_graph(std::map<std::string, bool>& tensor_active, const nlohmann::json& j_layers) {
+  // activate label, dense and sparse input tensors
+  const nlohmann::json& j_data = j_layers[0];
+  if (has_key_(get_json(j_data, "label"), "top")) {
+    auto label_name = get_value_from_json<std::string>(get_json(j_data, "label"), "top");
+    activate_tensor(tensor_active, label_name);
+  }
+  auto dense_name = get_value_from_json<std::string>(get_json(j_data, "dense"), "top");
+  activate_tensor(tensor_active, dense_name);
+  auto j_sparse = get_json(j_data, "sparse");
+  for (unsigned int k = 0; k < j_sparse.size(); k++) {
+    const auto sparse_name = get_value_from_json<std::string>(j_sparse[k], "top");
+    activate_tensor(tensor_active, sparse_name);
+  }
+  // deactivate bottom tensors and activate top tensors
+  for (unsigned int i = 1; i < j_layers.size(); i++) {
+    auto bottom = get_json(j_layers[i], "bottom");
+    auto top = get_json(j_layers[i], "top");
+    std::vector<std::string> bottom_names = get_layer_names(bottom);
+    std::vector<std::string> top_names = get_layer_names(top);
+    for (auto& bottom_name : bottom_names) {
+      deactivate_tensor(tensor_active, bottom_name);
+    }
+    for (auto& top_name : top_names) {
+      activate_tensor(tensor_active, top_name);
+    }
+  }
+}
 
 template <typename TypeKey, typename TypeFP>
 struct create_embedding {
