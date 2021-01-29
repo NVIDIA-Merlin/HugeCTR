@@ -160,15 +160,8 @@ criteo:
         bash -cx "
         cd /dataset/criteo_kaggle/criteo;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
-    - srun --ntasks=2
-        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-        --ntasks-per-node 1
-        bash -cx "
-        cd /dataset/criteo_kaggle/criteo;
-        ${WORK_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
 
-dcn:
+dcn_single_node:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
@@ -180,13 +173,14 @@ dcn:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_8gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding_8gpu.json;
+        ${WORK_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${WORK_DIR}/samples/dcn/dcn_localized_embedding.json;
         cd /dataset/criteo_kaggle/dcn_parquet;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_distributed_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_distributed_8gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_localized_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_localized_8gpu.json"
 
-dlrm_raw:
+mlperf_benchmark:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
@@ -211,7 +205,6 @@ wdl_deepfm:
         cd /dataset/criteo_kaggle/deepfm;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/deepfm_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/deepfm_8gpu.json"
-  
 
 dlrm:
   extends: .cluster_test_train_job
@@ -227,7 +220,7 @@ dlrm:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dlrm_fp16_8gpu.json"
   
 
-dcn_multinode:
+dcn_multi_node:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=4
@@ -274,13 +267,6 @@ py_single_node:
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
-        cd /dataset/criteo_kaggle/dcn;
-        cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-        python3 ${WORK_DIR}/test/pybind_test/hugectr_keras_dcn_1gpu.py;"
-    - srun --ntasks=1
-        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-        bash -cx "
         cd /dataset/criteo_kaggle/wdl;
         cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
         python3 ${WORK_DIR}/test/pybind_test/single_node_wdl_fp16_8gpu.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json;"
@@ -312,14 +298,6 @@ py_multi_node:
         cd /dataset/criteo_kaggle/dcn;
         cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
         python3 ${WORK_DIR}/test/pybind_test/multi_node_dcn_4node_2gpu.py ${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
-    - srun --ntasks=2
-        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-        --ntasks-per-node 1
-        bash -cx "
-        cd /dataset/criteo_kaggle/criteo;
-        cp ${WORK_DIR}/build/build_multi_gossip/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-        python3 ${WORK_DIR}/test/pybind_test/multi_node_criteo_2node_4gpu.py ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
     
 # embedding_plugin
 embedding_plugin1:

@@ -44,7 +44,8 @@ enum class CmdOptions_t { Train, Version, Help };
 
 HugeCTR::Timer timer_log;
 
-bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
+bool eval(const int i, const int current_epoch,
+          std::shared_ptr<HugeCTR::Session>& session_instance,
           const HugeCTR::SolverParser& solver_config, HugeCTR::Timer& timer,
           HugeCTR::Timer& timer_eval) {
   if (solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0) {
@@ -75,9 +76,14 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
       data_reader_eval->set_source();
     }
 
+    auto training_progress = [i, current_epoch](bool is_epoch, size_t max_iter) {
+      if (is_epoch) return " at epoch " + std::to_string(current_epoch);
+      else return " at training percentage " + std::to_string(float(i) / max_iter * 100.) + "%";
+    };
+
     auto eval_metrics = session_instance->get_eval_metrics();
     for (auto& eval_metric : eval_metrics) {
-      MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+      HugeCTR::MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
 
       HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second,
                    float(i) / solver_config.max_iter, i);
@@ -92,16 +98,16 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
               static_cast<size_t>(i + 1) * static_cast<size_t>(solver_config.batchsize);
           HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
 
-          std::string epoch_num_str = std::to_string(float(i) / solver_config.max_iter);
+          std::string progress = training_progress(solver_config.num_epochs > 0, solver_config.max_iter);
 
-          std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at epoch " +
-                           epoch_num_str + " with batchsize: "
+          std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) +
+                       progress + " with batchsize: "
                     << solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
                     << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
                     << float(i) * solver_config.batchsize / timer.elapsedSeconds() << " records/s."
                     << std::endl;
 
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop", epoch_num_str);
+          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop" + progress);
 
           HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
 
@@ -114,8 +120,8 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
 
     timer_eval.stop();
 
-    MESSAGE_("Eval Time for " + std::to_string(solver_config.max_eval_batches) +
-             " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+    HugeCTR::MESSAGE_("Eval Time for " + std::to_string(solver_config.max_eval_batches) +
+                      " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
 
     HugeCTR::LOG(
         timer_log.elapsedMilliseconds(), "eval_stop",
@@ -156,7 +162,7 @@ void train(std::string config_file) {
 
   // train
   if (pid == 0) {
-    MESSAGE_("HugeCTR training start:");
+    HugeCTR::MESSAGE_("HugeCTR training start:");
   }
 #ifndef VAL
   HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0);  // just 1 epoch
@@ -177,9 +183,9 @@ void train(std::string config_file) {
                                    __FILE__ + ":" + std::to_string(__LINE__) + " \n");
         }
         if (pid == 0) {
-          MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
-                   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                   "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+          HugeCTR::MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
+                            " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                            "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
         }
         timer_train.start();
       }
@@ -188,7 +194,7 @@ void train(std::string config_file) {
         session_instance->download_params_to_files(solver_config.snapshot_prefix, i);
       }
 
-      bool eval_stop = !eval(i, session_instance, solver_config, timer, timer_eval);
+      bool eval_stop = !eval(i, 0, session_instance, solver_config, timer, timer_eval);
       if (eval_stop) {
         return;
       }
@@ -198,7 +204,7 @@ void train(std::string config_file) {
     for (int e = 0; e < solver_config.num_epochs; e++) {
       bool good = false;
       if (pid == 0) {
-        MESSAGE_("Epoch: " + std::to_string(e));
+        HugeCTR::MESSAGE_("Epoch: " + std::to_string(e));
       }
       auto data_reader_train = session_instance->get_train_data_reader();
       data_reader_train->set_source();
@@ -218,14 +224,14 @@ void train(std::string config_file) {
                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
           }
           if (pid == 0) {
-            MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
-                     std::to_string(solver_config.display) +
-                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                     "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
+                              std::to_string(solver_config.display) +
+                              " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                              "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
           }
           timer_train.start();
         }
-        bool eval_stop = !eval(i, session_instance, solver_config, timer, timer_eval);
+        bool eval_stop = !eval(i, e, session_instance, solver_config, timer, timer_eval);
         if (eval_stop) {
           return;
         }

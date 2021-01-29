@@ -159,7 +159,7 @@ std::vector<typename ConcatLayer<T>::InParam> ConcatLayer<T>::set_in_params(Tens
     int w = in_tensor.get_dimensions()[1];
     in_params.push_back({in, w});
   }
-  return std::move(in_params);
+  return in_params;
 }
 
 template <typename T>
