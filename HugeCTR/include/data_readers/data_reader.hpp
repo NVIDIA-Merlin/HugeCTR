@@ -152,6 +152,7 @@ class DataReader : public IDataReader {
     worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
         csr_heap_, file_name, num_samples, repeat_, params_, slot_offset, label_dim_, dense_dim_,
         batchsize_, float_label_dense, data_shuffle, start_reading_from_beginning));
+    file_name_ = file_name;
   }
 
   void create_drwg_parquet(std::string file_name, const std::vector<long long> slot_offset,

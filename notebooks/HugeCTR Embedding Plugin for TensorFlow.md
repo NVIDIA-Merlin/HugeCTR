@@ -3,7 +3,7 @@
 
 This notebook introduces a TensorFlow (TF) plugin for the HugeCTR embedding layer, embedding_plugin, where users may benefit from both the computational efficiency of the HugeCTR embedding layer and the ease of use of TensorFlow (TF).
  
-To use this notebook, we recommend that you use our dev.tfplugin.Dockerfile docker image. For additional information, see notebooks/README.md#1-requirements.
+To use this notebook, we recommend that you use our plugin-embedding.Dockerfile docker image. For additional information, see notebooks/README.md#1-requirements.
 
 ## Build HugeCTR
 
