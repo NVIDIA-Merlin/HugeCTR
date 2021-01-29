@@ -64,19 +64,6 @@ static bool get_tensor_from_entries(const std::vector<TensorEntry> tensor_entrie
   return false;
 }
 
-static std::vector<std::string> get_layer_names(const nlohmann::json& json) {
-  std::vector<std::string> layer_names;
-  if (json.is_array()) {
-    for (auto j : json) {
-      layer_names.push_back(j.get<std::string>());
-    }
-  } else {
-    layer_names.push_back(json.get<std::string>());
-  }
-
-  return layer_names;
-}
-
 static InputOutputInfo get_input_tensor_and_output_name(
     const nlohmann::json& json, const std::vector<TensorEntry>& tensor_entries) {
   auto bottom = get_json(json, "bottom");
