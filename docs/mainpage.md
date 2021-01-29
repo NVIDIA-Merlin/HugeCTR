@@ -46,11 +46,11 @@ To build a docker image of **development environment** from the corresponding Do
 It will install the libraries and tools required to use HugeCTR.
 HugeCTR build itself must be done by yourself.
 ```shell
-$ docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
+$ docker build -t hugectr:devel -f ./tools/dockerfiles/train.Dockerfile .
 ```
 Run with interaction mode (mount the home directory of repo into container for easy development and try):
 ```shell
-$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel bash
+$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr hugectr:devel
 ```
 
 To build a docker image of **production environment**, run the command below.

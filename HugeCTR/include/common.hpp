@@ -25,6 +25,7 @@
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
+#include <utility>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -216,17 +217,21 @@ typedef struct DataSetHeader_ {
     }                                                                              \
   } while (0)
 
-#define MESSAGE_(msg)                                                                \
-  do {                                                                               \
-    std::time_t time_instance = std::time(0);                                        \
-    std::tm* time_now = std::localtime(&time_instance);                              \
-    std::string str = (msg);                                                         \
-    std::cout.fill('0');                                                             \
-    std::cout << "[" << std::setw(2) << time_now->tm_mday << "d" << std::setw(2)     \
-              << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m" \
-              << std::setw(2) << time_now->tm_sec << "s"                             \
-              << "][HUGECTR][INFO]: " << str << std::endl;                           \
-  } while (0)
+inline void MESSAGE_(const std::string msg) {
+#ifdef ENABLE_MPI
+  int __PID(-1);
+  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
+  if (__PID) return;
+#endif
+  std::time_t time_instance = std::time(0);
+  std::tm* time_now = std::localtime(&time_instance);
+  std::string str = (std::move(msg));
+  std::cout.fill('0');
+  std::cout << "[" << std::setw(2) << time_now->tm_mday << "d" << std::setw(2)
+            << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m"
+            << std::setw(2) << time_now->tm_sec << "s"
+            << "][HUGECTR][INFO]: " << str << std::endl;
+}
 
 #define CK_CUDA_THROW_(x)                                                                          \
   do {                                                                                             \
