@@ -406,7 +406,7 @@ void embedding_cache<TypeHashKey>::create_workspace(embedding_cache_workspace& w
   CK_CUDA_THROW_(cudaHostAlloc((void**)&workspace_handler.h_missing_emb_vec_, 
                                max_emb_vec_len_per_batch_in_float * sizeof(float), 
                                cudaHostAllocPortable));
-
+  workspace_handler.use_gpu_embedding_cache_ = cache_config_.use_gpu_embedding_cache_;
   // If GPU embedding cache is enabled
   if(cache_config_.use_gpu_embedding_cache_){
     // Device Restorer
