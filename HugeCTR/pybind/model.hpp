@@ -235,6 +235,7 @@ class Model {
   std::map<std::string, SparseInput<unsigned int>> sparse_input_map_32_;
   std::vector<std::vector<TensorEntry>> train_tensor_entries_list_;
   std::vector<std::vector<TensorEntry>> evaluate_tensor_entries_list_;
+  std::map<std::string, bool> tensor_active_;
   
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> blobs_buff_list_;
   std::vector<std::shared_ptr<BufferBlock2<float>>> train_weight_buff_list_;
@@ -246,6 +247,7 @@ class Model {
   std::vector<std::shared_ptr<BufferBlock2<float>>> wgrad_buff_placeholder_list_;
   std::vector<std::shared_ptr<BufferBlock2<__half>>> wgrad_buff_half_placeholder_list_;
 
+  std::vector<std::string> data_input_info_; /**< data input name */
   std::vector<std::pair<std::string, std::string>> input_output_info_;   /**< input output name of each layer. */
   std::vector<std::string> layer_info_;   /**< type of each layer. */
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
