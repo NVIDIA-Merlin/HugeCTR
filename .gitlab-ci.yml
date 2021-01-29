@@ -259,10 +259,29 @@ dcn_multi_node:
         cd /dataset/criteo_kaggle/dcn;
         ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dlrm_fp32_4node_2gpu.json"
 
+# python interface inference
+py_inference:
+  extends: .cluster_test_train_job
+  script:
+    - srun --ntasks=1
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/hpc-hugectr/inference/:/hugectr/test/utest/
+        bash -cx "
+        cd /dataset/criteo_kaggle/dcn;
+        cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
+        python3 ${WORK_DIR}/test/pybind_test/dcn_inference.py ${WORK_DIR}/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt;"
+
 # python interface single node
 py_single_node:
   extends: .cluster_test_train_job
   script:
+    - srun --ntasks=1
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+        bash -cx "
+        cd /dataset/criteo_kaggle/dcn;
+        cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
+        python3 ${WORK_DIR}/test/pybind_test/hugectr_keras_dcn_1gpu.py;"
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
