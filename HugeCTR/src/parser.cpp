@@ -50,6 +50,7 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& train_data_r
 
       auto j_layers_array = get_json(config_, "layers");
       auto j_optimizer = get_json(config_, "optimizer");
+      check_graph(tensor_active_, j_layers_array);
 
       // Create Data Reader
       {

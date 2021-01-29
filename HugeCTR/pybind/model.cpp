@@ -241,6 +241,14 @@ Model::~Model() {
 }
 
 void Model::add(Input& input) {
+  activate_tensor(tensor_active_, input.label_name);
+  activate_tensor(tensor_active_, input.dense_name);
+  data_input_info_.push_back(input.label_name);
+  data_input_info_.push_back(input.dense_name);
+  data_input_info_.push_back(join(input.sparse_names, ", "));
+  for (unsigned int i = 0; i < input.sparse_names.size(); i++) {
+    activate_tensor(tensor_active_, input.sparse_names[i]);
+  }
   if (solver_.i64_input_key) {
     add_input<long long>(input, sparse_input_map_64_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, train_data_reader_,
@@ -257,6 +265,8 @@ void Model::add(Input& input) {
 }
 
 void Model::add(SparseEmbedding& sparse_embedding) {
+  deactivate_tensor(tensor_active_, sparse_embedding.bottom_name);
+  activate_tensor(tensor_active_, sparse_embedding.sparse_embedding_name);
   input_output_info_.push_back(std::make_pair(sparse_embedding.bottom_name, sparse_embedding.sparse_embedding_name));
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
   if (solver_.i64_input_key && !solver_.use_mixed_precision) {
@@ -283,8 +293,14 @@ void Model::add(SparseEmbedding& sparse_embedding) {
 }
 
 void Model::add(DenseLayer& dense_layer) {
-  std::string input_names = join(dense_layer.bottom_names, " ");
-  std::string output_names = join(dense_layer.top_names, " ");
+  for (auto bottom_name : dense_layer.bottom_names) {
+    deactivate_tensor(tensor_active_, bottom_name);
+  }
+  for (auto top_name : dense_layer.top_names) {
+    activate_tensor(tensor_active_, top_name);
+  }
+  std::string input_names = join(dense_layer.bottom_names, ", ");
+  std::string output_names = join(dense_layer.top_names, ", ");
   input_output_info_.push_back(std::make_pair(input_names, output_names));
   layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
   add_dense_layer(dense_layer, train_tensor_entries_list_, evaluate_tensor_entries_list_,
@@ -345,10 +361,18 @@ void Model::compile() {
 
 void Model::summary() {
   std::cout << "==================================Model Summary==================================" << std::endl;
+  std::cout << std::left << std::setw(30) << std::setfill(' ') << "Label Name"
+       << std::left << std::setw(30) << std::setfill(' ') << "Dense Name"
+       << std::left << std::setw(30) << std::setfill(' ') << "Sparse Name"
+       << std::endl;
+  std::cout << std::left << std::setw(30) << std::setfill(' ') << data_input_info_[0]
+    << std::left << std::setw(30) << std::setfill(' ') << data_input_info_[1]
+    << std::left << std::setw(30) << std::setfill(' ') << data_input_info_[2]
+    << std::endl;
   std::cout << "--------------------------------------------------------------------------------" << std::endl;
-  std::cout << std::left << std::setw(30) << std::setfill(' ') << "Layer type"
-       << std::left << std::setw(30) << std::setfill(' ') << "Input"
-       << std::left << std::setw(30) << std::setfill(' ') << "Output"
+  std::cout << std::left << std::setw(30) << std::setfill(' ') << "Layer Type"
+       << std::left << std::setw(30) << std::setfill(' ') << "Input Name"
+       << std::left << std::setw(30) << std::setfill(' ') << "Output Name"
        << std::endl;
   std::cout << "--------------------------------------------------------------------------------" << std::endl;
   for (size_t i = 0; i < layer_info_.size(); ++i) {
