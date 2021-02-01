@@ -653,7 +653,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
     }
 
     MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-             ": Dump embedding table from GPU" + std::to_string(id));
+             ": Dump embedding table from GPU" + std::to_string(id),
+						 true);
 
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
@@ -723,14 +724,16 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
     }
     if (Base::get_resource_manager().is_master_process()) {
       MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-               ": Write hash table <key,value> pairs to file");
+               ": Write hash table <key,value> pairs to file",
+							 true);
       weight_stream.write(file_buf.get(), size_in_B);
     }
 #ifdef ENABLE_MPI
     else {
       MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
                ": Send hash table <key,value> pairs on GPU" + std::to_string(id) +
-               " to master node  ");
+               " to master node",
+							 true);
       int tag = (id << 8) | base_tag;
       CK_MPI_THROW_(MPI_Send(file_buf.get(), size_in_B, MPI_CHAR,
                              Base::get_resource_manager().get_master_process_id(), tag,
@@ -744,8 +747,9 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
     for (int r = 1; r < Base::get_resource_manager().get_num_process(); r++) {
       for (size_t id = 0; id < local_gpu_count; id++) {
         MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-                 ": Recv hash table <key,value> pairs from rank" + std::to_string(r) + " on GPU" +
-                 std::to_string(id) + ", and write to file ");
+                 ": Recv hash table <key,value> pairs from rank" + std::to_string(r)
+								 + " on GPU" + std::to_string(id) + ", and write to file ",
+								 true);
         int tag = (id << 8) | base_tag;
         MPI_Status status;
         CK_MPI_THROW_(MPI_Probe(r, tag, MPI_COMM_WORLD, &status));
@@ -844,7 +848,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
     }
 
     MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-             ": Dump embedding table from GPU" + std::to_string(id));
+             ": Dump embedding table from GPU" + std::to_string(id),
+						 true);
 
     context.set_device(Base::get_local_gpu(id).get_device_id());
 

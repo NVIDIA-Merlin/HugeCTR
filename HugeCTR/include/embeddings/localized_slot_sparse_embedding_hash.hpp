@@ -429,6 +429,10 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    */
   void dump_parameters(std::ofstream &stream) const override;
   void dump_parameters(BufferBag& buf_bag, size_t *num) const override;
+
+  void dump_opt_states(std::ofstream& stream) override;
+  void load_opt_states(std::ifstream& stream) override;
+
   /**
    * Reset the embedding
    */

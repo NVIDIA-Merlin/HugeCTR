@@ -57,9 +57,11 @@ class Network {
   Tensor2<float> train_weight_tensor_;
   Tensor2<float> wgrad_tensor_;
   Tensor2<float> evaluate_weight_tensor_;
+  Tensor2<float> opt_tensor_;
   Tensor2<__half> train_weight_tensor_half_;
   Tensor2<__half> wgrad_tensor_half_;
   Tensor2<__half> evaluate_weight_tensor_half_;
+  Tensor2<__half> opt_tensor_half_;
   Tensor2<float> train_loss_tensor_;    /**< loss tensor */
   Tensor2<float> evaluate_loss_tensor_; /**< loss tensor */
   metrics::RawMetricMap raw_metrics_;
@@ -134,10 +136,20 @@ class Network {
    */
   size_t get_params_num() const { return train_weight_tensor_.get_num_elements(); }
 
+  size_t get_opt_states_size_in_byte() const {
+    return use_mixed_precision_?
+        opt_tensor_half_.get_size_in_bytes() : opt_tensor_.get_size_in_bytes();
+  }
+
   /**
    * Writting paramters to fstream.
    */
   void download_params_to_host(std::ofstream& weight_stream);
+
+  /**
+   * Writting opt states to fstream.
+   */
+  void download_opt_states_to_host(std::ofstream& opt_states_stream);
 
   /**
    * Get no trained parameters (such as parameters in Batch nomalization) to string.
@@ -163,6 +175,11 @@ class Network {
    * Read parameters from cpu buffer.
    */
   void upload_params_to_device(float* params);
+
+  /**
+   * Read opt states from cpu buffer.
+   */
+  void upload_opt_states_to_device(char* h_opt_states);
 
   /**
    * Init parameters and write to fstream.

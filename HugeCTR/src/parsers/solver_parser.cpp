@@ -68,6 +68,9 @@ SolverParser::SolverParser(const std::string& file) {
     if (has_key_(j, "dense_model_file")) {
       model_file = get_value_from_json<std::string>(j, "dense_model_file");
     }
+    if (has_key_(j, "dense_opt_states_file")) {
+      dense_opt_states_file = get_value_from_json<std::string>(j, "dense_opt_states_file");
+    }
     FIND_AND_ASSIGN_INT_KEY(eval_interval, j);
 
     if (has_key_(j, "eval_batches")) {
@@ -110,6 +113,17 @@ SolverParser::SolverParser(const std::string& file) {
         }
       } else {
         embedding_files.push_back(get_value_from_json<std::string>(j, "sparse_model_file"));
+      }
+    }
+
+    if (has_key_(j, "sparse_opt_states_file")) {
+      auto j_sparse_opt_states_files = get_json(j, "sparse_opt_states_file");
+      if (j_sparse_opt_states_files.is_array()) {
+        for (auto j_embedding_tmp : j_sparse_opt_states_files) {
+          sparse_opt_states_files.push_back(j_embedding_tmp.get<std::string>());
+        }
+      } else {
+        sparse_opt_states_files.push_back(get_value_from_json<std::string>(j, "sparse_opt_states_file"));
       }
     }
 

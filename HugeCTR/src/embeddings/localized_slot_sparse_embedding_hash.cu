@@ -891,7 +891,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
     }
 
     MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-             ": Dump hash table from GPU" + std::to_string(id));
+             ": Dump hash table from GPU" + std::to_string(id),
+						 true);
 
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
@@ -951,14 +952,16 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
     }
     if (Base::get_resource_manager().is_master_process()) {
       MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-               ": Write hash table <key,slot_id,value> pairs to file");
+               ": Write hash table <key,slot_id,value> pairs to file",
+							 true);
       weight_stream.write(file_buf.get(), size_in_B);
     }
 #ifdef ENABLE_MPI
     else {
       MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
                ": Send hash table <key,value> pairs on GPU" + std::to_string(id) +
-               " to master node  ");
+               " to master node ",
+							 true);
       int tag = (id << 8) | base_tag;
       CK_MPI_THROW_(MPI_Send(file_buf.get(), size_in_B, MPI_CHAR,
                              Base::get_resource_manager().get_master_process_id(), tag,
@@ -972,8 +975,9 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
     for (int r = 1; r < Base::get_resource_manager().get_num_process(); r++) {
       for (size_t id = 0; id < local_gpu_count; id++) {
         MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-                 ": Recv hash table <key,value> pairs from rank" + std::to_string(r) + " on GPU" +
-                 std::to_string(id) + ", and write to file ");
+                 ": Recv hash table <key,value> pairs from rank" + std::to_string(r) +
+								 " on GPU" + std::to_string(id) + ", and write to file ",
+								 true);
         int tag = (id << 8) | base_tag;
         MPI_Status status;
         CK_MPI_THROW_(MPI_Probe(r, tag, MPI_COMM_WORLD, &status));
@@ -1086,7 +1090,8 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
     }
 
     MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-             ": Dump hash table from GPU" + std::to_string(id));
+             ": Dump hash table from GPU" + std::to_string(id),
+						 true);
 
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
@@ -1157,6 +1162,78 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
   }
 
   return;
+}
+
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_opt_states(
+    std::ofstream& stream) {
+  std::vector<Tensors2<TypeEmbeddingComp>> opt_states;
+
+  switch (Base::get_optimizer()) {
+    case Optimizer_t::Adam:  // adam
+    {
+      opt_states.push_back(opt_m_tensors_);
+      opt_states.push_back(opt_v_tensors_);
+      break;
+    }
+
+    case Optimizer_t::MomentumSGD:  // momentum_sgd
+    {
+      opt_states.push_back(opt_momentum_tensors_);
+      break;
+    }
+
+    case Optimizer_t::Nesterov:  // nesterov
+    {
+      opt_states.push_back(opt_accm_tensors_);
+      break;
+    }
+
+    case Optimizer_t::SGD:
+      break;
+
+    default:
+      throw std::runtime_error(
+          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  }
+
+  functors_.dump_opt_states(stream, Base::get_resource_manager(), opt_states);
+}
+
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_opt_states(
+    std::ifstream& stream) {
+  std::vector<Tensors2<TypeEmbeddingComp>> opt_states;
+
+  switch (Base::get_optimizer()) {
+    case Optimizer_t::Adam:  // adam
+    {
+      opt_states.push_back(opt_m_tensors_);
+      opt_states.push_back(opt_v_tensors_);
+      break;
+    }
+
+    case Optimizer_t::MomentumSGD:  // momentum_sgd
+    {
+      opt_states.push_back(opt_momentum_tensors_);
+      break;
+    }
+
+    case Optimizer_t::Nesterov:  // nesterov
+    {
+      opt_states.push_back(opt_accm_tensors_);
+      break;
+    }
+
+    case Optimizer_t::SGD:
+      break;
+
+    default:
+      throw std::runtime_error(
+          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  }
+
+  functors_.load_opt_states(stream, Base::get_resource_manager(), opt_states);
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
