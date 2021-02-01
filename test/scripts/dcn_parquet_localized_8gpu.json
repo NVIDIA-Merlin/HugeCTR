@@ -8,7 +8,7 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 2000,
-    "eval_batches": 16384,
+    "max_eval_batches": 16384,
     "batchsize_eval": 32768,
     "input_key_type": "I64"
   },

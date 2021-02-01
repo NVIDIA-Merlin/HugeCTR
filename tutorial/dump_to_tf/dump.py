@@ -181,7 +181,7 @@ class DumpToTF(object):
 
                 return weights, biases
 
-            elif layer_type == "Multiply":
+            elif layer_type == "WeightMultiply":
                 # TODO
                 pass
 

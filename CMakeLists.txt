@@ -13,9 +13,16 @@
 # limitations under the License.
 #
 
-
 cmake_minimum_required(VERSION 3.8)
 project(HugeCTR LANGUAGES CXX CUDA)
+
+option(ONLY_EMB_PLUGIN, "Only build embedding plugin" OFF)
+if (ONLY_EMB_PLUGIN)
+  message("-- Please be noted that only embedding plugin will be built.")
+  include(${PROJECT_SOURCE_DIR}/cmake/EmbeddingPlugin.cmake)
+  return()
+endif()
+
 set(CMAKE_CXX_STANDARD 14)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
@@ -167,14 +174,23 @@ link_directories(
   ${UCX_LIB_PATHS}
   $ENV{CONDA_PREFIX}/lib)
 
-#setting binary files install path
-install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 #setting python interface file install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local/hugectr)
-
-add_subdirectory(HugeCTR/src)
-add_subdirectory(HugeCTR/pybind)
-add_subdirectory(third_party/googletest)
+#install inference header files
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference DESTINATION /usr/local/hugectr/include)
 add_subdirectory(third_party/json)
+
+
+option(ENABLE_INFERENCE "Enable Inference" OFF)
+if(ENABLE_INFERENCE)
+add_subdirectory(third_party/googletest)
+add_subdirectory(HugeCTR/src/inference)
+add_subdirectory(test/utest/inference)
+else()
+#setting binary files install path
+install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
+add_subdirectory(HugeCTR/src)
+add_subdirectory(third_party/googletest)
 add_subdirectory(test/utest)
 add_subdirectory(tools)
+endif()

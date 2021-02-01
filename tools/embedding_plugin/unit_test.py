@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-# import nvtx.plugins.tf as nvtx_tf
 import sys
 sys.path.append("./python")
 sys.path.append("./performance_profile")
@@ -50,6 +49,7 @@ def Convert_to_csr_test(batch_size, gpu_count, embedding_type, iterations=10):
         """
         Compare the result of converting to CSR between plugin CPU ops and tf ops.
         """
+        print("[INFO]: converting to CSR, plugin CPU vs tf ops..")
         dataset_names = ['./performance_profile/train.tfrecord']
         dataset_cpu = create_dataset(dataset_names=dataset_names, 
                                      feature_desc=feature_desc,
@@ -91,6 +91,7 @@ def Convert_to_csr_test(batch_size, gpu_count, embedding_type, iterations=10):
         """
         Compare the result of converting to CSR between plugin GPU ops and tf ops.
         """
+        print("[INFO]: converting to CSR, plugin GPU vs tf ops..")
         dataset_names = ['./performance_profile/train.tfrecord']
         dataset_gpu = create_dataset(dataset_names=dataset_names, 
                                      feature_desc=feature_desc,
@@ -140,15 +141,7 @@ def Convert_to_csr_test(batch_size, gpu_count, embedding_type, iterations=10):
         hugectr_tf_ops.reset()
 
 
-
-    # # check convert to CSR via CPU and tf ops
-    # for batch_size in [1024, 16384, 65536]:
-    #     for gpu_count in [1, 2, 4, 8]:
-    #         for embedding_type in ['localized', 'distributed']:
-    #             _plugin_CPU_op_VS_tf_ops()
-
-    # check GPU via tf ops, TODO: write shell script to do multiple testing.
-    _plugin_GPU_op_VS_tf_ops()
+    _plugin_CPU_op_VS_tf_ops()
     _plugin_GPU_op_VS_tf_ops()
 
 
@@ -157,6 +150,7 @@ def Embedding_ops_test(vocabulary_size, slot_num, max_nnz, embedding_vec_size, b
     test forward propagation result with tf embedding layer.
     And do backward, then check forward propagation again.
     """
+    tf.keras.backend.clear_session()
     def _fprop_VS_tf():
         print("[INFO]: Testing fprop vs tf...")
         if vocabulary_size < slot_num:
@@ -469,6 +463,37 @@ def Embedding_ops_test(vocabulary_size, slot_num, max_nnz, embedding_vec_size, b
     _fprop_v4_VS_tf()
 
 if __name__ == "__main__":
-    # Convert_to_csr_test(batch_size=65536, gpu_count=8, embedding_type='localized')
-    Embedding_ops_test(vocabulary_size=1024, slot_num=26, max_nnz=5, embedding_vec_size=128, batch_size=1024, 
-                    gpus=[0,1,2,3,4,5,6,7], embedding_type='localized')
+    parser = argparse.ArgumentParser(description='Embedding plugin unit test v2')
+    parser.add_argument("--fast_testing", type=int, help='whether to do the unit testing fastly?',
+                        required=False, default=0, choices=[0, 1])
+    args = parser.parse_args()
+
+    if (args.fast_testing == 1):
+        Convert_to_csr_test(batch_size=65536, gpu_count=8, embedding_type='distributed')
+        Embedding_ops_test(vocabulary_size=1024, slot_num=26, max_nnz=5, embedding_vec_size=128, batch_size=1024, 
+                        gpus=[0,1,2,3,4,5,6,7], embedding_type='localized')
+    else:
+        for batch_size in [65536]:
+            for gpu_count in [1, 2, 4, 8]:
+                for embedding_type in ['distributed', 'localized']:
+                    print("[INFO]: batch_size = %d, gpu_count = %d, embedding_type = %s" 
+                            %(batch_size, gpu_count, embedding_type))
+                    Convert_to_csr_test(batch_size=batch_size, gpu_count=gpu_count, embedding_type=embedding_type)
+
+        vocabulary_size = int(1e5)
+        for slot_num in [32, 128]:
+            for max_nnz in [1, 16]:
+                for embedding_vec_size in [16, 32, 256]:
+                    for batch_size in [16384, 65536]:
+                        for gpus in [[i for i in range(gpu_count)] for gpu_count in [1, 2, 4, 8]]:
+                            for embedding_type in ['distributed', 'localized']:
+                                print(("[INFO]: vocabulary_size = %d, slot_num = %d, max_nnz = %d, embedding_vec_size = %d, " +\
+                                        "batch_size = %d, gpu_count = %d, embedding_type = %s") 
+                                        %(vocabulary_size, slot_num, max_nnz, embedding_vec_size, 
+                                            batch_size, len(gpus), embedding_type))
+                                Embedding_ops_test(vocabulary_size, slot_num, max_nnz, embedding_vec_size, batch_size, 
+                                                    gpus, embedding_type)
+
+
+
+

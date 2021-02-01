@@ -100,7 +100,7 @@ class CSRChunk {
    * Get the vector of csr objects.
    * This methord is used in collector (consumer) and data_reader (provider).
    */
-  const std::vector<CSR<CSR_Type>>& get_csr_buffers() const { return csr_buffers_; }
+  std::vector<CSR<CSR_Type>>& get_csr_buffers() { return csr_buffers_; }
 
   /**
    * Get the specific csr object.

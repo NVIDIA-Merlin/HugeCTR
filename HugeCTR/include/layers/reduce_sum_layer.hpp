@@ -26,23 +26,24 @@ namespace HugeCTR {
  * The reduced axis(dimention) can be selected. The output
  * tensor will keep the reduced dimention.
  */
+template <typename T>
 class ReduceSumLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors2<float> weights_;
+  Tensors2<T> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors2<float> wgrad_;
+  Tensors2<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<float> in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  Tensors2<float> out_tensors_;
+  Tensors2<T> out_tensors_;
 
  public:
   /**
@@ -52,7 +53,7 @@ class ReduceSumLayer : public Layer {
    * @param axis the reduced dimention, could be 0,1,2
    * @param device_id the id of GPU where this layer belongs
    */
-  ReduceSumLayer(const Tensor2<float>& in_tensors, Tensor2<float>& out_tensor,
+  ReduceSumLayer(const Tensor2<T>& in_tensors, Tensor2<T>& out_tensor,
                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, int axis,
                  const std::shared_ptr<GPUResource>& gpu_resource);
   ~ReduceSumLayer(){};

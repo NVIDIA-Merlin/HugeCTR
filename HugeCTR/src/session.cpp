@@ -100,41 +100,19 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
   parser.create_pipeline(train_data_reader_, evaluate_data_reader_, embeddings_, networks_,
                          resource_manager_);
 
-  // init networks.
-  std::string TMP_DENSE_NAME;
-  if (resource_manager_->get_pid() == 0) {
-    const char* TMP_DENSE_NAME_PREFIX = std::getenv("TMP_DIR");
-    if (TMP_DENSE_NAME_PREFIX == nullptr) {
-      TMP_DENSE_NAME = "./" + generate_random_file_name();
-    } else {
-      TMP_DENSE_NAME = std::string(TMP_DENSE_NAME_PREFIX) + "/" + generate_random_file_name();
+#ifndef DATA_READING_TEST
+#pragma omp parallel num_threads(networks_.size())
+  {
+    size_t id = omp_get_thread_num();
+    networks_[id]->initialize();
+    if (solver_config.use_algorithm_search) {
+      networks_[id]->search_algorithm();
     }
-    networks_[0]->init_params(TMP_DENSE_NAME);
+    CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
   }
-#ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-  int length = (resource_manager_->get_pid() == 0) ? TMP_DENSE_NAME.length() : 0;
-  MPI_Bcast(&length, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  if (resource_manager_->get_pid() != 0) {
-    TMP_DENSE_NAME.resize(length);
-  }
-  MPI_Bcast(const_cast<char*>(TMP_DENSE_NAME.data()), length, MPI_CHAR, 0, MPI_COMM_WORLD);
-  MESSAGE_("tmp dense file name: " + TMP_DENSE_NAME);
 #endif
-  for (auto& network : networks_) {
-    network->upload_params_to_device(TMP_DENSE_NAME);
-  }
-#ifdef ENABLE_MPI
-  MPI_Barrier(MPI_COMM_WORLD);
-#endif
-  if (resource_manager_->get_pid() == 0) {
-    if (std::remove(TMP_DENSE_NAME.c_str()) != 0) {
-      CK_THROW_(Error_t::WrongInput,
-                TMP_DENSE_NAME + " cannot be removed. (reason: " + std::strerror(errno) + ")");
-    }
-  }
 
-  load_params_for_dense_(solver_config.model_file);
+  init_or_load_params_for_dense_(solver_config.model_file);
   if (use_model_oversubscriber) {
     if (solver_config.use_mixed_precision) {
       model_oversubscriber_ =
@@ -152,7 +130,7 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
     metrics_.emplace_back(
         std::move(metrics::Metric::Create(metric.first, solver_config.use_mixed_precision,
                                           solver_config.batchsize_eval / num_total_gpus,
-                                          solver_config.eval_batches, resource_manager_)));
+                                          solver_config.max_eval_batches, resource_manager_)));
   }
 }
 
@@ -160,7 +138,7 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
  * load the model (binary) from model_file.
  * In model file, model should be saved as the sequence as discribed in configure file.
  **/
-Error_t Session::load_params_for_dense_(const std::string& model_file) {
+Error_t Session::init_or_load_params_for_dense_(const std::string& model_file) {
   try {
     if (!model_file.empty()) {
       std::ifstream model_stream(model_file, std::ifstream::binary);
@@ -176,6 +154,13 @@ Error_t Session::load_params_for_dense_(const std::string& model_file) {
         network->upload_params_to_device(weight.get());
       }
       model_stream.close();
+    } else {
+#pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
+      {
+        size_t id = omp_get_thread_num();
+        networks_[id]->init_params(id);
+        CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
+      }
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -263,7 +248,7 @@ bool Session::train() {
     }
     return true;
 #else
-    data_reader_->read_a_batch_to_device();
+    train_data_reader_->read_a_batch_to_device();
 #endif
   } catch (const internal_runtime_error& err) {
     std::cerr << err.what() << std::endl;
@@ -283,11 +268,9 @@ bool Session::eval() {
     }
 
     long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device();
+    if (!current_batchsize) return false;
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
-    }
-    if (!current_batchsize) {
-      return false;
     }
 
 #ifndef DATA_READING_TEST
@@ -429,13 +412,8 @@ Error_t Session::download_params_to_files_(std::string weights_file,
         i++;
       }
     }
-    int pid = 0;
-#ifdef ENABLE_MPI
-    int numprocs = 1;
-    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
-#endif
-    if (pid == 0) {
+
+    if (resource_manager_->is_master_process()) {
       std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
       networks_[0]->download_params_to_host(out_stream_weight);
       std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
@@ -462,24 +440,19 @@ Error_t Session::get_current_loss(float* loss) {
   try {
     float loss_sum = 0.f;
     float loss_reduced = 0.f;
-    int numprocs = 1;
-#ifdef ENABLE_MPI
-    int pid = 0;
-    CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-    CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
-#endif
+
     // Collect all the loss from every network and average
     for (auto& network : networks_) {
       loss_sum += network->get_loss();
     }
-    if (numprocs > 1) {
+    if (resource_manager_->get_num_process() > 1) {
 #ifdef ENABLE_MPI
       CK_MPI_THROW_(MPI_Reduce(&loss_sum, &loss_reduced, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
 #endif
     } else {
       loss_reduced = loss_sum;
     }
-    *loss = loss_reduced / networks_.size() / numprocs;
+    *loss = loss_reduced / resource_manager_->get_global_gpu_count();
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();

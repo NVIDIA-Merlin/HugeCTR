@@ -248,7 +248,7 @@ TEST(data_reader_group_test, data_reader_parquet_distributed_test) {
     slot_offset[i] = slot_offset[i-1] + slot_size[i-1];
   }
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, device_list.size());
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, device_list.size(), false, 0);
   data_reader.create_drwg_parquet(file_list_name, slot_offset, true);
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();
@@ -278,7 +278,7 @@ TEST(data_reader_group_test, data_reader_parquet_localized_test) {
     slot_offset[i] = slot_offset[i-1] + slot_size[i-1];
   }
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, device_list.size());
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, device_list.size(), false, 0);
   data_reader.create_drwg_parquet(file_list_name, slot_offset, true);
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();

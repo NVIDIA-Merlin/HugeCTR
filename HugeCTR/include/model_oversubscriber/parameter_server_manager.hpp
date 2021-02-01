@@ -28,12 +28,12 @@ namespace HugeCTR {
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 class ParameterServerManager {
   std::vector<std::shared_ptr<ParameterServer<TypeHashKey, TypeEmbeddingComp>>> ps_;
-  TensorBag2 keys_;           /**< host buffer to store keys from/to devices */
-  Tensor2<float> embedding_;  /**< host buffer to store embeddings from/to devices */
+  BufferBag buf_bag_;
 
 public:
   ParameterServerManager(
       const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+      const Embedding_t embedding_type,
       const SolverParser& solver_config,
       const std::string& temp_embedding_dir,
       size_t buffer_size);
@@ -53,13 +53,7 @@ public:
 
   size_t get_size() { return ps_.size(); }
 
-  TensorBag2& get_keyset_tensor() { return keys_; }
-  Tensor2<float>& get_embedding_tensor() { return embedding_; }
-
-  TypeHashKey* get_keyset_ptr() {
-    return Tensor2<TypeHashKey>::stretch_from(keys_).get_ptr();
-  }
-  float* get_embedding_ptr() { return embedding_.get_ptr(); }
+  BufferBag& get_buffer_bag() { return buf_bag_; }
 };
 
 }  // namespace HugeCTR

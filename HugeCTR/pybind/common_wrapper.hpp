@@ -48,15 +48,6 @@ void CommonPybind(pybind11::module& m) {
       .value("Sum", HugeCTR::Check_t::Sum)
       .value("None", HugeCTR::Check_t::None)
       .export_values();
-  // pybind11::enum_<HugeCTR::Tensor_t>(m, "Tensor_t")
-  //  .value("FP16", HugeCTR::Tensor_t::FP16)
-  //  .value("FP32", HugeCTR::Tensor_t::FP32)
-  //  .value("FP64", HugeCTR::Tensor_t::FP64)
-  //  .value("INT32", HugeCTR::Tensor_t::INT32)
-  //  .value("INT64", HugeCTR::Tensor_t::INT64)
-  //  .value("UINT32", HugeCTR::Tensor_t::UINT32)
-  //  .value("UINT64", HugeCTR::Tensor_t::UINT64)
-  //  .export_values();
   pybind11::enum_<HugeCTR::DataReaderSparse_t>(m, "DataReaderSparse_t")
       .value("Distributed", HugeCTR::DataReaderSparse_t::Distributed)
       .value("Localized", HugeCTR::DataReaderSparse_t::Localized)
@@ -64,6 +55,48 @@ void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::DataReaderType_t>(m, "DataReaderType_t")
       .value("Norm", HugeCTR::DataReaderType_t::Norm)
       .value("Raw", HugeCTR::DataReaderType_t::Raw)
+      .value("Parquet", HugeCTR::DataReaderType_t::Parquet)
+      .export_values();
+  pybind11::enum_<HugeCTR::SourceType_t>(m, "SourceType_t")
+      .value("FileList", HugeCTR::SourceType_t::FileList)
+      .value("Mmap", HugeCTR::SourceType_t::Mmap)
+      .value("Parquet", HugeCTR::SourceType_t::Parquet)
+      .export_values();
+  pybind11::enum_<HugeCTR::Embedding_t>(m, "Embedding_t")
+      .value("DistributedSlotSparseEmbeddingHash", HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash)
+      .value("LocalizedSlotSparseEmbeddingHash", HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash)
+      .value("LocalizedSlotSparseEmbeddingOneHot", HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot)
+      .export_values();
+  pybind11::enum_<HugeCTR::Initializer_t>(m, "Initializer_t")
+      .value("Default", HugeCTR::Initializer_t::Default)
+      .value("Uniform", HugeCTR::Initializer_t::Uniform)
+      .value("XavierNorm", HugeCTR::Initializer_t::XavierNorm)
+      .value("XavierUniform", HugeCTR::Initializer_t::XavierUniform)
+      .value("Zero", HugeCTR::Initializer_t::Zero)
+      .export_values();
+  pybind11::enum_<HugeCTR::Layer_t>(m, "Layer_t")
+      .value("BatchNorm", HugeCTR::Layer_t::BatchNorm)
+      .value("BinaryCrossEntropyLoss", HugeCTR::Layer_t::BinaryCrossEntropyLoss)
+      .value("Reshape", HugeCTR::Layer_t::Reshape)
+      .value("Concat", HugeCTR::Layer_t::Concat)
+      .value("CrossEntropyLoss", HugeCTR::Layer_t::CrossEntropyLoss)
+      .value("Dropout", HugeCTR::Layer_t::Dropout)
+      .value("ELU", HugeCTR::Layer_t::ELU)
+      .value("InnerProduct", HugeCTR::Layer_t::InnerProduct)
+      .value("FusedInnerProduct", HugeCTR::Layer_t::FusedInnerProduct)
+      .value("Interaction", HugeCTR::Layer_t::Interaction)
+      .value("MultiCrossEntropyLoss", HugeCTR::Layer_t::MultiCrossEntropyLoss)
+      .value("ReLU", HugeCTR::Layer_t::ReLU)
+      .value("ReLUHalf", HugeCTR::Layer_t::ReLUHalf)
+      .value("Sigmoid", HugeCTR::Layer_t::Sigmoid)
+      .value("Slice", HugeCTR::Layer_t::Slice)
+      .value("WeightMultiply", HugeCTR::Layer_t::WeightMultiply)
+      .value("FmOrder2", HugeCTR::Layer_t::FmOrder2)
+      .value("Add", HugeCTR::Layer_t::Add)
+      .value("ReduceSum", HugeCTR::Layer_t::ReduceSum)
+      .value("MultiCross", HugeCTR::Layer_t::MultiCross)
+      .value("Cast", HugeCTR::Layer_t::Cast)
+      .value("DotProduct", HugeCTR::Layer_t::DotProduct)
       .export_values();
   pybind11::class_<HugeCTR::DataReaderSparseParam>(m, "DataReaderSparseParam")
       .def(pybind11::init<HugeCTR::DataReaderSparse_t, int, int, int>(), pybind11::arg("type"),
@@ -80,15 +113,15 @@ void CommonPybind(pybind11::module& m) {
       .value("Nesterov", HugeCTR::Optimizer_t::Nesterov)
       .value("SGD", HugeCTR::Optimizer_t::SGD)
       .export_values();
+  pybind11::enum_<HugeCTR::Update_t>(m, "Update_t")
+      .value("Local", HugeCTR::Update_t::Local)
+      .value("Global", HugeCTR::Update_t::Global)
+      .value("LazyGlobal", HugeCTR::Update_t::LazyGlobal)
+      .export_values();
   pybind11::enum_<HugeCTR::Regularizer_t>(m, "Regularizer_t")
       .value("L1", HugeCTR::Regularizer_t::L1)
       .value("L2", HugeCTR::Regularizer_t::L2)
       .export_values();
-  // pybind11::enum_<HugeCTR::TensorFormat_t>(m, "TensorFormat_t")
-  //  .value("WH", HugeCTR::TensorFormat_t::WH)
-  //  .value("HW", HugeCTR::TensorFormat_t::HW)
-  //  .value("HSW", HugeCTR::TensorFormat_t::HSW)
-  //  .export_values();
 }
 
 }  // namespace python_lib

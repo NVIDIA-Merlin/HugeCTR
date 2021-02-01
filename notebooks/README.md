@@ -14,7 +14,7 @@ The followng steps are also outlined in the [README](../README.md#2-build-docker
 
 1. Inside the root directory of the HugeCTR repository, run the following command:
    ```
-   docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
+   docker build -t hugectr:devel -f ./tools/dockerfiles/train.Dockerfile .
    ```
 
 2. Launch the container in interactive mode (mount the root directory into the container for your convenience) by running this command: 

@@ -18,17 +18,10 @@
 
 #include <atomic>
 #include <common.hpp>
-#include <data_readers/csr.hpp>
-#include <data_readers/csr_chunk.hpp>
-#include <data_readers/data_collector.hpp>
-#include <data_readers/data_reader_worker_group.hpp>
-#include <data_readers/data_reader_worker_group_norm.hpp>
-#include <data_readers/data_reader_worker_group_parquet.hpp>
-#include <data_readers/data_reader_worker_group_raw.hpp>
-#include <data_readers/file_list.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <utils.hpp>
+#include <tensor2.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -43,7 +36,6 @@ namespace HugeCTR {
  * thread consumes the data (DataCollector),
  * and copy the data to GPU buffer.
  */
-static int core_offset_ = 0;
 
 class IDataReader {
 public:
@@ -72,7 +64,8 @@ public:
                             const std::vector<long long> slot_offset,
                             bool start_reading_from_beginning = true) = 0;
 
-  virtual void set_file_list_source(std::string file_list = std::string()) = 0;
+  // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type
+  virtual void set_source(std::string file_name = std::string()) = 0;
 };
 
 

@@ -24,24 +24,25 @@ namespace HugeCTR {
 namespace python_lib {
 
 void ResourceManagerPybind(pybind11::module& m) {
-  pybind11::class_<HugeCTR::GPUResource, std::shared_ptr<HugeCTR::GPUResource>>(m, "GPUResource")
-      .def(pybind11::init<int, size_t, unsigned long long>(), pybind11::arg("device_id"),
-           pybind11::arg("global_gpu_id"), pybind11::arg("seed"));
+/*   pybind11::class_<HugeCTR::GPUResource, std::shared_ptr<HugeCTR::GPUResource>>(m, "GPUResource")
+      .def(pybind11::init<int, size_t, unsigned long long, unsigned long long, const ncclComm_t&>(), pybind11::arg("device_id"),
+           pybind11::arg("global_id"), pybind11::arg("replica_uniform_seed"), pybind11::arg("replica_variant_seed"),
+           pybind11::arg("comm"));
   pybind11::class_<HugeCTR::CPUResource, std::shared_ptr<HugeCTR::CPUResource>>(m, "CPUResource")
-      .def(pybind11::init<unsigned long long, size_t>(), pybind11::arg("seed"),
-           pybind11::arg("thread_num"));
+      .def(pybind11::init<unsigned long long, std::vector<unsigned long long>>(), 
+      pybind11::arg("replica_uniform_seed"), pybind11::arg("replica_variant_seeds")); */
   pybind11::class_<HugeCTR::ResourceManager, std::shared_ptr<HugeCTR::ResourceManager>>(
       m, "ResourceManager")
       .def_static("create", &HugeCTR::ResourceManager::create, pybind11::arg("visible_devices"),
                   pybind11::arg("seed"))
       .def("get_num_process", &HugeCTR::ResourceManager::get_num_process)
-      .def("get_pid", &HugeCTR::ResourceManager::get_pid)
+      .def("get_process_id", &HugeCTR::ResourceManager::get_process_id)
       .def("get_local_cpu", &HugeCTR::ResourceManager::get_local_cpu)
       .def("get_local_gpu", &HugeCTR::ResourceManager::get_local_gpu, pybind11::arg("local_gpu_id"))
       .def("get_local_gpu_device_id_list", &HugeCTR::ResourceManager::get_local_gpu_device_id_list)
       .def("get_local_gpu_count", &HugeCTR::ResourceManager::get_local_gpu_count)
       .def("get_global_gpu_count", &HugeCTR::ResourceManager::get_global_gpu_count)
-      .def("get_pid_fron_gpu_global_id", &HugeCTR::ResourceManager::get_pid_from_gpu_global_id,
+      .def("get_process_id_from_gpu_global_id", &HugeCTR::ResourceManager::get_process_id_from_gpu_global_id,
            pybind11::arg("global_gpu_id"))
       .def("get_gpu_local_id_from_global_id",
            &HugeCTR::ResourceManager::get_gpu_local_id_from_global_id,

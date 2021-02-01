@@ -20,11 +20,11 @@ def model_oversubscriber_test(json_file, temp_dir):
   sess = Session(solver_config, json_file, True, temp_dir)
   data_reader_train = sess.get_data_reader_train()
   data_reader_eval = sess.get_data_reader_eval()
-  data_reader_eval.set_file_list_source("file_list.5.txt")
+  data_reader_eval.set_source("file_list.5.txt")
   model_oversubscriber = sess.get_model_oversubscriber()
   iteration = 0
   for file_list, keyset_file in dataset:
-    data_reader_train.set_file_list_source(file_list)
+    data_reader_train.set_source(file_list)
     model_oversubscriber.update(keyset_file)
     while True:
       lr = lr_sch.get_next()
@@ -33,7 +33,19 @@ def model_oversubscriber_test(json_file, temp_dir):
       if good == False:
         break
       if iteration % 100 == 0:
-        metrics = sess.evaluation()
+        sess.check_overflow()
+        sess.copy_weights_for_evaluation()
+        data_reader_eval = sess.get_data_reader_eval()
+        good_eval = True
+        j = 0
+        while good_eval:
+          if j >= solver_config.max_eval_batches:
+            break
+          good_eval = sess.eval()
+          j += 1
+        if good_eval == False:
+          data_reader_eval.set_source()
+        metrics = sess.get_eval_metrics()
         print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iteration, metrics))
       iteration += 1
     print("[HUGECTR][INFO] trained with data in {}".format(file_list))

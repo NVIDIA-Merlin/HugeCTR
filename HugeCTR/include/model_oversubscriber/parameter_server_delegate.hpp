@@ -15,27 +15,30 @@
  */
 
 #pragma once
+
+
 #include <unordered_map>
 #include <fstream>
 
 namespace HugeCTR {
 
+
 template <typename KeyType>
 class ParameterServerDelegate {
  public:
-  using HashTable = std::unordered_map<KeyType, size_t>; // in case of its replacement
+  using HashTable = std::unordered_map<KeyType, std::pair<size_t, size_t>>; // in case of its replacement
 
-  virtual void load(std::ofstream& embeding_table,
-                    std::ifstream& snapshot,
-                    const size_t file_size_in_byte,
-                    const size_t embedding_vec_size,
-                    HashTable& hash_table) = 0;
-  virtual void store(std::ofstream& snapshot,
-                     std::ifstream& embedding_table,
-                     const size_t file_size_in_byte,
-                     const size_t embedding_vec_size,
-                     HashTable& hash_table) = 0;
-             
+  virtual void load_from_snapshot(std::ofstream& embeding_table,
+                                  std::ifstream& snapshot,
+                                  const size_t file_size_in_byte,
+                                  const size_t embedding_vec_size,
+                                  HashTable& hash_table) = 0;
+
+  virtual void store_to_snapshot(std::ofstream& snapshot,
+                                 std::ifstream& embedding_table,
+                                 const size_t file_size_in_byte,
+                                 const size_t embedding_vec_size,
+                                 HashTable& hash_table) = 0;
 };
 
 }  // namespace HugeCTR

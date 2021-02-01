@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <functional>
 #include <layers/reduce_sum_layer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
-
-#include <algorithm>
-#include <functional>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -35,11 +34,11 @@ __device__ int array_length(T (&arr)[length]) {
 }
 
 // this kernel can support dims_size=1/2/3
-template <typename... Args>
-__global__ void reduce_sum_kernel(const float* input, float* output, int axis, Args... args) {
+template <typename T, typename... Args>
+__global__ void reduce_sum_kernel(const T* input, T* output, int axis, Args... args) {
   size_t in_dims[] = {args...};
   int dims_size = array_length(in_dims);
-  float local_sum = 0.0f;
+  T local_sum = 0.0f;
 
   if (axis == 0) {  // block_num = dim1 * dim2, do dim0 number of elements reduction in one block
     if (dims_size == 1) {  // dims_size == 1
@@ -80,9 +79,8 @@ __global__ void reduce_sum_kernel(const float* input, float* output, int axis, A
   }
 }
 
-template <typename... Args>
-__global__ void reduce_sum_dgrad_kernel(const float* top_grad, float* dgrad, int axis,
-                                        Args... args) {
+template <typename T, typename... Args>
+__global__ void reduce_sum_dgrad_kernel(const T* top_grad, T* dgrad, int axis, Args... args) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
   size_t in_dims[] = {args...};
   int dims_size = array_length(in_dims);
@@ -124,9 +122,10 @@ __global__ void reduce_sum_dgrad_kernel(const float* top_grad, float* dgrad, int
 
 }  // end of namespace
 
-ReduceSumLayer::ReduceSumLayer(const Tensor2<float>& in_tensor, Tensor2<float>& out_tensor,
-                               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                               int axis, const std::shared_ptr<GPUResource>& gpu_resource)
+template <typename T>
+ReduceSumLayer<T>::ReduceSumLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+                                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                                  int axis, const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource), axis_(axis) {
   try {
     // error input checking
@@ -159,11 +158,12 @@ ReduceSumLayer::ReduceSumLayer(const Tensor2<float>& in_tensor, Tensor2<float>& 
   }
 }
 
-void ReduceSumLayer::fprop(bool is_train) {
+template <typename T>
+void ReduceSumLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  float* input = in_tensors_[0].get_ptr();
-  float* output = out_tensors_[0].get_ptr();
+  T* input = in_tensors_[0].get_ptr();
+  T* output = out_tensors_[0].get_ptr();
   auto in_dims = in_tensors_[0].get_dimensions();
   auto out_dims = out_tensors_[0].get_dimensions();
 
@@ -191,11 +191,12 @@ void ReduceSumLayer::fprop(bool is_train) {
 #endif
 }
 
-void ReduceSumLayer::bprop() {
+template <typename T>
+void ReduceSumLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  float* input = in_tensors_[0].get_ptr();
-  float* output = out_tensors_[0].get_ptr();
+  T* input = in_tensors_[0].get_ptr();
+  T* output = out_tensors_[0].get_ptr();
   auto in_dims = in_tensors_[0].get_dimensions();
 
   int size = 1;
@@ -221,5 +222,8 @@ void ReduceSumLayer::bprop() {
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+
+template class ReduceSumLayer<float>;
+template class ReduceSumLayer<__half>;
 
 }  // namespace HugeCTR
