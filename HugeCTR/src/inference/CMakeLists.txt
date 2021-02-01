@@ -84,3 +84,5 @@ target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json)
 target_compile_features(hugectr_inference PUBLIC cxx_std_14)
 
 set_target_properties(hugectr_inference PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
+set_target_properties(hugectr_inference PROPERTIES CUDA_ARCHITECTURES OFF)
