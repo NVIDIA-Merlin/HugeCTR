@@ -46,7 +46,7 @@ void CommonPybind(pybind11::module& m) {
       .export_values();
   pybind11::enum_<HugeCTR::Check_t>(m, "Check_t")
       .value("Sum", HugeCTR::Check_t::Sum)
-      .value("None", HugeCTR::Check_t::None)
+      .value("Non", HugeCTR::Check_t::None)
       .export_values();
   pybind11::enum_<HugeCTR::DataReaderSparse_t>(m, "DataReaderSparse_t")
       .value("Distributed", HugeCTR::DataReaderSparse_t::Distributed)
