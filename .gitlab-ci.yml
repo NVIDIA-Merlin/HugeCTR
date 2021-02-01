@@ -293,7 +293,7 @@ py_single_node:
         cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
         python3 ${WORK_DIR}/test/pybind_test/single_node_wdl_fp16_8gpu.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json"
     - srun --ntasks=1
-        --container-image ${DEST_FW_IMAGE_VERSIONED_ENROOT}
+        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
         --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
         bash -cx "
         cd /dataset/criteo_kaggle/wdl;
