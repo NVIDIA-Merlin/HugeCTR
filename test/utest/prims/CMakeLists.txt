@@ -21,5 +21,6 @@ file(GLOB prims_test_src
 
 add_executable(prims_test ${prims_test_src})
 set_target_properties(prims_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+set_target_properties(prims_test PROPERTIES CUDA_ARCHITECTURES OFF)
 target_compile_features(prims_test PUBLIC cxx_std_14)
 target_link_libraries(prims_test PUBLIC huge_ctr_static gtest gtest_main)
