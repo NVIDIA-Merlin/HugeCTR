@@ -24,19 +24,44 @@ before_script:
   - export TMP_DIR=${CI_PROJECT_DIR}
   - export NCCL_LAUNCH_MODE=PARALLEL
 
+.files: &files
+  changes:
+    - .gitlab-ci.yml
+    - HugeCTR/*
+    - test/*
+    - CMakeLists.txt
+    - samples/*
+    - ./tools/dockerfiles/train.Dockerfile
+    
+.build:
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(push)$/
+      <<: *files
+      when: always
+      allow_failure: true
+    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
+      <<: *files
+      when: never
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event|trigger)$/
+      <<: *files
+      when: always
+      allow_failure: false
+
 .cluster_test_job:
   extends: .selene_job
   allow_failure: false
   stage: test
-  only:
-    - merge_requests
-    - web
-  except:
-    - README.md
-    - docs/*
-    - notebooks/*
-    - samples/*
-    - tutorial/*
+  dependencies: 
+    - build
+  rules:
+    - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
+      <<: *files
+      when: never
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/ 
+      <<: *files
+      when: always
+
 
 .cluster_test_train_job:
   extends: .cluster_test_job
@@ -50,10 +75,16 @@ before_script:
 
 ### Stage: build
 build_train:
+  extends: .build
   tags:
     - 1GPU
-  stage: build
   script:
+    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:kDG4giqCswsxdLFdR2sh" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
+    - |
+      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
+        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
+        exit 1; \
+      fi
     - export JOB_DOCKERFILE="train.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
     - echo "FROM ${IMAGE_TRAIN}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
@@ -68,22 +99,19 @@ build_train:
                    -f "${JOB_DOCKERFILE}"
                    ${PWD}
     - docker push "${TRAIN_IMAGE_VERSIONED}"
-  only:
-    - pushes
-    - merge_requests
-    - web
-  except:
-    - README.md
-    - docs/*
-    - notebooks/*
-    - samples/*
-    - tutorial/*
+
 
 build_embedding:
+  extends: .build
   tags:
     - 1GPU
-  stage: build
   script:
+    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:kDG4giqCswsxdLFdR2sh" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
+    - |
+      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
+        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
+        exit 1; \
+      fi
     - export JOB_DOCKERFILE="embedding.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
     - echo "FROM ${IMAGE_EMBEDDING}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
@@ -100,16 +128,7 @@ build_embedding:
                    -f "${JOB_DOCKERFILE}"
                    ${PWD}
     - docker push "${EMBEDDING_IMAGE_VERSIONED}"
-  only:
-    - pushes
-    - merge_requests
-    - web
-  except:
-    - README.md
-    - docs/*
-    - notebooks/*
-    - samples/*
-    - tutorial/*
+  
     
 ### Stage: test
 # unit test
@@ -184,12 +203,33 @@ dcn_single_node:
 mlperf_benchmark:
   extends: .cluster_test_train_job
   script:
-    - srun --ntasks=1
-        --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DLRM_DATASET}:${DLRM_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-        bash -cx "
-        cd ${DLRM_MOUNT};
-        ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/samples/dlrm/dlrm_mlperf_fp16_dgxa100.json"
+    - echo "#!/bin/bash" > ./batch.sub
+    - echo "#SBATCH -A qa" >> ./batch.sub
+    - echo "#SBATCH -p backfill" >> ./batch.sub
+    - echo "srun --ntasks=1 \\" >> ./batch.sub
+    - echo "  --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT} \\" >> ./batch.sub
+    - echo "  --container-mounts ${DLRM_DATASET}:${DLRM_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR} \\" >> ./batch.sub
+    - echo "  bash -cx \"\\" >> ./batch.sub
+    - echo "  cd ${DLRM_MOUNT};${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/samples/dlrm/dlrm_mlperf_fp16_dgxa100.json\"" >> ./batch.sub
+    - export logdir=./batch
+    - export round=10
+    - mkdir $logdir
+    - for i in $(seq ${round}); do
+        sbatch -o ${logdir}/slurm-$i.out -t 00:07:00 --job-name mlperf_converge_test_${CI_PIPELINE_ID}_$i batch.sub;
+      done
+    - for i in $(seq ${round}); do
+        while [[ $(squeue -n mlperf_converge_test_${CI_PIPELINE_ID}_$i | wc -l) -gt 1 ]]; do
+          sleep 1m;
+        done
+      done
+    - for i in $(seq ${round}); do
+        cat ${logdir}/slurm-$i.out;
+      done
+    - echo "total num:${round}"
+    - export reach_count=$(grep "Hit target accuracy AUC" ${logdir}/* | wc -l)
+    - echo "converge num:${reach_count}/${round}"
+
+
 
 wdl_deepfm:
   extends: .cluster_test_train_job
