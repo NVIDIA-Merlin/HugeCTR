@@ -889,7 +889,10 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
   std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half_placeholder =
       blobs_buff->create_block<__half>();
 
-  if (!inference_flag) {
+  std::shared_ptr<BufferBlock2<float>> opt_buff = blobs_buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<__half>> opt_buff_half = blobs_buff->create_block<__half>();
+
+  if (!inference_flag){
     // create train layers
     create_layers(j_array, train_tensor_entries, blobs_buff, train_weight_buff,
                   train_weight_buff_half, wgrad_buff, wgrad_buff_half, train_loss_tensor,
@@ -909,8 +912,8 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
     auto opt_param = get_optimizer_param<float>()(j_optimizer);
 
     network->optimizer_ = std::move(Optimizer::Create(
-        opt_param, train_weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-        wgrad_buff_half->as_tensor(), use_mixed_precision, scaler, blobs_buff, gpu_resource));
+        opt_param, train_weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+        use_mixed_precision, scaler, opt_buff, opt_buff_half, gpu_resource));
   } else {
     try {
       TensorEntry pred_tensor_entry = evaluate_tensor_entries.back();
@@ -927,6 +930,8 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
   network->wgrad_tensor_half_ = wgrad_buff_half->as_tensor();
   network->evaluate_weight_tensor_ = evaluate_weight_buff->as_tensor();
   network->evaluate_weight_tensor_half_ = evaluate_weight_buff_half->as_tensor();
+  network->opt_tensor_ = opt_buff->as_tensor();
+  network->opt_tensor_half_ = opt_buff_half->as_tensor();
 
   CudaDeviceContext context(gpu_resource->get_device_id());
   blobs_buff->allocate();

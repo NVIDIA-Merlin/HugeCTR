@@ -198,6 +198,8 @@ Model::Model(const SolverParser& solver, std::shared_ptr<OptParamsBase>& opt_par
     evaluate_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
     wgrad_buff_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
     wgrad_buff_half_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
+    opt_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
+    opt_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
   }
 
   // resize train_tensor_entries_list_ and evaluate_tensor_entries_list_
@@ -317,7 +319,8 @@ void Model::compile() {
     networks_[i]->optimizer_ = std::move(Optimizer::Create(
         opt_params_32_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
         wgrad_buff_half_list_[i]->as_tensor(), solver_.use_mixed_precision,
-        solver_.scaler, blobs_buff_list_[i], resource_manager_->get_local_gpu(i)));
+        solver_.scaler, opt_buff_list_[i], opt_buff_half_list_[i],
+        resource_manager_->get_local_gpu(i)));
 
     networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
     networks_[i]->train_weight_tensor_half_ = train_weight_buff_half_list_[i]->as_tensor();
@@ -325,6 +328,8 @@ void Model::compile() {
     networks_[i]->wgrad_tensor_half_ = wgrad_buff_half_list_[i]->as_tensor();
     networks_[i]->evaluate_weight_tensor_ = evaluate_weight_buff_list_[i]->as_tensor();
     networks_[i]->evaluate_weight_tensor_half_ = evaluate_weight_buff_half_list_[i]->as_tensor();
+    networks_[i]->opt_tensor_ = opt_buff_list_[i]->as_tensor();
+    networks_[i]->opt_tensor_half_ = opt_buff_half_list_[i]->as_tensor();
     CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
     blobs_buff_list_[i]->allocate();
   }

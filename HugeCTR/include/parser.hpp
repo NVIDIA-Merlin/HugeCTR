@@ -58,7 +58,9 @@ struct SolverParser {
   int batchsize_eval;                       /**< batchsize for eval */
   int batchsize;                            /**< batchsize */
   std::string model_file;                   /**< name of model file */
+  std::string dense_opt_states_file;
   std::vector<std::string> embedding_files; /**< name of embedding file */
+  std::vector<std::string> sparse_opt_states_files;
   std::vector<std::vector<int>> vvgpu;      /**< device map */
   bool use_mixed_precision;
   bool enable_tf32_compute;

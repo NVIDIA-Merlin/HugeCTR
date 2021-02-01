@@ -21,8 +21,8 @@
 
 namespace HugeCTR {
 
-void conv_weight_gpu(size_t grid, size_t block, __half* dst, const float* src, int elems,
-                     cudaStream_t stream);
+void conv_to_half(size_t grid, size_t block, __half* dst, const float* src, int elems,
+                  cudaStream_t stream);
 
 Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
                  const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
@@ -54,8 +54,8 @@ void Network::conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source
   const size_t BLOCK = 256;
   size_t GRID = (elems - 1) / BLOCK + 1;
   GRID = GRID > 10 * gpu_resource_->get_sm_count() ? 10 * gpu_resource_->get_sm_count() : GRID;
-  conv_weight_gpu(GRID, BLOCK, target.get_ptr(), source.get_ptr(), elems,
-                  gpu_resource_->get_stream());
+  conv_to_half(GRID, BLOCK, target.get_ptr(), source.get_ptr(), elems,
+               gpu_resource_->get_stream());
 }
 
 void Network::train(long long current_batchsize) {
@@ -170,6 +170,23 @@ void Network::download_params_to_host(std::ofstream& weight_stream) {
   return;
 }
 
+void Network::download_opt_states_to_host(std::ofstream& opt_states_stream) {
+  // forward
+  CudaDeviceContext context(get_device_id());
+
+  size_t dst_size_in_byte = use_mixed_precision_?
+                              opt_tensor_half_.get_size_in_bytes() :
+                              opt_tensor_.get_size_in_bytes();
+  std::unique_ptr<char[]> h_opt_states(new char[dst_size_in_byte]);
+
+  void* src = use_mixed_precision_?
+                (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
+  CK_CUDA_THROW_(cudaMemcpy(h_opt_states.get(), src,
+                            dst_size_in_byte, cudaMemcpyDeviceToHost));
+
+  opt_states_stream.write(h_opt_states.get(), dst_size_in_byte);
+}
+
 std::string Network::get_no_trained_params_in_string() {
   bool prev_exist = false;
   std::string net_str;
@@ -237,6 +254,22 @@ void Network::upload_params_to_device(float* params) {
 
   CK_CUDA_THROW_(cudaMemcpy(train_weight_tensor_.get_ptr(), params,
                             train_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
+
+  return;
+}
+
+void Network::upload_opt_states_to_device(char* h_opt_states) {
+  CudaDeviceContext context(get_device_id());
+
+  size_t src_size_in_byte = use_mixed_precision_?
+                              opt_tensor_half_.get_size_in_bytes() :
+                              opt_tensor_.get_size_in_bytes();
+
+  void* dst = use_mixed_precision_?
+                (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
+
+  CK_CUDA_THROW_(cudaMemcpy(dst, h_opt_states,
+                            src_size_in_byte, cudaMemcpyHostToDevice));
 
   return;
 }

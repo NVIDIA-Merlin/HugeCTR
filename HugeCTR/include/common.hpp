@@ -35,8 +35,8 @@
 
 namespace HugeCTR {
 
-#define HUGECTR_VERSION_MAJOR 2
-#define HUGECTR_VERSION_MINOR 3
+#define HUGECTR_VERSION_MAJOR 3
+#define HUGECTR_VERSION_MINOR 0
 #define HUGECTR_VERSION_PATCH 0
 
 #define WARP_SIZE 32
@@ -217,11 +217,11 @@ typedef struct DataSetHeader_ {
     }                                                                              \
   } while (0)
 
-inline void MESSAGE_(const std::string msg) {
+inline void MESSAGE_(const std::string msg, bool per_process=false) {
 #ifdef ENABLE_MPI
   int __PID(-1);
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
-  if (__PID) return;
+  if (__PID && !per_process) return;
 #endif
   std::time_t time_instance = std::time(0);
   std::tm* time_now = std::localtime(&time_instance);
