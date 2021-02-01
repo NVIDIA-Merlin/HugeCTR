@@ -45,9 +45,7 @@ void add_input(Input& input,
 #ifdef VAL
   const int num_workers = 1;
 #else
-  int num_workers_default =
-      format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
-  const int num_workers = input.num_workers>0?input.num_workers:num_workers_default;
+  const int num_workers = format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : input.num_workers;
 #endif
   MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
 
@@ -68,7 +66,9 @@ void add_input(Input& input,
   evaluate_data_reader.reset(data_reader_eval_tk);
 
   long long slot_sum = 0;
+  std::vector<long long> slot_offset;
   for (auto slot_size:input.slot_size_array) {
+    slot_offset.push_back(slot_sum);
     slot_sum += slot_size;
   }
 
@@ -80,18 +80,16 @@ void add_input(Input& input,
       break;
     }
     case DataReaderType_t::Raw: {
-      train_data_reader->create_drwg_raw(source_data, num_samples, input.slot_size_array, float_label_dense,
+      train_data_reader->create_drwg_raw(source_data, num_samples, slot_offset, float_label_dense,
                                          true, false);
-      evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples, input.slot_size_array,
+      evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples, slot_offset,
                                             float_label_dense, false, false);
       MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
       break;
     }
     case DataReaderType_t::Parquet: {
-      // @Future: Should be slot_size_array here and data_reader ctor should
-      // be TypeKey not long long
-      train_data_reader->create_drwg_parquet(source_data, input.slot_size_array, true);
-      evaluate_data_reader->create_drwg_parquet(eval_source, input.slot_size_array, true);
+      train_data_reader->create_drwg_parquet(source_data, slot_offset, true);
+      evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, true);
       MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
       break;
     }
