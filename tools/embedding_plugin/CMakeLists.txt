@@ -82,6 +82,7 @@ FILE(GLOB  hugectr_src
   ${PROJECT_SOURCE_DIR}/HugeCTR/src/embeddings/get_forward_results_functor.cu
   ${PROJECT_SOURCE_DIR}/HugeCTR/src/embeddings/get_backward_results_functor.cu
   ${PROJECT_SOURCE_DIR}/HugeCTR/src/embeddings/utils_functor.cu
+  ${PROJECT_SOURCE_DIR}/HugeCTR/src/embeddings/opt_states_functor.cu
   ${PROJECT_SOURCE_DIR}/HugeCTR/src/embeddings/distributed_slot_sparse_embedding_hash.cu
   ${PROJECT_SOURCE_DIR}/HugeCTR/src/embeddings/localized_slot_sparse_embedding_hash.cu
   ${PROJECT_SOURCE_DIR}/HugeCTR/src/embeddings/localized_slot_sparse_embedding_one_hot.cu

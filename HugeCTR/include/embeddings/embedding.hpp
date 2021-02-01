@@ -288,6 +288,9 @@ class Embedding : public IEmbedding {
    */
   virtual void dump_parameters(BufferBag& buf_bag, size_t* num) const = 0;
 
+  virtual void dump_opt_states(std::ofstream& stream) = 0;
+  virtual void load_opt_states(std::ifstream& stream) = 0;
+
   /**
    * Reset the embedding
    */

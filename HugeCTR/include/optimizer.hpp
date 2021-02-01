@@ -78,7 +78,8 @@ class Optimizer {
   static std::unique_ptr<Optimizer> Create(
       const OptParams<T>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
       const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler,
-      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+      const std::shared_ptr<BufferBlock2<float>>& opt_buff,
+      const std::shared_ptr<BufferBlock2<__half>>& opt_buff_half,
       const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**

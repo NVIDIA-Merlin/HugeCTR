@@ -41,16 +41,17 @@ __global__ void momentum_sgd_update_kernel(int len, float* weight, T* momentum, 
 MomentumSGDOptimizer::MomentumSGDOptimizer(
     const Tensor2<float>& weight, const Tensor2<float>& fp32_wgrad,
     const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+    const std::shared_ptr<BufferBlock2<float>>& opt_buf,
+    const std::shared_ptr<BufferBlock2<__half>>& opt_buf_half,
     const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate, float momentum_factor,
     float scaler)
     : Optimizer(weight, fp32_wgrad, fp16_wgrad, mixed_precision, gpu_resource, learning_rate,
                 scaler),
       momentum_factor_(momentum_factor) {
   if (mixed_precision) {
-    buff->reserve({weight.get_num_elements()}, &fp16_momentum_);
+    opt_buf_half->reserve({weight.get_num_elements()}, &fp16_momentum_);
   } else {
-    buff->reserve({weight.get_num_elements()}, &fp32_momentum_);
+    opt_buf->reserve({weight.get_num_elements()}, &fp32_momentum_);
   }
 }
 
