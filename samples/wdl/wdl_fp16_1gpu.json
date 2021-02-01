@@ -17,16 +17,16 @@
     "type": "SGD",
     "update_type": "Local",
     "sgd_hparam": {
-       "learning_rate": 8.0,
-       "warmup_steps": 1000
+      "learning_rate": 8.0,
+      "warmup_steps": 1000
     }
   },
   "layers": [
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
+      "source": "wdl_data/file_list.txt",
+      "eval_source": "wdl_data/file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",
@@ -57,7 +57,7 @@
       "bottom": "wide_data",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 2322444,
+        "max_vocabulary_size_per_gpu": 5863985,
         "embedding_vec_size": 1,
         "combiner": 0
       }
@@ -68,7 +68,7 @@
       "bottom": "deep_data",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 2322444,
+        "max_vocabulary_size_per_gpu": 5863985,
         "embedding_vec_size": 16,
         "combiner": 0
       }
