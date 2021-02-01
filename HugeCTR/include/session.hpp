@@ -80,6 +80,12 @@ class Session {
   Error_t download_params_to_files(std::string prefix, int iter);
 
   /**
+   * export predictions to file
+   * @param output_file_name file name of destination filename
+   */
+  Error_t export_predictions(const std::string& output_prediction_file_name, const std::string& output_label_file_name);
+
+  /**
    * Set learning rate while training
    * @param lr learning rate.
    */
@@ -139,6 +145,8 @@ class Session {
 
   metrics::Metrics metrics_;
 
+  bool use_mixed_precision_;
+  size_t batchsize_eval;
   /**
    * @brief      Creates a model oversubscriber.
    * @return     The shared pointer of model oversubscriber object.

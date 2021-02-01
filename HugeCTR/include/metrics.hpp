@@ -36,6 +36,8 @@ enum class Type { AUC, AverageLoss };
 
 using RawMetricMap = std::map<RawType, TensorBag2>;
 
+void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_type, bool mixed_precision, float *rst, size_t num);
+
 class Metric {
  public:
   static std::unique_ptr<Metric> Create(const Type type, bool use_mixed_precision,

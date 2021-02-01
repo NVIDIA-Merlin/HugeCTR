@@ -10,7 +10,8 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "max_eval_batches": 2048
+    "max_eval_batches": 2048,
+    "export_predictions_prefix": "/hugectr_ci_workdir/export_predictions_criteo_1gpu/"
   },
   "optimizer": {
     "type": "Adam",

@@ -9,7 +9,8 @@
         "snapshot_prefix": "./",
         "eval_interval": 1000,
         "max_eval_batches": 2048,
-        "mixed_precision": 1024
+        "mixed_precision": 1024,
+	"export_predictions_prefix": "/hugectr_ci_workdir/export_predictions_dlrm_fp16_4node_2gpu/"
     },
     "optimizer": {
         "type": "Adam",

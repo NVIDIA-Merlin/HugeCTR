@@ -80,7 +80,8 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 Session::Session(const SolverParser& solver_config, const std::string& config_file,
                  bool use_model_oversubscriber, const std::string temp_embedding_dir)
-    : resource_manager_(ResourceManager::create(solver_config.vvgpu, solver_config.seed)) {
+    : resource_manager_(ResourceManager::create(solver_config.vvgpu, solver_config.seed)),
+    use_mixed_precision_(solver_config.use_mixed_precision), batchsize_eval(solver_config.batchsize_eval) {
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_config.use_mixed_precision) {
       check_device(dev, 7,
@@ -330,6 +331,73 @@ Error_t Session::download_params_to_files(std::string prefix, int iter) {
                                     ".model");
   }
   return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
+}
+
+Error_t Session::export_predictions(const std::string& output_prediction_file_name, const std::string& output_label_file_name){
+  try {
+    
+    CudaDeviceContext context;
+    const std::vector<int>& local_gpu_device_id_list = resource_manager_->get_local_gpu_device_id_list();
+    const size_t global_gpu_count = resource_manager_->get_global_gpu_count();
+    const size_t local_gpu_count = resource_manager_->get_local_gpu_count();
+    size_t batchsize_eval_per_gpu = batchsize_eval / global_gpu_count;
+    size_t total_prediction_count = batchsize_eval_per_gpu * local_gpu_count;
+    std::unique_ptr<float[]> local_prediction_result(new float[total_prediction_count]);
+    std::unique_ptr<float[]> local_label_result(new float[total_prediction_count]);
+
+    for(unsigned int i = 0; i < networks_.size(); ++i){
+      int gpu_id = local_gpu_device_id_list[i];
+      context.set_device(gpu_id);
+
+      get_raw_metric_as_host_float_tensor(networks_[i]->get_raw_metrics(), metrics::RawType::Pred, use_mixed_precision_, local_prediction_result.get() + batchsize_eval_per_gpu * i, batchsize_eval_per_gpu);
+      get_raw_metric_as_host_float_tensor(networks_[i]->get_raw_metrics(), metrics::RawType::Label, false, local_label_result.get() + batchsize_eval_per_gpu * i, batchsize_eval_per_gpu);
+    }
+
+    std::unique_ptr<float[]> global_prediction_result;
+    std::unique_ptr<float[]> global_label_result;
+    int numprocs = 1;
+    int pid = 0;
+#ifdef ENABLE_MPI
+      CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+      CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+#endif
+    if(numprocs > 1){
+#ifdef ENABLE_MPI
+      if(pid == 0){
+        global_prediction_result.reset(new float[batchsize_eval]);
+        global_label_result.reset(new float[batchsize_eval]);
+      }
+      CK_MPI_THROW_(MPI_Gather(local_prediction_result.get(), total_prediction_count, MPI_FLOAT, global_prediction_result.get(), total_prediction_count, MPI_FLOAT, 0, MPI_COMM_WORLD));
+      CK_MPI_THROW_(MPI_Gather(local_label_result.get(), total_prediction_count, MPI_FLOAT, global_label_result.get(), total_prediction_count, MPI_FLOAT, 0, MPI_COMM_WORLD));
+#endif
+    } else {
+      global_prediction_result = std::move(local_prediction_result);
+      global_label_result = std::move(local_label_result);
+    }
+    if(pid == 0){
+      // write
+      auto write_func = [](const std::string& output_file_name, float *res, size_t num) {
+        std::ofstream output_stream(output_file_name, std::ios::out | std::ios::app);
+        if(!output_stream.is_open()) {
+          CK_THROW_(Error_t::WrongInput, "Cannot open output file " + output_file_name);
+        }
+        for(unsigned int i = 0; i < num; ++i){
+          output_stream << res[i] << " ";
+        }
+        output_stream.close();
+      };
+      write_func(output_prediction_file_name, global_prediction_result.get(), batchsize_eval);
+      write_func(output_label_file_name, global_label_result.get(), batchsize_eval);
+    }
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+  
 }
 
 Error_t Session::download_params_to_files_(std::string weights_file,

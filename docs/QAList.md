@@ -28,7 +28,7 @@ So HugeCTR performance is mainly decided by what kinds of GPUs and I/O devices a
 ### 10. What is the specific format of files as input in HugeCTR? ###
 We have specific file format support. Please refer to the [Dataset File](hugectr_user_guide.md#dataset-file).
 ### 11.	 Does HugeCTR support Python interface? ###
-Yes we introduced our first version of Python interface. Check out our [Getting Started with HugeCTR](../../README.md#getting-started-with-hugectr) and [Jupyter Notebook](../../notebooks/python_interface.ipynb).
+Yes we introduced our first version of Python interface. Check out our [Getting Started with HugeCTR](../README.md#getting-started-with-hugectr) and [Jupyter Notebook](../notebooks/python_interface.ipynb).
 ### 12. Does HugeCTR do synchronous training with multiple GPUs (and nodes)? Otherwise, does it do asynchronous training? ###
 HugeCTR only supports synchronous training.
 ### 13. Does HugeCTR support stream training? ###
@@ -45,6 +45,9 @@ They are distinguished by different methods of distributing embedding tables on 
 For LocalizedSlotEmbedding, the features in the same slot will be stored in one GPU (that is why we call it “localized slot”), and different slots may be stored in different GPUs according to the index number of the slot.
 For DistributedSlotEmbedding, all the features are distributed to different GPUs according to the index number of the feature, regardless of the index number of the slot.
 That means the features in the same slot may be stored in different GPUs (that is why we call it “distributed slot”).
+
+Thus LocalizedSlotEmbedding is optimized for the case each embedding is smaller than the memory size of GPU. As local reduction per slot is used in LocalizedSlotEmbedding and no global reduce between GPUs, the overall data transaction in Embedding is much less than DistributedSlotEmbedding. DistributedSlotEmbedding is made for the case some of the embeddings are larger than the memory size of GPU. As global reduction is required. DistributedSlotEmbedding has much more memory trasactions between GPUs.
+
 ### 16. For multi-node，is DataReader required to read the same batch of data on each node for each step? ### 
 Yes, each node in training will read the same data in each iteration. 
 ### 17. As model parallelism in embedding layers, how does it get all the embedding lookup features from multi-node / multi-gpu? ###

@@ -61,16 +61,33 @@ bool eval(const int i, const int current_epoch,
 
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
                  float(i) / solver_config.max_iter);
-    int j = 0;
     bool good = true;
-    timer_eval.start();
-    while (good) {
-      if (solver_config.max_eval_batches == 0 ||
-          j >= solver_config.max_eval_batches) {
-        break;
+    auto cleanup_files = [](const std::string& out_filename) {
+      std::ofstream ofs;
+      ofs.open(out_filename, std::ofstream::out | std::ofstream::trunc);
+      if(!ofs.is_open()){
+        throw std::runtime_error("Cannot open output prediction file " + out_filename + " \n");
       }
+      ofs.close();
+    };
+    timer_eval.start();
+    for (int j = 0; j < solver_config.max_eval_batches && good; ++j) {
       good = session_instance->eval();
-      j++;
+      if(!solver_config.export_predictions_prefix.empty()){
+        int pid = 0;
+#ifdef ENABLE_MPI
+      CK_MPI_THROW__(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+#endif
+        std::string out_prediction_filename = solver_config.export_predictions_prefix + "_prediction_" + std::to_string(i);
+        std::string out_label_filename = solver_config.export_predictions_prefix + "_label_" + std::to_string(i);
+        if(pid == 0 && j ==0){
+          // clear output file in first round
+          cleanup_files(out_prediction_filename);
+          cleanup_files(out_label_filename);
+        }
+        
+        session_instance->export_predictions(out_prediction_filename, out_label_filename);
+      }
     }
     if (good == false) {
       data_reader_eval->set_source();
