@@ -2,61 +2,74 @@
 A sample of building and training Wide & Deep Network with HugeCTR [(link)](https://arxiv.org/abs/1606.07792) on a 8-GPU machine, e.g., DGX-1.
 
 ## Dataset and preprocess ##
-The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).
-The original training set contains 45,840,617 examples.
-Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
+In running this sample, [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used.
+The dataset contains 24 files, each of which corresponds to one day of data.
+To spend less time on preprocessing, we use only one of them.
+Each sample consists of a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
 The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
-The original test set doesn't contain labels, so it's not used.
-
-### Requirements ###
-* Python >= 3.6.9
-* Pandas 1.0.1
-* Sklearn 0.22.1
 
 ### 1. Download the dataset and preprocess
 
-Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
-and download the kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
-The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
-It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
-Its purpose is to reduce the vocabulary size of each column while not losing too much information.
-In addition, it doesn't only normalize the integer feature values to the range [0, 1],
-but it also creates the two feature crosses.
-
-```shell
-# The preprocessing can take 40 minutes to 1 hour based on the system configuration.
-$ cd ../../tools/criteo_script/
-$ bash preprocess.sh wdl 1 1
-$ cd ../../samples/wdl8gpus/
+Go to [this link](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/),
+and download one of 24 files into the directory "${project_root}/tools, 
+or execute the following command:
 ```
-
-### 2. Build HugeCTR with the instructions on README.md under home directory.
-
-### 3. Convert the dataset to HugeCTR format
-```shell
-$ cp ../../build/bin/criteo2hugectr ./
-$ ./criteo2hugectr ../../tools/criteo_script/wdl_data/train criteo/sparse_embedding file_list.txt 2
-$ ./criteo2hugectr ../../tools/criteo_script/wdl_data/val criteo_test/sparse_embedding file_list_test.txt 2
+$ cd ${project_root}/tools
+$ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
 ```
+- **NOTE**: Replace 1 with a value from [0, 23] to use a different day.
+
+In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc.
+Please choose one of the following two methods to make the dataset ready for HugeCTR training.
+
+#### Preprocessing by Pandas ####
+```shell
+$ bash preprocess.sh 1 wdl_data pandas 1 1
+```
+- **NOTE**: The first argument represents the dataset postfix.  For instance, if `day_1` is used, it is 1.
+- **NOTE**: the second argument `wdl_data` is where the preprocessed data is stored.
+You may want to change it in case where multiple datasets for different purposes are generated concurrently.
+If you change it, `source` and `eval_source` in your JSON config file must be changed as well.
+- **NOTE**: the fourth arguement (one after `pandas`) represents if the normalization is applied to dense features (1=ON, 0=OFF).
+- **NOTE**: the last argument decides if the feature crossing is applied (1=ON, 0=OFF).
+It must remains 0 unless the sample is not `wdl`.
+
+#### Preprocessing by NVTabular ####
+
+HugeCTR supports data processing by NVTabular since version 2.2.1.
+Please make sure NVTabular docker environment has been set up successfully according to [NVTAbular github](https://github.com/NVIDIA/NVTabular).
+Make sure to use the latest version of NVTabular,
+and mount HugeCTR ${project_root} volume to NVTabular docker.
+Run NVTabular docker and execute the following preprocessing commands:
+```shell
+$ bash preprocess.sh 1 wdl_data_parquet nvt 1 0 1 # parquet output
+```
+Or
+```shell
+$ bash preprocess.sh 1 wdl_data_nvt_bin nvt 0 0 1 # nvt binary output
+```
+- **NOTE**: The first and second arguments are as the same as Pandas's (see above).
+- **NOTE**: If you want to generate a binary data in `Norm` format data, instead of the Parquet format data, set the fourth argument (one after `nvt`) to 0. It can take much longer than the Parquet mode becuase of the additional conversion process.
+Otherwise, a Parquet dataset is generated. Use this NVTabular binary mode if you encounter an  issue with the Pandas mode.
+- **NOTE**: the fifth argument must be set to 1 for `criteo` sample. Otherwise, it is 0.
+- **NOTE**: the last argument decides if the feature crossing is applied (1=ON, 0=OFF).
+It must remains 0 unless the sample is not `wdl`.
+
+Exit from the NVTabular docker environment and then run HugeCTR docker with interaction mode under home directory again.
 
 ## Training with HugeCTR ##
 
-1. Copy huge_ctr to samples/wdl
-```shell
-$ cp ../../build/bin/huge_ctr ./
-```
-
-2. Generate a plan file
+1. Generate a plan file
 
 To exploit Gossip library for inter-GPU communication, a plan file must be generated like below.
 If you change the number of GPUs in the json config file (`"gpu"` in `"solver"`),
 It must be regenerated.
 ```shell
 $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-$ python3 ../../tools/plan_generation_no_mpi/plan_generator_no_mpi.py wdl8gpu.json
+$ python3 plan_generation_no_mpi/plan_generator_no_mpi.py ../samples/wdl8gpus/wdl8gpu.json
 ```
 
-3. Run huge_ctr
+2. Run huge_ctr
 ```shell
-$ ./huge_ctr --train ./wdl8gpu.json
+$ ../build/bin/huge_ctr --train ../samples/wdl8gpus/wdl8gpu.json
 ```

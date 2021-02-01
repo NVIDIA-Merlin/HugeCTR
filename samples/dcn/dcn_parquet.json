@@ -28,9 +28,9 @@
       "name": "data",
       "type": "Data",
       "format": "Parquet",
-      "slot_size_array": [1461, 558, 335378, 211710, 306, 20, 12136, 634, 4, 51298, 5302, 332600, 3179, 27, 12191, 301211, 11, 4841, 2086, 4, 324273, 17, 16, 79734, 96, 58622],
-      "source": "./dcn_data/train/_file_list.txt",
-      "eval_source": "./dcn_data/val/_file_list.txt",
+      "slot_size_array": [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49, 186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15, 204515, 141526, 199433, 60919, 9137, 71, 34],
+      "source": "./criteo_data/train/_file_list.txt",
+      "eval_source": "./criteo_data/val/_file_list.txt",
       "check": "None",
       "label": {
         "top": "label",
@@ -56,7 +56,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1737715,
+        "max_vocabulary_size_per_gpu": 1447751,
         "embedding_vec_size": 16,
         "combiner": 0
       }
