@@ -60,6 +60,7 @@ const char *train_file_list_name = "train_file_list.txt";
 const char *test_file_list_name = "test_file_list.txt";
 const char *prefix = "./data_reader_test_data/temp_dataset_";
 const char *hash_table_file_name = "distributed_hash_table.bin";
+const char *opt_file_name = "distributed_opt.bin";
 //-----------------------------------------------------------------------------------------
 
 template <typename TypeEmbeddingComp>
@@ -300,6 +301,20 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   {
     std::ofstream fs(hash_table_file_name);
     embedding->dump_parameters(fs);
+    fs.close();
+  }
+
+  {
+    printf("Rank%d: embedding->dump_opt_states()\n", pid);
+    std::ofstream fs(opt_file_name);
+    embedding->dump_opt_states(fs);
+    fs.close();
+  }
+
+  {
+    printf("Rank%d: embedding->load_opt_states()\n", pid);
+    std::ifstream fs(opt_file_name);
+    embedding->load_opt_states(fs);
     fs.close();
   }
 

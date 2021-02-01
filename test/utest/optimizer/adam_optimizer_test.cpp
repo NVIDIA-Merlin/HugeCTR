@@ -117,7 +117,10 @@ void adam_test(size_t len, int num_update, bool mixed_precision) {
   Tensor2<__half> wgrad_half;
   buff->reserve({len}, &wgrad_half);
 
-  AdamOptimizer adam(weight, wgrad, wgrad_half, mixed_precision, buff, test::get_default_gpu());
+  std::shared_ptr<BufferBlock2<float>> opt_buff = buff->create_block<float>();
+  std::shared_ptr<BufferBlock2<__half>> opt_buff_half = buff->create_block<__half>();
+
+  AdamOptimizer adam(weight, wgrad, wgrad_half, mixed_precision, opt_buff, opt_buff_half, test::get_default_gpu());
 
   buff->allocate();
 

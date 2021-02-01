@@ -41,6 +41,9 @@ class IEmbedding {
   virtual void dump_parameters(BufferBag& buf_bag, size_t* num) const = 0;
   virtual void reset() = 0;
 
+  virtual void dump_opt_states(std::ofstream& stream) = 0;
+  virtual void load_opt_states(std::ifstream& stream) = 0;
+
   virtual std::vector<TensorBag2> get_train_output_tensors() const = 0;
   virtual std::vector<TensorBag2> get_evaluate_output_tensors() const = 0;
   virtual void check_overflow() const = 0;

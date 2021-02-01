@@ -125,6 +125,10 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
     init_or_load_params_for_sparse_(solver_config.embedding_files);
   }
 
+
+  load_opt_states_for_sparse_(solver_config.sparse_opt_states_files);
+  load_opt_states_for_dense_(solver_config.dense_opt_states_file);
+
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   for (const auto& metric : solver_config.metrics_spec) {
     metrics_.emplace_back(
@@ -149,7 +153,7 @@ Error_t Session::init_or_load_params_for_dense_(const std::string& model_file) {
       model_stream.read(reinterpret_cast<char*>(weight.get()),
                         networks_[0]->get_params_num() * sizeof(float));
 
-      std::cout << "Loading dense model: " << model_file << std::endl;
+      MESSAGE_("Loading dense model: " + model_file);
       for (auto& network : networks_) {
         network->upload_params_to_device(weight.get());
       }
@@ -161,6 +165,32 @@ Error_t Session::init_or_load_params_for_dense_(const std::string& model_file) {
         networks_[id]->init_params(id);
         CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
       }
+    }
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+}
+Error_t Session::load_opt_states_for_dense_(const std::string& dense_opt_states_file) {
+  try {
+    if (!dense_opt_states_file.empty()) {
+      std::ifstream opt_states_stream(dense_opt_states_file, std::ifstream::binary);
+      if (!opt_states_stream.is_open()) {
+        CK_THROW_(Error_t::WrongInput, "Cannot open dense opt states file");
+      }
+      size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
+      std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
+      opt_states_stream.read(opt_states.get(), opt_states_size_in_byte);
+
+      MESSAGE_("Loading dense opt states: " + dense_opt_states_file);
+      for (auto& network : networks_) {
+        network->upload_opt_states_to_device(opt_states.get());
+      }
+      opt_states_stream.close();
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -186,7 +216,7 @@ Error_t Session::init_or_load_params_for_sparse_(
         if (!embedding_stream.is_open()) {
           CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
         }
-        std::cout << "Loading sparse model: " << embedding_model_files[i] << std::endl;
+        MESSAGE_("Loading sparse model: " + embedding_model_files[i]);
         embeddings_[i]->load_parameters(embedding_stream);
         embedding_stream.close();
       } else {
@@ -202,6 +232,33 @@ Error_t Session::init_or_load_params_for_sparse_(
   }
   return Error_t::Success;
 }
+
+Error_t Session::load_opt_states_for_sparse_(
+    const std::vector<std::string>& sparse_opt_states_files) {
+  try {
+    for (size_t i = 0; i < embeddings_.size(); i++) {
+      if (i < sparse_opt_states_files.size()) {
+        std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
+        if (!sparse_opt_stream.is_open()) {
+          CK_THROW_(Error_t::WrongInput, "Cannot open sparse optimizer states file");
+        }
+        MESSAGE_("Loading sparse optimizer states: " + sparse_opt_states_files[i]);
+        embeddings_[i]->load_opt_states(sparse_opt_stream);
+        sparse_opt_stream.close();
+      } else {
+        embeddings_[i]->init_params();
+      }
+    }
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+}
+
 
 bool Session::train() {
   try {
@@ -321,16 +378,26 @@ std::vector<std::pair<std::string, float>> Session::get_eval_metrics() {
 
 Error_t Session::download_params_to_files(std::string prefix, int iter) {
   std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
+
+  std::string snapshot_dense_opt_name = prefix + "_opt_dense_" + std::to_string(iter) + ".model";
+
   std::vector<std::string> snapshot_sparse_names;
+  std::vector<std::string> snapshot_sparse_opt_names;
   if (iter <= 0) {
     return Error_t::WrongInput;
   }
 
   for (unsigned int i = 0; i < embeddings_.size(); i++) {
-    snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) +
+    snapshot_sparse_names.push_back(prefix + std::to_string(i) +
+                                    "_sparse_" + std::to_string(iter) +
                                     ".model");
+    snapshot_sparse_opt_names.push_back(prefix + std::to_string(i) +
+                                        "_opt_sparse_" + std::to_string(iter) +
+                                        ".model");
   }
-  return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
+
+  return download_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name,
+                                   snapshot_sparse_names, snapshot_sparse_opt_names);
 }
 
 Error_t Session::export_predictions(const std::string& output_prediction_file_name, const std::string& output_label_file_name){
@@ -401,7 +468,9 @@ Error_t Session::export_predictions(const std::string& output_prediction_file_na
 }
 
 Error_t Session::download_params_to_files_(std::string weights_file,
-                                           const std::vector<std::string>& embedding_files) {
+                                           std::string dense_opt_states_file,
+                                           const std::vector<std::string>& embedding_files,
+                                           const std::vector<std::string>& sparse_opt_state_files) {
   try {
     {
       int i = 0;
@@ -413,9 +482,23 @@ Error_t Session::download_params_to_files_(std::string weights_file,
       }
     }
 
+    {
+      int i = 0;
+      for (auto& sparse_opt_state_file : sparse_opt_state_files) {
+        std::ofstream out_stream_opt(sparse_opt_state_file, std::ofstream::binary);
+        embeddings_[i]->dump_opt_states(out_stream_opt);
+        out_stream_opt.close();
+        i++;
+      }
+    }
+
     if (resource_manager_->is_master_process()) {
       std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
       networks_[0]->download_params_to_host(out_stream_weight);
+
+      std::ofstream out_dense_opt_state_weight(dense_opt_states_file, std::ofstream::binary);
+      networks_[0]->download_opt_states_to_host(out_dense_opt_state_weight);
+
       std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
       if (no_trained_params.length() != 0) {
         std::string ntp_file = weights_file + ".ntp.json";
@@ -424,6 +507,7 @@ Error_t Session::download_params_to_files_(std::string weights_file,
         out_stream_ntp.close();
       }
       out_stream_weight.close();
+      out_dense_opt_state_weight.close();
     }
 
   } catch (const internal_runtime_error& rt_err) {

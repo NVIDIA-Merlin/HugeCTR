@@ -22,8 +22,10 @@ namespace HugeCTR {
 namespace python_lib {
 
 std::unique_ptr<SolverParser> solver_parser_helper(
-    unsigned long long seed, int max_eval_batches, int batchsize_eval, int batchsize, std::string model_file,
-    std::vector<std::string> embedding_files, std::vector<std::vector<int>> vvgpu,
+    unsigned long long seed, int max_eval_batches, int batchsize_eval,
+    int batchsize, std::string model_file, std::string dense_opt_states_file,
+    std::vector<std::string> embedding_files, std::vector<std::string> sparse_opt_states_files,
+    std::vector<std::vector<int>> vvgpu,
     bool use_mixed_precision, bool enable_tf32_compute, float scaler, bool i64_input_key,
     bool use_algorithm_search, bool use_cuda_graph, bool repeat_dataset,
     int max_iter, int num_epochs, int display, int snapshot, int eval_interval,
@@ -34,7 +36,9 @@ std::unique_ptr<SolverParser> solver_parser_helper(
   solver_config->batchsize_eval = batchsize_eval;
   solver_config->batchsize = batchsize;
   solver_config->model_file = model_file;
+  solver_config->dense_opt_states_file = dense_opt_states_file;
   solver_config->embedding_files.assign(embedding_files.begin(), embedding_files.end());
+  solver_config->sparse_opt_states_files.assign(sparse_opt_states_files.begin(), sparse_opt_states_files.end());
   solver_config->vvgpu.assign(vvgpu.begin(), vvgpu.end());
   solver_config->use_mixed_precision = use_mixed_precision;
   solver_config->enable_tf32_compute = enable_tf32_compute;
@@ -70,7 +74,9 @@ void SolverParserPybind(pybind11::module& m) {
       .def_readonly("batchsize_eval", &HugeCTR::SolverParser::batchsize_eval)
       .def_readonly("batchsize", &HugeCTR::SolverParser::batchsize)
       .def_readonly("model_file", &HugeCTR::SolverParser::model_file)
+      .def_readonly("dense_opt_states_file", &HugeCTR::SolverParser::dense_opt_states_file)
       .def_readonly("embedding_files", &HugeCTR::SolverParser::embedding_files)
+      .def_readonly("sparse_opt_states_files", &HugeCTR::SolverParser::sparse_opt_states_files)
       .def_readonly("vvgpu", &HugeCTR::SolverParser::vvgpu)
       .def_readonly("use_mixed_precision", &HugeCTR::SolverParser::use_mixed_precision)
       .def_readonly("enable_tf32_compute", &HugeCTR::SolverParser::enable_tf32_compute)
@@ -84,7 +90,9 @@ void SolverParserPybind(pybind11::module& m) {
        pybind11::arg("batchsize_eval") = 2048,
        pybind11::arg("batchsize") = 2048,
        pybind11::arg("model_file") = "",
+       pybind11::arg("dense_opt_states_file") = "",
        pybind11::arg("embedding_files") = std::vector<std::string>(),
+       pybind11::arg("sparse_opt_states_file") = std::vector<std::string>(),
        pybind11::arg("vvgpu") = std::vector<std::vector<int>>(1, std::vector<int>(1, 0)),
        pybind11::arg("use_mixed_precision") = false,
        pybind11::arg("enable_tf32_compute") = false,

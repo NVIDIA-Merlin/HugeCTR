@@ -66,6 +66,7 @@ const std::string plan_file = "";
 #endif
 
 const char *hash_table_file_name = "localized_hash_table.bin";
+const char *opt_file_name = "localized_opt.bin";
 
 std::vector<size_t> slot_sizes;  // null means use vocabulary_size/gpu_count/load_factor as
                                  // max_vocabulary_size_per_gpu
@@ -351,6 +352,20 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   {
     std::ofstream fs(hash_table_file_name);
     embedding->dump_parameters(fs);
+    fs.close();
+  }
+
+  {
+    printf("Rank%d: embedding->dump_opt_states()\n", resource_manager->get_process_id());
+    std::ofstream fs(opt_file_name);
+    embedding->dump_opt_states(fs);
+    fs.close();
+  }
+
+  {
+    printf("Rank%d: embedding->load_opt_states()\n", resource_manager->get_process_id());
+    std::ifstream fs(opt_file_name);
+    embedding->load_opt_states(fs);
     fs.close();
   }
 
