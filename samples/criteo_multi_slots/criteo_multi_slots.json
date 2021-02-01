@@ -27,8 +27,8 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
+      "source": "criteo_data/file_list.txt",
+      "eval_source": "criteo_data/file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",

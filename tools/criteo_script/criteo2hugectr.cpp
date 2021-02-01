@@ -38,10 +38,6 @@ typedef unsigned int T;
 static const long long label_dim = 1;
 static int SLOT_NUM = 26;
 static int FILELIST_LENGTH = 0;  // number of files in each file_list.txt
-const int RANGE[] = {0,       1460,    2018,    337396,  549106,  549411,  549431,
-                     561567,  562200,  562203,  613501,  618803,  951403,  954582,
-                     954609,  966800,  1268011, 1268021, 1272862, 1274948, 1274952,
-                     1599225, 1599242, 1599257, 1678991, 1679087, 1737709};
 std::unordered_set<unsigned int> keyset;
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
@@ -253,13 +249,6 @@ int main(int argc, char *argv[]) {
         if (keyset.find(key) == keyset.end()) {
           keyset.insert(key);
           keyset_writer.append(reinterpret_cast<char *>(&key), sizeof(T));
-        }
-        if (KEYS_WIDE_MODEL == 0) {
-          if (key < static_cast<T>(RANGE[j - dense_dim - label_dim]) ||
-              key > static_cast<T>(RANGE[j + 1 - dense_dim - label_dim])) {
-            std::cout << key << " in feature:" << j << " our of range:" << RANGE[j] << ","
-                      << RANGE[j + 1] << std::endl;
-          }
         }
 #ifndef NDEBUG
         std::cout << key << ',';
