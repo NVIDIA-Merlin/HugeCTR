@@ -61,6 +61,8 @@ void test_impl(bool i64_input_key) {
   for (int i = 0; i < 100; i++) {
     session_instance->train();
     if (i % 10 == 0) {
+      session_instance->eval();
+      session_instance->export_predictions("predictions" + std::to_string(i), "labels" + std::to_string(i));
       float loss = 0;
       session_instance->get_current_loss(&loss);
       std::cout << "iter:" << i << "; loss: " << loss << std::endl;

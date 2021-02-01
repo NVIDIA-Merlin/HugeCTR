@@ -68,7 +68,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 64
+      "leading_dim": 1664
     },
 
     {
