@@ -81,12 +81,12 @@ git submodule update --init --recursive
 
 ### Build HugeCTR ###
 You can build HugeCTR using any one of these options:
-* [Docker image](build-hugectr-with-the-docker-image)
-* [Compute Capability](build-hugectr-with-a-specific-compute-capability)
-* [Debug](build-with-debug)
-* [Validation Mode](build-with-validation-mode)
-* [Multi-Nodes](build-with-multi-nodes)
-* [NCCL All2All](build-with-NCCL-All2All)
+* [Docker image](#build-hugectr-with-the-docker-image)
+* [Compute Capability](#build-hugectr-with-a-specific-compute-capability)
+* [Debug](#build-with-debug)
+* [Validation Mode](#build-with-validation-mode)
+* [Multi-Nodes](#build-with-multi-nodes)
+* [NCCL All2All](#build-with-nccl-all2all)
 
 **NOTE**: The compute capability, debug, validation mode, multi-node, and NCCL All2All build options can be used simultaneously.
 
@@ -398,7 +398,7 @@ For example:
 
    ```
 
-* **Loss**: Computes the current loss value based on the model outputs and the true labels based on the given inputs. You can specify which `regularization` is used to train your model here. By default, no regularization will be used.
+* **Loss**: Computes the current loss value based on the model outputs and the true labels based on the given inputs. You can specify which `regularization` is used to train your model here. By default, no regularization will be used. Both "L1" and "L2" Regularization are supported in HugeCTR. Please **Note** that `lambda` should be also specified together with 'regularizer'.
 
   For example:
   ```json
@@ -434,6 +434,7 @@ For example:
    "type": "BinaryCrossEntropyLoss",
    "bottom": ["fc8","label"],
    "regularizer": "L2",
+   "lambda": 0.01,
    "top": "loss"
   }
 
@@ -454,8 +455,6 @@ Dataset files can be formatted using any one of these formats:
 <div align=center>Fig. 7 (a) Norm (b) Raw (c) Parquet Dataset Formats</div>
 
 <br>
-
-For additional information about how to use these dataset formats with your JSON config file, see [this section](#data-format).
 
 ##### Norm
 To maximize the data loading performance and minimize the storage, the Norm format consists of a collection of binary data files and an ASCII formatted file list. The model file should specify the file name of the training and testing (evaluation) set, maximum elements (key) in a sample, and the label dimensions as shown in Fig. 7 (a).
