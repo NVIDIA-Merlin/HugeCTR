@@ -23,11 +23,16 @@
 #include <vector>
 
 namespace HugeCTR {
+
+template <typename T>
+class FullyConnectedLayer;
+
 /**
  * @brief
  * This class implements the fully connected layer.
  */
-class FullyConnectedLayer : public Layer {
+template <>
+class FullyConnectedLayer<float> : public Layer {
  private:
   const bool use_mixed_precision_{false};
   const bool enable_tf32_compute_{false};

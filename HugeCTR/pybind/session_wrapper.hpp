@@ -1,12 +1,4 @@
 /*
- * @Author: your name
- * @Date: 2020-11-06 15:00:46
- * @LastEditTime: 2020-11-06 16:25:36
- * @LastEditors: your name
- * @Description: In User Settings Edit
- * @FilePath: /hugectr/HugeCTR/pybind/session_wrapper.hpp
- */
-/*
  * Copyright (c) 2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -69,7 +61,7 @@ void SessionPybind(pybind11::module &m) {
               }
               if (!good) {
                 auto data_reader_eval = self.get_evaluate_data_reader();
-                data_reader_eval->set_file_list_source();
+                data_reader_eval->set_source();
               }
             } while (!good);
             auto metrics = self.get_eval_metrics();
@@ -91,7 +83,8 @@ void SessionPybind(pybind11::module &m) {
       .def("get_params_num", &HugeCTR::Session::get_params_num)
       .def("check_overflow", &HugeCTR::Session::check_overflow)
       .def("get_data_reader_train", &HugeCTR::Session::get_train_data_reader)
-      .def("get_data_reader_eval", &HugeCTR::Session::get_evaluate_data_reader);
+      .def("get_data_reader_eval", &HugeCTR::Session::get_evaluate_data_reader)
+      .def("copy_weights_for_evaluation", &HugeCTR::Session::copy_weights_for_evaluation);
 }
 
 }  //  namespace python_lib

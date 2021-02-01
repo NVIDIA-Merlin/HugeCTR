@@ -83,13 +83,12 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
   Tensor2<__half> top_tensor;
   blobs_buff->reserve({m, n}, &top_tensor);
 
-  FullyConnectedLayerHalf fully_connected_layer(master_weights_buff, weights_buff,
-                                                weights_grad_buff, blobs_buff, bottom_tensor,
-                                                top_tensor, test::get_default_gpu());
+  FullyConnectedLayer<__half> fully_connected_layer(master_weights_buff, weights_buff,
+                                                    weights_grad_buff, blobs_buff, bottom_tensor,
+                                                    top_tensor, test::get_default_gpu());
   // Initialize tensors to 0 and choose cublas algorithms
   blobs_buff->allocate();
   fully_connected_layer.initialize();
-  // fully_connected_layer.search_algorithm();
   // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
   // of optimize)
 
@@ -169,15 +168,9 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k) {
       << " bprop cross_check bias_grad fail" << endl;
 }
 
-TEST(fully_connected_layer_half, fp16_1x1x1) { fully_connected_layer_test(1, 1, 1); }
-TEST(fully_connected_layer_half, fp16_2048x1x256) { fully_connected_layer_test(2048, 1, 256); }
-TEST(fully_connected_layer_half, fp16_2048x512x13) { fully_connected_layer_test(2048, 512, 13); }
-TEST(fully_connected_layer_half, fp16_2048x1024x479) {
-  fully_connected_layer_test(2048, 1024, 479);
-}
-TEST(fully_connected_layer_half, fp16_2048x512x1024) {
-  fully_connected_layer_test(2048, 512, 1024);
-}
-TEST(fully_connected_layer_half, fp16_2048x1024x1024) {
-  fully_connected_layer_test(2048, 1024, 1024);
-}
+TEST(fully_connected_layer, fp16_1x1x1) { fully_connected_layer_test(1, 1, 1); }
+TEST(fully_connected_layer, fp16_2048x1x256) { fully_connected_layer_test(2048, 1, 256); }
+TEST(fully_connected_layer, fp16_2048x512x13) { fully_connected_layer_test(2048, 512, 13); }
+TEST(fully_connected_layer, fp16_2048x1024x479) { fully_connected_layer_test(2048, 1024, 479); }
+TEST(fully_connected_layer, fp16_2048x512x1024) { fully_connected_layer_test(2048, 512, 1024); }
+TEST(fully_connected_layer, fp16_2048x1024x1024) { fully_connected_layer_test(2048, 1024, 1024); }

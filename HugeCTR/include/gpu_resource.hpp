@@ -29,10 +29,11 @@ namespace HugeCTR {
  */
 class GPUResource {
   const int device_id_;
-  const size_t global_gpu_id_;
+  const size_t global_id_;
   cudaStream_t computation_stream_; /**< cuda stream for computation */
-  cudaStream_t data_copy_stream_;   /**< cuda stream for data copy */
-  curandGenerator_t curand_generator_;
+  cudaStream_t memcpy_stream_;      /**< cuda stream for data copy */
+  curandGenerator_t replica_uniform_curand_generator_;
+  curandGenerator_t replica_variant_curand_generator_;
   cublasHandle_t cublas_handle_;
   cudnnHandle_t cudnn_handle_;
   ncclComm_t comm_;
@@ -41,26 +42,28 @@ class GPUResource {
   int cc_minor_;
 
  public:
-  GPUResource(int device_id, size_t global_gpu_id_, unsigned long long seed);
-  GPUResource(int device_id, size_t global_gpu_id_, unsigned long long seed,
-              const ncclComm_t& comm);
+  GPUResource(int device_id, size_t global_id, unsigned long long replica_uniform_seed,
+              unsigned int long long replica_variant_seed, const ncclComm_t& comm);
   GPUResource(const GPUResource&) = delete;
   GPUResource& operator=(const GPUResource&) = delete;
   ~GPUResource();
 
   int get_device_id() const { return device_id_; }
-  size_t get_global_gpu_id() const { return global_gpu_id_; }
+  size_t get_global_id() const { return global_id_; }
   const cudaStream_t& get_stream() const { return computation_stream_; }
-  const cudaStream_t& get_data_copy_stream() const { return data_copy_stream_; }
-  const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
+  const cudaStream_t& get_memcpy_stream() const { return memcpy_stream_; }
+  const curandGenerator_t& get_replica_uniform_curand_generator() const {
+    return replica_uniform_curand_generator_;
+  }
+  const curandGenerator_t& get_replica_variant_curand_generator() const {
+    return replica_variant_curand_generator_;
+  }
   const cublasHandle_t& get_cublas_handle() const { return cublas_handle_; }
   const cudnnHandle_t& get_cudnn_handle() const { return cudnn_handle_; }
   const ncclComm_t& get_nccl() const { return comm_; }
   size_t get_sm_count() const { return sm_count_; }
   int get_cc_major() const { return cc_major_; }
   int get_cc_minor() const { return cc_minor_; }
-
-  bool support_nccl() const { return comm_ != nullptr; }
 };
 
 }  // namespace HugeCTR

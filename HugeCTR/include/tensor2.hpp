@@ -21,7 +21,7 @@
 
 namespace HugeCTR {
 
-enum class TensorScalarType { None, Void, Float32, Float16, Int64, UInt64, Int32, UInt32 };
+enum class TensorScalarType { None, Void, Float32, Float16, Int64, UInt64, Int32, UInt32, Size_t };
 
 namespace {
 
@@ -61,6 +61,11 @@ struct TensorScalarTypeFunc<__half> {
 };
 
 template <>
+struct TensorScalarTypeFunc<size_t> {
+  static TensorScalarType get_type() { return TensorScalarType::Size_t; }
+};
+
+template <>
 struct TensorScalarTypeFunc<long long> {
   static TensorScalarType get_type() { return TensorScalarType::Int64; }
 };
@@ -93,6 +98,7 @@ class TensorBag2 {
 
  public:
   TensorBag2() : scalar_type_(TensorScalarType::None) {}
+  void* get_ptr() { return buffer_->get_ptr(); }
 };
 
 template <typename T>
@@ -130,6 +136,8 @@ class Tensor2 {
   size_t get_size_in_bytes() const {
     return num_elements_ * TensorScalarSizeFunc<T>::get_element_size();
   }
+
+  void set_buffer(const std::shared_ptr<TensorBuffer2>& buffer) { buffer_ = buffer; }
 
   const T *get_ptr() const { return reinterpret_cast<const T *>(buffer_->get_ptr()); }
 

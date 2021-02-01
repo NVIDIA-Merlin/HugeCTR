@@ -128,7 +128,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
     size_t max_voc_size = 0;
     for (size_t id = 0; id < local_gpu_count; id++) {
-      size_t global_id = resource_manager.get_local_gpu(id)->get_global_gpu_id();
+      size_t global_id = resource_manager.get_local_gpu(id)->get_global_id();
 
       size_t total_size = 0;
       for (size_t i = 0; i < slot_sizes.size(); i++) {
@@ -150,7 +150,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * @param max_vocabulary_size_per_gpu max vocabulary size per GPU.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors embedding table tensors.
-   * @param device_resources GPU device resources.
    */
   void init_embedding(size_t max_vocabulary_size_per_gpu, size_t embedding_vec_size,
                       Tensors2<float> &hash_table_value_tensors);
@@ -163,7 +162,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * @param hash_table_value_tensors embedding table tensors.
    * @param hash_tables GPU hash tables which stores <key, value_index>.
    * @param hash_table_slot_id_tensors slot ids tensors.
-   * @param device_resources GPU device resources.
    */
   void init_embedding(const std::vector<size_t> &slot_sizes, size_t embedding_vec_size,
                       std::vector<Tensors2<float>> &hash_table_value_tensors,
@@ -171,17 +169,20 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
   /**
    * load_parameters() for LocalizedSlotSparseEmbeddingHash
-   * @param weight_stream weight file stream to read.
+   * @param keys the memory buffer storing keys.
+   * @param slot_id the memory buffer storing slot_id.
+   * @param embeddings the memory buffer storing embedding vectors.
+   * @param num the number of unique keys (embedding vectors) in keys (embeddings).
    * @param vocabulary_size the total row number of hash table.
    * @param embedding_vec_size embedding vector size.
    * @param max_vocabulary_size_per_gpu max vocabulary size for each GPU
    * @param hash_table_value_tensors the hash table value on multi GPUs.
    * @param hash_table_slot_id_tensors the hash table slot_ids on multi GPUs.
    * @param hash_tables the hash tables on multi GPUs.
-   * @param device_resources all gpus device resources.
-   * @param context gpu device context, for switching device
    */
-  void load_parameters(std::ifstream &weight_stream, size_t vocabulary_size,
+  void load_parameters(const Tensor2<TypeHashKey> &keys, const Tensor2<size_t> &slot_id,
+                       const Tensor2<float> &embeddings, size_t num,
+                       size_t vocabulary_size,
                        size_t embedding_vec_size, size_t max_vocabulary_size_per_gpu,
                        Tensors2<float> &hash_table_value_tensors,
                        Tensors2<size_t> &hash_table_slot_id_tensors,
@@ -195,11 +196,28 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * @param hash_table_value_tensors the hash table value on multi-GPU.
    * @param hash_table_slot_id_tensors the hash table slot_ids on multi-GPU
    * @param hash_tables the hash tables on multi GPUs
-   * @param device_resources all gpus device resources.
-   * @param context gpu device context, for switching device
    */
   void dump_parameters(
       std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
+      const Tensors2<float> &hash_table_value_tensors,
+      const Tensors2<size_t> &hash_table_slot_id_tensors,
+      const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
+
+  /**
+   * dump_parameters for LocalizedSlotSparseEmbeddingHash.
+   * @param keys the memory buffer to store keys.
+   * @param slot_id the memory buffer to store slot_id.
+   * @param embeddings the memory buffer to store embedding vectors.
+   * @param num pointer to store the number of unique keys (embedding vectors).
+   * @param vocabulary_size the total row number of hash table.
+   * @param embedding_vec_size embedding vector size.
+   * @param hash_table_value_tensors the hash table value on multi-GPU.
+   * @param hash_table_slot_id_tensors the hash table slot_ids on multi-GPU
+   * @param hash_tables the hash tables on multi GPUs
+   */
+  void dump_parameters(
+      Tensor2<TypeHashKey> &keys, Tensor2<size_t> &slot_id, Tensor2<float> &embeddings,
+      size_t *num, size_t vocabulary_size, size_t embedding_vec_size,
       const Tensors2<float> &hash_table_value_tensors,
       const Tensors2<size_t> &hash_table_slot_id_tensors,
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
@@ -400,44 +418,17 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   /**
    * Read the hash table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param weight_stream the host file stream for reading data from.
+   * @param stream the host file stream for reading data from.
    */
-  void load_parameters(std::ifstream &weight_stream) override {
-    // check if file is opened successfully
-    if (!weight_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
-    }
-
-    load_parameters(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
-                    max_vocabulary_size_per_gpu_, hash_table_value_tensors_,
-                    hash_table_slot_id_tensors_, hash_tables_);
-
-    return;
-  }
-
-  void load_parameters(const TensorBag2 &keys, const Tensor2<float> &embeddings,
-                       size_t num) override {}
-
+  void load_parameters(std::ifstream &stream) override;
+  void load_parameters(BufferBag& buf_bag, size_t num) override;
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
-   * @param weight_stream the host file stream for writing data to.
+   * @param stream the host file stream for writing data to.
    */
-  void dump_parameters(std::ofstream &weight_stream) const override {
-    // check if the file is opened successfully
-    if (!weight_stream.is_open()) {
-      CK_THROW_(Error_t::WrongInput, "Error: file not open for writing");
-      return;
-    }
-
-    dump_parameters(weight_stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
-                    hash_table_value_tensors_, hash_table_slot_id_tensors_, hash_tables_);
-
-    return;
-  }
-
-  void dump_parameters(TensorBag2 keys, Tensor2<float> &embeddings, size_t *num) const override {}
-
+  void dump_parameters(std::ofstream &stream) const override;
+  void dump_parameters(BufferBag& buf_bag, size_t *num) const override;
   /**
    * Reset the embedding
    */

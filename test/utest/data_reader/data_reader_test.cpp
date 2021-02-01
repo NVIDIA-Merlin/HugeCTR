@@ -86,7 +86,7 @@ TEST(data_reader_test, data_reader_simple_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 12);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 12, false, 0);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -126,7 +126,7 @@ TEST(data_reader_test, data_reader_localized_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1);
+  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, false, 0);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -170,7 +170,7 @@ TEST(data_reader_test, data_reader_mixed_test) {
   params.push_back(param_localized);
   params.push_back(param_distributed);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, true);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, true, 0);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -222,7 +222,7 @@ TEST(data_reader_test, two_nodes_localized) {
     std::vector<DataReaderSparseParam> params;
     params.push_back(param_localized);
 
-    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1);
+    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, false, 0);
 
     data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -251,7 +251,7 @@ TEST(data_reader_test, two_nodes_localized) {
     std::vector<DataReaderSparseParam> params;
     params.push_back(param_localized);
 
-    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1);
+    DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, false, 0);
 
     data_reader.create_drwg_norm(file_list_name, CHK);
 

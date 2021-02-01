@@ -42,7 +42,7 @@ void DataReaderPybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::DataReaderWorkerRaw<long long>, HugeCTR::IDataReaderWorker>(
       m, "DataReaderWorkerRaw64")
       .def(pybind11::init<unsigned int, unsigned int, std::shared_ptr<MmapOffsetList>&,
-                          const std::shared_ptr<HeapEx<CSRChunk<long long>>>&, const std::string,
+                          const std::shared_ptr<HeapEx<CSRChunk<long long>>>&, bool,
                           const std::vector<DataReaderSparseParam>&, const std::vector<long long>&,
                           int, bool>(),
            pybind11::arg("worker_id"), pybind11::arg("worker_num"),
@@ -69,8 +69,8 @@ void DataReaderPybind(pybind11::module& m) {
            pybind11::arg("batchsize"), pybind11::arg("label_dim"), pybind11::arg("dense_dim"),
            pybind11::arg("params"), pybind11::arg("resource_manager"),
            pybind11::arg("repeat"),
-           pybind11::arg("num_chunk_threads") = 31, pybind11::arg("use_mixed_precision") = false,
-           pybind11::arg("cache_num_iters") = 0)
+           pybind11::arg("num_chunk_threads"), pybind11::arg("use_mixed_precision"),
+           pybind11::arg("cache_num_iters"))
       .def("create_drwg_norm", &HugeCTR::DataReader<long long>::create_drwg_norm,
            pybind11::arg("file_list"), pybind11::arg("Check_t"),
            pybind11::arg("start_reading_from_beginning") = true)
@@ -81,8 +81,8 @@ void DataReaderPybind(pybind11::module& m) {
       .def("create_drwg_parquet", &HugeCTR::DataReader<long long>::create_drwg_parquet,
            pybind11::arg("file_list"), pybind11::arg("slot_offset"),
            pybind11::arg("start_reading_from_beginning") = true)
-      .def("set_file_list_source", &HugeCTR::DataReader<long long>::set_file_list_source,
-	   pybind11::arg("file_list") = std::string())
+      .def("set_source", &HugeCTR::DataReader<long long>::set_source,
+           pybind11::arg("file_name") = std::string())
       .def("read_a_batch_to_device", &HugeCTR::DataReader<long long>::read_a_batch_to_device)
       .def("read_a_batch_to_device_delay_release",
            &HugeCTR::DataReader<long long>::read_a_batch_to_device_delay_release)
@@ -107,11 +107,12 @@ void DataReaderPybind(pybind11::module& m) {
 
   pybind11::class_<HugeCTR::DataReader<unsigned int>, std::shared_ptr<HugeCTR::DataReader<unsigned int>>, HugeCTR::IDataReader>(m, "DataReader32")
       .def(pybind11::init<int, size_t, int, std::vector<DataReaderSparseParam>&,
-                          const std::shared_ptr<ResourceManager>&, int, bool, int>(),
+                          const std::shared_ptr<ResourceManager>&, bool, int, bool, int>(),
            pybind11::arg("batchsize"), pybind11::arg("label_dim"), pybind11::arg("dense_dim"),
            pybind11::arg("params"), pybind11::arg("resource_manager"),
-           pybind11::arg("num_chunk_threads") = 31, pybind11::arg("use_mixed_precision") = false,
-           pybind11::arg("cache_num_iters") = 0)
+           pybind11::arg("repeat"),
+           pybind11::arg("num_chunk_threads"), pybind11::arg("use_mixed_precision"),
+           pybind11::arg("cache_num_iters"))
       .def("create_drwg_norm", &HugeCTR::DataReader<unsigned int>::create_drwg_norm,
            pybind11::arg("file_list"), pybind11::arg("Check_t"),
            pybind11::arg("start_reading_from_beginning") = true)
@@ -122,8 +123,8 @@ void DataReaderPybind(pybind11::module& m) {
       .def("create_drwg_parquet", &HugeCTR::DataReader<unsigned int>::create_drwg_parquet,
            pybind11::arg("file_list"), pybind11::arg("slot_offset"),
            pybind11::arg("start_reading_from_beginning") = true)
-      .def("set_file_list_source", &HugeCTR::DataReader<unsigned int>::set_file_list_source,
-	   pybind11::arg("file_list") = std::string())
+      .def("set_source", &HugeCTR::DataReader<unsigned int>::set_source,
+           pybind11::arg("file_name") = std::string())
       .def("read_a_batch_to_device", &HugeCTR::DataReader<unsigned int>::read_a_batch_to_device)
       .def("read_a_batch_to_device_delay_release",
            &HugeCTR::DataReader<unsigned int>::read_a_batch_to_device_delay_release)

@@ -73,12 +73,12 @@ static void fully_connected_layer_test(size_t m, size_t n, size_t k, float tol =
   Tensor2<float> out_tensor;
   blobs_buff->reserve({m, n}, &out_tensor);
 
-  FullyConnectedLayer fully_connected_layer(weight_buff, wgrad_buff, in_tensor, out_tensor,
-                                            test::get_default_gpu(), false, enable_tf32_compute);
+  FullyConnectedLayer<float> fully_connected_layer(weight_buff, wgrad_buff, in_tensor, out_tensor,
+                                                   test::get_default_gpu(), false,
+                                                   enable_tf32_compute);
   // Initialize tensors to 0 and choose cublas algorithms
   blobs_buff->allocate();
   fully_connected_layer.initialize();
-  // fully_connected_layer.search_algorithm();
   // Reset tensors to 0 to ensure all the data are the same as original utest(clear the side effect
   // of optimize)
   Tensor2<float> weight = weight_buff->as_tensor();

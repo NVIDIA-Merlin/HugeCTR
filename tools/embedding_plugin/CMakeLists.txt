@@ -89,9 +89,9 @@ FILE(GLOB  hugectr_src
 )
 
 FILE(GLOB_RECURSE PLUGIN_SRC
-${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/ops/*.cc
-${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/kernels/*.cc
-${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/kernels/*.cu
+${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/ops/v1/*.cc
+${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/kernels/v1/*.cc
+${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/kernels/v1/*.cu
 )
 
 FIND_PACKAGE(MPI)
@@ -100,10 +100,36 @@ ADD_LIBRARY(embedding_plugin SHARED ${PLUGIN_SRC} ${hugectr_src})
 TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC ${TF_LINK_FLAGS})
 
 IF(MPI_FOUND)
-  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cudf cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
+  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
   MESSAGE(STATUS "${MPI_CXX_LIBRARIES}")
 ELSE()
-  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cudf rmm cusparse ${CMAKE_THREAD_LIBS_INIT})
+  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT})
 ENDIF()
 
 SET_TARGET_PROPERTIES(embedding_plugin PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
+
+# ----------------------- V2 ----------------------------- #
+file(GLOB_RECURSE PLUGIN_SRC_V2
+${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/ops/v2/*.cc
+${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/kernels/v2/*.cc
+${PROJECT_SOURCE_DIR}/tools/embedding_plugin/cc/kernels/v1/cuda_utils.cu
+)
+
+option(PLUGIN_NVTX "add nvtx on plugin ops" OFF)
+if (PLUGIN_NVTX)
+  MESSAGE("-- Add nvtx on plugin ops")
+  ADD_DEFINITIONS(-DPLUGIN_NVTX)
+endif()
+
+ADD_LIBRARY(embedding_plugin_v2 SHARED ${PLUGIN_SRC_V2} ${hugectr_src})
+TARGET_LINK_LIBRARIES(embedding_plugin_v2 PUBLIC ${TF_LINK_FLAGS})
+
+IF(MPI_FOUND)
+  TARGET_LINK_LIBRARIES(embedding_plugin_v2 PUBLIC cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
+  MESSAGE(STATUS "${MPI_CXX_LIBRARIES}")
+ELSE()
+  TARGET_LINK_LIBRARIES(embedding_plugin_v2 PUBLIC cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT})
+ENDIF()
+
+SET_TARGET_PROPERTIES(embedding_plugin_v2 PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

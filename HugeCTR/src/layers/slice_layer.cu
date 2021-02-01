@@ -174,7 +174,7 @@ std::vector<typename SliceLayer<T>::OutParam> SliceLayer<T>::set_out_params(int 
     int w = out_tensor.get_dimensions()[1];
     out_params.push_back({out, st, st + w});
   }
-  return std::move(out_params);
+  return out_params;
 }
 
 template <typename T>

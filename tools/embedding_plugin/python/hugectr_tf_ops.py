@@ -23,7 +23,8 @@ lib_name = r"libembedding_plugin.so"
 paths = [r'../../build/lib/',
          r'../../build/build_single/lib/',
          r'/usr/local/hugectr/lib/',
-         r'/workspace/hugectr/build/lib/']
+         r'/workspace/hugectr/build/lib/',
+         r'/workspace/home/hugectr/build/lib/']
 
 lib_file = None
 for path in paths:
