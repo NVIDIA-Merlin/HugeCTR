@@ -51,3 +51,4 @@ Here's a list of notebooks that you can run:
 - [movie-lens-example.ipynb](movie-lens-example.ipynb): Explains how to train and inference with the MoveLense dataset.
 - [embedding_plugin.ipynb](embedding_plugin.ipynb): Explains how to install and use the HugeCTR embedding plugin with Tensorflow.
 - [python_interface.ipynb](python_interface.ipynb): Explains how to use the Python interface and the model prefetching feature.
+- [hugectr_inference.ipynb](hugectr_inference.ipynb): Explains how to use python interface to predict with a trained model.
