@@ -27,8 +27,8 @@
       {
       "name": "data",
       "type": "Data",
-      "source": "./dcn_data/train/_file_list.txt",
-      "eval_source": "./dcn_data/val/_file_list.txt",
+      "source": "./criteo_data/train/_file_list.txt",
+      "eval_source": "./criteo_data/val/_file_list.txt",
       "check": "None",
       "label": {
         "top": "label",
@@ -54,7 +54,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 434428,
+        "max_vocabulary_size_per_gpu": 1447751,
         "embedding_vec_size": 16,
         "combiner": 0
       }
