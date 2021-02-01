@@ -45,7 +45,6 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
-
 option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" ON)
 if (NCCL_A2A) 
   message(STATUS "-- NCCL_A2A is ON")
