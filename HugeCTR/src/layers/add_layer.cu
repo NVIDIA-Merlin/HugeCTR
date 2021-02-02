@@ -46,7 +46,7 @@ template <typename T>
 __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int num) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (tid < size) {
+  if (tid < size / 2) {
     for (int i = 0; i < num; i++) {
       dgrads[i][tid] = top_grad[tid];
     }
@@ -60,7 +60,7 @@ __global__ void add_kernel<__half>(__half** inputs, __half* output, int size, in
   __half2* output2 = (__half2*)(output);
   const __half2 zero = __half2half2(__float2half(0.f));
 
-  if (tid < size) {
+  if (tid < size / 2) {
     __half2 tmp = zero;
     for (int i = 0; i < num; i++) {
       tmp = __hadd2(tmp, inputs2[i][tid]);
