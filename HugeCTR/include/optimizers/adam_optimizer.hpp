@@ -39,7 +39,8 @@ class AdamOptimizer : public Optimizer {
    */
   AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
                 const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
-                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
+                const std::shared_ptr<BufferBlock2<__half>>& opt_buf_half,
                 const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                 float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-7, float scaler = 1.f);
 

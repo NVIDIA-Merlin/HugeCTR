@@ -17,6 +17,7 @@
 #include "dlrm_raw_utils.h"
 #include <cstring>
 using namespace DLRM_RAW;
+using HugeCTR::MESSAGE_;
 #include <iostream>
 
 void process_kaggle_dataset(const std::string& input_dir_path,

@@ -587,6 +587,13 @@ class SparseEmbeddingFunctors {
   void get_hash_value(size_t count, size_t embedding_vec_size, const size_t *value_index,
                       const float *hash_table_value, float *value_retrieved,
                       cudaStream_t stream) const;
+
+  template <typename TypeEmbeddingComp>
+  void dump_opt_states(std::ofstream& stream, const ResourceManager &resource_manager,
+                       std::vector<Tensors2<TypeEmbeddingComp>>& opt_states);
+  template <typename TypeEmbeddingComp>
+  void load_opt_states(std::ifstream& stream, const ResourceManager &resource_manager,
+                       std::vector<Tensors2<TypeEmbeddingComp>>& opt_states);
 };
 
 }  // namespace HugeCTR

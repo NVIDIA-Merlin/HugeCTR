@@ -68,7 +68,7 @@ void SparseEmbeddingFunctors::store_slot_id(size_t batch_size, size_t slot_num,
     const auto &local_gpu = resource_manager.get_local_gpu(id);
 
     size_t local_device_id = local_gpu->get_device_id();
-    size_t global_id = local_gpu->get_global_gpu_id();
+    size_t global_id = local_gpu->get_global_id();
 
     const size_t block_size = 64;
     const size_t grid_size = (batch_size * slot_num_per_gpu[id] + block_size - 1) / block_size;

@@ -60,6 +60,7 @@ const char *train_file_list_name = "train_file_list.txt";
 const char *test_file_list_name = "test_file_list.txt";
 const char *prefix = "./data_reader_test_data/temp_dataset_";
 const char *hash_table_file_name = "distributed_hash_table.bin";
+const char *opt_file_name = "distributed_opt.bin";
 //-----------------------------------------------------------------------------------------
 
 template <typename TypeEmbeddingComp>
@@ -126,12 +127,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
   std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
-      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
+      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
 
   test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
@@ -303,6 +304,20 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     fs.close();
   }
 
+  {
+    printf("Rank%d: embedding->dump_opt_states()\n", pid);
+    std::ofstream fs(opt_file_name);
+    embedding->dump_opt_states(fs);
+    fs.close();
+  }
+
+  {
+    printf("Rank%d: embedding->load_opt_states()\n", pid);
+    std::ifstream fs(opt_file_name);
+    embedding->load_opt_states(fs);
+    fs.close();
+  }
+
   // for SparseEmbeddingCpu eval
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> test_embedding_cpu(
       new SparseEmbeddingHashCpu<T, TypeEmbeddingComp>(
@@ -387,7 +402,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
@@ -443,13 +458,17 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   blobs_buff->allocate();
 
+  BufferBag buf_bag;
+  buf_bag.keys = keys.shrink();
+  buf_bag.embedding = embeddings;
+
   size_t dump_size;
-  embedding->dump_parameters(keys.shrink(), embeddings, &dump_size);
+  embedding->dump_parameters(buf_bag, &dump_size);
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
 
-  embedding->dump_parameters(keys.shrink(), embeddings, &dump_size);
+  embedding->dump_parameters(buf_bag, &dump_size);
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
@@ -459,12 +478,12 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
          embedding->get_vocabulary_size());
 
-  embedding->load_parameters(keys.shrink(), embeddings, dump_size);
+  embedding->load_parameters(buf_bag, dump_size);
 
   printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
          embedding->get_vocabulary_size());
 
-  embedding->dump_parameters(keys.shrink(), embeddings, &dump_size);
+  embedding->dump_parameters(buf_bag, &dump_size);
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());

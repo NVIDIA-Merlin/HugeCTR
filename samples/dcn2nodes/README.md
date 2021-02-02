@@ -2,43 +2,40 @@
 A sample of building and training Deep & Cross Network with HugeCTR on multi-nodes [(link)](https://arxiv.org/pdf/1708.05123.pdf).
 
 ## Dataset and preprocess ##
-The data is provided by CriteoLabs (http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/).
-The original training set contains 45,840,617 examples.
-Each example contains a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
+In running this sample, [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used.
+The dataset contains 24 files, each of which corresponds to one day of data.
+To spend less time on preprocessing, we use only one of them.
+Each sample consists of a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
 The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
-The original test set doesn't contain labels, so it's not used.
-
-### Requirements ###
-* Python >= 3.6.9
-* Pandas 1.0.1
-* Sklearn 0.22.1
 
 ### 1. Download the dataset and preprocess
 
-Go to [(link)](http://labs.criteo.com/2014/02/kaggle-display-advertising-challenge-dataset/)
-and download the kaggle-display dataset into the folder "${project_home}/tools/criteo_script/".
-The script `preprocess.sh` fills the missing values by mapping them to the unused unique integer or category.
-It also replaces unique values which appear less than six times across the entire dataset with the unique value for missing values.
-Its purpose is to reduce the vocabulary size of each column while not losing too much information.
-In addition, it normalizes the integer feature values to the range [0, 1],
-but it doesn't create any feature crosses.
-
-```shell
-# The preprocessing can take 40 minutes to 1 hour based on the system configuration.
-$ cd ../../tools/criteo_script/
-$ bash preprocess.sh dcn2nodes 1 0
-$ cd ../../samples/dcn2nodes/
+Go to [this link](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/),
+and download one of 24 files into the directory "${project_root}/tools", 
+or execute the following command:
 ```
+$ cd ${project_root}/tools
+$ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
+```
+- **NOTE**: Replace 1 with a value from [0, 23] to use a different day.
+
+In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc.
+Please choose one of the following two methods to make the dataset ready for HugeCTR training.
+
+#### Preprocessing by Pandas ####
+```shell
+$ bash preprocess.sh 1 criteo_data pandas 1 0
+```
+- **NOTE**: The first argument represents the dataset postfix.  For instance, if `day_1` is used, it is 1.
+- **NOTE**: the second argument `criteo_data` is where the preprocessed data is stored.
+You may want to change it in case where multiple datasets for different purposes are generated concurrently.
+If you change it, `source` and `eval_source` in your JSON config file must be changed as well.
+- **NOTE**: the fourth arguement (one after `pandas`) represents if the normalization is applied to dense features (1=ON, 0=OFF).
+- **NOTE**: the last argument decides if the feature crossing is applied (1=ON, 0=OFF).
+It must remains 0 unless the sample is not `wdl`.
 
 ### 2. Build HugeCTR with **multi-nodes training supported** (refer to the README in home directory).
-You can chose to use [our NGC docker image](../../docs/hugectr_user_guide.md#build-hugectr-with-the-docker-image) where the multi-node mode is enabled. If you have to build your own docker image and HugeCTR yourself, refer to [our instructions](../../docs/hugectr_user_guide.md#build-with-multi-nodes)
-
-### 3. Convert the dataset to HugeCTR format
-```shell
-$ cp ../../build/bin/criteo2hugectr ./
-$ ./criteo2hugectr ../../tools/criteo_script/dcn2nodes_data/train criteo/sparse_embedding file_list.txt
-$ ./criteo2hugectr ../../tools/criteo_script/dcn2nodes_data/val criteo_test/sparse_embedding file_list_test.txt
-```
+You can chose to use [our NGC docker image](../docs/hugectr_user_guide.md#build-hugectr-with-the-docker-image) where the multi-node mode is enabled. If you have to build your own docker image and HugeCTR yourself, refer to [our instructions](../docs/hugectr_user_guide.md#build-with-multi-nodes)
 
 ## Plan file generation ##
 If gossip communication library is used, a plan file is needed to be generated first as below. If NCCL communication library is used, there is no need to generate a plan file, just skip this step. 
@@ -48,19 +45,13 @@ Login to your GPU cluster and gets two nodes. For example, if on a SLURM system:
 # We will use two nodes, i.e., -N 2, in this example
 $ srun -N 2 --pty bash -i
 $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-$ mpirun python3 ../../tools/plan_generation/plan_generator.py dcn8l8gpu2nodes.json
+$ mpirun python3 plan_generation/plan_generator.py ../samples/dcn2nodes/dcn8l8gpu2nodes.json
 ```
-**NOTE:** If your cluster is unequpped with a job scheduler, please refer to [our tutorial](../../tutorial/multinode-training/README.md/)
+**NOTE:** If your cluster is unequpped with a job scheduler, please refer to [our tutorial](../tutorial/multinode-training/README.md/)
 
 ## Training with HugeCTR ##
 
-1. Copy huge_ctr to samples/dcn2nodes
+1. Run huge_ctr
 ```shell
-$ cp ../../build/bin/huge_ctr ./
-```
-
-2. Run huge_ctr
-```shell
-# With the srun command above, it will launch two processes, each of which runs on a node.
-$ mpirun --bind-to none ./huge_ctr --train dcn8l8gpu2nodes.json
+$ mpirun --bind-to none ../build/bin/huge_ctr --train /samples/dcn2nodes/dcn8l8gpu2nodes.json
 ```

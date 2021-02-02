@@ -8,7 +8,7 @@
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 100,
+    "max_eval_batches": 100,
     "input_key_type": "I64"
   },
   
@@ -68,7 +68,7 @@
       "type": "Reshape",
       "bottom": "sparse_embedding1",
       "top": "reshape1",
-      "leading_dim": 64
+      "leading_dim": 1664
     },
 
     {

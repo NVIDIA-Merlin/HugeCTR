@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
+#include <omp.h>
+
 #include <random>
 #include <resource_manager.hpp>
 #include <utils.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-//#include <rmm/mr/device/cnmem_memory_resource.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 #pragma GCC diagnostic pop
 
 namespace HugeCTR {
@@ -41,26 +42,29 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
   if (seed == 0) {
     seed = rd();
   }
-  MESSAGE_("Initial seed is " + std::to_string(seed));
+
+#ifdef ENABLE_MPI
+  CK_MPI_THROW_(MPI_Bcast(&seed, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD));
+#endif
+
+  MESSAGE_("Global seed is " + std::to_string(seed));
 
   return std::shared_ptr<ResourceManager>(
       new ResourceManager(size, rank, std::move(device_map), seed));
 }
 
-ResourceManager::ResourceManager(int num_process, int pid, DeviceMap&& device_map,
+ResourceManager::ResourceManager(int num_process, int process_id, DeviceMap&& device_map,
                                  unsigned long long seed)
-    : num_process_(num_process), pid_(pid), device_map_(std::move(device_map)) {
+    : num_process_(num_process), process_id_(process_id), device_map_(std::move(device_map)) {
   // set threads affinity
 
   if (num_process_ != device_map_.num_nodes()) {
     CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
   }
 
-  std::mt19937 gen(seed);
-  std::uniform_int_distribution<unsigned long long> dis;
-
   auto& local_gpu_device_id_list = device_map_.get_device_list();
   size_t local_gpu_count = local_gpu_device_id_list.size();
+  size_t global_gpu_count = device_map_.size();
 
   if (local_gpu_count == 0) {
     CK_THROW_(Error_t::WrongInput, "No local gpu");
@@ -75,30 +79,49 @@ ResourceManager::ResourceManager(int num_process, int pid, DeviceMap&& device_ma
     }
   }
 
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<unsigned long long> dis;
+
+  unsigned long long replica_uniform_seed = dis(gen);
+  std::vector<unsigned long long> replica_variant_seeds(global_gpu_count);
+  for (size_t i = 0; i < replica_variant_seeds.size(); i++) {
+    replica_variant_seeds[i] = dis(gen);
+  }
+
+  std::vector<unsigned long long> local_replica_variant_seeds(local_gpu_count);
+  for (size_t i = 0; i < local_replica_variant_seeds.size(); i++) {
+    local_replica_variant_seeds[i] = replica_variant_seeds[device_map_.get_global_id(i)];
+  }
+
+  cpu_resource_.reset(new CPUResource(replica_uniform_seed, local_replica_variant_seeds));
+
+  CudaDeviceContext context;
   std::vector<ncclComm_t> comms(local_gpu_count);
 #ifdef ENABLE_MPI
   ncclUniqueId nid;
-  if (pid_ == 0) CK_NCCL_THROW_(ncclGetUniqueId(&nid));
+  if (process_id_ == 0) CK_NCCL_THROW_(ncclGetUniqueId(&nid));
   CK_MPI_THROW_(MPI_Bcast((void*)&nid, sizeof(nid), MPI_BYTE, 0, MPI_COMM_WORLD));
 
   CK_NCCL_THROW_(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
-    CK_CUDA_THROW_(cudaSetDevice(local_gpu_device_id_list[i]));
-    CK_NCCL_THROW_(ncclCommInitRank(&comms[i], device_map_.size(), nid,
-                                    device_map_.get_global_id(i)));
+    context.set_device(local_gpu_device_id_list[i]);
+    CK_NCCL_THROW_(
+        ncclCommInitRank(&comms[i], global_gpu_count, nid, device_map_.get_global_id(i)));
   }
   CK_NCCL_THROW_(ncclGroupEnd());
 #else
   CK_NCCL_THROW_(ncclCommInitAll(comms.data(), local_gpu_device_id_list.size(),
                                  local_gpu_device_id_list.data()));
 #endif
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    gpu_resources_.emplace_back(new GPUResource(
-        local_gpu_device_id_list[i], device_map_.get_global_id(i),
-        dis(gen), comms[i]));
+
+  gpu_resources_.resize(local_gpu_count);
+#pragma omp parallel num_threads(local_gpu_count)
+  {
+    size_t id = omp_get_thread_num();
+    gpu_resources_[id].reset(new GPUResource(local_gpu_device_id_list[id],
+                                             device_map_.get_global_id(id), replica_uniform_seed,
+                                             local_replica_variant_seeds[id], comms[id]));
   }
-  
-  cpu_resource_.reset(new CPUResource(dis(gen), device_map_.get_device_list().size()));
 
   for (size_t i = 0; i < local_gpu_count; i++) {
     p2p_matrix_.push_back(std::vector<bool>(local_gpu_count, false));
@@ -110,21 +133,16 @@ ResourceManager::ResourceManager(int num_process, int pid, DeviceMap&& device_ma
   }
 
   const size_t pool_alloc_size = 256 * 1024 * 1024;
-  std::vector<int> device_id_list = device_map_.get_device_list();
 
-  int curr_gpu_device = -1;
-  CK_CUDA_THROW_(cudaGetDevice(&curr_gpu_device));
   using dmmr = rmm::mr::device_memory_resource;
-  for (size_t i = 0; i < device_id_list.size(); i++) {
-    CK_CUDA_THROW_(cudaSetDevice(device_id_list[i]));
-    base_cuda_mr_.emplace_back(std::shared_ptr<rmm::mr::cuda_memory_resource>(
-                                          new rmm::mr::cuda_memory_resource()));
+  for (size_t i = 0; i < local_gpu_device_id_list.size(); i++) {
+    context.set_device(local_gpu_device_id_list[i]);
+    base_cuda_mr_.emplace_back(
+        std::shared_ptr<rmm::mr::cuda_memory_resource>(new rmm::mr::cuda_memory_resource()));
     memory_resource_.emplace_back(std::shared_ptr<rmm::mr::pool_memory_resource<dmmr>>(
-                                      new rmm::mr::pool_memory_resource<dmmr>(base_cuda_mr_.back().get(),
-                                                                        pool_alloc_size)));
+        new rmm::mr::pool_memory_resource<dmmr>(base_cuda_mr_.back().get(), pool_alloc_size)));
     rmm::mr::set_current_device_resource(memory_resource_.back().get());
   }
-  CK_CUDA_THROW_(cudaSetDevice(curr_gpu_device));
 }
 
 bool ResourceManager::p2p_enabled(int src_device_id, int dst_device_id) const {
@@ -152,15 +170,17 @@ void ResourceManager::enable_all_peer_accesses() {
 
   assert(local_gpu_count != 0);
 
-  for (size_t i = 0; i < local_gpu_count; i++) {
-    CudaDeviceContext context(local_gpu_device_id_list[i]);
+#pragma omp parallel num_threads(local_gpu_count)
+  {
+    size_t id = omp_get_thread_num();
+    CudaDeviceContext context(local_gpu_device_id_list[id]);
     for (size_t j = 0; j < local_gpu_count; j++) {
-      if (i != j) {
+      if (id != j) {
         int can_access_peer;
-        CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, local_gpu_device_id_list[i],
+        CK_CUDA_THROW_(cudaDeviceCanAccessPeer(&can_access_peer, local_gpu_device_id_list[id],
                                                local_gpu_device_id_list[j]));
         if (can_access_peer == 1) {
-          p2p_matrix_[i][j] = true;
+          p2p_matrix_[id][j] = true;
           cudaError_t ret = cudaDeviceEnablePeerAccess(local_gpu_device_id_list[j], 0);
           if (ret != cudaSuccess && ret != cudaErrorPeerAccessAlreadyEnabled) {
             CK_CUDA_THROW_(ret);

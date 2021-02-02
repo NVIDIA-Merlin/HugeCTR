@@ -26,7 +26,6 @@
 #include <data_readers/data_reader_worker_group_norm.hpp>
 #include <data_readers/data_reader_worker_group_parquet.hpp>
 #include <data_readers/data_reader_worker_group_raw.hpp>
-#include <data_readers/file_list.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <tensor2.hpp>
@@ -34,6 +33,8 @@
 #include <vector>
 
 namespace HugeCTR {
+
+static int core_offset_ = 0;
 
 /**
  * @brief Data reading controller.
@@ -52,7 +53,6 @@ class DataReader : public IDataReader {
   Tensors2<float> label_tensors_;                       /**< Label tensors for the usage of loss */
   std::vector<TensorBag2> dense_tensors_;               /**< Dense tensors for the usage of loss */
   /* Each gpu will have several csr output for different embedding */
-  Tensors2<TypeKey> csr_buffers_; /**< csr_buffers contains row_offset_tensor and value_tensors */
   Tensors2<TypeKey> row_offsets_tensors_; /**< row offset tensors*/
   Tensors2<TypeKey> value_tensors_;       /**< value tensors */
   std::vector<std::shared_ptr<size_t>> nnz_array_;
@@ -67,7 +67,8 @@ class DataReader : public IDataReader {
   long long current_batchsize_;
 
   bool repeat_;
-  std::string file_list_path_;
+  std::string file_name_;
+  SourceType_t source_type_;
 
  public:
   /**
@@ -106,7 +107,7 @@ class DataReader : public IDataReader {
   DataReader(int batchsize, size_t label_dim, int dense_dim,
              std::vector<DataReaderSparseParam>& params,
              const std::shared_ptr<ResourceManager>& resource_manager, bool repeat,
-             int num_chunk_threads = 31, bool use_mixed_precision = false, int cache_num_iters = 0);
+             int num_chunk_threads, bool use_mixed_precision, int cache_num_iters);
 
   const Tensors2<float>& get_label_tensors() const { return label_tensors_; }
   const std::vector<TensorBag2>& get_dense_tensors() const { return dense_tensors_; }
@@ -135,47 +136,46 @@ class DataReader : public IDataReader {
     return array;
   }
 
-  void create_drwg_norm(std::string file_list, Check_t check_type,
+  void create_drwg_norm(std::string file_name, Check_t check_type,
                         bool start_reading_from_beginning = true) override {
+    source_type_ = SourceType_t::FileList;
     worker_group_.reset(new DataReaderWorkerGroupNorm<TypeKey>(
-        csr_heap_, file_list, repeat_, check_type, params_, start_reading_from_beginning));
-    file_list_path_ = file_list;
+        csr_heap_, file_name, repeat_, check_type, params_, start_reading_from_beginning));
+    file_name_ = file_name;
   }
 
   void create_drwg_raw(std::string file_name, long long num_samples,
                        const std::vector<long long> slot_offset, bool float_label_dense,
                        bool data_shuffle = false,
                        bool start_reading_from_beginning = true) override {
+    source_type_ = SourceType_t::Mmap;
     worker_group_.reset(new DataReaderWorkerGroupRaw<TypeKey>(
-        csr_heap_, file_name, num_samples, params_, slot_offset, label_dim_, dense_dim_, batchsize_,
-        float_label_dense, data_shuffle, start_reading_from_beginning));
+        csr_heap_, file_name, num_samples, repeat_, params_, slot_offset, label_dim_, dense_dim_,
+        batchsize_, float_label_dense, data_shuffle, start_reading_from_beginning));
+    file_name_ = file_name;
   }
 
-  void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
+  void create_drwg_parquet(std::string file_name, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
+    source_type_ = SourceType_t::Parquet;
     // worker_group_.empty
-    worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(csr_heap_, file_list, params_,
-                                                                  slot_offset, resource_manager_,
-                                                                  start_reading_from_beginning));
+    worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
+          csr_heap_, file_name, params_, slot_offset, resource_manager_,
+          start_reading_from_beginning));
   }
 
-  void set_file_list_source(std::string file_list = std::string()) override {
-    // TODO: if the underlying workers are for Parquet, throw the exception
+  void set_source(std::string file_name = std::string()) override {
     try {
       if (worker_group_ != nullptr) {
-        if (file_list.empty()) {
-          if (file_list_path_.empty()) {
-            throw internal_runtime_error(Error_t::NotInitialized, "invalid file_list path");
+        if (file_name.empty()) {
+          if (file_name_.empty()) {
+            throw internal_runtime_error(Error_t::NotInitialized, "invalid file_name");
           } else {
-            file_list = file_list_path_;
+            file_name = file_name_;
           }
         }
-        bool repeat = repeat_;
-        auto op = [file_list, repeat](int worker_id, int num_workers) {
-          return std::shared_ptr<Source>(new FileSource(worker_id, num_workers, file_list, repeat));
-        };
         csr_heap_->reset();
-        worker_group_->set_source(op);
+        worker_group_->set_source(source_type_, file_name, repeat_);
       } else {
         throw internal_runtime_error(Error_t::NotInitialized, "worker_group_ == nullptr");
       }
@@ -252,7 +252,7 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
         one_hot = false;
       } else if (param.type == DataReaderSparse_t::Localized) {
         size_t mod_slots = static_cast<size_t>(param.slot_num) % total_gpu_count;  // ceiling
-        size_t global_id = resource_manager_->get_local_gpu(i)->get_global_gpu_id();
+        size_t global_id = resource_manager_->get_local_gpu(i)->get_global_id();
         if (global_id < mod_slots) {
           slots = param.slot_num / total_gpu_count + 1;
         } else {
@@ -281,16 +281,15 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
       row_offsets_tensors_.emplace_back(tmp_row_offset);
       value_tensors_.emplace_back(tmp_value);
       nnz_array_.emplace_back(new size_t);
-      csr_buffers_.emplace_back(blockbuff->as_tensor());
     }
   }
 
   if (cache_num_iters) {
     data_collector_.reset(new DataCollector<TypeKey>(
-        label_tensors_, dense_tensors_, csr_buffers_, nnz_array_, buffs, resource_manager_,
+        label_tensors_, dense_tensors_, row_offsets_tensors_, value_tensors_, nnz_array_, buffs, resource_manager_,
         csr_heap_, use_mixed_precision_, one_hot, cache_num_iters));
   } else {
-    data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, csr_buffers_,
+    data_collector_.reset(new DataCollector<TypeKey>(label_tensors_, dense_tensors_, row_offsets_tensors_, value_tensors_,
                                                      nnz_array_, buffs, resource_manager_,
                                                      csr_heap_, use_mixed_precision_, one_hot));
   }

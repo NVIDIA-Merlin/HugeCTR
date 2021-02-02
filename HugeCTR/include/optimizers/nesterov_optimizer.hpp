@@ -35,7 +35,8 @@ class NesterovOptimizer : public Optimizer {
    */
   NesterovOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
                     const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
-                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+                    const std::shared_ptr<BufferBlock2<float>>& opt_buf,
+                    const std::shared_ptr<BufferBlock2<__half>>& opt_buf_half,
                     const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
                     float momentum_factor, float scaler = 1.f);
 

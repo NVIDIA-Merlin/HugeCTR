@@ -23,6 +23,12 @@ namespace HugeCTR {
 
 template <typename TypeKey>
 class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
+  std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
+      const std::string& file_name, bool repeat) override {
+    CK_THROW_(Error_t::UnspecificError, "Invalid Call");
+    return std::shared_ptr<Source>(reinterpret_cast<Source*>(new int));
+  }
+
  public:
   // Ctor
   DataReaderWorkerGroupParquet(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap,
@@ -31,7 +37,7 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
                                const std::vector<long long> slot_offset,
                                const std::shared_ptr<ResourceManager> resource_manager,
                                bool start_reading_from_beginning = true)
-      : DataReaderWorkerGroup(start_reading_from_beginning) {
+      : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Parquet) {
     if (file_list.empty()) {
       CK_THROW_(Error_t::WrongInput, "file_name.empty()");
     }

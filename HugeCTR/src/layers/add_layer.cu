@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include <layers/add_layer.hpp>
-
 #include <algorithm>
 #include <functional>
+#include <layers/add_layer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
 
@@ -47,9 +46,39 @@ template <typename T>
 __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int num) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (tid < size) {
+  if (tid < size / 2) {
     for (int i = 0; i < num; i++) {
       dgrads[i][tid] = top_grad[tid];
+    }
+  }
+}
+
+template <>
+__global__ void add_kernel<__half>(__half** inputs, __half* output, int size, int num) {
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  const __half2** inputs2 = (const __half2**)(inputs);
+  __half2* output2 = (__half2*)(output);
+  const __half2 zero = __half2half2(__float2half(0.f));
+
+  if (tid < size / 2) {
+    __half2 tmp = zero;
+    for (int i = 0; i < num; i++) {
+      tmp = __hadd2(tmp, inputs2[i][tid]);
+    }
+    output2[tid] = tmp;
+  }
+}
+
+template <>
+__global__ void add_dgrad_kernel<__half>(const __half* top_grad, __half** dgrads, int size,
+                                         int num) {
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  const __half2* top_grad2 = (const __half2*)(top_grad);
+  __half2** dgrads2 = (__half2**)(dgrads);
+
+  if (tid < size) {
+    for (int i = 0; i < num; i++) {
+      dgrads2[i][tid] = top_grad2[tid];
     }
   }
 }
@@ -130,6 +159,30 @@ void AddLayer<T>::bprop() {
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
+  add_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, d_inputs_.get_ptr(),
+                                                                       size_, num_);
+}
+
+template <>
+void AddLayer<__half>::fprop(bool is_train) {
+  CudaDeviceContext context(get_device_id());
+
+  __half* output = out_tensors_[0].get_ptr();
+
+  dim3 block_size(256, 1, 1);
+  dim3 grid_size((size_ / 2 + block_size.x - 1) / block_size.x, 1, 1);
+  add_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(), output,
+                                                                   size_, num_);
+}
+
+template <>
+void AddLayer<__half>::bprop() {
+  CudaDeviceContext context(get_device_id());
+
+  __half* output = out_tensors_[0].get_ptr();
+
+  dim3 blockSize(256, 1, 1);
+  dim3 gridSize((size_ / 2 + blockSize.x - 1) / blockSize.x, 1, 1);
   add_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, d_inputs_.get_ptr(),
                                                                        size_, num_);
 }

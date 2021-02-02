@@ -76,7 +76,8 @@ class FileList {
         }
         read_stream.close();
       } else {
-        CK_THROW_(Error_t::UnSupportedFormat, "Unsupported file format");
+        CK_THROW_(Error_t::UnSupportedFormat,
+                  "The file format is invalid or there is no data file in the file list.");
       }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;

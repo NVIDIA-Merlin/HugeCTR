@@ -8,7 +8,7 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 60
+    "max_eval_batches": 60
   },
   
   "optimizer": {
@@ -26,8 +26,8 @@
       {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
+      "source": "./criteo_data/file_list.txt",
+      "eval_source": "./criteo_data/file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",
@@ -54,7 +54,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1041275,
+        "max_vocabulary_size_per_gpu": 1447751,
         "embedding_vec_size": 16,
         "combiner": 0
       }

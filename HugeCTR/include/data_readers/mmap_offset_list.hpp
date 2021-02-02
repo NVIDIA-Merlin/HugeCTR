@@ -50,25 +50,21 @@ struct MmapOffset {
  */
 class MmapOffsetList {
  private:
-  const long long num_samples_;
-  const long long stride_;
-  const long long batchsize_;
-  const bool use_shuffle_;
+  const long long length_;
   std::vector<MmapOffset> offsets_;
   std::atomic<long long> counter_{0};
   const int num_workers_;
+  bool repeat_;
   char* mmapped_data_;
   int fd_;
 
  public:
   // stride: samle size in byte
   MmapOffsetList(std::string file_name, long long num_samples, long long stride,
-                 long long batchsize, bool use_shuffle, int num_workers)
-      : num_samples_(num_samples),
-        stride_(stride),
-        batchsize_(batchsize),
-        use_shuffle_(use_shuffle),
-        num_workers_(num_workers) {
+                 long long batchsize, bool use_shuffle, int num_workers, bool repeat)
+      : length_(num_samples * stride),
+        num_workers_(num_workers),
+        repeat_(repeat) {
     try {
       fd_ = open(file_name.c_str(), O_RDONLY, 0);
       if (fd_ == -1) {
@@ -77,7 +73,7 @@ class MmapOffsetList {
       }
 
       /* Get the size of the file. */
-      mmapped_data_ = (char*)mmap(0, num_samples_ * stride_, PROT_READ, MAP_PRIVATE, fd_, 0);
+      mmapped_data_ = (char*)mmap(0, length_, PROT_READ, MAP_PRIVATE, fd_, 0);
       if (mmapped_data_ == MAP_FAILED) {
         close(fd_);
         CK_THROW_(Error_t::BrokenFile, "Error mmapping the file");
@@ -89,6 +85,8 @@ class MmapOffsetList {
         char* offset = mmapped_data + idx * stride;
         return {offset, samples};
       };
+
+      offsets_.reserve(num_samples);
       for (long long sample_idx = 0; sample_idx < num_samples; sample_idx += batchsize) {
         if (sample_idx + batchsize <= num_samples) {
           offsets_.emplace_back(offset_gen(mmapped_data_, sample_idx, batchsize));
@@ -110,20 +108,15 @@ class MmapOffsetList {
   }
 
   ~MmapOffsetList() {
-    munmap(mmapped_data_, num_samples_ * stride_);
+    munmap(mmapped_data_, length_);
     close(fd_);
   }
-  // Offset get_offset(){
-  //   long long counter = counter_;
-  //   while (!counter_.compare_exchange_weak(counter, counter + 1))
-  //     ;
-  //   if(counter >= offsets_.size()){
-  //     CK_THROW_(Error_t::OutOfBound, "End of File");
-  //   }
-  //   return offsets_[counter];
-  // }
 
   MmapOffset get_offset(long long round, int worker_id) {
+    size_t worker_pos = round * num_workers_ + worker_id;
+    if (!repeat_ && worker_pos >= offsets_.size()) {
+      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+    }
     size_t counter = (round * num_workers_ + worker_id) % offsets_.size();
     if (worker_id >= num_workers_) {
       CK_THROW_(Error_t::WrongInput, "worker_id >= num_workers_");

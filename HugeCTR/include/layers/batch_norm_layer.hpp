@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cudnn.h>
+
 #include <general_buffer2.hpp>
 #include <layer.hpp>
 #include <memory>
@@ -26,6 +27,7 @@ namespace HugeCTR {
 /**
  * BatchNorm layer based on cuDNN
  */
+template <typename T>
 class BatchNormLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
@@ -38,19 +40,19 @@ class BatchNormLayer : public Layer {
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<float> in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  Tensors2<float> out_tensors_;
+  Tensors2<T> out_tensors_;
 
  public:
   /**
    * BatchNorm parameters
    */
   struct Params {
-    float factor; /**<  moving average computation factor*/
-    float eps;    /**< small value to avoid divide-by-zero error*/
+    double factor; /**<  moving average computation factor*/
+    double eps;    /**< small value to avoid divide-by-zero error*/
   };
 
   /**
@@ -66,8 +68,8 @@ class BatchNormLayer : public Layer {
   BatchNormLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
-                 const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                 const Params& params, const std::shared_ptr<GPUResource>& gpu_resource,
+                 const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, const Params& params,
+                 const std::shared_ptr<GPUResource>& gpu_resource,
                  std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   ~BatchNormLayer() override;
 
@@ -113,7 +115,7 @@ class BatchNormLayer : public Layer {
   Tensor2<float> beta_grad_;
 
   // these tensors are internal only managed by smart ptrs
-  Tensor2<float> temp_in_tensor_;
+  Tensor2<T> temp_in_tensor_;
   Tensor2<float> result_running_mean_;
   Tensor2<float> result_running_var_;
   Tensor2<float> result_save_mean_;

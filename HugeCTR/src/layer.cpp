@@ -23,23 +23,16 @@
 
 namespace HugeCTR {
 
-void Layer::init_params(std::ofstream& out_stream, const CPUResource& cpu_resource) {
-  Tensor2<float> initializer = get_initializer(cpu_resource);
-  if (initializer.get_num_elements() == 0) return;
-
-  out_stream.write(reinterpret_cast<const char*>(initializer.get_ptr()),
-                   initializer.get_size_in_bytes());
-}
-
-Tensor2<float> Layer::get_initializer(const CPUResource& cpu_resource) {
-  std::shared_ptr<GeneralBuffer2<HostAllocator>> buff = GeneralBuffer2<HostAllocator>::create();
+void Layer::init_params(const curandGenerator_t& generator) {
+  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
+      GeneralBuffer2<CudaHostAllocator>::create();
   std::shared_ptr<BufferBlock2<float>> block = buff->create_block<float>();
 
-  Tensors2<float> tensors;
+  Tensors2<float> weight_cpu_tensors;
   for (const Tensor2<float>& weight : weights_) {
     Tensor2<float> tensor;
     block->reserve(weight.get_dimensions(), &tensor);
-    tensors.push_back(tensor);
+    weight_cpu_tensors.push_back(tensor);
   }
 
   buff->allocate();
@@ -74,11 +67,12 @@ Tensor2<float> Layer::get_initializer(const CPUResource& cpu_resource) {
     }
   }
 
-  for (size_t w = 0; w < weights_.size(); ++w) {
-    simulators[w % simulators.size()]->fill(tensors[w], cpu_resource.get_curand_generator());
+  for (size_t i = 0; i < weights_.size(); ++i) {
+    simulators[i % simulators.size()]->fill(weight_cpu_tensors[i], generator);
+    CK_CUDA_THROW_(cudaMemcpyAsync(weights_[i].get_ptr(), weight_cpu_tensors[i].get_ptr(),
+                                   weights_[i].get_size_in_bytes(), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
   }
-
-  return block->as_tensor();
 }
 
 }  // namespace HugeCTR

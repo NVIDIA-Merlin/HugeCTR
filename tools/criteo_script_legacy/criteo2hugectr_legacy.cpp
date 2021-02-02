@@ -84,14 +84,14 @@ int main(int argc, char *argv[]) {
     data_writer.append(reinterpret_cast<char *>(&header), sizeof(DataSetHeader));
     data_writer.write();
     // read N lines
-    int i = 0;
-    for (; i < N; i++) {
+    for (int i = 0; i < N; i++) {
       // read a line
       std::string line;
       std::getline(txt_file, line);
       // if end
       if (txt_file.eof()) {
         txt_file.close();
+        // it is possible that the header only data file is created, but it is not counted as a valid one.
         data_file.seekp(std::ios_base::beg);
         DataSetHeader last_header = {
             1, static_cast<long long>(i), label_dim, 0, static_cast<long long>(SLOT_NUM), 0, 0, 0};
@@ -112,6 +112,10 @@ int main(int argc, char *argv[]) {
             std::cerr << "Cannot open " << argv[4] << std::endl;
           }
 
+          // there are some remaining samples
+          if (i > 0) {
+            file_counter++;
+          }
           file_list << (std::to_string(file_counter) + "\n");
           file_list << tmp.rdbuf();
 

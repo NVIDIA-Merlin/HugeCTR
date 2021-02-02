@@ -15,9 +15,12 @@
  */
 
 #include "HugeCTR/include/layers/add_layer.hpp"
+
 #include <gtest/gtest.h>
 #include <utest/test_utils.h>
+
 #include <vector>
+
 #include "HugeCTR/include/utils.hpp"
 
 using namespace std;
@@ -25,7 +28,20 @@ using namespace HugeCTR;
 
 namespace {
 
-const float eps = 1e-2f;
+template <typename T>
+struct Eps {
+  static T value();
+};
+
+template <>
+struct Eps<float> {
+  static constexpr float value() { return 1e-6f; }
+};
+
+template <>
+struct Eps<__half> {
+  static __half value() { return __float2half(1e-2f); }
+};
 
 template <typename T>
 void add_cpu(T **input, T *output, size_t size, size_t num) {
@@ -112,7 +128,7 @@ void add_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, siz
   CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, size * sizeof(T), cudaMemcpyDeviceToHost));
 
   add_cpu(h_ins.get(), h_cpu_out.get(), size, num);
-  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), size, eps));
+  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_cpu_out.get(), size, Eps<T>::value()));
 
   // bprop
   for (size_t i = 0; i < num; i++) {
@@ -133,8 +149,8 @@ void add_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, siz
 
   add_dgrad_cpu(h_out.get(), h_ins.get(), size, num);
   for (size_t i = 0; i < num; i++) {
-    ASSERT_TRUE(
-        test::compare_array_approx<T>(h_ins[i], h_gpu_dgrads[i], size, eps));  // compare dgrad
+    ASSERT_TRUE(test::compare_array_approx<T>(h_ins[i], h_gpu_dgrads[i], size,
+                                              Eps<T>::value()));  // compare dgrad
   }
 }
 

@@ -42,7 +42,8 @@ __global__ void adam_update_kernel(int len, float* weight, T* m, T* v, const T* 
 
 AdamOptimizer::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
                              const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
-                             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buff,
+                             const std::shared_ptr<BufferBlock2<float>>& opt_buf,
+                             const std::shared_ptr<BufferBlock2<__half>>& opt_buf_half,
                              const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
                              float beta1, float beta2, float epsilon, float scaler)
     : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, gpu_resource, learning_rate,
@@ -52,11 +53,11 @@ AdamOptimizer::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<fl
       beta2_(beta2),
       epsilon_(epsilon) {
   if (mixed_precision) {
-    buff->reserve({weight_main.get_num_elements()}, &fp16_m_);
-    buff->reserve({weight_main.get_num_elements()}, &fp16_v_);
+    opt_buf_half->reserve({weight_main.get_num_elements()}, &fp16_m_);
+    opt_buf_half->reserve({weight_main.get_num_elements()}, &fp16_v_);
   } else {
-    buff->reserve({weight_main.get_num_elements()}, &fp32_m_);
-    buff->reserve({weight_main.get_num_elements()}, &fp32_v_);
+    opt_buf->reserve({weight_main.get_num_elements()}, &fp32_m_);
+    opt_buf->reserve({weight_main.get_num_elements()}, &fp32_v_);
   }
 }  // namespace HugeCTR
 

@@ -14,7 +14,7 @@ The followng steps are also outlined in the [README](../README.md#2-build-docker
 
 1. Inside the root directory of the HugeCTR repository, run the following command:
    ```
-   docker build -t hugectr:devel -f ./tools/dockerfiles/dev.Dockerfile .
+   docker build -t hugectr:devel -f ./tools/dockerfiles/train.Dockerfile .
    ```
 
 2. Launch the container in interactive mode (mount the root directory into the container for your convenience) by running this command: 
@@ -51,3 +51,4 @@ Here's a list of notebooks that you can run:
 - [movie-lens-example.ipynb](movie-lens-example.ipynb): Explains how to train and inference with the MoveLense dataset.
 - [embedding_plugin.ipynb](embedding_plugin.ipynb): Explains how to install and use the HugeCTR embedding plugin with Tensorflow.
 - [python_interface.ipynb](python_interface.ipynb): Explains how to use the Python interface and the model prefetching feature.
+- [hugectr_inference.ipynb](hugectr_inference.ipynb): Explains how to use python interface to predict with a trained model.
