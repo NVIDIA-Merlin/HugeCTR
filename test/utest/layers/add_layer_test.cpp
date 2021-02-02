@@ -156,5 +156,9 @@ void add_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size, siz
 
 }  // namespace
 
-TEST(add_layer, fp32) { add_test<float>(40960, 1, 1, 3); }
-TEST(add_layer, fp16) { add_test<__half>(40960, 1, 1, 3); }
+TEST(add_layer, fp32_40960x1x1) { add_test<float>(40960, 1, 1, 3); }
+TEST(add_layer, fp16_40960x1x1) { add_test<__half>(40960, 1, 1, 3); }
+TEST(add_layer, fp32_40960x4x3) { add_test<float>(40960, 4, 3, 3); }
+TEST(add_layer, fp16_40960x4x3) { add_test<__half>(40960, 4, 3, 3); }
+TEST(add_layer, fp32_4096x4x256) { add_test<float>(4096, 4, 256, 3); }
+TEST(add_layer, fp16_4096x4x256) { add_test<__half>(4096, 4, 256, 3); }

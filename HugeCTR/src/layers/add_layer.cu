@@ -46,7 +46,7 @@ template <typename T>
 __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int num) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (tid < size / 2) {
+  if (tid < size) {
     for (int i = 0; i < num; i++) {
       dgrads[i][tid] = top_grad[tid];
     }
@@ -55,30 +55,46 @@ __global__ void add_dgrad_kernel(const T* top_grad, T** dgrads, int size, int nu
 
 template <>
 __global__ void add_kernel<__half>(__half** inputs, __half* output, int size, int num) {
-  int tid = blockIdx.x * blockDim.x + threadIdx.x;
   const __half2** inputs2 = (const __half2**)(inputs);
   __half2* output2 = (__half2*)(output);
-  const __half2 zero = __half2half2(__float2half(0.f));
+  int size2 = size / 2;
 
-  if (tid < size / 2) {
+  const __half2 zero = __half2half2(__float2half(0.f));
+  int start = blockIdx.x * blockDim.x + threadIdx.x;
+  int stride = blockDim.x * gridDim.x;
+  for (int i = start; i < size2; i += stride) {
     __half2 tmp = zero;
-    for (int i = 0; i < num; i++) {
-      tmp = __hadd2(tmp, inputs2[i][tid]);
+    for (int j = 0; j < num; ++j) {
+      tmp += inputs2[j][i];
     }
-    output2[tid] = tmp;
+    output2[i] = tmp;
+  }
+  if (start == 0 && size % 2 > 0) {
+    __half tmp = __float2half(0.0f);
+    for (int j = 0; j < num; ++j) {
+      tmp += inputs[j][size - 1];
+    }
+    output[size - 1] = tmp;
   }
 }
 
 template <>
 __global__ void add_dgrad_kernel<__half>(const __half* top_grad, __half** dgrads, int size,
                                          int num) {
-  int tid = blockIdx.x * blockDim.x + threadIdx.x;
   const __half2* top_grad2 = (const __half2*)(top_grad);
   __half2** dgrads2 = (__half2**)(dgrads);
+  int size2 = size / 2;
 
-  if (tid < size) {
-    for (int i = 0; i < num; i++) {
-      dgrads2[i][tid] = top_grad2[tid];
+  int start = blockIdx.x * blockDim.x + threadIdx.x;
+  int stride = blockDim.x * gridDim.x;
+  for (int i = start; i < size2; i += stride) {
+    for (int j = 0; j < num; ++j) {
+      dgrads2[j][i] = top_grad2[i];
+    }
+  }
+  if (start == 0 && size % 2 > 0) {
+    for (int j = 0; j < num; ++j) {
+      dgrads[j][size - 1] = top_grad[size - 1];
     }
   }
 }
