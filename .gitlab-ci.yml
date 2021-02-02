@@ -193,7 +193,7 @@ dcn_single_node:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_8gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding_8gpu.json;
-        ${WORK_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${WORK_DIR}/samples/dcn/dcn_localized_embedding.json;
+        ${WORK_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding.json;
         cd /dataset/criteo_kaggle/dcn_parquet;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_distributed_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_distributed_8gpu.json;
@@ -228,6 +228,9 @@ mlperf_benchmark:
     - echo "total num:${round}"
     - export reach_count=$(grep "Hit target accuracy AUC" ${logdir}/* | wc -l)
     - echo "converge num:${reach_count}/${round}"
+    - if [[ $reach_count -lt 8 ]]; do
+        exit 1;
+      fi
 
 
 
@@ -261,7 +264,6 @@ dlrm:
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dlrm_fp16_1gpu.json;
         ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dlrm_fp16_8gpu.json"
   
-
 dcn_multi_node:
   extends: .cluster_test_train_job
   script:

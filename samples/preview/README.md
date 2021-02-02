@@ -13,7 +13,7 @@ The dataset also has the significant amounts of missing values across the featur
 ### 2. Download the dataset and preprocess
 
 Go to [this link](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/),
-and download one of 24 files into the directory "${project_root}/tools, 
+and download one of 24 files into the directory "${project_root}/tools", 
 or execute the following command:
 ```
 $ cd ${project_root}/tools
