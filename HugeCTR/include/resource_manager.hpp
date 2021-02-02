@@ -30,7 +30,7 @@ namespace HugeCTR {
  */
 class ResourceManager {
   int num_process_;
-  int pid_;
+  int process_id_;
   DeviceMap device_map_;
   std::shared_ptr<CPUResource> cpu_resource_;
   std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
@@ -40,7 +40,7 @@ class ResourceManager {
   std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> memory_resource_;
 
   void enable_all_peer_accesses();
-  ResourceManager(int num_process, int pid, DeviceMap&& device_map, unsigned long long seed);
+  ResourceManager(int num_process, int process_id, DeviceMap&& device_map, unsigned long long seed);
 
  public:
   static std::shared_ptr<ResourceManager> create(
@@ -49,7 +49,9 @@ class ResourceManager {
   ResourceManager& operator=(const ResourceManager&) = delete;
 
   int get_num_process() const { return num_process_; }
-  int get_pid() const { return pid_; }
+  int get_process_id() const { return process_id_; }
+  int get_master_process_id() const { return 0; }
+  bool is_master_process() const { return process_id_ == 0; }
 
   const std::shared_ptr<CPUResource>& get_local_cpu() const { return cpu_resource_; }
 
@@ -62,7 +64,7 @@ class ResourceManager {
   size_t get_local_gpu_count() const { return device_map_.get_device_list().size(); }
   size_t get_global_gpu_count() const { return device_map_.size(); }
 
-  int get_pid_from_gpu_global_id(size_t global_gpu_id) const {
+  int get_process_id_from_gpu_global_id(size_t global_gpu_id) const {
     return device_map_.get_pid(global_gpu_id);
   }
 
@@ -74,13 +76,11 @@ class ResourceManager {
     return device_map_.get_global_id(local_gpu_id);
   }
 
-
   bool p2p_enabled(int src_dev, int dst_dev) const;
   bool all_p2p_enabled() const;
 
   const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
-                                                                                  int local_gpu_id)
-  const {
+      int local_gpu_id) const {
     auto dev_list = device_map_.get_device_list();
     auto it = std::find(dev_list.begin(), dev_list.end(), local_gpu_id);
     auto index = std::distance(dev_list.begin(), it);

@@ -62,9 +62,9 @@ void data_reader_worker_raw_test_impl(bool float_label_dense) {
   // setup a data reader
   auto file_offset_list = std::make_shared<MmapOffsetList>(
       file_name, num_samples, (label_dim + dense_dim + slot_num) * sizeof(int), batchsize, false,
-      1);
+      1, true);
 
-  DataReaderWorkerRaw<T> data_reader(0, 1, file_offset_list, csr_heap, file_name, params,
+  DataReaderWorkerRaw<T> data_reader(0, 1, file_offset_list, csr_heap, true, params,
                                      slot_offset, label_dim, float_label_dense);
 
   // call read a batch
@@ -94,7 +94,7 @@ void data_reader_raw_test_impl(bool float_label_dense) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, gpu_resource_group, 1, true,
+  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, gpu_resource_group, true, 1, true,
                             false);
 
   data_reader.create_drwg_raw(file_name, num_samples, slot_offset, float_label_dense, true, true);

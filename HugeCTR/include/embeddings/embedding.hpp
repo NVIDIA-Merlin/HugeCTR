@@ -36,6 +36,7 @@ namespace HugeCTR {
  */
 template <typename TypeKey, typename TypeEmbeddingComp>
 class Embedding : public IEmbedding {
+  const Embedding_t embedding_type_;
   SparseEmbeddingHashParams<TypeEmbeddingComp>
       embedding_params_;                                 /**< Sparse embedding hash params. */
   std::vector<OptParams<TypeEmbeddingComp>> opt_params_; /**< Optimizer params. */
@@ -156,9 +157,11 @@ class Embedding : public IEmbedding {
             const Tensors2<TypeKey>& evaluate_row_offsets_tensors,
             const Tensors2<TypeKey>& evaluate_value_tensors,
             const std::vector<std::shared_ptr<size_t>>& evaluate_nnz_array,
+            const Embedding_t embedding_type,
             const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
             const std::shared_ptr<ResourceManager>& resource_manager)
-      : embedding_params_(embedding_params),
+      : embedding_type_(embedding_type),
+        embedding_params_(embedding_params),
         train_row_offsets_tensors_(train_row_offsets_tensors),
         train_value_tensors_(train_value_tensors),
         train_nnz_array_(train_nnz_array),
@@ -252,15 +255,23 @@ class Embedding : public IEmbedding {
    */
   virtual void init_params() = 0;
 
+  virtual Embedding_t get_embedding_type() const override {
+    return embedding_type_;
+  }
+
   /**
    * Read the embedding table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param weight_stream the host file stream for reading data from.
+   * @param stream the host file stream for reading data from.
    */
   virtual void load_parameters(std::ifstream& stream) = 0;
 
-  virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
-                               size_t num) = 0;
+  /**
+   * Read the embedding table from the weight_stream on the host, and
+   * upload it onto multi-GPUs global memory.
+   * @param buf_bag the buffer bag for model oversubscriber.
+   */
+  virtual void load_parameters(BufferBag& buf_bag, size_t num) = 0;
 
   /**
    * Download the embedding table from multi-GPUs global memroy to CPU memory
@@ -270,7 +281,15 @@ class Embedding : public IEmbedding {
   virtual void dump_parameters(
       std::ofstream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
 
-  virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
+  /**
+   * Download the embedding table from multi-GPUs global memroy to CPU memory
+   * and write it to the weight_stream on the host.
+   * @param buf_bag the buffer bag for model oversubscriber.
+   */
+  virtual void dump_parameters(BufferBag& buf_bag, size_t* num) const = 0;
+
+  virtual void dump_opt_states(std::ofstream& stream) = 0;
+  virtual void load_opt_states(std::ifstream& stream) = 0;
 
   /**
    * Reset the embedding

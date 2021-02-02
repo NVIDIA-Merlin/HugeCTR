@@ -24,7 +24,7 @@
 namespace HugeCTR {
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::load(
+void DistributedParameterServerDelegate<KeyType>::load_from_snapshot(
     std::ofstream& embedding_table,
     std::ifstream& snapshot,
     const size_t file_size_in_byte,
@@ -55,7 +55,7 @@ void DistributedParameterServerDelegate<KeyType>::load(
     snapshot.read(cur_ptr, num_rows * row_size_in_byte);
     for (size_t k = 0; k < num_rows; k++) {
       KeyType key = *(KeyType*)(cur_ptr);
-      hash_table.insert({key, cur_idx});
+      hash_table.insert({key, {0, cur_idx}}); // default slot_id = 0 for distributed embedding
 
       float* dst_emb =
         (float*)(write_emb_chunk.get() + embedding_vector_size_in_byte * k);
@@ -76,7 +76,7 @@ void DistributedParameterServerDelegate<KeyType>::load(
 }
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::store(
+void DistributedParameterServerDelegate<KeyType>::store_to_snapshot(
     std::ofstream& snapshot,
     std::ifstream& embedding_table,
     const size_t file_size_in_byte,
@@ -84,7 +84,7 @@ void DistributedParameterServerDelegate<KeyType>::store(
     HashTable& hash_table) {
   std::vector<KeyType> idx2key(hash_table.size()); // assume the indices are unique
   for (auto it = hash_table.begin(); it != hash_table.end(); ++it) {
-    size_t idx = it->second;
+    size_t idx = it->second.second;
     KeyType key = it->first;
     idx2key[idx] = key;
   }

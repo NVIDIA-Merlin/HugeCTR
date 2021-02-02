@@ -347,12 +347,7 @@ std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision
   return ret;
 }
 
-Metric::Metric() : num_procs_(1), pid_(0), current_batch_size_(0) {
-#ifdef ENABLE_MPI
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid_));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &num_procs_));
-#endif
-}
+Metric::Metric() : current_batch_size_(0) {}
 Metric::~Metric() {}
 
 template <typename T>
@@ -370,9 +365,10 @@ template <typename T>
 void AverageLoss<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   float loss_host = 0.0f;
   Tensor2<T> loss_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Loss]);
-  CudaDeviceContext context(resource_manager_->get_local_gpu(local_gpu_id)->get_device_id());
+  const auto& local_gpu = resource_manager_->get_local_gpu(local_gpu_id);
+  CudaDeviceContext context(local_gpu->get_device_id());
   CK_CUDA_THROW_(
-      cudaMemcpy(&loss_host, loss_tensor.get_ptr(), sizeof(float), cudaMemcpyDeviceToHost));
+      cudaMemcpyAsync(&loss_host, loss_tensor.get_ptr(), sizeof(float), cudaMemcpyDeviceToHost, local_gpu->get_stream()));
   loss_local_[local_gpu_id] = loss_host;
 }
 
@@ -384,20 +380,20 @@ void AverageLoss<T>::global_reduce(int n_nets) {
   }
 
 #ifdef ENABLE_MPI
-  if (num_procs_ > 1) {
+  if (resource_manager_->get_num_process() > 1) {
     float loss_reduced = 0.0f;
     CK_MPI_THROW_(MPI_Reduce(&loss_inter, &loss_reduced, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD));
     loss_inter = loss_reduced;
   }
 #endif
-  loss_global_ += loss_inter / n_nets / num_procs_;
+  loss_global_ += loss_inter / n_nets / resource_manager_->get_num_process();
   n_batches_++;
 }
 
 template <typename T>
 float AverageLoss<T>::finalize_metric() {
   float ret = 0.0f;
-  if (pid_ == 0) {
+  if (resource_manager_->is_master_process()) {
     if (n_batches_) {
       ret = loss_global_ / n_batches_;
     }
@@ -583,7 +579,7 @@ void AUC<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   Tensor2<PredType>   pred_tensor = Tensor2<PredType >::stretch_from(raw_metrics[RawType::Pred ]);
   Tensor2<LabelType> label_tensor = Tensor2<LabelType>::stretch_from(raw_metrics[RawType::Label]);
   int device_id        = resource_manager_->get_local_gpu(local_gpu_id)->get_device_id();
-  int global_device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_global_gpu_id();
+  int global_device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_global_id();
   const auto& st = storage_[local_gpu_id];
  
   // Copy the labels and predictions to the internal buffer
@@ -632,7 +628,7 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
 
   auto gpu_resource = resource_manager_->get_local_gpu(local_id).get();
   int device_id = gpu_resource->get_device_id();
-  int global_id = gpu_resource->get_global_gpu_id();
+  int global_id = gpu_resource->get_global_id();
   auto& stream  = gpu_resource->get_stream();
 
 

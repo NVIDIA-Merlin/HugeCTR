@@ -18,10 +18,13 @@
 
 #include <embedding.hpp>
 #include "HugeCTR/include/embeddings/embedding.hpp"
+#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 
 #include <memory>
 #include <vector>
+#include <typeinfo>
 
 namespace HugeCTR {
 
@@ -30,6 +33,7 @@ public:
   virtual void store(std::vector<std::string> snapshot_file_list) = 0;
   virtual void update(std::vector<std::string>& keyset_file_list) = 0;
   virtual void update(std::string& keyset_file) = 0;
+  virtual ~ModelOversubscriberImplBase() {}
 };
 
 

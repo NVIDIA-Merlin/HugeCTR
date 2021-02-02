@@ -19,14 +19,17 @@
 #include <layer.hpp>
 
 namespace HugeCTR {
+
+template <typename From, typename To>
 class CastLayer : public Layer {
-  Tensor2<float> bottom_tensor_;
-  Tensor2<__half> top_tensor_;
+  Tensor2<From> bottom_tensor_;
+  Tensor2<To> top_tensor_;
 
  public:
-  CastLayer(const Tensor2<float>& bottom_tensor, const Tensor2<__half>& top_tensor,
+  CastLayer(const Tensor2<From>& bottom_tensor, const Tensor2<To>& top_tensor,
             const std::shared_ptr<GPUResource>& gpu_resource);
   void fprop(bool is_train) override;
   void bprop() override;
 };
+
 }  // namespace HugeCTR

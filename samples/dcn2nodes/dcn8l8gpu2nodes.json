@@ -8,7 +8,7 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 20
+    "max_eval_batches": 20
   },
   
   "optimizer": {
@@ -26,8 +26,8 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
+      "source": "criteo_data/file_list.txt",
+      "eval_source": "criteo_data/file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",
@@ -54,7 +54,7 @@
       "top": "sparse_embedding1",
       "plan_file": ["all2all_plan_bi_1.json","all2all_plan_bi_1.json"],
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 337464,
+        "max_vocabulary_size_per_gpu": 361938,
         "embedding_vec_size": 16,
         "combiner": 0
       }

@@ -8,9 +8,9 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "eval_batches": 60
+    "max_eval_batches": 80
   },
-  
+
   "optimizer": {
     "type": "Adam",
     "update_type": "Global",
@@ -22,12 +22,12 @@
     }
   },
 
-  "layers": [ 
+  "layers": [
     {
       "name": "data",
       "type": "Data",
-      "source": "./file_list.txt",
-      "eval_source": "./file_list_test.txt",
+      "source": "./criteo_data/file_list.txt",
+      "eval_source": "./criteo_data/file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",
@@ -43,7 +43,7 @@
           "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
           "slot_num": 26
-        }        
+	}
       ]
     },
 
@@ -53,7 +53,7 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1737709,
+        "max_vocabulary_size_per_gpu": 1447751,
         "embedding_vec_size": 11,
         "combiner": 0
       }
@@ -100,25 +100,25 @@
     },
     
     {
-      "name": "multiply1",
-      "type": "Multiply",
+      "name": "weight_multiply1",
+      "type": "WeightMultiply",
       "bottom": "slice21",
       "weight_dims": [13, 10],
-      "top": "multiply1"
+      "top": "weight_multiply1"
     },
 
     {
-      "name": "multiply2",
-      "type": "Multiply",
+      "name": "weight_multiply2",
+      "type": "WeightMultiply",
       "bottom": "slice22",
       "weight_dims": [13, 1],
-      "top": "multiply2"
+      "top": "weight_multiply2"
     },
 
     {
       "name": "concat1",
       "type": "Concat",
-      "bottom": ["reshape2","multiply1"],
+      "bottom": ["reshape2","weight_multiply1"],
       "top": "concat1"
     },
     
@@ -236,7 +236,7 @@
     {
       "name": "concat2",
       "type": "Concat",
-      "bottom": ["reshape3","multiply2"],
+      "bottom": ["reshape3","weight_multiply2"],
       "top": "concat2"
     },
 
@@ -264,3 +264,4 @@
     } 
   ]
 }
+

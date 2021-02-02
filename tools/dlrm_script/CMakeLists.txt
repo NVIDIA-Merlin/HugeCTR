@@ -33,11 +33,12 @@ link_directories(${CONDA_PREFIX}/lib)
 add_executable(dlrm_raw ${dlrm_raw_src})
 
 if(MPI_FOUND)
-  target_link_libraries(dlrm_raw PUBLIC cudart cudf boost_filesystem ${MPI_CXX_LIBRARIES})
+  target_link_libraries(dlrm_raw PUBLIC cudart cudf cudf_io cudf_base boost_filesystem ${MPI_CXX_LIBRARIES})
 else()
-  target_link_libraries(dlrm_raw PUBLIC cudart cudf boost_filesystem)
+  target_link_libraries(dlrm_raw PUBLIC cudart cudf cudf_io cudf_base boost_filesystem)
 endif()
 set_target_properties(dlrm_raw PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+set_target_properties(dlrm_raw PROPERTIES CUDA_ARCHITECTURES OFF)
 target_compile_features(dlrm_raw PUBLIC cxx_std_14)
 
 

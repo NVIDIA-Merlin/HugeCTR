@@ -24,7 +24,20 @@ using namespace HugeCTR;
 
 namespace {
 
-const float eps = 1e-6;
+template <typename T>
+struct Eps {
+  static T value();
+};
+
+template <>
+struct Eps<float> {
+  static constexpr float value() { return 1e-6f; }
+};
+
+template <>
+struct Eps<__half> {
+  static __half value() { return __float2half(1e-6f); }
+};
 
 template <typename T>
 void relu_cpu(T* top, const T* bottom, int len) {
@@ -85,7 +98,7 @@ void relu_test(size_t dim0, size_t dim1) {
       cudaMemcpy(d2h_top.get(), top_tensor.get_ptr(), len * sizeof(T), cudaMemcpyDeviceToHost));
 
   relu_cpu<T>(h_top.get(), h_bottom.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, eps));
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_top.get(), h_top.get(), len, Eps<T>::value()));
 
   // bprop
   simulator.fill(h_top.get(), len);
@@ -99,7 +112,7 @@ void relu_test(size_t dim0, size_t dim1) {
                             cudaMemcpyDeviceToHost));
 
   relu_bprop_cpu<T>(h_bottom_grad.get(), h_top.get(), h_bottom.get(), len);
-  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, eps));
+  ASSERT_TRUE(test::compare_array_approx<T>(d2h_bottom_grad.get(), h_bottom_grad.get(), len, Eps<T>::value()));
 }
 
 }  // namespace
