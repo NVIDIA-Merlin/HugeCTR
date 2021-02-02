@@ -1,43 +1,40 @@
 # HugeCTR Jupyter demo notebooks
 This directory contains a set of Jupyter Notebook demos for HugeCTR.
 
-## Prerequisites
-The quickest way to run a notebook here is with a docker container, which provides a self-contained, isolated, and reproducible environment for repetitive experiments.
+## Quickstart
+The quickest way to run a notebook here is with a docker container, which provides a self-contained, isolated, and reproducible environment for repetitive experiments. HugeCTR is available as buildable source code, but the easiest way to install and run HugeCTR is to use the pre-built Docker image available from the NVIDIA GPU Cloud (NGC). If you want to build the HugeCTR docker image on your own, please refer to [use-docker-container](../docs/mainpage.md#use-docker-container).
+
+### Pull the NGC Docker
+To start the [embedding_plugin.ipynb](embedding_plugin.ipynb) notebook, pull this docker image:
+```
+docker pull nvcr.io/nvidia/hugectr:v3.0-plugin-embedding
+```
+
+To start the other notebooks, pull the docker image using the following command:
+```
+docker pull nvcr.io/nvidia/hugectr:v3.0
+```
 
 ### Clone the HugeCTR Repository
 Use the following command to clone the HugeCTR repository:
 ```
 git clone https://github.com/NVIDIA/HugeCTR
 ```
-### Build the NVIDIA HugeCTR Container
-The followng steps are also outlined in the [README](../README.md#2-build-docker-image-and-hugectr).
 
-1. Inside the root directory of the HugeCTR repository, run the following command:
-   ```
-   docker build -t hugectr:devel -f ./tools/dockerfiles/train.Dockerfile .
-   ```
+### Start the Jupyter Notebook
 
-2. Launch the container in interactive mode (mount the root directory into the container for your convenience) by running this command: 
+1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command: 
    ```
    docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 hugectr:devel
    ```
 
-3. Within the docker interactive bash session, build HugeCTR using these commands:
+2. Start Jupyter using these commands: 
    ```
-   mkdir -p build
-   cd build
-   cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Asuming the target GPU is Volta-generation GPU, such as the Tesla V100
-   make -j
-   ```
-
-4. Install and start Jupyter using these commands: 
-   ```
-   pip3 install --upgrade notebook
-   cd /hugectr
+   cd /hugectr/notebooks
    jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token=’hugectr’
    ```
 
-5. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
+3. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
 
    Use the token available from the output by running the command above to log in. For example:
 
