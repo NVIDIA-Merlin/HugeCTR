@@ -88,6 +88,13 @@ class DataReaderWorkerGroup {
   bool is_started() const { return data_reader_loop_flag_; }
   void start() { data_reader_loop_flag_ = 1; }
   void end() {
+    // Make sure the data reader  threads escape the pre-main loop
+    if (data_reader_loop_flag_ == 0) {
+      data_reader_loop_flag_ = 1;
+      sleep(2);
+    }
+
+    // Data reader threads escape the main loop
     data_reader_loop_flag_ = 0;
     for (auto& data_reader : data_readers_) {
       data_reader->skip_read();
