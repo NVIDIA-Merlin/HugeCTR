@@ -263,6 +263,11 @@ void DataReaderWorker<T>::read_a_batch() {
         if (current_record_index_ >= data_set_header_.number_of_records) {
           i++;
         }
+#ifndef NDEBUG
+        MESSAGE_("Worker" + std::to_string(worker_id_) +
+                 " generated the last batch with " +
+                 std::to_string(i) + " samples");
+#endif
         csr_chunk->set_current_batchsize(i);
         for (int j = i; j < csr_chunk->get_batchsize(); j++) {
           fill_empty_sample(params_, csr_chunk);
@@ -273,12 +278,19 @@ void DataReaderWorker<T>::read_a_batch() {
         csr_heap_->commit_data_chunk(worker_id_, false);
       }
       else {
+#ifndef NDEBUG
+        MESSAGE_("Worker" + std::to_string(worker_id_) +
+                 " fell asleep, waiting for a new source");
+#endif
         // push nop to singal to DataCollector that it is the EOF
         csr_heap_->commit_data_chunk(worker_id_, true);
         is_eof_ = true;
         std::unique_lock<std::mutex> lock(eof_mtx_);
         // wait for the new source is set
         eof_cv_.wait(lock);
+#ifndef NDEBUG
+        MESSAGE_("Worker" + std::to_string(worker_id_) + " wakes up");
+#endif
       }
     }
     else {

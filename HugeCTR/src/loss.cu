@@ -88,9 +88,10 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   if (is_train) {
     // once current_batchsize < batch_size in train we set the rest dgrad to 0
     if (current_batchsize < batch_size) {
-      cudaMemsetAsync(input + current_batchsize * feature_dim, 0,
-                      (batch_size - current_batchsize) * feature_dim * sizeof(T),
-                      get_gpu().get_stream());
+      CK_CUDA_THROW_(cudaMemsetAsync(
+            input + current_batchsize * feature_dim, 0,
+            (batch_size - current_batchsize) * feature_dim * sizeof(T),
+            get_gpu().get_stream()));
     }
   }
 

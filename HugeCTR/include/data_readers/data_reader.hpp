@@ -99,6 +99,8 @@ class DataReader : public IDataReader {
     }
   }
 
+  long long get_full_batchsize() const override { return batchsize_; }
+
   void ready_to_collect() override { data_collector_->set_ready_to_write_sync(); }
 
   bool is_started() const override { return worker_group_->is_started(); }
