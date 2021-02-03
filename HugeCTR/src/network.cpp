@@ -281,7 +281,7 @@ void Network::init_params(size_t index) {
   }
 }
 
-void Network::initialize() {
+void Network::initialize(bool is_train) {
   CudaDeviceContext context(get_device_id());
   for (auto& layer : train_layers_) {
     layer->initialize();
@@ -289,7 +289,9 @@ void Network::initialize() {
   for (auto& layer : evaluate_layers_) {
     layer->initialize();
   }
-  optimizer_->initialize();
+  if (is_train) {
+    optimizer_->initialize();
+  }
 }
 
 void Network::search_algorithm() {
