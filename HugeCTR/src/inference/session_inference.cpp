@@ -31,6 +31,7 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
     Network* network_ptr;
     parser_.create_pipeline(inference_parser_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr,  resource_manager_);
     network_ = std::move(std::unique_ptr<Network>(network_ptr));
+    network_->initialize(false);
     if(inference_parser_.dense_model_file.size() > 0) {
       network_->upload_params_to_device_inference(inference_parser_.dense_model_file);
     }
