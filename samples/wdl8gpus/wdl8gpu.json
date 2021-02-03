@@ -17,7 +17,7 @@
     "snapshot": 1000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "max_eval_batches": 20
+    "max_eval_batches": 300
   },
   "optimizer": {
     "type": "Adam",
@@ -33,8 +33,8 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "wdl_data/file_list.txt",
-      "eval_source": "wdl_data/file_list_test.txt",
+      "source": "./criteo_data/file_list.txt",
+      "eval_source": "./criteo_data/file_list_test.txt",
       "check": "Sum",
       "label": {
         "top": "label",

@@ -59,8 +59,8 @@
         72,
         34
       ],
-      "source": "./wdl_data_parquet/train/_file_list.txt",
-      "eval_source": "./wdl_data_parquet/val/_file_list.txt",
+      "source": "./criteo_data/train/_file_list.txt",
+      "eval_source": "./criteo_data/val/_file_list.txt",
       "check": "None",
       "label": {
         "top": "label",
