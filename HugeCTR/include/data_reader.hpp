@@ -46,6 +46,7 @@ public:
   virtual long long read_a_batch_to_device() = 0;
   virtual long long read_a_batch_to_device_delay_release() = 0;
   virtual long long get_current_batchsize_per_device(size_t local_id) = 0;
+  virtual long long get_full_batchsize() const = 0;
   virtual void ready_to_collect() = 0;
   virtual bool is_started() const = 0;
   virtual void start() = 0;

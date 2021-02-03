@@ -268,10 +268,23 @@ bool Session::train() {
     }
 
 #ifndef DATA_READING_TEST
-    long long current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release();
+    // TODO: assuming the there are enough training iterations, incomplete batches
+    // are discarded, so that we can bypass the runtime error in the epoch mode,
+    // whilst maintaining the dense network training logic.
+    // To minimize the wasted batches, consider to adjust # of data reader workers.
+    // For instance, with a file list source, set "num_workers" to a dvisior of
+    // the number of data files in the file list.
+    // We will look into some alternatives in the long term.
+    long long current_batchsize = 0;
+    while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
+           (current_batchsize < train_data_reader_->get_full_batchsize())) {
+      train_data_reader_->ready_to_collect();
+    }
+
     if (!current_batchsize) {
       return false;
     }
+
     train_data_reader_->ready_to_collect();
     for (auto& one_embedding : embeddings_) {
       one_embedding->forward(true);
@@ -306,6 +319,7 @@ bool Session::train() {
     return true;
 #else
     train_data_reader_->read_a_batch_to_device();
+    return true;
 #endif
   } catch (const internal_runtime_error& err) {
     std::cerr << err.what() << std::endl;

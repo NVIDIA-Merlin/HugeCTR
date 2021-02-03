@@ -78,6 +78,8 @@ build_train:
     - 1GPU
   script:
     - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
+    - echo ${OPENED_MR_ON_BRANCH}
+    - echo https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no
     - |
       if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
         echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
@@ -401,3 +403,4 @@ nightly_build:
   only:
     variables:
       - $NIGHTLY == "1"
+
