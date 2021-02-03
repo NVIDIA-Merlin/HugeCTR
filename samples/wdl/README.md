@@ -24,10 +24,10 @@ Please choose one of the following two methods to make the dataset ready for Hug
 
 #### Preprocessing by Pandas ####
 ```shell
-$ bash preprocess.sh 1 wdl_data pandas 1 1
+$ bash preprocess.sh 1 criteo_data pandas 1 1
 ```
 - **NOTE**: The first argument represents the dataset postfix.  For instance, if `day_1` is used, it is 1.
-- **NOTE**: the second argument `wdl_data` is where the preprocessed data is stored.
+- **NOTE**: the second argument `criteo_data` is where the preprocessed data is stored.
 You may want to change it in case where multiple datasets for different purposes are generated concurrently.
 If you change it, `source` and `eval_source` in your JSON config file must be changed as well.
 - **NOTE**: the fourth arguement (one after `pandas`) represents if the normalization is applied to dense features (1=ON, 0=OFF).
@@ -42,11 +42,11 @@ Make sure to use the latest version of NVTabular,
 and mount HugeCTR ${project_root} volume to NVTabular docker.
 Run NVTabular docker and execute the following preprocessing commands:
 ```shell
-$ bash preprocess.sh 1 wdl_data_parquet nvt 1 0 1 # parquet output
+$ bash preprocess.sh 1 criteo_data nvt 1 0 1 # parquet output
 ```
 Or
 ```shell
-$ bash preprocess.sh 1 wdl_data_nvt_bin nvt 0 0 1 # nvt binary output
+$ bash preprocess.sh 1 criteo_data nvt 0 0 1 # nvt binary output
 ```
 - **NOTE**: The first and second arguments are as the same as Pandas's (see above).
 - **NOTE**: If you want to generate a binary data in `Norm` format data, instead of the Parquet format data, set the fourth argument (one after `nvt`) to 0. It can take much longer than the Parquet mode becuase of the additional conversion process.
