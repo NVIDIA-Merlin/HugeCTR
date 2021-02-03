@@ -10,7 +10,7 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "max_eval_batches": 20,
+    "max_eval_batches": 300,
     "input_key_type": "I32"
   },
   "optimizer": {
@@ -27,8 +27,8 @@
     {
       "name": "data",
       "type": "Data",
-      "source": "./wdl_data_nvt_bin/train/_file_list.txt",
-      "eval_source": "./wdl_data_nvt_bin/val/_file_list.txt",
+      "source": "./criteo_data/train/_file_list.txt",
+      "eval_source": "./criteo_data/val/_file_list.txt",
       "check": "None",
       "label": {
         "top": "label",
