@@ -204,7 +204,7 @@ class Network {
   /**
    * initialize layer by layer
    */
-  void initialize();
+  void initialize(bool is_train = true);
 
   /**
    * search_algorithm layer by layer
