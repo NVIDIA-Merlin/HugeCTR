@@ -2,13 +2,13 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 200,
-    "max_iter": 10000,
+    "max_iter": 2300,
     "gpu": [0,1],
     "batchsize": 16384,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "max_eval_batches": 60
+    "max_eval_batches": 300
   },
   
   "optimizer": {
