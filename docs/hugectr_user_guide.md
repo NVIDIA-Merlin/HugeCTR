@@ -43,14 +43,15 @@ Embedding initialization is not required before training since the input trainin
 ## Installing and Building HugeCTR ##
 You can either install HugeCTR easily using the HugeCTR Docker image in NGC, or build HugeCTR from scratch using various build options if you're an advanced user.
 
+### Compute Capability ###
 We support the following compute capabilities:
 
-| Compute Capability | GPU                  |
-|--------------------|----------------------|
-| 6.0                | NVIDIA P100 (Pascal) |
-| 7.0                | NVIDIA V100 (Volta)  |
-| 7.5                | NVIDIA T4 (Turing)   |
-| 8.0                | NVIDIA A100 (Ampere) |
+| Compute Capability | GPU                  | [SM](#building-hugectr-from-scratch) |
+|--------------------|----------------------|----|
+| 6.0                | NVIDIA P100 (Pascal) | 60 |
+| 7.0                | NVIDIA V100 (Volta)  | 70 |
+| 7.5                | NVIDIA T4 (Turing)   | 75 |
+| 8.0                | NVIDIA A100 (Ampere) | 80 |
 
 The following prerequisites must be met before installing or building HugeCTR from scratch:
 * Docker version 19 and higher
@@ -89,13 +90,20 @@ git submodule update --init --recursive
 ```
 
 You can build HugeCTR from scratch using one or any combination of the following options:
-* **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The following compute capabilities are supported: `6.0`, `7.0`, `7.5`, and `8.0`. The default compute capability is 70, which uses the NVIDIA V100 GPU.
+* **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The following compute capabilities are supported: 60, 70, 75, and 80. The default compute capability is 70, which uses the NVIDIA V100 GPU. See [Compute Capability](#compute-capability) for more detailed information.
 * **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks in a synchronous manner.
 * **VAL_MODE**: You can use this option to build HugeCTR in validation mode, which was designed for framework validation. In this mode, loss of training will be shown as the average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by default.
 * **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multi-nodes. This option is set to OFF by default. For additional information, see [samples/dcn2nodes](../samples/dcn2nodes).
 * **NCCL_A2A**: You can use this option to build HugeCTR with NCCL All2All, which is the default collection communication library used in LocalizedSlotSparseEmbedding. Gossip is also supported in HugeCTR, which provides better performance on servers without NVSwitch support. To build HugeCTR with NCCL All2All, please turn on the NCCL_A2A switch in the cmake. This option is set to OFF by default.
 
 Here are some examples of how you can build HugeCTR using these build options:
+```
+$ mkdir -p build
+$ cd build
+$ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is NVIDIA V100 with all others default
+$ make -j
+```
+
 ```
 $ mkdir -p build
 $ cd build
@@ -186,13 +194,15 @@ The [Norm](docs/configuration_file_setup.md#norm) (with Header) and [Raw](docs/c
 The default distribution is uniform.
 - Using the `Norm` dataset format, run the following command: <br>
 ```bash
-$ ./data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
-$ ./huge_ctr --train your_config.json
+cd build # or where HugeCTR is installed
+bin/data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
+bin/huge_ctr --train your_config.json
 ```
 - Using the `Raw` dataset format, run the following command: <br>
 ```bash
-$ ./data_generator your_config.json (--long-tail <long|medium|short>)
-$ ./huge_ctr --train your_config.json
+cd build # or where HugeCTR is installed
+bin/data_generator your_config.json (--long-tail <long|medium|short>)
+bin/huge_ctr --train your_config.json
 ```
 
 Set the following parameters:
@@ -203,18 +213,20 @@ Set the following parameters:
 + `--samples`: Number of samples per file (optional). The default value is `40960`.
 + `--long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. You can choose from the `long`, `medium` and `short` options, which characterize the properties of the tail. The scaling exponent will be 1, 3, and 5 respectively.
 
-### Downloading and Preprocessing Datasets
-Download the Kaggle Display Advertising Challenge Dataset using $HugeCTR/tools/criteo_script/ and preprocess it to train the DCN.
-
-For example:
+Here is an example of generating an one-hot dataset where the vocabulary size is 434428 based on the DCN config file.
 ```
-cd ../../tools/criteo_script/ # assume that the downloaded dataset is here
-bash preprocess.sh dcn 1 0
-```
-
-Alternatively, you can generate a synthetic dataset by running the following command:
-```
-cd /hugectr/build
+cd build # or where HugeCTR is installed
 mkdir dataset_dir
 bin/data_generator ../samples/dcn/dcn.json ./dataset_dir 434428 1
 ```
+
+### Downloading and Preprocessing Datasets
+Download the Criteo 1TB Click Logs dataset using `HugeCTR/tools/preprocess.sh` and preprocess it to train the DCN.
+Then, you will find `file_list.txt`, `file_list_test.txt`, and preprocessed data files inside `criteo_data` directory. For more detailed usage, check out our [samples](../samples).
+
+For example:
+```
+cd tools # assume that the downloaded dataset is here
+bash preprocess.sh 1 criteo_data pandas 1 0
+```
+
