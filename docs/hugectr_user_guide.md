@@ -1,7 +1,7 @@
 HugeCTR User Guide
 ==================
 
-HugeCTR is a GPU-accelerated framework that was designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin#getstarted), which is used for building large-scale deep learning recommender systems.
+HugeCTR is a GPU-accelerated framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin#getstarted), used to build large-scale deep learning recommender systems.
 
 <div align=center><img src ="user_guide_src/merlin_arch.png"/></div>
 <div align=center>Fig. 1: Merlin Architecture</div>
@@ -19,17 +19,17 @@ To enable large embedding training, the embedding table in HugeCTR is model para
 
 Embedding initialization is not required before training since the input training data are hash values (64bit long long type) instead of original indices. A pair of <key,value> (random small weight) will be inserted during runtime only when a new key appears in the training data and the hash table cannot find it.
 
-<div align=center><img src ="user_guide_src/fig1_hugectr_arch.png" width = '800' height ='400'/></div>
+<div align=center><img src="user_guide_src/fig1_hugectr_arch.png" width="781" height="333"/></div>
 <div align=center>Fig. 2: HugeCTR Architecture</div>
 
 <br></br>
 
-<div align=center><img width = '600' height ='400' src ="user_guide_src/fig2_embedding_mlp.png"/></div>
+<div align=center><img src="user_guide_src/fig2_embedding_mlp.png" width="389" height="244"/></div>
 <div align=center>Fig. 3: Embedding Architecture</div>
 
 <br></br>
 
-<div align=center><img width = '800' height ='300' src ="user_guide_src/fig3_embedding_mech.png"/></div>
+<div align=center><img src="user_guide_src/fig3_embedding_mech.png" width="502" height="225" /></div>
 <div align=center>Fig. 4: Embedding Mechanism</div>
 
 <br></br>
@@ -47,10 +47,10 @@ We support the following compute capabilities:
 
 | Compute Capability | GPU                  |
 |--------------------|----------------------|
-| 60                 | NVIDIA P100 (Pascal) |
-| 70                 | NVIDIA V100 (Volta)  |
-| 75                 | NVIDIA T4 (Turing)   |
-| 80                 | NVIDIA A100 (Ampere) |
+| 6.0                | NVIDIA P100 (Pascal) |
+| 7.0                | NVIDIA V100 (Volta)  |
+| 7.5                | NVIDIA T4 (Turing)   |
+| 8.0                | NVIDIA A100 (Ampere) |
 
 The following prerequisites must be met before installing or building HugeCTR from scratch:
 * Docker version 19 and higher
@@ -71,13 +71,13 @@ If running multi-node training, the following prerequisites must be met:
 * mpi4py
 
 ### Installing HugeCTR from NGC Containers
-All NVIDIA Merlin components are available as open-source projects. However, a more convenient way to make use of these components is by using Merlin NGC containers. Containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR from NGC containers, the application environment remains both portable, consistent, reproducible, and agnostic to the underlying host system software configuration.
+All NVIDIA Merlin components are available as open-source projects. However, a more convenient way to make use of these components is by using Merlin NGC containers. Containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR from NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system software configuration.
 
 HugeCTR's docker images are available in the NVIDIA container repository on https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
 
 You can pull and launch the container by running the following command:
 ```
-docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v2.3  # Start interaction mode
+docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v3.0  # Start interaction mode
 ```
 
 ### Building HugeCTR from Scratch
@@ -89,7 +89,7 @@ git submodule update --init --recursive
 ```
 
 You can build HugeCTR from scratch using one or any combination of the following options:
-* **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The following compute capabilities are supported: `60`, `70`, `75`, and `80`. The default compute capability is 70, which uses the NVIDIA V100 GPU.
+* **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The following compute capabilities are supported: `6.0`, `7.0`, `7.5`, and `8.0`. The default compute capability is 70, which uses the NVIDIA V100 GPU.
 * **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks in a synchronous manner.
 * **VAL_MODE**: You can use this option to build HugeCTR in validation mode, which was designed for framework validation. In this mode, loss of training will be shown as the average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by default.
 * **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multi-nodes. This option is set to OFF by default. For additional information, see [samples/dcn2nodes](../samples/dcn2nodes).
@@ -146,7 +146,7 @@ $ mpirun -N2 ./huge_ctr --train config.json
 ### Mixed Precision Training ###
 Mixed precision training is supported to help improve and reduce the memory throughput footprint. In this mode, TensorCores are used to boost performance for matrix multiplication-based layers, such as `FullyConnectedLayer` and `InteractionLayer`, on Volta, Turing, and Ampere architectures. For the other layers, including embeddings, the data type is changed to FP16 so that both memory bandwidth and capacity are saved. To enable mixed precision mode, specify the mixed_precision option in the configuration file. When [`mixed_precision`](https://arxiv.org/abs/1710.03740) is set, the full FP16 pipeline will be triggered. Please note that loss scaling will be applied to avoid the arithmetic underflow (see Fig. 5). Mixed precision training can be enabled using the configuration file.
 
-<div align=center><img width = '500' height ='400' src ="user_guide_src/fig4_arithmetic_underflow.png"/></div>
+<div align=center><img width="539" height="337" src="user_guide_src/fig4_arithmetic_underflow.png"/></div>
 <div align=center>Fig. 5: Arithmetic Underflow</div>
 
 <br></br>
@@ -168,7 +168,7 @@ For example:
 }
 ```
 
-<div align=center><img width = '500' src ="user_guide_src/learning_rate_scheduling.png"/></div>
+<div align=center><img width="439" height="282" src="user_guide_src/learning_rate_scheduling.png"/></div>
 <div align=center>Fig. 6: Learning Rate Scheduling</div>
 
 <br></br>
