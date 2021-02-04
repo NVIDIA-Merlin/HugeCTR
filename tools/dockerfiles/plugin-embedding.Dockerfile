@@ -28,19 +28,19 @@ ENV CPATH=/opt/conda/include:$CPATH \
     CONDA_PREFIX=/opt/conda \
     NCCL_LAUNCH_MODE=PARALLEL
 
-RUN pip3 install numpy==1.19.2 pandas sklearn ortools nvtx-plugins tensorflow==2.4.0
+RUN pip3 install numpy==1.19.2 pandas sklearn ortools nvtx-plugins jupyter tensorflow==2.4.0
 
 RUN if [ "$RELEASE" = "true" ]; \
     then \
-      mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - \
+      mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - && \
       cd /var/tmp/HugeCTR && \
       git submodule update --init --recursive && \
-      mkdir build && cd build && \
+      mkdir -p build && cd build && \
       cmake -DCMAKE_BUILD_TYPE=Release -DSM=$SM -DONLY_EMB_PLUGIN=ON .. && make -j$(nproc) && make install && \
       rm -rf /var/tmp/HugeCTR; \
     else \
-      mkdir -p /usr/local/hugectr/lib && \
       echo "Build container for development successfully"; \
     fi
 ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
-    LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH
+    LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
+    PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
