@@ -178,7 +178,7 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION /usr/local/hugectr)
 #install inference header files
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference DESTINATION /usr/local/hugectr/include)
 add_subdirectory(third_party/json)
-
+install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 
 option(ENABLE_INFERENCE "Enable Inference" OFF)
 if(ENABLE_INFERENCE)
@@ -187,7 +187,6 @@ add_subdirectory(HugeCTR/src/inference)
 add_subdirectory(test/utest/inference)
 else()
 #setting binary files install path
-install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 add_subdirectory(HugeCTR/src)
 add_subdirectory(third_party/googletest)
 add_subdirectory(test/utest)
