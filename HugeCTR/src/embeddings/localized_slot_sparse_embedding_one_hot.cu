@@ -16,6 +16,10 @@
 
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
 
+#ifdef ENABLE_MPI
+#include <mpi.h>
+#endif
+
 namespace HugeCTR {
 
 namespace {
@@ -233,9 +237,15 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
                       "cannot be used on machine without GPU peer2peer access support. \n"));
     }
 #ifdef ENABLE_MPI
-    throw std::runtime_error(
-        std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
-                    "cannot support multi-node currently. \n"));
+    {
+      int num_processor;
+      MPI_Comm_size(MPI_COMM_WORLD, &num_processor);
+      if (num_processor > 1) {
+        throw std::runtime_error(
+            std::string("[HCDEBUG][ERROR] Runtime error: Localized_slot_sparse_embedding_one_hot "
+                        "cannot support multi-node currently. \n"));
+      }
+    }
 #endif
 
     std::shared_ptr<GeneralBuffer2<CudaManagedAllocator>> unified_buf =

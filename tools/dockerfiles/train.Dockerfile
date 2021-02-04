@@ -26,10 +26,12 @@ ENV CPATH=/opt/conda/include:$CPATH \
     NCCL_LAUNCH_MODE=PARALLEL
 
 RUN conda update -n base -c defaults conda && \
-    conda install -c rapidsai-nightly -c nvidia -c conda-forge -c defaults cudf=0.17.0 cudatoolkit=11.0 && \
+    conda install -c rapidsai -c nvidia -c conda-forge -c defaults cudf=0.17.0 cudatoolkit=11.0 && \
     conda install -c anaconda cmake=3.18.2 pip && \
     conda install -c conda-forge ucx libhwloc=2.4.0 openmpi=4.1.0 openmpi-mpicc=4.1.0 mpi4py=3.0.3 && \
     rm -rf /opt/conda/include/nccl.h /opt/conda/lib/libnccl.so /opt/conda/include/google
+ENV OMPI_MCA_plm_rsh_agent=sh \
+    OMPI_MCA_opal_cuda_support=true
 
 RUN echo alias python='/usr/bin/python3' >> /etc/bash.bashrc && \
     pip3 install numpy pandas sklearn ortools jupyter tensorflow==2.4.0
@@ -48,9 +50,9 @@ RUN if [ "$RELEASE" = "true" ]; \
       chmod +x /usr/local/hugectr/lib/* && \
       rm -rf /var/tmp/HugeCTR; \
     else \
-      mkdir -p /usr/local/hugectr/bin && \
-      mkdir -p /usr/local/hugectr/lib && \
       echo "Build container for development successfully"; \
     fi
 ENV PATH=/usr/local/hugectr/bin:$PATH \
+    LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
     PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
