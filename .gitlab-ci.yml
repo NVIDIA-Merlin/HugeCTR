@@ -31,7 +31,7 @@ before_script:
     - test/**/*
     - CMakeLists.txt
     - samples/**/*
-    - ./tools/dockerfiles/train.Dockerfile
+    - ./tools/dockerfiles/*
     
 .build:
   stage: build
