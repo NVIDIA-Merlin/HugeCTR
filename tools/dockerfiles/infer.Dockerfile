@@ -1,6 +1,6 @@
 FROM nvcr.io/nvidia/tritonserver:20.12-py3 AS devel
 
-ARG SM="60;61;70;75;80"
+ARG SM="70;75;80"
 ARG RELEASE=false
 
 RUN apt-get update -y && \
@@ -49,7 +49,7 @@ RUN if [ "$RELEASE" = "true" ]; \
       cd /var/tmp/HugeCTR && \
       git submodule update --init --recursive && \
       mkdir -p build && cd build &&\
-      cmake -DENABLE_INFERENCE=ON .. && make -j$(nproc) && make install && \
+      cmake -DCMAKE_BUILD_TYPE=Release -DSM=$SM -DENABLE_INFERENCE=ON .. && make -j$(nproc) && make install && \
       export CPATH=/usr/local/hugectr/include:$CPATH && \
       export LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH && \
       cd /var/tmp && git clone --depth=1 --branch main https://github.com/triton-inference-server/hugectr_backend hugectr_inference_backend && cd - && \
