@@ -1,10 +1,10 @@
 # <img src="docs/user_guide_src/merlin_logo.png" alt="logo" width="85"/> Merlin: HugeCTR #
 
-HugeCTR is a GPU-accelerated recommender framework that was designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://ai.facebook.com/blog/dlrm-an-advanced-open-source-deep-learning-recommendation-model/). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin#getstarted), which is used for building large-scale deep learning recommender systems. For additional information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
+HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), used to build large-scale deep learning recommender systems. For additional information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 Design Goals:
 * **Fast**: HugeCTR is a speed-of-light CTR model framework that can [outperform](performance.md) popular recommender systems such as TensorFlow (TF).
-* **Efficient**: HugeCTR provides the essentials so that you can train your CTR model in an efficient manner.
+* **Efficient**: HugeCTR provides the essentials so that you can efficiently train your CTR model.
 * **Easy**: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR.
 
 ## Table of Contents
@@ -13,7 +13,7 @@ Design Goals:
 * [Support and Feedback](#support-and-feedback)
 
 ## Core Features ##
-HugeCTR supports a variety of features including the following:
+HugeCTR supports a variety of features, including the following:
 * [multi-node training](docs/hugectr_user_guide.md#multi-node-training)
 * [mixed precision training](docs/hugectr_user_guide.md#mixed-precision-training)
 * [SGD optimizer and learning rate scheduling](docs/hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling)
@@ -77,4 +77,4 @@ If you'd like to quickly train a model using the Python interface, follow these 
 For additional information, see the [HugeCTR User Guide](../docs/hugectr_user_guide.md).
 
 ## Support and Feedback ##
-If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
+If you encounter any issues or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
