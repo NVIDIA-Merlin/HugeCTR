@@ -25,7 +25,7 @@ To learn about our latest enhancements, see our [release notes](release_notes.md
 If you'd like to quickly train a model using the Python interface, follow these steps:
 1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
-   docker run --runtime=nvidia --rm -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) -it nvcr.io/nvidia/hugectr:v2.3
+   docker run --runtime=nvidia --rm -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) -it nvcr.io/nvidia/hugectr:v3.0
    ```
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
