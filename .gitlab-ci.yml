@@ -27,7 +27,7 @@ before_script:
 .files: &files
   changes:
     - .gitlab-ci.yml
-    - HugeCTR/**/*
+    - HugeCTR/*
     - test/**/*
     - CMakeLists.txt
     - samples/**/*
