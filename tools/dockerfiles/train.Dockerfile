@@ -19,7 +19,7 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://r
     /opt/conda/bin/conda clean -afy && \
     rm -rf /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh
 ENV CPATH=/opt/conda/include:$CPATH \
-    LD_LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH \
+    LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH \
     LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH \
     PATH=/opt/conda/bin:$PATH \
     CONDA_PREFIX=/opt/conda \

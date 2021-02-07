@@ -162,7 +162,6 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
         /*create optimizer*/
         HugeCTR::OptParams<TypeFP> embedding_opt_params;
         HugeCTR::OptHyperParams<TypeFP> opt_hyper_params;
-        memset(&opt_hyper_params, 0, sizeof(opt_hyper_params));
         switch (optimizer_type) {
             case HugeCTR::Optimizer_t::Adam:{ // opt_hprams = {lr, beta1, beta2, epsilon}
                 if (opt_hparams.size() != 4) {
