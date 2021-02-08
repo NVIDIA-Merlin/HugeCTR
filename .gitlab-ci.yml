@@ -24,27 +24,15 @@ before_script:
   - export TMP_DIR=${CI_PROJECT_DIR}
   - export NCCL_LAUNCH_MODE=PARALLEL
 
-.files: &files
-  changes:
-    - .gitlab-ci.yml
-    - HugeCTR/*
-    - test/**/*
-    - CMakeLists.txt
-    - samples/**/*
-    - ./tools/dockerfiles/*
-    
 .build:
   stage: build
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(push)$/
-      <<: *files
       when: always
       allow_failure: true
     - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
-      <<: *files
       when: never
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event|trigger)$/
-      <<: *files
       when: always
       allow_failure: false
 
@@ -54,10 +42,8 @@ before_script:
   stage: test
   rules:
     - if: $CI_MERGE_REQUEST_TITLE =~ /^([WIP]|WIP:|[Draft]|Draft:)/
-      <<: *files
       when: never
     - if: $CI_PIPELINE_SOURCE =~ /^(web|merge_request_event)$/ 
-      <<: *files
       when: always
 
 

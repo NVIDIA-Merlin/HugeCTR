@@ -63,11 +63,11 @@ AdamOptimizer::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<fl
 
 void AdamOptimizer::initialize() {
   if (mixed_precision_) {
-    cudaMemsetAsync(fp16_m_.get_ptr(), 0, fp16_m_.get_size_in_bytes(), gpu_resource_->get_stream());
-    cudaMemsetAsync(fp16_v_.get_ptr(), 0, fp16_v_.get_size_in_bytes(), gpu_resource_->get_stream());
+    CK_CUDA_THROW_(cudaMemsetAsync(fp16_m_.get_ptr(), 0, fp16_m_.get_size_in_bytes(), gpu_resource_->get_stream()));
+    CK_CUDA_THROW_(cudaMemsetAsync(fp16_v_.get_ptr(), 0, fp16_v_.get_size_in_bytes(), gpu_resource_->get_stream()));
   } else {
-    cudaMemsetAsync(fp32_m_.get_ptr(), 0, fp32_m_.get_size_in_bytes(), gpu_resource_->get_stream());
-    cudaMemsetAsync(fp32_v_.get_ptr(), 0, fp32_v_.get_size_in_bytes(), gpu_resource_->get_stream());
+    CK_CUDA_THROW_(cudaMemsetAsync(fp32_m_.get_ptr(), 0, fp32_m_.get_size_in_bytes(), gpu_resource_->get_stream()));
+    CK_CUDA_THROW_(cudaMemsetAsync(fp32_v_.get_ptr(), 0, fp32_v_.get_size_in_bytes(), gpu_resource_->get_stream()));
   }
 }
 
@@ -99,7 +99,7 @@ void AdamOptimizer::update() {
         len, weight, fp32_m, fp32_v, fp32_wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
   }
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }

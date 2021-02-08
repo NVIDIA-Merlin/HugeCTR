@@ -100,7 +100,7 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   }
 
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
@@ -294,7 +294,7 @@ void MultiCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *l
                                           int feature_dim, float scaler, float rterm, bool is_train,
                                           cudaStream_t stream) {
   int labels_per_sample = feature_dim;
-  cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].get_size_in_bytes(), stream);
+  CK_CUDA_THROW_(cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].get_size_in_bytes(), stream));
 
   const int BLOCK_SIZE = 256;
   const int GRID_SIZE = min(40, (batch_size * labels_per_sample - 1) / BLOCK_SIZE);

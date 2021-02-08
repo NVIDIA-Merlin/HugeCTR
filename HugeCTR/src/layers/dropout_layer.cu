@@ -52,9 +52,9 @@ void DropoutLayer<T>::fprop(bool is_train) {
                                            in_tensors_[0].get_num_elements()));
     prop_common(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(), get_gpu().get_stream());
   } else {
-    cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
+    CK_CUDA_THROW_(cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
                     in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                    get_gpu().get_stream());
+                    get_gpu().get_stream()));
   }
 }
 
@@ -78,7 +78,7 @@ void DropoutLayer<T>::prop_common(const T* in, T* out, cudaStream_t stream) {
                              stream);
 
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }

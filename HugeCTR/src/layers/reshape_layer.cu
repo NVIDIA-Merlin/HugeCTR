@@ -156,11 +156,11 @@ void ReshapeLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stre
 
   if (in_place_) {
     if (forward) {
-      cudaMemcpyAsync(out_tensor.get_ptr(), in_tensor.get_ptr(), in_tensor.get_size_in_bytes(),
-                      cudaMemcpyDeviceToDevice, stream);
+      CK_CUDA_THROW_(cudaMemcpyAsync(out_tensor.get_ptr(), in_tensor.get_ptr(), in_tensor.get_size_in_bytes(),
+                      cudaMemcpyDeviceToDevice, stream));
     } else {
-      cudaMemcpyAsync(in_tensor.get_ptr(), out_tensor.get_ptr(), out_tensor.get_size_in_bytes(),
-                      cudaMemcpyDeviceToDevice, stream);
+      CK_CUDA_THROW_(cudaMemcpyAsync(in_tensor.get_ptr(), out_tensor.get_ptr(), out_tensor.get_size_in_bytes(),
+                      cudaMemcpyDeviceToDevice, stream));
     }
   } else {
     int block_size = 128;
@@ -171,7 +171,7 @@ void ReshapeLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stre
                                             selected_tensor_.get_ptr(), n_active_slot_, forward);
   }
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
