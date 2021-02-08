@@ -944,9 +944,9 @@ void InteractionLayer<T>::fprop(bool is_train) {
   const int k = in_w;
   float alpha = 1.0f;
   float beta = 0.0f;
-  long long int stride_a = n * k;
-  long long int stride_b = k * m;
-  long long int stride_c = n * m;
+  long long int stride_a = static_cast<long long int>(n) * k;
+  long long int stride_b = static_cast<long long int>(k) * m;
+  long long int stride_c = static_cast<long long int>(n) * m;
   cudaDataType_t a_type = CUDA_R_32F;
   cudaDataType_t b_type = CUDA_R_32F;
   cudaDataType_t c_type = CUDA_R_32F;
@@ -973,7 +973,7 @@ void InteractionLayer<T>::fprop(bool is_train) {
                                                                                    h, n_ins, in_w);
 
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
@@ -993,7 +993,7 @@ void InteractionLayer<__half>::fprop(bool is_train) {
   dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, get_gpu().get_stream());
 
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
@@ -1025,9 +1025,9 @@ void InteractionLayer<T>::bprop() {
   const int k = n_ins;
   T alpha = 1.0f;
   T beta = 0.0f;
-  long long int stride_a = n * k;
-  long long int stride_b = k * m;
-  long long int stride_c = n * m;
+  long long int stride_a = static_cast<long long int>(n) * k;
+  long long int stride_b = static_cast<long long int>(k) * m;
+  long long int stride_c = static_cast<long long int>(n) * m;
   cudaDataType_t a_type = CUDA_R_32F;
   cudaDataType_t b_type = CUDA_R_32F;
   cudaDataType_t c_type = CUDA_R_32F;
@@ -1063,7 +1063,7 @@ void InteractionLayer<T>::bprop() {
                                                               out_w, in_w, n_emb);
 
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
@@ -1082,7 +1082,7 @@ void InteractionLayer<__half>::bprop() {
 
   dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, get_gpu().get_stream());
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }

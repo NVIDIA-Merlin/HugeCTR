@@ -207,18 +207,18 @@ template<typename KeyType,
          KeyType empty_key, 
          CounterType empty_val, 
          typename hasher>
-unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::~unique_op(){
+unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::~unique_op() noexcept(false) {
   // Device Restorer
   CudaDeviceContext dev_restorer;
   // Set device
-  cudaSetDevice(dev_);
+  CK_CUDA_THROW_(cudaSetDevice(dev_));
   
   // Free keys and vals
-  cudaFree(keys_);
-  cudaFree(vals_);
+  CK_CUDA_THROW_(cudaFree(keys_));
+  CK_CUDA_THROW_(cudaFree(vals_));
   
   // Free device-side counter
-  cudaFree(counter_);
+  CK_CUDA_THROW_(cudaFree(counter_));
 }
 
 template<typename KeyType, 
