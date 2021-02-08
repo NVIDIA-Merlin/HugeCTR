@@ -67,7 +67,7 @@ DropoutCudnnLayer<T>::DropoutCudnnLayer(
 
   blobs_buff->reserve({1, reserveSpaceSizeInBytes_}, &mask_);
 
-  cudaMalloc(&cudnn_status_, sizeInBytes);
+  CK_CUDA_THROW_(cudaMalloc(&cudnn_status_, sizeInBytes));
 
   CK_CUDNN_THROW_(cudnnSetDropoutDescriptor(dropout_descriptor_, gpu_resource->get_cudnn_handle(),
                                             rate, cudnn_status_, sizeInBytes, 0));
@@ -77,7 +77,7 @@ template <typename T>
 DropoutCudnnLayer<T>::~DropoutCudnnLayer() {
   try {
     CK_CUDNN_THROW_(cudnnDestroyDropoutDescriptor(dropout_descriptor_));
-    cudaFree(cudnn_status_);
+    CK_CUDA_THROW_(cudaFree(cudnn_status_));
     CK_CUDNN_THROW_(cudnnDestroyTensorDescriptor(in_out_desc_));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -93,9 +93,9 @@ void DropoutCudnnLayer<T>::fprop(bool is_train) {
         get_gpu().get_cudnn_handle(), dropout_descriptor_, in_out_desc_, in_tensors_[0].get_ptr(),
         in_out_desc_, out_tensors_[0].get_ptr(), mask_.get_ptr(), reserveSpaceSizeInBytes_));
   } else {
-    cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
+    CK_CUDA_THROW_(cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
                     in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                    get_gpu().get_stream());
+                    get_gpu().get_stream()));
   }
 }
 

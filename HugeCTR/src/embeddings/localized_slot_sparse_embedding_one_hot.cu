@@ -407,10 +407,10 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
     CK_CUDA_THROW_(cudaMallocHost(&h_mapping_offsets_per_gpu_tensors[id],
                                   local_slot_num[id] * sizeof(uint32_t)));
     // Copy the mapping offset from GPU to Host
-    cudaMemcpyAsync(h_mapping_offsets_per_gpu_tensors[id],
+    CK_CUDA_THROW_(cudaMemcpyAsync(h_mapping_offsets_per_gpu_tensors[id],
                     mapping_offsets_per_gpu_tensors[id].get_ptr(),
                     local_slot_num[id] * sizeof(uint32_t), cudaMemcpyDeviceToHost,
-                    Base::get_local_gpu(id).get_stream());
+                    Base::get_local_gpu(id).get_stream()));
   }
 
   // sync wait
@@ -649,11 +649,11 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
-    cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
-    cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
-    cudaMallocHost(&h_hash_table_slot_id[id], count[id] * sizeof(size_t));
-    cudaMalloc(&d_hash_table_slot_id[id], count[id] * sizeof(size_t));
-    cudaMallocHost(&h_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float));
+    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
+    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
+    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_slot_id[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_slot_id[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
   }
 
   // Generate key and slot_id tensor, dump value tensor on GPU
@@ -844,11 +844,11 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
-    cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey));
-    cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey));
-    cudaMallocHost(&h_hash_table_slot_id[id], count[id] * sizeof(size_t));
-    cudaMalloc(&d_hash_table_slot_id[id], count[id] * sizeof(size_t));
-    cudaMallocHost(&h_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float));
+    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
+    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
+    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_slot_id[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_slot_id[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
   }
 
   // Generate key and slot_id tensor, dump value tensor on GPU

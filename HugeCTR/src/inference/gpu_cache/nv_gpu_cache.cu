@@ -1035,20 +1035,20 @@ gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, s
   CudaDeviceContext dev_restorer;
 
   // Set device
-  cudaSetDevice(dev_);
+  CK_CUDA_THROW_(cudaSetDevice(dev_));
 
   // Destruct CUDA std object
   destruct_kernel<<<((capacity_in_set_-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_>>>(global_counter_, set_mutex_, capacity_in_set_);
   // Wait for destruction to finish
-  cudaStreamSynchronize(0);
+  CK_CUDA_THROW_(cudaStreamSynchronize(0));
 
   // Free GPU memory for cache
-  cudaFree( keys_ );
-  cudaFree( vals_ );
-  cudaFree( slot_counter_ );
-  cudaFree( global_counter_ );
+  CK_CUDA_THROW_(cudaFree( keys_ ));
+  CK_CUDA_THROW_(cudaFree( vals_ ));
+  CK_CUDA_THROW_(cudaFree( slot_counter_ ));
+  CK_CUDA_THROW_(cudaFree( global_counter_ ));
   // Free GPU memory for set mutex
-  cudaFree( set_mutex_ );
+  CK_CUDA_THROW_(cudaFree( set_mutex_ ));
 
 }
 #else
@@ -1059,21 +1059,21 @@ template<typename key_type,
          int warp_size,
          typename set_hasher, 
          typename slab_hasher>
-gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, set_hasher, slab_hasher>::~gpu_cache(){
+gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, set_hasher, slab_hasher>::~gpu_cache() noexcept(false) {
   
   // Device Restorer
   CudaDeviceContext dev_restorer;
 
   // Set device
-  cudaSetDevice(dev_);
+  CK_CUDA_THROW_(cudaSetDevice(dev_));
 
   // Free GPU memory for cache
-  cudaFree( keys_ );
-  cudaFree( vals_ );
-  cudaFree( slot_counter_ );
-  cudaFree( global_counter_ );
+  CK_CUDA_THROW_(cudaFree( keys_ ));
+  CK_CUDA_THROW_(cudaFree( vals_ ));
+  CK_CUDA_THROW_(cudaFree( slot_counter_ ));
+  CK_CUDA_THROW_(cudaFree( global_counter_ ));
   // Free GPU memory for set mutex
-  cudaFree( set_mutex_ );
+  CK_CUDA_THROW_(cudaFree( set_mutex_ ));
 
 }
 #endif

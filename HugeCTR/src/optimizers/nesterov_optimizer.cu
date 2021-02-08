@@ -56,11 +56,11 @@ NesterovOptimizer::NesterovOptimizer(const Tensor2<float>& weight_main,
 
 void NesterovOptimizer::initialize() {
   if (mixed_precision_) {
-    cudaMemsetAsync(fp16_accum_.get_ptr(), 0, fp16_accum_.get_size_in_bytes(),
-                    gpu_resource_->get_stream());
+    CK_CUDA_THROW_(cudaMemsetAsync(fp16_accum_.get_ptr(), 0, fp16_accum_.get_size_in_bytes(),
+                    gpu_resource_->get_stream()));
   } else {
-    cudaMemsetAsync(fp32_accum_.get_ptr(), 0, fp32_accum_.get_size_in_bytes(),
-                    gpu_resource_->get_stream());
+    CK_CUDA_THROW_(cudaMemsetAsync(fp32_accum_.get_ptr(), 0, fp32_accum_.get_size_in_bytes(),
+                    gpu_resource_->get_stream()));
   }
 }
 
@@ -88,7 +88,7 @@ void NesterovOptimizer::update() {
   }
 
 #ifndef NDEBUG
-  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
