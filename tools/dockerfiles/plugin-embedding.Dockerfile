@@ -30,6 +30,11 @@ ENV CPATH=/opt/conda/include:$CPATH \
 
 RUN pip3 install numpy==1.19.2 pandas sklearn ortools nvtx-plugins jupyter tensorflow==2.4.0
 
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        openssl=1.1.1-1ubuntu2.1~18.04.7 libssl1.1=1.1.1-1ubuntu2.1~18.04.7 && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN if [ "$RELEASE" = "true" ]; \
     then \
       mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - && \

@@ -36,6 +36,11 @@ ENV OMPI_MCA_plm_rsh_agent=sh \
 RUN echo alias python='/usr/bin/python3' >> /etc/bash.bashrc && \
     pip3 install numpy pandas sklearn ortools jupyter tensorflow==2.4.0
 
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        openssl=1.1.1-1ubuntu2.1~18.04.7 libssl1.1=1.1.1-1ubuntu2.1~18.04.7 && \
+    rm -rf /var/lib/apt/lists/*
+
 # HugeCTR
 RUN if [ "$RELEASE" = "true" ]; \
     then \
