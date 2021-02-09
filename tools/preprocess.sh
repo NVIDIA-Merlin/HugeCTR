@@ -102,8 +102,8 @@ elif [[ $SCRIPT_TYPE == "perl" ]]; then
 	NUM_SLOT=$4
   split_dataset day_$1_shuf
 	perl criteo_script_legacy/preprocess.pl $DST_DATA_DIR/train/train.txt $DST_DATA_DIR/val/val.txt $DST_DATA_DIR/val/test.txt                      && \
-	../build/bin/criteo2hugectr_legacy $NUM_SLOT $DST_DATA_DIR/train/train.txt.out $DST_DATA_DIR/train/sparse_embedding $DST_DATA_DIR/file_list.txt && \
-	../build/bin/criteo2hugectr_legacy $NUM_SLOT $DST_DATA_DIR/val/test.txt.out $DST_DATA_DIR/val/sparse_embedding $DST_DATA_DIR/file_list_test.txt
+	criteo2hugectr_legacy $NUM_SLOT $DST_DATA_DIR/train/train.txt.out $DST_DATA_DIR/train/sparse_embedding $DST_DATA_DIR/file_list.txt && \
+	criteo2hugectr_legacy $NUM_SLOT $DST_DATA_DIR/val/test.txt.out $DST_DATA_DIR/val/sparse_embedding $DST_DATA_DIR/file_list_test.txt
 
 elif [[ $SCRIPT_TYPE == "pandas" ]]; then
 	python3 criteo_script/preprocess.py                 \
@@ -121,8 +121,8 @@ elif [[ $SCRIPT_TYPE == "pandas" ]]; then
     FILE_LIST_LENGTH=$6
 	fi
 
-	../build/bin/criteo2hugectr $DST_DATA_DIR/train/train.txt $DST_DATA_DIR/train/sparse_embedding $DST_DATA_DIR/file_list.txt $NUM_WIDE_KEYS $FILE_LIST_LENGTH && \
-	../build/bin/criteo2hugectr $DST_DATA_DIR/val/test.txt $DST_DATA_DIR/val/sparse_embedding $DST_DATA_DIR/file_list_test.txt $NUM_WIDE_KEYS $FILE_LIST_LENGTH
+	criteo2hugectr $DST_DATA_DIR/train/train.txt $DST_DATA_DIR/train/sparse_embedding $DST_DATA_DIR/file_list.txt $NUM_WIDE_KEYS $FILE_LIST_LENGTH && \
+	criteo2hugectr $DST_DATA_DIR/val/test.txt $DST_DATA_DIR/val/sparse_embedding $DST_DATA_DIR/file_list_test.txt $NUM_WIDE_KEYS $FILE_LIST_LENGTH
 fi
 
 if [ $? -ne 0 ]; then

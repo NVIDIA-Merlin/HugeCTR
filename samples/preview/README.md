@@ -1,16 +1,38 @@
 # PYTHON INTERFACE DCN CTR SAMPLE #
 A sample of building and training Deep & Cross Network [(link)](https://arxiv.org/pdf/1708.05123.pdf) with HugeCTR high-level Python API.
 
-## Dataset and preprocess ##
+## Setup the HugeCTR Docker Environment ##
+The quickest way to run the sample here is with a docker container, which provides a self-contained, isolated, and reproducible environment for repetitive experiments. HugeCTR is available as buildable source code, but the easiest way to install and run HugeCTR is to use the pre-built Docker image available from the NVIDIA GPU Cloud (NGC). If you want to build the HugeCTR docker image on your own, please refer to [Use Docker Container](../docs/mainpage.md#use-docker-container).
+
+You can choose either to pull the NGC docker or to build on your own.
+
+#### Pull the NGC Docker ####
+Pull the HugeCTR NGC docker using this command:
+```bash
+$ docker pull nvcr.io/nvidia/hugectr:v3.0
+```
+Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
+```bash
+$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/hugectr:v3.0
+```
+
+#### Build on Your Own ####
+Please refer to [Use Docker Container](../docs/mainpage.md#use-docker-container) to build on your own and set up the docker container. Please make sure that HugeCTR and all the shared libraries have been built and installed to the system path `/usr/local/hugectr` within the docker container. Then set the `PYTHONPATH` environment variable inside the docker container with the following command:
+
+```shell
+$ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
+``` 
+
+Please launch the container in interactive mode in the same manner as above.
+
+## Dataset and Preprocess ##
 In running this sample, [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used.
 The dataset contains 24 files, each of which corresponds to one day of data.
 To spend less time on preprocessing, we use only one of them.
 Each sample consists of a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
 The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
 
-### 1. Build HugeCTR with the instructions on README.md under home directory.
-
-### 2. Download the dataset and preprocess
+#### Download the Dataset ####
 
 Go to [this link](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/),
 and download one of 24 files into the directory "${project_root}/tools", 
@@ -56,10 +78,7 @@ It must remains 0 unless the sample is not `wdl`.
 Exit from the NVTabular docker environment and then run HugeCTR docker with interaction mode under home directory again.
 
 ## Training with HugeCTR ##
-Make sure that you are at the ${project_root}/tools directory first. Then you have to locate the `hugectr.so` file and set the `PYTHONPATH` environment variable with the following command:
-```shell
-$ export PYTHONPATH=../build/lib
-```
+Make sure that you are at the ${project_root}/tools directory first.
 
 #### After Pandas Preprocessing ####
 ```shell
