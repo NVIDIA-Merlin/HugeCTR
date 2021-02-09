@@ -1,14 +1,32 @@
 # DCN MULTI-NODES SAMPLE #
 A sample of building and training Deep & Cross Network with HugeCTR on multi-nodes [(link)](https://arxiv.org/pdf/1708.05123.pdf).
 
-## Dataset and preprocess ##
+## Setup the HugeCTR Docker Environment ##
+**NOTE**: this sample requires HugeCTR built with multi-nodes training supported.
+
+You can choose either to pull the NGC docker or to build on your own.
+
+#### Pull the NGC Docker ####
+Pull the HugeCTR NGC docker using this command:
+```bash
+$ docker pull nvcr.io/nvidia/hugectr:v3.0
+```
+Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
+```bash
+$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/hugectr:v3.0
+```
+
+#### Build on Your Own ####
+Please refer to [Use Docker Container](../docs/mainpage.md#use-docker-container) to build on your own and set up the docker container.See [Build with Multi-Nodes Training Supported](../docs/mainpage.md#build-with-multi-nodes-training-supported) to know how to build with multi-nodes training supported. Please make sure that HugeCTR is built and installed to the system path `/usr/local/hugectr` within the docker container. Please launch the container in interactive mode in the same manner as above.
+
+## Dataset and Preprocess ##
 In running this sample, [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used.
 The dataset contains 24 files, each of which corresponds to one day of data.
 To spend less time on preprocessing, we use only one of them.
 Each sample consists of a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
 The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
 
-### 1. Download the dataset and preprocess
+#### Download the Dataset ####
 
 Go to [this link](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/),
 and download one of 24 files into the directory "${project_root}/tools", 
@@ -34,10 +52,8 @@ If you change it, `source` and `eval_source` in your JSON config file must be ch
 - **NOTE**: the last argument decides if the feature crossing is applied (1=ON, 0=OFF).
 It must remains 0 unless the sample is not `wdl`.
 
-### 2. Build HugeCTR with **multi-nodes training supported** (refer to the README in home directory).
-You can chose to use [our NGC docker image](../docs/hugectr_user_guide.md#build-hugectr-with-the-docker-image) where the multi-node mode is enabled. If you have to build your own docker image and HugeCTR yourself, refer to [our instructions](../docs/hugectr_user_guide.md#build-with-multi-nodes)
-
-## Plan file generation ##
+## Training with HugeCTR ##
+1. Plan file generation
 If gossip communication library is used, a plan file is needed to be generated first as below. If NCCL communication library is used, there is no need to generate a plan file, just skip this step. 
 
 Login to your GPU cluster and gets two nodes. For example, if on a SLURM system:  
@@ -49,9 +65,7 @@ $ mpirun python3 plan_generation/plan_generator.py ../samples/dcn2nodes/dcn8l8gp
 ```
 **NOTE:** If your cluster is unequpped with a job scheduler, please refer to [our tutorial](../tutorial/multinode-training/README.md/)
 
-## Training with HugeCTR ##
-
-1. Run huge_ctr
+2. Run huge_ctr
 ```shell
-$ mpirun --bind-to none ../build/bin/huge_ctr --train /samples/dcn2nodes/dcn8l8gpu2nodes.json
+$ mpirun --bind-to none huge_ctr --train /samples/dcn2nodes/dcn8l8gpu2nodes.json
 ```
