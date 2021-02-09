@@ -26,7 +26,7 @@ def session_impl_test(json_file, export_path_prefix):
       loss = sess.get_current_loss()
       print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
     if (i%1000 == 0 and i != 0):
-      metrics = sess.evaluation(export_path_prefix + "prediction" + str(i), export_path_prefix + "prediction" + str(i))
+      metrics = sess.evaluation(export_path_prefix + "prediction" + str(i), export_path_prefix + "label" + str(i))
       print("[HUGECTR][INFO] iter: {}, {}".format(i, metrics))
   return
 

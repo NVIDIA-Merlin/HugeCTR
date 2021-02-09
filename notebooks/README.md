@@ -2,7 +2,7 @@
 This directory contains a set of Jupyter Notebook demos for HugeCTR.
 
 ## Quickstart
-The quickest way to run a notebook here is with a docker container, which provides a self-contained, isolated, and reproducible environment for repetitive experiments. HugeCTR is available as buildable source code, but the easiest way to install and run HugeCTR is to use the pre-built Docker image available from the NVIDIA GPU Cloud (NGC). If you want to build the HugeCTR docker image on your own, please refer to [use-docker-container](../docs/mainpage.md#use-docker-container).
+The quickest way to run a notebook here is with a docker container, which provides a self-contained, isolated, and reproducible environment for repetitive experiments. HugeCTR is available as buildable source code, but the easiest way to install and run HugeCTR is to use the pre-built Docker image available from the NVIDIA GPU Cloud (NGC). If you want to build the HugeCTR docker image on your own, please refer to [Use Docker Container](../docs/mainpage.md#use-docker-container).
 
 ### Pull the NGC Docker
 To start the [embedding_plugin.ipynb](embedding_plugin.ipynb) notebook, pull this docker image:
