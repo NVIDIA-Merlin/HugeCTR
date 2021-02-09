@@ -42,6 +42,11 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.17
     cd build && make install && \
     rm -rf /var/tmp/rmm
 
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        openssl=1.1.1f-1ubuntu2.1 libssl1.1=1.1.1f-1ubuntu2.1 && \
+    rm -rf /var/lib/apt/lists/*
+
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \
     then \
