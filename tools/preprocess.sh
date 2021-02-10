@@ -40,11 +40,11 @@ mkdir -p $DST_DATA_DIR/train                         && \
 mkdir -p $DST_DATA_DIR/val                           && \
 head -n 45840617 day_$1 > $DST_DATA_DIR/day_$1_small
 if [ $? -ne 0 ]; then
-	echo "Warning: Cannot open day_$1.gz, fallback to find original compressed data..."
+	echo "Warning: cannot open day_$1, fallback to find original compressed data..."
 	echo "Decompressing day_$1.gz..."
 	gzip -c day_$1.gz > day_$1
 	if [ $? -ne 0 ]; then
-		echo "Warning: Failed to decompress the file. Trying finding the uncompressed dataset..."
+		echo "Warning: failed to decompress the file. Trying finding the uncompressed dataset..."
 		exit 2
 	fi
 	head -n 45840617 day_$1 > $DST_DATA_DIR/day_$1_small
