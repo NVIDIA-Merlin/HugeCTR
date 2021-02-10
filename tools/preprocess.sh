@@ -7,7 +7,7 @@ fi
 
 DST_DATA_DIR=$2
 
-echo "Warning: exsiting $DST_DATA_DIR is erased"
+echo "Warning: existing $DST_DATA_DIR is erased"
 rm -rf $DST_DATA_DIR
 
 if [[ $3 == "nvt" ]]; then
@@ -36,7 +36,7 @@ fi
 SCRIPT_TYPE=$3
 
 echo "Decompressing day_$1.gz..."
-gzip -d day_$i.gz
+gzip -d day_$1.gz
 if [ $? -ne 0 ]; then
 	echo "Warning: Failed to decompress the file. Trying finding the uncompressed dataset..."
 fi
