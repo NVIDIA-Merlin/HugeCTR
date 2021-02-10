@@ -74,7 +74,8 @@ If you'd like to quickly train a model using the Python interface, follow these 
    python train.py dcn.json
    ```
 
-For additional information, see the [HugeCTR User Guide](../docs/hugectr_user_guide.md).
+For additional information, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 ## Support and Feedback ##
-If you encounter any issues or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
+If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
+
