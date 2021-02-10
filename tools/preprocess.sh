@@ -35,18 +35,23 @@ fi
 
 SCRIPT_TYPE=$3
 
-echo "Decompressing day_$1.gz..."
-gzip -d day_$1.gz
-if [ $? -ne 0 ]; then
-	echo "Warning: Failed to decompress the file. Trying finding the uncompressed dataset..."
-fi
-
 echo "Getting the first few examples from the dataset..."
 mkdir -p $DST_DATA_DIR/train                         && \
 mkdir -p $DST_DATA_DIR/val                           && \
 head -n 45840617 day_$1 > $DST_DATA_DIR/day_$1_small
 if [ $? -ne 0 ]; then
-	exit 2
+	echo "Warning: Cannot open day_$1.gz, fallback to find original compressed data..."
+    echo "Decompressing day_$1.gz..."
+	gzip -c day_$1.gz > day_$1
+	if [ $? -ne 0 ]; then
+		echo "Warning: Failed to decompress the file. Trying finding the uncompressed dataset..."
+		exit 2
+	fi
+	head -n 45840617 day_$1 > $DST_DATA_DIR/day_$1_small
+	if [ $? -ne 0 ]; then
+		echo "Warning: day_$1 file break..."
+		exit 2
+	fi
 fi
 
 echo "Counting the number of samples in day_$1 dataset..."
