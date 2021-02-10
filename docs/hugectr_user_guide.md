@@ -53,23 +53,8 @@ We support the following compute capabilities:
 | 7.5                | NVIDIA T4 (Turing)   | 75 |
 | 8.0                | NVIDIA A100 (Ampere) | 80 |
 
-The following prerequisites must be met before installing or building HugeCTR from scratch:
-* Docker version 19 and higher
-* cuBLAS version 10.1
-* CMake version 3.17.0
-* cuDNN version 7.5
-* NCCL version 2.0
-* RMM version 0.16
-* CUDF version 0.16
-* Clang-Format version 3.8
-* GCC version 7.4.0
-* ortools version 7.6.7691
-
-If running multi-node training, the following prerequisites must be met:
-* OpenMPI version 4.0
-* UCX library version 1.6
-* HWLOC library version 2.1.0
-* mpi4py
+### Software Stack ###
+Please find the detailed software stack (dependencies) of HugeCTR under this [link](docs/software_stack.md)
 
 ### Installing HugeCTR from NGC Containers
 All NVIDIA Merlin components are available as open-source projects. However, a more convenient way to make use of these components is by using Merlin NGC containers. Containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR from NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system software configuration.
@@ -82,7 +67,7 @@ docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v3.0  # Start intera
 ```
 
 ### Building HugeCTR from Scratch
-Before building HugeCTR from scratch, you should download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
+Before building HugeCTR from scratch, you should prepare the dependencies according to [link](docs/software_stack.md). Then download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
 ```
 git clone https://github.com/NVIDIA/HugeCTR.git
 cd HugeCTR
