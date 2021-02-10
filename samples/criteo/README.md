@@ -66,7 +66,7 @@ $ bash preprocess.sh 1 criteo_data nvt 1 1 0
 Otherwise, a Parquet dataset is generated. Use this NVTabular binary mode if you encounter an  issue with the Pandas mode.
 - **NOTE**: the fifth argument(one after `nvt`)  must be set to 1 for `criteo` sample. Otherwise, it is 0.
 - **NOTE**: the last argument decides if the feature crossing is applied (1=ON, 0=OFF).
-It must remains 0 unless the sample is not `wdl`.
+It must remains 0 if the sample is not `wdl`.
 
 Exit from the NVTabular docker environment and then run HugeCTR docker with interaction mode under home directory again.
 

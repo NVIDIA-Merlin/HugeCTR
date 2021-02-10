@@ -50,7 +50,7 @@ You may want to change it in case where multiple datasets for different purposes
 If you change it, `source` and `eval_source` in your JSON config file must be changed as well.
 - **NOTE**: the fourth arguement (one after `pandas`) represents if the normalization is applied to dense features (1=ON, 0=OFF).
 - **NOTE**: the last argument decides if the feature crossing is applied (1=ON, 0=OFF).
-It must remains 0 unless the sample is not `wdl`.
+It must remains 0 if the sample is not `wdl`.
 
 ## Training with HugeCTR ##
 1. Plan file generation
