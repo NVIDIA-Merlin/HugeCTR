@@ -9,7 +9,7 @@ There are three main JSON clauses in a configuration file:
 * optimizer: Specifies the type of optimizer and its hyperparameters.
 * layers: Specifies training/evaluation data (and their paths), embeddings, and dense layers. Note that embeddings must precede the dense layers.
 
-**NOTE**: They can be specified in any order.
+**NOTE**: Layers should be specified in the order of bottom (data) to top (loss). Otherwise HugeCTR may report "cannot find bottom" error.
 
 ## Solver ##
 
