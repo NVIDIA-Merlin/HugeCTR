@@ -106,7 +106,7 @@ For example:
 }
 ```
 
-HugeCTR supports SGD optimizer and learning rate scheduling. For additional information, see [SGD optimizer and learning rate scheduling](docs/hugectr_user_guide.md#SGD-optimizer-and-learning-rate-scheduling).
+HugeCTR supports SGD optimizer and learning rate scheduling. For additional information, see [SGD optimizer and learning rate scheduling](./hugectr_user_guide.md#SGD-optimizer-and-learning-rate-scheduling).
 
 ## Layers ##
 The clause `layer` is the network configuration that specifies the following layers:
