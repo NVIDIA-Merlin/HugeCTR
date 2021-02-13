@@ -107,7 +107,7 @@ $ make -j
 The Python interface can be used to quickly and easily train models while the C++ interface can be used to train with one-hot/multi-hot data.
 
 ### Training Models with the Python Interface
-If you are already using a configuration file to train models on HugeCTR, you'll only have to locate the `hugectr.so` file when training models using the Python interface. For additional information, see [Configuration File Setup](docs/configuration_file_setup.md).
+If you are already using a configuration file to train models on HugeCTR, you'll only have to locate the `hugectr.so` file when training models using the Python interface. For additional information, see [Configuration File Setup](./configuration_file_setup.md).
 
 You'll also need to set the `PYTHONPATH` environment variable. You can still configure your model in your configuration file, but the training options such as `batch_size` must be specified through `hugectr.solver_parser_helper()` in Python. For additional information regarding how to use the HugeCTR Python API and comprehend its API signature, see our [Jupyter Notebook Tutorial](../notebooks/python_interface.ipynb).
 
@@ -117,7 +117,7 @@ If training with a single node using the C++ interface, run the following comman
 $ huge_ctr --train <config>.json
 ```
 
-You'll need to create a configuration file in order to train with one-hot and multi-hot data. To load a particular snapshot, modify the `dense_model_file` and `sparse_model_file` files within the solver clause for that snapshot. For additional information, see [Configuration File Setup](docs/configuration_file_setup.md) and [samples](../samples).
+You'll need to create a configuration file in order to train with one-hot and multi-hot data. To load a particular snapshot, modify the `dense_model_file` and `sparse_model_file` files within the solver clause for that snapshot. For additional information, see [Configuration File Setup](./configuration_file_setup.md) and [samples](../samples).
 
 ## Core Features ##
 In addition to single node and full precision training, HugeCTR supports a variety of features including the following:
@@ -167,7 +167,7 @@ For example:
 <br></br>
 
 ### Model Oversubscription ###
-Model oversubscription gives you the ability to load a subset of an embedding table, which exceeds the single GPU's memory limit, into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](docs/configuration_file_setup.md#norm) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
+Model oversubscription gives you the ability to load a subset of an embedding table, which exceeds the single GPU's memory limit, into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](./configuration_file_setup.md#norm) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
 
 ## Tools ##
 We currently support the following tools:
@@ -175,7 +175,7 @@ We currently support the following tools:
 * [Preprocessing Script](#downloading-and-preprocessing-datasets): A set of scripts to convert the original Criteo dataset into HugeCTR using supported dataset formats such as Norm and RAW. It's used in all of our samples to prepare the data and train various recommender models.
 
 ### Generating Synthetic Data and Benchmarks
-The [Norm](docs/configuration_file_setup.md#norm) (with Header) and [Raw](docs/configuration_file_setup.md#raw) (without Header) datasets can be generated with `data_generator`. For categorical features, you can configure the probability distribution to be uniform or power-law.
+The [Norm](./configuration_file_setup.md#norm) (with Header) and [Raw](./configuration_file_setup.md#raw) (without Header) datasets can be generated with `data_generator`. For categorical features, you can configure the probability distribution to be uniform or power-law.
 The default distribution is uniform.
 - Using the `Norm` dataset format, run the following command: <br>
 ```bash
