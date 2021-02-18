@@ -245,8 +245,7 @@ def criteo_model(args):
 
     dense_dim = 0
 
-    samples_dir = r'../../samples/'
-    model_json = os.path.join(samples_dir, r'criteo/criteo.json')
+    model_json = args.json_file
 
     sparse_model_names = args.sparse_models
     dense_model_name = args.dense_model
