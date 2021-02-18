@@ -10,7 +10,7 @@ stages:
 variables:
   IMAGE_TRAIN: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train"
   IMAGE_EMBEDDING: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding"
-  DATASET: /lustre/fsw/hpc-hugectr/criteo_kaggle
+  DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DLRM_DATASET: /raid/datasets/criteo/mlperf/40m.limit_preshuffled
   DLRM_MOUNT: /etc/workspace/dataset
   DATASET_MOUNT: /dataset/criteo_kaggle
@@ -123,7 +123,7 @@ unit_tests:
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/hpc-hugectr/inference/:/hugectr/test/utest/
+        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference:/hugectr/test/utest/
         bash -cx "
         cd ${WORK_DIR}/build/build_single/bin;
         ./layers_test &&
@@ -291,7 +291,7 @@ py_inference:
   script:
     - srun --ntasks=1
         --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/hpc-hugectr/inference/:/hugectr/test/utest/
+        --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference:/hugectr/test/utest/
         bash -cx "
         cd /dataset/criteo_kaggle/dcn;
         cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
