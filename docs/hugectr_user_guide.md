@@ -62,16 +62,16 @@ All NVIDIA Merlin components are available as open-source projects. However, a m
 HugeCTR's docker images are available in the NVIDIA container repository on https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
 
 You can pull and launch the container by running the following command:
-```
-docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v3.0  # Start interaction mode
+```shell
+$ docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v3.0  # Start interaction mode
 ```
 
 ### Building HugeCTR from Scratch
 Before building HugeCTR from scratch, you should prepare the dependencies according to [link](software_stack.md). Then download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
-```
-git clone https://github.com/NVIDIA/HugeCTR.git
-cd HugeCTR
-git submodule update --init --recursive
+```shell
+$ git clone https://github.com/NVIDIA/HugeCTR.git
+$ cd HugeCTR
+$ git submodule update --init --recursive
 ```
 
 You can build HugeCTR from scratch using one or any combination of the following options:
@@ -82,21 +82,21 @@ You can build HugeCTR from scratch using one or any combination of the following
 * **NCCL_A2A**: You can use this option to build HugeCTR with NCCL All2All, which is the default collection communication library used in LocalizedSlotSparseEmbedding. Gossip is also supported in HugeCTR, which provides better performance on servers without NVSwitch support. To build HugeCTR with NCCL All2All, please turn on the NCCL_A2A switch in the cmake. This option is set to OFF by default.
 
 Here are some examples of how you can build HugeCTR using these build options:
-```
+```shell
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release -DSM=70 .. # Target is NVIDIA V100 with all others default
 $ make -j
 ```
 
-```
+```shell
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70,80" -DVAL_MODE=ON .. # Target is NVIDIA V100 / A100 and Validation mode on.
 $ make -j
 ```
 
-```
+```shell
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70,80" -DCMAKE_BUILD_TYPE=Debug -DNCCL_A2A=OFF .. # Target is NVIDIA V100 / A100, Debug mode and Gossip for all2all data transaction.
@@ -179,15 +179,25 @@ The [Norm](./configuration_file_setup.md#norm) (with Header) and [Raw](./configu
 The default distribution is uniform.
 - Using the `Norm` dataset format, run the following command: <br>
 ```bash
-cd build # or where HugeCTR is installed
-bin/data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
-bin/huge_ctr --train your_config.json
+# if you install HugeCTR from NGC Containers
+$ data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
+$ huge_ctr --train your_config.json
+
+# if you build HugeCTR from scratch
+$ cd build # or where HugeCTR is installed
+$ bin/data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
+$ bin/huge_ctr --train your_config.json
 ```
 - Using the `Raw` dataset format, run the following command: <br>
 ```bash
-cd build # or where HugeCTR is installed
-bin/data_generator your_config.json (--long-tail <long|medium|short>)
-bin/huge_ctr --train your_config.json
+# if you install HugeCTR from NGC Containers
+$ data_generator your_config.json (--long-tail <long|medium|short>)
+$ huge_ctr --train your_config.json
+
+# if you build HugeCTR from scratch
+$ cd build # or where HugeCTR is installed
+$ bin/data_generator your_config.json (--long-tail <long|medium|short>)
+$ bin/huge_ctr --train your_config.json
 ```
 
 Set the following parameters:
@@ -199,10 +209,10 @@ Set the following parameters:
 + `--long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. You can choose from the `long`, `medium` and `short` options, which characterize the properties of the tail. The scaling exponent will be 1, 3, and 5 respectively.
 
 Here is an example of generating an one-hot dataset where the vocabulary size is 434428 based on the DCN config file.
-```
-cd build # or where HugeCTR is installed
-mkdir dataset_dir
-bin/data_generator ../samples/dcn/dcn.json ./dataset_dir 434428 1
+```bash
+$ cd build # or where HugeCTR is installed
+$ mkdir dataset_dir
+$ bin/data_generator ../samples/dcn/dcn.json ./dataset_dir 434428 1
 ```
 
 ### Downloading and Preprocessing Datasets
@@ -210,8 +220,8 @@ Download the Criteo 1TB Click Logs dataset using `HugeCTR/tools/preprocess.sh` a
 Then, you will find `file_list.txt`, `file_list_test.txt`, and preprocessed data files inside `criteo_data` directory. For more detailed usage, check out our [samples](../samples).
 
 For example:
-```
-cd tools # assume that the downloaded dataset is here
-bash preprocess.sh 1 criteo_data pandas 1 0
+```bash
+$ cd tools # assume that the downloaded dataset is here
+$ bash preprocess.sh 1 criteo_data pandas 1 0
 ```
 
