@@ -1,4 +1,5 @@
 import hugectr
+from mpi4py import MPI
 solver = hugectr.solver_parser_helper(num_epochs = 0,
                                     max_iter = 10000,
                                     max_eval_batches = 100,
