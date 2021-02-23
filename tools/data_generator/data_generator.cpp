@@ -25,7 +25,9 @@
 #include "nlohmann/json.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include <unordered_set>
-
+#ifdef ENABLE_MPI
+#include <mpi.h>
+#endif
 using namespace HugeCTR;
 
 static std::string usage_str_raw = "usage: ./data_generator your_config.json [option:--long-tail <long|medium|short>]";
@@ -107,7 +109,11 @@ int main(int argc, char* argv[]) {
     std::cout << "To generate norm format: " << usage_str << std::endl;
     exit(-1);
   }
-
+  
+#ifdef ENABLE_MPI  
+  int provided;
+  CK_MPI_THROW_(MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &provided));
+#endif
   // Parsing the configure file:
   std::string config_file = argv[1];
   std::ifstream file(config_file);
