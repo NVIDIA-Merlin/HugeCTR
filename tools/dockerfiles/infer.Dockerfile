@@ -7,11 +7,13 @@ RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         git gdb make wget \
         python3-pip python3-setuptools python3-wheel \
-        zlib1g-dev lsb-release rapidjson-dev ca-certificates libboost-all-dev software-properties-common && \
+        zlib1g-dev lsb-release rapidjson-dev ca-certificates libboost-all-dev software-properties-common \
+        openssl=1.1.1f-1ubuntu2.2 libssl1.1=1.1.1f-1ubuntu2.2 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --upgrade pip && \
-    pip3 install pandas sklearn
+    pip3 install pandas sklearn && \
+    pip3 cache purge
 
 # CMake-3.18.4
 RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v3.18/cmake-3.18.4-Linux-x86_64.sh && \
@@ -41,11 +43,6 @@ RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.17
     cd /var/tmp/rmm && \
     cd build && make install && \
     rm -rf /var/tmp/rmm
-
-RUN apt-get update -y && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        openssl=1.1.1f-1ubuntu2.1 libssl1.1=1.1.1f-1ubuntu2.1 && \
-    rm -rf /var/lib/apt/lists/*
 
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \
