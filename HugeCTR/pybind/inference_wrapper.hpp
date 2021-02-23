@@ -82,7 +82,10 @@ public:
   }
 
   std::vector<float>& predict32(std::vector<float>& dense, std::vector<unsigned int>& embeddingcolumns, std::vector<int>& row_ptrs) {
-    size_t num_samples = dense.size() / inference_parser_.dense_dim;
+    if (inference_parser_.slot_num == 0) {
+      CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
+    }
+    size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
     if (num_samples > inference_parser_.max_batchsize ||
         num_samples * inference_parser_.dense_dim != dense.size() ||
         num_samples * inference_parser_.max_feature_num_per_sample < embeddingcolumns.size() ||
@@ -104,7 +107,10 @@ public:
   };
 
   std::vector<float>& predict64(std::vector<float>& dense, std::vector<long long>& embeddingcolumns, std::vector<int>& row_ptrs, bool i64_input_key) {
-    size_t num_samples = dense.size() / inference_parser_.dense_dim;
+    if (inference_parser_.slot_num == 0) {
+      CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
+    }
+    size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
     if (num_samples > inference_parser_.max_batchsize ||
         num_samples * inference_parser_.dense_dim != dense.size() ||
         num_samples * inference_parser_.max_feature_num_per_sample < embeddingcolumns.size() ||
