@@ -2,7 +2,7 @@
 
 ## What’s New in Version 3.0
 
-+ **Inference Support**: To streamline the recommender system workflow, we’ve implemented a custom HugeCTR backend on the [NVIDIA Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server). The HugeCTR backend leverages the embedding cache and parameter server to efficiently manage embeddings of different sizes and models in a hierarchical manner. For additional information, see [our inference repository](https://github.com/triton-inference-server/backend#triton-inference-server-backend).
++ **Inference Support**: To streamline the recommender system workflow, we’ve implemented a custom HugeCTR backend on the [NVIDIA Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server). The HugeCTR backend leverages the embedding cache and parameter server to efficiently manage embeddings of different sizes and models in a hierarchical manner. For additional information, see [our inference repository](https://github.com/triton-inference-server/hugectr_backend).
 
 + **New High-Level API**: You can now also construct and train your models using the Python interface with our new high-level API. See [our preview example code](samples/preview) to grasp how it works.
 
@@ -21,8 +21,6 @@
 + **Optimized Initialization Time**: HugeCTR’s initialization time, which includes the GEMM algorithm search and parameter initialization, was significantly reduced.
 
 + **Sample Enhancements**: Our samples now rely upon the [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) instead of the Kaggle Display Advertising Challenge dataset. Our preprocessing scripts (Perl, Pandas, and NVTabular) have also been unified and simplified.
-
-+ **Layer Book**: We’ve added a detailed document to describe the layers that are available in HugeCTR. We’ve outlined what each layer does, as well as its input/output shapes, layer parameters, and limitations.
 
 + **Configurable DataReader Worker**: You can now specify the number of data reader workers, which run in parallel, with the `num_workers` parameter. Its default value is 12. However, if you are using the Parquet data reader, you can't configure the `num_workers` parameter since it always corresponds to the number of active GPUs.
 
