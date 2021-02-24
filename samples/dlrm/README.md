@@ -17,7 +17,7 @@ $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -
 ```
 
 #### Build on Your Own ####
-Please refer to [Use Docker Container](../docs/mainpage.md#use-docker-container) to build on your own and set up the docker container. Please make sure that HugeCTR is built and installed to the system path `/usr/local/hugectr` within the docker container. Please launch the container in interactive mode in the same manner as above.
+Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) to build on your own and set up the docker container. Please make sure that HugeCTR is built and installed to the system path `/usr/local/hugectr` within the docker container. Please launch the container in interactive mode in the same manner as above.
 
 ## Dataset and Preprocess for Terabyte Click Logs ##
 [(Terabyte Click Logs)](https://labs.criteo.com/2013/12/download-terabyte-click-logs/) provided by CriteoLabs is used in this sample. The up limit of row count of each embedding table is limited to 40 million.

@@ -17,7 +17,7 @@ $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -
 ```
 
 #### Build on Your Own ####
-Please refer to [Use Docker Container](../docs/mainpage.md#use-docker-container) to build on your own and set up the docker container. Please make sure that HugeCTR and all the shared libraries have been built and installed to the system path `/usr/local/hugectr` within the docker container. Then set the `PYTHONPATH` environment variable inside the docker container with the following command:
+Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) to build on your own and set up the docker container. Please make sure that HugeCTR and all the shared libraries have been built and installed to the system path `/usr/local/hugectr` within the docker container. Then set the `PYTHONPATH` environment variable inside the docker container with the following command:
 
 ```shell
 $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
