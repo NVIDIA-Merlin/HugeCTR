@@ -41,7 +41,7 @@ Embedding initialization is not required before training since the input trainin
 * [Tools](#tools)
 
 ## Installing and Building HugeCTR ##
-You can either install HugeCTR easily using the HugeCTR Docker image in NGC, or build HugeCTR from scratch using various build options if you're an advanced user.
+You can either install HugeCTR easily using the Merlin Docker image in NGC, or build HugeCTR from scratch using various build options if you're an advanced user.
 
 ### Compute Capability ###
 We support the following compute capabilities:
@@ -59,12 +59,15 @@ Please find the detailed software stack (dependencies) of HugeCTR under this [li
 ### Installing HugeCTR from NGC Containers
 All NVIDIA Merlin components are available as open-source projects. However, a more convenient way to make use of these components is by using Merlin NGC containers. Containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR from NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system software configuration.
 
-HugeCTR's docker images are available in the NVIDIA container repository on https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
+HugeCTR is included in the Merlin docker image, that is available in the NVIDIA container repository on https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
 
 You can pull and launch the container by running the following command:
 ```shell
 $ docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v3.0  # Start interaction mode
 ```
+
+### Building Your Own Container ###
+Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles) to build the HugeCTR docker image on your own.
 
 ### Building HugeCTR from Scratch
 Before building HugeCTR from scratch, you should prepare the dependencies according to [link](software_stack.md). Then download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
