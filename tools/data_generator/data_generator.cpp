@@ -30,10 +30,9 @@
 #endif
 using namespace HugeCTR;
 
-static std::string usage_str_raw = "usage: ./data_generator your_config.json [option:--long-tail <long|medium|short>]";
+static std::string usage_str_raw = "usage: ./data_generator --config-file your_config.json --distribution <powerlaw | unified> [option: --nnz-array <nnz array in csv: one hot>] [option: --alpha xxx or --longtail <long | medium | short>]";
 static std::string usage_str =
-    "usage: ./data_generator your_config.json data_folder vocabulary_size max_nnz [option:--files <number of files>] "
-    "[option:--samples <samples per file>] [option:--long-tail <long|medium|short>]";
+    "usage: ./data_generator --config-file your_config.json --voc-size-array <vocabulary size array in csv> --distribution <powerlaw | unified> [option: --nnz-array <nnz array in csv: one hot>] [option: --alpha xxx or --longtail <long | medium | short>] [option:--data-folder <folder_path: ./>] [option:--files <number of files: 128>] [option:--samples <samples per file: 40960>]";
 static int NUM_FILES = 128;
 static int NUM_SAMPLES_PER_FILE = 40960;
 static std::unordered_set<std::string> TAIL_TYPE{"long", "medium", "short"};
@@ -104,7 +103,7 @@ void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 2 && argc != 4 && argc != 5 && argc != 7 && argc != 9 && argc != 11) {
+  if (ArgParser::has_arg("help", argc, argv)){
     std::cout << "To generate raw format: " << usage_str_raw << std::endl;
     std::cout << "To generate norm format: " << usage_str << std::endl;
     exit(-1);
@@ -115,7 +114,7 @@ int main(int argc, char* argv[]) {
   CK_MPI_THROW_(MPI_Init_thread(&argc, &argv, MPI_THREAD_SINGLE, &provided));
 #endif
   // Parsing the configure file:
-  std::string config_file = argv[1];
+  auto config_file = ArgParser::get_arg<std::string>("config-file", argc, argv);
   std::ifstream file(config_file);
   if (!file.is_open()) {
     std::cerr << "file.is_open() failed: " + config_file << std::endl;
@@ -136,23 +135,78 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  auto get_dist = [&](){
+    auto distri = ArgParser::get_arg<std::string>("distribution", argc, argv, "powerlow");
+    //todo: not exactly, 'p/u' cannot represent "powerlow/unified". 
+    switch(distri[0]){
+    case 'p':
+      use_long_tail = true;
+      if(!ArgParser::has_arg("alpha", argc, argv)){
+	TAIL = ArgParser::get_arg<std::string>("long-tail", argc, argv, "medium");
+	if (use_long_tail && TAIL_TYPE.find(TAIL) != std::end(TAIL_TYPE)) {
+	  if (TAIL == "long")
+	    alpha = 1.0;
+	  else if (TAIL == "medium")
+	    alpha = 3.0;
+	  else
+	    alpha = 5.0;
+	}
+      }
+      else{
+	alpha = ArgParser::get_arg<float>("alpha", argc, argv, 1.3);
+      }
+      break;
+    case 'u':
+      use_long_tail = false;
+      break;
+    default:
+      CK_THROW_(Error_t::WrongInput, "No such distribution: " + distri);
+    }
+  };
+
+  std::vector<int> nnz_array =  ArgParser::get_arg<std::vector<int>>("nnz-array", argc, argv, std::vector<int>());
+
+
+  /*parse the solver*/
+  bool i64_input_key(false);
+  auto j_solver = get_json(config, "solver");
+  if (has_key_(j_solver, "input_key_type")) {
+    auto str = get_value_from_json<std::string>(j_solver, "input_key_type");
+    if (0 == str.compare("I64")) {
+      i64_input_key = true;
+      MESSAGE_("input_key_type is I64.");
+    } else if (0 == str.compare("I32")) {
+      i64_input_key = false;
+      MESSAGE_("input_key_type is I32.");
+    } else {
+      CK_THROW_(Error_t::WrongInput, "input_key_type must be {I64 or I32}");
+    }
+  } else {
+    i64_input_key = false;
+    MESSAGE_("Default input_key_type is I32.");
+  }
+  
   switch (format) {
     case DataReaderType_t::Norm: {
-      std::string data_folder = argv[2];
-      size_t vocabulary_size = std::stoul(argv[3]);
-      int max_nnz = atoi(argv[4]);
+      std::string data_folder = ArgParser::get_arg<std::string>("data-folder", argc, argv, std::string("./"));
+      //to do: add default value support
+      std::vector<size_t> voc_size_array = ArgParser::get_arg<std::vector<size_t>>("voc-size-array", argc, argv);
 
-      HugeCTR::ArgParser::parse_data_generator_args(argc, argv, NUM_FILES, NUM_SAMPLES_PER_FILE, TAIL, use_long_tail);
-      if (use_long_tail && TAIL_TYPE.find(TAIL) != std::end(TAIL_TYPE)) {
-        if (TAIL == "long")
-          alpha = 1.0;
-        else if (TAIL == "medium")
-          alpha = 3.0;
-        else
-          alpha = 5.0;
+      if(nnz_array.empty()){
+	for(size_t i=0; i<voc_size_array.size(); i++){
+	  nnz_array.push_back(1);
+	}
       }
-      std::cout << "Configure File: " << config_file << ", Data Folder: " << data_folder
-                << ", Vocabulary Size: " << vocabulary_size << ", Max NNZ:" << max_nnz
+
+      NUM_FILES = ArgParser::get_arg<int>("files", argc, argv, 128);
+      NUM_SAMPLES_PER_FILE = ArgParser::get_arg<int>("samples", argc, argv, 40960);
+
+
+      //      HugeCTR::ArgParser::parse_data_generator_args(argc, argv, NUM_FILES, NUM_SAMPLES_PER_FILE, TAIL, use_long_tail);
+
+      get_dist();
+      
+      std::cout << "Configure File: " << config_file << ", Data Folder: " << data_folder << ", voc_size_array: " << vec_to_string(voc_size_array) << ", nnz array: " << vec_to_string(nnz_array)
                 << ", #files: " << NUM_FILES << ", #samples per file: " << NUM_SAMPLES_PER_FILE
                 << ", Use power law distribution: " << use_long_tail << ", alpha of power law: " << alpha << std::endl;
 
@@ -170,82 +224,66 @@ int main(int argc, char* argv[]) {
 
       int num_slot = 0;
       for (auto& param : data_reader_sparse_param_array) {
-        if (param.slot_num * max_nnz > param.max_feature_num) {
-          std::cerr
-              << "Error: max_nnz * slot_num cannot be larger than max_feature_num in config file!"
-              << std::endl;
-          exit(-1);
-        }
         num_slot += param.slot_num;
       }
 
       check_make_dir(data_folder);
 
-      /*parse the solver*/
-      bool i64_input_key(false);
-      auto j_solver = get_json(config, "solver");
-      if (has_key_(j_solver, "input_key_type")) {
-        auto str = get_value_from_json<std::string>(j_solver, "input_key_type");
-        if (0 == str.compare("I64")) {
-          i64_input_key = true;
-          MESSAGE_("input_key_type is I64.");
-        } else if (0 == str.compare("I32")) {
-          i64_input_key = false;
-          MESSAGE_("input_key_type is I32.");
-        } else {
-          CK_THROW_(Error_t::WrongInput, "input_key_type must be {I64 or I32}");
-        }
-      } else {
-        i64_input_key = false;
-        MESSAGE_("Default input_key_type is I32.");
-      }
-
       if (check_type == Check_t::Sum) {
         if (i64_input_key) {  // I64 = long long
-          data_generation_for_test<long long, Check_t::Sum>(
+          data_generation_for_test2<long long, Check_t::Sum>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
-          data_generation_for_test<long long, Check_t::Sum>(
+              voc_size_array, label_dim, dense_dim, nnz_array, use_long_tail, alpha);
+          data_generation_for_test2<long long, Check_t::Sum>(
               eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
+              voc_size_array, label_dim, dense_dim, nnz_array, use_long_tail, alpha);
         } else {  // I32 = unsigned int
-          data_generation_for_test<unsigned int, Check_t::Sum>(
+          data_generation_for_test2<unsigned int, Check_t::Sum>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
-          data_generation_for_test<unsigned int, Check_t::Sum>(
+              voc_size_array, label_dim, dense_dim, nnz_array, use_long_tail, alpha);
+          data_generation_for_test2<unsigned int, Check_t::Sum>(
               eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
+              voc_size_array, label_dim, dense_dim, nnz_array, use_long_tail, alpha);
         }
       } else {
         if (i64_input_key) {  // I64 = long long
-          data_generation_for_test<long long, Check_t::None>(
+          data_generation_for_test2<long long, Check_t::None>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
-          data_generation_for_test<long long, Check_t::None>(
+              voc_size_array, label_dim, dense_dim, nnz_array, use_long_tail, alpha);
+          data_generation_for_test2<long long, Check_t::None>(
               eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
+              voc_size_array, label_dim, dense_dim, nnz_array, use_long_tail, alpha);
         } else {  // I32 = unsigned int
-          data_generation_for_test<unsigned int, Check_t::None>(
+          data_generation_for_test2<unsigned int, Check_t::None>(
               source_data, data_folder + "/train/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
-          data_generation_for_test<unsigned int, Check_t::None>(
+              voc_size_array, label_dim, dense_dim, nnz_array, use_long_tail, alpha);
+          data_generation_for_test2<unsigned int, Check_t::None>(
               eval_source, data_folder + "/val/gen_", NUM_FILES, NUM_SAMPLES_PER_FILE, num_slot,
-              vocabulary_size, label_dim, dense_dim, max_nnz, use_long_tail, alpha);
+              voc_size_array, label_dim, dense_dim, nnz_array, use_long_tail, alpha);
         }
       }
       break;
     }
     case DataReaderType_t::Raw: {
       // NUM_FILES and NUM_SAMPLES_PER_FILE will not be used for generating data of Type Raw
-      HugeCTR::ArgParser::parse_data_generator_args(argc, argv, NUM_FILES, NUM_SAMPLES_PER_FILE, TAIL, use_long_tail);
-      if (use_long_tail && TAIL_TYPE.find(TAIL) != std::end(TAIL_TYPE)) {
-        if (TAIL == "long")
-          alpha = 1.0;
-        else if (TAIL == "medium")
-          alpha = 3.0;
-        else
-          alpha = 5.0;
-      }
+      //      HugeCTR::ArgParser::parse_data_generator_args(argc, argv, NUM_FILES, NUM_SAMPLES_PER_FILE, TAIL, use_long_tail);
+
+      get_dist();
+
+      // use_long_tail = ArgParser::has_arg("long-tail", argc, argv);
+      // if(use_long_tail){
+      // 	TAIL = ArgParser::get_arg("long-tail", argc, argv, "medium");
+      // }
+
+      // if (use_long_tail && TAIL_TYPE.find(TAIL) != std::end(TAIL_TYPE)) {
+      //   if (TAIL == "long")
+      //     alpha = 1.0;
+      //   else if (TAIL == "medium")
+      //     alpha = 3.0;
+      //   else
+      //     alpha = 5.0;
+      // }
+
       const auto num_samples = get_value_from_json<long long>(j_layers_array[0], "num_samples");
       const auto eval_num_samples =
           get_value_from_json<long long>(j_layers_array[0], "eval_num_samples");
@@ -256,7 +294,7 @@ int main(int argc, char* argv[]) {
                 << ", Use power law distribution: " << use_long_tail 
                 << ", alpha of power law: " << alpha << std::endl;
 
-      std::vector<long long> slot_size_array;
+      std::vector<size_t> slot_size_array;
       if (has_key_(j_layers_array[0], "slot_size_array")) {
         auto temp_array = get_json(j_layers_array[0], "slot_size_array");
         if (!temp_array.is_array()) {
@@ -264,13 +302,24 @@ int main(int argc, char* argv[]) {
         }
         long long slot_num = 0;
         for (auto j_slot_size : temp_array) {
-          long long slot_size = j_slot_size.get<long long>();
+          size_t slot_size = j_slot_size.get<size_t>();
           slot_size_array.push_back(slot_size);
           slot_num += slot_size;
         }
         MESSAGE_("vocabulary size: " + std::to_string(slot_num));
+
       } else {
         CK_THROW_(Error_t::WrongInput, "No such key in json file: slot_size_array.");
+      }
+
+      if(nnz_array.empty()){
+	for(size_t i=0; i<slot_size_array.size(); i++){
+	  nnz_array.push_back(1);
+	}
+      }
+
+      if (slot_size_array.size() != nnz_array.size()){
+	CK_THROW_(Error_t::WrongInput, "The length of slot size array  != nnz array in command line option");
       }
 
       const auto j_label = get_json(j_layers_array[0], "label");
@@ -307,14 +356,31 @@ int main(int argc, char* argv[]) {
       }
       check_make_dir(eval_dir);
 
-      // train data
-      data_generation_for_raw(source_data, num_samples, label_dim, dense_dim,
-                              slot_size_array.size(), float_label_dense, slot_size_array, 
-                              use_long_tail, alpha);
-      // eval data
-      data_generation_for_raw(eval_source, eval_num_samples, label_dim, dense_dim,
-                              slot_size_array.size(), float_label_dense, slot_size_array,
-                              use_long_tail, alpha);
+
+      if (i64_input_key) {  // I64 = long long
+	// train data
+	data_generation_for_raw<long long>(source_data, num_samples, label_dim, dense_dim,
+					   float_label_dense, slot_size_array, nnz_array,
+					   use_long_tail, alpha);
+	// eval data
+	data_generation_for_raw<long long>(eval_source, eval_num_samples, label_dim, dense_dim,
+					   float_label_dense, slot_size_array, nnz_array,
+					   use_long_tail, alpha);
+      }
+      else {
+	// train data
+	data_generation_for_raw<unsigned int>(source_data, num_samples, label_dim, dense_dim,
+					      float_label_dense, slot_size_array, nnz_array,
+					      use_long_tail, alpha);
+	// eval data
+	data_generation_for_raw<unsigned int>(eval_source, eval_num_samples, label_dim, dense_dim,
+					      float_label_dense, slot_size_array, nnz_array,
+					      use_long_tail, alpha);
+      }
+
+
+
+
       break;
     }
     default: {
