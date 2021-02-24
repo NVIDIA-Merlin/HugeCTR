@@ -32,51 +32,160 @@
 #include <vector>
 #include <unistd.h>
 #include <getopt.h>
+#include <sstream>
+#include <algorithm>
 
 namespace HugeCTR {
 
-const static char* data_generator_options = "";
-const static struct option data_generator_long_options[] = {
-      {"files", required_argument, NULL, 'f'},
-      {"samples",  required_argument, NULL, 's'},
-      {"long-tail", required_argument, NULL, 'l'},
-      {NULL, 0, NULL, 0}
-};
-class ArgParser {
-public:
-  static void parse_data_generator_args(int argc, char* argv[], int& files, int& samples, std::string& tail, bool& use_long_tail) {
-    int opt;
-    int option_index;
-    while ( (opt = getopt_long(argc,
-                               argv,
-                               data_generator_options,
-                               data_generator_long_options,
-                               &option_index)) != EOF) {
-      if (optarg == NULL) {
-        std::string opt_temp = argv[optind-1];
-        CK_THROW_(Error_t::WrongInput, "Unrecognized option for data generator: " + opt_temp);
-      }
-      switch (opt)
-      {
-      case 'f': {
-        files = std::stoi(optarg);
-        break;
-      }
-      case 's': {
-        samples = std::stoi(optarg);
-        break;
-      }
-      case 'l': {
-        tail = optarg;
-        use_long_tail = true;
-        break;
-      }
-      default:
-        assert(!"Error: no such option && should never get here!!");
-      }
+// const static char* data_generator_options = "";
+// const static struct option data_generator_long_options[] = {
+//       {"files", required_argument, NULL, 'f'},
+//       {"samples",  required_argument, NULL, 's'},
+//       {"long-tail", required_argument, NULL, 'l'},
+//       {NULL, 0, NULL, 0}
+// };
+// class ArgParser {
+// public:
+//   static void parse_data_generator_args(int argc, char* argv[], int& files, int& samples, std::string& tail, bool& use_long_tail) {
+//     int opt;
+//     int option_index;
+//     while ( (opt = getopt_long(argc,
+//                                argv,
+//                                data_generator_options,
+//                                data_generator_long_options,
+//                                &option_index)) != EOF) {
+//       if (optarg == NULL) {
+//         std::string opt_temp = argv[optind-1];
+//         CK_THROW_(Error_t::WrongInput, "Unrecognized option for data generator: " + opt_temp);
+//       }
+//       switch (opt)
+//       {
+//       case 'f': {
+//         files = std::stoi(optarg);
+//         break;
+//       }
+//       case 's': {
+//         samples = std::stoi(optarg);
+//         break;
+//       }
+//       case 'l': {
+//         tail = optarg;
+//         use_long_tail = true;
+//         break;
+//       }
+//       default:
+//         assert(!"Error: no such option && should never get here!!");
+//       }
+//     }
+//   }
+// };
+
+template <typename T> inline
+void ArgConvertor(std::string arg, T& ret);
+
+template <> inline
+void ArgConvertor(std::string arg, int& ret){
+  ret = std::stoi(arg);
+}
+
+template <> inline
+void ArgConvertor(std::string arg, size_t& ret){
+  ret = std::stoul(arg);
+}
+
+template <> inline
+void ArgConvertor(std::string arg, float& ret){
+  ret = std::stof(arg);
+}
+
+
+template<> inline
+void ArgConvertor(std::string arg, std::vector<int>& ret){
+  ret.clear();
+  std::stringstream ss(arg);
+  for (int i; ss >> i;) {
+    ret.push_back(i);    
+    if (ss.peek() == ',')
+      ss.ignore();
+  }
+}
+
+template<> inline
+void ArgConvertor(std::string arg, std::vector<size_t>& ret){
+  ret.clear();
+  std::stringstream ss(arg);
+  for (size_t i; ss >> i;) {
+    ret.push_back(i);    
+    if (ss.peek() == ',')
+      ss.ignore();
+  }
+}
+
+
+template<> inline
+void ArgConvertor(std::string arg, std::string& ret){
+  ret = arg;
+}
+
+struct ArgParser {
+
+private:
+  static std::string get_arg_(const std::string target, int argc, char** argv){
+
+    std::vector <std::string> tokens;
+    for (int i=1; i < argc; ++i)
+      tokens.push_back(std::string(argv[i]));
+    std::vector<std::string>::const_iterator itr;
+    const std::string option = "--" + target;
+    itr =  std::find(tokens.begin(), tokens.end(), option);
+    if (itr != tokens.end() && ++itr != tokens.end()){
+      return *itr;
     }
+    static const std::string empty_string("");
+    return empty_string;
+  }
+
+public:
+  template <typename T>
+  static T get_arg(const std::string target, int argc, char** argv){
+    auto arg = get_arg_(target, argc, argv);
+    if(arg.empty()){
+      CK_THROW_(Error_t::WrongInput, "Cannot find target string: " + target);
+    }
+    T ret;
+    ArgConvertor<T>(arg, ret);
+    return ret;
+  }
+  template <typename T>
+  static T get_arg(const std::string target, int argc, char** argv, T default_val){
+    auto arg = get_arg_(target, argc, argv);
+    if(arg.empty()){
+      MESSAGE_("Cannot find target string: " + target + " use default value:");
+      return default_val;
+    }
+    T ret;
+    ArgConvertor<T>(arg, ret);
+    return ret;
+  }
+
+  static bool has_arg(const std::string target, int argc, char** argv){
+    std::vector <std::string> tokens;
+    for (int i=1; i < argc; ++i)
+      tokens.push_back(std::string(argv[i]));
+    const std::string option = "--" + target;
+    return std::find(tokens.begin(), tokens.end(), option)
+      != tokens.end();
   }
 };
+
+template <typename T>
+std::string vec_to_string(std::vector<T> vec){
+  std::string ret;
+  for(auto& elem: vec){
+    ret = ret + std::to_string(elem) + ", ";
+  }
+  return ret.substr(0, ret.size()-2);
+}
 
 
 /**
@@ -259,4 +368,7 @@ struct CudnnDataType<__half> {
   static cudnnDataType_t getType() { return CUDNN_DATA_FLOAT; }
 };
 
+
+
+  
 }  // namespace HugeCTR
