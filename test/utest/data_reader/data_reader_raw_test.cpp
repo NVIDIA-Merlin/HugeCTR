@@ -23,7 +23,7 @@
 
 using namespace HugeCTR;
 
-const std::vector<long long> slot_size = {
+const std::vector<size_t> slot_size = {
     39884406, 39043,    17289,    7420,     20263,  3,     7120, 1543, 63,
     38532951, 2953546,  403346,   10,       2208,   11938, 155,  4,    976,
     14,       39979771, 25641295, 39664984, 585935, 12972, 108,  36};
@@ -46,8 +46,8 @@ void data_reader_worker_raw_test_impl(bool float_label_dense) {
   test::mpi_init();
 
   // data generation
-  data_generation_for_raw(file_name, num_samples, label_dim, dense_dim, slot_num,
-                          float_label_dense);
+  data_generation_for_raw(file_name, num_samples, label_dim, dense_dim,
+                          float_label_dense, slot_size);
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 2048;
