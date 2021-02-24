@@ -131,6 +131,8 @@ include_directories(
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/test
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
+  $ENV{CONDA_PREFIX}/include
+  $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx
   ${CUDA_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/third_party/cutlass
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp
@@ -146,9 +148,7 @@ include_directories(
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
-  ${UCX_INC_PATHS}
-  $ENV{CONDA_PREFIX}/include
-  $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx)
+  ${UCX_INC_PATHS})
 
 if(ENABLE_MULTINODES)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_MPI")
