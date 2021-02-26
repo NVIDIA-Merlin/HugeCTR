@@ -5,9 +5,9 @@ The configuration file should be formatted using the JSON format. Here are some 
 * [dlrm_fp16_64k.json](../samples/dlrm/dlrm_fp16_64k.json)
 
 There are three main JSON clauses in a configuration file:
-* solver: Specifies various details such as active GPU list, batchsize, and model_file.
-* optimizer: Specifies the type of optimizer and its hyperparameters.
-* layers: Specifies training/evaluation data (and their paths), embeddings, and dense layers. Note that embeddings must precede the dense layers.
+* [Solver](#solver): Specifies various details such as active GPU list, batchsize, and model_file.
+* [Optimizer](#optimizer): Specifies the type of optimizer and its hyperparameters.
+* [Layers](#layers): Specifies training/evaluation data (and their paths), embeddings, and dense layers. Note that embeddings must precede the dense layers.
 
 **NOTE**: Layers should be specified in the order of bottom (data) to top (loss). Otherwise HugeCTR may report "cannot find bottom" error.
 
@@ -21,7 +21,7 @@ The solver clause contains the configuration for training resource and task item
 * `gpu`: GPU indices used in the training process, which has two levels. For example: [[0,1],[1,2]] indicates that two nodes are used in the first node. GPUs 0 and 1 are used while GPUs 1 and 2 are used for the second node. It is also possible to specify non-continuous GPU indices such as [0, 2, 4, 7].
 * `batchsize`: Minibatch size used in training.
 * `batchsize_eval`: Minibatch size used in evaluation.
-* `snapshot`: Intervals to save a checkpoint in the file with the prefix of `snapshot_prefix`.
+* `snapshot`: Intervals to store a checkpoint into the sparse/dense model files prefixed with `snapshot_prefix`. These binary model files contain the trained model's weight values so that we can restart to train the model by loading them. It assumes the weights are stored in the same order as the layers in the configuration file that are currently in use. For additional information, see our tutorial regarding [how to dump a model to TensorFlow](../tutorial/dump_to_tf/readMe.md).
 * `max_iter`: Total number of training iterations.
 * `num_epochs`: Number of training epochs. This option cannot be used together with `max_iter`.
 * `eval_interval`: Evaluation interval in the unit of training iteration.
@@ -29,20 +29,17 @@ The solver clause contains the configuration for training resource and task item
 * `max_eval_batches`: Maximum number of batches used in evaluation. It is recommended that the number is equal to or bigger than the actual number of bathces in the evaluation dataset.
 If `max_iter` is used, the evaluation happens for `max_eval_batches` by repeating the evaluation dataset infinitely.
 On the other hand, with `num_epochs`, HugeCTR stops the evaluation if all the evaluation data is consumed.
-* `max_eval_samples`: You can instead specify the number of samples used in evaluation. Then, HugeCTR will iternally calculate the corresponding `max_eval_batches`.
+* `max_eval_samples`: You can instead specify the number of samples used in evaluation, and then HugeCTR will iternally calculate the corresponding `max_eval_batches`.
 * `dense model_file`: Trained dense model file to be loaded. If you train a model from scratch, it is not necessary.
 * `sparse_model_file`: A trained embeding table (or sparse model) or their list to be loaded. If you train a model from scratch, it is not necessary.
-* `dense_opt_states_file`: Dense otimizer states file to be loaded. If your optimizer doesn't have any dynamic states to be saved, an empty file is created. Make sure that you use the same type of optimizer used to generate this file. If you train a model from scratch or you don't want to use it, it is unnecessary.
-* `sparse_opt_states_file`: Sparse otimizer states file(s) to be loaded. The behavior is as the same as `dense_opt_states_file`.
-
-
+* `dense_opt_states_file`: The Dense optimizer specifies the files to be loaded. If your optimizer doesn't have any dynamic states to be saved, an empty file is created. Make sure that you use the same type of optimizer used to generate this file. If you train a model from scratch or you don't want to use it, it is unnecessary.
+* `sparse_opt_states_file`: The Sparse optimizer specifies the files to be loaded. It behaves in the same manner as the `dense_opt_states_file`.
 * `mixed_precision`: Enables mixed precision training with the scaler specified here. Only 128,256, 512, and 1024 scalers are supported.
-* `enable_tf32_compute`: If you want to accelerate FP32 matrix multiplications within the FullyConnectedLayer and InteractionLayer, set this value to `true`. Its default value is `false`.
+* `enable_tf32_compute`: If you want to accelerate FP32 matrix multiplications within the FullyConnected Layer and Interaction Layer, set this value to `true`. Its default value is `false`.
 * `eval_metrics`: List of enabled evaluation metrics. You can use either `AUC` or `AverageLoss`, or both of them. For AUC, you can set its threshold, such as ["AUC:0.8025"], so that the training terminates when it reaches that threshold. By default, the threshold is unset.
 * `input_key_type`: If your dataset format is `Norm`, you can choose the data type of each input key. The default is I32. For a `Parquet` dataset format to be generated by NVTabular, only I64 is allowed while I32 must be specified in order to use the `Raw` dataset format.
-* 
 
-For example:
+Example:
 ```json
  "solver": {
     "lr_policy": "fixed",
@@ -69,65 +66,112 @@ For example:
 ```
 
 ## Optimizer ##
-Optimizers are used in both dense and sparse models. We support the following optimizers: Adam, MomentumSGD, Nesterov, and SGD. All four optimizers support FP16. Note that different optimizers can be supported in the dense and embedding parts of the model. To enable specific optimizers in embeddings, please just add the optimizer clause to the embedding layer. Otherwise, the embedding layer will use the same optimizer as the dense part.
+Optimizers are used in both dense and sparse models. We support the following optimizers: Adam, MomentumSGD, Nesterov, and SGD. All four optimizers support FP16. Note that different optimizers can be supported in the dense and embedding parts of the model. To enable specific optimizers in embeddings, add the optimizer clause to the embedding layer. Otherwise, the embedding layer will use the same optimizer as the dense part.
 
 The embedding update supports three algorithms specified with `update_type`:
 * `Local` (default value): The optimizer will only update the hot columns of an embedding in each iteration.
 * `Global`: The optimizer will update all the columns. The embedding update type takes longer than the other embedding update types.
 * `LazyGlobal`: The optimizer will only update the hot columns of an embedding in each iteration while using different semantics from the *local* and *global* updates.
 
-For example:
+Example:
 ```json
-"optimizer": {
-  "type": "Adam",
-  "update_type": "Global",
-  "adam_hparam": {
-    "learning_rate": 0.001,
-    "beta1": 0.9,
-    "beta2": 0.999,
-    "epsilon": 0.0000001
+  "optimizer": {
+    "type": "Adam",
+    "update_type": "Global",
+    "adam_hparam": {
+      "learning_rate": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "epsilon": 0.0000001
+    }
   }
-}
-"optimizer": {
-  "type": "MomentumSGD",
-  "update_type": "Local",
-  "momentum_sgd_hparam": {
-    "learning_rate": 0.01,
-    "momentum_factor": 0.0
+  "optimizer": {
+    "type": "MomentumSGD",
+    "update_type": "Local",
+    "momentum_sgd_hparam": {
+      "learning_rate": 0.01,
+      "momentum_factor": 0.0
+    }
   }
-}
-"optimizer": {
-  "type": "Nesterov",
-  "update_type": "Global",
-  "nesterov_hparam": {
-    "learning_rate": 0.01,
-    "momentum_factor": 0.0
+  "optimizer": {
+    "type": "Nesterov",
+    "update_type": "Global",
+    "nesterov_hparam": {
+      "learning_rate": 0.01,
+      "momentum_factor": 0.0
+    }
   }
-}
 ```
 
-HugeCTR supports SGD optimizer and learning rate scheduling. For additional information, see [SGD optimizer and learning rate scheduling](./hugectr_user_guide.md#SGD-optimizer-and-learning-rate-scheduling).
+HugeCTR supports SGD optimizer and learning rate scheduling. For additional information, see [SGD optimizer and learning rate scheduling](./hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling).
 
 ## Layers ##
 The clause `layer` is the network configuration that specifies the following layers:
-* [data](#data)
-* [embedding](#embedding)
-* [dense](#dense)
+* [Data](#data-layers)
+* [Embedding](#embedding-layers)
+* [Dense](#dense-layers)
 
 ### Data Layers ###
 `Data` is considered the first layer in a configuration file. The sparse (embedding) and dense layers can access its inputs with their specified names.
 
 We support the following dataset formats within our data layers:
-* Norm
-* Raw
-* Paraquet
+* [Norm](#norm)
+* [Raw](#raw)
+* [Parquet](#parquet)
 
 <div align=center><img width="80%" height="80%" src ="user_guide_src/dataset_format.png"/></div>
 <div align=center>Fig. 1: (a) Norm (b) Raw (c) Parquet Dataset Formats</div>
 
 <br>
 
-For additional information about how to use these dataset formats with your configuration file, see [this section](#data-format).
+#### Common Parameters ####
+The following parameters can be configured for any of the dataset formats:
+
+* `format`: `Norm`, `Raw`, or `Parquet`. The default is `Norm`.
+* `num_samples`: With the Parquet format, this parameter doesn’t need to be specified.
+* `float_label_dense`: **This is valid only for the `Raw` dataset format.** If its value is set to `true`, the label and dense features for each sample are interpreted as `float` values. Otherwise, they are read as `int` values while the dense features are preprocessed with `log(dense[i] + 1.f)`. The default value is `false`.
+* `cache_eval_data`: To cache evaluation data on device, set this parameter to `true` to restrict the memory that will be used.
+* `num_workers`: The number of data reader workers that concurrently load data. The default value is 12, but you can empirically decide the best one based on your dataset, training environment, etc.
+* `label`: The input label specification.
+     - `top`: The name referenced by following layers.
+     - `label_dim`: The label dimension. 1 implies it is a binary label. For example, if an item is clicked or not.
+* `dense`: The input dense data specification.
+     - `top`: The name referenced by following layers.
+     - `dense_dim`: The number of dense (or continuous) features. If there is no dense feature, set it to 0.
+ * `sparse`: The input sparse data specification. It can be an array if multiple embedding layers, which require different sparse inputs, are used.
+     - `top`: The name referenced by following layers.
+     - `type`: It must be consistent with the connected embedding layer. For additional information, see [Embedding Layers](#embedding-layers).
+     - `max_feature_num_per_sample`: The maximum number of features per sample for the specified spare input.
+     - `max_nnz`: If it is set to 1, the dataset is specified as one-hot so that the memory consumption can be reduced.
+     - `slot_num`: The number of slots used for this sparse input in the dataset.
+
+**NOTE**: Regardless of the dataset format, in the multi-node environment, it is assumed that all the nodes see the same data files. For example, using RAID.
+
+#### Non-Trainable Parameters
+Some of the layers, such as Batch Norm, generate some statistical data during training rather than layer weights. These parameters are stored into a separete JSON file so that they can be restored later, or used in inference.
+
+For example:
+```json
+    {
+      "layers": [
+        {
+          "type": "BatchNorm",
+          "mean": [-0.192325, 0.003050, -0.323447, -0.034817, -0.091861],
+          "var": [0.738942, 0.410794, 1.370279, 1.156337, 0.638146]
+        },
+        {
+          "type": "BatchNorm",
+          "mean": [-0.759954, 0.251507, -0.648882, -0.176316, 0.515163],
+          "var": [1.434012, 1.422724, 1.001451, 1.756962, 1.126412]
+        },
+        {
+          "type": "BatchNorm",
+          "mean": [0.851878, -0.837513, -0.694674, 0.791046, -0.849544],
+          "var": [1.694500, 5.405566, 4.211646, 1.936811, 5.659098]
+        }
+      ]
+    }
+```
 
 #### Norm ####
 To maximize the data loading performance and minimize the storage, the Norm dataset format consists of a collection of binary data files and an ASCII formatted file list. The model file should specify the file name of the training and testing (evaluation) set, maximum elements (key) in a sample, and the label dimensions as shown in Fig. 1 (a).
@@ -185,13 +229,13 @@ $ cat simple_sparse_embedding_file_list.txt
 ```
 
 ##### Parameters #####
-To use the Norm format, in the data section of your JSON config file, set `"format"` to `"Norm"` or just omit it.
+To use the Norm format, in the data section of your JSON config file, set "format" to "Norm"` or just omit it.
 The following parameters are Norm-specfic. For the common parameters across dataset formats, see [Common Parameters](#common-parameters).
-* `source`: The file list of training dataset.
-* `eval_source`: The file list of evaluation dataset.
+* `source`: The training dataset file list.
+* `eval_source`: The evaluation dataset file list.
 * `check`: The data error detection machanism (`Sum`: Checksum, `None`: no detection).
 
-For example:
+Example:
 ```json
     {
       "name": "data",
@@ -221,48 +265,48 @@ For example:
 #### Raw ####
 The Raw dataset format is different from the Norm dataset format in that the training data appears in one binary file using int32. Fig. 1 (b) shows the structure of a Raw dataset sample.
 
-**NOTE:** Only one-hot data is accepted with this format.
+**NOTE**: Only one-hot data is accepted with this format.
 
 ##### Parameters #####
-To use the Raw format, in the data section of your JSON config file, set `"format"` to `"Raw"`.
-The following parameters are Raw-specfic. For the common parameters across dataset formats, see [Common Parameters](#common-parameters).
+To use the Raw format, in the data section of your JSON config file, set "format" to "Raw".
+The following parameters are Raw-specific. For the common parameters across dataset formats, see [Common Parameters](#common-parameters).
 * `source`: The single training dataset file.
 * `eval_source`: The singe evaluation dataset file.
 * `num_samples`: The number of samples in the traning dataset.
 * `eval_num_samples`: The number of samples in the evaluation dataset.
 * `slot_size_array`: The list of categorical feature cardinalities.
 
-For example:
+Example:
 ```json
-{
-	"name": "data",
-	"type": "Data",
-	"format": "Raw",
-	"num_samples": 4195155968,
-	"slot_size_array": [39884406, 39043, 17289, 7420, 20263, 3, 7120, 1543,  63, 38532951,  2953546, 403346, 10, 2208, 11938, 
-  155, 4, 976, 14, 39979771, 25641295, 39664984, 585935, 12972, 108, 36],
-	"source": "/etc/workspace/dataset/train_data.bin",
-	"eval_num_samples": 89137319,
-	"eval_source": "/etc/workspace/dataset/test_data.bin",
-	"cache_eval_data": true,
-	"label": {
-      "top": "label",
-      "label_dim": 1
-	},
-	"dense": {
-      "top": "dense",
-      "dense_dim": 13
-	},
-	"sparse": [
     {
-		"top": "data1",
-		"type": "LocalizedSlot",
-		"max_feature_num_per_sample": 26,
-    "max_nnz": 1,
-		"slot_num": 26
+      "name": "data",
+      "type": "Data",
+      "format": "Raw",
+      "num_samples": 4195155968,
+      "slot_size_array": [39884406, 39043, 17289, 7420, 20263, 3, 7120, 1543,  63, 38532951,  2953546, 403346, 10, 2208, 11938, 
+      155, 4, 976, 14, 39979771, 25641295, 39664984, 585935, 12972, 108, 36],
+      "source": "/etc/workspace/dataset/train_data.bin",
+      "eval_num_samples": 89137319,
+      "eval_source": "/etc/workspace/dataset/test_data.bin",
+      "cache_eval_data": true,
+      "label": {
+          "top": "label",
+          "label_dim": 1
+      },
+      "dense": {
+          "top": "dense",
+          "dense_dim": 13
+      },
+      "sparse": [
+        {
+        "top": "data1",
+        "type": "LocalizedSlot",
+        "max_feature_num_per_sample": 26,
+        "max_nnz": 1,
+        "slot_num": 26
+        }
+      ]
     }
-	]
-}
 ```
 
 A proxy in C struct for a sample:
@@ -277,7 +321,7 @@ typedef struct Data_{
 When using the Raw dataset format, a user must preprocess their own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, when referencing the configuration snippet above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 39884405}` while slot 1 has its keyset on a different space `{0, 1, 2 ... 39043}`.
 
 #### Parquet ####
-Parquet is a column-oriented, open source, and free data format. It is available to any project in the Apache Hadoop ecosystem. To reduce file size, it supports compression and encoding. Fig. 1 (c) shows an example Parquet dataset. For additional information, see [its official documentation](https://parquet.apache.org/documentation/latest/).
+Parquet is a column-oriented, open source, and free data format. It is available to any project in the Apache Hadoop ecosystem. To reduce the file size, it supports compression and encoding. Fig. 1 (c) shows an example Parquet dataset. For additional information, see the [parquet documentation](https://parquet.apache.org/documentation/latest/).
 
 Please note the following:
 * Nested column types are not currently supported in the Parquet data loader.
@@ -288,13 +332,13 @@ Please note the following:
 * To obtain the required information from all the rows in each parquet file and column index mapping for each label, dense (numerical), and slot (categorical) feature, a separate `_metadata.json` file is required.
 
 ##### Parameters #####
-To use the Parquet format, in the data section of your JSON config file, set `"format"` to `"Parquet"`.
+To use the Parquet format, in the data section of your JSON config file, set "format" to "Parquet".
 The following parameters are Raw-specfic. For the common parameters across dataset formats, see [Common Parameters](#common-parameters).
 * `source`: The file list of training dataset.
 * `eval_source`: The file list of evaluation dataset.
 * `slot_size_array`: The list of categorical feature cardinalities.
 
-For example:
+Example:
 ```
 {
 "file_stats": [{"file_name": "file1.parquet", "num_rows": 6528076}, {"file_name": "file2.parquet", "num_rows": 6528076}],
@@ -305,177 +349,192 @@ For example:
 ```
 
 ```json
-  "layers": [
-      {
-       "name": "data",
-       "type": "Data",
-       "format": "Parquet",
-       "slot_size_array": [220817330, 126535808, 3014529, 400781, 11, 2209, 11869, 148, 4, 977, 15, 38713, 283898298, 
-        39644599, 181767044, 584616, 12883, 109, 37, 17177, 7425, 20266, 4, 7085, 1535, 64],
-       "source": "_file_list.txt",
-       "eval_source": "_file_list.txt",
-       "label": {
-              "top": "label",
-              "label_dim": 1
-       },
-       "dense": {
-              "top": "dense",
-              "dense_dim": 13
-       },
-       "sparse": [
-              {
-              "top": "data1",
-              "type": "LocalizedSlot",
-              "max_feature_num_per_sample": 30,
-              "max_nnz": 1,
-              "slot_num": 26
-              }
-        ]
-      }
-```
+  "layers": [{
+      "name": "data",
+      "type": "Data",
+      "format": "Parquet",
+      "slot_size_array": [220817330, 126535808, 3014529, 400781, 11, 2209, 11869, 148, 4, 977, 15, 38713, 283898298, 
+      39644599, 181767044, 584616, 12883, 109, 37, 17177, 7425, 20266, 4, 7085, 1535, 64],
+      "source": "_file_list.txt",
+      "eval_source": "_file_list.txt",
+      "label": {
+          "top": "label",
+          "label_dim": 1
+      },
+      "dense": {
+          "top": "dense",
+          "dense_dim": 13
+      },
+      "sparse": [{
+          "top": "data1",
+          "type": "LocalizedSlot",
+          "max_feature_num_per_sample": 30,
+          "max_nnz": 1,
+          "slot_num": 26
+      }]
+  }]  
+``` 
 
 Similar to the Raw dataset format, you must preprocess your own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, in the configuration snippet noted above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 220817329}` and slot 1 has its keyset on a different space `{0, 1, 2 ... 126535807}`.
 
+### Embedding Layers ###
+Embedding layers can be segmented into multiple slots, or feature fields, which spans multiple GPUs and nodes.
 
-#### Common Parameters ####
-The following parameters are also configurable:
-* `format`: `Norm`, `Raw`, or `Parquet`. The default is `Norm`.
-* `num_samples`: With the Parquet format, this parameter doesn’t need to be specified.
-* `float_label_dense`: **This is valid only for the `Raw` dataset format.** If its value is set to `true`, the label and dense features for each sample are interpreted as `float` values. Otherwise, they are read as `int` values while the dense features are preprocessed with `log(dense[i] + 1.f)`. The default value is `false`.
-* `cache_eval_data`: To cache evaluation data on device, set this parameter to `true` to restrict the memory that will be used.
-* `num_workers`: The number of data reader workers which concurrently load data. The default value is 12, but you can empirically decide the best one based on your dataset, training environment, etc.
-* `label`: The input label specification.
-     - `top`: the name referenced by following layers.
-     - `label_dim`: the label dimension. 1 implies it is a binary label, e.g., if an item is clicked or not.
-* `dense`: The input dense data specification.
-     - `top`: the name referenced by following layers.
-     - `dense_dim`: the number of dense (or continuous) features. If there is no dense feature, set it to 0.
- * `sparse`: The input sparse data specification. It can be an array if multiple embedding layers, wchich require different sparse inputs, are used.
-     - `top`: the name referenced by following layers.
-     - `type`: It must be consistent with the connected embedding layer. See [Embedding Layers](#embedding-layers) for more details.
-     - `max_feature_num_per_sample`: the maximum number of features per sample for the specified spare input.
-     - `max_nnz`: If it is set to 1, you assert that the dataset is one-hot, so that the memory consumption is reduced.
-     - `slot_num`: The number of slots used for this sparse input in the dataset.
-* **NOTE**: Regardless of the dataset format, in the multi-node environment, it is assumed that all the nodes see the same data files, e.g., via RAID, etc.
+#### DistributedSlotSparseEmbeddingHash Layer
+The `DistributedSlotSparseEmbeddingHash` layer stores embeddings in an embedding table and gets them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. With `DistributedSlotSparseEmbeddingHash`, each GPU will have a portion of a slot. This type of embedding is useful when there's an existing load imbalance among slots and OOM issues.
 
-#### Non-Trainable Parameters
-Some of the layers, such as Batch Norm, generate some statistical data during training rather than layer weights. These parameters are stored into a separete JSON file, so that they can be restored later, or used in inference.
+**Important Notes**:
 
-For example:
+* In a single embedding layer, it is assumed that input integers represent unique feature IDs, which are mapped to unique embedding vectors.
+All the embedding vectors in a single embedding layer must have the same size. If you want some input categorical features to have different embedding vector sizes, use multiple embedding layers.
+* The input indices’ data type, `input_key_type`, is specified in the solver configuration. By default,  the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](#solver).
+
+Parameters:
+
+* `max_vocabulary_size_per_gpu`: Maximum vocabulary size or cardinality across all the input features. 
+* `embedding_vec_size`: Embedding vector size.
+* `combiner`: Intra-slot reduction op (0=sum, 1=average).
+
+Input and Output Shapes:
+
+* input: (batch_size, num_slots * max_nnz)
+* output: (batch_size, num_slots * max_nnz, vector_size)
+
+Example:
 ```json
-{
-  "layers": [
     {
-      "type": "BatchNorm",
-      "mean": [-0.192325, 0.003050, -0.323447, -0.034817, -0.091861],
-      "var": [0.738942, 0.410794, 1.370279, 1.156337, 0.638146]
-    },
-    {
-      "type": "BatchNorm",
-      "mean": [-0.759954, 0.251507, -0.648882, -0.176316, 0.515163],
-      "var": [1.434012, 1.422724, 1.001451, 1.756962, 1.126412]
-    },
-    {
-      "type": "BatchNorm",
-      "mean": [0.851878, -0.837513, -0.694674, 0.791046, -0.849544],
-      "var": [1.694500, 5.405566, 4.211646, 1.936811, 5.659098]
+      "name": "sparse_embedding1",
+      "type": "DistributedSlotSparseEmbeddingHash",
+      "bottom": "deep_data",
+      "top": "sparse_embedding1",
+      "sparse_embedding_hparam": {
+        "max_vocabulary_size_per_gpu": 2322444,
+        "embedding_vec_size": 16,
+        "combiner": 0
+      }
     }
-  ]
-}
 ```
 
-### Embedding Layers
-* An embedding table can be segmented into multiple slots, or feature fields, which spans multiple GPUs and multiple nodes. There are two types of embeddings that we support:
-* `LocalizedSlotSparseEmbeddingHash`: Each individual slot is located in each GPU, and not shared. This type of embedding has the best scalability. The `plan_file` parameter should be specified when using this embedding. To generate a plan file, please refer to the [**README**](../samples/dcn/README.md) in the DCN sample. We also support `LocalizedSlotSparseEmbeddingOneHot`, which is an optimized version of `LocalizedSlotSparseEmbeddingHash`, as well as single-node training with p2p connections between each pair of GPUs and the one-hot input.
-* `DistributedSlotSparseEmbeddingHash`: Each GPU will have a portion of a slot. This type of embedding is useful when there's an existing load imbalance among slots and OOM issues. This embedding should be used for single GPU training.
+#### LocalizedSlotSparseEmbeddingHash Layer
+The `LocalizedSlotSparseEmbeddingHash` layer to store embeddings in an embedding table and get them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. Unlike the DistributedSlotSparseEmbeddingHash layer, with this type of embedding layer, each individual slot is located in each GPU and not shared. This type of embedding layer provides the best scalability. The plan_file, which specifies how GPUs are connected and communicate with one another, should be specified when using this type of embedding layer. To generate a plan file, please refer to the [README](../samples/dcn/README.md) in the DCN sample.
 
-The following parameters can be set for both embeddings:
-* `max_vocabulary_size_per_gpu`: Maximum possible size of the embedding for one GPU.
-* `embedding_vec_size`: Size of each embedding vector.
-* `combiner`: 0 is sum and 1 is mean.
-* `optimizer`: (optional) HugeCTR supports different optimizers in dense and sparse models. If not specified, HugeCTR will reuse the optimizer specified for the dense model.
+**Important Notes**:
 
-For example:
+* In a single embedding layer, it is assumed that input integers represent unique feature IDs, which are mapped to unique embedding vectors.
+All the embedding vectors in a single embedding layer must have the same size. If you want some input categorical features to have different embedding vector sizes, use multiple embedding layers.
+* The input indices’ data type, `input_key_type`, is specified in the solver configuration. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](#solver).
+
+Parameters:
+
+* `max_vocabulary_size_per_gpu`: Maximum vocabulary size (or cardinality) across all the input features. 
+* `slot_size_array`: Cardinality array of input features. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored.
+* `embedding_vec_size`: Embedding vector size.
+* `combiner`:  Intra-slot reduction op (0=sum, 1=average).
+* `plan_file`: Specifies how GPUs are connected and communicate with one another.
+
+Input and Output Shapes:
+
+* input: (batch_size, num_slots * max_nnz)
+* output: (batch_size, num_slots * max_nnz, vector_size)
+
+Example:
 ```json
     {
       "name": "sparse_embedding1",
       "type": "LocalizedSlotSparseEmbeddingHash",
+      "plan_file": "all2all_plan_0_1.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
-      "plan_file": "all2all_plan_bi_1.json",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1737710,
+        "max_vocabulary_size_per_gpu": 1041275,
         "embedding_vec_size": 16,
         "combiner": 0
-      },
-      "optimizer": {
-        "type": "Adam",
-        "learning_rate": true,
-        "adam_hparam": {
-          "learning_rate": 0.001,
-          "beta1": 0.9,
-          "beta2": 0.999,
-          "epsilon": 0.0000001
-        }
       }
     }
 ```
 
-### Dense Layers
+#### LocalizedSlotSparseEmbeddingOneHot Layer
+The LocalizedSlotSparseEmbeddingOneHot layer stores embeddings in an embedding table and gets them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. This is a performance-optimized version of LocalizedSlotSparseEmbeddingHash for the case where NVSwitch is available and inputs are one-hot categorical features.
 
-* **Reshape**: The first layer that appears after the embedding layer to reshape the tensor from 3D to 2D. Reshape is the only layer that accepts both 3D and 2D input and the output must be 2D. `leading_dim` in `Reshape` is the leading dimension of the output.
-* **Concat**: You can `Concat` at most five tensors into one and list the name in the `bottom` array. Note that the second dimension, which is usually batch size, should be the same.
-* **Slice**: Copies specific `ranges` of input tensor to named output tensors. In the example below, we duplicate input tensor with `Slice`. 0 is inclusive and 429 is exclusive.
+**Note**: Unlike other types of embeddings, LocalizedSlotSparseEmbeddingOneHot only supports single-node training. LocalizedSlotSparseEmbeddingOneHot can be supported only in a NVSwitch equipped system such as DGX-2 and DGX A100.
+The input indices’ data type, `input_key_type`, is specified in the solver configuration. By default, the 32-bit integer (I32) is used, but the 64-bit integer type (I64) is also allowed even if it is constrained by the dataset type. For additional information, see [Solver](#solver).
 
-For example:
+Parameters:
+
+* `slot_size_array`: Cardinality array of input features.
+* `embedding_vec_size`: Embedding vector size.
+* `combiner`: Intra-slot reduction op (0=sum, 1=average). 
+
+Input and Output Shapes:
+
+* input: (batch_size, num_slots * 1) where 1 implies it is one hot
+* output: (batch_size, num_slots * 1, vector_size)
+
+Example:
 ```json
     {
-      "name": "reshape1",
-      "type": "Reshape",
-      "bottom": "sparse_embedding1",
-      "top": "reshape1",
-      "leading_dim": 416
-    }
-    {
-      "name": "concat1",
-      "type": "Concat",
-      "bottom": ["reshape1","dense"],
-      "top": "concat1"
-    }
-    {
-      "name": "slice1",
-      "type": "Slice",
-      "bottom": "concat1",
-      "ranges": [[0,429], [0,429]],
-      "top": ["slice11", "slice12"]
+      "name": "sparse_embedding1",
+      "type": "LocalizedSlotSparseEmbeddingOneHot",
+      "bottom": "data1",
+      "top": "sparse_embedding1",
+      "sparse_embedding_hparam": {
+        "slot_size_array": [39884406,    39043,    17289,     7420,    20263,    3,  7120,     1543,  63, 38532951,  2953546,   403346,         10,       2208,    11938,      155,        4,      976, 14, 39979771, 25641295, 39664984,   585935,    12972,  108,  36],
+        "embedding_vec_size": 128,
+        "combiner": 0
+      }
     }
 ```
 
-* **ELU**: The type name is `ELU`, and a `elu_param` called `alpha` in it can be configured.
-* **Fully Connected** (`InnerProduct`): Bias is supported in fully connected layers and `num_output` is the dimension of output.
-* **Fused Fully Connected** (`FusedInnerProduct`): Fused bias and RELU activation are added into a single layer.
-* **Loss** (optional): Different from the other layers, with `loss` you can specify which `regularization` you will use. By default, no regularization will be used.
+### Dense Layers ###
 
-For example:
+#### Trainable Layers
+Trainable layers are layers with weights whose values change during training iterations, to minimize a loss function. 
+
+##### FullyConnected Layer
+The FullyConnected layer is a densely connected layer (or MLP layer).
+
+Parameters:
+
+* `num_output`: Number of output elements.
+* `weight_init`: Specifies how to initialize the weight array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this parameter is not specified, the weights are initialized under the “XavierNorm” distribution.
+* `bias_init`: Specifies how to initialize the bias array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this parameter is not specified, the biases are initialized, complying with the normalized gaussian distribution.
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: (batch_size, num_output)
+
+Example:
 ```json
     {
-      "name": "elu1",
-      "type": "ELU",
-      "bottom": "fc1",
-      "top": "elu1",
-      "elu_param": {
-        "alpha": 1.0
-      }
-    }
-    {
-      "name": "fc8",
+      "name": "fc2",
       "type": "InnerProduct",
-      "bottom": "concat2",
-      "top": "fc8",
+      "bottom": "relu1",
+      "top": "fc2",
       "fc_param": {
-        "num_output": 1
+        "num_output": 1024
       }
     }
+```
+
+##### FusedFullyConnected Layer
+The FusedFullyConnected layer fuses a common case where FullyConnectedLayer and ReLU are used together to save memory bandwidth.
+
+**Note**: This layer can only be used with Mixed Precision mode enabled.
+
+Parameters:
+
+* `num_output`: Number of output elements.
+* `weight_init`: Specifies how to initialize the weight array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this option is not specified, the weights are initialized under the “XavierNorm” distribution.
+* `bias_init`: Specifies how to initialize the bias array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this option is not specified, the biases are initialized while complying with the normalized gaussian distribution.
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: (batch_size, num_output)
+
+Example:
+```json
     {
       "name": "fc2",
       "type": "FusedInnerProduct",
@@ -485,6 +544,369 @@ For example:
         "num_output": 256
       }
     }
+```
+
+##### MultiCross Layer
+The MultiCross layer is a cross network where explicit feature crossing is applied across cross layers.
+
+**Note**: This layer doesn’t currently support Mixed Precision mode.
+
+Parameters:
+
+* `num_layers`: Number of cross layers in the cross network.
+* `weight_init`: Specifies how to initialize the weight array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this parameter is not specified, the weights are initialized under the “XavierUnifrom” distribution.
+* `bias_init`: Specifies how to initialize the bias array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this parameter is not specified, the biases are zero-initialized.
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: same as input
+
+Example:
+```json
+    {
+      "name": "multicross1",
+      "type": "MultiCross",
+      "bottom": "slice11",
+      "top": "multicross1",
+      "mc_param": {
+        "num_layers": 6
+      }
+    }
+```
+
+##### FmOrder2 Layer
+TheFmOrder2 layer is the second-order factorization machine (FM), which models linear and pairwise interactions as dot products of latent vectors.
+
+Parameters:
+
+* `out_dim`: out_dim: the output vector size
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: (batch_size, out_dim)
+
+Example:
+```json
+    {
+      "name": "fmorder2",
+      "type": "FmOrder2",
+      "bottom": "slice32",
+      "out_dim": 10,
+      "top": "fmorder2"
+    }
+```
+
+##### Multiply Layer
+The Multiply Layer maps input elements into a latent vector space by multiplying each feature with a corresponding weight vector.
+
+Parameters:
+
+* `weight_dims`: 2D shape of the weight matrix (slot_dim, vec_dim) where vec_dim corresponds to the latent vector length.
+* `weight_init`: Specifies how to initialize the weight array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this parameter is not specified, the weights are initialized under the “XavierUnifrom” distribution.
+
+Input and Output Shapes:
+
+* input: (batch_size, slot_dim) where slot_dim represents the number of input features
+* output: (batch_size, slot_dim * vec_dim)
+
+Example:
+```json
+    {
+      "name": "multiply1",
+      "type": "Multiply",
+      "bottom": "prev0",
+      "weight_dims": [13, 10],
+      "top": "multiply1"
+    }
+```
+
+#### Non-trainable Layers
+Non-trainable layers are layers without any weights, which are generally used to transform input shapes and values.
+
+##### BatchNorm Layer 
+The BatchNorm layer implements a cuDNN based batch normalization.
+
+Parameters:
+
+* `factor`: Exponential average factor such as runningMean = runningMean*(1-factor) + newMean*factor
+* `eps`: Epsilon value used in the batch normalization formula.
+* `gamma_init`: Specifies how to initialize the gamma (or scale) array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this parameter is not specified, the gammas are initialized with 1s.
+* `beta_init`: Specifies how to initialize the beta (or offset) array from {“Uniform”, “XavierNorm”, “XavierUniform”, “Zero”}. If this parameter is not specified, the gammas are initialized with zero.
+
+Input and Output Shapes:
+
+* input: (batch_size, num_elem)
+* output: same as input
+
+Example:
+```json
+    {
+      "name": "bn1",
+      "type": "BatchNorm",
+      "bottom": "relu1",
+      "top": "bn1",
+      "bn_param": {
+        "factor": 1.0,
+        "eps": 0.00001,
+        "gamma_init": "Uniform",
+        "beta_init": "Uniform"
+      }
+    }
+```
+
+When training a model, each BatchNorm layer stores mean and variance in a JSON file using the following format:
+“snapshot_prefix” + “_dense_” + str(iter) + ”.model”
+
+Example: my_snapshot_dense_5000.model<br>
+
+In the JSON file, you can find the batch norm parameters as shown below:
+```json
+    {
+      "layers": [
+        {
+          "type": "BatchNorm",
+          "mean": [-0.192325, 0.003050, -0.323447, -0.034817, -0.091861],
+          "var": [0.738942, 0.410794, 1.370279, 1.156337, 0.638146]
+        },
+        {
+          "type": "BatchNorm",
+          "mean": [-0.759954, 0.251507, -0.648882, -0.176316, 0.515163],
+          "var": [1.434012, 1.422724, 1.001451, 1.756962, 1.126412]
+        },
+        {
+          "type": "BatchNorm",
+          "mean": [0.851878, -0.837513, -0.694674, 0.791046, -0.849544],
+          "var": [1.694500, 5.405566, 4.211646, 1.936811, 5.659098]
+        }
+      ]
+    }
+```
+
+##### Concat Layer
+The Concat layer concatenates a list of inputs.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: Nx(batch_size, *) where 2<=N<=4 and * represents any number of elements
+* output: (batch_size, total_num_elems) where total_num_elems is the summation of N input elements
+
+Example:
+```json
+    {
+      "name": "concat1",
+      "type": "Concat",
+      "bottom": ["input0","input1"],
+      "top": "concat1"
+    }
+```
+
+##### Reshape Layer
+The Reshape layer reshapes a 3D input tensor into 2D shape.
+
+Parameter:
+
+* `leading_dim`: The innermost dimension of the output tensor. It must be the multiple of the total number of input elements. If it is unspecified, n_slots * num_elems (see below) is used as the default leading_dim.
+
+Input and Output Shapes:
+
+* input: (batch_size, n_slots, num_elems)
+* output: (tailing_dim, leading_dim) where tailing_dim is batch_size * n_slots * num_elems / leading_dim 
+
+Example:
+```json
+    {
+      "name": "reshape1",
+      "type": "Reshape",
+      "bottom": "embedding1",
+      "top": "reshape1",
+      "leading_dim": 416
+    }
+```
+
+##### Slice Layer
+The Slice layer extracts multiple output tensors from a 2D input tensors.
+
+Parameter:
+
+* `ranges`: A list of tuples in which each one represents a range in the input tensor to generate the corresponding output tensor. For example, (2, 8) indicates that 8 elements starting from the second element in the input tensor are used to create an output tensor. The number of tuples corresponds to the number of output tensors. Ranges are allowed to overlap unless it is a reverse or negative range.
+
+Input and Output Shapes:
+
+* input: (batch_size, num_elems)
+* output: {(batch_size, b-a), (batch_size, d-c), ....) where ranges ={[a, b), [c, d), …} and len(ranges) <= 5
+
+Example:
+```json
+    {
+      "name": "slice1",
+      "type": "Slice",
+      "bottom": "concat1",
+      "ranges": [[0,429], [0,429]],
+      "top": ["slice11", "slice12"]
+    }
+```
+
+```json
+    {
+      "name": "slice1",
+      "type": "Slice",
+      "bottom": "reshape1",
+      "ranges": [[0,10], [10,11]],
+      "top": ["slice11", "slice12"]
+    }
+```
+
+##### Dropout Layer
+The Dropout layer randomly zeroizes or drops some of the input elements.
+
+Parameter:
+
+* `rate`: Dropout rate between 0 and 1. Setting it to 1 indicates that there is no dropped element at all.
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: same as input
+
+Example:
+```json
+    {
+      "name": "dropout1",
+      "type": "Dropout",
+      "rate": 0.5,
+      "bottom": "relu1",
+      "top": "dropout1" 
+    }
+```
+
+##### ELU Layer
+The ELU layer represents the Exponential Linear Unit.
+
+Parameter:
+
+* `alpha`: A scalar that decides the value where this activation function saturates for negative values.
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: same as input
+
+Example:
+```json
+    {
+      "name": "elu2",
+      "type": "ELU",
+      "bottom": "fc2",
+      "top": "elu2"
+        "elu_param": {
+        "alpha": 1.0,
+        }     
+    }
+```
+
+##### ReLU Layer
+The ReLU layer represents the Rectified Linear Unit.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: same as input
+
+Example:
+```json
+    {
+      "name": "relu1",
+      "type": "ReLU",
+      "bottom": "fc1",
+      "top": "relu1" 
+    }
+```
+
+##### Interaction Layer
+The interaction layer is used to explicitly capture second-order interactions between features.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: {(batch_size, num_elems), (batch_size, num_feas, num_elems)} where the first tensor typically represents a fully connected layer and the second is an embedding.
+* output: (batch_size, output_dim) where output_dim = num_elems + (num_feas + 1) * (num_feas + 2 ) / 2 - (num_feas + 1) + 1
+
+Example:
+```json
+    {
+      "name": "interaction1",
+      "type": "Interaction",
+      "bottom": ["layer1", "layer3"],
+      "top": "interaction1"
+    }
+```
+
+##### Add Layer
+The Add layer adds up an arbitrary number of tensors that have the same size in an element-wise manner.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: Nx(batch_size, num_elems) where N is the number of input tensors
+* output: (batch_size, num_elems)
+
+Example:
+```json
+    {
+      "name": "add",
+      "type": "Add",
+      "bottom": ["fc4", "reducesum1", "reducesum2"],
+      "top": "add"
+    }
+```
+
+##### ReduceSum Layer
+The ReduceSum Layer sums up all the elements across a specified dimension.
+
+Parameter:
+
+* `axis`: The dimension to reduce. If the input is N-dimensional, 0 <= axis < N.
+
+Input and Output Shapes:
+
+* input: (batch_size, ...) where ... represents any number of elements with an arbitrary number of dimensions
+* output: Dimension corresponding to axis is set to 1. The others remain the same as the input.
+
+Example:
+```json
+    {
+      "name": "reducesum2",
+      "type": "ReduceSum",
+      "bottom": "concat2",
+      "axis": 1,
+      "top": "reducesum2"
+    }
+```
+
+### Losses
+
+#### BinaryCrossEntropyLoss
+BinaryCrossEntropyLoss calculates loss from labels and predictions where each label is binary. The final sigmoid function is fused with the loss function to better utilize memory bandwidth.
+
+Parameter:
+
+* `regularizer`: Specifies which regularization (L1 or L2) is used when training your model. If nothing is specified, no regularizer is used.
+
+Input and Output Shapes:
+
+* input: [(batch_size, 1), (batch_size, 1)] where the first tensor represents the predictions while the second tensor represents the labels
+* output: (batch_size, 1)
+
+Example:
+```json
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
@@ -494,19 +916,48 @@ For example:
     }
 ```
 
-Interaction layer example:
+#### CrossEntropyLoss
+CrossEntropyLoss calculates loss from labels and predictions between the forward propagation phases and backward propagation phases. It assumes that each label is two-dimensional.
+
+Parameter:
+
+* `regularizer`: Specifies which regularization (L1 or L2) is used when training your model. If nothing is specified, no regularizer is used.
+
+Input and Output Shapes:
+
+* input: [(batch_size, 2), (batch_size, 2)] where the first tensor represents the predictions while the second tensor represents the labels
+* output: (batch_size, 2)
+
+Example:
 ```json
-{
-  "name": "interaction1",
-  "type": "Interaction",
-  "bottom": ["fc3", "sparse_embedding1"],
-  "top": "interaction1"
-}
+    {
+      "name": "loss",
+      "type": "CrossEntropyLoss",
+      "bottom": ["fc8","label"],
+      "regularizer": "L2",
+      "top": "loss"
+    }
 ```
 
-For additional information, see [**parser.cpp**](../HugeCTR/src/parser.cpp).
+#### MultiCrossEntropyLoss
+MultiCrossEntropyLoss calculates loss from labels and predictions between the forward propagation phases and backward propagation phases. It allows labels in an arbitrary dimension, but all the labels must be in the same shape.
 
-#### Model File
-The Model file is formatted using binary. The purpose of the model file is to initialize model weights and identify where the trained weight is stored. With the Model file, it is assumed that the weights are stored in the same order as the layers in the configuration file that are currently in use.
+Parameter:
 
-We provide a tutorial regarding [how to dump a model to TensorFlow](../tutorial/dump_to_tf/readMe.md).
+* `regularizer`: Specifies which regularization (L1 or L2) is used when training your model. If nothing is specified, no regularizer is used.
+
+Input and Output Shapes:
+
+* input: [(batch_size, *), (batch_size, *)] where the first tensor represents the predictions while the second tensor represents the labels. * represents any even number of elements.
+* output: (batch_size, *)
+
+Example:
+```json
+    {
+      "name": "loss",
+      "type": "MultiCrossEntropyLoss",
+      "bottom": ["fc8","label"],
+      "regularizer": "L2",
+      "top": "loss"
+    }
+```
