@@ -148,6 +148,7 @@ unit_tests:
       ./session_test &&
       ./auc_test &&
       ./embedding_test"
+  timeout: 2 hours
 
 # single node
 criteo:
@@ -401,7 +402,6 @@ nightly_build:
     - 1GPU
   stage: build
   script:
-    - git submodule update --init --recursive
     - export IMAGE_VERSIONED="${CI_REGISTRY}/dl/hugectr/hugectr:${CI_COMMIT_BRANCH}.${CI_PIPELINE_ID}"
     - export IMAGE_LATEST="${CI_REGISTRY}/dl/hugectr/hugectr:${CI_COMMIT_BRANCH}.latest"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
@@ -1509,9 +1509,15 @@ nightly_build:
   allow_failure: false
   stage: build
   script:
+    - git submodule update --init --recursive
     - srun
       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
       --ntasks=1
       --container-image gitlab-master.nvidia.com/dl/hugectr/hugectr:devel_train
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
-      echo hello
+      --container-mounts ${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      bash -cx "
+      cd ${CI_PROJECT_DIR};
+      mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=70\;75\;80 .. && make -j;
+      ./bin/embedding_test
+      "
+  timeout: 2 hours
