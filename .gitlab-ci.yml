@@ -8,8 +8,8 @@ stages:
   - test
 
 variables:
-  IMAGE_TRAIN: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train"
-  IMAGE_EMBEDDING: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding"
+  IMAGE_TRAIN: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0"
+  IMAGE_EMBEDDING: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0-plugin-embedding"
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   DLRM_DATASET: /raid/datasets/criteo/mlperf/40m.limit_preshuffled
@@ -25,8 +25,8 @@ variables:
   TRAIN_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}
   EMBEDDING_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:embedding_${CI_PIPELINE_ID}"
   EMBEDDING_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:embedding_${CI_PIPELINE_ID}
-  TRAIN_IMAGE_RELEASE_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:v3.0-cuda11.2
-  EMBEDDING_IMAGE_RELEASE_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:v3.0-plugin-embedding
+  TRAIN_IMAGE_RELEASE_ENROOT: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0
+  EMBEDDING_IMAGE_RELEASE_ENROOT: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0-plugin-embedding
 
 before_script:
   - export TMP_DIR=${CI_PROJECT_DIR}
@@ -574,7 +574,7 @@ nightly_build:
       cd ${CRITEO_MOUNT}/criteo;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/criteo_2node_4gpu.json"
 
-.dcn_single_node_job_part1: &dcn_single_node_job_part1
+.dcn_single_node_job: &dcn_single_node_job
   script:
     - srun --ntasks=1
       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
@@ -1129,7 +1129,7 @@ nightly_build:
       cd ${CI_PROJECT_DIR};
       $BIN --train samples/dlrm/dlrm_mlperf_fp16_dgxa100.json"
 
-.sample_dlrm_job_part2: &sample_dlrm_job_part2
+.sample_dlrm_job: &sample_dlrm_job
   script:
     - srun --ntasks=1
       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
@@ -1281,7 +1281,7 @@ nightly_build:
 #     CONTAINER_IMAGE: ${TRAIN_IMAGE_VERSIONED_ENROOT}
 #     CONTS: ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/hpc-hugectr/inference/:/hugectr/test/utest/
 
-.unit_tests_train_selene:
+unit_tests_train_selene:
   <<: *release_test_job_selene
   <<: *unit_tests_train_job
   variables:
@@ -1295,7 +1295,7 @@ nightly_build:
     <<: *release_test_job_circe_variables
     BIN: /usr/local/hugectr/bin/
 
-.unit_tests_inference_selene:
+unit_tests_inference_selene:
   <<: *release_test_job_selene
   <<: *unit_tests_inference_job
   variables:
@@ -1311,7 +1311,7 @@ nightly_build:
     BIN: /usr/local/hugectr/bin/
     CONTAINER_IMAGE: gitlab-master.nvidia.com/dl/hugectr/hugectr:v3.0-inference
 
-.criteo_selene:
+criteo_selene:
   <<: *release_test_job_selene
   <<: *criteo_job
 
@@ -1319,15 +1319,15 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *criteo_job
 
-.dcn_single_node_part1_selene:
+dcn_single_node_selene:
   <<: *release_test_job_selene
-  <<: *dcn_single_node_job_part1
+  <<: *dcn_single_node_job
 
-.dcn_single_node_part1_circe:
+.dcn_single_node_circe:
   <<: *release_test_job_circe
-  <<: *dcn_single_node_job_part1
+  <<: *dcn_single_node_job
 
-.dlrm_set_source_selene:
+dlrm_set_source_selene:
   <<: *release_test_job_selene
   <<: *dlrm_set_source_job
   variables:
@@ -1341,7 +1341,7 @@ nightly_build:
     <<: *release_test_job_circe_variables
     BIN: /usr/local/hugectr/lib/hugectr.so
 
-.wdl_deepfm_selene:
+wdl_deepfm_selene:
   <<: *release_test_job_selene
   <<: *wdl_deepfm_job
 
@@ -1349,7 +1349,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *wdl_deepfm_job
 
-.dlrm_selene:
+dlrm_selene:
   <<: *release_test_job_selene
   <<: *dlrm_job
 
@@ -1357,7 +1357,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *dlrm_job
 
-.dcn_multi_node_selene:
+dcn_multi_node_selene:
   <<: *release_test_job_selene
   <<: *dcn_multi_node_job
 
@@ -1365,14 +1365,14 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *dcn_multi_node_job
 
-.py_inference_selene:
+py_inference_selene:
   <<: *release_test_job_selene
   <<: *py_inference_job
   variables:
     <<: *release_test_job_selene_variables
     BIN: /usr/local/hugectr/lib/hugectr.so
 
-.kaggle_selene:
+kaggle_selene:
   <<: *release_test_job_selene
   <<: *kaggle_job
 
@@ -1383,14 +1383,14 @@ nightly_build:
     <<: *release_test_job_circe_variables
     BIN: /usr/local/hugectr/lib/hugectr.so
 
-.py_single_node_selene:
+py_single_node_selene:
   <<: *release_test_job_selene
   <<: *py_single_node_job
   variables:
     <<: *release_test_job_selene_variables
     BIN: /usr/local/hugectr/lib/hugectr.so
 
-.py_multi_node_selene:
+py_multi_node_selene:
   <<: *release_test_job_selene
   <<: *py_multi_node_job
   variables:
@@ -1404,7 +1404,7 @@ nightly_build:
     <<: *release_test_job_circe_variables
     BIN: /usr/local/hugectr/lib/hugectr.so
 
-.embedding_plugin_selene:
+embedding_plugin_selene:
   <<: *release_test_job_selene
   <<: *embedding_plugin_job
   variables:
@@ -1418,7 +1418,7 @@ nightly_build:
     <<: *release_test_job_circe_variables
     CONTAINER_IMAGE: gitlab-master.nvidia.com/dl/hugectr/hugectr:v3.0-plugin-embedding
 
-.sample_wdl_selene:
+sample_wdl_selene:
   <<: *release_test_job_selene
   <<: *sample_wdl_job
 
@@ -1426,7 +1426,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *sample_wdl_job
 
-.sample_deepfm_selene:
+sample_deepfm_selene:
   <<: *release_test_job_selene
   <<: *sample_deepfm_job
 
@@ -1434,7 +1434,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *sample_deepfm_job
 
-.sample_dcn_selene:
+sample_dcn_selene:
   <<: *release_test_job_selene
   <<: *sample_dcn_job
 
@@ -1442,7 +1442,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *sample_dcn_job
 
-.sample_criteo_selene:
+sample_criteo_selene:
   <<: *release_test_job_selene
   <<: *sample_criteo_job
 
@@ -1450,7 +1450,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *sample_criteo_job
 
-.dlrm_fp16_16k_selene:
+dlrm_fp16_16k_selene:
   <<: *release_test_job_selene
   <<: *dlrm_fp16_16k_job
 
@@ -1458,7 +1458,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *dlrm_fp16_16k_job
 
-.dlrm_fp16_64k_selene:
+dlrm_fp16_64k_selene:
   <<: *release_test_job_selene
   <<: *dlrm_fp16_64k_job
 
@@ -1466,7 +1466,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *dlrm_fp16_64k_job
 
-.dlrm_fp32_16k_selene:
+dlrm_fp32_16k_selene:
   <<: *release_test_job_selene
   <<: *dlrm_fp32_16k_job
 
@@ -1474,7 +1474,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *dlrm_fp32_16k_job
 
-.dlrm_fp32_64k_selene:
+dlrm_fp32_64k_selene:
   <<: *release_test_job_selene
   <<: *dlrm_fp32_64k_job
 
@@ -1482,7 +1482,7 @@ nightly_build:
   <<: *release_test_job_circe
   <<: *dlrm_fp32_64k_job
 
-.dlrm_mlperf_fp16_dgxa100_selene:
+dlrm_mlperf_fp16_dgxa100_selene:
   <<: *release_test_job_selene
   <<: *dlrm_mlperf_fp16_dgxa100_job
 
@@ -1492,11 +1492,11 @@ nightly_build:
 
 .sample_dlrm_selene_part2_selene:
   <<: *release_test_job_selene
-  <<: *sample_dlrm_job_part2
+  <<: *sample_dlrm_job
 
 .sample_dlrm_selene_part2_circe:
   <<: *release_test_job_circe
-  <<: *sample_dlrm_job_part2
+  <<: *sample_dlrm_job
 
 .notebook_python_interface_selene:
   <<: *release_test_job_selene
