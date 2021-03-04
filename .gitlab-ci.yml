@@ -8,8 +8,8 @@ stages:
   - test
 
 variables:
-  IMAGE_TRAIN: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0"
-  IMAGE_EMBEDDING: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0-plugin-embedding"
+  IMAGE_TRAIN: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_train"
+  IMAGE_EMBEDDING: "gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:devel_embedding"
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   DLRM_DATASET: /raid/datasets/criteo/mlperf/40m.limit_preshuffled
