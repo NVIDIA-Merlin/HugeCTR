@@ -15,11 +15,11 @@
  */
 
 #include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/inference/session_inference.hpp"
-#include "HugeCTR/include/inference/embedding_interface.hpp"
-#include <inference/embedding_feature_combiner.hpp>
 #include "HugeCTR/include/general_buffer2.hpp"
+#include "HugeCTR/include/inference/inference_utils.hpp"
 #include "HugeCTR/include/utils.hpp"
+#include "tools/cpu_inference/embedding_feature_combiner_cpu.hpp"
+#include "tools/cpu_inference/session_inference_cpu.hpp"
 #include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -28,6 +28,7 @@
 #include <cuda_profiler_api.h>
 
 using namespace HugeCTR;
+
 namespace {
 
 const int RANGE[] = {0,       1460,    2018,    337396,  549106,  549411,  549431,
@@ -46,7 +47,7 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
 
 struct InferenceParams {
   int max_batchsize;
-  int dense_dim;           
+  int dense_dim;
   std::vector<int> slot_num;
   std::vector<int> max_feature_num_per_sample;
   std::vector<int> embedding_vec_size;
@@ -104,8 +105,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   std::vector<float> dense_features;
   std::vector<TypeHashKey> keys;
   std::vector<int> row_ptrs;
-  CudaAllocator allocator;
-  CudaHostAllocator host_allocator;
+  HostAllocator host_allocator;
   HugeCTR::Timer timer_inference;
 
   // open criteo data file
@@ -173,7 +173,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   }
   num_samples = num_samples < batch_size? num_samples : batch_size;
 
-  // d_row_ptrs
+  // h_row_ptrs
   std::vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
   size_t row_ptrs_size = 1;
   for (auto dim : row_ptrs_dims) {
@@ -182,14 +182,17 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   size_t row_ptrs_size_samples = num_samples * slot_num + 1;
   size_t row_ptrs_size_in_bytes = row_ptrs_size * sizeof(int);
   size_t row_ptrs_size_in_bytes_samples = row_ptrs_size_samples * sizeof(int);
-  int* d_row_ptrs = reinterpret_cast<int*>(allocator.allocate(row_ptrs_size_in_bytes));
+  int* h_row_ptrs = reinterpret_cast<int*>(host_allocator.allocate(row_ptrs_size_in_bytes));
+  for (size_t i = 0; i < row_ptrs_size; i++) {
+    h_row_ptrs[i] = 0;
+  }
 
-  // d_dense_features
+  // h_dense_features
   size_t dense_size = batch_size * dense_dim;
   size_t dense_size_samples = num_samples * dense_dim;
   size_t dense_size_in_bytes = dense_size * sizeof(float);
   size_t dense_size_in_bytes_samples = dense_size_samples * sizeof(float);
-  float* d_dense_features = reinterpret_cast<float*>(allocator.allocate(dense_size_in_bytes));
+  float* h_dense_features = reinterpret_cast<float*>(host_allocator.allocate(dense_size_in_bytes));
   
   // h_embeddingcolumns
   size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
@@ -199,30 +202,23 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   void* h_embeddingcolumns = host_allocator.allocate(embeddingcolumns_size_in_bytes);
   //TypeHashKey* h_keys = reinterpret_cast<TypeHashKey*>(h_embeddingcolumns);
 
-  // d_output 
-  float* d_output = reinterpret_cast<float*>(allocator.allocate(batch_size*sizeof(float)));
-  std::unique_ptr<float[]> h_out(new float[num_samples]);
+  // h_output 
+  std::unique_ptr<float[]> h_out(new float[batch_size]);
 
   // memory copy
-  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, row_ptrs.data(), row_ptrs_size_in_bytes_samples, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_dense_features, dense_features.data(), dense_size_in_bytes_samples, cudaMemcpyHostToDevice)); 
   memcpy(h_embeddingcolumns, keys.data(), embeddingcolumns_size_in_bytes_samples);
+  memcpy(h_row_ptrs, row_ptrs.data(), row_ptrs_size_in_bytes_samples);
+  memcpy(h_dense_features, dense_features.data(), dense_size_in_bytes_samples);
 
   // inference session
   std::vector<std::string> model_config_path{config_file};
   std::vector<std::string> model_name{model};
-  HugectrUtility<TypeHashKey>* parameter_server = HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
-  std::shared_ptr<embedding_interface> embedding_cache(embedding_interface::Create_Embedding_Cache<TypeHashKey>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]));
-  
-  InferenceSession sess(config_file, 0, embedding_cache);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name));
+  InferenceSessionCPU<TypeHashKey> sess(config_file, model, parameter_server);
   timer_inference.start();
-  sess.predict(d_dense_features, h_embeddingcolumns, d_row_ptrs, d_output, num_samples);
+  sess.predict(h_dense_features, h_embeddingcolumns, h_row_ptrs, h_out.get(), num_samples);
   timer_inference.stop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_output, num_samples*sizeof(float), cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-
+  
   std::cout << "==========================labels===================" << std::endl;
   for (int i = 0; i < num_samples; i++)
     std::cout << labels[i] << " ";
@@ -233,15 +229,12 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
       std::cout << h_out[i] << " ";
   }
   std::cout << std::endl;
-
   MESSAGE_("Batch size: " + std::to_string(batch_size)
           + ", Number samples: " + std::to_string(num_samples)
           + ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
-
   host_allocator.deallocate(h_embeddingcolumns);
-  allocator.deallocate(d_row_ptrs);
-  allocator.deallocate(d_dense_features);
-  allocator.deallocate(d_output);
+  host_allocator.deallocate(h_dense_features);
+  host_allocator.deallocate(h_row_ptrs);
 }
 
 template <typename TypeHashKey>
@@ -253,38 +246,29 @@ void session_inference_generated_test(const std::string& config_file, const std:
   int max_feature_num_per_sample = inference_params.max_feature_num_per_sample[0];
   int max_nnz = max_feature_num_per_sample / slot_num;
   num_samples = num_samples < batch_size? num_samples:batch_size;
-  CudaAllocator allocator;
-  CudaHostAllocator host_allocator;
+  HostAllocator host_allocator;
   HugeCTR::Timer timer_inference;
 
-  //d_row_ptrs
+  //h_row_ptrs
   std::vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
   size_t row_ptrs_size = 1;
   for (auto dim : row_ptrs_dims) {
     row_ptrs_size *= dim;
   }
-  size_t row_ptrs_size_samples = num_samples * slot_num + 1;
-  std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size_samples]);
+  std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size]);
   std::shared_ptr<IDataSimulator<int>> ldata_sim;
   ldata_sim.reset(new IntUniformDataSimulator<int>(1, max_nnz));
   h_row_ptrs[0] = 0;
-  for (int i = 1; i < (int)row_ptrs_size_samples; i++) {
+  for (int i = 1; i < (int)row_ptrs_size; i++) {
     h_row_ptrs[i] = (h_row_ptrs[i-1] + ldata_sim->get_num());
   }
-  size_t row_ptrs_size_in_bytes = row_ptrs_size * sizeof(int);
-  size_t row_ptrs_size_in_bytes_samples = row_ptrs_size_samples * sizeof(int);
-  int* d_row_ptrs = reinterpret_cast<int*>(allocator.allocate(row_ptrs_size_in_bytes));
 
-  // d_dense_features
+  // h_dense_features
   size_t dense_size = batch_size * dense_dim;
-  size_t dense_size_samples = num_samples * dense_dim;
-  std::unique_ptr<float[]> h_dense(new float[dense_size_samples]);
+  std::unique_ptr<float[]> h_dense(new float[dense_size]);
   FloatUniformDataSimulator<float> fdata_sim(0, 1);     
-  for (int i = 0; i < (int)dense_size_samples; i++)
+  for (int i = 0; i < (int)dense_size; i++)
     h_dense[i] = fdata_sim.get_num();
-  size_t dense_size_in_bytes = dense_size * sizeof(float);
-  size_t dense_size_in_bytes_samples = dense_size_samples * sizeof(float);
-  float* d_dense_features = reinterpret_cast<float*>(allocator.allocate(dense_size_in_bytes));
 
   // h_embeddingcolumns
   size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
@@ -298,28 +282,16 @@ void session_inference_generated_test(const std::string& config_file, const std:
     }
   }
 
-  // memory copy
-  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs, h_row_ptrs.get(), row_ptrs_size_in_bytes_samples, cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_dense_features, h_dense.get(), dense_size_in_bytes_samples, cudaMemcpyHostToDevice)); 
-
-  // d_output
-  float* d_output = reinterpret_cast<float*>(allocator.allocate(batch_size*sizeof(float)));
-  std::unique_ptr<float[]> h_out(new float[num_samples]);
+  std::unique_ptr<float[]> h_out(new float[batch_size]);
 
   // inference session
   std::vector<std::string> model_config_path{config_file};
   std::vector<std::string> model_name{model};
-  HugectrUtility<TypeHashKey>* parameter_server = HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
-  std::shared_ptr<embedding_interface> embedding_cache(embedding_interface::Create_Embedding_Cache<TypeHashKey>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]));
-
-  InferenceSession sess(config_file, 0, embedding_cache);
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name));
+  InferenceSessionCPU<TypeHashKey> sess(config_file, model, parameter_server);
   timer_inference.start();
-  sess.predict(d_dense_features, h_embeddingcolumns, d_row_ptrs, d_output, num_samples);
+  sess.predict(h_dense.get(), h_embeddingcolumns, h_row_ptrs.get(), h_out.get(), num_samples);
   timer_inference.stop();
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
-  CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_output, num_samples*sizeof(float), cudaMemcpyDeviceToHost));
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
 
   std::cout << "==========================prediction result===================" << std::endl;
   for (int i = 0; i < num_samples; i++) {
@@ -327,15 +299,13 @@ void session_inference_generated_test(const std::string& config_file, const std:
   }
   std::cout << std::endl;
   MESSAGE_("Batch size: " + std::to_string(batch_size)
-          + ", Number samples: " + std::to_string(num_samples)
-          + ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
+        + ", Number samples: " + std::to_string(num_samples)
+        + ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
   host_allocator.deallocate(h_embeddingcolumns);
-  allocator.deallocate(d_row_ptrs);
-  allocator.deallocate(d_dense_features);
-  allocator.deallocate(d_output);
 }
 
 }  // namespace
 
-TEST(session_inference, criteo_dcn) { session_inference_criteo_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt"); }
-TEST(session_inference, generated_dcn_32) { session_inference_generated_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", 32); }
+
+TEST(session_inference_cpu, criteo_dcn) { session_inference_criteo_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt"); }
+TEST(session_inference_cpu, generated_dcn_32) { session_inference_generated_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", 32); }
