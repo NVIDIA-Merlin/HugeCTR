@@ -1,15 +1,16 @@
 # About HugeCTR Python Interface
  
-HugeCTR Python Interface includes low-level training API and inference API. Currently, both APIs rely on the configuration file in JSON format and we will introduce our high-level JSON-free training API in the next release. Please refer to [Configuration File Setup](./configuration_file_setup.md) if you want to get detailed information on how to configure the JSON file. 
+HugeCTR Python Interface includes low-level training API and inference API. Currently, both APIs rely on the configuration file in JSON format. Please refer to [Configuration File Setup](./configuration_file_setup.md) if you want to get detailed information on how to configure the JSON file. Besides, we have high-level training API which does not require JSON configuration file. The high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API.
 
 ## Table of Contents
-* [Low-level Training API ](#low-level-training-api)
+* [High-level Training API](#high-level-training-api)
+* [Low-level Training API](#low-level-training-api)
 * [Inference API](#inference-api)
 * [Sample Code](#sample-code)
 
-## Low-level Training API ##
-For HugeCTR low-level training API, the core data structures are `SolverParser`, `LearningRateScheduler`, `DataReader`, `ModelOversubscriber` and `Session`. HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.
- 
+## High-level Training API ##
+For HugeCTR high-level training API, the core data structures are `SolverParser`, `Optimizer`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `SolverParser` and `Optimizer` instances, and then add an instance of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method provides you with an overview of the model structure.
+
 ### SolverParser ###
 **solver_parser_helper method**
 ```bash
@@ -49,6 +50,224 @@ hugectr.solver_parser_helper()
 * `use_cuda_graph`: Whether to enable cuda graph for dense network forward and backward propagation. The default value is `True`.
 
 * `repeat_dataset`: Whether to repeat the dataset for training. If the value is `True`, non-epoch mode training will be employed. Otherwise, epoch mode training will be adopted. The default value is `True`.
+
+* `max_iter`: Integer, the maximum iteration of non-epoch mode training. It will be ignored if `repeat_dataset` is `False`. The default value is 0.
+
+* `num_epochs`: Integer, the number of epochs for epoch mode training. It will be ignored if `repeat_dataset` is `True`. The default value is 0.
+
+* `display`: Integer, the interval of iterations at which the training loss will be displayed. The default value is 200.
+
+* `snapshot`: Integer, the interval of iterations at which the snapshot model will be saved to files. The default value is 10000.
+
+* `eval_interval`: Integer, the interval of iterations at which the evaluation will be executed. The default value is 1000.
+
+* `use_model_oversubscriber`: Boolean, whether to use the feature of [Model Oversubscription](./hugectr_user_guide.md#model-oversubscription).
+
+* `temp_embedding_dir`: String，where to store the temporary embedding table files. The path needs to have write permission to support the features of ModelOversubscriber. The default value is `''`.
+
+### Optimizer ###
+**CreateOptimizer method**
+```bash
+hugectr.optimizer.CreateOptimizer()
+```
+`CreateOptimizer` returns an `OptParamsBase` object according to the custom argument values，which specify the optimizer type and the corresponding hyperparameters.
+
+**Arguments**
+* `optimizer_type`: The optimizer type to be used. The supported types include `hugectr.Optimizer_t.Adam`, `hugectr.Optimizer_t.MomentumSGD`, `hugectr.Optimizer_t.Nesterov` and `hugectr.Optimizer_t.SGD`. The default value is `hugectr.Optimizer_t.Adam`.
+
+* `update_type`: The update type for the embedding. The supported types include `hugectr.Update_t.Global`, `hugectr.Update_t.LazyGlobal` and `hugectr.Update_t.Local`.  Please refer to [Optimizer](./configuration_file_setup.md#optimizer) if you want to get detailed information about the embedding update types. The default value is `hugectr.Update_t.Global`.
+
+* `learning_rate`: The initial learning rate for training. The default value is 0.001.
+
+* `warmup_steps`: The warmup steps for `LearningRateScheduler` when using SGD optimizer. The default value is 1.
+
+* `decay_start`: The step at which the learning rate decay starts for `LearningRateScheduler` when using SGD optimizer. The default value is 0.
+
+* `decay_steps`: The number of steps of the learning rate decay for `LearningRateScheduler` when using SGD optimizer. The default value is 1.
+
+* `decay_power`: The power of the learning rate decay for `LearningRateScheduler` when using SGD optimizer. The default value is 2.
+
+* `end_lr`: The final learning rate for `LearningRateScheduler` when using SGD optimizer. The default value is 0. Please refer to [SGD Optimizer and Learning Rate Scheduling](./hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling) if you want to get detailed information about LearningRateScheduler.
+
+* `beta1`: The `beta1` value when using Adam optimizer. The default value is 0.9.
+
+* `beta2`: The `beta2` value when using Adam optimizer. The default value is 0.999.
+
+* `epsilon`: The `epsilon` value when using Adam optimizer. The default value is 1e-7.
+
+* `momentum_factor`: The `momentum_factor` value when using MomentumSGD or Nesterov optimizer. The default value is 0.
+
+* `atomic_update`: Whether to employ atomic update when using SGD optimizer. The default value is True. 
+
+* `use_mixed_precision`: Whether to use mixed precision for the optimizer. It should be consistent with that within `solver_parser_helper`. Only in this way can the instances of `SolverParser` and `OptParamsBase` be used to create a `Model` instance. There is NO default value and it should be specified by users.
+
+### Input ###
+**Input class**
+```bash
+hugectr.Input()
+```
+`Input` specifies the parameters related to the data input. HugeCTR cuurrently supports three dataset formats, i.e., `Norm`, `Raw` and `Parquet`. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Data Layers](./configuration_file_setup.md#data-layers) if you want to get detailed information about Input.
+
+**Arguments**
+* `data_reader_type`: The type of the data reader which should be consistent with the dataset format. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Raw` and `hugectr.DataReaderType_t.Parquet`. There is NO default value and it should be specified by users.
+
+* `source`: String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data. For Raw dataset, it should be a single training file. There is NO default value and it should be specified by users.
+
+* `eval_source`: String, the evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data. For Raw dataset, it should be a single evaluation file. There is NO default value and it should be specified by users.
+
+* `check_type`: The data error detection mechanism. The supported types include `hugectr.Check_t.Sum` (CheckSum) and `hugectr.Check_t.Non` (no detection). There is NO default value and it should be specified by users.
+
+* `cache_eval_data`: Integer, the cache size of evaluation data on device, set this parameter greater than zero to restrict the memory that will be used. The default value is 0.
+
+* `label_dim`: Integer, the label dimension. 1 implies it is a binary label. For example, if an item is clicked or not. There is NO default value and it should be specified by users.
+
+* `label_name`: String, the name of the label tensor to be referenced by following layers. There is NO default value and it should be specified by users.
+
+* `dense_dim`: Integer, the number of dense (or continuous) features. If there is no dense feature, set it to 0. There is NO default value and it should be specified by users.
+
+* `dense_name`: Integer, the name of the dense input tensor to be referenced by following layers. There is NO default value and it should be specified by users.
+
+* `num_samples`: Integer, the number of samples in the traning dataset. This is ONLY valid for Raw dataset. The default value is 0.
+
+* `eval_num_samples`: Integer, the number of samples in the evaluation dataset. This is ONLY valid for Raw dataset. The default value is 0.
+
+* `float_label_dense`: Boolean, this is valid only for the Raw dataset format. If its value is set to `True`, the label and dense features for each sample are interpreted as float values. Otherwise, they are read as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is `False`.
+
+* `num_workers`: Integer, the number of data reader workers that concurrently load data. You can empirically decide the best one based on your dataset, training environment. The default value is 12.
+
+* `slot_size_array`: List[int], the list of categorical feature cardinalities of each slot. This is valid for Raw and Parquet dataset. The default value is `[]`.
+
+* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with `hugectr.DataReaderSparse_t`, `max_feature_num`, `max_nnz` and `slot_num`. The supported types of `hugectr.DataReaderSparse_t` include `hugectr.DataReaderSparse_t.Distributed` and `hugectr.DataReaderSparse_t.Localized`. The maximum number of features per sample for the specified spare input can be specified by `max_feature_num`. For `max_nnz`, if it is set to 1, the dataset is specified as one-hot so that the memory consumption can be reduced. As for `slot_num`, it specifies the number of slots used for this sparse input in the dataset. The total number of categorical inputs is exactly the length of `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
+
+* `sparse_names`: List[str], the list of names of the sparse input tensors to be referenced by following layers. The order of the names should be consistent with sparse parameters in `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
+
+### SparseEmbedding ###
+**SparseEmbedding class**
+```bash
+hugectr.SparseEmbedding()
+```
+`SparseEmbedding` specifies the parameters related to the sparse embedding layer. One or several `SparseEmbedding` layers should be added to the Model instance after `Input` and before `DenseLayer`. Please refer to [Embedding Layers](./configuration_file_setup.md#embedding-layers) if you want to get detailed information about SparseEmbedding.
+
+**Arguments**
+* `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users.
+
+* `max_vocabulary_size_per_gpu`: Integer, the maximum vocabulary size or cardinality across all the input features. There is NO default value and it should be specified by users.
+
+* `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
+
+* `combiner`: Integer, the intra-slot reduction operation (0=sum, 1=average). There is NO default value and it should be specified by users.
+
+* `sparse_embedding_name`: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.
+
+* `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
+
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored. There is NO default value and it should be specified by users.
+
+
+### DenseLayer ###
+**DenseLayer class**
+```bash
+hugectr.DenseLayer()
+```
+`DenseLayer` specifies the parameters related to the dense layer or the loss function. HugeCTR currently supports multiple dense layers and loss functions, Please refer to [Dense Layers](./configuration_file_setup.md#dense-layers) and [Losses](./configuration_file_setup.md#losses) if you want to get detailed information about dense layers and loss functions.
+
+**Arguments**
+* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.DotProduct`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
+
+* `bottom_names`: List[str], the list of bottom tensor names to be consumed by this dense layer. Each name in the list should be the predefined tensor name. There is NO default value and it should be specified by users.
+
+* `top_names`: List[str], the list of top tensor names, which specify the output tensors of this dense layer. There is NO default value and it should be specified by users.
+
+* `factor`: Float, exponential average factor such as runningMean = runningMean*(1-factor) + newMean*factor for the `BatchNorm` layer. The default value is 1.
+
+* `eps`: Float, epsilon value used in the batch normalization formula for the `BatchNorm` layer. The default value is 1e-5.
+
+* `gamma_init_type`: Specifies how to initialize the gamma (or scale) array for the `BatchNorm` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+
+* `beta_init_type`: Specifies how to initialize the beta (or offset) array for the `BatchNorm` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+
+* `dropout_rate`: Float, The dropout rate to be used for the `Dropout` layer. It should be between 0 and 1. Setting it to 1 indicates that there is no dropped element at all. The default value is 0.5.
+
+* `elu_alpha`: Float, the scalar that decides the value where this `ELU` function saturates for negative values. The default value is 1.
+
+* `num_output`: Integer, the number of output elements for the `InnerProduct` or `FusedInnerProduct` layer. The default value is 1.
+
+* `weight_init_type`: Specifies how to initialize the weight array for the `InnerProduct`, `FusedInnerProduct`, `MultiCross` or `WeightMultiply` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+
+* `bias_init_type`: Specifies how to initialize the bias array for the `InnerProduct`, `FusedInnerProduct` or `MultiCross` layer. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+
+* `num_layers`: Integer, the Number of cross layers for the `MultiCross` layer. It should be set as a positive number if you want to use the cross network. The default value is 0.
+
+* `leading_dim`: Integer, the innermost dimension of the output tensor for the `Reshape` layer. It must be the multiple of the total number of input elements. The default value is 1.
+
+* `selected`: Boolean, whether to use the selected mode for the `Reshape` layer. The default value is False.
+
+* `selected_slots`: List[int], the selected slots for the `Reshape` layer. It will be ignored if `selected` is False. The default value is [].
+
+* `ranges`: List[Tuple[int, int]], used for the `Slice` layer. A list of tuples in which each one represents a range in the input tensor to generate the corresponding output tensor. For example, (2, 8) indicates that 8 elements starting from the second element in the input tensor are used to create an output tensor. The number of tuples corresponds to the number of output tensors. Ranges are allowed to overlap unless it is a reverse or negative range. The default value is [].
+
+* `weight_dims`: List[int], the shape of the weight matrix (slot_dim, vec_dim) where vec_dim corresponds to the latent vector length for the `WeightMultiply` layer. It should be set correctly if you want to employ the weight multiplication. The default value is [].
+
+* `out_dim`: Integer, the output vector size for the `FmOrder2` layer. It should be set as a positive number if your want to use factorization machine. The default value is 0.
+
+* `axis`: Integer, the dimension to reduce for the `ReduceSum` layer. If the input is N-dimensional, 0 <= axis < N. The default value is 1.
+
+* `target_weight_vec`: List[float], the target weight vector for the `MultiCrossEntropyLoss` layer. The default value is [].
+
+* `use_regularizer`: Boolean, whether to use the regularizer for the `BinaryCrossEntropyLoss`, `CrossEntropyLoss` or `MultiCrossEntropyLoss` layer. The default value is False.
+
+* `regularizer_type`: The regularizer type for the `BinaryCrossEntropyLoss`, `CrossEntropyLoss` or `MultiCrossEntropyLoss` layer. The supported types include `hugectr.Regularizer_t.L1` and `hugectr.Regularizer_t.L2`. It will be ignored if `use_regularizer` is False. The default value is `hugectr.Regularizer_t.L1`.
+
+* `lambda`: Float, the lambda value of the regularization term for the `BinaryCrossEntropyLoss`, `CrossEntropyLoss` or `MultiCrossEntropyLoss` layer. It will be ignored if `use_regularizer` is False. The default value is 0.
+
+### Model ###
+**Model class**
+```bash
+hugectr.Model()
+```
+`Model` groups data input, embeddings and dense network into an object with traning features. The construction of `Model` requires a `SolverParser` instance and an `OptParamsBase` instance, which can be created by `hugectr.solver_parser_helper` and `hugectr.optimizer.CreateOptimizer` respectively. Please note that the value of `use_mixed_precision` should be the same for `SolverParser` and `OptParamsBase`. Otherwise, the `Model` object cannot be created correctly.
+
+**Arguments**
+* `solver_parser`: A hugectr.SolverParser object, the solver configuration for the model.
+
+* `opt_params`: A hugectr.OptParamsBase object, the optimizer configuration for the model.
+
+**add method**
+```bash
+hugectr.Model.add()
+```
+The `add` method of Model adds an instance of Input, SparseEmbedding or DenseLayer to the created Model object. Typically, a Model object is comprised of one Input, several SparseEmbedding and a series of DenseLayer instances. Please note that the loss function for HugeCTR model training is taken as a DenseLayer instance.
+
+**Arguments**
+* `input` or `sparse_embedding` or `dense_layer`: This method is an overloaded method that can accept `hugectr.Input`, `hugectr.SparseEmbedding` or `hugectr.DenseLayer` as an argument. It allows the users to construct their model flexibly without the JSON configuration file.
+***
+
+**compile method**
+```bash
+hugectr.Model.compile()
+```
+This method takes no extra arguments. It allocates the internal buffer and initializes the model.
+***
+
+**fit method**
+```bash
+hugectr.Model.fit()
+```
+This method takes no extra arguments. It trains the model for a fixed number of epochs (epoch mode) or iterations (non-epoch mode). You can switch the mode of training through different configurations within `solver_parser_helper`. To use epoch mode training, `repeat_dataset` should be set as `False` and `num_epochs` should be set as a positive number. To use non-epoch mode training, `repeat_dataset` should be set as `True` and `max_iter` should be set as a positive number.
+***
+
+**summary method**
+```bash
+hugectr.Model.summary()
+```
+This method takes no extra arguments and prints a string summary of the model. Users can have an overview of the model structure with this method.
+***
+
+## Low-level Training API ##
+For HugeCTR low-level training API, the core data structures are `SolverParser`, `LearningRateScheduler`, `DataReader`, `ModelOversubscriber` and `Session`. HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.
+ 
+### SolverParser ###
+Please refer to the [above](./python_interface.md#solverparser). Please NOTE that `max_iter`, `num_epochs`, `display`, `snapshot`, `eval_interval`, `use_model_oversubscriber` and `temp_embedding_dir` within the `solver_parser_helper` method will be ignored if you are using the low-level training API, because they can be specified directly in the low-level python code.
 
 ### LearningRateScheduler ###
 **get_learning_rate_scheduler method**
@@ -200,6 +419,8 @@ This method returns the average evaluation metrics of several minibatches of eva
 For HugeCTR inference API, the core data structures are `ParameterServer`, `EmbeddingCache` and `InferenceSession`. Please refer to [Inference Framework](https://gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend/-/blob/main/docs/user_guide.md#inference-framework) to get informed of the hierarchy of HugeCTR inference implementation.
 
 Please **NOTE** that Inference API requires a configuration JSON file which is slightly different from the training JSON file. We need `inference` and `layers` clauses in the inference JSON file. The paths of the stored dense model and sparse model(s) should be specified at `dense_model_file` and `sparse_model_file` within the `inference` clause. Some modifications need to be made to `data` within the `layers` clause and the last layer should be replaced by `SigmoidLayer`. Please refer to [HugeCTR Inference Notebook](../notebooks/hugectr_inference.ipynb) for detailed information of the inference JSON file.
+
+Please **NOTE** that if the `input_key_type` of the trained model is `I64`, you need to specify the argument `i64_input_key` as `True` when calling `hugectr.inference.CreateParameterServer`, `hugectr.inference.CreateEmbeddingCache` and `hugectr.inference.InferenceSession.predict()`, i.e., the calling to these methods should be consistent in terms of the `input_key_type`.
 
 ### ParameterServer ###
 **CreateParameterServer method**
