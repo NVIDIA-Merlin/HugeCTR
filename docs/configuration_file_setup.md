@@ -13,7 +13,7 @@ There are three main JSON clauses in a configuration file:
 
 ## Solver ##
 
-**NOTE**: You do not need to include the Solver clause in your configuration file when training models using the Python interface.
+**NOTE**: The Solver clause need not to be included and will be ignored when included if you are using [Low-level Training API](./python_interface.md#low-level-training-api) of HugeCTR Python Interface. 
 
 The solver clause contains the configuration for training resource and task items, which include the following parameters:
 * `lr_policy`: Only currently supports `fixed`.
