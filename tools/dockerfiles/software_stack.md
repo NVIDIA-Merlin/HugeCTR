@@ -22,7 +22,7 @@ This dependency matrix shows the software stack of NVIDIA HugeCTR project. The m
 | Container OS                                                 | \<\<[Ubuntu 20.04](http://releases.ubuntu.com/20.04/)\>\>    | [Ubuntu 18.04](http://releases.ubuntu.com/18.04/)            |
 | [CUDA](http://docs.nvidia.com/cuda/index.html)               | \<\<[11.1.1](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)\>\> | [11.0.221](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html) |
 | [cuBLAS](https://docs.nvidia.com/cuda/cublas/index.html)     | \<\<[11.3.0.106](https://docs.nvidia.com/cuda/cublas/index.html)\>\> | [11.2.0.252](https://docs.nvidia.com/cuda/cublas/index.html) |
-| [cuDNN](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html) | \<\<[8.0.0](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html)\>\> | [8.0.4](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html) |
+| [cuDNN](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html) | \<\<[8.0.5](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html)\>\> | [8.0.4](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html) |
 | [NCCL](https://docs.nvidia.com/deeplearning/nccl/archives/index.html) | \<\<[2.8.4](https://docs.nvidia.com/deeplearning/nccl/release-notes/index.html)\>\> | [2.7.8](https://docs.nvidia.com/deeplearning/nccl/release-notes/index.html) |
 | **Packages**                                                 |                                                              |                                                              |
 | [CMake](https://cmake.org/)                                  | \<\<[3.19.6](https://cmake.org/cmake/help/latest/release/3.19.html)\>\> | [3.17.0](https://cmake.org/cmake/help/latest/release/3.17.html) |
@@ -71,7 +71,7 @@ This dependency matrix shows the software stack of NVIDIA HugeCTR project. The m
 | Container OS                                                 | [Ubuntu 20.04](http://releases.ubuntu.com/20.04/)            |
 | [CUDA](http://docs.nvidia.com/cuda/index.html)               | [11.1.1](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html) |
 | [cuBLAS](https://docs.nvidia.com/cuda/cublas/index.html)     | [11.3.0.106](https://docs.nvidia.com/cuda/cublas/index.html) |
-| [cuDNN](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html) | [8.0.0](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html) |
+| [cuDNN](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html) | [8.0.5](https://docs.nvidia.com/deeplearning/cudnn/release-notes/index.html) |
 | [NCCL](https://docs.nvidia.com/deeplearning/nccl/archives/index.html) | [2.8.4](https://docs.nvidia.com/deeplearning/nccl/release-notes/index.html) |
 | **Packages**                                                 |                                                              |
 | [CMake](https://cmake.org/)                                  | [3.19.6](https://cmake.org/cmake/help/latest/release/3.19.html) |
