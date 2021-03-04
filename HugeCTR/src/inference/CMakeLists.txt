@@ -70,7 +70,7 @@ file(GLOB huge_ctr_src
   ../parsers/create_optimizer.cpp
   ../parsers/create_network.cpp
   ../parsers/inference_parser.cpp
-  ../plan_parser.cpp 
+  ../plan_parser.cpp
   ../diagnose.cu
 )
 

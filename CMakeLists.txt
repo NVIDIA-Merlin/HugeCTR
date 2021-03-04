@@ -184,6 +184,7 @@ option(ENABLE_INFERENCE "Enable Inference" OFF)
 if(ENABLE_INFERENCE)
 add_subdirectory(third_party/googletest)
 add_subdirectory(HugeCTR/src/inference)
+add_subdirectory(tools/cpu_inference)
 add_subdirectory(test/utest/inference)
 else()
 #setting binary files install path
