@@ -17,10 +17,10 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://r
     conda activate base && \
     conda update -n base -c defaults conda && \
     conda config --add channels conda-forge --add channels nvidia --add channels rapidsai --add channels anaconda && \
-    conda install -y cmake=3.19.6 pip cudnn=8.0.4 rmm=0.18 cudatoolkit=11.0 && \
+    conda install -y cmake=3.19.6 pip rmm=0.18 cudatoolkit=11.0 && \
     /opt/conda/bin/conda clean -afy && \
     rm -rf /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh && \
-    rm -rf /opt/conda/include/nccl.h /opt/conda/lib/libnccl.so /opt/conda/include/google
+    rm -rfv /opt/conda/include/nccl.h /opt/conda/lib/libnccl.so /opt/conda/include/google /opt/conda/include/*cudnn* /opt/conda/lib/*cudnn*
 ENV CPATH=/opt/conda/include:$CPATH \
     LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH \
     LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH \
