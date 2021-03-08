@@ -1,13 +1,12 @@
-FROM nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 AS devel
+FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04 AS devel
 
 ARG RELEASE=false
 ARG SM="60;61;70;75;80"
 
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        vim gdb git wget tar python-dev python3-dev \
-        zlib1g-dev lsb-release ca-certificates clang-format libboost-all-dev \
-        openssl=1.1.1-1ubuntu2.1~18.04.8 libssl1.1=1.1.1-1ubuntu2.1~18.04.8 && \
+        vim gdb git wget tar curl python-dev python3-dev \
+        zlib1g-dev lsb-release ca-certificates clang-format libboost-all-dev && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://repo.anaconda.com/miniconda/Miniconda3-4.7.12-Linux-x86_64.sh && \
@@ -18,10 +17,10 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://r
     conda activate base && \
     conda update -n base -c defaults conda && \
     conda config --add channels conda-forge --add channels nvidia --add channels rapidsai --add channels anaconda && \
-    conda install -y cmake pip cudnn=8.0.4 rmm=0.17 cudatoolkit=11.0 && \
+    conda install -y cmake=3.19.6 pip rmm=0.18 cudatoolkit=11.0 && \
     /opt/conda/bin/conda clean -afy && \
     rm -rf /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh && \
-    rm -rf /opt/conda/include/nccl.h /opt/conda/lib/libnccl.so /opt/conda/include/google
+    rm -rfv /opt/conda/include/nccl.h /opt/conda/lib/libnccl.so /opt/conda/include/google /opt/conda/include/*cudnn* /opt/conda/lib/*cudnn*
 ENV CPATH=/opt/conda/include:$CPATH \
     LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH \
     LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH \

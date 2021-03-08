@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 AS devel
+FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04 AS devel
 
 ARG SM="60;61;70;75;80"
 ARG VAL_MODE=OFF
@@ -8,9 +8,8 @@ ARG RELEASE=false
 
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        vim gdb git wget tar unzip python-dev python3-dev \
-        zlib1g-dev lsb-release ca-certificates clang-format libboost-all-dev \
-        openssl=1.1.1-1ubuntu2.1~18.04.8 libssl1.1=1.1.1-1ubuntu2.1~18.04.8 && \
+        vim gdb git wget tar unzip curl python-dev python3-dev \
+        zlib1g-dev lsb-release ca-certificates clang-format libboost-all-dev && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://repo.anaconda.com/miniconda/Miniconda3-4.7.12-Linux-x86_64.sh && \
@@ -27,13 +26,11 @@ ENV CPATH=/opt/conda/include:$CPATH \
     NCCL_LAUNCH_MODE=PARALLEL
 
 RUN conda update -n base -c defaults conda && \
-    conda install -c rapidsai -c nvidia -c conda-forge -c defaults cudf=0.17.0 cudatoolkit=11.0 && \
-    conda install -c anaconda cmake=3.18.2 pip && \
-    conda install -c conda-forge ucx libhwloc=2.4.0 openmpi=4.1.0 openmpi-mpicc=4.1.0 mpi4py=3.0.3 && \
+    conda install -c rapidsai -c nvidia -c numba -c conda-forge cudf=0.18 python=3.8 cudatoolkit=11.0 && \
+    conda install -c conda-forge cmake=3.19.6 pip ucx libhwloc=2.4.0 openmpi=4.1.0 openmpi-mpicc=4.1.0 mpi4py=3.0.3 && \
     conda clean -afy && \
-    rm -rf /opt/conda/include/nccl.h /opt/conda/lib/libnccl.so /opt/conda/include/google
-ENV OMPI_MCA_plm_rsh_agent=sh \
-    OMPI_MCA_opal_cuda_support=true
+    rm -rfv /opt/conda/include/nccl.h /opt/conda/lib/libnccl.so /opt/conda/include/google /opt/conda/include/*cudnn* /opt/conda/lib/*cudnn*
+ENV OMPI_MCA_plm_rsh_agent=sh
 
 RUN echo alias python='/usr/bin/python3' >> /etc/bash.bashrc && \
     pip3 install numpy pandas sklearn ortools jupyter torch tqdm tensorflow==2.4.0 && \

@@ -176,7 +176,7 @@ void parameter_server<TypeHashKey>::look_up(const TypeHashKey* h_embeddingcolumn
     model_id = model_id_iter -> second;
   }
   else{
-    CK_THROW_(Error_t::WrongInput, "Error: parameter server unknown model name.");
+    CK_THROW_(Error_t::WrongInput, "Error: parameter server unknown model name. Note that this error will also come out with using Triton LOAD/UNLOAD APIs which haven't been supported in HugeCTR backend.");
   }
 
   // Search for the embedding ids in the corresponding embedding table
