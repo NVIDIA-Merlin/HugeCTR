@@ -35,21 +35,21 @@ fi
 
 SCRIPT_TYPE=$3
 
-echo "Getting the first few examples from the dataset..."
+echo "Getting the first few examples from the uncompressed dataset..."
 mkdir -p $DST_DATA_DIR/train                         && \
 mkdir -p $DST_DATA_DIR/val                           && \
 head -n 45840617 day_$1 > $DST_DATA_DIR/day_$1_small
 if [ $? -ne 0 ]; then
-	echo "Warning: cannot open day_$1, fallback to find original compressed data..."
+	echo "Warning: fallback to find original compressed data day_$1.gz..."
 	echo "Decompressing day_$1.gz..."
-	gzip -c day_$1.gz > day_$1
+	gzip -d -c day_$1.gz > day_$1
 	if [ $? -ne 0 ]; then
-		echo "Warning: failed to decompress the file. Trying finding the uncompressed dataset..."
+		echo "Error: failed to decompress the file."
 		exit 2
 	fi
 	head -n 45840617 day_$1 > $DST_DATA_DIR/day_$1_small
 	if [ $? -ne 0 ]; then
-		echo "Warning: day_$1 file break..."
+		echo "Error: day_$1 file"
 		exit 2
 	fi
 fi
