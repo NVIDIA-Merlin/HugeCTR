@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "tools/cpu_inference/layers/include/multi_cross_layer_cpu.hpp"
+#include "HugeCTR/include/cpu/layers/multi_cross_layer_cpu.hpp"
 #include "HugeCTR/include/layer.hpp"
 #include <math.h>
 #include <memory>
