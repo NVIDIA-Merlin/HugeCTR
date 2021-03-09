@@ -18,8 +18,8 @@
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/inference/inference_utils.hpp"
 #include "HugeCTR/include/utils.hpp"
-#include "tools/cpu_inference/embedding_feature_combiner_cpu.hpp"
-#include "tools/cpu_inference/session_inference_cpu.hpp"
+#include "HugeCTR/include/cpu/embedding_feature_combiner_cpu.hpp"
+#include "HugeCTR/include/cpu/session_inference_cpu.hpp"
 #include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -119,7 +119,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
     std::string line;
     std::getline(criteo_data_file, line);
     std::vector<std::string> vec_string;
-    split(line, ',', vec_string);
+    split(line, ' ', vec_string);
     switch (i) {
       case 0: {
         num_samples = static_cast<int>(vec_string.size());
