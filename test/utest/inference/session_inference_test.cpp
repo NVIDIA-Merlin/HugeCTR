@@ -119,7 +119,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
     std::string line;
     std::getline(criteo_data_file, line);
     std::vector<std::string> vec_string;
-    split(line, ',', vec_string);
+    split(line, ' ', vec_string);
     switch (i) {
       case 0: {
         num_samples = static_cast<int>(vec_string.size());
