@@ -7,12 +7,12 @@ The quickest way to run a notebook here is with a docker container, which provid
 ### Pull the NGC Docker
 To start the [embedding_plugin.ipynb](embedding_plugin.ipynb) notebook, pull this docker image:
 ```
-docker pull nvcr.io/nvidia/hugectr:v3.0-plugin-embedding
+docker pull nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.4
 ```
 
 To start the other notebooks, pull the docker image using the following command:
 ```
-docker pull nvcr.io/nvidia/hugectr:v3.0
+docker pull nvcr.io/nvidia/merlin/merlin-inference:0.4
 ```
 
 ### Clone the HugeCTR Repository
