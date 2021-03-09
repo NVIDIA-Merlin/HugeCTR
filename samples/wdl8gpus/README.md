@@ -9,11 +9,11 @@ You can choose either to pull the NGC docker or to build on your own.
 #### Pull the NGC Docker ####
 Pull the HugeCTR NGC docker using this command:
 ```bash
-$ docker pull nvcr.io/nvidia/hugectr:v3.0
+$ docker pull nvcr.io/nvidia/merlin/merlin-inference:0.4
 ```
 Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
 ```bash
-$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/hugectr:v3.0
+$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-inference:0.4
 ```
 
 #### Build on Your Own ####
