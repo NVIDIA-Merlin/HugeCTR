@@ -49,7 +49,7 @@
           "top": "deep_data",
           "type": "DistributedSlot",
           "max_feature_num_per_sample": 30,
-          "slot_num": 27
+          "slot_num": 26
         }
       ]
     },
