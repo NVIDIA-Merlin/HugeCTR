@@ -103,7 +103,7 @@ $ make -j
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70,80" -DCMAKE_BUILD_TYPE=Debug -DNCCL_A2A=OFF .. # Target is NVIDIA V100 / A100, Debug mode and Gossip for all2all data transaction.
+$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM="70,80" -DNCCL_A2A=OFF .. # Target is NVIDIA V100 / A100, Debug mode and Gossip for all2all data transaction.
 $ make -j
 ```
 
