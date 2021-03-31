@@ -645,11 +645,11 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
     CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
-    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
-    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_value_index[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
+    CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_value_index[id], count[id] * sizeof(size_t)));
     CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
-    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
-    CK_CUDA_THROW_(cudaMalloc(&d_dump_counter[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
+    CK_CUDA_THROW_(cudaMallocManaged(&d_dump_counter[id], count[id] * sizeof(size_t)));
   }
 
   // dump hash table from GPUs
@@ -816,11 +816,11 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
     CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
-    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
-    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_value_index[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
+    CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_value_index[id], count[id] * sizeof(size_t)));
     CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
-    CK_CUDA_THROW_(cudaMalloc(&d_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
-    CK_CUDA_THROW_(cudaMalloc(&d_dump_counter[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
+    CK_CUDA_THROW_(cudaMallocManaged(&d_dump_counter[id], count[id] * sizeof(size_t)));
   }
 
   // dump hash table from GPUs
