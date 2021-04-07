@@ -316,8 +316,7 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
     CK_CUDA_THROW_(cudaStreamCreate(&update_streams[i]));
   }
   // Each worker create workspace to do embedding cache operation
-  embedding_cache_workspace workspace;
-  embedding_cache -> create_workspace(workspace);
+  embedding_cache_workspace workspace = embedding_cache -> create_workspace();
   // Random number generator for selecting known embedding ids from embedding table
   IntGenerator<size_t> index_gen(0, row_num - 1);
 
