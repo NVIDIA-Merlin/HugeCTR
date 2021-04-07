@@ -45,7 +45,7 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
       cudaStreamCreateWithFlags(&update_stream, cudaStreamNonBlocking);
       update_streams_.push_back(update_stream);
     }
-    embedding_cache_->create_workspace(workspace_handler_);
+    workspace_handler_ = embedding_cache_->create_workspace();
     CK_CUDA_THROW_(cudaMalloc((void**)&d_embeddingvectors_, inference_parser_.max_batchsize *  inference_parser_.max_embedding_vector_size_per_sample * sizeof(float)));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

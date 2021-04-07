@@ -389,7 +389,8 @@ void embedding_cache<TypeHashKey>::update(embedding_cache_workspace& workspace_h
 }
 
 template <typename TypeHashKey>
-void embedding_cache<TypeHashKey>::create_workspace(embedding_cache_workspace& workspace_handler){
+embedding_cache_workspace embedding_cache<TypeHashKey>::create_workspace(){
+  embedding_cache_workspace workspace_handler;
   size_t max_query_len_per_batch = 0;
   size_t max_emb_vec_len_per_batch_in_float = 0;
   for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
@@ -449,6 +450,7 @@ void embedding_cache<TypeHashKey>::create_workspace(embedding_cache_workspace& w
       workspace_handler.unique_op_obj_.emplace_back((void*)(new unique_op_(capacity)));
     }
   }
+  return workspace_handler;
 }
 
 template <typename TypeHashKey>
