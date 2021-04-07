@@ -66,7 +66,7 @@ class embedding_interface{
   virtual ~embedding_interface();
 
   // Allocate a copy of workspace memory for a worker, should be called once by a worker
-  virtual void create_workspace(embedding_cache_workspace& workspace_handler) = 0;
+  virtual embedding_cache_workspace create_workspace() = 0;
 
   // Free a copy of workspace memory for a worker, should be called once by a worker
   virtual void destroy_workspace(embedding_cache_workspace& workspace_handler) = 0;
