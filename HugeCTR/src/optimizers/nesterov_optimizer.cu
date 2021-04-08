@@ -37,34 +37,28 @@ __global__ void nesterov_update_kernel(int len, float* weight, T* accum, const T
 
 }  // namespace
 
-NesterovOptimizer::NesterovOptimizer(const Tensor2<float>& weight_main,
-                                     const Tensor2<float>& fp32_wgrad,
-                                     const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
-                                     const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                                     const std::shared_ptr<BufferBlock2<__half>>& opt_buf_half,
-                                     const std::shared_ptr<GPUResource>& gpu_resource,
-                                     float learning_rate, float momentum_factor, float scaler)
-    : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, gpu_resource, learning_rate,
-                scaler),
+template <typename T>
+NesterovOptimizer<T>::NesterovOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
+                                        const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                                        const std::shared_ptr<GPUResource>& gpu_resource,
+                                        float learning_rate, float momentum_factor, float scaler)
+    : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
+      wgrad_(wgrad),
       mu_(momentum_factor) {
-  if (mixed_precision) {
-    opt_buf_half->reserve({weight_main.get_num_elements()}, &fp16_accum_);
-  } else {
-    opt_buf->reserve({weight_main.get_num_elements()}, &fp32_accum_);
+  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
   }
+  opt_buf->reserve({weight_main.get_num_elements()}, &accum_);
 }
 
-void NesterovOptimizer::initialize() {
-  if (mixed_precision_) {
-    CK_CUDA_THROW_(cudaMemsetAsync(fp16_accum_.get_ptr(), 0, fp16_accum_.get_size_in_bytes(),
-                    gpu_resource_->get_stream()));
-  } else {
-    CK_CUDA_THROW_(cudaMemsetAsync(fp32_accum_.get_ptr(), 0, fp32_accum_.get_size_in_bytes(),
-                    gpu_resource_->get_stream()));
-  }
+template <typename T>
+void NesterovOptimizer<T>::initialize() {
+  CK_CUDA_THROW_(cudaMemsetAsync(accum_.get_ptr(), 0, accum_.get_size_in_bytes(),
+                                 gpu_resource_->get_stream()));
 }
 
-void NesterovOptimizer::update() {
+template <typename T>
+void NesterovOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
 
   const size_t len = weight_main_.get_num_elements();
@@ -72,25 +66,19 @@ void NesterovOptimizer::update() {
   const size_t grid_dim = (len - 1) / block_dim + 1;
 
   float* weight = weight_main_.get_ptr();
-
-  if (mixed_precision_) {
-    __half* fp16_accum = fp16_accum_.get_ptr();
-    const __half* fp16_wgrad = fp16_wgrad_.get_ptr();
-
-    nesterov_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, fp16_accum, fp16_wgrad, lr_, mu_, scaler_);
-  } else {
-    float* fp32_accum = fp32_accum_.get_ptr();
-    const float* fp32_wgrad = fp32_wgrad_.get_ptr();
-
-    nesterov_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, fp32_accum, fp32_wgrad, lr_, mu_, scaler_);
-  }
+  T* accum = accum_.get_ptr();
+  T* wgrad = wgrad_.get_ptr();
+  nesterov_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+      len, weight, accum, wgrad, lr_, mu_, scaler_);
 
 #ifndef NDEBUG
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+
+
+template class NesterovOptimizer<float>;
+template class NesterovOptimizer<__half>;
 
 }  // namespace HugeCTR

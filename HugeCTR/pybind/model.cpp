@@ -316,11 +316,17 @@ void Model::add(DenseLayer& dense_layer) {
 
 void Model::compile() {
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    networks_[i]->optimizer_ = std::move(Optimizer::Create(
-        opt_params_32_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
-        wgrad_buff_half_list_[i]->as_tensor(), solver_.use_mixed_precision,
-        solver_.scaler, opt_buff_list_[i], opt_buff_half_list_[i],
+    if(solver_.use_mixed_precision) {
+      networks_[i]->optimizer_ = std::move(Optimizer::Create(
+        opt_params_16_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(), 
+        solver_.scaler, opt_buff_half_list_[i],
         resource_manager_->get_local_gpu(i)));
+    }else {
+      networks_[i]->optimizer_ = std::move(Optimizer::Create(
+        opt_params_32_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
+        solver_.scaler, opt_buff_list_[i], 
+        resource_manager_->get_local_gpu(i)));
+    }
 
     networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
     networks_[i]->train_weight_tensor_half_ = train_weight_buff_half_list_[i]->as_tensor();

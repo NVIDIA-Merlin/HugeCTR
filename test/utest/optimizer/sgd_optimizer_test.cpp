@@ -81,11 +81,17 @@ void sgd_test(size_t len, int num_update, bool mixed_precision) {
   buff->reserve({len}, &wgrad_half);
 
   const float lr = 0.001f;
-  SGDOptimizer sgd(weight, wgrad, wgrad_half, mixed_precision, test::get_default_gpu(), lr);
+
+  std::unique_ptr<Optimizer> sgd;
+  if(mixed_precision){
+    sgd = std::make_unique<SGDOptimizer<__half>>(weight, wgrad_half, test::get_default_gpu(), lr);
+  }else {
+    sgd = std::make_unique<SGDOptimizer<float>>(weight, wgrad, test::get_default_gpu(), lr);
+  }
 
   buff->allocate();
 
-  sgd.initialize();
+  sgd->initialize();
 
   std::unique_ptr<float[]> h_weight(new float[len]);
   std::unique_ptr<float[]> h_wgrad(new float[len]);
@@ -118,7 +124,7 @@ void sgd_test(size_t len, int num_update, bool mixed_precision) {
       cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
     }
 
-    sgd.update();
+    sgd->update();
     sgd_cpu.update();
   }
 
