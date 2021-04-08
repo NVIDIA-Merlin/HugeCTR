@@ -76,10 +76,9 @@ class Optimizer {
    */
   template <typename T>
   static std::unique_ptr<Optimizer> Create(
-      const OptParams<T>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
-      const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler,
-      const std::shared_ptr<BufferBlock2<float>>& opt_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& opt_buff_half,
+      const OptParams<T>& params, const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
+      const float scaler,
+      const std::shared_ptr<BufferBlock2<T>>& opt_buff,
       const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
@@ -89,27 +88,12 @@ class Optimizer {
    * @param device_id the id of GPU where update kernel is launched
    * @param learning_rate learning rate
    */
-  Optimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
-            const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
+  Optimizer(const Tensor2<float>& weight_main, 
             const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate, float scaler)
       : weight_main_(weight_main),
-        fp32_wgrad_(fp32_wgrad),
-        fp16_wgrad_(fp16_wgrad),
-        mixed_precision_(mixed_precision),
         gpu_resource_(gpu_resource),
         lr_(learning_rate),
         scaler_(scaler) {
-    if (mixed_precision) {
-      if (weight_main.get_num_elements() != fp16_wgrad.get_num_elements()) {
-        CK_THROW_(Error_t::WrongInput,
-                  "fp32_weight->get_num_elements() != fp16_wgrad->get_num_elements()");
-      }
-    } else {
-      if (weight_main.get_num_elements() != fp32_wgrad.get_num_elements()) {
-        CK_THROW_(Error_t::WrongInput,
-                  "fp32_weight->get_num_elements() != fp32_wgrad->get_num_elements()");
-      }
-    }
     if (lr_ <= 0.) {
       CK_THROW_(Error_t::WrongInput, "lr <= 0");
     }
@@ -138,9 +122,6 @@ class Optimizer {
 
  protected:
   Tensor2<float> weight_main_;
-  Tensor2<float> fp32_wgrad_;
-  Tensor2<__half> fp16_wgrad_;
-  bool mixed_precision_;
   std::shared_ptr<GPUResource> gpu_resource_;
   float lr_;  // learning rate
   const float scaler_;

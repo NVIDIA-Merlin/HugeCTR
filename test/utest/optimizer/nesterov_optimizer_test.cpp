@@ -102,12 +102,16 @@ void nesterov_test(size_t len, int num_update, bool mixed_precision) {
   std::shared_ptr<BufferBlock2<float>> opt_buff = buff->create_block<float>();
   std::shared_ptr<BufferBlock2<__half>> opt_buff_half = buff->create_block<__half>();
 
-  NesterovOptimizer nesterov(weight, wgrad, wgrad_half, mixed_precision, opt_buff, opt_buff_half,
-                             test::get_default_gpu(), 0.01, 0.9);
+  std::unique_ptr<Optimizer> nesterov;
+  if(mixed_precision){
+    nesterov = std::make_unique<NesterovOptimizer<__half>>(weight, wgrad_half, opt_buff_half, test::get_default_gpu(), 0.01, 0.9);
+  }else {
+    nesterov = std::make_unique<NesterovOptimizer<float>>(weight, wgrad, opt_buff, test::get_default_gpu(), 0.01, 0.9);
+  }
 
   buff->allocate();
 
-  nesterov.initialize();
+  nesterov->initialize();
 
   std::unique_ptr<float[]> h_weight(new float[len]);
   std::unique_ptr<float[]> h_wgrad(new float[len]);
@@ -141,7 +145,7 @@ void nesterov_test(size_t len, int num_update, bool mixed_precision) {
       cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
     }
 
-    nesterov.update();
+    nesterov->update();
     nesterov_cpu.update();
   }
 

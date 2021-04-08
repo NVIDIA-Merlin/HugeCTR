@@ -16,23 +16,22 @@
 
 #include "HugeCTR/include/optimizer.hpp"
 
+#include <type_traits>
+
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
 #include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
 
-#include <type_traits>
-
 namespace HugeCTR {
 
 template <typename T>
-std::unique_ptr<Optimizer> Optimizer::Create(
-    const OptParams<T>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
-    const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler,
-    const std::shared_ptr<BufferBlock2<float>>& opt_buff,
-    const std::shared_ptr<BufferBlock2<__half>>& opt_buff_half,
-    const std::shared_ptr<GPUResource>& gpu_resource) {
+std::unique_ptr<Optimizer> Optimizer::Create(const OptParams<T>& params,
+                                             const Tensor2<float>& weight_main,
+                                             const Tensor2<T>& wgrad, const float scaler,
+                                             const std::shared_ptr<BufferBlock2<T>>& opt_buff,
+                                             const std::shared_ptr<GPUResource>& gpu_resource) {
   std::unique_ptr<Optimizer> ret;
 
   switch (params.optimizer) {
@@ -41,28 +40,27 @@ std::unique_ptr<Optimizer> Optimizer::Create(
       auto beta1 = params.hyperparams.adam.beta1;
       auto beta2 = params.hyperparams.adam.beta2;
       auto epsilon = params.hyperparams.adam.epsilon;
-      ret.reset(new AdamOptimizer(weight_main, wgrad, wgrad_half, mixed_precision, opt_buff, opt_buff_half,
-                                  gpu_resource, lr, beta1, beta2, epsilon, scaler));
+      ret.reset(new AdamOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource, lr, beta1, beta2,
+                                     epsilon, scaler));
       break;
     }
     case Optimizer_t::MomentumSGD: {
       auto learning_rate = params.lr;
       auto momentum_factor = params.hyperparams.momentum.factor;
-      ret.reset(new MomentumSGDOptimizer(weight_main, wgrad, wgrad_half, mixed_precision, opt_buff, opt_buff_half,
-                                         gpu_resource, learning_rate, momentum_factor, scaler));
+      ret.reset(new MomentumSGDOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource,
+                                            learning_rate, momentum_factor, scaler));
       break;
     }
     case Optimizer_t::Nesterov: {
       auto learning_rate = params.lr;
       auto momentum_factor = params.hyperparams.nesterov.mu;
-      ret.reset(new NesterovOptimizer(weight_main, wgrad, wgrad_half, mixed_precision, opt_buff, opt_buff_half,
-                                      gpu_resource, learning_rate, momentum_factor, scaler));
+      ret.reset(new NesterovOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource, learning_rate,
+                                         momentum_factor, scaler));
       break;
     }
     case Optimizer_t::SGD: {
       auto learning_rate = params.lr;
-      ret.reset(new SGDOptimizer(weight_main, wgrad, wgrad_half, mixed_precision, gpu_resource,
-                                 learning_rate, scaler));
+      ret.reset(new SGDOptimizer<T>(weight_main, wgrad, gpu_resource, learning_rate, scaler));
       break;
     }
     default:
@@ -73,16 +71,13 @@ std::unique_ptr<Optimizer> Optimizer::Create(
 
 template std::unique_ptr<Optimizer> Optimizer::Create<float>(
     const OptParams<float>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
-    const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler,
-    const std::shared_ptr<BufferBlock2<float>>& opt_buff,
-    const std::shared_ptr<BufferBlock2<__half>>& opt_buff_half,
+    const float scaler, const std::shared_ptr<BufferBlock2<float>>& opt_buff,
     const std::shared_ptr<GPUResource>& gpu_resource);
 
 template std::unique_ptr<Optimizer> Optimizer::Create<__half>(
-    const OptParams<__half>& params, const Tensor2<float>& weight_main, const Tensor2<float>& wgrad,
-    const Tensor2<__half>& wgrad_half, bool mixed_precision, const float scaler,
-    const std::shared_ptr<BufferBlock2<float>>& opt_buff,
-    const std::shared_ptr<BufferBlock2<__half>>& opt_buff_half,
+    const OptParams<__half>& params, const Tensor2<float>& weight_main,
+    const Tensor2<__half>& wgrad, const float scaler,
+    const std::shared_ptr<BufferBlock2<__half>>& opt_buff,
     const std::shared_ptr<GPUResource>& gpu_resource);
 
 }  // end namespace HugeCTR
