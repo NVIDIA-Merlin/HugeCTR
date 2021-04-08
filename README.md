@@ -37,10 +37,8 @@ If you'd like to quickly train a model using the Python interface, follow these 
 
 3. Generate a synthetic dataset based on the configuration file by running the following command:
    ```
-   data_generator ./dcn.json ./dataset_dir 434428 1
+   ./data_generator --config-file dcn.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
    ```
-
-   The following set of files are created: ./file_list.txt, ./file_list_test.txt, and ./dataset_dir/*.
 
 4. Write a simple Python code using the hugectr module as shown here:
    ```
