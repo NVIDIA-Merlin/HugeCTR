@@ -190,40 +190,35 @@ The [Norm](./configuration_file_setup.md#norm) (with Header) and [Raw](./configu
 The default distribution is uniform.
 - Using the `Norm` dataset format, run the following command: <br>
 ```bash
-# if you install HugeCTR from NGC Containers
-$ data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
+$ data_generator --config-file your_config.json --voc-size-array <vocabulary size array in csv>  --distribution <powerlaw | unified> [option: --nnz-array <nnz array in csv: all one hot>] [option: --alpha xxx or --longtail <long | medium | short>] [option:--data-folder <folder_path: ./>] [option:--files <number of files: 128>] [option:--samples <samples per file: 40960>]
 $ huge_ctr --train your_config.json
-
-# if you build HugeCTR from scratch
-$ cd build # or where HugeCTR is installed
-$ bin/data_generator your_config.json data_folder vocabulary_size max_nnz (--files <number_of_files>) (--samples <num_samples_per_file>) (--long-tail <long|short|medium>)
-$ bin/huge_ctr --train your_config.json
 ```
 - Using the `Raw` dataset format, run the following command: <br>
 ```bash
-# if you install HugeCTR from NGC Containers
-$ data_generator your_config.json (--long-tail <long|medium|short>)
+$ data_generator --config-file your_config.json --distribution <powerlaw | unified> [option: --nnz-array <nnz array in csv: all one hot>] [option: --alpha xxx or --longtail <long | medium | short>]
 $ huge_ctr --train your_config.json
-
-# if you build HugeCTR from scratch
-$ cd build # or where HugeCTR is installed
-$ bin/data_generator your_config.json (--long-tail <long|medium|short>)
-$ bin/huge_ctr --train your_config.json
 ```
 
 Set the following parameters:
-+ `data_folder`: Directory where the generated dataset is stored.
-+ `vocabulary_size`: Total vocabulary size of your target dataset, which cannot exceed the `max_vocabulary_size_per_gpu` multiplied by the number of active GPUs.
-+ `max_nnz`: You can use this parameter to simulate one-hot or multi-hot encodings. If you just want to use the one-hot encoding, set this parameter to 1. Otherwise, [1, max_nnz] values will be generated for each slot. Please note that `max_nnz * slot_num` must be less than `max_feature_num_per_sample` in the data layer of the configuration file that is being used.
-+ `--files`: Number of data files that will be generated (optional). The default value is `128`.
-+ `--samples`: Number of samples per file (optional). The default value is `40960`.
-+ `--long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. You can choose from the `long`, `medium` and `short` options, which characterize the properties of the tail. The scaling exponent will be 1, 3, and 5 respectively.
++ `config-file`: The json configure file you used in your training. Data generator will read the configure file to get necessary data information.
++ `data_folder`: Directory where the generated dataset is stored. The default value is `./`
++ `voc-size-array`: vocabulary size per slot of your target dataset. For example, for a six slots dataset "--voc-size-array 100,23,111,45,23,2452". Note that no space between the numbers. 
++ `nnz-array`: You can use this parameter to simulate one-hot or multi-hot encodings. If you just want to use the one-hot encoding, you don't need to specify this option. If it's specified, the length of array should be the same as `voc-size-array` for norm format or `slot_size_array` in json configure file in data layer.
++ `files`: Number of data files that will be generated (optional). The default value is `128`.
++ `samples`: Number of samples per file (optional). The default value is `40960`.
++ `distribution`: Both `powerlaw` and `unified` distribution are supported.
++ `alpha`: if `powerlaw` is specified, users can specify either `alpha` or `long-tail` to configure the distribution.  
++ `long-tail`: If you want to generate data with power-law distribution for categorical features, you can use this option. You can choose from the `long`, `medium` and `short` options, which characterize the properties of the tail. The scaling exponent will be 1, 3, and 5 respectively.
 
-Here is an example of generating an one-hot dataset where the vocabulary size is 434428 based on the DCN config file.
+Here are two examples of generating an one-hot dataset where the vocabulary size is 434428 based on the DCN config file.
 ```bash
-$ cd build # or where HugeCTR is installed
-$ mkdir dataset_dir
-$ bin/data_generator ../samples/dcn/dcn.json ./dataset_dir 434428 1
+$ ./data_generator --config-file dcn.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
+$ ./data_generator --config-file dcn.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --nnz-array 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 --distribution powerlaw --alpha -1.2
+```
+
+Here is an example of generating an one-hot dataset for DLRM config file.
+```bash
+$ ./data_generator --config-file dlrm_fp16_64k.json --distribution powerlaw --alpha -1.2
 ```
 
 ### Downloading and Preprocessing Datasets

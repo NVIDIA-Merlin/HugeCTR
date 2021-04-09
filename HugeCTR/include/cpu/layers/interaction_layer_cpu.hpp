@@ -16,20 +16,20 @@
 
 #pragma once
 
-#include <cudnn.h>
-#include <layer.hpp>
+#include <cpu/layer_cpu.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
 /**
- * Dropout layer which selects an arbitrary fraction of inputs to 0
+ * Layer which
  */
 template <typename T>
-class DropoutCudnnLayer : public Layer {
+class InteractionLayerCPU : public LayerCPU {
   /*
    * stores the weight tensors of this layer.
    */
-  // Tensors<float> weights_; It is inherited from Layer.
+  Tensors2<T> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
@@ -43,41 +43,37 @@ class DropoutCudnnLayer : public Layer {
    */
   Tensors2<T> out_tensors_;
 
+  bool use_mixed_precision_;
+
+  Tensors2<T> internal_tensors_;
+
+  Tensors2<T>& get_in_tensors(bool is_train) { return in_tensors_; }
+
  public:
   /**
-   * Ctor of DropoutCudnnLayer.
-   * @param in_tensor the input tensor
-   * @param out_tensor the output tensor which has the same dim with in_tensor
-   * @param rate fraction of the inputs set to zero., 0 < rate < 1, default = 0.5
+   * Ctor of InteractionLayer.
+   * @param in_bottom_mlp_tensor the input bottom MLP tensor (batch_size, width)
+   * @param in_embeddings the input embeddings (batch_size, n_emb, width)
+   * @param out_tensor the resulting output tensor
+   * @param blobs_buff GeneralBuffer used to create the output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  DropoutCudnnLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
-                    const std::shared_ptr<GPUResource>& gpu_resource);
-
-  ~DropoutCudnnLayer() override;
+  InteractionLayerCPU(const Tensor2<T>& in_bottom_mlp_tensor, const Tensor2<T>& in_embeddings,
+                   Tensor2<T>& out_tensor,
+                   const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                   bool use_mixed_precision);
+  ~InteractionLayerCPU() override;
 
   /**
-   * A method of implementing the forward pass of Dropout
+   * Interaction's foward pass to gather data to the output tensor
    * @param stream CUDA stream where the foward propagation is executed
    */
   void fprop(bool is_train) override;
   /**
-   * A method of implementing the backward pass of Dropout
-   * @param stream CUDA stream where the backward propagation is executed
+   * Interaction's backward pass to scatter data to the input tensors
+   * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop() override;
-
-  const float* mask() const { return mask_.get_ptr(); }
-
- private:
-  cudnnDropoutDescriptor_t dropout_descriptor_;
-  float rate_;
-  float scale_;
-  void* cudnn_status_;
-  Tensor2<float> mask_;
-  cudnnTensorDescriptor_t in_out_desc_;
-  size_t reserveSpaceSizeInBytes_;
 };
 
 }  // namespace HugeCTR
