@@ -20,7 +20,6 @@
 #include <layers/cast_layer.hpp>
 #include <layers/concat_layer.hpp>
 #include <layers/dot_product_layer.hpp>
-#include <layers/dropout_cudnn_layer.hpp>
 #include <layers/dropout_layer.hpp>
 #include <layers/elu_layer.hpp>
 #include <layers/fm_order2_layer.hpp>
@@ -244,13 +243,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         output_tensor_entries.push_back(
             {input_output_info.output_names[0], do_out_tensor.shrink()});
         float rate = dense_layer.dropout_rate;
-#ifndef PREFER_CUDNN
         layers.emplace_back(new DropoutLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                      rate, gpu_resource));
-#else
-        layers.emplace_back(new DropoutCudnnLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
                                                           rate, gpu_resource));
-#endif
       } else {
         Tensor2<float> do_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> do_out_tensor;
@@ -258,16 +252,10 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         output_tensor_entries.push_back(
             {input_output_info.output_names[0], do_out_tensor.shrink()});
         float rate = dense_layer.dropout_rate;
-#ifndef PREFER_CUDNN
-        layers.emplace_back(
-            new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
-#else
-        layers.emplace_back(new DropoutCudnnLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
+        layers.emplace_back(new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
                                                           rate, gpu_resource));
-#endif
       }
       // to be fixed
-      enable_cuda_graph = false;
       break;
     }
     case Layer_t::ELU: {

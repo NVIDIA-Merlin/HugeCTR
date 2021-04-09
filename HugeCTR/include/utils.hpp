@@ -365,7 +365,7 @@ struct CudnnDataType<float> {
 
 template <>
 struct CudnnDataType<__half> {
-  static cudnnDataType_t getType() { return CUDNN_DATA_FLOAT; }
+  static cudnnDataType_t getType() { return CUDNN_DATA_HALF; }
 };
 
 
