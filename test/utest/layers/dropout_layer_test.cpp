@@ -17,7 +17,6 @@
 #include "HugeCTR/include/layers/dropout_layer.hpp"
 
 #include <cublas_v2.h>
-#include <curand.h>
 #include <gtest/gtest.h>
 #include <utest/test_utils.h>
 #include <cmath>
@@ -31,6 +30,7 @@ using namespace HugeCTR;
 namespace {
 
 const float eps = 1e-6;
+const float thr = 0.95f;
 
 template <typename T>
 void dropout_test(size_t dim0, size_t dim1, float rate) {
@@ -44,9 +44,6 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   DropoutLayer<T> dropout_layer(in_tensor, out_tensor, buf, rate, test::get_default_gpu());
 
   buf->allocate();
-  dropout_layer.initialize();
-
-  test::GaussianDataSimulator simulator(0.0f, 1.0f);
 
   const int len = dim0 * dim1;
   const int n_bytes = len * sizeof(T);
@@ -54,59 +51,60 @@ void dropout_test(size_t dim0, size_t dim1, float rate) {
   T* d_out = out_tensor.get_ptr();
 
   std::unique_ptr<T[]> h_in(new T[len]);
-  std::unique_ptr<T[]> h_out(new T[len]);
-
+  test::GaussianDataSimulator simulator(0.0f, 1.0f);
   simulator.fill(h_in.get(), len);
   CK_CUDA_THROW_(cudaMemcpy(d_in, h_in.get(), n_bytes, cudaMemcpyHostToDevice));
 
-  std::unique_ptr<float[]> h_mask(new float[len]);
-  std::unique_ptr<T[]> h_ref(new T[len]);
-
-  float scale = 1.0 / (1.0 - rate);
+  std::unique_ptr<T[]> h_out(new T[len]);
 
   // fprop test
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   dropout_layer.fprop(true);
-  CK_CUDA_THROW_(
-      cudaMemcpy(h_mask.get(), dropout_layer.mask(), len * sizeof(float), cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
   CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_out, n_bytes, cudaMemcpyDeviceToHost));
   int cnt_zero_fprop = 0;
   for (int i = 0; i < len; i++) {
-    h_ref[i] = ((1.f - h_mask[i]) >= rate) * h_in[i] * scale;
-    if (std::abs(h_ref[i] - 0.f) < 1e-6) {
+    if (std::abs(h_out[i] - 0.f) < eps) {
       cnt_zero_fprop++;
     }
   }
-  ASSERT_TRUE(test::compare_array_approx<T>(h_out.get(), h_ref.get(), len, eps));
+
+  float ref_zero_cnt = rate * len;
+  float p = (cnt_zero_fprop < ref_zero_cnt)? ref_zero_cnt : cnt_zero_fprop;
+  float c = (cnt_zero_fprop < ref_zero_cnt)? cnt_zero_fprop : ref_zero_cnt;
+  ASSERT_TRUE(c/p > thr);
 
   // bprop test
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
   dropout_layer.bprop();
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+
   CK_CUDA_THROW_(cudaMemcpy(h_in.get(), d_in, n_bytes, cudaMemcpyDeviceToHost));
   int cnt_zero_bprop = 0;
   for (int i = 0; i < len; i++) {
-    h_ref[i] = ((1.f - h_mask[i]) >= rate) * h_out[i] * scale;
-    if (std::abs(h_ref[i] - 0.f) < 1e-6) {
+    if (std::abs(h_out[i] - 0.f) < eps) {
       cnt_zero_bprop++;
     }
   }
-  ASSERT_TRUE(test::compare_array_approx<T>(h_in.get(), h_ref.get(), len, eps));
 
   ASSERT_TRUE(cnt_zero_fprop == cnt_zero_bprop);
 }
 
-TEST(dropout_layer, fp32_32x320_25) { dropout_test<float>(32, 320, 0.25); }
+TEST(dropout_layer, fp32_2048x1024_25) { dropout_test<float>(2048, 1024, 0.25); }
 
-TEST(dropout_layer, fp32_32x320_50) { dropout_test<float>(32, 320, 0.50); }
+TEST(dropout_layer, fp32_2048x1024_50) { dropout_test<float>(2048, 1024, 0.50); }
 
-TEST(dropout_layer, fp32_32x320_75) { dropout_test<float>(32, 320, 0.75); }
+TEST(dropout_layer, fp32_2048x1024_75) { dropout_test<float>(2048, 1024, 0.75); }
 
-TEST(dropout_layer, fp32_32x320_99) { dropout_test<float>(32, 320, 0.99); }
+TEST(dropout_layer, fp32_2048x1024_99) { dropout_test<float>(2048, 1024, 0.99); }
 
-TEST(dropout_layer, fp16_32x320_25) { dropout_test<__half>(32, 320, 0.25); }
+TEST(dropout_layer, fp16_2048x1024_25) { dropout_test<__half>(2048, 1024, 0.25); }
 
-TEST(dropout_layer, fp16_32x320_50) { dropout_test<__half>(32, 320, 0.50); }
+TEST(dropout_layer, fp16_2048x1024_50) { dropout_test<__half>(2048, 1024, 0.50); }
 
-TEST(dropout_layer, fp16_32x320_75) { dropout_test<__half>(32, 320, 0.75); }
+TEST(dropout_layer, fp16_2048x1024_75) { dropout_test<__half>(2048, 1024, 0.75); }
 
-TEST(dropout_layer, fp16_32x320_99) { dropout_test<__half>(32, 320, 0.99); }
+TEST(dropout_layer, fp16_2048x1024_99) { dropout_test<__half>(2048, 1024, 0.99); }
 
 }  // end namespace

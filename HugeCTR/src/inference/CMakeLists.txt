@@ -25,7 +25,6 @@ file(GLOB huge_ctr_src
   ../layers/cast_layer.cu
   ../layers/concat_layer.cu
   ../layers/dropout_layer.cu
-  ../layers/dropout_cudnn_layer.cu
   ../layers/elu_layer.cu
   ../layers/fully_connected_layer.cu
   ../layers/fully_connected_layer_half.cu
