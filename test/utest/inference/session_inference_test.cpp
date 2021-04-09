@@ -19,6 +19,7 @@
 #include "HugeCTR/include/inference/embedding_interface.hpp"
 #include <inference/embedding_feature_combiner.hpp>
 #include "HugeCTR/include/general_buffer2.hpp"
+#include "HugeCTR/include/utils.hpp"
 #include <vector>
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -91,6 +92,7 @@ InferenceParams::InferenceParams(const nlohmann::json& config) {
   }    // get embedding params
 }
 
+template <typename TypeHashKey>
 void session_inference_criteo_test(const std::string& config_file, const std::string& model, const std::string& criteo_data_path) {
   InferenceParams inference_params(read_json_file(config_file));
   int batch_size = inference_params.max_batchsize;
@@ -100,10 +102,11 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   int num_samples = 0;
   std::vector<int> labels;
   std::vector<float> dense_features;
-  std::vector<unsigned int> keys;
+  std::vector<TypeHashKey> keys;
   std::vector<int> row_ptrs;
   CudaAllocator allocator;
   CudaHostAllocator host_allocator;
+  HugeCTR::Timer timer_inference;
 
   // open criteo data file
   std::ifstream criteo_data_file(criteo_data_path, std::ifstream::binary);
@@ -143,7 +146,7 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
           std::cerr << "keys_dim does not equal to num_samples*slot_num" << std::endl;
         }
         for (int j = 0; j < keys_dim; j++) {
-          unsigned int key = static_cast<unsigned int>(std::stoll(vec_string[j]));
+          TypeHashKey key = static_cast<TypeHashKey>(std::stoll(vec_string[j]));
           keys.push_back(key);
         }
         break;
@@ -191,10 +194,10 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   // h_embeddingcolumns
   size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
   size_t embeddingcolumns_size_samples = num_samples * max_feature_num_per_sample;
-  size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(unsigned int);
-  size_t embeddingcolumns_size_in_bytes_samples = embeddingcolumns_size_samples * sizeof(unsigned int);
+  size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(TypeHashKey);
+  size_t embeddingcolumns_size_in_bytes_samples = embeddingcolumns_size_samples * sizeof(TypeHashKey);
   void* h_embeddingcolumns = host_allocator.allocate(embeddingcolumns_size_in_bytes);
-  //unsigned int* h_keys = reinterpret_cast<unsigned int*>(h_embeddingcolumns);
+  //TypeHashKey* h_keys = reinterpret_cast<TypeHashKey*>(h_embeddingcolumns);
 
   // d_output 
   float* d_output = reinterpret_cast<float*>(allocator.allocate(batch_size*sizeof(float)));
@@ -208,12 +211,14 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   // inference session
   std::vector<std::string> model_config_path{config_file};
   std::vector<std::string> model_name{model};
-  HugectrUtility<unsigned int>* parameter_server = HugectrUtility<unsigned int>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
-  std::shared_ptr<embedding_interface> embedding_cache(embedding_interface::Create_Embedding_Cache<unsigned int>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]));
+  HugectrUtility<TypeHashKey>* parameter_server = HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
+  std::shared_ptr<embedding_interface> embedding_cache(embedding_interface::Create_Embedding_Cache<TypeHashKey>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]));
   
   InferenceSession sess(config_file, 0, embedding_cache);
   CK_CUDA_THROW_(cudaDeviceSynchronize());
+  timer_inference.start();
   sess.predict(d_dense_features, h_embeddingcolumns, d_row_ptrs, d_output, num_samples);
+  timer_inference.stop();
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_output, num_samples*sizeof(float), cudaMemcpyDeviceToHost));
   CK_CUDA_THROW_(cudaDeviceSynchronize());
@@ -229,12 +234,17 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   }
   std::cout << std::endl;
 
+  MESSAGE_("Batch size: " + std::to_string(batch_size)
+          + ", Number samples: " + std::to_string(num_samples)
+          + ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
+
   host_allocator.deallocate(h_embeddingcolumns);
   allocator.deallocate(d_row_ptrs);
   allocator.deallocate(d_dense_features);
   allocator.deallocate(d_output);
 }
 
+template <typename TypeHashKey>
 void session_inference_generated_test(const std::string& config_file, const std::string& model, int num_samples) {
   InferenceParams inference_params(read_json_file(config_file));
   int batch_size = inference_params.max_batchsize;
@@ -245,6 +255,7 @@ void session_inference_generated_test(const std::string& config_file, const std:
   num_samples = num_samples < batch_size? num_samples:batch_size;
   CudaAllocator allocator;
   CudaHostAllocator host_allocator;
+  HugeCTR::Timer timer_inference;
 
   //d_row_ptrs
   std::vector<size_t> row_ptrs_dims = { static_cast<size_t>(batch_size * slot_num + 1) };  // 1D
@@ -277,13 +288,13 @@ void session_inference_generated_test(const std::string& config_file, const std:
 
   // h_embeddingcolumns
   size_t embeddingcolumns_size = batch_size * max_feature_num_per_sample;
-  size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(unsigned int);
+  size_t embeddingcolumns_size_in_bytes = embeddingcolumns_size * sizeof(TypeHashKey);
   void* h_embeddingcolumns = host_allocator.allocate(embeddingcolumns_size_in_bytes);
-  unsigned int* h_keys = reinterpret_cast<unsigned int*>(h_embeddingcolumns);
+  TypeHashKey* h_keys = reinterpret_cast<TypeHashKey*>(h_embeddingcolumns);
   for (int i = 0; i < num_samples; i++) {
     for (int j = 0; j < slot_num; j++) {
       ldata_sim.reset(new IntUniformDataSimulator<int>(RANGE[j], RANGE[j+1]-1));
-      h_keys[i*slot_num + j] = static_cast<unsigned int>(ldata_sim->get_num());
+      h_keys[i*slot_num + j] = static_cast<TypeHashKey>(ldata_sim->get_num());
     }
   }
 
@@ -298,12 +309,14 @@ void session_inference_generated_test(const std::string& config_file, const std:
   // inference session
   std::vector<std::string> model_config_path{config_file};
   std::vector<std::string> model_name{model};
-  HugectrUtility<unsigned int>* parameter_server = HugectrUtility<unsigned int>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
-  std::shared_ptr<embedding_interface> embedding_cache(embedding_interface::Create_Embedding_Cache<unsigned int>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]));
+  HugectrUtility<TypeHashKey>* parameter_server = HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
+  std::shared_ptr<embedding_interface> embedding_cache(embedding_interface::Create_Embedding_Cache<TypeHashKey>(parameter_server, 0, true, 0.2, model_config_path[0], model_name[0]));
 
   InferenceSession sess(config_file, 0, embedding_cache);
   CK_CUDA_THROW_(cudaDeviceSynchronize());
+  timer_inference.start();
   sess.predict(d_dense_features, h_embeddingcolumns, d_row_ptrs, d_output, num_samples);
+  timer_inference.stop();
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaMemcpy(h_out.get(), d_output, num_samples*sizeof(float), cudaMemcpyDeviceToHost));
   CK_CUDA_THROW_(cudaDeviceSynchronize());
@@ -313,7 +326,9 @@ void session_inference_generated_test(const std::string& config_file, const std:
       std::cout << h_out[i] << " ";
   }
   std::cout << std::endl;
-
+  MESSAGE_("Batch size: " + std::to_string(batch_size)
+          + ", Number samples: " + std::to_string(num_samples)
+          + ", Time: " + std::to_string(timer_inference.elapsedSeconds()) + "s");
   host_allocator.deallocate(h_embeddingcolumns);
   allocator.deallocate(d_row_ptrs);
   allocator.deallocate(d_dense_features);
@@ -322,5 +337,5 @@ void session_inference_generated_test(const std::string& config_file, const std:
 
 }  // namespace
 
-TEST(session_inference, criteo_dcn) { session_inference_criteo_test("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt"); }
-TEST(session_inference, generated_dcn_32) { session_inference_generated_test("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", 32); }
+TEST(session_inference, criteo_dcn) { session_inference_criteo_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt"); }
+TEST(session_inference, generated_dcn_32) { session_inference_generated_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", 32); }

@@ -1,5 +1,13 @@
 # Release Notes
 
+## What's New in Version 3.0.1
+
++ **DLRM Inference Benchmark**: We've added two detailed Jupyter notebooks to illustrate how to train and deploy a DLRM model with HugeCTR whilst benchmarking its performance. The inference notebook demonstrates how to create Triton and HugeCTR backend configs, prepare the inference data, and deploy a trained model by another notebook on Triton Inference Server. It also shows the way of benchmarking its performance (throughput and latency), based on Triton Performance Analyzer. For more details, check out our [HugeCTR inference repository](https://github.com/triton-inference-server/hugectr_backend/tree/v3.0.1-integration/samples/dlrm).
++ **FP16 Speicific Optimization in More Dense Layers**: We've optimized DotProduct, ELU, and Sigmoid layers based on `__half2` vectorized loads and stores, so that they better utilize device memory bandwidth. Now most layers have been optimized in such a way except MultiCross, FmOrder2, ReduceSum, and Multiply layers.
++ **More Finely Tunable Synthetic Data Generator**: Our new data generator can generate uniformly distributed datasets in addition to power law based datasets. Instead of specifying `vocabulary_size` in total and `max_nnz`, you can specify such information per categorical feature. See [our user guide](docs/hugectr_user_guide.md#generating-synthetic-data-and-benchmarks) to learn its changed usage.
++ **Decreased Memory Demands of Trained Model Exportation**: To prevent the out of memory error from happening in saving a trained model including a very large embedding table, the actual amount of memory allocated by the related functions was effectively reduced.
++ **CUDA Graph Compatible Dropout Layer**: HugeCTR Dropout Layer uses cuDNN by default, so that it can be used together with CUDA Graph. In the previous version, if Dropout was used, CUDA Graph was implicitly turned off.
+
 ## What’s New in Version 3.0
 
 + **Inference Support**: To streamline the recommender system workflow, we’ve implemented a custom HugeCTR backend on the [NVIDIA Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server). The HugeCTR backend leverages the embedding cache and parameter server to efficiently manage embeddings of different sizes and models in a hierarchical manner. For additional information, see [our inference repository](https://github.com/triton-inference-server/hugectr_backend).
@@ -62,3 +70,5 @@
 + The HugeCTR embedding TensorFlow plugin assumes that the input keys are in `int64` and its output is in `float`.
 
 + If the number of samples in a dataset is not divisible by the batch size when in epoch mode and using the `num_epochs` instead of `max_iter`, a few remaining samples are truncated. If the training dataset is large enough, its impact can be negligible. If you want to minimize the wasted batches, try adjusting the number of data reader workers. For example, using a file list source, set the `num_workers` parameter to an advisor based on the number of data files in the file list.
+
++ MultiCross layer doesn't support mixed precision mode yet.

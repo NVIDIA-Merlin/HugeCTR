@@ -20,7 +20,6 @@
 #include <layers/cast_layer.hpp>
 #include <layers/concat_layer.hpp>
 #include <layers/dot_product_layer.hpp>
-#include <layers/dropout_cudnn_layer.hpp>
 #include <layers/dropout_layer.hpp>
 #include <layers/elu_layer.hpp>
 #include <layers/fm_order2_layer.hpp>
@@ -297,13 +296,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-#ifndef PREFER_CUDNN
           layers.emplace_back(new DropoutLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                       rate, gpu_resource));
-#else
-          layers.emplace_back(new DropoutCudnnLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
                                                             rate, gpu_resource));
-#endif
         } else {
           // establish out tensor
           Tensor2<float> do_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
@@ -314,15 +308,9 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-#ifndef PREFER_CUDNN
-          layers.emplace_back(
-              new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
-#else
-          layers.emplace_back(new DropoutCudnnLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
+          layers.emplace_back(new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
                                                            rate, gpu_resource));
-#endif
         }
-        enable_cuda_graph = false;
 
         break;
       }
