@@ -54,20 +54,20 @@ We support the following compute capabilities:
 | 8.0                | NVIDIA A100 (Ampere) | 80 |
 
 ### Software Stack ###
-Please find the detailed software stack (dependencies) of HugeCTR under this [link](../../tools/dockerfiles/software_stack.md).
+Please find the detailed software stack (dependencies) of HugeCTR under this [link](../tools/dockerfiles/software_stack.md).
 
 ### Installing HugeCTR from NGC Containers
-All NVIDIA Merlin components are available as open-source projects. However, a more convenient way to make use of these components is by using Merlin NGC containers. Containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR from NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system software configuration.
+All NVIDIA Merlin components are available as open source projects. However, a more convenient way to make use of these components is by using our Merlin NGC containers. Containers allow you to package your software application, libraries, dependencies, and runtime compilers in a self-contained environment. When installing HugeCTR using NGC containers, the application environment remains portable, consistent, reproducible, and agnostic to the underlying host system software configuration.
 
-HugeCTR is included in the Merlin docker image, that is available in the NVIDIA container repository on https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
+HugeCTR is included in the Merlin Docker image, which is available in the NVIDIA container repository on https://ngc.nvidia.com/catalog/containers/nvidia:hugectr.
 
 You can pull and launch the container by running the following command:
 ```shell
-$ docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v3.0  # Start interaction mode
+$ docker run --runtime=nvidia --rm -it nvcr.io/nvidia/merlin/merlin-training:0.5  # Start interaction mode
 ```
 
 ### Building Your Own Container ###
-Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles) to build the HugeCTR docker image on your own.
+Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles) to build the HugeCTR Docker image on your own.
 
 ### Building HugeCTR from Scratch
 Before building HugeCTR from scratch, you should prepare the dependencies according to [link](../../tools/dockerfiles/software_stack.md). Then download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
@@ -78,11 +78,12 @@ $ git submodule update --init --recursive
 ```
 
 You can build HugeCTR from scratch using one or any combination of the following options:
-* **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The following compute capabilities are supported: 60, 70, 75, and 80. The default compute capability is 70, which uses the NVIDIA V100 GPU. See [Compute Capability](#compute-capability) for more detailed information.
+* **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The default compute capability is 70, which uses the NVIDIA V100 GPU. See [Compute Capability](#compute-capability) for more detailed information. 60 is not supported for inference deployments. For more information, see [Quick Start](https://github.com/triton-inference-server/hugectr_backend#quick-start).
 * **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks in a synchronous manner.
 * **VAL_MODE**: You can use this option to build HugeCTR in validation mode, which was designed for framework validation. In this mode, loss of training will be shown as the average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by default.
-* **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multi-nodes. This option is set to OFF by default. For additional information, see [samples/dcn2nodes](../samples/dcn2nodes).
+* **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multi-nodes. This option is set to OFF by default. For more information, see [samples/dcn2nodes](../samples/dcn2nodes).
 * **NCCL_A2A**: You can use this option to build HugeCTR with NCCL All2All, which is the default collection communication library used in LocalizedSlotSparseEmbedding. Gossip is also supported in HugeCTR, which provides better performance on servers without NVSwitch support. To build HugeCTR with NCCL All2All, please turn on the NCCL_A2A switch in the cmake. This option is set to OFF by default.
+* **ENABLE_INFERENCE**: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to OFF by default.
 
 Here are some examples of how you can build HugeCTR using these build options:
 ```shell
@@ -103,6 +104,13 @@ $ make -j
 $ mkdir -p build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70,80" -DCMAKE_BUILD_TYPE=Debug -DNCCL_A2A=OFF .. # Target is NVIDIA V100 / A100, Debug mode and Gossip for all2all data transaction.
+$ make -j
+```
+
+```shell
+$ mkdir -p build
+$ cd build
+$ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70,80" -DENABLE_INFERENCE=ON .. # Target is NVIDIA V100 / A100 and Validation mode on.
 $ make -j
 ```
 
@@ -222,4 +230,3 @@ For example:
 $ cd tools # assume that the downloaded dataset is here
 $ bash preprocess.sh 1 criteo_data pandas 1 0
 ```
-
