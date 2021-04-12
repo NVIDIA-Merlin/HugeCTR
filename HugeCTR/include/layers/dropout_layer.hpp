@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <curand.h>
+#include <cudnn.h>
 #include <layer.hpp>
 
 namespace HugeCTR {
@@ -52,8 +52,10 @@ class DropoutLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   DropoutLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
-               const std::shared_ptr<GPUResource>& gpu_resource);
+                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
+                    const std::shared_ptr<GPUResource>& gpu_resource);
+
+  ~DropoutLayer() override;
 
   /**
    * A method of implementing the forward pass of Dropout
@@ -68,12 +70,14 @@ class DropoutLayer : public Layer {
 
   const float* mask() const { return mask_.get_ptr(); }
 
-  void prop_common(const T* in, T* out, cudaStream_t stream);
-
  private:
+  cudnnDropoutDescriptor_t dropout_descriptor_;
   float rate_;
   float scale_;
+  void* cudnn_status_;
   Tensor2<float> mask_;
+  cudnnTensorDescriptor_t in_out_desc_;
+  size_t reserveSpaceSizeInBytes_;
 };
 
 }  // namespace HugeCTR

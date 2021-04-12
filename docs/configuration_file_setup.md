@@ -391,7 +391,7 @@ All the embedding vectors in a single embedding layer must have the same size. I
 
 Parameters:
 
-* `max_vocabulary_size_per_gpu`: Maximum vocabulary size or cardinality across all the input features. 
+* `max_vocabulary_size_per_gpu`: Maximum vocabulary size or cardinality across all the input features. Please find the details [here](QAList.md#25-how-to-set-max_vocabulary_size_per_gpu-and-slot_size_array-in-json-file).
 * `embedding_vec_size`: Embedding vector size.
 * `combiner`: Intra-slot reduction op (0=sum, 1=average).
 
@@ -426,7 +426,7 @@ All the embedding vectors in a single embedding layer must have the same size. I
 
 Parameters:
 
-* `max_vocabulary_size_per_gpu`: Maximum vocabulary size (or cardinality) across all the input features. 
+* `max_vocabulary_size_per_gpu`: Maximum vocabulary size (or cardinality) across all the input features. Please find the details [here](QAList.md#25-how-to-set-max_vocabulary_size_per_gpu-and-slot_size_array-in-json-file).
 * `slot_size_array`: Cardinality array of input features. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored.
 * `embedding_vec_size`: Embedding vector size.
 * `combiner`:  Intra-slot reduction op (0=sum, 1=average).

@@ -221,6 +221,7 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
 
   bool allocated() const { return total_size_in_bytes_ != 0 && ptr_ != nullptr; }
 
+  void *get_ptr() const {return ptr_;}
 };  // namespace HugeCTR
 
 }  // namespace HugeCTR

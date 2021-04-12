@@ -47,6 +47,32 @@ __global__ void dot_product_kernel(T** inputs, T* output, int size, int num) {
   }
 }
 
+template <>
+__global__ void dot_product_kernel<__half>(__half** inputs, __half* output, int size, int num) {
+  __half2** inputs2 = reinterpret_cast<__half2**>(inputs);
+  __half2* output2 = reinterpret_cast<__half2*>(output);
+  const int size2 = size / 2;
+
+  const __half one = __float2half(1.0f);
+  const __half2 one2 = __half2half2(one);
+
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (tid < size2) {
+    __half2 tmp2 = one2;
+    for (int i = 0; i < num; i++) {
+      tmp2 *= inputs2[i][tid];
+    }
+    output2[tid] = tmp2;
+  }
+  if (tid == 0 && size % 2 > 0) {
+    __half tmp = one;
+    for (int i = 0; i < num; i++) {
+      tmp *= inputs[i][size - 1];
+    }
+    output[size - 1] = tmp;
+  }
+}
+
 template <typename T>
 __global__ void dot_product_dgrad_kernel(const T* top_grad, T** dgrads, T* fprop_output, int size,
                                          int num) {
@@ -61,6 +87,34 @@ __global__ void dot_product_dgrad_kernel(const T* top_grad, T** dgrads, T* fprop
         T d_input = dgrads[i][tid];
         dgrads[i][tid] = top_grad[tid] * (fprop_output[tid] / d_input);
       }
+    }
+  }
+}
+
+template <>
+__global__ void dot_product_dgrad_kernel<__half>(const __half* top_grad, __half** dgrads,
+                                                 __half* fprop_output, int size, int num) {
+  const __half2* top_grad2 = reinterpret_cast<const __half2*>(top_grad);
+  __half2** dgrads2 = reinterpret_cast<__half2**>(dgrads);
+  __half2* fprop_output2 = reinterpret_cast<__half2*>(fprop_output);
+  const int size2 = size / 2;
+
+  const __half zero = __float2half(0.0f);
+  const __half2 zero2 = __half2half2(zero);
+
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (tid < size2) {
+    for (int i = 0; i < num; ++i) {
+      const __half2 fp_out2 = fprop_output2[tid];
+      const __half2 pred2 = __hne2(fp_out2, zero2);
+      dgrads2[i][tid] = pred2 * top_grad2[tid] * (fp_out2 / dgrads2[i][tid]);
+    }
+  }
+  if (tid == 0 && size % 2 > 0) {
+    const int idx = size - 1;
+    for (int i = 0; i < num; ++i) {
+      const __half fp_out = fprop_output[idx];
+      dgrads[i][idx] = (fp_out == zero) ? zero : top_grad[idx] * (fp_out / dgrads[i][idx]);
     }
   }
 }
@@ -139,6 +193,30 @@ void DotProductLayer<T>::fprop(bool is_train) {
                                  get_gpu().get_stream()));
 }
 
+template <>
+void DotProductLayer<__half>::fprop(bool is_train) {
+  CudaDeviceContext context(get_device_id());
+  if (!initialized_) {
+    for (size_t i = 0; i < num_; i++) {
+      h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
+    }
+    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+                                   num_ * sizeof(__half*), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
+    initialized_ = true;
+  }
+  __half* output = out_tensors_[0].get_ptr();
+
+  dim3 blockSize(256, 1, 1);
+  dim3 gridSize((size_ / 2 + blockSize.x - 1) / blockSize.x, 1, 1);
+  dot_product_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(),
+                                                                         output, size_, num_);
+
+  CK_CUDA_THROW_(cudaMemcpyAsync((void*)fprop_output_.get_ptr(), (void*)output,
+                                 out_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                                 get_gpu().get_stream()));
+}
+
 template <typename T>
 void DotProductLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
@@ -155,6 +233,26 @@ void DotProductLayer<T>::bprop() {
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
+  dot_product_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+      output, d_inputs_.get_ptr(), fprop_output_.get_ptr(), size_, num_);
+}
+
+template <>
+void DotProductLayer<__half>::bprop() {
+  CudaDeviceContext context(get_device_id());
+  if (!initialized_) {
+    for (size_t i = 0; i < num_; i++) {
+      h_inputs_.get_ptr()[i] = in_tensors_[i].get_ptr();
+    }
+    CK_CUDA_THROW_(cudaMemcpyAsync((void*)d_inputs_.get_ptr(), (void*)h_inputs_.get_ptr(),
+                                   num_ * sizeof(__half*), cudaMemcpyHostToDevice,
+                                   get_gpu().get_stream()));
+    initialized_ = true;
+  }
+  __half* output = out_tensors_[0].get_ptr();
+
+  dim3 blockSize(256, 1, 1);
+  dim3 gridSize((size_ / 2 + blockSize.x - 1) / blockSize.x, 1, 1);
   dot_product_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
       output, d_inputs_.get_ptr(), fprop_output_.get_ptr(), size_, num_);
 }
