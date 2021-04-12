@@ -1,71 +1,68 @@
 # DCN MULTI-NODES SAMPLE #
-A sample of building and training Deep & Cross Network with HugeCTR on multi-nodes [(link)](https://arxiv.org/pdf/1708.05123.pdf).
+The purpose of this sample is to build and train the [Deep & Cross Network](https://arxiv.org/pdf/1708.05123.pdf) with multi-node enabled within HugeCTR.
 
-## Setup the HugeCTR Docker Environment ##
-**NOTE**: this sample requires HugeCTR built with multi-nodes training supported.
+## Set Up the HugeCTR Docker Environment ##
+You can set up the HugeCTR Docker environment by doing one of the following:
+- [Pull the NGC Docker](#pull-the-ngc-docker)
+- [Build the HugeCTR Docker Container on Your Own](#build-the-hugectr-docker-container-on-your-own)
 
-You can choose either to pull the NGC docker or to build on your own.
+### Pull the NGC Docker ###
+HugeCTR is available as buildable source code, but the easiest way to install and run HugeCTR is to pull the pre-built Docker image, which is available on the NVIDIA GPU Cloud (NGC). This method provides a self-contained, isolated, and reproducible environment for repetitive experiments.
 
-#### Pull the NGC Docker ####
-Pull the HugeCTR NGC docker using this command:
-```bash
-$ docker pull nvcr.io/nvidia/hugectr:v3.0
-```
-Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:
-```bash
-$ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/hugectr:v3.0
-```
+1. Pull the HugeCTR NGC Docker by running the following command:
+   ```bash
+   $ docker pull nvcr.io/nvidia/merlin/merlin-inference:0.5
+   ```
+2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
+   ```bash
+   $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-inference:0.5
+   ```
 
-#### Build on Your Own ####
-Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) to build on your own and set up the docker container.See [Build with Multi-Nodes Training Supported](../docs/mainpage.md#build-with-multi-nodes-training-supported) to know how to build with multi-nodes training supported. Please make sure that HugeCTR is built and installed to the system path `/usr/local/hugectr` within the docker container. Please launch the container in interactive mode in the same manner as above.
+### Build the HugeCTR Docker Container on Your Own ###
+If you want to build the HugeCTR Docker container on your own, refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) and [Use the Docker Container](../docs/mainpage.md#use-docker-container). For more information about building HugeCTR with multi-node enabled, see [Build with Multi-Nodes Training Supported](../docs/mainpage.md#build-with-multi-nodes-training-supported). You should make sure that HugeCTR is built and installed in `/usr/local/hugectr` within the Docker container. You can launch the container in interactive mode in the same manner as shown above.
 
-## Dataset and Preprocess ##
-In running this sample, [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used.
-The dataset contains 24 files, each of which corresponds to one day of data.
-To spend less time on preprocessing, we use only one of them.
-Each sample consists of a label (1 if the ad was clicked, otherwise 0) and 39 features (13 integer features and 26 categorical features).
-The dataset also has the significant amounts of missing values across the feature columns, which should be preprocessed accordingly.
+## Download the Dataset ##
+Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the dataset files into the "${project_root}/tools" directory. 
 
-#### Download the Dataset ####
-
-Go to [this link](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/),
-and download one of 24 files into the directory "${project_root}/tools", 
-or execute the following command:
+As an alternative, you can run the following command:
 ```
 $ cd ${project_root}/tools
 $ wget http://azuremlsampleexperiments.blob.core.windows.net/criteo/day_1.gz
 ```
-- **NOTE**: Replace 1 with a value from [0, 23] to use a different day.
 
-In preprocessing, we will further reduce the amounts of data to speedup the preprocessing, fill missing values, remove the feature values whose occurrences are very rare, etc.
-Please choose one of the following two methods to make the dataset ready for HugeCTR training.
+**NOTE**: Replace `1` with a value from [0, 23] to use a different day.
 
-#### Preprocessing by Pandas ####
+During preprocessing, the amount of data, which is used to speed up the preprocessing, fill missing values, and remove the feature values that are considered rare, is further reduced.
+
+## Preprocess the Dataset ##
+When running this sample, the [Criteo 1TB Click Logs dataset](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) is used. The dataset contains 24 files in which each file corresponds to one day of data. To reduce preprocessing time, only one file is used. Each sample consists of a label (0 if the ad wasn't clicked and 1 if the ad was clicked) and 39 features (13 integer features and 26 categorical features). The dataset is also missing numerous values across the feature columns, which should be preprocessed accordingly.
+
+### Preprocess the Dataset Through Pandas ####
+To preprocess the dataset through Pandas, run the following command:
 ```shell
 $ bash preprocess.sh 1 criteo_data pandas 1 0
 ```
-- **NOTE**: The first argument represents the dataset postfix.  For instance, if `day_1` is used, it is 1.
-- **NOTE**: the second argument `criteo_data` is where the preprocessed data is stored.
-You may want to change it in case where multiple datasets for different purposes are generated concurrently.
-If you change it, `source` and `eval_source` in your JSON config file must be changed as well.
-- **NOTE**: the fourth arguement (one after `pandas`) represents if the normalization is applied to dense features (1=ON, 0=OFF).
-- **NOTE**: the last argument decides if the feature crossing is applied (1=ON, 0=OFF).
-It must remains 0 if the sample is not `wdl`.
 
-## Training with HugeCTR ##
-1. Plan file generation
-If gossip communication library is used, a plan file is needed to be generated first as below. If NCCL communication library is used, there is no need to generate a plan file, just skip this step. 
+**IMPORTANT NOTES**: 
+- The first argument represents the dataset postfix. For instance, if `day_1` is used, the postfix is `1`.
+- The second argument `criteo_data` is where the preprocessed data is stored. You may want to change it in cases where multiple datasets are generated concurrently. If you change it, `source` and `eval_source` in your JSON configuration file must be changed as well.
+- The fourth argument (the one after `pandas`) represents if the normalization is applied to dense features (1=ON, 0=OFF).
+- The last argument determines if feature crossing should be applied. It must remain set `0` (OFF).
 
-Login to your GPU cluster and gets two nodes. For example, if on a SLURM system:  
-```shell
-# We will use two nodes, i.e., -N 2, in this example
-$ srun -N 2 --pty bash -i
-$ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-$ mpirun python3 plan_generation/plan_generator.py ../samples/dcn2nodes/dcn8l8gpu2nodes.json
-```
-**NOTE:** If your cluster is unequpped with a job scheduler, please refer to [our tutorial](../tutorial/multinode-training/README.md/)
+## Train with HugeCTR ##
+If the gossip communication library is used, a plan file must be generated first as shown below. If the NCCL communication library is used, there is no need to generate a plan file and you can proceed to step 2. 
 
-2. Run huge_ctr
-```shell
-$ mpirun --bind-to none huge_ctr --train /samples/dcn2nodes/dcn8l8gpu2nodes.json
-```
+1. Use the following command to generate a plan file by logging into your GPU (Slurm) cluster to get two nodes: 
+   ```shell
+   # We will use two nodes, i.e., -N 2, in this example
+   $ srun -N 2 --pty bash -i
+   $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
+   $ mpirun python3 plan_generation/plan_generator.py ../samples/dcn2nodes/dcn8l8gpu2nodes.json
+   ```
+   **NOTE**: If you're not using the Slurm cluster, replace `srun` with the appropriate cluster. If your cluster is unequipped 
+   with a job scheduler, refer to [our tutorial](../tutorial/multinode-training/README.md/).
+
+2. Run `huge_ctr`.
+   ```shell
+   $ mpirun --bind-to none huge_ctr --train /samples/dcn2nodes/dcn8l8gpu2nodes.json
+   ```
