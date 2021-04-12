@@ -26,7 +26,7 @@ To learn about our latest enhancements, see our [release notes](release_notes.md
 If you'd like to quickly train a model using the Python interface, follow these steps:
 1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
-   docker run --runtime=nvidia --rm -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) -it nvcr.io/nvidia/hugectr:v3.0
+   docker run --runtime=nvidia --rm -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) -it nvcr.io/nvidia/merlin/merlin-training:0.5
    ```
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
@@ -37,10 +37,8 @@ If you'd like to quickly train a model using the Python interface, follow these 
 
 3. Generate a synthetic dataset based on the configuration file by running the following command:
    ```
-   data_generator ./dcn.json ./dataset_dir 434428 1
+   ./data_generator --config-file dcn.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
    ```
-
-   The following set of files are created: ./file_list.txt, ./file_list_test.txt, and ./dataset_dir/*.
 
 4. Write a simple Python code using the hugectr module as shown here:
    ```

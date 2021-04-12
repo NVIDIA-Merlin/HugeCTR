@@ -29,7 +29,7 @@ RUN conda update -n base -c defaults conda && \
     conda install -c rapidsai -c nvidia -c numba -c conda-forge cudf=0.18 python=3.8 cudatoolkit=11.0 && \
     conda install -c conda-forge cmake=3.19.6 pip ucx libhwloc=2.4.0 openmpi=4.1.0 openmpi-mpicc=4.1.0 mpi4py=3.0.3 && \
     conda clean -afy && \
-    rm -rfv /opt/conda/include/nccl.h /opt/conda/lib/libnccl.so /opt/conda/include/google /opt/conda/include/*cudnn* /opt/conda/lib/*cudnn*
+    rm -rfv /opt/conda/include/nccl.h /opt/conda/lib/libnccl* /opt/conda/include/google /opt/conda/include/*cudnn* /opt/conda/lib/*cudnn*
 ENV OMPI_MCA_plm_rsh_agent=sh
 
 RUN echo alias python='/usr/bin/python3' >> /etc/bash.bashrc && \

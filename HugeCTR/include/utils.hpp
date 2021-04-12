@@ -167,7 +167,6 @@ public:
     ArgConvertor<T>(arg, ret);
     return ret;
   }
-
   static bool has_arg(const std::string target, int argc, char** argv){
     std::vector <std::string> tokens;
     for (int i=1; i < argc; ++i)
@@ -365,7 +364,7 @@ struct CudnnDataType<float> {
 
 template <>
 struct CudnnDataType<__half> {
-  static cudnnDataType_t getType() { return CUDNN_DATA_FLOAT; }
+  static cudnnDataType_t getType() { return CUDNN_DATA_HALF; }
 };
 
 
