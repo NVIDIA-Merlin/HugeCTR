@@ -99,12 +99,16 @@ void sgd_test(size_t len, int num_update, bool mixed_precision) {
   std::shared_ptr<BufferBlock2<float>> opt_buff = buff->create_block<float>();
   std::shared_ptr<BufferBlock2<__half>> opt_buff_half = buff->create_block<__half>();
 
-  MomentumSGDOptimizer sgd(weight, wgrad, wgrad_half, mixed_precision, opt_buff, opt_buff_half,
-                           test::get_default_gpu(), 0.01, 0.9);
+  std::unique_ptr<Optimizer> sgd;
+  if(mixed_precision){
+    sgd = std::make_unique<MomentumSGDOptimizer<__half>>(weight, wgrad_half, opt_buff_half, test::get_default_gpu(), 0.01, 0.9);
+  }else {
+    sgd = std::make_unique<MomentumSGDOptimizer<float>>(weight, wgrad, opt_buff, test::get_default_gpu(), 0.01, 0.9);
+  }
 
   buff->allocate();
 
-  sgd.initialize();
+  sgd->initialize();
 
   std::unique_ptr<float[]> h_weight(new float[len]);
   std::unique_ptr<float[]> h_wgrad(new float[len]);
@@ -134,7 +138,7 @@ void sgd_test(size_t len, int num_update, bool mixed_precision) {
       cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
     }
 
-    sgd.update();
+    sgd->update();
     sgd_cpu.update();
   }
 

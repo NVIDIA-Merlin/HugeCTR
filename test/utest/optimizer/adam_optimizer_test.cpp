@@ -120,11 +120,16 @@ void adam_test(size_t len, int num_update, bool mixed_precision) {
   std::shared_ptr<BufferBlock2<float>> opt_buff = buff->create_block<float>();
   std::shared_ptr<BufferBlock2<__half>> opt_buff_half = buff->create_block<__half>();
 
-  AdamOptimizer adam(weight, wgrad, wgrad_half, mixed_precision, opt_buff, opt_buff_half, test::get_default_gpu());
+  std::unique_ptr<Optimizer> adam;
+  if(mixed_precision){
+    adam = std::make_unique<AdamOptimizer<__half>>(weight, wgrad_half, opt_buff_half, test::get_default_gpu());
+  }else {
+    adam = std::make_unique<AdamOptimizer<float>>(weight, wgrad, opt_buff, test::get_default_gpu());
+  }
 
   buff->allocate();
 
-  adam.initialize();
+  adam->initialize();
 
   std::unique_ptr<float[]> h_weight(new float[len]);
   std::unique_ptr<float[]> h_wgrad(new float[len]);
@@ -154,7 +159,7 @@ void adam_test(size_t len, int num_update, bool mixed_precision) {
       cudaMemcpy(d_wgrad, h_wgrad.get(), len * sizeof(float), cudaMemcpyHostToDevice);
     }
 
-    adam.update();
+    adam->update();
     adam_cpu.update();
   }
 
