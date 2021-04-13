@@ -33,12 +33,17 @@ __global__ void sgd_update_kernel(int len, float* weight, const T* wgrad, float 
 
 }  // namespace
 
-SGDOptimizer::SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
-                           const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
+template <typename T>
+SGDOptimizer<T>::SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
                            const std::shared_ptr<GPUResource>& gpu_resource, float lr, float scaler)
-    : Optimizer(weight_main, fp32_wgrad, fp16_wgrad, mixed_precision, gpu_resource, lr, scaler) {}
+    : Optimizer(weight_main, gpu_resource, lr, scaler), wgrad_(wgrad) {
+  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
+  }
+}
 
-void SGDOptimizer::update() {
+template <typename T>
+void SGDOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
 
   const size_t len = weight_main_.get_num_elements();
@@ -46,21 +51,17 @@ void SGDOptimizer::update() {
   const size_t grid_dim = (len - 1) / block_dim + 1;
 
   float* weight = weight_main_.get_ptr();
-
-  if (mixed_precision_) {
-    const __half* fp16_wgrad = fp16_wgrad_.get_ptr();
-    sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, fp16_wgrad, lr_, scaler_);
-  } else {
-    const float* fp32_wgrad = fp32_wgrad_.get_ptr();
-    sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, fp32_wgrad, lr_, scaler_);
-  }
+  const T* wgrad = wgrad_.get_ptr();
+  sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, wgrad, lr_, scaler_);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
+
+template class SGDOptimizer<float>;
+template class SGDOptimizer<__half>;
 
 }  // namespace HugeCTR
