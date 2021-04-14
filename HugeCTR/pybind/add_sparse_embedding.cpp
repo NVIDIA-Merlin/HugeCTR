@@ -27,6 +27,91 @@
 
 namespace HugeCTR {
 
+SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_embedding) {
+  Embedding_t embedding_type;
+  std::vector<size_t> slot_size_array;
+  size_t max_vocabulary_size_per_gpu = 0;
+  auto embedding_type_name = get_value_from_json<std::string>(j_sparse_embedding, "type");
+  if (!find_item_in_map(embedding_type, embedding_type_name, EMBEDDING_TYPE_MAP)) {
+    CK_THROW_(Error_t::WrongInput, "No such embedding type: " + embedding_type_name); 
+  }
+  auto j_hparam = get_json(j_sparse_embedding, "sparse_embedding_hparam");
+  if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
+    max_vocabulary_size_per_gpu =
+        get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
+  } else {
+    if (has_key_(j_hparam, "max_vocabulary_size_per_gpu")) {
+      max_vocabulary_size_per_gpu =
+          get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
+    } else if (has_key_(j_hparam, "slot_size_array")) {
+      auto slots = get_json(j_hparam, "slot_size_array");
+      assert(slots.is_array());
+      for (auto slot : slots) {
+        slot_size_array.emplace_back(slot.get<size_t>());
+      }
+    } else {
+      CK_THROW_(Error_t::WrongInput,
+                "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_type_name);
+    }
+  }
+  auto bottom_name = get_value_from_json<std::string>(j_sparse_embedding, "bottom");
+  auto top_name = get_value_from_json<std::string>(j_sparse_embedding, "top");
+  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+  auto combiner = get_value_from_json<int>(j_hparam, "combiner");
+  std::shared_ptr<OptParamsPy> embedding_opt_params(new OptParamsPy());
+  auto j_optimizer = get_json(j_sparse_embedding, "optimizer");
+  auto optimizer_type_name = get_value_from_json<std::string>(j_optimizer, "type");
+  auto update_type_name = get_value_from_json<std::string>(j_optimizer, "update_type");
+  if (!find_item_in_map(embedding_opt_params->optimizer, optimizer_type_name, OPTIMIZER_TYPE_MAP)) {
+    CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_type_name);
+  }
+  if (!find_item_in_map(embedding_opt_params->update_type, update_type_name, UPDATE_TYPE_MAP)) {
+    CK_THROW_(Error_t::WrongInput, "No such update type: " + update_type_name);
+  }
+  OptHyperParamsPy hyperparams;
+  switch (embedding_opt_params->optimizer) {
+    case Optimizer_t::Adam: {
+      auto j_optimizer_hparam = get_json(j_optimizer, "adam_hparam");
+      auto beta1 = get_value_from_json<float>(j_optimizer_hparam, "beta1");
+      auto beta2 = get_value_from_json<float>(j_optimizer_hparam, "beta2");
+      auto epsilon = get_value_from_json<float>(j_optimizer_hparam, "epsilon");
+      hyperparams.adam.beta1 = beta1;
+      hyperparams.adam.beta2 = beta2;
+      hyperparams.adam.epsilon = epsilon;
+      embedding_opt_params->hyperparams = hyperparams;
+      break;
+    }
+    case Optimizer_t::MomentumSGD: {
+      auto j_optimizer_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
+      auto factor = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
+      hyperparams.momentum.factor = factor;
+      embedding_opt_params->hyperparams = hyperparams;
+      break;
+    }
+    case Optimizer_t::Nesterov: {
+      auto j_optimizer_hparam = get_json(j_optimizer, "nesterov_hparam");
+      auto mu = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
+      hyperparams.nesterov.mu = mu;
+      embedding_opt_params->hyperparams = hyperparams;
+      break;
+    }
+    case Optimizer_t::SGD: {
+      auto j_optimizer_hparam = get_json(j_optimizer, "sgd_hparam");
+      auto atomic_update =  get_value_from_json<bool>(j_optimizer_hparam, "atomic_update");
+      hyperparams.sgd.atomic_update = atomic_update;
+      embedding_opt_params->hyperparams = hyperparams;
+      break;
+    }
+    default: {
+      assert(!"Error: no such optimizer && should never get here!");
+    }
+  }
+  SparseEmbedding sparse_embedding = SparseEmbedding(embedding_type, max_vocabulary_size_per_gpu,
+                                                    embedding_vec_size, combiner, top_name,
+                                                    bottom_name, slot_size_array, embedding_opt_params);
+  return sparse_embedding;
+}
+
 template <typename TypeKey, typename TypeFP>
 void add_sparse_embedding(SparseEmbedding& sparse_embedding,
             std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,

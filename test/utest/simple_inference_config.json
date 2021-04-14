@@ -1,16 +1,11 @@
 {
-  "inference": {
-    "max_batchsize": 32,
-    "hit_rate_threshold": 0.6,
-    "dense_model_file": "/hugectr/test/utest/_dense_10000.model",
-    "sparse_model_file": "/hugectr/test/utest/0_sparse_10000.model"
-  },
   "layers": [
     {
       "name": "data",
       "type": "Data",
       "check": "Sum",
       "label": {
+        "top": "label",
         "label_dim": 1
       },
       "dense": {

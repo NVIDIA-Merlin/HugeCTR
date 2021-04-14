@@ -208,7 +208,27 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip BinaryCrossEntropyLoss layer");
+          MESSAGE_("Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer");
+          if (use_mixed_precision) {
+            Tensor2<__half> sigmoid_in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+          } else {
+            // establish out tensor
+            Tensor2<float> sigmoid_in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+          }
           break;
         }
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
@@ -259,7 +279,27 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip CrossEntropyLoss layer");
+          MESSAGE_("Inference stage skip CrossEntropyLoss layer, replaced by Sigmoid layer");
+          if (use_mixed_precision) {
+            Tensor2<__half> sigmoid_in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+          } else {
+            // establish out tensor
+            Tensor2<float> sigmoid_in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+          }
           break;
         }
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
@@ -530,7 +570,27 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip MultiCrossEntropyLoss layer");
+          MESSAGE_("Inference stage skip MultiCrossEntropyLoss layer, replaced by Sigmoid layer");
+          if (use_mixed_precision) {
+            Tensor2<__half> sigmoid_in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+          } else {
+            // establish out tensor
+            Tensor2<float> sigmoid_in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
+          }
           break;
         }
         auto tweight = get_json(j, "target_weight");

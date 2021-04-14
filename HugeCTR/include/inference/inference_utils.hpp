@@ -19,6 +19,7 @@
 #include <thread>
 #include <map>
 #include <vector>
+#include <parser.hpp>
 
 namespace HugeCTR {
 enum INFER_TYPE { TRITON, OTHER };
@@ -41,7 +42,7 @@ class HugectrUtility {
   virtual ~HugectrUtility();
   // Should not be called directly, should be called by embedding cache
   virtual void look_up(const TypeHashKey* h_embeddingcolumns, size_t length, float* h_embeddingoutputvector, const std::string& model_name, size_t embedding_table_id) = 0;
-  static HugectrUtility<TypeHashKey>* Create_Parameter_Server(INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path, const std::vector<std::string>& model_name);
+  static HugectrUtility<TypeHashKey>* Create_Parameter_Server(INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path, const std::vector<InferenceParams>& inference_params_array);
 };
 
 }  // namespace HugeCTR

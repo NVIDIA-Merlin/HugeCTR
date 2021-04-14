@@ -35,38 +35,33 @@ void decompress_emb_vec_async(const float* d_unique_src_ptr,
                               cudaStream_t stream);
 
 template <typename TypeHashKey>
-embedding_cache<TypeHashKey>::embedding_cache(HugectrUtility<TypeHashKey>* parameter_server,
-                                              int cuda_dev_id,
-                                              bool use_gpu_embedding_cache,
-                                              float cache_size_percentage,
-                                              const std::string& model_config_path,
-                                              const std::string& model_name){
+embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_path,
+                                              const InferenceParams& inference_params,
+                                              HugectrUtility<TypeHashKey>* parameter_server) {
   // Store the configuration
   parameter_server_ = parameter_server;
-  cache_config_.use_gpu_embedding_cache_ = use_gpu_embedding_cache;
-  cache_config_.model_name_ = model_name;
+  cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
+  cache_config_.model_name_ = inference_params.model_name;
   if(cache_config_.use_gpu_embedding_cache_){
-    cache_config_.cuda_dev_id_ = cuda_dev_id;
-    cache_config_.cache_size_percentage_ = cache_size_percentage;
+    cache_config_.cuda_dev_id_ = inference_params.device_id;
+    cache_config_.cache_size_percentage_ = inference_params.cache_size_percentage;
   }
 
   // Open model config file and input model json config
   nlohmann::json model_config(read_json_file(model_config_path));
 
   // Read inference config
-  const nlohmann::json& j_inference = get_json(model_config, "inference");
-  const size_t max_batchsize = get_value_from_json<size_t>(j_inference, "max_batchsize");
-  const nlohmann::json& j_emb_table_file = get_json(j_inference, "sparse_model_file");
+  const size_t max_batchsize = inference_params.max_batchsize;
   std::vector<std::string> emb_file_path;
-  if (j_emb_table_file.is_array()){
-    cache_config_.num_emb_table_ = j_emb_table_file.size();
-    for(unsigned int i = 0; i < j_emb_table_file.size(); i++){
-      emb_file_path.emplace_back(j_emb_table_file[i].get<std::string>());
+  if (inference_params.sparse_model_files.size() > 1){
+    cache_config_.num_emb_table_ = inference_params.sparse_model_files.size();
+    for(unsigned int i = 0; i < inference_params.sparse_model_files.size(); i++){
+      emb_file_path.emplace_back(inference_params.sparse_model_files[i]);
     }
   }
   else{
     cache_config_.num_emb_table_ = 1;
-    emb_file_path.emplace_back(j_emb_table_file.get<std::string>());
+    emb_file_path.emplace_back(inference_params.sparse_model_files[0]);
   }
 
   const nlohmann::json& j_layers = get_json(model_config, "layers");

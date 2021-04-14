@@ -1,25 +1,38 @@
 # About HugeCTR Python Interface
  
-HugeCTR Python Interface includes low-level training API and inference API. Currently, both APIs rely on the configuration file in JSON format. Please refer to [Configuration File Setup](./configuration_file_setup.md) if you want to get detailed information on how to configure the JSON file. Besides, we have high-level training API which does not require JSON configuration file. The high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API.
+HugeCTR Python Interface includes training API and inference API. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to [HugeCTR Python Interface Notebook](../notebooks/hugectr.ipynb) to get familiar with the workflow of HugeCTR training and inference.
 
 ## Table of Contents
 * [High-level Training API](#high-level-training-api)
 * [Low-level Training API](#low-level-training-api)
 * [Inference API](#inference-api)
-* [Sample Code](#sample-code)
 
 ## High-level Training API ##
-For HugeCTR high-level training API, the core data structures are `SolverParser`, `Optimizer`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `SolverParser` and `Optimizer` instances, and then add an instance of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method provides you with an overview of the model structure.
+For HugeCTR high-level training API, the core data structures are `Solver`, `DataReaderParams`, `OptParamsPy`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `Solver`, `DataReaderParams` and `OptParamsPy` instances, and then add instances of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.
 
-### SolverParser ###
-**solver_parser_helper method**
+### Solver ###
+**CreateSolver method**
 ```bash
-hugectr.solver_parser_helper()
+hugectr.CreateSolver()
 ```
-`solver_parser_helper` returns an `SolverParser` object according to the custom argument values，which specify the training resource and task items.
+`CreateSolver` returns an `Solver` object according to the custom argument values，which specify the training resources.
 
 **Arguments**
 * `seed`: A random seed to be specified. The default value is 0.
+
+* `lr_policy`: The learning rate policy which suppots only fixed. The default value is `LrPolicy_t.fixed`.
+
+* `lr`: The learning rate, which is also the base learning rate for the learning rate scheduler. The default value is 0.001.
+
+* `warmup_steps`: The warmup steps for the internal learning rate scheduler within Model instance. The default value is 1.
+
+* `decay_start`: The step at which the learning rate decay starts for the internal learning rate scheduler within Model instance. The default value is 0.
+
+* `decay_steps`: The number of steps of the learning rate decay for the internal learning rate scheduler within Model instance. The default value is 1.
+
+* `decay_power`: The power of the learning rate decay for the internal learning rate scheduler within Model instance. The default value is 2.
+
+* `end_lr`: The final learning rate for the internal learning rate scheduler within Model instance. The default value is 0. Please refer to [SGD Optimizer and Learning Rate Scheduling](./hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling) if you want to get detailed information about LearningRateScheduler.
 
 * `max_eval_batches`: Maximum number of batches used in evaluation. It is recommended that the number is equal to or bigger than the actual number of bathces in the evaluation dataset. The default value is 100.
 
@@ -27,15 +40,9 @@ hugectr.solver_parser_helper()
 
 * `batchsize`: Minibatch size used in training. The default value is 2048.
 
-* `model_file`: Trained dense model file to be loaded. If you train a model from scratch, it is not necessary.
-
-* `dense_opt_states_file`: Dense otimizer states file to be loaded. If your optimizer doesn't have any dynamic states to be saved, an empty file is created. Make sure that you use the same type of optimizer used to generate this file. If you train a model from scratch or you don't want to use it, it is unnecessary.
-
-* `embedding_files`: A trained embeding table (or sparse model) or their list to be loaded. If you train a model from scratch, it is not necessary.
-
-* `sparse_opt_states_file`: Sparse otimizer states file(s) to be loaded. The behavior is as the same as `dense_opt_states_file`.
-
 * `vvgpu`: GPU indices used in the training process, which has two levels. For example: [[0,1],[1,2]] indicates that two nodes are used. In the first node, GPUs 0 and 1 are used while GPUs 1 and 2 are used for the second node. It is also possible to specify non-continuous GPU indices such as [0, 2, 4, 7]. The default value is [[0]].
+
+* `repeat_dataset`: Whether to repeat the dataset for training. If the value is `True`, non-epoch mode training will be employed. Otherwise, epoch mode training will be adopted. The default value is `True`.
 
 * `use_mixed_precision`: Whether to enable mixed precision training. The default value is `False`.
 
@@ -43,75 +50,32 @@ hugectr.solver_parser_helper()
 
 * `scaler`: The scaler to be used when mixed precision training is enabled. Only 128, 256, 512, and 1024 scalers are supported for mixed precision training. The default value is 1.0, which corresponds to no mixed precision training.
 
+* `metrics_spec`: Map of enabled evaluation metrics. You can use either AUC or AverageLoss, or both of them. For AUC, you can set its threshold, such as {MetricsType.AUC: 0.8025}, so that the training terminates when it reaches that threshold. The default value is {MetricsType.AUC: 1.0}.
+
 * `i64_input_key`: If your dataset format is `Norm`, you can choose the data type of each input key. For the `Parquet` format dataset generated by NVTabular, only I64 is allowed. For the `Raw` dataset format, only I32 is allowed. Set this value to `True` when you need to use I64 input key. The default value is `False`.
 
 * `use_algorithm_search`: Whether to use algorithm search for cublasGemmEx within the FullyConnectedLayer. The default value is `True`.
 
 * `use_cuda_graph`: Whether to enable cuda graph for dense network forward and backward propagation. The default value is `True`.
 
-* `repeat_dataset`: Whether to repeat the dataset for training. If the value is `True`, non-epoch mode training will be employed. Otherwise, epoch mode training will be adopted. The default value is `True`.
-
-* `max_iter`: Integer, the maximum iteration of non-epoch mode training. It will be ignored if `repeat_dataset` is `False`. The default value is 0.
-
-* `num_epochs`: Integer, the number of epochs for epoch mode training. It will be ignored if `repeat_dataset` is `True`. The default value is 0.
-
-* `display`: Integer, the interval of iterations at which the training loss will be displayed. The default value is 200.
-
-* `snapshot`: Integer, the interval of iterations at which the snapshot model will be saved to files. The default value is 10000.
-
-* `eval_interval`: Integer, the interval of iterations at which the evaluation will be executed. The default value is 1000.
-
-* `use_model_oversubscriber`: Boolean, whether to use the feature of [Model Oversubscription](./hugectr_user_guide.md#model-oversubscription).
+* `use_model_oversubscriber`: Boolean, whether to use the feature of [Model Oversubscription](./hugectr_user_guide.md#model-oversubscription). The defualt value is `False`.
 
 * `temp_embedding_dir`: String，where to store the temporary embedding table files. The path needs to have write permission to support the features of ModelOversubscriber. The default value is `''`.
 
-### Optimizer ###
-**CreateOptimizer method**
+
+### DataReaderParams ###
+**DataReaderParams class**
 ```bash
-hugectr.optimizer.CreateOptimizer()
+hugectr.DataReaderParams()
 ```
-`CreateOptimizer` returns an `OptParamsBase` object according to the custom argument values，which specify the optimizer type and the corresponding hyperparameters.
-
-**Arguments**
-* `optimizer_type`: The optimizer type to be used. The supported types include `hugectr.Optimizer_t.Adam`, `hugectr.Optimizer_t.MomentumSGD`, `hugectr.Optimizer_t.Nesterov` and `hugectr.Optimizer_t.SGD`. The default value is `hugectr.Optimizer_t.Adam`.
-
-* `update_type`: The update type for the embedding. The supported types include `hugectr.Update_t.Global`, `hugectr.Update_t.LazyGlobal` and `hugectr.Update_t.Local`.  Please refer to [Optimizer](./configuration_file_setup.md#optimizer) if you want to get detailed information about the embedding update types. The default value is `hugectr.Update_t.Global`.
-
-* `learning_rate`: The initial learning rate for training. The default value is 0.001.
-
-* `warmup_steps`: The warmup steps for `LearningRateScheduler` when using SGD optimizer. The default value is 1.
-
-* `decay_start`: The step at which the learning rate decay starts for `LearningRateScheduler` when using SGD optimizer. The default value is 0.
-
-* `decay_steps`: The number of steps of the learning rate decay for `LearningRateScheduler` when using SGD optimizer. The default value is 1.
-
-* `decay_power`: The power of the learning rate decay for `LearningRateScheduler` when using SGD optimizer. The default value is 2.
-
-* `end_lr`: The final learning rate for `LearningRateScheduler` when using SGD optimizer. The default value is 0. Please refer to [SGD Optimizer and Learning Rate Scheduling](./hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling) if you want to get detailed information about LearningRateScheduler.
-
-* `beta1`: The `beta1` value when using Adam optimizer. The default value is 0.9.
-
-* `beta2`: The `beta2` value when using Adam optimizer. The default value is 0.999.
-
-* `epsilon`: The `epsilon` value when using Adam optimizer. The default value is 1e-7.
-
-* `momentum_factor`: The `momentum_factor` value when using MomentumSGD or Nesterov optimizer. The default value is 0.
-
-* `atomic_update`: Whether to employ atomic update when using SGD optimizer. The default value is True. 
-
-* `use_mixed_precision`: Whether to use mixed precision for the optimizer. It should be consistent with that within `solver_parser_helper`. Only in this way can the instances of `SolverParser` and `OptParamsBase` be used to create a `Model` instance. There is NO default value and it should be specified by users.
-
-### Input ###
-**Input class**
-```bash
-hugectr.Input()
-```
-`Input` specifies the parameters related to the data input. HugeCTR cuurrently supports three dataset formats, i.e., `Norm`, `Raw` and `Parquet`. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Data Layers](./configuration_file_setup.md#data-layers) if you want to get detailed information about Input.
+`DataReaderParams` specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., `Norm`, `Raw` and `Parquet`. An `DataReaderParams` instance is required to initialize the `Model` instance.
 
 **Arguments**
 * `data_reader_type`: The type of the data reader which should be consistent with the dataset format. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Raw` and `hugectr.DataReaderType_t.Parquet`. There is NO default value and it should be specified by users.
 
-* `source`: String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data. For Raw dataset, it should be a single training file. There is NO default value and it should be specified by users.
+* `source`: List[str], the training dataset source. For Norm or Parquet dataset, it should be the file list of training data, e.g., `source = ["file_list.txt"]`. For Raw dataset, it should be a single training file, e.g., `source = ["train_data.bin"]`. When using model oversubscriber, it can be specified with several file lists, e.g., `source = ["file_list.1.txt", "file_list.2.txt"]`. There is NO default value and it should be specified by users.
+
+* `keyset`: List[str], the keyset files. This argument will ONLY be valid when using model oversubscriber and it should be corresponding to the `source`. For example, we can specify `source = ["file_list.1.txt", "file_list.2.txt"]` and `source = ["file_list.1.keyset", "file_list.2.keyset"]`, which have a one-to-one correspondence.
 
 * `eval_source`: String, the evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data. For Raw dataset, it should be a single evaluation file. There is NO default value and it should be specified by users.
 
@@ -119,6 +83,45 @@ hugectr.Input()
 
 * `cache_eval_data`: Integer, the cache size of evaluation data on device, set this parameter greater than zero to restrict the memory that will be used. The default value is 0.
 
+* `num_samples`: Integer, the number of samples in the traning dataset. This is ONLY valid for Raw dataset. The default value is 0.
+
+* `eval_num_samples`: Integer, the number of samples in the evaluation dataset. This is ONLY valid for Raw dataset. The default value is 0.
+
+* `float_label_dense`: Boolean, this is valid only for the Raw dataset format. If its value is set to `True`, the label and dense features for each sample are interpreted as float values. Otherwise, they are read as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is `True`.
+
+* `num_workers`: Integer, the number of data reader workers that concurrently load data. You can empirically decide the best one based on your dataset, training environment. The default value is 12.
+
+
+### OptParamsPy ###
+**CreateOptimizer method**
+```bash
+hugectr.CreateOptimizer()
+```
+`CreateOptimizer` returns an `OptParamsPy` object according to the custom argument values，which specify the optimizer type and the corresponding hyperparameters.
+
+**Arguments**
+* `optimizer_type`: The optimizer type to be used. The supported types include `hugectr.Optimizer_t.Adam`, `hugectr.Optimizer_t.MomentumSGD`, `hugectr.Optimizer_t.Nesterov` and `hugectr.Optimizer_t.SGD`. The default value is `hugectr.Optimizer_t.Adam`.
+
+* `update_type`: The update type for the embedding. The supported types include `hugectr.Update_t.Global`, `hugectr.Update_t.LazyGlobal` and `hugectr.Update_t.Local`.  Please refer to [Optimizer](./configuration_file_setup.md#optimizer) if you want to get detailed information about the embedding update types. The default value is `hugectr.Update_t.Global`.
+
+* `beta1`: The `beta1` value when using Adam optimizer. The default value is 0.9.
+
+* `beta2`: The `beta2` value when using Adam optimizer. The default value is 0.999.
+
+* `epsilon`: The `epsilon` value when using Adam optimizer. This argument should be well configured when mixed precision training is employed. The default value is 1e-7.
+
+* `momentum_factor`: The `momentum_factor` value when using MomentumSGD or Nesterov optimizer. The default value is 0.
+
+* `atomic_update`: Whether to employ atomic update when using SGD optimizer. The default value is True. 
+
+### Input ###
+**Input class**
+```bash
+hugectr.Input()
+```
+`Input` specifies the parameters related to the data input. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Data Layers](./configuration_file_setup.md#data-layers) if you want to get detailed information about Input.
+
+**Arguments**
 * `label_dim`: Integer, the label dimension. 1 implies it is a binary label. For example, if an item is clicked or not. There is NO default value and it should be specified by users.
 
 * `label_name`: String, the name of the label tensor to be referenced by following layers. There is NO default value and it should be specified by users.
@@ -126,16 +129,6 @@ hugectr.Input()
 * `dense_dim`: Integer, the number of dense (or continuous) features. If there is no dense feature, set it to 0. There is NO default value and it should be specified by users.
 
 * `dense_name`: Integer, the name of the dense input tensor to be referenced by following layers. There is NO default value and it should be specified by users.
-
-* `num_samples`: Integer, the number of samples in the traning dataset. This is ONLY valid for Raw dataset. The default value is 0.
-
-* `eval_num_samples`: Integer, the number of samples in the evaluation dataset. This is ONLY valid for Raw dataset. The default value is 0.
-
-* `float_label_dense`: Boolean, this is valid only for the Raw dataset format. If its value is set to `True`, the label and dense features for each sample are interpreted as float values. Otherwise, they are read as integer values while the dense features are preprocessed with log(dense[i] + 1.f). The default value is `False`.
-
-* `num_workers`: Integer, the number of data reader workers that concurrently load data. You can empirically decide the best one based on your dataset, training environment. The default value is 12.
-
-* `slot_size_array`: List[int], the list of categorical feature cardinalities of each slot. This is valid for Raw and Parquet dataset. The default value is `[]`.
 
 * `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with `hugectr.DataReaderSparse_t`, `max_feature_num`, `max_nnz` and `slot_num`. The supported types of `hugectr.DataReaderSparse_t` include `hugectr.DataReaderSparse_t.Distributed` and `hugectr.DataReaderSparse_t.Localized`. The maximum number of features per sample for the specified spare input can be specified by `max_feature_num`. For `max_nnz`, if it is set to 1, the dataset is specified as one-hot so that the memory consumption can be reduced. As for `slot_num`, it specifies the number of slots used for this sparse input in the dataset. The total number of categorical inputs is exactly the length of `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
 
@@ -162,6 +155,8 @@ hugectr.SparseEmbedding()
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored. There is NO default value and it should be specified by users.
+
+* `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. There is NO default value and it should be specified by users.
 
 
 ### DenseLayer ###
@@ -225,12 +220,15 @@ hugectr.DenseLayer()
 ```bash
 hugectr.Model()
 ```
-`Model` groups data input, embeddings and dense network into an object with traning features. The construction of `Model` requires a `SolverParser` instance and an `OptParamsBase` instance, which can be created by `hugectr.solver_parser_helper` and `hugectr.optimizer.CreateOptimizer` respectively. Please note that the value of `use_mixed_precision` should be the same for `SolverParser` and `OptParamsBase`. Otherwise, the `Model` object cannot be created correctly.
+`Model` groups data input, embeddings and dense network into an object with traning features. The construction of `Model` requires a `Solver` instance , a `DataReaderParams` instance and an `OptParamsPy` instance.
 
 **Arguments**
-* `solver_parser`: A hugectr.SolverParser object, the solver configuration for the model.
+* `solver`: A hugectr.Solver object, the solver configuration for the model.
 
-* `opt_params`: A hugectr.OptParamsBase object, the optimizer configuration for the model.
+* `reader_params`: A hugectr.DataReaderParams object, the data reader configuration for the model.
+
+* `opt_params`: A hugectr.OptParamsPy object, the optimizer configuration for the model.
+***
 
 **add method**
 ```bash
@@ -253,7 +251,20 @@ This method takes no extra arguments. It allocates the internal buffer and initi
 ```bash
 hugectr.Model.fit()
 ```
-This method takes no extra arguments. It trains the model for a fixed number of epochs (epoch mode) or iterations (non-epoch mode). You can switch the mode of training through different configurations within `solver_parser_helper`. To use epoch mode training, `repeat_dataset` should be set as `False` and `num_epochs` should be set as a positive number. To use non-epoch mode training, `repeat_dataset` should be set as `True` and `max_iter` should be set as a positive number.
+It trains the model for a fixed number of epochs (epoch mode) or iterations (non-epoch mode). You can switch the mode of training through different configurations. To use epoch mode training, `repeat_dataset` within `CreateSolver()` should be set as `False` and `num_epochs` within `Model.fit()` should be set as a positive number. To use non-epoch mode training, `repeat_dataset` within `CreateSolver()` should be set as `True` and `max_iter` within `Model.fit()` should be set as a positive number.
+
+**Arguments**
+* `num_epochs`: Integer, the number of epochs for epoch mode training. It will be ignored if `repeat_dataset` is `True`. The default value is 0.
+
+* `max_iter`: Integer, the maximum iteration of non-epoch mode training. It will be ignored if `repeat_dataset` is `False`. The default value is 2000.
+
+* `display`: Integer, the interval of iterations at which the training loss will be displayed. The default value is 200.
+
+* `eval_interval`: Integer, the interval of iterations at which the evaluation will be executed. The default value is 1000.
+
+* `snapshot`: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. The default value is 10000.
+
+* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. The default value is `''`.
 ***
 
 **summary method**
@@ -263,23 +274,138 @@ hugectr.Model.summary()
 This method takes no extra arguments and prints a string summary of the model. Users can have an overview of the model structure with this method.
 ***
 
-## Low-level Training API ##
-For HugeCTR low-level training API, the core data structures are `SolverParser`, `LearningRateScheduler`, `DataReader`, `ModelOversubscriber` and `Session`. HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.
- 
-### SolverParser ###
-Please refer to the [above](./python_interface.md#solverparser). Please NOTE that `max_iter`, `num_epochs`, `display`, `snapshot`, `eval_interval`, `use_model_oversubscriber` and `temp_embedding_dir` within the `solver_parser_helper` method will be ignored if you are using the low-level training API, because they can be specified directly in the low-level python code.
-
-### LearningRateScheduler ###
-**get_learning_rate_scheduler method**
+**graph_to_json method**
 ```bash
-hugectr.get_learning_rate_scheduler()
+hugectr.Model.graph_to_json()
 ```
-`get_learning_rate_scheduler` generates and returns a LearningRateScheduler object based on the configuration JSON file. When the `SGD` optimizer is adopted for training, the returned object can obtain the dynamically changing learning rate according to the `warmup_steps`, `decay_start`和`decay_steps` configured in the JSON file。Please refer to [SGD Optimizer and Learning Rate Scheduling
-](./hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling) if you want to get detailed information about LearningRateScheduler.
+This method saves the model graph to a JSON file, which can be used for continuous training and inference.
 
 **Arguments**
-* `configure_file`: The JOSN format configuration file.
+* `graph_config_file`: The JSON file to which the model graph will be saved. There is NO default value and it should be specified by users.
 ***
+
+**construct_from_json method**
+```bash
+hugectr.Model.construct_from_json()
+```
+This method constructs the model graph from a saved JSON file, which is useful for continuous training and fine-tune.
+
+**Arguments**
+* `graph_config_file`: The saved JSON file from which the model graph will be constructed. There is NO default value and it should be specified by users.
+
+* `include_dense_network`: Boolean, whether to include the dense network when constructing the model graph. If it is `True`, the whole model graph will be constructed, then both saved sparse model weights and dense model weights can be loaded. If it is `False`, only the sparse embedding layers will be constructed and the corresponding sparse model weights can be loaded, which enables users to construct a new dense network on top of that. Please NOTE that the HugeCTR layers are organized by names and you can check the input name, output name and output shape and of the added layers with `Model.summary()`. There is NO default value and it should be specified by users.
+***
+
+**load_dense_weights method**
+```bash
+hugectr.Model.load_dense_weights()
+```
+This method load the dense weights from the saved dense model file.
+
+**Arguments**
+* `dense_model_file`: String, the saved dense model file from which the dense weights will be loaded. There is NO default value and it should be specified by users.
+***
+
+**load_dense_optimizer_states method**
+```bash
+hugectr.Model.load_dense_optimizer_states()
+```
+This method load the dense optimizer states from the saved dense optimizer states file.
+
+**Arguments**
+* `dense_opt_states_file`: String, the saved dense optimizer states file from which the dense optimizer states will be loaded. There is NO default value and it should be specified by users.
+***
+
+**load_sparse_weights method**
+```bash
+hugectr.Model.load_sparse_weights()
+```
+This method load the sparse weights from the saved sparse embedding files.
+
+**Arguments**
+* `sparse_embedding_files`: List[str], the sparse embedding files from which the sparse weights will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users.
+***
+
+**load_sparse_optimizer_states method**
+```bash
+hugectr.Model.load_sparse_optimizer_states()
+```
+This method load the sparse optimizer states from the saved sparse optimizer states files.
+
+**Arguments**
+* `sparse_opt_states_files`: List[str], the sparse optimizer states files from which the sparse optimizer states will be loaded. The number of files should equal to that of the sparse embedding layers in the model. There is NO default value and it should be specified by users.
+***
+
+**freeze_dense method**
+```bash
+hugectr.Model.freeze_dense()
+```
+This method takes no extra arguments and freezes the dense weights of the model. Users can use this method when they want to fine-tune the sparse weights.
+***
+
+**freeze_embedding method**
+```bash
+hugectr.Model.freeze_embedding()
+```
+This method takes no extra arguments and freezes the sparse weights of the model. Users can use this method when they only want to train the dense weights.
+***
+
+**unfreeze_dense method**
+```bash
+hugectr.Model.freeze_dense()
+```
+This method takes no extra arguments and unfreezes the dense weights of the model.
+***
+
+**unfreeze_embedding method**
+```bash
+hugectr.Model.freeze_embedding()
+```
+This method takes no extra arguments and unfreezes the sparse weights of the model.
+***
+
+**reset_learning_rate_scheduler method**
+```bash
+hugectr.Model.reset_learning_rate_scheduler()
+```
+This method resets the learning rate scheduler of the model. Users can use this method when they want to fine-tune the model weights.
+
+**Arguments**
+* `base_lr`: The base learning rate for the internal learning rate scheduler within Model instance. There is NO default value and it should be specified by users.
+
+* `warmup_steps`: The warmup steps for the internal learning rate scheduler within Model instance. The default value is 1.
+
+* `decay_start`: The step at which the learning rate decay starts for the internal learning rate scheduler within Model instance. The default value is 0.
+
+* `decay_steps`: The number of steps of the learning rate decay for the internal learning rate scheduler within Model instance. The default value is 1.
+
+* `decay_power`: The power of the learning rate decay for the internal learning rate scheduler within Model instance. The default value is 2.
+
+* `end_lr`: The final learning rate for the internal learning rate scheduler within Model instance. The default value is 0. 
+***
+
+**set_source method**
+```bash
+hugectr.Model.set_source()
+```
+The `set_source` method can set the data source and keyset files under epoch mode training. This overloaded method has two implementations.
+
+Implementation Ⅰ: only valid when `repeat_dataset` is `False` and `use_model_oversubscriber` is `True`.  
+**Arguments**
+* `source`: List[str], the training dataset source. It can be specified with several file lists, e.g., `source = ["file_list.1.txt", "file_list.2.txt"]`. There is NO default value and it should be specified by users.
+* `keyset`: List[str], the keyset files. It should be corresponding to the `source`. For example, we can specify `source = ["file_list.1.txt", "file_list.2.txt"]` and `source = ["file_list.1.keyset", "file_list.2.keyset"]`, which have a one-to-one correspondence. There is NO default value and it should be specified by users.
+* `eval_source`: String, the evaluation dataset source. There is NO default value and it should be specified by users.
+
+Implementation Ⅱ: only valid when `repeat_dataset` is `False` and `use_model_oversubscriber` is `False`.  
+**Arguments**
+* `source`: String, the training dataset source. For Norm or Parquet dataset, it should be the file list of training data. For Raw dataset, it should be a single training file. There is NO default value and it should be specified by users.
+* `eval_source`: String, the evaluation dataset source. For Norm or Parquet dataset, it should be the file list of evaluation data. For Raw dataset, it should be a single evaluation file. There is NO default value and it should be specified by users.
+
+
+## Low-level Training API ##
+For HugeCTR low-level training API, the core data structures are basically the same as the high-level training API. On this basis, we expose the internal `LearningRateScheduler`, `DataReader` and `ModelOversubscriber` within the `Model`, and provide some low-level training methods as well.HugeCTR currently supports both epoch mode training and non-epoch mode training for dataset in Norm and Raw formats, and only supports non-epoch mode training for dataset in Parquet format. While introducing the API usage, we will elaborate how to employ these two modes of training.
+ 
+### LearningRateScheduler ###
 **get_next method**
 ```bash
 hugectr.LearningRateScheduler.get_next()
@@ -296,6 +422,14 @@ The `set_source` method of DataReader currently supports the dataset in Norm and
 
 **Arguments**
 * `file_name`: The file name of the new training source or evaluation source. For Norm format dataset, it takes the form of `file_list.txt`. For Raw format dataset, it appears as `data.bin`. The default value is `''`, which means that the data reader will reset to the beginning of the current data file.
+***
+
+**is_eof method**
+```bash
+hugectr.DataReader32.is_eof()
+hugectr.DataReader64.is_eof()
+```
+This method takes no extra arguments and returns whether the data reader has reached the end of the current source file.
 
 ### ModelOversubscriber ###
 **update method**
@@ -307,54 +441,46 @@ The `update` method of ModelOversubscriber currently supports Norm format datase
 **Arguments**
 * `keyset_file` or `keyset_file_list`: This method is an overloaded method that can accept str or List[str] as an argument. For the model with multiple embedding tables, if the keyset of each embedding table is not separated when generating the keyset files, then pass in the `keyset_file`. If the keyset of each embedding table has been separated when generating keyset files, you need to pass in the `keyset_file_list`, the size of which should equal to the number of embedding tables.
 
-### Session ###
-**Session class**
+### Model ###
+**get_learning_rate_scheduler method**
 ```bash
-hugectr.Session()
+hugectr.Model.get_learning_rate_scheduler()
 ```
-`Session` groups embeddings and dense network into an object with traning features. The construction of `Session` requires a configuration JSON file to parse the `optimizer` and `layers` clauses. Please refer to [Optimizer](./configuration_file_setup.md#optimizer) and [Layers](./configuration_file_setup.md#layers) to know the correct usage of the configuration file.
-
-**Arguments**
-* `solver_config`: A hugectr.SolverParser object, the solver configuration of the session.
-
-* `config_file`: String, the configuration file in JSON format.
-
-* `use_model_oversubscriber`: Boolean, whether to employ the features of ModelOversubscriber. The default value is `False`.
-
-* `temp_embedding_dir:`: String，where to store the temporary embedding table files. The path needs to have write permission to support the features of ModelOversubscriber. The default value is `''`.
+`hugectr.Model.get_learning_rate_scheduler` generates and returns the LearningRateScheduler object of the model instance. When the `SGD` optimizer is adopted for training, the returned object can obtain the dynamically changing learning rate according to the `warmup_steps`, `decay_start`和`decay_steps` configured in the `hugectr.CreateSolver` method.Please refer to [SGD Optimizer and Learning Rate Scheduling
+](./hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling) if you want to get detailed information about LearningRateScheduler.
 ***
 
 **get_model_oversubscriber method**
 ```bash
-hugectr.Session.get_model_oversubscriber()
+hugectr.Model.get_model_oversubscriber()
 ```
 This method takes no extra arguments and returns the ModelOversubscriber object.
 ***
 
 **get_data_reader_train method**
 ```bash
-hugectr.Session.get_data_reader_train()
+hugectr.Model.get_data_reader_train()
 ```
 This method takes no extra arguments and returns the DataReader object that reads the training data.
 ***
 
 **get_data_reader_eval method**
 ```bash
-hugectr.Session.get_data_reader_eval()
+hugectr.Model.get_data_reader_eval()
 ```
 This method takes no extra arguments and returns the DataReader object that reads the evaluation data.
 ***
 
 **start_data_reading method**
 ```bash
-hugectr.Session.start_data_reading()
+hugectr.Model.start_data_reading()
 ```
 This method takes no extra arguments and should be used if and only if it is under the non-epoch mode training. The method starts the `train_data_reader` and `eval_data_reader` before entering the training loop.
 ***
 
 **set_learning_rate method**
 ```bash
-hugectr.Session.set_learning_rate()
+hugectr.Model.set_learning_rate()
 ```
 This method is used together with the `get_next` method of `LearningRateScheduler` and sets the learning rate for the next training iteration.
 
@@ -364,126 +490,112 @@ This method is used together with the `get_next` method of `LearningRateSchedule
 
 **train method**
 ```bash
-hugectr.Session.train()
+hugectr.Model.train()
 ```
 This method takes no extra arguments and executes one iteration of the model weights based on one minibatch of training data.
 ***
 
 **get_current_loss method**
 ```bash
-hugectr.Session.get_current_loss()
+hugectr.Model.get_current_loss()
 ```
 This method takes no extra arguments and returns the loss value for the current iteration.
 ***
 
-**check_overflow method**
-```bash
-hugectr.Session.check_overflow()
-```
-This method takes no extra arguments and checks whether any embedding has encountered overflow.
-***
-
-**copy_weights_for_evaluation method**
-```bash
-hugectr.Session.copy_weights_for_evaluation()
-```
-This method takes no extra arguments and copies the weights of the dense network from training layers to evaluation layers.
-***
-
 **eval method**
 ```bash
-hugectr.Session.eval()
+hugectr.Model.eval()
 ```
 This method takes no arguments and calculates the evaluation metrics based on one minibatch of evaluation data.
 ***
 
 **get_eval_metrics method**
 ```bash
-hugectr.Session.get_eval_metrics()
+hugectr.Model.get_eval_metrics()
 ```
 This method takes no extra arguments and returns the average evaluation metrics of several minibatches of evaluation data.
 ***
 
-**evaluation method**
+**save_params_to_files method**
 ```bash
-hugectr.Session.evaluation()
+hugectr.Model.save_params_to_files()
 ```
-This method returns the average evaluation metrics of several minibatches of evaluation data. You can export predictions and labels to files by passing arguments into this method.
+This method save the model weights and the optimizer states to files.
 
 **Arguments**
-* `export_predictions_out_file`: Optinal. If passed, the evaluation prediction results will be writen to the file specified by this argument. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset.
+* `prefix`: String, the prefix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users.
 
-* `export_labels_out_file:`: Optinal. If passed, the evaluation labels will be writen to the file specified by this argument. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset.
+* `iter`: Integer, the current number of iterations, which will be the suffix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users.
+***
+
+**export_predictions method**
+```bash
+hugectr.Model.export_predictions()
+```
+This method exports predictions and labels to files for the last several batches of evaluation data.
+
+**Arguments**
+* `output_prediction_file_name`: String, the file to which the evaluation prediction results will be writen. The order of the prediction results are the same as that of the labels, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
+
+* `output_label_file_name`: String, the file to which the evaluation labels will be writen. The order of the labels are the same as that of the prediction results, but may be different with the order of the samples in the dataset. There is NO default value and it should be specified by users.
 
 ## Inference API ##
-For HugeCTR inference API, the core data structures are `ParameterServer`, `EmbeddingCache` and `InferenceSession`. Please refer to [Inference Framework](https://gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend/-/blob/main/docs/user_guide.md#inference-framework) to get informed of the hierarchy of HugeCTR inference implementation.
+For HugeCTR inference API, the core data structures are `InferenceParams` and `InferenceSession`. Please refer to [Inference Framework](https://gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend/-/blob/main/docs/user_guide.md#inference-framework) to get informed of the hierarchy of HugeCTR inference implementation.
 
-Please **NOTE** that Inference API requires a configuration JSON file which is slightly different from the training JSON file. We need `inference` and `layers` clauses in the inference JSON file. The paths of the stored dense model and sparse model(s) should be specified at `dense_model_file` and `sparse_model_file` within the `inference` clause. Some modifications need to be made to `data` within the `layers` clause and the last layer should be replaced by `SigmoidLayer`. Please refer to [HugeCTR Inference Notebook](../notebooks/hugectr_inference.ipynb) for detailed information of the inference JSON file.
+Please **NOTE** that Inference API requires a configuration JSON file of the model graph, which can derived from the `Model.graph_to_json()` method.
 
-Please **NOTE** that if the `input_key_type` of the trained model is `I64`, you need to specify the argument `i64_input_key` as `True` when calling `hugectr.inference.CreateParameterServer`, `hugectr.inference.CreateEmbeddingCache` and `hugectr.inference.InferenceSession.predict()`, i.e., the calling to these methods should be consistent in terms of the `input_key_type`.
-
-### ParameterServer ###
-**CreateParameterServer method**
+### InferenceParams ###
+**InferenceParams class**
 ```bash
-hugectr.inference.CreateParameterServer()
+hugectr.inference.InferenceParams()
 ```
-`ParameterServer` resides on the CPU and stores all the embedding tables of multiple models. This factory method `CreateParameterServer` creates and returns a `ParameterServer` object.
+`InferenceParams` specifies the parameters related to the inference. An `InferenceParams` instance is required to initialize the `InferenceSession` instance.
 
 **Arguments**
-* `model_config_path`: List[str], the list of configuration JSON files for different models.
+* `model_name`: String, the name of the model to be used for inference. There is NO default value and it should be specified by users.
 
-* `model_name`: List[str], the list of different model names.
- 
-* `i64_input_key`: Boolean, whether to use I64 input key for the parameter server.
+* `max_batchsize`: Integer, the maximum batchsize for inference. There is NO default value and it should be specified by users.
 
-Please **NOTE** that the order of the configuration files within `model_config_path` and that of the model names within `model_name` should be consistent.
+* `hit_rate_threshold`: Float, the hit rate threshold for updating the GPU embedding cache. If the hit rate of looking up GPU embedding cahce during inference is below this threshold, then the GPU embedding cache will be updated. The threshold should be between 0 and 1. There is NO default value and it should be specified by users.
 
-### EmbeddingCache ###
-**CreateEmbeddingCache method**
-```bash
-hugectr.inference.CreateEmbeddingCache()
-```
-`EmbeddingCache` resides on the GPU and stores a portion of embeddings for a specific model. This factory method `CreateEmbeddingCache` creates and returns an `EmbeddingCache` object.
+* `dense_model_file`: String, the dense model file to be loaded for inference. There is NO default value and it should be specified by users.
 
-**Arguments**
-* `parameter_server`: A hugectr.inference.ParameterServerBase object, the parameter server that accommodates the embedding tables to be cached on GPU.
+* `sparse_model_files`: List[str], the sparse model files to be loaded for inference. There is NO default value and it should be specified by users.
 
-* `cuda_dev_id`: Integer, the GPU device index.
+* `device_id`: Integer, GPU device index. There is NO default value and it should be specified by users.
 
-* `use_gpu_embedding_cache`: Boolean, whether to employ the features of GPU embedding cache. If the value is `True`, the embedding vector look up will go to GPU embedding cache. Otherwise, it will reach out to the CPU parameter server directly.
+* `use_gpu_embedding_cache`: Boolean, whether to employ the features of GPU embedding cache. If the value is `True`, the embedding vector look up will go to GPU embedding cache. Otherwise, it will reach out to the CPU parameter server directly. There is NO default value and it should be specified by users.
 
-* `cache_size_percentage`: Float, the percentage of cached embeddings on GPU relative to all the embedding tables on CPU.
+* `cache_size_percentage`: Float, the percentage of cached embeddings on GPU relative to all the embedding tables on CPU.  There is NO default value and it should be specified by users.
 
-* `model_config_path`: String, the configuration file of the model whose embeddings will be on the GPU embedding cache.
+* `i64_input_key`: Boolean, this value should be set to `True` when you need to use I64 input key. There is NO default value and it should be specified by users.
 
-* `model_name`: String, the name of the model whose embeddings will be on the GPU embedding cache.
+* `use_mixed_precision`: Boolean, whether to enable mixed precision training. The default value is `False`.
 
-* `i64_input_key`: Boolean, whether to use I64 input key for the embedding cache.
+* `scaler`: Float, the scaler to be used when mixed precision training is enabled. Only 128, 256, 512, and 1024 scalers are supported for mixed precision training. The default value is 1.0, which corresponds to no mixed precision training.
 
-Please **NOTE** that the `parameter_server` specified here should contain the model whose embedding tables are supposed to be cached on GPU. Besides, `i64_input_key` should be consistent with that of the `parameter_server`.
+* `use_algorithm_search`: Boolean, whether to use algorithm search for cublasGemmEx within the FullyConnectedLayer. The default value is `True`.
+
+* `use_cuda_graph`: Boolean, whether to enable cuda graph for dense network forward propagation. The default value is `True`.
 
 ### InferenceSession ###
-**InferenceSession class**
+**CreateInferenceSession method**
 ```bash
-hugectr.inference.InferenceSession()
+hugectr.inference.CreateInferenceSession()
 ```
-`InferenceSession` groups embedding cache and dense network into an object with inference features. The construction of `InferenceSession` requires an inference configuration JSON file. 
+`CreateInferenceSession` returns an `InferenceSession` instance.
 
 **Arguments**
-* `config_file`: String, the inference configuration file.
+* `model_config_path`: String, the inference model configuration file (which can be derived from `Model.graph_to_json`). There is NO default value and it should be specified by users.
 
-* `device_id`: Integer, GPU device index.
-
-* `embedding_cache`: A hugectr.inference.EmbeddingCacheInterface object, the embedding cache that loads a portion of embeddings on GPU for the model to be used.
-
-Please **NOTE** that the `device_id` specified here should be the same as that of the `embedding_cache`.
+* `inference_params`: InferenceParams, the `InferenceParams` object. There is NO default value and it should be specified by users.
 ***
 
 **predict method**
 ```bash
 hugectr.inference.InferenceSession.predict()
 ```
-The `predict` method of InferenceSession currently supports model with only one embedding table. This method makes predictions for the samples in the inference inputs. Please refer to [HugeCTR Inference Notebook](../notebooks/hugectr_inference.ipynb) for detailed usage information.
+The `predict` method of InferenceSession currently supports model with only one embedding table. This method makes predictions for the samples in the inference inputs.
 
 **Arguments**
 * `dense_feature`: List[float], the dense features of the samples.
@@ -493,124 +605,5 @@ The `predict` method of InferenceSession currently supports model with only one 
 * `row_ptrs`: List[int], the row pointers that indicate which embedding keys belong to the same slot.
 
 * `i64_input_key`: Boolean, whether to use I64 input key for the inference session.
-***
+
 Taking Deep and Cross Model on Criteo dataset for example, if the inference request includes two samples, then `dense_feature` will be of the length 2\*13, `embeddingcolumns` will be of the length 2\*26, and `row_ptrs` will be like [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52].
-
-## Sample Code ##
-The sample code for non-epoch mode training, epoch mode training and inference will be given here. Please make sure the JSON files and the datasets are ready to successfully run the sample code. Please refer to [HugeCTR Python Interface Notebook](../notebooks/python_interface.ipynb) and [HugeCTR Inference Notebook](../notebooks/hugectr_inference.ipynb) to get familiar with the workflow of HugeCTR training and inference.
-
-### Non-epoch Mode Training ###
-```bash
-from hugectr import Session, solver_parser_helper,get_learning_rate_scheduler
-from mpi4py import MPI
-json_file = "your_config.json"
-solver_config = solver_parser_helper(seed = 0,
-                                    batchsize = 16384,
-                                    batchsize_eval = 16384,
-                                    model_file = "",
-                                    embedding_files = [],
-                                    vvgpu = [[0,1,2,3,4,5,6,7]],
-                                    use_mixed_precision = True,
-                                    scaler = 1024,
-                                    i64_input_key = False,
-                                    use_algorithm_search = True,
-                                    use_cuda_graph = True,
-                                    repeat_dataset = True)
-lr_sch = get_learning_rate_scheduler(json_file)
-sess = Session(solver_config, json_file)
-sess.start_data_reading()
-for i in range(10000):
-    lr = lr_sch.get_next()
-    sess.set_learning_rate(lr)
-    sess.train()
-    if (i%100 == 0):
-        loss = sess.get_current_loss()
-        print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
-    if (i%1000 == 0 and i != 0):
-        sess.check_overflow()
-        sess.copy_weights_for_evaluation()
-        for _ in range(solver_config.max_eval_batches):
-            sess.eval()
-        metrics = sess.get_eval_metrics()
-        print("[HUGECTR][INFO] iter: {}, {}".format(i, metrics))
-sess.download_params_to_files("./", 10000)
-```
-
-### Epoch Mode Training ###
-**NOTE** This sample employs the epoch mode training and enables the feature of ModelOversubscriber. Please prepare the JSON file, Norm dataset with file lists together with keyset files and a temporary write-enabled directory before running this script. See [HugeCTR Python Interface Notebook](../notebooks/python_interface.ipynb) for help.
-```bash
-from hugectr import Session, solver_parser_helper, get_learning_rate_scheduler
-from mpi4py import MPI
-json_file = "your_config.json"
-temp_dir = "./your_temp_embedding_dir"
-dataset = [("file_list."+str(i)+".txt", "file_list."+str(i)+".keyset") for i in range(5)]
-solver_config = solver_parser_helper(seed = 0,
-                                    batchsize = 16384,
-                                    batchsize_eval =16384,
-                                    model_file = "",
-                                    embedding_files = [],
-                                    vvgpu = [[0]],
-                                    use_mixed_precision = False,
-                                    scaler = 1.0,
-                                    i64_input_key = False,
-                                    use_algorithm_search = True,
-                                    use_cuda_graph = True,
-                                    repeat_dataset = False)
-lr_sch = get_learning_rate_scheduler(json_file)
-sess = Session(solver_config, json_file, True, temp_dir)
-data_reader_train = sess.get_data_reader_train()
-data_reader_eval = sess.get_data_reader_eval()
-data_reader_eval.set_source("file_list.5.txt")
-model_oversubscriber = sess.get_model_oversubscriber()
-iteration = 0
-for file_list, keyset_file in dataset:
-    data_reader_train.set_source(file_list)
-    model_oversubscriber.update(keyset_file)
-    while True:
-        lr = lr_sch.get_next()
-        sess.set_learning_rate(lr)
-        good = sess.train()
-        if good == False:
-            break
-        if iteration % 100 == 0:
-            sess.check_overflow()
-            sess.copy_weights_for_evaluation()
-            data_reader_eval = sess.get_data_reader_eval()
-            good_eval = True
-            j = 0
-            while good_eval:
-                if j >= solver_config.max_eval_batches:
-                    break
-                good_eval = sess.eval()
-                j += 1
-            if good_eval == False:
-                data_reader_eval.set_source()
-            metrics = sess.get_eval_metrics()
-            print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iteration, metrics))
-        iteration += 1
-    print("[HUGECTR][INFO] trained with data in {}".format(file_list))
-sess.download_params_to_files("./", iteration)
-```
-
-### Inference ###
-**NOTE** Please prepare the inference JSON file, the dense model file, the sparse model file and inference data file in the right format before running this script. See [HugeCTR Inference Notebook](../notebooks/hugectr_inference.ipynb) for help.
-```bash
-from hugectr.inference import CreateParameterServer, CreateEmbeddingCache, InferenceSession
-from mpi4py import MPI
-config_file = "your_inference_config.json"
-model_name = "your_model_name"
-data_path = "your_inference_inputs_data.txt"
-use_embedding_cache = True
-# read data from file
-data_file = open(data_path)
-labels = [int(item) for item in data_file.readline().split(' ')]
-dense_features = [float(item) for item in data_file.readline().split(' ')]
-embedding_columns = [int(item) for item in data_file.readline().split(' ')]
-row_ptrs = [int(item) for item in data_file.readline().split(' ')]
-# create parameter server, embedding cache and inference session
-parameter_server = CreateParameterServer([config_file], [model_name], False)
-embedding_cache = CreateEmbeddingCache(parameter_server, 0, use_gpu_embedding_cache, 0.2, config_file, model_name, False)
-inference_session = InferenceSession(config_file, 0, embedding_cache)
-# make prediction and calculate accuracy
-output = inference_session.predict(dense_features, embedding_columns, row_ptrs)
-```

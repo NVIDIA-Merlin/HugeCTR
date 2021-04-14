@@ -24,30 +24,25 @@ namespace HugeCTR {
 
 namespace python_lib {
   
-std::shared_ptr<parameter_server_base> CreateParameterServer(const std::vector<std::string>& model_config_path,
-                                                          const std::vector<std::string>& model_name,
-                                                          bool i64_input_key) {
+std::shared_ptr<parameter_server_base> CreateParameterServer(const std::vector<std::string>& model_config_path_array,
+                                                          const std::vector<InferenceParams>& inference_params_array) {
   std::shared_ptr<parameter_server_base> ps;
-  if (i64_input_key) {
-    ps.reset(new parameter_server<long long>("Other", model_config_path, model_name));
+  if (inference_params_array[0].i64_input_key) {
+    ps.reset(new parameter_server<long long>("Other", model_config_path_array, inference_params_array));
   } else {
-    ps.reset(new parameter_server<unsigned int>("Other", model_config_path, model_name));
+    ps.reset(new parameter_server<unsigned int>("Other", model_config_path_array, inference_params_array));
   }
   return ps;
 }
 
-std::shared_ptr<embedding_interface> CreateEmbeddingCache(std::shared_ptr<parameter_server_base>& parameter_server,
-                                                        int cuda_dev_id,
-                                                        bool use_gpu_embedding_cache,
-                                                        float cache_size_percentage,
-                                                        const std::string& model_config_path,
-                                                        const std::string& model_name,
-                                                        bool i64_input_key) {
+std::shared_ptr<embedding_interface> CreateEmbeddingCache(const std::string& model_config_path,
+                                                        const InferenceParams& inference_params,
+                                                        std::shared_ptr<parameter_server_base>& parameter_server) {
   std::shared_ptr<embedding_interface> ec;
-  if (i64_input_key) {
-    ec.reset(new embedding_cache<long long>(reinterpret_cast<HugectrUtility<long long>*>(parameter_server.get()), cuda_dev_id, use_gpu_embedding_cache, cache_size_percentage, model_config_path, model_name));
+  if (inference_params.i64_input_key) {
+    ec.reset(new embedding_cache<long long>(model_config_path, inference_params, reinterpret_cast<HugectrUtility<long long>*>(parameter_server.get())));
   } else {
-    ec.reset(new embedding_cache<unsigned int>(reinterpret_cast<HugectrUtility<unsigned int>*>(parameter_server.get()), cuda_dev_id, use_gpu_embedding_cache, cache_size_percentage, model_config_path, model_name));
+    ec.reset(new embedding_cache<unsigned int>(model_config_path, inference_params, reinterpret_cast<HugectrUtility<unsigned int>*>(parameter_server.get())));
   }
   return ec;
 }
@@ -60,17 +55,17 @@ std::shared_ptr<embedding_interface> CreateEmbeddingCache(std::shared_ptr<parame
  */
 class InferenceSessionPy : public InferenceSession {
 public:
-  InferenceSessionPy(const std::string& config_file, 
-                    int device_id, 
+  InferenceSessionPy(const std::string& model_config_path,
+                    const InferenceParams& inference_params,
                     std::shared_ptr<embedding_interface>& embedding_cache)
-    : InferenceSession(config_file, device_id, embedding_cache) {
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_dense_, inference_parser_.max_batchsize *  inference_parser_.dense_dim * sizeof(float)));
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_parser_.max_batchsize *  inference_parser_.slot_num + 1) * sizeof(int)));
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_output_, inference_parser_.max_batchsize * inference_parser_.label_dim * sizeof(float)));
-    if (inference_parser_.i64_input_key) {
-      CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_parser_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(long long), cudaHostAllocPortable));
+    : InferenceSession(model_config_path, inference_params, embedding_cache) {
+    CK_CUDA_THROW_(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *  inference_parser_.dense_dim * sizeof(float)));
+    CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_params_.max_batchsize *  inference_parser_.slot_num + 1) * sizeof(int)));
+    CK_CUDA_THROW_(cudaMalloc((void**)&d_output_, inference_params_.max_batchsize * inference_parser_.label_dim * sizeof(float)));
+    if (inference_params_.i64_input_key) {
+      CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(long long), cudaHostAllocPortable));
     } else {
-      CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_parser_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(unsigned int), cudaHostAllocPortable));
+      CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(unsigned int), cudaHostAllocPortable));
     }
   }
   
@@ -86,12 +81,12 @@ public:
       CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
     }
     size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
-    if (num_samples > inference_parser_.max_batchsize ||
+    if (num_samples > inference_params_.max_batchsize ||
         num_samples * inference_parser_.dense_dim != dense.size() ||
         num_samples * inference_parser_.max_feature_num_per_sample < embeddingcolumns.size() ||
         num_samples * inference_parser_.slot_num + 1 != row_ptrs.size() ||
         embeddingcolumns.size() != static_cast<size_t>(row_ptrs.back()) ||
-        inference_parser_.i64_input_key == true) {
+        inference_params_.i64_input_key == true) {
       CK_THROW_(Error_t::WrongInput, "Input size is not consistent!");
     }
     output_.resize(num_samples);
@@ -111,13 +106,13 @@ public:
       CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
     }
     size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
-    if (num_samples > inference_parser_.max_batchsize ||
+    if (num_samples > inference_params_.max_batchsize ||
         num_samples * inference_parser_.dense_dim != dense.size() ||
         num_samples * inference_parser_.max_feature_num_per_sample < embeddingcolumns.size() ||
         num_samples * inference_parser_.slot_num + 1 != row_ptrs.size() ||
         embeddingcolumns.size() != static_cast<size_t>(row_ptrs.back()) ||
         i64_input_key == false ||
-        inference_parser_.i64_input_key == false) {
+        inference_params_.i64_input_key == false) {
       CK_THROW_(Error_t::WrongInput, "Input size is not consistent!");
     }
     output_.resize(num_samples);
@@ -138,30 +133,76 @@ private:
   float* d_output_;
 };
 
+std::shared_ptr<InferenceSessionPy> CreateInferenceSession(const std::string& model_config_path,
+                                                        const InferenceParams& inference_params) {
+  HugectrUtility<long long>* ps64;
+  HugectrUtility<unsigned int>* ps32;
+  std::shared_ptr<embedding_interface> ec;
+  std::shared_ptr<InferenceSessionPy> sess;
+  std::vector<std::string> model_config_path_array{model_config_path};
+  std::vector<InferenceParams> inference_params_array{inference_params};
+  if (inference_params.i64_input_key) {
+    ps64 = new parameter_server<long long>("Other", model_config_path_array, inference_params_array);
+    ec.reset(new embedding_cache<long long>(model_config_path, inference_params, ps64));
+  } else {
+    ps32 = new parameter_server<unsigned int>("Other", model_config_path_array, inference_params_array);
+    ec.reset(new embedding_cache<unsigned int>(model_config_path, inference_params, ps32));
+  }
+  sess.reset(new InferenceSessionPy(model_config_path, inference_params, ec));
+  return sess;
+}
+
 void InferencePybind(pybind11::module &m) {
   pybind11::module infer = m.def_submodule("inference", "inference submodule of hugectr");
+  
   pybind11::enum_<HugeCTR::INFER_TYPE>(infer, "InferType")
     .value("Triton", HugeCTR::INFER_TYPE::TRITON)
     .value("Other", HugeCTR::INFER_TYPE::OTHER)
     .export_values();
+  
   pybind11::class_<HugeCTR::parameter_server_base, std::shared_ptr<HugeCTR::parameter_server_base>>(infer, "ParameterServerBase");
+  
   pybind11::class_<HugeCTR::embedding_interface, std::shared_ptr<HugeCTR::embedding_interface>>(infer, "EmbeddingCacheInterface");
-  infer.def("CreateParameterServer", &HugeCTR::python_lib::CreateParameterServer,
-    pybind11::arg("model_config_path"),
-    pybind11::arg("model_name"),
-    pybind11::arg("i64_input_key"));
-  infer.def("CreateEmbeddingCache", &HugeCTR::python_lib::CreateEmbeddingCache,
-    pybind11::arg("parameter_server"),
-    pybind11::arg("cuda_dev_id"),
-    pybind11::arg("use_gpu_embedding_cache"),
-    pybind11::arg("cache_size_percentage"),
-    pybind11::arg("model_config_path"),
-    pybind11::arg("model_name"),
-    pybind11::arg("i64_input_key"));
-  pybind11::class_<HugeCTR::python_lib::InferenceSessionPy, std::shared_ptr<HugeCTR::python_lib::InferenceSessionPy>>(infer, "InferenceSession")
-    .def(pybind11::init<const std::string&, int, std::shared_ptr<HugeCTR::embedding_interface>&>(),
-      pybind11::arg("config_file"),
+  
+  pybind11::class_<HugeCTR::InferenceParams, std::shared_ptr<HugeCTR::InferenceParams>>(infer, "InferenceParams")
+    .def(pybind11::init<const std::string&, const size_t, const float,
+                  const std::string&, const std::vector<std::string>&,
+                  const int, const bool, const float, const bool,
+                  const bool, const float, const bool, const bool>(),
+      pybind11::arg("model_name"),
+      pybind11::arg("max_batchsize"),
+      pybind11::arg("hit_rate_threshold"),
+      pybind11::arg("dense_model_file"),
+      pybind11::arg("sparse_model_files"),
 		  pybind11::arg("device_id"),
+		  pybind11::arg("use_gpu_embedding_cache"),
+      pybind11::arg("cache_size_percentage"),
+      pybind11::arg("i64_input_key"),
+      pybind11::arg("use_mixed_precision") = false,
+      pybind11::arg("scaler") = 1.0,
+      pybind11::arg("use_algorithm_search") = true,
+      pybind11::arg("use_cuda_graph") = true)
+    .def_readonly("use_gpu_embedding_cache", &HugeCTR::InferenceParams::use_gpu_embedding_cache)
+    .def_readonly("i64_input_key", &HugeCTR::InferenceParams::i64_input_key)
+    .def_readonly("use_mixed_precision", &HugeCTR::InferenceParams::use_mixed_precision);
+  
+  infer.def("CreateParameterServer", &HugeCTR::python_lib::CreateParameterServer,
+    pybind11::arg("model_config_path_array"),
+    pybind11::arg("inference_params_array"));
+  
+  infer.def("CreateEmbeddingCache", &HugeCTR::python_lib::CreateEmbeddingCache,
+    pybind11::arg("model_config_path"),
+    pybind11::arg("inference_params"),
+    pybind11::arg("parameter_server"));
+
+  infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
+    pybind11::arg("model_config_path"),
+    pybind11::arg("inference_params"));
+  
+  pybind11::class_<HugeCTR::python_lib::InferenceSessionPy, std::shared_ptr<HugeCTR::python_lib::InferenceSessionPy>>(infer, "InferenceSession")
+    .def(pybind11::init<const std::string&, const InferenceParams&, std::shared_ptr<embedding_interface>&>(),
+      pybind11::arg("model_config_path"),
+		  pybind11::arg("inference_params"),
 		  pybind11::arg("embedding_cache"))
     .def("predict",
       pybind11::overload_cast<std::vector<float>&, std::vector<unsigned int>&, std::vector<int>&>(

@@ -61,9 +61,10 @@ private:
 
 protected:
   InferenceParser inference_parser_;
+  InferenceParams inference_params_;
 
 public:
-  InferenceSessionCPU(const std::string& config_file, const std::string& model_name, std::shared_ptr<HugectrUtility<TypeHashKey>>& ps_base);
+  InferenceSessionCPU(const std::string& model_config_path, const InferenceParams& inference_params, std::shared_ptr<HugectrUtility<TypeHashKey>>& ps);
   virtual ~InferenceSessionCPU();
   void predict(float* h_dense, void* h_embeddingcolumns, int* h_row_ptrs, float* h_output, int num_samples);
 };

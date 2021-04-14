@@ -20,7 +20,7 @@ namespace HugeCTR {
 
 template <typename TypeFP>
 void create_embedding_cpu<TypeFP>::operator() (
-    const InferenceParser& inference_parser, const nlohmann::json& j_layers_array,
+    const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
     std::vector<std::shared_ptr<Tensor2<int>>>& rows,
     std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
     std::vector<size_t>& embedding_table_slot_size,
@@ -74,8 +74,8 @@ void create_embedding_cpu<TypeFP>::operator() (
     size_t prefix_slot_num = embedding_table_slot_size.back();
     embedding_table_slot_size.push_back(prefix_slot_num + slot_num);
 
-    std::vector<size_t> row_dims = { static_cast<size_t>(inference_parser.max_batchsize * slot_num + 1) };
-    std::vector<size_t> embeddingvecs_dims = { static_cast<size_t>(inference_parser.max_batchsize * max_feature_num_per_sample),
+    std::vector<size_t> row_dims = { static_cast<size_t>(inference_params.max_batchsize * slot_num + 1) };
+    std::vector<size_t> embeddingvecs_dims = { static_cast<size_t>(inference_params.max_batchsize * max_feature_num_per_sample),
                                                static_cast<size_t>(embedding_vec_size) };
     std::shared_ptr<Tensor2<int>> row_tensor = std::make_shared<Tensor2<int>>();
     std::shared_ptr<Tensor2<float>> embeddingvecs_tensor = std::make_shared<Tensor2<float>>();
@@ -85,7 +85,7 @@ void create_embedding_cpu<TypeFP>::operator() (
     embeddingvecs.push_back(embeddingvecs_tensor);
     Tensor2<TypeFP> embedding_output;
     embeddings->push_back(std::make_shared<EmbeddingFeatureCombinerCPU<TypeFP>>(
-        embeddingvecs[0], rows[0], embedding_output, inference_parser.max_batchsize,
+        embeddingvecs[0], rows[0], embedding_output, inference_params.max_batchsize,
         slot_num, feature_combiner_type, blobs_buff));
     tensor_entries->push_back({layer_top, embedding_output.shrink()});
   }

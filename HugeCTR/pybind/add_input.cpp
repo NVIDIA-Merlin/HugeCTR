@@ -19,8 +19,46 @@
 
 namespace HugeCTR {
 
+Input get_input_from_json(const nlohmann::json& j_input) {
+  auto type_name = get_value_from_json<std::string>(j_input, "type");
+  if (type_name.compare("Data") != 0) {
+    CK_THROW_(Error_t::WrongInput, "the first layer is not Data layer:" + type_name);
+  }
+  auto j_label = get_json(j_input, "label");
+  auto label_name = get_value_from_json<std::string>(j_label, "top");
+  auto label_dim = get_value_from_json<int>(j_label, "label_dim");
+
+  auto j_dense = get_json(j_input, "dense");
+  auto dense_name = get_value_from_json<std::string>(j_dense, "top");
+  auto dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
+
+  const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
+      {"DistributedSlot", DataReaderSparse_t::Distributed},
+      {"LocalizedSlot", DataReaderSparse_t::Localized},
+  };
+  std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
+  std::vector<std::string> sparse_names;
+  auto j_sparse = get_json(j_input, "sparse");
+  for (unsigned int i = 0; i < j_sparse.size(); i++) {
+    DataReaderSparseParam param;
+    const nlohmann::json& js = j_sparse[i];
+    const auto sparse_name = get_value_from_json<std::string>(js, "top");
+    const auto data_type_name = get_value_from_json<std::string>(js, "type");
+    if (!find_item_in_map(param.type, data_type_name, DATA_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "Not supported data type: " + data_type_name);
+    }
+    param.max_feature_num = get_value_from_json<int>(js, "max_feature_num_per_sample");
+    param.max_nnz = get_value_from_json_soft<int>(js, "max_nnz", param.max_feature_num);
+    param.slot_num = get_value_from_json<int>(js, "slot_num");
+    data_reader_sparse_param_array.push_back(param);
+    sparse_names.push_back(sparse_name);
+  }
+  Input input = Input(label_dim, label_name, dense_dim, dense_name, data_reader_sparse_param_array, sparse_names);
+  return input;
+}
+
 template <typename TypeKey>
-void add_input(Input& input,
+void add_input(Input& input, DataReaderParams& reader_params,
             std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
             std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
             std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
@@ -28,24 +66,24 @@ void add_input(Input& input,
             std::shared_ptr<IDataReader>& evaluate_data_reader, size_t batch_size,
             size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
             const std::shared_ptr<ResourceManager> resource_manager) {
-
-  DataReaderType_t format = input.data_reader_type;
-  Check_t check_type = input.check_type;
-  int cache_eval_data = input.cache_eval_data;
-  std::string source_data = input.source;
-  std::string eval_source =  input.eval_source;
+  DataReaderType_t format = reader_params.data_reader_type;
+  Check_t check_type = reader_params.check_type;
+  int cache_eval_data = reader_params.cache_eval_data;
+  std::string source_data = reader_params.source[0];
+  std::string eval_source =  reader_params.eval_source;
+  long long num_samples = reader_params.num_samples;
+  long long eval_num_samples = reader_params.eval_num_samples;
+  bool float_label_dense = reader_params.float_label_dense;
   std::string top_strs_label = input.label_name;
   int label_dim = input.label_dim;
   std::string top_strs_dense = input.dense_name;
   int dense_dim = input.dense_dim;
-  long long num_samples = input.num_samples;
-  long long eval_num_samples = input.eval_num_samples;
-  bool float_label_dense = input.float_label_dense;
+
 
 #ifdef VAL
   const int num_workers = 1;
 #else
-  const int num_workers = format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : input.num_workers;
+  const int num_workers = format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : reader_params.num_workers;
 #endif
   MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
 
@@ -67,7 +105,7 @@ void add_input(Input& input,
 
   long long slot_sum = 0;
   std::vector<long long> slot_offset;
-  for (auto slot_size:input.slot_size_array) {
+  for (auto slot_size:reader_params.slot_size_array) {
     slot_offset.push_back(slot_sum);
     slot_sum += slot_size;
   }
@@ -130,6 +168,7 @@ void add_input(Input& input,
 
 
 template void add_input<long long>(Input&,
+            DataReaderParams&,
             std::map<std::string, SparseInput<long long>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::vector<TensorEntry>>&,
@@ -138,6 +177,7 @@ template void add_input<long long>(Input&,
             size_t, bool, bool,
             const std::shared_ptr<ResourceManager>);
 template void add_input<unsigned int>(Input&,
+            DataReaderParams&,
             std::map<std::string, SparseInput<unsigned int>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::vector<TensorEntry>>&,

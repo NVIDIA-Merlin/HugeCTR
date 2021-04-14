@@ -22,10 +22,10 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::ModelOversubscriberImpl(
     std::vector<std::shared_ptr<IEmbedding>>& embeddings,
     const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-    const SolverParser& solver_config, const std::string& temp_embedding_dir)
+    const std::vector<std::string>& sparse_embedding_files, const std::string& temp_embedding_dir)
     : embeddings_(embeddings),
       ps_manager_(embedding_params, embeddings[0]->get_embedding_type(),
-                  solver_config, temp_embedding_dir, get_max_embedding_size_()) {}
+                  sparse_embedding_files, temp_embedding_dir, get_max_embedding_size_()) {}
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
