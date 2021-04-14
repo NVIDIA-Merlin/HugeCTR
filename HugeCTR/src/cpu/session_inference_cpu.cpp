@@ -23,33 +23,33 @@ namespace HugeCTR {
 
 template <typename TypeHashKey>
 InferenceSessionCPU<TypeHashKey>::InferenceSessionCPU(const std::string& config_file,
-                                        const std::string& model_name,
-                                        std::shared_ptr<HugectrUtility<TypeHashKey>> & ps)
+                                        const InferenceParams& inference_params,
+                                        std::shared_ptr<HugectrUtility<TypeHashKey>>& ps)
     : config_(read_json_file(config_file)),
-      model_name_(model_name),
       embedding_table_slot_size_({0}),
       parameter_server_(ps),
-      inference_parser_(config_) {
+      inference_parser_(config_),
+      inference_params_(inference_params) {
   try {
     cpu_resource_.reset(new CPUResource(0, {}));
     NetworkCPU* network_ptr;
     std::map<std::string, bool> tensor_active;
 
     // create pipeline and initialize network
-    create_pipeline_cpu(config_, tensor_active, inference_parser_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_,
+    create_pipeline_cpu(config_, tensor_active, inference_params_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_,
                       embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr,  cpu_resource_);
     network_ = std::move(std::unique_ptr<NetworkCPU>(network_ptr));
     network_->initialize();
-    if(inference_parser_.dense_model_file.size() > 0) {
-      network_->load_params_from_model(inference_parser_.dense_model_file);
+    if(inference_params_.dense_model_file.size() > 0) {
+      network_->load_params_from_model(inference_params_.dense_model_file);
     }
 
     // allocate memory for embedding vector lookup
-    h_embeddingvectors_ = (float*)malloc(inference_parser_.max_batchsize *  inference_parser_.max_embedding_vector_size_per_sample * sizeof(float));
-    if (inference_parser_.i64_input_key) {
-      h_shuffled_embeddingcolumns_ = malloc(inference_parser_.max_batchsize * inference_parser_.max_feature_num_per_sample * sizeof(long long));
+    h_embeddingvectors_ = (float*)malloc(inference_params_.max_batchsize *  inference_parser_.max_embedding_vector_size_per_sample * sizeof(float));
+    if (inference_params_.i64_input_key) {
+      h_shuffled_embeddingcolumns_ = malloc(inference_params_.max_batchsize * inference_parser_.max_feature_num_per_sample * sizeof(long long));
     } else {
-      h_shuffled_embeddingcolumns_ = malloc(inference_parser_.max_batchsize * inference_parser_.max_feature_num_per_sample * sizeof(unsigned int));
+      h_shuffled_embeddingcolumns_ = malloc(inference_params_.max_batchsize * inference_parser_.max_feature_num_per_sample * sizeof(unsigned int));
     }
     h_shuffled_embedding_offset_ = (size_t *)malloc((inference_parser_.num_embedding_tables + 1) * sizeof(size_t));
   } catch (const std::runtime_error& rt_err) {
@@ -109,7 +109,7 @@ void InferenceSessionCPU<TypeHashKey>::look_up_(const void* h_embeddingcolumns,
     size_t query_length = h_shuffled_embedding_offset_[i + 1] - h_shuffled_embedding_offset_[i];
     size_t query_length_in_float = query_length * inference_parser_.embed_vec_size_for_tables[i];
     float* h_vals_retrieved_ptr = h_embeddingvectors + acc_emb_vec_offset;
-    parameter_server_ -> look_up(h_query_key_ptr, query_length, h_vals_retrieved_ptr, model_name_, i);
+    parameter_server_ -> look_up(h_query_key_ptr, query_length, h_vals_retrieved_ptr, inference_params_.model_name, i);
     acc_emb_vec_offset += query_length_in_float;
   }
 }
@@ -152,7 +152,7 @@ void InferenceSessionCPU<TypeHashKey>::predict(float* h_dense, void* h_embedding
   
   // copy the prediction result to output
   float* h_pred = network_->get_pred_tensor().get_ptr();
-  memcpy(h_output, h_pred, inference_parser_.max_batchsize*sizeof(float));
+  memcpy(h_output, h_pred, inference_params_.max_batchsize*sizeof(float));
 }
 
 template class InferenceSessionCPU<unsigned int>;

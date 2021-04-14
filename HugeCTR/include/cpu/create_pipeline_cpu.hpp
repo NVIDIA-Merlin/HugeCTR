@@ -22,7 +22,7 @@ namespace HugeCTR {
 
 void create_pipeline_cpu(const nlohmann::json& config,
                       std::map<std::string, bool> tensor_active,
-                      const InferenceParser& inference_parser,
+                      const InferenceParams& inference_params,
                       Tensor2<float>& dense_input,
                       std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
@@ -32,7 +32,7 @@ void create_pipeline_cpu(const nlohmann::json& config,
 
 template <typename TypeEmbeddingComp>
 void create_pipeline_inference_cpu(const nlohmann::json& config,
-                                  const InferenceParser& inference_parser,
+                                  const InferenceParams& inference_params,
                                   Tensor2<float>& dense_input,
                                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                                   std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,

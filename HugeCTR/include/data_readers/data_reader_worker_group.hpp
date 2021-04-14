@@ -121,6 +121,15 @@ class DataReaderWorkerGroup {
     }
   }
 
+  bool is_eof() {
+    bool is_eof = true;
+    size_t num_workers = data_readers_.size();
+    for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {
+      is_eof = is_eof && data_readers_[worker_id]->is_eof();
+    }
+    return is_eof;
+  }
+
 private:
   virtual std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
       const std::string& file_name, bool repeat) = 0;

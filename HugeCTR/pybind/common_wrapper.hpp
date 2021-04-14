@@ -16,6 +16,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <HugeCTR/include/common.hpp>
+#include <HugeCTR/include/metrics.hpp>
 
 namespace HugeCTR {
 
@@ -24,7 +25,7 @@ namespace python_lib {
 void CommonPybind(pybind11::module& m) {
   m.attr("__version__") = std::to_string(HUGECTR_VERSION_MAJOR) 
 	                  + "." + std::to_string(HUGECTR_VERSION_MINOR)
-  	                  + "." + std::to_string(HUGECTR_VERSION_PATCH);
+  	                  + "." + std::to_string(HUGECTR_VERSION_PATCH);\
   pybind11::enum_<HugeCTR::Error_t>(m, "Error_t")
       .value("Success", HugeCTR::Error_t::Success)
       .value("FileCannotOpen", HugeCTR::Error_t::FileCannotOpen)
@@ -101,9 +102,6 @@ void CommonPybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::DataReaderSparseParam>(m, "DataReaderSparseParam")
       .def(pybind11::init<HugeCTR::DataReaderSparse_t, int, int, int>(), pybind11::arg("type"),
            pybind11::arg("max_feature_num"), pybind11::arg("max_nnz"), pybind11::arg("slot_num"));
-  pybind11::class_<HugeCTR::NameID>(m, "NameId")
-      .def(pybind11::init<std::string, unsigned int>(), pybind11::arg("file_name"),
-           pybind11::arg("id"));
   pybind11::enum_<HugeCTR::LrPolicy_t>(m, "LrPolicy_t")
       .value("fixed", HugeCTR::LrPolicy_t::fixed)
       .export_values();
@@ -121,6 +119,15 @@ void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::Regularizer_t>(m, "Regularizer_t")
       .value("L1", HugeCTR::Regularizer_t::L1)
       .value("L2", HugeCTR::Regularizer_t::L2)
+      .export_values();
+  pybind11::enum_<HugeCTR::metrics::RawType>(m, "MetricsRawType")
+      .value("Loss", HugeCTR::metrics::RawType::Loss)
+      .value("Pred", HugeCTR::metrics::RawType::Pred)
+      .value("Label", HugeCTR::metrics::RawType::Label)
+      .export_values();
+  pybind11::enum_<HugeCTR::metrics::Type>(m, "MetricsType")
+      .value("AUC", HugeCTR::metrics::Type::AUC)
+      .value("AverageLoss", HugeCTR::metrics::Type::AverageLoss)
       .export_values();
 }
 

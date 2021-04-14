@@ -18,19 +18,11 @@
 
 namespace HugeCTR {
 
-OptParamsBase::~OptParamsBase() {}
-OptParamsBase::OptParamsBase(bool use_mixed_precision) : use_mixed_precision(use_mixed_precision) {}
+OptParamsPy::OptParamsPy() {}
 
-template <typename TypeEmbeddingComp>
-OptParamsPy<TypeEmbeddingComp>::OptParamsPy(Optimizer_t optimizer_type, float learning_rate, 
-                                          OptHyperParams<TypeEmbeddingComp> opt_hyper_params, 
-                                          Update_t update_t, size_t warmup_steps, size_t decay_start,
-                                          size_t decay_steps, float decay_power, float end_lr, bool use_mixed_precision)
-  : OptParamsBase(use_mixed_precision), optimizer(optimizer_type), lr(learning_rate), hyperparams(opt_hyper_params), update_type(update_t),
-    warmup_steps(warmup_steps), decay_start(decay_start), decay_steps(decay_steps),
-    decay_power(decay_power), end_lr(end_lr) {}
-
-template class OptParamsPy<__half>;
-template class OptParamsPy<float>;
+OptParamsPy::OptParamsPy(Optimizer_t optimizer_type,
+                        Update_t update_t,
+                        OptHyperParamsPy opt_hyper_params)
+  : optimizer(optimizer_type), update_type(update_t), hyperparams(opt_hyper_params) {}
 
 } // namespace HugeCTR
