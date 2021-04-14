@@ -98,6 +98,7 @@ class TensorBag2 {
 
  public:
   TensorBag2() : scalar_type_(TensorScalarType::None) {}
+  const std::vector<size_t> &get_dimensions() const { return dimensions_; }
   void* get_ptr() { return buffer_->get_ptr(); }
 };
 

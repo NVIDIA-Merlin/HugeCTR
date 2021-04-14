@@ -20,23 +20,23 @@
 #include <vector>
 namespace HugeCTR {
 
-InferenceSession::InferenceSession(const std::string& config_file, int device_id, std::shared_ptr<embedding_interface>& embedding_cache)
-    : config_(read_json_file(config_file)),
-      parser_(config_),
+InferenceSession::InferenceSession(const std::string& model_config_path, const InferenceParams& inference_params, const std::shared_ptr<embedding_interface>& embedding_cache)
+    : config_(read_json_file(model_config_path)),
       embedding_table_slot_size_({0}),
-      resource_manager_(ResourceManager::create({{device_id}}, 0)),
+      resource_manager_(ResourceManager::create({{inference_params.device_id}}, 0)),
       embedding_cache_(embedding_cache),
-      inference_parser_(config_) {
+      inference_parser_(config_),
+      inference_params_(inference_params) {
   try {
     Network* network_ptr;
-    parser_.create_pipeline(inference_parser_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr,  resource_manager_);
+    inference_parser_.create_pipeline(inference_params_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr,  resource_manager_);
     network_ = std::move(std::unique_ptr<Network>(network_ptr));
     network_->initialize(false);
-    if(inference_parser_.dense_model_file.size() > 0) {
-      network_->upload_params_to_device_inference(inference_parser_.dense_model_file);
+    if(inference_params_.dense_model_file.size() > 0) {
+      network_->upload_params_to_device_inference(inference_params_.dense_model_file);
     }
     CudaDeviceContext ctx;
-    ctx.set_device(device_id);
+    ctx.set_device(inference_params.device_id);
     for(unsigned int idx_embedding_table = 1; idx_embedding_table < embedding_table_slot_size_.size(); ++idx_embedding_table){
       cudaStream_t lookup_stream;
       cudaStreamCreateWithFlags(&lookup_stream, cudaStreamNonBlocking);
@@ -46,7 +46,7 @@ InferenceSession::InferenceSession(const std::string& config_file, int device_id
       update_streams_.push_back(update_stream);
     }
     workspace_handler_ = embedding_cache_->create_workspace();
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_embeddingvectors_, inference_parser_.max_batchsize *  inference_parser_.max_embedding_vector_size_per_sample * sizeof(float)));
+    CK_CUDA_THROW_(cudaMalloc((void**)&d_embeddingvectors_, inference_params_.max_batchsize *  inference_parser_.max_embedding_vector_size_per_sample * sizeof(float)));
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
@@ -91,7 +91,7 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_
   embedding_cache_->look_up(h_embeddingcolumns, h_embedding_offset_, d_embeddingvectors_, workspace_handler_, lookup_streams_);
   CK_CUDA_THROW_(cudaStreamSynchronize(lookup_streams_[0]));
   if (workspace_handler_.use_gpu_embedding_cache_ &&
-        workspace_handler_.h_hit_rate_[0] < inference_parser_.hit_rate_threshold) {
+        workspace_handler_.h_hit_rate_[0] < inference_params_.hit_rate_threshold) {
     embedding_cache_->update(workspace_handler_, lookup_streams_);
   }
   CK_CUDA_THROW_(cudaStreamSynchronize(update_streams_[0]));
@@ -121,7 +121,7 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_
   
   // copy the prediction result to output
   float* d_pred = network_->get_pred_tensor().get_ptr();
-  CK_CUDA_THROW_(cudaMemcpyAsync(d_output, d_pred, inference_parser_.max_batchsize*sizeof(float), cudaMemcpyDeviceToDevice, resource_manager_->get_local_gpu(0)->get_stream()));
+  CK_CUDA_THROW_(cudaMemcpyAsync(d_output, d_pred, inference_params_.max_batchsize*sizeof(float), cudaMemcpyDeviceToDevice, resource_manager_->get_local_gpu(0)->get_stream()));
   CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
 }
 

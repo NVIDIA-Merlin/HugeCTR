@@ -1,5 +1,5 @@
 import sys
-from hugectr.inference import CreateParameterServer, CreateEmbeddingCache, InferenceSession
+from hugectr.inference import InferenceParams, CreateInferenceSession
 from mpi4py import MPI
 
 def dcn_inference(config_file, model_name, data_path, use_gpu_embedding_cache):
@@ -10,9 +10,16 @@ def dcn_inference(config_file, model_name, data_path, use_gpu_embedding_cache):
   embedding_columns = [int(item) for item in data_file.readline().split(' ')]
   row_ptrs = [int(item) for item in data_file.readline().split(' ')]
   # create parameter server, embedding cache and inference session
-  parameter_server = CreateParameterServer([config_file], [model_name], False)
-  embedding_cache = CreateEmbeddingCache(parameter_server, 0, use_gpu_embedding_cache, 0.2, config_file, model_name, False)
-  inference_session = InferenceSession(config_file, 0, embedding_cache)
+  inference_params = InferenceParams(model_name = model_name,
+                                  max_batchsize = 4096,
+                                  hit_rate_threshold = 0.6,
+                                  dense_model_file = "/hugectr/test/utest/_dense_10000.model",
+                                  sparse_model_files = ["/hugectr/test/utest/0_sparse_10000.model"],
+                                  device_id = 0,
+                                  use_gpu_embedding_cache = use_gpu_embedding_cache,
+                                  cache_size_percentage = 0.9,
+                                  i64_input_key = False)
+  inference_session = CreateInferenceSession(config_file, inference_params)
   # make prediction and calculate accuracy
   output = inference_session.predict(dense_features, embedding_columns, row_ptrs)
   accuracy = calculate_accuracy(labels, output)

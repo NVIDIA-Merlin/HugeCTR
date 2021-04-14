@@ -563,15 +563,18 @@ Error_t Session::get_current_loss(float* loss) {
 
 template <typename TypeEmbeddingComp>
 std::shared_ptr<ModelOversubscriber> Session::create_model_oversubscriber_(
-    const SolverParser& solver_config, const std::string& temp_embedding_dir) {
+      const SolverParser& solver_config, const std::string& temp_embedding_dir) {
   try {
     if (temp_embedding_dir.empty()) {
       CK_THROW_(Error_t::WrongInput, "must provide a directory for storing temporary embedding");
     }
-
     std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>> embedding_params;
+    // this is temporary and will be dropped in the future
+    solver_.i64_input_key = solver_config.i64_input_key;
+    solver_.temp_embedding_dir = temp_embedding_dir;
+    solver_.enable_tf32_compute = solver_config.enable_tf32_compute;
     return std::shared_ptr<ModelOversubscriber>(
-        new ModelOversubscriber(embeddings_, embedding_params, solver_config, temp_embedding_dir));
+        new ModelOversubscriber(embeddings_, embedding_params, solver_config.embedding_files, solver_));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;

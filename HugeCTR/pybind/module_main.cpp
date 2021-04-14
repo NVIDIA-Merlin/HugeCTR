@@ -16,39 +16,23 @@
 
 #include <pybind11/pybind11.h>
 #include <HugeCTR/pybind/common_wrapper.hpp>
-#include <HugeCTR/pybind/third_party_wrapper.hpp>
-#include <HugeCTR/pybind/utils_wrapper.hpp>
-#include <HugeCTR/pybind/csr_chunk_wrapper.hpp>
-#include <HugeCTR/pybind/device_map_wrapper.hpp>
-#include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
-#include <HugeCTR/pybind/metrics_wrapper.hpp>
-#include <HugeCTR/pybind/mmap_offset_wrapper.hpp>
-#include <HugeCTR/pybind/resource_manager_wrapper.hpp>
-#include <HugeCTR/pybind/solver_parser_wrapper.hpp>
+#include <HugeCTR/pybind/solver_wrapper.hpp>
 #include <HugeCTR/pybind/data_reader_wrapper.hpp>
 #include <HugeCTR/pybind/model_oversubscriber_wrapper.hpp>
-#include <HugeCTR/pybind/session_wrapper.hpp>
-#include <HugeCTR/pybind/inference_wrapper.hpp>
+#include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
 #include <HugeCTR/pybind/optimizer_wrapper.hpp>
 #include <HugeCTR/pybind/model_wrapper.hpp>
+#include <HugeCTR/pybind/inference_wrapper.hpp>
 using namespace HugeCTR::python_lib;
 
 PYBIND11_MODULE(hugectr, m) {
   m.doc() = "hugectr python interface";
   CommonPybind(m);
-  ThirdPartyPybind(m);
-  UtilsPybind(m);
-  CSRChunkPybind(m);
-  DeviceMapPybind(m);
-  LearningRateSchedulerPybind(m);
-  MetricsPybind(m);
-  MmapOffsetPybind(m);
-  ResourceManagerPybind(m);
-  SolverParserPybind(m);
+  SolverPybind(m);
   DataReaderPybind(m);
   ModelOversubscriberPybind(m);
-  SessionPybind(m);
-  InferencePybind(m);
+  LearningRateSchedulerPybind(m);
   OptimizerPybind(m);
   ModelPybind(m);
+  InferencePybind(m);
 }

@@ -22,16 +22,16 @@ parameter_server_base::~parameter_server_base() {}
 
 template <typename TypeHashKey>
 parameter_server<TypeHashKey>::parameter_server(const std::string& framework_name, 
-                                                const std::vector<std::string>& model_config_path, 
-                                                const std::vector<std::string>& model_name){
+                                              const std::vector<std::string>& model_config_path,
+                                              const std::vector<InferenceParams>& inference_params_array){
   // Store the configuration
   framework_name_ = framework_name;
-  if(model_config_path.size() != model_name.size()){
+  if(model_config_path.size() != inference_params_array.size()){
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of input args are not consistent.");
   }
   // Initialize <model_name, id> map
-  for(unsigned int i = 0; i < model_name.size(); i++){
-    ps_config_.model_name_id_map_.emplace(model_name[i], (size_t)i);
+  for(unsigned int i = 0; i < inference_params_array.size(); i++){
+    ps_config_.model_name_id_map_.emplace(inference_params_array[i].model_name, (size_t)i);
   }
   
   // Initialize for each model
@@ -40,16 +40,14 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
     nlohmann::json model_config(read_json_file(model_config_path[i]));
 
     // Read inference config
-    const nlohmann::json& j_inference = get_json(model_config, "inference");
-    const nlohmann::json& j_emb_table_file = get_json(j_inference, "sparse_model_file");
     std::vector<std::string> emb_file_path;
-    if (j_emb_table_file.is_array()){
-      for(unsigned int j = 0; j < j_emb_table_file.size(); j++){
-        emb_file_path.emplace_back(j_emb_table_file[j].get<std::string>());
+    if (inference_params_array[i].sparse_model_files.size() > 1){
+      for(unsigned int j = 0; j < inference_params_array[i].sparse_model_files.size(); j++){
+        emb_file_path.emplace_back(inference_params_array[i].sparse_model_files[j]);
       }
     }
     else{
-      emb_file_path.emplace_back(j_emb_table_file.get<std::string>());
+      emb_file_path.emplace_back(inference_params_array[i].sparse_model_files[0]);
     }
     ps_config_.emb_file_name_.emplace_back(emb_file_path);
 

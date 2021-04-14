@@ -30,7 +30,9 @@
 #define UNIQUE_KNOWN_PERCENTAGE 0.1
 #define UNIQUE_UNKNOWN_PERCENTAGE 0.1
 #define MODEL_PATH "/hugectr_ci_workdir/test/utest/simple_inference_config.json"
+#define SPARSE_MODEL_PATH "/hugectr/test/utest/0_sparse_10000.model"
 #define MODEL_NAME "DCN"
+#define BATCHSIZE 1024
 
 using namespace HugeCTR;
 namespace {
@@ -71,30 +73,15 @@ private:
 };
 
 // Test Model Parameter, 1 per model
-struct InferenceParams {
-  size_t max_batchsize_;
+struct InferenceInfo {
   std::vector<int> max_feature_num_per_sample_;
-  std::vector<std::string> emb_file_path_;
   std::vector<bool> distributed_emb_;
   std::vector<size_t> embedding_vec_size_;
   std::vector<float> default_emb_vector_value_;
-  InferenceParams(const nlohmann::json& config);
+  InferenceInfo(const nlohmann::json& config);
 };
 
-InferenceParams::InferenceParams(const nlohmann::json& config) {
-  const nlohmann::json& j_inference = get_json(config, "inference");
-  max_batchsize_ = get_value_from_json<size_t>(j_inference, "max_batchsize");
-
-  const nlohmann::json& j_emb_table_file = get_json(j_inference, "sparse_model_file");
-  if (j_emb_table_file.is_array()){
-    for(unsigned int i = 0; i < j_emb_table_file.size(); i++){
-      emb_file_path_.emplace_back(j_emb_table_file[i].get<std::string>());
-    }
-  }
-  else{
-    emb_file_path_.emplace_back(j_emb_table_file.get<std::string>());
-  }
-
+InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   const nlohmann::json& j_layers = get_json(config, "layers");
   const nlohmann::json& j_data_layer = j_layers[0];
   const nlohmann::json& j_data_layer_sparse_layer = get_json(j_data_layer, "sparse");
@@ -126,7 +113,8 @@ InferenceParams::InferenceParams(const nlohmann::json& config) {
 // Designed for 1 model with 1 embedding table currently
 template<typename TypeHashKey>
 void embedding_cache_test(const std::string& config_file, 
-                          const std::string& model, 
+                          const std::string& model,
+                          const std::string& sparse_model_file, 
                           size_t num_of_sample, 
                           int num_feature_per_sample, 
                           size_t num_of_iteration, 
@@ -135,11 +123,11 @@ void embedding_cache_test(const std::string& config_file,
   // Test will use 0# GPU
   CK_CUDA_THROW_(cudaSetDevice(0));
 
-  InferenceParams inference_params(read_json_file(config_file));
+  InferenceInfo inference_info(read_json_file(config_file));
 
-  size_t max_batch_size = inference_params.max_batchsize_;
-  int max_feature_num_per_sample = inference_params.max_feature_num_per_sample_[0];
-  float default_emb_vector_value = inference_params.default_emb_vector_value_[0];
+  size_t max_batch_size = BATCHSIZE;
+  int max_feature_num_per_sample = inference_info.max_feature_num_per_sample_[0];
+  float default_emb_vector_value = inference_info.default_emb_vector_value_[0];
   size_t num_emb_table = 1;
   // Check parameter
   num_of_sample = num_of_sample < max_batch_size ? num_of_sample : max_batch_size;
@@ -198,9 +186,9 @@ void embedding_cache_test(const std::string& config_file,
   }
 
   // Read all the embeddings from the model
-  std::string emb_file_path = inference_params.emb_file_path_[0];
-  bool distributed_emb = inference_params.distributed_emb_[0];
-  size_t embedding_vec_size = inference_params.embedding_vec_size_[0];
+  std::string emb_file_path = sparse_model_file;
+  bool distributed_emb = inference_info.distributed_emb_[0];
+  size_t embedding_vec_size = inference_info.embedding_vec_size_[0];
   std::ifstream emb_file(emb_file_path);
   // Check if file is opened successfully
   if (!emb_file.is_open()) {
@@ -270,10 +258,13 @@ void embedding_cache_test(const std::string& config_file,
 
   // Parameter server and embedding cache shared by all workers
   std::vector<std::string> model_config_path{config_file};
-  std::vector<std::string> model_name{model};
-  HugectrUtility<TypeHashKey>* parameter_server = HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name);
-  embedding_interface* embedding_cache = embedding_interface::Create_Embedding_Cache<TypeHashKey>(parameter_server, 0, use_gpu_cache, CACHE_SIZE_PERCENTAGE, model_config_path[0], model_name[0]);
-
+  std::string dense_model{"/hugectr/test/utest/_dense_10000.model"};
+  std::vector<std::string> sparse_models{"/hugectr/test/utest/0_sparse_10000.model"};
+  InferenceParams infer_param(model, max_batch_size, 0.5, dense_model, sparse_models, 0, true, 0.8, false);
+  std::vector<InferenceParams> inference_params{infer_param};
+  HugectrUtility<TypeHashKey>* parameter_server = HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, inference_params);
+  embedding_interface* embedding_cache = embedding_interface::Create_Embedding_Cache<TypeHashKey>(model_config_path[0], inference_params[0], parameter_server);
+  
   // Each worker start to do inference
 #pragma omp parallel default(none) shared(feature_per_batch, embedding_vec_size, num_emb_table, embedding_cache, \
 row_num, num_of_iteration, num_of_sample, num_feature, num_known_embeddingcolumns, \
@@ -421,47 +412,47 @@ h_total_embeddingvector, max_emb_id, default_emb_vector_value) num_threads(num_o
 
 }  // namespace
 
-TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 0, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 0, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_0_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 0, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_0_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 0, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_16_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 16, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_16_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 16, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_16_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 16, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_16_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 16, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 16, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 16, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_30_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 30, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_30_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 30, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_30_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 30, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_30_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 30, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 30, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 30, 5, 1, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, -1, 5, 1, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, -1, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 0, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 0, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 0, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 0, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_0_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 0, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_0_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 0, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_16_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 16, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_16_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 16, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_16_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 16, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_16_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 16, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 16, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 16, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_30_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 30, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_30_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 30, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_30_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME,  SPARSE_MODEL_PATH, 16, 30, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_30_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 30, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 30, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 30, 5, 1, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_1_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, -1, 5, 1, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_1_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, -1, 5, 1, false); }
 
-TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 0, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 0, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 0, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_0_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 0, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_16_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 16, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_16_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 16, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_16_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 16, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_16_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 16, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 16, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 16, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_30_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 30, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_0_30_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 0, 30, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_30_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 30, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_16_30_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 16, 30, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 30, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, 30, 5, 4, false); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, -1, 5, 4, true); }
-TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, 32, -1, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 0, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_0_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 0, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 0, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_0_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 0, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_0_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 0, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_0_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 0, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_16_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 16, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_16_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 16, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_16_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 16, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_16_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 16, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 16, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_16_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 16, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_30_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 30, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_0_30_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 0, 30, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_30_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 30, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_16_30_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 16, 30, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 30, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_30_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, 30, 5, 4, false); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_4_enable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, -1, 5, 4, true); }
+TEST(embedding_cache, embedding_cache_usigned_int_32_random_5_4_disable) {embedding_cache_test<unsigned int>(MODEL_PATH, MODEL_NAME, SPARSE_MODEL_PATH, 32, -1, 5, 4, false); }
 
 /*TEST(embedding_cache, embedding_cache_long_long_0_0_5_1_enable) {embedding_cache_test<long long>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 1, true); }
 TEST(embedding_cache, embedding_cache_long_long_0_0_5_1_disable) {embedding_cache_test<long long>(MODEL_PATH, MODEL_NAME, 0, 0, 5, 1, false); }

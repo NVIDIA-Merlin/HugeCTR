@@ -62,7 +62,7 @@ public:
   ModelOversubscriberImpl(
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
       const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-      const SolverParser& solver_config,
+      const std::vector<std::string>& sparse_embedding_files,
       const std::string& temp_embedding_dir);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;

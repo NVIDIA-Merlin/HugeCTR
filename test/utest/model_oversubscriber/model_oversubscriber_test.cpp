@@ -216,19 +216,20 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   std::vector<std::string> snapshot_file_list;
   snapshot_file_list.push_back(snapshot_dst_file);
 
-  SolverParser solver_config;
-  solver_config.embedding_files.push_back(snapshot_src_file);
-  solver_config.i64_input_key = true;
-  solver_config.enable_tf32_compute = false;
-
   // Create a ModelOversubscriber
   std::vector<std::shared_ptr<IEmbedding>> embeddings;
   embeddings.push_back(embedding);
   std::vector<SparseEmbeddingHashParams<EmbeddingCompType>> embedding_params;
-  std::string temp_dir = temp_embedding_dir;
+
+  Solver solver;
+  std::vector<std::string> sparse_embedding_files;
+  sparse_embedding_files.push_back(snapshot_src_file);
+  solver.i64_input_key = true;
+  solver.enable_tf32_compute = false;
+  solver.temp_embedding_dir = temp_embedding_dir;
 
   std::shared_ptr<ModelOversubscriber> model_oversubscriber(
-      new ModelOversubscriber(embeddings, embedding_params, solver_config, temp_dir));
+      new ModelOversubscriber(embeddings, embedding_params, sparse_embedding_files, solver));
 
   Timer timer_ps;
   timer_ps.start();

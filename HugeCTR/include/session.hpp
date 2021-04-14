@@ -129,6 +129,7 @@ class Session {
   void copy_weights_for_evaluation();
 
  private:
+  Solver solver_;
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
   std::shared_ptr<ModelOversubscriber>

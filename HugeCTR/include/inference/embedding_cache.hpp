@@ -35,13 +35,9 @@ namespace HugeCTR {
 template <typename TypeHashKey>
 class embedding_cache : public embedding_interface {
  public:
-  embedding_cache(HugectrUtility<TypeHashKey>* parameter_server, // The backend PS
-                  int cuda_dev_id, // Which CUDA device this cache belongs to
-                  bool use_gpu_embedding_cache, // Whether enable GPU embedding cache or not
-                  // The ratio of (size of GPU embedding cache : size of embedding table) for all embedding table in this model. Should between (0.0, 1.0].
-                  float cache_size_percentage, 
-                  const std::string& model_config_path, 
-                  const std::string& model_name);
+  embedding_cache(const std::string& model_config_path,
+                const InferenceParams& inference_params,
+                HugectrUtility<TypeHashKey>* parameter_server);
 
   virtual ~embedding_cache();
 

@@ -24,6 +24,11 @@ class IDataReaderWorker {
  public:
   virtual void read_a_batch() = 0;
   virtual void skip_read() = 0;
+
+  bool is_eof() {
+    return is_eof_;
+  }
+
   void set_source(std::shared_ptr<Source> source) {
     if (!is_eof_) {
       CK_THROW_(Error_t::IllegalCall,
