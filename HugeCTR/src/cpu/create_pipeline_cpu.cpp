@@ -22,7 +22,7 @@ namespace HugeCTR {
 template <typename TypeEmbeddingComp>
 void create_pipeline_inference_cpu(const nlohmann::json& config,
                                   std::map<std::string, bool> tensor_active,
-                                  const InferenceParser& inference_parser,
+                                  const InferenceParams& inference_params,
                                   Tensor2<float>& dense_input,
                                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                                   std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
@@ -43,41 +43,41 @@ void create_pipeline_inference_cpu(const nlohmann::json& config,
     auto top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
     auto dense_dim = get_value_from_json<size_t>(j_dense, "dense_dim");
 
-    input_buffer->reserve({inference_parser.max_batchsize, dense_dim}, &dense_input);
+    input_buffer->reserve({inference_params.max_batchsize, dense_dim}, &dense_input);
     tensor_entries.push_back({top_strs_dense, dense_input.shrink()});
   }
 
-  create_embedding_cpu<TypeEmbeddingComp>()(inference_parser, j_layers_array, rows, embeddingvecs, 
+  create_embedding_cpu<TypeEmbeddingComp>()(inference_params, j_layers_array, rows, embeddingvecs, 
                                             embedding_table_slot_size, &tensor_entries,
                                             embeddings, input_buffer);
   input_buffer->allocate();
 
   *network = NetworkCPU::create_network(j_layers_array, tensor_entries, cpu_resource,
-                                      inference_parser.use_mixed_precision);                  
+                                      inference_params.use_mixed_precision);                  
 }
 
 
 void create_pipeline_cpu(const nlohmann::json& config,
                       std::map<std::string, bool> tensor_active,
-                      const InferenceParser& inference_parser,
+                      const InferenceParams& inference_params,
                       Tensor2<float>& dense_input,
                       std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                       std::vector<size_t>& embedding_table_slot_size,
                       std::vector<std::shared_ptr<LayerCPU>>* embeddings, NetworkCPU** network,
                       const std::shared_ptr<CPUResource>& cpu_resource) {
-  if (inference_parser.use_mixed_precision) {
-    create_pipeline_inference_cpu<__half>(config, tensor_active, inference_parser, dense_input, rows, embeddingvecs,
+  if (inference_params.use_mixed_precision) {
+    create_pipeline_inference_cpu<__half>(config, tensor_active, inference_params, dense_input, rows, embeddingvecs,
                                         embedding_table_slot_size, embeddings, network, cpu_resource);
   } else {
-    create_pipeline_inference_cpu<float>(config, tensor_active, inference_parser, dense_input, rows, embeddingvecs,
+    create_pipeline_inference_cpu<float>(config, tensor_active, inference_params, dense_input, rows, embeddingvecs,
                                         embedding_table_slot_size, embeddings, network, cpu_resource);
   }
 }
 
 template void create_pipeline_inference_cpu<float>(const nlohmann::json& config,
                                   std::map<std::string, bool> tensor_active,
-                                  const InferenceParser& inference_parser,
+                                  const InferenceParams& inference_params,
                                   Tensor2<float>& dense_input,
                                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                                   std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
@@ -87,7 +87,7 @@ template void create_pipeline_inference_cpu<float>(const nlohmann::json& config,
                                   const std::shared_ptr<CPUResource>& cpu_resource);
 template void create_pipeline_inference_cpu<__half>(const nlohmann::json& config,
                                   std::map<std::string, bool> tensor_active,
-                                  const InferenceParser& inference_parser,
+                                  const InferenceParams& inference_params,
                                   Tensor2<float>& dense_input,
                                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                                   std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,

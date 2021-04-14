@@ -94,8 +94,8 @@ class Optimizer {
         gpu_resource_(gpu_resource),
         lr_(learning_rate),
         scaler_(scaler) {
-    if (lr_ <= 0.) {
-      CK_THROW_(Error_t::WrongInput, "lr <= 0");
+    if (lr_ < 0.) {
+      CK_THROW_(Error_t::WrongInput, "lr < 0");
     }
   }
 
@@ -114,8 +114,8 @@ class Optimizer {
    * @param lr the learning rate
    */
   void set_learning_rate(float lr) {
-    if (lr <= 0) {
-      CK_THROW_(Error_t::WrongInput, "lr <= 0");
+    if (lr < 0) {
+      CK_THROW_(Error_t::WrongInput, "lr < 0");
     }
     lr_ = lr;
   }

@@ -18,29 +18,38 @@
 
 namespace HugeCTR {
 
-class OptParamsBase {
-public:
-  OptParamsBase(bool use_mixed_precision);
-  virtual ~OptParamsBase();
-  bool use_mixed_precision;
+struct AdamOptHyperParamsPy {
+  float beta1 = 0.9f;
+  float beta2 = 0.999f;
+  float epsilon = 1e-7f;
 };
 
-template <typename TypeEmbeddingComp>
-class OptParamsPy : public OptParamsBase {
+struct MomentumSGDOptHyperParamsPy {
+  float factor = 0.1f;
+};
+
+struct NesterovOptHyperParamsPy {
+  float mu = 0.9f;
+};
+
+struct SGDOptHyperParamsPy {
+  bool atomic_update = false;
+};
+
+struct OptHyperParamsPy {
+  AdamOptHyperParamsPy adam;
+  MomentumSGDOptHyperParamsPy momentum;
+  NesterovOptHyperParamsPy nesterov;
+  SGDOptHyperParamsPy sgd;
+};
+
+class OptParamsPy {
 public:
   Optimizer_t optimizer;
-  float lr;
-  OptHyperParams<TypeEmbeddingComp> hyperparams;
   Update_t update_type;
-  size_t warmup_steps;
-  size_t decay_start;
-  size_t decay_steps;
-  float decay_power;
-  float end_lr;
-  OptParamsPy(Optimizer_t optimizer_type, float learning_rate, 
-            OptHyperParams<TypeEmbeddingComp> opt_hyper_params, Update_t update_t,
-            size_t warmup_steps, size_t decay_start,
-            size_t decay_steps, float decay_power, float end_lr, bool use_mixed_precision);
+  OptHyperParamsPy hyperparams;
+  OptParamsPy(Optimizer_t optimizer_type, Update_t update_t, OptHyperParamsPy opt_hyper_params);
+  OptParamsPy();
 };
 
 } //namespace HugeCTR

@@ -32,7 +32,6 @@ namespace HugeCTR {
 class InferenceSession : public HugeCTRModel {
 private:
   nlohmann::json config_; // should be declared before parser_ and inference_parser_
-  Parser parser_;
   std::vector<size_t> embedding_table_slot_size_;
   std::vector<cudaStream_t> lookup_streams_;
   std::vector<cudaStream_t> update_streams_;
@@ -56,9 +55,10 @@ private:
 
 protected:
   InferenceParser inference_parser_;
+  InferenceParams inference_params_;
 
 public:
-  InferenceSession(const std::string& config_file, int device_id, std::shared_ptr<embedding_interface>& embedding_ptr);
+  InferenceSession(const std::string& config_file, const InferenceParams& inference_params, const std::shared_ptr<embedding_interface>& embedding_cache);
   virtual ~InferenceSession();
   void predict(float* d_dense, void* h_embeddingcolumns, int* d_row_ptrs, float* d_output, int num_samples);
 };

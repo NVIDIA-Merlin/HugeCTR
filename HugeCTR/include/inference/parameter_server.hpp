@@ -39,7 +39,7 @@ public:
 template <typename TypeHashKey>
 class parameter_server : public parameter_server_base, public HugectrUtility<TypeHashKey> {
  public:
-  parameter_server(const std::string& framework_name, const std::vector<std::string>& model_config_path, const std::vector<std::string>& model_name);
+  parameter_server(const std::string& framework_name, const std::vector<std::string>& model_config_path, const std::vector<InferenceParams>& inference_params_array);
   virtual ~parameter_server();
   // Should not be called directly, should be called by embedding cache
   virtual void look_up(const TypeHashKey* h_embeddingcolumns, size_t length, float* h_embeddingoutputvector, const std::string& model_name, size_t embedding_table_id);
