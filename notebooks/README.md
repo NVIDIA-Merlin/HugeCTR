@@ -34,7 +34,7 @@ git clone https://github.com/NVIDIA/HugeCTR
 
 2. Activate the merlin conda environment by running the following command:  
    ```shell.
-   root@2efa5b50b909: source activate merlin
+   source activate merlin
    ```
 
 3. Start Jupyter using these commands: 

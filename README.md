@@ -33,7 +33,7 @@ If you'd like to quickly train a model using the Python interface, follow these 
 
 2. Activate the merlin conda environment by running the following command:  
    ```shell.
-   root@2efa5b50b909: source activate merlin
+   source activate merlin
    ```
 
 3. Inside the container, copy the DCN configuration file to our mounted directory (/your/container/dir).
