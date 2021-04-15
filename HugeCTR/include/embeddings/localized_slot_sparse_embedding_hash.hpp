@@ -45,7 +45,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   using Base = Embedding<TypeHashKey, TypeEmbeddingComp>;
 
   using NvHashTable = HashTable<TypeHashKey, size_t>;
-  using comm_handler = GossipComm::FasterComm;
 
  private:
   std::vector<std::shared_ptr<NvHashTable>> hash_tables_; /**< Hash table.  */
@@ -100,13 +99,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
   SparseEmbeddingFunctors functors_;
 
-#ifndef NCCL_A2A
-  std::string plan_file_;                          /**< plan file for all2all */
-  std::unique_ptr<comm_handler> all2all_forward_;  /**< obj of all2all for forward */
-  std::unique_ptr<comm_handler> all2all_backward_; /**< obj of all2all for backward */
-  std::unique_ptr<comm_handler>
-      all2all_utest_; /**< obj of all2all for utest of getting backward results> */
-#endif
   Tensors2<TypeEmbeddingComp> all2all_tensors_; /**< the temple buffer to store all2all results */
 
   Tensors2<TypeEmbeddingComp> utest_all2all_tensors_;
@@ -240,7 +232,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
       const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-      const std::string plan_file, const std::shared_ptr<ResourceManager> &resource_manager);
+      const std::shared_ptr<ResourceManager> &resource_manager);
 
   /**
    * The forward propagation of embedding layer.
@@ -259,8 +251,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
     }
 
 // do all-to-all
-#ifdef NCCL_A2A
-
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_forward(Base::get_batch_size_per_gpu(is_train), slot_num_per_gpu_,
@@ -285,12 +275,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
                           cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
-#endif
-
-#else
-    // sync: guarantee the data is ready for all2all
-    functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec(*all2all_forward_);
 #endif
 
     // reorder
@@ -319,8 +303,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                                all2all_tensors_, Base::get_resource_manager());
 
 // do all2all
-#ifdef NCCL_A2A
-
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_backward(Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
@@ -349,12 +331,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
                           cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
-#endif
-
-#else
-    // sync: guarantee the data is ready for all2all
-    functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec(*all2all_backward_);
 #endif
 
     // do backward
@@ -501,8 +477,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   void get_backward_results(Tensor2<TypeEmbeddingComp> &wgrad, int devIndex) override {
     CudaDeviceContext context(Base::get_local_gpu(0).get_device_id());
 
-#ifdef NCCL_A2A
-
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_forward(Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
@@ -527,12 +501,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
                           cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
-#endif
-
-#else
-    // sync: guarantee the data is ready for all2all
-    functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec(*all2all_utest_);
 #endif
 
     // reorder

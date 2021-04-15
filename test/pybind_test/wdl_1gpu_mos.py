@@ -1,6 +1,7 @@
 import hugectr
 import sys
 from mpi4py import MPI
+
 def model_oversubscriber_test(json_file, temp_dir):
   dataset = [("file_list."+str(i)+".txt", "file_list."+str(i)+".keyset") for i in range(5)]
   solver = hugectr.CreateSolver(batchsize = 16384,
@@ -51,7 +52,7 @@ def model_oversubscriber_test(json_file, temp_dir):
         print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iteration, metrics))
       iteration += 1
     print("[HUGECTR][INFO] trained with data in {}".format(file_list))
-  model.save_params_to_files("./", iteration)
+  model.save_params_to_files(temp_dir, iteration)
 
 if __name__ == "__main__":
   json_file = sys.argv[1]

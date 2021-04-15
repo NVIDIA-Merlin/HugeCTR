@@ -186,7 +186,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
       const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-      const std::string plan_file, const std::shared_ptr<ResourceManager> &resource_manager);
+      const std::shared_ptr<ResourceManager> &resource_manager);
 
   /**
    * The forward propagation of embedding layer.
@@ -351,8 +351,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
   void get_backward_results(Tensor2<TypeEmbeddingComp> &wgrad, int devIndex) override {
     CudaDeviceContext context(Base::get_local_gpu(0).get_device_id());
 
-#ifdef NCCL_A2A
-
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_forward(Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
@@ -377,11 +375,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
                           cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
-#endif
-
-#else
-    // do not support gossip
-    MESSAGE_("Error: Not support gossip in backward for one-hot");
 #endif
 
     // reorder

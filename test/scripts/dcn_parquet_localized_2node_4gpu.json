@@ -55,7 +55,6 @@
     {
       "name": "sparse_embedding1",
       "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file1": "all2all_plan_0_1.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

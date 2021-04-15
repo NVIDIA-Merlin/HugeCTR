@@ -52,17 +52,7 @@ $ bash preprocess.sh 1 criteo_data pandas 1 0
 ## Train with HugeCTR ##
 If the gossip communication library is used, a plan file must be generated first as shown below. If the NCCL communication library is used, there is no need to generate a plan file and you can proceed to step 2. 
 
-1. Use the following command to generate a plan file by logging into your GPU (Slurm) cluster to get two nodes: 
-   ```shell
-   # We will use two nodes, i.e., -N 2, in this example
-   $ srun -N 2 --pty bash -i
-   $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-   $ mpirun python3 plan_generation/plan_generator.py ../samples/dcn2nodes/dcn8l8gpu2nodes.json
-   ```
-   **NOTE**: If you're not using the Slurm cluster, replace `srun` with the appropriate cluster. If your cluster is unequipped 
-   with a job scheduler, refer to [our tutorial](../tutorial/multinode-training/README.md/).
-
-2. Run `huge_ctr`.
+1. Run `huge_ctr`.
    ```shell
    $ mpirun --bind-to none huge_ctr --train /samples/dcn2nodes/dcn8l8gpu2nodes.json
    ```
