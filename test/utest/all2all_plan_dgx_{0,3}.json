@@ -1,1 +1,0 @@
-{"type": "all2all", "num_gpus": 2, "main_gpu": 0, "num_steps": 2, "num_chunks": 2, "plan": [[0, 0, 0], [0, 0, 1], [0, 1, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], "chunks": [2, 1, 1, 1, 1, 2]}

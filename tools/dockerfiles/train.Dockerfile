@@ -3,7 +3,6 @@ FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04 AS devel
 ARG SM="60;61;70;75;80"
 ARG VAL_MODE=OFF
 ARG ENABLE_MULTINODES=ON
-ARG NCCL_A2A=ON
 ARG RELEASE=false
 
 RUN apt-get update -y && \
@@ -44,7 +43,7 @@ RUN if [ "$RELEASE" = "true" ]; \
       git submodule update --init --recursive && \
       mkdir build && cd build && \
       cmake -DCMAKE_BUILD_TYPE=Release -DSM=$SM \
-            -DVAL_MODE=$VAL_MODE -DENABLE_MULTINODES=$ENABLE_MULTINODES -DNCCL_A2A=$NCCL_A2A .. && \
+            -DVAL_MODE=$VAL_MODE -DENABLE_MULTINODES=$ENABLE_MULTINODES .. && \
       make -j$(nproc) && make install && \
       chmod +x /usr/local/hugectr/bin/* && \
       chmod +x /usr/local/hugectr/lib/* && \

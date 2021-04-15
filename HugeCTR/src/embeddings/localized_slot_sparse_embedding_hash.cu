@@ -63,15 +63,11 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
     const Tensors2<TypeHashKey> &evaluate_value_tensors,
     const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
     const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-    const std::string plan_file, const std::shared_ptr<ResourceManager> &resource_manager)
+    const std::shared_ptr<ResourceManager> &resource_manager)
     : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
            Embedding_t::LocalizedSlotSparseEmbeddingHash, embedding_params, resource_manager),
       slot_size_array_(embedding_params.slot_size_array)
-#ifndef NCCL_A2A
-      ,
-      plan_file_(plan_file)
-#endif
 {
   try {
     if (slot_size_array_.empty()) {
@@ -368,40 +364,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
     // sync
     functors_.sync_all_gpus(Base::get_resource_manager());
 
-#ifndef NCCL_A2A
-// all2all init
-#ifndef ENABLE_MPI  // without MPI
-    functors_.all2all_init_forward(all2all_forward_, plan_file_, Base::get_batch_size_per_gpu(true),
-                                   slot_num_per_gpu_, Base::get_embedding_vec_size(),
-                                   embedding_feature_tensors_, all2all_tensors_,
-                                   Base::get_resource_manager());
-    functors_.all2all_init_backward(all2all_backward_, plan_file_,
-                                    Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
-                                    Base::get_embedding_vec_size(), all2all_tensors_,
-                                    embedding_feature_tensors_, Base::get_resource_manager());
-    functors_.all2all_init_forward(all2all_utest_, plan_file_, Base::get_batch_size_per_gpu(true),
-                                   slot_num_per_gpu_, Base::get_embedding_vec_size(),
-                                   wgrad_tensors_, utest_all2all_tensors_,
-                                   Base::get_resource_manager());
-#else
-    functors_.all2all_init_forward(all2all_forward_, plan_file_, Base::get_batch_size_per_gpu(true),
-                                   Base::get_slot_num(), Base::get_embedding_vec_size(),
-                                   embedding_feature_tensors_, all2all_tensors_,
-                                   Base::get_resource_manager());
-    functors_.all2all_init_backward(all2all_backward_, plan_file_,
-                                    Base::get_batch_size_per_gpu(true), Base::get_slot_num(),
-                                    Base::get_embedding_vec_size(), all2all_tensors_,
-                                    embedding_feature_tensors_, Base::get_resource_manager());
-    functors_.all2all_init_forward(all2all_utest_, plan_file_, Base::get_batch_size_per_gpu(true),
-                                   Base::get_slot_num(), Base::get_embedding_vec_size(),
-                                   wgrad_tensors_, utest_all2all_tensors_,
-                                   Base::get_resource_manager());
-#endif
-
-#endif
-
 // warm up for nccl all2all
-#ifdef NCCL_A2A
     MESSAGE_("All2All Warmup Start");
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
@@ -417,7 +380,6 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
     }
 #endif
     MESSAGE_("All2All Warmup End");
-#endif
 
   } catch (const std::runtime_error &rt_err) {
     std::cerr << rt_err.what() << std::endl;

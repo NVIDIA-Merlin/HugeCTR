@@ -75,7 +75,6 @@
       "type": "LocalizedSlotSparseEmbeddingHash",
       "bottom": "deep_data",
       "top": "sparse_embedding1",
-      "plan_file": "all2all_plan_bi_1.json",
       "sparse_embedding_hparam": {
         "max_vocabulary_size_per_gpu": 5863985,
         "embedding_vec_size": 16,
