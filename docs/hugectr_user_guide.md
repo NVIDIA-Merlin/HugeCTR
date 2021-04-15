@@ -64,7 +64,12 @@ HugeCTR is included in the Merlin Docker image, which is available in the NVIDIA
 You can pull and launch the container by running the following command:
 ```shell
 $ docker run --runtime=nvidia --rm -it nvcr.io/nvidia/merlin/merlin-training:0.5  # Start interaction mode
-```
+``` 
+
+Activate the merlin conda environment by running the following command:  
+```shell.
+root@2efa5b50b909: source activate merlin
+```  
 
 ### Building Your Own Container ###
 Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles) to build the HugeCTR Docker image on your own.

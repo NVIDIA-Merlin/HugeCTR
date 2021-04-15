@@ -12,7 +12,7 @@ docker pull nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.5
 
 To start the other notebooks, pull the docker image using the following command:
 ```
-docker pull nvcr.io/nvidia/merlin/merlin-inference:0.5
+docker pull nvcr.io/nvidia/merlin/merlin-training:0.5
 ```
 
 ### Clone the HugeCTR Repository
@@ -25,16 +25,25 @@ git clone https://github.com/NVIDIA/HugeCTR
 
 1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command: 
    ```
-   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 hugectr:devel
+   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:0.5
+   ```  
+   Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command to run [embedding_plugin.ipynb](embedding_plugin.ipynb) notebook : 
+   ```
+   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.5
    ```
 
-2. Start Jupyter using these commands: 
+2. Activate the merlin conda environment by running the following command:  
+   ```shell.
+   root@2efa5b50b909: source activate merlin
+   ```
+
+3. Start Jupyter using these commands: 
    ```
    cd /hugectr/notebooks
    jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token=’hugectr’
    ```
 
-3. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
+4. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
 
    Use the token available from the output by running the command above to log in. For example:
 

@@ -31,16 +31,21 @@ If you'd like to quickly train a model using the Python interface, follow these 
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
 
-2. Inside the container, copy the DCN configuration file to our mounted directory (/your/container/dir).
+2. Activate the merlin conda environment by running the following command:  
+   ```shell.
+   root@2efa5b50b909: source activate merlin
+   ```
+
+3. Inside the container, copy the DCN configuration file to our mounted directory (/your/container/dir).
 
    This config file specifies the DCN model architecture and its optimizer. With any Python use case, the solver clause within the configuration file is not used at all.
 
-3. Generate a synthetic dataset based on the configuration file by running the following command:
+4. Generate a synthetic dataset based on the configuration file by running the following command:
    ```
    ./data_generator --config-file dcn.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
    ```
 
-4. Write a simple Python code using the hugectr module as shown here:
+5. Write a simple Python code using the hugectr module as shown here:
    ```
    # train.py
    import sys
@@ -68,7 +73,7 @@ If you'd like to quickly train a model using the Python interface, follow these 
 
    **NOTE**: Update the vvgpu (the active GPUs), batchsize, and batchsize_eval parameters according to your GPU system.
 
-5. Train the model by running the following command:
+6. Train the model by running the following command:
    ```
    python train.py dcn.json
    ```
