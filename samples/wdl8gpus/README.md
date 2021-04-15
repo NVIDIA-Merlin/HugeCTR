@@ -76,14 +76,7 @@ HugeCTR supports data processing through NVTabular. Make sure that the NVTabular
 
 ## Train with HugeCTR ##
 
-1. Generate a plan file.
-   To exploit Gossip library for inter-GPU communication, a plan file must be generated. If you change the number of GPUs in the JSON configuration 
-   file (`"gpu"` in `"solver"`), it must be regenerated as follows:
-   ```shell
-   $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-   $ python3 plan_generation_no_mpi/plan_generator_no_mpi.py ../samples/wdl8gpus/wdl8gpu.json
-   ```
-2. Run huge_ctr by running the following command:
+1. Run huge_ctr by running the following command:
    ```shell
    $ huge_ctr --train ../samples/wdl8gpus/wdl8gpu.json
    ```

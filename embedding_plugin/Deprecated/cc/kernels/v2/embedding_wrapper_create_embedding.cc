@@ -241,15 +241,13 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
                     slot_num,
                     combiner,
                     embedding_opt_params};
-                std::string plan_file = "";
                 embedding.reset(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
                     train_space->row_offsets_tensors_, train_space->value_tensors_, train_space->nnz_array_,
                     eval_space->row_offsets_tensors_, eval_space->value_tensors_, eval_space->nnz_array_,
-                    embedding_params, plan_file, resource_manager_));
+                    embedding_params, resource_manager_));
                 break;
             }
             case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot:{
-                std::string plan_file = "";
                 const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
                     static_cast<size_t>(batch_size_),
                     static_cast<size_t>(batch_size_eval_),
@@ -263,7 +261,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
                 embedding.reset(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
                     train_space->row_offsets_tensors_, train_space->value_tensors_, train_space->nnz_array_,
                     eval_space->row_offsets_tensors_, eval_space->value_tensors_, eval_space->nnz_array_,
-                    embedding_params, plan_file, resource_manager_));
+                    embedding_params, resource_manager_));
                 break;
             }
             default: {

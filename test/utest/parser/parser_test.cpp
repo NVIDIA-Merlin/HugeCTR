@@ -71,16 +71,6 @@ void simple_sparse_embedding_test(std::string json_name) {
                                             slot_num, vocabulary_size, label_dim, dense_dim,
                                             max_nnz);
 
-  std::string plan_name = PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1}.json";
-  std::ifstream src;
-  std::ofstream dst;
-
-  src.open(plan_name, std::ios::in);
-  dst.open("./all2all_plan.json", std::ofstream::out);
-  std::filebuf* inbuf = src.rdbuf();
-  dst << inbuf;
-  src.close();
-  dst.close();
   test_parser<T>(json_name);
 }
 

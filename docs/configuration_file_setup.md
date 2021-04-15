@@ -430,7 +430,6 @@ Parameters:
 * `slot_size_array`: Cardinality array of input features. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored.
 * `embedding_vec_size`: Embedding vector size.
 * `combiner`:  Intra-slot reduction op (0=sum, 1=average).
-* `plan_file`: Specifies how GPUs are connected and communicate with one another.
 
 Input and Output Shapes:
 
@@ -442,7 +441,6 @@ Example:
     {
       "name": "sparse_embedding1",
       "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "all2all_plan_0_1.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

@@ -92,16 +92,7 @@ $ huge_ctr --train ../samples/dcn/dcn_bin.json
 
 ## Train with Localized Slot Embedding ##
 To train with localized slot embedding, do the following:
-1. Generate a plan file by running the following commands:
-   ```shell
-   $ export CUDA_DEVICE_ORDER=PCI_BUS_ID
-   $ python3 plan_generation_no_mpi/plan_generator_no_mpi.py ../samples/dcn/dcn_localized_embedding.json
-   ```
-
-   If the gossip communication library is used, a plan file must be generated. If the NCCL communication library is used, there is no 
-   need to generate a plan file and you can simply proceed to step 2. 
-
-2. Run `huge_ctr` by running the following command:
+1. Run `huge_ctr` by running the following command:
    ```shell
    $ huge_ctr --train ../samples/dcn/dcn_localized_embedding.json
    ```

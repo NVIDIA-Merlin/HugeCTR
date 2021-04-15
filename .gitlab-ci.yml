@@ -82,7 +82,7 @@ build_train:
     - echo "FROM ${IMAGE_TRAIN}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
     - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && mkdir build_single && cd build_single && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j\$(nproc) && cd .. && mkdir build_multi_nccl && cd build_multi_nccl && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=\$SM ../.. && make -j\$(nproc) && cd .. && mkdir build_multi_gossip && cd build_multi_gossip && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DNCCL_A2A=OFF -DSM=\$SM ../.. && make -j\$(nproc) && cd .. && mkdir build_inference && cd build_inference && cmake -DENABLE_INFERENCE=ON  -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j\$(nproc)
+      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && mkdir build_single && cd build_single && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j\$(nproc) && cd .. && mkdir build_multi_nccl && cd build_multi_nccl && cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_MULTINODES=ON -DSM=\$SM ../.. && make -j\$(nproc) && make -j\$(nproc) && cd .. && mkdir build_inference && cd build_inference && cmake -DENABLE_INFERENCE=ON  -DCMAKE_BUILD_TYPE=Release -DSM=\$SM ../.. && make -j\$(nproc)
       " >> ${JOB_DOCKERFILE}
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
@@ -204,7 +204,7 @@ dcn_single_node:
       ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_8gpu.json;
       ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding_1gpu.json;
       ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding_8gpu.json;
-      ${WORK_DIR}/build/build_multi_gossip/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding.json;
+      ${WORK_DIR}/build/build_multi_nccl/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_localized_embedding.json;
       cd /dataset/criteo_kaggle/dcn_parquet;
       ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_distributed_1gpu.json;
       ${WORK_DIR}/build/build_single/bin/huge_ctr --train ${WORK_DIR}/test/scripts/dcn_parquet_distributed_8gpu.json;
@@ -350,6 +350,7 @@ py_single_node_low_level:
       bash -cx "
       cd /dataset/criteo_kaggle/wdl;
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
+      mkdir ${WORK_DIR}/tmp/;
       python3 ${WORK_DIR}/test/pybind_test/wdl_fp16_8gpu_export.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json ${WORK_DIR}/tmp/"
     - srun --ntasks=1
       -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
@@ -1029,7 +1030,6 @@ nightly_build:
       cd ${CI_PROJECT_DIR};
       cd tools;
       export CUDA_DEVICE_ORDER=PCI_BUS_ID;
-      python3 plan_generation_no_mpi/plan_generator_no_mpi.py ../samples/dcn/dcn_localized_embedding.json;
       ln -s ${NEW_CRITEO_MOUNT}/dcn_data;
       sed -i 's/criteo_data/dcn_data/g' ../samples/dcn/dcn_localized_embedding.json;
       ${BIN} --train ../samples/dcn/dcn_localized_embedding.json"

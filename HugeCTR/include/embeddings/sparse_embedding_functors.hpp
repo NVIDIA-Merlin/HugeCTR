@@ -16,7 +16,6 @@
 
 #pragma once
 #include "HugeCTR/include/embedding.hpp"
-#include "HugeCTR/include/faster_gossip_comm/FasterComm.h"
 #include "HugeCTR/include/hashtable/nv_hashtable.hpp"
 #include "HugeCTR/include/resource_manager.hpp"
 #include "HugeCTR/include/tensor2.hpp"
@@ -345,7 +344,6 @@ class SparseEmbeddingFunctors {
   void all_gather(size_t send_count, const Tensors2<TypeHashKey> &send_tensors,
                   Tensors2<TypeHashKey> &recv_tensors, const ResourceManager &resource_manager);
 
-#ifdef NCCL_A2A
 #ifdef ENABLE_MPI
   /**
    * nccl all2all communication for forward.
@@ -405,93 +403,7 @@ class SparseEmbeddingFunctors {
                         size_t embedding_vec_size, const Tensors2<Type> &send_tensors,
                         Tensors2<Type> &recv_tensors, const ResourceManager &resource_manager);
 #endif
-#else
-#ifdef ENABLE_MPI
-  /**
-   * the initialization of collection communication: all2all
-   * @param all2all all2all handler
-   * @param plan_file plan file which demonstrates gpu topo
-   * @param batch_size_per_gpu batch size per GPU
-   * @param slot_num slot number
-   * @param embedding_vec_size embedding vector size
-   * @param send_tensors the send tensors of multi GPUs.
-   * @param recv_tensors the recv tensors of multi GPUs.
-   * @param device_resources all gpus device resources.
-   */
-  template <typename Type>
-  void all2all_init_forward(std::unique_ptr<GossipComm::FasterComm> &all2all,
-                            const std::string &plan_file, size_t batch_size_per_gpu,
-                            size_t slot_num, size_t embedding_vec_size,
-                            Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
-                            const ResourceManager &resource_manager);
 
-  /**
-   * the initialization of collection communication: all2all
-   * @param all2all all2all handler
-   * @param plan_file plan file which demonstrates gpu topo
-   * @param batch_size_per_gpu batch size per GPU
-   * @param slot_num slot number
-   * @param embedding_vec_size embedding vector size
-   * @param send_tensors the send tensors of multi GPUs.
-   * @param recv_tensors the recv tensors of multi GPUs.
-   * @param device_resources all gpus device resources.
-   */
-  template <typename Type>
-  void all2all_init_backward(std::unique_ptr<GossipComm::FasterComm> &all2all,
-                             const std::string &plan_file, size_t batch_size_per_gpu,
-                             size_t slot_num, size_t embedding_vec_size,
-                             Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
-                             const ResourceManager &resource_manager);
-
-  /**
-   * collection communication: all2all
-   * @param all2all all2all handler
-   */
-  void all2all_exec(GossipComm::FasterComm &all2all);
-#else
-  /**
-   * the initialization of collection communication: all2all
-   * @param all2all all2all handler
-   * @param plan_file plan file that describe the topo of GPUs
-   * @param batch_size_per_gpu batch size per GPU
-   * @param slot_num_per_gpu slot number for each local GPU
-   * @param embedding_vec_size embedding vector size
-   * @param send_tensors the send tensors of multi GPUs.
-   * @param recv_tensors the recv tensors of multi GPUs.
-   * @param device_resources all gpus device resources.
-   */
-  template <typename Type>
-  void all2all_init_forward(std::unique_ptr<GossipComm::FasterComm> &all2all,
-                            const std::string &plan_file, size_t batch_size_per_gpu,
-                            const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
-                            Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
-                            const ResourceManager &resource_manager);
-
-  /**
-   * the initialization of collection communication: all2all
-   * @param all2all all2all handler
-   * @param plan_file plan file that describe the topo of GPUs
-   * @param batch_size_per_gpu batch size per GPU
-   * @param slot_num_per_gpu slot number for each local GPU
-   * @param embedding_vec_size embedding vector size
-   * @param send_tensors the send tensors of multi GPUs.
-   * @param recv_tensors the recv tensors of multi GPUs.
-   * @param device_resources all gpus device resources.
-   */
-  template <typename Type>
-  void all2all_init_backward(std::unique_ptr<GossipComm::FasterComm> &all2all,
-                             const std::string &plan_file, size_t batch_size_per_gpu,
-                             const std::vector<size_t> &slot_num_per_gpu, size_t embedding_vec_size,
-                             Tensors2<Type> &send_tensors, Tensors2<Type> &recv_tensors,
-                             const ResourceManager &resource_manager);
-
-  /**
-   * collection communication: all2all
-   * @param all2all all2all handler
-   */
-  void all2all_exec(GossipComm::FasterComm &all2all);
-#endif
-#endif
 
   /**
    * get forward results from GPUs to CPU. This functin is just used for utest.
