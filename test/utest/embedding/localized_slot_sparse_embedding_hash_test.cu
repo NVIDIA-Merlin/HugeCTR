@@ -59,12 +59,6 @@ const char *train_file_list_name = "train_file_list.txt";
 const char *test_file_list_name = "test_file_list.txt";
 const char *prefix = "./data_reader_test_data/temp_dataset_";
 
-#ifndef NCCl_A2A
-const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
-#else
-const std::string plan_file = "";
-#endif
-
 const char *hash_table_file_name = "localized_hash_table.bin";
 const char *opt_file_name = "localized_opt.bin";
 
@@ -225,7 +219,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
           train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
           train_data_reader->get_nnz_array(), test_data_reader->get_row_offsets_tensors(),
           test_data_reader->get_value_tensors(), test_data_reader->get_nnz_array(),
-          embedding_params, plan_file, resource_manager));
+          embedding_params, resource_manager));
 
   {
     // upload hash table to device
@@ -520,7 +514,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
           train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
           train_data_reader->get_nnz_array(), train_data_reader->get_row_offsets_tensors(),
           train_data_reader->get_value_tensors(), train_data_reader->get_nnz_array(),
-          embedding_params, plan_file, resource_manager));
+          embedding_params, resource_manager));
 
   {
     // upload hash table to device

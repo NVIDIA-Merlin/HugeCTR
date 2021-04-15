@@ -158,7 +158,6 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-      std::string plan_file = "";
       const SparseEmbeddingHashParams<TypeFP> embedding_params = {
           batch_size,
           batch_size_eval,
@@ -172,11 +171,10 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
+          sparse_input.evaluate_nnz, embedding_params, resource_manager));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-      std::string plan_file = "";
       const SparseEmbeddingHashParams<TypeFP> embedding_params = {
           batch_size,
           batch_size_eval,
@@ -190,7 +188,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
+          sparse_input.evaluate_nnz, embedding_params, resource_manager));
       break;
     }
   }  // switch

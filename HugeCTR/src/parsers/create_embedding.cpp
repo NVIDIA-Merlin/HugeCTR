@@ -97,30 +97,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-#ifndef NCCL_A2A
 
-      auto j_plan = get_json(j_layers, "plan_file");
-      std::string plan_file;
-      if (j_plan.is_array()) {
-        int num_nodes = j_plan.size();
-        if (num_nodes != resource_manager->get_num_process()) {
-          CK_THROW_(Error_t::WrongInput, "num_nodes != num_procs");
-        }
-        plan_file = j_plan[resource_manager->get_process_id()].get<std::string>();
-      } else {
-        if (resource_manager->get_num_process() > 1) {
-          CK_THROW_(Error_t::WrongInput, "num_procs > 1");
-        }
-        plan_file = get_value_from_json<std::string>(j_layers, "plan_file");
-      }
-
-      std::ifstream ifs(plan_file);
-      if (!ifs) {
-        CK_THROW_(Error_t::WrongInput, "plan file " + plan_file + " can bot be open");
-      }
-#else
-      std::string plan_file = "";
-#endif
       std::vector<size_t> slot_size_array;
       if (has_key_(j_hparam, "slot_size_array")) {
         auto slots = get_json(j_hparam, "slot_size_array");
@@ -144,12 +121,11 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
+          sparse_input.evaluate_nnz, embedding_params, resource_manager));
 
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-      std::string plan_file = "";
       std::vector<size_t> slot_size_array;
       auto slots = get_json(j_hparam, "slot_size_array");
       assert(slots.is_array());
@@ -171,7 +147,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
+          sparse_input.evaluate_nnz, embedding_params, resource_manager));
 
       break;
     }

@@ -85,9 +85,7 @@ nnz=0 is supported in HugeCTR input. That means no features will be looked up.
 Firstly, you should construct your own configure file. You can refer to our [User Guide](hugectr_user_guide.md) and samples.
 Secondly, using our `data_generator` to generate a random dataset. Seeing [introductions](../README.md#benchmark).
 Thirdly, run with `./huge_ctr --train ./your_config.json`
-### 24. What is "plan_file"? How to provide it?  ###
-Plan_file is used by the Gossip communication library. the GPUs topology and connection in the server are defined in this file. We provide a plan_file generator [tool](../tools/plan_generation) for users to generate plan_file easily based on your server configuration. Please refer to [dcn](../samples/dcn) or [dcn2nodes](../samples/dcn2nodes). Please note that if you prefer NCCL library other than Gossip here you don't have to provide a plan_file. Please refer to [Build with NCCL All2All](hugectr_user_guide.md#build-with-nccl-all2all).
-### 25. How to set max_vocabulary_size_per_gpu and slot_size_array in .json file? ###
+### 24. How to set max_vocabulary_size_per_gpu and slot_size_array in .json file? ###
 As embeddings are model parallel in HugeCTR,
 it's a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset.
 In practice, we usually set it larger than the real size because of the non-uniform distribution of the keys.
@@ -97,11 +95,11 @@ In LocalizedSlotEmbedding, user can also provide `max_vocabulary_size_per_gpu`,
 if the slot sizes are significantly different, we recommend that users give a number large enough to prevent overflow.
 Another approach for LocalizedSlotEmbedding is that users can provide the exact size for each slot,
 which is `slot_size_array` and HugeCTR will calculate the `max_vocabulary_size_per_gpu` according to the given slot sizes.
-### 26. Is nvlink required in HugeCTR? ###
+### 25. Is nvlink required in HugeCTR? ###
 GPU with nvlink is not required, but recommended because the performance of CTR training highly relies on the performance of inter-GPUs communication. GPU servers with PCIE connections are also supported.
-### 27. Is DGX the only GPU server that is required in HugeCTR? ###
+### 26. Is DGX the only GPU server that is required in HugeCTR? ###
 DGX is not required, but recommended, because the performance of CTR training highly relies on the performance of inter-GPUs transactions. DGX has NVLink and NVSwitch inside, so that you can expect 150GB/s per direction per GPU. It’s 9.3x to PCI-E 3.0.
-### 28. Can HugeCTR run without InfiniBand? ###
+### 27. Can HugeCTR run without InfiniBand? ###
 For multi-node training, InfiniBand is recommended but not required. You can use any solution with UCX support. InfiniBand with GPU RDMA support will maximize performance of inter-node transactions.
 
 

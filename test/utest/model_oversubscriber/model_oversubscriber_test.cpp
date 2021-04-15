@@ -38,8 +38,6 @@ const char* snapshot_dst_file = "distributed_snapshot_dst.bin";
 const char* keyset_file_name_postfix = "_keyset_file.bin";
 const char* temp_embedding_dir = "./";
 
-const std::string plan_file = "";
-
 const int batchsize = 4096;
 const long long label_dim = 1;
 const long long dense_dim = 0;
@@ -97,7 +95,6 @@ std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> init_embedding(
     const Tensors2<KeyType> &evaluate_value_tensors,
     const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
     const SparseEmbeddingHashParams<EmbeddingCompType> &embedding_params,
-    const std::string plan_file,
     const std::shared_ptr<ResourceManager> &resource_manager,
     const Embedding_t embedding_type) {
   if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
@@ -112,7 +109,7 @@ std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> init_embedding(
         new LocalizedSlotSparseEmbeddingHash<KeyType, EmbeddingCompType>(
             train_row_offsets_tensors, train_value_tensors, train_nnz_array,
             evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
-            embedding_params, plan_file, resource_manager));
+            embedding_params, resource_manager));
     return embedding;
   }
 }
@@ -185,7 +182,7 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
           data_reader_train->get_row_offsets_tensors(), data_reader_train->get_value_tensors(),
           data_reader_train->get_nnz_array(), data_reader_eval->get_row_offsets_tensors(),
           data_reader_eval->get_value_tensors(), data_reader_eval->get_nnz_array(),
-          embedding_param, plan_file, resource_manager, embedding_type);
+          embedding_param, resource_manager, embedding_type);
   embedding->init_params();
 
   // train the embedding
