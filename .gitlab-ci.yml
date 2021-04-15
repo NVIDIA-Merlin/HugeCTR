@@ -108,7 +108,7 @@ build_embedding:
     - echo "FROM ${IMAGE_EMBEDDING}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
     - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM -DONLY_EMB_PLUGIN=ON .. && make -j\$(nproc) && make install
+      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && cd embedding_plugin/Deprecated && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM .. && make -j\$(nproc) && make install
       " >> ${JOB_DOCKERFILE}
     - echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE}
     - echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE}
