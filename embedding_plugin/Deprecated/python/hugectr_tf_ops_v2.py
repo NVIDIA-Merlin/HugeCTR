@@ -20,10 +20,7 @@ from tensorflow.python.framework import load_library, ops, dtypes
 
 lib_name = r"libembedding_plugin_v2.so"
 
-paths = [r'../../build/lib/',
-         r'/usr/local/hugectr/lib/',
-         r'/workspace/hugectr/build/lib/',
-         r'/workspace/home/hugectr/build/lib/']
+paths = [r'/usr/local/hugectr/lib/']
 
 lib_file = None
 for path in paths:
