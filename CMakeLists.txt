@@ -16,13 +16,6 @@
 cmake_minimum_required(VERSION 3.8)
 project(HugeCTR LANGUAGES CXX CUDA)
 
-option(ONLY_EMB_PLUGIN, "Only build embedding plugin" OFF)
-if (ONLY_EMB_PLUGIN)
-  message("-- Please be noted that only embedding plugin will be built.")
-  include(${PROJECT_SOURCE_DIR}/cmake/EmbeddingPlugin.cmake)
-  return()
-endif()
-
 set(CMAKE_CXX_STANDARD 14)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 

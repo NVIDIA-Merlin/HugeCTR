@@ -15,8 +15,8 @@
 """
 
 import sys
-sys.path.append("../../tools/embedding_plugin/python/")
-sys.path.append("../../tools/embedding_plugin/performance_profile/")
+sys.path.append("../../embedding_plugin/Deprecated/python")
+sys.path.append("../../embedding_plugin/Deprecated/performance_profile")
 
 import hugectr_tf_ops
 from read_data import create_dataset
@@ -86,6 +86,9 @@ def main(args):
             logging.info("step: %d, loss: %.7f, elapsed time: %.5f seconds." %(step, loss_v, (display_end - display_begin)))
             display_begin = display_end
 
+        if step >= 200:
+            break
+
     end_time = time.time()
     logging.info("Train end. Elapsed time: %.3f seconds." %(end_time - begin_time))
 
@@ -111,8 +114,8 @@ if __name__ == "__main__":
 
 """
 python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 \
---embedding_vec_size=10 --data_path=../../tools/embedding_plugin/performance_profile/
+--embedding_vec_size=10 --data_path=../../embedding_plugin/Deprecated/performance_profile/
 
 python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 \
---embedding_vec_size=10 --data_path='../../tools/embedding_plugin/performance_profile/'
+--embedding_vec_size=10 --data_path=../../embedding_plugin/Deprecated/performance_profile/
 """
