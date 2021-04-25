@@ -129,6 +129,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/third_party/cub
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
+  ${PROJECT_SOURCE_DIR}/gpu_cache/include
 
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
@@ -165,6 +166,7 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference DESTINATION /u
 add_subdirectory(third_party/json)
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 
+add_subdirectory(gpu_cache/src)
 option(ENABLE_INFERENCE "Enable Inference" OFF)
 if(ENABLE_INFERENCE)
 add_subdirectory(third_party/googletest)
