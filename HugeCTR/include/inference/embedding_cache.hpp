@@ -26,9 +26,9 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <nv_gpu_cache.hpp>
 #include <inference/embedding_interface.hpp>
-#include <inference/gpu_cache/nv_gpu_cache.hpp>
-#include <inference/gpu_cache/unique_op.hpp>
+#include <inference/unique_op/unique_op.hpp>
 
 namespace HugeCTR {
 
