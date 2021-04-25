@@ -15,8 +15,10 @@
  */
 
 #pragma once
-#include <utils.hpp>
-#include <inference/gpu_cache/hash_functions.cuh>
+#include <nv_util.h>
+#include <hash_functions.cuh>
+#include <cstdio>
+#include <limits>
 #ifdef LIBCUDACXX_VERSION
 #include <cuda/std/atomic>
 #include <cuda/std/semaphore>
@@ -25,7 +27,6 @@
 #define SET_ASSOCIATIVITY 2
 #define SLAB_SIZE 32
 
-namespace HugeCTR {
 namespace gpu_cache{
 
 // slab for static slab list
@@ -117,4 +118,3 @@ private:
 };
 
 } // namespace gpu_cache
-} // namespace HugeCTR

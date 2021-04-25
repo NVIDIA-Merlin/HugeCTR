@@ -66,8 +66,7 @@ file(GLOB huge_ctr_src
   inference/embedding_cache.cpp
   inference/inference_utilis.cpp
   inference/parameter_server.cpp
-  inference/gpu_cache/nv_gpu_cache.cu
-  inference/gpu_cache/unique_op.cu
+  inference/unique_op/unique_op.cu
   inference/embedding_feature_combiner.cu
   inference/embedding_cache.cu
   data_readers/metadata.cpp
@@ -148,11 +147,13 @@ else()
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(huge_ctr_static PUBLIC gpu_cache)
 target_compile_features(huge_ctr_static PUBLIC cxx_std_14)
 set_target_properties(huge_ctr_static PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_static PROPERTIES CUDA_ARCHITECTURES OFF)
 
 target_link_libraries(huge_ctr_shared PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)
 target_compile_features(huge_ctr_shared PUBLIC cxx_std_14)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
