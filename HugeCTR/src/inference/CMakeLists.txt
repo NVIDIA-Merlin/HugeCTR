@@ -51,8 +51,7 @@ file(GLOB huge_ctr_src
   embedding_interface.cpp
   parameter_server.cpp
   inference_utilis.cpp
-  gpu_cache/nv_gpu_cache.cu
-  gpu_cache/unique_op.cu
+  unique_op/unique_op.cu
   ../data_readers/metadata.cpp
   ../metrics.cu
   ../optimizers/adam_optimizer.cu
@@ -76,6 +75,8 @@ set(CMAKE_CXX_STANDARD 14)
 add_library(hugectr_inference SHARED ${huge_ctr_src})
 
 target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl ${CMAKE_THREAD_LIBS_INIT})
+
+target_link_libraries(hugectr_inference PUBLIC gpu_cache)
 
 target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json)
 

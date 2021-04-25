@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <inference/gpu_cache/nv_gpu_cache.hpp>
+#include <nv_gpu_cache.hpp>
 #include <cooperative_groups.h>
 
 namespace cg = cooperative_groups;
@@ -39,7 +39,6 @@ __device__ unsigned long atomicAdd(unsigned long* address, unsigned long val)
 }
 
 
-namespace HugeCTR {
 namespace gpu_cache {
 
 #ifdef LIBCUDACXX_VERSION
@@ -926,43 +925,43 @@ gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, s
   
   // Check parameter
   if(capacity_in_set_ == 0){
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid value for capacity_in_set");
+    printf("Error: Invalid value for capacity_in_set.\n");
     return;
   }
   if(embedding_vec_size_ == 0){
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid value for embedding_vec_size");
+    printf("Error: Invalid value for embedding_vec_size.\n");
     return;
   }
   if(set_associativity <= 0){
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid value for set_associativity");
+    printf("Error: Invalid value for set_associativity.\n");
     return;
   }
   if(warp_size != 1 && warp_size != 2 && warp_size != 4 && warp_size != 8 && warp_size != 16 && warp_size != 32){
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid value for warp_size");
+    printf("Error: Invalid value for warp_size.\n");
     return;
   }
 
   // Get the current CUDA dev
-  CK_CUDA_THROW_(cudaGetDevice( &dev_ ));
+  CUDA_CHECK(cudaGetDevice( &dev_ ));
 
   // Calculate # of slot
   num_slot_ = capacity_in_set_ * set_associativity * warp_size;
 
   // Allocate GPU memory for cache
-  CK_CUDA_THROW_(cudaMalloc((void**)&keys_, sizeof(slabset) * capacity_in_set_));
-  CK_CUDA_THROW_(cudaMalloc((void**)&vals_, sizeof(float) * embedding_vec_size_ * num_slot_));
-  CK_CUDA_THROW_(cudaMalloc((void**)&slot_counter_, sizeof(ref_counter_type) * num_slot_));
-  CK_CUDA_THROW_(cudaMalloc((void**)&global_counter_, sizeof(atomic_ref_counter_type)));
+  CUDA_CHECK(cudaMalloc((void**)&keys_, sizeof(slabset) * capacity_in_set_));
+  CUDA_CHECK(cudaMalloc((void**)&vals_, sizeof(float) * embedding_vec_size_ * num_slot_));
+  CUDA_CHECK(cudaMalloc((void**)&slot_counter_, sizeof(ref_counter_type) * num_slot_));
+  CUDA_CHECK(cudaMalloc((void**)&global_counter_, sizeof(atomic_ref_counter_type)));
 
   // Allocate GPU memory for set mutex
-  CK_CUDA_THROW_(cudaMalloc((void**)&set_mutex_, sizeof(mutex) * capacity_in_set_));
+  CUDA_CHECK(cudaMalloc((void**)&set_mutex_, sizeof(mutex) * capacity_in_set_));
 
   // Initialize the cache, set all entry to unused <K,V>
   init_cache<<<((num_slot_-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_>>>(keys_, slot_counter_, global_counter_, num_slot_, empty_key, set_mutex_, capacity_in_set_);
 
   // Wait for initialization to finish
-  CK_CUDA_THROW_(cudaStreamSynchronize(0));
-  CK_CUDA_THROW_(cudaGetLastError());
+  CUDA_CHECK(cudaStreamSynchronize(0));
+  CUDA_CHECK(cudaGetLastError());
 
 }
 #else
@@ -980,43 +979,43 @@ gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, s
   
   // Check parameter
   if(capacity_in_set_ == 0){
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid value for capacity_in_set");
+    printf("Error: Invalid value for capacity_in_set.\n");
     return;
   }
   if(embedding_vec_size_ == 0){
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid value for embedding_vec_size");
+    printf("Error: Invalid value for embedding_vec_size.\n");
     return;
   }
   if(set_associativity <= 0){
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid value for set_associativity");
+    printf("Error: Invalid value for set_associativity.\n");
     return;
   }
   if(warp_size != 1 && warp_size != 2 && warp_size != 4 && warp_size != 8 && warp_size != 16 && warp_size != 32){
-    CK_THROW_(Error_t::WrongInput, "Error: Invalid value for warp_size");
+    printf("Error: Invalid value for warp_size.\n");
     return;
   }
 
   // Get the current CUDA dev
-  CK_CUDA_THROW_(cudaGetDevice( &dev_ ));
+  CUDA_CHECK(cudaGetDevice( &dev_ ));
 
   // Calculate # of slot
   num_slot_ = capacity_in_set_ * set_associativity * warp_size;
 
   // Allocate GPU memory for cache
-  CK_CUDA_THROW_(cudaMalloc((void**)&keys_, sizeof(slabset) * capacity_in_set_));
-  CK_CUDA_THROW_(cudaMalloc((void**)&vals_, sizeof(float) * embedding_vec_size_ * num_slot_));
-  CK_CUDA_THROW_(cudaMalloc((void**)&slot_counter_, sizeof(ref_counter_type) * num_slot_));
-  CK_CUDA_THROW_(cudaMalloc((void**)&global_counter_, sizeof(ref_counter_type)));
+  CUDA_CHECK(cudaMalloc((void**)&keys_, sizeof(slabset) * capacity_in_set_));
+  CUDA_CHECK(cudaMalloc((void**)&vals_, sizeof(float) * embedding_vec_size_ * num_slot_));
+  CUDA_CHECK(cudaMalloc((void**)&slot_counter_, sizeof(ref_counter_type) * num_slot_));
+  CUDA_CHECK(cudaMalloc((void**)&global_counter_, sizeof(ref_counter_type)));
 
   // Allocate GPU memory for set mutex
-  CK_CUDA_THROW_(cudaMalloc((void**)&set_mutex_, sizeof(int) * capacity_in_set_));
+  CUDA_CHECK(cudaMalloc((void**)&set_mutex_, sizeof(int) * capacity_in_set_));
 
   // Initialize the cache, set all entry to unused <K,V>
   init_cache<<<((num_slot_-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_>>>(keys_, slot_counter_, global_counter_, num_slot_, empty_key, set_mutex_, capacity_in_set_);
 
   // Wait for initialization to finish
-  CK_CUDA_THROW_(cudaStreamSynchronize(0));
-  CK_CUDA_THROW_(cudaGetLastError());
+  CUDA_CHECK(cudaStreamSynchronize(0));
+  CUDA_CHECK(cudaGetLastError());
 
 }
 #endif
@@ -1032,23 +1031,23 @@ template<typename key_type,
 gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, set_hasher, slab_hasher>::~gpu_cache(){
   
   // Device Restorer
-  CudaDeviceContext dev_restorer;
+  nv::CudaDeviceRestorer dev_restorer;
 
   // Set device
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  CUDA_CHECK(cudaSetDevice(dev_));
 
   // Destruct CUDA std object
   destruct_kernel<<<((capacity_in_set_-1)/BLOCK_SIZE_)+1, BLOCK_SIZE_>>>(global_counter_, set_mutex_, capacity_in_set_);
   // Wait for destruction to finish
-  CK_CUDA_THROW_(cudaStreamSynchronize(0));
+  CUDA_CHECK(cudaStreamSynchronize(0));
 
   // Free GPU memory for cache
-  CK_CUDA_THROW_(cudaFree( keys_ ));
-  CK_CUDA_THROW_(cudaFree( vals_ ));
-  CK_CUDA_THROW_(cudaFree( slot_counter_ ));
-  CK_CUDA_THROW_(cudaFree( global_counter_ ));
+  CUDA_CHECK(cudaFree( keys_ ));
+  CUDA_CHECK(cudaFree( vals_ ));
+  CUDA_CHECK(cudaFree( slot_counter_ ));
+  CUDA_CHECK(cudaFree( global_counter_ ));
   // Free GPU memory for set mutex
-  CK_CUDA_THROW_(cudaFree( set_mutex_ ));
+  CUDA_CHECK(cudaFree( set_mutex_ ));
 
 }
 #else
@@ -1062,18 +1061,18 @@ template<typename key_type,
 gpu_cache<key_type, ref_counter_type, empty_key, set_associativity, warp_size, set_hasher, slab_hasher>::~gpu_cache() noexcept(false) {
   
   // Device Restorer
-  CudaDeviceContext dev_restorer;
+  nv::CudaDeviceRestorer dev_restorer;
 
   // Set device
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  CUDA_CHECK(cudaSetDevice(dev_));
 
   // Free GPU memory for cache
-  CK_CUDA_THROW_(cudaFree( keys_ ));
-  CK_CUDA_THROW_(cudaFree( vals_ ));
-  CK_CUDA_THROW_(cudaFree( slot_counter_ ));
-  CK_CUDA_THROW_(cudaFree( global_counter_ ));
+  CUDA_CHECK(cudaFree( keys_ ));
+  CUDA_CHECK(cudaFree( vals_ ));
+  CUDA_CHECK(cudaFree( slot_counter_ ));
+  CUDA_CHECK(cudaFree( global_counter_ ));
   // Free GPU memory for set mutex
-  CK_CUDA_THROW_(cudaFree( set_mutex_ ));
+  CUDA_CHECK(cudaFree( set_mutex_ ));
 
 }
 #endif
@@ -1096,14 +1095,14 @@ Query(const key_type* d_keys,
       cudaStream_t stream){
 
   // Device Restorer
-  CudaDeviceContext dev_restorer;
+  nv::CudaDeviceRestorer dev_restorer;
   // Set to the device of this cache
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  CUDA_CHECK(cudaSetDevice(dev_));
   
   // Check if it is a valid query
   if(len == 0){
     // Set the d_missing_len to 0 before return
-    CK_CUDA_THROW_(cudaMemsetAsync(d_missing_len, 0, sizeof(size_t), stream));
+    CUDA_CHECK(cudaMemsetAsync(d_missing_len, 0, sizeof(size_t), stream));
     return;
   }
 
@@ -1119,7 +1118,7 @@ Query(const key_type* d_keys,
                                                         slot_counter_, capacity_in_set_, keys_, vals_, set_mutex_);
 
   // Check for GPU error before return
-  CK_CUDA_THROW_(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
 
 }
 #else
@@ -1138,16 +1137,18 @@ Query(const key_type* d_keys,
       key_type* d_missing_keys, 
       size_t* d_missing_len, 
       cudaStream_t stream){
+
+  // Device Restorer
+  nv::CudaDeviceRestorer dev_restorer;
+  // Set to the device of this cache
+  CUDA_CHECK(cudaSetDevice(dev_));
   
   // Check if it is a valid query
   if(len == 0){
+    // Set the d_missing_len to 0 before return
+    CUDA_CHECK(cudaMemsetAsync(d_missing_len, 0, sizeof(size_t), stream));
     return;
   }
-
-  // Device Restorer
-  CudaDeviceContext dev_restorer;
-  // Set to the device of this cache
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
 
   // Update the global counter as user perform a new(most recent) read operation to the cache
   // Resolve distance overflow issue as well.
@@ -1161,7 +1162,7 @@ Query(const key_type* d_keys,
                                                         slot_counter_, capacity_in_set_, keys_, vals_, set_mutex_);
 
   // Check for GPU error before return
-  CK_CUDA_THROW_(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
 
 }
 #endif
@@ -1186,9 +1187,9 @@ Replace(const key_type* d_keys,
   }
 
   // Device Restorer
-  CudaDeviceContext dev_restorer;
+  nv::CudaDeviceRestorer dev_restorer;
   // Set to the device of this cache
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  CUDA_CHECK(cudaSetDevice(dev_));
 
   // Try to insert the <k,v> paris into the cache as long as there are unused slot
   // Then replace the <k,v> pairs into the cache
@@ -1197,7 +1198,7 @@ Replace(const key_type* d_keys,
   (d_keys, d_values, embedding_vec_size_, len, keys_, vals_, slot_counter_, set_mutex_, global_counter_, capacity_in_set_);
 
   // Check for GPU error before return
-  CK_CUDA_THROW_(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
 
 }
 #else
@@ -1220,9 +1221,9 @@ Replace(const key_type* d_keys,
   }
 
   // Device Restorer
-  CudaDeviceContext dev_restorer;
+  nv::CudaDeviceRestorer dev_restorer;
   // Set to the device of this cache
-  CK_CUDA_THROW_(cudaSetDevice(dev_));
+  CUDA_CHECK(cudaSetDevice(dev_));
 
   // Try to insert the <k,v> paris into the cache as long as there are unused slot
   // Then replace the <k,v> pairs into the cache
@@ -1231,7 +1232,7 @@ Replace(const key_type* d_keys,
   (d_keys, d_values, embedding_vec_size_, len, keys_, vals_, slot_counter_, set_mutex_, global_counter_, capacity_in_set_);
 
   // Check for GPU error before return
-  CK_CUDA_THROW_(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
 
 }
 #endif
@@ -1239,4 +1240,3 @@ Replace(const key_type* d_keys,
 template class gpu_cache<unsigned int, uint64_t, std::numeric_limits<unsigned int>::max(), SET_ASSOCIATIVITY, SLAB_SIZE>;
 template class gpu_cache<long long, uint64_t, std::numeric_limits<long long>::max(), SET_ASSOCIATIVITY, SLAB_SIZE>;
 } // namespace gpu_cache
-} // namespace HugeCTR

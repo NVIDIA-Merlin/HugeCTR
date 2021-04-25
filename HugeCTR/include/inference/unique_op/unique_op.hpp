@@ -16,7 +16,7 @@
 
 #pragma once
 #include <utils.hpp>
-#include <inference/gpu_cache/hash_functions.cuh>
+#include <hash_functions.cuh>
 
 #define UNIQUE_OP_LOAD_FACTOR 0.75
 

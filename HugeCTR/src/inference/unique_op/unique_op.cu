@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <inference/gpu_cache/unique_op.hpp>
+#include <inference/unique_op/unique_op.hpp>
 
 // Overload CUDA atomic for other 64bit unsinged/signed integer type
 __forceinline__
