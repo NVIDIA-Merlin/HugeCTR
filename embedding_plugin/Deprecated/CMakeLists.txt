@@ -181,6 +181,7 @@ FILE(GLOB  hugectr_src
   ${HugeCTR_Path}/HugeCTR/src/cpu_resource.cpp
   ${HugeCTR_Path}/HugeCTR/src/gpu_resource.cpp
   ${HugeCTR_Path}/HugeCTR/src/resource_manager.cpp
+  ${HugeCTR_Path}/HugeCTR/src/resource_managers/resource_manager_core.cpp
   ${HugeCTR_Path}/HugeCTR/src/data_simulator.cu
   ${HugeCTR_Path}/HugeCTR/src/optimizers/adam_optimizer.cu
   ${HugeCTR_Path}/HugeCTR/src/optimizers/momentum_sgd_optimizer.cu

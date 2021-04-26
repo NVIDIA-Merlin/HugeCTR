@@ -18,6 +18,7 @@ file(GLOB huge_ctr_src
   ../cpu_resource.cpp
   ../gpu_resource.cpp
   ../resource_manager.cpp
+  ../resource_managers/resource_manager_core.cpp
   ../data_simulator.cu
   ../data_reader.cpp
   ../layer.cpp

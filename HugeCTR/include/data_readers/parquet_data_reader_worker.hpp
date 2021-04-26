@@ -35,6 +35,7 @@
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include "data_readers/file_source_parquet.hpp"
+#include "resource_managers/resource_manager_ext.hpp"
 #pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
@@ -156,7 +157,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     buff->reserve({32}, &host_pinned_csr_inc_);
     buff->allocate();
 
-    memory_resource_ = resource_manager_->get_device_rmm_device_memory_resource(device_id_);
+    ResourceManagerExt* ext = dynamic_cast<ResourceManagerExt*>(resource_manager_.get());
+    if(ext == nullptr) {
+      CK_THROW_(Error_t::WrongInput, "Invalid ResourceManager");
+    }
+    memory_resource_ = ext->get_device_rmm_device_memory_resource(device_id_);
 
     if (worker_id >= worker_num) {
       CK_THROW_(Error_t::BrokenFile, "ParquetDataReaderWorker: worker_id >= worker_num");

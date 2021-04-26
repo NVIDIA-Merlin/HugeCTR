@@ -21,6 +21,7 @@
 #include <embedding.hpp>
 #include <random>
 #include <session.hpp>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <string>
 #include <utils.hpp>
 
@@ -80,7 +81,7 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 Session::Session(const SolverParser& solver_config, const std::string& config_file,
                  bool use_model_oversubscriber, const std::string temp_embedding_dir)
-    : resource_manager_(ResourceManager::create(solver_config.vvgpu, solver_config.seed)),
+    : resource_manager_(ResourceManagerExt::create(solver_config.vvgpu, solver_config.seed)),
     use_mixed_precision_(solver_config.use_mixed_precision), batchsize_eval(solver_config.batchsize_eval) {
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_config.use_mixed_precision) {

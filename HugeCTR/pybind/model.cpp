@@ -15,6 +15,7 @@
  */
 
 #include <HugeCTR/pybind/model.hpp>
+#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <iomanip>
 namespace HugeCTR {
 
@@ -192,7 +193,7 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   if (__PID == 0) {
     std::cout << "====================================================Model Init=====================================================" << std::endl;
   }
-  resource_manager_ = ResourceManager::create(solver.vvgpu, solver.seed);
+  resource_manager_ = ResourceManagerExt::create(solver.vvgpu, solver.seed);
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_.use_mixed_precision) {
       check_device(dev, 7, 0);  // to support mixed precision training earliest supported device is CC=70
