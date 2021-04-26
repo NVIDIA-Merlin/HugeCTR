@@ -15,76 +15,32 @@
  */
 
 #pragma once
+#include <resource_manager_base.hpp>
 #include <cpu_resource.hpp>
 #include <device_map.hpp>
 #include <gpu_resource.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace HugeCTR {
 
 /**
- * @brief GPU resources container.
+ * @brief Second-level ResourceManager interface
  *
- * A GPU resource container in one node. An instant includes:
- * GPU resource vector, thread pool for training, nccl communicators.
+ * The second level resource manager interface shared by training and inference
  */
-class ResourceManager {
-  int num_process_;
-  int process_id_;
-  DeviceMap device_map_;
-  std::shared_ptr<CPUResource> cpu_resource_;
-  std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
-  std::vector<std::vector<bool>> p2p_matrix_;
-
-  std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> base_cuda_mr_;
-  std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> memory_resource_;
-
-  void enable_all_peer_accesses();
-  ResourceManager(int num_process, int process_id, DeviceMap&& device_map, unsigned long long seed);
-
+class ResourceManager : public ResourceManagerBase {
  public:
   static std::shared_ptr<ResourceManager> create(
       const std::vector<std::vector<int>>& visible_devices, unsigned long long seed);
-  ResourceManager(const ResourceManager&) = delete;
-  ResourceManager& operator=(const ResourceManager&) = delete;
-
-  int get_num_process() const { return num_process_; }
-  int get_process_id() const { return process_id_; }
-  int get_master_process_id() const { return 0; }
-  bool is_master_process() const { return process_id_ == 0; }
-
-  const std::shared_ptr<CPUResource>& get_local_cpu() const { return cpu_resource_; }
-
-  const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const {
-    return gpu_resources_[local_gpu_id];
-  }
-  const std::vector<int>& get_local_gpu_device_id_list() const {
-    return device_map_.get_device_list();
-  }
-  size_t get_local_gpu_count() const { return device_map_.get_device_list().size(); }
-  size_t get_global_gpu_count() const { return device_map_.size(); }
-
-  int get_process_id_from_gpu_global_id(size_t global_gpu_id) const {
-    return device_map_.get_pid(global_gpu_id);
-  }
-
-  size_t get_gpu_local_id_from_global_id(size_t global_gpu_id) const {  // sequential GPU indices
-    return device_map_.get_local_id(global_gpu_id);
-  }
-
-  size_t get_gpu_global_id_from_local_id(size_t local_gpu_id) const {  // sequential GPU indices
-    return device_map_.get_global_id(local_gpu_id);
-  }
-
-  bool p2p_enabled(int src_dev, int dst_dev) const;
-  bool all_p2p_enabled() const;
-
-  const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
-      int local_gpu_id) const {
-    auto dev_list = device_map_.get_device_list();
-    auto it = std::find(dev_list.begin(), dev_list.end(), local_gpu_id);
-    auto index = std::distance(dev_list.begin(), it);
-    return memory_resource_[index];
-  }
+  virtual int get_num_process() const = 0;
+  virtual int get_process_id() const = 0;
+  virtual int get_master_process_id() const = 0;
+  virtual bool is_master_process() const = 0;
+  virtual const std::shared_ptr<CPUResource>& get_local_cpu() const = 0;
+  virtual const std::vector<int>& get_local_gpu_device_id_list() const = 0;
+  virtual int get_process_id_from_gpu_global_id(size_t global_gpu_id) const = 0;
+  virtual size_t get_gpu_local_id_from_global_id(size_t global_gpu_id) const = 0;
+  virtual size_t get_gpu_global_id_from_local_id(size_t local_gpu_id) const = 0;
+  virtual bool p2p_enabled(int src_dev, int dst_dev) const = 0;
+  virtual bool all_p2p_enabled() const = 0;
 };
 }  // namespace HugeCTR
