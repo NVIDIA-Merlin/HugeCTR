@@ -21,7 +21,7 @@ hugectr.solver_parser_helper()
 **Arguments**
 * `seed`: A random seed to be specified. The default value is 0.
 
-* `max_eval_batches`: Maximum number of batches used in evaluation. It is recommended that the number is equal to or bigger than the actual number of bathces in the evaluation dataset. The default value is 100.
+* `max_eval_batches`: Maximum number of batches used in evaluation. It is recommended that the number is equal to or bigger than the actual number of batches in the evaluation dataset. The default value is 100.
 
 * `batchsize_eval`: Minibatch size used in evaluation. The default value is 2048.
 
