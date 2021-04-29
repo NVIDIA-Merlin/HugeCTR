@@ -106,7 +106,7 @@ hugectr.optimizer.CreateOptimizer()
 ```bash
 hugectr.Input()
 ```
-`Input` specifies the parameters related to the data input. HugeCTR cuurrently supports three dataset formats, i.e., `Norm`, `Raw` and `Parquet`. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Data Layers](./configuration_file_setup.md#data-layers) if you want to get detailed information about Input.
+`Input` specifies the parameters related to the data input. HugeCTR currently supports three dataset formats, i.e., `Norm`, `Raw` and `Parquet`. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Data Layers](./configuration_file_setup.md#data-layers) if you want to get detailed information about Input.
 
 **Arguments**
 * `data_reader_type`: The type of the data reader which should be consistent with the dataset format. The supported types include `hugectr.DataReaderType_t.Norm`, `hugectr.DataReaderType_t.Raw` and `hugectr.DataReaderType_t.Parquet`. There is NO default value and it should be specified by users.
