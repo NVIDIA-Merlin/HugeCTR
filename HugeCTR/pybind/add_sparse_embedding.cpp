@@ -59,51 +59,54 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
   auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
   auto combiner = get_value_from_json<int>(j_hparam, "combiner");
   std::shared_ptr<OptParamsPy> embedding_opt_params(new OptParamsPy());
-  auto j_optimizer = get_json(j_sparse_embedding, "optimizer");
-  auto optimizer_type_name = get_value_from_json<std::string>(j_optimizer, "type");
-  auto update_type_name = get_value_from_json<std::string>(j_optimizer, "update_type");
-  if (!find_item_in_map(embedding_opt_params->optimizer, optimizer_type_name, OPTIMIZER_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_type_name);
-  }
-  if (!find_item_in_map(embedding_opt_params->update_type, update_type_name, UPDATE_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "No such update type: " + update_type_name);
-  }
-  OptHyperParamsPy hyperparams;
-  switch (embedding_opt_params->optimizer) {
-    case Optimizer_t::Adam: {
-      auto j_optimizer_hparam = get_json(j_optimizer, "adam_hparam");
-      auto beta1 = get_value_from_json<float>(j_optimizer_hparam, "beta1");
-      auto beta2 = get_value_from_json<float>(j_optimizer_hparam, "beta2");
-      auto epsilon = get_value_from_json<float>(j_optimizer_hparam, "epsilon");
-      hyperparams.adam.beta1 = beta1;
-      hyperparams.adam.beta2 = beta2;
-      hyperparams.adam.epsilon = epsilon;
-      embedding_opt_params->hyperparams = hyperparams;
-      break;
+  if (has_key_(j_sparse_embedding, "optimizer")) {
+    auto j_optimizer = get_json(j_sparse_embedding, "optimizer");
+    auto optimizer_type_name = get_value_from_json<std::string>(j_optimizer, "type");
+    auto update_type_name = get_value_from_json<std::string>(j_optimizer, "update_type");
+    embedding_opt_params->initialized = true;
+    if (!find_item_in_map(embedding_opt_params->optimizer, optimizer_type_name, OPTIMIZER_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_type_name);
     }
-    case Optimizer_t::MomentumSGD: {
-      auto j_optimizer_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
-      auto factor = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
-      hyperparams.momentum.factor = factor;
-      embedding_opt_params->hyperparams = hyperparams;
-      break;
+    if (!find_item_in_map(embedding_opt_params->update_type, update_type_name, UPDATE_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "No such update type: " + update_type_name);
     }
-    case Optimizer_t::Nesterov: {
-      auto j_optimizer_hparam = get_json(j_optimizer, "nesterov_hparam");
-      auto mu = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
-      hyperparams.nesterov.mu = mu;
-      embedding_opt_params->hyperparams = hyperparams;
-      break;
-    }
-    case Optimizer_t::SGD: {
-      auto j_optimizer_hparam = get_json(j_optimizer, "sgd_hparam");
-      auto atomic_update =  get_value_from_json<bool>(j_optimizer_hparam, "atomic_update");
-      hyperparams.sgd.atomic_update = atomic_update;
-      embedding_opt_params->hyperparams = hyperparams;
-      break;
-    }
-    default: {
-      assert(!"Error: no such optimizer && should never get here!");
+    OptHyperParamsPy hyperparams;
+    switch (embedding_opt_params->optimizer) {
+      case Optimizer_t::Adam: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "adam_hparam");
+        auto beta1 = get_value_from_json<float>(j_optimizer_hparam, "beta1");
+        auto beta2 = get_value_from_json<float>(j_optimizer_hparam, "beta2");
+        auto epsilon = get_value_from_json<float>(j_optimizer_hparam, "epsilon");
+        hyperparams.adam.beta1 = beta1;
+        hyperparams.adam.beta2 = beta2;
+        hyperparams.adam.epsilon = epsilon;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      case Optimizer_t::MomentumSGD: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
+        auto factor = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
+        hyperparams.momentum.factor = factor;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      case Optimizer_t::Nesterov: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "nesterov_hparam");
+        auto mu = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
+        hyperparams.nesterov.mu = mu;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      case Optimizer_t::SGD: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "sgd_hparam");
+        auto atomic_update =  get_value_from_json<bool>(j_optimizer_hparam, "atomic_update");
+        hyperparams.sgd.atomic_update = atomic_update;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      default: {
+        assert(!"Error: no such optimizer && should never get here!");
+      }
     }
   }
   SparseEmbedding sparse_embedding = SparseEmbedding(embedding_type, max_vocabulary_size_per_gpu,

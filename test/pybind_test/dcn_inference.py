@@ -1,6 +1,5 @@
 import sys
 from hugectr.inference import InferenceParams, CreateInferenceSession
-from mpi4py import MPI
 
 def dcn_inference(config_file, model_name, data_path, use_gpu_embedding_cache):
   # read data from file

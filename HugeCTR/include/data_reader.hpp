@@ -67,8 +67,6 @@ public:
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type
   virtual void set_source(std::string file_name = std::string()) = 0;
-
-  virtual bool is_eof() = 0;
 };
 
 

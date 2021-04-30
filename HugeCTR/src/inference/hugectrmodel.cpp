@@ -20,7 +20,6 @@
 #include <memory>
 #include <optimizer.hpp>
 #include <parser.hpp>
-#include <session.hpp>
 #include <utils.hpp>
 #include "HugeCTR/include/inference/hugectrmodel.hpp"
 #include "HugeCTR/include/inference/session_inference.hpp"
