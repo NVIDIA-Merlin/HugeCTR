@@ -64,7 +64,12 @@ HugeCTR is included in the Merlin Docker image, which is available in the [NVIDI
 You can pull and launch the container by running the following command:
 ```shell
 $ docker run --runtime=nvidia --rm -it nvcr.io/nvidia/merlin/merlin-training:0.5  # Start interaction mode
-```
+``` 
+
+Activate the merlin conda environment by running the following command:  
+```shell.
+source activate merlin
+```  
 
 ### Building Your Own HugeCTR Docker Container ###
 To build the HugeCTR Docker container on your own, see [Build HugeCTR Docker Containers](../../tools/dockerfiles).
@@ -178,7 +183,7 @@ For example:
 <br></br>
 
 ### Model Oversubscription ###
-Model oversubscription gives you the ability to load a subset of an embedding table, which exceeds the single GPU's memory limit, into the GPU in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with a [`Norm`](./configuration_file_setup.md#norm) dataset format and its corresponding file list. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For more information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
+Model oversubscription gives you the ability to load a subset of an embedding table, which exceeds the device memory capacity of single-GPU or multi-GPU machines, into the GPU(s) in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with [`Norm`](./configuration_file_setup.md#norm) and [`Raw`](./configuration_file_setup.md#raw) dataset formats. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
 
 ## Tools ##
 We currently support the following tools:
