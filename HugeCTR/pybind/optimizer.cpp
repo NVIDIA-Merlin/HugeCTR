@@ -18,11 +18,11 @@
 
 namespace HugeCTR {
 
-OptParamsPy::OptParamsPy() {}
+OptParamsPy::OptParamsPy() : initialized(false) {}
 
 OptParamsPy::OptParamsPy(Optimizer_t optimizer_type,
                         Update_t update_t,
                         OptHyperParamsPy opt_hyper_params)
-  : optimizer(optimizer_type), update_type(update_t), hyperparams(opt_hyper_params) {}
+  : optimizer(optimizer_type), update_type(update_t), hyperparams(opt_hyper_params), initialized(true) {}
 
 } // namespace HugeCTR

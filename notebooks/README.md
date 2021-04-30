@@ -12,7 +12,7 @@ docker pull nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.5
 
 To start the other notebooks, pull the docker image using the following command:
 ```
-docker pull nvcr.io/nvidia/merlin/merlin-inference:0.5
+docker pull nvcr.io/nvidia/merlin/merlin-training:0.5
 ```
 
 ### Clone the HugeCTR Repository
@@ -28,13 +28,19 @@ git clone https://github.com/NVIDIA/HugeCTR
    docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 hugectr:devel
    ```
 
-2. Start Jupyter using these commands: 
+2. Activate the merlin conda environment by running the following command:
+   ```
+   source activate merlin
+   ```
+   
+3. Start Jupyter using these commands: 
+
    ```
    cd /hugectr/notebooks
    jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token=’hugectr’
    ```
 
-3. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
+4. Connect to your host machine using the 8888 port by accessing its IP address or name from your web browser: `http://[host machine]:8888`
 
    Use the token available from the output by running the command above to log in. For example:
 
@@ -45,7 +51,7 @@ git clone https://github.com/NVIDIA/HugeCTR
 The notebooks are located within the container and can be found here: `/hugectr/notebooks`.
 
 Here's a list of notebooks that you can run:
+- [ecommerce-example.ipynb](ecommerce-example.ipynb): Explains how to train and inference with the eCommerce dataset.
 - [movie-lens-example.ipynb](movie-lens-example.ipynb): Explains how to train and inference with the MoveLense dataset.
 - [embedding_plugin.ipynb](embedding_plugin.ipynb): Explains how to install and use the HugeCTR embedding plugin with Tensorflow.
-- [python_interface.ipynb](python_interface.ipynb): Explains how to use the Python interface and the model prefetching feature.
-- [hugectr_inference.ipynb](hugectr_inference.ipynb): Explains how to use python interface to predict with a trained model.
+- [hugectr-criteo.ipynb](hugectr_criteo.ipynb): Explains the usage of HugeCTR Python interface with the Criteo dataset.

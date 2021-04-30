@@ -184,7 +184,8 @@ void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch
 
 Model::Model(const Solver& solver, const DataReaderParams& reader_params,
             std::shared_ptr<OptParamsPy>& opt_params_py)
-  : solver_(solver), reader_params_(reader_params), buff_allocated_(false),
+  : solver_(solver), reader_params_(reader_params), opt_params_py_(opt_params_py),
+  data_reader_train_status_(false), data_reader_eval_status_(false), buff_allocated_(false),
   mos_created_(false), is_embedding_trainable_(true), is_dense_trainable_(true) {
   int __PID(0);
 #ifdef ENABLE_MPI
@@ -345,6 +346,9 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
   OptParams<float> embedding_opt_params_32;
   OptParams<__half> embedding_opt_params_16;
+  if (!(sparse_embedding.embedding_opt_params)->initialized) {
+    sparse_embedding.embedding_opt_params = opt_params_py_;
+  }
   embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
   if (!solver_.use_mixed_precision) {
     init_optimizer(embedding_opt_params_32, solver_, sparse_embedding.embedding_opt_params);
@@ -355,22 +359,22 @@ void Model::add(SparseEmbedding& sparse_embedding) {
     add_sparse_embedding<long long, float>(sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, opt_params_32_);
+                        solver_.batchsize_eval, embedding_opt_params_32);
   } else if (solver_.i64_input_key && solver_.use_mixed_precision) {
     add_sparse_embedding<long long, __half>(sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, opt_params_16_);
+                        solver_.batchsize_eval, embedding_opt_params_16);
   } else if (!solver_.i64_input_key && !solver_.use_mixed_precision) {
     add_sparse_embedding<unsigned int, float>(sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, opt_params_32_);
+                        solver_.batchsize_eval, embedding_opt_params_32);
   } else {
     add_sparse_embedding<unsigned int, __half>(sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, opt_params_16_);
+                        solver_.batchsize_eval, embedding_opt_params_16);
   }
 }
 
@@ -416,7 +420,7 @@ void Model::compile() {
         opt_params_16_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(), 
         solver_.scaler, opt_buff_half_list_[i],
         resource_manager_->get_local_gpu(i)));
-    }else {
+    } else {
       networks_[i]->optimizer_ = std::move(Optimizer::Create(
         opt_params_32_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
         solver_.scaler, opt_buff_list_[i], 
@@ -614,18 +618,20 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
     int batches;
     auto data_reader_train = this->get_train_data_reader();
     auto data_reader_eval = this->get_evaluate_data_reader();
-    if (data_reader_eval->is_eof()) {
+    if (!data_reader_eval_status_) {
       data_reader_eval->set_source(reader_params_.eval_source);
+      data_reader_eval_status_ = true;
     }
     MESSAGE_("Training source file: " + reader_params_.source[0]);
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
     for (int e = 0; e < num_epochs; e++) {
       MESSAGE_("-----------------------------------Epoch " + std::to_string(e) + "-----------------------------------");
       data_reader_train->set_source(reader_params_.source[0]);
+      data_reader_train_status_ = true;
       do {
         float lr = lr_sch_->get_next();
         this->set_learning_rate(lr);
-        this->train();
+        data_reader_train_status_ = this->train();
         if (display > 0 && iter % display == 0 && iter != 0) {
           timer_train.stop();
           float loss = 0;
@@ -643,15 +649,16 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
         if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
           batches = 0;
           timer_eval.start();
-          while (!(data_reader_eval->is_eof())) {
+          while (data_reader_eval_status_) {
             if (solver_.max_eval_batches == 0 || batches >= solver_.max_eval_batches) {
               break;
             }
-            this->eval();
+            data_reader_eval_status_ = this->eval();
             batches++;
           }
-          if (data_reader_eval->is_eof()) {
+          if (!data_reader_eval_status_) {
             data_reader_eval->set_source(reader_params_.eval_source);
+            data_reader_eval_status_ = true;
           }
           timer_eval.stop();
           auto eval_metrics = this->get_eval_metrics();
@@ -665,7 +672,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
           this->download_params_to_files(snapshot_prefix, iter);
         }
         iter++;
-      } while (!(data_reader_train->is_eof()));
+      } while (data_reader_train_status_);
     } // end for epoch
   } else if (epoch_mode && mos_mode) {
     int iter = 0;
@@ -673,19 +680,21 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
     auto data_reader_train = this->get_train_data_reader();
     auto data_reader_eval = this->get_evaluate_data_reader();
     auto model_oversubscriber = this->get_model_oversubscriber();
-    if (data_reader_eval->is_eof()) {
+    if (!data_reader_eval_status_) {
       data_reader_eval->set_source(reader_params_.eval_source);
+      data_reader_eval_status_ = true;
     }
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
     for (int e = 0; e < mos_epochs; e++) {
       for (unsigned int f = 0; f < reader_params_.source.size(); f++) {
         MESSAGE_("--------------------Epoch " + std::to_string(e) + ", source file: " + reader_params_.source[f] + "--------------------");
         data_reader_train->set_source(reader_params_.source[f]);
+        data_reader_train_status_ = true;
         model_oversubscriber->update(reader_params_.keyset[f]);
         do {
           float lr = lr_sch_->get_next();
           this->set_learning_rate(lr);
-          this->train();
+          data_reader_train_status_ = this->train();
           if (display > 0 && iter % display == 0 && iter != 0) {
             timer_train.stop();
             float loss = 0;
@@ -703,15 +712,16 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
           if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
             batches = 0;
             timer_eval.start();
-            while (!(data_reader_eval->is_eof())) {
+            while (data_reader_eval_status_) {
               if (solver_.max_eval_batches == 0 || batches >= solver_.max_eval_batches) {
                 break;
               }
-              this->eval();
+              data_reader_eval_status_ = this->eval();
               batches++;
             }
-            if (data_reader_eval->is_eof()) {
+            if (!data_reader_eval_status_) {
               data_reader_eval->set_source(reader_params_.eval_source);
+              data_reader_eval_status_ = true;
             }
             timer_eval.stop();
             auto eval_metrics = this->get_eval_metrics();
@@ -725,7 +735,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
             this->download_params_to_files(snapshot_prefix, iter);
           }
           iter++;
-        } while (!(data_reader_train->is_eof()));
+        } while (data_reader_train_status_);
       } // end for file list
     } // end for epoch
   } else {
@@ -769,14 +779,17 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
   } // end if else
 }
 
-void Model::train() {
+bool Model::train() {
   try {
     if (train_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall,
                 "Start the data reader first before calling Model::train()");
     }
 #ifndef DATA_READING_TEST
-    train_data_reader_->read_a_batch_to_device_delay_release();
+    long long current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release();
+    if (!current_batchsize) {
+      return false;
+    }
     train_data_reader_->ready_to_collect();
     for (auto& one_embedding : embeddings_) {
       one_embedding->forward(true);
@@ -808,6 +821,7 @@ void Model::train() {
       one_embedding->backward();
       one_embedding->update_params();
     }
+    return true;
 #else
     train_data_reader_->read_a_batch_to_device();
 #endif
@@ -820,8 +834,9 @@ void Model::train() {
   }
 }
 
-void Model::eval() {
+bool Model::eval() {
   try {
+    if (evaluate_data_reader_ == nullptr) return true;
     this->check_overflow();
     this->copy_weights_for_evaluation();
     if (evaluate_data_reader_->is_started() == false) {
@@ -830,6 +845,9 @@ void Model::eval() {
     long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device();
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
+    }
+    if (!current_batchsize) {
+      return false;
     }
 #ifndef DATA_READING_TEST
     for (auto& one_embedding : embeddings_) {
@@ -859,6 +877,7 @@ void Model::eval() {
     for (auto& metric : metrics_) {
       metric->global_reduce(networks_.size());
     }
+    return true;
   } catch (const internal_runtime_error& err) {
     std::cerr << err.what() << std::endl;
     throw err;
