@@ -432,6 +432,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
           CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
         }
       }
+      break;
     }
     case Layer_t::FmOrder2: {
       auto out_dim = get_json(j_dense_layer, "out_dim").get<size_t>();

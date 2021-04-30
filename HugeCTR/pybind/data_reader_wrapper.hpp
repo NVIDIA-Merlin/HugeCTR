@@ -25,12 +25,10 @@ void DataReaderPybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::IDataReader, std::shared_ptr<HugeCTR::IDataReader>>(m, "IDataReader");
   pybind11::class_<HugeCTR::DataReader<long long>, std::shared_ptr<HugeCTR::DataReader<long long>>, HugeCTR::IDataReader>(m, "DataReader64")
       .def("set_source", &HugeCTR::DataReader<long long>::set_source,
-           pybind11::arg("file_name") = std::string())
-      .def("is_eof", &HugeCTR::DataReader<long long>::is_eof);
+           pybind11::arg("file_name") = std::string());
   pybind11::class_<HugeCTR::DataReader<unsigned int>, std::shared_ptr<HugeCTR::DataReader<unsigned int>>, HugeCTR::IDataReader>(m, "DataReader32")
       .def("set_source", &HugeCTR::DataReader<unsigned int>::set_source,
-           pybind11::arg("file_name") = std::string())
-      .def("is_eof", &HugeCTR::DataReader<unsigned int>::is_eof);
+           pybind11::arg("file_name") = std::string());
 }
 
 }  // namespace python_lib

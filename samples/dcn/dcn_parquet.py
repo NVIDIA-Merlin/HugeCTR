@@ -1,26 +1,30 @@
 import hugectr
-
-solver = hugectr.CreateSolver(max_eval_batches = 100,
-                              batchsize_eval = 2048,
-                              batchsize = 2048,
+from mpi4py import MPI
+solver = hugectr.CreateSolver(max_eval_batches = 300,
+                              batchsize_eval = 16384,
+                              batchsize = 16384,
+                              lr = 0.001,
                               vvgpu = [[0]],
-                              i64_input_key = False,
-                              use_mixed_precision = False,
                               repeat_dataset = True,
-                              use_cuda_graph = True)
-reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
-                                  source = ["./file_list.txt"],
-                                  eval_source = "./file_list_test.txt",
-                                  check_type = hugectr.Check_t.Sum)
-optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam)
+                              i64_input_key = True)
+reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,
+                                  source = ["./criteo_data/train/_file_list.txt"],
+                                  eval_source = "./criteo_data/val/_file_list.txt",
+                                  check_type = hugectr.Check_t.Non,
+                                  slot_size_array = [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49, 186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15, 204515, 141526, 199433, 60919, 9137, 71, 34])
+optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
+                                    update_type = hugectr.Update_t.Global,
+                                    beta1 = 0.9,
+                                    beta2 = 0.999,
+                                    epsilon = 0.0000001)
 model = hugectr.Model(solver, reader, optimizer)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                            [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 26)],
+                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 26)],
                         sparse_names = ["data1"]))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 1737709,
+                            max_vocabulary_size_per_gpu = 1447751,
                             embedding_vec_size = 16,
                             combiner = 0,
                             sparse_embedding_name = "sparse_embedding1",
@@ -74,10 +78,5 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
                             top_names = ["loss"]))
 model.compile()
 model.summary()
-model.fit(max_iter = 12000, display = 200, eval_interval = 1000, snapshot = 100000, snapshot_prefix = "dcn")
-
-
-
-
-
+model.fit(max_iter = 2300, display = 200, eval_interval = 1000, snapshot = 1000000, snapshot_prefix = "dcn")
 

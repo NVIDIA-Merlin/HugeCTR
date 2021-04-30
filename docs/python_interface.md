@@ -1,6 +1,6 @@
 # About HugeCTR Python Interface
  
-HugeCTR Python Interface includes training API and inference API. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to [HugeCTR Python Interface Notebook](../notebooks/hugectr.ipynb) to get familiar with the workflow of HugeCTR training and inference.
+HugeCTR Python Interface includes training API and inference API. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to [HugeCTR Python Interface Notebook](../notebooks/hugectr_criteo.ipynb) to get familiar with the workflow of HugeCTR training and inference.
 
 ## Table of Contents
 * [High-level Training API](#high-level-training-api)
@@ -97,7 +97,7 @@ hugectr.DataReaderParams()
 ```bash
 hugectr.CreateOptimizer()
 ```
-`CreateOptimizer` returns an `OptParamsPy` object according to the custom argument values，which specify the optimizer type and the corresponding hyperparameters.
+`CreateOptimizer` returns an `OptParamsPy` object according to the custom argument values，which specify the optimizer type and the corresponding hyperparameters. The `OptParamsPy` object will be used to initialize the `Model` instance and it applies to the weights of dense layers. Sparse embedding layers which do not have a specified optimizer will adopt this optimizer as well.
 
 **Arguments**
 * `optimizer_type`: The optimizer type to be used. The supported types include `hugectr.Optimizer_t.Adam`, `hugectr.Optimizer_t.MomentumSGD`, `hugectr.Optimizer_t.Nesterov` and `hugectr.Optimizer_t.SGD`. The default value is `hugectr.Optimizer_t.Adam`.
@@ -156,7 +156,7 @@ hugectr.SparseEmbedding()
 
 * `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored. There is NO default value and it should be specified by users.
 
-* `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. There is NO default value and it should be specified by users.
+* `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 
 
 ### DenseLayer ###
@@ -446,7 +446,7 @@ The `update` method of ModelOversubscriber currently supports Norm format datase
 ```bash
 hugectr.Model.get_learning_rate_scheduler()
 ```
-`hugectr.Model.get_learning_rate_scheduler` generates and returns the LearningRateScheduler object of the model instance. When the `SGD` optimizer is adopted for training, the returned object can obtain the dynamically changing learning rate according to the `warmup_steps`, `decay_start`和`decay_steps` configured in the `hugectr.CreateSolver` method.Please refer to [SGD Optimizer and Learning Rate Scheduling
+`hugectr.Model.get_learning_rate_scheduler` generates and returns the LearningRateScheduler object of the model instance. When the `SGD` optimizer is adopted for training, the returned object can obtain the dynamically changing learning rate according to the `warmup_steps`, `decay_start` and `decay_steps` configured in the `hugectr.CreateSolver` method.Please refer to [SGD Optimizer and Learning Rate Scheduling
 ](./hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling) if you want to get detailed information about LearningRateScheduler.
 ***
 

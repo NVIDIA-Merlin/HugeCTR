@@ -187,10 +187,6 @@ class DataReader : public IDataReader {
     }
   }
 
-  bool is_eof() override {
-    return worker_group_->is_eof();
-  }
-
   ~DataReader() override;
 };
 

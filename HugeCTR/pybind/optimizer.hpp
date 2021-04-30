@@ -48,6 +48,7 @@ public:
   Optimizer_t optimizer;
   Update_t update_type;
   OptHyperParamsPy hyperparams;
+  bool initialized;
   OptParamsPy(Optimizer_t optimizer_type, Update_t update_t, OptHyperParamsPy opt_hyper_params);
   OptParamsPy();
 };
