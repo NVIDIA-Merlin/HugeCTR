@@ -57,7 +57,7 @@ void ModelPybind(pybind11::module &m) {
        pybind11::arg("sparse_embedding_name"),
        pybind11::arg("bottom_name"),
        pybind11::arg("slot_size_array") = std::vector<size_t>(),
-       pybind11::arg("optimizer"));
+       pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()));
   pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
     .def(pybind11::init<Layer_t,
             std::vector<std::string>&, std::vector<std::string>&, float,

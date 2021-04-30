@@ -1,6 +1,5 @@
 import hugectr
 import sys
-from mpi4py import MPI
 
 def model_oversubscriber_test(json_file, temp_dir):
   dataset = [("file_list."+str(i)+".txt", "file_list."+str(i)+".keyset") for i in range(5)]
@@ -29,25 +28,28 @@ def model_oversubscriber_test(json_file, temp_dir):
   data_reader_eval = model.get_data_reader_eval()
   model_oversubscriber = model.get_model_oversubscriber()
   data_reader_eval.set_source("file_list.5.txt")
+  data_reader_eval_flag = True
   iteration = 0
   for file_list, keyset_file in dataset:
     data_reader_train.set_source(file_list)
+    data_reader_train_flag = True
     model_oversubscriber.update(keyset_file)
     while True:
       lr = lr_sch.get_next()
       model.set_learning_rate(lr)
-      model.train()
-      if data_reader_train.is_eof():
+      data_reader_train_flag = model.train()
+      if not data_reader_train_flag:
         break
       if iteration % 100 == 0:
         batches = 0
-        while True:
-          batches += 1
-          model.eval()
-          if batches >= solver.max_eval_batches or data_reader_eval.is_eof():
+        while data_reader_eval_flag:
+          if batches >= solver.max_eval_batches:
             break
-        if data_reader_eval.is_eof():
+          data_reader_eval_flag = model.eval()
+          batches += 1
+        if not data_reader_eval_flag:
           data_reader_eval.set_source()
+          data_reader_eval_flag = True
         metrics = model.get_eval_metrics()
         print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iteration, metrics))
       iteration += 1

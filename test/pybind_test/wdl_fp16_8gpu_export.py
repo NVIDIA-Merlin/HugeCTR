@@ -1,7 +1,7 @@
 import hugectr
 import sys
-from mpi4py import MPI
-def session_impl_test(json_file, export_path_prefix):
+
+def wdl_test(json_file, export_path_prefix):
   solver = hugectr.CreateSolver(max_eval_batches = 2048,
                                 batchsize_eval = 16384,
                                 batchsize = 16384,
@@ -44,4 +44,4 @@ def session_impl_test(json_file, export_path_prefix):
 if __name__ == "__main__":
   json_file = sys.argv[1]
   export_path_prefix = sys.argv[2]
-  session_impl_test(json_file, export_path_prefix)
+  wdl_test(json_file, export_path_prefix)

@@ -11,17 +11,20 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-inference:0.5
+   $ docker pull nvcr.io/nvidia/merlin/merlin-training:0.5
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-inference:0.5
+   $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.5
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
 If you want to build the HugeCTR Docker container on your own, please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) and [Use the Docker Container](../docs/mainpage.md#use-docker-container).
 
-You should make sure that HugeCTR is built and installed in `/usr/local/hugectr` within the Docker container. You can launch the container in interactive mode in the same manner as shown above.
+You should make sure that HugeCTR is built and installed in `/usr/local/hugectr` within the Docker container. You can launch the container in interactive mode in the same manner as shown above, and then set the `PYTHONPATH` environment variable inside the Docker container using the following command:
+```shell
+$ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
+``` 
 
 ## Download the Dataset ##
 Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the daaset files into the "${project_root}/tools" directory.
@@ -77,46 +80,52 @@ HugeCTR supports data processing through NVTabular. Make sure that the NVTabular
 ## Train with HugeCTR ##
 Run the following command after preprocessing the dataset through Pandas:
 ```shell
-$ huge_ctr --train ../samples/wdl/wdl.json
+$ python3 ../samples/wdl/wdl.py
+```
+
+If you want to train your model with HugeCTR on a 8-GPU machine such as DGX, run the following command after preprocessing the dataset through Pandas:
+```shell
+$ python3 ../samples/wdl/wdl_8gpu.py
 ```
 
 Run one of the following commands after preprocessing the dataset through NVTabular using either the Parquet or Binary output:
 
 **Parquet Output**
 ```shell
-$ huge_ctr --train ../samples/wdl/wdl_parquet.json
+$ python3 ../samples/wdl/wdl_parquet.py
 ```
 
 **Binary Output**
 ```shell
-$ huge_ctr --train ../samples/wdl/wdl_bin.json
+$ python3 ../samples/wdl/wdl_bin.py
 ```
 
 **NOTE**: If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
 
-## Additional Details About The Network Configuration ##
+## Additional Details About The Model Graph ##
 ```
- "sparse": [
-	{
-          "top": "wide_data",
-          "type": "DistributedSlot",
-          "max_feature_num_per_sample": 30,
-          "slot_num": 1
-        },
-  }
+model.add(hugectr.Input(label_dim = 1, label_name = "label",
+                        dense_dim = 13, dense_name = "dense",
+                        data_reader_sparse_param_array = 
+                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 2, 1),
+                        hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 26)],
+                        sparse_names = ["wide_data", "deep_data"]))
 ```
 ```
-  {
-      "name": "sparse_embedding2",
-      "type": "DistributedSlotSparseEmbeddingHash",
-      "bottom": "wide_data",
-      "top": "sparse_embedding2",
-      "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 2322444,
-        "embedding_vec_size": 1,
-        "combiner": 0
-      }
-    },
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
+                            max_vocabulary_size_per_gpu = 5863985,
+                            embedding_vec_size = 1,
+                            combiner = 0,
+                            sparse_embedding_name = "sparse_embedding2",
+                            bottom_name = "wide_data",
+                            optimizer = optimizer))
+model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
+                            max_vocabulary_size_per_gpu = 5863985,
+                            embedding_vec_size = 16,
+                            combiner = 0,
+                            sparse_embedding_name = "sparse_embedding1",
+                            bottom_name = "deep_data",
+                            optimizer = optimizer))
 ```
 Since the wide model in WDL is Logistic Regression, the `slot_num` in the data layer and `embedding_vec_size` in the Embedding layer should be always be `1`. 
 
@@ -125,13 +134,14 @@ P = sigmoid(b0 + b1*x1 + b2*x2 + b3*x3)
 In this case, `b` represents the parameters in our embedding above and `x` represents the input vector (multi-hot). A sum combiner in a slot in the embedding can be used to simulate `b1*x1 + b2*x2 + b3*x3`
 
 ```
-    {
-      "name": "reshape1",
-      "type": "Reshape",
-      "bottom": "sparse_embedding1",
-      "top": "reshape1",
-      "leading_dim": 416
-    },
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
+                            bottom_names = ["sparse_embedding1"],
+                            top_names = ["reshape1"],
+                            leading_dim=416))
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
+                            bottom_names = ["sparse_embedding2"],
+                            top_names = ["reshape2"],
+                            leading_dim=1))
 ```
 
 The Reshape layer after the embedding usually has `leading_dim` = `slot_num`*`embedding_vec_size`, which means a concatenation of the category features.

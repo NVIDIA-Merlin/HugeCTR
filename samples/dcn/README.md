@@ -11,17 +11,20 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-inference:0.5
+   $ docker pull nvcr.io/nvidia/merlin/merlin-training:0.5
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-inference:0.5
+   $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.5
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
-If you want to build the HugeCTR Docker container on your own, refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) and [Use the Docker Container](../docs/mainpage.md#use-docker-container).
+If you want to build the HugeCTR Docker container on your own, refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training).
 
-You should make sure that HugeCTR is built and installed in `/usr/local/hugectr` within the Docker container. You can launch the container in interactive mode in the same manner as shown above.
+You should make sure that HugeCTR is built and installed in `/usr/local/hugectr` within the Docker container. Remember to set the option `ENABLE_MULTINODES` as `ON` when building HugeCTR if you want to try the multinode training sample. You can launch the container in interactive mode in the same manner as shown above, and then set the `PYTHONPATH` environment variable inside the Docker container using the following command:
+```shell
+$ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
+``` 
 
 ## Download the Dataset ##
 Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the dataset files into the "${project_root}/tools" directory. 
@@ -73,26 +76,33 @@ HugeCTR supports data processing through NVTabular. Make sure that the NVTabular
 ## Train with HugeCTR ##
 Run the following command after preprocessing the dataset with Pandas:
 ```shell
-$ huge_ctr --train ../samples/dcn/dcn.json
+$ python3 ../samples/dcn/dcn.py
 ```
 
 Run one of the following commands after preprocessing the dataset with NVTabular using either the Parquet or Binary output:
 
 **Parquet Output**
 ```shell
-$ huge_ctr --train ../samples/dcn/dcn_parquet.json
+$ python3 ../samples/dcn/dcn_parquet.py
 ```
 
 **Binary Output**
 ```shell
-$ huge_ctr --train ../samples/dcn/dcn_bin.json
+$ python3 ../samples/dcn/dcn_bin.py
 ```
 
 **NOTE**: If you want to generate binary data using the `Norm` data format instead of the `Parquet` data format, set the fourth argument (the one after `nvt`) to `0`. Generating binary data using the `Norm` data format can take much longer than it does when using the `Parquet` data format because of the additional conversion process. Use the NVTabular binary mode if you encounter an issue with Pandas mode.
 
 ## Train with Localized Slot Embedding ##
 To train with localized slot embedding, do the following:
-1. Run `huge_ctr` by running the following command:
+Run the following command after preprocessing the dataset with Pandas:
    ```shell
-   $ huge_ctr --train ../samples/dcn/dcn_localized_embedding.json
+   $ python3 ../samples/dcn/dcn_localized_embedding.py
+   ```
+
+## Train with Multinodes ##
+To train with mutlinodes, do the following:
+Run the following command after preprocessing the dataset with Pandas:
+   ```shell
+   $ mpirun -np 2 python3 ../samples/dcn/dcn_2node_8gpu.py
    ```

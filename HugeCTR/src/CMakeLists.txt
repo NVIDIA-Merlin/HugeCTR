@@ -90,7 +90,6 @@ file(GLOB huge_ctr_src
   parsers/create_embedding.cpp
   parsers/create_datareader.cpp
   parsers/inference_parser.cpp
-  session.cpp
   data_readers/data_collector.cu
   data_readers/parquet_data_converter.cu
   hashtable/nv_hashtable.cu
@@ -159,10 +158,6 @@ target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)
 target_compile_features(huge_ctr_shared PUBLIC cxx_std_14)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
-
-add_executable(huge_ctr main.cpp)
-target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
-target_compile_features(huge_ctr PUBLIC cxx_std_14)
 
 add_library(hugectr MODULE ../pybind/module_main.cpp)
 target_link_libraries(hugectr PUBLIC pybind11::module ${PYTHON_LIBRARIES} ${CUDA_LIBRARIES} huge_ctr_shared)

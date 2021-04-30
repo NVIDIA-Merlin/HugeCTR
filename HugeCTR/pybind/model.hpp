@@ -278,9 +278,9 @@ class Model {
 
   void set_source(std::string source, std::string eval_source);
 
-  void train();
+  bool train();
 
-  void eval();
+  bool eval();
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -367,6 +367,7 @@ class Model {
   DataReaderParams reader_params_;
   OptParams<float> opt_params_32_;
   OptParams<__half> opt_params_16_;
+  std::shared_ptr<OptParamsPy> opt_params_py_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   std::map<std::string, SparseInput<long long>> sparse_input_map_64_;
@@ -375,6 +376,8 @@ class Model {
   std::vector<std::vector<TensorEntry>> evaluate_tensor_entries_list_;
   std::map<std::string, bool> tensor_active_;
   
+  bool data_reader_train_status_;
+  bool data_reader_eval_status_;
   bool buff_allocated_;
   bool mos_created_;
   bool is_embedding_trainable_;
