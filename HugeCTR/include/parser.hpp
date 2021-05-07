@@ -25,6 +25,7 @@
 #include <metrics.hpp>
 #include <network.hpp>
 #include <nlohmann/json.hpp>
+#include <inference/inference_utils.hpp>
 
 namespace HugeCTR {
 
@@ -98,27 +99,6 @@ struct Solver {
   bool use_algorithm_search;
   bool use_cuda_graph;
   Solver() {}
-};
-
-struct InferenceParams {
-  std::string model_name;
-  size_t max_batchsize;
-  float hit_rate_threshold;
-  std::string dense_model_file;
-  std::vector<std::string> sparse_model_files;
-  int device_id;
-  bool use_gpu_embedding_cache;
-  float cache_size_percentage;
-  bool i64_input_key;
-  bool use_mixed_precision;
-  float scaler;
-  bool use_algorithm_search;
-  bool use_cuda_graph;
-  InferenceParams(const std::string& model_name, const size_t max_batchsize, const float hit_rate_threshold,
-                  const std::string& dense_model_file, const std::vector<std::string>& sparse_model_files,
-                  const int device_id, const bool use_gpu_embedding_cache, const float cache_size_percentage,
-                  const bool i64_input_key, const bool use_mixed_precision = false, const float scaler = 1.0,
-                  const bool use_algorithm_search = true, const bool use_cuda_graph = true);
 };
 
 class InferenceParser {
