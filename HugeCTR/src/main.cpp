@@ -270,7 +270,7 @@ void train(std::string config_file) {
 
 #else
   float loss = 0;
-  bool start_test = false;
+  bool start_test = true;
   int loop = 0;
   for (int i = 0; i < solver_config.max_iter; i++) {
     float lr = lr_sch->get_next();
@@ -288,19 +288,28 @@ void train(std::string config_file) {
 
       loss += loss_tmp;
     }
-    if (i % solver_config.eval_interval == solver_config.max_eval_batches &&
-        i != solver_config.max_eval_batches) {
+    if (i % solver_config.eval_interval == 0 && i != 0) {
+
       session_instance->check_overflow();
-      session_instance->set_evaluate_stage();
-      loss = loss / solver_config.max_eval_batches;
-      for (int j = 0; j < solver_config.max_eval_batches; ++j) {
-        session_instance->eval();
+      session_instance->copy_weights_for_evaluation();
+
+      auto data_reader_eval = session_instance->get_evaluate_data_reader();
+
+      loss = loss / solver_config.eval_interval;
+
+      bool good = true;
+      for (int j = 0; j < solver_config.max_eval_batches && good; ++j) {
+	good = session_instance->eval();
       }
+      if (good == false) {
+	data_reader_eval->set_source();
+      }
+
       if (pid == 0) {
         std::cout << loop << " " << loss << " ";
         auto eval_metrics = session_instance->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
-          std::cout << eval_metric.second << " ";
+           std::cout << eval_metric.second << " ";
         }
         std::cout << std::endl;
       }
