@@ -67,6 +67,7 @@ def parse_args(parser):
     args.end_lr = optimizer_config['sgd_hparam'].get('end_lr', 0)
   args.batchsize = solver_config.get('batchsize', 2048)
   args.batchsize_eval = solver_config.get('batchsize_eval', args.batchsize)
+  args.snapshot = solver_config.get('snapshot', 100000000)
   args.max_eval_batches = solver_config.get('max_eval_batches', 100)
   args.max_iter = solver_config.get('max_iter', 10000)
   args.eval_interval = solver_config.get('eval_interval', 1000)
@@ -122,7 +123,7 @@ def single_node_test(args):
   model.construct_from_json(graph_config_file = args.json_file, include_dense_network = True)
   model.compile()
   model.summary()
-  model.fit(max_iter = args.max_iter, display = args.display, eval_interval = args.eval_interval)
+  model.fit(max_iter = args.max_iter, display = args.display, eval_interval = args.eval_interval, snapshot = args.snapshot)
   return
 
 if __name__ == "__main__":
