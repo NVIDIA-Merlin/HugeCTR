@@ -33,9 +33,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save(const std::string& em
 
     /*save embedding parameters*/
     try {
-        std::ofstream embedding_out_file_stream(save_name, std::ofstream::binary);
-        embedding->dump_parameters(embedding_out_file_stream);
-        embedding_out_file_stream.close();
+        embedding->dump_parameters(save_name);
     } catch (const std::exception& error) {
         return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ", error.what());
     }

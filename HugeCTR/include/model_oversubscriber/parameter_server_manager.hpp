@@ -35,7 +35,6 @@ public:
       const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
       const Embedding_t embedding_type,
       const std::vector<std::string>& sparse_embedding_files,
-      const std::string& temp_embedding_dir,
       size_t buffer_size);
 
   ParameterServerManager(const ParameterServerManager&) = delete;

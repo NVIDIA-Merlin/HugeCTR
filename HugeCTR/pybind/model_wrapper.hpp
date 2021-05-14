@@ -93,10 +93,12 @@ void ModelPybind(pybind11::module &m) {
        pybind11::arg("regularizer_type") = Regularizer_t::L1,
        pybind11::arg("lambda") = 0);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")
-    .def(pybind11::init<const Solver&, const DataReaderParams&, std::shared_ptr<OptParamsPy>&>(),
+    .def(pybind11::init<const Solver&, const DataReaderParams&,
+         std::shared_ptr<OptParamsPy>&, std::shared_ptr<ModelOversubscriberParams>&>(),
        pybind11::arg("solver"),
        pybind11::arg("reader_params"),
-       pybind11::arg("opt_params"))
+       pybind11::arg("opt_params"),
+       pybind11::arg("mos_params") = std::shared_ptr<ModelOversubscriberParams>(new ModelOversubscriberParams()))
     .def("compile", &HugeCTR::Model::compile)
     .def("summary", &HugeCTR::Model::summary)
     .def("fit", &HugeCTR::Model::fit,

@@ -21,6 +21,9 @@
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
 #include "embedding_utils.hpp"
 
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+
 namespace HugeCTR {
 namespace Version1 {
 
@@ -43,14 +46,10 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::init_embedding_params(cons
             if (status != tensorflow::Status::OK()) return status;
 
             /*load initial values to memory*/
-            std::ifstream embedding_stream(embedding_file, std::ifstream::binary);
-            if (!embedding_stream.is_open()) 
-                return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " embedding_stream is not open.");
-            embedding->load_parameters(embedding_stream);
-            embedding_stream.close();
+            embedding->load_parameters(embedding_file);
 
             /*delete embedding_file*/
-            if (std::remove(embedding_file.c_str()) != 0)
+            if (fs::remove_all(embedding_file) == 0)
                 return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " Cannot delete ", embedding_file);
         }
 

@@ -29,8 +29,8 @@ class IEmbedding {
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;
-  virtual void load_parameters(std::ifstream& stream) = 0;
-  virtual void dump_parameters(std::ofstream& stream) const = 0;
+  virtual void load_parameters(std::string sparse_model) = 0;
+  virtual void dump_parameters(std::string sparse_model) const = 0;
   virtual void set_learning_rate(float lr) = 0;
   virtual size_t get_params_num() const = 0;
   virtual size_t get_vocabulary_size() const = 0;

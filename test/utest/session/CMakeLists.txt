@@ -14,14 +14,10 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-file(GLOB criteo2hugectr_src
-  criteo2hugectr.cpp
+file(GLOB session_test_src
+  session_test.cpp
 )
 
-add_executable(criteo2hugectr ${criteo2hugectr_src})
-target_compile_features(criteo2hugectr PUBLIC cxx_std_17)
-if(MPI_FOUND)
-  target_link_libraries(criteo2hugectr PUBLIC ${MPI_CXX_LIBRARIES})
-endif()
-
-
+add_executable(session_test ${session_test_src})
+target_compile_features(session_test PUBLIC cxx_std_17)
+target_link_libraries(session_test PUBLIC huge_ctr_static gtest gtest_main)

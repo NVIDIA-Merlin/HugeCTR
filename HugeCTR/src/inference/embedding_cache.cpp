@@ -15,6 +15,9 @@
  */
 
 #include <inference/embedding_cache.hpp>
+#include <experimental/filesystem>
+
+namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -113,38 +116,24 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
     cache_config_.max_query_len_per_emb_table_.emplace_back(max_batchsize * max_feature_num_per_sample[i]);
   }
 
+  auto remove_prefix = [](const std::string& path) {
+    size_t found = path.rfind("/");
+    if (found != std::string::npos)
+      return std::string(path, found + 1);
+    else
+      return path;
+  };
   // Query the size of all embedding tables and calculate the size of each embedding cache
   if(cache_config_.use_gpu_embedding_cache_){
     for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
-      std::ifstream emb_file(emb_file_path[i]);
-      // Check if file is opened successfully
-      if (!emb_file.is_open()) {
-        CK_THROW_(Error_t::WrongInput, "Error: embeddings file cannot open for reading");
+      std::string key_file(emb_file_path[i] + "/" + remove_prefix(emb_file_path[i]) + ".key");
+      size_t row_num = fs::file_size(key_file) / sizeof(TypeHashKey);
+      if (fs::file_size(key_file) % sizeof(TypeHashKey) != 0){
+        CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
       }
-      emb_file.seekg(0, emb_file.end);
-      size_t file_size = emb_file.tellg();
-      emb_file.seekg(0, emb_file.beg);
 
-      // File format is different for distributed and localized embeddings
-      if(distributed_emb[i]){
-        size_t row_size = sizeof(TypeHashKey) + sizeof(float) * cache_config_.embedding_vec_size_[i];
-        size_t row_num = file_size / row_size;
-        if (file_size % row_size != 0){
-          CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
-        }
-        size_t num_feature_in_cache = (size_t)((double)(cache_config_.cache_size_percentage_) * (double)row_num);
-        cache_config_.num_set_in_cache_.emplace_back(num_feature_in_cache / (SLAB_SIZE * SET_ASSOCIATIVITY));
-      }
-      else{
-        size_t row_size = sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * cache_config_.embedding_vec_size_[i];
-        size_t row_num = file_size / row_size;
-        if (file_size % row_size != 0){
-          CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
-        }
-        size_t num_feature_in_cache = (size_t)((double)(cache_config_.cache_size_percentage_) * (double)row_num);
-        cache_config_.num_set_in_cache_.emplace_back(num_feature_in_cache / (SLAB_SIZE * SET_ASSOCIATIVITY));
-      }
-      emb_file.close();
+      size_t num_feature_in_cache = (size_t)((double)(cache_config_.cache_size_percentage_) * (double)row_num);
+      cache_config_.num_set_in_cache_.emplace_back(num_feature_in_cache / (SLAB_SIZE * SET_ASSOCIATIVITY));
     }
   }
 

@@ -23,29 +23,23 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
     const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
     const Embedding_t embedding_type,
     const std::vector<std::string>& sparse_embedding_files,
-    const std::string& temp_embedding_dir,
     size_t buffer_size) {
   try {
-    if (!sparse_embedding_files.size()) {
-      MESSAGE_("Traning from scratch, no snapshot file specified");
-    } else {
-      if (embedding_params.size() != sparse_embedding_files.size())
-        CK_THROW_(Error_t::WrongInput, "num of embeddings and num of sparse_model_file don't equal");
-    }
+    if (sparse_embedding_files.size() == 0)
+      CK_THROW_(Error_t::WrongInput, "must provide sparse_model_file. \
+          if train from scratch, please specify a name to store the trained embedding model");
+
+    if (embedding_params.size() != sparse_embedding_files.size())
+      CK_THROW_(Error_t::WrongInput, "num of embeddings and num of sparse_model_file don't equal");
       
     size_t max_vec_size = 0;
     for (int i = 0; i < static_cast<int>(embedding_params.size()); i++) {
       size_t ith_vec_size = embedding_params[i].embedding_vec_size;
       max_vec_size = (ith_vec_size > max_vec_size) ? ith_vec_size : max_vec_size;
 
-      if (!sparse_embedding_files.size()) {
-        ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
-          (embedding_params[i], std::string(), temp_embedding_dir, embedding_type));
-      } else {
-        MESSAGE_("Loading sparse models for model oversubscriber: " + sparse_embedding_files[i]);
-        ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
-          (embedding_params[i], sparse_embedding_files[i], temp_embedding_dir, embedding_type));
-      }
+      MESSAGE_("construct sparse models for model oversubscriber: " + sparse_embedding_files[i]);
+      ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
+        (embedding_params[i], sparse_embedding_files[i], embedding_type));
     }
 
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =

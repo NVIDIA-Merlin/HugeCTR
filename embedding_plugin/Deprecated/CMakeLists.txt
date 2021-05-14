@@ -218,10 +218,13 @@ FILE(GLOB  hugectr_src
   ${HugeCTR_Path}/HugeCTR/src/embeddings/get_backward_results_functor.cu
   ${HugeCTR_Path}/HugeCTR/src/embeddings/utils_functor.cu
   ${HugeCTR_Path}/HugeCTR/src/embeddings/opt_states_functor.cu
+  ${HugeCTR_Path}/HugeCTR/src/diagnose.cu
+)
+
+FILE(GLOB  hugectr_partial_embedding
   ${HugeCTR_Path}/HugeCTR/src/embeddings/distributed_slot_sparse_embedding_hash.cu
   ${HugeCTR_Path}/HugeCTR/src/embeddings/localized_slot_sparse_embedding_hash.cu
   ${HugeCTR_Path}/HugeCTR/src/embeddings/localized_slot_sparse_embedding_one_hot.cu
-  ${HugeCTR_Path}/HugeCTR/src/diagnose.cu
 )
 
 FILE(GLOB_RECURSE PLUGIN_SRC
@@ -232,15 +235,23 @@ ${PROJECT_SOURCE_DIR}/cc/kernels/v1/*.cu
 
 FIND_PACKAGE(MPI)
 
+ADD_LIBRARY(partial_embedding SHARED ${hugectr_partial_embedding})
+target_compile_features(partial_embedding PRIVATE cxx_std_17)
+
 ADD_LIBRARY(embedding_plugin SHARED ${PLUGIN_SRC} ${hugectr_src})
 TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC ${TF_LINK_FLAGS})
 
 IF(MPI_FOUND)
-  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
+  TARGET_LINK_LIBRARIES(partial_embedding PUBLIC stdc++fs cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
+  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC partial_embedding cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
   MESSAGE(STATUS "${MPI_CXX_LIBRARIES}")
 ELSE()
-  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT})
+  TARGET_LINK_LIBRARIES(partial_embedding PUBLIC stdc++fs cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT})
+  TARGET_LINK_LIBRARIES(embedding_plugin PUBLIC partial_embedding cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT})
 ENDIF()
+
+SET_TARGET_PROPERTIES(partial_embedding PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+SET_TARGET_PROPERTIES(partial_embedding PROPERTIES CUDA_ARCHITECTURES OFF)
 
 SET_TARGET_PROPERTIES(embedding_plugin PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 SET_TARGET_PROPERTIES(embedding_plugin PROPERTIES CUDA_ARCHITECTURES OFF)
@@ -263,10 +274,10 @@ ADD_LIBRARY(embedding_plugin_v2 SHARED ${PLUGIN_SRC_V2} ${hugectr_src})
 TARGET_LINK_LIBRARIES(embedding_plugin_v2 PUBLIC ${TF_LINK_FLAGS})
 
 IF(MPI_FOUND)
-  TARGET_LINK_LIBRARIES(embedding_plugin_v2 PUBLIC cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
+  TARGET_LINK_LIBRARIES(embedding_plugin_v2 PUBLIC partial_embedding cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES})
   MESSAGE(STATUS "${MPI_CXX_LIBRARIES}")
 ELSE()
-  TARGET_LINK_LIBRARIES(embedding_plugin_v2 PUBLIC cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT})
+  TARGET_LINK_LIBRARIES(embedding_plugin_v2 PUBLIC partial_embedding cublas curand cudnn nccl nvToolsExt cusparse ${CMAKE_THREAD_LIBS_INIT})
 ENDIF()
 
 SET_TARGET_PROPERTIES(embedding_plugin_v2 PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

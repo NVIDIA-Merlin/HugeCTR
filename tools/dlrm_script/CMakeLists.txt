@@ -39,7 +39,7 @@ else()
 endif()
 set_target_properties(dlrm_raw PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(dlrm_raw PROPERTIES CUDA_ARCHITECTURES OFF)
-target_compile_features(dlrm_raw PUBLIC cxx_std_14)
+target_compile_features(dlrm_raw PUBLIC cxx_std_17)
 
 
 
