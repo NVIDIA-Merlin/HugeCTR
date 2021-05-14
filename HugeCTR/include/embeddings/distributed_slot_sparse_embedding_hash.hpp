@@ -131,7 +131,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   /**
    * dump_parameters for DistributedSlotSparseEmbeddingHash
    * download hash_table from GPUs to CPU.
-   * @param weight_stream weight file stream to write.
+   * @param sparse_model the folder name of sparse model.
    * @param vocabulary_size the total row number of hash table.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors the tensors of hash table value on multi GPUs.
@@ -140,7 +140,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param context gpu device context, for switching device
    */
   void dump_parameters(
-      std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
+      const std::string &sparse_model, size_t vocabulary_size, size_t embedding_vec_size,
       const Tensors2<float> &hash_table_value_tensors,
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
   void dump_parameters(
@@ -269,17 +269,17 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   /**
    * Read the hash table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param stream the host file stream for reading data from.
+   * @param sparse_model the folder name of sparse model.
    */
-  void load_parameters(std::ifstream &stream) override;
+  void load_parameters(std::string sparse_model) override;
   void load_parameters(BufferBag& buf_bag, size_t num) override;
 
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
-   * @param weight_stream the host file stream for writing data to.
+   * @param sparse_model the folder name of sparse model.
    */
-  void dump_parameters(std::ofstream &weight_stream) const override;
+  void dump_parameters(std::string sparse_model) const override;
   void dump_parameters(BufferBag& buf_bag, size_t *num) const override;
 
   void dump_opt_states(std::ofstream& stream) override;

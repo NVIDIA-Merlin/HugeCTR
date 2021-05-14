@@ -19,5 +19,5 @@ file(GLOB device_map_test_src
 )
 
 add_executable(device_map_test ${device_map_test_src})
-target_compile_features(device_map_test PUBLIC cxx_std_14)
+target_compile_features(device_map_test PUBLIC cxx_std_17)
 target_link_libraries(device_map_test PUBLIC huge_ctr_static gtest gtest_main)

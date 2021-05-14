@@ -22,10 +22,10 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::ModelOversubscriberImpl(
     std::vector<std::shared_ptr<IEmbedding>>& embeddings,
     const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-    const std::vector<std::string>& sparse_embedding_files, const std::string& temp_embedding_dir)
+    const std::vector<std::string>& sparse_embedding_files)
     : embeddings_(embeddings),
       ps_manager_(embedding_params, embeddings[0]->get_embedding_type(),
-                  sparse_embedding_files, temp_embedding_dir, get_max_embedding_size_()) {}
+                  sparse_embedding_files, get_max_embedding_size_()) {}
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
@@ -56,22 +56,14 @@ void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::store(
-    std::vector<std::string> snapshot_file_list) {
+void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::store() {
   try {
-    if (snapshot_file_list.size() && snapshot_file_list.size() != embeddings_.size()) {
-      CK_THROW_(Error_t::WrongInput, "num of snapshot_file and num of embeddings don't equal");
-    }
-
     for (int i = 0; i < static_cast<int>(embeddings_.size()); i++) {
       auto ptr_ps = ps_manager_.get_parameter_server(i);
 
       size_t dump_size = 0;
       embeddings_[i]->dump_parameters(ps_manager_.get_buffer_bag(), &dump_size);
       ptr_ps->dump_param_to_embedding_file(ps_manager_.get_buffer_bag(), dump_size);
-
-      if (!snapshot_file_list.size()) continue;
-      ptr_ps->dump_to_snapshot(snapshot_file_list[i]);
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

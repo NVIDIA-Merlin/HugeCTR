@@ -33,9 +33,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::restore(const std::string&
 
     /*restore embedding parameters*/
     try {
-        std::ifstream embedding_restore_stream(file_name, std::ifstream::binary);
-        embedding->load_parameters(embedding_restore_stream);
-        embedding_restore_stream.close();        
+        embedding->load_parameters(file_name);
     } catch (const std::exception& error) {
         return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ", error.what());
     }

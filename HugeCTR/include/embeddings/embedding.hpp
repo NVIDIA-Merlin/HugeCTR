@@ -262,9 +262,9 @@ class Embedding : public IEmbedding {
   /**
    * Read the embedding table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param stream the host file stream for reading data from.
+   * @param sparse_model the folder name of sparse model.
    */
-  virtual void load_parameters(std::ifstream& stream) = 0;
+  virtual void load_parameters(std::string sparse_model) = 0;
 
   /**
    * Read the embedding table from the weight_stream on the host, and
@@ -276,10 +276,9 @@ class Embedding : public IEmbedding {
   /**
    * Download the embedding table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
-   * @param weight_stream the host file stream for writing data to.
+   * @param sparse_model the folder name of sparse model.
    */
-  virtual void dump_parameters(
-      std::ofstream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
+  virtual void dump_parameters(std::string sparse_model) const = 0;
 
   /**
    * Download the embedding table from multi-GPUs global memroy to CPU memory

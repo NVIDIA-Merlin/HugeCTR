@@ -20,6 +20,9 @@
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
 
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+
 namespace HugeCTR {
 namespace Version2 {
 
@@ -109,19 +112,16 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::init_embedding_table(
             embedding->init_params();
         } else {
             /*save initial values to file*/
-            const std::string embedding_file = "TMP_EMBEDDING_INITIAL_VALUES";
-            WRAPPER_REQUIRE_OK(save_init_value_to_file(embedding_name, init_value, embedding_file));
+            const std::string sparse_embedding_model = "TMP_EMBEDDING_INITIAL_VALUES";
+            WRAPPER_REQUIRE_OK(save_init_value_to_file(embedding_name, init_value, sparse_embedding_model));
 
             /*load initial values to memory*/
-            std::ifstream file_stream(embedding_file, std::ifstream::binary);
-            if (!file_stream.is_open()) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
-                                "Cannot open file_stream to load file stored init_value.");
-            embedding->load_parameters(file_stream);
-            file_stream.close();
+            embedding->load_parameters(sparse_embedding_model);
 
-            /*delete embedding_file*/
-            if (std::remove(embedding_file.c_str()) != 0) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
-                                "Cannot delete ", embedding_file);
+            /*delete sparse_embedding_model*/
+            if (fs::remove_all(sparse_embedding_model) == 0)
+                return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
+                                "Cannot delete ", sparse_embedding_model);
         }
 
     } catch (const HugeCTR::internal_runtime_error& rt_err) {

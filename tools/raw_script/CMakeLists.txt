@@ -19,7 +19,7 @@ file(GLOB criteo2raw_src
 )
 
 add_executable(criteo2raw ${criteo2raw_src})
-target_compile_features(criteo2raw PUBLIC cxx_std_14)
+target_compile_features(criteo2raw PUBLIC cxx_std_17)
 if(MPI_FOUND)
   target_link_libraries(criteo2raw PUBLIC ${MPI_CXX_LIBRARIES})
 endif()

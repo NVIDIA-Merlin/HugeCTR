@@ -72,16 +72,16 @@ file(GLOB huge_ctr_src
   ../diagnose.cu
 )
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 add_library(hugectr_inference SHARED ${huge_ctr_src})
 
-target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl stdc++fs ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(hugectr_inference PUBLIC gpu_cache)
 
 target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json)
 
-target_compile_features(hugectr_inference PUBLIC cxx_std_14)
+target_compile_features(hugectr_inference PUBLIC cxx_std_17)
 
 set_target_properties(hugectr_inference PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
