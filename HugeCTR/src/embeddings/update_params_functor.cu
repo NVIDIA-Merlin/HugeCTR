@@ -16,8 +16,7 @@
 
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
 #include "HugeCTR/include/utils.cuh"
-#include "cub/cub/device/device_radix_sort.cuh"
-#include "cub/cub/device/device_scan.cuh"
+#include <thrust/sort.h>  // for implictly including cub headers
 
 namespace HugeCTR {
 

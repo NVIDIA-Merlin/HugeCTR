@@ -30,7 +30,7 @@ namespace HugeCTR {
 
 class ModelOversubscriberImplBase {
 public:
-  virtual void store(std::vector<std::string> snapshot_file_list) = 0;
+  virtual void store() = 0;
   virtual void update(std::vector<std::string>& keyset_file_list) = 0;
   virtual void update(std::string& keyset_file) = 0;
   virtual ~ModelOversubscriberImplBase() {}
@@ -62,8 +62,7 @@ public:
   ModelOversubscriberImpl(
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
       const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-      const std::vector<std::string>& sparse_embedding_files,
-      const std::string& temp_embedding_dir);
+      const std::vector<std::string>& sparse_embedding_files);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;
   ModelOversubscriberImpl& operator=(const ModelOversubscriberImpl&) = delete;
@@ -71,13 +70,9 @@ public:
   ~ModelOversubscriberImpl() {}
 
   /**
-   * @brief      Store the embedding table or a snapshot file downloaded from device to SSD.
-   *             If snapshot_file_list.size() is 0, update the embedding_file in SSD;
-   *             Or, wirte out a snapshot.
-   * @param      snapshot_file_list The file list where snapshot will be written, its size 
-   *                                equals the number of embeddings.
-   */
-  void store(std::vector<std::string> snapshot_file_list = std::vector<std::string>()) override;
+     * @brief      Store the embedding table downloaded from device to SSD.
+     */
+    void store() override;
 
   /**
    * @brief      Updates the embedding_file using embeddings from device memory, then

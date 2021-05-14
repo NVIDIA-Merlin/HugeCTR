@@ -354,8 +354,11 @@ py_low_level:
       bash -cx "
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
       cd /dataset/criteo_kaggle/wdl_data_keyset;
-      mkdir ${TMP_DIR}/temp_embedding;
-      python3 ${WORK_DIR}/test/pybind_test/wdl_1gpu_mos.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${TMP_DIR}/temp_embedding;
+      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model;
+      python3 ${WORK_DIR}/test/pybind_test/wdl_1gpu_mos.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR};
+      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model;
+      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_scratch_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR};
+      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR};
       cd /dataset/criteo_kaggle/wdl;
       mkdir ${WORK_DIR}/tmp/;
       python3 ${WORK_DIR}/test/pybind_test/wdl_fp16_8gpu_export.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json ${WORK_DIR}/tmp/;"

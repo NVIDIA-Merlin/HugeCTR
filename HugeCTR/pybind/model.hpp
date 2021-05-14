@@ -152,6 +152,17 @@ struct SparseEmbedding {
                  std::shared_ptr<OptParamsPy>& embedding_opt_params);
 };
 
+struct ModelOversubscriberParams {
+  bool use_model_oversubscriber;
+  bool train_from_scratch;
+  std::vector<std::string> trained_sparse_models;
+  std::vector<std::string> dest_sparse_models;
+  ModelOversubscriberParams(bool train_from_scratch,
+                           std::vector<std::string>& trained_sparse_models,
+                           std::vector<std::string>& dest_sparse_models);
+  ModelOversubscriberParams();
+};
+
 struct DenseLayer {
   Layer_t layer_type;
   std::vector<std::string> bottom_names;
@@ -252,7 +263,8 @@ class Model {
   ~Model();
   Model(const Solver& solver,
       const DataReaderParams& reader_params, 
-      std::shared_ptr<OptParamsPy>& opt_params);
+      std::shared_ptr<OptParamsPy>& opt_params,
+      std::shared_ptr<ModelOversubscriberParams>& mos_params);
   Model(const Model&) = delete;
   Model& operator=(const Model&) = delete;
 
@@ -368,6 +380,7 @@ class Model {
   OptParams<float> opt_params_32_;
   OptParams<__half> opt_params_16_;
   std::shared_ptr<OptParamsPy> opt_params_py_;
+  std::shared_ptr<ModelOversubscriberParams> mos_params_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   std::map<std::string, SparseInput<long long>> sparse_input_map_64_;
@@ -420,7 +433,7 @@ class Model {
   std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(const std::vector<std::string>& sparse_embedding_files);
   void init_params_for_dense_();
   void init_params_for_sparse_();
-  void init_model_oversubscriber_();
+  void init_model_oversubscriber_(const std::vector<std::string>& sparse_embedding_files);
   Error_t load_params_for_dense_(const std::string& model_file);
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);

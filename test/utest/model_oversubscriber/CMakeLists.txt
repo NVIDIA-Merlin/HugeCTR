@@ -20,7 +20,7 @@ file(GLOB model_oversubscriber_test_src
 )
 
 add_executable(model_oversubscriber_test ${model_oversubscriber_test_src})
-target_compile_features(model_oversubscriber_test PUBLIC cxx_std_14)
-target_link_libraries(model_oversubscriber_test PUBLIC huge_ctr_static gtest gtest_main)
+target_compile_features(model_oversubscriber_test PUBLIC cxx_std_17)
+target_link_libraries(model_oversubscriber_test PUBLIC huge_ctr_static gtest gtest_main stdc++fs)
 set_target_properties(model_oversubscriber_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(model_oversubscriber_test PROPERTIES CUDA_ARCHITECTURES OFF)

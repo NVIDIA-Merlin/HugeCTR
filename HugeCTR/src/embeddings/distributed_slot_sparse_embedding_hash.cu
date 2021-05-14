@@ -16,8 +16,13 @@
 #include "HugeCTR/include/data_simulator.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/utils.cuh"
-#include "cub/cub/device/device_radix_sort.cuh"
-#include "cub/cub/device/device_scan.cuh"
+
+#include <numeric>
+#include <experimental/filesystem>
+#include <thrust/sort.h>
+#include <thrust/execution_policy.h>
+
+namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -283,44 +288,49 @@ DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
-    std::ifstream &stream) {
+    std::string sparse_model) {
+  if (!fs::exists(sparse_model)) {
+    CK_THROW_(Error_t::WrongInput, std::string("Folder ") + sparse_model + " doesn't exist");
+  }
+  const std::string key_file(sparse_model + "/" + sparse_model + ".key");
+  const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
+
+  std::ifstream key_stream(key_file, std::ifstream::binary);
+  std::ifstream vec_stream(vec_file, std::ifstream::binary);
   // check if file is opened successfully
-  if (!stream.is_open()) {
+  if (!vec_stream.is_open() || !key_stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Error: file not open for reading");
   }
 
-  stream.seekg(0, stream.end);
-  size_t file_size = stream.tellg();
-  stream.seekg(0, stream.beg);
+  size_t key_file_size_in_byte = fs::file_size(key_file);
+  size_t vec_file_size_in_byte = fs::file_size(vec_file);
 
-  size_t row_size = sizeof(TypeHashKey) + sizeof(float) * Base::get_embedding_vec_size();
-  size_t row_num = file_size / row_size;
+  size_t key_size = sizeof(TypeHashKey);
+  size_t vec_size = sizeof(float) * Base::get_embedding_vec_size();
+  size_t key_num = key_file_size_in_byte / key_size;
+  size_t vec_num = vec_file_size_in_byte / vec_size;
 
-  if (file_size % row_size != 0) {
+  if (key_num != vec_num || key_file_size_in_byte % key_size != 0 || vec_file_size_in_byte % vec_size != 0) {
     CK_THROW_(Error_t::WrongInput, "Error: file size is not correct");
   }
 
-  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
-      GeneralBuffer2<CudaHostAllocator>::create();
+  auto blobs_buff = GeneralBuffer2<CudaHostAllocator>::create();
 
   Tensor2<TypeHashKey> keys;
-  blobs_buff->reserve({row_num}, &keys);
+  blobs_buff->reserve({key_num}, &keys);
 
   Tensor2<float> embeddings;
-  blobs_buff->reserve({row_num, Base::get_embedding_vec_size()}, &embeddings);
+  blobs_buff->reserve({vec_num, Base::get_embedding_vec_size()}, &embeddings);
 
   blobs_buff->allocate();
 
   TypeHashKey *key_ptr = keys.get_ptr();
   float *embedding_ptr = embeddings.get_ptr();
 
-  for (size_t i = 0; i < row_num; i++) {
-    stream.read(reinterpret_cast<char *>(key_ptr + i), sizeof(TypeHashKey));
-    stream.read(reinterpret_cast<char *>(embedding_ptr + i * Base::get_embedding_vec_size()),
-                sizeof(float) * Base::get_embedding_vec_size());
-  }
+  key_stream.read(reinterpret_cast<char *>(key_ptr), key_file_size_in_byte);
+  vec_stream.read(reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte);
 
-  load_parameters(keys, embeddings, row_num, max_vocabulary_size_, Base::get_embedding_vec_size(),
+  load_parameters(keys, embeddings, key_num, max_vocabulary_size_, Base::get_embedding_vec_size(),
                   max_vocabulary_size_per_gpu_, hash_table_value_tensors_, hash_tables_);
 
   return;
@@ -414,8 +424,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
   // do upload
   size_t loop_num = num / chunk_size;
-  MESSAGE_("Start to upload embedding table file to GPUs, total loop_num: " +
-           std::to_string(loop_num));
   for (size_t i = 0; i < loop_num; i++) {
     TypeHashKey *key_dst_buf;
     float *value_dst_buf;
@@ -500,10 +508,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
         CK_THROW_(Error_t::OutOfBound, msg);
       }
     }
-
-    /*       std::cout << "\rUploading " << std::fixed << std::setprecision(2)
-                    << (float)(i) / loop_num * 100.0f << "%, loop " << i << " of " << loop_num
-                    << std::flush; */
   }  // end of for(int i = 0; i < loop_num; i++)
 
   // process the remaining data(less than a chunk)
@@ -557,8 +561,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
   }  // end of if(remain_loop_num)
 
-  MESSAGE_("Done");
-
   // release resources
   for (size_t id = 0; id < local_gpu_count; id++) {
     context.set_device(Base::get_local_gpu(id).get_device_id());
@@ -573,17 +575,9 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    std::ofstream &stream) const {
-  // check if the file is opened successfully
-  if (!stream.is_open()) {
-    CK_THROW_(Error_t::WrongInput, "Error: file not open for writing");
-    return;
-  }
-
-  dump_parameters(stream, max_vocabulary_size_, Base::get_embedding_vec_size(),
+    std::string sparse_model) const {
+  dump_parameters(sparse_model, max_vocabulary_size_, Base::get_embedding_vec_size(),
                   hash_table_value_tensors_, hash_tables_);
-
-  return;
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
@@ -598,15 +592,36 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
+    const std::string &sparse_model, size_t vocabulary_size, size_t embedding_vec_size,
     const Tensors2<float> &hash_table_value_tensors,
     const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const {
   CudaDeviceContext context;
   size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
 
+  if (!fs::exists(sparse_model)) {
+    fs::create_directory(sparse_model);
+  }
+  const std::string key_file(sparse_model + "/" + sparse_model + ".key");
+  const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
+
+#ifdef ENABLE_MPI
+  MPI_File key_fh, vec_fh;
+  CK_MPI_THROW_(
+    MPI_File_open(MPI_COMM_WORLD, key_file.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &key_fh));
+  CK_MPI_THROW_(
+    MPI_File_open(MPI_COMM_WORLD, vec_file.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &vec_fh));
+#else
+  std::ofstream key_stream(key_file, std::ofstream::binary | std::ofstream::trunc);
+  std::ofstream vec_stream(vec_file, std::ofstream::binary | std::ofstream::trunc);
+  // check if the file is opened successfully
+  if (!vec_stream.is_open() || !key_stream.is_open()) {
+    CK_THROW_(Error_t::WrongInput, "Error: file not open for writing");
+    return;
+  }
+#endif
+
   // memory allocation
   std::unique_ptr<size_t[]> count(new size_t[local_gpu_count]);
-  size_t max_count = 0;
   size_t total_count = 0;
 
   for (size_t id = 0; id < local_gpu_count; id++) {
@@ -617,155 +632,105 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
                 "Error: hash_table get_value_head() size not equal to get_size()");
     }
     count[id] = count_tmp;
-    max_count = max(max_count, count[id]);
     total_count += count[id];
   }
-
-#ifdef ENABLE_MPI
-  CK_MPI_THROW_(
-      MPI_Allreduce(MPI_IN_PLACE, &max_count, sizeof(size_t), MPI_CHAR, MPI_MAX, MPI_COMM_WORLD));
-#endif
 
   if (total_count > (size_t)vocabulary_size) {
     CK_THROW_(Error_t::WrongInput,
               "Error: required download size is larger than hash table vocabulary_size");
   }
 
-  std::unique_ptr<TypeHashKey *[]> h_hash_table_key(new TypeHashKey *[local_gpu_count]);
+  std::vector<size_t> offset_host(local_gpu_count, 0);
+  std::exclusive_scan(count.get(), count.get() + local_gpu_count, offset_host.begin(), 0);
+
+  TypeHashKey *h_hash_table_key;
+  float *h_hash_table_value;
+  CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_key, total_count * sizeof(TypeHashKey)));
+  CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_value, total_count * embedding_vec_size * sizeof(float)));
+
   std::unique_ptr<TypeHashKey *[]> d_hash_table_key(new TypeHashKey *[local_gpu_count]);
   std::unique_ptr<size_t *[]> d_hash_table_value_index(new size_t *[local_gpu_count]);
-  std::unique_ptr<float *[]> h_hash_table_value(new float *[local_gpu_count]);
-  std::unique_ptr<float *[]> d_hash_table_value(new float *[local_gpu_count]);
   std::unique_ptr<size_t *[]> d_dump_counter(new size_t *[local_gpu_count]);
-  for (size_t id = 0; id < local_gpu_count; id++) {
-    if (count[id] == 0) {
-      continue;
-    }
 
+  for (size_t id = 0; id < local_gpu_count; id++) {
+    if (count[id] == 0) continue;
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
-    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
     CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
     CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_value_index[id], count[id] * sizeof(size_t)));
-    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
-    CK_CUDA_THROW_(cudaMallocManaged(&d_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
-    CK_CUDA_THROW_(cudaMallocManaged(&d_dump_counter[id], count[id] * sizeof(size_t)));
+    CK_CUDA_THROW_(cudaMalloc(&d_dump_counter[id], sizeof(size_t)));
   }
 
   // dump hash table from GPUs
   for (size_t id = 0; id < local_gpu_count; id++) {
-    if (count[id] == 0) {
-      continue;
-    }
-
-    MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-             ": Dump hash table from GPU" + std::to_string(id),
-             true);
-
+    if (count[id] == 0) continue;
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
     hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], d_dump_counter[id],
                           Base::get_local_gpu(id).get_stream());
 
-    CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key[id], d_hash_table_key[id],
-                                   count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
-                                   Base::get_local_gpu(id).get_stream()));
-
-    functors_.get_hash_value(count[id], embedding_vec_size, d_hash_table_value_index[id],
-                             hash_table_value_tensors[id].get_ptr(), d_hash_table_value[id],
-                             Base::get_local_gpu(id).get_stream());
-
-    CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_value[id], d_hash_table_value[id],
+    CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_value + offset_host[id] * embedding_vec_size,
+                                   hash_table_value_tensors[id].get_ptr(),
                                    count[id] * embedding_vec_size * sizeof(float),
                                    cudaMemcpyDeviceToHost, Base::get_local_gpu(id).get_stream()));
   }
-
-  // sync wait
   functors_.sync_all_gpus(Base::get_resource_manager());
 
-#ifdef ENABLE_MPI
-  const int base_tag = 0xed;
-#endif
-  // TODO: could be optimized ???
-  size_t max_size_in_B = max_count * (sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size);
-  std::unique_ptr<char[]> file_buf(new char[max_size_in_B]);
-  size_t key_size = sizeof(TypeHashKey);
-  size_t value_size = sizeof(float) * embedding_vec_size;
+  // sort key according to memory index
   for (size_t id = 0; id < local_gpu_count; id++) {
-    size_t size_in_B = count[id] * (sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size);
-    size_t offset = 0;
-    for (unsigned int k = 0; k < count[id]; k++) {
-      memcpy(file_buf.get() + offset, h_hash_table_key[id] + k, key_size);
-      offset += key_size;
-      memcpy(file_buf.get() + offset, h_hash_table_value[id] + k * embedding_vec_size, value_size);
-      offset += value_size;
-
-      /*         std::cout << "\rRank" << my_rank << ": Seperate keys and values on GPU" << id <<
-         ", finish "
-                        << k << " of total count " << count[id] << ", " << (float)k / count[id] *
-         100.0f
-                        << "%" << std::flush; */
-    }
-    // std::cout << std::endl;
-    if (Base::get_resource_manager().is_master_process()) {
-      MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-               ": Write hash table <key,value> pairs to file",
-               true);
-      weight_stream.write(file_buf.get(), size_in_B);
-    }
-#ifdef ENABLE_MPI
-    else {
-      MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-               ": Send hash table <key,value> pairs on GPU" + std::to_string(id) +
-               " to master node",
-               true);
-      int tag = (id << 8) | base_tag;
-      CK_MPI_THROW_(MPI_Send(file_buf.get(), size_in_B, MPI_CHAR,
-                             Base::get_resource_manager().get_master_process_id(), tag,
-                             MPI_COMM_WORLD));
-    }
-#endif
-  }
-
-#ifdef ENABLE_MPI
-  if (Base::get_resource_manager().is_master_process()) {
-    for (int r = 1; r < Base::get_resource_manager().get_num_process(); r++) {
-      for (size_t id = 0; id < local_gpu_count; id++) {
-        MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-                 ": Recv hash table <key,value> pairs from rank" + std::to_string(r)
-                 + " on GPU" + std::to_string(id) + ", and write to file ",
-                 true);
-        int tag = (id << 8) | base_tag;
-        MPI_Status status;
-        CK_MPI_THROW_(MPI_Probe(r, tag, MPI_COMM_WORLD, &status));
-        int size_in_B;
-        CK_MPI_THROW_(MPI_Get_count(&status, MPI_CHAR, &size_in_B));
-        CK_MPI_THROW_(MPI_Recv(file_buf.get(), size_in_B, MPI_CHAR, r, tag, MPI_COMM_WORLD,
-                               MPI_STATUS_IGNORE));
-        weight_stream.write(file_buf.get(), size_in_B);
-      }
-    }
-  }
-#endif
-
-  MESSAGE_("Done");
-
-  for (size_t id = 0; id < local_gpu_count; id++) {
-    if (count[id] == 0) {
-      continue;
-    }
-
+    if (count[id] == 0) continue;
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
-    CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
+    thrust::sort_by_key(thrust::device, d_hash_table_value_index[id],
+                        d_hash_table_value_index[id] + count[id], d_hash_table_key[id]);
+
+    CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key + offset_host[id],
+                                   d_hash_table_key[id],
+                                   count[id] * sizeof(TypeHashKey),
+                                   cudaMemcpyDeviceToHost, Base::get_local_gpu(id).get_stream()));
+  }
+  functors_.sync_all_gpus(Base::get_resource_manager());
+
+  const size_t key_size = sizeof(TypeHashKey);
+  const size_t vec_size = sizeof(float) * embedding_vec_size;
+
+  // write sparse model to file
+  MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
+           ": Write hash table to file", true);
+#ifdef ENABLE_MPI
+  int my_rank = Base::get_resource_manager().get_process_id();
+  int n_ranks = Base::get_resource_manager().get_num_process();
+
+  std::vector<size_t> offset_per_rank(n_ranks, 0);
+  CK_MPI_THROW_(MPI_Allgather(&total_count, sizeof(size_t), MPI_CHAR, offset_per_rank.data(),
+                              sizeof(size_t), MPI_CHAR, MPI_COMM_WORLD));
+  std::exclusive_scan(offset_per_rank.begin(), offset_per_rank.end(), offset_per_rank.begin(), 0);
+
+  size_t key_offset = offset_per_rank[my_rank] * key_size;
+  size_t vec_offset = offset_per_rank[my_rank] * vec_size;
+
+  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+  MPI_Status status;
+  CK_MPI_THROW_(MPI_File_write_at(key_fh, key_offset, h_hash_table_key,   total_count * key_size, MPI_CHAR, &status));
+  CK_MPI_THROW_(MPI_File_write_at(vec_fh, vec_offset, h_hash_table_value, total_count * vec_size, MPI_CHAR, &status));
+
+  CK_MPI_THROW_(MPI_File_close(&key_fh));
+  CK_MPI_THROW_(MPI_File_close(&vec_fh));
+#else
+  key_stream.write(reinterpret_cast<char*>(h_hash_table_key),   total_count * key_size);
+  vec_stream.write(reinterpret_cast<char*>(h_hash_table_value), total_count * vec_size);
+#endif
+
+  for (size_t id = 0; id < local_gpu_count; id++) {
+    if (count[id] == 0) continue;
+    context.set_device(Base::get_local_gpu(id).get_device_id());
+
     CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_value_index[id]));
-    CK_CUDA_THROW_(cudaFreeHost(h_hash_table_value[id]));
-    CK_CUDA_THROW_(cudaFree(d_hash_table_value[id]));
     CK_CUDA_THROW_(cudaFree(d_dump_counter[id]));
   }
-
-  return;
+  CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key));
+  CK_CUDA_THROW_(cudaFreeHost(h_hash_table_value));
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
@@ -829,8 +794,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
       continue;
     }
 
-    MESSAGE_("Dump hash table from GPU" + std::to_string(id));
-
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
     hash_tables[id]->dump(d_hash_table_key[id], d_hash_table_value_index[id], d_dump_counter[id],
@@ -852,8 +815,6 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
   // sync wait
   functors_.sync_all_gpus(Base::get_resource_manager());
 
-  // TODO: could be optimized ???
-
   const size_t key_size = sizeof(TypeHashKey);
   const size_t value_size = sizeof(float) * embedding_vec_size;
 
@@ -866,13 +827,9 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
              h_hash_table_value[id] + k * embedding_vec_size, value_size);
       offset += 1;
     }
-    // std::cout << std::endl;
-    MESSAGE_("Write hash table <key,value> pairs to file");
   }
 
   *num = offset;
-
-  // MESSAGE_("Done");
 
   for (size_t id = 0; id < local_gpu_count; id++) {
     if (count[id] == 0) {

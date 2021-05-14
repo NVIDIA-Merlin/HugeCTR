@@ -21,6 +21,9 @@
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
 #include "embedding_utils.hpp"
 
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+
 namespace HugeCTR {
 namespace Version1 {
 
@@ -35,8 +38,32 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
     std::shared_ptr<EmbeddingParams> params = get_embedding_params(embedding_name);
     if (!params) return tensorflow::errors::NotFound(__FILE__, ": ", __LINE__, " Not found embedding params for ", embedding_name);
 
-    std::ofstream embedding_stream(save_name, std::ofstream::binary);
-    if (!embedding_stream.is_open()) return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " embedding_stream is not open.");
+    auto remove_prefix = [](const std::string& path) {
+      size_t found = path.rfind("/");
+      if (found != std::string::npos)
+        return std::string(path, found + 1);
+      else
+        return path;
+    };
+    const std::string key_file = save_name + remove_prefix(save_name) + ".key";
+    const std::string slot_file = save_name + remove_prefix(save_name) + ".slot";
+    const std::string vec_file = save_name + remove_prefix(save_name) + ".vec";
+
+    if (!fs::exists(save_name)) {
+      fs::create_directory(save_name);
+    }
+
+    std::ofstream key_stream(key_file, std::ofstream::binary | std::ofstream::trunc);
+    if (!key_stream.is_open()) return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " key file is not open.");
+
+    std::ofstream vec_stream(vec_file, std::ofstream::binary | std::ofstream::trunc);
+    if (!vec_stream.is_open()) return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " vec file is not open.");
+
+    std::ofstream slot_stream;
+    if (params->embedding_type_ != Embedding_t::DistributedSlotSparseEmbeddingHash) {
+      slot_stream.open(slot_file, std::ofstream::binary | std::ofstream::trunc);
+      if (!slot_stream.is_open()) return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " slot file is not open.");
+    }
 
     if (init_value->dims() != 2) return tensorflow::errors::Unavailable(__FILE__, ": ", __LINE__, " init_value's dims should be 2.");
     if (static_cast<size_t>(init_value->dim_size(0)) > 
@@ -49,7 +76,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
     auto init_value_flat = init_value->flat<float>();
     for (long int row = 0; row < init_value->dim_size(0); ++row) { // each row
         TypeKey key = static_cast<TypeKey>(row); // key
-        embedding_stream.write(reinterpret_cast<char*>(&key), sizeof(TypeKey));
+        key_stream.write(reinterpret_cast<char*>(&key), sizeof(TypeKey));
 
         switch (params->embedding_type_) {
             case Embedding_t::DistributedSlotSparseEmbeddingHash: {
@@ -60,10 +87,10 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
                                                    init_value_flat.data() + row * params->embedding_vec_size_,
                                                    sizeof(float) * params->embedding_vec_size_,
                                                    cudaMemcpyDeviceToHost));
-                    embedding_stream.write(reinterpret_cast<char*>(temp_init_value.get()), 
+                    vec_stream.write(reinterpret_cast<char*>(temp_init_value.get()),
                                            sizeof(float) * params->embedding_vec_size_);
                 } else { // on cpu
-                    embedding_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * params->embedding_vec_size_),
+                    vec_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * params->embedding_vec_size_),
                                             sizeof(float) * params->embedding_vec_size_); 
                 }
                 break;
@@ -71,7 +98,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
             case Embedding_t::LocalizedSlotSparseEmbeddingOneHot:
             case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
                 size_t slot_id = key % params->slot_num_; // slot_id
-                embedding_stream.write(reinterpret_cast<char*>(&slot_id), sizeof(size_t));
+                slot_stream.write(reinterpret_cast<char*>(&slot_id), sizeof(size_t));
 
                 // embedding vector values
                 if (on_gpu) {
@@ -80,10 +107,10 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
                                                    init_value_flat.data() + row * params->embedding_vec_size_,
                                                    sizeof(float) * params->embedding_vec_size_,
                                                    cudaMemcpyDeviceToHost));
-                    embedding_stream.write(reinterpret_cast<char*>(temp_init_value.get()), 
+                    vec_stream.write(reinterpret_cast<char*>(temp_init_value.get()),
                                            sizeof(float) * params->embedding_vec_size_);
                 } else { // on cpu
-                    embedding_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * params->embedding_vec_size_),
+                    vec_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * params->embedding_vec_size_),
                                        sizeof(float) * params->embedding_vec_size_);
                 }
                 break;
@@ -93,7 +120,6 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
             }
         } // switch (params->embedding_type_)
     } // for row
-    embedding_stream.close();
 
     return tensorflow::Status::OK();
 }
