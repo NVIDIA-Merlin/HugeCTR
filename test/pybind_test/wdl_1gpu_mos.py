@@ -1,7 +1,7 @@
 import hugectr
 import sys
 
-def model_oversubscriber_test(json_file, temp_dir):
+def model_oversubscriber_test(json_file, output_dir):
   dataset = [("file_list."+str(i)+".txt", "file_list."+str(i)+".keyset") for i in range(5)]
   solver = hugectr.CreateSolver(batchsize = 16384,
                                 batchsize_eval =16384,
@@ -10,16 +10,15 @@ def model_oversubscriber_test(json_file, temp_dir):
                                 i64_input_key = False,
                                 use_algorithm_search = True,
                                 use_cuda_graph = True,
-                                repeat_dataset = False,
-                                use_model_oversubscriber = True,
-                                temp_embedding_dir = temp_dir)
+                                repeat_dataset = False)
   reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
                                   source = ["./file_list.0.txt"],
                                   keyset = ["./file_list.0.keyset"],
                                   eval_source = "./file_list.5.txt",
                                   check_type = hugectr.Check_t.Sum)
   optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam)
-  model = hugectr.Model(solver, reader, optimizer)
+  mos = hugectr.CreateMOS(train_from_scratch = True, dest_sparse_models = [output_dir + "/wdl_0_sparse_model", output_dir + "/wdl_1_sparse_model"])
+  model = hugectr.Model(solver, reader, optimizer, mos)
   model.construct_from_json(graph_config_file = json_file, include_dense_network = True)
   model.compile()
   model.summary()
@@ -54,9 +53,9 @@ def model_oversubscriber_test(json_file, temp_dir):
         print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iteration, metrics))
       iteration += 1
     print("[HUGECTR][INFO] trained with data in {}".format(file_list))
-  model.save_params_to_files(temp_dir, iteration)
+  model_oversubscriber.store();
 
 if __name__ == "__main__":
   json_file = sys.argv[1]
-  temp_dir = sys.argv[2]
-  model_oversubscriber_test(json_file, temp_dir)
+  output_dir = sys.argv[2]
+  model_oversubscriber_test(json_file, output_dir)

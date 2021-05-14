@@ -27,7 +27,9 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <experimental/filesystem>
 
+namespace fs = std::experimental::filesystem;
 using namespace HugeCTR;
 
 namespace {
@@ -237,22 +239,6 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
   PRINT_FUNC_NAME_();
 #endif
 
-  // define size
-  long long hash_table_key_size_in_B = (long long)vocabulary_size_ * sizeof(TypeHashKey);
-  long long hash_table_value_size_in_B =
-      (long long)vocabulary_size_ * (long long)embedding_vec_size_ * sizeof(float);
-  long long hash_table_slot_id_size_in_B = (long long)vocabulary_size_ * sizeof(TypeHashKey);
-  long long hash_table_size_in_B;
-  if (emb_type == SparseEmbedding_t::Distributed) {  // <key,value_index>
-    hash_table_size_in_B = hash_table_key_size_in_B + hash_table_value_size_in_B;
-  } else if (emb_type == SparseEmbedding_t::Localized) {  // <key, slot_id, value_index>
-    hash_table_size_in_B =
-        hash_table_key_size_in_B + hash_table_slot_id_size_in_B + hash_table_value_size_in_B;
-  } else {
-    ERROR_MESSAGE_("Error: sparse_embedding_type is undefined");
-    return;
-  }
-
   // malloc memory
   hash_table_.reset(new HashTableCpu<TypeHashKey, TypeHashValueIndex>());
   hash_table_value_.reset(new float[vocabulary_size_ * embedding_vec_size_]);  // embedding table
@@ -287,51 +273,30 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
     hash_table_value_index_[i] = i;
   }
 
-  int hash_table_tile_size_in_B;
-  if (emb_type == SparseEmbedding_t::Distributed) {  // <key,value_index>
-    hash_table_tile_size_in_B = (sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size_);
-  } else if (emb_type == SparseEmbedding_t::Localized) {  // <key, slot_id, value_index>
-    hash_table_tile_size_in_B = (sizeof(TypeHashKey) * 2 + sizeof(float) * embedding_vec_size_);
-  } else {
-    ERROR_MESSAGE_("Error: sparse_embedding_type is undefined");
-    return;
-  }
-
-  std::unique_ptr<char[]> hash_table_tile(new char[hash_table_tile_size_in_B]);
-
   // read hash table
-  std::ifstream hash_table_stream(hash_table_file);
-  if (!hash_table_stream.is_open()) {
-    ERROR_MESSAGE_("Error: hash table file open failed");
-    return;
-  }
-  hash_table_stream.seekg(0, std::ios::end);
-  long long file_size_in_B = hash_table_stream.tellg();
-  hash_table_stream.seekg(0, std::ios::beg);
-  if (file_size_in_B < hash_table_size_in_B) {
-    ERROR_MESSAGE_("Error: hash table file size is smaller than embedding_table_size required");
-    return;
-  }
+  {
+    const std::string key_file(hash_table_file + "/" + hash_table_file + ".key");
+    const std::string vec_file(hash_table_file + "/" + hash_table_file + ".vec");
 
-  long long tile_num = 0;
-  while (hash_table_stream.peek() != EOF) {
-    hash_table_stream.read(hash_table_tile.get(), hash_table_tile_size_in_B);
-
-    // get hash_table_key and hash_table_value
-    memcpy(hash_table_key_.get() + tile_num, hash_table_tile.get(), sizeof(TypeHashKey));
-    if (emb_type == SparseEmbedding_t::Distributed) {
-      memcpy(hash_table_value_.get() + tile_num * embedding_vec_size_,
-             hash_table_tile.get() + sizeof(TypeHashKey), embedding_vec_size_ * sizeof(float));
-    } else if (emb_type == SparseEmbedding_t::Localized) {  // <key, slot_id, value_index>
-      memcpy(hash_table_value_.get() + tile_num * embedding_vec_size_,
-             hash_table_tile.get() + sizeof(TypeHashKey) * 2, embedding_vec_size_ * sizeof(float));
-    } else {
-      ERROR_MESSAGE_("Error: sparse_embedding_type is undefined");
+    std::ifstream key_stream(key_file, std::ifstream::binary);
+    std::ifstream vec_stream(vec_file, std::ifstream::binary);
+    if (!key_stream.is_open() || !vec_stream.is_open()) {
+      ERROR_MESSAGE_("Error: hash table file open failed");
       return;
     }
-    tile_num++;
+    auto key_file_size_in_B = fs::file_size(key_file);
+    auto vec_file_size_in_B = fs::file_size(vec_file);
+    const int num_key = key_file_size_in_B / sizeof(TypeHashKey);
+    const int num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size_);
+
+    if (num_key != num_vec || num_key > vocabulary_size_) {
+      ERROR_MESSAGE_("Error: hash table file size is smaller than embedding_table_size required");
+      return;
+    }
+
+    key_stream.read(reinterpret_cast<char *>(hash_table_key_.get()), key_file_size_in_B);
+    vec_stream.read(reinterpret_cast<char *>(hash_table_value_.get()), vec_file_size_in_B);
   }
-  hash_table_stream.close();
 
   // insert <key,value_index> into HashTableCpu
   hash_table_->insert(hash_table_key_.get(), hash_table_value_index_.get(), vocabulary_size_);

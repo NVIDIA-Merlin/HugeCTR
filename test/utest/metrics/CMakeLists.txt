@@ -19,7 +19,7 @@ file(GLOB auc_test_src
 )
 
 add_executable(auc_test ${auc_test_src})
-target_compile_features(auc_test PUBLIC cxx_std_14)
+target_compile_features(auc_test PUBLIC cxx_std_17)
 target_link_libraries(auc_test PUBLIC huge_ctr_static gtest gtest_main)
 
 add_custom_command(

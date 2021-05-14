@@ -21,7 +21,7 @@ file(GLOB embedding_test_src
 )
 
 add_executable(embedding_test ${embedding_test_src})
-target_compile_features(embedding_test PUBLIC cxx_std_14)
-target_link_libraries(embedding_test PUBLIC huge_ctr_static gtest gtest_main)
+target_compile_features(embedding_test PUBLIC cxx_std_17)
+target_link_libraries(embedding_test PUBLIC huge_ctr_static gtest gtest_main stdc++fs)
 set_target_properties(embedding_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(embedding_test PROPERTIES CUDA_ARCHITECTURES OFF)

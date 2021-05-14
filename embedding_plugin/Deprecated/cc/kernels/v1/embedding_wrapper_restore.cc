@@ -33,9 +33,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::restore(const std::string&
 
     /*load value from file to initialize its embedding table parameters*/
     try {
-        std::ifstream embedding_load_stream(file_name, std::ifstream::binary);
-        embedding->load_parameters(embedding_load_stream);
-        embedding_load_stream.close();
+        embedding->load_parameters(file_name);
 
     } catch (const HugeCTR::internal_runtime_error& rt_err) {
         return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",

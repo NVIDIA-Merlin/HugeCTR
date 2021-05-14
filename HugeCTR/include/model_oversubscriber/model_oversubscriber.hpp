@@ -43,7 +43,7 @@ public:
                 ->get_embedding_params());
       }
       impl_base_.reset(new ModelOversubscriberImpl<long long, TypeEmbeddingComp>(
-          embeddings, embedding_params, sparse_embedding_files, solver.temp_embedding_dir));
+          embeddings, embedding_params, sparse_embedding_files));
     } else {
       for (auto& one_embedding : embeddings) {
         embedding_params.push_back(
@@ -51,12 +51,12 @@ public:
                 ->get_embedding_params());
       }
       impl_base_.reset(new ModelOversubscriberImpl<unsigned, TypeEmbeddingComp>(
-          embeddings, embedding_params, sparse_embedding_files, solver.temp_embedding_dir));
+          embeddings, embedding_params, sparse_embedding_files));
     }
   }
 
-  void store(std::vector<std::string> snapshot_file_list) {
-    impl_base_->store(snapshot_file_list);
+  void store() {
+    impl_base_->store();
   }
 
   void update(std::vector<std::string>& keyset_file_list) {

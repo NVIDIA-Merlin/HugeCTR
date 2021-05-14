@@ -38,9 +38,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save(const std::string& em
 
     /*save its parameters*/
     try {
-        std::ofstream embedding_out_stream(save_name, std::ofstream::binary);
-        embedding->dump_parameters(embedding_out_stream);
-        embedding_out_stream.close();
+        embedding->dump_parameters(save_name);
     } catch (const HugeCTR::internal_runtime_error& rt_err) {
         return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
                     rt_err.what());

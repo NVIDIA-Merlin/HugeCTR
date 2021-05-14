@@ -16,7 +16,9 @@
 
 #include <HugeCTR/pybind/model.hpp>
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
+
 #include <iomanip>
+
 namespace HugeCTR {
 
 namespace {
@@ -86,6 +88,14 @@ static void check_device(int device_id, int min_major, int min_minor) {
 }
 
 } // end namespace
+
+ModelOversubscriberParams::ModelOversubscriberParams(bool train_from_scratch,
+                                                  std::vector<std::string>& trained_sparse_models,
+                                                  std::vector<std::string>& dest_sparse_models)
+    : use_model_oversubscriber(true), train_from_scratch(train_from_scratch),
+      trained_sparse_models(trained_sparse_models), dest_sparse_models(dest_sparse_models) {}
+
+ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
 
 
 DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
@@ -183,8 +193,9 @@ void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch
 }
 
 Model::Model(const Solver& solver, const DataReaderParams& reader_params,
-            std::shared_ptr<OptParamsPy>& opt_params_py)
-  : solver_(solver), reader_params_(reader_params), opt_params_py_(opt_params_py),
+            std::shared_ptr<OptParamsPy>& opt_params_py,
+            std::shared_ptr<ModelOversubscriberParams>& mos_params)
+  : solver_(solver), reader_params_(reader_params), opt_params_py_(opt_params_py), mos_params_(mos_params),
   data_reader_train_status_(false), data_reader_eval_status_(false), buff_allocated_(false),
   mos_created_(false), is_embedding_trainable_(true), is_dense_trainable_(true) {
   int __PID(0);
@@ -205,10 +216,10 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   if (reader_params_.source.size() < 1 || reader_params_.eval_source.empty()) {
     CK_THROW_(Error_t::WrongInput, " The data source for training and evaluation should be specified");
   }
-  if (solver_.use_model_oversubscriber && solver_.repeat_dataset) {
+  if (mos_params_->use_model_oversubscriber && solver_.repeat_dataset) {
     CK_THROW_(Error_t::WrongInput, "The model oversubscriber can only be used under epoch mode, i.e., repeat_dataset is set False");
   }
-  if (solver_.use_model_oversubscriber && reader_params_.keyset.size() != reader_params_.source.size()) {
+  if (mos_params_->use_model_oversubscriber && reader_params_.keyset.size() != reader_params_.source.size()) {
     CK_THROW_(Error_t::WrongInput, "The number of keyset files must equal that of training data source when using model oversubscriber");
   }
   int total_gpu_count = resource_manager_->get_global_gpu_count();
@@ -451,8 +462,11 @@ void Model::compile() {
 #endif
   init_params_for_dense_();
   init_params_for_sparse_();
-  if (solver_.use_model_oversubscriber) {
-    init_model_oversubscriber_();
+  if (mos_params_->use_model_oversubscriber && mos_params_->train_from_scratch) {
+    init_model_oversubscriber_(mos_params_->dest_sparse_models);
+  }
+  if (mos_params_->use_model_oversubscriber && !mos_params_->train_from_scratch) {
+    init_model_oversubscriber_(mos_params_->trained_sparse_models);
   }
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   for (const auto& metric : solver_.metrics_spec) {
@@ -474,6 +488,9 @@ void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_
   if (!buff_allocated_) {
     CK_THROW_(Error_t::IllegalCall, "Cannot load the sparse optimizer states before calling Model.compile()");
   }
+  if (mos_params_->use_model_oversubscriber) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot load the sparse optimizer states after model oversubscriber is created");
+  }
   load_opt_states_for_sparse_(sparse_opt_states_files);
 }
 
@@ -488,16 +505,10 @@ void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding
   if (!buff_allocated_) {
     CK_THROW_(Error_t::IllegalCall, "Cannot load the sparse weights before calling Model.compile()");
   }
-  if (solver_.use_model_oversubscriber) {
-    if (solver_.use_mixed_precision) {
-      model_oversubscriber_ = create_model_oversubscriber_<__half>(sparse_embedding_files);
-    } else {
-      model_oversubscriber_ = create_model_oversubscriber_<float>(sparse_embedding_files);
-    }
-    mos_created_ = true;
-  } else {
-    load_params_for_sparse_(sparse_embedding_files);
+  if (mos_params_->use_model_oversubscriber) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot load the sparse weights after model oversubscriber is created");
   }
+  load_params_for_sparse_(sparse_embedding_files);
 }
 
 void Model::summary() {
@@ -544,7 +555,7 @@ void Model::summary() {
 
 
 void Model::set_source(std::vector<std::string> source, std::vector<std::string> keyset, std::string eval_source) {
-  if (solver_.repeat_dataset || !solver_.use_model_oversubscriber) {
+  if (solver_.repeat_dataset || !mos_params_->use_model_oversubscriber) {
     CK_THROW_(Error_t::IllegalCall, "The set source method can only be used under the model oversubscription mode");
   }
   if (source.size() != keyset.size()) {
@@ -556,7 +567,7 @@ void Model::set_source(std::vector<std::string> source, std::vector<std::string>
 }
 
 void Model::set_source(std::string source, std::string eval_source) {
-  if (solver_.repeat_dataset || solver_.use_model_oversubscriber) {
+  if (solver_.repeat_dataset || mos_params_->use_model_oversubscriber) {
     CK_THROW_(Error_t::IllegalCall, "The set source method can only be used under the epoch mode");
   }
   std::vector<std::string>().swap(reader_params_.source);
@@ -572,17 +583,17 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
   if (solver_.repeat_dataset && max_iter <= 0) {
     CK_THROW_(Error_t::WrongInput, "Require max_iter>0 under non-epoch mode");
   }
-  if (!solver_.repeat_dataset && !solver_.use_model_oversubscriber && num_epochs <= 0) {
+  if (!solver_.repeat_dataset && !mos_params_->use_model_oversubscriber && num_epochs <= 0) {
     CK_THROW_(Error_t::WrongInput, "Require num_epochs>0 under epoch mode");
   }
-  if (solver_.use_model_oversubscriber && !mos_created_) {
+  if (mos_params_->use_model_oversubscriber && !mos_created_) {
     CK_THROW_(Error_t::IllegalCall, "The model oversubscriber should be created first");
   }
   HugeCTR::Timer timer_train;
   HugeCTR::Timer timer_eval;
   timer_train.start();
   bool epoch_mode = !solver_.repeat_dataset;
-  bool mos_mode = solver_.use_model_oversubscriber;
+  bool mos_mode = mos_params_->use_model_oversubscriber;
   int mos_epochs = num_epochs<1?1:num_epochs;
   int __PID(0);
 #ifdef ENABLE_MPI
@@ -777,6 +788,9 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
       }
     } // end for iter
   } // end if else
+  if (epoch_mode && mos_mode) {
+    model_oversubscriber_->store();
+  }
 }
 
 bool Model::train() {
@@ -1031,9 +1045,7 @@ Error_t Model::download_params_to_files_(std::string weights_file,
     {
       int i = 0;
       for (auto& embedding_file : embedding_files) {
-        std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
-        embeddings_[i]->dump_parameters(out_stream_embedding);
-        out_stream_embedding.close();
+        embeddings_[i]->dump_parameters(embedding_file);
         i++;
       }
     }
@@ -1081,13 +1093,14 @@ template <typename TypeEmbeddingComp>
 std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
   const std::vector<std::string>& sparse_embedding_files) {
   try {
-    if (solver_.temp_embedding_dir.empty()) {
-      CK_THROW_(Error_t::WrongInput, "must provide a directory for storing temporary embedding");
+    if (sparse_embedding_files.empty()) {
+      CK_THROW_(Error_t::WrongInput, "must provide sparse_model_file. \
+          if train from scratch, please specify a name to store the trained embedding model");
     }
     std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>> embedding_params;
     return std::shared_ptr<ModelOversubscriber>(
         new ModelOversubscriber(embeddings_, embedding_params,
-                              sparse_embedding_files, solver_));
+                                sparse_embedding_files, solver_));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -1176,13 +1189,8 @@ Error_t Model::load_params_for_sparse_(
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (i < embedding_model_files.size()) {
-        std::ifstream embedding_stream(embedding_model_files[i], std::ifstream::binary);
-        if (!embedding_stream.is_open()) {
-          CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
-        }
         MESSAGE_("Loading sparse model: " + embedding_model_files[i]);
-        embeddings_[i]->load_parameters(embedding_stream);
-        embedding_stream.close();
+        embeddings_[i]->load_parameters(embedding_model_files[i]);
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -1210,11 +1218,11 @@ void Model::init_params_for_sparse_() {
   }
 }
 
-void Model::init_model_oversubscriber_() {
+void Model::init_model_oversubscriber_(const std::vector<std::string>& sparse_embedding_files) {
   if (solver_.use_mixed_precision) {
-    model_oversubscriber_ = create_model_oversubscriber_<__half>(std::vector<std::string>());
+    model_oversubscriber_ = create_model_oversubscriber_<__half>(sparse_embedding_files);
   } else {
-    model_oversubscriber_ = create_model_oversubscriber_<float>(std::vector<std::string>());
+    model_oversubscriber_ = create_model_oversubscriber_<float>(sparse_embedding_files);
   }
   mos_created_ = true;
 }

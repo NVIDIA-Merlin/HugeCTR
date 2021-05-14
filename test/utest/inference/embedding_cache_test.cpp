@@ -34,6 +34,10 @@
 #define MODEL_NAME "DCN"
 #define BATCHSIZE 1024
 
+#include <experimental/filesystem>
+
+namespace fs = std::experimental::filesystem;
+
 using namespace HugeCTR;
 namespace {
 
@@ -185,18 +189,25 @@ void embedding_cache_test(const std::string& config_file,
     num_duplicate_embeddingcolumns[sample_id] = sample_duplicate_embeddingcolumns;
   }
 
+  auto remove_prefix = [](const std::string& path) {
+    size_t found = path.rfind("/");
+    if (found != std::string::npos)
+      return std::string(path, found + 1);
+    else
+      return path;
+  };
+
   // Read all the embeddings from the model
   std::string emb_file_path = sparse_model_file;
-  bool distributed_emb = inference_info.distributed_emb_[0];
   size_t embedding_vec_size = inference_info.embedding_vec_size_[0];
-  std::ifstream emb_file(emb_file_path);
+
+  std::string emb_file_prefix(sparse_model_file + "/" + remove_prefix(sparse_model_file));
+  std::ifstream key_stream(emb_file_prefix + ".key");
+  std::ifstream vec_stream(emb_file_prefix + ".vec");
   // Check if file is opened successfully
-  if (!emb_file.is_open()) {
+  if (!key_stream.is_open() || !vec_stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Error: embeddings file cannot open for reading");
   }
-  emb_file.seekg(0, emb_file.end);
-  size_t file_size = emb_file.tellg();
-  emb_file.seekg(0, emb_file.beg);
 
   // The buffers for all embeddings
   TypeHashKey* h_total_embeddingcolumns;
@@ -204,57 +215,20 @@ void embedding_cache_test(const std::string& config_file,
   // The max value of all embedding ids
   TypeHashKey max_emb_id = 0;
   // The num of embeddings in the file
-  size_t row_num;
+  size_t row_num = fs::file_size(emb_file_prefix + ".key") / sizeof(TypeHashKey);
 
-  if(distributed_emb){
-    size_t row_size = sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size;
-    row_num = file_size / row_size;
-    if (file_size % row_size != 0) {
-      CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
-    }
-    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingcolumns, 
-                                row_num * sizeof(TypeHashKey), 
-                                cudaHostAllocPortable));
-    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingvector, 
-                                row_num * embedding_vec_size * sizeof(float), 
-                                cudaHostAllocPortable));
-    for(size_t pair = 0; pair < row_num; pair++){
-      // Read out the emb_id and emb_vec
-      emb_file.read(reinterpret_cast<char *>(h_total_embeddingcolumns + pair), sizeof(TypeHashKey));
-      emb_file.read(reinterpret_cast<char *>(h_total_embeddingvector + pair * embedding_vec_size),
-                    sizeof(float) * embedding_vec_size);
-
-      // Calculate the max id
-      max_emb_id = std::max(max_emb_id, h_total_embeddingcolumns[pair]);
-    }
+  CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingcolumns, row_num * sizeof(TypeHashKey),
+                              cudaHostAllocPortable));
+  CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingvector, row_num * embedding_vec_size * sizeof(float),
+                              cudaHostAllocPortable));
+  for(size_t pair = 0; pair < row_num; pair++){
+    // Read out the emb_id and emb_vec
+    key_stream.read(reinterpret_cast<char *>(h_total_embeddingcolumns + pair), sizeof(TypeHashKey));
+    vec_stream.read(reinterpret_cast<char *>(h_total_embeddingvector + pair * embedding_vec_size),
+                  sizeof(float) * embedding_vec_size);
+    // Calculate the max id
+    max_emb_id = std::max(max_emb_id, h_total_embeddingcolumns[pair]);
   }
-  else{
-    size_t row_size = sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * embedding_vec_size;
-    row_num = file_size / row_size;
-    if (file_size % row_size != 0){
-      CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
-    }
-    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingcolumns, 
-                                row_num * sizeof(TypeHashKey), 
-                                cudaHostAllocPortable));
-    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingvector, 
-                                row_num * embedding_vec_size * sizeof(float), 
-                                cudaHostAllocPortable));
-    size_t read_slod_id;
-    for(size_t pair = 0; pair < row_num; pair++){
-      // Read out the emb_id, slot_id and emb_vec
-      emb_file.read(reinterpret_cast<char *>(h_total_embeddingcolumns + pair), sizeof(TypeHashKey));
-      emb_file.read(reinterpret_cast<char *>(&read_slod_id), sizeof(size_t));
-      emb_file.read(reinterpret_cast<char *>(h_total_embeddingvector + pair * embedding_vec_size),
-                    sizeof(float) * embedding_vec_size);
-
-      // Calculate the max id
-      max_emb_id = std::max(max_emb_id, h_total_embeddingcolumns[pair]);
-    }
-  }
-
-  // Close the emb file after finish reading
-  emb_file.close();
 
   // Parameter server and embedding cache shared by all workers
   std::vector<std::string> model_config_path{config_file};

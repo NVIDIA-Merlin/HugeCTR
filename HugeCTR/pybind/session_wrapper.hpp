@@ -26,8 +26,7 @@ void SessionPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::Session, std::shared_ptr<HugeCTR::Session>>(m, "Session")
       .def(pybind11::init<const SolverParser &, const std::string &, bool, const std::string>(),
            pybind11::arg("solver_config"), pybind11::arg("config_file"),
-           pybind11::arg("use_model_oversubscriber") = false,
-           pybind11::arg("temp_embedding_dir") = std::string())
+           pybind11::arg("use_model_oversubscriber") = false)
       .def("train", &HugeCTR::Session::train)
       .def("eval", &HugeCTR::Session::eval)
       .def("get_eval_metrics", &HugeCTR::Session::get_eval_metrics)

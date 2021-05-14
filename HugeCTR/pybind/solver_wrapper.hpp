@@ -28,8 +28,7 @@ std::unique_ptr<Solver> CreateSolver(
     int batchsize, std::vector<std::vector<int>> vvgpu, bool repeat_dataset,
     bool use_mixed_precision, bool enable_tf32_compute, float scaler, 
     std::map<metrics::Type, float> metrics_spec, bool i64_input_key,
-    bool use_algorithm_search, bool use_cuda_graph,
-    bool use_model_oversubscriber, std::string temp_embedding_dir) {
+    bool use_algorithm_search, bool use_cuda_graph) {
   std::unique_ptr<Solver> solver(new Solver());
   solver->seed = seed;
   solver->lr_policy = lr_policy;
@@ -51,8 +50,6 @@ std::unique_ptr<Solver> CreateSolver(
   solver->i64_input_key = i64_input_key;
   solver->use_algorithm_search = use_algorithm_search;
   solver->use_cuda_graph = use_cuda_graph;
-  solver->use_model_oversubscriber = use_model_oversubscriber;
-  solver->temp_embedding_dir = temp_embedding_dir;
   return solver;
 }
 
@@ -78,9 +75,7 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("metrics_spec", &HugeCTR::Solver::metrics_spec)
       .def_readonly("i64_input_key", &HugeCTR::Solver::i64_input_key)
       .def_readonly("use_algorithm_search", &HugeCTR::Solver::use_algorithm_search)
-      .def_readonly("use_cuda_graph", &HugeCTR::Solver::use_cuda_graph)
-      .def_readonly("use_model_oversubscriber", &HugeCTR::Solver::use_model_oversubscriber)
-      .def_readonly("temp_embedding_dir", &HugeCTR::Solver::temp_embedding_dir);
+      .def_readonly("use_cuda_graph", &HugeCTR::Solver::use_cuda_graph);
   m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver,
        pybind11::arg("seed") = 0,
        pybind11::arg("lr_policy") = LrPolicy_t::fixed,
@@ -101,9 +96,7 @@ void SolverPybind(pybind11::module& m) {
        pybind11::arg("metrics_spec") = std::map<metrics::Type, float>({{metrics::Type::AUC,1.f}}),
        pybind11::arg("i64_input_key") = false,
        pybind11::arg("use_algorithm_search") = true,
-       pybind11::arg("use_cuda_graph") = true,
-       pybind11::arg("use_model_oversubscriber") = false,
-       pybind11::arg("temp_embedding_dir") = "./");
+       pybind11::arg("use_cuda_graph") = true);
 }
 
 }  // namespace python_lib
