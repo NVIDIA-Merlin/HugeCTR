@@ -15,7 +15,7 @@
 */
 
 #include "cuda_utils.h"
-#include <cub/cub/cub.cuh>
+#include <cub/cub.cuh>
 #include <memory>
 
 namespace CudaUtils {
