@@ -57,41 +57,10 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   Tensors2<TypeEmbeddingComp>
       embedding_feature_tensors_;             /**< the output tensor of the forward(). */
   Tensors2<TypeEmbeddingComp> wgrad_tensors_; /**< the input tensor of the backward(). */
-  Tensors2<TypeEmbeddingComp>
-      opt_m_tensors_; /**< The mi variable storage for adam optimizer in the update_params(). */
-  Tensors2<TypeEmbeddingComp>
-      opt_v_tensors_; /**< The vi variable storage for adam optimizer in the update_params(). */
-  Tensors2<uint64_t> opt_prev_time_tensors_; /**< The previous update time storage for lazy adam
-                                                  in update_params(). */
-  Tensors2<TypeEmbeddingComp> opt_momentum_tensors_; /**< The momentum variable storage
-                                           for the momentum optimizer in the update_params(). */
-  Tensors2<TypeEmbeddingComp> opt_accm_tensors_;     /**< The accm variable storage for the
-                                                         nesterov optimizer in the update_params(). */
+
   Tensors2<TypeHashKey>
       row_offset_allreduce_tensors_; /**< The temp memory to store the row_offset after all_reduce
                                         operation among multi-gpu in forward(). */
-  Tensors2<size_t> hash_value_index_sort_tensors_; /**< The temp memory to store the sorted hash
-                                                        table value indexes in update_params(). */
-
-  Tensors2<uint32_t>
-      hash_value_index_count_offset_tensors_; /**< The temp memory to store the offset of each count
-                                                 of hash table value indexes in update_params(). */
-  Tensors2<uint32_t> hash_value_index_count_counter_tensors_; /**< The temp memory to store the
-                                                                counter of the count of hash table
-                                                                value indexes in update_params(). */
-
-  Tensors2<uint32_t> new_hash_value_flag_tensors_;
-  Tensors2<uint32_t> hash_value_flag_sumed_tensors_;
-
-  Tensors2<TypeHashKey> sample_id_tensors_; /**< The temp memory to store the sample ids of hash
-                                              table value in      update_params(). */
-  Tensors2<TypeHashKey> sample_id_sort_tensors_; /**< The temp memory to store the sorted sample
-                                                   ids of hash table value in update_params(). */
-  Tensors2<void> temp_storage_sort_tensors_;     /**< The temp memory for the CUB lib sorting
-                                                          API in update_params(). */
-
-  Tensors2<void> temp_storage_scan_tensors_; /**< The temp memory for the CUB lib scaning API
-                                                      in update_params(). */
 
   Tensors2<TypeEmbeddingComp> utest_forward_temp_tensors_;
 
@@ -99,6 +68,8 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   size_t max_vocabulary_size_per_gpu_; /**< Max vocabulary size for each GPU. */
 
   SparseEmbeddingFunctors functors_;
+
+  std::vector<EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>> embedding_optimizers_;
 
   /**
    * Initialize the embedding table on local GPUs.
@@ -165,7 +136,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
       const Tensors2<TypeHashKey> &evaluate_row_offsets_tensors,
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-      const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
+      const SparseEmbeddingHashParams &embedding_params,
       const std::shared_ptr<ResourceManager> &resource_manager);
 
   /**
@@ -234,26 +205,21 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * updates the hash table by wgrad(from backward()) and optimizer.
    */
   void update_params() override {
+    // accumulate times for adam optimizer
+    Base::get_opt_params().hyperparams.adam.times++;
 #pragma omp parallel num_threads(Base::get_resource_manager().get_local_gpu_count())
     {
       size_t id = omp_get_thread_num();
       CudaDeviceContext context(Base::get_local_gpu(id).get_device_id());
-
-      // accumulate times for adam optimizer
-      Base::get_opt_params(id).hyperparams.adam.times++;
-
       // do update params operation
-      functors_.update_params(
+      embedding_optimizers_[id].update(
           Base::get_batch_size(true), Base::get_slot_num(), Base::get_embedding_vec_size(),
-          max_vocabulary_size_per_gpu_, Base::get_opt_params(id), *Base::get_nnz_array(true)[id],
+          max_vocabulary_size_per_gpu_, *Base::get_nnz_array(true)[id],
           Base::get_row_offsets_tensors(true)[id], hash_value_index_tensors_[id],
-          sample_id_tensors_[id], sample_id_sort_tensors_[id], hash_value_index_sort_tensors_[id],
-          hash_value_index_count_offset_tensors_[id], new_hash_value_flag_tensors_[id],
-          hash_value_flag_sumed_tensors_[id], hash_value_index_count_counter_tensors_[id],
-          temp_storage_sort_tensors_[id], temp_storage_scan_tensors_[id], wgrad_tensors_[id],
+          wgrad_tensors_[id],
           hash_table_value_tensors_[id], Base::get_local_gpu(id).get_sm_count(),
           Base::get_local_gpu(id).get_stream());
-    }
+     }
 
     return;
   }

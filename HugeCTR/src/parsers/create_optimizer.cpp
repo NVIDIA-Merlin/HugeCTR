@@ -28,8 +28,7 @@
 
 namespace HugeCTR {
 
-template <typename Type>
-OptParams<Type> get_optimizer_param<Type>::operator()(const nlohmann::json& j_optimizer) {
+OptParams get_optimizer_param(const nlohmann::json& j_optimizer) {
   // create optimizer
   auto optimizer_name = get_value_from_json<std::string>(j_optimizer, "type");
   Optimizer_t optimizer_type;
@@ -37,8 +36,8 @@ OptParams<Type> get_optimizer_param<Type>::operator()(const nlohmann::json& j_op
     CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_name);
   }
 
-  OptHyperParams<Type> opt_hyper_params;
-  OptParams<Type> opt_params;
+  OptHyperParams opt_hyper_params;
+  OptParams opt_params;
 
   Update_t update_type = Update_t::Local;
   if (has_key_(j_optimizer, "update_type")) {
@@ -64,6 +63,16 @@ OptParams<Type> get_optimizer_param<Type>::operator()(const nlohmann::json& j_op
       opt_hyper_params.adam.beta2 = beta2;
       opt_hyper_params.adam.epsilon = epsilon;
       opt_params = {Optimizer_t::Adam, learning_rate, opt_hyper_params, update_type};
+      break;
+    }
+    case Optimizer_t::AdaGrad: {
+      auto j_hparam = get_json(j_optimizer, "adagrad_hparam");
+      float learning_rate = get_value_from_json<float>(j_hparam, "learning_rate");
+      float initial_accu_value = get_value_from_json<float>(j_hparam, "initial_accu_value");
+      float epsilon = get_value_from_json<float>(j_hparam, "epsilon");
+      opt_hyper_params.adagrad.initial_accu_value = initial_accu_value;
+      opt_hyper_params.adagrad.epsilon = epsilon;
+      opt_params = {Optimizer_t::AdaGrad, learning_rate, opt_hyper_params, update_type};
       break;
     }
     case Optimizer_t::MomentumSGD: {
@@ -96,10 +105,5 @@ OptParams<Type> get_optimizer_param<Type>::operator()(const nlohmann::json& j_op
   }
   return opt_params;
 }
-// template struct create_embedding<long long, float>;
-// template struct create_embedding<long long, __half>;
-// template struct create_embedding<unsigned int, float>;
-// template struct create_embedding<unsigned int, __half>;
-template class get_optimizer_param<float>;
-template class get_optimizer_param<__half>;
+
 }  // namespace HugeCTR

@@ -25,14 +25,14 @@
 
 namespace HugeCTR {
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
+template <typename TypeHashKey>
 class ParameterServerManager {
-  std::vector<std::shared_ptr<ParameterServer<TypeHashKey, TypeEmbeddingComp>>> ps_;
+  std::vector<std::shared_ptr<ParameterServer<TypeHashKey>>> ps_;
   BufferBag buf_bag_;
 
 public:
   ParameterServerManager(
-      const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+      const std::vector<SparseEmbeddingHashParams>& embedding_params,
       const Embedding_t embedding_type,
       const std::vector<std::string>& sparse_embedding_files,
       size_t buffer_size);
@@ -46,7 +46,7 @@ public:
    * @param      i     index of parameter server.
    * @return     shared pointer of the ith parameter server.
    */
-  const std::shared_ptr<ParameterServer<TypeHashKey, TypeEmbeddingComp>> get_parameter_server(int i) {
+  const std::shared_ptr<ParameterServer<TypeHashKey>> get_parameter_server(int i) {
     return ps_[i];
   }
 

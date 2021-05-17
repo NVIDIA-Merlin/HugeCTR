@@ -47,8 +47,8 @@ void open_and_get_size(
 
 } // namespace
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-struct ParameterServer<TypeHashKey, TypeEmbeddingComp>::SparseModelFile {
+template <typename TypeHashKey>
+struct ParameterServer<TypeHashKey>::SparseModelFile {
   std::string folder_name;
   std::string key_file;
   std::string slot_file;
@@ -68,8 +68,8 @@ struct ParameterServer<TypeHashKey, TypeEmbeddingComp>::SparseModelFile {
   }
 };
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ParameterServer<TypeHashKey, TypeEmbeddingComp>::map_embedding_to_memory_() {
+template <typename TypeHashKey>
+void ParameterServer<TypeHashKey>::map_embedding_to_memory_() {
   try {
     fd_ = open(sparse_model_->vec_file.c_str(), O_RDWR, S_IRUSR | S_IWUSR);
     if (fd_ == -1) {
@@ -106,8 +106,8 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::map_embedding_to_memory_()
   }
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ParameterServer<TypeHashKey, TypeEmbeddingComp>::unmap_embedding_from_memory_() {
+template <typename TypeHashKey>
+void ParameterServer<TypeHashKey>::unmap_embedding_from_memory_() {
   try {
     if (maped_to_memory_ && mmaped_table_ != nullptr) {
       size_t vec_file_size_in_byte = fs::file_size(sparse_model_->vec_file);
@@ -128,9 +128,9 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::unmap_embedding_from_memor
   }
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-ParameterServer<TypeHashKey, TypeEmbeddingComp>::ParameterServer(
-    const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
+template <typename TypeHashKey>
+ParameterServer<TypeHashKey>::ParameterServer(
+    const SparseEmbeddingHashParams& embedding_params,
     const std::string& sparse_model_name, const Embedding_t embedding_type)
   : sparse_model_(new SparseModelFile(sparse_model_name)),
     embedding_vec_size_(embedding_params.embedding_vec_size),
@@ -199,15 +199,15 @@ ParameterServer<TypeHashKey, TypeEmbeddingComp>::ParameterServer(
   }
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-ParameterServer<TypeHashKey, TypeEmbeddingComp>::~ParameterServer() {
+template <typename TypeHashKey>
+ParameterServer<TypeHashKey>::~ParameterServer() {
   if (maped_to_memory_) {
     unmap_embedding_from_memory_();
   }
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_keyset_from_file(
+template <typename TypeHashKey>
+void ParameterServer<TypeHashKey>::load_keyset_from_file(
 	std::string keyset_file) {
   try {
     std::ifstream keyset_stream;
@@ -228,8 +228,8 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_keyset_from_file(
   }
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_param_from_embedding_file(
+template <typename TypeHashKey>
+void ParameterServer<TypeHashKey>::load_param_from_embedding_file(
      BufferBag& buf_bag, size_t& hit_size) {
   try {
     if (!keyset_.size()) {
@@ -299,8 +299,8 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_param_from_embedding_
   }
 }
   
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_param_to_embedding_file(
+template <typename TypeHashKey>
+void ParameterServer<TypeHashKey>::dump_param_to_embedding_file(
      BufferBag &buf_bag, const size_t dump_size) {
   try {
     if (dump_size == 0) return;
@@ -404,18 +404,16 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_param_to_embedding_fi
 
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
+template <typename TypeHashKey>
 std::vector<TypeHashKey>
-ParameterServer<TypeHashKey, TypeEmbeddingComp>::get_keys_from_hash_table() const {
+ParameterServer<TypeHashKey>::get_keys_from_hash_table() const {
   auto get_key_op = [](auto e){ return e.first; };
   std::vector<TypeHashKey> keys(hash_table_.size());
   transform(hash_table_.begin(), hash_table_.end(), keys.begin(), get_key_op);
   return keys;
 }
 
-template class ParameterServer<long long, __half>;
-template class ParameterServer<long long, float>;
-template class ParameterServer<unsigned, __half>;
-template class ParameterServer<unsigned, float>;
+template class ParameterServer<long long>;
+template class ParameterServer<unsigned>;
 
 }  // namespace HugeCTR

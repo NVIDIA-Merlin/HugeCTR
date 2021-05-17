@@ -15,83 +15,70 @@
  */
 
 #include <general_buffer2.hpp>
-#include <optimizers/adam_optimizer.hpp>
+#include <optimizers/adagrad_optimizer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
 
 namespace HugeCTR {
-
 namespace {
 
 template <typename T>
-__global__ void adam_update_kernel(int len, float* weight, T* m, T* v, const T* wgrad,
-                                   float alpha_t, float beta1, float beta2, float epsilon,
-                                   float scaler) {
+__global__ void ada_grad_update_kernel(int len, float *weight, const T* wgrad, T *sum, float lr, const float epsilon, float scaler){
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     float gi = TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
-    float mi = beta1 * TypeConvertFunc<float, T>::convert(m[i]) + (1.f - beta1) * gi;
-    float vi = beta2 * TypeConvertFunc<float, T>::convert(v[i]) + (1.f - beta2) * gi * gi;
-    m[i] = TypeConvertFunc<T, float>::convert(mi);
-    v[i] = TypeConvertFunc<T, float>::convert(vi);
-    weight[i] -= alpha_t * mi / (sqrt(vi) + epsilon);
+    float accum_ = TypeConvertFunc<float, T>::convert(__ldg(&sum[i]));
+    accum_ += gi * gi;
+    float std_ = epsilon + sqrtf(accum_);
+    weight[i] -= lr * gi / std_;
+    sum[i] = TypeConvertFunc<T, float>::convert(accum_);
   }
 }
-
-}  // namespace
+}
 
 template <typename T>
-AdamOptimizer<T>::AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
+AdaGradOptimizer<T>::AdaGradOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
                              const std::shared_ptr<BufferBlock2<T>>& opt_buf,
                              const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
-                             float beta1, float beta2, float epsilon, float scaler)
+                             float initial_accu_value, float epsilon, float scaler)
     : Optimizer(weight_main, gpu_resource, learning_rate,
                 scaler),
       wgrad_(wgrad),
-      t_(0),
-      beta1_(beta1),
-      beta2_(beta2),
+      initial_accumulator_value_(initial_accu_value),
       epsilon_(epsilon) {
   if(weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
     CK_THROW_(Error_t::WrongInput,
                   "weight->get_num_elements() != wgrad->get_num_elements()");
   }
-  opt_buf->reserve({weight_main.get_num_elements()}, &m_);
-  opt_buf->reserve({weight_main.get_num_elements()}, &v_);
+  opt_buf->reserve({weight_main.get_num_elements()}, &accum_);
+}
+
+
+template <typename T>
+void AdaGradOptimizer<T>::initialize() {
+  CK_CUDA_THROW_(cudaMemsetAsync(accum_.get_ptr(), initial_accumulator_value_, accum_.get_size_in_bytes(), gpu_resource_->get_stream()));
 }
 
 template <typename T>
-void AdamOptimizer<T>::initialize() {
-  CK_CUDA_THROW_(cudaMemsetAsync(m_.get_ptr(), 0, m_.get_size_in_bytes(), gpu_resource_->get_stream()));
-  CK_CUDA_THROW_(cudaMemsetAsync(v_.get_ptr(), 0, v_.get_size_in_bytes(), gpu_resource_->get_stream()));
-}
-
-template <typename T>
-void AdamOptimizer<T>::update() {
+void AdaGradOptimizer<T>::update() {
   CudaDeviceContext context(get_device_id());
 
   const size_t len = weight_main_.get_num_elements();
   constexpr size_t block_dim = 256;
   const size_t grid_dim = (len - 1) / block_dim + 1;
 
-  ++t_;
-  const float alpha_t = lr_ * sqrt(1 - pow(beta2_, t_)) / (1 - pow(beta1_, t_));
-
   float* weight = weight_main_.get_ptr();
+  const T* wgrad = wgrad_.get_ptr();
+  ada_grad_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, wgrad, accum_.get_ptr(), lr_, epsilon_, scaler_);
 
-  T *m = m_.get_ptr();
-  T *v = v_.get_ptr();
-  const T *wgrad = wgrad_.get_ptr();
-  adam_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, m, v, wgrad, alpha_t, beta1_, beta2_, epsilon_, scaler_);
 #ifndef NDEBUG
-  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
 
 
-template class AdamOptimizer<float>;
-template class AdamOptimizer<__half>;
-
-}  // namespace HugeCTR
+template class AdaGradOptimizer<float>;
+template class AdaGradOptimizer<__half>;
+}

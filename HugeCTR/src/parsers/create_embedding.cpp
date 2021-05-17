@@ -69,17 +69,17 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     CK_THROW_(Error_t::WrongInput, "Cannot find bottom");
   }
 
-  OptParams<TypeFP> embedding_opt_params;
+  OptParams embedding_opt_params;
   if (has_key_(j_layers, "optimizer")) {
-    embedding_opt_params = get_optimizer_param<TypeFP>()(get_json(j_layers, "optimizer"));
+    embedding_opt_params = get_optimizer_param(get_json(j_layers, "optimizer"));
   } else {
-    embedding_opt_params = get_optimizer_param<TypeFP>()(j_optimizer);
+    embedding_opt_params = get_optimizer_param(j_optimizer);
   }
   embedding_opt_params.scaler = scaler;
 
   switch (embedding_type) {
     case Embedding_t::DistributedSlotSparseEmbeddingHash: {
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           max_vocabulary_size_per_gpu,
@@ -107,7 +107,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
         }
       }
 
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           max_vocabulary_size_per_gpu,
@@ -133,7 +133,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
         slot_size_array.emplace_back(slot.get<size_t>());
       }
 
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           0,

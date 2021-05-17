@@ -40,25 +40,7 @@ file(GLOB huge_ctr_src
   data_simulator.cu
   data_reader.cpp
   layer.cpp
-  layers/batch_norm_layer.cu
-  layers/cast_layer.cu
-  layers/concat_layer.cu
-  layers/dropout_layer.cu
-  layers/elu_layer.cu
-  layers/fully_connected_layer.cu
-  layers/fully_connected_layer_half.cu
-  layers/fused_fully_connected_layer.cu
-  layers/interaction_layer.cu
-  layers/relu_layer.cu
-  layers/reshape_layer.cu
-  layers/sigmoid_layer.cu
-  layers/slice_layer.cu
-  layers/fm_order2_layer.cu
-  layers/weight_multiply_layer.cu
-  layers/multi_cross_layer.cu
-  layers/add_layer.cu
-  layers/reduce_sum_layer.cu
-  layers/dot_product_layer.cu
+  layers/*.cu
   loss.cu
   network.cu
   network.cpp
@@ -73,10 +55,7 @@ file(GLOB huge_ctr_src
   inference/embedding_cache.cu
   data_readers/metadata.cpp
   metrics.cu
-  optimizers/adam_optimizer.cu
-  optimizers/momentum_sgd_optimizer.cu
-  optimizers/nesterov_optimizer.cu
-  optimizers/sgd_optimizer.cu
+  optimizers/*.cu
   optimizer.cpp
   regularizer.cu
   regularizers/l1_regularizer.cu
@@ -126,7 +105,6 @@ file(GLOB huge_ctr_src
   model_oversubscriber/parameter_server_manager.cpp
   diagnose.cu
   ../pybind/model.cpp
-  ../pybind/optimizer.cpp
   ../pybind/add_input.cpp
   ../pybind/add_sparse_embedding.cpp
   ../pybind/add_dense_layer.cpp

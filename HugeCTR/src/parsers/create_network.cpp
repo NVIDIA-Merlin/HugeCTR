@@ -958,13 +958,13 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
   // create optimizer
   if (!inference_flag) {
     if(use_mixed_precision){
-      auto opt_param = get_optimizer_param<__half>()(j_optimizer);
+      auto opt_param = get_optimizer_param(j_optimizer);
 
       network->optimizer_ = std::move(Optimizer::Create(
         opt_param, train_weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
         scaler, opt_buff_half, gpu_resource));
     }else {
-      auto opt_param = get_optimizer_param<float>()(j_optimizer);
+      auto opt_param = get_optimizer_param(j_optimizer);
 
       network->optimizer_ = std::move(Optimizer::Create(
         opt_param, train_weight_buff->as_tensor(), wgrad_buff->as_tensor(), scaler, opt_buff, gpu_resource));

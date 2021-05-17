@@ -31,26 +31,25 @@ private:
   std::unique_ptr<ModelOversubscriberImplBase> impl_base_;
 
 public:
-  template <typename TypeEmbeddingComp>
   ModelOversubscriber(
     std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-    std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+    std::vector<SparseEmbeddingHashParams>& embedding_params,
     const std::vector<std::string>& sparse_embedding_files, const Solver& solver) {
     if (solver.i64_input_key) {
       for (auto& one_embedding : embeddings) {
         embedding_params.push_back(
-            dynamic_cast<Embedding<long long, TypeEmbeddingComp>*>(one_embedding.get())
+            dynamic_cast<Embedding<long long, float>*>(one_embedding.get())
                 ->get_embedding_params());
       }
-      impl_base_.reset(new ModelOversubscriberImpl<long long, TypeEmbeddingComp>(
+      impl_base_.reset(new ModelOversubscriberImpl<long long>(
           embeddings, embedding_params, sparse_embedding_files));
     } else {
       for (auto& one_embedding : embeddings) {
         embedding_params.push_back(
-            dynamic_cast<Embedding<unsigned, TypeEmbeddingComp>*>(one_embedding.get())
+            dynamic_cast<Embedding<unsigned, float>*>(one_embedding.get())
                 ->get_embedding_params());
       }
-      impl_base_.reset(new ModelOversubscriberImpl<unsigned, TypeEmbeddingComp>(
+      impl_base_.reset(new ModelOversubscriberImpl<unsigned>(
           embeddings, embedding_params, sparse_embedding_files));
     }
   }

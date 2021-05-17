@@ -49,7 +49,7 @@ std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> init_embedding(
     const Tensors2<KeyType> &evaluate_row_offsets_tensors,
     const Tensors2<KeyType> &evaluate_value_tensors,
     const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-    const SparseEmbeddingHashParams<EmbeddingCompType> &embedding_params,
+    const SparseEmbeddingHashParams &embedding_params,
     const std::shared_ptr<ResourceManager> &resource_manager,
     const Embedding_t embedding_type) {
   if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {

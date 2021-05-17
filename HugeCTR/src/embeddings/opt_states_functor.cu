@@ -18,6 +18,58 @@
 #include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {
+template <typename TypeEmbeddingComp>
+std::vector<Tensors2<TypeEmbeddingComp>> SparseEmbeddingFunctors::get_opt_states(const std::vector<OptimizerTensor<TypeEmbeddingComp>>&opt_tensors_, Optimizer_t optimizer_type, size_t local_gpu_count) {
+  std::vector<Tensors2<TypeEmbeddingComp>> opt_states;
+  opt_states.resize(local_gpu_count);
+
+  for(size_t i = 0; i < local_gpu_count; ++i){
+    switch (optimizer_type) {
+      case Optimizer_t::Adam:  // adam
+      {
+        opt_states[i].push_back(opt_tensors_[i].opt_m_tensors_);
+        opt_states[i].push_back(opt_tensors_[i].opt_v_tensors_);
+        break;
+      }
+
+      case Optimizer_t::AdaGrad:  // nesterov
+      {
+        opt_states[i].push_back(opt_tensors_[i].opt_accm_tensors_);
+        break;
+      }
+      case Optimizer_t::MomentumSGD:  // momentum_sgd
+      {
+        opt_states[i].push_back(opt_tensors_[i].opt_momentum_tensors_);
+        break;
+      }
+
+      case Optimizer_t::Nesterov:  // nesterov
+      {
+        opt_states[i].push_back(opt_tensors_[i].opt_accm_tensors_);
+        break;
+      }
+
+      case Optimizer_t::SGD:
+        break;
+
+      default:
+        throw std::runtime_error(
+            std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+    }
+  }
+
+  std::vector<Tensors2<TypeEmbeddingComp>> transpose_opt_states;
+  if(opt_states[0].size() > 0){
+    transpose_opt_states.resize(opt_states[0].size());
+    for(size_t i = 0; i < opt_states[0].size(); ++i){
+      transpose_opt_states[i].resize(opt_states.size());
+      for(size_t j = 0; j < opt_states.size(); ++j){
+        transpose_opt_states[i][j] = opt_states[j][i];
+      }
+    }
+  }
+  return transpose_opt_states;
+}
 
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::dump_opt_states(
@@ -165,6 +217,9 @@ void SparseEmbeddingFunctors::load_opt_states(
     MESSAGE_("Done");
   }
 }
+template std::vector<Tensors2<float>> SparseEmbeddingFunctors::get_opt_states(const std::vector<OptimizerTensor<float>>&opt_tensors_, Optimizer_t optimizer_type, size_t local_gpu_count);
+
+template std::vector<Tensors2<__half>> SparseEmbeddingFunctors::get_opt_states(const std::vector<OptimizerTensor<__half>>&opt_tensors_, Optimizer_t optimizer_type, size_t local_gpu_count);
 
 template void SparseEmbeddingFunctors::dump_opt_states<float>(
     std::ofstream& stream, const ResourceManager &resource_manager,
