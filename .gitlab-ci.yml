@@ -302,34 +302,7 @@ dcn_multi_node:
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
       cd /dataset/criteo_kaggle/dcn_parquet;
       python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json"
-    - srun --ntasks=2
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/dcn_parquet;
-      python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_distributed_2node_4gpu.json"
-    - srun --ntasks=4
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/dcn;
-      mkdir ${WORK_DIR}/export_predictions_dlrm_fp16_4node_2gpu;
-      python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_fp16_4node_2gpu.json"
-    - srun --ntasks=4
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/dcn;
-      python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_fp32_4node_2gpu.json"
+    
 
 # python interface inference
 py_inference:
@@ -434,16 +407,36 @@ nightly_build:
     - 1GPU
   stage: build
   script:
-    - export IMAGE_VERSIONED="${CI_REGISTRY}/dl/hugectr/hugectr:${CI_COMMIT_BRANCH}.${CI_PIPELINE_ID}"
-    - export IMAGE_LATEST="${CI_REGISTRY}/dl/hugectr/hugectr:${CI_COMMIT_BRANCH}.latest"
+    - export IMAGE_VERSIONED="${CI_REGISTRY}/dl/hugectr/hugectr:${CI_COMMIT_BRANCH}.train.${CI_PIPELINE_ID}"
+    - export IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_train"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - docker build --pull
       -t "${IMAGE_VERSIONED}"
       -f ./tools/dockerfiles/train.Dockerfile
       ${PWD}
     - docker push "${IMAGE_VERSIONED}"
-    - docker tag ${IMAGE_VERSIONED} ${IMAGE_LATEST}
-    - docker push ${IMAGE_LATEST}
+    - docker tag ${IMAGE_VERSIONED} ${IMAGE_RELEASE}
+    - docker push ${IMAGE_RELEASE}
+  only:
+    variables:
+      - $NIGHTLY == "1"
+
+
+nightly_build_embedding:
+  tags:
+    - 1GPU
+  stage: build
+  script:
+    - export IMAGE_VERSIONED="${CI_REGISTRY}/dl/hugectr/hugectr:${CI_COMMIT_BRANCH}.embedding.${CI_PIPELINE_ID}"
+    - export IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_embedding"
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker build --pull
+      -t "${IMAGE_VERSIONED}"
+      -f ./tools/dockerfiles/plugin-embedding.Dockerfile
+      ${PWD}
+    - docker push "${IMAGE_VERSIONED}"
+    - docker tag ${IMAGE_VERSIONED} ${IMAGE_RELEASE}
+    - docker push ${IMAGE_RELEASE}
   only:
     variables:
       - $NIGHTLY == "1"
