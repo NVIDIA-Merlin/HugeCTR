@@ -28,7 +28,7 @@ ENV CPATH=/opt/conda/include:$CPATH \
     CONDA_PREFIX=/opt/conda \
     NCCL_LAUNCH_MODE=PARALLEL
 
-RUN pip3 install numpy==1.19.2 pandas sklearn ortools nvtx-plugins jupyter tensorflow==2.4.0 && \
+RUN pip3 install numpy==1.19.2 pandas sklearn ortools nvtx-plugins jupyter horovod tensorflow==2.4.0 && \
     pip3 cache purge
 
 RUN if [ "$RELEASE" = "true" ]; \

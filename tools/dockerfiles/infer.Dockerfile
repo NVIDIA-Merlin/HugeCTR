@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/tritonserver:21.02-py3 AS devel
+FROM nvcr.io/nvidia/tritonserver:21.04-py3 AS devel
 
 ARG SM="70;75;80"
 ARG RELEASE=false
@@ -34,13 +34,13 @@ ENV CPATH=/usr/local/nccl/include:$CPATH \
 RUN mkdir -p /opt/conda
 ENV CONDA_PREFIX=/opt/conda
 
-# RMM-0.18
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.18 https://github.com/rapidsai/rmm.git rmm && cd - && \
+# RMM-0.19
+RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.19 https://github.com/rapidsai/rmm.git rmm && cd - && \
     cd /var/tmp/rmm && \
     mkdir -p build && cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX && make -j && \
-    cd /var/tmp/rmm && \
-    cd build && make install && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBUILD_TESTS=OFF && \
+    make -j$(nproc) && \
+    make -j$(nproc) install && \
     rm -rf /var/tmp/rmm
 
 # HugeCTR Inference

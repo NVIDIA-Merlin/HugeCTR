@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cub/cub/cub.cuh>
+#include <cub/cub.cuh>
 #include <diagnose.hpp>
 #include <metrics.hpp>
 #include <utils.cuh>
