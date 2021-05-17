@@ -185,7 +185,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       const Tensors2<TypeHashKey> &evaluate_row_offsets_tensors,
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-      const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
+      const SparseEmbeddingHashParams &embedding_params,
       const std::shared_ptr<ResourceManager> &resource_manager);
 
   /**
@@ -245,17 +245,16 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * updates the hash table by wgrad(from backward()) and optimizer.
    */
   void update_params() override {
+    // accumulate times for adam optimizer
+    Base::get_opt_params().hyperparams.adam.times++;
 #pragma omp parallel num_threads(Base::get_resource_manager().get_local_gpu_count())
     {
       size_t id = omp_get_thread_num();
       CudaDeviceContext context(Base::get_local_gpu(id).get_device_id());
 
-      // accumulate times for adam optimizer
-      Base::get_opt_params(id).hyperparams.adam.times++;
-
       // do update params operation: only support SGD
       functors_.update_params(
-          Base::get_embedding_vec_size(), Base::get_opt_params(id), *Base::get_nnz_array(true)[id],
+          Base::get_embedding_vec_size(), Base::get_opt_params(), *Base::get_nnz_array(true)[id],
           hash_value_index_tensors_[id], wgrad_tensors_[id], hash_table_value_tensors_[id],
           Base::get_local_gpu(id).get_sm_count(), Base::get_local_gpu(id).get_stream());
     }

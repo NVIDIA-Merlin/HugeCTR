@@ -110,7 +110,7 @@ class internal_runtime_error : public std::runtime_error {
 
 enum class LrPolicy_t { fixed };
 
-enum class Optimizer_t { Adam, MomentumSGD, Nesterov, SGD };
+enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD };
 
 enum class Update_t { Local, Global, LazyGlobal };
 

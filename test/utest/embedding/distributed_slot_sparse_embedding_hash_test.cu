@@ -98,23 +98,26 @@ void init_sparse_model(const char *sparse_model) {
 template <typename TypeEmbeddingComp>
 void train_and_test(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                     const Update_t &update_type) {
-  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
   float tolerance;
   if (std::is_same<TypeEmbeddingComp, __half>::value) {
     hyper_params.adam.epsilon = 1e-4f;
+    hyper_params.adagrad.epsilon = 1e-4f;
     tolerance = 5e-3f;
   } else {
     hyper_params.adam.epsilon = 1e-7f;
+    hyper_params.adagrad.epsilon = 1e-6f;
     tolerance = 1e-4f;
   }
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
+  hyper_params.adagrad.initial_accu_value = 0.f;
 
   const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
 
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
                                                    scaler};
 
   int numprocs = 1, pid = 0;
@@ -177,7 +180,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+  const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
       max_feature_num, slot_num,       combiner,        opt_params};
 
@@ -368,20 +371,23 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 template <typename TypeEmbeddingComp>
 void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                    const Update_t &update_type) {
-  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
   if (std::is_same<TypeEmbeddingComp, __half>::value) {
+    hyper_params.adagrad.epsilon = 1e-4f;
     hyper_params.adam.epsilon = 1e-4f;
   } else {
+    hyper_params.adagrad.epsilon = 1e-7f;
     hyper_params.adam.epsilon = 1e-7f;
   }
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
+  hyper_params.adagrad.initial_accu_value = 0.9f;
 
   const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
 
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
                                                    scaler};
 
   std::vector<std::vector<int>> vvgpu;
@@ -415,7 +421,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   // init hash table file
   init_sparse_model(sparse_model_file);
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+  const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
       max_feature_num, slot_num,       combiner,        opt_params};
 
@@ -480,7 +486,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   std::string sparse_model_src("sparse_model_src");
   std::string sparse_model_dst("sparse_model_dst");
 
-  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
   float tolerance;
@@ -495,8 +501,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   hyper_params.nesterov.mu = 0.9f;
 
   const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
-
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type, scaler};
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type, scaler};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -533,7 +538,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+  const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
       max_feature_num, slot_num,       combiner,        opt_params};
 
@@ -692,6 +697,22 @@ TEST(distributed_sparse_embedding_hash_test, fp16_adam_lazyglobal_update_1gpu) {
 
 TEST(distributed_sparse_embedding_hash_test, fp16_adam_lazyglobal_update_8gpu) {
   train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, Update_t::LazyGlobal);
+}
+
+TEST(distributed_sparse_embedding_hash_test, fp32_adagrad_1gpu) {
+  train_and_test<float>({0}, Optimizer_t::AdaGrad, Update_t::Local);
+}
+
+TEST(distributed_sparse_embedding_hash_test, fp32_adagrad_8gpu) {
+  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::AdaGrad, Update_t::Local);
+}
+
+TEST(distributed_sparse_embedding_hash_test, fp16_adagrad_1gpu) {
+  train_and_test<__half>({0}, Optimizer_t::AdaGrad, Update_t::Local);
+}
+
+TEST(distributed_sparse_embedding_hash_test, fp16_adagrad_8gpu) {
+  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::AdaGrad, Update_t::Local);
 }
 
 TEST(distributed_sparse_embedding_hash_test, load_and_dump) {

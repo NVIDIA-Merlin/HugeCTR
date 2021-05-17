@@ -100,6 +100,13 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         optimizer_config["adam_hparam"] = optimizer_hparam_config;
         break;
       }
+      case Optimizer_t::AdaGrad: {
+        optimizer_config["type"] = "AdaGrad";
+        optimizer_hparam_config["initial_accu_value"] = embedding_opt_params_list[i]->hyperparams.adagrad.initial_accu_value;
+        optimizer_hparam_config["epsilon"] = embedding_opt_params_list[i]->hyperparams.adagrad.epsilon;
+        optimizer_config["adagrad_hparam"] = optimizer_hparam_config;
+        break;
+      }
       case Optimizer_t::MomentumSGD: {
         optimizer_config["type"] = "MomentumSGD";
         optimizer_hparam_config["momentum_factor"] = embedding_opt_params_list[i]->hyperparams.momentum.factor;

@@ -16,7 +16,7 @@
 #pragma once
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <HugeCTR/pybind/optimizer.hpp>
+#include <HugeCTR/include/optimizer.hpp>
 
 
 namespace HugeCTR {
@@ -24,14 +24,17 @@ namespace HugeCTR {
 namespace python_lib {
 
 std::shared_ptr<OptParamsPy> CreateOptimizer(Optimizer_t optimizer_type,
-                                              Update_t update_type,
-                                              float beta1, float beta2, float epsilon,
-                                              float momentum_factor, bool atomic_update) {
+                                            Update_t update_type,
+                                            float beta1, float beta2, float epsilon,
+                                            float initial_accu_value, float momentum_factor,
+                                            bool atomic_update) {
   std::shared_ptr<OptParamsPy> opt_params;
-  OptHyperParamsPy opt_hyper_params;
+  OptHyperParams opt_hyper_params;
   opt_hyper_params.adam.beta1 = beta1;
   opt_hyper_params.adam.beta2 = beta2;
   opt_hyper_params.adam.epsilon = epsilon;
+  opt_hyper_params.adagrad.initial_accu_value = initial_accu_value;
+  opt_hyper_params.adagrad.epsilon = epsilon;
   opt_hyper_params.momentum.factor = momentum_factor;
   opt_hyper_params.nesterov.mu = momentum_factor;
   opt_hyper_params.sgd.atomic_update = atomic_update;
@@ -47,6 +50,7 @@ void OptimizerPybind(pybind11::module& m) {
     pybind11::arg("beta1") = 0.9,
     pybind11::arg("beta2") = 0.999,
     pybind11::arg("epsilon") = 0.0000001,
+    pybind11::arg("initial_accu_value") = 0.f,
     pybind11::arg("momentum_factor") = 0.0,
     pybind11::arg("atomic_update") = true);
 }

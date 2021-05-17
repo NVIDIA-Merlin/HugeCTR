@@ -173,8 +173,7 @@ DenseLayer::DenseLayer(Layer_t layer_type,
       out_dim(out_dim), axis(axis), target_weight_vec(target_weight_vec),
       use_regularizer(use_regularizer), regularizer_type(regularizer_type), lambda(lambda) {}
 
-template <typename TypeFP>
-void init_optimizer(OptParams<TypeFP>& opt_params, const Solver& solver, const std::shared_ptr<OptParamsPy>& opt_params_py) {
+void init_optimizer(OptParams& opt_params, const Solver& solver, const std::shared_ptr<OptParamsPy>& opt_params_py) {
   opt_params.optimizer = opt_params_py->optimizer;
   opt_params.lr = solver.lr;
   opt_params.update_type = opt_params_py->update_type;
@@ -182,6 +181,8 @@ void init_optimizer(OptParams<TypeFP>& opt_params, const Solver& solver, const s
   opt_params.hyperparams.adam.beta1 = opt_params_py->hyperparams.adam.beta1;
   opt_params.hyperparams.adam.beta2 = opt_params_py->hyperparams.adam.beta2;
   opt_params.hyperparams.adam.epsilon = opt_params_py->hyperparams.adam.epsilon;
+  opt_params.hyperparams.adagrad.initial_accu_value = opt_params_py->hyperparams.adagrad.initial_accu_value;
+  opt_params.hyperparams.adagrad.epsilon = opt_params_py->hyperparams.adagrad.epsilon;
   opt_params.hyperparams.momentum.factor = opt_params_py->hyperparams.momentum.factor;
   opt_params.hyperparams.nesterov.mu = opt_params_py->hyperparams.nesterov.mu;
   opt_params.hyperparams.sgd.atomic_update = opt_params_py->hyperparams.sgd.atomic_update;
@@ -254,8 +255,7 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   evaluate_tensor_entries_list_.resize(resource_manager_->get_local_gpu_count());
 
   // initialize optimizer
-  init_optimizer(opt_params_16_, solver_, opt_params_py);
-  init_optimizer(opt_params_32_, solver_, opt_params_py);
+  init_optimizer(opt_params_, solver_, opt_params_py);
   init_learning_rate_scheduler(lr_sch_, solver_);
 }
 
@@ -355,37 +355,32 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   activate_tensor(tensor_active_, sparse_embedding.sparse_embedding_name);
   input_output_info_.push_back(std::make_pair(sparse_embedding.bottom_name, sparse_embedding.sparse_embedding_name));
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
-  OptParams<float> embedding_opt_params_32;
-  OptParams<__half> embedding_opt_params_16;
+  OptParams embedding_opt_params;
   if (!(sparse_embedding.embedding_opt_params)->initialized) {
     sparse_embedding.embedding_opt_params = opt_params_py_;
   }
   embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
-  if (!solver_.use_mixed_precision) {
-    init_optimizer(embedding_opt_params_32, solver_, sparse_embedding.embedding_opt_params);
-  } else {
-    init_optimizer(embedding_opt_params_16, solver_, sparse_embedding.embedding_opt_params);
-  }
+  init_optimizer(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
   if (solver_.i64_input_key && !solver_.use_mixed_precision) {
     add_sparse_embedding<long long, float>(sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, embedding_opt_params_32);
+                        solver_.batchsize_eval, embedding_opt_params);
   } else if (solver_.i64_input_key && solver_.use_mixed_precision) {
     add_sparse_embedding<long long, __half>(sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, embedding_opt_params_16);
+                        solver_.batchsize_eval, embedding_opt_params);
   } else if (!solver_.i64_input_key && !solver_.use_mixed_precision) {
     add_sparse_embedding<unsigned int, float>(sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, embedding_opt_params_32);
+                        solver_.batchsize_eval, embedding_opt_params);
   } else {
     add_sparse_embedding<unsigned int, __half>(sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, embedding_opt_params_16);
+                        solver_.batchsize_eval, embedding_opt_params);
   }
 }
 
@@ -426,17 +421,18 @@ void Model::compile() {
     std::cout << "===================================================Model Compile===================================================" << std::endl;
   }
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    if(solver_.use_mixed_precision) {
+    if(solver_.use_mixed_precision){
       networks_[i]->optimizer_ = std::move(Optimizer::Create(
-        opt_params_16_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(), 
-        solver_.scaler, opt_buff_half_list_[i],
-        resource_manager_->get_local_gpu(i)));
-    } else {
+      opt_params_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(),
+      solver_.scaler, opt_buff_half_list_[i], 
+      resource_manager_->get_local_gpu(i)));
+    }else {
       networks_[i]->optimizer_ = std::move(Optimizer::Create(
-        opt_params_32_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
-        solver_.scaler, opt_buff_list_[i], 
-        resource_manager_->get_local_gpu(i)));
+      opt_params_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
+      solver_.scaler, opt_buff_list_[i], 
+      resource_manager_->get_local_gpu(i)));
     }
+    
 
     networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
     networks_[i]->train_weight_tensor_half_ = train_weight_buff_half_list_[i]->as_tensor();
@@ -1097,10 +1093,9 @@ std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
       CK_THROW_(Error_t::WrongInput, "must provide sparse_model_file. \
           if train from scratch, please specify a name to store the trained embedding model");
     }
-    std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>> embedding_params;
+    std::vector<SparseEmbeddingHashParams> embedding_params;
     return std::shared_ptr<ModelOversubscriber>(
-        new ModelOversubscriber(embeddings_, embedding_params,
-                                sparse_embedding_files, solver_));
+        new ModelOversubscriber(embeddings_, embedding_params, sparse_embedding_files, solver_));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -1226,8 +1221,5 @@ void Model::init_model_oversubscriber_(const std::vector<std::string>& sparse_em
   }
   mos_created_ = true;
 }
-
-template void init_optimizer<float>(OptParams<float>& opt_params, const Solver& solver, const std::shared_ptr<OptParamsPy>& opt_params_py);
-template void init_optimizer<__half>(OptParams<__half>& opt_params, const Solver& solver, const std::shared_ptr<OptParamsPy>& opt_params_py);
 
 } // namespace HugeCTR
