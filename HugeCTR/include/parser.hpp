@@ -295,6 +295,7 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
 
 static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"Adam", Optimizer_t::Adam},
+    {"AdaGrad", Optimizer_t::AdaGrad},
     {"MomentumSGD", Optimizer_t::MomentumSGD},
     {"Nesterov", Optimizer_t::Nesterov},
     {"SGD", Optimizer_t::SGD}};
@@ -340,10 +341,7 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
   }
 }
 
-template <typename Type>
-struct get_optimizer_param {
-  OptParams<Type> operator()(const nlohmann::json& j_optimizer);
-};
+OptParams get_optimizer_param(const nlohmann::json& j_optimizer);
 
 inline void activate_tensor(std::map<std::string, bool>& tensor_active, std::string top_name) {
   if (tensor_active.find(top_name) != tensor_active.end()) {

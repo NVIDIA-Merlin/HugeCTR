@@ -24,7 +24,7 @@
 
 namespace HugeCTR {
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
+template <typename TypeHashKey>
 class ParameterServer {
   struct SparseModelFile;
 
@@ -50,7 +50,7 @@ public:
    *             and embedding_file.
    */
   ParameterServer(
-      const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
+      const SparseEmbeddingHashParams& embedding_params,
       const std::string& sparse_model_name, const Embedding_t embedding_type);
 
   ParameterServer(const ParameterServer&) = delete;

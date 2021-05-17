@@ -250,46 +250,7 @@ class SparseEmbeddingFunctors {
                              size_t embedding_vec_size, int combiner,
                              const Tensor2<TypeEmbeddingComp *> &embedding_features,
                              Tensor2<TypeEmbeddingComp> &wgrad, size_t sm, cudaStream_t stream);
-
-  /**
-   * The second step of backward propagation: update embedding tables(weights)
-   * @param stream cuda stream corresponding to the current GPU.
-   * @param batch_size batch size for the current mini-batch computation.
-   * @param slot_num the number of slots in hash table.
-   * @param embedding_vec_size embedding vector size.
-   * @param max_vocabulary_size_per_gpu the max row number of hash table for each GPU.
-   * @param opt_params optimizer params.
-   * @param nnz non-zero feature number in one batch
-   * @param row_offset the pointer of row_offset
-   * @param hash_value_index the pointer of hash value_index
-   * @param sample_id the pointer of sample ids
-   * @param sample_id_sort the pointer of sorted sample ids
-   * @param hash_value_index_sort the pointer of sorted hash table value_index
-   * @param hash_value_index_count the pointer of the count of each hash value_index
-   * @param hash_value_index_count_offset the pointer of the offset for each count of hash
-   * value_index
-   * @param hash_value_index_count_counter the pointer of the counter of hash value_index count
-   * @param temp_storage_sort the pointer of the temp buffer for the CUB lib sorting API
-   * @param temp_storage_sort_bytes the bytes of the temp buffer for the CUB lib sorting API
-   * @param temp_storage_scan the pointer of the temp buffer for the CUB lib scaning API
-   * @param temp_storage_scan_bytes the bytes of the temp buffer for the CUB lib scaning API
-   * @param wgrad the pointer of wgrad
-   * @param hash_table_value the pointer of hash table value, which will be updated
-   */
-  template <typename TypeHashKey, typename TypeEmbeddingComp>
-  void update_params(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-                     size_t max_vocabulary_size_per_gpu, OptParams<TypeEmbeddingComp> &opt_params,
-                     size_t nnz, const Tensor2<TypeHashKey> &row_offset,
-                     Tensor2<size_t> &hash_value_index, Tensor2<TypeHashKey> &sample_id,
-                     Tensor2<TypeHashKey> &sample_id_sort, Tensor2<size_t> &hash_value_index_sort,
-                     Tensor2<uint32_t> &hash_value_index_count_offset,
-                     Tensor2<uint32_t> &new_hash_value_flag,
-                     Tensor2<uint32_t> &hash_value_flag_sumed,
-                     Tensor2<uint32_t> &hash_value_index_count_counter,
-                     Tensor2<void> &temp_storage_sort, Tensor2<void> &temp_storage_scan,
-                     const Tensor2<TypeEmbeddingComp> &wgrad, Tensor2<float> &hash_table_value,
-                     size_t sm_count, cudaStream_t stream);
-
+  
   /**
    * update_params for LocalizedSlotSparseEmbeddingOneHot.
    * overload for fp16. Only support atmoic SGD currently.
@@ -303,7 +264,7 @@ class SparseEmbeddingFunctors {
    * @param hash_table_value the pointer of hash table value, which will be updated
    */
   template <typename TypeEmbeddingComp>
-  void update_params(size_t embedding_vec_size, const OptParams<TypeEmbeddingComp> &opt_params,
+  void update_params(size_t embedding_vec_size, const OptParams &opt_params,
                      size_t nnz, const Tensor2<size_t> &hash_value_index,
                      const Tensor2<TypeEmbeddingComp> &wgrad, Tensor2<float> &hash_table_value,
                      size_t sm_count, cudaStream_t stream);
@@ -404,7 +365,6 @@ class SparseEmbeddingFunctors {
                         Tensors2<Type> &recv_tensors, const ResourceManager &resource_manager);
 #endif
 
-
   /**
    * get forward results from GPUs to CPU. This functin is just used for utest.
    * @param memcpy_size the number of elemments to do memcpy.
@@ -422,14 +382,12 @@ class SparseEmbeddingFunctors {
 
   /**
    * get forward results from GPUs to TensorFlow's tensor.
-  */
+   */
   template <typename TypeEmbeddingComp>
   void get_forward_results(size_t memcpy_size,
                            const Tensors2<TypeEmbeddingComp> &embedding_feature_tensors,
-                           void* const embedding_feature,
-                           Tensors2<TypeEmbeddingComp> &temp_tensors,
-                           const ResourceManager &resource_manager,
-                           const bool on_gpu);
+                           void *const embedding_feature, Tensors2<TypeEmbeddingComp> &temp_tensors,
+                           const ResourceManager &resource_manager, const bool on_gpu);
 
   /**
    * get backward results from GPU to CPU. This functin is just used for utest.
@@ -501,11 +459,16 @@ class SparseEmbeddingFunctors {
                       cudaStream_t stream) const;
 
   template <typename TypeEmbeddingComp>
-  void dump_opt_states(std::ofstream& stream, const ResourceManager &resource_manager,
-                       std::vector<Tensors2<TypeEmbeddingComp>>& opt_states);
+  std::vector<Tensors2<TypeEmbeddingComp>> get_opt_states(
+                      const std::vector<OptimizerTensor<TypeEmbeddingComp>> &opt_tensors_,
+                      Optimizer_t optimizer_type, size_t local_gpu_count);
+
   template <typename TypeEmbeddingComp>
-  void load_opt_states(std::ifstream& stream, const ResourceManager &resource_manager,
-                       std::vector<Tensors2<TypeEmbeddingComp>>& opt_states);
+  void dump_opt_states(std::ofstream &stream, const ResourceManager &resource_manager,
+                       std::vector<Tensors2<TypeEmbeddingComp>> &opt_states);
+  template <typename TypeEmbeddingComp>
+  void load_opt_states(std::ifstream &stream, const ResourceManager &resource_manager,
+                       std::vector<Tensors2<TypeEmbeddingComp>> &opt_states);
 };
 
 }  // namespace HugeCTR

@@ -18,9 +18,9 @@
 
 namespace HugeCTR {
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
-    const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+template <typename TypeHashKey>
+ParameterServerManager<TypeHashKey>::ParameterServerManager(
+    const std::vector<SparseEmbeddingHashParams>& embedding_params,
     const Embedding_t embedding_type,
     const std::vector<std::string>& sparse_embedding_files,
     size_t buffer_size) {
@@ -38,7 +38,7 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
       max_vec_size = (ith_vec_size > max_vec_size) ? ith_vec_size : max_vec_size;
 
       MESSAGE_("construct sparse models for model oversubscriber: " + sparse_embedding_files[i]);
-      ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
+      ps_.push_back(std::make_shared<ParameterServer<TypeHashKey>>
         (embedding_params[i], sparse_embedding_files[i], embedding_type));
     }
 
@@ -65,9 +65,7 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
   }
 }
 
-template class ParameterServerManager<long long, __half>;
-template class ParameterServerManager<long long, float>;
-template class ParameterServerManager<unsigned, __half>;
-template class ParameterServerManager<unsigned, float>;
+template class ParameterServerManager<long long>;
+template class ParameterServerManager<unsigned>;
 
 }  // namespace HugeCTR

@@ -16,13 +16,15 @@
 
 #pragma once
 
+#include <math.h>
+#include <stdlib.h>
+
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_readers/check_none.hpp"
 #include "HugeCTR/include/data_readers/check_sum.hpp"
 #include "HugeCTR/include/data_readers/csr_chunk.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
 #include "HugeCTR/include/data_readers/file_source.hpp"
-
 #include "utest/embedding/cpu_hashtable.hpp"
 
 #include <math.h>
@@ -70,7 +72,7 @@ class SparseEmbeddingHashCpu {
   int dense_dim_;
   int combiner_;
   uint64_t times_;
-  OptParams<TypeEmbeddingComp> opt_params_;
+  OptParams opt_params_;
 
   std::unique_ptr<TypeHashKey[]> row_offset_;
   std::unique_ptr<TypeHashKey[]> hash_key_;
@@ -90,6 +92,7 @@ class SparseEmbeddingHashCpu {
   std::unique_ptr<uint64_t[]> opt_prev_time_;
   std::unique_ptr<TypeEmbeddingComp[]> opt_momentum_;
   std::unique_ptr<TypeEmbeddingComp[]> opt_accm_;
+  std::unique_ptr<TypeEmbeddingComp[]> opt_accm_adagrad_;
 
   // std::ifstream &csr_stream_;
   // long long csr_stream_offset_ = 0;
@@ -127,7 +130,7 @@ class SparseEmbeddingHashCpu {
   SparseEmbeddingHashCpu(int batchsize, int max_feature_num, int vocabulary_size,
                          int embedding_vec_size, int slot_num, int label_dim, int dense_dim,
                          Check_t check_sum, long long num_records, int combiner,
-                         OptParams<TypeEmbeddingComp> opt_params, const std::string &file_list_name,
+                         OptParams opt_params, const std::string &file_list_name,
                          const std::string &hash_table_file, const SparseEmbedding_t emb_type);
   ~SparseEmbeddingHashCpu();
 
@@ -188,6 +191,14 @@ class SparseEmbeddingHashCpu {
                           uint64_t *prev_times, float lr, uint64_t times, float beta1, float beta2,
                           float epsilon, int vocabulary_size, Update_t update_type, float scaler);
 
+  void cpu_optimizer_adagrad(int feature_num_undup, int embedding_vec_size,
+                             const TypeHashValueIndex *hash_value_index_undup,
+                             const TypeHashValueIndex *hash_value_index_undup_offset,
+                             const TypeHashKey *sample_id, const TypeEmbeddingComp *wgrad,
+                             float *hash_table_value, TypeEmbeddingComp *accm_ptr, float lr,
+                             float epsilon, int vocabulary_size, Update_t update_type,
+                             float scaler);
+
   void cpu_optimizer_momentum(int feature_num_undup, int embedding_vec_size,
                               const TypeHashValueIndex *hash_value_index_undup,
                               const TypeHashValueIndex *hash_value_index_undup_offset,
@@ -222,7 +233,7 @@ template <typename TypeHashKey, typename TypeEmbeddingComp>
 SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
     int batchsize, int max_feature_num, int vocabulary_size, int embedding_vec_size, int slot_num,
     int label_dim, int dense_dim, const Check_t check_sum, const long long num_records,
-    int combiner, OptParams<TypeEmbeddingComp> opt_params, const std::string &file_list_name,
+    int combiner, OptParams opt_params, const std::string &file_list_name,
     const std::string &hash_table_file, const SparseEmbedding_t emb_type)
     : batchsize_(batchsize),
       max_feature_num_(max_feature_num),
@@ -267,6 +278,10 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
          vocabulary_size_ * embedding_vec_size_ * sizeof(TypeEmbeddingComp));
   opt_accm_.reset(new TypeEmbeddingComp[vocabulary_size_ * embedding_vec_size_]);
   memset(opt_accm_.get(), 0, vocabulary_size_ * embedding_vec_size_ * sizeof(TypeEmbeddingComp));
+  
+  opt_accm_adagrad_.reset(new TypeEmbeddingComp[vocabulary_size_ * embedding_vec_size_]);
+  memset(opt_accm_adagrad_.get(), 0, vocabulary_size_ * embedding_vec_size_ * sizeof(TypeEmbeddingComp));
+  
 
   hash_table_value_index_.reset(new TypeHashValueIndex[vocabulary_size_]);
   for (TypeHashValueIndex i = 0; i < vocabulary_size_; i++) {
@@ -656,11 +671,11 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adam(
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_momentum(
+void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adagrad(
     int feature_num_undup, int embedding_vec_size, const TypeHashValueIndex *hash_value_index_undup,
     const TypeHashValueIndex *hash_value_index_undup_offset, const TypeHashKey *sample_id,
-    const TypeEmbeddingComp *wgrad, float *hash_table_value, TypeEmbeddingComp *momentum_ptr,
-    float factor, float lr, int vocabulary_size, Update_t update_type, float scaler) {
+    const TypeEmbeddingComp *wgrad, float *hash_table_value, TypeEmbeddingComp *accm_ptr, float lr,
+    float epsilon, int vocabulary_size, Update_t update_type, float scaler) {
   for (int i = 0; i < feature_num_undup; i++) {
     TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
     TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
@@ -677,179 +692,226 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_momen
       gi = gi / scaler;
 
       TypeHashValueIndex feature_index = row_index * embedding_vec_size + j;
+      float accm = TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]) + gi * gi;
+      accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm);
 
-      if (update_type == Update_t::Local) {  // local update
-        float mo = factor * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-                                momentum_ptr[feature_index]) -
-                   lr * gi;
-        momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
-        hash_table_value[feature_index] += mo;
-      } else if (update_type == Update_t::Global) {  // global update
-        float mo = TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum_ptr[feature_index]) -
-                   lr * gi / factor;
-        momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
-      } else {  // lazy global update
-        /// TODO: implement CPU lazy momentum update
-      }
+      float weight_diff = -lr * gi / (sqrtf(accm) + epsilon);
+      hash_table_value[feature_index] += weight_diff;
     }
   }
+}
 
-  if (update_type == Update_t::Global) {
-    for (int i = 0; i < vocabulary_size; i++) {
+  template <typename TypeHashKey, typename TypeEmbeddingComp>
+  void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_momentum(
+      int feature_num_undup, int embedding_vec_size,
+      const TypeHashValueIndex *hash_value_index_undup,
+      const TypeHashValueIndex *hash_value_index_undup_offset, const TypeHashKey *sample_id,
+      const TypeEmbeddingComp *wgrad, float *hash_table_value, TypeEmbeddingComp *momentum_ptr,
+      float factor, float lr, int vocabulary_size, Update_t update_type, float scaler) {
+    for (int i = 0; i < feature_num_undup; i++) {
+      TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
+      TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
+      TypeHashValueIndex row_index = hash_value_index_undup[i];
+
       for (int j = 0; j < embedding_vec_size; j++) {
-        TypeHashValueIndex feature_index = i * embedding_vec_size + j;
-        float mo = factor *
-                   TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum_ptr[feature_index]);
-        momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
-        hash_table_value[feature_index] += mo;
+        float gi = 0.0f;
+        for (int k = 0; k < sample_num; k++) {
+          int sample_index = sample_id[cur_offset + k];
+          gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+              wgrad[sample_index * embedding_vec_size + j]);
+        }
+
+        gi = gi / scaler;
+
+        TypeHashValueIndex feature_index = row_index * embedding_vec_size + j;
+
+        if (update_type == Update_t::Local) {  // local update
+          float mo = factor * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+                                  momentum_ptr[feature_index]) -
+                     lr * gi;
+          momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
+          hash_table_value[feature_index] += mo;
+        } else if (update_type == Update_t::Global) {  // global update
+          float mo =
+              TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum_ptr[feature_index]) -
+              lr * gi / factor;
+          momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
+        } else {  // lazy global update
+          /// TODO: implement CPU lazy momentum update
+        }
+      }
+    }
+
+    if (update_type == Update_t::Global) {
+      for (int i = 0; i < vocabulary_size; i++) {
+        for (int j = 0; j < embedding_vec_size; j++) {
+          TypeHashValueIndex feature_index = i * embedding_vec_size + j;
+          float mo = factor * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+                                  momentum_ptr[feature_index]);
+          momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
+          hash_table_value[feature_index] += mo;
+        }
       }
     }
   }
-}
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_nesterov(
-    int feature_num_undup, int embedding_vec_size, const TypeHashValueIndex *hash_value_index_undup,
-    const TypeHashValueIndex *hash_value_index_undup_offset, const TypeHashKey *sample_id,
-    const TypeEmbeddingComp *wgrad, float *hash_table_value, TypeEmbeddingComp *accm_ptr, float mu,
-    float lr, int vocabulary_size, Update_t update_type, float scaler) {
-  if (update_type == Update_t::Global) {
-    for (int i = 0; i < vocabulary_size; i++) {
+  template <typename TypeHashKey, typename TypeEmbeddingComp>
+  void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_nesterov(
+      int feature_num_undup, int embedding_vec_size,
+      const TypeHashValueIndex *hash_value_index_undup,
+      const TypeHashValueIndex *hash_value_index_undup_offset, const TypeHashKey *sample_id,
+      const TypeEmbeddingComp *wgrad, float *hash_table_value, TypeEmbeddingComp *accm_ptr,
+      float mu, float lr, int vocabulary_size, Update_t update_type, float scaler) {
+    if (update_type == Update_t::Global) {
+      for (int i = 0; i < vocabulary_size; i++) {
+        for (int j = 0; j < embedding_vec_size; j++) {
+          TypeHashValueIndex feature_index = i * embedding_vec_size + j;
+          float accm_old = accm_ptr[feature_index];
+          float accm_new = mu * accm_old;
+          accm_ptr[feature_index] = accm_new;
+          hash_table_value[feature_index] += mu * accm_new;
+        }
+      }
+    }
+
+    for (int i = 0; i < feature_num_undup; i++) {
+      TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
+      TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
+      TypeHashValueIndex row_index = hash_value_index_undup[i];
+
       for (int j = 0; j < embedding_vec_size; j++) {
-        TypeHashValueIndex feature_index = i * embedding_vec_size + j;
-        float accm_old = accm_ptr[feature_index];
-        float accm_new = mu * accm_old;
-        accm_ptr[feature_index] = accm_new;
-        hash_table_value[feature_index] += mu * accm_new;
+        float gi = 0.0f;
+        for (int k = 0; k < sample_num; k++) {
+          int sample_index = sample_id[cur_offset + k];
+          gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+              wgrad[sample_index * embedding_vec_size + j]);
+        }
+
+        gi = gi / scaler;
+
+        TypeHashValueIndex feature_index = row_index * embedding_vec_size + j;
+
+        if (update_type == Update_t::Local) {  // local update
+          float accm_old =
+              TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
+          float accm_new = mu * accm_old - lr * gi;
+          accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm_new);
+          float weight_diff = -mu * accm_old + (1.0f + mu) * accm_new;
+          hash_table_value[feature_index] += weight_diff;
+        } else if (update_type == Update_t::Global) {  // global update
+          float accm = TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
+          accm -= lr * gi;
+          accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm);
+          hash_table_value[feature_index] -= (1.0f + mu) * lr * gi;
+        } else {  // lazy global update
+          /// TODO: implement CPU lazy Nesterov update
+        }
       }
     }
   }
 
-  for (int i = 0; i < feature_num_undup; i++) {
-    TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
-    TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
-    TypeHashValueIndex row_index = hash_value_index_undup[i];
+  template <typename TypeHashKey, typename TypeEmbeddingComp>
+  void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_sgd(
+      int feature_num_undup, int embedding_vec_size,
+      const TypeHashValueIndex *hash_value_index_undup,
+      const TypeHashValueIndex *hash_value_index_undup_offset, const TypeHashKey *sample_id,
+      const TypeEmbeddingComp *wgrad, float *hash_table_value, float lr, int vocabulary_size,
+      float scaler) {
+    for (int i = 0; i < feature_num_undup; i++) {
+      TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
+      TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
+      TypeHashValueIndex row_index = hash_value_index_undup[i];
 
-    for (int j = 0; j < embedding_vec_size; j++) {
-      float gi = 0.0f;
-      for (int k = 0; k < sample_num; k++) {
-        int sample_index = sample_id[cur_offset + k];
-        gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-            wgrad[sample_index * embedding_vec_size + j]);
-      }
+      for (int j = 0; j < embedding_vec_size; j++) {
+        float gi = 0.0f;
+        for (int k = 0; k < sample_num; k++) {
+          int sample_index = sample_id[cur_offset + k];
+          gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+              wgrad[sample_index * embedding_vec_size + j]);
+        }
 
-      gi = gi / scaler;
+        gi = gi / scaler;
 
-      TypeHashValueIndex feature_index = row_index * embedding_vec_size + j;
-
-      if (update_type == Update_t::Local) {  // local update
-        float accm_old =
-            TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
-        float accm_new = mu * accm_old - lr * gi;
-        accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm_new);
-        float weight_diff = -mu * accm_old + (1.0f + mu) * accm_new;
-        hash_table_value[feature_index] += weight_diff;
-      } else if (update_type == Update_t::Global) {  // global update
-        float accm = TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
-        accm -= lr * gi;
-        accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm);
-        hash_table_value[feature_index] -= (1.0f + mu) * lr * gi;
-      } else {  // lazy global update
-        /// TODO: implement CPU lazy Nesterov update
+        TypeHashValueIndex feature_index = row_index * embedding_vec_size + j;
+        hash_table_value[feature_index] -= lr * gi;
       }
     }
   }
-}
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_sgd(
-    int feature_num_undup, int embedding_vec_size, const TypeHashValueIndex *hash_value_index_undup,
-    const TypeHashValueIndex *hash_value_index_undup_offset, const TypeHashKey *sample_id,
-    const TypeEmbeddingComp *wgrad, float *hash_table_value, float lr, int vocabulary_size,
-    float scaler) {
-  for (int i = 0; i < feature_num_undup; i++) {
-    TypeHashValueIndex cur_offset = hash_value_index_undup_offset[i];
-    TypeHashValueIndex sample_num = hash_value_index_undup_offset[i + 1] - cur_offset;
-    TypeHashValueIndex row_index = hash_value_index_undup[i];
-
-    for (int j = 0; j < embedding_vec_size; j++) {
-      float gi = 0.0f;
-      for (int k = 0; k < sample_num; k++) {
-        int sample_index = sample_id[cur_offset + k];
-        gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-            wgrad[sample_index * embedding_vec_size + j]);
-      }
-
-      gi = gi / scaler;
-
-      TypeHashValueIndex feature_index = row_index * embedding_vec_size + j;
-      hash_table_value[feature_index] -= lr * gi;
-    }
-  }
-}
-
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::update_params() {
+  template <typename TypeHashKey, typename TypeEmbeddingComp>
+  void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::update_params() {
 #ifndef NDEBUG
-  PRINT_FUNC_NAME_();
+    PRINT_FUNC_NAME_();
 #endif
 
-  // step1: extend sample IDs
-  cpu_csr_extend(batchsize_, slot_num_, row_offset_.get(), sample_id_.get());
+    // step1: extend sample IDs
+    cpu_csr_extend(batchsize_, slot_num_, row_offset_.get(), sample_id_.get());
 
-  // step2: do hash table get() value_index by key
-  int nnz = row_offset_[batchsize_ * slot_num_];
-  hash_table_->get(hash_key_.get(), hash_value_index_.get(), nnz);
+    // step2: do hash table get() value_index by key
+    int nnz = row_offset_[batchsize_ * slot_num_];
+    hash_table_->get(hash_key_.get(), hash_value_index_.get(), nnz);
 
-  // step3: sort by value_index
-  cpu_csr_sort(nnz, hash_value_index_.get(), sample_id_.get());
+    // step3: sort by value_index
+    cpu_csr_sort(nnz, hash_value_index_.get(), sample_id_.get());
 
-  // step4: unduplicate by value_index
-  int feature_num_undup =
-      cpu_csr_unduplicate(nnz, hash_value_index_.get(), hash_value_index_undup_.get(),
-                          hash_value_index_undup_offset_.get());
+    // step4: unduplicate by value_index
+    int feature_num_undup =
+        cpu_csr_unduplicate(nnz, hash_value_index_.get(), hash_value_index_undup_.get(),
+                            hash_value_index_undup_offset_.get());
 
-  // step5: sort by value_index   no need to do this for CPU
-  cpu_csr_sort(feature_num_undup, hash_value_index_undup_.get(),
-               hash_value_index_undup_offset_.get());
+    // step5: sort by value_index   no need to do this for CPU
+    cpu_csr_sort(feature_num_undup, hash_value_index_undup_.get(),
+                 hash_value_index_undup_offset_.get());
 
-  // step6: update params
-  switch (opt_params_.optimizer) {
-    case Optimizer_t::Adam: {
-      times_++;
-      cpu_optimizer_adam(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                         hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                         hash_table_value_.get(), opt_m_.get(), opt_v_.get(), opt_prev_time_.get(),
-                         opt_params_.lr, times_, opt_params_.hyperparams.adam.beta1,
-                         opt_params_.hyperparams.adam.beta2, opt_params_.hyperparams.adam.epsilon,
-                         vocabulary_size_, opt_params_.update_type, opt_params_.scaler);
-      break;
+    // step6: update params
+    switch (opt_params_.optimizer) {
+      case Optimizer_t::Adam: {
+        times_++;
+        cpu_optimizer_adam(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
+                           hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
+                           hash_table_value_.get(), opt_m_.get(), opt_v_.get(),
+                           opt_prev_time_.get(), opt_params_.lr, times_,
+                           opt_params_.hyperparams.adam.beta1, opt_params_.hyperparams.adam.beta2,
+                           opt_params_.hyperparams.adam.epsilon, vocabulary_size_,
+                           opt_params_.update_type, opt_params_.scaler);
+        break;
+      }
+      case Optimizer_t::AdaGrad: {
+        cpu_optimizer_adagrad(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
+                           hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
+                           hash_table_value_.get(), opt_accm_adagrad_.get(),
+                           opt_params_.lr,
+                           opt_params_.hyperparams.adagrad.epsilon, vocabulary_size_,
+                           opt_params_.update_type, opt_params_.scaler);
+        break;
+      }
+      case Optimizer_t::MomentumSGD: {
+        cpu_optimizer_momentum(
+            feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
+            hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
+            hash_table_value_.get(), opt_momentum_.get(), opt_params_.hyperparams.momentum.factor,
+            opt_params_.lr, vocabulary_size_, opt_params_.update_type, opt_params_.scaler);
+        break;
+      }
+      case Optimizer_t::Nesterov: {
+        cpu_optimizer_nesterov(feature_num_undup, embedding_vec_size_,
+                               hash_value_index_undup_.get(), hash_value_index_undup_offset_.get(),
+                               sample_id_.get(), wgrad_.get(), hash_table_value_.get(),
+                               opt_accm_.get(), opt_params_.hyperparams.nesterov.mu, opt_params_.lr,
+                               vocabulary_size_, opt_params_.update_type, opt_params_.scaler);
+        break;
+      }
+      case Optimizer_t::SGD: {
+        cpu_optimizer_sgd(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
+                          hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
+                          hash_table_value_.get(), opt_params_.lr, vocabulary_size_,
+                          opt_params_.scaler);
+        break;
+      }
+      default: {
+        printf("Error: optimizer not supported in CPU version\n");
+      }
     }
-    case Optimizer_t::MomentumSGD: {
-      cpu_optimizer_momentum(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                             hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                             hash_table_value_.get(), opt_momentum_.get(),
-                             opt_params_.hyperparams.momentum.factor, opt_params_.lr,
-                             vocabulary_size_, opt_params_.update_type, opt_params_.scaler);
-      break;
-    }
-    case Optimizer_t::Nesterov: {
-      cpu_optimizer_nesterov(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                             hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                             hash_table_value_.get(), opt_accm_.get(),
-                             opt_params_.hyperparams.nesterov.mu, opt_params_.lr, vocabulary_size_,
-                             opt_params_.update_type, opt_params_.scaler);
-      break;
-    }
-    case Optimizer_t::SGD: {
-      cpu_optimizer_sgd(feature_num_undup, embedding_vec_size_, hash_value_index_undup_.get(),
-                        hash_value_index_undup_offset_.get(), sample_id_.get(), wgrad_.get(),
-                        hash_table_value_.get(), opt_params_.lr, vocabulary_size_,
-                        opt_params_.scaler);
-      break;
-    }
-    default: { printf("Error: optimizer not supported in CPU version\n"); }
+
+    return;
   }
-
-  return;
-}

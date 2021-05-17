@@ -58,7 +58,6 @@ void get_hash_slot_id(size_t count, const size_t *value_index, const size_t *has
 }
 
 }  // namespace
-
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotSparseEmbeddingHash(
     const Tensors2<TypeHashKey> &train_row_offsets_tensors,
@@ -67,7 +66,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
     const Tensors2<TypeHashKey> &evaluate_row_offsets_tensors,
     const Tensors2<TypeHashKey> &evaluate_value_tensors,
     const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-    const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
+    const SparseEmbeddingHashParams &embedding_params,
     const std::shared_ptr<ResourceManager> &resource_manager)
     : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
@@ -100,9 +99,9 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
           ((gid < Base::get_slot_num() % Base::get_resource_manager().get_global_gpu_count()) ? 1
                                                                                               : 0);
       slot_num_per_gpu_.push_back(slot_num_per_gpu);
-
       // new GeneralBuffer objects
       const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &buf = Base::get_buffer(id);
+      embedding_optimizers_.emplace_back(max_vocabulary_size_per_gpu_, Base::embedding_params_, buf);
 
       // new hash table value vectors
       if (slot_size_array_.empty()) {
@@ -146,108 +145,6 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
             {Base::get_batch_size(true) * slot_num_per_gpu, Base::get_embedding_vec_size()},
             &tensor);
         wgrad_tensors_.push_back(tensor);
-      }
-
-      // new optimizer params used by update_params
-      switch (Base::get_optimizer()) {
-        case Optimizer_t::Adam:  // adam
-        {
-          {
-            Tensor2<TypeEmbeddingComp> tensor;
-            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-            opt_m_tensors_.push_back(tensor);
-            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-            opt_v_tensors_.push_back(tensor);
-          }
-          if (Base::get_update_type() == Update_t::LazyGlobal) {
-            Tensor2<uint64_t> tensor;
-            buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-            opt_prev_time_tensors_.push_back(tensor);
-          }
-          break;
-        }
-
-        case Optimizer_t::MomentumSGD:  // momentum_sgd
-        {
-          Tensor2<TypeEmbeddingComp> tensor;
-          buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-          opt_momentum_tensors_.push_back(tensor);
-          break;
-        }
-
-        case Optimizer_t::Nesterov:  // nesterov
-        {
-          Tensor2<TypeEmbeddingComp> tensor;
-          buf->reserve({max_vocabulary_size_per_gpu_, Base::get_embedding_vec_size()}, &tensor);
-          opt_accm_tensors_.push_back(tensor);
-          break;
-        }
-
-        case Optimizer_t::SGD:
-          break;
-
-        default:
-          throw std::runtime_error(
-              std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
-      }
-
-      {
-        Tensor2<TypeHashKey> tensor;
-        buf->reserve({1, Base::get_batch_size(true) * Base::get_max_feature_num()}, &tensor);
-        sample_id_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<TypeHashKey> tensor;
-        buf->reserve({1, Base::get_batch_size(true) * Base::get_max_feature_num()}, &tensor);
-        sample_id_sort_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<size_t> tensor;
-        buf->reserve({1, Base::get_batch_size(true) * Base::get_max_feature_num()}, &tensor);
-        hash_value_index_sort_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<uint32_t> tensor;
-        buf->reserve({1, Base::get_batch_size(true) * Base::get_max_feature_num() + 1}, &tensor);
-        hash_value_index_count_offset_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<uint32_t> tensor;
-        buf->reserve({1, Base::get_batch_size(true) * Base::get_max_feature_num()}, &tensor);
-        new_hash_value_flag_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<uint32_t> tensor;
-        buf->reserve({1, Base::get_batch_size(true) * Base::get_max_feature_num()}, &tensor);
-        hash_value_flag_sumed_tensors_.push_back(tensor);
-      }
-      {
-        Tensor2<uint32_t> tensor;
-        buf->reserve({1, 1}, &tensor);
-        hash_value_index_count_counter_tensors_.push_back(tensor);
-      }
-      {
-        // cal the temp storage bytes for CUB radix sort
-        size_t size = 0;
-        cub::DeviceRadixSort::SortPairs((void *)nullptr, size, (size_t *)nullptr, (size_t *)nullptr,
-                                        (TypeHashKey *)nullptr, (TypeHashKey *)nullptr,
-                                        Base::get_batch_size(true) * Base::get_max_feature_num());
-
-        // new temp storage tensors for CUB radix sort
-        Tensor2<void> tensor;
-        buf->reserve({size}, &tensor);
-        temp_storage_sort_tensors_.push_back(tensor);
-      }
-
-      {
-        size_t size = 0;
-        cub::DeviceScan::InclusiveSum((void *)nullptr, size, (uint32_t *)nullptr,
-                                      (uint32_t *)nullptr,
-                                      Base::get_batch_size(true) * Base::get_max_feature_num());
-
-        Tensor2<void> tensor;
-        buf->reserve({size}, &tensor);
-        temp_storage_scan_tensors_.push_back(tensor);
       }
 
       // the tenosrs for storing slot ids
@@ -312,57 +209,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 
     for (size_t id = 0; id < Base::get_resource_manager().get_local_gpu_count(); id++) {
       context.set_device(Base::get_local_gpu(id).get_device_id());
-      const OptParams<TypeEmbeddingComp> &source_opt_param = Base::get_opt_params();
-      OptParams<TypeEmbeddingComp> &target_opt_param = Base::get_opt_params(id);
-
-      switch (Base::get_optimizer()) {
-        case Optimizer_t::Adam:  // adam
-          CK_CUDA_THROW_(cudaMemsetAsync(opt_m_tensors_[id].get_ptr(), 0,
-                                         opt_m_tensors_[id].get_size_in_bytes(),
-                                         Base::get_local_gpu(id).get_stream()));
-          CK_CUDA_THROW_(cudaMemsetAsync(opt_v_tensors_[id].get_ptr(), 0,
-                                         opt_v_tensors_[id].get_size_in_bytes(),
-                                         Base::get_local_gpu(id).get_stream()));
-          if (Base::get_update_type() == Update_t::LazyGlobal) {
-            dim3 grid(Base::get_local_gpu(id).get_sm_count() * 4, 1, 1);
-            dim3 block(512, 1, 1);
-            initialize_array<<<grid, block, 0, Base::get_local_gpu(id).get_stream()>>>(
-                opt_prev_time_tensors_[id].get_ptr(), opt_prev_time_tensors_[id].get_num_elements(),
-                uint64_t(1));
-            target_opt_param.hyperparams.adam.prev_time_ptr = opt_prev_time_tensors_[id].get_ptr();
-          }
-          target_opt_param.hyperparams.adam.times = 0;
-          target_opt_param.hyperparams.adam.beta1 = source_opt_param.hyperparams.adam.beta1;
-          target_opt_param.hyperparams.adam.beta2 = source_opt_param.hyperparams.adam.beta2;
-          target_opt_param.hyperparams.adam.epsilon = source_opt_param.hyperparams.adam.epsilon;
-          target_opt_param.hyperparams.adam.m_ptr = opt_m_tensors_[id].get_ptr();
-          target_opt_param.hyperparams.adam.v_ptr = opt_v_tensors_[id].get_ptr();
-          break;
-
-        case Optimizer_t::MomentumSGD:  // momentum_sgd
-          CK_CUDA_THROW_(cudaMemsetAsync(opt_momentum_tensors_[id].get_ptr(), 0,
-                                         opt_momentum_tensors_[id].get_size_in_bytes(),
-                                         Base::get_local_gpu(id).get_stream()));
-          target_opt_param.hyperparams.momentum.factor =
-              source_opt_param.hyperparams.momentum.factor;
-          target_opt_param.hyperparams.momentum.momentum_ptr = opt_momentum_tensors_[id].get_ptr();
-          break;
-
-        case Optimizer_t::Nesterov:  // nesterov
-          CK_CUDA_THROW_(cudaMemsetAsync(opt_accm_tensors_[id].get_ptr(), 0,
-                                         opt_accm_tensors_[id].get_size_in_bytes(),
-                                         Base::get_local_gpu(id).get_stream()));
-          target_opt_param.hyperparams.nesterov.mu = source_opt_param.hyperparams.nesterov.mu;
-          target_opt_param.hyperparams.nesterov.accm_ptr = opt_accm_tensors_[id].get_ptr();
-          break;
-
-        case Optimizer_t::SGD:
-          break;
-
-        default:
-          throw std::runtime_error(
-              std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
-      }
+      embedding_optimizers_[id].initialize(Base::get_local_gpu(id));
 
     }  // end of for(int id = 0; id < Base::get_local_gpu_count(); id++)
 
@@ -393,6 +240,7 @@ LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::LocalizedSlotS
 
   return;
 }
+
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_parameters(
@@ -1097,35 +945,11 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_opt_states(
     std::ofstream& stream) {
-  std::vector<Tensors2<TypeEmbeddingComp>> opt_states;
-
-  switch (Base::get_optimizer()) {
-    case Optimizer_t::Adam:  // adam
-    {
-      opt_states.push_back(opt_m_tensors_);
-      opt_states.push_back(opt_v_tensors_);
-      break;
-    }
-
-    case Optimizer_t::MomentumSGD:  // momentum_sgd
-    {
-      opt_states.push_back(opt_momentum_tensors_);
-      break;
-    }
-
-    case Optimizer_t::Nesterov:  // nesterov
-    {
-      opt_states.push_back(opt_accm_tensors_);
-      break;
-    }
-
-    case Optimizer_t::SGD:
-      break;
-
-    default:
-      throw std::runtime_error(
-          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  std::vector<OptimizerTensor<TypeEmbeddingComp>> opt_tensors_;
+  for(auto &opt: embedding_optimizers_){
+    opt_tensors_.push_back(opt.opt_tensors_);
   }
+  auto opt_states = functors_.get_opt_states(opt_tensors_, Base::get_optimizer(), Base::get_resource_manager().get_local_gpu_count());
 
   functors_.dump_opt_states(stream, Base::get_resource_manager(), opt_states);
 }
@@ -1133,37 +957,14 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_opt_
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::load_opt_states(
     std::ifstream& stream) {
-  std::vector<Tensors2<TypeEmbeddingComp>> opt_states;
-
-  switch (Base::get_optimizer()) {
-    case Optimizer_t::Adam:  // adam
-    {
-      opt_states.push_back(opt_m_tensors_);
-      opt_states.push_back(opt_v_tensors_);
-      break;
-    }
-
-    case Optimizer_t::MomentumSGD:  // momentum_sgd
-    {
-      opt_states.push_back(opt_momentum_tensors_);
-      break;
-    }
-
-    case Optimizer_t::Nesterov:  // nesterov
-    {
-      opt_states.push_back(opt_accm_tensors_);
-      break;
-    }
-
-    case Optimizer_t::SGD:
-      break;
-
-    default:
-      throw std::runtime_error(
-          std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
+  std::vector<OptimizerTensor<TypeEmbeddingComp>> opt_tensors_;
+  for(auto &opt: embedding_optimizers_){
+    opt_tensors_.push_back(opt.opt_tensors_);
   }
+  auto opt_states = functors_.get_opt_states(opt_tensors_, Base::get_optimizer(), Base::get_resource_manager().get_local_gpu_count());
 
   functors_.load_opt_states(stream, Base::get_resource_manager(), opt_states);
+
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>

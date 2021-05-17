@@ -40,6 +40,7 @@ def parse_args(parser):
   args.beta1 = 0.9
   args.beta2 = 0.999
   args.epsilon = 0.0000001
+  args.initial_accu_value = 0.0
   args.momentum_factor = 0.0
   args.atomic_update = True
   args.warmup_steps = 1
@@ -52,6 +53,9 @@ def parse_args(parser):
     args.beta1 = optimizer_config['adam_hparam']['beta1']
     args.beta2 = optimizer_config['adam_hparam']['beta2']
     args.epsilon = optimizer_config['adam_hparam']['epsilon']
+  if 'adagrad_hparam' in optimizer_config:
+    args.initial_accu_value = optimizer_config['adagrad_hparam']['initial_accu_value']
+    args.epsilon = optimizer_config['adagrad_hparam']['epsilon']
   if 'momentum_sgd_hparam' in optimizer_config:
     args.learning_rate = optimizer_config['momentum_sgd_hparam']['learning_rate']
     args.momentum_factor = optimizer_config['momentum_sgd_hparam']['momentum_factor']

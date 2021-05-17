@@ -27,7 +27,6 @@
 #include <utility>
 #include <HugeCTR/include/embeddings/embedding.hpp>
 #include <HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp>
-#include <HugeCTR/pybind/optimizer.hpp>
 
 namespace HugeCTR {
 
@@ -232,7 +231,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
             std::vector<std::shared_ptr<IEmbedding>>& embeddings,
             const std::shared_ptr<ResourceManager>& resource_manager,
             size_t batch_size, size_t batch_size_eval,
-            OptParams<TypeFP>& embedding_opt_params);
+            OptParams& embedding_opt_params);
 
 
 Input get_input_from_json(const nlohmann::json& j_input);
@@ -247,8 +246,7 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
                       std::vector<Input>& input_params,
                       std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list);
 
-template <typename TypeFP>
-void init_optimizer(OptParams<TypeFP>& opt_params, const Solver& solver, const std::shared_ptr<OptParamsPy>& opt_params_py);
+void init_optimizer(OptParams& opt_params, const Solver& solver, const std::shared_ptr<OptParamsPy>& opt_params_py);
 
 void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch, const Solver& solver);
 /**
@@ -377,8 +375,7 @@ class Model {
  private:
   Solver solver_;
   DataReaderParams reader_params_;
-  OptParams<float> opt_params_32_;
-  OptParams<__half> opt_params_16_;
+  OptParams opt_params_;
   std::shared_ptr<OptParamsPy> opt_params_py_;
   std::shared_ptr<ModelOversubscriberParams> mos_params_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;

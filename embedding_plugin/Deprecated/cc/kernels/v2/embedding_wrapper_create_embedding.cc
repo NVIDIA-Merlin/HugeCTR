@@ -160,8 +160,8 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
         }
 
         /*create optimizer*/
-        HugeCTR::OptParams<TypeFP> embedding_opt_params;
-        HugeCTR::OptHyperParams<TypeFP> opt_hyper_params;
+        HugeCTR::OptParams embedding_opt_params;
+        HugeCTR::OptHyperParams opt_hyper_params;
         switch (optimizer_type) {
             case HugeCTR::Optimizer_t::Adam:{ // opt_hprams = {lr, beta1, beta2, epsilon}
                 if (opt_hparams.size() != 4) {
@@ -171,6 +171,15 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
                 opt_hyper_params.adam.beta2 = opt_hparams[2]; // beta2
                 opt_hyper_params.adam.epsilon = opt_hparams[3]; // epsilon
                 embedding_opt_params = {HugeCTR::Optimizer_t::Adam, opt_hparams[0]/*learning rate*/, opt_hyper_params, update_type};
+                break;
+            }
+            case Optimizer_t::AdaGrad: {
+                if (opt_hparams.size() != 3) {
+                    return tensorflow::errors::Unavailable("opt_hparams should be [lr, initial_accu_value, epsilon] when using Adagrad.");
+                }
+                opt_hyper_params.adagrad.initial_accu_value = opt_hparams[1];
+                opt_hyper_params.adagrad.epsilon = opt_hparams[2];
+                embedding_opt_params = {Optimizer_t::AdaGrad, opt_hparams[0], opt_hyper_params, update_type};
                 break;
             }
             case HugeCTR::Optimizer_t::MomentumSGD: { // opt_hprams = {lr, momentum_factor}
@@ -214,7 +223,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
         std::shared_ptr<IEmbedding> embedding;
         switch(embedding_type) {
             case HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash: {
-                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                const HugeCTR::SparseEmbeddingHashParams embedding_params = {
                     static_cast<size_t>(batch_size_),
                     static_cast<size_t>(batch_size_eval_),
                     max_vocabulary_size_per_gpu, 
@@ -231,7 +240,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
                 break;
             }
             case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                const HugeCTR::SparseEmbeddingHashParams embedding_params = {
                     static_cast<size_t>(batch_size_),
                     static_cast<size_t>(batch_size_eval_),
                     max_vocabulary_size_per_gpu,
@@ -248,7 +257,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
                 break;
             }
             case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot:{
-                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                const HugeCTR::SparseEmbeddingHashParams embedding_params = {
                     static_cast<size_t>(batch_size_),
                     static_cast<size_t>(batch_size_eval_),
                     0,

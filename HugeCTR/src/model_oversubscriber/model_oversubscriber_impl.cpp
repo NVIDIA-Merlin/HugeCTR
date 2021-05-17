@@ -18,17 +18,17 @@
 
 namespace HugeCTR {
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::ModelOversubscriberImpl(
+template <typename TypeHashKey>
+ModelOversubscriberImpl<TypeHashKey>::ModelOversubscriberImpl(
     std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-    const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+    const std::vector<SparseEmbeddingHashParams>& embedding_params,
     const std::vector<std::string>& sparse_embedding_files)
     : embeddings_(embeddings),
       ps_manager_(embedding_params, embeddings[0]->get_embedding_type(),
                   sparse_embedding_files, get_max_embedding_size_()) {}
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
+template <typename TypeHashKey>
+void ModelOversubscriberImpl<TypeHashKey>::load_(
     std::vector<std::string>& keyset_file_list) {
   try {
     if (keyset_file_list.size() != embeddings_.size()) {
@@ -55,8 +55,8 @@ void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::load_(
   }
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::store() {
+template <typename TypeHashKey>
+void ModelOversubscriberImpl<TypeHashKey>::store() {
   try {
     for (int i = 0; i < static_cast<int>(embeddings_.size()); i++) {
       auto ptr_ps = ps_manager_.get_parameter_server(i);
@@ -74,8 +74,8 @@ void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::store() {
   }
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(
+template <typename TypeHashKey>
+void ModelOversubscriberImpl<TypeHashKey>::update(
     std::vector<std::string>& keyset_file_list) {
   try {
     store();
@@ -92,8 +92,8 @@ void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(
   }
 }
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(
+template <typename TypeHashKey>
+void ModelOversubscriberImpl<TypeHashKey>::update(
   std::string& keyset_file) {
   try {
     std::vector<std::string> keyset_file_list(embeddings_.size(), keyset_file);
@@ -107,9 +107,7 @@ void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(
   }
 }
 
-template class ModelOversubscriberImpl<long long, __half>;
-template class ModelOversubscriberImpl<long long, float>;
-template class ModelOversubscriberImpl<unsigned, __half>;
-template class ModelOversubscriberImpl<unsigned, float>;
+template class ModelOversubscriberImpl<long long>;
+template class ModelOversubscriberImpl<unsigned>;
 
 }  // namespace HugeCTR
