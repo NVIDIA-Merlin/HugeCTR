@@ -183,10 +183,7 @@ FILE(GLOB  hugectr_src
   ${HugeCTR_Path}/HugeCTR/src/resource_manager.cpp
   ${HugeCTR_Path}/HugeCTR/src/resource_managers/resource_manager_core.cpp
   ${HugeCTR_Path}/HugeCTR/src/data_simulator.cu
-  ${HugeCTR_Path}/HugeCTR/src/optimizers/adam_optimizer.cu
-  ${HugeCTR_Path}/HugeCTR/src/optimizers/momentum_sgd_optimizer.cu
-  ${HugeCTR_Path}/HugeCTR/src/optimizers/nesterov_optimizer.cu
-  ${HugeCTR_Path}/HugeCTR/src/optimizers/sgd_optimizer.cu
+  ${HugeCTR_Path}/HugeCTR/src/optimizers/*.cu
   ${HugeCTR_Path}/HugeCTR/src/optimizer.cpp
   ${HugeCTR_Path}/HugeCTR/src/regularizer.cu
   ${HugeCTR_Path}/HugeCTR/src/regularizers/l1_regularizer.cu

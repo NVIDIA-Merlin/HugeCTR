@@ -137,9 +137,9 @@ void init_sparse_model(const char *sparse_model) {
 template <typename TypeEmbeddingComp>
 void train_and_test(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                     const Update_t &update_type) {
-  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.sgd.atomic_update = true;
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
                                                    scaler};
   float tolerance;
   if (std::is_same<TypeEmbeddingComp, __half>::value) {
@@ -222,7 +222,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+  const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, 0,        slot_sizes, embedding_vec_size,
       max_feature_num, slot_num,       combiner, opt_params};
 
@@ -380,9 +380,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 template <typename TypeEmbeddingComp>
 void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                    const Update_t &update_type) {
-  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.sgd.atomic_update = true;
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
                                                    scaler};
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
@@ -424,7 +424,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   // generate hashtable
   init_sparse_model(sparse_model_file);
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+  const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, 0,        slot_sizes, embedding_vec_size,
       max_feature_num, slot_num,       combiner, opt_params};
 
@@ -494,9 +494,9 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   std::string sparse_model_dst("sparse_model_dst");
 
   float tolerance = 1e-4f;
-  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.sgd.atomic_update = true;
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type, scaler};
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type, scaler};
 
   int numprocs = 1, pid = 0;
   std::vector<std::vector<int>> vvgpu;
@@ -542,7 +542,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+  const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, 0,        slot_sizes, embedding_vec_size,
       max_feature_num, slot_num,       combiner, opt_params};
 

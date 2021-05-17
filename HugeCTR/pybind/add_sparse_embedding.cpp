@@ -70,7 +70,7 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
     if (!find_item_in_map(embedding_opt_params->update_type, update_type_name, UPDATE_TYPE_MAP)) {
       CK_THROW_(Error_t::WrongInput, "No such update type: " + update_type_name);
     }
-    OptHyperParamsPy hyperparams;
+    OptHyperParams hyperparams;
     switch (embedding_opt_params->optimizer) {
       case Optimizer_t::Adam: {
         auto j_optimizer_hparam = get_json(j_optimizer, "adam_hparam");
@@ -80,6 +80,15 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
         hyperparams.adam.beta1 = beta1;
         hyperparams.adam.beta2 = beta2;
         hyperparams.adam.epsilon = epsilon;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      case Optimizer_t::AdaGrad: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "adagrad_hparam");
+        auto initial_accu_value = get_value_from_json<float>(j_optimizer_hparam, "initial_accu_value");
+        auto epsilon = get_value_from_json<float>(j_optimizer_hparam, "epsilon");
+        hyperparams.adagrad.initial_accu_value = initial_accu_value;
+        hyperparams.adagrad.epsilon = epsilon;
         embedding_opt_params->hyperparams = hyperparams;
         break;
       }
@@ -123,7 +132,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
             std::vector<std::shared_ptr<IEmbedding>>& embeddings,
             const std::shared_ptr<ResourceManager>& resource_manager,
             size_t batch_size, size_t batch_size_eval,
-            OptParams<TypeFP>& embedding_opt_params) {
+            OptParams& embedding_opt_params) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
@@ -144,7 +153,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
   //embedding_opt_params.scaler = scaler;
   switch (embedding_type) {
     case Embedding_t::DistributedSlotSparseEmbeddingHash: {
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           max_vocabulary_size_per_gpu,
@@ -161,7 +170,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           max_vocabulary_size_per_gpu,
@@ -178,7 +187,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           0,
@@ -210,26 +219,26 @@ template void add_sparse_embedding<long long, float>(SparseEmbedding&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::shared_ptr<IEmbedding>>&,
             const std::shared_ptr<ResourceManager>&,
-            size_t, size_t, OptParams<float>&);
+            size_t, size_t, OptParams&);
 template void add_sparse_embedding<long long, __half>(SparseEmbedding&,
             std::map<std::string, SparseInput<long long>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::shared_ptr<IEmbedding>>&,
             const std::shared_ptr<ResourceManager>&,
-            size_t, size_t, OptParams<__half>&);
+            size_t, size_t, OptParams&);
 template void add_sparse_embedding<unsigned int, float>(SparseEmbedding&,
             std::map<std::string, SparseInput<unsigned int>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::shared_ptr<IEmbedding>>&,
             const std::shared_ptr<ResourceManager>&,
-            size_t, size_t, OptParams<float>&);
+            size_t, size_t, OptParams&);
 template void add_sparse_embedding<unsigned int, __half>(SparseEmbedding&,
             std::map<std::string, SparseInput<unsigned int>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::shared_ptr<IEmbedding>>&,
             const std::shared_ptr<ResourceManager>&,
-            size_t, size_t, OptParams<__half>&);
+            size_t, size_t, OptParams&);
 } // namespace HugeCTR

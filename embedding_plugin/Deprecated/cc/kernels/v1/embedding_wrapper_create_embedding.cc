@@ -94,8 +94,8 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(std::stri
 
     try{
         /*set optimizer*/
-        HugeCTR::OptParams<TypeFP> embedding_opt_params;
-        HugeCTR::OptHyperParams<TypeFP> opt_hyper_params;
+        HugeCTR::OptParams embedding_opt_params;
+        HugeCTR::OptHyperParams opt_hyper_params;
         switch (optimizer_type) {
             case HugeCTR::Optimizer_t::Adam:{ // opt_hprams = {lr, beta1, beta2, epsilon}
                 if (opt_hparams.size() != 4) {
@@ -158,7 +158,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(std::stri
         std::shared_ptr<IEmbedding> embedding;
         switch(embedding_type) {
             case HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash: {
-                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                const HugeCTR::SparseEmbeddingHashParams embedding_params = {
                     static_cast<size_t>(batch_size_),
                     static_cast<size_t>(batch_size_eval_),
                     max_vocabulary_size_per_gpu, 
@@ -175,7 +175,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(std::stri
                 break;
             }
             case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                const HugeCTR::SparseEmbeddingHashParams embedding_params = {
                     static_cast<size_t>(batch_size_),
                     static_cast<size_t>(batch_size_eval_),
                     max_vocabulary_size_per_gpu,
@@ -192,7 +192,7 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(std::stri
                 break;
             }
             case HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot:{
-                const HugeCTR::SparseEmbeddingHashParams<TypeFP> embedding_params = {
+                const HugeCTR::SparseEmbeddingHashParams embedding_params = {
                     static_cast<size_t>(batch_size_),
                     static_cast<size_t>(batch_size_eval_),
                     0,

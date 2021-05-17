@@ -93,7 +93,7 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   data_reader_eval->create_drwg_norm(file_list_name_eval, check);
 
   // create an embedding
-  OptHyperParams<EmbeddingCompType> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
   if (std::is_same<EmbeddingCompType, __half>::value) {
@@ -104,14 +104,14 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
 
-  const OptParams<EmbeddingCompType> opt_params = {Optimizer_t::Adam, 0.001f, hyper_params,
+  const OptParams opt_params = {Optimizer_t::Adam, 0.001f, hyper_params,
                                                    update_type, scaler};
 
-  const SparseEmbeddingHashParams<EmbeddingCompType> embedding_param = {
+  const SparseEmbeddingHashParams embedding_param = {
       batchsize,       batchsize, vocabulary_size, {},        embedding_vector_size,
       max_feature_num, slot_num,  combiner,        opt_params};
 
-  std::shared_ptr<Embedding<KeyType, EmbeddingCompType>> embedding = init_embedding(
+  std::shared_ptr<Embedding<KeyType, EmbeddingCompType>> embedding = init_embedding<KeyType, EmbeddingCompType>(
           data_reader_train->get_row_offsets_tensors(), data_reader_train->get_value_tensors(),
           data_reader_train->get_nnz_array(), data_reader_eval->get_row_offsets_tensors(),
           data_reader_eval->get_value_tensors(), data_reader_eval->get_nnz_array(),
@@ -130,8 +130,7 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
 
   {
     // Create a ParameterServer
-    ParameterServer<KeyType, EmbeddingCompType> parameter_server(embedding_param,
-        snapshot_src_file, embedding_type);
+    ParameterServer<KeyType> parameter_server(embedding_param, snapshot_src_file, embedding_type);
 
     // Make a synthetic keyset files
     auto keys = parameter_server.get_keys_from_hash_table();
@@ -147,7 +146,7 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   // Create a ModelOversubscriber
   std::vector<std::shared_ptr<IEmbedding>> embeddings;
   embeddings.push_back(embedding);
-  std::vector<SparseEmbeddingHashParams<EmbeddingCompType>> embedding_params;
+  std::vector<SparseEmbeddingHashParams> embedding_params;
 
   Solver solver;
   std::vector<std::string> sparse_embedding_files;

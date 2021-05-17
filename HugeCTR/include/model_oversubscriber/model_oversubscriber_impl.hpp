@@ -37,10 +37,10 @@ public:
 };
 
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
+template <typename TypeHashKey>
 class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
   std::vector<std::shared_ptr<IEmbedding>> embeddings_;
-  ParameterServerManager<TypeHashKey, TypeEmbeddingComp> ps_manager_;
+  ParameterServerManager<TypeHashKey> ps_manager_;
 
   size_t get_max_embedding_size_() {
     size_t max_embedding_size = 0;
@@ -61,7 +61,7 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
 public:
   ModelOversubscriberImpl(
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-      const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+      const std::vector<SparseEmbeddingHashParams>& embedding_params,
       const std::vector<std::string>& sparse_embedding_files);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;

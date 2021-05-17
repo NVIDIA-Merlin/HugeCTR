@@ -60,6 +60,11 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
       lr = get_value_from_json<float>(j_hparam, "learning_rate");
       break;
     }
+    case Optimizer_t::AdaGrad: {
+      j_hparam = get_json(j_optimizer, "adagrad_hparam");
+      lr = get_value_from_json<float>(j_hparam, "learning_rate");
+      break;
+    }
     case Optimizer_t::MomentumSGD: {
       j_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
       lr = get_value_from_json<float>(j_hparam, "learning_rate");
