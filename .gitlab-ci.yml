@@ -127,7 +127,7 @@ utests_1:
   extends: .cluster_test_train_job
   script:
     - srun
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --ntasks=1
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
@@ -152,7 +152,7 @@ utests_2:
   extends: .cluster_test_train_job
   script:
     - srun
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --ntasks=1
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
@@ -168,7 +168,7 @@ criteo:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
@@ -187,7 +187,7 @@ criteo_multi_node:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=2
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
@@ -200,7 +200,7 @@ dcn:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
@@ -222,9 +222,9 @@ mlperf_benchmark:
   script:
     - echo "#!/bin/bash" > ./batch.sub
     - echo "#SBATCH -A mlperf-ci" >> ./batch.sub
-    - echo "#SBATCH -p luna" >> ./batch.sub
+    - echo "#SBATCH -p backfill" >> ./batch.sub
     - echo "srun --ntasks=1 \\" >> ./batch.sub
-    - echo "  -p luna \\" >> ./batch.sub
+    - echo "  -p backfill \\" >> ./batch.sub
     - echo "  --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT} \\" >> ./batch.sub
     - echo "  --container-mounts ${DLRM_DATASET}:${DLRM_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR} \\" >> ./batch.sub
     - echo "  bash -cx \"\\" >> ./batch.sub
@@ -251,7 +251,7 @@ wdl_deepfm:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
@@ -270,7 +270,7 @@ dlrm:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
@@ -285,7 +285,7 @@ dcn_multi_node:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=4
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
@@ -294,7 +294,7 @@ dcn_multi_node:
       cd /dataset/criteo_kaggle/dcn;
       python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
     - srun --ntasks=2
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
@@ -309,7 +309,7 @@ py_inference:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
       bash -cx "
@@ -321,7 +321,7 @@ py_low_level:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
@@ -336,7 +336,7 @@ py_low_level:
       mkdir ${WORK_DIR}/tmp/;
       python3 ${WORK_DIR}/test/pybind_test/wdl_fp16_8gpu_export.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json ${WORK_DIR}/tmp/;"
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DLRM_DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
@@ -350,7 +350,7 @@ py_single_node:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
@@ -364,7 +364,7 @@ py_multi_node:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=4
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
@@ -373,7 +373,7 @@ py_multi_node:
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
       python3 ${WORK_DIR}/test/pybind_test/dcn_4node_2gpu.py ${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
     - srun --ntasks=2
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
@@ -388,14 +388,14 @@ embedding_plugin1:
   extends: .cluster_test_embedding_job
   script:
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
       cd ${WORK_DIR}/test/embedding_plugin_test;
       python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
     - srun --ntasks=1
-      -A mlperf-ci -J mlperf-ci:hugectr -p luna
+      -A devtech -J devtech:hugectr -p backfill
       --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
@@ -470,21 +470,21 @@ nightly_build_embedding:
 .unit_tests_train_job: &unit_tests_train_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${BIN};
       ./layers_test"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${BIN};
       ./checker_test"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -492,28 +492,28 @@ nightly_build_embedding:
       ./device_map_test"
     - srun --ntasks=1
       -A devtech -J devtech-hugectr::::hugectr:${CI_PIPELINE_ID}:${GITLAB_USER_NAME}:ci:${CI_REPOSITORY_URL}:${CI_COMMIT_BRANCH}:${CI_JOB_ID}
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${BIN};
       ./heap_test"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${BIN};
       ./loss_test"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${BIN};
       ./optimizer_test"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -523,7 +523,7 @@ nightly_build_embedding:
 .unit_tests_inference_job: &unit_tests_inference_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS},$(pwd):/hugectr,$(pwd):/hugectr_ci_workdir
       bash -cx "
@@ -536,7 +536,7 @@ nightly_build_embedding:
     - echo $CONTS
     - echo $(pwd)
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -545,7 +545,7 @@ nightly_build_embedding:
       mkdir -p /hugectr_ci_workdir/export_predictions_criteo_1gpu/;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/criteo_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -553,7 +553,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/criteo;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/criteo_8gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -561,7 +561,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/criteo_multi_slots;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -569,7 +569,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/criteo_multi_slots;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/criteo_multi_slots_8gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -577,7 +577,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/criteo_parquet_multi_slots;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/criteo_parquet_multi_slots_1gpu.json;"
     - srun --ntasks=2
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -588,7 +588,7 @@ nightly_build_embedding:
 .dcn_single_node_job: &dcn_single_node_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -596,7 +596,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/dcn_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -604,7 +604,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/dcn_8gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -612,7 +612,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -620,7 +620,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding_8gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -628,7 +628,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/dcn_localized_embedding.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -636,7 +636,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn_parquet;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_distributed_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -644,7 +644,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn_parquet;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_distributed_8gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -652,7 +652,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn_parquet;
       ${BIN} --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_localized_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -664,7 +664,7 @@ nightly_build_embedding:
 .dlrm_set_source_py_job: &dlrm_set_source_py_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -673,7 +673,7 @@ nightly_build_embedding:
       cp ${BIN} ${CI_PROJECT_DIR}/test/pybind_test/;
       python3 ${CI_PROJECT_DIR}/test/pybind_test/dlrm_8gpu_set_source.py ${CI_PROJECT_DIR}/test/scripts/dlrm_set_source.json"
     - srun --ntasks=4
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -684,7 +684,7 @@ nightly_build_embedding:
 .dlrm_set_source_job: &dlrm_set_source_job
   script:
     - srun --ntasks=4
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -696,7 +696,7 @@ nightly_build_embedding:
 .wdl_deepfm_job: &wdl_deepfm_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -704,7 +704,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/wdl;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/wdl_1gpu.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -712,7 +712,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/wdl;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/wdl_8gpu.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -720,7 +720,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/wdl;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -729,7 +729,7 @@ nightly_build_embedding:
       mkdir -p /hugectr_ci_workdir/export_predictions_wdl_fp16_8gpu/;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -737,7 +737,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/deepfm;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/deepfm_1gpu.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -748,28 +748,28 @@ nightly_build_embedding:
 .dlrm_job: &dlrm_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${CRITEO_MOUNT}/dcn;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/dlrm_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${CRITEO_MOUNT}/dcn;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/dlrm_8gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${CRITEO_MOUNT}/dcn;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/dlrm_fp16_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -779,7 +779,7 @@ nightly_build_embedding:
 .kaggle_job: &kaggle_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -787,7 +787,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/kaggle;
       $BIN --train ${CI_PROJECT_DIR}/samples/dlrm/kaggle_fp16.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -798,7 +798,7 @@ nightly_build_embedding:
 .dcn_multi_node_job: &dcn_multi_node_job
   script:
     - srun --ntasks=4
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -806,7 +806,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/dcn_4node_2gpu.json"
     - srun --ntasks=2
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -814,7 +814,7 @@ nightly_build_embedding:
       cd ${CRITEO_MOUNT}/dcn_parquet;
       $BIN --train ${CI_PROJECT_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json"
     - srun --ntasks=2
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -826,7 +826,7 @@ nightly_build_embedding:
 .py_inference_job: &py_inference_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -838,7 +838,7 @@ nightly_build_embedding:
 .py_single_node_job: &py_single_node_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -846,7 +846,7 @@ nightly_build_embedding:
       cp ${BIN} ${CI_PROJECT_DIR}/test/pybind_test/;
       python3 ${CI_PROJECT_DIR}/test/pybind_test/dcn_1gpu.py;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -854,7 +854,7 @@ nightly_build_embedding:
       cp $BIN ${CI_PROJECT_DIR}/test/pybind_test/;
       python3 ${CI_PROJECT_DIR}/test/pybind_test/wdl_fp16_8gpu.py ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -863,7 +863,7 @@ nightly_build_embedding:
       mkdir -p /hugectr_ci_workdir/tmp;
       python3 ${CI_PROJECT_DIR}/test/pybind_test/wdl_fp16_8gpu_export.py ${CI_PROJECT_DIR}/test/scripts/wdl_fp16_8gpu.json /hugectr_ci_workdir/tmp;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -876,7 +876,7 @@ nightly_build_embedding:
 .py_multi_node_job: &py_multi_node_job
   script:
     - srun --ntasks=2
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -897,14 +897,14 @@ nightly_build_embedding:
 .embedding_plugin_job: &embedding_plugin_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
       cd ${CI_PROJECT_DIR}/test/embedding_plugin_test;
       python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=${CRITEO_MOUNT}/embedding_plugin/"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       bash -cx "
@@ -914,7 +914,7 @@ nightly_build_embedding:
 .sample_wdl_job: &sample_wdl_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -924,7 +924,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/wdl_data/g' ./samples/wdl/wdl.json;
       ${BIN} --train ./samples/wdl/wdl.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -934,7 +934,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/wdl_data/g' ./samples/wdl/wdl_fp16_1gpu.json;
       ${BIN} --train ./samples/wdl/wdl_fp16_1gpu.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -944,7 +944,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/wdl_data_nvt_bin/g' ./samples/wdl/wdl_bin.json;
       ${BIN} --train ./samples/wdl/wdl_bin.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -957,7 +957,7 @@ nightly_build_embedding:
 .sample_deepfm_job: &sample_deepfm_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -967,7 +967,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/dcn_data/g' ./samples/deepfm/deepfm.json;
       ${BIN} --train ./samples/deepfm/deepfm.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -977,7 +977,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/deepfm_data_nvt_bin/g' ./samples/deepfm/deepfm_bin.json;
       ${BIN} --train ./samples/deepfm/deepfm_bin.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -990,7 +990,7 @@ nightly_build_embedding:
 .sample_dcn_job: &sample_dcn_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1000,7 +1000,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/dcn_data/g' ./samples/dcn/dcn.json;
       ${BIN} --train ./samples/dcn/dcn.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1010,7 +1010,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/deepfm_data_nvt_bin/g' ./samples/dcn/dcn_bin.json;
       ${BIN} --train ./samples/dcn/dcn_bin.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1020,7 +1020,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/deepfm_data_nvt/g' ./samples/dcn/dcn_parquet.json;
       ${BIN} --train ./samples/dcn/dcn_parquet.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1032,7 +1032,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/dcn_data/g' ../samples/dcn/dcn_localized_embedding.json;
       ${BIN} --train ../samples/dcn/dcn_localized_embedding.json"
     - srun --ntasks=2
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1045,7 +1045,7 @@ nightly_build_embedding:
 .sample_criteo_job: &sample_criteo_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1054,7 +1054,7 @@ nightly_build_embedding:
       ln -s ${NEW_CRITEO_MOUNT}/criteo_data;
       ${BIN} --train samples/criteo/criteo.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1064,7 +1064,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/criteo_bin/g' samples/criteo/criteo_bin.json;
       ${BIN} --train samples/criteo/criteo_bin.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1074,7 +1074,7 @@ nightly_build_embedding:
       sed -i 's/criteo_data/criteo_parquet/g' samples/criteo/criteo_parquet.json;
       ${BIN} --train samples/criteo/criteo_parquet.json;"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1087,7 +1087,7 @@ nightly_build_embedding:
 .dlrm_fp16_16k_job: &dlrm_fp16_16k_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1098,7 +1098,7 @@ nightly_build_embedding:
 .dlrm_fp16_64k_job: &dlrm_fp16_64k_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1109,7 +1109,7 @@ nightly_build_embedding:
 .dlrm_fp32_16k_job: &dlrm_fp32_16k_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1120,7 +1120,7 @@ nightly_build_embedding:
 .dlrm_fp32_64k_job: &dlrm_fp32_64k_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1131,7 +1131,7 @@ nightly_build_embedding:
 .dlrm_mlperf_fp16_dgxa100_job: &dlrm_mlperf_fp16_dgxa100_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1142,7 +1142,7 @@ nightly_build_embedding:
 .sample_dlrm_job: &sample_dlrm_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1150,7 +1150,7 @@ nightly_build_embedding:
       cd ${DLRM_MOUNT};
       $BIN --train ${CI_PROJECT_DIR}/samples/dlrm/terabyte_fp16_16k.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1158,7 +1158,7 @@ nightly_build_embedding:
       cd ${DLRM_MOUNT};
       $BIN --train ${CI_PROJECT_DIR}/samples/dlrm/terabyte_fp16_64k.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1166,7 +1166,7 @@ nightly_build_embedding:
       cd ${DLRM_MOUNT};
       $BIN --train ${CI_PROJECT_DIR}/samples/dlrm/terabyte_fp32_16k.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1177,7 +1177,7 @@ nightly_build_embedding:
 .notebook_python_interface_job: &notebook_python_interface_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1185,7 +1185,7 @@ nightly_build_embedding:
       cd ${NEW_CRITEO_MOUNT};
       python3 ./notebook_scripts/wdl_from_scratch.py ./notebook_scripts/wdl_1gpu.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1196,7 +1196,7 @@ nightly_build_embedding:
 .notebook_hugectr_inference_job: &notebook_hugectr_inference_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1204,7 +1204,7 @@ nightly_build_embedding:
       cd ${NEW_CRITEO_MOUNT};
       python3 ./notebook_scripts/dcn_train.py ./notebook_scripts/dcn_train.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1215,7 +1215,7 @@ nightly_build_embedding:
 .notebook_movide_lens_job: &notebook_movide_lens_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1223,7 +1223,7 @@ nightly_build_embedding:
       cd ${NEW_CRITEO_MOUNT}/movie_lens_data;
       huge_ctr --train dlrm_config.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1234,7 +1234,7 @@ nightly_build_embedding:
 .notebook_embedding_plugin_job: &notebook_embedding_plugin_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${EMBEDDING_IMAGE_RELEASE_ENROOT}
       --container-mounts ${CI_PROJECT_DIR}:/hugectr,${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
       --ntasks-per-node 1
@@ -1242,7 +1242,7 @@ nightly_build_embedding:
       cd ${NEW_CRITEO_MOUNT}/embedding_tf_data;
       python3 verify_correctness.py"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${EMBEDDING_IMAGE_RELEASE_ENROOT}
       --container-mounts ${CI_PROJECT_DIR}:/hugectr,${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
       --ntasks-per-node 1
@@ -1253,7 +1253,7 @@ nightly_build_embedding:
 .tutorial_dump_to_tf_job: &tutorial_dump_to_tf_job
   script:
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1261,7 +1261,7 @@ nightly_build_embedding:
       cd ${NEW_CRITEO_MOUNT};
       huge_ctr --train tutorial_scripts/dcn.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1269,7 +1269,7 @@ nightly_build_embedding:
       cd ${NEW_CRITEO_MOUNT};
       python3 ${CI_PROJECT_DIR}/tutorial/dump_to_tf/main.py ./tutorial_scripts/dcn.json ./dcn_data/train/sparse_embedding0.data ./dcn_dense_10000.model dcn0_sparse_10000.model --model dcn"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1277,7 +1277,7 @@ nightly_build_embedding:
       cd ${NEW_CRITEO_MOUNT};
       huge_ctr --train tutorial_scripts/criteo.json"
     - srun --ntasks=1
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
@@ -1535,7 +1535,7 @@ dlrm_mlperf_fp16_dgxa100_selene:
   script:
     - git submodule update --init --recursive
     - srun
-      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p luna
+      -A devtech -J devtech-hugectr:${CI_PIPELINE_ID}:aleliu:hugectr:dl/hugectr/HugeCTR:${CI_COMMIT_BRANCH}:${CI_JOB_ID} -p backfill
       --ntasks=1
       --container-image gitlab-master.nvidia.com/dl/hugectr/hugectr:devel_train
       --container-mounts ${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
