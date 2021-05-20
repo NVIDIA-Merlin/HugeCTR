@@ -19,5 +19,5 @@ class FasterComm {
   virtual void exec() = 0;
   virtual ~FasterComm() = default;
 };
-}
-}
+}  // namespace GossipComm
+}  // namespace HugeCTR

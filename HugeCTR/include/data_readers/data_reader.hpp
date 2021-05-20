@@ -24,7 +24,11 @@
 #include <data_readers/data_collector.hpp>
 #include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker_group_norm.hpp>
+
+#ifndef DISABLE_CUDF
 #include <data_readers/data_reader_worker_group_parquet.hpp>
+#endif
+
 #include <data_readers/data_reader_worker_group_raw.hpp>
 #include <data_readers/file_list.hpp>
 #include <fstream>
@@ -106,12 +110,17 @@ class DataReader : public IDataReader {
   DataReader(int batchsize, size_t label_dim, int dense_dim,
              std::vector<DataReaderSparseParam>& params,
              const std::shared_ptr<ResourceManager>& resource_manager, bool repeat,
-             int num_chunk_threads = 31, bool use_mixed_precision = false, int cache_num_iters = 0);
+             int num_chunk_threads = 31, bool use_mixed_precision = false, int cache_num_iters = 0,
+             Alignment_t aligned = Alignment_t::None);
 
-  const Tensors2<float>& get_label_tensors() const { return label_tensors_; }
-  const std::vector<TensorBag2>& get_dense_tensors() const { return dense_tensors_; }
-  const Tensors2<TypeKey>& get_row_offsets_tensors() const { return row_offsets_tensors_; }
-  const Tensors2<TypeKey>& get_value_tensors() const { return value_tensors_; }
+  std::vector<TensorBag2> get_label_tensors() const override {
+    return tensors_to_bags(label_tensors_);
+  }
+  std::vector<TensorBag2> get_dense_tensors() const override { return dense_tensors_; }
+  std::vector<TensorBag2> get_row_offsets_tensors() const {
+    return tensors_to_bags(row_offsets_tensors_);
+  }
+  std::vector<TensorBag2> get_value_tensors() const { return tensors_to_bags(value_tensors_); }
   const std::vector<std::shared_ptr<size_t>> get_nnz_array() const { return nnz_array_; }
   const Tensors2<TypeKey> get_row_offsets_tensors(int param_id) const {
     Tensors2<TypeKey> tensors;
@@ -151,6 +160,7 @@ class DataReader : public IDataReader {
         float_label_dense, data_shuffle, start_reading_from_beginning));
   }
 
+#ifndef DISABLE_CUDF
   void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
     // worker_group_.empty
@@ -158,6 +168,7 @@ class DataReader : public IDataReader {
                                                                   slot_offset, resource_manager_,
                                                                   start_reading_from_beginning));
   }
+#endif
 
   void set_file_list_source(std::string file_list = std::string()) override {
     // TODO: if the underlying workers are for Parquet, throw the exception
@@ -193,7 +204,7 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
                                 std::vector<DataReaderSparseParam>& params,
                                 const std::shared_ptr<ResourceManager>& resource_manager,
                                 bool repeat, int num_chunk_threads, bool use_mixed_precision,
-                                int cache_num_iters)
+                                int cache_num_iters, Alignment_t aligned)
     : params_(params),
       resource_manager_(resource_manager),
       use_mixed_precision_(use_mixed_precision),
@@ -223,6 +234,9 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
     buffs.push_back(GeneralBuffer2<CudaAllocator>::create());
   }
 
+  size_t dense_dim_align8 = dense_dim_;
+  if (aligned == Alignment_t::Auto) dense_dim_align8 = (dense_dim_ + 7) / 8 * 8;
+
   // create label and dense tensor
   size_t batch_size_per_device = batchsize_ / total_gpu_count;
   for (size_t i = 0; i < local_gpu_count; i++) {
@@ -233,11 +247,11 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
     }
     if (use_mixed_precision_) {
       Tensor2<__half> tensor;
-      buffs[i]->reserve({batch_size_per_device, dense_dim_}, &tensor);
+      buffs[i]->reserve({batch_size_per_device, dense_dim_align8}, &tensor);
       dense_tensors_.push_back(tensor.shrink());
     } else {
       Tensor2<float> tensor;
-      buffs[i]->reserve({batch_size_per_device, dense_dim_}, &tensor);
+      buffs[i]->reserve({batch_size_per_device, dense_dim_align8}, &tensor);
       dense_tensors_.push_back(tensor.shrink());
     }
   }
@@ -252,7 +266,7 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
         one_hot = false;
       } else if (param.type == DataReaderSparse_t::Localized) {
         size_t mod_slots = static_cast<size_t>(param.slot_num) % total_gpu_count;  // ceiling
-        size_t global_id = resource_manager_->get_local_gpu(i)->get_global_gpu_id();
+        size_t global_id = resource_manager_->get_local_gpu(i)->get_global_id();
         if (global_id < mod_slots) {
           slots = param.slot_num / total_gpu_count + 1;
         } else {
@@ -299,6 +313,21 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
   for (size_t i = 0; i < local_gpu_count; i++) {
     CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
     buffs[i]->allocate();
+  }
+
+  // zero-initialization
+  for (size_t i = 0; i < local_gpu_count; i++) {
+    const auto local_gpu = resource_manager_->get_local_gpu(i);
+    if (use_mixed_precision_) {
+      Tensor2<__half> tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
+      CK_CUDA_THROW_(cudaMemsetAsync(tensor.get_ptr(), 0,
+                                     tensor.get_num_elements() * sizeof(__half),
+                                     local_gpu->get_memcpy_stream()));
+    } else {
+      Tensor2<float> tensor = Tensor2<float>::stretch_from(dense_tensors_[i]);
+      CK_CUDA_THROW_(cudaMemsetAsync(tensor.get_ptr(), 0, tensor.get_num_elements() * sizeof(float),
+                                     local_gpu->get_memcpy_stream()));
+    }
   }
 
   core_offset_ += 64;

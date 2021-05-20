@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cudnn.h>
+
 #include <general_buffer2.hpp>
 #include <layer.hpp>
 #include <memory>

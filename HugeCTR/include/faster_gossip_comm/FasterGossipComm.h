@@ -10,6 +10,7 @@
 #pragma once
 
 #include <assert.h>
+
 #include "FasterComm.h"
 #include "FasterGossipCommTraits.h"
 #include "HugeCTR/include/utils.hpp"
@@ -153,5 +154,5 @@ class FasterGossipComm : public FasterComm {
   std::vector<size_t> buf_len_;
 };
 
-}  // namespace
-}
+}  // namespace GossipComm
+}  // namespace HugeCTR

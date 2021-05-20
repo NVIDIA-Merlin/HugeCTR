@@ -18,13 +18,13 @@
 #include <atomic>
 #include <common.hpp>
 #include <condition_variable>
+#include <data_readers/chunk_consumer.hpp>
+#include <data_readers/chunk_producer.hpp>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
 #include <vector>
-#include <data_readers/chunk_producer.hpp>
-#include <data_readers/chunk_consumer.hpp>
 
 namespace HugeCTR {
 
@@ -82,13 +82,11 @@ class HeapEx : public ChunkConsumer<T>, public ChunkProducer<T> {
       if (is_nop) {
         credits_[ch_id].push(cand);
         ready_queue_[ch_id].push(nullptr);
-      }
-      else {
+      } else {
         ready_queue_[ch_id].push(cand);
       }
       wait_queue_[ch_id].pop();
-    }
-    else if (is_nop) {
+    } else if (is_nop) {
       ready_queue_[ch_id].push(nullptr);
     }
     lock.unlock();
@@ -128,8 +126,7 @@ class HeapEx : public ChunkConsumer<T>, public ChunkProducer<T> {
       credits_[id].push(chunk);
       ready_queue_[id].pop();
       count_ = (id + 1) % num_threads_;
-    }
-    else {
+    } else {
       for (int i = 0; i < num_threads_; i++) {
         if (!ready_queue_[i].empty() && ready_queue_[i].front() == nullptr) {
           ready_queue_[i].pop();

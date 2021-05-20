@@ -15,8 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/reshape_layer.hpp"
+
 #include <math.h>
+
 #include <vector>
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -32,8 +35,7 @@ void reshape_test(vector<size_t>& in_dims, size_t leading_dim) {
   buff->reserve(in_dims, &in_tensor);
 
   Tensor2<T> out_tensor;
-  ReshapeLayer<T> reshape_layer(in_tensor, in_tensor, out_tensor, buff, leading_dim,
-                                test::get_default_gpu());
+  ReshapeLayer<T> reshape_layer(in_tensor, out_tensor, buff, leading_dim, test::get_default_gpu());
 
   buff->allocate();
   reshape_layer.initialize();

@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include <fstream>
-#include "HugeCTR/include/data_readers/parquet_data_reader_worker.hpp"
+
+#include "HugeCTR/include/data_generator.hpp"
+#include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
+#include "HugeCTR/include/data_readers/parquet_data_reader_worker.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-#include "HugeCTR/include/data_generator.hpp"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include <cudf/io/parquet.hpp>
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
-#include <cudf/io/parquet.hpp>
 #include <rmm/device_buffer.hpp>
 #pragma GCC diagnostic pop
 
@@ -47,7 +48,7 @@ using CAT_TYPE = int64_t;
 const Check_t CHK = Check_t::None;
 const std::string prefix("./data_reader_parquet_test_data/");
 const std::string file_list_name("data_reader_parquet_file_list.txt");
-using CVector     = std::vector<std::unique_ptr<cudf::column>>;
+using CVector = std::vector<std::unique_ptr<cudf::column>>;
 typedef long long T;
 
 void generate_parquet_input_files(int num_files, int sample_per_file) {
@@ -57,45 +58,41 @@ void generate_parquet_input_files(int num_files, int sample_per_file) {
     // create label vector
     for (int i = 0; i < label_dim; i++) {
       std::vector<LABEL_TYPE> label_vector(sample_per_file, 0);
-      for (auto& c : label_vector)
-        c = LABEL_TYPE(std::rand() % 2);  // 0,1 value
+      for (auto& c : label_vector) c = LABEL_TYPE(std::rand() % 2);  // 0,1 value
 
       rmm::device_buffer dev_buffer(label_vector.data(), sizeof(LABEL_TYPE) * sample_per_file);
-      cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<LABEL_TYPE>()},
-                                  cudf::size_type(sample_per_file),
-                                  dev_buffer));
+      cols.emplace_back(
+          std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<LABEL_TYPE>()},
+                                         cudf::size_type(sample_per_file), dev_buffer));
     }
 
     // create dense vector
     for (int i = 0; i < dense_dim; i++) {
       std::vector<DENSE_TYPE> dense_vector(sample_per_file, 0);
-      for (auto& c : dense_vector)
-        c = DENSE_TYPE(std::rand());
+      for (auto& c : dense_vector) c = DENSE_TYPE(std::rand());
 
       rmm::device_buffer dev_buffer(dense_vector.data(), sizeof(DENSE_TYPE) * sample_per_file);
-      cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()},
-                                  cudf::size_type(sample_per_file),
-                                  dev_buffer));
+      cols.emplace_back(
+          std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<DENSE_TYPE>()},
+                                         cudf::size_type(sample_per_file), dev_buffer));
     }
 
     // create slot vectors
     for (int i = 0; i < slot_num; i++) {
       std::vector<CAT_TYPE> slot_vector(sample_per_file, 0);
-      for (auto& c : slot_vector)
-        c = CAT_TYPE(std::rand());
+      for (auto& c : slot_vector) c = CAT_TYPE(std::rand());
 
       rmm::device_buffer dev_buffer(slot_vector.data(), sizeof(CAT_TYPE) * sample_per_file);
-      cols.emplace_back(std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<CAT_TYPE>()},
-                                  cudf::size_type(sample_per_file),
-                                  dev_buffer));
+      cols.emplace_back(
+          std::make_unique<cudf::column>(cudf::data_type{cudf::type_to_id<CAT_TYPE>()},
+                                         cudf::size_type(sample_per_file), dev_buffer));
     }
 
     cudf::table input_table(std::move(cols));
 
     std::string filepath = prefix + std::to_string(file_num) + std::string(".parquet");
-    cudf::io::parquet_writer_options writer_args = cudf_io::parquet_writer_options::builder(
-                                                        cudf::io::sink_info{filepath},
-                                                        input_table.view());
+    cudf::io::parquet_writer_options writer_args =
+        cudf_io::parquet_writer_options::builder(cudf::io::sink_info{filepath}, input_table.view());
     cudf::io::write_parquet(writer_args);
   }
 
@@ -104,41 +101,45 @@ void generate_parquet_input_files(int num_files, int sample_per_file) {
   output_file_stream << num_files << std::endl;
   for (int i = 0; i < num_files; i++) {
     std::string filepath = prefix + "./" + std::to_string(i) + std::string(".parquet");
-    output_file_stream <<  filepath << std::endl;
+    output_file_stream << filepath << std::endl;
   }
   output_file_stream.close();
-
 
   // also write metadata
   std::stringstream metadata;
   metadata << "{ \"file_stats\": [";
-  for (int i = 0; i < num_files-1; i++) {
+  for (int i = 0; i < num_files - 1; i++) {
     std::string filepath = std::to_string(i) + std::string(".parquet");
-    metadata << "{\"file_name\": \"" << filepath << "\", " << "\"num_rows\":" << sample_per_file << "}, ";
+    metadata << "{\"file_name\": \"" << filepath << "\", "
+             << "\"num_rows\":" << sample_per_file << "}, ";
   }
-  std::string filepath = std::to_string(num_files-1) + std::string(".parquet");
-  metadata << "{\"file_name\": \"" << filepath << "\", " << "\"num_rows\":" << sample_per_file << "} ";
+  std::string filepath = std::to_string(num_files - 1) + std::string(".parquet");
+  metadata << "{\"file_name\": \"" << filepath << "\", "
+           << "\"num_rows\":" << sample_per_file << "} ";
   metadata << "], ";
   metadata << "\"labels\": [";
   for (int i = 0; i < label_dim; i++) {
-    metadata << "{\"col_name\": \"label\", " << "\"index\":" << i << "} ";
+    metadata << "{\"col_name\": \"label\", "
+             << "\"index\":" << i << "} ";
   }
   metadata << "], ";
-  
+
   metadata << "\"conts\": [";
-  for (int i = label_dim; i < (label_dim+dense_dim - 1); i++) {
-    metadata << "{\"col_name\": \"C" << i << "\", " << "\"index\":" << i << "}, ";
+  for (int i = label_dim; i < (label_dim + dense_dim - 1); i++) {
+    metadata << "{\"col_name\": \"C" << i << "\", "
+             << "\"index\":" << i << "}, ";
   }
-  metadata << "{\"col_name\": \"C" << (label_dim+dense_dim - 1) << "\", " << "\"index\":" \
-                  << (label_dim+dense_dim - 1) << "} ";
+  metadata << "{\"col_name\": \"C" << (label_dim + dense_dim - 1) << "\", "
+           << "\"index\":" << (label_dim + dense_dim - 1) << "} ";
   metadata << "], ";
 
   metadata << "\"cats\": [";
-  for (int i = label_dim+dense_dim; i < (label_dim+dense_dim+slot_num - 1); i++) {
-    metadata << "{\"col_name\": \"C" << i << "\", " << "\"index\":" << i << "}, ";
+  for (int i = label_dim + dense_dim; i < (label_dim + dense_dim + slot_num - 1); i++) {
+    metadata << "{\"col_name\": \"C" << i << "\", "
+             << "\"index\":" << i << "}, ";
   }
-  metadata << "{\"col_name\": \"C" << (label_dim+dense_dim+slot_num - 1) << "\", " \
-                  << "\"index\":" << (label_dim+dense_dim+slot_num - 1) << "} ";
+  metadata << "{\"col_name\": \"C" << (label_dim + dense_dim + slot_num - 1) << "\", "
+           << "\"index\":" << (label_dim + dense_dim + slot_num - 1) << "} ";
   metadata << "] ";
   metadata << "}";
 
@@ -163,7 +164,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
     vvgpu.push_back(device_list);
   }
   auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
-  
+
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -175,12 +176,12 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
 
   std::vector<long long> slot_offset(slot_size.size(), 0);
   for (unsigned int i = 1; i < slot_size.size(); i++) {
-    slot_offset[i] = slot_offset[i-1] + slot_size[i-1];
+    slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
 
   // setup a data reader
-  ParquetDataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length,
-                                          params, slot_offset, 0, gpu_resource_group);
+  ParquetDataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length, params,
+                                         slot_offset, 0, gpu_resource_group);
 
   // call read a batch
   data_reader.read_a_batch();
@@ -213,12 +214,12 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_localized_test) {
 
   std::vector<long long> slot_offset(slot_size.size(), 0);
   for (unsigned int i = 1; i < slot_size.size(); i++) {
-    slot_offset[i] = slot_offset[i-1] + slot_size[i-1];
+    slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
 
   // setup a data reader
-  ParquetDataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length,
-                                          params, slot_offset, 0, gpu_resource_group);
+  ParquetDataReaderWorker<T> data_reader(0, 1, csr_heap, file_list_name, buffer_length, params,
+                                         slot_offset, 0, gpu_resource_group);
 
   // call read a batch
   data_reader.read_a_batch();
@@ -245,10 +246,11 @@ TEST(data_reader_group_test, data_reader_parquet_distributed_test) {
 
   std::vector<long long> slot_offset(slot_size.size(), 0);
   for (unsigned int i = 1; i < slot_size.size(); i++) {
-    slot_offset[i] = slot_offset[i-1] + slot_size[i-1];
+    slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, device_list.size());
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true,
+                            device_list.size());
   data_reader.create_drwg_parquet(file_list_name, slot_offset, true);
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();
@@ -275,10 +277,11 @@ TEST(data_reader_group_test, data_reader_parquet_localized_test) {
 
   std::vector<long long> slot_offset(slot_size.size(), 0);
   for (unsigned int i = 1; i < slot_size.size(); i++) {
-    slot_offset[i] = slot_offset[i-1] + slot_size[i-1];
+    slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];
   }
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, device_list.size());
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true,
+                            device_list.size());
   data_reader.create_drwg_parquet(file_list_name, slot_offset, true);
   data_reader.read_a_batch_to_device();
   data_reader.read_a_batch_to_device();

@@ -15,8 +15,11 @@
  */
 
 #include "HugeCTR/include/layers/elu_layer.hpp"
+
 #include <math.h>
+
 #include <vector>
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 

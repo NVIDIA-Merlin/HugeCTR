@@ -16,11 +16,10 @@
 
 #pragma once
 
-#include <embedding.hpp>
-#include <model_oversubscriber/parameter_server_delegate.hpp>
-
 #include <algorithm>
+#include <embedding.hpp>
 #include <memory>
+#include <model_oversubscriber/parameter_server_delegate.hpp>
 #include <unordered_map>
 #include <vector>
 
@@ -38,11 +37,11 @@ class ParameterServer {
   float* mmaped_table_;      /**< Memory mapped file pointer */
   int fd_;                   /**< File descriptor for mapped file */
   bool maped_to_memory_;
-  
+
   void map_embedding_to_memory_();
   void unmap_embedding_from_memory_();
 
-public:
+ public:
   /**
    * @brief      Constructs of ParameterServer. Using the snapshot_src_file to
    *             initialize hash_table_ and a temporary embedding_file.
@@ -50,10 +49,8 @@ public:
    * @param      snapshot_src_file The source file used to initialize hash_table_
    *             and embedding_file.
    */
-  ParameterServer(
-      const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
-      const std::string& snapshot_src_file,
-      const std::string& temp_embedding_dir);
+  ParameterServer(const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
+                  const std::string& snapshot_src_file, const std::string& temp_embedding_dir);
 
   ParameterServer(const ParameterServer&) = delete;
   ParameterServer& operator=(const ParameterServer&) = delete;
@@ -65,7 +62,7 @@ public:
    * @param      num_unique_key  The number unique keys stored in keyset_file.
    */
   void load_keyset_from_file(std::string keyset_file);
-  
+
   /**
    * @brief      Load embedding vectors from SSD according to keyset_. It only loads embedding
    *             vectors that their corresponding keys exist in hash_table, return pointers of

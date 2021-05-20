@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/layers/fm_order2_layer.hpp"
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 

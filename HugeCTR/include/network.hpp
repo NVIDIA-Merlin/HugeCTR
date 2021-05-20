@@ -18,6 +18,7 @@
 
 #include <cublas_v2.h>
 #include <nccl.h>
+
 #include <common.hpp>
 #include <fstream>
 #include <functional>
@@ -28,14 +29,12 @@
 #include <nlohmann/json.hpp>
 #include <optimizer.hpp>
 #include <vector>
+#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
-enum class TensorUse { General, Train, Evaluate };
-
 struct TensorEntry {
   std::string name;
-  TensorUse use;
   TensorBag2 bag;
 };
 
@@ -46,42 +45,61 @@ struct TensorEntry {
  * forward/backward/loss/update of the dense layers.
  */
 class Network {
+  template <typename T> 
+  using BuffPtr = std::shared_ptr<BufferBlock2<T>>;
   friend Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizor,
-                                 std::vector<TensorEntry>& tensor_entries,
+                                 std::vector<TensorEntry>& train_tensor_entries,
+                                 std::vector<TensorEntry>& evaluate_tensor_entries,
                                  int num_networks_in_global,
+                                 int local_gpu_count,
+                                 std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
                                  const std::shared_ptr<CPUResource>& cpu_resource,
                                  const std::shared_ptr<GPUResource>& gpu_resource,
-                                 bool use_mixed_precision, bool enable_tf32_compute,
-                                 float scaler, bool use_algorithm_search, bool use_cuda_graph);
+                                 bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                                 bool use_algorithm_search, bool use_cuda_graph, bool grouped_all_reduce);
 
  private:
-  std::vector<std::unique_ptr<Layer>> layers_; /**< vector of layers */
+  std::vector<std::unique_ptr<Layer>> train_layers_;    /**< vector of layers */
+  std::vector<std::unique_ptr<Layer>> evaluate_layers_; /**< vector of layers */
+  std::unique_ptr<ILoss> train_loss_;                   /**< loss layer */
+  std::unique_ptr<ILoss> evaluate_loss_;                /**< loss layer */
+  std::unique_ptr<Optimizer> optimizer_;                /**< optimizer */
+  std::vector<Layer*> top_layers_, bottom_layers_;
 
-  Tensor2<float> weight_tensor_;
+  struct GraphWrapper {
+    bool initialized = false;
+    bool initialized_with_profiling = false;
+    cudaGraph_t graph;
+    cudaGraphExec_t graph_exec;
+  };
+
+  Tensor2<float> train_weight_tensor_;
   Tensor2<float> wgrad_tensor_;
-  Tensor2<__half> weight_tensor_half_;
+  Tensor2<float> evaluate_weight_tensor_;
+  Tensor2<__half> train_weight_tensor_half_;
   Tensor2<__half> wgrad_tensor_half_;
+  Tensor2<__half> evaluate_weight_tensor_half_;
+  Tensor2<float> train_loss_tensor_;    /**< loss tensor */
+  Tensor2<float> evaluate_loss_tensor_; /**< loss tensor */
+  metrics::RawMetricMap raw_metrics_;
 
   std::shared_ptr<CPUResource> cpu_resource_;
   std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
-  std::unique_ptr<Optimizer> optimizer_;      /**< optimizer */
-  std::unique_ptr<ILoss> loss_;               /**< loss */
-  Tensor2<float> loss_tensor_;                /**< loss tensor */
-  bool full_fp16_{false};
+  bool use_mixed_precision_;
   bool enable_cuda_graph_;
-  void conv_weight_();
-  metrics::RawMetricMap raw_metrics_;
 
-  bool eval_graph_created_;
-  bool train_fprop_graph_created_;
-  bool train_bprop_graph_created_;
-  cudaGraph_t eval_graph_;
-  cudaGraph_t train_fprop_graph_;
-  cudaGraph_t train_bprop_graph_;
-  cudaGraphExec_t eval_instance_;
-  cudaGraphExec_t train_fprop_instance_;
-  cudaGraphExec_t train_bprop_instance_;
+  GraphWrapper eval_graph_, train_fprop_graph_, train_bprop_graph_;
+  GraphWrapper bottom_train_fprop_graph_, bottom_train_bprop_graph_;
 
+  void conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source);
+
+  std::map<TrainState_t ,cudaEvent_t> train_events_;
+  
+  template<typename LPtr>
+  void prop_layers(const std::vector<LPtr>& layers,
+                   GraphWrapper& graph, bool use_graph,
+                   bool fprop, const cudaStream_t stream, bool train=true);
+  cudaEvent_t& get_train_events(TrainState_t state);
  public:
   /**
    * Ctor.
@@ -90,7 +108,7 @@ class Network {
    * @param disable_parser only for unit test.
    */
   Network(const std::shared_ptr<CPUResource>& cpu_resource,
-          const std::shared_ptr<GPUResource>& gpu_resource, bool full_fp16 = false,
+          const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision = false,
           bool use_cuda_graph = true);
   Network(const Network&) = delete;
   Network& operator=(const Network&) = delete;
@@ -100,6 +118,8 @@ class Network {
    */
   void train(long long current_batchsize);
 
+  TrainState train(long long current_batchsize, std::function<void()> exchange_wgrad,
+                   TrainState state);
   /**
    * Forward only.
    */
@@ -117,7 +137,7 @@ class Network {
   /**
    * Get number of parameters in this network.
    */
-  size_t get_params_num() const { return weight_tensor_.get_num_elements(); }
+  size_t get_params_num() const { return train_weight_tensor_.get_num_elements(); }
 
   /**
    * Writting paramters to fstream.
@@ -147,17 +167,7 @@ class Network {
   /**
    * Init parameters and write to fstream.
    */
-  void init_params(const std::string& model_file_name);
-
-  /**
-   * Copy parameters from a network.
-   */
-  void copy_params(const Network& n);
-
-  /**
-   * Exchange wgrad between gpus.
-   */
-  void exchange_wgrad();
+  void init_params(size_t index);
 
   /**
    * Update parameters.
@@ -170,22 +180,37 @@ class Network {
   void set_learning_rate(float lr) { optimizer_->set_learning_rate(lr); }
 
   /**
+   * set the learing rate scheduling delegate instead of explicitly setting the learning rate.
+   */
+  void set_learning_rate_scheduler(std::shared_ptr<GpuLearningRateScheduler>& lr_sched) {
+    optimizer_->set_learning_rate_scheduler(lr_sched);
+  }
+
+  /**
    * initialize layer by layer
    */
   void initialize() {
-    for (auto& n : layers_) {
-      n->initialize();
+    CudaDeviceContext context(get_device_id());
+    for (auto& layer : train_layers_) {
+      layer->initialize();
     }
+    for (auto& layer : evaluate_layers_) {
+      layer->initialize();
+    }
+    optimizer_->initialize();
   }
 
   /**
    * search_algorithm layer by layer
    */
-  void search_algorithm() {
-    for (auto& n : layers_) {
-      n->search_algorithm();
-    }
-  }
-};  // namespace HugeCTR
+  void search_algorithm();
+
+  /**
+   * copy weights from train layers to evaluate layers
+   */
+  void copy_weights_from_train_layers_to_evaluate_layers();
+};
+  
+
 
 }  // namespace HugeCTR

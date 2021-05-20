@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/layers/batch_norm_layer.hpp"
+
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"

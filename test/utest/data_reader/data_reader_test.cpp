@@ -15,8 +15,10 @@
  */
 
 #include "HugeCTR/include/data_readers/data_reader.hpp"
+
 #include <fstream>
 #include <thread>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader_worker.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
@@ -126,7 +128,8 @@ TEST(data_reader_test, data_reader_localized_test) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
-  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1);
+  HugeCTR::DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager,
+                                     true, 1);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 
@@ -170,7 +173,8 @@ TEST(data_reader_test, data_reader_mixed_test) {
   params.push_back(param_localized);
   params.push_back(param_distributed);
 
-  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1, true);
+  DataReader<T> data_reader(batchsize, label_dim, dense_dim, params, resource_manager, true, 1,
+                            true);
 
   data_reader.create_drwg_norm(file_list_name, CHK);
 

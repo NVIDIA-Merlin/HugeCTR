@@ -17,6 +17,7 @@
 #pragma once
 
 #include <curand.h>
+
 #include <layer.hpp>
 
 namespace HugeCTR {

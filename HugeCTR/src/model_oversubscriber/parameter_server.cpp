@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#include <model_oversubscriber/parameter_server.hpp>
-#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
-
-#include <map>
-#include <cstdio>
-#include <algorithm>
-#include <fstream>
-#include <limits>
-#include <random>
-#include <omp.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <omp.h>
 #include <sys/io.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
+
+#include <algorithm>
+#include <cstdio>
+#include <fstream>
+#include <limits>
+#include <map>
+#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
+#include <model_oversubscriber/parameter_server.hpp>
+#include <random>
 
 namespace HugeCTR {
 
@@ -51,15 +51,15 @@ std::string generate_random_file_name() {
   return ret;
 }
 
-void open_and_get_size(
-    const std::string& file_name, std::ifstream& stream, size_t& file_size_in_byte) {
+void open_and_get_size(const std::string& file_name, std::ifstream& stream,
+                       size_t& file_size_in_byte) {
   if (file_name.empty()) {
     std::string random_src_snapshot = "./" + generate_random_file_name();
     stream.open(random_src_snapshot, std::ofstream::binary | std::ofstream::trunc);
     file_size_in_byte = 0;
     return;
   }
-  
+
   stream.open(file_name, std::ifstream::binary);
   if (!stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + file_name);
@@ -71,7 +71,7 @@ void open_and_get_size(
   stream.seekg(0, stream.beg);
 }
 
-} // namespace
+}  // namespace
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ParameterServer<TypeHashKey, TypeEmbeddingComp>::map_embedding_to_memory_() {
@@ -95,7 +95,8 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::map_embedding_to_memory_()
     // handle empty file for trainning from scratch
     // but writting to empty file may cause error because only one page is mapped
     size_t mmaped_file_size = (!file_size_in_byte_) ? 128 : file_size_in_byte_;
-    mmaped_table_ = (float *)mmap(NULL, mmaped_file_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd_, 0);
+    mmaped_table_ =
+        (float*)mmap(NULL, mmaped_file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
     if (mmaped_table_ == MAP_FAILED) {
       close(fd_);
       fd_ = -1;
@@ -104,12 +105,10 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::map_embedding_to_memory_()
     }
 
     maped_to_memory_ = true;
-  }
-  catch (const internal_runtime_error& rt_err) {
+  } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
-  }
-  catch (const std::exception& err) {
+  } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
     throw;
   }
@@ -127,12 +126,10 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::unmap_embedding_from_memor
     } else {
       CK_THROW_(Error_t::WrongInput, embedding_table_path_ + " not mapped to host memory");
     }
-  }
-  catch (const internal_runtime_error& rt_err) {
+  } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
-  }
-  catch (const std::exception& err) {
+  } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
     throw;
   }
@@ -141,40 +138,34 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::unmap_embedding_from_memor
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 ParameterServer<TypeHashKey, TypeEmbeddingComp>::ParameterServer(
     const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
-    const std::string& snapshot_src_file,
-    const std::string& temp_embedding_dir)
-  : embedding_params_(embedding_params),
-    embedding_table_path_(temp_embedding_dir + "/" + generate_random_file_name()),
-    // TODO(minseok, 10282020): handle the different types of Embeddings
-    parameter_server_delegate_(new DistributedParameterServerDelegate<TypeHashKey>()),
-    file_size_in_byte_{0},
-    mmaped_table_{nullptr},
-    fd_{-1},
-    maped_to_memory_{false} {
+    const std::string& snapshot_src_file, const std::string& temp_embedding_dir)
+    : embedding_params_(embedding_params),
+      embedding_table_path_(temp_embedding_dir + "/" + generate_random_file_name()),
+      // TODO(minseok, 10282020): handle the different types of Embeddings
+      parameter_server_delegate_(new DistributedParameterServerDelegate<TypeHashKey>()),
+      file_size_in_byte_{0},
+      mmaped_table_{nullptr},
+      fd_{-1},
+      maped_to_memory_{false} {
   try {
     std::ifstream snapshot_stream;
     size_t file_size_in_byte = 0;
     open_and_get_size(snapshot_src_file, snapshot_stream, file_size_in_byte);
 
-    std::ofstream embedding_table_stream(
-        embedding_table_path_, std::ofstream::binary | std::ofstream::trunc);
+    std::ofstream embedding_table_stream(embedding_table_path_,
+                                         std::ofstream::binary | std::ofstream::trunc);
     if (!embedding_table_stream.is_open()) {
       CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + embedding_table_path_);
     }
 
     // let the delegate fill the hash table
-    parameter_server_delegate_->load(embedding_table_stream,
-                                     snapshot_stream,
-                                     file_size_in_byte,
-                                     embedding_params_.embedding_vec_size,
-                                     hash_table_);
+    parameter_server_delegate_->load(embedding_table_stream, snapshot_stream, file_size_in_byte,
+                                     embedding_params_.embedding_vec_size, hash_table_);
 
-  }
-  catch (const internal_runtime_error& rt_err) {
+  } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
-  }
-  catch (const std::exception& err) {
+  } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
     throw;
   }
@@ -192,7 +183,7 @@ ParameterServer<TypeHashKey, TypeEmbeddingComp>::~ParameterServer() {
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_keyset_from_file(
-	std::string keyset_file) {
+    std::string keyset_file) {
   try {
     std::ifstream keyset_stream;
     size_t file_size_in_byte = 0;
@@ -201,12 +192,10 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_keyset_from_file(
     size_t num_keys_in_file = file_size_in_byte / sizeof(TypeHashKey);
     keyset_.resize(num_keys_in_file);
     keyset_stream.read((char*)keyset_.data(), file_size_in_byte);
-  }
-  catch (const internal_runtime_error& rt_err) {
+  } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
-  }
-  catch (const std::exception& err) {
+  } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
     throw;
   }
@@ -268,7 +257,7 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::load_param_from_embedding_
     throw;
   }
 }
-  
+
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_param_to_embedding_file(
     float* hash_table_val, TypeHashKey* keys, size_t dump_size) {
@@ -340,15 +329,13 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_param_to_embedding_fi
     std::cerr << err.what() << std::endl;
     throw;
   }
-
 }
-  
+
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_to_snapshot(
-  const std::string& snapshot_dst_file) {
+    const std::string& snapshot_dst_file) {
   try {
-    std::ofstream snapshot(
-        snapshot_dst_file, std::ofstream::binary | std::ofstream::trunc);
+    std::ofstream snapshot(snapshot_dst_file, std::ofstream::binary | std::ofstream::trunc);
     if (!snapshot.is_open()) {
       CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + snapshot_dst_file);
     }
@@ -357,26 +344,21 @@ void ParameterServer<TypeHashKey, TypeEmbeddingComp>::dump_to_snapshot(
     size_t file_size_in_byte = 0;
     open_and_get_size(embedding_table_path_, embedding_table, file_size_in_byte);
 
-    parameter_server_delegate_->store(snapshot,
-                                      embedding_table,
-                                      file_size_in_byte,
-                                      embedding_params_.embedding_vec_size,
-                                      hash_table_);
-  }
-  catch (const internal_runtime_error& rt_err) {
+    parameter_server_delegate_->store(snapshot, embedding_table, file_size_in_byte,
+                                      embedding_params_.embedding_vec_size, hash_table_);
+  } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
-  }
-  catch (const std::exception& err) {
+  } catch (const std::exception& err) {
     std::cerr << err.what() << std::endl;
     throw;
   }
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-std::vector<TypeHashKey>
-ParameterServer<TypeHashKey, TypeEmbeddingComp>::get_keys_from_hash_table() const {
-  auto get_key_op = [](auto e){ return e.first; };
+std::vector<TypeHashKey> ParameterServer<TypeHashKey, TypeEmbeddingComp>::get_keys_from_hash_table()
+    const {
+  auto get_key_op = [](auto e) { return e.first; };
   std::vector<TypeHashKey> keys(hash_table_.size());
   transform(hash_table_.begin(), hash_table_.end(), keys.begin(), get_key_op);
   return keys;

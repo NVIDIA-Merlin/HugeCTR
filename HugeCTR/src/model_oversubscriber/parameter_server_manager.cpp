@@ -21,15 +21,14 @@ namespace HugeCTR {
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
     const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-    const SolverParser& solver_config,
-    const std::string& temp_embedding_dir,
-    size_t buffer_size) {
+    const SolverParser& solver_config, const std::string& temp_embedding_dir, size_t buffer_size) {
   try {
     if (!solver_config.embedding_files.size()) {
       MESSAGE_("Traning from scratch, no snapshot file specified");
     } else {
       if (embedding_params.size() != solver_config.embedding_files.size())
-        CK_THROW_(Error_t::WrongInput, "num of embeddings and num of sparse_model_file don't equal");
+        CK_THROW_(Error_t::WrongInput,
+                  "num of embeddings and num of sparse_model_file don't equal");
     }
 
     size_t max_vec_size = 0;
@@ -38,16 +37,16 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
       max_vec_size = (ith_vec_size > max_vec_size) ? ith_vec_size : max_vec_size;
 
       if (!solver_config.embedding_files.size()) {
-        ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
-          (embedding_params[i], std::string(), temp_embedding_dir));
+        ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>(
+            embedding_params[i], std::string(), temp_embedding_dir));
       } else {
-        ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
-          (embedding_params[i], solver_config.embedding_files[i], temp_embedding_dir));
+        ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>(
+            embedding_params[i], solver_config.embedding_files[i], temp_embedding_dir));
       }
     }
 
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
-      GeneralBuffer2<CudaHostAllocator>::create();
+        GeneralBuffer2<CudaHostAllocator>::create();
 
     Tensor2<TypeHashKey> tensor_keys;
     blobs_buff->reserve({buffer_size}, &tensor_keys);
@@ -56,7 +55,7 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
     blobs_buff->allocate();
 
     keys_ = tensor_keys.shrink();
-    
+
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;

@@ -15,11 +15,14 @@
  */
 
 #include "HugeCTR/include/session.hpp"
+
 #include <cuda_profiler_api.h>
+
+#include <memory>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/parser.hpp"
 #include "gtest/gtest.h"
-#include <memory>
 #include "utest/test_utils.h"
 
 using namespace HugeCTR;
@@ -56,7 +59,8 @@ void test_impl(bool i64_input_key) {
   solver_config.i64_input_key = i64_input_key;
   solver_config.enable_tf32_compute = false;
 
-  std::shared_ptr<Session> session_instance = std::make_shared<HugeCTR::Session>(solver_config, json_name);
+  std::shared_ptr<Session> session_instance =
+      std::make_shared<HugeCTR::Session>(solver_config, json_name);
   cudaProfilerStart();
   for (int i = 0; i < 100; i++) {
     session_instance->train();

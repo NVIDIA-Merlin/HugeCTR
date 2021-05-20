@@ -14,22 +14,20 @@
  * limitations under the License.
  */
 
-#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
-
 #include <cstring>
-#include <memory>
-#include <vector>
 #include <iostream>
+#include <memory>
+#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::load(
-    std::ofstream& embedding_table,
-    std::ifstream& snapshot,
-    const size_t file_size_in_byte,
-    const size_t embedding_vector_size,
-    HashTable& hash_table) {
+void DistributedParameterServerDelegate<KeyType>::load(std::ofstream& embedding_table,
+                                                       std::ifstream& snapshot,
+                                                       const size_t file_size_in_byte,
+                                                       const size_t embedding_vector_size,
+                                                       HashTable& hash_table) {
   const size_t key_size_in_byte = sizeof(KeyType);
   const size_t embedding_vector_size_in_byte = sizeof(float) * embedding_vector_size;
   const size_t row_size_in_byte = key_size_in_byte + embedding_vector_size_in_byte;
@@ -46,27 +44,23 @@ void DistributedParameterServerDelegate<KeyType>::load(
   std::unique_ptr<char[]> read_chunk(new char[read_chunk_size]);
   std::unique_ptr<char[]> write_emb_chunk(new char[write_emb_chunk_size]);
 
-  auto read_rows_op = [&embedding_table, &snapshot,
-                       &write_emb_chunk, &read_chunk,
-                       row_size_in_byte, &hash_table,
-                       embedding_vector_size_in_byte]
-      (const size_t num_rows, size_t& cur_idx) {
+  auto read_rows_op = [&embedding_table, &snapshot, &write_emb_chunk, &read_chunk, row_size_in_byte,
+                       &hash_table,
+                       embedding_vector_size_in_byte](const size_t num_rows, size_t& cur_idx) {
     char* cur_ptr = read_chunk.get();
     snapshot.read(cur_ptr, num_rows * row_size_in_byte);
     for (size_t k = 0; k < num_rows; k++) {
       KeyType key = *(KeyType*)(cur_ptr);
       hash_table.insert({key, cur_idx});
 
-      float* dst_emb =
-        (float*)(write_emb_chunk.get() + embedding_vector_size_in_byte * k);
+      float* dst_emb = (float*)(write_emb_chunk.get() + embedding_vector_size_in_byte * k);
       float* src_emb = (float*)(cur_ptr + key_size_in_byte);
       memcpy(dst_emb, src_emb, embedding_vector_size_in_byte);
 
       cur_ptr += row_size_in_byte;
       cur_idx++;
     }
-    embedding_table.write(
-        write_emb_chunk.get(), num_rows * embedding_vector_size_in_byte);
+    embedding_table.write(write_emb_chunk.get(), num_rows * embedding_vector_size_in_byte);
   };
 
   for (size_t ch = 0; ch < num_full_chunks; ch++) {
@@ -76,19 +70,17 @@ void DistributedParameterServerDelegate<KeyType>::load(
 }
 
 template <typename KeyType>
-void DistributedParameterServerDelegate<KeyType>::store(
-    std::ofstream& snapshot,
-    std::ifstream& embedding_table,
-    const size_t file_size_in_byte,
-    const size_t embedding_vector_size,
-    HashTable& hash_table) {
-  std::vector<KeyType> idx2key(hash_table.size()); // assume the indices are unique
+void DistributedParameterServerDelegate<KeyType>::store(std::ofstream& snapshot,
+                                                        std::ifstream& embedding_table,
+                                                        const size_t file_size_in_byte,
+                                                        const size_t embedding_vector_size,
+                                                        HashTable& hash_table) {
+  std::vector<KeyType> idx2key(hash_table.size());  // assume the indices are unique
   for (auto it = hash_table.begin(); it != hash_table.end(); ++it) {
     size_t idx = it->second;
     KeyType key = it->first;
     idx2key[idx] = key;
   }
-
 
   const size_t embedding_vector_size_in_byte = sizeof(float) * embedding_vector_size;
   const size_t num_unit_rows = 1024;
@@ -100,21 +92,21 @@ void DistributedParameterServerDelegate<KeyType>::store(
   std::unique_ptr<char[]> read_snapshot_chunk(new char[read_snapshot_chunk_size]);
 
   for (size_t pos = 0; pos < file_size_in_byte; pos += read_emb_chunk_size) {
-    const size_t read_bytes = (pos + read_emb_chunk_size) < file_size_in_byte?
-      read_emb_chunk_size : (file_size_in_byte - pos);
+    const size_t read_bytes = (pos + read_emb_chunk_size) < file_size_in_byte
+                                  ? read_emb_chunk_size
+                                  : (file_size_in_byte - pos);
 
     embedding_table.read(read_emb_chunk.get(), read_bytes);
     const size_t base_idx = pos / embedding_vector_size_in_byte;
     const size_t num_embs = read_bytes / embedding_vector_size_in_byte;
-    for(size_t o = 0; o < num_embs; o++) {
+    for (size_t o = 0; o < num_embs; o++) {
       const size_t idx = base_idx + o;
       const size_t src_key = idx2key[idx];
       char* dst_buf = read_snapshot_chunk.get() + row_size_in_byte * o;
       KeyType* dst_key = (KeyType*)dst_buf;
       *dst_key = src_key;
       float* dst_emb = (float*)(dst_buf + sizeof(KeyType));
-      float* src_emb =
-        (float*)(read_emb_chunk.get() + embedding_vector_size_in_byte * o);
+      float* src_emb = (float*)(read_emb_chunk.get() + embedding_vector_size_in_byte * o);
       memcpy(dst_emb, src_emb, embedding_vector_size_in_byte);
     }
     snapshot.write(read_snapshot_chunk.get(), num_embs * (row_size_in_byte));

@@ -107,8 +107,7 @@ void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(
-  std::string& keyset_file) {
+void ModelOversubscriberImpl<TypeHashKey, TypeEmbeddingComp>::update(std::string& keyset_file) {
   try {
     std::vector<std::string> keyset_file_list(embeddings_.size(), keyset_file);
     update(keyset_file_list);

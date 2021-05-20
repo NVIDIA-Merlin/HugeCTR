@@ -17,14 +17,17 @@
 #pragma once
 #include <common.hpp>
 #include <data_readers/data_reader.hpp>
+#include <device_map.hpp>
 #include <embedding.hpp>
 #include <fstream>
 #include <functional>
 #include <gpu_resource.hpp>
 #include <learning_rate_scheduler.hpp>
+#include <gpu_learning_rate_scheduler.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
 #include <nlohmann/json.hpp>
+#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
@@ -52,23 +55,16 @@ class Parser {
   const float scaler_{1.f};
   const bool use_algorithm_search_;
   const bool use_cuda_graph_;
+  bool grouped_all_reduce_ = false;
 
  public:
   /**
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
    */
-
-  Parser(const std::string& configure_file,
-         size_t batch_size,
-         size_t batch_size_eval,
-         bool repeat_dataset,
-         bool i64_input_key = false,
-         bool use_mixed_precision = false,
-         bool enable_tf32_compute = false,
-         float scaler = 1.0f,
-         bool use_algorithm_search = true,
-         bool use_cuda_graph = true)
+  Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
+         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false, bool enable_tf32_compute = false,
+         float scaler = 1.0f, bool use_algorithm_search = true, bool use_cuda_graph = true)
       : batch_size_(batch_size),
         batch_size_eval_(batch_size_eval),
         repeat_dataset_(repeat_dataset),
@@ -95,24 +91,44 @@ class Parser {
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(std::shared_ptr<IDataReader>& data_reader,
-                       std::shared_ptr<IDataReader>& data_reader_eval,
-                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                       std::vector<std::unique_ptr<Network>>& network,
-                       const std::shared_ptr<ResourceManager>& resource_manager);
+  void create_pipeline(std::shared_ptr<IDataReader>& init_data_reader,std::shared_ptr<IDataReader>& train_data_reader,
+                       std::shared_ptr<IDataReader>& evaluate_data_reader,
+                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                       std::vector<std::shared_ptr<Network>>& networks,
+                       const std::shared_ptr<ResourceManager>& resource_manager,
+                       std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 
   template <typename TypeKey>
-  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
-                                       std::shared_ptr<IDataReader>& data_reader_eval,
-                                       std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                       std::vector<std::unique_ptr<Network>>& network,
+  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,std::shared_ptr<IDataReader>& train_data_reader,
+                                       std::shared_ptr<IDataReader>& evaluate_data_reader,
+                                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                                       std::vector<std::shared_ptr<Network>>& networks,
                                        const std::shared_ptr<ResourceManager>& resource_manager,
+                                       std::shared_ptr<ExchangeWgrad>& exchange_wgrad,                
                                        Parser& parser);
 
+  void initialize_pipeline(std::shared_ptr<IDataReader>& init_data_reader,
+                           std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                           const std::shared_ptr<ResourceManager>& resource_manager,
+                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
+  template <typename TypeKey>
+  friend void initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
+                                           std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                                           const std::shared_ptr<ResourceManager>& resource_manager,
+                                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
+                                           Parser& parser);
+
+
+  friend void create_allreduce_comm(const std::shared_ptr<ResourceManager>&,
+      std::shared_ptr<ExchangeWgrad>&, Parser&);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
     const std::string configure_file);
+
+GpuLearningRateSchedulers get_gpu_learning_rate_schedulers(
+    const nlohmann::json& config,
+    const std::shared_ptr<ResourceManager>& resource_manager);
 
 /**
  * Solver Parser.
@@ -134,6 +150,7 @@ struct SolverParser {
   std::string model_file;                   /**< name of model file */
   std::vector<std::string> embedding_files; /**< name of embedding file */
   std::vector<std::vector<int>> vvgpu;      /**< device map */
+  DeviceMap::Layout device_layout = DeviceMap::LOCAL_FIRST; /**< device distribution */
   bool use_mixed_precision;
   bool enable_tf32_compute;
   float scaler;
@@ -141,10 +158,11 @@ struct SolverParser {
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
+  bool use_holistic_cuda_graph;
+  bool use_overlapped_pipeline;
   SolverParser(const std::string& file);
-  SolverParser(){}
+  SolverParser() {}
 };
-
 
 template <typename T>
 struct SparseInput {
@@ -191,6 +209,10 @@ struct SparseInput {
     }                                                   \
   } while (0)
 
+static const std::map<std::string, AllReduceAlgo> ALLREDUCE_ALGO_MAP = {
+  {"Oneshot", AllReduceAlgo::ONESHOT},
+  {"NCCL", AllReduceAlgo::NCCL}};
+
 static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"Adam", Optimizer_t::Adam},
     {"MomentumSGD", Optimizer_t::MomentumSGD},
@@ -198,13 +220,28 @@ static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"SGD", Optimizer_t::SGD}};
 
 static const std::map<std::string, Update_t> UPDATE_TYPE_MAP = {
-    {"Local", Update_t::Local},
-    {"Global", Update_t::Global},
-    {"LazyGlobal", Update_t::LazyGlobal}};
+    {"Local", Update_t::Local}, {"Global", Update_t::Global}, {"LazyGlobal", Update_t::LazyGlobal}};
 
 static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
     {"L1", Regularizer_t::L1},
     {"L2", Regularizer_t::L2},
+};
+
+static const std::map<std::string, FcPosition_t> FCPOSITION_TYPE_MAP = {
+    {"Head", FcPosition_t::Head},
+    {"Body", FcPosition_t::Body},
+    {"Tail", FcPosition_t::Tail},
+    {"Isolated", FcPosition_t::Isolated},
+};
+
+static const std::map<std::string, Activation_t> ACTIVATION_TYPE_MAP = {
+    {"Relu", Activation_t::Relu},
+    {"None", Activation_t::None},
+};
+
+static const std::map<std::string, Alignment_t> ALIGNED_TYPE_MAP = {
+    {"Auto", Alignment_t::Auto},
+    {"None", Alignment_t::None},
 };
 
 inline bool has_key_(const nlohmann::json& j_in, const std::string& key_in) {

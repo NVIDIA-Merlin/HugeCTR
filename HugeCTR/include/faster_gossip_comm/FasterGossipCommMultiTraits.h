@@ -27,5 +27,5 @@ class FasterGossipCommMultiAll2AllTraits {
 
 };  // class
 
-}  // namespace
-}
+}  // namespace GossipComm
+}  // namespace HugeCTR

@@ -13,7 +13,9 @@
 #include <hwloc/cudart.h>
 #include <omp.h>
 #include <ucp/api/ucp.h>
+
 #include <algorithm>
+
 #include "FasterGossipCommMultiTraits.h"
 #include "mpi.h"
 
@@ -388,10 +390,10 @@ class FasterGossipCommMulti : public FasterComm {
     for (int stage = 0; stage < num_proc_; stage++) {
 // We cuse 2 threads, one for UCX P2P, one for gossip all2all. In the same stage, these 2 operations
 // can be executed concurrently
-#pragma omp parallel default(none) shared(stage, num_proc_, rank_, num_local_gpu_, send_table_,    \
-                                          affinity_list_, send_reqs_, ucp_endpoints_, socket_num_, \
-                                          src_, recv_table_, recv_reqs_, ucp_worker_,              \
-                                          recv_buffer_, GossipCommHandle_) num_threads(2)
+#pragma omp parallel default(none)                                                                \
+    shared(stage, num_proc_, rank_, num_local_gpu_, send_table_, affinity_list_, send_reqs_,      \
+           ucp_endpoints_, socket_num_, src_, recv_table_, recv_reqs_, ucp_worker_, recv_buffer_, \
+           GossipCommHandle_) num_threads(2)
       {
         // Each thread grab its ID within this OpenMP thread team
         int thread_id = omp_get_thread_num();
@@ -600,5 +602,5 @@ class FasterGossipCommMulti : public FasterComm {
 
 };  // class
 
-}  // namespace
-}
+}  // namespace GossipComm
+}  // namespace HugeCTR

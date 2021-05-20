@@ -18,6 +18,7 @@
 #include <atomic>
 #include <fstream>
 #include <vector>
+
 #include "data_readers/metadata.hpp"
 
 namespace HugeCTR {
@@ -105,8 +106,7 @@ class FileList {
     if (repeat) {
       int current_file_idx = id % num_of_files_;
       return file_vector_[current_file_idx];
-    }
-    else {
+    } else {
       if (static_cast<int>(id) < num_of_files_) {
         return file_vector_[id];
       } else {

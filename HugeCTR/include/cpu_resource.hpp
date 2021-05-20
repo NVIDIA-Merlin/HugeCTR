@@ -17,17 +17,31 @@
 #pragma once
 #include <curand.h>
 
+#include <vector>
+
 namespace HugeCTR {
 
 class CPUResource {
-  curandGenerator_t curand_generator_;
+  std::vector<curandGenerator_t> replica_uniform_curand_generators_;
+  std::vector<curandGenerator_t> replica_variant_curand_generators_;
+  unsigned long long replica_uniform_seed_;
 
  public:
-  CPUResource(unsigned long long seed, size_t thread_num);
+  CPUResource(unsigned long long replica_uniform_seed,
+              const std::vector<unsigned long long> replica_variant_seeds);
   CPUResource(const CPUResource&) = delete;
   CPUResource& operator=(const CPUResource&) = delete;
   ~CPUResource();
 
-  const curandGenerator_t& get_curand_generator() const { return curand_generator_; }
+  unsigned long long get_replica_uniform_seed() const {
+    return replica_uniform_seed_;
+  }
+
+  const curandGenerator_t& get_replica_uniform_curand_generator(size_t id) const {
+    return replica_uniform_curand_generators_[id];
+  }
+  const curandGenerator_t& get_replica_variant_curand_generator(size_t id) const {
+    return replica_variant_curand_generators_[id];
+  }
 };
 }  // namespace HugeCTR

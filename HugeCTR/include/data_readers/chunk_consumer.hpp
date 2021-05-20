@@ -28,4 +28,4 @@ class ChunkConsumer {
   virtual void return_free_chunk() = 0;
 };
 
-} // namespace HugeCTR
+}  // namespace HugeCTR

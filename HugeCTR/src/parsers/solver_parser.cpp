@@ -20,12 +20,6 @@ namespace HugeCTR {
 
 SolverParser::SolverParser(const std::string& file) {
   try {
-    int num_procs = 1, pid = 0;
-#ifdef ENABLE_MPI
-    MPI_Comm_rank(MPI_COMM_WORLD, &pid);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-#endif
-
     /* file read to json */
     nlohmann::json config;
     std::ifstream file_stream(file);
@@ -57,17 +51,14 @@ SolverParser::SolverParser(const std::string& file) {
     bool has_num_epochs = has_key_(j, "num_epochs");
     if (has_max_iter && has_num_epochs) {
       CK_THROW_(Error_t::WrongInput, "max_iter and num_epochs cannot be used together.");
-    }
-    else {
+    } else {
       if (has_max_iter) {
         max_iter = get_value_from_json<int>(j, "max_iter");
         num_epochs = 0;
-      }
-      else if (has_num_epochs) {
+      } else if (has_num_epochs) {
         max_iter = 0;
         num_epochs = get_value_from_json<int>(j, "num_epochs");
-      }
-      else {
+      } else {
         max_iter = 0;
         num_epochs = 1;
       }
@@ -106,11 +97,9 @@ SolverParser::SolverParser(const std::string& file) {
                   "Scaler of mixed_precision training should be either 128/256/512/1024");
       }
       scaler = i_scaler;
-      if (pid == 0) {
-        std::stringstream ss;
-        ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
-        MESSAGE_(ss.str());
-      }
+      std::stringstream ss;
+      ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
+      MESSAGE_(ss.str());
 
     } else {
       use_mixed_precision = false;
@@ -124,27 +113,19 @@ SolverParser::SolverParser(const std::string& file) {
     assert(vvgpu.empty());
     // todo: output the device map
     if (gpu_array[0].is_array()) {
-      int num_nodes = gpu_array.size();
-      if (num_nodes != num_procs) {
-        CK_THROW_(Error_t::WrongInput, "num_nodes != num_procs");
-      } else {
-        for (auto gpu : gpu_array) {
-          std::vector<int> vgpu;
-          assert(vgpu.empty());
-          for (auto gpu_tmp : gpu) {
-            int gpu_id = gpu_tmp.get<int>();
-            vgpu.push_back(gpu_id);
-            if (gpu_id < 0) {
-              CK_THROW_(Error_t::WrongInput, "gpu_id < 0");
-            }
+      for (auto gpu : gpu_array) {
+        std::vector<int> vgpu;
+        assert(vgpu.empty());
+        for (auto gpu_tmp : gpu) {
+          int gpu_id = gpu_tmp.get<int>();
+          vgpu.push_back(gpu_id);
+          if (gpu_id < 0) {
+            CK_THROW_(Error_t::WrongInput, "gpu_id < 0");
           }
-          vvgpu.push_back(vgpu);
         }
+        vvgpu.push_back(vgpu);
       }
     } else {
-      if (num_procs > 1) {
-        CK_THROW_(Error_t::WrongInput, "num_procs > 1");
-      }
       std::vector<int> vgpu;
       for (auto gpu_tmp : gpu_array) {
         int gpu_id = gpu_tmp.get<int>();
@@ -154,6 +135,19 @@ SolverParser::SolverParser(const std::string& file) {
         }
       }
       vvgpu.push_back(vgpu);
+    }
+
+    if (has_key_(j, "device_layout")) {
+      std::string device_layout_str = get_value_from_json<std::string>(j, "device_layout");
+      if (device_layout_str == "LocalFirst") {
+        device_layout = DeviceMap::LOCAL_FIRST;
+      } else if (device_layout_str == "NodeFirst") {
+        device_layout = DeviceMap::NODE_FIRST;
+      } else {
+        CK_THROW_(Error_t::WrongInput, "Invalid device layout. Options are: LocalFirst, NodeFirst");
+      }
+    } else {
+      device_layout = DeviceMap::LOCAL_FIRST;
     }
 
     const std::map<std::string, metrics::Type> metrics_map = {
@@ -220,7 +214,16 @@ SolverParser::SolverParser(const std::string& file) {
     MESSAGE_("Algorithm search: " + std::string(use_algorithm_search ? "ON" : "OFF"));
 
     use_cuda_graph = get_value_from_json_soft<bool>(j, "cuda_graph", true);
-    MESSAGE_("CUDA Graph: " + std::string(use_cuda_graph? "ON" : "OFF"));
+    MESSAGE_("CUDA Graph: " + std::string(use_cuda_graph ? "ON" : "OFF"));
+
+    use_overlapped_pipeline = get_value_from_json_soft<bool>(j, "enable_overlap", false);
+    MESSAGE_("Overlapped pipeline: " + std::string(use_overlapped_pipeline ? "ON" : "OFF"));
+
+    use_holistic_cuda_graph = get_value_from_json_soft<bool>(j, "holistic_cuda_graph", false);
+    if (use_holistic_cuda_graph) {
+      MESSAGE_("Holistic CUDA Graph: ON");
+      use_cuda_graph = false;
+    }
 
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;

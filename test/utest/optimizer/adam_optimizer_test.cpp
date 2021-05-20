@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
+
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"

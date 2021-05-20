@@ -71,6 +71,10 @@ class Embedding : public IEmbedding {
     return get_batch_size(is_train) / resource_manager_->get_global_gpu_count();
   }
 
+  size_t get_batch_size_per_lane(bool is_train) const {
+    return get_batch_size(is_train) / resource_manager_->get_local_gpu_count();
+  }
+
   size_t get_universal_batch_size_per_gpu() const {
     return get_universal_batch_size() / resource_manager_->get_global_gpu_count();
   }
@@ -232,7 +236,7 @@ class Embedding : public IEmbedding {
   /**
    * The forward propagation of embedding layer.
    */
-  virtual void forward(bool is_train) = 0;
+  virtual void forward(bool is_train, int eval_batch = -1) = 0;
 
   /**
    * The first stage of backward propagation of embedding layer,
@@ -257,7 +261,7 @@ class Embedding : public IEmbedding {
    * upload it onto multi-GPUs global memory.
    * @param weight_stream the host file stream for reading data from.
    */
-  virtual void load_parameters(std::ifstream& stream) = 0;
+  virtual void load_parameters(std::istream& stream) = 0;
 
   virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
                                size_t num) = 0;
@@ -268,7 +272,7 @@ class Embedding : public IEmbedding {
    * @param weight_stream the host file stream for writing data to.
    */
   virtual void dump_parameters(
-      std::ofstream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
+      std::ostream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
 
   virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
 
@@ -303,7 +307,7 @@ class Embedding : public IEmbedding {
     return bags;
   }
 
-  void set_learning_rate(float lr) {
+  void set_learning_rate(float lr) override {
     for (size_t id = 0; id < resource_manager_->get_local_gpu_count(); id++) {
       opt_params_[id].lr = lr;
     }

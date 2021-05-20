@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <functional>
+
 #include "HugeCTR/include/layers/dot_product_layer.hpp"
 #include "HugeCTR/include/utils.cuh"
 #include "HugeCTR/include/utils.hpp"
-
-#include <algorithm>
-#include <functional>
 
 #ifndef NDEBUG
 #include <iostream>

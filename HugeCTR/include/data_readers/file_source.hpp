@@ -34,14 +34,8 @@ class FileSource : public Source {
   unsigned int counter_{0};
 
  public:
-  FileSource(long long offset,
-             long long stride,
-             const std::string& file_list,
-             bool repeat)
-      : file_list_(file_list),
-      offset_(offset),
-      stride_(stride),
-      repeat_(repeat) {}
+  FileSource(long long offset, long long stride, const std::string& file_list, bool repeat)
+      : file_list_(file_list), offset_(offset), stride_(stride), repeat_(repeat) {}
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.
@@ -76,8 +70,7 @@ class FileSource : public Source {
       if (in_file_stream_.is_open()) {
         in_file_stream_.close();
       }
-      std::string file_name = file_list_.get_a_file_with_id(offset_ + counter_ * stride_,
-                                                            repeat_);
+      std::string file_name = file_list_.get_a_file_with_id(offset_ + counter_ * stride_, repeat_);
       counter_++;  // counter_ should be accum for every source.
       if (file_name.empty()) {
         return Error_t::EndOfFile;

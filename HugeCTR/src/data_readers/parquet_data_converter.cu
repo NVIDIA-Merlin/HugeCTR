@@ -15,12 +15,14 @@
  */
 
 #include <inttypes.h>
+
 #include <cstring>
 #include <cub/cub/cub.cuh>
 #include <deque>
 #include <rmm/device_buffer.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <vector>
+
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/resource_manager.hpp"
 
@@ -442,8 +444,7 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
                                    int64_t *dev_ptr_staging, uint32_t *dev_embed_param_offset_buf,
                                    T *dev_slot_offset_ptr,
                                    std::deque<rmm::device_buffer> &rmm_resources,
-                                   rmm::mr::device_memory_resource *mr,
-                                   cudaStream_t task_stream) {
+                                   rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   size_t pinned_staging_elements_used = 0;
   // tiled load and transpose
   size_t size_of_col_ptrs = cat_column_data_ptr.size() * sizeof(int64_t *);
@@ -548,7 +549,7 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
     // dont need all that per param csr buffers are different
     // exscan on only current param's csr buffers
     for (int i = 0; i < num_devices; i++) {
-      if (pid == resource_manager->get_pid_from_gpu_global_id(i)) {
+      if (pid == resource_manager->get_process_id_from_gpu_global_id(i)) {
         int buffer_id = i * num_params + param_id;
         CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum(
             cub_tmp_storage.data(), temp_storage_bytes,
@@ -613,7 +614,7 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
     dim3 grid_2((max_elements_csr_row - 1) / block_2.x + 1, 1, 1);
 
     for (int device = 0; device < num_devices; device++) {
-      if (pid == resource_manager->get_pid_from_gpu_global_id(device)) {
+      if (pid == resource_manager->get_process_id_from_gpu_global_id(device)) {
         int buf_id = device * num_params + param_id;
         check_and_set_csr_row_kernel_<T><<<grid_2, block_2, 0, task_stream>>>(
             (int64_t *)dev_csr_row_offset_ptr.data(), dev_embed_param_offset_buf,

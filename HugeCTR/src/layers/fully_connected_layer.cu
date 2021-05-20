@@ -15,6 +15,7 @@
  */
 
 #include <math.h>
+
 #include <layers/fully_connected_layer.hpp>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/reduce.cuh>
@@ -26,18 +27,17 @@ namespace HugeCTR {
 
 FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
                                          const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                                         const Tensor2<float>& train_in_tensor,
-                                         const Tensor2<float>& evaluate_in_tensor,
+                                         const Tensor2<float>& in_tensor,
                                          const Tensor2<float>& out_tensor,
                                          const std::shared_ptr<GPUResource>& gpu_resource,
-                                         bool use_mixed_precision,
-                                         bool enable_tf32_compute,
+                                         bool use_mixed_precision, bool enable_tf32_compute,
                                          std::vector<Initializer_t> initializer_types)
-    : Layer(gpu_resource, initializer_types), use_mixed_precision_(use_mixed_precision),
+    : Layer(gpu_resource, initializer_types),
+      use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
   try {
     // check the in_tensor and out_tensor
-    const auto& in_tensor_dim = train_in_tensor.get_dimensions();
+    const auto& in_tensor_dim = in_tensor.get_dimensions();
     const auto& out_tensor_dim = out_tensor.get_dimensions();
     // 1. two dim?
     if (in_tensor_dim.size() != 2 || out_tensor_dim.size() != 2) {
@@ -75,8 +75,7 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<floa
       wgrad_buff->reserve(bias_dim, &tensor);
       wgrad_.push_back(tensor);
     }
-    train_in_tensors_.push_back(train_in_tensor);
-    evaluate_in_tensors_.push_back(evaluate_in_tensor);
+    in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
     // Where should we create this cuBLAS handle?
   } catch (const std::runtime_error& rt_err) {
@@ -144,6 +143,8 @@ void FullyConnectedLayer::fprop(bool is_train) {
                                 &alpha, weight, CUDA_R_32F, n, in, CUDA_R_32F, k, &beta, out,
                                 CUDA_R_32F, n, compute_type, falgo_));
   add_bias(out, bias, m, n, true, get_gpu().get_stream());
+
+  //PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
 }
 
 void FullyConnectedLayer::bprop() {
@@ -169,6 +170,7 @@ void FullyConnectedLayer::bprop() {
 
   float alpha = 1.0f, beta_w = 1.0f, beta_x = 0.0f;
 
+  // PROFILE_RECORD("TopMLP.bprop.start", get_gpu().get_stream());
   cublasComputeType_t compute_type =
       enable_tf32_compute_ ? CUBLAS_COMPUTE_32F_FAST_TF32 : CUBLAS_COMPUTE_32F;
 

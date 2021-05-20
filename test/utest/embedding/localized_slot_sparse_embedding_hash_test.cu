@@ -15,8 +15,10 @@
  */
 
 #include <sys/time.h>
+
 #include <fstream>
 #include <functional>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
@@ -114,8 +116,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     vvgpu.push_back(device_list);
   }
   const auto &resource_manager = ResourceManager::create(vvgpu, 0);
-  if (resource_manager->get_pid() == 0) {
-    std::cout << "rank " << resource_manager->get_pid() << " is generating data" << std::endl;
+  if (resource_manager->is_master_process()) {
+    std::cout << "rank " << resource_manager->get_process_id() << " is generating data"
+              << std::endl;
     // re-generate the dataset files
     {
       std::ifstream file(train_file_list_name);
@@ -149,7 +152,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
-  std::cout << "This is rank: " << resource_manager->get_pid() << std::endl;
+  std::cout << "This is rank: " << resource_manager->get_process_id() << std::endl;
 #endif
 
   // setup a data reader
@@ -172,7 +175,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
                        // Because we will upload hashtable to GPUs.
 
   // generate hashtable
-  if (resource_manager->get_pid() == 0) {
+  if (resource_manager->is_master_process()) {
     std::cout << "Init hash table";
     // init hash table file: <key, solt_id, value>
     std::ofstream fs(hash_table_file_name);
@@ -221,10 +224,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
-          train_data_reader->get_nnz_array(), test_data_reader->get_row_offsets_tensors(),
-          test_data_reader->get_value_tensors(), test_data_reader->get_nnz_array(),
-          embedding_params, plan_file, resource_manager));
+          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
+          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
+          train_data_reader->get_nnz_array(),
+          bags_to_tensors<T>(test_data_reader->get_row_offsets_tensors()),
+          bags_to_tensors<T>(test_data_reader->get_value_tensors()),
+          test_data_reader->get_nnz_array(), embedding_params, plan_file, resource_manager));
 
   {
     // upload hash table to device
@@ -265,24 +270,26 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   buf->allocate();
 
-  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+  typedef struct TypeHashValue_ {
+    float data[embedding_vec_size];
+  } TypeHashValue;
 
   for (int i = 0; i < train_batch_num; i++) {
-    printf("Rank%d: Round %d start training:\n", resource_manager->get_pid(), i);
+    printf("Rank%d: Round %d start training:\n", resource_manager->get_process_id(), i);
 
     // call read a batch
-    printf("Rank%d: data_reader->read_a_batch_to_device()\n", resource_manager->get_pid());
+    printf("Rank%d: data_reader->read_a_batch_to_device()\n", resource_manager->get_process_id());
     train_data_reader->read_a_batch_to_device();
 
     // GPU forward
-    printf("Rank%d: embedding->forward()\n", resource_manager->get_pid());
+    printf("Rank%d: embedding->forward()\n", resource_manager->get_process_id());
     embedding->forward(true);
 
     // check the result of forward
-    printf("Rank%d: embedding->get_forward_results()\n", resource_manager->get_pid());
+    printf("Rank%d: embedding->get_forward_results()\n", resource_manager->get_process_id());
     embedding->get_forward_results(true, embedding_feature_from_gpu);  // memcpy from GPU to CPU
 
-    if (resource_manager->get_pid() == 0) {
+    if (resource_manager->is_master_process()) {
       // CPU forward
       printf("Rank0: embedding_cpu->forward()\n");
       embedding_cpu->forward();
@@ -298,14 +305,14 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 #endif
 
     // GPU backward
-    printf("Rank%d: embedding->backward()\n", resource_manager->get_pid());
+    printf("Rank%d: embedding->backward()\n", resource_manager->get_process_id());
     embedding->backward();
 
     // check the result of backward
-    printf("Rank%d: embedding->get_backward_results()\n", resource_manager->get_pid());
+    printf("Rank%d: embedding->get_backward_results()\n", resource_manager->get_process_id());
     embedding->get_backward_results(wgrad_from_gpu, 0);
 
-    if (resource_manager->get_pid() == 0) {
+    if (resource_manager->is_master_process()) {
       // CPU backward
       printf("Rank0: embedding_cpu->backward()\n");
       embedding_cpu->backward();
@@ -320,15 +327,15 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 #endif
 
     // GPU update_params
-    printf("Rank%d: embedding->update_params()\n", resource_manager->get_pid());
+    printf("Rank%d: embedding->update_params()\n", resource_manager->get_process_id());
     embedding->update_params();
 
     // check the results of update params
-    printf("Rank%d: embedding->get_update_params_results()\n", resource_manager->get_pid());
+    printf("Rank%d: embedding->get_update_params_results()\n", resource_manager->get_process_id());
     embedding->get_update_params_results(hash_table_key_from_gpu,
                                          hash_table_value_from_gpu);  // memcpy from GPU to CPU
 
-    if (resource_manager->get_pid() == 0) {
+    if (resource_manager->is_master_process()) {
       // CPU update_params
       printf("Rank0: embedding_cpu->update_params()\n");
       embedding_cpu->update_params();
@@ -366,22 +373,23 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   /////////////////////////////////////////////////////////////////////////////////////////////
   // eval
   {
-    printf("\nRank%d: Round start eval:\n", resource_manager->get_pid());
+    printf("\nRank%d: Round start eval:\n", resource_manager->get_process_id());
 
     // call read a batch
-    printf("Rank%d: data_reader_eval->read_a_batch_to_device()\n", resource_manager->get_pid());
+    printf("Rank%d: data_reader_eval->read_a_batch_to_device()\n",
+           resource_manager->get_process_id());
     test_data_reader->read_a_batch_to_device();
 
     // GPU forward
-    printf("Rank%d: embedding_eval->forward()\n", resource_manager->get_pid());
+    printf("Rank%d: embedding_eval->forward()\n", resource_manager->get_process_id());
     embedding->forward(false);
 
     // check the result of forward
-    printf("Rank%d: embedding_eval->get_forward_results()\n", resource_manager->get_pid());
+    printf("Rank%d: embedding_eval->get_forward_results()\n", resource_manager->get_process_id());
     embedding->get_forward_results(false,
                                    embedding_feature_from_gpu_eval);  // memcpy from GPU to CPU
 
-    if (resource_manager->get_pid() == 0) {
+    if (resource_manager->is_master_process()) {
       // CPU forward
       printf("Rank0: embedding_cpu_eval->forward()\n");
       test_embedding_cpu->forward();
@@ -396,7 +404,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-    printf("Rank%d: Round end:\n", resource_manager->get_pid());
+    printf("Rank%d: Round end:\n", resource_manager->get_process_id());
   }
 
   test::mpi_finalize();

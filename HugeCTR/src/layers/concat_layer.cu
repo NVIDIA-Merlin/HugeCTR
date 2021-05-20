@@ -67,23 +67,22 @@ __global__ void concat_kernel(bool forward, T* out, const int h, const int out_w
 }  // anonymous namespace
 
 template <typename T>
-ConcatLayer<T>::ConcatLayer(const Tensors2<T>& train_in_tensors,
-                            const Tensors2<T>& evaluate_in_tensors, Tensor2<T>& out_tensor,
+ConcatLayer<T>::ConcatLayer(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
                             const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                             const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource) {
   try {
-    if (train_in_tensors.empty() || evaluate_in_tensors.empty()) {
+    if (in_tensors.empty()) {
       CK_THROW_(Error_t::WrongInput, "Empty input tensors");
     }
 
-    int n_in_tensors = train_in_tensors.size();
+    int n_in_tensors = in_tensors.size();
     size_t height = 0;
     size_t new_width = 0;
     for (int i = 0; i < n_in_tensors; i++) {
-      auto cur_in_dims = train_in_tensors[i].get_dimensions();
+      auto cur_in_dims = in_tensors[i].get_dimensions();
       if (i != 0) {
-        auto first_in_dims = train_in_tensors[0].get_dimensions();
+        auto first_in_dims = in_tensors[0].get_dimensions();
         if (cur_in_dims[0] != first_in_dims[0]) {
           CK_THROW_(Error_t::WrongInput, "All the input tensors must have the same height");
         }
@@ -100,11 +99,8 @@ ConcatLayer<T>::ConcatLayer(const Tensors2<T>& train_in_tensors,
     std::vector<size_t> out_dims = {height, new_width};
     blobs_buff->reserve(out_dims, &out_tensor);
 
-    for (const Tensor2<T>& in_tensor : train_in_tensors) {
-      train_in_tensors_.push_back(in_tensor);
-    }
-    for (const Tensor2<T>& in_tensor : evaluate_in_tensors) {
-      evaluate_in_tensors_.push_back(in_tensor);
+    for (const Tensor2<T>& in_tensor : in_tensors) {
+      in_tensors_.push_back(in_tensor);
     }
     out_tensor_ = out_tensor;
 
@@ -163,7 +159,7 @@ std::vector<typename ConcatLayer<T>::InParam> ConcatLayer<T>::set_in_params(Tens
     int w = in_tensor.get_dimensions()[1];
     in_params.push_back({in, w});
   }
-  return std::move(in_params);
+  return in_params;
 }
 
 template <typename T>
@@ -180,11 +176,7 @@ void ConcatLayer<T>::kernel_launch(bool forward, cudaStream_t stream, size_t n_s
 
 template <typename T>
 Tensors2<T>& ConcatLayer<T>::get_in_tensors(bool is_train) {
-  if (is_train) {
-    return train_in_tensors_;
-  } else {
-    return evaluate_in_tensors_;
-  }
+  return in_tensors_;
 }
 
 template class ConcatLayer<float>;

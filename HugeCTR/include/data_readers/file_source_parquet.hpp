@@ -22,11 +22,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <cudf/copying.hpp>
 #include <cudf/io/parquet.hpp>
 #include <fstream>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <vector>
+
 #include "common.hpp"
 #include "data_readers/file_list.hpp"
 #include "data_readers/metadata.hpp"
@@ -147,7 +149,8 @@ class ParquetFileSource : public Source {
         CK_RETURN_(Error_t::BrokenFile, "Error mmapping the file");
       }
 
-      parquet_args = cudf_io::parquet_reader_options::builder(cudf_io::source_info{mmapped_data_, file_size_});
+      parquet_args =
+          cudf_io::parquet_reader_options::builder(cudf_io::source_info{mmapped_data_, file_size_});
       counter_++;         // counter_ should be accum for every source.
       curr_row_idx_ = 0;  // set row to zero id
       file_total_rows_ = 0;

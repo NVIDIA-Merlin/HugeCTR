@@ -16,13 +16,13 @@
 
 #include "HugeCTR/include/optimizer.hpp"
 
+#include <type_traits>
+
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
 #include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
-
-#include <type_traits>
 
 namespace HugeCTR {
 

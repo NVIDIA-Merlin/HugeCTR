@@ -17,21 +17,20 @@
 #pragma once
 
 #include <embedding.hpp>
-#include "HugeCTR/include/embeddings/embedding.hpp"
-#include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
-
 #include <memory>
 #include <vector>
+
+#include "HugeCTR/include/embeddings/embedding.hpp"
+#include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 
 namespace HugeCTR {
 
 class ModelOversubscriberImplBase {
-public:
+ public:
   virtual void store(std::vector<std::string> snapshot_file_list) = 0;
   virtual void update(std::vector<std::string>& keyset_file_list) = 0;
   virtual void update(std::string& keyset_file) = 0;
 };
-
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
@@ -40,10 +39,10 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
 
   size_t get_max_embedding_size_() {
     size_t max_embedding_size = 0;
-    for (auto &one_embedding : embeddings_) {
+    for (auto& one_embedding : embeddings_) {
       size_t embedding_size = one_embedding->get_max_vocabulary_size();
-      max_embedding_size = (embedding_size > max_embedding_size) ?
-        embedding_size : max_embedding_size;
+      max_embedding_size =
+          (embedding_size > max_embedding_size) ? embedding_size : max_embedding_size;
     }
     return max_embedding_size;
   }
@@ -54,12 +53,11 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
    */
   void load_(std::vector<std::string>& keyset_file_list);
 
-public:
+ public:
   ModelOversubscriberImpl(
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
       const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-      const SolverParser& solver_config,
-      const std::string& temp_embedding_dir);
+      const SolverParser& solver_config, const std::string& temp_embedding_dir);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;
   ModelOversubscriberImpl& operator=(const ModelOversubscriberImpl&) = delete;
@@ -70,7 +68,7 @@ public:
    * @brief      Store the embedding table or a snapshot file downloaded from device to SSD.
    *             If snapshot_file_list.size() is 0, update the embedding_file in SSD;
    *             Or, wirte out a snapshot.
-   * @param      snapshot_file_list The file list where snapshot will be written, its size 
+   * @param      snapshot_file_list The file list where snapshot will be written, its size
    *                                equals the number of embeddings.
    */
   void store(std::vector<std::string> snapshot_file_list = std::vector<std::string>()) override;

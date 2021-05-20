@@ -16,27 +16,25 @@
 
 #pragma once
 
-#include <tensor2.hpp>
-#include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
-
-#include <vector>
 #include <memory>
 #include <parser.hpp>
+#include <tensor2.hpp>
+#include <vector>
+
+#include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
 
 namespace HugeCTR {
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 class ParameterServerManager {
   std::vector<std::shared_ptr<ParameterServer<TypeHashKey, TypeEmbeddingComp>>> ps_;
-  TensorBag2 keys_;           /**< host buffer to store keys from/to devices */
-  Tensor2<float> embedding_;  /**< host buffer to store embeddings from/to devices */
+  TensorBag2 keys_;          /**< host buffer to store keys from/to devices */
+  Tensor2<float> embedding_; /**< host buffer to store embeddings from/to devices */
 
-public:
+ public:
   ParameterServerManager(
       const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-      const SolverParser& solver_config,
-      const std::string& temp_embedding_dir,
-      size_t buffer_size);
+      const SolverParser& solver_config, const std::string& temp_embedding_dir, size_t buffer_size);
 
   ParameterServerManager(const ParameterServerManager&) = delete;
   ParameterServerManager& operator=(const ParameterServerManager&) = delete;
@@ -47,7 +45,8 @@ public:
    * @param      i     index of parameter server.
    * @return     shared pointer of the ith parameter server.
    */
-  const std::shared_ptr<ParameterServer<TypeHashKey, TypeEmbeddingComp>> get_parameter_server(int i) {
+  const std::shared_ptr<ParameterServer<TypeHashKey, TypeEmbeddingComp>> get_parameter_server(
+      int i) {
     return ps_[i];
   }
 
@@ -56,9 +55,7 @@ public:
   TensorBag2& get_keyset_tensor() { return keys_; }
   Tensor2<float>& get_embedding_tensor() { return embedding_; }
 
-  TypeHashKey* get_keyset_ptr() {
-    return Tensor2<TypeHashKey>::stretch_from(keys_).get_ptr();
-  }
+  TypeHashKey* get_keyset_ptr() { return Tensor2<TypeHashKey>::stretch_from(keys_).get_ptr(); }
   float* get_embedding_ptr() { return embedding_.get_ptr(); }
 };
 

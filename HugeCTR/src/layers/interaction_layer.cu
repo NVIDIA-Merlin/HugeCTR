@@ -19,6 +19,7 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <mma.h>
+
 #include <common.hpp>
 #include <layers/interaction_layer.hpp>
 #include <type_traits>
@@ -849,15 +850,16 @@ __global__ void gather_concat_bprop_kernel(const T *out, T *in0, T *mat, const i
 
 template <typename T>
 InteractionLayer<T>::InteractionLayer(
-    const Tensor2<T> &train_in_bottom_mlp_tensor, const Tensor2<T> &evaluate_in_bottom_mlp_tensor,
-    const Tensor2<T> &train_in_embeddings, const Tensor2<T> &evaluate_in_embeddings,
-    Tensor2<T> &out_tensor, const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
-    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision, bool enable_tf32_compute)
-    : Layer(gpu_resource), use_mixed_precision_(use_mixed_precision),
+    const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings, Tensor2<T> &out_tensor,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &blobs_buff,
+    const std::shared_ptr<GPUResource> &gpu_resource, bool use_mixed_precision,
+    bool enable_tf32_compute)
+    : Layer(gpu_resource),
+      use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
   try {
-    auto first_in_dims = train_in_bottom_mlp_tensor.get_dimensions();
-    auto second_in_dims = train_in_embeddings.get_dimensions();
+    auto first_in_dims = in_bottom_mlp_tensor.get_dimensions();
+    auto second_in_dims = in_embeddings.get_dimensions();
 
     if (first_in_dims.size() != 2) {
       CK_THROW_(Error_t::WrongInput, "Input Bottom MLP must be a 2D tensor");
@@ -902,10 +904,8 @@ InteractionLayer<T>::InteractionLayer(
     std::vector<size_t> out_dims = {first_in_dims[0], first_in_dims[1] + concat_len + 1};
     blobs_buff->reserve(out_dims, &out_tensor);
 
-    train_in_tensors_.push_back(train_in_bottom_mlp_tensor);
-    train_in_tensors_.push_back(train_in_embeddings);
-    evaluate_in_tensors_.push_back(evaluate_in_bottom_mlp_tensor);
-    evaluate_in_tensors_.push_back(evaluate_in_embeddings);
+    in_tensors_.push_back(in_bottom_mlp_tensor);
+    in_tensors_.push_back(in_embeddings);
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error &rt_err) {
@@ -920,7 +920,7 @@ InteractionLayer<T>::~InteractionLayer(){};
 template <typename T>
 void InteractionLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-
+  PROFILE_RECORD("interaction.fprop.start", get_gpu().get_stream());
   // phase 0: concat
   T *concat = internal_tensors_[0].get_ptr();
   T *in_mlp = get_in_tensors(is_train)[0].get_ptr();
@@ -972,6 +972,7 @@ void InteractionLayer<T>::fprop(bool is_train) {
   gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(gather, in0, mat,
                                                                                    h, n_ins, in_w);
 
+  PROFILE_RECORD("interaction.fprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
@@ -981,6 +982,7 @@ void InteractionLayer<T>::fprop(bool is_train) {
 template <>
 void InteractionLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
+  PROFILE_RECORD("interaction.fprop.start", get_gpu().get_stream());
 
   __half *in_mlp = get_in_tensors(is_train)[0].get_ptr();
   __half *in_emb = get_in_tensors(is_train)[1].get_ptr();
@@ -991,7 +993,7 @@ void InteractionLayer<__half>::fprop(bool is_train) {
   const int n_ins = 1 + n_emb;
 
   dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, get_gpu().get_stream());
-
+  PROFILE_RECORD("interaction.fprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
@@ -1001,7 +1003,7 @@ void InteractionLayer<__half>::fprop(bool is_train) {
 template <typename T>
 void InteractionLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
-
+  PROFILE_RECORD("interaction.bprop.start", get_gpu().get_stream());
   // phase 0:
   T *gather = out_tensors_[0].get_ptr();
   T *in0 = get_in_tensors(true)[0].get_ptr();
@@ -1062,6 +1064,7 @@ void InteractionLayer<T>::bprop() {
   concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(false, concat_tmp, in_mlp, in_emb, h,
                                                               out_w, in_w, n_emb);
 
+  PROFILE_RECORD("interaction.bprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
@@ -1071,6 +1074,7 @@ void InteractionLayer<T>::bprop() {
 template <>
 void InteractionLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
+  PROFILE_RECORD("interaction.bprop.start", get_gpu().get_stream());
 
   __half *up_grad = out_tensors_[0].get_ptr();
   __half *mlp_grad = get_in_tensors(true)[0].get_ptr();
@@ -1081,6 +1085,7 @@ void InteractionLayer<__half>::bprop() {
   const int in_w = get_in_tensors(true)[0].get_dimensions()[1];
 
   dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, get_gpu().get_stream());
+  PROFILE_RECORD("interaction.bprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());

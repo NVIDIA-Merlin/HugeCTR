@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <algorithm>
 #include <atomic>
 #include <fstream>
@@ -99,7 +100,12 @@ class MmapOffsetList {
       // shuffle
       if (use_shuffle) {
         std::random_device rd;
-        auto rng = std::default_random_engine{rd()};
+        unsigned int seed = rd();
+
+#ifdef ENABLE_MPI
+        CK_MPI_THROW_(MPI_Bcast(&seed, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD));
+#endif
+        auto rng = std::default_random_engine{seed};
         std::shuffle(std::begin(offsets_), std::end(offsets_), rng);
       }
 

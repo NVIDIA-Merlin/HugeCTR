@@ -138,7 +138,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param context gpu device context, for switching device
    */
   void dump_parameters(
-      std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
+      std::ostream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
       const Tensors2<float> &hash_table_value_tensors,
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
   void dump_parameters(
@@ -169,7 +169,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   /**
    * The forward propagation of embedding layer.
    */
-  void forward(bool is_train) override {
+  void forward(bool is_train, int eval_batch = -1) override {
     // Read data from input_buffers_ -> look up -> write to output_tensors
 
     CudaDeviceContext context;
@@ -269,7 +269,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * upload it onto multi-GPUs global memory.
    * @param weight_stream the host file stream for reading data from.
    */
-  void load_parameters(std::ifstream &stream) override;
+  void load_parameters(std::istream &stream) override;
   void load_parameters(const TensorBag2 &keys, const Tensor2<float> &embeddings,
                        size_t num) override;
 
@@ -278,7 +278,7 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * and write it to the weight_stream on the host.
    * @param weight_stream the host file stream for writing data to.
    */
-  void dump_parameters(std::ofstream &weight_stream) const override;
+  void dump_parameters(std::ostream &weight_stream) const override;
   void dump_parameters(TensorBag2 keys, Tensor2<float> &embeddings, size_t *num) const override;
 
   /**
@@ -330,13 +330,14 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
 
   /**
    * Get the forward() results from GPUs and copy them to TensorFlow's tensor.
-  */
-  void get_forward_results_tf(const bool is_train, const bool on_gpu, void* const forward_result) override {
-    size_t memcpy_size = Base::get_batch_size_per_gpu(is_train) * Base::get_slot_num() * 
+   */
+  void get_forward_results_tf(const bool is_train, const bool on_gpu,
+                              void *const forward_result) override {
+    size_t memcpy_size = Base::get_batch_size_per_gpu(is_train) * Base::get_slot_num() *
                          Base::get_embedding_vec_size();
-    functors_.get_forward_results(memcpy_size, Base::get_output_tensors(is_train),
-                                  forward_result, utest_forward_temp_tensors_,
-                                  Base::get_resource_manager(), on_gpu);
+    functors_.get_forward_results(memcpy_size, Base::get_output_tensors(is_train), forward_result,
+                                  utest_forward_temp_tensors_, Base::get_resource_manager(),
+                                  on_gpu);
     return;
   }
 
@@ -396,23 +397,23 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
   }
 
   /** only used in tf embedding plugin to distribute top_gradients to each GPUs' output tensor.
-  */
-  cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) override {
+   */
+  cudaError_t update_top_gradients(const bool on_gpu, const void *const top_gradients) override {
     auto output_tensors = Base::get_output_tensors(true);
     CudaDeviceContext context;
 
-    const auto top_gradients_internel = reinterpret_cast<const TypeEmbeddingComp*>(top_gradients);
+    const auto top_gradients_internel = reinterpret_cast<const TypeEmbeddingComp *>(top_gradients);
     cudaMemcpyKind direction = (on_gpu ? cudaMemcpyDeviceToDevice : cudaMemcpyHostToDevice);
 
     cudaError_t error = cudaError_t::cudaSuccess;
     for (size_t dev_id = 0; dev_id < Base::get_resource_manager().get_local_gpu_count(); ++dev_id) {
       context.set_device(Base::get_local_gpu(dev_id).get_device_id());
 
-      error = cudaMemcpyAsync(output_tensors[dev_id].get_ptr(), 
-                              top_gradients_internel + dev_id * output_tensors[dev_id].get_num_elements(),
-                              output_tensors[dev_id].get_size_in_bytes(),
-                              direction, 
-                              Base::get_local_gpu(dev_id).get_stream());
+      error = cudaMemcpyAsync(
+          output_tensors[dev_id].get_ptr(),
+          top_gradients_internel + dev_id * output_tensors[dev_id].get_num_elements(),
+          output_tensors[dev_id].get_size_in_bytes(), direction,
+          Base::get_local_gpu(dev_id).get_stream());
       if (error != cudaError_t::cudaSuccess) return error;
     }
 

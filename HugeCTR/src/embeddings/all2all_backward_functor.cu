@@ -59,7 +59,7 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu, size_t
 
   // Fill in receiving partition table, ith Topo GPU receive from jth global GPU
   for (size_t i = 0; i < local_gpu_count; i++) {
-    size_t global_id = resource_manager.get_local_gpu(i)->get_global_gpu_id();
+    size_t global_id = resource_manager.get_local_gpu(i)->get_global_id();
     size_t slot_num_per_gpu =
         slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
     size_t element_per_recv = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
@@ -264,12 +264,16 @@ void SparseEmbeddingFunctors::all2all_backward(size_t batch_size_per_gpu,
   CK_NCCL_THROW_(ncclGroupStart());
   for (size_t i = 0; i < local_gpu_count; i++) {
     const auto &local_gpu = resource_manager.get_local_gpu(i);
+    PROFILE_RECORD("all2all_backward.start", local_gpu->get_stream(), false,
+                   local_gpu->get_device_id());
     for (size_t j = 0; j < local_gpu_count; j++) {
       CK_NCCL_THROW_(ncclSend(src_pos[i][j], table[i][j], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
       CK_NCCL_THROW_(ncclRecv(dst_pos[i][j], table[j][i], type, j, local_gpu->get_nccl(),
                               local_gpu->get_stream()));
     }
+    PROFILE_RECORD("all2all_backward.stop", local_gpu->get_stream(), false,
+                   local_gpu->get_device_id());
   }
   CK_NCCL_THROW_(ncclGroupEnd());
 

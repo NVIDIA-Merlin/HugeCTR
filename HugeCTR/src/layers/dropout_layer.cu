@@ -48,8 +48,8 @@ void DropoutLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
   if (is_train) {
-    CK_CURAND_THROW_(curandGenerateUniform(get_gpu().get_curand_generator(), mask_.get_ptr(),
-                                           in_tensors_[0].get_num_elements()));
+    CK_CURAND_THROW_(curandGenerateUniform(get_gpu().get_replica_variant_curand_generator(),
+                                           mask_.get_ptr(), in_tensors_[0].get_num_elements()));
     prop_common(in_tensors_[0].get_ptr(), out_tensors_[0].get_ptr(), get_gpu().get_stream());
   } else {
     cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
@@ -70,12 +70,13 @@ void DropoutLayer<T>::prop_common(const T* in, T* out, cudaStream_t stream) {
 
   float r = rate_;
   float s = scale_;
-  MLCommon::LinAlg::binaryOp(out, in, mask_.get_ptr(), len,
-                             [r, s] __device__(T a, float b) {
-                               return TypeConvertFunc<T, float>::convert(
-                                   ((1.f - b) >= r) * TypeConvertFunc<float, T>::convert(a) * s);
-                             },
-                             stream);
+  MLCommon::LinAlg::binaryOp(
+      out, in, mask_.get_ptr(), len,
+      [r, s] __device__(T a, float b) {
+        return TypeConvertFunc<T, float>::convert(((1.f - b) >= r) *
+                                                  TypeConvertFunc<float, T>::convert(a) * s);
+      },
+      stream);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

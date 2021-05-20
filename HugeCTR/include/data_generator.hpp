@@ -15,10 +15,11 @@
  */
 
 #include <sys/stat.h>
+
 #include <common.hpp>
 #include <fstream>
-#include <random>
 #include <memory>
+#include <random>
 
 namespace HugeCTR {
 
@@ -48,12 +49,11 @@ inline void check_make_dir(const std::string& finalpath) {
   }
 }
 
-
-template<typename T>
+template <typename T>
 class IDataSimulator {
-  public:
-    virtual ~IDataSimulator() {}
-    virtual T get_num() = 0;
+ public:
+  virtual ~IDataSimulator() {}
+  virtual T get_num() = 0;
 };
 
 template <typename T>
@@ -69,7 +69,7 @@ class FloatUniformDataSimulator {
 };
 
 template <typename T>
-class IntUniformDataSimulator: public IDataSimulator<T> {
+class IntUniformDataSimulator : public IDataSimulator<T> {
  public:
   IntUniformDataSimulator(T min, T max) : gen_(std::random_device()()), dis_(min, max) {}
 
@@ -81,21 +81,23 @@ class IntUniformDataSimulator: public IDataSimulator<T> {
 };
 
 template <typename T>
-class IntPowerLawDataSimulator: public IDataSimulator<T> {
-  public:
-    IntPowerLawDataSimulator(T min, T max, float alpha): gen_(std::random_device()()), dis_(0, 1), alpha_(alpha), min_(min), max_(max) {}
-    
-    T get_num() override {
-      float x = dis_(gen_);
-      float y = (pow( (pow(max_, alpha_+1) - pow(min_, alpha_+1)) * x + pow(min_, alpha_+1) , 1.0/(alpha_+1.0)) );
-      return static_cast<T>(round(y));
-    }
-  
-  private:
-    std::mt19937 gen_;
-    std::uniform_real_distribution<float> dis_;
-    float alpha_;
-    T min_, max_;
+class IntPowerLawDataSimulator : public IDataSimulator<T> {
+ public:
+  IntPowerLawDataSimulator(T min, T max, float alpha)
+      : gen_(std::random_device()()), dis_(0, 1), alpha_(alpha), min_(min), max_(max) {}
+
+  T get_num() override {
+    float x = dis_(gen_);
+    float y = (pow((pow(max_, alpha_ + 1) - pow(min_, alpha_ + 1)) * x + pow(min_, alpha_ + 1),
+                   1.0 / (alpha_ + 1.0)));
+    return static_cast<T>(round(y));
+  }
+
+ private:
+  std::mt19937 gen_;
+  std::uniform_real_distribution<float> dis_;
+  float alpha_;
+  T min_, max_;
 };
 
 /**
@@ -159,7 +161,8 @@ class DataWriter {
 template <typename T, Check_t CK_T>
 void data_generation_for_test(std::string file_list_name, std::string data_prefix, int num_files,
                               int num_records_per_file, int slot_num, int vocabulary_size,
-                              int label_dim, int dense_dim, int max_nnz, bool long_tail = false, float alpha = 0.0) {
+                              int label_dim, int dense_dim, int max_nnz, bool long_tail = false,
+                              float alpha = 0.0) {
   if (file_exist(file_list_name)) {
     std::cout << "File (" + file_list_name +
                      ") exist. To generate new dataset plesae remove this file."
@@ -191,8 +194,8 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
     data_writer.write();
 
     for (int i = 0; i < num_records_per_file; i++) {
-      IntUniformDataSimulator<int> idata_sim(1, max_nnz);            // for nnz
-      FloatUniformDataSimulator<float> fdata_sim(0, 1);              // for lable and dense
+      IntUniformDataSimulator<int> idata_sim(1, max_nnz);  // for nnz
+      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for lable and dense
       std::shared_ptr<IDataSimulator<T>> ldata_sim;
       if (long_tail)
         ldata_sim.reset(new IntPowerLawDataSimulator<T>(0, vocabulary_size - 1, alpha));
@@ -259,8 +262,8 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
     data_writer.write();
 
     for (int i = 0; i < num_records_per_file; i++) {
-      IntUniformDataSimulator<int> idata_sim(1, max_nnz);            // for nnz
-      FloatUniformDataSimulator<float> fdata_sim(0, 1);              // for lable and dense
+      IntUniformDataSimulator<int> idata_sim(1, max_nnz);  // for nnz
+      FloatUniformDataSimulator<float> fdata_sim(0, 1);    // for lable and dense
       std::shared_ptr<IDataSimulator<T>> ldata_sim;
       if (long_tail)
         ldata_sim.reset(new IntPowerLawDataSimulator<T>(0, vocabulary_size - 1, alpha));
@@ -356,8 +359,8 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
 inline void data_generation_for_raw(
     std::string file_name, long long num_samples, int label_dim = 1, int dense_dim = 13,
     int sparse_dim = 26, float float_label_dense = false,
-    const std::vector<long long> slot_size = std::vector<long long>(),
-    bool long_tail = false, float alpha = 0.0) {
+    const std::vector<long long> slot_size = std::vector<long long>(), bool long_tail = false,
+    float alpha = 0.0) {
   std::ofstream out_stream(file_name, std::ofstream::binary);
   size_t size_label_dense = float_label_dense ? sizeof(float) : sizeof(int);
   for (long long i = 0; i < num_samples; i++) {
@@ -380,10 +383,11 @@ inline void data_generation_for_raw(
       if (slot_size.size() != 0) {
         std::shared_ptr<IDataSimulator<long long>> temp_sim;
         if (long_tail)
-          temp_sim.reset(new IntPowerLawDataSimulator<long long>(0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1), alpha));
+          temp_sim.reset(new IntPowerLawDataSimulator<long long>(
+              0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1), alpha));
         else
           temp_sim.reset(new IntUniformDataSimulator<long long>(
-            0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1)));  // range = [0, slot_size[j])
+              0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1)));  // range = [0, slot_size[j])
         long long num_ = temp_sim->get_num();
         sparse = num_ > std::numeric_limits<int>::max() ? std::numeric_limits<int>::max() : num_;
       } else {

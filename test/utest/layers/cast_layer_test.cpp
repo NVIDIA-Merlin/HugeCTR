@@ -17,9 +17,11 @@
 #include "HugeCTR/include/layers/cast_layer.hpp"
 
 #include <curand.h>
+
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+
 #include "cublas_v2.h"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"

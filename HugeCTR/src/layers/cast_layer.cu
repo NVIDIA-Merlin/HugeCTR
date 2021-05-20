@@ -15,6 +15,7 @@
  */
 
 #include <layers/cast_layer.hpp>
+
 #include "HugeCTR/include/utils.hpp"
 
 namespace HugeCTR {

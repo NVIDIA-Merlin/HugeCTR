@@ -15,11 +15,13 @@
  */
 
 #include <sys/stat.h>
+
 #include <fstream>
 #include <ios>
 #include <iostream>
 #include <sstream>
 #include <vector>
+
 #include "HugeCTR/include/data_generator.hpp"
 
 using namespace HugeCTR;

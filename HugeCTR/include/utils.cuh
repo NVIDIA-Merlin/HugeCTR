@@ -35,6 +35,12 @@ struct TypeFunc<int> {
 };
 
 template <>
+struct TypeFunc<unsigned int> {
+  static __forceinline__ __device__ float zero() { return 0; }
+  static __forceinline__ __device__ float add(int a, int b) { return a + b; }
+};
+
+template <>
 struct TypeFunc<__half> {
   static __forceinline__ __device__ __half zero() { return __float2half(0.0f); }
   static __forceinline__ __device__ __half add(__half a, __half b) { return __hadd(a, b); }
@@ -75,6 +81,16 @@ struct TypeConvertFunc<float, unsigned int> {
     return static_cast<float>(val);
   }
 };
+
+template <typename IntType>
+constexpr __host__ __device__ __inline__ IntType ceildiv(IntType a, IntType b) {
+  return (a + b - 1) / b;
+}
+
+template <typename IntType>
+constexpr __host__ __device__ __inline__ IntType alignTo(IntType a, IntType b) {
+  return ceildiv(a, b) * b;
+}
 
 template <typename T>
 __inline__ __device__ T warpReduceSum(T val) {
@@ -132,5 +148,6 @@ __global__ void convert_array(TOUT* out, const TIN* in, size_t num_elements) {
     out[tid] = TypeConvertFunc<TOUT, TIN>::convert(__ldg(in + tid));
   }
 }
+
 
 }  // namespace HugeCTR

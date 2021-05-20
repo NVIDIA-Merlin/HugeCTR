@@ -84,7 +84,8 @@ class CSRChunk {
             slots = param.slot_num / num_devices;
           }
         }
-        csr_buffers_.emplace_back(batchsize * slots, param.max_feature_num * batchsize);
+        csr_buffers_.emplace_back(batchsize * slots,
+                                  (slots != 0) ? param.max_feature_num * batchsize : 0);
       }
 
       Tensor2<float> label_tensor;
@@ -100,7 +101,7 @@ class CSRChunk {
    * Get the vector of csr objects.
    * This methord is used in collector (consumer) and data_reader (provider).
    */
-  const std::vector<CSR<CSR_Type>>& get_csr_buffers() const { return csr_buffers_; }
+  std::vector<CSR<CSR_Type>>& get_csr_buffers() { return csr_buffers_; }
 
   /**
    * Get the specific csr object.

@@ -20,11 +20,12 @@
 #include <metrics.hpp>
 #include <network.hpp>
 #include <parser.hpp>
+#include <string>
 #include <thread>
 #include <utility>
-#include <string>
-#include "HugeCTR/include/embeddings/embedding.hpp"
+
 #include "HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp"
+#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
@@ -47,6 +48,7 @@ class Session {
   Session(const Session&) = delete;
   Session& operator=(const Session&) = delete;
 
+  Error_t initialize();
   /**
    * The all in one training method.
    * This method processes one iteration of a training, including one forward, one backward and
@@ -57,13 +59,13 @@ class Session {
    * The all in one evaluation method.
    * This method processes one forward of evaluation.
    */
-  bool eval();
+  bool eval(int eval_batch = -1);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
   void start_data_reading() {
-    data_reader_->start();
-    data_reader_eval_->start();
+    train_data_reader_->start();
+    evaluate_data_reader_->start();
   }
 
   /**
@@ -83,7 +85,7 @@ class Session {
    * @param lr learning rate.
    */
   Error_t set_learning_rate(float lr) {
-    for (auto& embedding : embedding_) {
+    for (auto& embedding : embeddings_) {
       embedding->set_learning_rate(lr);
     }
     for (auto& network : networks_) {
@@ -92,7 +94,7 @@ class Session {
     return Error_t::Success;
   }
 
-  const std::shared_ptr<ModelOversubscriber> get_model_oversubscriber() const {
+  const std::shared_ptr<ModelOversubscriber>& get_model_oversubscriber() const {
     return model_oversubscriber_;
   }
 
@@ -100,13 +102,13 @@ class Session {
    * generate a dense model and initilize with small random values.
    * @param model_file dense model initilized
    */
-  Error_t init_params(std::string model_file) {return Error_t::Success;};
+  Error_t init_params(std::string model_file) { return Error_t::Success; };
   /**
    * get the number of parameters (reserved for debug)
    */
   long long get_params_num() {
     long long size = 0;
-    for (auto& embedding : embedding_) {
+    for (auto& embedding : embeddings_) {
       size += embedding->get_params_num();
     }
     return static_cast<long long>(networks_[0]->get_params_num()) + size;
@@ -114,28 +116,42 @@ class Session {
 
   void check_overflow() const;
 
-  std::shared_ptr<IDataReader> get_data_reader_train() const {
-    return data_reader_;
+  const std::shared_ptr<IDataReader>& get_train_data_reader() const { return train_data_reader_; }
+  const std::shared_ptr<IDataReader>& get_evaluate_data_reader() const {
+    return evaluate_data_reader_;
   }
-  std::shared_ptr<IDataReader> get_data_reader_eval() const {
-    return data_reader_eval_;
+
+  void copy_weights_for_evaluation();
+
+  bool use_gpu_learning_rate_scheduling() const {
+    return !embeddings_[0]->get_learning_rate_schedulers().empty();
   }
 
  private:
-  std::vector<std::unique_ptr<Network>> networks_;     /**< networks (dense) used in training. */
-  std::vector<std::shared_ptr<IEmbedding>> embedding_; /**< embedding */
-  std::shared_ptr<ModelOversubscriber> model_oversubscriber_; /**< model oversubscriber for model oversubscribing. */
-
-  std::shared_ptr<IDataReader> 
-    data_reader_;      /**< data reader to reading data from data set to embedding. */
-  std::shared_ptr<IDataReader> data_reader_eval_; /**< data reader for evaluation. */
+  std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
+  std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
+  std::shared_ptr<ModelOversubscriber>
+      model_oversubscriber_; /**< model oversubscriber for model oversubscribing. */
+  std::shared_ptr<IDataReader> init_data_reader_;
+  std::shared_ptr<IDataReader>
+      train_data_reader_; /**< data reader to reading data from data set to embedding. */
+  std::shared_ptr<IDataReader> evaluate_data_reader_; /**< data reader for evaluation. */
   std::shared_ptr<ResourceManager>
       resource_manager_; /**< GPU resources include handles and streams etc.*/
-
+  std::shared_ptr<Parser> parser_;
+  std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
   Error_t download_params_to_files_(std::string weights_file,
                                     const std::vector<std::string>& embedding_files);
 
   metrics::Metrics metrics_;
+  SolverParser solver_config_;
+
+  struct HolisticCudaGraph {
+    std::vector<bool> initialized;
+    std::vector<cudaGraphExec_t> instance;
+    std::vector<cudaEvent_t> fork_event;
+  } train_graph_;
+
 
   /**
    * @brief      Creates a model oversubscriber.
@@ -143,22 +159,21 @@ class Session {
    */
   template <typename TypeEmbeddingComp>
   std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(
-    const SolverParser& solver_config,
-    const std::string& temp_embedding_dir);
+      const SolverParser& solver_config, const std::string& temp_embedding_dir);
 
   /**
    * A method load trained parameters for dense model.
    * @param model_file dense model generated by training
    */
-  Error_t load_params_for_dense_(const std::string& model_file);
+  Error_t init_or_load_params_for_dense_(const std::string& model_file);
 
   /**
    * A method initialize or load trained parameters for sparse model.
    * @param embedding_model_file sparse model generated by training
    */
   Error_t init_or_load_params_for_sparse_(const std::vector<std::string>& embedding_file);
-
-
+  void exchange_wgrad(size_t device_id);
+  void train_overlapped();
 };
 
 }  // namespace HugeCTR

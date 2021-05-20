@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp"
+#include <fstream>
+#include <set>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp"
 #include "HugeCTR/include/parser.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
-
-#include <fstream>
-#include <set>
 
 using namespace HugeCTR;
 
@@ -204,9 +204,9 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   // transfer the internal embedding table to the snapshot
   model_oversubscriber->store(snapshot_file_list);
 
-  MESSAGE_("Batch_num: " + std::to_string(batch_num_train) + ", embedding_vec_size: " +
-           std::to_string(embedding_vector_size) + ", elapsed time: " +
-           std::to_string(timer_ps.elapsedSeconds()) + "s");
+  MESSAGE_("Batch_num: " + std::to_string(batch_num_train) +
+           ", embedding_vec_size: " + std::to_string(embedding_vector_size) +
+           ", elapsed time: " + std::to_string(timer_ps.elapsedSeconds()) + "s");
 
   // Check if the result is correct
   std::ifstream fs_src(snapshot_src_file);

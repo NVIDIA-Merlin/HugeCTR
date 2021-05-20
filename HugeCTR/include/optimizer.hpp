@@ -17,6 +17,7 @@
 #pragma once
 #include <common.hpp>
 #include <general_buffer2.hpp>
+#include <gpu_learning_rate_scheduler.hpp>
 #include <gpu_resource.hpp>
 
 namespace HugeCTR {
@@ -129,10 +130,19 @@ class Optimizer {
    * @param lr the learning rate
    */
   void set_learning_rate(float lr) {
+    if (gpu_learning_rate_scheduler_ != nullptr) {
+      CK_THROW_(Error_t::WrongInput,
+                "set_learning_rate cannot be used together with set_learing_rate_scheduler");
+    }
+
     if (lr <= 0) {
       CK_THROW_(Error_t::WrongInput, "lr <= 0");
     }
     lr_ = lr;
+  }
+
+  void set_learning_rate_scheduler(std::shared_ptr<GpuLearningRateScheduler>& sched) {
+    gpu_learning_rate_scheduler_ = sched;
   }
 
  protected:
@@ -143,6 +153,8 @@ class Optimizer {
   std::shared_ptr<GPUResource> gpu_resource_;
   float lr_;  // learning rate
   const float scaler_;
+
+  std::shared_ptr<GpuLearningRateScheduler> gpu_learning_rate_scheduler_;
 
   int get_device_id() const { return gpu_resource_->get_device_id(); }
 };

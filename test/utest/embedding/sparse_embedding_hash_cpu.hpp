@@ -16,17 +16,16 @@
 
 #pragma once
 
+#include <math.h>
+#include <stdlib.h>
+
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_readers/check_none.hpp"
 #include "HugeCTR/include/data_readers/check_sum.hpp"
 #include "HugeCTR/include/data_readers/csr_chunk.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
 #include "HugeCTR/include/data_readers/file_source.hpp"
-
 #include "utest/embedding/cpu_hashtable.hpp"
-
-#include <math.h>
-#include <stdlib.h>
 
 using namespace HugeCTR;
 
@@ -671,6 +670,9 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adam(
           v[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
           break;
         }
+        default: {
+          CK_THROW_(Error_t::WrongInput, "Error: Invalid update type");
+        }
       }
     }
   }
@@ -883,7 +885,9 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::update_params() {
                         opt_params_.scaler);
       break;
     }
-    default: { printf("Error: optimizer not supported in CPU version\n"); }
+    default: {
+      printf("Error: optimizer not supported in CPU version\n");
+    }
   }
 
   return;

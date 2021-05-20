@@ -58,5 +58,5 @@ class FasterGossipCommAll2AllTraits {
   using transfer_plan_util_t = gossip::all2all;
 };
 
-}  // namespace
-}
+}  // namespace GossipComm
+}  // namespace HugeCTR

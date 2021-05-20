@@ -1,9 +1,11 @@
+#include "gossip/include/plan_parser.hpp"
+
 #include <assert.h>
+
 #include <fstream>
 #include <iostream>
 #include <vector>
 
-#include "gossip/include/plan_parser.hpp"
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
 

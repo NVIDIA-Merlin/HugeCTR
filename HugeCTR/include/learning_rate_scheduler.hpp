@@ -56,8 +56,8 @@ class LearningRateScheduler {
               pow(((decay_start_ + decay_steps_ - step_) / ((float)decay_steps_)), decay_power_);
           current_lr_ = base_lr_ * lr_factor > end_lr_ ? base_lr_ * lr_factor : end_lr_;
         } else {
-	  current_lr_ = end_lr_;
-	}
+          current_lr_ = end_lr_;
+        }
       } else {
         current_lr_ = base_lr_;
       }

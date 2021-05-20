@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <numa.h>
+
 #include <atomic>
 #include <common.hpp>
 #include <data_readers/csr.hpp>
@@ -57,6 +59,55 @@ class DataReaderWorkerGroup {
   std::vector<std::shared_ptr<IDataReaderWorker>>
       data_readers_; /**< A vector of DataReaderWorker' pointer.*/
   std::shared_ptr<ResourceManager> resource_manager_;
+
+  std::vector<cpu_set_t> vec_cpu_set_;
+
+  void generate_thread_core_affinity(int num_reader_threads) {
+    if (numa_available() < 0) {
+      // set to use all cores
+      cpu_set_t cpuset;
+      CPU_ZERO(&cpuset);
+      for (int core = 0; core < 256; core++) CPU_SET(core, &cpuset);
+      vec_cpu_set_.push_back(cpuset);
+    } else {
+      constexpr int thread_per_cpu_node = 8;
+      int max_cpu_nodes_required =
+          (num_reader_threads + (thread_per_cpu_node - 1)) / thread_per_cpu_node;
+
+      int cpus = 0;
+      std::vector<std::vector<int>> cpu_numa_core_arr;
+      for (int node = 0; node <= numa_max_node(); node++) {
+        if (numa_bitmask_isbitset(numa_nodes_ptr, node)) {
+          std::vector<int> core_arr;
+          struct bitmask* cpu_mask;
+          cpu_mask = numa_allocate_cpumask();
+          numa_node_to_cpus(node, cpu_mask);
+          int skip_count = 0;
+          for (long unsigned int core = 0; core < cpu_mask->size; core++) {
+            if (numa_bitmask_isbitset(cpu_mask, core)) {
+              if (skip_count < 2) {
+                skip_count++;
+                continue;
+              }
+              core_arr.push_back(core);
+            }
+          }
+          cpu_numa_core_arr.push_back(core_arr);
+          numa_bitmask_free(cpu_mask);
+        }
+        cpus++;
+        if (cpus == max_cpu_nodes_required) break;
+      }
+
+      for (auto core_set : cpu_numa_core_arr) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        for (auto core : core_set) CPU_SET(core, &cpuset);
+        vec_cpu_set_.push_back(cpuset);
+      }
+    }
+  }
+
   /**
    * Create threads to run data reader workers
    */
@@ -68,10 +119,21 @@ class DataReaderWorkerGroup {
       CK_THROW_(Error_t::WrongInput, "!data_reader_threads_.empty()");
     }
 
+    // decide thread-core affinity
+    generate_thread_core_affinity(data_readers_.size());
+    uint32_t tid = 0;
     for (auto& data_reader : data_readers_) {
       data_reader_threads_.emplace_back(data_reader_thread_func_, data_reader,
                                         &data_reader_loop_flag_);
-      set_affinity(data_reader_threads_.back(), {}, true);
+      // set_affinity(data_reader_threads_.back(), {}, true);
+      int rc =
+          pthread_setaffinity_np(data_reader_threads_.back().native_handle(), sizeof(cpu_set_t),
+                                 &(vec_cpu_set_[tid % vec_cpu_set_.size()]));
+      if (rc != 0) {
+        CK_THROW_(Error_t::WrongInput,
+                  "Error calling pthread_setaffinity_np: " + std::to_string(rc));
+      }
+      tid++;
     }
   }
 

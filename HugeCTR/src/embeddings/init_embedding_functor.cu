@@ -42,7 +42,15 @@ void SparseEmbeddingFunctors::init_embedding_per_gpu(size_t gid, size_t total_gp
                ", value_index_offset=" + std::to_string(value_index_offset));
 
       float up_bound = sqrt(1.f / slot_size);
-      HugeCTR::UniformGenerator::fill(embedding_tables[j++], -up_bound, up_bound, gpu_resource);
+
+      HugeCTR::UniformGenerator::fill(
+          embedding_tables[j].get_ptr(),
+          embedding_tables[j].get_num_elements(),
+          -up_bound, up_bound,
+          gpu_resource.get_sm_count(),
+          gpu_resource.get_replica_variant_curand_generator(),
+          gpu_resource.get_stream());
+      j++;
 
       memset_const(slot_ids_ptr, i, slot_size, gpu_resource.get_stream());
 

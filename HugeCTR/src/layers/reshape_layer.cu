@@ -50,8 +50,7 @@ __global__ void reshape_kernel(T* input, T* output, int batch_size, int n_slot, 
 }  // anonymous namespace
 
 template <typename T>
-ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& train_in_tensor,
-                              const Tensor2<T>& evaluate_in_tensor, Tensor2<T>& out_tensor,
+ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                               size_t leading_dim, const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource),
@@ -61,14 +60,14 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& train_in_tensor,
       vector_length_(0),
       n_active_slot_(0) {
   try {
-    const std::vector<size_t>& in_dims = train_in_tensor.get_dimensions();
+    const std::vector<size_t>& in_dims = in_tensor.get_dimensions();
     int im_idx = in_dims.size() - 1;
     if (leading_dim < in_dims[im_idx] || leading_dim % in_dims[im_idx] != 0) {
       CK_THROW_(Error_t::WrongInput,
                 "leading_dim < in_dims[im_idx] or leading_dim % in_dims[2] != 0");
     }
 
-    size_t n_in_elems = train_in_tensor.get_num_elements();
+    size_t n_in_elems = in_tensor.get_num_elements();
     if (leading_dim > n_in_elems) {
       CK_THROW_(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
     }
@@ -82,8 +81,7 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& train_in_tensor,
 
     blobs_buff->reserve(out_dims, &out_tensor);
 
-    train_in_tensors_.push_back(train_in_tensor);
-    evaluate_in_tensors_.push_back(evaluate_in_tensor);
+    in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error& rt_err) {
@@ -122,8 +120,7 @@ ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tenso
 
       blobs_buff->reserve({n_active_slot_}, &selected_tensor_);
     }
-    train_in_tensors_.push_back(in_tensor);
-    evaluate_in_tensors_.push_back(in_tensor);
+    in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
 
   } catch (const std::runtime_error& rt_err) {
@@ -181,11 +178,7 @@ void ReshapeLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stre
 
 template <typename T>
 Tensors2<T>& ReshapeLayer<T>::get_in_tensors(bool is_train) {
-  if (is_train) {
-    return train_in_tensors_;
-  } else {
-    return evaluate_in_tensors_;
-  }
+  return in_tensors_;
 }
 
 template class ReshapeLayer<float>;

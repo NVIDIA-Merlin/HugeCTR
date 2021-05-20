@@ -48,16 +48,13 @@ void SparseEmbeddingFunctors::all2all_init_forward(std::unique_ptr<GossipComm::F
     CK_THROW_(Error_t::WrongInput, "Error: the local device_list doesn't match all2all plan_file");
   }
 
-  int total_rank = 1;
-  int my_rank = 0;
-  CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &my_rank));
-  CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &total_rank));
-  if (total_gpu_count != (total_rank * local_gpu_count)) {
+  if (total_gpu_count != (resource_manager.get_num_process() * local_gpu_count)) {
     CK_THROW_(Error_t::WrongInput, "Error: the total gpu count doesn't match");
   }
 
 #ifndef NDEBUG
-  std::cout << "total_rank=" << total_rank << ", my_rank=" << my_rank
+  std::cout << "total_rank=" << resource_manager.get_num_process()
+            << ", my_rank=" << resource_manager.get_process_id()
             << ", total_gpu_count=" << total_gpu_count << ", local_gpu_count=" << local_gpu_count
             << std::endl;
 #endif
@@ -65,24 +62,25 @@ void SparseEmbeddingFunctors::all2all_init_forward(std::unique_ptr<GossipComm::F
   std::vector<gossip::gpu_id_t> device_ids(device_list.begin(), device_list.end());
 
 #ifndef NDEBUG
-  std::cout << "my_rank=" << my_rank << ", gpu device ids: { ";
-  for (auto dev : device_ids) {
-    std::cout << dev << " ";
+  std::cout << "my_rank=" << resource_manager.get_process_id() << ", gpu device ids: { ";
+  for (size_t i = 0; i < resource_manager.get_local_gpu_count(); i++) {
+    std::cout << resource_manager.get_local_gpu(i).get_device_id() << " ";
   }
   std::cout << "}, gpu global ids: {";
-  for (auto dev : device_ids) {
-    std::cout << device_resources->get_global_id_from_device_id(dev) << " ";
+  for (size_t i = 0; i < resource_manager.get_local_gpu_count(); i++) {
+    std::cout << resource_manager.get_local_gpu(i).get_global_id() << " ";
   }
   std::cout << "}, gpu local ids: {";
-  for (auto dev : device_ids) {
-    std::cout << device_resources->get_local_id(device_resources->get_global_id_from_device_id(dev)) << " ";
+  for (size_t i = 0; i < resource_manager.get_local_gpu_count(); i++) {
+    std::cout << i << " ";
   }
   std::cout << "}" << std::endl;
 #endif
 
   // The all2all communication class
   auto faster_gossip_comm = new GossipComm::FasterGossipCommMulti<Type>(
-      plan_file, device_ids, total_rank, my_rank, MPI_COMM_WORLD);
+      plan_file, device_ids, resource_manager.get_num_process(), resource_manager.get_process_id(),
+      MPI_COMM_WORLD);
 
   std::vector<Type *> src(local_gpu_count);
   std::vector<Type *> dst(local_gpu_count);
@@ -98,7 +96,7 @@ void SparseEmbeddingFunctors::all2all_init_forward(std::unique_ptr<GossipComm::F
 
   // Fill in sending partition table, ith Topo GPU send to jth global GPU
   for (size_t i = 0; i < local_gpu_count; i++) {
-    size_t global_id = resource_manager.get_gpu_global_id_from_local_id(i);	
+    size_t global_id = resource_manager.get_gpu_global_id_from_local_id(i);
     size_t slot_num_per_gpu =
         slot_num / total_gpu_count + ((global_id < (slot_num % total_gpu_count)) ? 1 : 0);
     size_t element_per_send = batch_size_per_gpu * slot_num_per_gpu * embedding_vec_size;
