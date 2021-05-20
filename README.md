@@ -66,7 +66,7 @@ Bigger model and large scale training are always a main requirment in recommenda
 - Compute-communication overlap - Generalized embedding and bottom MLP overlap. 
 - Holistic cuda graph - Full iteration graph capture to reduce launch latencies and jitter.
 
-## Getting Started with HugeCTR ##
+## Getting Started ##
 If you'd like to quickly train a model using the Python interface, follow these steps:
 1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
