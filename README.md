@@ -57,29 +57,40 @@ In the TensorFlow test case below, HugeCTR exhibits a speedup up to 114x compare
 <div align=center><img width='800' height='339' src ="docs/user_guide_src/DCN.JPG"/></div>
 <div align=center>Fig. 4 DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
 
+## Release Notes ##
+Bigger model and large scale training are always a main requirment in recommendation system. In v3.1, we provide a set of new optimizations for good scalability as below, and now they are avaliable in this beta version.  
+- Distributed Hybrid embedding - Model/data parallel split of embeddings based on statistical access frequency to minimize embedding exchange traffic.
+- Optimized communication collectives - Hierarchical multi-node all-to-all for NVLINK aggregation and oneshot algorithm for All-reduce.
+- Optimized data reader - Async I/O based data reader to maximize I/O utilization, minimize interference with collectives and eval caching.
+- MLP fusions - Fused GEMM + Relu + Bias fprop and GEMM + dRelu + bgrad bprop.
+- Compute-communication overlap - Generalized embedding and bottom MLP overlap. 
+- Holistic cuda graph - Full iteration graph capture to reduce launch latencies and jitter.
 
 ## Getting Started with HugeCTR ##
-To get started, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
-
-If you'd like to quickly train a model using the Python interface, follow these six steps:
-1. Start a NGC container by running the following command:
+If you'd like to quickly train a model using the Python interface, follow these steps:
+1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
-   docker run --runtime=nvidia --rm -it nvcr.io/nvidia/hugectr:v2.3
+   docker run --runtime=nvidia --rm -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) -it nvcr.io/nvidia/merlin/merlin-training:0.5
    ```
 
-2. Inside the container, copy [the DCN JSON config file](samples/dcn/dcn.json) to your home directory or anywhere you want.
+   **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
 
-   This config file specifies the DCN model architecture and its optimizer. With any Python use case, the solver clause within the config file is not used at all.
-
-3. Generate a synthetic dataset based on the config file by running the following command:
-   ```
-   data_generator ./dcn.json ./dataset_dir 434428 1
+2. Activate the merlin conda environment by running the following command:  
+   ```shell.
+   source activate merlin
    ```
 
-   The following set of files are created: ./file_list.txt, ./file_list_test.txt, and ./dataset_dir/*.
+3. Inside the container, copy the DCN configuration file to our mounted directory (/your/container/dir).
+
+   This config file specifies the DCN model architecture and its optimizer. With any Python use case, the solver clause within the configuration file is not used at all.
+
+4. Generate a synthetic dataset based on the configuration file by running the following command:
+   ```
+   ./data_generator --config-file dcn.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
+   ```
 
 5. Write a simple Python code using the hugectr module as shown here:
-   ```python
+   ```
    # train.py
    import sys
    import hugectr
@@ -90,17 +101,18 @@ If you'd like to quickly train a model using the Python interface, follow these 
                                                   batchsize_eval = 16384,
                                                   vvgpu = [[0,1,2,3,4,5,6,7]],
                                                   repeat_dataset = True)
-   sess = hugectr.Session(solver_config, json_config_file)
-   sess.start_data_reading()
-   for i in range(10000):
-     sess.train()
-     if (i % 100 == 0):
-       loss = sess.get_current_loss()
-       print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
+     sess = hugectr.Session(solver_config, json_config_file)
+     sess.start_data_reading()
+     for i in range(10000):
+       sess.train()
+       if (i % 100 == 0):
+         loss = sess.get_current_loss()
+         print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
 
    if __name__ == "__main__":
      json_config_file = sys.argv[1]
      train(json_config_file)
+
    ```
 
    **NOTE**: Update the vvgpu (the active GPUs), batchsize, and batchsize_eval parameters according to your GPU system.
@@ -109,6 +121,8 @@ If you'd like to quickly train a model using the Python interface, follow these 
    ```
    python train.py dcn.json
    ```
+
+For additional information, see the [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 ## Support and Feedback ##
 If you encounter any issues and/or have questions, please file an issue [here](https://github.com/NVIDIA/HugeCTR/issues) so that we can provide you with the necessary resolutions and answers. To further advance the Merlin/HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
