@@ -58,7 +58,7 @@ In the TensorFlow test case below, HugeCTR exhibits a speedup up to 114x compare
 <div align=center>Fig. 4 DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
 
 ## Release Notes ##
-Bigger model and large scale training are always a main requirment in recommendation system. In v3.1, we provide a set of new optimizations for good scalability as below, and now they are avaliable in this beta version.  
+Bigger model and large scale training are always the main requirments in recommendation system. In v3.1, we provide a set of new optimizations for good scalability as below, and now they are avaliable in this beta version.  
 - Distributed Hybrid embedding - Model/data parallel split of embeddings based on statistical access frequency to minimize embedding exchange traffic.
 - Optimized communication collectives - Hierarchical multi-node all-to-all for NVLINK aggregation and oneshot algorithm for All-reduce.
 - Optimized data reader - Async I/O based data reader to maximize I/O utilization, minimize interference with collectives and eval caching.
