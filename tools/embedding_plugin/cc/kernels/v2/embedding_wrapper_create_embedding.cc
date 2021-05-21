@@ -76,8 +76,8 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::register_input_space(
         } else if (HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash == embedding_type || 
                    HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot == embedding_type) {
             size_t mod_slots = static_cast<size_t>(slot_num) % total_gpu_count;
-            size_t device_id = resource_manager_->get_local_gpu(dev_id)->get_device_id();
-            if (device_id < mod_slots) {
+            size_t global_id = resource_manager_->get_local_gpu(dev_id)->get_global_id();
+            if (global_id < mod_slots) {
                 slots = slot_num / total_gpu_count + 1;
             } else {
                 slots = slot_num / total_gpu_count;
