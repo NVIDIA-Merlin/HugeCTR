@@ -10,7 +10,8 @@
     "eval_interval": 2000,
     "max_eval_batches": 2048,
     "batchsize_eval": 32768,
-    "input_key_type": "I64"
+    "input_key_type": "I64",
+    "auc_threshold": 0.7996
   },
   
   "optimizer": {
