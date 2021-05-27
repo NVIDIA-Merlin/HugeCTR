@@ -106,6 +106,9 @@ private:
   nlohmann::json config_;                             /**< configure file. */
   std::map<std::string, bool> tensor_active_;         /**< whether a tensor is active. */
 public:
+  std::string label_name;
+  std::string dense_name;
+  std::vector<std::string> sparse_names;
   size_t label_dim;                                    /**< dense feature dimension */
   size_t dense_dim;                                    /**< dense feature dimension */
   size_t slot_num;                                     /**< total slot number */
@@ -118,7 +121,7 @@ public:
 
   template <typename TypeEmbeddingComp>
   void create_pipeline_inference(const InferenceParams& inference_params,
-                                 Tensor2<float>& dense_input,
+                                 TensorBag2& dense_input_bag,
                                  std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                                  std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                                  std::vector<size_t>& embedding_table_slot_size,
@@ -133,7 +136,7 @@ public:
   /**
    * Create inference pipeline, which only creates network and embedding
    */
-  void create_pipeline(const InferenceParams& inference_params, Tensor2<float>& dense_input,
+  void create_pipeline(const InferenceParams& inference_params, TensorBag2& dense_input_bag,
                        std::vector<std::shared_ptr<Tensor2<int>>>& row,
                        std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvec,
                        std::vector<size_t>& embedding_table_slot_size,
@@ -432,6 +435,16 @@ struct create_datareader {
                   std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
                   size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
                   const std::shared_ptr<ResourceManager> resource_manager);
+
+  void operator()(const InferenceParams& inference_params,
+                  const InferenceParser& inference_parser,
+                  std::shared_ptr<IDataReader>& data_reader,
+                  const std::shared_ptr<ResourceManager> resource_manager,
+                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::map<std::string, TensorBag2>& label_dense_map,
+                  const std::string& source, const DataReaderType_t data_reader_type,
+                  const Check_t check_type, const std::vector<long long>& slot_size_array,
+                  const bool repeat_dataset);
 };
 
 }  // namespace HugeCTR
