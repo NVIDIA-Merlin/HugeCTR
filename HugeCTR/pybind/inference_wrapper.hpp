@@ -16,36 +16,14 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <HugeCTR/include/inference/session_inference.hpp>
 #include <HugeCTR/include/inference/parameter_server.hpp>
 #include <HugeCTR/include/inference/embedding_cache.hpp>
+#include <HugeCTR/include/inference/session_inference.hpp>
+#include <HugeCTR/include/utils.hpp>
 
 namespace HugeCTR {
 
 namespace python_lib {
-  
-std::shared_ptr<parameter_server_base> CreateParameterServer(const std::vector<std::string>& model_config_path_array,
-                                                          const std::vector<InferenceParams>& inference_params_array) {
-  std::shared_ptr<parameter_server_base> ps;
-  if (inference_params_array[0].i64_input_key) {
-    ps.reset(new parameter_server<long long>("Other", model_config_path_array, inference_params_array));
-  } else {
-    ps.reset(new parameter_server<unsigned int>("Other", model_config_path_array, inference_params_array));
-  }
-  return ps;
-}
-
-std::shared_ptr<embedding_interface> CreateEmbeddingCache(const std::string& model_config_path,
-                                                        const InferenceParams& inference_params,
-                                                        std::shared_ptr<parameter_server_base>& parameter_server) {
-  std::shared_ptr<embedding_interface> ec;
-  if (inference_params.i64_input_key) {
-    ec.reset(new embedding_cache<long long>(model_config_path, inference_params, reinterpret_cast<HugectrUtility<long long>*>(parameter_server.get())));
-  } else {
-    ec.reset(new embedding_cache<unsigned int>(model_config_path, inference_params, reinterpret_cast<HugectrUtility<unsigned int>*>(parameter_server.get())));
-  }
-  return ec;
-}
 
 /**
  * @brief Main InferenceSessionPy class
@@ -57,81 +35,153 @@ class InferenceSessionPy : public InferenceSession {
 public:
   InferenceSessionPy(const std::string& model_config_path,
                     const InferenceParams& inference_params,
-                    std::shared_ptr<embedding_interface>& embedding_cache)
-    : InferenceSession(model_config_path, inference_params, embedding_cache) {
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *  inference_parser_.dense_dim * sizeof(float)));
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_params_.max_batchsize *  inference_parser_.slot_num + 1) * sizeof(int)));
-    CK_CUDA_THROW_(cudaMalloc((void**)&d_output_, inference_params_.max_batchsize * inference_parser_.label_dim * sizeof(float)));
-    if (inference_params_.i64_input_key) {
-      CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(long long), cudaHostAllocPortable));
-    } else {
-      CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(unsigned int), cudaHostAllocPortable));
-    }
-  }
+                    std::shared_ptr<embedding_interface>& embedding_cache);
   
-  ~InferenceSessionPy() {
-    cudaFree(d_dense_);
-    cudaFreeHost(h_embeddingcolumns_);
-    cudaFree(d_row_ptrs_);
-    cudaFree(d_output_);
-  }
+  ~InferenceSessionPy();
 
-  std::vector<float>& predict32(std::vector<float>& dense, std::vector<unsigned int>& embeddingcolumns, std::vector<int>& row_ptrs) {
-    if (inference_parser_.slot_num == 0) {
-      CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
-    }
-    size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
-    if (num_samples > inference_params_.max_batchsize ||
-        num_samples * inference_parser_.dense_dim != dense.size() ||
-        num_samples * inference_parser_.max_feature_num_per_sample < embeddingcolumns.size() ||
-        num_samples * inference_parser_.slot_num + 1 != row_ptrs.size() ||
-        embeddingcolumns.size() != static_cast<size_t>(row_ptrs.back()) ||
-        inference_params_.i64_input_key == true) {
-      CK_THROW_(Error_t::WrongInput, "Input size is not consistent!");
-    }
-    output_.resize(num_samples);
-    size_t num_keys = embeddingcolumns.size();
-    CK_CUDA_THROW_(cudaMemcpy(d_dense_, dense.data(), num_samples*inference_parser_.dense_dim*sizeof(float), cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs_, row_ptrs.data(), (num_samples*inference_parser_.slot_num+1)*sizeof(int), cudaMemcpyHostToDevice)); 
-    memcpy(h_embeddingcolumns_, embeddingcolumns.data(), num_keys * sizeof(unsigned int));
-    CK_CUDA_THROW_(cudaDeviceSynchronize());
-    predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, static_cast<int>(num_samples));
-    CK_CUDA_THROW_(cudaDeviceSynchronize());
-    CK_CUDA_THROW_(cudaMemcpy(output_.data(), d_output_, num_samples*inference_parser_.label_dim*sizeof(float), cudaMemcpyDeviceToHost));
-    return output_;
-  };
-
-  std::vector<float>& predict64(std::vector<float>& dense, std::vector<long long>& embeddingcolumns, std::vector<int>& row_ptrs, bool i64_input_key) {
-    if (inference_parser_.slot_num == 0) {
-      CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
-    }
-    size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
-    if (num_samples > inference_params_.max_batchsize ||
-        num_samples * inference_parser_.dense_dim != dense.size() ||
-        num_samples * inference_parser_.max_feature_num_per_sample < embeddingcolumns.size() ||
-        num_samples * inference_parser_.slot_num + 1 != row_ptrs.size() ||
-        embeddingcolumns.size() != static_cast<size_t>(row_ptrs.back()) ||
-        i64_input_key == false ||
-        inference_params_.i64_input_key == false) {
-      CK_THROW_(Error_t::WrongInput, "Input size is not consistent!");
-    }
-    output_.resize(num_samples);
-    size_t num_keys = embeddingcolumns.size();
-    CK_CUDA_THROW_(cudaMemcpy(d_dense_, dense.data(), num_samples*inference_parser_.dense_dim*sizeof(float), cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs_, row_ptrs.data(), (num_samples*inference_parser_.slot_num+1)*sizeof(int), cudaMemcpyHostToDevice)); 
-    memcpy(h_embeddingcolumns_, embeddingcolumns.data(), num_keys * sizeof(long long));
-    predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, static_cast<int>(num_samples));
-    CK_CUDA_THROW_(cudaMemcpy(output_.data(), d_output_, num_samples*inference_parser_.label_dim*sizeof(float), cudaMemcpyDeviceToHost));
-    return output_;
-  };
+  float evaluate(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
+              const Check_t check_type, const std::vector<long long>& slot_size_array);
+  
+  std::vector<float>& predict(std::vector<float>& dense, std::vector<long long>& embeddingcolumns, std::vector<int>& row_ptrs);
 
 private:
+  template <typename TypeKey>
+  float evaluate_(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
+                const Check_t check_type, const std::vector<long long>& slot_size_array);
+
+  template <typename TypeKey>
+  void predict_(std::vector<float>& dense, std::vector<TypeKey>& embeddingcolumns, std::vector<int>& row_ptrs);
+  
+  std::vector<unsigned int> embeddingcolumns_u32_;
   std::vector<float> output_;
   float* d_dense_;
   void* h_embeddingcolumns_;
   int* d_row_ptrs_;
   float* d_output_;
 };
+
+InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
+                  const InferenceParams& inference_params,
+                  std::shared_ptr<embedding_interface>& embedding_cache)
+  : InferenceSession(model_config_path, inference_params, embedding_cache) {
+  CK_CUDA_THROW_(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *  inference_parser_.dense_dim * sizeof(float)));
+  CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_params_.max_batchsize *  inference_parser_.slot_num + 1) * sizeof(int)));
+  CK_CUDA_THROW_(cudaMalloc((void**)&d_output_, inference_params_.max_batchsize * inference_parser_.label_dim * sizeof(float)));
+  if (inference_params_.i64_input_key) {
+    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(long long), cudaHostAllocPortable));
+  } else {
+    CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(unsigned int), cudaHostAllocPortable));
+  }
+}
+
+InferenceSessionPy::~InferenceSessionPy() {
+  cudaFree(d_dense_);
+  cudaFreeHost(h_embeddingcolumns_);
+  cudaFree(d_row_ptrs_);
+  cudaFree(d_output_);
+}
+
+template <typename TypeKey>
+void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey>& embeddingcolumns, std::vector<int>& row_ptrs) {
+  if (inference_parser_.slot_num == 0) {
+    CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
+  }
+  size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
+  if (num_samples > inference_params_.max_batchsize) {
+    CK_THROW_(Error_t::WrongInput, "The number of samples should not exceed max_batchsize");
+  }
+  if (num_samples * inference_parser_.dense_dim != dense.size()) {
+    CK_THROW_(Error_t::WrongInput, "The dimension of dense features is not consistent");
+  }
+  if (num_samples * inference_parser_.slot_num + 1 != row_ptrs.size()) {
+    CK_THROW_(Error_t::WrongInput, "The dimension of row pointers is not consistent");
+  }
+  if (num_samples * inference_parser_.max_feature_num_per_sample < embeddingcolumns.size()) {
+    CK_THROW_(Error_t::WrongInput, "The dimension of embedding keys is greater than num_samples*max_feature_num_per_sample");
+  }
+  if (embeddingcolumns.size() != static_cast<size_t>(row_ptrs.back())) {
+    CK_THROW_(Error_t::WrongInput, "The dimension of embedding keys is not consistent with row pointers");
+  }
+
+  output_.resize(num_samples);
+  size_t num_keys = embeddingcolumns.size();
+  CK_CUDA_THROW_(cudaMemcpy(d_dense_, dense.data(), num_samples*inference_parser_.dense_dim*sizeof(float), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs_, row_ptrs.data(), (num_samples*inference_parser_.slot_num+1)*sizeof(int), cudaMemcpyHostToDevice)); 
+  memcpy(h_embeddingcolumns_, embeddingcolumns.data(), num_keys * sizeof(TypeKey));
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, static_cast<int>(num_samples));
+  CK_CUDA_THROW_(cudaDeviceSynchronize());
+  CK_CUDA_THROW_(cudaMemcpy(output_.data(), d_output_, num_samples*inference_parser_.label_dim*sizeof(float), cudaMemcpyDeviceToHost));
+}
+
+std::vector<float>& InferenceSessionPy::predict(std::vector<float>& dense, std::vector<long long>& embeddingcolumns, std::vector<int>& row_ptrs) {
+  if (inference_params_.i64_input_key) {
+    predict_<long long>(dense, embeddingcolumns, row_ptrs);
+  } else {
+    std::vector<unsigned int>().swap(embeddingcolumns_u32_);
+    std::transform(embeddingcolumns.begin(), embeddingcolumns.end(), std::back_inserter(embeddingcolumns_u32_),
+                  [](long long& v)->unsigned int { return static_cast<unsigned int>(v); });
+    predict_<unsigned int>(dense, embeddingcolumns_u32_, row_ptrs);
+  }
+  return output_;
+}
+
+template <typename TypeKey>
+float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
+                                const Check_t check_type, const std::vector<long long>& slot_size_array) {
+  bool repeat_dataset = true;
+  std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
+  std::map<std::string, TensorBag2> label_dense_map;
+  create_datareader<TypeKey>()(inference_params_, inference_parser_, data_reader_, resource_manager_,
+                              sparse_input_map, label_dense_map,
+                              source, data_reader_type, check_type, slot_size_array, repeat_dataset);
+  if (data_reader_->is_started() == false) {
+    CK_THROW_(Error_t::IllegalCall, "Start the data reader first before evaluation");
+  }
+  SparseInput<TypeKey> sparse_input;
+  TensorBag2 label_tensor;
+  TensorBag2 dense_tensor;
+  if (!find_item_in_map(sparse_input, inference_parser_.sparse_names[0], sparse_input_map)) {
+    CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.sparse_names[0]);
+  }
+  if (!find_item_in_map(label_tensor, inference_parser_.label_name, label_dense_map)) {
+    CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.label_name);
+  }
+  if (!find_item_in_map(dense_tensor, inference_parser_.dense_name, label_dense_map)) {
+    CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.dense_name);
+  }
+  std::vector<size_t> pred_dims = {1, inference_params_.max_batchsize};
+  std::shared_ptr<TensorBuffer2> pred_buff = PreallocatedBuffer2<float>::create(d_output_, pred_dims);
+  Tensor2<float> pred_tensor(pred_dims, pred_buff);
+  std::shared_ptr<metrics::AUC<float>> metric = std::make_shared<metrics::AUC<float>>(inference_params_.max_batchsize, num_batches, resource_manager_);
+  metrics::RawMetricMap metric_maps = {{metrics::RawType::Pred, pred_tensor.shrink()}, {metrics::RawType::Label,  label_tensor}};
+  float auc_value;
+  auto d_dense = reinterpret_cast<float*>(dense_tensor.get_ptr());
+  auto d_keys = sparse_input.evaluate_values[0].get_ptr();
+  size_t num_elements =  inference_params_.max_batchsize *  inference_parser_.slot_num + 1;
+  for (size_t batch = 0; batch < num_batches; batch++) {
+    long long current_batchsize = data_reader_->read_a_batch_to_device();
+    CK_CUDA_THROW_(cudaMemcpy(h_embeddingcolumns_, d_keys, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample *sizeof(TypeKey), cudaMemcpyDeviceToHost));
+    convert_array_on_device(d_row_ptrs_, sparse_input.evaluate_row_offsets[0].get_ptr(), num_elements, resource_manager_->get_local_gpu(0)->get_stream());
+    InferenceSession::predict(d_dense, h_embeddingcolumns_, d_row_ptrs_, d_output_, current_batchsize);
+    metric->set_current_batch_size(current_batchsize);
+    metric->local_reduce(0, metric_maps);
+  }
+  auc_value = metric->finalize_metric();
+  MESSAGE_("---------auc value: " + std::to_string(auc_value));
+  return auc_value;
+}
+
+float InferenceSessionPy::evaluate(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
+  const Check_t check_type, const std::vector<long long>& slot_size_array) {
+  float auc_value;
+  if (inference_params_.i64_input_key) {
+    auc_value = evaluate_<long long>(num_batches, source, data_reader_type, check_type, slot_size_array);
+  } else {
+    auc_value = evaluate_<unsigned int>(num_batches, source, data_reader_type, check_type, slot_size_array);
+  }
+  return auc_value;
+}
 
 std::shared_ptr<InferenceSessionPy> CreateInferenceSession(const std::string& model_config_path,
                                                         const InferenceParams& inference_params) {
@@ -154,16 +204,7 @@ std::shared_ptr<InferenceSessionPy> CreateInferenceSession(const std::string& mo
 
 void InferencePybind(pybind11::module &m) {
   pybind11::module infer = m.def_submodule("inference", "inference submodule of hugectr");
-  
-  pybind11::enum_<HugeCTR::INFER_TYPE>(infer, "InferType")
-    .value("Triton", HugeCTR::INFER_TYPE::TRITON)
-    .value("Other", HugeCTR::INFER_TYPE::OTHER)
-    .export_values();
-  
-  pybind11::class_<HugeCTR::parameter_server_base, std::shared_ptr<HugeCTR::parameter_server_base>>(infer, "ParameterServerBase");
-  
-  pybind11::class_<HugeCTR::embedding_interface, std::shared_ptr<HugeCTR::embedding_interface>>(infer, "EmbeddingCacheInterface");
-  
+
   pybind11::class_<HugeCTR::InferenceParams, std::shared_ptr<HugeCTR::InferenceParams>>(infer, "InferenceParams")
     .def(pybind11::init<const std::string&, const size_t, const float,
                   const std::string&, const std::vector<std::string>&,
@@ -181,44 +222,27 @@ void InferencePybind(pybind11::module &m) {
       pybind11::arg("use_mixed_precision") = false,
       pybind11::arg("scaler") = 1.0,
       pybind11::arg("use_algorithm_search") = true,
-      pybind11::arg("use_cuda_graph") = true)
-    .def_readonly("use_gpu_embedding_cache", &HugeCTR::InferenceParams::use_gpu_embedding_cache)
-    .def_readonly("i64_input_key", &HugeCTR::InferenceParams::i64_input_key)
-    .def_readonly("use_mixed_precision", &HugeCTR::InferenceParams::use_mixed_precision);
-  
-  infer.def("CreateParameterServer", &HugeCTR::python_lib::CreateParameterServer,
-    pybind11::arg("model_config_path_array"),
-    pybind11::arg("inference_params_array"));
-  
-  infer.def("CreateEmbeddingCache", &HugeCTR::python_lib::CreateEmbeddingCache,
-    pybind11::arg("model_config_path"),
-    pybind11::arg("inference_params"),
-    pybind11::arg("parameter_server"));
+      pybind11::arg("use_cuda_graph") = true);
 
   infer.def("CreateInferenceSession", &HugeCTR::python_lib::CreateInferenceSession,
     pybind11::arg("model_config_path"),
     pybind11::arg("inference_params"));
   
   pybind11::class_<HugeCTR::python_lib::InferenceSessionPy, std::shared_ptr<HugeCTR::python_lib::InferenceSessionPy>>(infer, "InferenceSession")
-    .def(pybind11::init<const std::string&, const InferenceParams&, std::shared_ptr<embedding_interface>&>(),
-      pybind11::arg("model_config_path"),
-		  pybind11::arg("inference_params"),
-		  pybind11::arg("embedding_cache"))
+    .def("evaluate", &HugeCTR::python_lib::InferenceSessionPy::evaluate,
+      pybind11::arg("num_batches"),
+      pybind11::arg("source"),
+      pybind11::arg("data_reader_type"),
+      pybind11::arg("check_type"),
+      pybind11::arg("slot_size_array") = std::vector<long long>())
     .def("predict",
-      pybind11::overload_cast<std::vector<float>&, std::vector<unsigned int>&, std::vector<int>&>(
-        &HugeCTR::python_lib::InferenceSessionPy::predict32),
+      pybind11::overload_cast<std::vector<float>&, std::vector<long long>&, std::vector<int>&>(
+        &HugeCTR::python_lib::InferenceSessionPy::predict),
       pybind11::arg("dense_feature"),
       pybind11::arg("embeddingcolumns"),
-      pybind11::arg("row_ptrs"))
-    .def("predict",
-      pybind11::overload_cast<std::vector<float>&, std::vector<long long>&, std::vector<int>&, bool>(
-        &HugeCTR::python_lib::InferenceSessionPy::predict64),
-      pybind11::arg("dense_feature"),
-      pybind11::arg("embeddingcolumns"),
-      pybind11::arg("row_ptrs"),
-      pybind11::arg("i64_input_key"));
+      pybind11::arg("row_ptrs"));
 }
 
-}
+} // namespace python_lib
 
-}
+} // namespace HugeCTR

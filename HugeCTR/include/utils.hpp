@@ -370,7 +370,7 @@ struct CudnnDataType<__half> {
   static cudnnDataType_t getType() { return CUDNN_DATA_HALF; }
 };
 
+template <typename TIN, typename TOUT>
+void convert_array_on_device(TOUT* out, const TIN* in, size_t num_elements, const cudaStream_t& stream);
 
-
-  
 }  // namespace HugeCTR

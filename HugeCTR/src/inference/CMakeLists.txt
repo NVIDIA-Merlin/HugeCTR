@@ -19,6 +19,7 @@ file(GLOB huge_ctr_src
   ../gpu_resource.cpp
   ../resource_manager.cpp
   ../resource_managers/resource_manager_core.cpp
+  ../resource_managers/resource_manager_ext.cpp
   ../data_simulator.cu
   ../data_reader.cpp
   ../layer.cpp
@@ -67,12 +68,13 @@ file(GLOB huge_ctr_src
   ../parsers/create_network.cpp
   ../parsers/inference_parser.cpp
   ../diagnose.cu
+  ../utils.cu
 )
 
 set(CMAKE_CXX_STANDARD 17)
 add_library(hugectr_inference SHARED ${huge_ctr_src})
 
-target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl stdc++fs ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs ${CMAKE_THREAD_LIBS_INIT})
 
 target_link_libraries(hugectr_inference PUBLIC gpu_cache)
 

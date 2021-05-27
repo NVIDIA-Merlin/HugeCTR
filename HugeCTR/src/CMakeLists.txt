@@ -104,6 +104,7 @@ file(GLOB huge_ctr_src
   model_oversubscriber/parameter_server.cpp
   model_oversubscriber/parameter_server_manager.cpp
   diagnose.cu
+  utils.cu
   ../pybind/model.cpp
   ../pybind/add_input.cpp
   ../pybind/add_sparse_embedding.cpp
