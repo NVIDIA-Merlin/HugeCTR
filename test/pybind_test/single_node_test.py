@@ -1,5 +1,6 @@
 import hugectr
 import json
+import sys
 import argparse
 
 DATA_READER_TYPE = {"Norm": hugectr.DataReaderType_t.Norm, 
@@ -89,8 +90,38 @@ def parse_args(parser):
   args.i64_input_key = False
   if 'input_key_type' in solver_config and solver_config['input_key_type'] == 'I64':
     args.i64_input_key = True
+  if 'auc_threshold' in solver_config:
+    args.auc_threshold = solver_config['auc_threshold']
+    args.auc_check = True
+  else:
+    args.auc_threshold = 0.5
+    args.auc_check = False
   return args
 
+def train(model, max_iter, display, max_eval_batches, eval_interval, auc_threshold):
+  model.start_data_reading()
+  lr_sch = model.get_learning_rate_scheduler()
+  reach_auc_threshold = False
+  for iter in range(max_iter):
+    lr = lr_sch.get_next()
+    model.set_learning_rate(lr)
+    model.train()
+    if (iter%display == 0):
+      loss = model.get_current_loss()
+      print("[HUGECTR][INFO] iter: {}; loss: {}".format(iter, loss))
+    if (iter%eval_interval == 0 and iter != 0):
+      for _ in range(max_eval_batches):
+        model.eval()
+      metrics = model.get_eval_metrics()
+      print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iter, metrics))
+      if metrics[0][1] > auc_threshold:
+        reach_auc_threshold = True
+        break
+  if reach_auc_threshold == False:
+    raise RuntimeError("Cannot reach the AUC threshold {}".format(auc_threshold))
+    sys.exit(1)
+  else:
+    print("Successfully reach the AUC threshold {}".format(auc_threshold))
 
 def single_node_test(args):
   solver = hugectr.CreateSolver(max_eval_batches = args.max_eval_batches,
@@ -127,7 +158,10 @@ def single_node_test(args):
   model.construct_from_json(graph_config_file = args.json_file, include_dense_network = True)
   model.compile()
   model.summary()
-  model.fit(max_iter = args.max_iter, display = args.display, eval_interval = args.eval_interval, snapshot = args.snapshot)
+  if args.auc_check:
+    train(model, args.max_iter, args.display, args.max_eval_batches, args.eval_interval, args.auc_threshold)
+  else:
+    model.fit(max_iter = args.max_iter, display = args.display, eval_interval = args.eval_interval, snapshot = args.snapshot)
   return
 
 if __name__ == "__main__":
