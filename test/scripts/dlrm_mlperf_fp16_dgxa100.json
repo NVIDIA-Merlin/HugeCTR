@@ -11,7 +11,7 @@
     "eval_interval": 3790,
     "max_eval_batches": 1613,
     "mixed_precision": 1024,
-    "eval_metrics": ["AUC:0.8025"]
+    "auc_threshold": 0.8025
   },
   
   "optimizer": {

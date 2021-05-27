@@ -172,15 +172,15 @@ criteo:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd ${DATASET_MOUNT}/criteo;
-      mkdir ${WORK_DIR}/export_predictions_criteo_1gpu/;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_1gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_8gpu.json;
-      cd /dataset/criteo_kaggle/criteo_multi_slots;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_1gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_8gpu.json;
-      cd /dataset/criteo_kaggle/criteo_parquet_multi_slots;
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd ${DATASET_MOUNT}/criteo &&
+      mkdir ${WORK_DIR}/export_predictions_criteo_1gpu/ &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_8gpu.json &&
+      cd /dataset/criteo_kaggle/criteo_multi_slots &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_multi_slots_8gpu.json &&
+      cd /dataset/criteo_kaggle/criteo_parquet_multi_slots &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_parquet_multi_slots_1gpu.json"
 
 criteo_multi_node:
@@ -192,8 +192,8 @@ criteo_multi_node:
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
       bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/criteo;
+      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/criteo_kaggle/criteo &&
       python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
 
 dcn:
@@ -206,15 +206,15 @@ dcn:
       bash -cx "
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
       cd /dataset/criteo_kaggle/dcn;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_1gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_8gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding_1gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding_8gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding.json;
-      cd /dataset/criteo_kaggle/dcn_parquet;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_distributed_1gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_distributed_8gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_1gpu.json;
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_8gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding_8gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding.json &&
+      cd /dataset/criteo_kaggle/dcn_parquet &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_distributed_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_distributed_8gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_8gpu.json"
 
 mlperf_benchmark:
@@ -228,7 +228,7 @@ mlperf_benchmark:
     - echo "  --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT} \\" >> ./batch.sub
     - echo "  --container-mounts ${DLRM_DATASET}:${DLRM_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR} \\" >> ./batch.sub
     - echo "  bash -cx \"\\" >> ./batch.sub
-    - echo "  cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;cd ${DLRM_MOUNT};python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_mlperf_fp16_dgxa100.json\"" >> ./batch.sub
+    - echo "  cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ && cd ${DLRM_MOUNT} && python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_mlperf_fp16_dgxa100.json\"" >> ./batch.sub
     - export logdir=./batch
     - export round=10
     - mkdir $logdir
@@ -255,15 +255,15 @@ wdl_deepfm:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/wdl;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_1gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_8gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_fp16_1gpu.json;
-      mkdir ${WORK_DIR}/export_predictions_wdl_fp16_8gpu/;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json;
-      cd /dataset/criteo_kaggle/deepfm;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_1gpu.json;
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/criteo_kaggle/wdl &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_8gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_fp16_1gpu.json &&
+      mkdir ${WORK_DIR}/export_predictions_wdl_fp16_8gpu/ &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json &&
+      cd /dataset/criteo_kaggle/deepfm &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_8gpu.json"
 
 dlrm:
@@ -274,11 +274,11 @@ dlrm:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/dcn;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_1gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_8gpu.json;
-      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_fp16_1gpu.json;
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/criteo_kaggle/dcn &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_8gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_fp16_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dlrm_fp16_8gpu.json"
 
 dcn_multi_node:
@@ -290,8 +290,8 @@ dcn_multi_node:
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
       bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/dcn;
+      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/criteo_kaggle/dcn &&
       python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
     - srun --ntasks=2
       -A devtech -J devtech:hugectr -p luna
@@ -299,8 +299,8 @@ dcn_multi_node:
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
       bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/dcn_parquet;
+      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/criteo_kaggle/dcn_parquet &&
       python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json"
     
 
@@ -313,9 +313,9 @@ py_inference:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
       bash -cx "
-      cd /dataset/criteo_kaggle/dcn;
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      python3 ${WORK_DIR}/test/pybind_test/dcn_inference.py ${WORK_DIR}/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt;"
+      cd /dataset/criteo_kaggle/dcn &&
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      python3 ${WORK_DIR}/test/pybind_test/dcn_inference.py ${WORK_DIR}/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt"
 
 py_low_level:
   extends: .cluster_test_train_job
@@ -325,23 +325,23 @@ py_low_level:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/wdl_data_keyset;
-      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model;
-      python3 ${WORK_DIR}/test/pybind_test/wdl_1gpu_mos.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR};
-      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model;
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_scratch_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR};
-      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR};
-      cd /dataset/criteo_kaggle/wdl;
-      mkdir ${WORK_DIR}/tmp/;
-      python3 ${WORK_DIR}/test/pybind_test/wdl_fp16_8gpu_export.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json ${WORK_DIR}/tmp/;"
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/criteo_kaggle/wdl_data_keyset &&
+      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model &&
+      python3 ${WORK_DIR}/test/pybind_test/wdl_1gpu_mos.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR} &&
+      rm -rfv ${CI_PROJECT_DIR}/wdl_0_sparse_model ${CI_PROJECT_DIR}/wdl_1_sparse_model &&
+      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_scratch_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR} &&
+      python3 ${WORK_DIR}/test/pybind_test/wdl_mos_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json ${CI_PROJECT_DIR} &&
+      cd /dataset/criteo_kaggle/wdl &&
+      mkdir ${WORK_DIR}/tmp/ &&
+      python3 ${WORK_DIR}/test/pybind_test/wdl_fp16_8gpu_export.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json ${WORK_DIR}/tmp/"
     - srun --ntasks=1
       -A devtech -J devtech:hugectr -p luna
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DLRM_DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle;
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/criteo_kaggle &&
       python3 ${WORK_DIR}/test/pybind_test/dlrm_8gpu_set_source.py ${WORK_DIR}/test/scripts/dlrm_set_source.json"
 
 
@@ -354,10 +354,10 @@ py_single_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
-      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
-      cd /dataset/criteo_kaggle/dcn;
-      python3 ${WORK_DIR}/test/pybind_test/dcn_1gpu.py;
-      cd /dataset/criteo_kaggle/wdl;
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/criteo_kaggle/dcn &&
+      python3 ${WORK_DIR}/test/pybind_test/dcn_1gpu.py &&
+      cd /dataset/criteo_kaggle/wdl &&
       python3 ${WORK_DIR}/test/pybind_test/wdl_fp16_8gpu.py ${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json"
 
 py_multi_node:
@@ -369,8 +369,8 @@ py_multi_node:
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
       bash -cx "
-      cd /dataset/criteo_kaggle/dcn;
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
+      cd /dataset/criteo_kaggle/dcn &&
+      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       python3 ${WORK_DIR}/test/pybind_test/dcn_4node_2gpu.py ${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
     - srun --ntasks=2
       -A devtech -J devtech:hugectr -p luna
@@ -378,8 +378,8 @@ py_multi_node:
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
       bash -cx "
-      cd /dataset/criteo_kaggle/criteo;
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
+      cd /dataset/criteo_kaggle/criteo &&
+      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       python3 ${WORK_DIR}/test/pybind_test/criteo_2node_4gpu.py ${WORK_DIR}/test/scripts/criteo_2node_4gpu.json"
 
 
@@ -392,14 +392,14 @@ embedding_plugin1:
       --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
-      cd ${WORK_DIR}/test/embedding_plugin_test;
+      cd ${WORK_DIR}/test/embedding_plugin_test &&
       python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
     - srun --ntasks=1
       -A devtech -J devtech:hugectr -p luna
       --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
-      cd ${WORK_DIR}/test/embedding_plugin_test;
+      cd ${WORK_DIR}/test/embedding_plugin_test &&
       python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
 
 nightly_build:
