@@ -83,6 +83,7 @@ void weight_multiply_dgrad_cpu(const T* top_grad, const T* weight, T* dgrad, int
 template <typename T>
 void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_vec_size) {
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> buff = GeneralBuffer2<CudaAllocator>::create();
+  std::shared_ptr<BufferBlock2<float>> master_weight_buff = buff->create_block<float>();
   std::shared_ptr<BufferBlock2<T>> weight_buff = buff->create_block<T>();
   std::shared_ptr<BufferBlock2<T>> wgrad_buff = buff->create_block<T>();
 
@@ -94,7 +95,7 @@ void weight_multiply_test(size_t batch_size, size_t slot_num, size_t embedding_v
   Tensor2<T> out_tensor;
 
   test::GaussianDataSimulator simulator(0.0f, 1.0f);
-  WeightMultiplyLayer<T> weight_multiply_layer(weight_buff, wgrad_buff, buff, in_tensor, out_tensor, weight_dims,
+  WeightMultiplyLayer<T> weight_multiply_layer(master_weight_buff, weight_buff, wgrad_buff, buff, in_tensor, out_tensor, weight_dims,
                                                test::get_default_gpu());
 
   buff->allocate();

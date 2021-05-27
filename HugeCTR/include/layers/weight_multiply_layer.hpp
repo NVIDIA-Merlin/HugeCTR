@@ -35,7 +35,7 @@ class WeightMultiplyLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors2<T> weights_;
+  Tensors2<__half> weights_half_;
   /*
    * stores the weight gradient tensors of this layer.
    */
@@ -56,13 +56,15 @@ class WeightMultiplyLayer : public Layer {
    * @param out_tensor the resulting output tensor
    * @param device_id the id of GPU where this layer belongs
    */
-  WeightMultiplyLayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
-                      const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
+  WeightMultiplyLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+                const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
                 const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                 const std::vector<size_t>& weight_dims,
                 const std::shared_ptr<GPUResource>& gpu_resource,
                 std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+
   ~WeightMultiplyLayer() override{};
 
   /**
@@ -77,6 +79,7 @@ class WeightMultiplyLayer : public Layer {
   void bprop() override;
 
  private:
+  Tensor2<T>& get_weights_tensor();
   std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;

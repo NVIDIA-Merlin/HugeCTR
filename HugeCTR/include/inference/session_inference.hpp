@@ -38,11 +38,10 @@ private:
 
   std::vector<std::shared_ptr<Tensor2<int>>> row_ptrs_tensors_; // embedding input row
   std::vector<std::shared_ptr<Tensor2<float>>> embedding_features_tensors_; // embedding input value vector
-  Tensor2<float> dense_input_tensor_;  // dense input vector
+  TensorBag2 dense_input_tensorbag_;  // dense input vector
 
   std::vector<std::shared_ptr<Layer>> embedding_feature_combiners_;
   std::unique_ptr<Network> network_;
-  std::shared_ptr<ResourceManager> resource_manager_;
   std::shared_ptr<embedding_interface> embedding_cache_;
 
   std::vector<size_t> h_embedding_offset_; // embedding offset to indicate which embeddingcolumns belong to the same embedding table
@@ -56,6 +55,8 @@ private:
 protected:
   InferenceParser inference_parser_;
   InferenceParams inference_params_;
+  std::shared_ptr<IDataReader> data_reader_;
+  std::shared_ptr<ResourceManager> resource_manager_;
 
 public:
   InferenceSession(const std::string& config_file, const InferenceParams& inference_params, const std::shared_ptr<embedding_interface>& embedding_cache);

@@ -992,7 +992,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type};
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> out_tensor;
-        layers.emplace_back(new WeightMultiplyLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
+        layers.emplace_back(new WeightMultiplyLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
                                               out_tensor, dense_layer.weight_dims, gpu_resource,
                                               initializer_types));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
@@ -1000,7 +1000,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type};
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
-        layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, wgrad_buff, blobs_buff, in_tensor,
+        layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, in_tensor,
                                               out_tensor, dense_layer.weight_dims, gpu_resource,
                                               initializer_types));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
