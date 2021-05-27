@@ -201,6 +201,75 @@ void create_datareader<TypeKey>::operator()(
   }
 }
 
+template <typename TypeKey>
+void create_datareader<TypeKey>::operator()(const InferenceParams& inference_params,
+                  const InferenceParser& inference_parser,
+                  std::shared_ptr<IDataReader>& data_reader,
+                  const std::shared_ptr<ResourceManager> resource_manager,
+                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::map<std::string, TensorBag2>& label_dense_map,
+                  const std::string& source, const DataReaderType_t data_reader_type,
+                  const Check_t check_type, const std::vector<long long>& slot_size_array,
+                  const bool repeat_dataset) {
+  // TO DO：support multi-hot
+  long long slot_sum = 0;
+  std::vector<long long> slot_offset;
+  for (auto slot_size:slot_size_array) {
+    slot_offset.push_back(slot_sum);
+    slot_sum += slot_size;
+  }
+
+  std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
+  for (size_t i = 0; i < inference_parser.slot_num_for_tables.size(); i++) {
+    DataReaderSparseParam param;
+    param.type = DataReaderSparse_t::Localized;
+    param.max_feature_num = inference_parser.max_feature_num_for_tables[i];
+    param.slot_num = inference_parser.slot_num_for_tables[i];
+    param.max_nnz = 1;
+    data_reader_sparse_param_array.push_back(param);
+  }
+
+  for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
+    DataReaderSparseParam param = data_reader_sparse_param_array[i];
+    std::string sparse_name = inference_parser.sparse_names[i];
+    SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
+    sparse_input_map.emplace(sparse_name, sparse_input);
+  }
+
+  DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
+      inference_params.max_batchsize, inference_parser.label_dim, inference_parser.dense_dim, 
+      data_reader_sparse_param_array, resource_manager,
+      true, 1, false, false);
+  data_reader.reset(data_reader_tk);
+  
+  switch (data_reader_type) {
+    case DataReaderType_t::Norm: {
+      bool start_right_now = repeat_dataset;
+      data_reader->create_drwg_norm(source, check_type, start_right_now);
+      break;
+    }
+    case DataReaderType_t::Parquet: {
+      data_reader->create_drwg_parquet(source, slot_offset, true);
+      MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+      break;
+    }
+    default: {
+      assert(!"Error: no such option && should never get here!");
+    }
+  }
+  
+  label_dense_map.emplace(inference_parser.label_name, data_reader_tk->get_label_tensors()[0].shrink());
+  label_dense_map.emplace(inference_parser.dense_name, data_reader_tk->get_dense_tensors()[0]);
+
+  for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
+    const auto& sparse_input = sparse_input_map.find(inference_parser.sparse_names[i]);
+    sparse_input->second.evaluate_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
+    sparse_input->second.evaluate_values = data_reader_tk->get_value_tensors(i);
+    sparse_input->second.evaluate_nnz = data_reader_tk->get_nnz_array(i);
+  }
+}
+
 template struct create_datareader<long long>;
 template struct create_datareader<unsigned int>;
+
 }  // namespace HugeCTR

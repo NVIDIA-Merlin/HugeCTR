@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/inference/session_inference.hpp"
+#include <HugeCTR/include/inference/session_inference.hpp>
+#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
+#include <HugeCTR/include/utils.hpp>
 
 #include <iostream>
 #include <vector>
@@ -23,13 +25,13 @@ namespace HugeCTR {
 InferenceSession::InferenceSession(const std::string& model_config_path, const InferenceParams& inference_params, const std::shared_ptr<embedding_interface>& embedding_cache)
     : config_(read_json_file(model_config_path)),
       embedding_table_slot_size_({0}),
-      resource_manager_(ResourceManager::create({{inference_params.device_id}}, 0)),
       embedding_cache_(embedding_cache),
       inference_parser_(config_),
-      inference_params_(inference_params) {
+      inference_params_(inference_params),
+      resource_manager_(ResourceManagerExt::create({{inference_params.device_id}}, 0)) {
   try {
     Network* network_ptr;
-    inference_parser_.create_pipeline(inference_params_, dense_input_tensor_, row_ptrs_tensors_, embedding_features_tensors_, embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr,  resource_manager_);
+    inference_parser_.create_pipeline(inference_params_, dense_input_tensorbag_, row_ptrs_tensors_, embedding_features_tensors_, embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr,  resource_manager_);
     network_ = std::move(std::unique_ptr<Network>(network_ptr));
     network_->initialize(false);
     if(inference_params_.dense_model_file.size() > 0) {
@@ -37,7 +39,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path, const I
     }
     CudaDeviceContext ctx;
     ctx.set_device(inference_params.device_id);
-    for(unsigned int idx_embedding_table = 1; idx_embedding_table < embedding_table_slot_size_.size(); ++idx_embedding_table){
+    for (unsigned int idx_embedding_table = 1; idx_embedding_table < embedding_table_slot_size_.size(); ++idx_embedding_table) {
       cudaStream_t lookup_stream;
       cudaStreamCreateWithFlags(&lookup_stream, cudaStreamNonBlocking);
       lookup_streams_.push_back(lookup_stream);
@@ -97,14 +99,18 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_
   CK_CUDA_THROW_(cudaStreamSynchronize(update_streams_[0]));
 
   // copy dense input to dense tensor
-  auto dense_dims = dense_input_tensor_.get_dimensions();
+  auto dense_dims = dense_input_tensorbag_.get_dimensions();
   size_t dense_size = 1;
   for (auto dim : dense_dims) {
     dense_size *= dim;
   }
-  size_t dense_size_in_bytes = dense_size * sizeof(float);
-  CK_CUDA_THROW_(cudaMemcpyAsync(dense_input_tensor_.get_ptr(), d_dense, dense_size_in_bytes, cudaMemcpyDeviceToDevice, resource_manager_->get_local_gpu(0)->get_stream()));
-  
+
+  if (inference_params_.use_mixed_precision) {
+    convert_array_on_device(reinterpret_cast<__half*>(dense_input_tensorbag_.get_ptr()), d_dense, dense_size, resource_manager_->get_local_gpu(0)->get_stream());
+  } else {
+    convert_array_on_device(reinterpret_cast<float*>(dense_input_tensorbag_.get_ptr()), d_dense, dense_size, resource_manager_->get_local_gpu(0)->get_stream());
+  }
+
   // bind row ptrs input to row ptrs tensor 
   auto row_ptrs_dims = row_ptrs_tensors_[0]->get_dimensions();
   std::shared_ptr<TensorBuffer2> row_ptrs_buff = PreallocatedBuffer2<int>::create(d_row_ptrs, row_ptrs_dims);
@@ -120,8 +126,11 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_
   network_->predict();
   
   // copy the prediction result to output
-  float* d_pred = network_->get_pred_tensor().get_ptr();
-  CK_CUDA_THROW_(cudaMemcpyAsync(d_output, d_pred, inference_params_.max_batchsize*sizeof(float), cudaMemcpyDeviceToDevice, resource_manager_->get_local_gpu(0)->get_stream()));
+  if (inference_params_.use_mixed_precision) {
+    convert_array_on_device(d_output, network_->get_pred_tensor_half().get_ptr(), inference_params_.max_batchsize, resource_manager_->get_local_gpu(0)->get_stream());
+  } else {
+    convert_array_on_device(d_output, network_->get_pred_tensor().get_ptr(), inference_params_.max_batchsize, resource_manager_->get_local_gpu(0)->get_stream());
+  }
   CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(0)->get_stream()));
 }
 

@@ -31,7 +31,7 @@ InferenceParams::InferenceParams(const std::string& model_name, const size_t max
 
 template <typename TypeEmbeddingComp>
 void InferenceParser::create_pipeline_inference(const InferenceParams& inference_params,
-                                      Tensor2<float>& dense_input,
+                                      TensorBag2& dense_input_bag,
                                       std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                                       std::vector<size_t>& embedding_table_slot_size,
@@ -42,7 +42,7 @@ void InferenceParser::create_pipeline_inference(const InferenceParams& inference
   std::vector<TensorEntry> inference_tensor_entries;
   auto j_layers_array = get_json(config_, "layers");
   check_graph(tensor_active_, j_layers_array);
-
+  
   auto input_buffer = GeneralBuffer2<CudaAllocator>::create();
 
   {
@@ -53,18 +53,19 @@ void InferenceParser::create_pipeline_inference(const InferenceParams& inference
     auto j_label = get_json(j_data, "label");
     auto top_strs_label = get_value_from_json<std::string>(j_label, "top");
     auto label_dim = get_value_from_json<size_t>(j_label, "label_dim");
+    Tensor2<TypeEmbeddingComp> dense_input;
     Tensor2<float> label_input;
     input_buffer->reserve({inference_params.max_batchsize, dense_dim}, &dense_input);
     input_buffer->reserve({inference_params.max_batchsize, label_dim}, &label_input);
     inference_tensor_entries.push_back({top_strs_dense, dense_input.shrink()});
     inference_tensor_entries.push_back({top_strs_label, label_input.shrink()});
+    dense_input_bag = dense_input.shrink();
   }
 
   create_embedding<unsigned int, TypeEmbeddingComp>()(inference_params, j_layers_array, rows, embeddingvecs, embedding_table_slot_size, &inference_tensor_entries,
                                                     embeddings, resource_manager->get_local_gpu(0), input_buffer);
 
   input_buffer->allocate();
-  //create network
   *network = Network::create_network(
       j_layers_array, "", train_tensor_entries, inference_tensor_entries, 1, resource_manager->get_local_cpu(),
       resource_manager->get_local_gpu(0), inference_params.use_mixed_precision,
@@ -72,17 +73,17 @@ void InferenceParser::create_pipeline_inference(const InferenceParams& inference
 }
 
 void InferenceParser::create_pipeline(const InferenceParams& inference_params,
-                             Tensor2<float>& dense_input,
+                             TensorBag2& dense_input_bag,
                              std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                              std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                              std::vector<size_t>& embedding_table_slot_size,
                              std::vector<std::shared_ptr<Layer>>* embeddings, Network** network,
                              const std::shared_ptr<ResourceManager> resource_manager) {
   if (inference_params.use_mixed_precision) {
-    create_pipeline_inference<__half>(inference_params, dense_input, rows, embeddingvecs, embedding_table_slot_size, embeddings, network,
+    create_pipeline_inference<__half>(inference_params, dense_input_bag, rows, embeddingvecs, embedding_table_slot_size, embeddings, network,
                                      resource_manager);
   } else {
-    create_pipeline_inference<float>(inference_params, dense_input, rows, embeddingvecs, embedding_table_slot_size, embeddings, network,
+    create_pipeline_inference<float>(inference_params, dense_input_bag, rows, embeddingvecs, embedding_table_slot_size, embeddings, network,
                                     resource_manager);
   }
 }
@@ -94,6 +95,8 @@ InferenceParser::InferenceParser(const nlohmann::json& config) : config_(config)
   auto j_label_data = get_json(j_data, "label");
   auto j_dense_data = get_json(j_data, "dense");
   auto j_sparse_data = get_json(j_data, "sparse");
+  label_name = get_value_from_json<std::string>(j_label_data, "top");
+  dense_name = get_value_from_json<std::string>(j_dense_data, "top");
   label_dim = get_value_from_json<size_t>(j_label_data, "label_dim");
   dense_dim = get_value_from_json<size_t>(j_dense_data, "dense_dim");
   num_embedding_tables = static_cast<size_t>(j_sparse_data.size());
@@ -103,8 +106,10 @@ InferenceParser::InferenceParser(const nlohmann::json& config) : config_(config)
       const nlohmann::json& j = j_sparse_data[i];
       auto max_feature_num_per_sample_per_table = get_value_from_json<size_t>(j, "max_feature_num_per_sample");
       auto current_slot_num = get_value_from_json<size_t>(j, "slot_num");
+      auto sparse_name = get_value_from_json<std::string>(j, "top");
       max_feature_num_for_tables.push_back(max_feature_num_per_sample_per_table);
       slot_num_for_tables.push_back(current_slot_num);
+      sparse_names.push_back(sparse_name);
       slot_num += current_slot_num;
     }
   }
