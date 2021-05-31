@@ -65,6 +65,7 @@ void InferenceParser::create_pipeline_inference(const InferenceParams& inference
   create_embedding<unsigned int, TypeEmbeddingComp>()(inference_params, j_layers_array, rows, embeddingvecs, embedding_table_slot_size, &inference_tensor_entries,
                                                     embeddings, resource_manager->get_local_gpu(0), input_buffer);
 
+  CudaDeviceContext context(resource_manager->get_local_gpu(0)->get_device_id());
   input_buffer->allocate();
   *network = Network::create_network(
       j_layers_array, "", train_tensor_entries, inference_tensor_entries, 1, resource_manager->get_local_cpu(),
@@ -209,7 +210,6 @@ void create_embedding<TypeKey, TypeFP>::operator() (
     tensor_entries->push_back({layer_top, embedding_output.shrink()});
   }
 
-  CudaDeviceContext context(gpu_resource->get_device_id());
   MESSAGE_("create embedding for inference success");
 }
 
