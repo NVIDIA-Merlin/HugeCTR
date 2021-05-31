@@ -37,7 +37,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path, const I
     if(inference_params_.dense_model_file.size() > 0) {
       network_->upload_params_to_device_inference(inference_params_.dense_model_file);
     }
-    CudaDeviceContext context(inference_params.device_id);
+    CudaDeviceContext context(inference_params_.device_id);
     for (unsigned int idx_embedding_table = 1; idx_embedding_table < embedding_table_slot_size_.size(); ++idx_embedding_table) {
       cudaStream_t lookup_stream;
       cudaStreamCreateWithFlags(&lookup_stream, cudaStreamNonBlocking);
@@ -56,7 +56,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path, const I
 }  // namespace HugeCTR
 
 InferenceSession::~InferenceSession() {
-  CudaDeviceContext context(inference_params.device_id);
+  CudaDeviceContext context(inference_params_.device_id);
   embedding_cache_->destroy_workspace(workspace_handler_);
   cudaFree(d_embeddingvectors_);
   for (auto stream : lookup_streams_)
