@@ -56,6 +56,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path, const I
 }  // namespace HugeCTR
 
 InferenceSession::~InferenceSession() {
+  CudaDeviceContext context(inference_params.device_id);
   embedding_cache_->destroy_workspace(workspace_handler_);
   cudaFree(d_embeddingvectors_);
   for (auto stream : lookup_streams_)
