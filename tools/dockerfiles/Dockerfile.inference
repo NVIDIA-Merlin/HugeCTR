@@ -32,7 +32,23 @@ ENV CPATH=/usr/local/nccl/include:$CPATH \
     PATH=/usr/local/nccl/bin:$PATH
 
 RUN mkdir -p /opt/conda
-ENV CONDA_PREFIX=/opt/conda
+
+# conda for cudf
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://repo.anaconda.com/miniconda/Miniconda3-4.7.12-Linux-x86_64.sh && \
+    bash /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh -b -u -p /opt/conda && \
+    /opt/conda/bin/conda init && \
+    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+    /opt/conda/bin/conda clean -afy && \
+    rm -rf /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh
+ENV CPATH=/opt/conda/include:$CPATH \
+    LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH \
+    LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH \
+    PATH=/opt/conda/bin:$PATH \
+    CONDA_PREFIX=/opt/conda \
+    NCCL_LAUNCH_MODE=PARALLEL
+
+# cudf
+RUN conda install -c rapidsai -c nvidia -c numba -c conda-forge cudf=0.19 python=3.8 cudatoolkit=11.2
 
 # RMM-0.19
 RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.19 https://github.com/rapidsai/rmm.git rmm && cd - && \
