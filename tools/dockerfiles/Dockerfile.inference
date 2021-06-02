@@ -39,7 +39,7 @@ RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://r
     /opt/conda/bin/conda init && \
     ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
     /opt/conda/bin/conda clean -afy && \
-    rm -rf /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh
+    rm -rfv /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh /opt/conda/include/nccl.h /opt/conda/lib/libnccl* /opt/conda/include/google /opt/conda/include/*cudnn* /opt/conda/lib/*cudnn* /opt/conda/lib/libcudart*
 ENV CPATH=/opt/conda/include:$CPATH \
     LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH \
     LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH \
@@ -50,14 +50,6 @@ ENV CPATH=/opt/conda/include:$CPATH \
 # cudf
 RUN conda install -c rapidsai -c nvidia -c numba -c conda-forge cudf=0.19 python=3.8 cudatoolkit=11.2
 
-# RMM-0.19
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.19 https://github.com/rapidsai/rmm.git rmm && cd - && \
-    cd /var/tmp/rmm && \
-    mkdir -p build && cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBUILD_TESTS=OFF && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
-    rm -rf /var/tmp/rmm
 
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \
