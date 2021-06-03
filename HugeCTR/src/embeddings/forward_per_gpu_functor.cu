@@ -63,7 +63,8 @@ __global__ void forward_sum_kernel(int batch_size, int slot_num, int embedding_v
       // reduce in a slot
       for (int j = 0; j < feature_num; j++) {
         size_t value_index = hash_value_index[value_offset + j];
-        sum += hash_table_value[value_index * embedding_vec_size + tid];
+        sum += (value_index != std::numeric_limits<size_t>::max()) ?
+               hash_table_value[value_index * embedding_vec_size + tid] : 0.0f;
       }
 
       // store the embedding vector
@@ -95,8 +96,10 @@ __global__ void forward_sum_align2_kernel(int batch_size, int slot_num, int embe
       float2 sum2 = {0.0f, 0.0f};
       for (int j = 0; j < feature_num; j++) {
         size_t value_index = hash_value_index[value_offset + j];
-        sum2.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
-        sum2.y += hash_table_value2[value_index * embedding_vec_size + tid].y;
+        sum2.x += (value_index != std::numeric_limits<size_t>::max()) ?
+                  hash_table_value2[value_index * embedding_vec_size + tid].x : 0.0f;
+        sum2.y += (value_index != std::numeric_limits<size_t>::max()) ?
+                  hash_table_value2[value_index * embedding_vec_size + tid].y : 0.0f;
       }
       __half2 sum = __float22half2_rn(sum2);
 
@@ -127,7 +130,8 @@ __global__ void forward_mean_kernel(int batch_size, int slot_num, int embedding_
       // reduce in a slot
       for (int j = 0; j < feature_num; j++) {
         size_t value_index = hash_value_index[value_offset + j];
-        sum += hash_table_value[value_index * embedding_vec_size + tid];
+        sum += (value_index != std::numeric_limits<size_t>::max()) ?
+               hash_table_value[value_index * embedding_vec_size + tid] : 0.0f;
       }
 
       float scaler = 1.0f;
@@ -165,8 +169,10 @@ __global__ void forward_mean_align2_kernel(int batch_size, int slot_num, int emb
       float2 sum = {0.0f, 0.0f};
       for (int j = 0; j < feature_num; j++) {
         size_t value_index = hash_value_index[value_offset + j];
-        sum.x += hash_table_value2[value_index * embedding_vec_size + tid].x;
-        sum.y += hash_table_value2[value_index * embedding_vec_size + tid].y;
+        sum.x += (value_index != std::numeric_limits<size_t>::max()) ?
+                 hash_table_value2[value_index * embedding_vec_size + tid].x : 0.0f;
+        sum.y += (value_index != std::numeric_limits<size_t>::max()) ?
+                 hash_table_value2[value_index * embedding_vec_size + tid].y : 0.0f;
       }
       __half2 sum2 = __float22half2_rn(sum);
 
@@ -275,7 +281,7 @@ void SparseEmbeddingFunctors::forward_per_gpu(
     if (train) {
       hash_table.get_insert(hash_key.get_ptr(), hash_value_index.get_ptr(), nnz, stream);
     } else {
-      hash_table.get(hash_key.get_ptr(), hash_value_index.get_ptr(), nnz, stream);
+      hash_table.get_mark(hash_key.get_ptr(), hash_value_index.get_ptr(), nnz, stream);
     }
 
     // do sum reduction
