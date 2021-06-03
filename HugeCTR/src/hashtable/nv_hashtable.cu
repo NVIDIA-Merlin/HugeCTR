@@ -70,6 +70,19 @@ __global__ void get_insert_kernel(Table* table, const typename Table::key_type* 
   }
 }
 
+template <typename Table>
+__global__ void get_mark_kernel(Table* table, const typename Table::key_type* const keys,
+                                typename Table::mapped_type* const vals, size_t len) {
+  ReplaceOp<typename Table::mapped_type> op;
+  const size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < len) {
+    auto it = table->find(keys[i]);
+    vals[i] = (it != table->end()) ?
+              it->second :
+              std::numeric_limits<typename Table::mapped_type>::max();
+  }
+}
+
 template <typename Table, typename KeyType>
 __global__ void size_kernel(const Table* table, const size_t hash_capacity, size_t* container_size,
                             KeyType unused_key) {
@@ -203,6 +216,16 @@ void HashTable<KeyType, ValType>::get_insert(const KeyType* d_keys, ValType* d_v
   const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
   get_insert_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(container_, d_keys, d_vals, len,
                                                            d_counter_);
+}
+
+template <typename KeyType, typename ValType>
+void HashTable<KeyType, ValType>::get_mark(const KeyType* d_keys, ValType* d_vals, size_t len,
+                                           cudaStream_t stream) {
+  if (len == 0) {
+    return;
+  }
+  const int grid_size = (len - 1) / BLOCK_SIZE_ + 1;
+  get_mark_kernel<<<grid_size, BLOCK_SIZE_, 0, stream>>>(container_, d_keys, d_vals, len);
 }
 
 template <typename KeyType, typename ValType>
