@@ -153,10 +153,11 @@ struct SparseEmbedding {
 
 struct ModelOversubscriberParams {
   bool use_model_oversubscriber;
+  bool use_host_memory_ps;
   bool train_from_scratch;
   std::vector<std::string> trained_sparse_models;
   std::vector<std::string> dest_sparse_models;
-  ModelOversubscriberParams(bool train_from_scratch,
+  ModelOversubscriberParams(bool train_from_scratch, bool use_host_memory_ps,
                            std::vector<std::string>& trained_sparse_models,
                            std::vector<std::string>& dest_sparse_models);
   ModelOversubscriberParams();
@@ -421,16 +422,20 @@ class Model {
   std::shared_ptr<ResourceManager> resource_manager_; /**< GPU resources include handles and streams etc.*/
   metrics::Metrics metrics_; /**< evaluation metrics. */
   
-  Error_t download_params_to_files_(std::string weights_file,
-                                    std::string dense_opt_states_file,
-                                    const std::vector<std::string>& embedding_files,
-                                    const std::vector<std::string>& sparse_opt_state_files);
+  Error_t download_dense_params_to_files_(std::string weights_file,
+                                          std::string dense_opt_states_file);
+                                          
+
+  Error_t download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
+                                          const std::vector<std::string>& sparse_opt_state_files);
   
   template <typename TypeEmbeddingComp>
-  std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(const std::vector<std::string>& sparse_embedding_files);
+  std::shared_ptr<ModelOversubscriber> create_model_oversubscriber_(
+      bool use_host_memory_ps, const std::vector<std::string>& sparse_embedding_files);
   void init_params_for_dense_();
   void init_params_for_sparse_();
-  void init_model_oversubscriber_(const std::vector<std::string>& sparse_embedding_files);
+  void init_model_oversubscriber_(
+      bool use_host_memory_ps, const std::vector<std::string>& sparse_embedding_files);
   Error_t load_params_for_dense_(const std::string& model_file);
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
