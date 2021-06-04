@@ -16,6 +16,8 @@
 cmake_minimum_required(VERSION 3.8)
 file(GLOB model_oversubscriber_test_src
   parameter_server_test.cu
+  sparse_model_file_test.cpp
+  sparse_model_entity_test.cpp
   model_oversubscriber_test.cpp
 )
 

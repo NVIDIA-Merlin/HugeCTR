@@ -3,13 +3,13 @@ HugeCTR Software Stack
 
 This dependency matrix shows the software stack of NVIDIA HugeCTR project. The matrix provides a single view into the supported software and specific versions for each release of the HugeCTR. Software stacks included are:
 
-* <a href="#md_cap_train">train.Dockerfile</a>
-* <a href="#md_cap_infer">infer.Dockerfile</a>
-* <a href="#md_cap_plugin">plugin-embedding.Dockerfile</a>
+* <a href="#md_cap_train">Dockerfile.train</a>
+* <a href="#md_cap_infer">Dockerfile.inference</a>
+* <a href="#md_cap_plugin">Dockerfile.plugin-embedding</a>
 
 **Important**: Content that is included in <<>> brackets indicates new content from the previously published version.
 
-<div align="center"><a name="md_cap_train">Table 1. Software stack for HugeCTR training image (train.Dockerfile)</a></div>
+<div align="center"><a name="md_cap_train">Table 1. Software stack for HugeCTR training image (Dockerfile.train)</a></div>
 
 | Container Image                                              | <div style="width:320px">v3.1</div>                          | <div style="width:340px">v3.0</div>                          | <div style="width:340px">v2.3</div>                          |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -36,7 +36,7 @@ This dependency matrix shows the software stack of NVIDIA HugeCTR project. The m
 
 <br></br>
 
-<div align="center"><a name="md_cap_infer">Table 2. Software stack for inference image (infer.Dockerfile)</a></div>
+<div align="center"><a name="md_cap_infer">Table 2. Software stack for inference image (Dockerfile.inference)</a></div>
 
 | Container Image                                              | v3.1                                                         | v3.0                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -58,7 +58,7 @@ This dependency matrix shows the software stack of NVIDIA HugeCTR project. The m
 
 <br></br>
 
-<div align="center"><a name="md_cap_plugin">Table 3. Software stack for embedding TF plugin image (plugin-embedding.Dockerfile)</a></div>
+<div align="center"><a name="md_cap_plugin">Table 3. Software stack for embedding TF plugin image (Dockerfile.plugin-embedding)</a></div>
 
 | Container Image                                              | v3.1                                                         | v3.0                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
