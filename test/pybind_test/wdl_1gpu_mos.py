@@ -53,7 +53,7 @@ def model_oversubscriber_test(json_file, output_dir):
         print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iteration, metrics))
       iteration += 1
     print("[HUGECTR][INFO] trained with data in {}".format(file_list))
-  model_oversubscriber.store();
+  model.save_params_to_files("wdl", iteration)
 
 if __name__ == "__main__":
   json_file = sys.argv[1]

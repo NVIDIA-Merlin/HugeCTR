@@ -22,25 +22,25 @@
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 
-#include <memory>
-#include <vector>
-#include <typeinfo>
+#include <algorithm>
+#include <iterator>
 
 namespace HugeCTR {
 
 class ModelOversubscriberImplBase {
 public:
-  virtual void store() = 0;
+  virtual void dump() = 0;
   virtual void update(std::vector<std::string>& keyset_file_list) = 0;
   virtual void update(std::string& keyset_file) = 0;
-  virtual ~ModelOversubscriberImplBase() {}
+  virtual void update_sparse_model_file() = 0;
+  virtual ~ModelOversubscriberImplBase() = default;
 };
 
 
-template <typename TypeHashKey>
+template <typename TypeKey>
 class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
   std::vector<std::shared_ptr<IEmbedding>> embeddings_;
-  ParameterServerManager<TypeHashKey> ps_manager_;
+  ParameterServerManager<TypeKey> ps_manager_;
 
   size_t get_max_embedding_size_() {
     size_t max_embedding_size = 0;
@@ -53,40 +53,45 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
   }
 
   /**
-   * @brief      Load the embedding table according to keys stored in keyset_file_list from
-   *             SSD to device memory.
+   * @brief Load the embedding table according to keys stored in
+   *        keyset_file_list from sparse_model_entity_ to device memory.
    */
   void load_(std::vector<std::string>& keyset_file_list);
 
 public:
-  ModelOversubscriberImpl(
+  ModelOversubscriberImpl(bool use_host_ps,
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
       const std::vector<SparseEmbeddingHashParams>& embedding_params,
-      const std::vector<std::string>& sparse_embedding_files);
+      const std::vector<std::string>& sparse_embedding_files,
+      std::shared_ptr<ResourceManager> resource_manager);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;
   ModelOversubscriberImpl& operator=(const ModelOversubscriberImpl&) = delete;
 
-  ~ModelOversubscriberImpl() {}
+  ~ModelOversubscriberImpl() = default;
 
   /**
-     * @brief      Store the embedding table downloaded from device to SSD.
+     * @brief Dump the downloaded embeddings from GPUs to sparse_model_entity_.
      */
-    void store() override;
+    void dump() override;
 
   /**
-   * @brief      Updates the embedding_file using embeddings from device memory, then
-   *             load embeddings to device memory according to the new keyset.
-   * @param      keyset_file_list  The keyset file list storing keyset.
+   * @brief Updates the sparse_model_entity_ using embeddings from devices,
+   *        then load embeddings to device memory according to the new keyset.
+   * @param keyset_file_list The file list storing keyset files.
    */
   void update(std::vector<std::string>& keyset_file_list) override;
 
   /**
-   * @brief      Updates the embedding_file using embeddings from device memory, then
-   *             load embeddings to device memory according to the new keyset.
-   * @param      keyset_file  A single keyset file storing keysets for all embeddings.
+   * @brief Updates the sparse_model_entity_ using embeddings from devices,
+   *        then load embeddings to device memory according to the new keyset.
+   * @param keyset_file A single file storing keysets for all embeddings.
    */
   void update(std::string& keyset_file) override;
+
+  void update_sparse_model_file() override {
+    ps_manager_.update_sparse_model_file();
+  }
 };
 
 }  // namespace HugeCTR

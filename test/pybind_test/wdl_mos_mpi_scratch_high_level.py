@@ -1,11 +1,13 @@
 import hugectr
+from mpi4py import MPI
+import threading
 import sys
 
 def model_oversubscriber_test(json_file, output_dir, use_host_ps):
   dataset = [("file_list."+str(i)+".txt", "file_list."+str(i)+".keyset") for i in range(5)]
   solver = hugectr.CreateSolver(batchsize = 16384,
                                 batchsize_eval = 16384,
-                                vvgpu = [[0]],
+                                vvgpu = [[0, 1], [2, 3], [4, 5], [6, 7]],
                                 use_mixed_precision = False,
                                 i64_input_key = False,
                                 use_algorithm_search = True,
