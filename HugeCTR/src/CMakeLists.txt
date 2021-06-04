@@ -103,6 +103,8 @@ file(GLOB huge_ctr_src
   model_oversubscriber/model_oversubscriber_impl.cpp
   model_oversubscriber/parameter_server.cpp
   model_oversubscriber/parameter_server_manager.cpp
+  model_oversubscriber/sparse_model_file.cpp
+  model_oversubscriber/sparse_model_entity.cpp
   diagnose.cu
   utils.cu
   ../pybind/model.cpp
