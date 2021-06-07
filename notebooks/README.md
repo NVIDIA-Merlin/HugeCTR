@@ -25,16 +25,19 @@ git clone https://github.com/NVIDIA/HugeCTR
 
 1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command: 
    ```
-   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 hugectr:devel
+   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:0.5
+   ```  
+   Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command to run [embedding_plugin.ipynb](embedding_plugin.ipynb) notebook : 
+   ```
+   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.5
    ```
 
-2. Activate the merlin conda environment by running the following command:
-   ```
+2. Activate the merlin conda environment by running the following command:  
+   ```shell.
    source activate merlin
    ```
-   
-3. Start Jupyter using these commands: 
 
+3. Start Jupyter using these commands: 
    ```
    cd /hugectr/notebooks
    jupyter-notebook --allow-root --ip 0.0.0.0 --port 8888 --NotebookApp.token=’hugectr’

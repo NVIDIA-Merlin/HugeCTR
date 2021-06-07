@@ -44,6 +44,11 @@ Loss<T>::Loss(const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor
   label_tensors_.push_back(label_tensor);
   input_tensors_.push_back(input_tensor);
   loss_tensors_.push_back(loss_tensor);
+
+  if (regularizer_ == nullptr) {
+    CK_THROW_(Error_t::WrongInput,
+              "There is no regularizer specified. If you intend not to use any regularizer, pass a NoRegularizer object.");
+  }
 }
 
 template <typename T>
@@ -57,6 +62,11 @@ void Loss<T>::compute(bool is_train) {
 // Note: current_batchsize here is the batchsize on this device
 template <typename T>
 void Loss<T>::compute(bool is_train, long long current_batchsize) {
+  if (regularizer_ == nullptr) {
+    CK_THROW_(Error_t::WrongInput,
+              "Null regularizer is not allowed in calling Loss::compute().");
+  }
+
   CudaDeviceContext context(get_device_id());
 
   Tensor2<T> &input_tensor = get_input_tensors(is_train)[0];
@@ -74,10 +84,8 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   float *loss = loss_tensor.get_ptr();
 
   float rterm = 0.0f;
-  if (regularizer_) {
-    regularizer_->compute_rterm();
-    rterm = regularizer_->get_rterm();
-  }
+  regularizer_->compute_rterm();
+  rterm = regularizer_->get_rterm();
 
   if (current_batchsize > batch_size && current_batchsize < 0) {
     CK_THROW_(Error_t::WrongInput, "current_batchsize > batch_size && current_batchsize < 0");
@@ -95,7 +103,7 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
     }
   }
 
-  if (is_train && regularizer_) {
+  if (is_train) {
     regularizer_->initialize_wgrad();
   }
 
