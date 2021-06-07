@@ -72,10 +72,10 @@ source activate merlin
 ```  
 
 ### Building Your Own HugeCTR Docker Container ###
-To build the HugeCTR Docker container on your own, see [Build HugeCTR Docker Containers](../../tools/dockerfiles).
+To build the HugeCTR Docker container on your own, see [Build HugeCTR Docker Containers](../tools/dockerfiles).
 
 ### Building HugeCTR from Scratch
-Before building HugeCTR from scratch, you should prepare the dependencies according to the instructions provided in the [Software Stack](../../tools/dockerfiles/software_stack.md). After you've prepared the dependencies, download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
+Before building HugeCTR from scratch, you should prepare the dependencies according to the instructions provided in the [Software Stack](../tools/dockerfiles/software_stack.md). After you've prepared the dependencies, download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
 ```shell
 $ git clone https://github.com/NVIDIA/HugeCTR.git
 $ cd HugeCTR
