@@ -22,6 +22,8 @@ hugectr.CreateSolver()
 
 * `lr_policy`: The learning rate policy which suppots only fixed. The default value is `LrPolicy_t.fixed`.
 
+* `max_eval_batches`: Maximum number of batches used in evaluation. It is recommended that the number is equal to or bigger than the actual number of batches in the evaluation dataset. The default value is 100.
+
 * `lr`: The learning rate, which is also the base learning rate for the learning rate scheduler. The default value is 0.001.
 
 * `warmup_steps`: The warmup steps for the internal learning rate scheduler within Model instance. The default value is 1.
