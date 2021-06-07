@@ -159,7 +159,8 @@ void ModelPybind(pybind11::module &m) {
        })
     .def("get_eval_metrics", &HugeCTR::Model::get_eval_metrics)
     .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
-              pybind11::arg("prefix"), pybind11::arg("iter"))
+              pybind11::arg("prefix"),
+              pybind11::arg("iter") = 0)
     .def("get_model_oversubscriber", &HugeCTR::Model::get_model_oversubscriber)
     .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
     .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)

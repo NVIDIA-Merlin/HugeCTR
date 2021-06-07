@@ -70,6 +70,13 @@ if (VAL_MODE)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DVAL")
 endif()
 
+option(KEY_HIT_RATIO "Verbose mode of embedding training cache: print out the key hit ratio" OFF)
+if (KEY_HIT_RATIO)
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DKEY_HIT_RATIO")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DKEY_HIT_RATIO")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DKEY_HIT_RATIO")
+endif()
+
 # setting compiler flags
 foreach(arch_name ${SM})
     if (arch_name STREQUAL 80 OR 

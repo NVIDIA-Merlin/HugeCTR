@@ -99,6 +99,19 @@ class HashTable {
   void get_insert(const KeyType* d_keys, ValType* d_vals, size_t len, cudaStream_t stream);
 
   /**
+   * @brief The get_mark function for hash table. "get_mark" means if we can
+   *        find the key in the hash table, the value indexed by this key will
+   *        be returned, which is know as a "get" operation; Otherwise, a marker
+   *        value (std::numeric_limits<ValType>::max()) will be returned to mark
+   *        this key doesn't exist.
+   * @param d_keys the device pointers for the keys.
+   * @param d_vals the device pointers for the values.
+   * @param len the number of <key,value> pairs to be got or marked.
+   * @param stream the cuda stream for this operation.
+   */
+  void get_mark(const KeyType* d_keys, ValType* d_vals, size_t len, cudaStream_t stream);
+
+  /**
    * The dump function for hash table. "dump" means getting some of the <key,value>
    * pairs from the hash table and copying them to the corresponding memory buffer.
    * @param d_keys the device pointers for the keys.
