@@ -89,11 +89,13 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 } // end namespace
 
-ModelOversubscriberParams::ModelOversubscriberParams(bool train_from_scratch,
-                                                  std::vector<std::string>& trained_sparse_models,
-                                                  std::vector<std::string>& dest_sparse_models)
-    : use_model_oversubscriber(true), train_from_scratch(train_from_scratch),
-      trained_sparse_models(trained_sparse_models), dest_sparse_models(dest_sparse_models) {}
+ModelOversubscriberParams::ModelOversubscriberParams(
+    bool _train_from_scratch, bool _use_host_memory_ps,
+    std::vector<std::string>& _trained_sparse_models,
+    std::vector<std::string>& _dest_sparse_models)
+  : use_model_oversubscriber(true), use_host_memory_ps(_use_host_memory_ps),
+    train_from_scratch(_train_from_scratch),
+    trained_sparse_models(_trained_sparse_models), dest_sparse_models(_dest_sparse_models) {}
 
 ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
 
@@ -459,10 +461,10 @@ void Model::compile() {
   init_params_for_dense_();
   init_params_for_sparse_();
   if (mos_params_->use_model_oversubscriber && mos_params_->train_from_scratch) {
-    init_model_oversubscriber_(mos_params_->dest_sparse_models);
+    init_model_oversubscriber_(mos_params_->use_host_memory_ps, mos_params_->dest_sparse_models);
   }
   if (mos_params_->use_model_oversubscriber && !mos_params_->train_from_scratch) {
-    init_model_oversubscriber_(mos_params_->trained_sparse_models);
+    init_model_oversubscriber_(mos_params_->use_host_memory_ps, mos_params_->trained_sparse_models);
   }
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   for (const auto& metric : solver_.metrics_spec) {
@@ -738,9 +740,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
             MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
               " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
           }
-          if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
-            this->download_params_to_files(snapshot_prefix, iter);
-          }
           iter++;
         } while (data_reader_train_status_);
       } // end for file list
@@ -784,9 +783,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
       }
     } // end for iter
   } // end if else
-  if (epoch_mode && mos_mode) {
-    model_oversubscriber_->store();
-  }
 }
 
 bool Model::train() {
@@ -999,15 +995,9 @@ Error_t Model::get_current_loss(float* loss) {
 
 Error_t Model::download_params_to_files(std::string prefix, int iter) {
   std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
-
   std::string snapshot_dense_opt_name = prefix + "_opt_dense_" + std::to_string(iter) + ".model";
-
   std::vector<std::string> snapshot_sparse_names;
   std::vector<std::string> snapshot_sparse_opt_names;
-  if (iter <= 0) {
-    return Error_t::WrongInput;
-  }
-
   for (unsigned int i = 0; i < embeddings_.size(); i++) {
     snapshot_sparse_names.push_back(prefix + std::to_string(i) +
                                     "_sparse_" + std::to_string(iter) +
@@ -1016,9 +1006,13 @@ Error_t Model::download_params_to_files(std::string prefix, int iter) {
                                         "_opt_sparse_" + std::to_string(iter) +
                                         ".model");
   }
-
-  return download_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name,
-                                   snapshot_sparse_names, snapshot_sparse_opt_names);
+  if (mos_params_->use_model_oversubscriber) {
+    model_oversubscriber_->dump();
+    model_oversubscriber_->update_sparse_model_file();
+  } else {
+    download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names);
+  }
+  return download_dense_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name);
 }
 
 void Model::check_overflow() const {
@@ -1033,10 +1027,39 @@ void Model::copy_weights_for_evaluation() {
   }
 }
 
-Error_t Model::download_params_to_files_(std::string weights_file,
-                                        std::string dense_opt_states_file,
-                                        const std::vector<std::string>& embedding_files,
-                                        const std::vector<std::string>& sparse_opt_state_files) {
+Error_t Model::download_dense_params_to_files_(std::string weights_file,
+                                              std::string dense_opt_states_file) {
+  try {
+    if (resource_manager_->is_master_process()) {
+      std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
+      networks_[0]->download_params_to_host(out_stream_weight);
+      MESSAGE_("Dumping dense weights to file, successful");
+      std::ofstream out_dense_opt_state_weight(dense_opt_states_file, std::ofstream::binary);
+      networks_[0]->download_opt_states_to_host(out_dense_opt_state_weight);
+      MESSAGE_("Dumping dense optimizer states to file, successful");
+      std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
+      if (no_trained_params.length() != 0) {
+        std::string ntp_file = weights_file + ".ntp.json";
+        std::ofstream out_stream_ntp(ntp_file, std::ofstream::out);
+        out_stream_ntp.write(no_trained_params.c_str(), no_trained_params.length());
+        out_stream_ntp.close();
+      }
+      MESSAGE_("Dumping untrainable weights to file, successful");
+      out_stream_weight.close();
+      out_dense_opt_state_weight.close();
+    }
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+}
+
+Error_t Model::download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
+                                                const std::vector<std::string>& sparse_opt_state_files) {
   try {
     {
       int i = 0;
@@ -1056,25 +1079,6 @@ Error_t Model::download_params_to_files_(std::string weights_file,
       }
     }
     MESSAGE_("Dumping sparse optimzer states to files, successful");
-    if (resource_manager_->is_master_process()) {
-      std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
-      networks_[0]->download_params_to_host(out_stream_weight);
-      MESSAGE_("Dumping dense weights to file, successful");
-      std::ofstream out_dense_opt_state_weight(dense_opt_states_file, std::ofstream::binary);
-      networks_[0]->download_opt_states_to_host(out_dense_opt_state_weight);
-      MESSAGE_("Dumping dense optimizer states to file, successful");
-      std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
-      if (no_trained_params.length() != 0) {
-        std::string ntp_file = weights_file + ".ntp.json";
-        std::ofstream out_stream_ntp(ntp_file, std::ofstream::out);
-        out_stream_ntp.write(no_trained_params.c_str(), no_trained_params.length());
-        out_stream_ntp.close();
-      }
-      MESSAGE_("Dumping untrainable weights to file, successful");
-      out_stream_weight.close();
-      out_dense_opt_state_weight.close();
-    }
-
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -1087,15 +1091,15 @@ Error_t Model::download_params_to_files_(std::string weights_file,
 
 template <typename TypeEmbeddingComp>
 std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
-  const std::vector<std::string>& sparse_embedding_files) {
+    bool use_host_memory_ps, const std::vector<std::string>& sparse_embedding_files) {
   try {
     if (sparse_embedding_files.empty()) {
       CK_THROW_(Error_t::WrongInput, "must provide sparse_model_file. \
           if train from scratch, please specify a name to store the trained embedding model");
     }
-    std::vector<SparseEmbeddingHashParams> embedding_params;
     return std::shared_ptr<ModelOversubscriber>(
-        new ModelOversubscriber(embeddings_, embedding_params, sparse_embedding_files, solver_));
+        new ModelOversubscriber(use_host_memory_ps, embeddings_, sparse_embedding_files,
+            resource_manager_, solver_.i64_input_key));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -1213,11 +1217,14 @@ void Model::init_params_for_sparse_() {
   }
 }
 
-void Model::init_model_oversubscriber_(const std::vector<std::string>& sparse_embedding_files) {
+void Model::init_model_oversubscriber_(bool use_host_memory_ps,
+    const std::vector<std::string>& sparse_embedding_files) {
   if (solver_.use_mixed_precision) {
-    model_oversubscriber_ = create_model_oversubscriber_<__half>(sparse_embedding_files);
+    model_oversubscriber_ = create_model_oversubscriber_<__half>(
+        use_host_memory_ps, sparse_embedding_files);
   } else {
-    model_oversubscriber_ = create_model_oversubscriber_<float>(sparse_embedding_files);
+    model_oversubscriber_ = create_model_oversubscriber_<float>(
+        use_host_memory_ps, sparse_embedding_files);
   }
   mos_created_ = true;
 }

@@ -8,7 +8,7 @@ HugeCTR Python Interface includes training API and inference API. From version 3
 * [Inference API](#inference-api)
 
 ## High-level Training API ##
-For HugeCTR high-level training API, the core data structures are `Solver`, `DataReaderParams`, `OptParamsPy`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `Solver`, `DataReaderParams` and `OptParamsPy` instances, and then add instances of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.
+For HugeCTR high-level training API, the core data structures are `Solver`, `ModelOversubscriberParams`, `DataReaderParams`, `OptParamsPy`, `Input`, `SparseEmbedding`, `DenseLayer` and `Model`. You can create a `Model` instance with `Solver`, `ModelOversubscriberParams`, `DataReaderParams` and `OptParamsPy` instances, and then add instances of `Input`, `SparseEmbedding` or `DenseLayer` to it. After compiling the model with the `Model.compile()` method, you can start the epoch mode or non-epoch mode training by simply calling the `Model.fit()` method. Moreover, the `Model.summary()` method gives you an overview of the model structure. We also provide some other methods, such as saving the model graph to a JSON file, constructing the model graph based on the saved JSON file, loading model weights and optimizer status, etc.
 
 ### Solver ###
 **CreateSolver method**
@@ -58,9 +58,21 @@ hugectr.CreateSolver()
 
 * `use_cuda_graph`: Whether to enable cuda graph for dense network forward and backward propagation. The default value is `True`.
 
-* `use_model_oversubscriber`: Boolean, whether to use the feature of [Model Oversubscription](./hugectr_user_guide.md#model-oversubscription). The defualt value is `False`.
+**CreateMOS method**
+```bash
+hugectr.CreateMOS()
+```
+`CreateMOS` should **only** be called when using the [Model Oversubscription](./hugectr_user_guide.md#model-oversubscription) feature. It returns a `ModelOversubscriberParams` object that specifies the parameters for initializing a `ModelOversubscriber` instance.
 
-* `temp_embedding_dir`: String，where to store the temporary embedding table files. The path needs to have write permission to support the features of ModelOversubscriber. The default value is `''`.
+**Arguments**
+* `train_from_scratch`: Specify whether the trained embedding table(s) exists or not. When<br/>`train_from_scratch=True`: no trained embedding table is available. A path list of generated embedding table(s) after training needs to be provided through `dest_sparse_models`.<br/>`train_from_scratch=False`: the training will use existing embedding table(s). A path list of existing embedding table(s) needs to be provided through `trained_sparse_models`.
+
+* `use_host_memory_ps`: Whether to use the host memory-based parameter server (HM-PS). If set to `False`, the SSD-based parameter server (SSD-PS) will be used.<br/>For HM-PS, the maximum embedding table size is limited by the aggregated capacity of host memory in all working nodes.<br/>For SSD-PS, the maximum embedding table size is determined by the total capacity of SSDs in the file system.
+The HM-PS provides higher bandwidth of pushing/pulling embedding features than the SSD-PS. If embedding table(s) can fit into the host memory, the HM-PS is highly recommended. <br/>The default value is `True`.
+
+* `trained_sparse_models`: A path list of existing embedding table(s).
+
+* `dest_sparse_models`: A path list of generated embedding table(s) after training.
 
 
 ### DataReaderParams ###
@@ -220,7 +232,7 @@ hugectr.DenseLayer()
 ```bash
 hugectr.Model()
 ```
-`Model` groups data input, embeddings and dense network into an object with traning features. The construction of `Model` requires a `Solver` instance , a `DataReaderParams` instance and an `OptParamsPy` instance.
+`Model` groups data input, embeddings and dense network into an object with traning features. The construction of `Model` requires a `Solver` instance , a `DataReaderParams` instance, an `OptParamsPy` instance and a `ModelOversubscriberParams` instance (optional).
 
 **Arguments**
 * `solver`: A hugectr.Solver object, the solver configuration for the model.
@@ -228,6 +240,8 @@ hugectr.Model()
 * `reader_params`: A hugectr.DataReaderParams object, the data reader configuration for the model.
 
 * `opt_params`: A hugectr.OptParamsPy object, the optimizer configuration for the model.
+
+* `mos`: A hugectr.ModelOversubscriberParams object, the model oversubscriber configuration for the model. This argument should **only** be provided when using the model oversubscription feature.
 ***
 
 **add method**
@@ -262,9 +276,9 @@ It trains the model for a fixed number of epochs (epoch mode) or iterations (non
 
 * `eval_interval`: Integer, the interval of iterations at which the evaluation will be executed. The default value is 1000.
 
-* `snapshot`: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. The default value is 10000.
+* `snapshot`: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. This argument is invalid when model oversubscriber is being used, which means no model parameters will be saved. The default value is 10000.
 
-* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. The default value is `''`.
+* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when model oversubscriber is being used, which means no model parameters will be saved. The default value is `''`.
 ***
 
 **summary method**
@@ -520,12 +534,12 @@ This method takes no extra arguments and returns the average evaluation metrics 
 ```bash
 hugectr.Model.save_params_to_files()
 ```
-This method save the model weights and the optimizer states to files.
+This method save the model parameters to files. If model oversubscriber is utilized, this method will save sparse weights, dense weights and dense optimizer states. Otherwise, this method will save sparse weights, sparse optimizer states, dense weights and dense optimizer states.
 
 **Arguments**
 * `prefix`: String, the prefix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users.
 
-* `iter`: Integer, the current number of iterations, which will be the suffix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users.
+* `iter`: Integer, the current number of iterations, which will be the suffix of the saved files for model weights and optimizer states. The default value is 0.
 ***
 
 **export_predictions method**

@@ -18,32 +18,45 @@
 
 namespace HugeCTR {
 
-template <typename TypeHashKey>
-ModelOversubscriberImpl<TypeHashKey>::ModelOversubscriberImpl(
+namespace {
+
+std::vector<Embedding_t> get_embedding_type(
+    const std::vector<std::shared_ptr<IEmbedding>>& embeddings) {
+  std::vector<Embedding_t> embedding_types;
+  transform(embeddings.begin(), embeddings.end(), std::back_inserter(embedding_types),
+      [](auto& emb) { return emb->get_embedding_type(); });
+  return embedding_types;
+}
+
+}
+
+template <typename TypeKey>
+ModelOversubscriberImpl<TypeKey>::ModelOversubscriberImpl(bool use_host_ps,
     std::vector<std::shared_ptr<IEmbedding>>& embeddings,
     const std::vector<SparseEmbeddingHashParams>& embedding_params,
-    const std::vector<std::string>& sparse_embedding_files)
-    : embeddings_(embeddings),
-      ps_manager_(embedding_params, embeddings[0]->get_embedding_type(),
-                  sparse_embedding_files, get_max_embedding_size_()) {}
+    const std::vector<std::string>& sparse_embedding_files,
+    std::shared_ptr<ResourceManager> resource_manager)
+  : embeddings_(embeddings),
+    ps_manager_(use_host_ps, sparse_embedding_files, get_embedding_type(embeddings),
+                embedding_params, get_max_embedding_size_(), resource_manager) {}
 
-template <typename TypeHashKey>
-void ModelOversubscriberImpl<TypeHashKey>::load_(
+template <typename TypeKey>
+void ModelOversubscriberImpl<TypeKey>::load_(
     std::vector<std::string>& keyset_file_list) {
   try {
     if (keyset_file_list.size() != embeddings_.size()) {
       CK_THROW_(Error_t::WrongInput, "num of keyset_file and num of embeddings don't equal");
     }
 
-    for (int i = 0; i < static_cast<int>(ps_manager_.get_size()); i++) {
+    for (size_t i = 0; i < ps_manager_.get_size(); i++) {
       ps_manager_.get_parameter_server(i)->load_keyset_from_file(keyset_file_list[i]);
     }
 
-    for (int i = 0; i < static_cast<int>(ps_manager_.get_size()); i++) {
+    for (size_t i = 0; i < ps_manager_.get_size(); i++) {
       auto ptr_ps = ps_manager_.get_parameter_server(i);
 
       size_t hit_size = 0;
-      ptr_ps->load_param_from_embedding_file(ps_manager_.get_buffer_bag(), hit_size);
+      ptr_ps->pull(ps_manager_.get_buffer_bag(), hit_size);
       embeddings_[i]->load_parameters(ps_manager_.get_buffer_bag(), hit_size);
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -55,16 +68,19 @@ void ModelOversubscriberImpl<TypeHashKey>::load_(
   }
 }
 
-template <typename TypeHashKey>
-void ModelOversubscriberImpl<TypeHashKey>::store() {
+template <typename TypeKey>
+void ModelOversubscriberImpl<TypeKey>::dump() {
   try {
-    for (int i = 0; i < static_cast<int>(embeddings_.size()); i++) {
+    for (size_t i = 0; i < embeddings_.size(); i++) {
       auto ptr_ps = ps_manager_.get_parameter_server(i);
 
       size_t dump_size = 0;
       embeddings_[i]->dump_parameters(ps_manager_.get_buffer_bag(), &dump_size);
-      ptr_ps->dump_param_to_embedding_file(ps_manager_.get_buffer_bag(), dump_size);
+      ptr_ps->push(ps_manager_.get_buffer_bag(), dump_size);
     }
+#ifdef ENABLE_MPI
+    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+#endif
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -74,15 +90,24 @@ void ModelOversubscriberImpl<TypeHashKey>::store() {
   }
 }
 
-template <typename TypeHashKey>
-void ModelOversubscriberImpl<TypeHashKey>::update(
+template <typename TypeKey>
+void ModelOversubscriberImpl<TypeKey>::update(
     std::vector<std::string>& keyset_file_list) {
   try {
-    store();
+#ifndef KEY_HIT_RATIO
+    MESSAGE_("Preparing embedding table for next pass", false, false);
+#endif
+    dump();
     for (auto& one_embedding : embeddings_) {
       one_embedding->reset();
     }
     load_(keyset_file_list);
+#ifdef ENABLE_MPI
+    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+#endif
+#ifndef KEY_HIT_RATIO
+    MESSAGE_(" [DONE]", false, true, false);
+#endif
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -92,8 +117,8 @@ void ModelOversubscriberImpl<TypeHashKey>::update(
   }
 }
 
-template <typename TypeHashKey>
-void ModelOversubscriberImpl<TypeHashKey>::update(
+template <typename TypeKey>
+void ModelOversubscriberImpl<TypeKey>::update(
   std::string& keyset_file) {
   try {
     std::vector<std::string> keyset_file_list(embeddings_.size(), keyset_file);
