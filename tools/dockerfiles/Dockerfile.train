@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04 AS devel
+FROM nvidia/cuda:11.2.1-cudnn8-devel-ubuntu20.04 AS devel
 
 ARG SM="60;61;70;75;80"
 ARG VAL_MODE=OFF
