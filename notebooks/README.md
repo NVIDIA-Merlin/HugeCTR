@@ -50,6 +50,11 @@ git clone https://github.com/NVIDIA/HugeCTR
    `http://[host machine]:8888/?token=aae96ae9387cd28151868fee318c3b3581a2d794f3b25c6b`
 
 
+**NOTE**
+HugeCTR is built and installed with `MULTINODES=ON` within NGC Merlin docker. To use HugeCTR Python interface correctly, you should add `from mpi4py import MPI` in the scripts that use HugeCTR with `import hugectr`.
+
+The HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.
+
 ## Notebook List
 The notebooks are located within the container and can be found here: `/hugectr/notebooks`.
 
