@@ -136,6 +136,7 @@ InferenceParser::InferenceParser(const nlohmann::json& config) : config_(config)
     max_embedding_vector_size_per_sample += (max_feature_num_for_tables[i] * embed_vec_size_for_tables[i]);
     max_feature_num_per_sample += max_feature_num_for_tables[i];
   }
+
 }
 
 template <typename TypeKey, typename TypeFP>
@@ -205,7 +206,7 @@ void create_embedding<TypeKey, TypeFP>::operator() (
     embeddingvecs.push_back(embeddingvecs_tensor);
     Tensor2<TypeFP> embedding_output;
     embeddings->push_back(std::make_shared<EmbeddingFeatureCombiner<TypeFP>>(
-        embeddingvecs[0], rows[0], embedding_output, inference_params.max_batchsize,
+        embeddingvecs.back(), rows.back(), embedding_output, inference_params.max_batchsize,
         slot_num, feature_combiner_type, blobs_buff, gpu_resource));
     tensor_entries->push_back({layer_top, embedding_output.shrink()});
   }
