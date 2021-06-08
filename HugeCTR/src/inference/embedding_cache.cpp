@@ -302,12 +302,14 @@ void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
 
     //Decompress the hit emb_vec buffer to output buffer
     acc_emb_vec_offset = 0;
+    size_t acc_emb_table_offset = 0;
     for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
       float* d_unique_src_ptr = workspace_handler.d_hit_emb_vec_ + acc_emb_vec_offset;
-      float* d_decompress_dst_ptr = d_shuffled_embeddingoutputvector + acc_emb_vec_offset;
+      float* d_decompress_dst_ptr = d_shuffled_embeddingoutputvector + acc_emb_table_offset;
       uint64_t* d_output_index_ptr = workspace_handler.d_unique_output_index_ + workspace_handler.h_shuffled_embedding_offset_[i];
       size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] - workspace_handler.h_shuffled_embedding_offset_[i];
       acc_emb_vec_offset += query_length * cache_config_.embedding_vec_size_[i];
+      acc_emb_table_offset += cache_config_.max_query_len_per_emb_table_[i] * cache_config_.embedding_vec_size_[i];
       decompress_emb_vec_async(d_unique_src_ptr, 
                                d_output_index_ptr, 
                                d_decompress_dst_ptr, 

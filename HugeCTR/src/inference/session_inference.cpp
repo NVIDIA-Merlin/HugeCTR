@@ -118,12 +118,15 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_
   bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, row_ptrs_tensors_[0]);
 
   // bind embedding vectors from looking up to embedding features tensor 
-  auto embedding_features_dims = embedding_features_tensors_[0]->get_dimensions();
-  std::shared_ptr<TensorBuffer2> embeddding_features_buff = PreallocatedBuffer2<float>::create(d_embeddingvectors_, embedding_features_dims);
+  size_t acc_emb_table_offset = 0;
+  for (int j = 0; j < static_cast<int>(num_embedding_tables); j++) {
+    auto embedding_features_dims = embedding_features_tensors_[j]->get_dimensions();
+  std::shared_ptr<TensorBuffer2> embeddding_features_buff = PreallocatedBuffer2<float>::create(d_embeddingvectors_ + acc_emb_table_offset, embedding_features_dims);
   bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff, embedding_features_tensors_[0]);
-  
+  acc_emb_table_offset += inference_params_.max_batchsize * inference_parser_.max_feature_num_for_tables[j] * inference_parser_.embed_vec_size_for_tables[j];
   // feature combiner & dense network feedforward, they are both using resource_manager_->get_local_gpu(0)->get_stream()
-  embedding_feature_combiners_[0]->fprop(false);
+  embedding_feature_combiners_[j]->fprop(false);
+  }
   network_->predict();
   
   // copy the prediction result to output
