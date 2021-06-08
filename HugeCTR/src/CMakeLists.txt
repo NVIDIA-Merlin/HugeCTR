@@ -111,6 +111,7 @@ file(GLOB huge_ctr_src
   ../pybind/add_input.cpp
   ../pybind/add_sparse_embedding.cpp
   ../pybind/add_dense_layer.cpp
+  session.cpp
 )
 
 set(CMAKE_CXX_STANDARD 17)
@@ -137,6 +138,10 @@ target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)
 target_compile_features(huge_ctr_shared PUBLIC cxx_std_17)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
+
+add_executable(huge_ctr main.cpp)
+target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
+target_compile_features(huge_ctr PUBLIC cxx_std_14)
 
 add_library(hugectr MODULE ../pybind/module_main.cpp)
 target_link_libraries(hugectr PUBLIC pybind11::module ${CUDA_LIBRARIES} huge_ctr_shared)
