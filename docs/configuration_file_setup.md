@@ -13,7 +13,7 @@ There are three main JSON clauses in a configuration file:
 
 ## Solver ##
 
-**NOTE**: The Solver clause need not to be included and will be ignored when included if you are using [Low-level Training API](./python_interface.md#low-level-training-api) of HugeCTR Python Interface. 
+**NOTE**: The Solver clause needs not to be included and will be ignored when included if you are using [Low-level Training API](./python_interface.md#low-level-training-api) of HugeCTR Python Interface. 
 
 The solver clause contains the configuration for training resource and task items, which include the following parameters:
 * `lr_policy`: Only currently supports `fixed`.
@@ -193,7 +193,7 @@ typedef struct DataSetHeader_ {
 
 Data Definition (each sample):
 ```c
-typedef struct Data_{
+typedef struct Data_ {
   int length;                   // bytes in this sample (optional: only in check_sum mode )
   float label[label_dim];
   float dense[dense_dim];
@@ -201,7 +201,7 @@ typedef struct Data_{
   char checkbits;                // checkbit for this sample (optional: only in checksum mode)
 } Data;
 
-typedef struct Slot_{
+typedef struct Slot_ {
   int nnz;
   unsigned int*  keys; // changeable to `long long` with `"input_key_type"` in `solver` object of the configuration file.
 } Slot;
@@ -799,10 +799,10 @@ Example:
       "name": "elu2",
       "type": "ELU",
       "bottom": "fc2",
-      "top": "elu2"
-        "elu_param": {
+      "top": "elu2",
+      "elu_param": {
         "alpha": 1.0,
-        }     
+       }
     }
 ```
 
@@ -822,7 +822,7 @@ Example:
       "name": "relu1",
       "type": "ReLU",
       "bottom": "fc1",
-      "top": "relu1" 
+      "top": "relu1"
     }
 ```
 

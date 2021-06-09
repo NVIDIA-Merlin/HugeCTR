@@ -17,6 +17,10 @@ HugeCTR is available as buildable source code, but the easiest way to install an
    ```bash
    $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.5
    ```
+3. Activate the merlin conda environment by running the following command:  
+   ```shell.
+   source activate merlin
+   ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
 For additional information about building and setting up the HugeCTR Docker container on your own, see [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training). 
