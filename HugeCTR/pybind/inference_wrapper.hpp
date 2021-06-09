@@ -95,13 +95,19 @@ void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey
   if (num_samples * inference_parser_.dense_dim != dense.size()) {
     CK_THROW_(Error_t::WrongInput, "The dimension of dense features is not consistent");
   }
-  if (num_samples * inference_parser_.slot_num + 1 != row_ptrs.size()) {
+  if (num_samples * inference_parser_.slot_num + inference_parser_.num_embedding_tables != row_ptrs.size()) {
     CK_THROW_(Error_t::WrongInput, "The dimension of row pointers is not consistent");
   }
   if (num_samples * inference_parser_.max_feature_num_per_sample < embeddingcolumns.size()) {
     CK_THROW_(Error_t::WrongInput, "The dimension of embedding keys is greater than num_samples*max_feature_num_per_sample");
   }
-  if (embeddingcolumns.size() != static_cast<size_t>(row_ptrs.back())) {
+  size_t num_embeddingcolumns=0;
+  size_t row_ptr_offset=0;
+  for (int j = 0; j < static_cast<int>(inference_parser_.num_embedding_tables); j++) {
+      num_embeddingcolumns += row_ptrs[num_samples * inference_parser_.slot_num_for_tables[j] + row_ptr_offset];
+      row_ptr_offset += num_samples * inference_parser_.slot_num_for_tables[j]+1;
+    }
+  if (embeddingcolumns.size() != num_embeddingcolumns) {
     CK_THROW_(Error_t::WrongInput, "The dimension of embedding keys is not consistent with row pointers");
   }
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
