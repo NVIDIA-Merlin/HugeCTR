@@ -416,7 +416,7 @@ Example:
 ```
 
 #### LocalizedSlotSparseEmbeddingHash Layer
-The `LocalizedSlotSparseEmbeddingHash` layer to store embeddings in an embedding table and get them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. Unlike the DistributedSlotSparseEmbeddingHash layer, with this type of embedding layer, each individual slot is located in each GPU and not shared. This type of embedding layer provides the best scalability. The plan_file, which specifies how GPUs are connected and communicate with one another, should be specified when using this type of embedding layer. To generate a plan file, please refer to the [README](../samples/dcn/README.md) in the DCN sample.
+The `LocalizedSlotSparseEmbeddingHash` layer to store embeddings in an embedding table and get them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. Unlike the DistributedSlotSparseEmbeddingHash layer, with this type of embedding layer, each individual slot is located in each GPU and not shared. This type of embedding layer provides the best scalability.
 
 **Important Notes**:
 
