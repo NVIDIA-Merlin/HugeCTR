@@ -64,6 +64,7 @@ InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
                   const InferenceParams& inference_params,
                   std::shared_ptr<embedding_interface>& embedding_cache)
   : InferenceSession(model_config_path, inference_params, embedding_cache) {
+  CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   CK_CUDA_THROW_(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *  inference_parser_.dense_dim * sizeof(float)));
   CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_params_.max_batchsize *  inference_parser_.slot_num + 1) * sizeof(int)));
   CK_CUDA_THROW_(cudaMalloc((void**)&d_output_, inference_params_.max_batchsize * inference_parser_.label_dim * sizeof(float)));
@@ -75,6 +76,7 @@ InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
 }
 
 InferenceSessionPy::~InferenceSessionPy() {
+  CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   cudaFree(d_dense_);
   cudaFreeHost(h_embeddingcolumns_);
   cudaFree(d_row_ptrs_);
@@ -102,7 +104,7 @@ void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey
   if (embeddingcolumns.size() != static_cast<size_t>(row_ptrs.back())) {
     CK_THROW_(Error_t::WrongInput, "The dimension of embedding keys is not consistent with row pointers");
   }
-
+  CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   output_.resize(num_samples);
   size_t num_keys = embeddingcolumns.size();
   CK_CUDA_THROW_(cudaMemcpy(d_dense_, dense.data(), num_samples*inference_parser_.dense_dim*sizeof(float), cudaMemcpyHostToDevice));
@@ -129,6 +131,7 @@ std::vector<float>& InferenceSessionPy::predict(std::vector<float>& dense, std::
 template <typename TypeKey>
 float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
                                 const Check_t check_type, const std::vector<long long>& slot_size_array) {
+  CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   bool repeat_dataset = true;
   std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
   std::map<std::string, TensorBag2> label_dense_map;
@@ -168,7 +171,7 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
     metric->local_reduce(0, metric_maps);
   }
   auc_value = metric->finalize_metric();
-  MESSAGE_("---------auc value: " + std::to_string(auc_value));
+  MESSAGE_("auc value: " + std::to_string(auc_value));
   return auc_value;
 }
 
