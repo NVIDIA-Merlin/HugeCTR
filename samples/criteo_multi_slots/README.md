@@ -25,7 +25,10 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 ### Build the HugeCTR Docker Container on Your Own ###
 For additional information about building and setting up the HugeCTR Docker container on your own, see [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training). 
 
-You should make sure that HugeCTR is built and installed in `/usr/local/hugectr` within the Docker container. You can launch the container in interactive mode in the same manner as shown above.
+You should make sure that HugeCTR is built and installed in `/usr/local/hugectr` within the Docker container. You can launch the container in interactive mode in the same manner as shown above, and then set the `PYTHONPATH` environment variable inside the Docker container using the following command:
+```shell
+$ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
+``` 
 
 ## Download the Dataset ##
 Go [here](https://ailab.criteo.com/download-criteo-1tb-click-logs-dataset/) and download one of the dataset files into the "${project_root}/tools" directory.
@@ -57,5 +60,5 @@ $ bash preprocess.sh 1 criteo_data perl 10
 ## Train with HugeCTR ##
 Run the following command to start training with HugeCTR:
 ```shell
-$ huge_ctr --train ../samples/criteo_multi_slots/criteo_multi_slots.json
+$ python3 ../samples/criteo_multi_slots/criteo_multi_slots.py
 ```

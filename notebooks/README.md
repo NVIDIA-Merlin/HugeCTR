@@ -50,11 +50,16 @@ git clone https://github.com/NVIDIA/HugeCTR
    `http://[host machine]:8888/?token=aae96ae9387cd28151868fee318c3b3581a2d794f3b25c6b`
 
 
+**NOTE**
+- HugeCTR is built and installed with `MULTINODES=ON` within NGC Merlin docker. To use HugeCTR Python interface correctly, you should add `from mpi4py import MPI` in the scripts that `import hugectr`.
+- HugeCTR is written in CUDA/C++ and wrapped to Python using Pybind11. The C++ output will not display in Notebook cells unless you run the Python script in a command line manner.
+
+
 ## Notebook List
 The notebooks are located within the container and can be found here: `/hugectr/notebooks`.
 
 Here's a list of notebooks that you can run:
+- [ecommerce-example.ipynb](ecommerce-example.ipynb): Explains how to train and inference with the eCommerce dataset.
 - [movie-lens-example.ipynb](movie-lens-example.ipynb): Explains how to train and inference with the MoveLense dataset.
 - [embedding_plugin.ipynb](embedding_plugin.ipynb): Explains how to install and use the HugeCTR embedding plugin with Tensorflow.
-- [python_interface.ipynb](python_interface.ipynb): Explains how to use the Python interface and the model prefetching feature.
-- [hugectr_inference.ipynb](hugectr_inference.ipynb): Explains how to use python interface to predict with a trained model.
+- [hugectr-criteo.ipynb](hugectr_criteo.ipynb): Explains the usage of HugeCTR Python interface with the Criteo dataset.

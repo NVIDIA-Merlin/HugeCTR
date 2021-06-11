@@ -25,6 +25,7 @@
 #include <metrics.hpp>
 #include <network.hpp>
 #include <nlohmann/json.hpp>
+#include <inference/inference_utils.hpp>
 
 namespace HugeCTR {
 
@@ -71,34 +72,76 @@ struct SolverParser {
   bool use_cuda_graph;
   std::string export_predictions_prefix;
   bool use_model_oversubscriber;
-  std::string temp_embedding_dir;
   SolverParser(const std::string& file);
   SolverParser() {}
 };
 
-struct InferenceParser {
+struct Solver {
   //  std::string configure_file;
-  float hit_rate_threshold;                    /**< hit rate threshold for updateing embedding cache */
-  size_t max_batchsize;                        /**< batchsize */
-  size_t num_embedding_tables;                 /**< number of embedding tables */
-  size_t max_embedding_vector_size_per_sample; /**< max embedding vector size per sample */
-  size_t max_feature_num_per_sample;           /**< max feature number per table */
-  size_t slot_num;                             /**< total slot number */
-  size_t label_dim;                            /**< dense feature dimension */
-  size_t dense_dim;                            /**< dense feature dimension */
-  std::string dense_model_file;                /**< name of model file */
-  std::vector<std::string> sparse_model_files; /**< name of embedding file */
-  std::vector<std::size_t>
-      max_feature_num_for_tables; /**< max feature number of each embedding table */
-  std::vector<std::size_t>
-      embed_vec_size_for_tables; /**< embedding vector size for each embedding table */
-  std::vector<std::size_t> slot_num_for_tables; /**< slot_num for each embedding table */
+  unsigned long long seed;                  /**< seed of data simulator */
+  LrPolicy_t lr_policy;                     /**< the only fixed lr is supported now. */
+  float lr;
+  size_t warmup_steps;
+  size_t decay_start;
+  size_t decay_steps;
+  float decay_power;
+  float end_lr;
+  int max_eval_batches;                         /**< the number of batches for evaluations */
+  int batchsize_eval;                       /**< batchsize for eval */
+  int batchsize;                            /**< batchsize */
+  std::vector<std::vector<int>> vvgpu;      /**< device map */
+  bool repeat_dataset;
   bool use_mixed_precision;
+  bool enable_tf32_compute;
   float scaler;
+  std::map<metrics::Type, float> metrics_spec;
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
+  Solver() {}
+};
+
+class InferenceParser {
+private:
+  nlohmann::json config_;                             /**< configure file. */
+  std::map<std::string, bool> tensor_active_;         /**< whether a tensor is active. */
+public:
+  std::string label_name;
+  std::string dense_name;
+  std::vector<std::string> sparse_names;
+  size_t label_dim;                                    /**< dense feature dimension */
+  size_t dense_dim;                                    /**< dense feature dimension */
+  size_t slot_num;                                     /**< total slot number */
+  size_t num_embedding_tables;                         /**< number of embedding tables */
+  std::vector<std::size_t> slot_num_for_tables;        /**< slot_num for each embedding table */
+  std::vector<std::size_t> max_feature_num_for_tables; /**< max feature number of each embedding table */
+  std::vector<std::size_t>  embed_vec_size_for_tables; /**< embedding vector size for each embedding table */
+  size_t max_feature_num_per_sample;                   /**< max feature number per table */
+  size_t max_embedding_vector_size_per_sample;         /**< max embedding vector size per sample */
+
+  template <typename TypeEmbeddingComp>
+  void create_pipeline_inference(const InferenceParams& inference_params,
+                                 TensorBag2& dense_input_bag,
+                                 std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                                 std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                                 std::vector<size_t>& embedding_table_slot_size,
+                                 std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                                 const std::shared_ptr<ResourceManager> resource_manager);
+  /**
+   * Ctor.
+   * Ctor only verify the configure file, doesn't create pipeline.
+   */
   InferenceParser(const nlohmann::json& config);
+  
+  /**
+   * Create inference pipeline, which only creates network and embedding
+   */
+  void create_pipeline(const InferenceParams& inference_params, TensorBag2& dense_input_bag,
+                       std::vector<std::shared_ptr<Tensor2<int>>>& row,
+                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvec,
+                       std::vector<size_t>& embedding_table_slot_size,
+                       std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
+                       const std::shared_ptr<ResourceManager> resource_manager);
 };
 
 /**
@@ -135,17 +178,7 @@ class Parser {
                                 std::vector<std::shared_ptr<Network>>& network,
                                 const std::shared_ptr<ResourceManager>& resource_manager);
 
-  template <typename TypeEmbeddingComp>
-  void create_pipeline_inference(const InferenceParser& inference_parser,
-                                 Tensor2<float>& dense_input,
-                                 std::vector<std::shared_ptr<Tensor2<int>>>& rows,
-                                 std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
-                                 std::vector<size_t>& embedding_table_slot_size,
-                                 std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
-                                 const std::shared_ptr<ResourceManager> resource_manager);
-
  public:
-  std::vector<TensorEntry> tensor_entries;
   /**
    * Ctor.
    * Ctor only verify the configure file, doesn't create pipeline.
@@ -156,12 +189,6 @@ class Parser {
          bool use_cuda_graph = true);
 
   /**
-   * Ctor.
-   * Ctor used in inference stage
-   */
-  Parser(const nlohmann::json& config);
-
-  /**
    * Create the pipeline, which includes data reader, embedding.
    */
   void create_pipeline(std::shared_ptr<IDataReader>& train_data_reader,
@@ -169,16 +196,6 @@ class Parser {
                        std::vector<std::shared_ptr<IEmbedding>>& embeddings,
                        std::vector<std::shared_ptr<Network>>& networks,
                        const std::shared_ptr<ResourceManager>& resource_manager);
-
-  /**
-   * Create inference pipeline, which only creates network and embedding
-   */
-  void create_pipeline(const InferenceParser& inference_parser, Tensor2<float>& dense_input,
-                       std::vector<std::shared_ptr<Tensor2<int>>>& row,
-                       std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvec,
-                       std::vector<size_t>& embedding_table_slot_size,
-                       std::vector<std::shared_ptr<Layer>>* embedding, Network** network,
-                       const std::shared_ptr<ResourceManager> resource_manager);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -281,6 +298,7 @@ const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
 
 static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"Adam", Optimizer_t::Adam},
+    {"AdaGrad", Optimizer_t::AdaGrad},
     {"MomentumSGD", Optimizer_t::MomentumSGD},
     {"Nesterov", Optimizer_t::Nesterov},
     {"SGD", Optimizer_t::SGD}};
@@ -326,10 +344,7 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
   }
 }
 
-template <typename Type>
-struct get_optimizer_param {
-  OptParams<Type> operator()(const nlohmann::json& j_optimizer);
-};
+OptParams get_optimizer_param(const nlohmann::json& j_optimizer);
 
 inline void activate_tensor(std::map<std::string, bool>& tensor_active, std::string top_name) {
   if (tensor_active.find(top_name) != tensor_active.end()) {
@@ -340,10 +355,10 @@ inline void activate_tensor(std::map<std::string, bool>& tensor_active, std::str
 
 inline void deactivate_tensor(std::map<std::string, bool>& tensor_active, std::string bottom_name) {
   if (tensor_active.find(bottom_name) == tensor_active.end()) {
-    CK_THROW_(Error_t::WrongInput, bottom_name + ", bottem tensor name does not exists");
+    CK_THROW_(Error_t::WrongInput, bottom_name + ", bottom tensor name does not exists");
   }
   if (tensor_active[bottom_name] == false) {
-    CK_THROW_(Error_t::WrongInput, bottom_name + ", bottem tensor already consumed");
+    CK_THROW_(Error_t::WrongInput, bottom_name + ", bottom tensor already consumed");
   }
   tensor_active[bottom_name] = false;
 }
@@ -400,7 +415,7 @@ struct create_embedding {
                   size_t batch_size_eval, bool use_mixed_precision, float scaler,
                   const nlohmann::json& j_layers);
 
-  void operator()(const InferenceParser& inference_parser, const nlohmann::json& j_layers_array,
+  void operator()(const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                   std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                   std::vector<size_t>& embedding_table_slot_size,
@@ -420,6 +435,16 @@ struct create_datareader {
                   std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
                   size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
                   const std::shared_ptr<ResourceManager> resource_manager);
+
+  void operator()(const InferenceParams& inference_params,
+                  const InferenceParser& inference_parser,
+                  std::shared_ptr<IDataReader>& data_reader,
+                  const std::shared_ptr<ResourceManager> resource_manager,
+                  std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+                  std::map<std::string, TensorBag2>& label_dense_map,
+                  const std::string& source, const DataReaderType_t data_reader_type,
+                  const Check_t check_type, const std::vector<long long>& slot_size_array,
+                  const bool repeat_dataset);
 };
 
 }  // namespace HugeCTR

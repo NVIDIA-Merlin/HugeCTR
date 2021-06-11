@@ -66,7 +66,7 @@ class embedding_interface{
   virtual ~embedding_interface();
 
   // Allocate a copy of workspace memory for a worker, should be called once by a worker
-  virtual void create_workspace(embedding_cache_workspace& workspace_handler) = 0;
+  virtual embedding_cache_workspace create_workspace() = 0;
 
   // Free a copy of workspace memory for a worker, should be called once by a worker
   virtual void destroy_workspace(embedding_cache_workspace& workspace_handler) = 0;
@@ -83,13 +83,9 @@ class embedding_interface{
                       const std::vector<cudaStream_t>& streams) = 0;
 
   template <typename TypeHashKey>
-  static embedding_interface* Create_Embedding_Cache(HugectrUtility<TypeHashKey>* parameter_server, // The backend PS
-                  int cuda_dev_id, // Which CUDA device this cache belongs to
-                  bool use_gpu_embedding_cache, // Whether enable GPU embedding cache or not
-                  // The ratio of (size of GPU embedding cache : size of embedding table) for all embedding table in this model. Should between (0.0, 1.0].
-                  float cache_size_percentage,
-                  const std::string& model_config_path,
-                  const std::string& model_name);
+  static embedding_interface* Create_Embedding_Cache(const std::string& model_config_path,
+                                                  const InferenceParams& inference_params,
+                                                  HugectrUtility<TypeHashKey>* parameter_server);
 
 };
 

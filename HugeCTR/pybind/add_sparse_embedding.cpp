@@ -27,6 +27,103 @@
 
 namespace HugeCTR {
 
+SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_embedding) {
+  Embedding_t embedding_type;
+  std::vector<size_t> slot_size_array;
+  size_t max_vocabulary_size_per_gpu = 0;
+  auto embedding_type_name = get_value_from_json<std::string>(j_sparse_embedding, "type");
+  if (!find_item_in_map(embedding_type, embedding_type_name, EMBEDDING_TYPE_MAP)) {
+    CK_THROW_(Error_t::WrongInput, "No such embedding type: " + embedding_type_name); 
+  }
+  auto j_hparam = get_json(j_sparse_embedding, "sparse_embedding_hparam");
+  if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
+    max_vocabulary_size_per_gpu =
+        get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
+  } else {
+    if (has_key_(j_hparam, "max_vocabulary_size_per_gpu")) {
+      max_vocabulary_size_per_gpu =
+          get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
+    } else if (has_key_(j_hparam, "slot_size_array")) {
+      auto slots = get_json(j_hparam, "slot_size_array");
+      assert(slots.is_array());
+      for (auto slot : slots) {
+        slot_size_array.emplace_back(slot.get<size_t>());
+      }
+    } else {
+      CK_THROW_(Error_t::WrongInput,
+                "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_type_name);
+    }
+  }
+  auto bottom_name = get_value_from_json<std::string>(j_sparse_embedding, "bottom");
+  auto top_name = get_value_from_json<std::string>(j_sparse_embedding, "top");
+  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+  auto combiner = get_value_from_json<int>(j_hparam, "combiner");
+  std::shared_ptr<OptParamsPy> embedding_opt_params(new OptParamsPy());
+  if (has_key_(j_sparse_embedding, "optimizer")) {
+    auto j_optimizer = get_json(j_sparse_embedding, "optimizer");
+    auto optimizer_type_name = get_value_from_json<std::string>(j_optimizer, "type");
+    auto update_type_name = get_value_from_json<std::string>(j_optimizer, "update_type");
+    embedding_opt_params->initialized = true;
+    if (!find_item_in_map(embedding_opt_params->optimizer, optimizer_type_name, OPTIMIZER_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "No such optimizer: " + optimizer_type_name);
+    }
+    if (!find_item_in_map(embedding_opt_params->update_type, update_type_name, UPDATE_TYPE_MAP)) {
+      CK_THROW_(Error_t::WrongInput, "No such update type: " + update_type_name);
+    }
+    OptHyperParams hyperparams;
+    switch (embedding_opt_params->optimizer) {
+      case Optimizer_t::Adam: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "adam_hparam");
+        auto beta1 = get_value_from_json<float>(j_optimizer_hparam, "beta1");
+        auto beta2 = get_value_from_json<float>(j_optimizer_hparam, "beta2");
+        auto epsilon = get_value_from_json<float>(j_optimizer_hparam, "epsilon");
+        hyperparams.adam.beta1 = beta1;
+        hyperparams.adam.beta2 = beta2;
+        hyperparams.adam.epsilon = epsilon;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      case Optimizer_t::AdaGrad: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "adagrad_hparam");
+        auto initial_accu_value = get_value_from_json<float>(j_optimizer_hparam, "initial_accu_value");
+        auto epsilon = get_value_from_json<float>(j_optimizer_hparam, "epsilon");
+        hyperparams.adagrad.initial_accu_value = initial_accu_value;
+        hyperparams.adagrad.epsilon = epsilon;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      case Optimizer_t::MomentumSGD: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "momentum_sgd_hparam");
+        auto factor = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
+        hyperparams.momentum.factor = factor;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      case Optimizer_t::Nesterov: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "nesterov_hparam");
+        auto mu = get_value_from_json<float>(j_optimizer_hparam, "momentum_factor");
+        hyperparams.nesterov.mu = mu;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      case Optimizer_t::SGD: {
+        auto j_optimizer_hparam = get_json(j_optimizer, "sgd_hparam");
+        auto atomic_update =  get_value_from_json<bool>(j_optimizer_hparam, "atomic_update");
+        hyperparams.sgd.atomic_update = atomic_update;
+        embedding_opt_params->hyperparams = hyperparams;
+        break;
+      }
+      default: {
+        assert(!"Error: no such optimizer && should never get here!");
+      }
+    }
+  }
+  SparseEmbedding sparse_embedding = SparseEmbedding(embedding_type, max_vocabulary_size_per_gpu,
+                                                    embedding_vec_size, combiner, top_name,
+                                                    bottom_name, slot_size_array, embedding_opt_params);
+  return sparse_embedding;
+}
+
 template <typename TypeKey, typename TypeFP>
 void add_sparse_embedding(SparseEmbedding& sparse_embedding,
             std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
@@ -35,7 +132,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
             std::vector<std::shared_ptr<IEmbedding>>& embeddings,
             const std::shared_ptr<ResourceManager>& resource_manager,
             size_t batch_size, size_t batch_size_eval,
-            OptParams<TypeFP>& embedding_opt_params) {
+            OptParams& embedding_opt_params) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);
@@ -56,7 +153,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
   //embedding_opt_params.scaler = scaler;
   switch (embedding_type) {
     case Embedding_t::DistributedSlotSparseEmbeddingHash: {
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           max_vocabulary_size_per_gpu,
@@ -73,8 +170,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-      std::string plan_file = "";
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           max_vocabulary_size_per_gpu,
@@ -87,12 +183,11 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
+          sparse_input.evaluate_nnz, embedding_params, resource_manager));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-      std::string plan_file = "";
-      const SparseEmbeddingHashParams<TypeFP> embedding_params = {
+      const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
           0,
@@ -105,7 +200,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
           sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
           sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, plan_file, resource_manager));
+          sparse_input.evaluate_nnz, embedding_params, resource_manager));
       break;
     }
   }  // switch
@@ -124,26 +219,26 @@ template void add_sparse_embedding<long long, float>(SparseEmbedding&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::shared_ptr<IEmbedding>>&,
             const std::shared_ptr<ResourceManager>&,
-            size_t, size_t, OptParams<float>&);
+            size_t, size_t, OptParams&);
 template void add_sparse_embedding<long long, __half>(SparseEmbedding&,
             std::map<std::string, SparseInput<long long>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::shared_ptr<IEmbedding>>&,
             const std::shared_ptr<ResourceManager>&,
-            size_t, size_t, OptParams<__half>&);
+            size_t, size_t, OptParams&);
 template void add_sparse_embedding<unsigned int, float>(SparseEmbedding&,
             std::map<std::string, SparseInput<unsigned int>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::shared_ptr<IEmbedding>>&,
             const std::shared_ptr<ResourceManager>&,
-            size_t, size_t, OptParams<float>&);
+            size_t, size_t, OptParams&);
 template void add_sparse_embedding<unsigned int, __half>(SparseEmbedding&,
             std::map<std::string, SparseInput<unsigned int>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::vector<TensorEntry>>&,
             std::vector<std::shared_ptr<IEmbedding>>&,
             const std::shared_ptr<ResourceManager>&,
-            size_t, size_t, OptParams<__half>&);
+            size_t, size_t, OptParams&);
 } // namespace HugeCTR

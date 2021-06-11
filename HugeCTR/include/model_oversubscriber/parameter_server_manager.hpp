@@ -16,44 +16,36 @@
 
 #pragma once
 
-#include <tensor2.hpp>
+#include "tensor2.hpp"
+#include "parser.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
-
-#include <vector>
-#include <memory>
-#include <parser.hpp>
 
 namespace HugeCTR {
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
+template <typename TypeKey>
 class ParameterServerManager {
-  std::vector<std::shared_ptr<ParameterServer<TypeHashKey, TypeEmbeddingComp>>> ps_;
+  std::vector<std::shared_ptr<ParameterServer<TypeKey>>> ps_;
   BufferBag buf_bag_;
 
 public:
-  ParameterServerManager(
-      const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-      const Embedding_t embedding_type,
-      const SolverParser& solver_config,
-      const std::string& temp_embedding_dir,
-      size_t buffer_size);
+  ParameterServerManager(bool use_host_ps,
+      const std::vector<std::string>& sparse_embedding_files,
+      const std::vector<Embedding_t>& embedding_types,
+      const std::vector<SparseEmbeddingHashParams>& embedding_params,
+      size_t buffer_size, std::shared_ptr<ResourceManager> resource_manager);
 
   ParameterServerManager(const ParameterServerManager&) = delete;
   ParameterServerManager& operator=(const ParameterServerManager&) = delete;
 
-  ~ParameterServerManager() {}
-  /**
-   * @brief      Gets the ith parameter server by index.
-   * @param      i     index of parameter server.
-   * @return     shared pointer of the ith parameter server.
-   */
-  const std::shared_ptr<ParameterServer<TypeHashKey, TypeEmbeddingComp>> get_parameter_server(int i) {
-    return ps_[i];
-  }
+  auto get_parameter_server(int i) { return ps_[i]; }
 
   size_t get_size() { return ps_.size(); }
 
   BufferBag& get_buffer_bag() { return buf_bag_; }
+
+  void update_sparse_model_file() {
+    for (auto& ps : ps_) { ps->flush_emb_tbl_to_ssd(); }
+  }
 };
 
 }  // namespace HugeCTR

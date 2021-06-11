@@ -34,10 +34,6 @@ set(UCX_LIB_PATHS
 
 list(APPEND UCX_NAMES ucp libucp ucs libucs ucm libucm uct libuct)
 
-#find_path(UCX_INCLUDE_DIR NAMES ucp.h PATHS ${UCX_INC_PATHS})
-#find_library(UCX_LIBRARIES NAMES hwloc PATHS ${UCX_LIB_PATHS})
-#find_path(UCX_INCLUDE_DIR NAMES ucp/api/ucp.h HINTS ${UCX_INSTALL_DIR} PATH_SUFFIXES include)
-#find_library(UCX_LIBRARIES NAMES ${UCX_NAMES} HINTS ${UCX_INSTALL_DIR} PATH_SUFFIXES lib)
 find_path(UCX_INCLUDE_DIR NAMES ucp/api/ucp.h PATHS ${UCX_INC_PATHS})
 find_library(UCX_LIBRARIES NAMES ${UCX_NAMES} PATHS ${UCX_LIB_PATHS})
 

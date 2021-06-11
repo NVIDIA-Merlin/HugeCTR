@@ -16,99 +16,65 @@
 
 #pragma once
 
-#include <tensor2.hpp>
-#include <embedding.hpp>
-#include <model_oversubscriber/parameter_server_delegate.hpp>
-#include <model_oversubscriber/localized_parameter_server_delegate.hpp>
-#include <model_oversubscriber/distributed_parameter_server_delegate.hpp>
-
-#include <algorithm>
-#include <memory>
-#include <unordered_map>
-#include <vector>
+#include "embedding.hpp"
+#include "model_oversubscriber/sparse_model_entity.hpp"
 
 namespace HugeCTR {
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
+template <typename TypeKey>
 class ParameterServer {
-  SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params_;
-  std::string embedding_table_path_;
-  bool is_distributed_;
-  std::unique_ptr<ParameterServerDelegate<TypeHashKey>> parameter_server_delegate_;
-  std::unordered_map<TypeHashKey, std::pair<size_t, size_t>> hash_table_; // <key, <slot_id, offset>>
-  std::vector<TypeHashKey> keyset_;
+  bool use_host_ps_;
+  std::vector<TypeKey> keyset_;
+  SparseModelEntity<TypeKey> sparse_model_entity_;
 
-  size_t file_size_in_byte_; /**< Size of embedding file in bytes */
-  float* mmaped_table_;      /**< Memory mapped file pointer */
-  int fd_;                   /**< File descriptor for mapped file */
-  bool maped_to_memory_;
-  
-  void map_embedding_to_memory_();
-  void unmap_embedding_from_memory_();
-
-  static std::unique_ptr<ParameterServerDelegate<TypeHashKey>> get_parameter_server_delegate_(
-      const Embedding_t embedding_type) {
-    if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
-      return std::unique_ptr<ParameterServerDelegate<TypeHashKey>>(
-                new DistributedParameterServerDelegate<TypeHashKey>());
-    } else {
-      return std::unique_ptr<ParameterServerDelegate<TypeHashKey>>(
-                new LocalizedParameterServerDelegate<TypeHashKey>());
-    }
-  }
-
-public:
+ public:
   /**
-   * @brief      Constructs of ParameterServer. Using the snapshot_src_file to
-   *             initialize hash_table_ and a temporary embedding_file.
-   * @param      embedding_params  The embedding parameters for initializetion.
-   * @param      snapshot_src_file The source file used to initialize hash_table_
-   *             and embedding_file.
+   * @brief Constructs of ParameterServer. Using the sparse_model_file to
+   *        initialize the sparse_model_entity_.
+   * @param use_host_ps Whether to use the host memory-based parameter server.
+   * @param sparse_model_file Folder name of the sparse embedding model.
+   * @param embedding_type The type of embedding table object.
+   * @param emb_vec_size Embedding vector size.
+   * @param resource_manager The object of ResourceManager.
    */
-  ParameterServer(
-      const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
-      const std::string& snapshot_src_file,
-      const std::string& temp_embedding_dir,
-      const Embedding_t embedding_type);
+  ParameterServer(bool use_host_ps, const std::string &sparse_model_file,
+                  Embedding_t embedding_type, size_t emb_vec_size,
+                  std::shared_ptr<ResourceManager> resource_manager);
 
   ParameterServer(const ParameterServer&) = delete;
   ParameterServer& operator=(const ParameterServer&) = delete;
 
-  ~ParameterServer();
+  ~ParameterServer() = default;
 
   /**
-   * @brief      Load the user-provided keyset from SSD, will be stored in keyset_.
-   * @param      num_unique_key  The number unique keys stored in keyset_file.
+   * @brief Load the user-provided keyset from SSD, will be stored in keyset_.
+   * @param keyset_file The file storing keyset to be loaded.
    */
   void load_keyset_from_file(std::string keyset_file);
   
   /**
-   * @brief      Load embedding vectors from SSD according to keyset_. It only loads embedding
-   *             vectors that their corresponding keys exist in hash_table, return pointers of
-   *             loaded embedding vectors and their corresponding keys.
-   * @param      buf_bag   The buffer bag for keys, slot_id, and hash_table_val.
-   * @param      hit_size  The number of keys in keys.
+   * @brief Pull embedding vectors from the sparse embedding model according to
+   *        keyset_. It only loads embedding vectors that their corresponding
+   *        keys exist in the trained sparse model.
+   * @param buf_bag The buffer bag for keys, slot_id, and hash_table_val.
+   * @param hit_size The number of keys to be loaded to be loaded to buffer bag.
    */
-  void load_param_from_embedding_file(BufferBag &buf_bag, size_t& hit_size);
+  void pull(BufferBag &buf_bag, size_t& hit_size);
 
   /**
-   * @brief      Dumps the embedding table to the embedding file.
-   * @param      buf_bag    The buffer bag for keys, slot_id, and hash_table_val.
-   * @param      dump_size  The size of keys in buffer keys or vectors in embedding_table.
+   * @brief Push the embedding table downloaded from devices to the trained
+   *        sparse model.
+   * @param buf_bag The buffer bag for keys, slot_id, and hash_table_val.
+   * @param dump_size The num of keys (features) in buffer bag to be dumped.
    */
-  void dump_param_to_embedding_file(BufferBag &buf_bag, const size_t dump_size);
+  void push(BufferBag &buf_bag, size_t dump_size);
 
   /**
-   * @brief      Dump to snapshot_dst_file in a format of <key embedding_vector> for
-   *             DistributedSlotSparseEmbedding, or <key slot embedding_vector> for
-   *             LocalizedSlotSparseEmbedding.
+   * @brief Sync up the embedding table stored in SSD with the latest embedding
+   *        table in the host memory.
+   *        Note: The API will do nothing when use_host_ps = false.
    */
-  void dump_to_snapshot(const std::string& snapshot_dst_file);
-
-  /**
-   * @brief      A function for debugging purpose, returning the keys from hash_table.
-   */
-  std::vector<TypeHashKey> get_keys_from_hash_table() const;
+  void flush_emb_tbl_to_ssd() { sparse_model_entity_.flush_emb_tbl_to_ssd(); }
 };
 
 }  // namespace HugeCTR

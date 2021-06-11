@@ -15,6 +15,9 @@
  */
 
 #include <inference/parameter_server.hpp>
+#include <experimental/filesystem>
+
+namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -22,16 +25,16 @@ parameter_server_base::~parameter_server_base() {}
 
 template <typename TypeHashKey>
 parameter_server<TypeHashKey>::parameter_server(const std::string& framework_name, 
-                                                const std::vector<std::string>& model_config_path, 
-                                                const std::vector<std::string>& model_name){
+                                              const std::vector<std::string>& model_config_path,
+                                              const std::vector<InferenceParams>& inference_params_array){
   // Store the configuration
   framework_name_ = framework_name;
-  if(model_config_path.size() != model_name.size()){
+  if(model_config_path.size() != inference_params_array.size()){
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of input args are not consistent.");
   }
   // Initialize <model_name, id> map
-  for(unsigned int i = 0; i < model_name.size(); i++){
-    ps_config_.model_name_id_map_.emplace(model_name[i], (size_t)i);
+  for(unsigned int i = 0; i < inference_params_array.size(); i++){
+    ps_config_.model_name_id_map_.emplace(inference_params_array[i].model_name, (size_t)i);
   }
   
   // Initialize for each model
@@ -40,16 +43,14 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
     nlohmann::json model_config(read_json_file(model_config_path[i]));
 
     // Read inference config
-    const nlohmann::json& j_inference = get_json(model_config, "inference");
-    const nlohmann::json& j_emb_table_file = get_json(j_inference, "sparse_model_file");
     std::vector<std::string> emb_file_path;
-    if (j_emb_table_file.is_array()){
-      for(unsigned int j = 0; j < j_emb_table_file.size(); j++){
-        emb_file_path.emplace_back(j_emb_table_file[j].get<std::string>());
+    if (inference_params_array[i].sparse_model_files.size() > 1){
+      for(unsigned int j = 0; j < inference_params_array[i].sparse_model_files.size(); j++){
+        emb_file_path.emplace_back(inference_params_array[i].sparse_model_files[j]);
       }
     }
     else{
-      emb_file_path.emplace_back(j_emb_table_file.get<std::string>());
+      emb_file_path.emplace_back(inference_params_array[i].sparse_model_files[0]);
     }
     ps_config_.emb_file_name_.emplace_back(emb_file_path);
 
@@ -90,6 +91,14 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of parameter server parameters are not correct.");
   }
 
+  auto remove_prefix = [](const std::string& path) {
+    size_t found = path.rfind("/");
+    if (found != std::string::npos)
+      return std::string(path, found + 1);
+    else
+      return path;
+  };
+
   // Load embeddings for each embedding table from each model
   for(unsigned int i = 0; i < model_config_path.size(); i++){
     size_t num_emb_table = (ps_config_.emb_file_name_[i]).size();
@@ -97,63 +106,45 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
     std::vector<std::unordered_map<TypeHashKey, std::vector<float>>> model_emb_table;
     for(unsigned int j = 0; j < num_emb_table; j++){
       // Create input file stream to read the embedding file
-      std::ifstream emb_file(ps_config_.emb_file_name_[i][j]);
+      const std::string emb_file_prefix = ps_config_.emb_file_name_[i][j] + "/" +
+                                          remove_prefix(ps_config_.emb_file_name_[i][j]);
+      const std::string key_file = emb_file_prefix + ".key";
+      const std::string vec_file = emb_file_prefix + ".vec";
+      std::ifstream key_stream(key_file);
+      std::ifstream vec_stream(vec_file);
       // Check if file is opened successfully
-      if (!emb_file.is_open()){
+      if (!key_stream.is_open() || !vec_stream.is_open()){
         CK_THROW_(Error_t::WrongInput, "Error: embeddings file not open for reading");
       }
-      emb_file.seekg(0, emb_file.end);
-      size_t file_size = emb_file.tellg();
-      emb_file.seekg(0, emb_file.beg);
+      size_t key_file_size_in_byte = fs::file_size(key_file);
+      size_t vec_file_size_in_byte = fs::file_size(vec_file);
+
+      size_t key_size_in_byte = sizeof(TypeHashKey);
+      size_t vec_size_in_byte = sizeof(float) * ps_config_.embedding_vec_size_[i][j];
+
+      size_t num_key = key_file_size_in_byte / key_size_in_byte;
+      size_t num_vec = vec_file_size_in_byte / vec_size_in_byte;
+      if (num_key != num_vec) {
+        CK_THROW_(Error_t::WrongInput, "Error: num_key != num_vec in embedding file");
+      }
+      size_t num_float_val_in_vec_file = vec_file_size_in_byte / sizeof(float);
 
       // The temp embedding table
+      std::vector<TypeHashKey> key_vec(num_key, 0);
+      std::vector<float> vec_vec(num_float_val_in_vec_file, 0.0f);
+      key_stream.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_byte);
+      vec_stream.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_byte);
+
       std::unordered_map<TypeHashKey, std::vector<float>> emb_table;
-
-      if(ps_config_.distributed_emb_[i][j]){
-        size_t row_size = sizeof(TypeHashKey) + sizeof(float) * ps_config_.embedding_vec_size_[i][j];
-        size_t row_num = file_size / row_size;
-        if (file_size % row_size != 0) {
-          CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
-        }
-
-        TypeHashKey read_key;
-        std::vector<float> read_emb_vec(ps_config_.embedding_vec_size_[i][j]);
-        for(size_t pair = 0; pair < row_num; pair++){
-          // Read out the emb_id and emb_vec
-          emb_file.read(reinterpret_cast<char *>(&read_key), sizeof(TypeHashKey));
-          emb_file.read(reinterpret_cast<char *>(read_emb_vec.data()),
-                        sizeof(float) * ps_config_.embedding_vec_size_[i][j]);
-
-          // Insert into CPU embedding table
-          emb_table.emplace(read_key, read_emb_vec);
-        }
+      emb_table.reserve(num_key);
+      const size_t emb_vec_size = ps_config_.embedding_vec_size_[i][j];
+      for (size_t i = 0; i < num_key; i++) {
+        emb_table.emplace(key_vec[i],
+                          std::vector<float>(vec_vec.begin() + i     * emb_vec_size,
+                                             vec_vec.begin() + (i+1) * emb_vec_size));
       }
-      else{
-        size_t row_size = sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * ps_config_.embedding_vec_size_[i][j];
-        size_t row_num = file_size / row_size;
-        if (file_size % row_size != 0){
-          CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
-        }
-
-        TypeHashKey read_key;
-        size_t read_slod_id;
-        std::vector<float> read_emb_vec(ps_config_.embedding_vec_size_[i][j]);
-        for(size_t pair = 0; pair < row_num; pair++){
-          // Read out the emb_id, slot_id and emb_vec
-          emb_file.read(reinterpret_cast<char *>(&read_key), sizeof(TypeHashKey));
-          emb_file.read(reinterpret_cast<char *>(&read_slod_id), sizeof(size_t));
-          emb_file.read(reinterpret_cast<char *>(read_emb_vec.data()),
-                        sizeof(float) * ps_config_.embedding_vec_size_[i][j]);
-
-          // Insert into CPU embedding table
-          emb_table.emplace(read_key, read_emb_vec);
-        }
-      }
-
       // Insert temp embedding table into temp model embedding table
       model_emb_table.emplace_back(emb_table);
-      // Close embedding file
-      emb_file.close();
     }
     // Insert temp model embedding table into parameter server
     cpu_embedding_table_.emplace_back(model_emb_table);

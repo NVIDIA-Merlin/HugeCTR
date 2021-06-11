@@ -8,7 +8,8 @@
     "snapshot": 10000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "max_eval_batches": 100
+    "max_eval_batches": 100,
+    "auc_threshold": 0.7964
   },
   
   "optimizer": {
@@ -57,6 +58,16 @@
         "max_vocabulary_size_per_gpu": 801807,
         "embedding_vec_size": 64,
         "combiner": 0
+      },
+      "optimizer": {
+        "type": "Adam",
+        "update_type": "Local",
+        "adam_hparam": {
+          "learning_rate": 0.001,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "epsilon": 0.0000001
+        }
       }
     },
 

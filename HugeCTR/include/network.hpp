@@ -67,6 +67,7 @@ class Network {
   metrics::RawMetricMap raw_metrics_;
 
   Tensor2<float> pred_tensor_;
+  Tensor2<__half> pred_tensor_half_;
 
   std::shared_ptr<CPUResource> cpu_resource_;
   std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
@@ -121,6 +122,8 @@ class Network {
    * Get the pred tensor for inference.
    */
   Tensor2<float> get_pred_tensor() { return pred_tensor_; }
+
+  Tensor2<__half> get_pred_tensor_half() { return pred_tensor_half_; }
 
   /**
    * Get current loss and return.

@@ -18,8 +18,10 @@
 #include <fstream>
 #include "HugeCTR/include/data_readers/parquet_data_reader_worker.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
+#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include "HugeCTR/include/data_generator.hpp"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -162,7 +164,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_distributed_test) {
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
+  auto gpu_resource_group = ResourceManagerExt::create(vvgpu, 0);
   
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
                                        slot_num};
@@ -198,7 +200,7 @@ TEST(data_reader_parquet_worker, data_reader_parquet_worker_localized_test) {
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  auto gpu_resource_group = ResourceManager::create(vvgpu, 0);
+  auto gpu_resource_group = ResourceManagerExt::create(vvgpu, 0);
   // setup a CSR heap
   const int num_devices = 1;
   const int batchsize = 1024;
@@ -237,7 +239,7 @@ TEST(data_reader_group_test, data_reader_parquet_distributed_test) {
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto& resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
   const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_nnz * slot_num, max_nnz,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -267,7 +269,7 @@ TEST(data_reader_group_test, data_reader_parquet_localized_test) {
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto& resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
   const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz * slot_num, max_nnz,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;

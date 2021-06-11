@@ -11,6 +11,7 @@
         "type": "Data",
         "check": "Sum",
         "label": {
+          "top": "label",
           "label_dim": 1
         },
         "dense": {

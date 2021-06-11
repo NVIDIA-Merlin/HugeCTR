@@ -167,7 +167,6 @@ public:
     ArgConvertor<T>(arg, ret);
     return ret;
   }
-
   static bool has_arg(const std::string target, int argc, char** argv){
     std::vector <std::string> tokens;
     for (int i=1; i < argc; ++i)
@@ -340,19 +339,22 @@ inline void set_affinity(std::thread& t, std::set<int> set, bool excluded) {
   return;
 }
 
-template <typename T>
-struct TypeConvert {
-  static __host__ T convert(const float val);
+template <typename TOUT, typename TIN>
+struct TypeConvert;
+
+template <>
+struct TypeConvert<float, float> {
+  static __host__ float convert(const float val) { return val;}
 };
 
 template <>
-struct TypeConvert<float> {
-  static __host__ float convert(const float val) { return val; }
-};
-
-template <>
-struct TypeConvert<__half> {
+struct TypeConvert<__half, float> {
   static __host__ __half convert(const float val) { return __float2half(val); }
+};
+
+template <>
+struct TypeConvert<float, __half> {
+  static __host__ float convert(const __half val) { return __half2float(val); }
 };
 
 template <typename T>
@@ -368,7 +370,7 @@ struct CudnnDataType<__half> {
   static cudnnDataType_t getType() { return CUDNN_DATA_HALF; }
 };
 
+template <typename TIN, typename TOUT>
+void convert_array_on_device(TOUT* out, const TIN* in, size_t num_elements, const cudaStream_t& stream);
 
-
-  
 }  // namespace HugeCTR

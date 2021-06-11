@@ -141,12 +141,12 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
 
   /**
    * dump_parameters for LocalizedSlotSparseEmbeddingOnehot.
-   * @param stream weight file stream to write.
+   * @param sparse_model the folder name of sparse model.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors the hash table value on multi-GPU.
    * @param slot_sizes the size for each slot
    */
-  void dump_parameters(std::ofstream &stream, size_t embedding_vec_size,
+  void dump_parameters(const std::string &sparse_model, size_t embedding_vec_size,
                        const Tensors2<float> &hash_table_value_tensors,
                        const std::vector<size_t> &slot_sizes) const;
 
@@ -185,8 +185,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       const Tensors2<TypeHashKey> &evaluate_row_offsets_tensors,
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-      const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-      const std::string plan_file, const std::shared_ptr<ResourceManager> &resource_manager);
+      const SparseEmbeddingHashParams &embedding_params,
+      const std::shared_ptr<ResourceManager> &resource_manager);
 
   /**
    * The forward propagation of embedding layer.
@@ -245,17 +245,16 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
    * updates the hash table by wgrad(from backward()) and optimizer.
    */
   void update_params() override {
+    // accumulate times for adam optimizer
+    Base::get_opt_params().hyperparams.adam.times++;
 #pragma omp parallel num_threads(Base::get_resource_manager().get_local_gpu_count())
     {
       size_t id = omp_get_thread_num();
       CudaDeviceContext context(Base::get_local_gpu(id).get_device_id());
 
-      // accumulate times for adam optimizer
-      Base::get_opt_params(id).hyperparams.adam.times++;
-
       // do update params operation: only support SGD
       functors_.update_params(
-          Base::get_embedding_vec_size(), Base::get_opt_params(id), *Base::get_nnz_array(true)[id],
+          Base::get_embedding_vec_size(), Base::get_opt_params(), *Base::get_nnz_array(true)[id],
           hash_value_index_tensors_[id], wgrad_tensors_[id], hash_table_value_tensors_[id],
           Base::get_local_gpu(id).get_sm_count(), Base::get_local_gpu(id).get_stream());
     }
@@ -280,16 +279,16 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
   /**
    * Read the hash table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param weight_stream the host file stream for reading data from.
+   * @param sparse_model the folder name of sparse model.
    */
-  void load_parameters(std::ifstream &weight_stream) override;
+  void load_parameters(std::string sparse_model) override;
   void load_parameters(BufferBag& buf_bag, size_t num) override;
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
-   * @param weight_stream the host file stream for writing data to.
+   * @param sparse_model the folder name of sparse model.
    */
-  void dump_parameters(std::ofstream &stream) const override;
+  void dump_parameters(std::string sparse_model) const override;
   void dump_parameters(BufferBag& buf_bag, size_t *num) const override;
 
   void dump_opt_states(std::ofstream& stream) override {}
@@ -351,8 +350,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
   void get_backward_results(Tensor2<TypeEmbeddingComp> &wgrad, int devIndex) override {
     CudaDeviceContext context(Base::get_local_gpu(0).get_device_id());
 
-#ifdef NCCL_A2A
-
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_forward(Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
@@ -377,11 +374,6 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
                           cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
-#endif
-
-#else
-    // do not support gossip
-    MESSAGE_("Error: Not support gossip in backward for one-hot");
 #endif
 
     // reorder

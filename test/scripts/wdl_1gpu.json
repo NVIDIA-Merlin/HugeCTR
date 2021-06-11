@@ -10,7 +10,8 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "max_eval_batches": 2048
+    "max_eval_batches": 2048,
+    "auc_threshold": 0.8010
   },
   "optimizer": {
     "type": "Adam",
@@ -61,6 +62,16 @@
         "max_vocabulary_size_per_gpu": 2322444,
         "embedding_vec_size": 1,
         "combiner": 0
+      },
+      "optimizer": {
+        "type": "Adam",
+        "update_type": "Global",
+        "adam_hparam": {
+          "learning_rate": 0.001,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "epsilon": 0.0000001
+        }
       }
     },
     {
@@ -72,6 +83,16 @@
         "max_vocabulary_size_per_gpu": 2322444,
         "embedding_vec_size": 16,
         "combiner": 0
+      },
+      "optimizer": {
+        "type": "Adam",
+        "update_type": "Global",
+        "adam_hparam": {
+          "learning_rate": 0.001,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "epsilon": 0.0000001
+        }
       }
     },
     {

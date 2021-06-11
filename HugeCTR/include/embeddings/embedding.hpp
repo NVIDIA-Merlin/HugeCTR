@@ -36,10 +36,10 @@ namespace HugeCTR {
  */
 template <typename TypeKey, typename TypeEmbeddingComp>
 class Embedding : public IEmbedding {
+ protected:
   const Embedding_t embedding_type_;
-  SparseEmbeddingHashParams<TypeEmbeddingComp>
+  SparseEmbeddingHashParams
       embedding_params_;                                 /**< Sparse embedding hash params. */
-  std::vector<OptParams<TypeEmbeddingComp>> opt_params_; /**< Optimizer params. */
 
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>
       bufs_;                                         /**< The buffer for storing output tensors. */
@@ -55,17 +55,12 @@ class Embedding : public IEmbedding {
 
   std::shared_ptr<ResourceManager> resource_manager_; /**< The GPU device resources. */
 
- protected:
   size_t get_batch_size(bool is_train) const {
-    if (is_train) {
-      return embedding_params_.train_batch_size;
-    } else {
-      return embedding_params_.evaluate_batch_size;
-    }
+    return embedding_params_.get_batch_size(is_train);
   }
 
   size_t get_universal_batch_size() const {
-    return std::max(embedding_params_.train_batch_size, embedding_params_.evaluate_batch_size);
+    return embedding_params_.get_universal_batch_size();
   }
 
   size_t get_batch_size_per_gpu(bool is_train) const {
@@ -80,26 +75,24 @@ class Embedding : public IEmbedding {
 
   const GPUResource& get_local_gpu(int i) const { return *resource_manager_->get_local_gpu(i); }
 
-  const Optimizer_t& get_optimizer() const { return embedding_params_.opt_params.optimizer; }
+  const Optimizer_t& get_optimizer() const { return embedding_params_.get_optimizer(); }
 
-  const Update_t& get_update_type() const { return embedding_params_.opt_params.update_type; }
+  const Update_t& get_update_type() const { return embedding_params_.get_update_type(); }
 
-  OptParams<TypeEmbeddingComp>& get_opt_params(int i) { return opt_params_[i]; }
-
-  const OptParams<TypeEmbeddingComp>& get_opt_params() const {
-    return embedding_params_.opt_params;
+  OptParams& get_opt_params() {
+    return embedding_params_.get_opt_params();
   }
 
-  size_t get_embedding_vec_size() const { return embedding_params_.embedding_vec_size; }
+  size_t get_embedding_vec_size() const { return embedding_params_.get_embedding_vec_size(); }
 
-  size_t get_max_feature_num() const { return embedding_params_.max_feature_num; }
+  size_t get_max_feature_num() const { return embedding_params_.get_max_feature_num(); }
 
-  size_t get_slot_num() const { return embedding_params_.slot_num; }
+  size_t get_slot_num() const { return embedding_params_.get_slot_num(); }
 
-  int get_combiner() const { return embedding_params_.combiner; }
+  int get_combiner() const { return embedding_params_.get_combiner(); }
 
   size_t get_max_vocabulary_size_per_gpu() const {
-    return embedding_params_.max_vocabulary_size_per_gpu;
+    return embedding_params_.get_max_vocabulary_size_per_gpu();
   }
 
   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& get_buffer(size_t i) const {
@@ -158,7 +151,7 @@ class Embedding : public IEmbedding {
             const Tensors2<TypeKey>& evaluate_value_tensors,
             const std::vector<std::shared_ptr<size_t>>& evaluate_nnz_array,
             const Embedding_t embedding_type,
-            const SparseEmbeddingHashParams<TypeEmbeddingComp>& embedding_params,
+            const SparseEmbeddingHashParams& embedding_params,
             const std::shared_ptr<ResourceManager>& resource_manager)
       : embedding_type_(embedding_type),
         embedding_params_(embedding_params),
@@ -191,15 +184,6 @@ class Embedding : public IEmbedding {
         CK_THROW_(
             Error_t::WrongInput,
             "either row_offsets_tensors.size() or value_tensors.size() isn't local_gpu_count_");
-      }
-
-      for (size_t id = 0; id < local_gpu_count; id++) {
-        OptParams<TypeEmbeddingComp> opt_params;
-        opt_params.optimizer = embedding_params_.opt_params.optimizer;
-        opt_params.lr = embedding_params_.opt_params.lr;
-        opt_params.update_type = embedding_params_.opt_params.update_type;
-        opt_params.scaler = embedding_params_.opt_params.scaler;
-        opt_params_.push_back(opt_params);
       }
 
       assert(bufs_.empty());
@@ -262,9 +246,9 @@ class Embedding : public IEmbedding {
   /**
    * Read the embedding table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param stream the host file stream for reading data from.
+   * @param sparse_model the folder name of sparse model.
    */
-  virtual void load_parameters(std::ifstream& stream) = 0;
+  virtual void load_parameters(std::string sparse_model) = 0;
 
   /**
    * Read the embedding table from the weight_stream on the host, and
@@ -276,10 +260,9 @@ class Embedding : public IEmbedding {
   /**
    * Download the embedding table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
-   * @param weight_stream the host file stream for writing data to.
+   * @param sparse_model the folder name of sparse model.
    */
-  virtual void dump_parameters(
-      std::ofstream& weight_stream) const = 0;  // please refer to file format definition of HugeCTR
+  virtual void dump_parameters(std::string sparse_model) const = 0;
 
   /**
    * Download the embedding table from multi-GPUs global memroy to CPU memory
@@ -323,12 +306,10 @@ class Embedding : public IEmbedding {
   }
 
   void set_learning_rate(float lr) {
-    for (size_t id = 0; id < resource_manager_->get_local_gpu_count(); id++) {
-      opt_params_[id].lr = lr;
-    }
+    embedding_params_.opt_params.lr = lr;
   }
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp>& get_embedding_params() const {
+  const SparseEmbeddingHashParams& get_embedding_params() const {
     return embedding_params_;
   }
 
@@ -361,4 +342,5 @@ class Embedding : public IEmbedding {
   virtual void get_update_params_results(Tensor2<TypeKey>& hash_table_key,
                                          Tensor2<float>& hash_table_value) = 0;
 };
+
 }  // namespace HugeCTR

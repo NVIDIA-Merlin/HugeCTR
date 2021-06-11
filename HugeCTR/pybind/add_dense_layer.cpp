@@ -45,6 +45,480 @@
 
 namespace HugeCTR {
 
+void save_graph_to_json(nlohmann::json& layer_config_array,
+                      std::vector<DenseLayer>& dense_layer_params,
+                      std::vector<SparseEmbedding>& sparse_embedding_params,
+                      std::vector<Input>& input_params,
+                      std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list) {
+  nlohmann::json input_config;
+  input_config["type"] = "Data";
+  nlohmann::json input_label_config;
+  nlohmann::json input_dense_config;
+  nlohmann::json input_sparse_config_array = nlohmann::json::array();
+  assert(input_params.size()==1);
+  Input input_param = input_params[0];
+  input_label_config["top"] = input_param.label_name;
+  input_label_config["label_dim"] = input_param.label_dim;
+  input_dense_config["top"] = input_param.dense_name;
+  input_dense_config["dense_dim"] = input_param.dense_dim;
+  for (size_t i = 0; i < input_param.sparse_names.size(); ++i) {
+    nlohmann::json input_sparse_config;
+    input_sparse_config["top"] = input_param.sparse_names[i];
+    input_sparse_config["type"] = READER_SPARSE_TYPE_TO_STRING[input_param.data_reader_sparse_param_array[i].type];
+    input_sparse_config["max_feature_num_per_sample"] = input_param.data_reader_sparse_param_array[i].max_feature_num;
+    input_sparse_config["max_nnz"] = input_param.data_reader_sparse_param_array[i].max_nnz;
+    input_sparse_config["slot_num"] = input_param.data_reader_sparse_param_array[i].slot_num;
+    input_sparse_config_array.push_back(input_sparse_config);
+  }
+  input_config["label"] = input_label_config;
+  input_config["dense"] = input_dense_config;
+  input_config["sparse"] = input_sparse_config_array;
+  layer_config_array.push_back(input_config);
+  for (size_t i = 0; i < sparse_embedding_params.size(); ++i) {
+    nlohmann::json sparse_config;
+    sparse_config["type"] = EMBEDDING_TYPE_TO_STRING[sparse_embedding_params[i].embedding_type];
+    sparse_config["bottom"] = sparse_embedding_params[i].bottom_name;
+    sparse_config["top"] = sparse_embedding_params[i].sparse_embedding_name;
+    nlohmann::json sparse_hparam_config;
+    sparse_hparam_config["max_vocabulary_size_per_gpu"] = sparse_embedding_params[i].max_vocabulary_size_per_gpu;
+    sparse_hparam_config["embedding_vec_size"] = sparse_embedding_params[i].embedding_vec_size;
+    sparse_hparam_config["combiner"] = sparse_embedding_params[i].combiner;
+    if (sparse_embedding_params[i].slot_size_array.size() > 0) {
+      sparse_hparam_config["slot_size_array"] = sparse_embedding_params[i].slot_size_array;
+    }
+    sparse_config["sparse_embedding_hparam"] = sparse_hparam_config;
+    nlohmann::json optimizer_config;
+    nlohmann::json optimizer_hparam_config;
+    optimizer_config["update_type"] = embedding_opt_params_list[i]->update_type == Update_t::Global ? "Global" : 
+                                      (embedding_opt_params_list[i]->update_type == Update_t::Local ? "Local" : "LazyGlobal");
+    switch (embedding_opt_params_list[i]->optimizer) {
+      case Optimizer_t::Adam: {
+        optimizer_config["type"] = "Adam";
+        optimizer_hparam_config["beta1"] = embedding_opt_params_list[i]->hyperparams.adam.beta1;
+        optimizer_hparam_config["beta2"] = embedding_opt_params_list[i]->hyperparams.adam.beta2;
+        optimizer_hparam_config["epsilon"] = embedding_opt_params_list[i]->hyperparams.adam.epsilon;
+        optimizer_config["adam_hparam"] = optimizer_hparam_config;
+        break;
+      }
+      case Optimizer_t::AdaGrad: {
+        optimizer_config["type"] = "AdaGrad";
+        optimizer_hparam_config["initial_accu_value"] = embedding_opt_params_list[i]->hyperparams.adagrad.initial_accu_value;
+        optimizer_hparam_config["epsilon"] = embedding_opt_params_list[i]->hyperparams.adagrad.epsilon;
+        optimizer_config["adagrad_hparam"] = optimizer_hparam_config;
+        break;
+      }
+      case Optimizer_t::MomentumSGD: {
+        optimizer_config["type"] = "MomentumSGD";
+        optimizer_hparam_config["momentum_factor"] = embedding_opt_params_list[i]->hyperparams.momentum.factor;
+        optimizer_config["momentum_sgd_hparam"] = optimizer_hparam_config;
+        break;
+      }
+      case Optimizer_t::Nesterov: {
+        optimizer_config["type"] = "Nesterov";
+        optimizer_hparam_config["momentum_factor"] = embedding_opt_params_list[i]->hyperparams.nesterov.mu;
+        optimizer_config["nesterov_hparam"] = optimizer_hparam_config;
+        break;
+      }
+      case Optimizer_t::SGD: {
+        optimizer_config["type"] = "SGD";
+        optimizer_hparam_config["atomic_update"] = embedding_opt_params_list[i]->hyperparams.sgd.atomic_update;
+        optimizer_config["sgd_hparam"] = optimizer_hparam_config;
+        break;
+      }
+      default: {
+        assert(!"Error: no such optimizer && should never get here!");
+      }
+    }
+    sparse_config["optimizer"] = optimizer_config;
+    layer_config_array.push_back(sparse_config);
+  }
+
+  for (size_t i = 0; i < dense_layer_params.size(); ++i) {
+    nlohmann::json layer_config;
+    layer_config["type"] = LAYER_TYPE_TO_STRING[dense_layer_params[i].layer_type];
+    if (dense_layer_params[i].bottom_names.size() == 1) {
+      layer_config["bottom"] = dense_layer_params[i].bottom_names[0];
+    } else {
+      layer_config["bottom"] = dense_layer_params[i].bottom_names;
+    }
+    if (dense_layer_params[i].top_names.size() == 1) {
+      layer_config["top"] = dense_layer_params[i].top_names[0];
+    } else {
+      layer_config["top"] = dense_layer_params[i].top_names;
+    }
+    switch (dense_layer_params[i].layer_type) {
+      case Layer_t::BatchNorm: {
+        nlohmann::json bn_param_config;
+        bn_param_config["factor"] = dense_layer_params[i].factor;
+        bn_param_config["eps"] = dense_layer_params[i].eps;
+        if (dense_layer_params[i].gamma_init_type != Initializer_t::Default) {
+          bn_param_config["gamma_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].gamma_init_type];
+        }
+        if (dense_layer_params[i].beta_init_type != Initializer_t::Default) {
+          bn_param_config["beta_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].beta_init_type];
+        }
+        layer_config["bn_param"] = bn_param_config;
+        break;
+      }
+      case Layer_t::Dropout: {
+        layer_config["rate"] = dense_layer_params[i].dropout_rate;
+        break;
+      }
+      case Layer_t::ELU: {
+        nlohmann::json elu_param_config;
+        elu_param_config["alpha"] = dense_layer_params[i].elu_alpha;
+        layer_config["elu_param"] = elu_param_config;
+        break;
+      }
+      case Layer_t::FusedInnerProduct: {
+        nlohmann::json fc_param_config;
+        fc_param_config["num_output"] = dense_layer_params[i].num_output;
+        if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
+          fc_param_config["weight_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+        }
+        if (dense_layer_params[i].bias_init_type != Initializer_t::Default) {
+          fc_param_config["bias_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
+        }
+        layer_config["fc_param"] = fc_param_config;
+        break;     
+      }
+      case Layer_t::InnerProduct: {
+        nlohmann::json fc_param_config;
+        fc_param_config["num_output"] = dense_layer_params[i].num_output;
+        if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
+          fc_param_config["weight_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+        }
+        if (dense_layer_params[i].bias_init_type != Initializer_t::Default) {
+          fc_param_config["bias_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
+        }
+        layer_config["fc_param"] = fc_param_config;
+        break;
+      }
+      case Layer_t::MultiCross: {
+        nlohmann::json mc_param_config;
+        mc_param_config["num_layers"] = dense_layer_params[i].num_layers;
+        if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
+          mc_param_config["weight_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+        }
+        if (dense_layer_params[i].bias_init_type != Initializer_t::Default) {
+          mc_param_config["bias_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
+        }
+        layer_config["mc_param"] = mc_param_config;
+        break;
+      }
+      case Layer_t::Reshape: {
+        if (dense_layer_params[i].selected) {
+          layer_config["selected"] = dense_layer_params[i].selected_slots;
+        } else {
+          layer_config["leading_dim"] = dense_layer_params[i].leading_dim;
+        }
+        break;
+      }
+      case Layer_t::Slice: {
+        layer_config["ranges"] = dense_layer_params[i].ranges;
+        break;
+      }
+      case Layer_t::WeightMultiply: {
+        layer_config["weight_dims"] = dense_layer_params[i].weight_dims;
+        if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
+          layer_config["weight_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+        }
+        break;
+      }
+      case Layer_t::FmOrder2: {
+        layer_config["out_dim"] = dense_layer_params[i].out_dim;
+        break;       
+      }
+      case Layer_t::ReduceSum: {
+        layer_config["axis"] = dense_layer_params[i].axis;
+        break;
+      }
+      case Layer_t::MultiCrossEntropyLoss: {
+        if (dense_layer_params[i].target_weight_vec.size() > 0) {
+          layer_config["target_weight"] = dense_layer_params[i].target_weight_vec;
+        }
+        if (dense_layer_params[i].use_regularizer) {
+          layer_config["regularizer"] = dense_layer_params[i].regularizer_type == Regularizer_t::L1? "L1":"L2";
+          layer_config["lambda"] = dense_layer_params[i].lambda;
+        }
+        break;
+      }
+      case Layer_t::BinaryCrossEntropyLoss: {
+        if (dense_layer_params[i].use_regularizer) {
+          layer_config["regularizer"] = dense_layer_params[i].regularizer_type == Regularizer_t::L1? "L1":"L2";
+          layer_config["lambda"] = dense_layer_params[i].lambda;
+        }
+        break;
+      }
+      case Layer_t::CrossEntropyLoss: {
+        if (dense_layer_params[i].use_regularizer) {
+          layer_config["regularizer"] = dense_layer_params[i].regularizer_type == Regularizer_t::L1? "L1":"L2";
+          layer_config["lambda"] = dense_layer_params[i].lambda;
+        }
+        break;
+      }
+      default: {
+        break;
+      }
+    }
+    layer_config_array.push_back(layer_config);
+  }
+}
+
+DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
+  Layer_t layer_type;
+  auto layer_type_name = get_value_from_json<std::string>(j_dense_layer, "type");
+  if (!find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP) &&
+      !find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP_MP)) {
+    CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+  }
+  auto bottom = get_json(j_dense_layer, "bottom");
+  auto top = get_json(j_dense_layer, "top");
+  std::vector<std::string> bottom_names = get_layer_names(bottom);
+  std::vector<std::string> top_names = get_layer_names(top);
+  DenseLayer dense_layer = DenseLayer(layer_type, bottom_names, top_names);
+  switch (layer_type) {
+    case Layer_t::BatchNorm: {
+      auto j_bn_hparam = get_json(j_dense_layer, "bn_param");
+      auto factor = get_value_from_json<float>(j_bn_hparam, "factor");
+      auto eps = get_value_from_json<float>(j_bn_hparam, "eps");
+      dense_layer.factor = factor;
+      dense_layer.eps = eps;
+      if (has_key_(j_bn_hparam, "gamma_init")) {
+        const auto gamma_init_name = get_value_from_json<std::string>(j_bn_hparam, "gamma_init");
+        Initializer_t gamma_init_type;
+        if (find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.gamma_init_type = gamma_init_type;
+        }
+        else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
+        }
+      }
+      if (has_key_(j_bn_hparam, "beta_init")) {
+        const auto beta_init_name = get_value_from_json<std::string>(j_bn_hparam, "beta_init");
+        Initializer_t beta_init_type;
+        if (find_item_in_map(beta_init_type, beta_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.beta_init_type = beta_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + beta_init_name);
+        }
+      }
+      break;
+    }
+    case Layer_t::Dropout: {
+      auto rate_it = j_dense_layer.find("rate");
+      if (rate_it != j_dense_layer.end()) {
+        dense_layer.dropout_rate = rate_it->get<float>();
+      }
+      break;
+    }
+    case Layer_t::ELU: {
+      auto j_elu_hparam = get_json(j_dense_layer, "elu_param");
+      auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
+      dense_layer.elu_alpha = alpha;
+      break;
+    }
+    case Layer_t::FusedInnerProduct: {
+      auto j_fc_param = get_json(j_dense_layer, "fc_param");
+      if (has_key_(j_fc_param, "weight_init")) {
+        const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
+        Initializer_t weight_init_type;
+        if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.weight_init_type = weight_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+        }
+      }
+      if (has_key_(j_fc_param, "bias_init")) {
+        const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
+        Initializer_t bias_init_type;
+        if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.bias_init_type = bias_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+        }
+      }
+      // establish out tensor
+      auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
+      dense_layer.num_output = output;
+      break;
+    }
+    case Layer_t::InnerProduct: {
+      auto j_fc_param = get_json(j_dense_layer, "fc_param");
+      if (has_key_(j_fc_param, "weight_init")) {
+        const auto weight_init_name = get_value_from_json<std::string>(j_fc_param, "weight_init");
+        Initializer_t weight_init_type;
+        if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.weight_init_type = weight_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+        }
+      }
+      if (has_key_(j_fc_param, "bias_init")) {
+        const auto bias_init_name = get_value_from_json<std::string>(j_fc_param, "bias_init");
+        Initializer_t bias_init_type;
+        if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.bias_init_type = bias_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+        }
+      }
+      // establish out tensor
+      auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
+      dense_layer.num_output = output;
+      break;
+    }
+    case Layer_t::MultiCross: {
+      auto j_mc_param = get_json(j_dense_layer, "mc_param");
+      if (has_key_(j_mc_param, "weight_init")) {
+        const auto weight_init_name = get_value_from_json<std::string>(j_mc_param, "weight_init");
+        Initializer_t weight_init_type;
+        if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.weight_init_type = weight_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+        }
+      }
+      if (has_key_(j_mc_param, "bias_init")) {
+        const auto bias_init_name = get_value_from_json<std::string>(j_mc_param, "bias_init");
+        Initializer_t bias_init_type;
+        if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.bias_init_type = bias_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+        }
+      }
+      auto num_layers = get_value_from_json<int>(j_mc_param, "num_layers");
+      dense_layer.num_layers = num_layers;
+      break;
+    }
+    case Layer_t::Reshape: {
+      auto selected_it = j_dense_layer.find("selected");
+      if (selected_it != j_dense_layer.end()) {
+        std::vector<int> selected;
+        nlohmann::json j_selected = (selected_it.value());
+        for (auto slot_obj : j_selected) {
+          int slot_id = slot_obj.get<int>();
+          if (slot_id < 0) CK_THROW_(Error_t::WrongInput, "slot_id < 0");
+          selected.push_back(slot_id);
+        }
+        dense_layer.selected = true;
+        dense_layer.selected_slots = selected;
+      } else {
+        auto leading_dim = get_value_from_json<size_t>(j_dense_layer, "leading_dim");
+        dense_layer.selected = false;
+        dense_layer.leading_dim = leading_dim;
+      }
+      break;
+    }
+    case Layer_t::Slice: {
+      std::vector<std::pair<int, int>> ranges;
+      auto j_ranges = get_json(j_dense_layer, "ranges");
+      assert(j_ranges.is_array());
+      for (auto j_range : j_ranges) {
+        assert(j_range.is_array());
+        ranges.emplace_back(std::make_pair(j_range[0].get<int>(), j_range[1].get<int>()));
+      }
+      dense_layer.ranges = ranges;
+      break;
+    }
+    case Layer_t::WeightMultiply: {
+      std::vector<size_t> weight_dims;
+      auto dims = get_json(j_dense_layer, "weight_dims");
+      assert(dims.is_array());
+      for (auto dim : dims) {
+        weight_dims.emplace_back(dim.get<size_t>());
+      }
+      dense_layer.weight_dims = weight_dims;
+      if (has_key_(j_dense_layer, "weight_init")) {
+        const auto weight_init_name = get_value_from_json<std::string>(j_dense_layer, "weight_init");
+        Initializer_t weight_init_type;
+        if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.weight_init_type = weight_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+        }
+      }
+      break;
+    }
+    case Layer_t::FmOrder2: {
+      auto out_dim = get_json(j_dense_layer, "out_dim").get<size_t>();
+      dense_layer.out_dim = out_dim;
+      break;
+    }
+    case Layer_t::ReduceSum: {
+      int axis = get_json(j_dense_layer, "axis").get<int>();
+      dense_layer.axis = axis;
+      break;
+    }
+    case Layer_t::MultiCrossEntropyLoss: {
+      auto tweight = get_json(j_dense_layer, "target_weight");
+      std::vector<float> target_weight_vec;
+      for (auto tweight_tmp : tweight) {
+        float tweight_val = tweight_tmp.get<float>();
+        target_weight_vec.push_back(tweight_val);
+      }
+      dense_layer.target_weight_vec = target_weight_vec;
+      auto reg_it = j_dense_layer.find("regularizer");
+      if (reg_it != j_dense_layer.end()) {
+        Regularizer_t reg_type;
+        auto reg_name = reg_it->get<std::string>();
+        if (find_item_in_map(reg_type, reg_name, REGULARIZER_TYPE_MAP)) {
+          const auto lambda = get_value_from_json<float>(j_dense_layer, "lambda");
+          dense_layer.use_regularizer = true;
+          dense_layer.regularizer_type = reg_type;
+          dense_layer.lambda = lambda;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such regularizer: " + reg_name);
+        }
+      } else {
+        dense_layer.use_regularizer = false;
+      }
+      break;
+    }
+    case Layer_t::BinaryCrossEntropyLoss: {
+      auto reg_it = j_dense_layer.find("regularizer");
+      if (reg_it != j_dense_layer.end()) {
+        Regularizer_t reg_type;
+        auto reg_name = reg_it->get<std::string>();
+        if (find_item_in_map(reg_type, reg_name, REGULARIZER_TYPE_MAP)) {
+          const auto lambda = get_value_from_json<float>(j_dense_layer, "lambda");
+          dense_layer.use_regularizer = true;
+          dense_layer.regularizer_type = reg_type;
+          dense_layer.lambda = lambda;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such regularizer: " + reg_name);
+        }
+      } else {
+        dense_layer.use_regularizer = false;
+      }
+      break;
+    }
+    case Layer_t::CrossEntropyLoss: {
+      auto reg_it = j_dense_layer.find("regularizer");
+      if (reg_it != j_dense_layer.end()) {
+        Regularizer_t reg_type;
+        auto reg_name = reg_it->get<std::string>();
+        if (find_item_in_map(reg_type, reg_name, REGULARIZER_TYPE_MAP)) {
+          const auto lambda = get_value_from_json<float>(j_dense_layer, "lambda");
+          dense_layer.use_regularizer = true;
+          dense_layer.regularizer_type = reg_type;
+          dense_layer.lambda = lambda;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such regularizer: " + reg_name);
+        }
+      } else {
+        dense_layer.use_regularizer = false;
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+  return dense_layer;
+}
+
 struct InputOutputInfo {
   std::vector<TensorBag2> inputs;
   std::vector<std::string> output_names;
@@ -104,7 +578,6 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
   return reg;
 }
 
-
 void add_dense_layer_internal(DenseLayer& dense_layer,
                 std::vector<TensorEntry>& tensor_entries,
                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
@@ -124,6 +597,16 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
                 float scaler,
                 bool use_algorithm_search) {
   Layer_t layer_type = dense_layer.layer_type;
+  const auto& layer_type_to_string = use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
+  if (layer_type_to_string.find(layer_type) == layer_type_to_string.end()) {
+    if (use_mixed_precision) {
+      auto layer_type_name = LAYER_TYPE_TO_STRING[layer_type];
+      CK_THROW_(Error_t::WrongInput, "Mixed precision not supported for: " + layer_type_name);
+    } else {
+      auto layer_type_name = LAYER_TYPE_TO_STRING_MP[layer_type];
+      CK_THROW_(Error_t::WrongInput, "Single precision not supported for: " + layer_type_name);
+    }
+  }
   std::vector<TensorEntry> output_tensor_entries;
   auto input_output_info = get_input_tensor_and_output_name(dense_layer.bottom_names,
                                                             dense_layer.top_names,
@@ -363,12 +846,21 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
     case Layer_t::MultiCross: {
       std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type, dense_layer.bias_init_type};
       int num_layers = dense_layer.num_layers;
-      Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-      Tensor2<float> out_tensor;
-      blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
-      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-      layers.emplace_back(new MultiCrossLayer(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
-                                              out_tensor, gpu_resource, num_layers, initializer_types));
+      if (use_mixed_precision) {
+        Tensor2<__half> mc_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<__half> out_tensor;
+        blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        layers.emplace_back(new MultiCrossLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
+                                                out_tensor, gpu_resource, num_layers, initializer_types));
+      } else {
+        Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        layers.emplace_back(new MultiCrossLayer<float>(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
+                                                out_tensor, gpu_resource, num_layers, initializer_types));
+      }
       break;
     }
     case Layer_t::MultiCrossEntropyLoss: {
@@ -509,7 +1001,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type};
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> out_tensor;
-        layers.emplace_back(new WeightMultiplyLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
+        layers.emplace_back(new WeightMultiplyLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
                                               out_tensor, dense_layer.weight_dims, gpu_resource,
                                               initializer_types));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
@@ -517,7 +1009,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type};
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
-        layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, wgrad_buff, blobs_buff, in_tensor,
+        layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, in_tensor,
                                               out_tensor, dense_layer.weight_dims, gpu_resource,
                                               initializer_types));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});

@@ -24,6 +24,7 @@ namespace HugeCTR {
 /**
  * Adam optimizer
  */
+template <typename T>
 class AdamOptimizer : public Optimizer {
  public:
   /**
@@ -37,10 +38,8 @@ class AdamOptimizer : public Optimizer {
    * @param beta2 beta2 in Adam paper
    * @param epsilon epsilon in Adam paper
    */
-  AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
-                const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
-                const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                const std::shared_ptr<BufferBlock2<__half>>& opt_buf_half,
+  AdamOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
+                const std::shared_ptr<BufferBlock2<T>>& opt_buf,
                 const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
                 float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-7, float scaler = 1.f);
 
@@ -55,10 +54,9 @@ class AdamOptimizer : public Optimizer {
  private:
   // named as in Algorithm 1 of Adam paper (arXiv:1412.6980)
   // except that alpha is lr_ in class Optimizer
-  Tensor2<float> fp32_m_;
-  Tensor2<float> fp32_v_;
-  Tensor2<__half> fp16_m_;
-  Tensor2<__half> fp16_v_;
+  Tensor2<T> wgrad_;
+  Tensor2<T> m_;
+  Tensor2<T> v_;
   uint64_t t_;
   const float beta1_;
   const float beta2_;

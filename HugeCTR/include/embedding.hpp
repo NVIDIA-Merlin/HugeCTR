@@ -29,8 +29,8 @@ class IEmbedding {
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;
-  virtual void load_parameters(std::ifstream& stream) = 0;
-  virtual void dump_parameters(std::ofstream& stream) const = 0;
+  virtual void load_parameters(std::string sparse_model) = 0;
+  virtual void dump_parameters(std::string sparse_model) const = 0;
   virtual void set_learning_rate(float lr) = 0;
   virtual size_t get_params_num() const = 0;
   virtual size_t get_vocabulary_size() const = 0;
@@ -51,7 +51,6 @@ class IEmbedding {
   virtual cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) = 0;
 };
 
-template <typename TypeEmbeddingComp>
 struct SparseEmbeddingHashParams {
   size_t train_batch_size;  // batch size
   size_t evaluate_batch_size;
@@ -61,12 +60,48 @@ struct SparseEmbeddingHashParams {
   size_t max_feature_num;                   // max feature number of all input samples of all slots
   size_t slot_num;                          // slot number
   int combiner;                             // 0-sum, 1-mean
-  OptParams<TypeEmbeddingComp> opt_params;  // optimizer params
+  OptParams opt_params;  // optimizer params
+
+  size_t get_batch_size(bool is_train) const {
+    if (is_train) {
+      return train_batch_size;
+    } else {
+      return evaluate_batch_size;
+    }
+  }
+
+  size_t get_universal_batch_size() const {
+    return std::max(train_batch_size, evaluate_batch_size);
+  }
+
+  const Update_t& get_update_type() const {
+    return opt_params.update_type;
+  }
+
+  const Optimizer_t& get_optimizer() const {
+    return opt_params.optimizer;
+  }
+
+  OptParams& get_opt_params() {
+    return opt_params;
+  }
+
+  size_t get_embedding_vec_size() const { return embedding_vec_size; }
+
+  size_t get_max_feature_num() const { return max_feature_num; }
+
+  size_t get_slot_num() const { return slot_num; }
+
+  int get_combiner() const { return combiner; }
+
+  size_t get_max_vocabulary_size_per_gpu() const {
+    return max_vocabulary_size_per_gpu;
+  }
+
 };
 struct BufferBag {
   TensorBag2 keys;
   TensorBag2 slot_id;
   Tensor2<float> embedding;
 };
-
 }  // namespace HugeCTR

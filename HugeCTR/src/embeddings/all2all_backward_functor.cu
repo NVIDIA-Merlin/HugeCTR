@@ -18,7 +18,6 @@
 
 namespace HugeCTR {
 
-#ifdef NCCL_A2A
 #ifdef ENABLE_MPI
 
 /**
@@ -287,7 +286,4 @@ template void SparseEmbeddingFunctors::all2all_backward<__half>(
     const ResourceManager &resource_manager);
 
 #endif
-
-#endif
-
 }  // namespace HugeCTR

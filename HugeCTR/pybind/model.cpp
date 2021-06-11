@@ -15,35 +15,13 @@
  */
 
 #include <HugeCTR/pybind/model.hpp>
+#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
+
 #include <iomanip>
+
 namespace HugeCTR {
 
 namespace {
-std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
-  {Layer_t::BatchNorm, "BatchNorm"},
-  {Layer_t::BinaryCrossEntropyLoss, "BinaryCrossEntropyLoss"},
-  {Layer_t::Concat, "Concat"},
-  {Layer_t::CrossEntropyLoss, "CrossEntropyLoss"},
-  {Layer_t::Dropout, "Dropout"},
-  {Layer_t::ELU, "ELU"},
-  {Layer_t::InnerProduct, "InnerProduct"},
-  {Layer_t::Interaction, "Interaction"},
-  {Layer_t::MultiCrossEntropyLoss, "MultiCrossEntropyLoss"},
-  {Layer_t::ReLU, "ReLU"},
-  {Layer_t::Reshape, "Reshape"},
-  {Layer_t::Sigmoid, "Sigmoid"},
-  {Layer_t::Slice, "Slice"},
-  {Layer_t::WeightMultiply, "WeightMultiply"},
-  {Layer_t::FmOrder2, "FmOrder2"},
-  {Layer_t::Add, "Add"},
-  {Layer_t::ReduceSum, "ReduceSum"},
-  {Layer_t::MultiCross, "MultiCross"},
-  {Layer_t::DotProduct, "DotProduct"}};
-
-std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
-    {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedHash"},
-    {Embedding_t::LocalizedSlotSparseEmbeddingHash, "LocalizedHash"},
-    {Embedding_t::LocalizedSlotSparseEmbeddingOneHot, "LocalizedOneHot"}};
 /**
  * check if device is avaliable.
  * lowest avaliable CC is min_major.min_minor
@@ -51,6 +29,15 @@ std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
  * @param min_major minimum compute compatibility required
  * @param min_minor minimum compute compatibility required
  */
+
+static std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
+  std::stringstream ss(s);
+  std::string item;
+  while (std::getline(ss, item, delim)) {
+    elems.push_back(item);
+  }
+  return elems;
+}
 
 static std::string join(std::vector<std::string>& strs, std::string delim) {
   std::string str;
@@ -62,6 +49,19 @@ static std::string join(std::vector<std::string>& strs, std::string delim) {
     }
   }
   return str;
+}
+
+static std::string get_tensor_shape(std::string tensor_name, std::map<std::string, std::vector<size_t>> tensor_shape_info) {
+  std::string shape = "";
+  if (tensor_shape_info.find(tensor_name) != tensor_shape_info.end()) {
+    shape += "(None";
+    for (unsigned int i = 1; i < tensor_shape_info[tensor_name].size(); i++) {
+      shape += ", ";
+      shape += std::to_string(tensor_shape_info[tensor_name][i]);
+    }
+    shape += ")";
+  }
+  return shape;
 }
 
 static void check_device(int device_id, int min_major, int min_minor) {
@@ -89,27 +89,40 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 } // end namespace
 
-Input::Input(DataReaderType_t data_reader_type,
-       std::string source,
-       std::string eval_source,
-       Check_t check_type,
-       int cache_eval_data,
-       int label_dim,
+ModelOversubscriberParams::ModelOversubscriberParams(
+    bool _train_from_scratch, bool _use_host_memory_ps,
+    std::vector<std::string>& _trained_sparse_models,
+    std::vector<std::string>& _dest_sparse_models)
+  : use_model_oversubscriber(true), use_host_memory_ps(_use_host_memory_ps),
+    train_from_scratch(_train_from_scratch),
+    trained_sparse_models(_trained_sparse_models), dest_sparse_models(_dest_sparse_models) {}
+
+ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
+
+
+DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
+                                  std::vector<std::string> source,
+                                  std::vector<std::string> keyset,
+                                  std::string eval_source,
+                                  Check_t check_type,
+                                  int cache_eval_data,
+                                  long long num_samples,
+                                  long long eval_num_samples,
+                                  bool float_label_dense,
+                                  int num_workers,
+                                  std::vector<long long>& slot_size_array)
+    : data_reader_type(data_reader_type), source(source), keyset(keyset), eval_source(eval_source),
+      check_type(check_type), cache_eval_data(cache_eval_data), num_samples(num_samples), 
+      eval_num_samples(eval_num_samples), float_label_dense(float_label_dense),
+      num_workers(num_workers), slot_size_array(slot_size_array) {}
+
+Input::Input(int label_dim,
        std::string label_name,
        int dense_dim,
        std::string dense_name,
-       long long num_samples,
-       long long eval_num_samples,
-       bool float_label_dense,
-       int num_workers,
-       std::vector<long long>& slot_size_array,
        std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
        std::vector<std::string>& sparse_names)
-    : data_reader_type(data_reader_type), source(source), eval_source(eval_source),
-      check_type(check_type), cache_eval_data(cache_eval_data), label_dim(label_dim),
-      label_name(label_name), dense_dim(dense_dim), dense_name(dense_name),
-      num_samples(num_samples), eval_num_samples(eval_num_samples), float_label_dense(float_label_dense),
-      num_workers(num_workers), slot_size_array(slot_size_array),
+    : label_dim(label_dim), label_name(label_name), dense_dim(dense_dim), dense_name(dense_name),
       data_reader_sparse_param_array(data_reader_sparse_param_array), sparse_names(sparse_names) {
   if (data_reader_sparse_param_array.size() != sparse_names.size()) {
     CK_THROW_(Error_t::WrongInput, "Inconsistent size of sparse hyperparameters and sparse names!");
@@ -122,11 +135,12 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type,
        int combiner,
        std::string sparse_embedding_name,
        std::string bottom_name,
-       std::vector<size_t>& slot_size_array)
+       std::vector<size_t>& slot_size_array,
+       std::shared_ptr<OptParamsPy>& embedding_opt_params)
     : embedding_type(embedding_type), max_vocabulary_size_per_gpu(max_vocabulary_size_per_gpu),
       embedding_vec_size(embedding_vec_size), combiner(combiner),
       sparse_embedding_name(sparse_embedding_name), bottom_name(bottom_name),
-      slot_size_array(slot_size_array) {}
+      slot_size_array(slot_size_array), embedding_opt_params(embedding_opt_params) {}
 
 DenseLayer::DenseLayer(Layer_t layer_type,
             std::vector<std::string>& bottom_names,
@@ -143,12 +157,12 @@ DenseLayer::DenseLayer(Layer_t layer_type,
             int num_layers,
             size_t leading_dim,
             bool selected,
-            std::vector<int>& selected_slots,
-            std::vector<std::pair<int, int>>& ranges,
-            std::vector<size_t>& weight_dims,
+            std::vector<int> selected_slots,
+            std::vector<std::pair<int, int>> ranges,
+            std::vector<size_t> weight_dims,
             size_t out_dim,
             int axis,
-            std::vector<float>& target_weight_vec,
+            std::vector<float> target_weight_vec,
             bool use_regularizer,
             Regularizer_t regularizer_type,
             float lambda) 
@@ -161,10 +175,40 @@ DenseLayer::DenseLayer(Layer_t layer_type,
       out_dim(out_dim), axis(axis), target_weight_vec(target_weight_vec),
       use_regularizer(use_regularizer), regularizer_type(regularizer_type), lambda(lambda) {}
 
-Model::Model(const SolverParser& solver, std::shared_ptr<OptParamsBase>& opt_params)
-  : solver_(solver) {
-  std::cout << "===================================Model Init====================================" << std::endl;
-  resource_manager_ = ResourceManager::create(solver.vvgpu, solver.seed);
+void init_optimizer(OptParams& opt_params, const Solver& solver, const std::shared_ptr<OptParamsPy>& opt_params_py) {
+  opt_params.optimizer = opt_params_py->optimizer;
+  opt_params.lr = solver.lr;
+  opt_params.update_type = opt_params_py->update_type;
+  opt_params.scaler = solver.scaler;
+  opt_params.hyperparams.adam.beta1 = opt_params_py->hyperparams.adam.beta1;
+  opt_params.hyperparams.adam.beta2 = opt_params_py->hyperparams.adam.beta2;
+  opt_params.hyperparams.adam.epsilon = opt_params_py->hyperparams.adam.epsilon;
+  opt_params.hyperparams.adagrad.initial_accu_value = opt_params_py->hyperparams.adagrad.initial_accu_value;
+  opt_params.hyperparams.adagrad.epsilon = opt_params_py->hyperparams.adagrad.epsilon;
+  opt_params.hyperparams.momentum.factor = opt_params_py->hyperparams.momentum.factor;
+  opt_params.hyperparams.nesterov.mu = opt_params_py->hyperparams.nesterov.mu;
+  opt_params.hyperparams.sgd.atomic_update = opt_params_py->hyperparams.sgd.atomic_update;
+}
+
+void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch, const Solver& solver) {
+  lr_sch.reset(new LearningRateScheduler(solver.lr, solver.warmup_steps, solver.decay_start,
+                                        solver.decay_steps, solver.decay_power, solver.end_lr));
+}
+
+Model::Model(const Solver& solver, const DataReaderParams& reader_params,
+            std::shared_ptr<OptParamsPy>& opt_params_py,
+            std::shared_ptr<ModelOversubscriberParams>& mos_params)
+  : solver_(solver), reader_params_(reader_params), opt_params_py_(opt_params_py), mos_params_(mos_params),
+  data_reader_train_status_(false), data_reader_eval_status_(false), buff_allocated_(false),
+  mos_created_(false), is_embedding_trainable_(true), is_dense_trainable_(true) {
+  int __PID(0);
+#ifdef ENABLE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
+#endif
+  if (__PID == 0) {
+    std::cout << "====================================================Model Init=====================================================" << std::endl;
+  }
+  resource_manager_ = ResourceManagerExt::create(solver.vvgpu, solver.seed);
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_.use_mixed_precision) {
       check_device(dev, 7, 0);  // to support mixed precision training earliest supported device is CC=70
@@ -172,8 +216,14 @@ Model::Model(const SolverParser& solver, std::shared_ptr<OptParamsBase>& opt_par
       check_device(dev, 6, 0);  // earliest supported device is CC=60
     }
   }
-  if (solver.use_mixed_precision != opt_params->use_mixed_precision) {
-    CK_THROW_(Error_t::WrongInput, "whether to use mixed precision should be consistent across solver and optimizer");
+  if (reader_params_.source.size() < 1 || reader_params_.eval_source.empty()) {
+    CK_THROW_(Error_t::WrongInput, " The data source for training and evaluation should be specified");
+  }
+  if (mos_params_->use_model_oversubscriber && solver_.repeat_dataset) {
+    CK_THROW_(Error_t::WrongInput, "The model oversubscriber can only be used under epoch mode, i.e., repeat_dataset is set False");
+  }
+  if (mos_params_->use_model_oversubscriber && reader_params_.keyset.size() != reader_params_.source.size()) {
+    CK_THROW_(Error_t::WrongInput, "The number of keyset files must equal that of training data source when using model oversubscriber");
   }
   int total_gpu_count = resource_manager_->get_global_gpu_count();
   if (0 != solver_.batchsize % total_gpu_count) {
@@ -207,25 +257,8 @@ Model::Model(const SolverParser& solver, std::shared_ptr<OptParamsBase>& opt_par
   evaluate_tensor_entries_list_.resize(resource_manager_->get_local_gpu_count());
 
   // initialize optimizer
-  if (solver_.use_mixed_precision) {
-    OptParamsPy<__half>* opt_params_py = dynamic_cast<OptParamsPy<__half>*>(opt_params.get());
-    opt_params_16_.optimizer = opt_params_py->optimizer;
-    opt_params_16_.lr = opt_params_py->lr;
-    opt_params_16_.update_type = opt_params_py->update_type;
-    opt_params_16_.scaler = solver_.scaler;
-    opt_params_16_.hyperparams = opt_params_py->hyperparams;
-    lr_sch_.reset(new LearningRateScheduler(opt_params_py->lr, opt_params_py->warmup_steps, opt_params_py->decay_start,
-                                            opt_params_py->decay_steps, opt_params_py->decay_power, opt_params_py->end_lr));
-  } else {
-    OptParamsPy<float>* opt_params_py = dynamic_cast<OptParamsPy<float>*>(opt_params.get());
-    opt_params_32_.optimizer = opt_params_py->optimizer;
-    opt_params_32_.lr = opt_params_py->lr;
-    opt_params_32_.update_type = opt_params_py->update_type;
-    opt_params_32_.scaler = solver_.scaler;
-    opt_params_32_.hyperparams = opt_params_py->hyperparams;
-    lr_sch_.reset(new LearningRateScheduler(opt_params_py->lr, opt_params_py->warmup_steps, opt_params_py->decay_start,
-                                            opt_params_py->decay_steps, opt_params_py->decay_power, opt_params_py->end_lr));
-  }
+  init_optimizer(opt_params_, solver_, opt_params_py);
+  init_learning_rate_scheduler(lr_sch_, solver_);
 }
 
 Model::~Model() {
@@ -234,7 +267,6 @@ Model::~Model() {
       CudaDeviceContext context(device);
       CK_CUDA_THROW_(cudaDeviceSynchronize());
     }
-
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   } catch (const std::exception& err) {
@@ -242,69 +274,134 @@ Model::~Model() {
   }
 }
 
+void Model::graph_to_json(std::string graph_config_file) {
+  nlohmann::json graph_config;
+  std::ofstream file_stream(graph_config_file);
+  nlohmann::json layer_config_array = nlohmann::json::array();
+  if (solver_.use_mixed_precision) {
+    save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_, input_params_, embedding_opt_params_list_);
+  } else {
+    save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_, input_params_, embedding_opt_params_list_);
+  }
+  graph_config["layers"] = layer_config_array;
+  file_stream << std::setw(2) << graph_config;
+  file_stream.close();
+  MESSAGE_("Save the model graph to " + graph_config_file + ", successful");
+}
+
+void Model::construct_from_json(const std::string& graph_config_file, bool include_dense_network) {
+  nlohmann::json graph_config = read_json_file(graph_config_file);
+  auto j_layers_array = get_json(graph_config, "layers");
+  const nlohmann::json& j_input = j_layers_array[0];
+  Input input = get_input_from_json(j_input);
+  add(input);
+
+  unsigned int dense_layer_start_index = 1;
+  for (unsigned int i = 1; i < j_layers_array.size(); i++) {
+    const nlohmann::json& j = j_layers_array[i];
+    Embedding_t embedding_type;
+    auto embedding_type_name = get_value_from_json<std::string>(j, "type");
+    if (!find_item_in_map(embedding_type, embedding_type_name, EMBEDDING_TYPE_MAP)) {
+      dense_layer_start_index = i;
+      break;
+    }
+    SparseEmbedding sparse_embedding = get_sparse_embedding_from_json(j);
+    add(sparse_embedding);
+  }
+
+  if (include_dense_network) {
+    for (unsigned int i = dense_layer_start_index; i < j_layers_array.size(); i++) {
+      const nlohmann::json& j = j_layers_array[i];
+      Layer_t layer_type;
+      auto layer_type_name = get_value_from_json<std::string>(j, "type");
+      if (!find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP) &&
+          !find_item_in_map(layer_type, layer_type_name, LAYER_TYPE_MAP_MP)) {
+        CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
+      }
+      DenseLayer dense_layer = get_dense_layer_from_json(j);
+      add(dense_layer);
+    }
+  }
+
+  MESSAGE_("Load the model graph from " + graph_config_file + ", successful");
+}
+
 void Model::add(Input& input) {
+  input_params_.push_back(input);
   activate_tensor(tensor_active_, input.label_name);
   activate_tensor(tensor_active_, input.dense_name);
   data_input_info_.push_back(input.label_name);
   data_input_info_.push_back(input.dense_name);
-  data_input_info_.push_back(join(input.sparse_names, ", "));
+  data_input_info_.push_back(join(input.sparse_names, ","));
   for (unsigned int i = 0; i < input.sparse_names.size(); i++) {
     activate_tensor(tensor_active_, input.sparse_names[i]);
   }
   if (solver_.i64_input_key) {
-    add_input<long long>(input, sparse_input_map_64_, train_tensor_entries_list_,
+    add_input<long long>(input, reader_params_, sparse_input_map_64_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, train_data_reader_,
                         evaluate_data_reader_, solver_.batchsize,
                         solver_.batchsize_eval, solver_.use_mixed_precision, 
-                        solver_.num_epochs < 1, resource_manager_);
+                        solver_.repeat_dataset, resource_manager_);
   } else {
-    add_input<unsigned int>(input, sparse_input_map_32_, train_tensor_entries_list_,
+    add_input<unsigned int>(input, reader_params_, sparse_input_map_32_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, train_data_reader_,
                         evaluate_data_reader_, solver_.batchsize,
                         solver_.batchsize_eval, solver_.use_mixed_precision, 
-                        solver_.num_epochs < 1, resource_manager_);
+                        solver_.repeat_dataset, resource_manager_);
   }
 }
 
 void Model::add(SparseEmbedding& sparse_embedding) {
+  sparse_embedding_params_.push_back(sparse_embedding);
   deactivate_tensor(tensor_active_, sparse_embedding.bottom_name);
   activate_tensor(tensor_active_, sparse_embedding.sparse_embedding_name);
   input_output_info_.push_back(std::make_pair(sparse_embedding.bottom_name, sparse_embedding.sparse_embedding_name));
   layer_info_.push_back(EMBEDDING_TYPE_TO_STRING[sparse_embedding.embedding_type]);
+  OptParams embedding_opt_params;
+  if (!(sparse_embedding.embedding_opt_params)->initialized) {
+    sparse_embedding.embedding_opt_params = opt_params_py_;
+  }
+  embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
+  init_optimizer(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
   if (solver_.i64_input_key && !solver_.use_mixed_precision) {
     add_sparse_embedding<long long, float>(sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, opt_params_32_);
+                        solver_.batchsize_eval, embedding_opt_params);
   } else if (solver_.i64_input_key && solver_.use_mixed_precision) {
     add_sparse_embedding<long long, __half>(sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, opt_params_16_);
+                        solver_.batchsize_eval, embedding_opt_params);
   } else if (!solver_.i64_input_key && !solver_.use_mixed_precision) {
     add_sparse_embedding<unsigned int, float>(sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, opt_params_32_);
+                        solver_.batchsize_eval, embedding_opt_params);
   } else {
     add_sparse_embedding<unsigned int, __half>(sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
                         evaluate_tensor_entries_list_, embeddings_,
                         resource_manager_, solver_.batchsize,
-                        solver_.batchsize_eval, opt_params_16_);
+                        solver_.batchsize_eval, embedding_opt_params);
   }
 }
 
 void Model::add(DenseLayer& dense_layer) {
+  dense_layer_params_.push_back(dense_layer);
   for (auto bottom_name : dense_layer.bottom_names) {
     deactivate_tensor(tensor_active_, bottom_name);
   }
   for (auto top_name : dense_layer.top_names) {
     activate_tensor(tensor_active_, top_name);
   }
-  std::string input_names = join(dense_layer.bottom_names, ", ");
-  std::string output_names = join(dense_layer.top_names, ", ");
+  std::string input_names = join(dense_layer.bottom_names, ",");
+  std::string output_names = join(dense_layer.top_names, ",");
   input_output_info_.push_back(std::make_pair(input_names, output_names));
-  layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
+  if (solver_.use_mixed_precision) {
+    layer_info_.push_back(LAYER_TYPE_TO_STRING_MP[dense_layer.layer_type]);
+  } else {
+    layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
+  }
   add_dense_layer(dense_layer, train_tensor_entries_list_, evaluate_tensor_entries_list_,
                 resource_manager_, solver_.use_mixed_precision, solver_.enable_tf32_compute,
                 solver_.scaler, solver_.use_algorithm_search, solver_.use_cuda_graph,
@@ -315,12 +412,29 @@ void Model::add(DenseLayer& dense_layer) {
 }
 
 void Model::compile() {
+  if (data_input_info_.size() < 3 || layer_info_.size() < 2) {
+    CK_THROW_(Error_t::IllegalCall, "The model should include input and at least two layers");
+  }
+  int __PID(0);
+#ifdef ENABLE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
+#endif
+  if (__PID == 0) {
+    std::cout << "===================================================Model Compile===================================================" << std::endl;
+  }
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    networks_[i]->optimizer_ = std::move(Optimizer::Create(
-        opt_params_32_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
-        wgrad_buff_half_list_[i]->as_tensor(), solver_.use_mixed_precision,
-        solver_.scaler, opt_buff_list_[i], opt_buff_half_list_[i],
-        resource_manager_->get_local_gpu(i)));
+    if(solver_.use_mixed_precision){
+      networks_[i]->optimizer_ = std::move(Optimizer::Create(
+      opt_params_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_half_list_[i]->as_tensor(),
+      solver_.scaler, opt_buff_half_list_[i], 
+      resource_manager_->get_local_gpu(i)));
+    }else {
+      networks_[i]->optimizer_ = std::move(Optimizer::Create(
+      opt_params_, train_weight_buff_list_[i]->as_tensor(), wgrad_buff_list_[i]->as_tensor(),
+      solver_.scaler, opt_buff_list_[i], 
+      resource_manager_->get_local_gpu(i)));
+    }
+    
 
     networks_[i]->train_weight_tensor_ = train_weight_buff_list_[i]->as_tensor();
     networks_[i]->train_weight_tensor_half_ = train_weight_buff_half_list_[i]->as_tensor();
@@ -333,6 +447,7 @@ void Model::compile() {
     CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
     blobs_buff_list_[i]->allocate();
   }
+  buff_allocated_ = true;
 #ifndef DATA_READING_TEST
   for (auto& network : networks_) {
     network->initialize();
@@ -343,18 +458,14 @@ void Model::compile() {
     }
   }
 #endif
-
-  init_or_load_params_for_dense_(solver_.model_file);
-  if (solver_.use_model_oversubscriber) {
-    if (solver_.use_mixed_precision) {
-      model_oversubscriber_ = create_model_oversubscriber_<__half>();
-    } else {
-      model_oversubscriber_ = create_model_oversubscriber_<float>();
-    }
-  } else {
-    init_or_load_params_for_sparse_(solver_.embedding_files);
+  init_params_for_dense_();
+  init_params_for_sparse_();
+  if (mos_params_->use_model_oversubscriber && mos_params_->train_from_scratch) {
+    init_model_oversubscriber_(mos_params_->use_host_memory_ps, mos_params_->dest_sparse_models);
   }
-
+  if (mos_params_->use_model_oversubscriber && !mos_params_->train_from_scratch) {
+    init_model_oversubscriber_(mos_params_->use_host_memory_ps, mos_params_->trained_sparse_models);
+  }
   int num_total_gpus = resource_manager_->get_global_gpu_count();
   for (const auto& metric : solver_.metrics_spec) {
     metrics_.emplace_back(
@@ -364,60 +475,173 @@ void Model::compile() {
   }
 }
 
-void Model::summary() {
-  std::cout << "==================================Model Summary==================================" << std::endl;
-  std::cout << std::left << std::setw(30) << std::setfill(' ') << "Label Name"
-       << std::left << std::setw(30) << std::setfill(' ') << "Dense Name"
-       << std::left << std::setw(30) << std::setfill(' ') << "Sparse Name"
-       << std::endl;
-  std::cout << std::left << std::setw(30) << std::setfill(' ') << data_input_info_[0]
-    << std::left << std::setw(30) << std::setfill(' ') << data_input_info_[1]
-    << std::left << std::setw(30) << std::setfill(' ') << data_input_info_[2]
-    << std::endl;
-  std::cout << "--------------------------------------------------------------------------------" << std::endl;
-  std::cout << std::left << std::setw(30) << std::setfill(' ') << "Layer Type"
-       << std::left << std::setw(30) << std::setfill(' ') << "Input Name"
-       << std::left << std::setw(30) << std::setfill(' ') << "Output Name"
-       << std::endl;
-  std::cout << "--------------------------------------------------------------------------------" << std::endl;
-  for (size_t i = 0; i < layer_info_.size(); ++i) {
-    std::cout << std::left << std::setw(30) << std::setfill(' ') << layer_info_[i]
-        << std::left << std::setw(30) << std::setfill(' ') << input_output_info_[i].first
-        << std::left << std::setw(30) << std::setfill(' ') << input_output_info_[i].second
-        << std::endl;
+void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file) {
+  if (!buff_allocated_) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot load the dense optimizer states before calling Model.compile()");
   }
-  std::cout << "--------------------------------------------------------------------------------" << std::endl;
+  load_opt_states_for_dense_(dense_opt_states_file);
 }
 
-void Model::fit() {
+void Model::load_sparse_optimizer_states(const std::vector<std::string>& sparse_opt_states_files) {
+  if (!buff_allocated_) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot load the sparse optimizer states before calling Model.compile()");
+  }
+  if (mos_params_->use_model_oversubscriber) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot load the sparse optimizer states after model oversubscriber is created");
+  }
+  load_opt_states_for_sparse_(sparse_opt_states_files);
+}
+
+void Model::load_dense_weights(const std::string& dense_model_file) {
+  if (!buff_allocated_) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot load the dense weights before calling Model.compile()");
+  }
+  load_params_for_dense_(dense_model_file);
+}
+
+void Model::load_sparse_weights(const std::vector<std::string>& sparse_embedding_files) {
+  if (!buff_allocated_) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot load the sparse weights before calling Model.compile()");
+  }
+  if (mos_params_->use_model_oversubscriber) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot load the sparse weights after model oversubscriber is created");
+  }
+  load_params_for_sparse_(sparse_embedding_files);
+}
+
+void Model::summary() {
+  if (data_input_info_.size() < 3 || layer_info_.size() < 2) {
+    CK_THROW_(Error_t::IllegalCall, "The model should include input and at least two layers");
+  }
+  for (auto tensor_entry:train_tensor_entries_list_[0]) {
+    tensor_shape_info_.insert(std::make_pair(tensor_entry.name, tensor_entry.bag.get_dimensions()));
+  }
+  int __PID(0);
+#ifdef ENABLE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
+#endif
+  if (__PID == 0) {
+    std::cout << "===================================================Model Summary===================================================" << std::endl;
+    std::cout << std::left << std::setw(40) << std::setfill(' ') << "Label"
+        << std::left << std::setw(30) << std::setfill(' ') << "Dense"
+        << std::left << std::setw(30) << std::setfill(' ') << "Sparse"
+        << std::endl;
+    std::cout << std::left << std::setw(40) << std::setfill(' ') << data_input_info_[0] 
+      << std::left << std::setw(30) << std::setfill(' ') << data_input_info_[1] << " "
+      << std::left << std::setw(30) << std::setfill(' ') << data_input_info_[2]
+      << std::endl;
+    std::cout << std::left << std::setw(40) << std::setfill(' ') << get_tensor_shape(data_input_info_[0], tensor_shape_info_)
+      << std::left << std::setw(40) << std::setfill(' ') << get_tensor_shape(data_input_info_[1], tensor_shape_info_)
+      << std::endl;
+    std::cout << "------------------------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << std::left << std::setw(40) << std::setfill(' ') << "Layer Type"
+        << std::left << std::setw(30) << std::setfill(' ') << "Input Name"
+        << std::left << std::setw(30) << std::setfill(' ') << "Output Name"
+        << std::left << std::setw(30) << std::setfill(' ') << "Output Shape"
+        << std::endl;
+    std::cout << "------------------------------------------------------------------------------------------------------------------" << std::endl;
+    for (size_t i = 0; i < layer_info_.size(); ++i) {
+      std::cout << std::left << std::setw(40) << std::setfill(' ') << layer_info_[i]
+          << std::left << std::setw(30) << std::setfill(' ') << input_output_info_[i].first
+          << std::left << std::setw(30) << std::setfill(' ') << input_output_info_[i].second
+          << std::left << std::setw(30) << std::setfill(' ') << get_tensor_shape(input_output_info_[i].second, tensor_shape_info_)
+          << std::endl;
+    }
+    std::cout << "------------------------------------------------------------------------------------------------------------------" << std::endl;
+  }
+}
+
+
+void Model::set_source(std::vector<std::string> source, std::vector<std::string> keyset, std::string eval_source) {
+  if (solver_.repeat_dataset || !mos_params_->use_model_oversubscriber) {
+    CK_THROW_(Error_t::IllegalCall, "The set source method can only be used under the model oversubscription mode");
+  }
+  if (source.size() != keyset.size()) {
+    CK_THROW_(Error_t::WrongInput, "The number of training data sources should equal that of the keyset files");
+  }
+  reader_params_.source.assign(source.begin(), source.end());
+  reader_params_.keyset.assign(keyset.begin(), keyset.end());
+  reader_params_.eval_source.assign(eval_source);
+}
+
+void Model::set_source(std::string source, std::string eval_source) {
+  if (solver_.repeat_dataset || mos_params_->use_model_oversubscriber) {
+    CK_THROW_(Error_t::IllegalCall, "The set source method can only be used under the epoch mode");
+  }
+  std::vector<std::string>().swap(reader_params_.source);
+  reader_params_.source.push_back(source);
+  reader_params_.eval_source.assign(eval_source);
+}
+
+void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
+              int snapshot, std::string snapshot_prefix) {
+  if (!buff_allocated_) {
+    CK_THROW_(Error_t::IllegalCall, "Cannot start the training process before calling Model.compile()");
+  }
+  if (solver_.repeat_dataset && max_iter <= 0) {
+    CK_THROW_(Error_t::WrongInput, "Require max_iter>0 under non-epoch mode");
+  }
+  if (!solver_.repeat_dataset && !mos_params_->use_model_oversubscriber && num_epochs <= 0) {
+    CK_THROW_(Error_t::WrongInput, "Require num_epochs>0 under epoch mode");
+  }
+  if (mos_params_->use_model_oversubscriber && !mos_created_) {
+    CK_THROW_(Error_t::IllegalCall, "The model oversubscriber should be created first");
+  }
   HugeCTR::Timer timer_train;
   HugeCTR::Timer timer_eval;
   timer_train.start();
-  bool epoch_mode = solver_.num_epochs > 0;
-  std::cout << "=====================================Model Fit====================================" << std::endl;
-  if (epoch_mode) {
-    MESSAGE_("Use epoch mode with number of epochs: " + std::to_string(solver_.num_epochs));
+  bool epoch_mode = !solver_.repeat_dataset;
+  bool mos_mode = mos_params_->use_model_oversubscriber;
+  int mos_epochs = num_epochs<1?1:num_epochs;
+  int __PID(0);
+#ifdef ENABLE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
+#endif
+  if (__PID == 0) {
+    std::cout << "=====================================================Model Fit=====================================================" << std::endl;
+  }
+  if (epoch_mode && !mos_mode) {
+    MESSAGE_("Use epoch mode with number of epochs: " + std::to_string(num_epochs));
+  } else if (epoch_mode && mos_mode) {
+    MESSAGE_("Use model oversubscriber mode with number of training sources: " + std::to_string(reader_params_.source.size()) + ", number of epochs: " + std::to_string(mos_epochs));
   } else {
-    MESSAGE_("Use non-epoch mode with number of iterations: " + std::to_string(solver_.max_iter));
+    MESSAGE_("Use non-epoch mode with number of iterations: " + std::to_string(max_iter));
   }
   MESSAGE_("Training batchsize: " + std::to_string(solver_.batchsize) 
          + ", evaluation batchsize: " + std::to_string(solver_.batchsize_eval));
-  MESSAGE_("Evaluation interval: " + std::to_string(solver_.eval_interval) 
-        + ", snapshot interval: " + std::to_string(solver_.snapshot));
-  if (epoch_mode) {
+  MESSAGE_("Evaluation interval: " + std::to_string(eval_interval) 
+         + ", snapshot interval: " + std::to_string(snapshot));
+  MESSAGE_("Sparse embedding trainable: " + std::to_string(is_embedding_trainable_) 
+         + ", dense network trainable: " + std::to_string(is_dense_trainable_));
+  MESSAGE_("Use mixed precision: " + std::to_string(solver_.use_mixed_precision) 
+         + ", scaler: " + std::to_string(solver_.scaler)
+         + ", use cuda graph: " + std::to_string(solver_.use_cuda_graph));
+  MESSAGE_("lr: " + std::to_string(solver_.lr)
+         + ", warmup_steps: " + std::to_string(solver_.warmup_steps)
+         + ", decay_start: " + std::to_string(solver_.decay_start)
+         + ", decay_steps: " + std::to_string(solver_.decay_steps)
+         + ", decay_power: " + std::to_string(solver_.decay_power)
+         + ", end_lr: " + std::to_string(solver_.end_lr));
+  if (epoch_mode && !mos_mode) {
     int iter = 0;
+    int batches;
+    auto data_reader_train = this->get_train_data_reader();
     auto data_reader_eval = this->get_evaluate_data_reader();
-    data_reader_eval->set_source();
-    for (int e = 0; e < solver_.num_epochs; e++) {
-      std::cout << "--------------------Epoch " << e << "--------------------" << std::endl;
-      bool train_reader_flag = false;
-      auto data_reader_train = this->get_train_data_reader();
-      data_reader_train->set_source();
+    if (!data_reader_eval_status_) {
+      data_reader_eval->set_source(reader_params_.eval_source);
+      data_reader_eval_status_ = true;
+    }
+    MESSAGE_("Training source file: " + reader_params_.source[0]);
+    MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+    for (int e = 0; e < num_epochs; e++) {
+      MESSAGE_("-----------------------------------Epoch " + std::to_string(e) + "-----------------------------------");
+      data_reader_train->set_source(reader_params_.source[0]);
+      data_reader_train_status_ = true;
       do {
         float lr = lr_sch_->get_next();
         this->set_learning_rate(lr);
-        train_reader_flag = this->train();
-        if (solver_.display > 0 && iter % solver_.display == 0 && iter != 0) {
+        data_reader_train_status_ = this->train();
+        if (display > 0 && iter % display == 0 && iter != 0) {
           timer_train.stop();
           float loss = 0;
           this->get_current_loss(&loss);
@@ -426,26 +650,24 @@ void Model::fit() {
                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
           }
           MESSAGE_("Iter: " + std::to_string(iter) + " Time(" +
-                  std::to_string(solver_.display) +
+                  std::to_string(display) +
                   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
                   "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
           timer_train.start();
         }
-        if (solver_.eval_interval > 0 && iter % solver_.eval_interval == 0 && iter != 0) {
-          this->check_overflow();
-          this->copy_weights_for_evaluation();
-          int batches = 0;
-          bool eval_reader_flag = true;
+        if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+          batches = 0;
           timer_eval.start();
-          while (eval_reader_flag) {
+          while (data_reader_eval_status_) {
             if (solver_.max_eval_batches == 0 || batches >= solver_.max_eval_batches) {
               break;
             }
-            eval_reader_flag = this->eval();
+            data_reader_eval_status_ = this->eval();
             batches++;
           }
-          if (eval_reader_flag == false) {
-            data_reader_eval->set_source();
+          if (!data_reader_eval_status_) {
+            data_reader_eval->set_source(reader_params_.eval_source);
+            data_reader_eval_status_ = true;
           }
           timer_eval.stop();
           auto eval_metrics = this->get_eval_metrics();
@@ -455,19 +677,82 @@ void Model::fit() {
           MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
             " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
         }
-        if (solver_.snapshot > 0 && iter % solver_.snapshot == 0 && iter != 0) {
-          this->download_params_to_files(solver_.snapshot_prefix, iter);
+        if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
+          this->download_params_to_files(snapshot_prefix, iter);
         }
         iter++;
-      } while (train_reader_flag);
+      } while (data_reader_train_status_);
+    } // end for epoch
+  } else if (epoch_mode && mos_mode) {
+    int iter = 0;
+    int batches;
+    auto data_reader_train = this->get_train_data_reader();
+    auto data_reader_eval = this->get_evaluate_data_reader();
+    auto model_oversubscriber = this->get_model_oversubscriber();
+    if (!data_reader_eval_status_) {
+      data_reader_eval->set_source(reader_params_.eval_source);
+      data_reader_eval_status_ = true;
+    }
+    MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+    for (int e = 0; e < mos_epochs; e++) {
+      for (unsigned int f = 0; f < reader_params_.source.size(); f++) {
+        MESSAGE_("--------------------Epoch " + std::to_string(e) + ", source file: " + reader_params_.source[f] + "--------------------");
+        data_reader_train->set_source(reader_params_.source[f]);
+        data_reader_train_status_ = true;
+        model_oversubscriber->update(reader_params_.keyset[f]);
+        do {
+          float lr = lr_sch_->get_next();
+          this->set_learning_rate(lr);
+          data_reader_train_status_ = this->train();
+          if (display > 0 && iter % display == 0 && iter != 0) {
+            timer_train.stop();
+            float loss = 0;
+            this->get_current_loss(&loss);
+            if (isnan(loss)) {
+              throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") +
+                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+            }
+            MESSAGE_("Iter: " + std::to_string(iter) + " Time(" +
+                    std::to_string(display) +
+                    " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                    "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+            timer_train.start();
+          }
+          if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+            batches = 0;
+            timer_eval.start();
+            while (data_reader_eval_status_) {
+              if (solver_.max_eval_batches == 0 || batches >= solver_.max_eval_batches) {
+                break;
+              }
+              data_reader_eval_status_ = this->eval();
+              batches++;
+            }
+            if (!data_reader_eval_status_) {
+              data_reader_eval->set_source(reader_params_.eval_source);
+              data_reader_eval_status_ = true;
+            }
+            timer_eval.stop();
+            auto eval_metrics = this->get_eval_metrics();
+            for (auto& eval_metric : eval_metrics) {
+              MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+            }
+            MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
+              " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+          }
+          iter++;
+        } while (data_reader_train_status_);
+      } // end for file list
     } // end for epoch
   } else {
+    MESSAGE_("Training source file: " + reader_params_.source[0]);
+    MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
     this->start_data_reading();
-    for (int iter = 0; iter < solver_.max_iter; iter++) {
+    for (int iter = 0; iter < max_iter; iter++) {
       float lr = lr_sch_->get_next();
       this->set_learning_rate(lr);
       this->train();
-      if (solver_.display > 0 && iter % solver_.display == 0 && iter != 0) {
+      if (display > 0 && iter % display == 0 && iter != 0) {
         timer_train.stop();
         float loss = 0;
         this->get_current_loss(&loss);
@@ -475,14 +760,12 @@ void Model::fit() {
           throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
                                    __FILE__ + ":" + std::to_string(__LINE__) + " \n");
         }
-        MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(solver_.display) +
+        MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
                 " iters): " + std::to_string(timer_train.elapsedSeconds()) +
                 "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
         timer_train.start();
       }
-      if (solver_.eval_interval > 0 && iter % solver_.eval_interval == 0 && iter != 0) {
-        this->check_overflow();
-        this->copy_weights_for_evaluation();
+      if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
         timer_eval.start();
         for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
           this->eval();
@@ -495,8 +778,8 @@ void Model::fit() {
         MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
           " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
       }
-      if (solver_.snapshot > 0 && iter % solver_.snapshot == 0 && iter != 0) {
-        this->download_params_to_files(solver_.snapshot_prefix, iter);
+      if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
+        this->download_params_to_files(snapshot_prefix, iter);
       }
     } // end for iter
   } // end if else
@@ -506,7 +789,7 @@ bool Model::train() {
   try {
     if (train_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall,
-                "Start the data reader first before calling Session::train()");
+                "Start the data reader first before calling Model::train()");
     }
 #ifndef DATA_READING_TEST
     long long current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release();
@@ -560,8 +843,10 @@ bool Model::train() {
 bool Model::eval() {
   try {
     if (evaluate_data_reader_ == nullptr) return true;
+    this->check_overflow();
+    this->copy_weights_for_evaluation();
     if (evaluate_data_reader_->is_started() == false) {
-      CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Session::eval()");
+      CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::eval()");
     }
     long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device();
     for (auto& metric : metrics_) {
@@ -608,6 +893,71 @@ bool Model::eval() {
   }
 }
 
+Error_t Model::export_predictions(const std::string& output_prediction_file_name, const std::string& output_label_file_name) {
+  try {
+    CudaDeviceContext context;
+    const std::vector<int>& local_gpu_device_id_list = resource_manager_->get_local_gpu_device_id_list();
+    const size_t global_gpu_count = resource_manager_->get_global_gpu_count();
+    const size_t local_gpu_count = resource_manager_->get_local_gpu_count();
+    size_t batchsize_eval_per_gpu = solver_.batchsize_eval / global_gpu_count;
+    size_t total_prediction_count = batchsize_eval_per_gpu * local_gpu_count;
+    std::unique_ptr<float[]> local_prediction_result(new float[total_prediction_count]);
+    std::unique_ptr<float[]> local_label_result(new float[total_prediction_count]);
+
+    for(unsigned int i = 0; i < networks_.size(); ++i){
+      int gpu_id = local_gpu_device_id_list[i];
+      context.set_device(gpu_id);
+
+      get_raw_metric_as_host_float_tensor(networks_[i]->get_raw_metrics(), metrics::RawType::Pred, solver_.use_mixed_precision, local_prediction_result.get() + batchsize_eval_per_gpu * i, batchsize_eval_per_gpu);
+      get_raw_metric_as_host_float_tensor(networks_[i]->get_raw_metrics(), metrics::RawType::Label, false, local_label_result.get() + batchsize_eval_per_gpu * i, batchsize_eval_per_gpu);
+    }
+
+    std::unique_ptr<float[]> global_prediction_result;
+    std::unique_ptr<float[]> global_label_result;
+    int numprocs = 1;
+    int pid = 0;
+#ifdef ENABLE_MPI
+      CK_MPI_THROW_(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
+      CK_MPI_THROW_(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
+#endif
+    if(numprocs > 1){
+#ifdef ENABLE_MPI
+      if(pid == 0){
+        global_prediction_result.reset(new float[solver_.batchsize_eval]);
+        global_label_result.reset(new float[solver_.batchsize_eval]);
+      }
+      CK_MPI_THROW_(MPI_Gather(local_prediction_result.get(), total_prediction_count, MPI_FLOAT, global_prediction_result.get(), total_prediction_count, MPI_FLOAT, 0, MPI_COMM_WORLD));
+      CK_MPI_THROW_(MPI_Gather(local_label_result.get(), total_prediction_count, MPI_FLOAT, global_label_result.get(), total_prediction_count, MPI_FLOAT, 0, MPI_COMM_WORLD));
+#endif
+    } else {
+      global_prediction_result = std::move(local_prediction_result);
+      global_label_result = std::move(local_label_result);
+    }
+    if(pid == 0){
+      // write
+      auto write_func = [](const std::string& output_file_name, float *res, size_t num) {
+        std::ofstream output_stream(output_file_name, std::ios::out | std::ios::app);
+        if(!output_stream.is_open()) {
+          CK_THROW_(Error_t::WrongInput, "Cannot open output file " + output_file_name);
+        }
+        for(unsigned int i = 0; i < num; ++i){
+          output_stream << res[i] << " ";
+        }
+        output_stream.close();
+      };
+      write_func(output_prediction_file_name, global_prediction_result.get(), solver_.batchsize_eval);
+      write_func(output_label_file_name, global_label_result.get(), solver_.batchsize_eval);
+    }
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+}
+
 std::vector<std::pair<std::string, float>> Model::get_eval_metrics() {
   std::vector<std::pair<std::string, float>> metrics;
   for (auto& metric : metrics_) {
@@ -645,15 +995,24 @@ Error_t Model::get_current_loss(float* loss) {
 
 Error_t Model::download_params_to_files(std::string prefix, int iter) {
   std::string snapshot_dense_name = prefix + "_dense_" + std::to_string(iter) + ".model";
+  std::string snapshot_dense_opt_name = prefix + "_opt_dense_" + std::to_string(iter) + ".model";
   std::vector<std::string> snapshot_sparse_names;
-  if (iter <= 0) {
-    return Error_t::WrongInput;
-  }
+  std::vector<std::string> snapshot_sparse_opt_names;
   for (unsigned int i = 0; i < embeddings_.size(); i++) {
-    snapshot_sparse_names.push_back(prefix + std::to_string(i) + "_sparse_" + std::to_string(iter) +
+    snapshot_sparse_names.push_back(prefix + std::to_string(i) +
+                                    "_sparse_" + std::to_string(iter) +
                                     ".model");
+    snapshot_sparse_opt_names.push_back(prefix + std::to_string(i) +
+                                        "_opt_sparse_" + std::to_string(iter) +
+                                        ".model");
   }
-  return download_params_to_files_(snapshot_dense_name, snapshot_sparse_names);
+  if (mos_params_->use_model_oversubscriber) {
+    model_oversubscriber_->dump();
+    model_oversubscriber_->update_sparse_model_file();
+  } else {
+    download_sparse_params_to_files_(snapshot_sparse_names, snapshot_sparse_opt_names);
+  }
+  return download_dense_params_to_files_(snapshot_dense_name, snapshot_dense_opt_name);
 }
 
 void Model::check_overflow() const {
@@ -668,21 +1027,16 @@ void Model::copy_weights_for_evaluation() {
   }
 }
 
-Error_t Model::download_params_to_files_(std::string weights_file,
-                                        const std::vector<std::string>& embedding_files) {
+Error_t Model::download_dense_params_to_files_(std::string weights_file,
+                                              std::string dense_opt_states_file) {
   try {
-    {
-      int i = 0;
-      for (auto& embedding_file : embedding_files) {
-        std::ofstream out_stream_embedding(embedding_file, std::ofstream::binary);
-        embeddings_[i]->dump_parameters(out_stream_embedding);
-        out_stream_embedding.close();
-        i++;
-      }
-    }
     if (resource_manager_->is_master_process()) {
       std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
       networks_[0]->download_params_to_host(out_stream_weight);
+      MESSAGE_("Dumping dense weights to file, successful");
+      std::ofstream out_dense_opt_state_weight(dense_opt_states_file, std::ofstream::binary);
+      networks_[0]->download_opt_states_to_host(out_dense_opt_state_weight);
+      MESSAGE_("Dumping dense optimizer states to file, successful");
       std::string no_trained_params = networks_[0]->get_no_trained_params_in_string();
       if (no_trained_params.length() != 0) {
         std::string ntp_file = weights_file + ".ntp.json";
@@ -690,8 +1044,41 @@ Error_t Model::download_params_to_files_(std::string weights_file,
         out_stream_ntp.write(no_trained_params.c_str(), no_trained_params.length());
         out_stream_ntp.close();
       }
+      MESSAGE_("Dumping untrainable weights to file, successful");
       out_stream_weight.close();
+      out_dense_opt_state_weight.close();
     }
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+}
+
+Error_t Model::download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
+                                                const std::vector<std::string>& sparse_opt_state_files) {
+  try {
+    {
+      int i = 0;
+      for (auto& embedding_file : embedding_files) {
+        embeddings_[i]->dump_parameters(embedding_file);
+        i++;
+      }
+    }
+    MESSAGE_("Dumping sparse weights to files, successful");
+    {
+      int i = 0;
+      for (auto& sparse_opt_state_file : sparse_opt_state_files) {
+        std::ofstream out_stream_opt(sparse_opt_state_file, std::ofstream::binary);
+        embeddings_[i]->dump_opt_states(out_stream_opt);
+        out_stream_opt.close();
+        i++;
+      }
+    }
+    MESSAGE_("Dumping sparse optimzer states to files, successful");
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
@@ -703,14 +1090,16 @@ Error_t Model::download_params_to_files_(std::string weights_file,
 }
 
 template <typename TypeEmbeddingComp>
-std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_() {
+std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
+    bool use_host_memory_ps, const std::vector<std::string>& sparse_embedding_files) {
   try {
-    if (solver_.temp_embedding_dir.empty()) {
-      CK_THROW_(Error_t::WrongInput, "must provide a directory for storing temporary embedding");
+    if (sparse_embedding_files.empty()) {
+      CK_THROW_(Error_t::WrongInput, "must provide sparse_model_file. \
+          if train from scratch, please specify a name to store the trained embedding model");
     }
-    std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>> embedding_params;
     return std::shared_ptr<ModelOversubscriber>(
-        new ModelOversubscriber(embeddings_, embedding_params, solver_, solver_.temp_embedding_dir));
+        new ModelOversubscriber(use_host_memory_ps, embeddings_, sparse_embedding_files,
+            resource_manager_, solver_.i64_input_key));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -720,29 +1109,43 @@ std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_() {
   }
 }
 
-Error_t Model::init_or_load_params_for_dense_(const std::string& model_file) {
+Error_t Model::load_opt_states_for_dense_(const std::string& dense_opt_states_file) {
   try {
-    if (!model_file.empty()) {
-      std::ifstream model_stream(model_file, std::ifstream::binary);
-      if (!model_stream.is_open()) {
-        CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
-      }
-      std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
-      model_stream.read(reinterpret_cast<char*>(weight.get()),
-                        networks_[0]->get_params_num() * sizeof(float));
+    std::ifstream opt_states_stream(dense_opt_states_file, std::ifstream::binary);
+    if (!opt_states_stream.is_open()) {
+      CK_THROW_(Error_t::WrongInput, "Cannot open dense opt states file");
+    }
+    size_t opt_states_size_in_byte = networks_[0]->get_opt_states_size_in_byte();
+    std::unique_ptr<char[]> opt_states(new char[opt_states_size_in_byte]());
+    opt_states_stream.read(opt_states.get(), opt_states_size_in_byte);
 
-      std::cout << "Loading dense model: " << model_file << std::endl;
-      for (auto& network : networks_) {
-        network->upload_params_to_device(weight.get());
-      }
-      model_stream.close();
-    } else {
-      for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-        networks_[i]->init_params(i);
-      }
+    MESSAGE_("Loading dense opt states: " + dense_opt_states_file);
+    for (auto& network : networks_) {
+      network->upload_opt_states_to_device(opt_states.get());
+    }
+    opt_states_stream.close();
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+}
 
-      for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-        CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
+Error_t Model::load_opt_states_for_sparse_(
+    const std::vector<std::string>& sparse_opt_states_files) {
+  try {
+    for (size_t i = 0; i < embeddings_.size(); i++) {
+      if (i < sparse_opt_states_files.size()) {
+        std::ifstream sparse_opt_stream(sparse_opt_states_files[i], std::ifstream::binary);
+        if (!sparse_opt_stream.is_open()) {
+          CK_THROW_(Error_t::WrongInput, "Cannot open sparse optimizer states file");
+        }
+        MESSAGE_("Loading sparse optimizer states: " + sparse_opt_states_files[i]);
+        embeddings_[i]->load_opt_states(sparse_opt_stream);
+        sparse_opt_stream.close();
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -755,20 +1158,38 @@ Error_t Model::init_or_load_params_for_dense_(const std::string& model_file) {
   return Error_t::Success;
 }
 
-Error_t Model::init_or_load_params_for_sparse_(
+Error_t Model::load_params_for_dense_(const std::string& model_file) {
+  try {
+    std::ifstream model_stream(model_file, std::ifstream::binary);
+    if (!model_stream.is_open()) {
+      CK_THROW_(Error_t::WrongInput, "Cannot open dense model file");
+    }
+    std::unique_ptr<float[]> weight(new float[networks_[0]->get_params_num()]());
+    model_stream.read(reinterpret_cast<char*>(weight.get()),
+                      networks_[0]->get_params_num() * sizeof(float));
+    MESSAGE_("Loading dense model: " + model_file);
+    for (auto& network : networks_) {
+      network->upload_params_to_device(weight.get());
+    }
+    model_stream.close();
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    return rt_err.get_error();
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    return Error_t::UnspecificError;
+  }
+  return Error_t::Success;
+}
+
+
+Error_t Model::load_params_for_sparse_(
     const std::vector<std::string>& embedding_model_files) {
   try {
     for (size_t i = 0; i < embeddings_.size(); i++) {
       if (i < embedding_model_files.size()) {
-        std::ifstream embedding_stream(embedding_model_files[i], std::ifstream::binary);
-        if (!embedding_stream.is_open()) {
-          CK_THROW_(Error_t::WrongInput, "Cannot open sparse model file");
-        }
-        std::cout << "Loading sparse model: " << embedding_model_files[i] << std::endl;
-        embeddings_[i]->load_parameters(embedding_stream);
-        embedding_stream.close();
-      } else {
-        embeddings_[i]->init_params();
+        MESSAGE_("Loading sparse model: " + embedding_model_files[i]);
+        embeddings_[i]->load_parameters(embedding_model_files[i]);
       }
     }
   } catch (const internal_runtime_error& rt_err) {
@@ -779,6 +1200,33 @@ Error_t Model::init_or_load_params_for_sparse_(
     return Error_t::UnspecificError;
   }
   return Error_t::Success;
+}
+
+void Model::init_params_for_dense_() {
+  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+    networks_[i]->init_params(i);
+  }
+  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+    CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(i)->get_stream()));
+  }
+}
+
+void Model::init_params_for_sparse_() {
+  for (size_t i = 0; i < embeddings_.size(); i++) {
+    embeddings_[i]->init_params();
+  }
+}
+
+void Model::init_model_oversubscriber_(bool use_host_memory_ps,
+    const std::vector<std::string>& sparse_embedding_files) {
+  if (solver_.use_mixed_precision) {
+    model_oversubscriber_ = create_model_oversubscriber_<__half>(
+        use_host_memory_ps, sparse_embedding_files);
+  } else {
+    model_oversubscriber_ = create_model_oversubscriber_<float>(
+        use_host_memory_ps, sparse_embedding_files);
+  }
+  mos_created_ = true;
 }
 
 } // namespace HugeCTR
