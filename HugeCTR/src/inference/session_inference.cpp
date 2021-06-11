@@ -37,8 +37,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path, const I
     if(inference_params_.dense_model_file.size() > 0) {
       network_->upload_params_to_device_inference(inference_params_.dense_model_file);
     }
-    CudaDeviceContext ctx;
-    ctx.set_device(inference_params.device_id);
+    CudaDeviceContext context(inference_params_.device_id);
     for (unsigned int idx_embedding_table = 1; idx_embedding_table < embedding_table_slot_size_.size(); ++idx_embedding_table) {
       cudaStream_t lookup_stream;
       cudaStreamCreateWithFlags(&lookup_stream, cudaStreamNonBlocking);
@@ -57,6 +56,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path, const I
 }  // namespace HugeCTR
 
 InferenceSession::~InferenceSession() {
+  CudaDeviceContext context(inference_params_.device_id);
   embedding_cache_->destroy_workspace(workspace_handler_);
   cudaFree(d_embeddingvectors_);
   for (auto stream : lookup_streams_)
@@ -88,6 +88,7 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_
       num_embedding_tables != embedding_feature_combiners_.size()) {
     CK_THROW_(Error_t::IllegalCall, "embedding feature combiner inconsistent");
   }
+  CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   // embedding cache look up and update
   separate_keys_by_table_(d_row_ptrs, embedding_table_slot_size_, num_samples);
   embedding_cache_->look_up(h_embeddingcolumns, h_embedding_offset_, d_embeddingvectors_, workspace_handler_, lookup_streams_);
