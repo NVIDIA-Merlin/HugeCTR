@@ -18,6 +18,8 @@ file(GLOB huge_ctr_src
   ../cpu_resource.cpp
   ../gpu_resource.cpp
   ../resource_manager.cpp
+  ../resource_managers/resource_manager_core.cpp
+  ../resource_managers/resource_manager_ext.cpp
   ../data_simulator.cu
   ../data_reader.cpp
   ../layer.cpp
@@ -51,14 +53,10 @@ file(GLOB huge_ctr_src
   embedding_interface.cpp
   parameter_server.cpp
   inference_utilis.cpp
-  gpu_cache/nv_gpu_cache.cu
-  gpu_cache/unique_op.cu
+  unique_op/unique_op.cu
   ../data_readers/metadata.cpp
   ../metrics.cu
-  ../optimizers/adam_optimizer.cu
-  ../optimizers/momentum_sgd_optimizer.cu
-  ../optimizers/nesterov_optimizer.cu
-  ../optimizers/sgd_optimizer.cu
+  ../optimizers/*.cu
   ../optimizer.cpp
   ../regularizer.cu
   ../regularizers/l1_regularizer.cu
@@ -69,18 +67,20 @@ file(GLOB huge_ctr_src
   ../parsers/create_optimizer.cpp
   ../parsers/create_network.cpp
   ../parsers/inference_parser.cpp
-  ../plan_parser.cpp
   ../diagnose.cu
+  ../utils.cu
 )
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 add_library(hugectr_inference SHARED ${huge_ctr_src})
 
-target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(hugectr_inference PUBLIC cudart cublas curand cudnn nccl cudf stdc++fs ${CMAKE_THREAD_LIBS_INIT})
+
+target_link_libraries(hugectr_inference PUBLIC gpu_cache)
 
 target_link_libraries(hugectr_inference PRIVATE nlohmann_json::nlohmann_json)
 
-target_compile_features(hugectr_inference PUBLIC cxx_std_14)
+target_compile_features(hugectr_inference PUBLIC cxx_std_17)
 
 set_target_properties(hugectr_inference PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 

@@ -20,7 +20,6 @@
 #include <memory>
 #include <optimizer.hpp>
 #include <parser.hpp>
-#include <session.hpp>
 #include <utils.hpp>
 #include "HugeCTR/include/inference/hugectrmodel.hpp"
 #include "HugeCTR/include/inference/session_inference.hpp"
@@ -30,12 +29,13 @@ HugeCTRModel::HugeCTRModel() {}
 
 HugeCTRModel::~HugeCTRModel() {}
 
-HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type, const std::string& config_file, int device_id, std::shared_ptr<embedding_interface>& embedding_ptr) {
+HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type,const std::string& model_config_path,
+                                      const InferenceParams& inference_params, std::shared_ptr<embedding_interface>& embedding_cache) {
   HugeCTRModel* model;
 
   switch (Infer_type) {
     case TRITON:
-      model = new InferenceSession(config_file, device_id, embedding_ptr);
+      model = new InferenceSession(model_config_path, inference_params, embedding_cache);
       break;
     default:
       std::cout << "wrong type!" << std::endl;

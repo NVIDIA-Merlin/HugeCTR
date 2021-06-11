@@ -22,7 +22,7 @@ namespace HugeCTR {
 
 template <typename TypeFP>
 struct create_embedding_cpu {
-  void operator()(const InferenceParser& inference_parser, const nlohmann::json& j_layers_array,
+  void operator()(const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
                   std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
                   std::vector<size_t>& embedding_table_slot_size,

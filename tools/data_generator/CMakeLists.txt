@@ -19,7 +19,7 @@ file(GLOB data_generator_src
 )
 
 add_executable(data_generator ${data_generator_src})
-target_compile_features(data_generator PUBLIC cxx_std_11)
+target_compile_features(data_generator PUBLIC cxx_std_17)
 target_link_libraries(data_generator PUBLIC huge_ctr_static)
 
 

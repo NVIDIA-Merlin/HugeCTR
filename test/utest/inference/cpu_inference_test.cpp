@@ -45,19 +45,16 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
   return elems;
 }
 
-struct InferenceParams {
-  int max_batchsize;
+struct InferenceInfo {
   int dense_dim;
   std::vector<int> slot_num;
   std::vector<int> max_feature_num_per_sample;
   std::vector<int> embedding_vec_size;
   std::vector<HugeCTR::EmbeddingFeatureCombiner_t> combiner_type;
-  InferenceParams(const nlohmann::json& config);
+  InferenceInfo(const nlohmann::json& config);
 };
 
-InferenceParams::InferenceParams(const nlohmann::json& config) {
-  auto j = get_json(config, "inference");
-  max_batchsize = get_value_from_json<int>(j, "max_batchsize");
+InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   auto j_layers_array = get_json(config, "layers");
   const nlohmann::json& j_data = j_layers_array[0];
   auto j_dense = get_json(j_data, "dense");
@@ -94,12 +91,12 @@ InferenceParams::InferenceParams(const nlohmann::json& config) {
 }
 
 template <typename TypeHashKey>
-void session_inference_criteo_test(const std::string& config_file, const std::string& model, const std::string& criteo_data_path) {
-  InferenceParams inference_params(read_json_file(config_file));
-  int batch_size = inference_params.max_batchsize;
-  int dense_dim = inference_params.dense_dim;
-  int slot_num = inference_params.slot_num[0];
-  int max_feature_num_per_sample = inference_params.max_feature_num_per_sample[0];
+void session_inference_criteo_test(const std::string& config_file, const std::string& model, const std::string& criteo_data_path, int batchsize) {
+  InferenceInfo inference_info(read_json_file(config_file));
+  int batch_size = batchsize;
+  int dense_dim = inference_info.dense_dim;
+  int slot_num = inference_info.slot_num[0];
+  int max_feature_num_per_sample = inference_info.max_feature_num_per_sample[0];
   int num_samples = 0;
   std::vector<int> labels;
   std::vector<float> dense_features;
@@ -211,10 +208,13 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
   memcpy(h_dense_features, dense_features.data(), dense_size_in_bytes_samples);
 
   // inference session
+  std::string dense_model{"/hugectr/test/utest/_dense_10000.model"};
+  std::vector<std::string> sparse_models{"/hugectr/test/utest/0_sparse_10000.model"};
+  InferenceParams infer_param(model, batchsize, 0.5, dense_model, sparse_models, 0, true, 0.8, false);
+  std::vector<InferenceParams> inference_params{infer_param};
   std::vector<std::string> model_config_path{config_file};
-  std::vector<std::string> model_name{model};
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name));
-  InferenceSessionCPU<TypeHashKey> sess(config_file, model, parameter_server);
+  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, inference_params));
+  InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0], parameter_server);
   timer_inference.start();
   sess.predict(h_dense_features, h_embeddingcolumns, h_row_ptrs, h_out.get(), num_samples);
   timer_inference.stop();
@@ -238,12 +238,12 @@ void session_inference_criteo_test(const std::string& config_file, const std::st
 }
 
 template <typename TypeHashKey>
-void session_inference_generated_test(const std::string& config_file, const std::string& model, int num_samples) {
-  InferenceParams inference_params(read_json_file(config_file));
-  int batch_size = inference_params.max_batchsize;
-  int dense_dim = inference_params.dense_dim;
-  int slot_num = inference_params.slot_num[0];
-  int max_feature_num_per_sample = inference_params.max_feature_num_per_sample[0];
+void session_inference_generated_test(const std::string& config_file, const std::string& model, int num_samples, int batchsize) {
+  InferenceInfo inference_info(read_json_file(config_file));
+  int batch_size = batchsize;
+  int dense_dim = inference_info.dense_dim;
+  int slot_num = inference_info.slot_num[0];
+  int max_feature_num_per_sample = inference_info.max_feature_num_per_sample[0];
   int max_nnz = max_feature_num_per_sample / slot_num;
   num_samples = num_samples < batch_size? num_samples:batch_size;
   HostAllocator host_allocator;
@@ -285,10 +285,13 @@ void session_inference_generated_test(const std::string& config_file, const std:
   std::unique_ptr<float[]> h_out(new float[batch_size]);
 
   // inference session
+  std::string dense_model{"/hugectr/test/utest/_dense_10000.model"};
+  std::vector<std::string> sparse_models{"/hugectr/test/utest/0_sparse_10000.model"};
+  InferenceParams infer_param(model, batchsize, 0.5, dense_model, sparse_models, 0, true, 0.8, false);
+  std::vector<InferenceParams> inference_params{infer_param};
   std::vector<std::string> model_config_path{config_file};
-  std::vector<std::string> model_name{model};
-  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, model_name));
-  InferenceSessionCPU<TypeHashKey> sess(config_file, model, parameter_server);
+  std::shared_ptr<HugectrUtility<TypeHashKey>> parameter_server(HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE::TRITON, model_config_path, inference_params));
+  InferenceSessionCPU<TypeHashKey> sess(model_config_path[0], inference_params[0], parameter_server);
   timer_inference.start();
   sess.predict(h_dense.get(), h_embeddingcolumns, h_row_ptrs.get(), h_out.get(), num_samples);
   timer_inference.stop();
@@ -307,5 +310,5 @@ void session_inference_generated_test(const std::string& config_file, const std:
 }  // namespace
 
 
-TEST(session_inference_cpu, criteo_dcn) { session_inference_criteo_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt"); }
-TEST(session_inference_cpu, generated_dcn_32) { session_inference_generated_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", 32); }
+TEST(session_inference_cpu, criteo_dcn) { session_inference_criteo_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", "/hugectr/test/utest/dcn_csr.txt", 32); }
+TEST(session_inference_cpu, generated_dcn_32) { session_inference_generated_test<unsigned int>("/hugectr_ci_workdir/test/utest/simple_inference_config.json", "DCN", 32, 32); }

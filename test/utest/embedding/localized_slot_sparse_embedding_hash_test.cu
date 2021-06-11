@@ -26,8 +26,11 @@
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 #include "utest/test_utils.h"
 
+#include <experimental/filesystem>
+
 using namespace HugeCTR;
 using namespace embedding_test;
+namespace fs = std::experimental::filesystem;
 
 namespace {
 //---------------------------------------------------------------------------------------
@@ -59,13 +62,7 @@ const char *train_file_list_name = "train_file_list.txt";
 const char *test_file_list_name = "test_file_list.txt";
 const char *prefix = "./data_reader_test_data/temp_dataset_";
 
-#ifndef NCCl_A2A
-const std::string plan_file(PROJECT_HOME_ + "utest/all2all_plan_dgx_{0,1,2,3,4,5,6,7}.json");
-#else
-const std::string plan_file = "";
-#endif
-
-const char *hash_table_file_name = "localized_hash_table.bin";
+const char *sparse_model_file = "localized_hash_table";
 const char *opt_file_name = "localized_opt.bin";
 
 std::vector<size_t> slot_sizes;  // null means use vocabulary_size/gpu_count/load_factor as
@@ -80,27 +77,77 @@ std::vector<size_t> slot_sizes;  // null means use vocabulary_size/gpu_count/loa
 // // just for verify
 
 //-----------------------------------------------------------------------------------------
+void init_sparse_model(const char *sparse_model) {
+  std::cout << "Init hash table";
+  // init hash table file: <key, solt_id, value>
+  if (!fs::exists(sparse_model)) {
+    fs::create_directory(sparse_model);
+  }
+  const std::string key_file = std::string(sparse_model) + "/" + sparse_model + ".key";
+  const std::string slot_file = std::string(sparse_model) + "/" + sparse_model + ".slot";
+  const std::string vec_file = std::string(sparse_model) + "/" + sparse_model + ".vec";
+
+  std::ofstream fs_key(key_file);
+  std::ofstream fs_slot(slot_file);
+  std::ofstream fs_vec(vec_file);
+  if (!fs_key.is_open() || !fs_slot.is_open() || !fs_vec.is_open()) {
+    ERROR_MESSAGE_("Error: file not open for writing");
+  }
+
+  // UnifiedDataSimulator<T> ldata_sim(0, slot_num-1); // for slot_id
+  test::UniformDataSimulator fdata_sim;  // for value
+  std::unique_ptr<float[]> buf(new float[embedding_vec_size]);
+  for (long long i = 0; i < vocabulary_size; i++) {
+    T key = (T)i;
+    // T key = ldata_sim.get_num();
+    // CAUSION: can not set random keys here, because we need to ensure that:
+    // 1) we can find keys in the data file from this hash table
+    // 2) there are no repeated keys
+    fs_key.write((char *)&key, sizeof(T));
+    T slot_id;
+    if (slot_sizes.size() == 0) {
+      slot_id = key % slot_num;  // CAUSION: need to dedicate the slot_id for each key for
+                                 // correctness verification
+    } else {
+      size_t offset = 0;
+      for (size_t j = 0; j < slot_sizes.size(); j++) {
+        if ((key >= static_cast<T>(offset)) && (key < static_cast<T>(offset + slot_sizes[j]))) {
+          slot_id = (T)j;
+          break;
+        }
+        offset += slot_sizes[j];
+      }
+    }
+    fs_slot.write((char *)&slot_id, sizeof(T));
+    fdata_sim.fill(buf.get(), embedding_vec_size, -0.1f, 0.1f);
+    fs_vec.write(reinterpret_cast<const char *>(buf.get()), embedding_vec_size * sizeof(float));
+  }
+  std::cout << " Done" << std::endl;
+}
 
 template <typename TypeEmbeddingComp>
 void train_and_test(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                     const Update_t &update_type) {
-  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
   float tolerance;
   if (std::is_same<TypeEmbeddingComp, __half>::value) {
     hyper_params.adam.epsilon = 1e-4f;
+    hyper_params.adagrad.epsilon = 1e-4f;
     tolerance = 5e-3f;
   } else {
     hyper_params.adam.epsilon = 1e-7f;
+    hyper_params.adagrad.epsilon = 1e-7f;
     tolerance = 1e-4f;
   }
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
+  hyper_params.adagrad.initial_accu_value = 0.f;
 
   const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
 
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
                                                    scaler};
 
   test::mpi_init();
@@ -174,49 +221,14 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   // generate hashtable
   if (resource_manager->is_master_process()) {
-    std::cout << "Init hash table";
-    // init hash table file: <key, solt_id, value>
-    std::ofstream fs(hash_table_file_name);
-    if (!fs.is_open()) {
-      ERROR_MESSAGE_("Error: file not open for writing");
-    }
-    // UnifiedDataSimulator<T> ldata_sim(0, slot_num-1); // for slot_id
-    test::UniformDataSimulator fdata_sim;  // for value
-    std::unique_ptr<float[]> buf(new float[embedding_vec_size]);
-    for (long long i = 0; i < vocabulary_size; i++) {
-      T key = (T)i;
-      // T key = ldata_sim.get_num();
-      // CAUSION: can not set random keys here, because we need to ensure that:
-      // 1) we can find keys in the data file from this hash table
-      // 2) there are no repeated keys
-      fs.write((char *)&key, sizeof(T));
-      T slot_id;
-      if (slot_sizes.size() == 0) {
-        slot_id = key % slot_num;  // CAUSION: need to dedicate the slot_id for each key for
-                                   // correctness verification
-      } else {
-        size_t offset = 0;
-        for (size_t j = 0; j < slot_sizes.size(); j++) {
-          if ((key >= static_cast<T>(offset)) && (key < static_cast<T>(offset + slot_sizes[j]))) {
-            slot_id = (T)j;
-            break;
-          }
-          offset += slot_sizes[j];
-        }
-      }
-      fs.write((char *)&slot_id, sizeof(T));
-      fdata_sim.fill(buf.get(), embedding_vec_size, -0.1f, 0.1f);
-      fs.write(reinterpret_cast<const char *>(buf.get()), embedding_vec_size * sizeof(float));
-    }
-    fs.close();
-    std::cout << " Done" << std::endl;
+    init_sparse_model(sparse_model_file);
   }
 
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+  const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
       max_feature_num, slot_num,       combiner,        opt_params};
 
@@ -225,21 +237,17 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
           train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
           train_data_reader->get_nnz_array(), test_data_reader->get_row_offsets_tensors(),
           test_data_reader->get_value_tensors(), test_data_reader->get_nnz_array(),
-          embedding_params, plan_file, resource_manager));
+          embedding_params, resource_manager));
 
-  {
-    // upload hash table to device
-    std::ifstream fs(hash_table_file_name);
-    embedding->load_parameters(fs);
-    fs.close();
-  }
+  // upload hash table to device
+  embedding->load_parameters(sparse_model_file);
 
   // for SparseEmbeddingCpu
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> embedding_cpu(
       new SparseEmbeddingHashCpu<T, TypeEmbeddingComp>(
           train_batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num,
           label_dim, dense_dim, CHK, train_batch_num * train_batchsize, combiner, opt_params,
-          train_file_list_name, hash_table_file_name, SparseEmbedding_t::Localized));
+          train_file_list_name, sparse_model_file, SparseEmbedding_t::Localized));
 
   TypeEmbeddingComp *embedding_feature_from_cpu = embedding_cpu->get_forward_results();
   TypeEmbeddingComp *wgrad_from_cpu = embedding_cpu->get_backward_results();
@@ -349,11 +357,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // create new obj for eval()
-  {
-    std::ofstream fs(hash_table_file_name);
-    embedding->dump_parameters(fs);
-    fs.close();
-  }
+  embedding->dump_parameters(sparse_model_file);
 
   {
     printf("Rank%d: embedding->dump_opt_states()\n", resource_manager->get_process_id());
@@ -374,7 +378,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
       new SparseEmbeddingHashCpu<T, TypeEmbeddingComp>(
           test_batchsize, max_feature_num, vocabulary_size, embedding_vec_size, slot_num, label_dim,
           dense_dim, CHK, test_batch_num * test_batchsize, combiner, opt_params,
-          test_file_list_name, hash_table_file_name, SparseEmbedding_t::Localized));
+          test_file_list_name, sparse_model_file, SparseEmbedding_t::Localized));
 
   TypeEmbeddingComp *embedding_feature_from_cpu_eval = test_embedding_cpu->get_forward_results();
 
@@ -420,20 +424,23 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 template <typename TypeEmbeddingComp>
 void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                    const Update_t &update_type) {
-  OptHyperParams<TypeEmbeddingComp> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
   if (std::is_same<TypeEmbeddingComp, __half>::value) {
     hyper_params.adam.epsilon = 1e-4f;
+    hyper_params.adagrad.epsilon = 1e-4f;
   } else {
     hyper_params.adam.epsilon = 1e-7f;
+    hyper_params.adagrad.epsilon = 1e-7f;
   }
   hyper_params.momentum.factor = 0.9f;
   hyper_params.nesterov.mu = 0.9f;
+  hyper_params.adagrad.initial_accu_value = 0.f;
 
   const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
 
-  const OptParams<TypeEmbeddingComp> opt_params = {optimizer, lr, hyper_params, update_type,
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
                                                    scaler};
 
   std::vector<std::vector<int>> vvgpu;
@@ -474,44 +481,9 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
                        // Because we will upload hashtable to GPUs.
 
   // init hash table file
-  std::cout << "Init hash table";
-  // init hash table file: <key, solt_id, value>
-  std::ofstream fs(hash_table_file_name);
-  if (!fs.is_open()) {
-    ERROR_MESSAGE_("Error: file not open for writing");
-  }
-  // UnifiedDataSimulator<T> ldata_sim(0, slot_num-1); // for slot_id
-  test::UniformDataSimulator fdata_sim;  // for value
-  std::unique_ptr<float[]> buf(new float[embedding_vec_size]);
-  for (long long i = 0; i < vocabulary_size; i++) {
-    T key = (T)i;
-    // T key = ldata_sim.get_num();
-    // CAUSION: can not set random keys here, because we need to ensure that:
-    // 1) we can find keys in the data file from this hash table
-    // 2) there are no repeated keys
-    fs.write((char *)&key, sizeof(T));
-    T slot_id;
-    if (slot_sizes.size() == 0) {
-      slot_id = key % slot_num;  // CAUSION: need to dedicate the slot_id for each key for
-                                 // correctness verification
-    } else {
-      size_t offset = 0;
-      for (size_t j = 0; j < slot_sizes.size(); j++) {
-        if ((key >= static_cast<T>(offset)) && (key < static_cast<T>(offset + slot_sizes[j]))) {
-          slot_id = (T)j;
-          break;
-        }
-        offset += slot_sizes[j];
-      }
-    }
-    fs.write((char *)&slot_id, sizeof(T));
-    fdata_sim.fill(buf.get(), embedding_vec_size, -0.1f, 0.1f);
-    fs.write(reinterpret_cast<const char *>(buf.get()), embedding_vec_size * sizeof(float));
-  }
-  fs.close();
-  std::cout << " Done" << std::endl;
+  init_sparse_model(sparse_model_file);
 
-  const SparseEmbeddingHashParams<TypeEmbeddingComp> embedding_params = {
+  const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
       max_feature_num, slot_num,       combiner,        opt_params};
 
@@ -520,14 +492,10 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
           train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
           train_data_reader->get_nnz_array(), train_data_reader->get_row_offsets_tensors(),
           train_data_reader->get_value_tensors(), train_data_reader->get_nnz_array(),
-          embedding_params, plan_file, resource_manager));
+          embedding_params, resource_manager));
 
-  {
-    // upload hash table to device
-    std::ifstream fs(hash_table_file_name);
-    embedding->load_parameters(fs);
-    fs.close();
-  }
+  // upload hash table to device
+  embedding->load_parameters(sparse_model_file);
 
   printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
          embedding->get_vocabulary_size());
@@ -576,6 +544,165 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+}
+
+template <typename TypeEmbeddingComp>
+void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &optimizer,
+                   const Update_t &update_type) {
+  std::string sparse_model_src("sparse_model_src");
+  std::string sparse_model_dst("sparse_model_dst");
+
+  OptHyperParams hyper_params;
+  hyper_params.adam.beta1 = 0.9f;
+  hyper_params.adam.beta2 = 0.999f;
+  float tolerance;
+  if (std::is_same<TypeEmbeddingComp, __half>::value) {
+    hyper_params.adam.epsilon = 1e-4f;
+    tolerance = 5e-3f;
+  } else {
+    hyper_params.adam.epsilon = 1e-7f;
+    tolerance = 1e-4f;
+  }
+  hyper_params.momentum.factor = 0.9f;
+  hyper_params.nesterov.mu = 0.9f;
+
+  const float lr = optimizer == Optimizer_t::Adam ? 0.001f : 0.01f;
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type, scaler};
+
+  int numprocs = 1, pid = 0;
+  std::vector<std::vector<int>> vvgpu;
+  test::mpi_init();
+  for (int i = 0; i < numprocs; i++) {
+    vvgpu.push_back(device_list);
+  }
+  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+
+  if (pid == 0) {
+    // re-generate the dataset files
+    if (fs::exists(train_file_list_name)) {
+      fs::remove(train_file_list_name);
+    }
+
+    // data generation
+    if (slot_sizes.size() > 0) {
+      HugeCTR::data_generation_for_localized_test<T, CHK>(
+          train_file_list_name, prefix, num_files, train_batchsize * train_batch_num, slot_num,
+          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot, slot_sizes);
+    } else {
+      HugeCTR::data_generation_for_localized_test<T, CHK>(
+          train_file_list_name, prefix, num_files, train_batchsize * train_batch_num, slot_num,
+          vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
+    }
+  }
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // setup a data reader
+  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
+                                       max_nnz_per_slot, slot_num};
+  std::vector<DataReaderSparseParam> params;
+  params.push_back(param);
+
+  std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+
+  train_data_reader->create_drwg_norm(train_file_list_name, CHK);
+
+  slot_sizes.clear();  // don't init hashtable when doing training correctness checking.
+                       // Because we will upload hashtable to GPUs.
+
+  const SparseEmbeddingHashParams embedding_params = {
+      train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
+      max_feature_num, slot_num,       combiner,        opt_params};
+
+  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
+      new LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
+          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
+          train_data_reader->get_nnz_array(), train_data_reader->get_row_offsets_tensors(),
+          train_data_reader->get_value_tensors(), train_data_reader->get_nnz_array(),
+          embedding_params, resource_manager));
+
+  // init hash table file
+  if (pid == 0) {
+    init_sparse_model(sparse_model_src.c_str());
+  }
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  // upload hash table to device
+  embedding->load_parameters(sparse_model_src);
+
+  if (pid == 0) {
+    printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
+      embedding->get_vocabulary_size());
+  }
+
+  // dump sparse model to file
+  embedding->dump_parameters(sparse_model_dst);
+
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
+  auto load_sparse_model_to_map = [](std::vector<T>& key_vec, std::vector<T>& slot_vec,
+      std::vector<float>& vec_vec, const std::string& sparse_model) {
+    const std::string key_file(sparse_model + "/" + sparse_model + ".key");
+    const std::string slot_file(sparse_model + "/" + sparse_model + ".slot");
+    const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
+
+    std::ifstream fs_key(key_file, std::ifstream::binary);
+    std::ifstream fs_slot(slot_file, std::ifstream::binary);
+    std::ifstream fs_vec(vec_file, std::ifstream::binary);
+
+    const size_t key_file_size_in_B = fs::file_size(key_file);
+    const size_t slot_file_size_in_B = fs::file_size(slot_file);
+    const size_t vec_file_size_in_B = fs::file_size(vec_file);
+    const long long num_key = key_file_size_in_B / sizeof(T);
+    const long long num_slot = slot_file_size_in_B / sizeof(T);
+    const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
+
+    if (num_key != num_vec || num_key != num_slot || num_key != vocabulary_size) {
+      CK_THROW_(Error_t::BrokenFile, "num_key != num_vec (num_slot) || num_key != vocabulary_size");
+    }
+
+    key_vec.clear();
+    key_vec.reserve(num_key);
+    slot_vec.clear();
+    slot_vec.reserve(num_key);
+    vec_vec.clear();
+    vec_vec.reserve(num_vec * embedding_vec_size);
+
+    fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
+    fs_slot.read(reinterpret_cast<char *>(slot_vec.data()), slot_file_size_in_B);
+    fs_vec.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_B);
+  };
+
+  std::vector<T> hash_table_key_from_cpu;
+  std::vector<T> slot_id_from_cpu;
+  std::vector<float> hash_table_value_from_cpu;
+  load_sparse_model_to_map(hash_table_key_from_cpu, slot_id_from_cpu, hash_table_value_from_cpu, sparse_model_src);
+
+  std::vector<T> hash_table_key_from_gpu;
+  std::vector<T> slot_id_from_gpu;
+  std::vector<float> hash_table_value_from_gpu;
+  load_sparse_model_to_map(hash_table_key_from_gpu, slot_id_from_gpu, hash_table_value_from_gpu, sparse_model_dst);
+
+  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+
+  ASSERT_TRUE(compare_hash_table(vocabulary_size,
+    hash_table_key_from_gpu.data(), reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.data()),
+    hash_table_key_from_cpu.data(), reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu.data()),
+    tolerance));
+
+  ASSERT_TRUE(compare_key_slot(vocabulary_size,
+    hash_table_key_from_gpu.data(), slot_id_from_gpu.data(),
+    hash_table_key_from_cpu.data(), slot_id_from_cpu.data()));
+
+  test::mpi_finalize();
 }
 
 }  // namespace
@@ -660,6 +787,30 @@ TEST(localized_sparse_embedding_hash_test, fp16_adam_lazyglobal_update_8gpu) {
   train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::Adam, Update_t::LazyGlobal);
 }
 
+TEST(localized_sparse_embedding_hash_test, fp32_adagrad_1gpu) {
+  train_and_test<float>({0}, Optimizer_t::AdaGrad, Update_t::Local);
+}
+
+TEST(localized_sparse_embedding_hash_test, fp32_adagrad_8gpu) {
+  train_and_test<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::AdaGrad, Update_t::Local);
+}
+
+TEST(localized_sparse_embedding_hash_test, fp16_adagrad_1gpu) {
+  train_and_test<__half>({0}, Optimizer_t::AdaGrad, Update_t::Local);
+}
+
+TEST(localized_sparse_embedding_hash_test, fp16_adagrad_8gpu) {
+  train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::AdaGrad, Update_t::Local);
+}
+
 TEST(localized_sparse_embedding_hash_test, load_and_dump) {
   load_and_dump<float>({0}, Optimizer_t::SGD, Update_t::Global);
+}
+
+TEST(localized_sparse_embedding_hash_test, load_and_dump_file_1gpu) {
+  load_and_dump_file<float>({0}, Optimizer_t::SGD, Update_t::Global);
+}
+
+TEST(localized_sparse_embedding_hash_test, load_and_dump_file_8gpu) {
+  load_and_dump_file<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, Update_t::Global);
 }

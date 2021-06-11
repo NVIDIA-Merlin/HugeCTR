@@ -416,7 +416,7 @@ Example:
 ```
 
 #### LocalizedSlotSparseEmbeddingHash Layer
-The `LocalizedSlotSparseEmbeddingHash` layer to store embeddings in an embedding table and get them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. Unlike the DistributedSlotSparseEmbeddingHash layer, with this type of embedding layer, each individual slot is located in each GPU and not shared. This type of embedding layer provides the best scalability. The plan_file, which specifies how GPUs are connected and communicate with one another, should be specified when using this type of embedding layer. To generate a plan file, please refer to the [README](../samples/dcn/README.md) in the DCN sample.
+The `LocalizedSlotSparseEmbeddingHash` layer to store embeddings in an embedding table and get them by using a set of integers or indices. The embedding table can be segmented into multiple slots or feature fields, which spans multiple GPUs and nodes. Unlike the DistributedSlotSparseEmbeddingHash layer, with this type of embedding layer, each individual slot is located in each GPU and not shared. This type of embedding layer provides the best scalability.
 
 **Important Notes**:
 
@@ -430,7 +430,6 @@ Parameters:
 * `slot_size_array`: Cardinality array of input features. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored.
 * `embedding_vec_size`: Embedding vector size.
 * `combiner`:  Intra-slot reduction op (0=sum, 1=average).
-* `plan_file`: Specifies how GPUs are connected and communicate with one another.
 
 Input and Output Shapes:
 
@@ -442,7 +441,6 @@ Example:
     {
       "name": "sparse_embedding1",
       "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "all2all_plan_0_1.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

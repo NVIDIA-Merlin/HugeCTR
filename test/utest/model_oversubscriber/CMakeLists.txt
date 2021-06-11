@@ -16,11 +16,13 @@
 cmake_minimum_required(VERSION 3.8)
 file(GLOB model_oversubscriber_test_src
   parameter_server_test.cu
+  sparse_model_file_test.cpp
+  sparse_model_entity_test.cpp
   model_oversubscriber_test.cpp
 )
 
 add_executable(model_oversubscriber_test ${model_oversubscriber_test_src})
-target_compile_features(model_oversubscriber_test PUBLIC cxx_std_14)
-target_link_libraries(model_oversubscriber_test PUBLIC huge_ctr_static gtest gtest_main)
+target_compile_features(model_oversubscriber_test PUBLIC cxx_std_17)
+target_link_libraries(model_oversubscriber_test PUBLIC huge_ctr_static gtest gtest_main stdc++fs)
 set_target_properties(model_oversubscriber_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(model_oversubscriber_test PROPERTIES CUDA_ARCHITECTURES OFF)

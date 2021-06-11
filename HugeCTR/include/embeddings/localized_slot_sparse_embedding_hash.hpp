@@ -45,7 +45,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   using Base = Embedding<TypeHashKey, TypeEmbeddingComp>;
 
   using NvHashTable = HashTable<TypeHashKey, size_t>;
-  using comm_handler = GossipComm::FasterComm;
 
  private:
   std::vector<std::shared_ptr<NvHashTable>> hash_tables_; /**< Hash table.  */
@@ -60,39 +59,8 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   Tensors2<TypeEmbeddingComp>
       embedding_feature_tensors_;             /**< the output tensor of the forward(). */
   Tensors2<TypeEmbeddingComp> wgrad_tensors_; /**< the input tensor of the backward(). */
-  Tensors2<TypeEmbeddingComp>
-      opt_m_tensors_; /**< The mi variable storage for adam optimizer in the update_params(). */
-  Tensors2<TypeEmbeddingComp>
-      opt_v_tensors_; /**< The vi variable storage for adam optimizer in the update_params(). */
-  Tensors2<uint64_t> opt_prev_time_tensors_; /**< The previous update time storage for lazy adam
-                                                  in update_params(). */
-  Tensors2<TypeEmbeddingComp> opt_momentum_tensors_; /**< The momentum variable storage for the
-                                           momentum optimizer in the update_params(). */
-  Tensors2<TypeEmbeddingComp> opt_accm_tensors_;     /**< The accm variable storage for the nesterov
-                                                         optimizer in the update_params(). */
-
-  Tensors2<size_t> hash_value_index_sort_tensors_; /**< The temp memory to store the sorted hash
-                                                        table value indexes in update_params(). */
-
-  Tensors2<uint32_t>
-      hash_value_index_count_offset_tensors_; /**< The temp memory to store the offset of each count
-                                                 of hash table value indexes in update_params(). */
-
-  Tensors2<uint32_t> new_hash_value_flag_tensors_;
-  Tensors2<uint32_t> hash_value_flag_sumed_tensors_;
-
-  Tensors2<uint32_t> hash_value_index_count_counter_tensors_; /**< The temp memory to store the
-                                                                counter of the count of hash table
-                                                                value indexes in update_params(). */
-  Tensors2<TypeHashKey> sample_id_tensors_; /**< The temp memory to store the sample ids of hash
-                                              table value in      update_params(). */
-  Tensors2<TypeHashKey> sample_id_sort_tensors_; /**< The temp memory to store the sorted sample
-                                                   ids of hash table value in update_params(). */
-  Tensors2<void> temp_storage_sort_tensors_;     /**< The temp memory for the CUB lib sorting
-                                                          API in update_params(). */
-  Tensors2<void> temp_storage_scan_tensors_;     /**< The temp memory for the CUB lib scaning API
-                                                          in update_params(). */
-
+  
+  std::vector<EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>> embedding_optimizers_;
   size_t max_vocabulary_size_;
   size_t max_vocabulary_size_per_gpu_;   /**< Max vocabulary size for each GPU. */
   std::vector<size_t> slot_num_per_gpu_; /* slot_num per GPU */
@@ -100,13 +68,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
   SparseEmbeddingFunctors functors_;
 
-#ifndef NCCL_A2A
-  std::string plan_file_;                          /**< plan file for all2all */
-  std::unique_ptr<comm_handler> all2all_forward_;  /**< obj of all2all for forward */
-  std::unique_ptr<comm_handler> all2all_backward_; /**< obj of all2all for backward */
-  std::unique_ptr<comm_handler>
-      all2all_utest_; /**< obj of all2all for utest of getting backward results> */
-#endif
   Tensors2<TypeEmbeddingComp> all2all_tensors_; /**< the temple buffer to store all2all results */
 
   Tensors2<TypeEmbeddingComp> utest_all2all_tensors_;
@@ -190,7 +151,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
   /**
    * dump_parameters for LocalizedSlotSparseEmbeddingHash.
-   * @param weight_stream weight file stream to write.
+   * @param sparse_model the folder name of sparse model.
    * @param vocabulary_size the total row number of hash table.
    * @param embedding_vec_size embedding vector size.
    * @param hash_table_value_tensors the hash table value on multi-GPU.
@@ -198,7 +159,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * @param hash_tables the hash tables on multi GPUs
    */
   void dump_parameters(
-      std::ofstream &weight_stream, size_t vocabulary_size, size_t embedding_vec_size,
+      const std::string &sparse_model, size_t vocabulary_size, size_t embedding_vec_size,
       const Tensors2<float> &hash_table_value_tensors,
       const Tensors2<size_t> &hash_table_slot_id_tensors,
       const std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables) const;
@@ -239,8 +200,8 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
       const Tensors2<TypeHashKey> &evaluate_row_offsets_tensors,
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-      const SparseEmbeddingHashParams<TypeEmbeddingComp> &embedding_params,
-      const std::string plan_file, const std::shared_ptr<ResourceManager> &resource_manager);
+      const SparseEmbeddingHashParams &embedding_params,
+      const std::shared_ptr<ResourceManager> &resource_manager);
 
   /**
    * The forward propagation of embedding layer.
@@ -259,8 +220,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
     }
 
 // do all-to-all
-#ifdef NCCL_A2A
-
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_forward(Base::get_batch_size_per_gpu(is_train), slot_num_per_gpu_,
@@ -285,12 +244,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
                           cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
-#endif
-
-#else
-    // sync: guarantee the data is ready for all2all
-    functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec(*all2all_forward_);
 #endif
 
     // reorder
@@ -319,8 +272,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                                all2all_tensors_, Base::get_resource_manager());
 
 // do all2all
-#ifdef NCCL_A2A
-
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_backward(Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
@@ -351,12 +302,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
     }
 #endif
 
-#else
-    // sync: guarantee the data is ready for all2all
-    functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec(*all2all_backward_);
-#endif
-
     // do backward
     functors_.backward(Base::get_batch_size(true), slot_num_per_gpu_,
                        Base::get_embedding_vec_size(), Base::get_combiner(),
@@ -371,22 +316,18 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * updates the hash table by wgrad(from backward()) and optimizer.
    */
   void update_params() override {
+    Base::get_opt_params().hyperparams.adam.times++;
 #pragma omp parallel num_threads(Base::get_resource_manager().get_local_gpu_count())
     {
       size_t id = omp_get_thread_num();
       CudaDeviceContext context(Base::get_local_gpu(id).get_device_id());
 
-      Base::get_opt_params(id).hyperparams.adam.times++;
-
       // do update params operation
-      functors_.update_params(
+      embedding_optimizers_[id].update(
           Base::get_batch_size(true), slot_num_per_gpu_[id], Base::get_embedding_vec_size(),
-          max_vocabulary_size_per_gpu_, Base::get_opt_params(id), *Base::get_nnz_array(true)[id],
+          max_vocabulary_size_per_gpu_, *Base::get_nnz_array(true)[id],
           Base::get_row_offsets_tensors(true)[id], hash_value_index_tensors_[id],
-          sample_id_tensors_[id], sample_id_sort_tensors_[id], hash_value_index_sort_tensors_[id],
-          hash_value_index_count_offset_tensors_[id], new_hash_value_flag_tensors_[id],
-          hash_value_flag_sumed_tensors_[id], hash_value_index_count_counter_tensors_[id],
-          temp_storage_sort_tensors_[id], temp_storage_scan_tensors_[id], wgrad_tensors_[id],
+          wgrad_tensors_[id],
           hash_table_value_tensors_[id], Base::get_local_gpu(id).get_sm_count(),
           Base::get_local_gpu(id).get_stream());
     }
@@ -418,16 +359,16 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   /**
    * Read the hash table from the weight_stream on the host, and
    * upload it onto multi-GPUs global memory.
-   * @param stream the host file stream for reading data from.
+   * @param sparse_model the folder name of sparse model.
    */
-  void load_parameters(std::ifstream &stream) override;
+  void load_parameters(std::string sparse_model) override;
   void load_parameters(BufferBag& buf_bag, size_t num) override;
   /**
    * Download the hash table from multi-GPUs global memroy to CPU memory
    * and write it to the weight_stream on the host.
-   * @param stream the host file stream for writing data to.
+   * @param sparse_model the folder name of sparse model.
    */
-  void dump_parameters(std::ofstream &stream) const override;
+  void dump_parameters(std::string sparse_model) const override;
   void dump_parameters(BufferBag& buf_bag, size_t *num) const override;
 
   void dump_opt_states(std::ofstream& stream) override;
@@ -501,8 +442,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   void get_backward_results(Tensor2<TypeEmbeddingComp> &wgrad, int devIndex) override {
     CudaDeviceContext context(Base::get_local_gpu(0).get_device_id());
 
-#ifdef NCCL_A2A
-
 #ifndef ENABLE_MPI
     if (Base::get_resource_manager().get_global_gpu_count() > 1) {
       functors_.all2all_forward(Base::get_batch_size_per_gpu(true), slot_num_per_gpu_,
@@ -527,12 +466,6 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
                               Base::get_embedding_vec_size() * sizeof(TypeEmbeddingComp),
                           cudaMemcpyDeviceToDevice, Base::get_local_gpu(0).get_stream()));
     }
-#endif
-
-#else
-    // sync: guarantee the data is ready for all2all
-    functors_.sync_all_gpus(Base::get_resource_manager());
-    functors_.all2all_exec(*all2all_utest_);
 #endif
 
     // reorder

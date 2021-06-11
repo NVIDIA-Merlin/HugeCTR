@@ -23,6 +23,7 @@ namespace HugeCTR {
 /**
  * SGD optimizer with Momentum
  */
+template <typename T>
 class MomentumSGDOptimizer : public Optimizer {
  public:
   /**
@@ -33,10 +34,8 @@ class MomentumSGDOptimizer : public Optimizer {
    * @param learning_rate learning rate
    * @param momentum_factor momentum factor
    */
-  MomentumSGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<float>& fp32_wgrad,
-                       const Tensor2<__half>& fp16_wgrad, bool mixed_precision,
-                       const std::shared_ptr<BufferBlock2<float>>& opt_buf,
-                       const std::shared_ptr<BufferBlock2<__half>>& opt_buf_half,
+  MomentumSGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
+                       const std::shared_ptr<BufferBlock2<T>>& opt_buf,
                        const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
                        float momentum_factor, float scaler = 1.f);
 
@@ -49,8 +48,8 @@ class MomentumSGDOptimizer : public Optimizer {
   void update() override;
 
  private:
-  Tensor2<float> fp32_momentum_;
-  Tensor2<__half> fp16_momentum_;
+  Tensor2<T> wgrad_;
+  Tensor2<T> momentum_;
   const float momentum_factor_;
 };
 

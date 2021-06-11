@@ -16,14 +16,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(HugeCTR LANGUAGES CXX CUDA)
 
-option(ONLY_EMB_PLUGIN, "Only build embedding plugin" OFF)
-if (ONLY_EMB_PLUGIN)
-  message("-- Please be noted that only embedding plugin will be built.")
-  include(${PROJECT_SOURCE_DIR}/cmake/EmbeddingPlugin.cmake)
-  return()
-endif()
-
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
 option(CLANGFORMAT "Setup clangformat target" OFF)
@@ -43,14 +36,6 @@ if(CLANGFORMAT)
 
   set(clangformat_srcs ${HUGECTR_SRC})
   clangformat_setup("${clangformat_srcs}")
-endif()
-
-option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" ON)
-if (NCCL_A2A) 
-  message(STATUS "-- NCCL_A2A is ON")
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DNCCL_A2A")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DNCCL_A2A")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNCCL_A2A")
 endif()
 
 find_package(CUDA REQUIRED)
@@ -83,6 +68,13 @@ if (VAL_MODE)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DVAL")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DVAL")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DVAL")
+endif()
+
+option(KEY_HIT_RATIO "Verbose mode of embedding training cache: print out the key hit ratio" OFF)
+if (KEY_HIT_RATIO)
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DKEY_HIT_RATIO")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DKEY_HIT_RATIO")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DKEY_HIT_RATIO")
 endif()
 
 # setting compiler flags
@@ -141,9 +133,9 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/HugeCTR
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
-  ${PROJECT_SOURCE_DIR}/third_party/cub
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
+  ${PROJECT_SOURCE_DIR}/gpu_cache/include
 
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
@@ -180,6 +172,7 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference DESTINATION /u
 add_subdirectory(third_party/json)
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION /usr/local/hugectr)
 
+add_subdirectory(gpu_cache/src)
 option(ENABLE_INFERENCE "Enable Inference" OFF)
 if(ENABLE_INFERENCE)
 add_subdirectory(third_party/googletest)

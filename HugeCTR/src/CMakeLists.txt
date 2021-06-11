@@ -35,28 +35,12 @@ file(GLOB huge_ctr_src
   cpu_resource.cpp
   gpu_resource.cpp
   resource_manager.cpp
+  resource_managers/resource_manager_core.cpp
+  resource_managers/resource_manager_ext.cpp
   data_simulator.cu
   data_reader.cpp
   layer.cpp
-  layers/batch_norm_layer.cu
-  layers/cast_layer.cu
-  layers/concat_layer.cu
-  layers/dropout_layer.cu
-  layers/elu_layer.cu
-  layers/fully_connected_layer.cu
-  layers/fully_connected_layer_half.cu
-  layers/fused_fully_connected_layer.cu
-  layers/interaction_layer.cu
-  layers/relu_layer.cu
-  layers/reshape_layer.cu
-  layers/sigmoid_layer.cu
-  layers/slice_layer.cu
-  layers/fm_order2_layer.cu
-  layers/weight_multiply_layer.cu
-  layers/multi_cross_layer.cu
-  layers/add_layer.cu
-  layers/reduce_sum_layer.cu
-  layers/dot_product_layer.cu
+  layers/*.cu
   loss.cu
   network.cu
   network.cpp
@@ -66,16 +50,12 @@ file(GLOB huge_ctr_src
   inference/embedding_cache.cpp
   inference/inference_utilis.cpp
   inference/parameter_server.cpp
-  inference/gpu_cache/nv_gpu_cache.cu
-  inference/gpu_cache/unique_op.cu
+  inference/unique_op/unique_op.cu
   inference/embedding_feature_combiner.cu
   inference/embedding_cache.cu
   data_readers/metadata.cpp
   metrics.cu
-  optimizers/adam_optimizer.cu
-  optimizers/momentum_sgd_optimizer.cu
-  optimizers/nesterov_optimizer.cu
-  optimizers/sgd_optimizer.cu
+  optimizers/*.cu
   optimizer.cpp
   regularizer.cu
   regularizers/l1_regularizer.cu
@@ -89,8 +69,6 @@ file(GLOB huge_ctr_src
   parsers/create_embedding.cpp
   parsers/create_datareader.cpp
   parsers/inference_parser.cpp
-  session.cpp
-  plan_parser.cpp 
   data_readers/data_collector.cu
   data_readers/parquet_data_converter.cu
   hashtable/nv_hashtable.cu
@@ -122,46 +100,44 @@ file(GLOB huge_ctr_src
   embeddings/localized_slot_sparse_embedding_hash.cu
   embeddings/localized_slot_sparse_embedding_one_hot.cu
   embeddings/opt_states_functor.cu
-  model_oversubscriber/localized_parameter_server_delegate.cpp
-  model_oversubscriber/distributed_parameter_server_delegate.cpp
   model_oversubscriber/model_oversubscriber_impl.cpp
   model_oversubscriber/parameter_server.cpp
   model_oversubscriber/parameter_server_manager.cpp
+  model_oversubscriber/sparse_model_file.cpp
+  model_oversubscriber/sparse_model_entity.cpp
   diagnose.cu
+  utils.cu
   ../pybind/model.cpp
-  ../pybind/optimizer.cpp
   ../pybind/add_input.cpp
   ../pybind/add_sparse_embedding.cpp
   ../pybind/add_dense_layer.cpp
 )
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf cudf_io cudf_base)
-  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf cudf_io cudf_base)
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf stdc++fs)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf stdc++fs)
   message(STATUS "${MPI_CXX_LIBRARIES}")
 else()
-  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf cudf_io cudf_base)
-  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf cudf_io cudf_base)
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs)
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
-target_compile_features(huge_ctr_static PUBLIC cxx_std_14)
+target_link_libraries(huge_ctr_static PUBLIC gpu_cache)
+target_compile_features(huge_ctr_static PUBLIC cxx_std_17)
 set_target_properties(huge_ctr_static PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_static PROPERTIES CUDA_ARCHITECTURES OFF)
 
 target_link_libraries(huge_ctr_shared PRIVATE nlohmann_json::nlohmann_json)
-target_compile_features(huge_ctr_shared PUBLIC cxx_std_14)
+target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)
+target_compile_features(huge_ctr_shared PUBLIC cxx_std_17)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
 
-add_executable(huge_ctr main.cpp)
-target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
-target_compile_features(huge_ctr PUBLIC cxx_std_14)
-
 add_library(hugectr MODULE ../pybind/module_main.cpp)
-target_link_libraries(hugectr PUBLIC pybind11::module ${PYTHON_LIBRARIES} ${CUDA_LIBRARIES} huge_ctr_shared)
+target_link_libraries(hugectr PUBLIC pybind11::module ${CUDA_LIBRARIES} huge_ctr_shared)
 set_target_properties(hugectr PROPERTIES PREFIX "")

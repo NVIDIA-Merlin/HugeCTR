@@ -349,6 +349,38 @@ bool compare_hash_table(long long capacity, TypeHashKey *hash_table_key_from_gpu
   return rtn;
 }
 
+template <typename TypeKey, typename TypeSlot>
+bool compare_key_slot(long long capacity,
+    TypeKey *hash_table_key_from_gpu, TypeSlot *slot_id_from_gpu,
+    TypeKey *hash_table_key_from_cpu, TypeSlot *slot_id_from_cpu) {
+  bool rtn = true;
+
+  // Since the <key1,value1> and <key2,value2> is not the same ordered, we need to insert <key1,
+  // value1> into a hash_table, then compare value1=hash_table->get(key2) with value2
+  HashTableCpu<TypeKey, TypeSlot> *hash_table = new HashTableCpu<TypeKey, TypeSlot>();
+  hash_table->insert(hash_table_key_from_gpu, slot_id_from_gpu, capacity);
+
+  TypeKey *key;
+  TypeSlot *value1 = (TypeSlot *)malloc(sizeof(TypeSlot));
+  TypeSlot *value2;
+  for (long long i = 0; i < capacity; i++) {
+    key = hash_table_key_from_cpu + i;
+    value2 = slot_id_from_cpu + i;
+
+    hash_table->get(key, value1, 1);
+
+    if (*value1 != *value2) {
+      std::cout << "Error in compare_hash_table: <key, slot_id> pair number=" << i << std::endl;
+      rtn = false;
+      break;
+    }
+  }
+
+  free(value1);
+
+  return rtn;
+}
+
 template <typename T>
 class UnorderedKeyGenerator {
  public:

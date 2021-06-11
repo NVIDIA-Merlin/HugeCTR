@@ -14,211 +14,96 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_generator.hpp"
-#include "HugeCTR/include/data_readers/data_reader.hpp"
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+ #include <gtest/gtest.h>
+#include "utest/model_oversubscriber/mos_test_utils.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
-#include "HugeCTR/include/utils.hpp"
-#include "gtest/gtest.h"
-#include "utest/test_utils.h"
-
-#include <fstream>
-#include <set>
 
 using namespace HugeCTR;
+using namespace mos_test;
 
 namespace {
 
 const char* prefix = "./model_oversubscriber_test_data/tmp_";
 const char* file_list_name_train = "file_list_train.txt";
 const char* file_list_name_eval = "file_list_eval.txt";
-const char* snapshot_src_file = "distributed_snapshot_src.bin";
-const char* snapshot_dst_file = "distributed_snapshot_dst.bin";
-const char* keyset_file_name_postfix = "_keyset_file.bin";
-const char* temp_embedding_dir = "./";
-
-const std::string plan_file = "";
+const char* snapshot_src_file = "distributed_snapshot_src";
+const char* snapshot_dst_file = "distributed_snapshot_dst";
+const char* snapshot_bkp_file_unsigned = "distributed_snapshot_unsigned";
+const char* snapshot_bkp_file_longlong = "distributed_snapshot_longlong";
+const char* keyset_file_name = "keyset_file.bin";
 
 const int batchsize = 4096;
 const long long label_dim = 1;
 const long long dense_dim = 0;
-// const int embedding_vector_size = 128;
 const int slot_num = 128;
 const int max_nnz_per_slot = 1;
 const int max_feature_num = max_nnz_per_slot * slot_num;
 const long long vocabulary_size = 100000;
+const int emb_vec_size = 64;
 const int combiner = 0;
 const float scaler = 1.0f;
 const int num_workers = 1;
 const int num_files = 1;
 
 const Check_t check = Check_t::Sum;
+const Update_t update_type = Update_t::Local;
 
 // const int batch_num_train = 10;
 const int batch_num_eval = 1;
-const size_t pass_size = 2;
-// const size_t num_total_passes = batch_num_train / pass_size;
 
-const Update_t update_type = Update_t::Local;
-
-template <typename KeyType>
-void create_keyset_files(std::vector<KeyType> keys, size_t batch_num_train,
-                         size_t num_total_passes) {
-  // just get a handful of keys to test the functions
-  std::vector<std::ofstream> keyset_files;
-  for (size_t p = 0; p < num_total_passes; p++) {
-    std::string keyset_file_name = std::to_string(p) + keyset_file_name_postfix;
-    keyset_files.emplace_back(std::ofstream(keyset_file_name));
-  }
-
-  for (size_t k = 0; k < batch_num_train; k++) {
-    size_t kfi = (k / pass_size) % num_total_passes;
-    keyset_files[kfi].write((char*)(keys.data() + k), sizeof(KeyType));
-  }
-}
-
-std::vector<char> load_to_vector(std::ifstream& stream) {
-  stream.seekg(0, stream.end);
-  size_t file_size_in_byte = stream.tellg();
-  stream.seekg(0, stream.beg);
-
-  std::vector<char> vec(file_size_in_byte);
-  stream.read(vec.data(), file_size_in_byte);
-  return vec;
-}
-
-template <typename KeyType, typename EmbeddingCompType>
-std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> init_embedding(
-    const Tensors2<KeyType> &train_row_offsets_tensors,
-    const Tensors2<KeyType> &train_value_tensors,
-    const std::vector<std::shared_ptr<size_t>> &train_nnz_array,
-    const Tensors2<KeyType> &evaluate_row_offsets_tensors,
-    const Tensors2<KeyType> &evaluate_value_tensors,
-    const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
-    const SparseEmbeddingHashParams<EmbeddingCompType> &embedding_params,
-    const std::string plan_file,
-    const std::shared_ptr<ResourceManager> &resource_manager,
-    const Embedding_t embedding_type) {
-  if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
-    std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> embedding(
-        new DistributedSlotSparseEmbeddingHash<KeyType, EmbeddingCompType>(
-            train_row_offsets_tensors, train_value_tensors, train_nnz_array,
-            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
-            embedding_params, resource_manager));
-    return embedding;
-  } else {
-    std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> embedding(
-        new LocalizedSlotSparseEmbeddingHash<KeyType, EmbeddingCompType>(
-            train_row_offsets_tensors, train_value_tensors, train_nnz_array,
-            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
-            embedding_params, plan_file, resource_manager));
-    return embedding;
-  }
-}
-
-template <typename KeyType, typename EmbeddingCompType>
-void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_vector_size,
-    Embedding_t embedding_type) {
-  const size_t num_total_passes = batch_num_train / pass_size;
+template <typename TypeKey>
+void do_upload_and_download_snapshot(
+    size_t batch_num_train, bool use_host_ps, bool is_distributed) {
+  Embedding_t embedding_type = is_distributed ? 
+                               Embedding_t::DistributedSlotSparseEmbeddingHash :
+                               Embedding_t::LocalizedSlotSparseEmbeddingHash;
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back({0});
-
   const auto resource_manager = ResourceManager::create(vvgpu, 0);
 
-  // generate train/test datasets
-  {
-    std::ifstream fs(file_list_name_train);
-    if (fs.good()) {
-      std::remove(file_list_name_train);
-    }
-  }
-  {
-    std::ifstream fs(file_list_name_eval);
-    if (fs.good()) {
-      std::remove(file_list_name_eval);
-    }
-  }
-  // data generation
-  HugeCTR::data_generation_for_test<KeyType, check>(
-      file_list_name_train, prefix, num_files, batch_num_train * batchsize, slot_num,
-      vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
-  HugeCTR::data_generation_for_test<KeyType, check>(
-      file_list_name_eval, prefix, num_files, batch_num_eval * batchsize, slot_num, vocabulary_size,
-      label_dim, dense_dim, max_nnz_per_slot);
+  generate_sparse_model<TypeKey, check>(snapshot_src_file, snapshot_dst_file,
+      snapshot_bkp_file_unsigned, snapshot_bkp_file_longlong,
+      file_list_name_train, file_list_name_eval, prefix, num_files, label_dim,
+      dense_dim, slot_num, max_nnz_per_slot, max_feature_num,
+      vocabulary_size, emb_vec_size, combiner, scaler, num_workers, batchsize,
+      batch_num_train, batch_num_eval, update_type, resource_manager);
+  copy_sparse_model(snapshot_src_file, snapshot_dst_file);
 
-  // create train/eval data readers
-  const DataReaderSparseParam param = {DataReaderSparse_t::Distributed, max_feature_num,
-                                       max_nnz_per_slot, slot_num};
-  std::vector<DataReaderSparseParam> data_reader_params;
-  data_reader_params.push_back(param);
-
-  std::unique_ptr<DataReader<KeyType>> data_reader_train(new DataReader<KeyType>(
-      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false, 0));
-  std::unique_ptr<DataReader<KeyType>> data_reader_eval(new DataReader<KeyType>(
-      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false, 0));
-
-  data_reader_train->create_drwg_norm(file_list_name_train, check);
-  data_reader_eval->create_drwg_norm(file_list_name_eval, check);
-
-  // create an embedding
-  OptHyperParams<EmbeddingCompType> hyper_params;
-  hyper_params.adam.beta1 = 0.9f;
-  hyper_params.adam.beta2 = 0.999f;
-  if (std::is_same<EmbeddingCompType, __half>::value) {
-    hyper_params.adam.epsilon = 1e-4f;
-  } else {
-    hyper_params.adam.epsilon = 1e-7f;
-  }
-  hyper_params.momentum.factor = 0.9f;
-  hyper_params.nesterov.mu = 0.9f;
-
-  const OptParams<EmbeddingCompType> opt_params = {Optimizer_t::Adam, 0.001f, hyper_params,
-                                                   update_type, scaler};
-
-  const SparseEmbeddingHashParams<EmbeddingCompType> embedding_params = {
-      batchsize,       batchsize, vocabulary_size, {},        embedding_vector_size,
-      max_feature_num, slot_num,  combiner,        opt_params};
-
-  std::unique_ptr<Embedding<KeyType, EmbeddingCompType>> embedding = init_embedding(
-          data_reader_train->get_row_offsets_tensors(), data_reader_train->get_value_tensors(),
-          data_reader_train->get_nnz_array(), data_reader_eval->get_row_offsets_tensors(),
-          data_reader_eval->get_value_tensors(), data_reader_eval->get_nnz_array(),
-          embedding_params, plan_file, resource_manager, embedding_type);
-  embedding->init_params();
-
-  // train the embedding
-  data_reader_train->read_a_batch_to_device();
-  embedding->forward(true);
-  embedding->backward();
-  embedding->update_params();
-
-  // store the snapshot from the embedding
-  {
-    std::ofstream fs(snapshot_src_file, std::ofstream::binary);
-    embedding->dump_parameters(fs);
-  }
+  auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
+    return std::string(sparse_model_file) + "/" + sparse_model_file + "." + ext;
+  };
 
   // Create a ParameterServer
-  ParameterServer<KeyType, EmbeddingCompType> parameter_server(embedding_params, snapshot_src_file,
-      temp_embedding_dir, embedding_type);
+  ParameterServer<TypeKey> parameter_server(use_host_ps, snapshot_dst_file,
+      embedding_type, emb_vec_size, resource_manager);
 
   // Make a synthetic keyset files
-  auto keys = parameter_server.get_keys_from_hash_table();
-  create_keyset_files<KeyType>(keys, batch_num_train, num_total_passes);
+  {
+    size_t key_file_size_in_byte =
+        fs::file_size(get_ext_file(snapshot_dst_file, "key"));
+    size_t num_keys = key_file_size_in_byte / sizeof(TypeKey);
+    std::vector<TypeKey> keys_in_file(num_keys);
+    std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
+    key_ifs.read(reinterpret_cast<char *>(keys_in_file.data()),
+                                          key_file_size_in_byte);
+    std::ofstream key_ofs(keyset_file_name, std::ofstream::binary |
+                                            std::ofstream::trunc);
+    key_ofs.write(reinterpret_cast<char *>(keys_in_file.data()),
+                                           key_file_size_in_byte);
+  }
 
   BufferBag buf_bag;
   {
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
       GeneralBuffer2<CudaHostAllocator>::create();
 
-    Tensor2<KeyType> tensor_keys;
+    Tensor2<TypeKey> tensor_keys;
     Tensor2<size_t> tensor_slot_id;
     blobs_buff->reserve({vocabulary_size}, &tensor_keys);
     blobs_buff->reserve({vocabulary_size}, &tensor_slot_id);
 
-    blobs_buff->reserve({vocabulary_size, embedding_vector_size}, &(buf_bag.embedding));
+    blobs_buff->reserve({vocabulary_size, emb_vec_size}, &(buf_bag.embedding));
     blobs_buff->allocate();
 
     buf_bag.keys = tensor_keys.shrink();
@@ -228,59 +113,38 @@ void do_upload_and_download_snapshot(size_t batch_num_train, size_t embedding_ve
   Timer timer_ps;
   timer_ps.start();
 
-  for (size_t p = 0; p < num_total_passes; p++) {
-    std::string keyset_file_name = std::to_string(p) + keyset_file_name_postfix;
-    parameter_server.load_keyset_from_file(keyset_file_name);
+  parameter_server.load_keyset_from_file(keyset_file_name);
 
-    size_t size_tmp = 0;
-    parameter_server.load_param_from_embedding_file(buf_bag, size_tmp);
-    parameter_server.dump_param_to_embedding_file(buf_bag, size_tmp);
-  }
-  // transfer the internal embedding table to the snapshot
-  parameter_server.dump_to_snapshot(snapshot_dst_file);
+  size_t size_tmp = 0;
+  parameter_server.pull(buf_bag, size_tmp);
+  parameter_server.push(buf_bag, size_tmp);
+  parameter_server.flush_emb_tbl_to_ssd();
 
-  MESSAGE_("Batch_num: " + std::to_string(batch_num_train) + ", embedding_vec_size: " +
-           std::to_string(embedding_vector_size) + ", elapsed time: " +
-           std::to_string(timer_ps.elapsedSeconds()) + "s");
+  MESSAGE_("Batch_num=" + std::to_string(batch_num_train) +
+           ", embedding_vec_size=" + std::to_string(emb_vec_size) +
+           ", elapsed time=" + std::to_string(timer_ps.elapsedSeconds()) + "s");
 
   // Check if the result is correct
-  std::ifstream fs_src(snapshot_src_file);
-  std::ifstream fs_dst(snapshot_dst_file);
-
-  std::vector<char> vec_src = load_to_vector(fs_src);
-  std::vector<char> vec_dst = load_to_vector(fs_dst);
-
-  size_t len_src = vec_src.size();
-  size_t len_dst = vec_src.size();
-  ASSERT_EQ(true, len_src == len_dst);
-  ASSERT_TRUE(test::compare_array_approx<char>(vec_src.data(), vec_dst.data(), len_src, 0));
+  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "key"));
+  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "vec"));
+  if (!is_distributed)
+    ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "slot"));
 }
 
-// void test_wrapper() {
-//   std::vector<size_t> batch_num_train = {10, 20, 30, 40};
-//   std::vector<size_t> embedding_vector_size = {16, 32, 64, 128};
-//
-//   for (auto& batch_num : batch_num_train) {
-//     for (auto& vec_size : embedding_vector_size) {
-//       do_upload_and_download_snapshot<long long, float>(batch_num, vec_size);
-//     }
-//   }
-// }
-
-TEST(parameter_server_distributed_embedding_test, long_long_float) {
-  // test_wrapper();
-  const Embedding_t dis_embedding = Embedding_t::DistributedSlotSparseEmbeddingHash;
-  do_upload_and_download_snapshot<long long, float>(20, 64, dis_embedding);
+TEST(parameter_server_test, long_long_ssd_distributed) {
+  do_upload_and_download_snapshot<long long>(30, false, true);
 }
 
-TEST(parameter_server_localized_embedding_test, long_long_float) {
-  const Embedding_t loc_embedding = Embedding_t::LocalizedSlotSparseEmbeddingHash;
-  do_upload_and_download_snapshot<long long, float>(20, 64, loc_embedding);
+TEST(parameter_server_test, unsigned_host_distributed) {
+  do_upload_and_download_snapshot<unsigned>(20, true, true);
 }
 
-TEST(parameter_server_test_localized_embedding_one_hot_test, long_long_float) {
-  const Embedding_t loc_oh_embedding = Embedding_t::LocalizedSlotSparseEmbeddingOneHot;
-  do_upload_and_download_snapshot<long long, float>(20, 64, loc_oh_embedding);
+TEST(parameter_server_test, long_long_ssd_localized) {
+  do_upload_and_download_snapshot<long long>(30, false, false);
+}
+
+TEST(parameter_server_test, unsigned_host_localized) {
+  do_upload_and_download_snapshot<unsigned>(20, true, false);
 }
 
 }  // namespace

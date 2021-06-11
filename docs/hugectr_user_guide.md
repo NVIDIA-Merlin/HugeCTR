@@ -86,8 +86,7 @@ You can build HugeCTR from scratch using one or any combination of the following
 * **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=80) or multiple compute capabilities (DSM="70;75"). The default compute capability is 70, which uses the NVIDIA V100 GPU. For more information, see [Compute Capability](#compute-capability). 60 is not supported for inference deployments. For more information, see [Quick Start](https://github.com/triton-inference-server/hugectr_backend#quick-start).
 * **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks in a synchronous manner.
 * **VAL_MODE**: You can use this option to build HugeCTR in validation mode, which was designed for framework validation. In this mode, loss of training will be shown as the average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by default.
-* **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multi-nodes. This option is set to OFF by default. For more information, see [samples/dcn2nodes](../samples/dcn2nodes).
-* **NCCL_A2A**: You can use this option to build HugeCTR with NCCL All2All, which is the default collection communication library used in LocalizedSlotSparseEmbedding. Gossip is also supported in HugeCTR, which provides better performance on servers without NVSwitch support. To build HugeCTR with NCCL All2All, please turn on the NCCL_A2A switch in the cmake. This option is set to OFF by default.
+* **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multi-nodes. This option is set to OFF by default. For more information, see [samples/dcn2nodes](../samples/dcn).
 * **ENABLE_INFERENCE**: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to OFF by default.
 
 Here are some examples of how you can build HugeCTR using these build options:
@@ -108,7 +107,7 @@ $ make -j
 ```shell
 $ mkdir -p build
 $ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Debug -DSM="70,80" -DNCCL_A2A=OFF .. # Target is NVIDIA V100 / A100, Debug mode and Gossip for all2all data transaction.
+$ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70,80" -DCMAKE_BUILD_TYPE=Debug .. # Target is NVIDIA V100 / A100, Debug mode.
 $ make -j
 ```
 
@@ -145,7 +144,7 @@ In addition to single node and full precision training, HugeCTR supports a varie
 **NOTE**: Multi-node training and mixed precision training can be used simultaneously.
 
 ### Multi-Node Training ###
-Multi-node training makes it easy to train an embedding table of arbitrary size. In a multi-node solution, the sparse model, which is referred to as the embedding layer, is distributed across the nodes. Meanwhile, the dense model such as DNN, is data parallel and contains a copy of the dense model in each GPU (see Fig. 2). In our implementation, HugeCTR leverages NCCL and [gossip](https://github.com/Funatiq/gossip) for high speed and scalable inter-node and intra-node communication.
+Multi-node training makes it easy to train an embedding table of arbitrary size. In a multi-node solution, the sparse model, which is referred to as the embedding layer, is distributed across the nodes. Meanwhile, the dense model, such as DNN, is data parallel and contains a copy of the dense model in each GPU (see Fig. 2). In our implementation, HugeCTR leverages NCCL for high speed and scalable inter- and intra-node communication.
 
 To run with multiple nodes, HugeCTR should be built with OpenMPI. GPUDirect support is recommended for high performance. Additionally, the configuration file and model files should be located in the Network File System and be visible to each of the processes. Here's an example of how your command should be set up when running in two nodes:
 ```shell
@@ -183,7 +182,10 @@ For example:
 <br></br>
 
 ### Model Oversubscription ###
-Model oversubscription gives you the ability to load a subset of an embedding table, which exceeds the device memory capacity of single-GPU or multi-GPU machines, into the GPU(s) in a coarse grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them. This feature can only currently be used with [`Norm`](./configuration_file_setup.md#norm) and [`Raw`](./configuration_file_setup.md#raw) dataset formats. This feature will eventually support all embedding types and dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to only this dataset.
+Model oversubscription gives you the ability to train a large model up to TeraBytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU's memory, into the GPU in a coarse-grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them (see Fig. 7).<br/>This feature currently supports both single and multi-node training. It supports all embedding types and can be used with [`Norm`](./configuration_file_setup.md#norm) and [`Raw`](https://gitlab-master.nvidia.com/dl/hugectr/hugectr/-/blob/master/docs/configuration_file_setup.md#raw) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to this dataset.
+
+<div align=center><img width="520" height="153" src="user_guide_src/dataset_split.png"/></div>
+<div align=center>Fig. 7: Preprocessing of dataset for model oversubscription</div>
 
 ## Tools ##
 We currently support the following tools:

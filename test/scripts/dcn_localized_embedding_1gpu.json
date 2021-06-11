@@ -10,7 +10,8 @@
     "snapshot": 10000000,
     "snapshot_prefix": "./",
     "eval_interval": 1000,
-    "max_eval_batches": 2048
+    "max_eval_batches": 2048,
+    "auc_threshold": 0.8071
   },
   "optimizer": {
     "type": "Adam",
@@ -49,7 +50,6 @@
     {
       "name": "sparse_embedding1",
       "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file": "all2all_plan_0_1.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

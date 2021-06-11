@@ -110,7 +110,7 @@ class internal_runtime_error : public std::runtime_error {
 
 enum class LrPolicy_t { fixed };
 
-enum class Optimizer_t { Adam, MomentumSGD, Nesterov, SGD };
+enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD };
 
 enum class Update_t { Local, Global, LazyGlobal };
 
@@ -217,7 +217,8 @@ typedef struct DataSetHeader_ {
     }                                                                              \
   } while (0)
 
-inline void MESSAGE_(const std::string msg, bool per_process=false) {
+inline void MESSAGE_(const std::string msg,
+    bool per_process = false, bool new_line = true, bool timestamp=true) {
 #ifdef ENABLE_MPI
   int __PID(-1);
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -227,10 +228,12 @@ inline void MESSAGE_(const std::string msg, bool per_process=false) {
   std::tm* time_now = std::localtime(&time_instance);
   std::string str = (std::move(msg));
   std::cout.fill('0');
-  std::cout << "[" << std::setw(2) << time_now->tm_mday << "d" << std::setw(2)
-            << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m"
-            << std::setw(2) << time_now->tm_sec << "s"
-            << "][HUGECTR][INFO]: " << str << std::endl;
+  if (timestamp)
+    std::cout << "[" << std::setw(2) << time_now->tm_mday << "d" << std::setw(2)
+              << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m"
+              << std::setw(2) << time_now->tm_sec << "s" << "][HUGECTR][INFO]: ";
+  std::cout << str << std::flush;
+  if (new_line) std::cout << std::endl;
 }
 
 #define CK_CUDA_THROW_(x)                                                                          \

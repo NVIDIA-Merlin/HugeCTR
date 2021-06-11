@@ -24,32 +24,20 @@ embedding_interface::embedding_interface(){}
 embedding_interface::~embedding_interface(){}
 
 template <typename TypeHashKey>
-embedding_interface* embedding_interface::Create_Embedding_Cache(HugectrUtility<TypeHashKey>* parameter_server,
-                                                                 int cuda_dev_id,
-                                                                 bool use_gpu_embedding_cache,
-                                                                 float cache_size_percentage,
-                                                                 const std::string& model_config_path,
-                                                                 const std::string& model_name){
+embedding_interface* embedding_interface::Create_Embedding_Cache(const std::string& model_config_path,
+                                                                const InferenceParams& inference_params,
+                                                                HugectrUtility<TypeHashKey>* parameter_server){
   embedding_interface* new_embedding_cache;
-  new_embedding_cache = new embedding_cache<TypeHashKey>(parameter_server, 
-                                                         cuda_dev_id,
-                                                         use_gpu_embedding_cache,
-                                                         cache_size_percentage,
-                                                         model_config_path,
-                                                         model_name);
+  new_embedding_cache = new embedding_cache<TypeHashKey>(model_config_path,
+                                                        inference_params,
+                                                        parameter_server);
   return new_embedding_cache;
 }
 
-template embedding_interface* embedding_interface::Create_Embedding_Cache<unsigned int>(HugectrUtility<unsigned int>*,
-                                                                                        int,
-                                                                                        bool,
-                                                                                        float,
-                                                                                        const std::string&,
-                                                                                        const std::string&);
-template embedding_interface* embedding_interface::Create_Embedding_Cache<long long>(HugectrUtility<long long>*,
-                                                                                        int,
-                                                                                        bool,
-                                                                                        float,
-                                                                                        const std::string&,
-                                                                                        const std::string&);
+template embedding_interface* embedding_interface::Create_Embedding_Cache<unsigned int>(const std::string&,
+                                                                                        const InferenceParams&,
+                                                                                        HugectrUtility<unsigned int>*);
+template embedding_interface* embedding_interface::Create_Embedding_Cache<long long>(const std::string&,
+                                                                                    const InferenceParams&,
+                                                                                    HugectrUtility<long long>*);
 }  // namespace HugeCTR

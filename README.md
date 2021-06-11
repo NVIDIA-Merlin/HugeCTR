@@ -53,21 +53,25 @@ If you'd like to quickly train a model using the Python interface, follow these 
    from mpi4py import MPI
 
    def train(json_config_file):
-     solver_config = hugectr.solver_parser_helper(batchsize = 16384,
-                                                  batchsize_eval = 16384,
-                                                  vvgpu = [[0,1,2,3,4,5,6,7]],
-                                                  repeat_dataset = True)
-     sess = hugectr.Session(solver_config, json_config_file)
-     sess.start_data_reading()
-     for i in range(10000):
-       sess.train()
-       if (i % 100 == 0):
-         loss = sess.get_current_loss()
-         print("[HUGECTR][INFO] iter: {}; loss: {}".format(i, loss))
+      solver = hugectr.CreateSolver(batchsize_eval = 16384,
+                                    batchsize = 16384,
+                                    vvgpu = [[0,1,2,3,4,5,6,7]],
+                                    repeat_dataset = True)
+      reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
+                                       source = ["./criteo_data/file_list.txt"],
+                                       eval_source = "./criteo_data/file_list_test.txt",
+                                       check_type = hugectr.Check_t.Sum)
+      optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
+                                          update_type = hugectr.Update_t.Global)
+      model = hugectr.Model(solver, reader, optimizer)
+      model.construct_from_json(graph_config_file = json_config_file, include_dense_network = True)
+      model.compile()
+      model.summary()
+      model.fit(max_iter = 12000, display = 200, eval_interval = 1000, snapshot = 10000, snapshot_prefix = "dcn")
 
    if __name__ == "__main__":
-     json_config_file = sys.argv[1]
-     train(json_config_file)
+      json_config_file = sys.argv[1]
+      train(json_config_file)
 
    ```
 

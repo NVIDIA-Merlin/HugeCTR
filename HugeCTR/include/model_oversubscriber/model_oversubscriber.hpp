@@ -16,13 +16,10 @@
 
 #pragma once
 
-#include <embedding.hpp>
+#include "embedding.hpp"
 #include "HugeCTR/include/embeddings/embedding.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 #include "HugeCTR/include/model_oversubscriber/model_oversubscriber_impl.hpp"
-
-#include <memory>
-#include <vector>
 
 namespace HugeCTR {
 
@@ -31,34 +28,31 @@ private:
   std::unique_ptr<ModelOversubscriberImplBase> impl_base_;
 
 public:
-  template <typename TypeEmbeddingComp>
-  ModelOversubscriber(
-    std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-    std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-    const SolverParser& solver_config,
-    const std::string& temp_embedding_dir) {
-    if (solver_config.i64_input_key) {
+  ModelOversubscriber(bool use_host_ps,
+      std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+      const std::vector<std::string>& sparse_embedding_files,
+      std::shared_ptr<ResourceManager> resource_manager, bool is_i64_key) {
+    std::vector<SparseEmbeddingHashParams> embedding_params;
+    if (is_i64_key) {
       for (auto& one_embedding : embeddings) {
         embedding_params.push_back(
-            dynamic_cast<Embedding<long long, TypeEmbeddingComp>*>(one_embedding.get())
+            dynamic_cast<Embedding<long long, float>*>(one_embedding.get())
                 ->get_embedding_params());
       }
-      impl_base_.reset(new ModelOversubscriberImpl<long long, TypeEmbeddingComp>(
-          embeddings, embedding_params, solver_config, temp_embedding_dir));
+      impl_base_.reset(new ModelOversubscriberImpl<long long>(use_host_ps,
+          embeddings, embedding_params, sparse_embedding_files, resource_manager));
     } else {
       for (auto& one_embedding : embeddings) {
         embedding_params.push_back(
-            dynamic_cast<Embedding<unsigned, TypeEmbeddingComp>*>(one_embedding.get())
+            dynamic_cast<Embedding<unsigned, float>*>(one_embedding.get())
                 ->get_embedding_params());
       }
-      impl_base_.reset(new ModelOversubscriberImpl<unsigned, TypeEmbeddingComp>(
-          embeddings, embedding_params, solver_config, temp_embedding_dir));
+      impl_base_.reset(new ModelOversubscriberImpl<unsigned>(use_host_ps,
+          embeddings, embedding_params, sparse_embedding_files, resource_manager));
     }
   }
 
-  void store(std::vector<std::string> snapshot_file_list) {
-    impl_base_->store(snapshot_file_list);
-  }
+  void dump() { impl_base_->dump(); }
 
   void update(std::vector<std::string>& keyset_file_list) {
     impl_base_->update(keyset_file_list);
@@ -67,6 +61,8 @@ public:
   void update(std::string& keyset_file) {
     impl_base_->update(keyset_file);
   }
+
+  void update_sparse_model_file() { impl_base_->update_sparse_model_file(); }
 };
 
 }  // namespace HugeCTR

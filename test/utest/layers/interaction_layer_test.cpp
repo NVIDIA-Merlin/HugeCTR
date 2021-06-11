@@ -62,7 +62,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     buff->reserve(dims, &in_tensor);
     in_tensors.push_back(in_tensor);
 
-    h_ins.push_back(std::vector<T>(in_tensor.get_num_elements(), TypeConvert<T>::convert(0.0f)));
+    h_ins.push_back(std::vector<T>(in_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f)));
 
     data_sim.fill(h_ins[ni].data(), h_ins[ni].size());
   }
@@ -76,7 +76,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
   size_t n_ins = 1 + n_emb;
   size_t out_width = n_ins * in_width;
 
-  std::vector<T> h_concat(height * out_width, TypeConvert<T>::convert(0.0f));
+  std::vector<T> h_concat(height * out_width, TypeConvert<T, float>::convert(0.0f));
   auto concat_op = [&](bool fprop) {
     for (size_t ni = 0; ni < n_ins; ni++) {
       for (size_t h = 0; h < height; h++) {
@@ -121,7 +121,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
   // host fprop
   concat_op(true);
 
-  std::vector<T> h_mat(height * n_ins * n_ins, TypeConvert<T>::convert(0.0f));
+  std::vector<T> h_mat(height * n_ins * n_ins, TypeConvert<T, float>::convert(0.0f));
   for (size_t p = 0; p < height; p++) {
     size_t concat_stride = n_ins * in_width * p;
     size_t mat_stride = n_ins * n_ins * p;
@@ -155,7 +155,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     }
   }
 
-  std::vector<T> h_out(out_tensor.get_num_elements(), TypeConvert<T>::convert(0.0f));
+  std::vector<T> h_out(out_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f));
   T* d_out = out_tensor.get_ptr();
   CK_CUDA_THROW_(
       cudaMemcpy(&h_out.front(), d_out, out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));
@@ -179,7 +179,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
     for (size_t n = 0; n < n_ins; n++) {
       for (size_t m = 0; m < n_ins; m++) {
         h_mat[mat_stride + m * n_ins + n] =
-            (n > m) ? h_ref[out_stride + cur_idx++] : TypeConvert<T>::convert(0.0f);
+            (n > m) ? h_ref[out_stride + cur_idx++] : TypeConvert<T, float>::convert(0.0f);
       }
     }
   }
@@ -203,7 +203,7 @@ void interaction_layer_test(size_t height, size_t n_emb, size_t in_width,
 
   for (int i = 0; i < 2; i++) {
     auto in_tensor = in_tensors[i];
-    std::vector<T> h_in(in_tensor.get_num_elements(), TypeConvert<T>::convert(0.0f));
+    std::vector<T> h_in(in_tensor.get_num_elements(), TypeConvert<T, float>::convert(0.0f));
     T* d_in = in_tensor.get_ptr();
     CK_CUDA_THROW_(
         cudaMemcpy(&h_in.front(), d_in, in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToHost));

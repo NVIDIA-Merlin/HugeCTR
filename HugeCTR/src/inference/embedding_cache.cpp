@@ -15,6 +15,9 @@
  */
 
 #include <inference/embedding_cache.hpp>
+#include <experimental/filesystem>
+
+namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -35,38 +38,33 @@ void decompress_emb_vec_async(const float* d_unique_src_ptr,
                               cudaStream_t stream);
 
 template <typename TypeHashKey>
-embedding_cache<TypeHashKey>::embedding_cache(HugectrUtility<TypeHashKey>* parameter_server,
-                                              int cuda_dev_id,
-                                              bool use_gpu_embedding_cache,
-                                              float cache_size_percentage,
-                                              const std::string& model_config_path,
-                                              const std::string& model_name){
+embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_path,
+                                              const InferenceParams& inference_params,
+                                              HugectrUtility<TypeHashKey>* parameter_server) {
   // Store the configuration
   parameter_server_ = parameter_server;
-  cache_config_.use_gpu_embedding_cache_ = use_gpu_embedding_cache;
-  cache_config_.model_name_ = model_name;
+  cache_config_.use_gpu_embedding_cache_ = inference_params.use_gpu_embedding_cache;
+  cache_config_.model_name_ = inference_params.model_name;
   if(cache_config_.use_gpu_embedding_cache_){
-    cache_config_.cuda_dev_id_ = cuda_dev_id;
-    cache_config_.cache_size_percentage_ = cache_size_percentage;
+    cache_config_.cuda_dev_id_ = inference_params.device_id;
+    cache_config_.cache_size_percentage_ = inference_params.cache_size_percentage;
   }
 
   // Open model config file and input model json config
   nlohmann::json model_config(read_json_file(model_config_path));
 
   // Read inference config
-  const nlohmann::json& j_inference = get_json(model_config, "inference");
-  const size_t max_batchsize = get_value_from_json<size_t>(j_inference, "max_batchsize");
-  const nlohmann::json& j_emb_table_file = get_json(j_inference, "sparse_model_file");
+  const size_t max_batchsize = inference_params.max_batchsize;
   std::vector<std::string> emb_file_path;
-  if (j_emb_table_file.is_array()){
-    cache_config_.num_emb_table_ = j_emb_table_file.size();
-    for(unsigned int i = 0; i < j_emb_table_file.size(); i++){
-      emb_file_path.emplace_back(j_emb_table_file[i].get<std::string>());
+  if (inference_params.sparse_model_files.size() > 1){
+    cache_config_.num_emb_table_ = inference_params.sparse_model_files.size();
+    for(unsigned int i = 0; i < inference_params.sparse_model_files.size(); i++){
+      emb_file_path.emplace_back(inference_params.sparse_model_files[i]);
     }
   }
   else{
     cache_config_.num_emb_table_ = 1;
-    emb_file_path.emplace_back(j_emb_table_file.get<std::string>());
+    emb_file_path.emplace_back(inference_params.sparse_model_files[0]);
   }
 
   const nlohmann::json& j_layers = get_json(model_config, "layers");
@@ -118,38 +116,24 @@ embedding_cache<TypeHashKey>::embedding_cache(HugectrUtility<TypeHashKey>* param
     cache_config_.max_query_len_per_emb_table_.emplace_back(max_batchsize * max_feature_num_per_sample[i]);
   }
 
+  auto remove_prefix = [](const std::string& path) {
+    size_t found = path.rfind("/");
+    if (found != std::string::npos)
+      return std::string(path, found + 1);
+    else
+      return path;
+  };
   // Query the size of all embedding tables and calculate the size of each embedding cache
   if(cache_config_.use_gpu_embedding_cache_){
     for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
-      std::ifstream emb_file(emb_file_path[i]);
-      // Check if file is opened successfully
-      if (!emb_file.is_open()) {
-        CK_THROW_(Error_t::WrongInput, "Error: embeddings file cannot open for reading");
+      std::string key_file(emb_file_path[i] + "/" + remove_prefix(emb_file_path[i]) + ".key");
+      size_t row_num = fs::file_size(key_file) / sizeof(TypeHashKey);
+      if (fs::file_size(key_file) % sizeof(TypeHashKey) != 0){
+        CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
       }
-      emb_file.seekg(0, emb_file.end);
-      size_t file_size = emb_file.tellg();
-      emb_file.seekg(0, emb_file.beg);
 
-      // File format is different for distributed and localized embeddings
-      if(distributed_emb[i]){
-        size_t row_size = sizeof(TypeHashKey) + sizeof(float) * cache_config_.embedding_vec_size_[i];
-        size_t row_num = file_size / row_size;
-        if (file_size % row_size != 0){
-          CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
-        }
-        size_t num_feature_in_cache = (size_t)((double)(cache_config_.cache_size_percentage_) * (double)row_num);
-        cache_config_.num_set_in_cache_.emplace_back(num_feature_in_cache / (SLAB_SIZE * SET_ASSOCIATIVITY));
-      }
-      else{
-        size_t row_size = sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * cache_config_.embedding_vec_size_[i];
-        size_t row_num = file_size / row_size;
-        if (file_size % row_size != 0){
-          CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
-        }
-        size_t num_feature_in_cache = (size_t)((double)(cache_config_.cache_size_percentage_) * (double)row_num);
-        cache_config_.num_set_in_cache_.emplace_back(num_feature_in_cache / (SLAB_SIZE * SET_ASSOCIATIVITY));
-      }
-      emb_file.close();
+      size_t num_feature_in_cache = (size_t)((double)(cache_config_.cache_size_percentage_) * (double)row_num);
+      cache_config_.num_set_in_cache_.emplace_back(num_feature_in_cache / (SLAB_SIZE * SET_ASSOCIATIVITY));
     }
   }
 
@@ -389,7 +373,8 @@ void embedding_cache<TypeHashKey>::update(embedding_cache_workspace& workspace_h
 }
 
 template <typename TypeHashKey>
-void embedding_cache<TypeHashKey>::create_workspace(embedding_cache_workspace& workspace_handler){
+embedding_cache_workspace embedding_cache<TypeHashKey>::create_workspace(){
+  embedding_cache_workspace workspace_handler;
   size_t max_query_len_per_batch = 0;
   size_t max_emb_vec_len_per_batch_in_float = 0;
   for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
@@ -449,6 +434,7 @@ void embedding_cache<TypeHashKey>::create_workspace(embedding_cache_workspace& w
       workspace_handler.unique_op_obj_.emplace_back((void*)(new unique_op_(capacity)));
     }
   }
+  return workspace_handler;
 }
 
 template <typename TypeHashKey>

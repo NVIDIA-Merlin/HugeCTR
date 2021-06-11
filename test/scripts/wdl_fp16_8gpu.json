@@ -70,6 +70,16 @@
         "max_vocabulary_size_per_gpu": 290350,
         "embedding_vec_size": 1,
         "combiner": 0
+      },
+      "optimizer": {
+        "type": "Adam",
+        "update_type": "Global",
+        "adam_hparam": {
+          "learning_rate": 0.001,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "epsilon": 0.0001
+        }
       }
     },
     {
@@ -77,11 +87,20 @@
       "type": "LocalizedSlotSparseEmbeddingHash",
       "bottom": "deep_data",
       "top": "sparse_embedding1",
-      "plan_file": "all2all_plan_bi_1.json",
       "sparse_embedding_hparam": {
         "max_vocabulary_size_per_gpu": 828103,
         "embedding_vec_size": 16,
         "combiner": 0
+      },
+      "optimizer": {
+        "type": "Adam",
+        "update_type": "Global",
+        "adam_hparam": {
+          "learning_rate": 0.001,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "epsilon": 0.0001
+        }
       }
     },
     {

@@ -10,7 +10,8 @@
     "eval_interval": 2000,
     "max_eval_batches": 16384,
     "batchsize_eval": 32768,
-    "input_key_type": "I64"
+    "input_key_type": "I64",
+    "auc_threshold": 0.7930
   },
   
   "optimizer": {
@@ -55,7 +56,6 @@
     {
       "name": "sparse_embedding1",
       "type": "LocalizedSlotSparseEmbeddingHash",
-      "plan_file1": "all2all_plan_0_1.json",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {

@@ -23,7 +23,10 @@ HugeCTR is available as buildable source code, but the easiest way to install an
    ```  
 
 ### Build the HugeCTR Docker Container on Your Own ###
-Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) to build on your own and set up the Docker container. Make sure that HugeCTR is built and installed to the system path `/usr/local/hugectr` within the Docker container. Launch the container in interactive mode in the same manner as above.
+Please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) to build on your own and set up the Docker container. Make sure that HugeCTR is built and installed to the system path `/usr/local/hugectr` within the Docker container. Launch the container in interactive mode in the same manner as above, and then set the `PYTHONPATH` environment variable inside the Docker container using the following command:
+```shell
+$ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
+```
 
 ## Preprocess the Terabyte Click Logs ##
 The [Terabyte Click Logs](https://labs.criteo.com/2013/12/download-terabyte-click-logs/) provided by CriteoLabs is used in this sample. The row count of each embedding table is limited to 40 million. The data is processed the same way as dlrm. For more information, see [Benchmarking](https://github.com/facebookresearch/dlrm#benchmarking). Each sample has 40 32bits integers in which the first integer is label. The next 13 integers are dense features and the following 26 integers are category features.
@@ -33,7 +36,7 @@ Ensure that you've met the following requirements:
 - See the requirements noted [here](../../README.md#Requirements) 
 - DGX A100 or DGX2 (32GB V100)
 
-1. Download the terabyte datasets from the [Terabyte Click Logs](https://labs.criteo.com/2013/12/download-terabyte-click-logs/). 
+1. Download the terabyte datasets from the [Terabyte Click Logs](https://labs.criteo.com/2013/12/download-terabyte-click-logs/) into the `"${project_home}/samples/dlrm/"` folder.
 
 2. Unzip the datasets and name them in the following manner: `day_0`, `day_1`, ..., `day_23`.
 
@@ -46,13 +49,13 @@ Ensure that you've met the following requirements:
    ```
    This operation will generate `train.bin(671.2GB)` and `test.bin(14.3GB)`.
 
-3. Run any of the four JSON configuration files in this directory using the following command:
+3. Run the Python script using the following command:
    ```shell
-   $ huge_ctr --train ./terabyte_fp16_64k.json
+   $ python3 dlrm_terabyte_fp16_64k.py
    ```
 
 **IMPORTANT NOTES**: 
-- In v2.2.1, there is a CUDA Graph error that occurs when running this sample on DGX2. To run it on DGX2, specify `"cuda_graph": false` in the `solver` section of your JSON configuration file. For detailed information about this error, see [Known Issues](docs/hugectr_user_guide.md#known-issues).
+- In v2.2.1, there is a CUDA Graph error that occurs when running this sample on DGX2. To run it on DGX2, specify `"use_cuda_graph = False` within `CreateSolver` in the Python script. For detailed information about this error, see [Known Issues](docs/hugectr_user_guide.md#known-issues).
 - `cache_eval_data` is only supported on DGX A100. If you're running DGX2, disable it. 
 
 ## Preprocess the Kaggle Display Advertising Dataset ##
@@ -64,8 +67,7 @@ Ensure that you've met the following requirements:
 - librmm version 0.15
 
 ## Run the Kaggle Display Advertising Dataset ##
-1. Go ([here](https://ailab.criteo.com/ressources/)) and download the Kaggle Display Advertising Dataset into the `"${project_home}/samples/
-   dlrm/"` folder.
+1. Go ([here](https://ailab.criteo.com/ressources/)) and download the Kaggle Display Advertising Dataset into the `"${project_home}/samples/dlrm/"` folder.
    As an alternative, you can run the following commands: 
    ```bash
    # download and preprocess
@@ -81,5 +83,5 @@ Ensure that you've met the following requirements:
    ```
 3. Train with HugeCTR by running the following command:
    ```bash
-   $ huge_ctr --train ./kaggle_fp32.json
+   $ python3 dlrm_kaggle_fp32.py
    ```

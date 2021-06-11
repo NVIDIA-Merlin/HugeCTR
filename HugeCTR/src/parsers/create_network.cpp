@@ -145,7 +145,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       }
       continue;
     }
-
+    
     std::vector<TensorEntry> output_tensor_entries;
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_entries);
     switch (layer_type) {
@@ -208,7 +208,27 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of BinaryCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip BinaryCrossEntropyLoss layer");
+          MESSAGE_("Inference stage skip BinaryCrossEntropyLoss layer, replaced by Sigmoid layer");
+          if (use_mixed_precision) {
+            Tensor2<__half> sigmoid_in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {"sigmoid", sigmoid_out_tensor.shrink()});
+          } else {
+            // establish out tensor
+            Tensor2<float> sigmoid_in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {"sigmoid", sigmoid_out_tensor.shrink()});
+          }
           break;
         }
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
@@ -259,7 +279,27 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of CrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip CrossEntropyLoss layer");
+          MESSAGE_("Inference stage skip CrossEntropyLoss layer, replaced by Sigmoid layer");
+          if (use_mixed_precision) {
+            Tensor2<__half> sigmoid_in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {"sigmoid", sigmoid_out_tensor.shrink()});
+          } else {
+            // establish out tensor
+            Tensor2<float> sigmoid_in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {"sigmoid", sigmoid_out_tensor.shrink()});
+          }
           break;
         }
         Tensor2<float> label_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
@@ -514,14 +554,25 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
 
         // establish out tensor
         auto num_layers = get_value_from_json<int>(j_mc_param, "num_layers");
-        Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-        Tensor2<float> out_tensor;
-        blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
-        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        // establish layer
-        layers.emplace_back(new MultiCrossLayer(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
-                                                out_tensor, gpu_resource, num_layers,
-                                                initializer_types));
+        if (use_mixed_precision) {
+          Tensor2<__half> mc_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<__half> out_tensor;
+          blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          // establish layer
+          layers.emplace_back(new MultiCrossLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
+                                                  out_tensor, gpu_resource, num_layers,
+                                                  initializer_types));
+        } else {
+          Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<float> out_tensor;
+          blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+          // establish layer
+          layers.emplace_back(new MultiCrossLayer<float>(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
+                                                  out_tensor, gpu_resource, num_layers,
+                                                  initializer_types));
+        }
         break;
       }
 
@@ -530,7 +581,27 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           CK_THROW_(Error_t::WrongInput, "bottom of MultiCrossEntropyLoss must be two dim");
         }
         if (inference_flag) {
-          MESSAGE_("Inference stage skip MultiCrossEntropyLoss layer");
+          MESSAGE_("Inference stage skip MultiCrossEntropyLoss layer, replaced by Sigmoid layer");
+          if (use_mixed_precision) {
+            Tensor2<__half> sigmoid_in_tensor =
+                Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {"sigmoid", sigmoid_out_tensor.shrink()});
+          } else {
+            // establish out tensor
+            Tensor2<float> sigmoid_in_tensor =
+                Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<float> sigmoid_out_tensor;
+            blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
+            layers.emplace_back(
+                new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
+            output_tensor_entries.push_back(
+                {"sigmoid", sigmoid_out_tensor.shrink()});
+          }
           break;
         }
         auto tweight = get_json(j, "target_weight");
@@ -722,13 +793,13 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> out_tensor;
           layers.emplace_back(
-              new WeightMultiplyLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
+              new WeightMultiplyLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
                                               out_tensor, weight_dims, gpu_resource, initializer_types));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
-          layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, wgrad_buff, blobs_buff,
+          layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff,
                                                              in_tensor, out_tensor, weight_dims,
                                                              gpu_resource, initializer_types));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
@@ -824,17 +895,18 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       default:
         assert(!"Error: no such layer && should never get here!");
     }  // end of switch
-
-    if (!(layer_type == Layer_t::CrossEntropyLoss ||
-          layer_type == Layer_t::BinaryCrossEntropyLoss ||
-          layer_type == Layer_t::MultiCrossEntropyLoss)) {
+    if (!inference_flag && (layer_type == Layer_t::CrossEntropyLoss ||
+              layer_type == Layer_t::BinaryCrossEntropyLoss ||
+              layer_type == Layer_t::MultiCrossEntropyLoss)) {
+      if (raw_metrics) {
+        (*raw_metrics)[metrics::RawType::Loss] = loss_tensor.shrink();
+        (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
+        (*raw_metrics)[metrics::RawType::Label] = input_output_info.inputs[1];
+      }
+    } else {
       for (auto& output_tensor_entry : output_tensor_entries) {
         tensor_entries.push_back(output_tensor_entry);
       }
-    } else if (raw_metrics && !inference_flag) {
-      (*raw_metrics)[metrics::RawType::Loss] = loss_tensor.shrink();
-      (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
-      (*raw_metrics)[metrics::RawType::Label] = input_output_info.inputs[1];
     }
   }  // for layers
 }
@@ -897,15 +969,27 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
 
   // create optimizer
   if (!inference_flag) {
-    auto opt_param = get_optimizer_param<float>()(j_optimizer);
+    if(use_mixed_precision){
+      auto opt_param = get_optimizer_param(j_optimizer);
 
-    network->optimizer_ = std::move(Optimizer::Create(
-        opt_param, train_weight_buff->as_tensor(), wgrad_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-        use_mixed_precision, scaler, opt_buff, opt_buff_half, gpu_resource));
+      network->optimizer_ = std::move(Optimizer::Create(
+        opt_param, train_weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+        scaler, opt_buff_half, gpu_resource));
+    }else {
+      auto opt_param = get_optimizer_param(j_optimizer);
+
+      network->optimizer_ = std::move(Optimizer::Create(
+        opt_param, train_weight_buff->as_tensor(), wgrad_buff->as_tensor(), scaler, opt_buff, gpu_resource));
+    }
+    
   } else {
     try {
       TensorEntry pred_tensor_entry = evaluate_tensor_entries.back();
-      network->pred_tensor_ = Tensor2<float>::stretch_from(pred_tensor_entry.bag);
+      if (use_mixed_precision) {
+        network->pred_tensor_half_ = Tensor2<__half>::stretch_from(pred_tensor_entry.bag);
+      } else {
+        network->pred_tensor_ = Tensor2<float>::stretch_from(pred_tensor_entry.bag);
+      }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
       throw;

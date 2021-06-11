@@ -15,22 +15,31 @@
  */
 
 #include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
+#include <string>
 
 namespace HugeCTR {
 
-template <typename TypeHashKey, typename TypeEmbeddingComp>
-ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
-    const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-    const Embedding_t embedding_type,
-    const SolverParser& solver_config,
-    const std::string& temp_embedding_dir,
-    size_t buffer_size) {
+template <typename TypeKey>
+ParameterServerManager<TypeKey>::ParameterServerManager(bool use_host_ps,
+    const std::vector<std::string>& sparse_embedding_files,
+    const std::vector<Embedding_t>& embedding_types,
+    const std::vector<SparseEmbeddingHashParams>& embedding_params,
+    size_t buffer_size, std::shared_ptr<ResourceManager> resource_manager) {
   try {
-    if (!solver_config.embedding_files.size()) {
-      MESSAGE_("Traning from scratch, no snapshot file specified");
+    if (sparse_embedding_files.size() == 0)
+      CK_THROW_(Error_t::WrongInput, "must provide sparse_model_file. \
+          if train from scratch, please specify a name to store the trained embedding model");
+
+    if (embedding_params.size() != sparse_embedding_files.size())
+      CK_THROW_(Error_t::WrongInput,
+          std::string("embedding_params.size() != sparse_embedding_files.size()") + ": " +
+          std::to_string(embedding_params.size()) + " != " + 
+          std::to_string(sparse_embedding_files.size()));
+
+    if (use_host_ps) {
+      MESSAGE_("Host MEM-based Parameter Server is enabled");
     } else {
-      if (embedding_params.size() != solver_config.embedding_files.size())
-        CK_THROW_(Error_t::WrongInput, "num of embeddings and num of sparse_model_file don't equal");
+      MESSAGE_("SSD-based Parameter Server is enabled, performance may drop!!!");
     }
 
     size_t max_vec_size = 0;
@@ -38,19 +47,16 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
       size_t ith_vec_size = embedding_params[i].embedding_vec_size;
       max_vec_size = (ith_vec_size > max_vec_size) ? ith_vec_size : max_vec_size;
 
-      if (!solver_config.embedding_files.size()) {
-        ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
-          (embedding_params[i], std::string(), temp_embedding_dir, embedding_type));
-      } else {
-        ps_.push_back(std::make_shared<ParameterServer<TypeHashKey, TypeEmbeddingComp>>
-          (embedding_params[i], solver_config.embedding_files[i], temp_embedding_dir, embedding_type));
-      }
+      MESSAGE_("construct sparse models for model oversubscriber: " + sparse_embedding_files[i]);
+      ps_.push_back(std::make_shared<ParameterServer<TypeKey>>(use_host_ps,
+          sparse_embedding_files[i], embedding_types[i], embedding_params[i].embedding_vec_size,
+          resource_manager));
     }
 
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
       GeneralBuffer2<CudaHostAllocator>::create();
 
-    Tensor2<TypeHashKey> tensor_keys;
+    Tensor2<TypeKey> tensor_keys;
     Tensor2<size_t> tensor_slot_id;
     blobs_buff->reserve({buffer_size}, &tensor_keys);
     blobs_buff->reserve({buffer_size}, &tensor_slot_id);
@@ -70,9 +76,7 @@ ParameterServerManager<TypeHashKey, TypeEmbeddingComp>::ParameterServerManager(
   }
 }
 
-template class ParameterServerManager<long long, __half>;
-template class ParameterServerManager<long long, float>;
-template class ParameterServerManager<unsigned, __half>;
-template class ParameterServerManager<unsigned, float>;
+template class ParameterServerManager<long long>;
+template class ParameterServerManager<unsigned>;
 
 }  // namespace HugeCTR
