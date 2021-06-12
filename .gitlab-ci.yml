@@ -207,6 +207,7 @@ dcn:
       bash -cx "
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
       cd /dataset/criteo_kaggle/dcn;
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_fp16_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_8gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding_1gpu.json &&
@@ -265,6 +266,7 @@ wdl_deepfm:
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json &&
       cd /dataset/criteo_kaggle/deepfm &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_fp16_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_8gpu.json"
 
 dlrm:
