@@ -280,6 +280,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"FusedInnerProduct", Layer_t::FusedInnerProduct},
     {"InnerProduct", Layer_t::InnerProduct},
     {"Interaction", Layer_t::Interaction},
+    {"MultiCross", Layer_t::MultiCross},
     {"WeightMultiply", Layer_t::WeightMultiply},
     {"ReduceSum", Layer_t::ReduceSum},
     {"ReLU", Layer_t::ReLU},
