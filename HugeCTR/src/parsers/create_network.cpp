@@ -560,7 +560,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
           // establish layer
-          layers.emplace_back(new MultiCrossLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
+          layers.emplace_back(new MultiCrossLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
                                                   out_tensor, gpu_resource, num_layers,
                                                   initializer_types));
         } else {
@@ -569,7 +569,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
           // establish layer
-          layers.emplace_back(new MultiCrossLayer<float>(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
+          layers.emplace_back(new MultiCrossLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
                                                   out_tensor, gpu_resource, num_layers,
                                                   initializer_types));
         }

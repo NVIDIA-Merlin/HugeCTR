@@ -72,7 +72,8 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
   {Layer_t::Add, "Add"},
   {Layer_t::ReduceSum, "ReduceSum"},
   {Layer_t::DotProduct, "DotProduct"},
-  {Layer_t::FusedInnerProduct, "FusedInnerProduct"}};
+  {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
+  {Layer_t::MultiCross, "MultiCross"}};
 
 std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
     {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedSlotSparseEmbeddingHash"},

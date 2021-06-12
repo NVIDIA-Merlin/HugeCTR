@@ -30,6 +30,7 @@ InferenceSession::InferenceSession(const std::string& model_config_path, const I
       inference_params_(inference_params),
       resource_manager_(ResourceManagerExt::create({{inference_params.device_id}}, 0)) {
   try {
+    MESSAGE_("Use mixed precision: " + std::to_string(inference_params_.use_mixed_precision));
     Network* network_ptr;
     inference_parser_.create_pipeline(inference_params_, dense_input_tensorbag_, row_ptrs_tensors_, embedding_features_tensors_, embedding_table_slot_size_, &embedding_feature_combiners_, &network_ptr,  resource_manager_);
     network_ = std::move(std::unique_ptr<Network>(network_ptr));
