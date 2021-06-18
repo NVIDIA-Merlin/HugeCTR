@@ -21,6 +21,7 @@ import rmm
 import nvtabular as nvt
 from nvtabular.io import Shuffle
 from nvtabular.utils import device_mem_size
+from nvtabular.ops import Categorify, Clip, FillMissing, HashBucket, LambdaOp, Normalize, Rename, Operator, get_embedding_sizes
 #%load_ext memory_profiler
 
 import logging
@@ -56,6 +57,18 @@ def bytesto(bytes, to, bsize=1024):
     r = float(bytes)
     return bytes / (bsize ** a[to])
 
+class FeatureCross(Operator):
+    def __init__(self, dependency):
+        self.dependency = dependency
+
+    def transform(self, columns, gdf):
+        new_df = type(gdf)()
+        for col in columns:
+            new_df[col] = gdf[col] + gdf[self.dependency]
+        return new_df
+
+    def dependencies(self):
+        return [self.dependency]
 
 #process the data with NVTabular
 def process_NVT(args):
@@ -78,7 +91,7 @@ def process_NVT(args):
     # Make sure we have a clean parquet space for cudf conversion
     for one_path in PREPROCESS_DIR_temp:
         if os.path.exists(one_path):
-           shutil.rmtree(one_path)
+            shutil.rmtree(one_path)
         os.mkdir(one_path)
 
 
@@ -145,33 +158,32 @@ def process_NVT(args):
     COLUMNS =  LABEL_COLUMNS + CONTINUOUS_COLUMNS + CROSS_COLUMNS + CATEGORICAL_COLUMNS
     train_paths = glob.glob(os.path.join(PREPROCESS_DIR_temp_train, "*.parquet"))
     valid_paths = glob.glob(os.path.join(PREPROCESS_DIR_temp_val, "*.parquet"))
-    if args.criteo_mode==0:
-        proc = nvt.Workflow(cat_names= CROSS_COLUMNS + CATEGORICAL_COLUMNS,cont_names=CONTINUOUS_COLUMNS,label_name=LABEL_COLUMNS,client=client)
-        logging.info('Fillmissing processing')
-        proc.add_cont_feature(nvt.ops.FillMissing())
-        #For feature Cross
+
+    categorify_op = Categorify(freq_threshold=args.freq_limit)
+    cat_features = CATEGORICAL_COLUMNS >> categorify_op
+    cont_features = CONTINUOUS_COLUMNS >> FillMissing() >> Clip(min_value=0) >> Normalize()
+    cross_cat_op = Categorify(freq_threshold=args.freq_limit)
+
+    features = LABEL_COLUMNS
+    
+    if args.criteo_mode == 0:
+        features += cont_features
         if args.feature_cross_list:
-            logging.info('Feature Crossing')
             feature_pairs = [pair.split("_") for pair in args.feature_cross_list.split(",")]
             for pair in feature_pairs:
                 col0 = pair[0]
                 col1 = pair[1]
-                #CROSS_COLUMNS.append(col0+'_'+col1)
-                ## LambdaOp will automatically add new column with the name of col_name + "_" + op_name for differentiation
-                proc.add_cat_feature(nvt.ops.LambdaOp(op_name=col1,f=lambda col, gdf: col + gdf[col1], columns=[col0], replace=False))
-        logging.info('Nomalization processing')
-        proc.add_cont_preprocess(nvt.ops.Normalize())
-    else:
-        proc = nvt.Workflow(cat_names=CROSS_COLUMNS + CATEGORICAL_COLUMNS,cont_names=[],label_name=LABEL_COLUMNS,client=client)
-    logging.info('Categorify processing')
-    proc.add_cat_preprocess(nvt.ops.Categorify(freq_threshold=args.freq_limit, columns = CROSS_COLUMNS + CATEGORICAL_COLUMNS))
-    proc.finalize() # prepare to load the config
+                features += col0 >> FeatureCross(col1)  >> Rename(postfix="_"+col1) >> cross_cat_op
+            
+    features += cat_features
 
-    ##Define the output format##
-    output_format='hugectr'
+    workflow = nvt.Workflow(features, client=client)
+
+    logging.info("Preprocessing")
+
+    output_format = 'hugectr'
     if args.parquet_format:
-        output_format='parquet'
-    ##--------------------##
+        output_format = 'parquet'
 
     # just for /samples/criteo model
     train_ds_iterator = nvt.Dataset(train_paths, engine='parquet', part_size=int(args.part_mem_frac * device_size))
@@ -185,43 +197,79 @@ def process_NVT(args):
 
     logging.info('Train Datasets Preprocessing.....')
 
-    proc.apply(
-        train_ds_iterator,
-        output_path=train_output,
-        out_files_per_proc=args.out_files_per_proc,
-        output_format=output_format,
-        shuffle=shuffle,
-        num_io_threads=args.num_io_threads,
-    )
-
+    dict_dtypes = {}
+    for col in CATEGORICAL_COLUMNS:
+        dict_dtypes[col] = np.int64
+    if not args.criteo_mode:
+        for col in CONTINUOUS_COLUMNS:
+            dict_dtypes[col] = np.float32
+    for col in CROSS_COLUMNS:
+        dict_dtypes[col] = np.int64
+    for col in LABEL_COLUMNS:
+        dict_dtypes[col] = np.float32
+    
+    conts = CONTINUOUS_COLUMNS if not args.criteo_mode else []
+    
+    workflow.fit(train_ds_iterator)
+    
+    if output_format == 'hugectr':
+        workflow.transform(train_ds_iterator).to_hugectr(
+                cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+                conts=conts,
+                labels=LABEL_COLUMNS,
+                output_path=train_output,
+                shuffle=shuffle,
+                out_files_per_proc=args.out_files_per_proc,
+                num_threads=args.num_io_threads)
+    else:
+        workflow.transform(train_ds_iterator).to_parquet(
+                output_path=train_output,
+                dtypes=dict_dtypes,
+                cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+                conts=conts,
+                labels=LABEL_COLUMNS,
+                shuffle=shuffle,
+                out_files_per_proc=args.out_files_per_proc,
+                num_threads=args.num_io_threads)
+        
+        
+        
+    ###Getting slot size###    
     #--------------------##
-    embeddings=nvt.ops.get_embedding_sizes(proc)
+    embeddings_dict_cat = categorify_op.get_embedding_sizes(CATEGORICAL_COLUMNS)
+    embeddings_dict_cross = cross_cat_op.get_embedding_sizes(CROSS_COLUMNS)
+    embeddings = [embeddings_dict_cross[c][0] for c in CROSS_COLUMNS] + [embeddings_dict_cat[c][0] for c in CATEGORICAL_COLUMNS]
+    
     print(embeddings)
-    slot_size=[]
-    #Output slot_size for each categorical feature
-    for item in CROSS_COLUMNS + CATEGORICAL_COLUMNS:
-        slot_size.append(embeddings[item][0])
-    print(slot_size)
     ##--------------------##
 
     logging.info('Valid Datasets Preprocessing.....')
-    proc.apply(
-        valid_ds_iterator,
-        record_stats=False,
-        output_path=val_output,
-        out_files_per_proc=args.out_files_per_proc,
-        output_format=output_format,
-        shuffle=shuffle,
-        num_io_threads=args.num_io_threads,
-    )
 
-    embeddings=nvt.ops.get_embedding_sizes(proc)
+    if output_format == 'hugectr':
+        workflow.transform(valid_ds_iterator).to_hugectr(
+                cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+                conts=conts,
+                labels=LABEL_COLUMNS,
+                output_path=val_output,
+                shuffle=shuffle,
+                out_files_per_proc=args.out_files_per_proc,
+                num_threads=args.num_io_threads)
+    else:
+        workflow.transform(valid_ds_iterator).to_parquet(
+                output_path=val_output,
+                dtypes=dict_dtypes,
+                cats=CATEGORICAL_COLUMNS + CROSS_COLUMNS,
+                conts=conts,
+                labels=LABEL_COLUMNS,
+                shuffle=shuffle,
+                out_files_per_proc=args.out_files_per_proc,
+                num_threads=args.num_io_threads)
+
+    embeddings_dict_cat = categorify_op.get_embedding_sizes(CATEGORICAL_COLUMNS)
+    embeddings_dict_cross = cross_cat_op.get_embedding_sizes(CROSS_COLUMNS)
+    embeddings = [embeddings_dict_cross[c][0] for c in CROSS_COLUMNS] + [embeddings_dict_cat[c][0] for c in CATEGORICAL_COLUMNS]
+    
     print(embeddings)
-    slot_size=[]
-    #Output slot_size for each categorical feature
-    for item in CROSS_COLUMNS + CATEGORICAL_COLUMNS:
-        slot_size.append(embeddings[item][0])
-    print(slot_size)
     ##--------------------##
 
     ## Shutdown clusters
