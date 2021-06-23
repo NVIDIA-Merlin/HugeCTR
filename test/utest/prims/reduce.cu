@@ -15,11 +15,13 @@
  */
 
 #include <gtest/gtest.h>
+#include <test/prims/test_utils.h>
+
 #include <cuda_utils.cuh>
 #include <prims/linalg/reduce.cuh>
 #include <random/rng.cuh>
+
 #include "reduce.h"
-#include <test/prims/test_utils.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -93,7 +95,6 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
   }
 
   void TearDown() override {
-
     CUDA_CHECK(cudaFree(d_data_2d));
     CUDA_CHECK(cudaFreeHost(h_data_2d));
     CUDA_CHECK(cudaFree(output_ext));

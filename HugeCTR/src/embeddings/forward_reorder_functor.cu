@@ -143,6 +143,28 @@ void SparseEmbeddingFunctors::forward_reorder(size_t batch_size_per_gpu, size_t 
   CudaDeviceContext context;
   size_t local_gpu_count = resource_manager.get_local_gpu_count();
   size_t total_gpu_count = resource_manager.get_global_gpu_count();
+  forward_reorder<TypeEmbeddingComp>(batch_size_per_gpu, slot_num, embedding_vec_size,
+                                     total_gpu_count, src_tensors, dst_tensors, resource_manager);
+}
+
+template void SparseEmbeddingFunctors::forward_reorder<float>(
+    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
+    const Tensors2<float> &src_tensors, Tensors2<float> &dst_tensors,
+    const ResourceManager &resource_manager);
+
+template void SparseEmbeddingFunctors::forward_reorder<__half>(
+    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
+    const Tensors2<__half> &src_tensors, Tensors2<__half> &dst_tensors,
+    const ResourceManager &resource_manager);
+
+template <typename TypeEmbeddingComp>
+void SparseEmbeddingFunctors::forward_reorder(size_t batch_size_per_gpu, size_t slot_num,
+                                              size_t embedding_vec_size, size_t total_gpu_count,
+                                              const Tensors2<TypeEmbeddingComp> &src_tensors,
+                                              Tensors2<TypeEmbeddingComp> &dst_tensors,
+                                              const ResourceManager &resource_manager) {
+  CudaDeviceContext context;
+  size_t local_gpu_count = resource_manager.get_local_gpu_count();
 
   for (size_t id = 0; id < local_gpu_count; id++) {
     const auto &local_gpu = resource_manager.get_local_gpu(id);
@@ -155,12 +177,12 @@ void SparseEmbeddingFunctors::forward_reorder(size_t batch_size_per_gpu, size_t 
 }
 
 template void SparseEmbeddingFunctors::forward_reorder<float>(
-    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
+    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size, size_t total_gpu_count,
     const Tensors2<float> &src_tensors, Tensors2<float> &dst_tensors,
     const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::forward_reorder<__half>(
-    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size,
+    size_t batch_size_per_gpu, size_t slot_num, size_t embedding_vec_size, size_t total_gpu_count,
     const Tensors2<__half> &src_tensors, Tensors2<__half> &dst_tensors,
     const ResourceManager &resource_manager);
 

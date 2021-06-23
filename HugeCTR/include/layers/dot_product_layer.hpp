@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "HugeCTR/include/layer.hpp"
-
 #include <vector>
+
+#include "HugeCTR/include/layer.hpp"
 
 namespace HugeCTR {
 

@@ -16,6 +16,7 @@
 
 #pragma once
 #include <cuda_runtime_api.h>
+
 #include <common.hpp>
 #include <general_buffer2.hpp>
 #include <iostream>
@@ -66,7 +67,7 @@ class CSR {
   size_of_row_offset_(0), size_of_value_(0) {
     static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                   "type not support");
-    if (max_value_size <= 0 && num_rows <= 0) {
+    if (max_value_size < 0 && num_rows < 0) {
       CK_THROW_(Error_t::WrongInput, "max_value_size <= 0 && num_rows <= 0");
     }
 

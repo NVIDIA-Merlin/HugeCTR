@@ -16,6 +16,7 @@
 
 #pragma once
 #include <limits>
+
 #include "HugeCTR/include/common.hpp"
 
 namespace HugeCTR {
@@ -171,7 +172,7 @@ class HashTable {
    * Clear the hash table
    */
   void clear(cudaStream_t stream);
-  
+
  private:
   static const int BLOCK_SIZE_ =
       256; /**< The block size of the CUDA kernels. The default value is 256. */

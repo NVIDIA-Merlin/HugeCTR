@@ -45,17 +45,14 @@ SolverParser::SolverParser(const std::string& file) {
     bool has_num_epochs = has_key_(j, "num_epochs");
     if (has_max_iter && has_num_epochs) {
       CK_THROW_(Error_t::WrongInput, "max_iter and num_epochs cannot be used together.");
-    }
-    else {
+    } else {
       if (has_max_iter) {
         max_iter = get_value_from_json<int>(j, "max_iter");
         num_epochs = 0;
-      }
-      else if (has_num_epochs) {
+      } else if (has_num_epochs) {
         max_iter = 0;
         num_epochs = get_value_from_json<int>(j, "num_epochs");
-      }
-      else {
+      } else {
         max_iter = 0;
         num_epochs = 1;
       }
@@ -140,7 +137,7 @@ SolverParser::SolverParser(const std::string& file) {
       }
       scaler = i_scaler;
       std::stringstream ss;
-      ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled.";
+      ss << "Mixed Precision training with scaler: " << i_scaler << " is enabled." << std::endl;
       MESSAGE_(ss.str());
 
     } else {
@@ -177,6 +174,19 @@ SolverParser::SolverParser(const std::string& file) {
         }
       }
       vvgpu.push_back(vgpu);
+    }
+
+    if (has_key_(j, "device_layout")) {
+      std::string device_layout_str = get_value_from_json<std::string>(j, "device_layout");
+      if (device_layout_str == "LocalFirst") {
+        device_layout = DeviceMap::LOCAL_FIRST;
+      } else if (device_layout_str == "NodeFirst") {
+        device_layout = DeviceMap::NODE_FIRST;
+      } else {
+        CK_THROW_(Error_t::WrongInput, "Invalid device layout. Options are: LocalFirst, NodeFirst");
+      }
+    } else {
+      device_layout = DeviceMap::LOCAL_FIRST;
     }
 
     const std::map<std::string, metrics::Type> metrics_map = {
@@ -243,7 +253,16 @@ SolverParser::SolverParser(const std::string& file) {
     MESSAGE_("Algorithm search: " + std::string(use_algorithm_search ? "ON" : "OFF"));
 
     use_cuda_graph = get_value_from_json_soft<bool>(j, "cuda_graph", true);
-    MESSAGE_("CUDA Graph: " + std::string(use_cuda_graph? "ON" : "OFF"));
+    MESSAGE_("CUDA Graph: " + std::string(use_cuda_graph ? "ON" : "OFF"));
+
+    use_overlapped_pipeline = get_value_from_json_soft<bool>(j, "enable_overlap", false);
+    MESSAGE_("Overlapped pipeline: " + std::string(use_overlapped_pipeline ? "ON" : "OFF"));
+
+    use_holistic_cuda_graph = get_value_from_json_soft<bool>(j, "holistic_cuda_graph", false);
+    if (use_holistic_cuda_graph) {
+      MESSAGE_("Holistic CUDA Graph: ON");
+      use_cuda_graph = false;
+    }
 
     if(has_key_(j, "export_predictions_prefix")){
       export_predictions_prefix = get_value_from_json<std::string>(j, "export_predictions_prefix");

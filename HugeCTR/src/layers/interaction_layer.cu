@@ -920,7 +920,7 @@ InteractionLayer<T>::~InteractionLayer(){};
 template <typename T>
 void InteractionLayer<T>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
-
+  PROFILE_RECORD("interaction.fprop.start", get_gpu().get_stream());
   // phase 0: concat
   T *concat = internal_tensors_[0].get_ptr();
   T *in_mlp = get_in_tensors(is_train)[0].get_ptr();
@@ -972,6 +972,7 @@ void InteractionLayer<T>::fprop(bool is_train) {
   gather_concat_fprop_kernel<<<grid1, block1, smem_size, get_gpu().get_stream()>>>(gather, in0, mat,
                                                                                    h, n_ins, in_w);
 
+  PROFILE_RECORD("interaction.fprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
@@ -981,6 +982,7 @@ void InteractionLayer<T>::fprop(bool is_train) {
 template <>
 void InteractionLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
+  PROFILE_RECORD("interaction.fprop.start", get_gpu().get_stream());
 
   __half *in_mlp = get_in_tensors(is_train)[0].get_ptr();
   __half *in_emb = get_in_tensors(is_train)[1].get_ptr();
@@ -991,7 +993,7 @@ void InteractionLayer<__half>::fprop(bool is_train) {
   const int n_ins = 1 + n_emb;
 
   dotBasedInteractFwd(in_mlp, in_emb, output, h, n_ins, in_w, get_gpu().get_stream());
-
+  PROFILE_RECORD("interaction.fprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
@@ -1001,7 +1003,7 @@ void InteractionLayer<__half>::fprop(bool is_train) {
 template <typename T>
 void InteractionLayer<T>::bprop() {
   CudaDeviceContext context(get_device_id());
-
+  PROFILE_RECORD("interaction.bprop.start", get_gpu().get_stream());
   // phase 0:
   T *gather = out_tensors_[0].get_ptr();
   T *in0 = get_in_tensors(true)[0].get_ptr();
@@ -1062,6 +1064,7 @@ void InteractionLayer<T>::bprop() {
   concat_kernel<<<grid0, block0, 0, get_gpu().get_stream()>>>(false, concat_tmp, in_mlp, in_emb, h,
                                                               out_w, in_w, n_emb);
 
+  PROFILE_RECORD("interaction.bprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
@@ -1071,6 +1074,7 @@ void InteractionLayer<T>::bprop() {
 template <>
 void InteractionLayer<__half>::bprop() {
   CudaDeviceContext context(get_device_id());
+  PROFILE_RECORD("interaction.bprop.start", get_gpu().get_stream());
 
   __half *up_grad = out_tensors_[0].get_ptr();
   __half *mlp_grad = get_in_tensors(true)[0].get_ptr();
@@ -1081,6 +1085,7 @@ void InteractionLayer<__half>::bprop() {
   const int in_w = get_in_tensors(true)[0].get_dimensions()[1];
 
   dotBasedInteractBwd(up_grad, mlp_grad, emb_grad, h, n_ins, in_w, get_gpu().get_stream());
+  PROFILE_RECORD("interaction.bprop.stop", get_gpu().get_stream());
 #ifndef NDEBUG
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());

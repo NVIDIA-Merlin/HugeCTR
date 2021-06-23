@@ -24,7 +24,7 @@
 namespace HugeCTR {
 
 class ModelOversubscriber {
-private:
+ private:
   std::unique_ptr<ModelOversubscriberImplBase> impl_base_;
 
 public:
@@ -54,9 +54,7 @@ public:
 
   void dump() { impl_base_->dump(); }
 
-  void update(std::vector<std::string>& keyset_file_list) {
-    impl_base_->update(keyset_file_list);
-  }
+  void update(std::vector<std::string>& keyset_file_list) { impl_base_->update(keyset_file_list); }
 
   void update(std::string& keyset_file) {
     impl_base_->update(keyset_file);

@@ -44,10 +44,9 @@ enum class CmdOptions_t { Train, Version, Help };
 
 HugeCTR::Timer timer_log;
 
-bool eval(const int i, const int current_epoch,
-          std::shared_ptr<HugeCTR::Session>& session_instance,
+bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
           const HugeCTR::SolverParser& solver_config, HugeCTR::Timer& timer,
-          HugeCTR::Timer& timer_eval) {
+          HugeCTR::Timer& timer_eval, int pid) {
   if (solver_config.eval_interval > 0 && i % solver_config.eval_interval == 0 && i != 0) {
     session_instance->check_overflow();
     session_instance->copy_weights_for_evaluation();
@@ -59,34 +58,13 @@ bool eval(const int i, const int current_epoch,
       data_reader_eval->set_source();
     }
 
-    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start",
-                 float(i) / solver_config.max_iter);
-    bool good = true;
-    auto cleanup_files = [](const std::string& out_filename) {
-      std::ofstream ofs;
-      ofs.open(out_filename, std::ofstream::out | std::ofstream::trunc);
-      if(!ofs.is_open()){
-        throw std::runtime_error("Cannot open output prediction file " + out_filename + " \n");
-      }
-      ofs.close();
-    };
+    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start", float(i) / solver_config.max_iter);
     timer_eval.start();
-    for (int j = 0; j < solver_config.max_eval_batches && good; ++j) {
-      good = session_instance->eval();
-      if(!solver_config.export_predictions_prefix.empty()){
-        int pid = 0;
-#ifdef ENABLE_MPI
-      CK_MPI_THROW__(MPI_Comm_rank(MPI_COMM_WORLD, &pid));
-#endif
-        std::string out_prediction_filename = solver_config.export_predictions_prefix + "_prediction_" + std::to_string(i);
-        std::string out_label_filename = solver_config.export_predictions_prefix + "_label_" + std::to_string(i);
-        if(pid == 0 && j ==0){
-          // clear output file in first round
-          cleanup_files(out_prediction_filename);
-          cleanup_files(out_label_filename);
-        }
-        
-        session_instance->export_predictions(out_prediction_filename, out_label_filename);
+    bool good = true;
+    for (int j = 0; j < solver_config.eval_batches; ++j) {
+      good = session_instance->eval(j);
+      if (good == false) {
+        data_reader_eval->set_file_list_source();
       }
     }
     if (good == false) {
@@ -113,12 +91,11 @@ bool eval(const int i, const int current_epoch,
           timer.stop();
           size_t train_samples =
               static_cast<size_t>(i + 1) * static_cast<size_t>(solver_config.batchsize);
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
 
           std::string progress = training_progress(solver_config.num_epochs > 0, solver_config.max_iter);
 
-          std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) +
-                       progress + " with batchsize: "
+          std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at epoch " +
+                           epoch_num_str + " with batchsize: "
                     << solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
                     << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
                     << float(i) * solver_config.batchsize / timer.elapsedSeconds() << " records/s."
@@ -128,8 +105,18 @@ bool eval(const int i, const int current_epoch,
 
           HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
 
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
+          if (pid == 0) {
+            HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
+            HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
+          }
           timer_log.stop();
+          std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at epoch " +
+                           epoch_num_str + " with batchsize: "
+                    << solver_config.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                    << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
+                    << float(i) * solver_config.batchsize / timer.elapsedSeconds() << " records/s."
+                    << std::endl;
+
           return false;
         }
       }
@@ -161,13 +148,27 @@ void train(std::string config_file) {
   std::unique_ptr<HugeCTR::LearningRateScheduler> lr_sch =
       HugeCTR::get_learning_rate_scheduler(config_file);
 
-  HugeCTR::LOG(timer_log.elapsedMilliseconds(), "init_end");
   HugeCTR::Timer timer;
+
+#ifdef ENABLE_MPI
+  CK_MPI_THROW__(MPI_Barrier(MPI_COMM_WORLD));
+#endif
+  if (pid == 0) {
+    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "init_end");
+  }
+#ifdef ENABLE_MPI
+  CK_MPI_THROW__(MPI_Barrier(MPI_COMM_WORLD));
+#endif
+  if (pid == 0) {
+    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_start");
+  }
   timer.start();
-  HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_start");
+
+  session_instance->initialize();
 
   HugeCTR::Timer timer_train;
   HugeCTR::Timer timer_eval;
+
   timer_train.start();
   if (solver_config.num_epochs < 1) {
     session_instance->start_data_reading();
@@ -175,6 +176,10 @@ void train(std::string config_file) {
 #ifdef DATA_READING_TEST
   HugeCTR::Timer timer_data_reading;
   timer_data_reading.start();
+#endif
+
+#ifdef ENABLE_PROFILING
+  HugeCTR::global_profiler.initialize(solver_config.use_cuda_graph);
 #endif
 
   // train
@@ -186,32 +191,54 @@ void train(std::string config_file) {
 
   if (solver_config.max_iter > 0) {
     for (int i = 0; i < solver_config.max_iter; i++) {
-      float lr = lr_sch->get_next();
-      session_instance->set_learning_rate(lr);
-
+      float lr = 0.f;
+      if (!session_instance->use_gpu_learning_rate_scheduling()) {
+#ifdef ENABLE_PROFILING
+        // profiler may run very long, so prevent lr < 0
+        lr = std::numeric_limits<float>::min();
+        session_instance->set_learning_rate(lr);
+#else
+        lr = lr_sch->get_next();
+        session_instance->set_learning_rate(lr);
+#endif
+      }
       session_instance->train();
+#ifdef ENABLE_PROFILING
+      i = 0;
+      continue;
+#endif
       if (i % solver_config.display == 0 && i != 0) {
-        timer_train.stop();
         // display
         float loss = 0;
         session_instance->get_current_loss(&loss);
+        timer_train.stop();
         if (isnan(loss)) {
           throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
                                    __FILE__ + ":" + std::to_string(__LINE__) + " \n");
         }
         if (pid == 0) {
-          HugeCTR::MESSAGE_("Iter: " + std::to_string(i) + " Time(" + std::to_string(solver_config.display) +
-                            " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                            "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+          if (!solver_config.use_holistic_cuda_graph) {
+            MESSAGE_("Iter: " + std::to_string(i) +
+                     " Time(" + std::to_string(solver_config.display) +
+                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                     "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+          }
+          else {
+            MESSAGE_("Iter: " + std::to_string(i) +
+                     " Time(" + std::to_string(solver_config.display) +
+                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                     "s Loss: " + std::to_string(loss));
+          }
         }
         timer_train.start();
       }
+
       if (i % solver_config.snapshot == 0 && i != 0) {
         // snapshot
         session_instance->download_params_to_files(solver_config.snapshot_prefix, i);
       }
 
-      bool eval_stop = !eval(i, 0, session_instance, solver_config, timer, timer_eval);
+      bool eval_stop = !eval(i, session_instance, solver_config, timer, timer_eval, pid);
       if (eval_stop) {
         return;
       }
@@ -241,14 +268,14 @@ void train(std::string config_file) {
                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
           }
           if (pid == 0) {
-            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
-                              std::to_string(solver_config.display) +
-                              " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                              "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+            MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
+                     std::to_string(solver_config.display) +
+                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                     "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
           }
           timer_train.start();
         }
-        bool eval_stop = !eval(i, e, session_instance, solver_config, timer, timer_eval);
+        bool eval_stop = !eval(i, session_instance, solver_config, timer, timer_eval, pid);
         if (eval_stop) {
           return;
         }
@@ -265,7 +292,16 @@ void train(std::string config_file) {
 
   HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
 
-  HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
+  if (pid == 0) {
+    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "run_stop");
+    size_t train_samples =
+        static_cast<size_t>(solver_config.max_iter) * static_cast<size_t>(solver_config.batchsize);
+    HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
+    
+    timer.stop();
+    std::cout << "Finished in " << std::setiosflags(std::ios::fixed)
+              << std::setprecision(2) << timer.elapsedSeconds() << "s" << std::endl;
+  }
   timer_log.stop();
 
 #else

@@ -62,8 +62,8 @@ class InteractionLayer : public Layer {
   InteractionLayer(const Tensor2<T>& in_bottom_mlp_tensor, const Tensor2<T>& in_embeddings,
                    Tensor2<T>& out_tensor,
                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                   const std::shared_ptr<GPUResource>& gpu_resource,
-                   bool use_mixed_precision, bool enable_tf32_compute);
+                   const std::shared_ptr<GPUResource>& gpu_resource, bool use_mixed_precision,
+                   bool enable_tf32_compute);
   ~InteractionLayer() override;
 
   /**

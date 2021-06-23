@@ -15,8 +15,10 @@
  */
 
 #include <sys/time.h>
+
 #include <fstream>
 #include <functional>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
@@ -234,10 +236,12 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
-          train_data_reader->get_nnz_array(), test_data_reader->get_row_offsets_tensors(),
-          test_data_reader->get_value_tensors(), test_data_reader->get_nnz_array(),
-          embedding_params, resource_manager));
+          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
+          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
+          train_data_reader->get_nnz_array(),
+          bags_to_tensors<T>(test_data_reader->get_row_offsets_tensors()),
+          bags_to_tensors<T>(test_data_reader->get_value_tensors()),
+          test_data_reader->get_nnz_array(), embedding_params, plan_file, resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -274,7 +278,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   buf->allocate();
 
-  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+  typedef struct TypeHashValue_ {
+    float data[embedding_vec_size];
+  } TypeHashValue;
 
   for (int i = 0; i < train_batch_num; i++) {
     printf("Rank%d: Round %d start training:\n", resource_manager->get_process_id(), i);

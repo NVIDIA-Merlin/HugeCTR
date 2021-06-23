@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "HugeCTR/include/embeddings/embedding.hpp"
+#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
@@ -45,6 +46,7 @@ class Session {
   Session(const Session&) = delete;
   Session& operator=(const Session&) = delete;
 
+  Error_t initialize();
   /**
    * The all in one training method.
    * This method processes one iteration of a training, including one forward, one backward and
@@ -55,7 +57,7 @@ class Session {
    * The all in one evaluation method.
    * This method processes one forward of evaluation.
    */
-  bool eval();
+  bool eval(int eval_batch = -1);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -121,25 +123,42 @@ class Session {
 
   void copy_weights_for_evaluation();
 
+  bool use_gpu_learning_rate_scheduling() const {
+    return !embeddings_[0]->get_learning_rate_schedulers().empty();
+  }
+
+  void copy_weights_for_evaluation();
+
  private:
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */
-
+  std::shared_ptr<IDataReader> init_data_reader_;
   std::shared_ptr<IDataReader>
       train_data_reader_; /**< data reader to reading data from data set to embedding. */
   std::shared_ptr<IDataReader> evaluate_data_reader_; /**< data reader for evaluation. */
   std::shared_ptr<ResourceManager>
       resource_manager_; /**< GPU resources include handles and streams etc.*/
-
+  std::shared_ptr<Parser> parser_;
+  std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
   Error_t download_params_to_files_(std::string weights_file,
                                     std::string dense_opt_states_file,
                                     const std::vector<std::string>& embedding_files,
                                     const std::vector<std::string>& sparse_opt_state_files);
 
   metrics::Metrics metrics_;
+  SolverParser solver_config_;
 
+  struct HolisticCudaGraph {
+    std::vector<bool> initialized;
+    std::vector<cudaGraphExec_t> instance;
+    std::vector<cudaEvent_t> fork_event;
+  } train_graph_;
+
+
+  // TODO(MLPERF): these two variables for export_predictions.
+  // There may be a better place for them.
   bool use_mixed_precision_;
-  size_t batchsize_eval;
+  size_t batchsize_eval_;
 
   /**
    * A method load trained parameters for dense model.
@@ -160,6 +179,8 @@ class Session {
   Error_t init_or_load_params_for_sparse_(const std::vector<std::string>& embedding_file);
 
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files);
+  void exchange_wgrad(size_t device_id);
+  void train_overlapped();
 };
 
 }  // namespace HugeCTR

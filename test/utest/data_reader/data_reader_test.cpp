@@ -15,8 +15,10 @@
  */
 
 #include "HugeCTR/include/data_readers/data_reader.hpp"
+
 #include <fstream>
 #include <thread>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader_worker.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"

@@ -119,6 +119,12 @@ class Tensor2 {
 
   Tensor2() : num_elements_(0) {}
 
+  Tensor2(Tensor2 const &other) = default;
+  Tensor2 &operator=(Tensor2 const &other) = default;
+
+  Tensor2(Tensor2 &&other) = default;
+  Tensor2 &operator=(Tensor2 &&other) = default;
+
   Tensor2(const std::vector<size_t> &dimensions, const std::shared_ptr<TensorBuffer2> &buffer)
       : dimensions_(dimensions),
         num_elements_(get_num_elements_from_dimensions(dimensions)),
@@ -143,9 +149,40 @@ class Tensor2 {
   const T *get_ptr() const { return reinterpret_cast<const T *>(buffer_->get_ptr()); }
 
   T *get_ptr() { return reinterpret_cast<T *>(buffer_->get_ptr()); }
+
+  void reset_shape(const std::vector<size_t> &new_dimensions) {
+    try {
+      size_t new_num_elements = get_num_elements_from_dimensions(new_dimensions);
+      if (new_num_elements > num_elements_) {
+        CK_THROW_(Error_t::WrongInput, "new dimensions out of memory");
+      }
+      dimensions_ = new_dimensions;
+      num_elements_ = new_num_elements;
+    } catch (const std::runtime_error &rt_err) {
+      std::cerr << rt_err.what() << std::endl;
+    }
+  }
 };
 
 template <typename T>
 using Tensors2 = std::vector<Tensor2<T>>;
+
+template <typename T>
+Tensors2<T> bags_to_tensors(const std::vector<TensorBag2> &bags) {
+  Tensors2<T> tensors;
+  for (const auto &bag : bags) {
+    tensors.push_back(Tensor2<T>::stretch_from(bag));
+  }
+  return tensors;
+}
+
+template <typename T>
+std::vector<TensorBag2> tensors_to_bags(const Tensors2<T> &tensors) {
+  std::vector<TensorBag2> bags;
+  for (const auto &tensor : tensors) {
+    bags.push_back(tensor.shrink());
+  }
+  return bags;
+}
 
 }  // namespace HugeCTR

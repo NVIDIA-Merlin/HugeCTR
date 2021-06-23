@@ -54,7 +54,7 @@ ParameterServerManager<TypeKey>::ParameterServerManager(bool use_host_ps,
     }
 
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
-      GeneralBuffer2<CudaHostAllocator>::create();
+        GeneralBuffer2<CudaHostAllocator>::create();
 
     Tensor2<TypeKey> tensor_keys;
     Tensor2<size_t> tensor_slot_id;

@@ -27,7 +27,8 @@ class IDataReaderWorker {
   void set_source(std::shared_ptr<Source> source) {
     if (!is_eof_) {
       CK_THROW_(Error_t::IllegalCall,
-          "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker is not in the EOF state.");
+                "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker "
+                "is not in the EOF state.");
     }
 
     pre_set_source();
@@ -35,9 +36,7 @@ class IDataReaderWorker {
     post_set_source();
   }
 
-  IDataReaderWorker()
-      : is_eof_(false) {
-  }
+  IDataReaderWorker() : is_eof_(false) {}
 
  protected:
   std::shared_ptr<Source> source_; /**< source: can be file or network */
@@ -48,25 +47,24 @@ class IDataReaderWorker {
   virtual void post_set_source() {}
 };
 
-template<typename T>
-void fill_empty_sample(std::vector<DataReaderSparseParam>& params, CSRChunk<T>* csr_chunk){
+template <typename T>
+void fill_empty_sample(std::vector<DataReaderSparseParam>& params, CSRChunk<T>* csr_chunk) {
   int param_id = 0;
   for (auto& param : params) {
     for (int k = 0; k < param.slot_num; k++) {
       if (param.type == DataReaderSparse_t::Distributed) {
-	for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {
-	  csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
-	}
+        for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {
+          csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
+        }
       } else if (param.type == DataReaderSparse_t::Localized) {
-	int dev_id = k % csr_chunk->get_num_devices();
-	csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
+        int dev_id = k % csr_chunk->get_num_devices();
+        csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
       } else {
-	CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
+        CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
       }
     }
     param_id++;
   }  // for(auto& param: params)
 }
-
 
 }  // namespace HugeCTR

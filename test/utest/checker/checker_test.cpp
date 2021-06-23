@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/data_readers/check_sum.hpp"
 #include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/data_readers/check_sum.hpp"
 #include "HugeCTR/include/data_readers/file_source.hpp"
 #include "gtest/gtest.h"
 

@@ -29,6 +29,7 @@
 #include <nlohmann/json.hpp>
 #include <optimizer.hpp>
 #include <vector>
+#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
@@ -53,6 +54,14 @@ class Network {
   std::unique_ptr<ILoss> train_loss_;                   /**< loss layer */
   std::unique_ptr<ILoss> evaluate_loss_;                /**< loss layer */
   std::unique_ptr<Optimizer> optimizer_;                /**< optimizer */
+  std::vector<Layer*> top_layers_, bottom_layers_;
+
+  struct GraphWrapper {
+    bool initialized = false;
+    bool initialized_with_profiling = false;
+    cudaGraph_t graph;
+    cudaGraphExec_t graph_exec;
+  };
 
   Tensor2<float> train_weight_tensor_;
   Tensor2<float> wgrad_tensor_;
@@ -66,30 +75,23 @@ class Network {
   Tensor2<float> evaluate_loss_tensor_; /**< loss tensor */
   metrics::RawMetricMap raw_metrics_;
 
-  Tensor2<float> pred_tensor_;
-  Tensor2<__half> pred_tensor_half_;
-
   std::shared_ptr<CPUResource> cpu_resource_;
   std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
-
   bool use_mixed_precision_;
   bool enable_cuda_graph_;
 
-  bool predict_graph_created_;
-  bool eval_graph_created_;
-  bool train_fprop_graph_created_;
-  bool train_bprop_graph_created_;
-  cudaGraph_t predict_graph_;
-  cudaGraph_t eval_graph_;
-  cudaGraph_t train_fprop_graph_;
-  cudaGraph_t train_bprop_graph_;
-  cudaGraphExec_t predict_instance_;
-  cudaGraphExec_t eval_instance_;
-  cudaGraphExec_t train_fprop_instance_;
-  cudaGraphExec_t train_bprop_instance_;
+  GraphWrapper predict_graph_, eval_graph_, train_fprop_graph_, train_bprop_graph_;
+  GraphWrapper bottom_train_fprop_graph_, bottom_train_bprop_graph_;
 
   void conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source);
 
+  std::map<TrainState_t ,cudaEvent_t> train_events_;
+  
+  template<typename LPtr>
+  void prop_layers(const std::vector<LPtr>& layers,
+                   GraphWrapper& graph, bool use_graph,
+                   bool fprop, const cudaStream_t stream, bool train=true);
+  cudaEvent_t& get_train_events(TrainState_t state);
  public:
   /**
    * Ctor.
@@ -108,6 +110,8 @@ class Network {
    */
   void train(long long current_batchsize);
 
+  TrainState train(long long current_batchsize, std::function<void()> exchange_wgrad,
+                   TrainState state);
   /**
    * Forward only.
    */
@@ -205,6 +209,13 @@ class Network {
   void set_learning_rate(float lr) { optimizer_->set_learning_rate(lr); }
 
   /**
+   * set the learing rate scheduling delegate instead of explicitly setting the learning rate.
+   */
+  void set_learning_rate_scheduler(std::shared_ptr<GpuLearningRateScheduler>& lr_sched) {
+    optimizer_->set_learning_rate_scheduler(lr_sched);
+  }
+
+  /**
    * initialize layer by layer
    */
   void initialize(bool is_train = true);
@@ -225,6 +236,7 @@ class Network {
                                  const std::shared_ptr<GPUResource>& gpu_resource,
                                  bool use_mixed_precision, bool enable_tf32_compute, float scaler,
                                  bool use_algorithm_search, bool use_cuda_graph,
+                                 bool grouped_all_reduce,
                                  bool inference_flag);
 
   /**

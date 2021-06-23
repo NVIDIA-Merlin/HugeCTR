@@ -22,17 +22,24 @@
 namespace HugeCTR {
 
 template <>
-void UniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b, size_t sm_count,
-                                   const curandGenerator_t& generator, const cudaStream_t& stream) {
+void UniformGenerator::fill<float>(float* ptr, size_t num_elements, float a, float b,
+                                   size_t sm_count, const curandGenerator_t& generator,
+                                   const cudaStream_t& stream) {
   if (a >= b) {
     CK_THROW_(Error_t::WrongInput, "a must be smaller than b");
   }
 
-  CK_CURAND_THROW_(curandGenerateUniform(generator, tensor.get_ptr(), tensor.get_num_elements()));
+  CK_CURAND_THROW_(curandGenerateUniform(generator, ptr, num_elements));
 
   auto op = [a, b] __device__(float val) { return val * (b - a) + a; };
-  transform_array<<<sm_count * 2, 1024, 0, stream>>>(tensor.get_ptr(), tensor.get_ptr(),
-                                                     tensor.get_num_elements(), op);
+  transform_array<<<sm_count * 2, 1024, 0, stream>>>(ptr, ptr, num_elements, op);
+}
+
+template <>
+void UniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b, size_t sm_count,
+                                   const curandGenerator_t& generator, const cudaStream_t& stream) {
+  UniformGenerator::fill<float>(tensor.get_ptr(), tensor.get_num_elements(),
+                                a, b, sm_count, generator, stream);
 }
 
 template <>

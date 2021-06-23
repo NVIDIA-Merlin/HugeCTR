@@ -14,13 +14,158 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
 #include "HugeCTR/include/utils.cuh"
 #include <thrust/sort.h>  // for implictly including cub headers
 
+#define max_size_top_categories 16
+#define num_samples_per_block 128
+#define embedding_block_size 128
+
 namespace HugeCTR {
 
+size_t get_max_size_top_categories() { return max_size_top_categories; }
+size_t get_num_samples_per_block() { return num_samples_per_block; }
+size_t get_embedding_block_size() { return embedding_block_size; }
+
 namespace {
+
+// Helper function to accumulate the weight gradients for a thread's embedding vector
+template <typename TypeKey, typename TypeEmbeddingComp>
+__device__ __forceinline__ float accumulate_gradients(int embedding_vec_size,
+                                                      const TypeKey *sample_id,
+                                                      const uint32_t *hash_value_index_count_offset,
+                                                      const TypeEmbeddingComp *wgrad, float scaler,
+                                                      uint32_t offset, int bid, int tid) {
+  uint32_t sample_num = hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
+
+  float gi = 0.0f;
+  for (int i = 0; i < sample_num; i++) {
+    int sample_index = sample_id[offset + i];
+    gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+        wgrad[sample_index * embedding_vec_size + tid]);
+  }
+  return gi / scaler;
+}
+
+// TODO(MLPERF): it must be moved to SparseOptimizer
+// The local memory version of the atomic update kernel - opt_sgd_atomic_kernel for one hot
+// embedding.
+//
+// This function updates the embedding vectors of the top-n features in shared memory
+// before writing the accumulated result to global memory. This reduces the number of
+// global memory accesses, locks and collisions.
+//
+// num_samples_per_block number of samples are updated per block and they are iterated over,
+// such that all threads update the embedding vector of a single feature simultaneously.
+//
+// shared ds_top_features_index : the row indices of the top-n - top_features_size - features
+// shared ds_embedding : the embedding vector corresponding to the top features (rows)
+template <typename TypeEmbeddingComp>
+__global__ void opt_sgd_cached_kernel(int nnz, int embedding_vec_size, float lr_scale,
+                                      const size_t *top_categories,
+                                      const size_t top_categories_size,
+                                      const size_t *hash_value_index,
+                                      const TypeEmbeddingComp *wgrad, float *hash_table_value) {
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+
+  // read a number of top_categories_size top categories indices from global memory
+  // note: max_size_top_n (16) less than warp size
+  __shared__ size_t ds_top_categories[max_size_top_categories];
+  if (tid < top_categories_size) {
+    ds_top_categories[tid] = top_categories[tid];
+  }
+  //__syncthreads();
+
+  // reads num_samples_per_block values indices from hash_value_index into shared memory
+  __shared__ size_t ds_category[num_samples_per_block];  // embedding indices for current block
+  for (int ds_offset = 0; ds_offset < num_samples_per_block; ds_offset += blockDim.x) {
+    int ds_index = ds_offset + tid;
+    int key_id = bid * num_samples_per_block + ds_index;
+    if (ds_index < num_samples_per_block && key_id < nnz) {
+      ds_category[ds_index] = hash_value_index[key_id];
+    }
+  }
+  __syncthreads();
+
+  // map sample category indices to top_category indices
+  __shared__ int
+      ds_index_top_categories[num_samples_per_block];  // index to top category index array,
+                                                       // max_size_top_categories if not present
+  {
+    for (int ci_offset = 0; ci_offset < num_samples_per_block; ci_offset += blockDim.x) {
+      int index_ds_category = ci_offset + tid;
+      if (index_ds_category < num_samples_per_block) {
+        // loop over top features
+        int i_top = max_size_top_categories;  // one past end
+        if (index_ds_category + bid * num_samples_per_block < nnz) {
+          int category_embedding_index = ds_category[index_ds_category];
+          for (int k = 0; k < top_categories_size; ++k) {
+            if (category_embedding_index == ds_top_categories[k]) i_top = k;
+          }
+        }
+        ds_index_top_categories[index_ds_category] = i_top;
+      }
+    }
+  }
+  __syncthreads();
+
+  // store the sum of deltaw in ds_embedding
+  // TODO: make this work for embedding size > 128
+  __shared__ float ds_embedding[max_size_top_categories][embedding_block_size];
+  // initialize the local embedding vectors
+  for (int i = 0; i < top_categories_size; ++i) {
+    if (tid < embedding_block_size) {
+      ds_embedding[i][tid] = 0.f;
+    }
+  }
+  __syncthreads();
+
+  unsigned int update_top_category = 0;  // bit indicator sequence
+
+  size_t key_id_local = 0;
+  for (size_t key_id = bid * num_samples_per_block;
+       key_id < nnz && key_id < (bid + 1) * num_samples_per_block; ++key_id) {
+    if (tid < embedding_vec_size) {
+      int index_top_category = ds_index_top_categories[key_id_local];
+      size_t category_embedding_index = ds_category[key_id_local];
+      if (index_top_category < max_size_top_categories) {
+        // write to shared memory
+        update_top_category = (update_top_category | (1 << index_top_category));
+        // write results to embedding vector in shared memory
+        float deltaw = -lr_scale * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+                                       wgrad[key_id * embedding_vec_size + tid]);
+        ds_embedding[index_top_category][tid] += deltaw;
+      } else {
+        // write to global memory using atomic
+        float deltaw = -lr_scale * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
+                                       wgrad[key_id * embedding_vec_size + tid]);
+
+        // atomic update
+        size_t feature_index = category_embedding_index * embedding_vec_size + tid;
+        atomicAdd(&hash_table_value[feature_index], deltaw);
+      }
+    }
+
+    key_id_local++;
+  }
+  __syncthreads();
+
+  // write the embedding vectors for top features which are in shared memory to global memory
+  // for (int i=0; i < max_size_top_categories; ++i) { // maybe this is actually more optimized
+  if (tid < embedding_vec_size) {
+    for (int i = 0; i < top_categories_size; ++i) {
+      // only those that were updated
+      if ((update_top_category & (1 << i)) > 0) {
+        size_t category_embedding_index = ds_top_categories[i];
+        size_t embedding_element_index = category_embedding_index * embedding_vec_size + tid;
+        atomicAdd(&hash_table_value[embedding_element_index], ds_embedding[i][tid]);
+      }
+    }
+  }
+}
 
 // only support LocalizedSlotSparseEmbeddingOneHot
 template <typename TypeEmbeddingComp>
@@ -48,23 +193,52 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
 
 
 template <typename TypeEmbeddingComp>
-void SparseEmbeddingFunctors::update_params(size_t embedding_vec_size,
-                                            const OptParams &opt_params,
-                                            size_t nnz, const Tensor2<size_t> &hash_value_index,
-                                            const Tensor2<TypeEmbeddingComp> &wgrad,
-                                            Tensor2<float> &hash_table_value, size_t sm_count,
-                                            cudaStream_t stream) {
+void SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
+    size_t num_samples, size_t max_vocabulary_size, size_t embedding_vec_size,
+    const size_t *hash_value_index, float lr, float scaler, const TypeEmbeddingComp *wgrad,
+    float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
+    cudaStream_t stream, bool force_stats) {
+  static bool perform_stats = true;
+  if (perform_stats || force_stats) {
+    uint32_t num_unique_categories;
+    /// TODO: refactor instead of using placeholder values for the other params
+    hybrid_embedding::Statistics<size_t> statistics(num_samples, 1, 1, 1);
+
+    statistics.sort_categories_by_count(hash_value_index, (uint32_t)num_samples, top_categories,
+                                        statistics.counts_sorted.get_ptr(), num_unique_categories,
+                                        stream);
+    size_top_categories = std::min((size_t)num_unique_categories, (size_t)max_size_top_categories);
+
+    perform_stats = false;
+  }
+
+  float lr_scale = lr / scaler;
+  // treats num_samples_per_block samples
+  size_t grid_size = max(1ul, (num_samples - 1) / num_samples_per_block + 1);
+  // each thread sets one embedding vector element
+  size_t block_size = embedding_vec_size;
+  CK_CUDA_THROW_(cudaPeekAtLastError());
+  opt_sgd_cached_kernel<<<grid_size, block_size, 0, stream>>>(
+      num_samples, embedding_vec_size, lr_scale, top_categories, size_top_categories,
+      hash_value_index, wgrad, hash_table_value);
+  CK_CUDA_THROW_(cudaPeekAtLastError());
+}
+
+template <typename TypeEmbeddingComp>
+void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
+    size_t embedding_vec_size, size_t max_vocabulary_size,
+    const OptParams<TypeEmbeddingComp> &opt_params, size_t nnz,
+    const Tensor2<size_t> &hash_value_index, const Tensor2<TypeEmbeddingComp> &wgrad,
+    Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
+    size_t sm_count, cudaStream_t stream, bool force_stats) {
   try {
     if (opt_params.optimizer == Optimizer_t::SGD && opt_params.hyperparams.sgd.atomic_update) {
-      const size_t grid_size = min(max(1ul, nnz), sm_count * 32);
-      const size_t block_size = embedding_vec_size;
-
       float lr_scale = opt_params.lr / opt_params.scaler;
 
-      // for one-hot, the sample_id is dedicated.
-      opt_sgd_atomic_kernel<<<grid_size, block_size, 0, stream>>>(
-          nnz, embedding_vec_size, lr_scale, hash_value_index.get_ptr(), wgrad.get_ptr(),
-          hash_table_value.get_ptr());
+      opt_sgd_atomic_cached<TypeEmbeddingComp>(
+          nnz, max_vocabulary_size, embedding_vec_size, hash_value_index.get_ptr(), opt_params.lr,
+          opt_params.scaler, wgrad.get_ptr(), hash_table_value.get_ptr(), top_categories.get_ptr(),
+          size_top_categories, stream, force_stats);
     } else {
       CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
     }
@@ -77,14 +251,72 @@ void SparseEmbeddingFunctors::update_params(size_t embedding_vec_size,
   return;
 }
 
-template void SparseEmbeddingFunctors::update_params<float>(
-    size_t embedding_vec_size, const OptParams &opt_params, size_t nnz,
-    const Tensor2<size_t> &hash_value_index, const Tensor2<float> &wgrad,
+template void SparseEmbeddingFunctors::opt_sgd_atomic_cached<float>(
+    size_t num_samples, size_t max_vocabulary_size, size_t embedding_vec_size,
+    const size_t *hash_value_index, float lr, float scaler, const float *wgrad,
+    float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
+    cudaStream_t stream, bool force_stats);
+
+template void SparseEmbeddingFunctors::opt_sgd_atomic_cached<__half>(
+    size_t num_samples, size_t max_vocabulary_size, size_t embedding_vec_size,
+    const size_t *hash_value_index, float lr, float scaler, const __half *wgrad,
+    float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
+    cudaStream_t stream, bool force_stats);
+
+template void SparseEmbeddingFunctors::update_params<unsigned int, float>(
+    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+    size_t max_vocabulary_size_per_gpu, OptParams<float> &opt_params, size_t nnz,
+    const Tensor2<unsigned int> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<unsigned int> &sample_id, Tensor2<unsigned int> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad, Tensor2<float> &hash_table_value,
+    size_t sm_count, cudaStream_t stream);
+
+template void SparseEmbeddingFunctors::update_params<long long, float>(
+    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+    size_t max_vocabulary_size_per_gpu, OptParams<float> &opt_params, size_t nnz,
+    const Tensor2<long long> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<long long> &sample_id, Tensor2<long long> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad, Tensor2<float> &hash_table_value,
+    size_t sm_count, cudaStream_t stream);
+
+template void SparseEmbeddingFunctors::update_params<unsigned int, __half>(
+    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+    size_t max_vocabulary_size_per_gpu, OptParams<__half> &opt_params, size_t nnz,
+    const Tensor2<unsigned int> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<unsigned int> &sample_id, Tensor2<unsigned int> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<__half> &wgrad,
     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
 
-template void SparseEmbeddingFunctors::update_params<__half>(
-    size_t embedding_vec_size, const OptParams &opt_params, size_t nnz,
-    const Tensor2<size_t> &hash_value_index, const Tensor2<__half> &wgrad,
+template void SparseEmbeddingFunctors::update_params<long long, __half>(
+    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+    size_t max_vocabulary_size_per_gpu, OptParams<__half> &opt_params, size_t nnz,
+    const Tensor2<long long> &row_offset, Tensor2<size_t> &hash_value_index,
+    Tensor2<long long> &sample_id, Tensor2<long long> &sample_id_sort,
+    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
+    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
+    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
+    Tensor2<void> &temp_storage_scan, const Tensor2<__half> &wgrad,
     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
+
+template void SparseEmbeddingFunctors::update_params<float>(
+    size_t embedding_vec_size, size_t max_vocabulary_size, const OptParams<float> &opt_params,
+    size_t nnz, const Tensor2<size_t> &hash_value_index, const Tensor2<float> &wgrad,
+    Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
+    size_t sm_count, cudaStream_t stream, bool force_stats);
+
+template void SparseEmbeddingFunctors::update_params<__half>(
+    size_t embedding_vec_size, size_t max_vocabulary_size, const OptParams<__half> &opt_params,
+    size_t nnz, const Tensor2<size_t> &hash_value_index, const Tensor2<__half> &wgrad,
+    Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
+    size_t sm_count, cudaStream_t stream, bool force_stats);
 
 }  // namespace HugeCTR

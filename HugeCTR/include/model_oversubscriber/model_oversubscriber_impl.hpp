@@ -44,10 +44,10 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
 
   size_t get_max_embedding_size_() {
     size_t max_embedding_size = 0;
-    for (auto &one_embedding : embeddings_) {
+    for (auto& one_embedding : embeddings_) {
       size_t embedding_size = one_embedding->get_max_vocabulary_size();
-      max_embedding_size = (embedding_size > max_embedding_size) ?
-        embedding_size : max_embedding_size;
+      max_embedding_size =
+          (embedding_size > max_embedding_size) ? embedding_size : max_embedding_size;
     }
     return max_embedding_size;
   }
@@ -58,12 +58,11 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
    */
   void load_(std::vector<std::string>& keyset_file_list);
 
-public:
-  ModelOversubscriberImpl(bool use_host_ps,
+ public:
+  ModelOversubscriberImpl(
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-      const std::vector<SparseEmbeddingHashParams>& embedding_params,
-      const std::vector<std::string>& sparse_embedding_files,
-      std::shared_ptr<ResourceManager> resource_manager);
+      const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
+      const SolverParser& solver_config, const std::string& temp_embedding_dir);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;
   ModelOversubscriberImpl& operator=(const ModelOversubscriberImpl&) = delete;

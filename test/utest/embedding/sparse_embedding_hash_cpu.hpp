@@ -651,6 +651,9 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adam(
           v[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
           break;
         }
+        default: {
+          CK_THROW_(Error_t::WrongInput, "Error: Invalid update type");
+        }
       }
     }
   }
@@ -912,6 +915,10 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adagr
         printf("Error: optimizer not supported in CPU version\n");
       }
     }
+    default: {
+      printf("Error: optimizer not supported in CPU version\n");
+    }
+  }
 
     return;
   }

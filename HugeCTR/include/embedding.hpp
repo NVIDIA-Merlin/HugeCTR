@@ -17,21 +17,30 @@
 #pragma once
 #include <optimizer.hpp>
 #include <tensor2.hpp>
-
+#include <gpu_learning_rate_scheduler.hpp>
 #include <vector>
 
+#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
 namespace HugeCTR {
 struct BufferBag;
 class IEmbedding {
  public:
   virtual ~IEmbedding() {}
-  virtual void forward(bool is_train) = 0;
+
+  virtual TrainState train(bool is_train, int i, TrainState state) { 
+    return TrainState();
+  }
+  virtual void forward(bool is_train, int eval_batch = -1) = 0;
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;
   virtual void load_parameters(std::string sparse_model) = 0;
   virtual void dump_parameters(std::string sparse_model) const = 0;
   virtual void set_learning_rate(float lr) = 0;
+  // TODO: a workaround to enable GPU LR for HE only; need a better way
+  virtual GpuLearningRateSchedulers get_learning_rate_schedulers() const {
+    return GpuLearningRateSchedulers();
+  }
   virtual size_t get_params_num() const = 0;
   virtual size_t get_vocabulary_size() const = 0;
   virtual size_t get_max_vocabulary_size() const = 0;
@@ -47,7 +56,8 @@ class IEmbedding {
   virtual std::vector<TensorBag2> get_train_output_tensors() const = 0;
   virtual std::vector<TensorBag2> get_evaluate_output_tensors() const = 0;
   virtual void check_overflow() const = 0;
-  virtual void get_forward_results_tf(const bool is_train, const bool on_gpu, void* const forward_result) = 0;
+  virtual void get_forward_results_tf(const bool is_train, const bool on_gpu,
+                                      void* const forward_result) = 0;
   virtual cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) = 0;
 };
 
@@ -104,4 +114,41 @@ struct BufferBag {
   TensorBag2 slot_id;
   Tensor2<float> embedding;
 };
+
+struct HybridSparseEmbeddingCategoryItem {
+  size_t index;
+  size_t global_gpu_id;
+};
+
+template <typename TypeEmbedding>
+struct HybridSparseEmbeddingParams {
+  size_t train_batch_size;
+  size_t evaluate_batch_size;
+  // std::vector<HybridSparseEmbeddingCategoryItem> categories;
+  size_t num_iterations_statistics;
+  size_t max_num_frequent_categories;  // max(train_batch_size, eval_batch_size) * # of batches for
+                                       // frequent categories
+  int64_t max_num_infrequent_samples;
+  double p_dup_max;
+  size_t embedding_vec_size;
+  size_t slot_num;  // slot number
+  std::vector<size_t> slot_size_array;
+  hybrid_embedding::CommunicationType communication_type;
+  double max_all_reduce_bandwidth;
+  double max_all_to_all_bandwidth;
+  double efficiency_bandwidth_ratio;
+  hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
+  OptParams<TypeEmbedding> opt_params;  // optimizer params
+};
+
+template <typename TypeEmbedding>
+class IEmbeddingForPrefetcher {
+ public:
+  virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
+                               size_t num) = 0;
+  virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
+  virtual void reset() = 0;
+  virtual const SparseEmbeddingHashParams<TypeEmbedding>& get_embedding_params() const = 0;
+};
+
 }  // namespace HugeCTR

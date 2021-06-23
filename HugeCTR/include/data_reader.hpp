@@ -18,6 +18,19 @@
 
 #include <atomic>
 #include <common.hpp>
+//TODO(MLPERF(1.0): do they really need to be here?
+#include <data_readers/csr.hpp>
+#include <data_readers/csr_chunk.hpp>
+#include <data_readers/data_collector.hpp>
+#include <data_readers/data_reader_worker_group.hpp>
+#include <data_readers/data_reader_worker_group_norm.hpp>
+
+#ifndef DISABLE_CUDF
+#include <data_readers/data_reader_worker_group_parquet.hpp>
+#endif
+
+#include <data_readers/data_reader_worker_group_raw.hpp>
+#include <data_readers/file_list.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <utils.hpp>
@@ -36,9 +49,11 @@ namespace HugeCTR {
  * thread consumes the data (DataCollector),
  * and copy the data to GPU buffer.
  */
+//TODO(MLPERF(1.0): remove it if unnecessary
+[[maybe_unused]] static int core_offset_ = 0;
 
 class IDataReader {
-public:
+ public:
   virtual ~IDataReader() {}
 
   virtual TensorScalarType get_scalar_type() const = 0;
@@ -51,23 +66,31 @@ public:
   virtual bool is_started() const = 0;
   virtual void start() = 0;
 
-  virtual void create_drwg_norm(std::string file_list, 
-                        Check_t check_type,
-                        bool start_reading_from_beginning = true) = 0;
-  virtual void create_drwg_raw( std::string file_name, 
-                        long long num_samples,
-                        const std::vector<long long> slot_offset, 
-                        bool float_label_dense,
-                        bool data_shuffle, 
-                        bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_norm(std::string file_list, Check_t check_type,
+                                bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_raw(std::string file_name, long long num_samples,
+                               const std::vector<long long> slot_offset, bool float_label_dense,
+                               bool data_shuffle, bool start_reading_from_beginning = true) = 0;
 
-  virtual void create_drwg_parquet( std::string file_list,
-                            const std::vector<long long> slot_offset,
-                            bool start_reading_from_beginning = true) = 0;
+#ifndef DISABLE_CUDF
+  virtual void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
+                                   bool start_reading_from_beginning = true) = 0;
+#endif
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type
   virtual void set_source(std::string file_name = std::string()) = 0;
+  // TODO(MLPERF1.0): consider to move it
+  virtual std::vector<TensorBag2> get_label_tensors() const = 0;
+  virtual std::vector<TensorBag2> get_dense_tensors() const = 0;
+  virtual std::vector<TensorBag2> get_row_offsets_tensors() const = 0;
+  virtual std::vector<TensorBag2> get_value_tensors() const = 0;
 };
 
+class IDataReaderWithScheduling : public IDataReader {
+ public:
+  virtual void schedule_here(cudaStream_t stream, int raw_device_id) = 0;
+  virtual void schedule_here_graph(cudaStream_t stream, int raw_device_id) = 0;
+  virtual void update_schedule_graph(int raw_device_id) = 0;
+};
 
 }  // namespace HugeCTR

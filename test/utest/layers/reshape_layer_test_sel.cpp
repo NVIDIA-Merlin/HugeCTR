@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#include "HugeCTR/include/layers/reshape_layer.hpp"
 #include <math.h>
+
 #include <memory>
 #include <vector>
+
+#include "HugeCTR/include/layers/reshape_layer.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 

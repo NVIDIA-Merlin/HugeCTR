@@ -67,6 +67,10 @@ class Embedding : public IEmbedding {
     return get_batch_size(is_train) / resource_manager_->get_global_gpu_count();
   }
 
+  size_t get_batch_size_per_lane(bool is_train) const {
+    return get_batch_size(is_train) / resource_manager_->get_local_gpu_count();
+  }
+
   size_t get_universal_batch_size_per_gpu() const {
     return get_universal_batch_size() / resource_manager_->get_global_gpu_count();
   }
@@ -219,7 +223,7 @@ class Embedding : public IEmbedding {
   /**
    * The forward propagation of embedding layer.
    */
-  virtual void forward(bool is_train) = 0;
+  virtual void forward(bool is_train, int eval_batch = -1) = 0;
 
   /**
    * The first stage of backward propagation of embedding layer,

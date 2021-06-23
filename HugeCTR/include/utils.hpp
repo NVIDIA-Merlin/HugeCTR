@@ -18,6 +18,11 @@
 
 #include <cuda_runtime_api.h>
 #include <cudnn.h>
+#include <getopt.h>
+#include <numa.h>
+#include <unistd.h>
+
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <common.hpp>
@@ -26,59 +31,20 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 #include <unistd.h>
 #include <getopt.h>
 #include <sstream>
 #include <algorithm>
+#include <nccl.h>
 
 namespace HugeCTR {
-
-// const static char* data_generator_options = "";
-// const static struct option data_generator_long_options[] = {
-//       {"files", required_argument, NULL, 'f'},
-//       {"samples",  required_argument, NULL, 's'},
-//       {"long-tail", required_argument, NULL, 'l'},
-//       {NULL, 0, NULL, 0}
-// };
-// class ArgParser {
-// public:
-//   static void parse_data_generator_args(int argc, char* argv[], int& files, int& samples, std::string& tail, bool& use_long_tail) {
-//     int opt;
-//     int option_index;
-//     while ( (opt = getopt_long(argc,
-//                                argv,
-//                                data_generator_options,
-//                                data_generator_long_options,
-//                                &option_index)) != EOF) {
-//       if (optarg == NULL) {
-//         std::string opt_temp = argv[optind-1];
-//         CK_THROW_(Error_t::WrongInput, "Unrecognized option for data generator: " + opt_temp);
-//       }
-//       switch (opt)
-//       {
-//       case 'f': {
-//         files = std::stoi(optarg);
-//         break;
-//       }
-//       case 's': {
-//         samples = std::stoi(optarg);
-//         break;
-//       }
-//       case 'l': {
-//         tail = optarg;
-//         use_long_tail = true;
-//         break;
-//       }
-//       default:
-//         assert(!"Error: no such option && should never get here!!");
-//       }
-//     }
-//   }
-// };
 
 template <typename T> inline
 void ArgConvertor(std::string arg, T& ret);
@@ -186,7 +152,6 @@ std::string vec_to_string(std::vector<T> vec){
   return ret.substr(0, ret.size()-2);
 }
 
-
 /**
  * CPU Timer.
  */
@@ -270,6 +235,64 @@ class CudaDeviceContext {
   ~CudaDeviceContext() noexcept(false) { set_device(original_device_); }
 
   void set_device(int device) const { CK_CUDA_THROW_(cudaSetDevice(device)); }
+};
+
+/**
+ * Helper class for switching device and the associated NUMA domain.
+ * Sticky: thread will remember the context and affinity.
+ */
+class CudaCPUDeviceContext {
+ public:
+  CudaCPUDeviceContext(int device_id) {
+    auto node_it = device_id_to_numa_node_.find(device_id);
+    assert(node_it != device_id_to_numa_node_.end());
+    CK_CUDA_THROW_(cudaSetDevice(device_id));
+
+    int node = node_it->second;
+    if (node >= 0) {
+      numa_run_on_node(node);
+      numa_set_preferred(node);
+    }
+  }
+
+  static void init_cpu_mapping(std::vector<int> device_ids) {
+    constexpr int pci_id_len = 16;
+    char pci_id[pci_id_len];
+
+    std::stringstream ss;
+    ss << "Device to NUMA mapping:" << std::endl;
+
+    device_id_to_numa_node_.clear();
+    auto cpu_mask = numa_allocate_cpumask();
+
+    auto select_node = [](const bitmask* nvml_cpus) -> int {
+      for (int cpu = 0; cpu < numa_num_possible_cpus(); cpu++) {
+        if (numa_bitmask_isbitset(nvml_cpus, cpu)) {
+          return numa_node_of_cpu(cpu);
+        }
+      }
+      return -1;
+    };
+
+    for (auto device_id : device_ids) {
+      nvmlDevice_t handle;
+      CK_CUDA_THROW_(cudaDeviceGetPCIBusId(pci_id, pci_id_len, device_id));
+      CK_NVML_THROW_(nvmlDeviceGetHandleByPciBusId_v2(pci_id, &handle));
+      CK_NVML_THROW_(nvmlDeviceGetCpuAffinity(handle, cpu_mask->size / (sizeof(unsigned long) * 8),
+                                              cpu_mask->maskp));
+      int node = select_node(cpu_mask);
+      device_id_to_numa_node_[device_id] = node;
+      ss << "  GPU " << device_id << " -> "
+         << " node " << node << std::endl;
+    }
+
+    MESSAGE_(ss.str());
+
+    numa_bitmask_free(cpu_mask);
+  }
+
+ public:
+  static std::unordered_map<int, int> device_id_to_numa_node_;
 };
 
 /**
@@ -372,5 +395,11 @@ struct CudnnDataType<__half> {
 
 template <typename TIN, typename TOUT>
 void convert_array_on_device(TOUT* out, const TIN* in, size_t num_elements, const cudaStream_t& stream);
+template <typename T> struct NcclDataType;
+template <> struct NcclDataType<int> { static ncclDataType_t getType() { return ncclInt32; } };
+template <> struct NcclDataType<unsigned int> { static ncclDataType_t getType() { return ncclUint32; } };
+template <> struct NcclDataType<unsigned long long> { static ncclDataType_t getType() { return ncclUint64; } };
+template <> struct NcclDataType<float> { static ncclDataType_t getType() { return ncclFloat32; } };
+template <> struct NcclDataType<__half> { static ncclDataType_t getType() { return ncclHalf; } };
 
 }  // namespace HugeCTR

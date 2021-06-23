@@ -34,6 +34,7 @@
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+
 #include "data_readers/file_source_parquet.hpp"
 #include "resource_managers/resource_manager_ext.hpp"
 #pragma GCC diagnostic pop
@@ -81,7 +82,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   long long view_offset_;
   std::shared_ptr<ResourceManager> resource_manager_;
 
-  ParquetFileSource* parquet_file_source() const { 
+  ParquetFileSource* parquet_file_source() const {
     return static_cast<ParquetFileSource*>(source_.get());
   }
 
@@ -139,8 +140,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
                           const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
                           const std::string& file_list, size_t buffer_length,
                           const std::vector<DataReaderSparseParam>& params,
-                          const std::vector<long long>& slot_offset,
-                          int device_id,
+                          const std::vector<long long>& slot_offset, int device_id,
                           const std::shared_ptr<ResourceManager>& resource_manager)
       : worker_id_(worker_id),
         worker_num_(worker_num),
@@ -437,7 +437,6 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
               device_csr_value_buffers, device_csr_row_offset_buffers, pinned_staging_buffer_param,
               (uint32_t*)device_embed_param_start_offset.data(), dev_slot_offset_ptr, rmm_resources,
               memory_resource_.get(), task_stream_);
-
         } else if (param.type == DataReaderSparse_t::Localized) {
           // Add row to one buffer
           // buffer select based on k % num_gpus k -> loop on slot_num

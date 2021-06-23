@@ -19,6 +19,8 @@
 #include <assert.h>
 #include <cublas_v2.h>
 #include <curand.h>
+#include <nvml.h>
+
 #include <config.hpp>
 #include <ctime>
 #include <exception>
@@ -26,6 +28,7 @@
 #include <iomanip>
 #include <iostream>
 #include <utility>
+#include <unordered_map>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -36,7 +39,7 @@
 namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 3
-#define HUGECTR_VERSION_MINOR 0
+#define HUGECTR_VERSION_MINOR 1
 #define HUGECTR_VERSION_PATCH 0
 
 #define WARP_SIZE 32
@@ -59,6 +62,7 @@ enum class Error_t {
   CudnnError,
   CudaError,
   NcclError,
+  NvmlError,
   DataCheckError,
   UnspecificError,
   EndOfFile
@@ -68,7 +72,7 @@ enum class Check_t { Sum, None };
 
 enum class DataReaderSparse_t { Distributed, Localized };
 
-enum class DataReaderType_t { Norm, Raw, Parquet };
+enum class DataReaderType_t { Norm, Raw, Parquet, RawAsync };
 
 enum class SourceType_t { FileList, Mmap, Parquet };
 
@@ -114,7 +118,14 @@ enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD };
 
 enum class Update_t { Local, Global, LazyGlobal };
 
+//TODO(MLPERF1.0): Consider to move them into a separate file
+enum class Activation_t { Relu, None };
+
+enum class FcPosition_t { None, Head, Body, Tail, Isolated };
+
 enum class Regularizer_t { L1, L2 };
+
+enum class Alignment_t { Auto, None };
 
 enum class Layer_t {
   BatchNorm,
@@ -144,10 +155,22 @@ enum class Layer_t {
 enum class Embedding_t {
   DistributedSlotSparseEmbeddingHash,
   LocalizedSlotSparseEmbeddingHash,
-  LocalizedSlotSparseEmbeddingOneHot
+  LocalizedSlotSparseEmbeddingOneHot,
+  HybridSparseEmbedding
 };
 
 enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
+
+enum class TrainState_t {
+  Init, BottomMLPFprop, TopMLPFprop, BottomMLPBprop,
+  TopMLPBprop, MLPExchangeWgrad, MLPUpdate, Finalize
+};
+
+//TODO(MLPERF1.0): Consider to move them into a separate file
+struct TrainState {
+  TrainState_t state = TrainState_t::Init;
+  cudaEvent_t* event = nullptr;
+};
 
 typedef struct DataSetHeader_ {
   long long error_check;        // 0: no error check; 1: check_num
@@ -246,6 +269,17 @@ inline void MESSAGE_(const std::string msg,
     }                                                                                              \
   } while (0)
 
+#define CK_NVML_THROW_(x)                                                                          \
+  do {                                                                                             \
+    nvmlReturn_t retval = (x);                                                                     \
+    if (retval != NVML_SUCCESS) {                                                                  \
+      throw HugeCTR::internal_runtime_error(HugeCTR::Error_t::NvmlError,                           \
+                                            std::string("Runtime error: ") +                       \
+                                                (nvmlErrorString(retval)) + " " + __FILE__ + ":" + \
+                                                std::to_string(__LINE__) + " \n");                 \
+    }                                                                                              \
+  } while (0)
+
 #define CK_CUDA_RETURN_BOOL_(x)  \
   do {                           \
     cudaError_t retval = (x);    \
@@ -269,6 +303,15 @@ inline void MESSAGE_(const std::string msg,
     std::cout << "[HCDEBUG][CALL] " << __FUNCTION__ << " " << std::endl; \
   } while (0)
 #endif
+
+#define CK_CU_RESULT_(x)                                                                        \
+  do {                                                                                          \
+    if (x > 0) {                                                                                \
+      throw internal_runtime_error(                                                             \
+          Error_t::CudaError, std::string("CUresult Error, error code: ") + std::to_string(x) + \
+                                  ", " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
+    }                                                                                           \
+  } while (0)
 
 #define CK_CUBLAS_THROW_(x)                                                                        \
   do {                                                                                             \
@@ -353,3 +396,5 @@ inline void LOG(const Args&... args) {
 }
 
 }  // namespace HugeCTR
+
+#include <profiler.hpp>

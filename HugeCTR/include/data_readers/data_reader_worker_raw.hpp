@@ -21,7 +21,7 @@
 #include <data_readers/csr_chunk.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
 #include <data_readers/heapex.hpp>
-#include <data_readers/mmap_source.hpp>
+#include <data_readers/raw_source.hpp>
 #include <fstream>
 #include <vector>
 
@@ -33,8 +33,8 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   const unsigned int worker_num_{0};
   std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
   std::vector<DataReaderSparseParam> params_;     /**< configuration of data reader sparse input */
-  int* feature_ids_;               /**< a buffer to cache the readed feature from data set */
-  bool skip_read_{false};          /**< set to true when you want to stop the data reading */
+  int* feature_ids_;      /**< a buffer to cache the readed feature from data set */
+  bool skip_read_{false}; /**< set to true when you want to stop the data reading */
   const int MAX_TRY = 10;
   int slots_{0};
   const std::vector<long long> slot_offset_;
@@ -62,7 +62,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
    * Ctor
    */
   DataReaderWorkerRaw(unsigned int worker_id, unsigned int worker_num,
-                      std::shared_ptr<MmapOffsetList>& file_offset_list,
+                      std::shared_ptr<RawOffsetList>& file_offset_list,
                       const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
                       bool repeat,
                       const std::vector<DataReaderSparseParam>& params,
@@ -87,7 +87,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
     }
     feature_ids_ = new int[slots_]();
 
-    source_ = std::make_shared<MmapSource>(file_offset_list, worker_id);
+    source_ = std::make_shared<RawSource>(file_offset_list, worker_id);
 
     if (!repeat) {
       is_eof_ = true;
@@ -144,7 +144,7 @@ void DataReaderWorkerRaw<T>::read_a_batch() {
         // to compensate the csr when current_batchsize != csr_chunk->get_batchsize()
         char* sample_cur = data_buffer + sample_length * i;
         if (i >= current_batchsize) {
-	  fill_empty_sample(params_, csr_chunk);
+          fill_empty_sample(params_, csr_chunk);
           continue;
         }  // if(i>= current_batchsize)
 

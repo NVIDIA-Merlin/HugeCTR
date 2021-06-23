@@ -830,7 +830,7 @@ void LocalizedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_para
 
 #ifdef ENABLE_MPI
   CK_MPI_THROW_(
-      MPI_Allreduce(MPI_IN_PLACE, &max_count, sizeof(size_t), MPI_CHAR, MPI_MAX, MPI_COMM_WORLD));
+      MPI_Allreduce(MPI_IN_PLACE, &max_count, 1, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD));
 #endif
 
   if (total_count > (size_t)vocabulary_size) {

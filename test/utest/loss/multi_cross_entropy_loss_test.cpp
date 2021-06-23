@@ -16,6 +16,7 @@
 
 #include <cstdlib>
 #include <vector>
+
 #include "HugeCTR/include/loss.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -77,8 +78,10 @@ void multi_cross_entropy_loss(size_t label_dim, size_t batch_size) {
     float loss = y * log(val + MIN_) + (1.0f - y) * log(1.0f - val + MIN_);
     cpu_loss += (h_label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] * loss);
     float grad = -1.0f * val * (y - val) * exp(-x) / (1.0f - val + MIN_);
-    h_input[i] = (h_label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] * grad /
-                                              (batch_size * label_dim) * scaler);
+    h_input[i] =
+        (h_label[i] < -0.5)
+            ? 0.f
+            : (target_weight[target_weight_idx] * grad / (batch_size * label_dim) * scaler);
 
     // if(i == 0){
     //   printf("i=%d, x=%f, y=%f, target_weight[target_weight_idx]=%f, loss=%f, h_input=%f\n", i,

@@ -16,9 +16,10 @@
 
 #include <linalg/gemv.h>
 #include <math.h>
+
 #include <layers/multi_cross_layer.hpp>
 #include <linalg/binary_op.cuh>
-#include <linalg/gemm.cuh>
+// #include <linalg/gemm.cuh>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/reduce.cuh>
 #include <prims/linalg/matrix_multiplication.cuh>
@@ -66,8 +67,9 @@ void row_scaling(Tensor2<float>& o_mat, const Tensor2<float>& mat, const Tensor2
   const int h = dim[0];
   const int w = dim[1];
 
-  MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, true,
-                                   [] __device__(float a, float b) { return a * b; }, stream);
+  MLCommon::LinAlg::matrixVectorOp(
+      pout, pmat, pvec, h, w, false, true, [] __device__(float a, float b) { return a * b; },
+      stream);
 }
 
 void matrix_vec_add(Tensor2<float>& o_mat, const Tensor2<float>& mat, const Tensor2<float>& vec,
@@ -85,8 +87,9 @@ void matrix_vec_add(Tensor2<float>& o_mat, const Tensor2<float>& mat, const Tens
   const int h = dim[0];
   const int w = dim[1];
 
-  MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, false,
-                                   [] __device__(float a, float b) { return a + b; }, stream);
+  MLCommon::LinAlg::matrixVectorOp(
+      pout, pmat, pvec, h, w, false, false, [] __device__(float a, float b) { return a + b; },
+      stream);
 }
 
 void matrix_add(Tensor2<float>& out_mat, const Tensor2<float>& mat_a, const Tensor2<float>& mat_b,
@@ -104,8 +107,8 @@ void matrix_add(Tensor2<float>& out_mat, const Tensor2<float>& mat_a, const Tens
   const int h = dim[0];
   const int w = dim[1];
 
-  MLCommon::LinAlg::binaryOp(pout, pmat_a, pmat_b, h * w,
-                             [] __device__(float a, float b) { return a + b; }, stream);
+  MLCommon::LinAlg::binaryOp(
+      pout, pmat_a, pmat_b, h * w, [] __device__(float a, float b) { return a + b; }, stream);
 }
 
 /**

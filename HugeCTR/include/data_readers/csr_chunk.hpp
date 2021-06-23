@@ -84,7 +84,8 @@ class CSRChunk {
             slots = param.slot_num / num_devices;
           }
         }
-        csr_buffers_.emplace_back(batchsize * slots, param.max_feature_num * batchsize);
+        csr_buffers_.emplace_back(batchsize * slots,
+                                  (slots != 0) ? param.max_feature_num * batchsize : 0);
       }
 
       Tensor2<float> label_tensor;

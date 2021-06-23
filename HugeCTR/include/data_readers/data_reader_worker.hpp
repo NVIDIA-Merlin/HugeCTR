@@ -18,12 +18,12 @@
 #include <common.hpp>
 #include <data_readers/check_none.hpp>
 #include <data_readers/check_sum.hpp>
+#include <data_readers/chunk_producer.hpp>
 #include <data_readers/csr.hpp>
 #include <data_readers/csr_chunk.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
 #include <data_readers/file_list.hpp>
 #include <data_readers/file_source.hpp>
-#include <data_readers/chunk_producer.hpp>
 #include <data_readers/heapex.hpp>
 #include <fstream>
 #include <vector>
@@ -103,8 +103,7 @@ class DataReaderWorker : public IDataReaderWorker {
   DataReaderWorker(unsigned int worker_id, unsigned int worker_num,
                    const std::shared_ptr<ChunkProducer<CSRChunk<T>>>& csr_heap,
                    const std::string& file_list, size_t buffer_length, bool repeat,
-                   Check_t check_type,
-                   const std::vector<DataReaderSparseParam>& params)
+                   Check_t check_type, const std::vector<DataReaderSparseParam>& params)
       : worker_id_(worker_id),
         worker_num_(worker_num),
         csr_heap_(csr_heap),
@@ -172,7 +171,7 @@ void DataReaderWorker<T>::read_a_batch() {
           csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
 
           CK_THROW_(checker_->read(reinterpret_cast<char*>(label_dense.get()),
-                                  sizeof(float) * label_dense_dim),
+                                   sizeof(float) * label_dense_dim),
                     "failure in reading label_dense");
 
           {
@@ -199,8 +198,7 @@ void DataReaderWorker<T>::read_a_batch() {
                 ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
               }
 
-              CK_THROW_(checker_->read(reinterpret_cast<char*>(feature_ids_),
-                                       sizeof(T) * nnz),
+              CK_THROW_(checker_->read(reinterpret_cast<char*>(feature_ids_), sizeof(T) * nnz),
                         "failure in reading feature_ids_");
               if (param.type == DataReaderSparse_t::Distributed) {
                 for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {
@@ -226,19 +224,16 @@ void DataReaderWorker<T>::read_a_batch() {
             }
             param_id++;
           }  // for(auto& param: params_)
-        }
-        catch (const internal_runtime_error &rt_err) {
-          i--; // restart i-th sample
+        } catch (const internal_runtime_error& rt_err) {
+          i--;  // restart i-th sample
           csr_chunk->apply_to_csr_buffers(&CSR<T>::roll_back);
           Error_t err = rt_err.get_error();
           if (err == Error_t::DataCheckError) {
             ERROR_MESSAGE_("Error_t::DataCheckError");
+          } else {            // Error_t::BrokenFile, Error_t::UnspecificEror, ...
+            read_new_file();  // can throw Error_t::EOF
           }
-          else { // Error_t::BrokenFile, Error_t::UnspecificEror, ...
-            read_new_file(); // can throw Error_t::EOF
-          }
-        }
-        catch (const std::runtime_error& rt_err) {
+        } catch (const std::runtime_error& rt_err) {
           std::cerr << rt_err.what() << std::endl;
           throw;
         }
@@ -247,15 +242,14 @@ void DataReaderWorker<T>::read_a_batch() {
 
         // start a new file when finish one file read
         if (current_record_index_ >= data_set_header_.number_of_records) {
-          read_new_file(); // can throw Error_t::EOF
+          read_new_file();  // can throw Error_t::EOF
         }
       }  // batch loop
       // write the last index to row
       csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
     }
     csr_heap_->commit_data_chunk(worker_id_, false);
-  }
-  catch (const internal_runtime_error& rt_err) {
+  } catch (const internal_runtime_error& rt_err) {
     Error_t err = rt_err.get_error();
     if (err == Error_t::EndOfFile) {
       if (csr_chunk != nullptr && i > 0) {
@@ -276,12 +270,7 @@ void DataReaderWorker<T>::read_a_batch() {
         csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
         // push the partially filled batch
         csr_heap_->commit_data_chunk(worker_id_, false);
-      }
-      else {
-#ifndef NDEBUG
-        MESSAGE_("Worker" + std::to_string(worker_id_) +
-                 " fell asleep, waiting for a new source");
-#endif
+      } else {
         // push nop to singal to DataCollector that it is the EOF
         csr_heap_->commit_data_chunk(worker_id_, true);
         is_eof_ = true;
@@ -292,13 +281,11 @@ void DataReaderWorker<T>::read_a_batch() {
         MESSAGE_("Worker" + std::to_string(worker_id_) + " wakes up");
 #endif
       }
-    }
-    else {
+    } else {
       std::cerr << rt_err.what() << std::endl;
       throw;
     }
-  }
-  catch (const std::runtime_error& rt_err) {
+  } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
   }

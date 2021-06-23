@@ -206,7 +206,7 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   /**
    * The forward propagation of embedding layer.
    */
-  void forward(bool is_train) override {
+  void forward(bool is_train, int eval_batch = -1) override {
     CudaDeviceContext context;
 
     for (size_t i = 0; i < Base::get_resource_manager().get_local_gpu_count(); i++) {
@@ -422,13 +422,14 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
 
   /**
    * Get the forward() results from GPUs and copy them to TensorFlow's tensor.
-  */
-  void get_forward_results_tf(const bool is_train, const bool on_gpu, void* const forward_result) override {
-    size_t memcpy_size = Base::get_batch_size_per_gpu(is_train) * Base::get_slot_num() * 
+   */
+  void get_forward_results_tf(const bool is_train, const bool on_gpu,
+                              void *const forward_result) override {
+    size_t memcpy_size = Base::get_batch_size_per_gpu(is_train) * Base::get_slot_num() *
                          Base::get_embedding_vec_size();
-    functors_.get_forward_results(memcpy_size, Base::get_output_tensors(is_train),
-                                  forward_result, utest_forward_temp_tensors_,
-                                  Base::get_resource_manager(), on_gpu);
+    functors_.get_forward_results(memcpy_size, Base::get_output_tensors(is_train), forward_result,
+                                  utest_forward_temp_tensors_, Base::get_resource_manager(),
+                                  on_gpu);
     return;
   }
 
@@ -528,23 +529,23 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
   }
 
   /** only used in tf embedding plugin to distribute top_gradients to each GPUs' output tensor.
-  */
-  cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) override {
+   */
+  cudaError_t update_top_gradients(const bool on_gpu, const void *const top_gradients) override {
     auto output_tensors = Base::get_output_tensors(true);
     CudaDeviceContext context;
 
-    const auto top_gradients_internel = reinterpret_cast<const TypeEmbeddingComp*>(top_gradients);
+    const auto top_gradients_internel = reinterpret_cast<const TypeEmbeddingComp *>(top_gradients);
     cudaMemcpyKind direction = (on_gpu ? cudaMemcpyDeviceToDevice : cudaMemcpyHostToDevice);
 
     cudaError_t error = cudaError_t::cudaSuccess;
     for (size_t dev_id = 0; dev_id < Base::get_resource_manager().get_local_gpu_count(); ++dev_id) {
       context.set_device(Base::get_local_gpu(dev_id).get_device_id());
 
-      error = cudaMemcpyAsync(output_tensors[dev_id].get_ptr(), 
-                              top_gradients_internel + dev_id * output_tensors[dev_id].get_num_elements(),
-                              output_tensors[dev_id].get_size_in_bytes(),
-                              direction, 
-                              Base::get_local_gpu(dev_id).get_stream());
+      error = cudaMemcpyAsync(
+          output_tensors[dev_id].get_ptr(),
+          top_gradients_internel + dev_id * output_tensors[dev_id].get_num_elements(),
+          output_tensors[dev_id].get_size_in_bytes(), direction,
+          Base::get_local_gpu(dev_id).get_stream());
       if (error != cudaError_t::cudaSuccess) return error;
     }
 

@@ -14,11 +14,8 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-file(GLOB embedding_test_src
-  distributed_slot_sparse_embedding_hash_test.cu 
-  localized_slot_sparse_embedding_hash_test.cu 
-  localized_slot_sparse_embedding_one_hot_test.cu 
-)
+
+file(GLOB_RECURSE embedding_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
 add_executable(embedding_test ${embedding_test_src})
 target_compile_features(embedding_test PUBLIC cxx_std_17)

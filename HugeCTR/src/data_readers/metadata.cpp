@@ -15,7 +15,9 @@
  */
 
 #include "data_readers/metadata.hpp"
+
 #include <iostream>
+
 #include "nlohmann/json.hpp"
 
 namespace HugeCTR {

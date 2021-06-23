@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
+find_package(CUDAToolkit)
 include_directories(/opt/conda/include)
+<<<<<<< HEAD
 
 include(FetchContent)
 
@@ -115,10 +117,17 @@ file(GLOB huge_ctr_src
 )
 
 set(CMAKE_CXX_STANDARD 17)
+=======
+file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
+list(FILTER huge_ctr_src EXCLUDE REGEX ".*main.cpp")
+
+>>>>>>> v3.1_preview
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
+
 if(MPI_FOUND)
+<<<<<<< HEAD
   target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf stdc++fs)
   target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf stdc++fs)
   message(STATUS "${MPI_CXX_LIBRARIES}")
@@ -130,6 +139,30 @@ endif()
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(huge_ctr_static PUBLIC gpu_cache)
 target_compile_features(huge_ctr_static PUBLIC cxx_std_17)
+=======
+  target_link_libraries(huge_ctr_static PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct numa ibverbs gdrapi)
+  message(STATUS "${MPI_CXX_LIBRARIES}")
+else()
+  target_link_libraries(huge_ctr_static PUBLIC cublas cublasLt curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} numa)
+endif()
+
+if(NOT DISABLE_CUDF)
+  target_link_libraries(huge_ctr_static PUBLIC cudf)
+endif()
+
+if (ENABLE_MULTINODES)
+  if (SHARP_FOUND)
+    target_link_libraries(huge_ctr_static PRIVATE sharp sharp_coll)
+  else()
+    message(FATAL_ERROR "Multi-node enabled but SHARP not found")
+  endif()
+endif()
+
+target_link_libraries(huge_ctr_static PRIVATE CUDA::nvml nlohmann_json::nlohmann_json aio numa)
+
+target_compile_features(huge_ctr_static PUBLIC cxx_std_14)
+
+>>>>>>> v3.1_preview
 set_target_properties(huge_ctr_static PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_static PROPERTIES CUDA_ARCHITECTURES OFF)
 

@@ -15,8 +15,10 @@
  */
 
 #include "HugeCTR/include/data_readers/heapex.hpp"
+
 #include <future>
 #include <random>
+
 #include "HugeCTR/include/data_readers/csr_chunk.hpp"
 #include "gtest/gtest.h"
 

@@ -20,7 +20,8 @@
 
 namespace HugeCTR {
 CPUResource::CPUResource(unsigned long long replica_uniform_seed,
-                         const std::vector<unsigned long long> replica_variant_seeds) {
+                         const std::vector<unsigned long long> replica_variant_seeds) :
+                         replica_uniform_seed_(replica_uniform_seed) {
   replica_uniform_curand_generators_.resize(replica_variant_seeds.size());
   replica_variant_curand_generators_.resize(replica_variant_seeds.size());
 

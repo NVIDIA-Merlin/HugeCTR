@@ -19,6 +19,8 @@
 #include <cpu_resource.hpp>
 #include <device_map.hpp>
 #include <gpu_resource.hpp>
+#include <collectives/ib_comm.hpp>
+#include <collectives/all_reduce_comm.hpp>
 
 namespace HugeCTR {
 
@@ -28,7 +30,15 @@ namespace HugeCTR {
  * The second level resource manager interface shared by training and inference
  */
 class ResourceManager : public ResourceManagerBase {
+#ifdef ENABLE_MPI
+  std::unique_ptr<IbComm> ib_comm_ = NULL;
+#endif
+  std::shared_ptr<AllReduceInPlaceComm> ar_comm_ = NULL;
+
+  void all2all_warmup();
+
  public:
+  ResourceManager(int num_process, int process_id, DeviceMap&& device_map, unsigned long long seed);
   static std::shared_ptr<ResourceManager> create(
       const std::vector<std::vector<int>>& visible_devices, unsigned long long seed);
   virtual int get_num_process() const = 0;
@@ -42,5 +52,14 @@ class ResourceManager : public ResourceManagerBase {
   virtual size_t get_gpu_global_id_from_local_id(size_t local_gpu_id) const = 0;
   virtual bool p2p_enabled(int src_dev, int dst_dev) const = 0;
   virtual bool all_p2p_enabled() const = 0;
+
+#ifdef ENABLE_MPI
+  IbComm* get_ib_comm() const { return ib_comm_.get(); }
+  void set_ready_to_transfer() { if (ib_comm_) ib_comm_->set_ready_to_transfer(); }
+#endif
+  void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision);
+  AllReduceInPlaceComm* get_ar_comm() const { return ar_comm_.get(); }
+
+  DeviceMap::Layout get_device_layout() const { return device_map_.get_device_layout(); }
 };
 }  // namespace HugeCTR

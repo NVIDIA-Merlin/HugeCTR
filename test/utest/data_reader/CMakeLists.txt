@@ -14,13 +14,26 @@
 #
 
 cmake_minimum_required(VERSION 3.8)
-file(GLOB data_reader_test_src
-  data_reader_test.cpp
-  data_reader_raw_test.cpp
-  data_reader_parquet_test.cpp
-)
 
+file(GLOB async_reader_src 
+  data_reader_async_adapter_test.cpp
+  data_reader_async_test.cpp
+)
+if (DISABLE_CUDF) 
+  file(GLOB data_reader_test_src
+    data_reader_test.cpp
+    data_reader_raw_test.cpp
+  )
+else()
+  file(GLOB data_reader_test_src
+    data_reader_test.cpp
+    data_reader_raw_test.cpp
+    data_reader_parquet_test.cpp
+  )
+endif()
 
 add_executable(data_reader_test ${data_reader_test_src})
+add_executable(async_reader ${async_reader_src})
 target_compile_features(data_reader_test PUBLIC cxx_std_17)
+target_link_libraries(async_reader PUBLIC huge_ctr_static gtest gtest_main)
 target_link_libraries(data_reader_test PUBLIC huge_ctr_static gtest gtest_main)

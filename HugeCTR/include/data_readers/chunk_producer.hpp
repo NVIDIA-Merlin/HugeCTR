@@ -28,4 +28,4 @@ class ChunkProducer {
   virtual void commit_data_chunk(unsigned int ch_id, bool is_nop) = 0;
 };
 
-} // namespace HugeCTR
+}  // namespace HugeCTR

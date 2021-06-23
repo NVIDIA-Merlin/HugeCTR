@@ -51,7 +51,7 @@ class ParameterServer {
    * @param keyset_file The file storing keyset to be loaded.
    */
   void load_keyset_from_file(std::string keyset_file);
-  
+
   /**
    * @brief Pull embedding vectors from the sparse embedding model according to
    *        keyset_. It only loads embedding vectors that their corresponding

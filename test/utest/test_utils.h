@@ -18,6 +18,8 @@
 
 #include <common.hpp>
 #include <random>
+
+#include "HugeCTR/include/gpu_resource.hpp"
 #include "gtest/gtest.h"
 
 namespace HugeCTR {
@@ -36,8 +38,8 @@ template <typename T>
     auto expected = h_exp[i];
     T diff = abs(output - expected);
     if (diff > eps) {
-      return ::testing::AssertionFailure() << "output: " << output << " != expected: " << expected
-                                           << " at idx " << i;
+      return ::testing::AssertionFailure()
+             << "output: " << output << " != expected: " << expected << " at idx " << i;
     }
   }
   return ::testing::AssertionSuccess();
@@ -49,8 +51,8 @@ template <typename T>
     auto output = h_out[i];
     T diff = abs(output - expected);
     if (diff > eps) {
-      return ::testing::AssertionFailure() << "output: " << output << " != expected: " << expected
-                                           << " at idx " << i;
+      return ::testing::AssertionFailure()
+             << "output: " << output << " != expected: " << expected << " at idx " << i;
     }
   }
   return ::testing::AssertionSuccess();
@@ -164,7 +166,7 @@ class UniformDataSimulator {
 
 static std::shared_ptr<GPUResource> get_default_gpu() {
   std::random_device rd;
-  return std::make_shared<GPUResource>(0, 0, rd(), rd(), nullptr);
+  return std::make_shared<GPUResource>(0, 0, 0, rd(), rd(), nullptr);
 }
 
 }  // end namespace test
