@@ -362,7 +362,8 @@ void MultiCrossBackwardFunctor<T>::operator()(
 }
 
 template <typename T>
-MultiCrossLayer<T>::MultiCrossLayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+MultiCrossLayer<T>::MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                                 const std::shared_ptr<BufferBlock2<T>>& weight_buff,
                                  const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
                                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                                  const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
@@ -392,6 +393,7 @@ MultiCrossLayer<T>::MultiCrossLayer(const std::shared_ptr<BufferBlock2<T>>& weig
     }
 
     std::vector<size_t> weight_bias_dim = {1, vec_length};
+    reserve_master_weight_tensor(master_weight_buff, weight_bias_dim);
     for (int i = 0; i < num_layers; i++) {
       // setup weights
       {
@@ -446,6 +448,29 @@ MultiCrossLayer<T>::MultiCrossLayer(const std::shared_ptr<BufferBlock2<T>>& weig
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;
+  }
+}
+
+template<>
+void MultiCrossLayer<float>::reserve_master_weight_tensor(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                                                              const std::vector<size_t>& weight_bias_dim) {}
+
+template<>
+void MultiCrossLayer<__half>::reserve_master_weight_tensor(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                                                              const std::vector<size_t>& weight_bias_dim) {
+  for (int i = 0; i < num_layers_; i++) {
+    // setup weights
+    {
+      Tensor2<float> tensor;
+      master_weight_buff->reserve(weight_bias_dim, &tensor);
+      master_weights_.push_back(tensor);
+    }
+    // setup bias
+    {
+      Tensor2<float> tensor;
+      master_weight_buff->reserve(weight_bias_dim, &tensor);
+      master_weights_.push_back(tensor);
+    }
   }
 }
 

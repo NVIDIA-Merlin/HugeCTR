@@ -16,6 +16,7 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/numpy.h>
 #include <HugeCTR/include/inference/parameter_server.hpp>
 #include <HugeCTR/include/inference/embedding_cache.hpp>
 #include <HugeCTR/include/inference/session_inference.hpp>
@@ -41,14 +42,23 @@ public:
 
   float evaluate(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
               const Check_t check_type, const std::vector<long long>& slot_size_array);
-  
+  pybind11::array_t<float> predict(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
+              const Check_t check_type, const std::vector<long long>& slot_size_array);
   std::vector<float>& predict(std::vector<float>& dense, std::vector<long long>& embeddingcolumns, std::vector<int>& row_ptrs);
 
 private:
   template <typename TypeKey>
+  void load_data_(const std::string& source, const DataReaderType_t data_reader_type,
+                  const Check_t check_type, const std::vector<long long>& slot_size_array);
+  
+  template <typename TypeKey>
   float evaluate_(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
                 const Check_t check_type, const std::vector<long long>& slot_size_array);
 
+  template <typename TypeKey>
+  pybind11::array_t<float> predict_(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
+                const Check_t check_type, const std::vector<long long>& slot_size_array);
+  
   template <typename TypeKey>
   void predict_(std::vector<float>& dense, std::vector<TypeKey>& embeddingcolumns, std::vector<int>& row_ptrs);
   
@@ -58,6 +68,9 @@ private:
   void* h_embeddingcolumns_;
   int* d_row_ptrs_;
   float* d_output_;
+  void* d_reader_keys_;
+  void* d_reader_row_ptrs_;
+  TensorBag2 label_tensor_;
 };
 
 InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
@@ -135,12 +148,13 @@ std::vector<float>& InferenceSessionPy::predict(std::vector<float>& dense, std::
 }
 
 template <typename TypeKey>
-float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
+void InferenceSessionPy::load_data_(const std::string& source, const DataReaderType_t data_reader_type,
                                 const Check_t check_type, const std::vector<long long>& slot_size_array) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   bool repeat_dataset = true;
   std::map<std::string, SparseInput<TypeKey>> sparse_input_map;
   std::map<std::string, TensorBag2> label_dense_map;
+  // force the data reader to not use mixed precision
   create_datareader<TypeKey>()(inference_params_, inference_parser_, data_reader_, resource_manager_,
                               sparse_input_map, label_dense_map,
                               source, data_reader_type, check_type, slot_size_array, repeat_dataset);
@@ -148,38 +162,68 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
     CK_THROW_(Error_t::IllegalCall, "Start the data reader first before evaluation");
   }
   SparseInput<TypeKey> sparse_input;
-  TensorBag2 label_tensor;
   TensorBag2 dense_tensor;
   if (!find_item_in_map(sparse_input, inference_parser_.sparse_names[0], sparse_input_map)) {
     CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.sparse_names[0]);
   }
-  if (!find_item_in_map(label_tensor, inference_parser_.label_name, label_dense_map)) {
+  if (!find_item_in_map(label_tensor_, inference_parser_.label_name, label_dense_map)) {
     CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.label_name);
   }
   if (!find_item_in_map(dense_tensor, inference_parser_.dense_name, label_dense_map)) {
     CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.dense_name);
   }
+  d_dense_ = reinterpret_cast<float*>(dense_tensor.get_ptr());
+  d_reader_keys_ = reinterpret_cast<void*>(sparse_input.evaluate_values[0].get_ptr());
+  d_reader_row_ptrs_ = reinterpret_cast<void*>(sparse_input.evaluate_row_offsets[0].get_ptr());
+}
+
+template <typename TypeKey>
+float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
+                                const Check_t check_type, const std::vector<long long>& slot_size_array) {
+  CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
+  load_data_<TypeKey>(source, data_reader_type, check_type, slot_size_array);
+  size_t keys_elements = inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample;
+  size_t row_ptr_elements =  inference_params_.max_batchsize *  inference_parser_.slot_num + 1;
   std::vector<size_t> pred_dims = {1, inference_params_.max_batchsize};
   std::shared_ptr<TensorBuffer2> pred_buff = PreallocatedBuffer2<float>::create(d_output_, pred_dims);
   Tensor2<float> pred_tensor(pred_dims, pred_buff);
   std::shared_ptr<metrics::AUC<float>> metric = std::make_shared<metrics::AUC<float>>(inference_params_.max_batchsize, num_batches, resource_manager_);
-  metrics::RawMetricMap metric_maps = {{metrics::RawType::Pred, pred_tensor.shrink()}, {metrics::RawType::Label,  label_tensor}};
-  float auc_value;
-  auto d_dense = reinterpret_cast<float*>(dense_tensor.get_ptr());
-  auto d_keys = sparse_input.evaluate_values[0].get_ptr();
-  size_t num_elements =  inference_params_.max_batchsize *  inference_parser_.slot_num + 1;
+  metrics::RawMetricMap metric_maps = {{metrics::RawType::Pred, pred_tensor.shrink()}, {metrics::RawType::Label,  label_tensor_}};
   for (size_t batch = 0; batch < num_batches; batch++) {
     long long current_batchsize = data_reader_->read_a_batch_to_device();
-    CK_CUDA_THROW_(cudaMemcpy(h_embeddingcolumns_, d_keys, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample *sizeof(TypeKey), cudaMemcpyDeviceToHost));
-    convert_array_on_device(d_row_ptrs_, sparse_input.evaluate_row_offsets[0].get_ptr(), num_elements, resource_manager_->get_local_gpu(0)->get_stream());
-    InferenceSession::predict(d_dense, h_embeddingcolumns_, d_row_ptrs_, d_output_, current_batchsize);
+    CK_CUDA_THROW_(cudaMemcpy(h_embeddingcolumns_, d_reader_keys_,  keys_elements*sizeof(TypeKey), cudaMemcpyDeviceToHost));
+    convert_array_on_device(d_row_ptrs_, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_), row_ptr_elements, resource_manager_->get_local_gpu(0)->get_stream());
+    InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, current_batchsize);
     metric->set_current_batch_size(current_batchsize);
     metric->local_reduce(0, metric_maps);
   }
-  auc_value = metric->finalize_metric();
-  MESSAGE_("auc value: " + std::to_string(auc_value));
+  float auc_value = metric->finalize_metric();
   return auc_value;
 }
+
+template <typename TypeKey>
+pybind11::array_t<float> InferenceSessionPy::predict_(const size_t num_batches, const std::string& source,
+                                                    const DataReaderType_t data_reader_type,
+                                                    const Check_t check_type, const std::vector<long long>& slot_size_array) {
+  CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
+  load_data_<TypeKey>(source, data_reader_type, check_type, slot_size_array);
+  size_t keys_elements = inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample;
+  size_t row_ptr_elements =  inference_params_.max_batchsize *  inference_parser_.slot_num + 1;
+  auto pred = pybind11::array_t<float>(inference_params_.max_batchsize * num_batches);
+  pybind11::buffer_info pred_array_buff = pred.request();
+  float* pred_ptr = static_cast<float*>(pred_array_buff.ptr);
+  size_t pred_ptr_offset = 0;
+  for (size_t batch = 0; batch < num_batches; batch++) {
+    long long current_batchsize = data_reader_->read_a_batch_to_device();
+    CK_CUDA_THROW_(cudaMemcpy(h_embeddingcolumns_, d_reader_keys_,  keys_elements*sizeof(TypeKey), cudaMemcpyDeviceToHost));
+    convert_array_on_device(d_row_ptrs_, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_), row_ptr_elements, resource_manager_->get_local_gpu(0)->get_stream());
+    InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, current_batchsize);
+    CK_CUDA_THROW_(cudaMemcpy(pred_ptr + pred_ptr_offset, d_output_, inference_params_.max_batchsize * sizeof(float), cudaMemcpyDeviceToHost));
+    pred_ptr_offset += inference_params_.max_batchsize;
+  }
+  return pred;
+}
+
 
 float InferenceSessionPy::evaluate(const size_t num_batches, const std::string& source, const DataReaderType_t data_reader_type,
   const Check_t check_type, const std::vector<long long>& slot_size_array) {
@@ -190,6 +234,16 @@ float InferenceSessionPy::evaluate(const size_t num_batches, const std::string& 
     auc_value = evaluate_<unsigned int>(num_batches, source, data_reader_type, check_type, slot_size_array);
   }
   return auc_value;
+}
+
+pybind11::array_t<float> InferenceSessionPy::predict(const size_t num_batches, const std::string& source, 
+                                                    const DataReaderType_t data_reader_type,
+                                                    const Check_t check_type, const std::vector<long long>& slot_size_array) {
+  if (inference_params_.i64_input_key) {
+    return predict_<long long>(num_batches, source, data_reader_type, check_type, slot_size_array);
+  } else {
+    return predict_<unsigned int>(num_batches, source, data_reader_type, check_type, slot_size_array);
+  }
 }
 
 std::shared_ptr<InferenceSessionPy> CreateInferenceSession(const std::string& model_config_path,
@@ -239,6 +293,16 @@ void InferencePybind(pybind11::module &m) {
   
   pybind11::class_<HugeCTR::python_lib::InferenceSessionPy, std::shared_ptr<HugeCTR::python_lib::InferenceSessionPy>>(infer, "InferenceSession")
     .def("evaluate", &HugeCTR::python_lib::InferenceSessionPy::evaluate,
+      pybind11::arg("num_batches"),
+      pybind11::arg("source"),
+      pybind11::arg("data_reader_type"),
+      pybind11::arg("check_type"),
+      pybind11::arg("slot_size_array") = std::vector<long long>())
+    .def("predict",
+      pybind11::overload_cast<const size_t, const std::string&,
+                              const DataReaderType_t, const Check_t,
+                              const std::vector<long long>&>(
+        &HugeCTR::python_lib::InferenceSessionPy::predict),
       pybind11::arg("num_batches"),
       pybind11::arg("source"),
       pybind11::arg("data_reader_type"),
