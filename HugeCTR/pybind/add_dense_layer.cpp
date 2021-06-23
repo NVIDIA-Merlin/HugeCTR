@@ -851,14 +851,14 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         Tensor2<__half> out_tensor;
         blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        layers.emplace_back(new MultiCrossLayer<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
+        layers.emplace_back(new MultiCrossLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
                                                 out_tensor, gpu_resource, num_layers, initializer_types));
       } else {
         Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
         blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        layers.emplace_back(new MultiCrossLayer<float>(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
+        layers.emplace_back(new MultiCrossLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
                                                 out_tensor, gpu_resource, num_layers, initializer_types));
       }
       break;
