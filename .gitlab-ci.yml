@@ -296,15 +296,15 @@ dcn_multi_node:
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/dcn &&
       python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_4node_2gpu.json"
-    - srun --ntasks=2
-      -A devtech -J devtech:hugectr -p luna
-      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
-      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
-      --ntasks-per-node 1
-      bash -cx "
-      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      cd /dataset/criteo_kaggle/dcn_parquet &&
-      python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json"
+#    - srun --ntasks=2
+#      -A devtech -J devtech:hugectr -p luna
+#      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+#      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+#      --ntasks-per-node 1
+#      bash -cx "
+#      cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+#      cd /dataset/criteo_kaggle/dcn_parquet &&
+#      python3 ${WORK_DIR}/test/pybind_test/multi_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_parquet_localized_2node_4gpu.json"
     
 
 # python interface inference
