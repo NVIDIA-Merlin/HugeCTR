@@ -126,11 +126,35 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
                    const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
                    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                    const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                   Tensor2<float>& loss_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
-                   bool use_mixed_precision, bool enable_tf32_compute, int num_networks_in_global,
-                   float scaler, bool& enable_cuda_graph, bool inference_flag,
-                   std::vector<std::unique_ptr<Layer>>& layers, std::unique_ptr<ILoss>& loss,
-                   metrics::RawMetricMap* raw_metrics) {
+                   Tensor2<float>& loss_tensor,
+                   const std::shared_ptr<GPUResource>& gpu_resource,
+                   bool use_mixed_precision,
+                   bool enable_tf32_compute,
+                   int num_networks_in_global,
+                   float scaler,
+                   bool& enable_cuda_graph,
+                   bool inference_flag,
+                   std::vector<std::unique_ptr<Layer>>& layers,
+                   std::unique_ptr<ILoss>& loss,
+                   metrics::RawMetricMap* raw_metrics,
+                   std::vector<Layer*>* top_layers = nullptr,
+                   std::vector<Layer*>* bottom_layers = nullptr) {
+  bool skip_dgrad = true;
+  bool is_bottom_mlp = true;
+
+  auto emplaceback_layer = [&is_bottom_mlp, &layers, &bottom_layers, &top_layers](Layer* layer) {
+    if(is_bottom_mlp) {
+      if (bottom_layers) {
+        bottom_layers->emplace_back(layer);
+      }
+    }else {
+      if (top_layers) {
+        top_layers->emplace_back(layer);
+      }
+    }
+    layers.emplace_back(layer);
+  };
+
   for (unsigned int i = 1; i < j_array.size(); i++) {
     const nlohmann::json& j = j_array[i];
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
@@ -144,6 +168,16 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         CK_THROW_(Error_t::WrongInput, "No such layer: " + layer_type_name);
       }
       continue;
+    }
+
+    // TODO(MLPERF): we should not rely on the name of the bottom.
+    // check if we should use bottom mlp or top mlp
+    auto bottom = get_json(j, "bottom");
+    std::vector<std::string> bottom_strs = get_layer_names(bottom);
+    for(const std::string& str: bottom_strs) {
+      if(str.find("embedding") != std::string::npos) {
+        is_bottom_mlp = false;
+      }
     }
     
     std::vector<TensorEntry> output_tensor_entries;
@@ -409,19 +443,80 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             initializer_types[1] = bias_init_type;
           }
         }
+
+        // check the position of this layer
+        FcPosition_t pos_type = FcPosition_t::None;
+        int input_size = input_output_info.inputs.size();
+        int output_size = input_output_info.output_names.size();
+        if (has_key_(j, "position")) {
+          auto pos_str = get_value_from_json<std::string>(j, "position");
+          if (!find_item_in_map(pos_type, pos_str, FCPOSITION_TYPE_MAP)) {
+            CK_THROW_(Error_t::WrongInput, "No such position: " + pos_str);
+          } else if (pos_type == FcPosition_t::Head && input_size == 1 && output_size == 4) {
+          } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
+          } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
+          } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
+          } else
+            CK_THROW_(Error_t::WrongInput,
+                      "The position and dimension of bottom and top layer aren't compatible: " +
+                          layer_type_name);
+        }
+
+        // check the activation functino of this layer
+        Activation_t act_type = Activation_t::Relu;
+        if (has_key_(j, "activation")) {
+          auto act_name = get_value_from_json<std::string>(j, "activation");
+          if (!find_item_in_map(act_type, act_name, ACTIVATION_TYPE_MAP)) {
+            CK_THROW_(Error_t::WrongInput, "No such activation: " + act_name);
+          }
+          if (act_type == Activation_t::None && pos_type != FcPosition_t::Tail)
+            CK_THROW_(Error_t::WrongInput,
+                      "The layer without activation function must be the last layer in MLP.");
+        }
+
         // establish out tensor
         auto output = get_value_from_json<size_t>(j_fc_param, "num_output");
         if (use_mixed_precision) {
-          Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
-          Tensor2<__half> fc_out_tensor;
-          blobs_buff->reserve({(in_tensor.get_dimensions())[0], output}, &fc_out_tensor);
-          output_tensor_entries.push_back(
-              {input_output_info.output_names[0], fc_out_tensor.shrink()});
+          Tensor2<__half> train_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+          Tensor2<__half> mask_in_tensor, dRelu_in_tensor, db_in_tensor;
+          if (pos_type == FcPosition_t::Body || pos_type == FcPosition_t::Tail) {
+            mask_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
+            dRelu_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[2]);
+            db_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[3]);
+          }
+          Tensor2<__half> train_out_tensor, mask_out_tensor, dRelu_out_tensor, db_out_tensor;
+          blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &train_out_tensor);
+          blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &mask_out_tensor);
+          blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &dRelu_out_tensor);
 
           // establish layer
-          layers.emplace_back(new FusedFullyConnectedLayer(
-              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, fc_out_tensor,
-              gpu_resource, initializer_types));
+          if (pos_type == FcPosition_t::None) {
+            emplaceback_layer(new FusedFullyConnectedLayer(
+                weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
+                train_out_tensor, gpu_resource, initializer_types));
+          } else {
+            emplaceback_layer(new FusedReluBiasFullyConnectedLayer(
+                weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
+                mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor, mask_out_tensor,
+                dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type, skip_dgrad,
+                initializer_types));
+          }
+
+          if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
+              pos_type == FcPosition_t::None)
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], train_out_tensor.shrink()});
+          else {
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[0], train_out_tensor.shrink()});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[1], mask_out_tensor.shrink()});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[2], dRelu_out_tensor.shrink()});
+            output_tensor_entries.push_back(
+                {input_output_info.output_names[3], db_out_tensor.shrink()});
+          }
         } else {
           CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
         }
@@ -497,7 +592,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       }
 
       case Layer_t::Interaction: {
-        // lambda template could be a better solution here, but there's not support in c++11
+        // TODO: lambda template could be a better solution here, but there's not support in c++11
         if (use_mixed_precision) {
           if (gpu_resource->get_cc_major() < 7) {
             CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
@@ -897,6 +992,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         tensor_entries.push_back(output_tensor_entry);
       }
     }
+
+    skip_dgrad = false;
   }  // for layers
 }
 
@@ -904,18 +1001,26 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
  * Create single network
  *
  */
-Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
+Network* Network::create_network(const nlohmann::json& j_array,
+                                 const nlohmann::json& j_optimizer,
                                  std::vector<TensorEntry>& train_tensor_entries,
                                  std::vector<TensorEntry>& evaluate_tensor_entries,
                                  int num_networks_in_global,
+                                 std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
                                  const std::shared_ptr<CPUResource>& cpu_resource,
                                  const std::shared_ptr<GPUResource>& gpu_resource,
-                                 bool use_mixed_precision, bool enable_tf32_compute, float scaler,
-                                 bool use_algorithm_search, bool use_cuda_graph,
-                                 bool inference_flag) {
+                                 bool use_mixed_precision,
+                                 bool enable_tf32_compute,
+                                 float scaler,
+                                 bool use_algorithm_search,
+                                 bool use_cuda_graph,
+                                 bool inference_flag,
+                                 bool grouped_all_reduce) {
   Network* network = new Network(cpu_resource, gpu_resource, use_mixed_precision, use_cuda_graph);
 
   auto& train_layers = network->train_layers_;
+  auto* bottom_layers = &network->bottom_layers_;
+  auto* top_layers = &network->top_layers_;
   auto& evaluate_layers = network->evaluate_layers_;
   auto& train_loss_tensor = network->train_loss_tensor_;
   auto& evaluate_loss_tensor = network->evaluate_loss_tensor_;
@@ -929,8 +1034,26 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
 
   std::shared_ptr<BufferBlock2<float>> train_weight_buff = blobs_buff->create_block<float>();
   std::shared_ptr<BufferBlock2<__half>> train_weight_buff_half = blobs_buff->create_block<__half>();
-  std::shared_ptr<BufferBlock2<float>> wgrad_buff = blobs_buff->create_block<float>();
-  std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = blobs_buff->create_block<__half>();
+  // std::shared_ptr<BufferBlock2<float>> wgrad_buff = blobs_buff->create_block<float>();
+  // std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = blobs_buff->create_block<__half>();
+  std::shared_ptr<BufferBlock2<float>> wgrad_buff = nullptr;
+  std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = nullptr;
+
+  if (use_mixed_precision) {
+    auto id = gpu_resource->get_local_id();
+    wgrad_buff_half = (grouped_all_reduce) ? 
+      std::dynamic_pointer_cast<GroupedExchangeWgrad<__half>>(exchange_wgrad)->get_network_wgrad_buffs()[id] :
+      std::dynamic_pointer_cast<NetworkExchangeWgrad<__half>>(exchange_wgrad)->get_network_wgrad_buffs()[id];
+    wgrad_buff = blobs_buff->create_block<float>(); // placeholder
+  }
+  else {
+    auto id = gpu_resource->get_local_id();
+    wgrad_buff = (grouped_all_reduce) ? 
+      std::dynamic_pointer_cast<GroupedExchangeWgrad<float>>(exchange_wgrad)->get_network_wgrad_buffs()[id] :
+      std::dynamic_pointer_cast<NetworkExchangeWgrad<float>>(exchange_wgrad)->get_network_wgrad_buffs()[id];
+    wgrad_buff_half = blobs_buff->create_block<__half>(); // placeholder
+  }
+
   std::shared_ptr<BufferBlock2<float>> evaluate_weight_buff = blobs_buff->create_block<float>();
   std::shared_ptr<BufferBlock2<__half>> evaluate_weight_buff_half =
       blobs_buff->create_block<__half>();
@@ -943,18 +1066,47 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
 
   if (!inference_flag){
     // create train layers
-    create_layers(j_array, train_tensor_entries, blobs_buff, train_weight_buff,
-                  train_weight_buff_half, wgrad_buff, wgrad_buff_half, train_loss_tensor,
-                  gpu_resource, use_mixed_precision, enable_tf32_compute, num_networks_in_global,
-                  scaler, enable_cuda_graph, inference_flag, train_layers, train_loss, nullptr);
+    create_layers(j_array,
+                  train_tensor_entries,
+                  blobs_buff,
+                  train_weight_buff,
+                  train_weight_buff_half,
+                  wgrad_buff,
+                  wgrad_buff_half,
+                  train_loss_tensor,
+                  gpu_resource,
+                  use_mixed_precision,
+                  enable_tf32_compute,
+                  num_networks_in_global,
+                  scaler,
+                  enable_cuda_graph,
+                  inference_flag,
+                  train_layers,
+                  train_loss,
+                  nullptr,
+                  top_layers,
+                  bottom_layers);
   }
 
   // create evaluate layers
-  create_layers(j_array, evaluate_tensor_entries, blobs_buff, evaluate_weight_buff,
-                evaluate_weight_buff_half, wgrad_buff_placeholder, wgrad_buff_half_placeholder,
-                evaluate_loss_tensor, gpu_resource, use_mixed_precision, enable_tf32_compute,
-                num_networks_in_global, scaler, enable_cuda_graph, inference_flag, evaluate_layers,
-                evaluate_loss, &raw_metrics);
+  create_layers(j_array,
+                evaluate_tensor_entries,
+                blobs_buff,
+                evaluate_weight_buff,
+                evaluate_weight_buff_half,
+                wgrad_buff_placeholder,
+                wgrad_buff_half_placeholder,
+                evaluate_loss_tensor,
+                gpu_resource, h
+                use_mixed_precision,
+                enable_tf32_compute,
+                num_networks_in_global,
+                scaler,
+                enable_cuda_graph,
+                inference_flag,
+                evaluate_layers,
+                evaluate_loss,
+                &raw_metrics);
 
   // create optimizer
   if (!inference_flag) {

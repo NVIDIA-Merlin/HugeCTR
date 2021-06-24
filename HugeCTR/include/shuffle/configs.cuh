@@ -15,25 +15,6 @@
  */
 
 #pragma once
-<<<<<<< HEAD:HugeCTR/include/resource_manager_base.hpp
-#include <gpu_resource.hpp>
-#include <memory>
-
-namespace HugeCTR {
-
-/**
- * @brief Top-level ResourceManager interface
- *
- * The top level resource manager interface shared by various components
- */
-class ResourceManagerBase {
- public:
-  virtual void set_local_gpu(std::shared_ptr<GPUResource> gpu_resource, size_t local_gpu_id) = 0;
-  virtual const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const = 0;
-  virtual size_t get_local_gpu_count() const = 0;
-  virtual size_t get_global_gpu_count() const = 0;
-};
-=======
 
 namespace HugeCTR {
 namespace ShuffleConfigs {
@@ -50,5 +31,4 @@ struct DefaultArbitrary {
 };
 
 }  // namespace ShuffleConfigs
->>>>>>> v3.1_preview:HugeCTR/include/shuffle/configs.cuh
 }  // namespace HugeCTR

@@ -474,7 +474,6 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
 
 template <typename T = unsigned int>
 inline void data_generation_for_raw(
-<<<<<<< HEAD
     std::string file_name, long long num_samples, int label_dim, int dense_dim,
     float float_label_dense,
     const std::vector<size_t> slot_size, std::vector<int> nnz_array = std::vector<int>(),
@@ -483,13 +482,6 @@ inline void data_generation_for_raw(
   static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
 		"type not support");
 
-
-=======
-    std::string file_name, long long num_samples, int label_dim = 1, int dense_dim = 13,
-    int sparse_dim = 26, float float_label_dense = false,
-    const std::vector<long long> slot_size = std::vector<long long>(), bool long_tail = false,
-    float alpha = 0.0) {
->>>>>>> v3.1_preview
   std::ofstream out_stream(file_name, std::ofstream::binary);
   size_t size_label_dense = float_label_dense ? sizeof(float) : sizeof(T);
   //check input
@@ -528,7 +520,6 @@ inline void data_generation_for_raw(
                                           : reinterpret_cast<char*>(&dense_int);
       out_stream.write(dense_ptr, size_label_dense);
     }
-<<<<<<< HEAD
     
 
     for (size_t j = 0; j < ldata_sim_vec.size(); j++) {
@@ -540,22 +531,6 @@ inline void data_generation_for_raw(
 	long long num_tmp = ldata_sim_vec[j]->get_num();
 	T sparse = num_tmp > std::numeric_limits<T>::max() ? std::numeric_limits<T>::max() : num_tmp;
 	out_stream.write(reinterpret_cast<char*>(&sparse), sizeof(T));
-=======
-    for (int j = 0; j < sparse_dim; j++) {
-      int sparse = 0;
-      if (slot_size.size() != 0) {
-        std::shared_ptr<IDataSimulator<long long>> temp_sim;
-        if (long_tail)
-          temp_sim.reset(new IntPowerLawDataSimulator<long long>(
-              0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1), alpha));
-        else
-          temp_sim.reset(new IntUniformDataSimulator<long long>(
-              0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1)));  // range = [0, slot_size[j])
-        long long num_ = temp_sim->get_num();
-        sparse = num_ > std::numeric_limits<int>::max() ? std::numeric_limits<int>::max() : num_;
-      } else {
-        sparse = j;
->>>>>>> v3.1_preview
       }
     }
 

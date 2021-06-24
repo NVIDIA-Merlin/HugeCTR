@@ -177,12 +177,9 @@ class Parser {
 
   std::map<std::string, bool> tensor_active_; /**< whether a tensor is active. */
 
-  template <typename TypeKey>
-  void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
-                                std::shared_ptr<IDataReader>& data_reader_eval,
-                                std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                                std::vector<std::shared_ptr<Network>>& network,
-                                const std::shared_ptr<ResourceManager>& resource_manager);
+  void create_allreduce_comm(
+      const std::shared_ptr<ResourceManager>& resource_manager,
+      std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 
  public:
   /**
@@ -226,28 +223,22 @@ class Parser {
                        std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 
   template <typename TypeKey>
-  friend void create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,std::shared_ptr<IDataReader>& train_data_reader,
-                                       std::shared_ptr<IDataReader>& evaluate_data_reader,
-                                       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                                       std::vector<std::shared_ptr<Network>>& networks,
-                                       const std::shared_ptr<ResourceManager>& resource_manager,
-                                       std::shared_ptr<ExchangeWgrad>& exchange_wgrad,                
-                                       Parser& parser);
+  void create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,std::shared_ptr<IDataReader>& train_data_reader,
+                                std::shared_ptr<IDataReader>& evaluate_data_reader,
+                                std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                                std::vector<std::shared_ptr<Network>>& networks,
+                                const std::shared_ptr<ResourceManager>& resource_manager,
+                                std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 
   void initialize_pipeline(std::shared_ptr<IDataReader>& init_data_reader,
                            std::vector<std::shared_ptr<IEmbedding>>& embedding,
                            const std::shared_ptr<ResourceManager>& resource_manager,
                            std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
   template <typename TypeKey>
-  friend void initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
-                                           std::vector<std::shared_ptr<IEmbedding>>& embedding,
-                                           const std::shared_ptr<ResourceManager>& resource_manager,
-                                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
-                                           Parser& parser);
-
-
-  friend void create_allreduce_comm(const std::shared_ptr<ResourceManager>&,
-      std::shared_ptr<ExchangeWgrad>&, Parser&);
+  void initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
+                                    std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                                    const std::shared_ptr<ResourceManager>& resource_manager,
+                                    std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
@@ -350,7 +341,8 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
 const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
     {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},
-    {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot}};
+    {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot},
+    {"HybridSparseEmbedding", Embedding_t::HybridSparseEmbedding}};
 const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
     {"Uniform", Initializer_t::Uniform},
     {"XavierNorm", Initializer_t::XavierNorm},

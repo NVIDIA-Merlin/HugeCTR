@@ -15,7 +15,6 @@
  */
 
 #pragma once
-<<<<<<< HEAD:HugeCTR/include/resource_manager_base.hpp
 #include <gpu_resource.hpp>
 #include <memory>
 
@@ -33,22 +32,5 @@ class ResourceManagerBase {
   virtual size_t get_local_gpu_count() const = 0;
   virtual size_t get_global_gpu_count() const = 0;
 };
-=======
 
-namespace HugeCTR {
-namespace ShuffleConfigs {
-
-struct DefaultAligned {
-  using VecType = int4;
-  constexpr static bool Aligned = true;
-  constexpr static dim3 block{32, 8, 1};
-};
-struct DefaultArbitrary {
-  using VecType = int4;
-  constexpr static bool Aligned = false;
-  constexpr static dim3 block{32, 8, 1};
-};
-
-}  // namespace ShuffleConfigs
->>>>>>> v3.1_preview:HugeCTR/include/shuffle/configs.cuh
 }  // namespace HugeCTR

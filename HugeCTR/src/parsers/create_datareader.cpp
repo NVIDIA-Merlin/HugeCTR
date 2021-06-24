@@ -27,10 +27,17 @@
 namespace HugeCTR {
 template <typename TypeKey>
 void create_datareader<TypeKey>::operator()(
-    const nlohmann::json& j, std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
-    std::vector<TensorEntry>* train_tensor_entries_list, std::vector<TensorEntry>* evaluate_tensor_entries_list,std::shared_ptr<IDataReader>& train_data_reader,
-    std::shared_ptr<IDataReader>& evaluate_data_reader, size_t batch_size, size_t batch_size_eval,
-    bool use_mixed_precision, bool repeat_dataset_,
+    const nlohmann::json& j,
+    std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
+    std::vector<TensorEntry>* train_tensor_entries_list,
+    std::vector<TensorEntry>* evaluate_tensor_entries_list,
+    std::shared_ptr<IDataReader>& init_data_reader,
+    std::shared_ptr<IDataReader>& train_data_reader,
+    std::shared_ptr<IDataReader>& evaluate_data_reader,
+    size_t batch_size,
+    size_t batch_size_eval,
+    bool use_mixed_precision,
+    bool repeat_dataset_,
     const std::shared_ptr<ResourceManager> resource_manager) {
   const auto layer_type_name = get_value_from_json<std::string>(j, "type");
   if (layer_type_name.compare("Data") != 0) {
@@ -40,7 +47,8 @@ void create_datareader<TypeKey>::operator()(
   const std::map<std::string, DataReaderType_t> DATA_READER_MAP = {
       {"Norm", DataReaderType_t::Norm},
       {"Raw", DataReaderType_t::Raw},
-      {"Parquet", DataReaderType_t::Parquet}};
+      {"Parquet", DataReaderType_t::Parquet},
+      {"RawAsync", DataReaderType_t::RawAsync}};
 
   DataReaderType_t format = DataReaderType_t::Norm;
   if (has_key_(j, "format")) {
@@ -138,6 +146,94 @@ void create_datareader<TypeKey>::operator()(
     }
     return slot_offset;
   };
+
+  if (format == DataReaderType_t::RawAsync) {
+    Alignment_t aligned_type = Alignment_t::None;
+    if (has_key_(j_dense, "aligned")) {
+      auto aligned_str = get_value_from_json<std::string>(j_dense, "aligned");
+      if (!find_item_in_map(aligned_type, aligned_str, ALIGNED_TYPE_MAP)) {
+        CK_THROW_(Error_t::WrongInput, "Not supported aligned type: " + aligned_str);
+      }
+    }
+
+    auto ja = get_json(j, "async_param");
+    auto num_threads = get_value_from_json<int>(ja, "num_threads");
+    auto num_batches_per_thread = get_value_from_json<int>(ja, "num_batches_per_thread");
+    auto io_block_size = get_value_from_json<int>(ja, "io_block_size");
+    auto io_depth = get_value_from_json<int>(ja, "io_depth");
+    auto io_alignment = get_value_from_json<int>(ja, "io_alignment");
+    auto shuffle = get_value_from_json_soft<bool>(ja, "shuffle", false);
+    size_t num_iterations_statistics =
+        get_value_from_json_soft<size_t>(j, "num_iterations_statistics", 20);
+    MESSAGE_("AsyncReader: num_threads = " + std::to_string(num_threads));
+    MESSAGE_("AsyncReader: num_batches_per_thread = " +
+             std::to_string(num_batches_per_thread));
+    MESSAGE_("AsyncReader: io_block_size = " + std::to_string(io_block_size));
+    MESSAGE_("AsyncReader: io_depth = " + std::to_string(io_depth));
+    MESSAGE_("AsyncReader: io_alignment = " + std::to_string(io_alignment));
+    MESSAGE_("AsyncReader: num_iterations_statistics = " +
+             std::to_string(num_iterations_statistics));
+    MESSAGE_("AsyncReader: shuffle = " + std::string(shuffle ? "ON" : "OFF"));
+
+    // If the overlap is disabled, scheduling the data reader should be off
+    auto j_solver = get_json(config, "solver");
+    auto overlap = get_value_from_json_soft<bool>(j_solver, "enable_overlap", false);
+
+    train_data_reader.reset(new AsyncReader<TypeKey>(
+        source_data, batch_size, label_dim, dense_dim, data_reader_sparse_param_array,
+        use_mixed_precision, resource_manager, num_threads, num_batches_per_thread,
+        io_block_size, io_depth, io_alignment, shuffle, overlap, aligned_type));
+
+    // If we want to cache eval, make sure we have enough buffers
+    auto eval_num_batches_per_thread = num_batches_per_thread;
+    if (cache_eval_data > num_threads * num_batches_per_thread) {
+      eval_num_batches_per_thread = (cache_eval_data + num_threads - 1) / num_threads;
+      MESSAGE_("AsyncReader: eval reader increased batches per thread to " +
+          std::to_string(eval_num_batches_per_thread) + " to accommodate for the caching");
+    }
+    // Small IO block may lead to too many AIO requests which hang, 
+    // so use a larger one for eval and init which are typically larger than train
+    evaluate_data_reader.reset(new AsyncReader<TypeKey>(
+        eval_source, batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array,
+        use_mixed_precision, resource_manager, num_threads, eval_num_batches_per_thread,
+        io_block_size*8, io_depth, io_alignment, false, false, aligned_type));
+
+    init_data_reader.reset(new AsyncReader<TypeKey>(
+        source_data, num_iterations_statistics * batch_size, label_dim, dense_dim,
+        data_reader_sparse_param_array, use_mixed_precision, resource_manager, 1, 1,
+        io_block_size*8, 4, io_alignment, false, false, aligned_type));
+
+    for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+      train_tensor_entries_list[i].push_back(
+          {top_strs_label, train_data_reader->get_label_tensors()[i]});
+      evaluate_tensor_entries_list[i].push_back(
+          {top_strs_label, evaluate_data_reader->get_label_tensors()[i]});
+
+      if (use_mixed_precision) {
+        train_tensor_entries_list[i].push_back(
+            {top_strs_dense, train_data_reader->get_dense_tensors()[i]});
+        evaluate_tensor_entries_list[i].push_back(
+            {top_strs_dense, evaluate_data_reader->get_dense_tensors()[i]});
+      } else {
+        train_tensor_entries_list[i].push_back(
+            {top_strs_dense, train_data_reader->get_dense_tensors()[i]});
+        evaluate_tensor_entries_list[i].push_back(
+            {top_strs_dense, evaluate_data_reader->get_dense_tensors()[i]});
+      }
+    }
+
+    if (j_sparse.size() > 1) {
+      CK_THROW_(Error_t::WrongInput, "Only one sparse input is supported.");
+    }
+
+    const auto& sparse_input = sparse_input_map.find(sparse_names[0]);
+    sparse_input->second.train_values =
+        bags_to_tensors<TypeKey>(train_data_reader->get_value_tensors());
+    sparse_input->second.evaluate_values =
+        bags_to_tensors<TypeKey>(evaluate_data_reader->get_value_tensors());
+
+    return;
+  }
 
   switch (format) {
     case DataReaderType_t::Norm: {

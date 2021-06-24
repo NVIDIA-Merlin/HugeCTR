@@ -15,13 +15,8 @@
 
 cmake_minimum_required(VERSION 3.8)
 project(HugeCTR LANGUAGES CXX CUDA)
-<<<<<<< HEAD
 
 set(CMAKE_CXX_STANDARD 17)
-=======
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CUDA_STANDARD 14)
->>>>>>> v3.1_preview
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
 option(CLANGFORMAT "Setup clangformat target" OFF)
@@ -43,17 +38,6 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
-<<<<<<< HEAD
-=======
-
-option(NCCL_A2A "NCCL all2all mode: use NCCL for all2all communication" ON)
-if (NCCL_A2A)
-  message(STATUS "-- NCCL_A2A is ON")
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DNCCL_A2A")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DNCCL_A2A")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DNCCL_A2A")
-endif()
-
 option(DISABLE_CUDF "Disable cudf: disable parquet format related features" OFF)
 if (DISABLE_CUDF) 
   message(STATUS "-- DISABLE_CUDF is ON")
@@ -69,7 +53,6 @@ if (SHARP_A2A)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DSHARP_A2A")
 endif()
 
->>>>>>> v3.1_preview
 find_package(CUDA REQUIRED)
 find_package(CUDNN REQUIRED)
 find_package(NCCL REQUIRED)
@@ -183,10 +166,7 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/HugeCTR
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
-<<<<<<< HEAD
-=======
   ${PROJECT_SOURCE_DIR}/third_party/cutlass
->>>>>>> v3.1_preview
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
@@ -194,14 +174,8 @@ include_directories(
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
-<<<<<<< HEAD
   ${UCX_INC_PATHS})
-=======
-  ${UCX_INC_PATHS}
   ${SHARP_INC_PATHS}
-  $ENV{CONDA_PREFIX}/include
-  $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx)
->>>>>>> v3.1_preview
 
 if (CUDA_VERSION_MAJOR LESS 11)
   include_directories(${PROJECT_SOURCE_DIR}/third_party/cub)
