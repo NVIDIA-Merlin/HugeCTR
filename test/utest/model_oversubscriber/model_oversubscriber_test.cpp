@@ -156,10 +156,11 @@ void do_upload_and_download_snapshot(
   std::vector<std::shared_ptr<IEmbedding>> embeddings;
   embeddings.push_back(embedding);
   bool is_i64_key = std::is_same<TypeKey, unsigned>::value ? false : true;
+  bool use_mixed_precision = false;
 
   std::shared_ptr<ModelOversubscriber> model_oversubscriber(
       new ModelOversubscriber(use_host_ps, embeddings, sparse_embedding_files,
-                              resource_manager, is_i64_key));
+                              resource_manager, use_mixed_precision, is_i64_key));
 
   Timer timer_ps;
   timer_ps.start();
