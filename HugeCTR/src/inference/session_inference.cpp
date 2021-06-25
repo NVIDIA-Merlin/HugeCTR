@@ -75,9 +75,12 @@ void InferenceSession::separate_keys_by_table_(int* d_row_ptrs, const std::vecto
   CK_CUDA_THROW_(cudaMemcpy(h_row_ptrs.get(), d_row_ptrs, row_ptrs_size_in_bytes_sample, cudaMemcpyDeviceToHost));
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   h_embedding_offset_.resize(num_samples*num_embedding_tables+1);
+  
   for (int i = 0; i < num_samples; i++) {
+    size_t acc_emb_key_offset=0;
     for (int j = 0; j < static_cast<int>(num_embedding_tables); j++) {
-      h_embedding_offset_[i*num_embedding_tables + j + 1] = h_row_ptrs[i*slot_num + static_cast<int>(embedding_table_slot_size[j+1])];
+      h_embedding_offset_[i*num_embedding_tables + j + 1] = i*slot_num + inference_parser_.slot_num_for_tables[j] + acc_emb_key_offset;
+      acc_emb_key_offset += inference_parser_.slot_num_for_tables[j];
     }
   }
 }
@@ -113,18 +116,24 @@ void InferenceSession::predict(float* d_dense, void* h_embeddingcolumns, int *d_
     convert_array_on_device(reinterpret_cast<float*>(dense_input_tensorbag_.get_ptr()), d_dense, dense_size, resource_manager_->get_local_gpu(0)->get_stream());
   }
 
-  // bind row ptrs input to row ptrs tensor 
-  auto row_ptrs_dims = row_ptrs_tensors_[0]->get_dimensions();
-  std::shared_ptr<TensorBuffer2> row_ptrs_buff = PreallocatedBuffer2<int>::create(d_row_ptrs, row_ptrs_dims);
-  bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, row_ptrs_tensors_[0]);
-
-  // bind embedding vectors from looking up to embedding features tensor 
-  auto embedding_features_dims = embedding_features_tensors_[0]->get_dimensions();
-  std::shared_ptr<TensorBuffer2> embeddding_features_buff = PreallocatedBuffer2<float>::create(d_embeddingvectors_, embedding_features_dims);
-  bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff, embedding_features_tensors_[0]);
   
-  // feature combiner & dense network feedforward, they are both using resource_manager_->get_local_gpu(0)->get_stream()
-  embedding_feature_combiners_[0]->fprop(false);
+  size_t acc_emb_table_offset = 0;
+  size_t acc_emb_row_offset = 0;
+  for (int j = 0; j < static_cast<int>(num_embedding_tables); j++) {
+    // bind row ptrs input to row ptrs tensor
+    auto row_ptrs_dims = row_ptrs_tensors_[j]->get_dimensions();
+    std::shared_ptr<TensorBuffer2> row_ptrs_buff = PreallocatedBuffer2<int>::create(d_row_ptrs + acc_emb_row_offset, row_ptrs_dims);
+    bind_tensor_to_buffer(row_ptrs_dims, row_ptrs_buff, row_ptrs_tensors_[j]);
+    acc_emb_row_offset += num_samples * inference_parser_.slot_num_for_tables[j]+1;
+
+    // bind embedding vectors from looking up to embedding features tensor
+    auto embedding_features_dims = embedding_features_tensors_[j]->get_dimensions();
+    std::shared_ptr<TensorBuffer2> embeddding_features_buff = PreallocatedBuffer2<float>::create(d_embeddingvectors_ + acc_emb_table_offset, embedding_features_dims);
+    bind_tensor_to_buffer(embedding_features_dims, embeddding_features_buff, embedding_features_tensors_[j]);
+    acc_emb_table_offset += inference_params_.max_batchsize * inference_parser_.max_feature_num_for_tables[j] * inference_parser_.embed_vec_size_for_tables[j];
+    // feature combiner & dense network feedforward, they are both using resource_manager_->get_local_gpu(0)->get_stream()
+    embedding_feature_combiners_[j]->fprop(false);
+  }
   network_->predict();
   
   // copy the prediction result to output
