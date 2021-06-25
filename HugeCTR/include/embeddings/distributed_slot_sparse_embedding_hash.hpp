@@ -94,10 +94,21 @@ class DistributedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmb
    * @param device_resources all gpus device resources.
    * @param context gpu device context, for switching device
    */
-  void load_parameters(const Tensor2<TypeHashKey> &keys, const Tensor2<float> &embeddings,
-                       size_t num, size_t vocabulary_size, size_t embedding_vec_size,
-                       size_t max_vocabulary_size_per_gpu, Tensors2<float> &embedding_tensors,
-                       std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables);
+  void load_parameters(const Tensor2<TypeHashKey> &keys,
+                       const Tensor2<float> &embeddings,
+                       size_t num,
+                       size_t vocabulary_size,
+                       size_t embedding_vec_size,
+                       size_t max_vocabulary_size_per_gpu,
+                       Tensors2<float> &embedding_tensors,
+                       std::vector<std::shared_ptr<NvHashTable>> &hash_tables);
+
+  void load_parameters(BufferBag &buf_bag, size_t num,
+                       size_t vocabulary_size,
+                       size_t embedding_vec_size,
+                       size_t max_vocabulary_size_per_gpu,
+                       Tensors2<float> &embedding_tensors,
+                       std::vector<std::shared_ptr<NvHashTable>> &hash_tables);
 
   /**
    * dump_parameters for DistributedSlotSparseEmbeddingHash

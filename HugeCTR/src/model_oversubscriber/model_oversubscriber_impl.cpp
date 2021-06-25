@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/model_oversubscriber/model_oversubscriber_impl.hpp"
+#include <string>
 
 namespace HugeCTR {
 
@@ -36,24 +37,23 @@ ModelOversubscriberImpl<TypeKey>::ModelOversubscriberImpl(bool use_host_ps,
     const std::vector<SparseEmbeddingHashParams>& embedding_params,
     const std::vector<std::string>& sparse_embedding_files,
     std::shared_ptr<ResourceManager> resource_manager)
-  : embeddings_(embeddings),
-    ps_manager_(use_host_ps, sparse_embedding_files, get_embedding_type(embeddings),
-                embedding_params, get_max_embedding_size_(), resource_manager) {}
+    : embeddings_(embeddings),
+      ps_manager_(use_host_ps, sparse_embedding_files,
+                  get_embedding_type(embeddings), embedding_params,
+                  get_max_embedding_size_(), resource_manager) {}
 
 template <typename TypeKey>
 void ModelOversubscriberImpl<TypeKey>::load_(
     std::vector<std::string>& keyset_file_list) {
   try {
     if (keyset_file_list.size() != embeddings_.size()) {
-      CK_THROW_(Error_t::WrongInput, "num of keyset_file and num of embeddings don't equal");
-    }
-
-    for (size_t i = 0; i < ps_manager_.get_size(); i++) {
-      ps_manager_.get_parameter_server(i)->load_keyset_from_file(keyset_file_list[i]);
+      CK_THROW_(Error_t::WrongInput,
+                "num of keyset_file and num of embeddings don't equal");
     }
 
     for (size_t i = 0; i < ps_manager_.get_size(); i++) {
       auto ptr_ps = ps_manager_.get_parameter_server(i);
+      ptr_ps->load_keyset_from_file(keyset_file_list[i]);
 
       size_t hit_size = 0;
       ptr_ps->pull(ps_manager_.get_buffer_bag(), hit_size);
@@ -119,17 +119,9 @@ void ModelOversubscriberImpl<TypeKey>::update(
 
 template <typename TypeKey>
 void ModelOversubscriberImpl<TypeKey>::update(
-  std::string& keyset_file) {
-  try {
-    std::vector<std::string> keyset_file_list(embeddings_.size(), keyset_file);
-    update(keyset_file_list);
-  } catch (const internal_runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    throw rt_err;
-  } catch (const std::exception& err) {
-    std::cerr << err.what() << std::endl;
-    throw err;
-  }
+    std::string& keyset_file) {
+  std::vector<std::string> keyset_file_list(embeddings_.size(), keyset_file);
+  update(keyset_file_list);
 }
 
 template class ModelOversubscriberImpl<long long>;

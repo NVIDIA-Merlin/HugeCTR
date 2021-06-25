@@ -141,13 +141,21 @@ class LocalizedSlotSparseEmbeddingHash : public Embedding<TypeHashKey, TypeEmbed
    * @param hash_table_slot_id_tensors the hash table slot_ids on multi GPUs.
    * @param hash_tables the hash tables on multi GPUs.
    */
-  void load_parameters(const Tensor2<TypeHashKey> &keys, const Tensor2<size_t> &slot_id,
+  void load_parameters(const Tensor2<TypeHashKey> &keys,
+                       const Tensor2<size_t> &slot_id,
                        const Tensor2<float> &embeddings, size_t num,
-                       size_t vocabulary_size,
-                       size_t embedding_vec_size, size_t max_vocabulary_size_per_gpu,
+                       size_t vocabulary_size, size_t embedding_vec_size,
+                       size_t max_vocabulary_size_per_gpu,
                        Tensors2<float> &hash_table_value_tensors,
                        Tensors2<size_t> &hash_table_slot_id_tensors,
-                       std::vector<std::shared_ptr<HashTable<TypeHashKey, size_t>>> &hash_tables);
+                       std::vector<std::shared_ptr<NvHashTable>> &hash_tables);
+
+  void load_parameters(BufferBag &buf_bag, size_t num,
+                       size_t vocabulary_size, size_t embedding_vec_size,
+                       size_t max_vocabulary_size_per_gpu,
+                       Tensors2<float> &hash_table_value_tensors,
+                       Tensors2<size_t> &hash_table_slot_id_tensors,
+                       std::vector<std::shared_ptr<NvHashTable>> &hash_tables);
 
   /**
    * dump_parameters for LocalizedSlotSparseEmbeddingHash.
