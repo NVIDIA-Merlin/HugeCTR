@@ -103,5 +103,10 @@ struct BufferBag {
   TensorBag2 keys;
   TensorBag2 slot_id;
   Tensor2<float> embedding;
+
+  Tensors2<float> h_value_tensors;
+  Tensors2<size_t> h_slot_id_tensors;
+  std::vector<TensorBag2> uvm_key_tensor_bags;
+  Tensors2<size_t> d_value_index_tensors;
 };
 }  // namespace HugeCTR
