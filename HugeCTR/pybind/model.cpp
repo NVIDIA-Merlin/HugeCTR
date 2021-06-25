@@ -1099,7 +1099,7 @@ std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
     }
     return std::shared_ptr<ModelOversubscriber>(
         new ModelOversubscriber(use_host_memory_ps, embeddings_, sparse_embedding_files,
-            resource_manager_, solver_.i64_input_key));
+            resource_manager_, solver_.use_mixed_precision, solver_.i64_input_key));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
