@@ -482,11 +482,17 @@ struct create_embedding {
   void operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::vector<TensorEntry>* train_tensor_entries_list,
                   std::vector<TensorEntry>* evaluate_tensor_entries_list,
-                  std::vector<std::shared_ptr<IEmbedding>>& embeddings, Embedding_t embedding_type,
+                  std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                  Embedding_t embedding_type,
                   const nlohmann::json& config,
-                  const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
-                  size_t batch_size_eval, bool use_mixed_precision, float scaler,
-                  const nlohmann::json& j_layers);
+                  const std::shared_ptr<ResourceManager>& resource_manager,
+                  size_t batch_size,
+                  size_t batch_size_eval,
+                  bool use_mixed_precision,
+                  float scaler,
+                  const nlohmann::json& j_layers,
+                  bool use_cuda_graph = false,
+                  bool grouped_all_reduce = false) {
 
   void operator()(const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
@@ -505,8 +511,11 @@ struct create_datareader {
                   std::vector<TensorEntry>* train_tensor_entries_list,
                   std::vector<TensorEntry>* evaluate_tensor_entries_list,
                   std::shared_ptr<IDataReader>& data_reader,
-                  std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
-                  size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
+                  std::shared_ptr<IDataReader>& data_reader_eval,
+                  size_t batch_size,
+                  size_t batch_size_eval,
+                  bool use_mixed_precision,
+                  bool repeat_dataset,
                   const std::shared_ptr<ResourceManager> resource_manager);
 
   void operator()(const InferenceParams& inference_params,
@@ -515,8 +524,10 @@ struct create_datareader {
                   const std::shared_ptr<ResourceManager> resource_manager,
                   std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::map<std::string, TensorBag2>& label_dense_map,
-                  const std::string& source, const DataReaderType_t data_reader_type,
-                  const Check_t check_type, const std::vector<long long>& slot_size_array,
+                  const std::string& source,
+                  const DataReaderType_t data_reader_type,
+                  const Check_t check_type,
+                  const std::vector<long long>& slot_size_array,
                   const bool repeat_dataset);
 };
 

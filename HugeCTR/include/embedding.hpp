@@ -37,7 +37,7 @@ class IEmbedding {
   virtual void load_parameters(std::string sparse_model) = 0;
   virtual void dump_parameters(std::string sparse_model) const = 0;
   virtual void set_learning_rate(float lr) = 0;
-  // TODO: a workaround to enable GPU LR for HE only; need a better way
+  // TODO(MLPERF): a workaround to enable GPU LR for HE only; need a better way
   virtual GpuLearningRateSchedulers get_learning_rate_schedulers() const {
     return GpuLearningRateSchedulers();
   }
@@ -113,42 +113,6 @@ struct BufferBag {
   TensorBag2 keys;
   TensorBag2 slot_id;
   Tensor2<float> embedding;
-};
-
-struct HybridSparseEmbeddingCategoryItem {
-  size_t index;
-  size_t global_gpu_id;
-};
-
-template <typename TypeEmbedding>
-struct HybridSparseEmbeddingParams {
-  size_t train_batch_size;
-  size_t evaluate_batch_size;
-  // std::vector<HybridSparseEmbeddingCategoryItem> categories;
-  size_t num_iterations_statistics;
-  size_t max_num_frequent_categories;  // max(train_batch_size, eval_batch_size) * # of batches for
-                                       // frequent categories
-  int64_t max_num_infrequent_samples;
-  double p_dup_max;
-  size_t embedding_vec_size;
-  size_t slot_num;  // slot number
-  std::vector<size_t> slot_size_array;
-  hybrid_embedding::CommunicationType communication_type;
-  double max_all_reduce_bandwidth;
-  double max_all_to_all_bandwidth;
-  double efficiency_bandwidth_ratio;
-  hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
-  OptParams<TypeEmbedding> opt_params;  // optimizer params
-};
-
-template <typename TypeEmbedding>
-class IEmbeddingForPrefetcher {
- public:
-  virtual void load_parameters(const TensorBag2& keys, const Tensor2<float>& embeddings,
-                               size_t num) = 0;
-  virtual void dump_parameters(TensorBag2 keys, Tensor2<float>& embeddings, size_t* num) const = 0;
-  virtual void reset() = 0;
-  virtual const SparseEmbeddingHashParams<TypeEmbedding>& get_embedding_params() const = 0;
 };
 
 }  // namespace HugeCTR

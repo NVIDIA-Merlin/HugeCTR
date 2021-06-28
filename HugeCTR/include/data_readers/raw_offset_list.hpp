@@ -37,18 +37,20 @@ class RawOffsetList {
   std::vector<FileOffset> offsets_;
   std::atomic<long long> counter_{0};
   const int num_workers_;
+  bool repeat_;
   std::string file_name_;
 
  public:
   // stride: samle size in byte
   RawOffsetList(std::string file_name, long long num_samples, long long stride, long long batchsize,
-                bool use_shuffle, int num_workers)
-      : num_samples_(num_samples),
+                bool use_shuffle, int num_workers, bool repeat)
+      : file_name_(file_name),
+        num_samples_(num_samples),
         stride_(stride),
         batchsize_(batchsize),
         use_shuffle_(use_shuffle),
         num_workers_(num_workers),
-        file_name_(file_name) {
+        repeat_(repeat) {
     try {
       auto offset_gen = [stride](long long idx, long long samples) -> FileOffset {
         char* offset = (char*)(idx * stride);
@@ -82,11 +84,11 @@ class RawOffsetList {
   ~RawOffsetList() {}
 
   FileOffset get_offset(long long round, int worker_id) {
+    size_t worker_pos = round * num_workers_ + worker_id;
+    if (!repeat_ && worker_pos >= offsets_.size()) {
+      throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
+    }
     size_t counter = (round * num_workers_ + worker_id) % offsets_.size();
-
-    // int partition = (int)offsets_.size() / num_workers_;
-    // counter = partition * worker_id + (round % partition);
-
     if (worker_id >= num_workers_) {
       CK_THROW_(Error_t::WrongInput, "worker_id >= num_workers_");
     }

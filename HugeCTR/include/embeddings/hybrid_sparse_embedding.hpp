@@ -42,6 +42,26 @@ using namespace HugeCTR::hybrid_embedding;
 
 namespace HugeCTR {
 
+template <typename TypeEmbedding>
+struct HybridSparseEmbeddingParams {
+  size_t train_batch_size;
+  size_t evaluate_batch_size;
+  size_t num_iterations_statistics;
+  size_t max_num_frequent_categories;  // max(train_batch_size, eval_batch_size) * # of batches for
+                                       // frequent categories
+  int64_t max_num_infrequent_samples;
+  double p_dup_max;
+  size_t embedding_vec_size;
+  size_t slot_num;  // slot number
+  std::vector<size_t> slot_size_array;
+  hybrid_embedding::CommunicationType communication_type;
+  double max_all_reduce_bandwidth;
+  double max_all_to_all_bandwidth;
+  double efficiency_bandwidth_ratio;
+  hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
+  OptParams<TypeEmbedding> opt_params;  // optimizer params
+};
+
 ///
 /// Interface class for the hybrid embedding to HugeCTR. It is responsible for
 /// persistent gpu memory allocation.
@@ -113,6 +133,7 @@ class HybridSparseEmbedding : public IEmbedding {
   void backward_pre_communication (int i, cudaStream_t stream);
   void backward_communications    (int i, cudaStream_t stream);
   void backward_post_communication(int i, cudaStream_t stream);
+
  protected:
   size_t get_batch_size(bool is_train) const {
     if (is_train) {
@@ -154,15 +175,6 @@ class HybridSparseEmbedding : public IEmbedding {
   void destroy_events();
 
  public:
-  void load_parameters(const TensorBag2 &keys, const Tensor2<float> &embeddings,
-                       size_t num) override {}
-  void dump_parameters(TensorBag2 keys, Tensor2<float> &embeddings, size_t *num) const override {}
-  void reset() override {}
-  void check_overflow() const override {}
-  void get_forward_results_tf(const bool is_train, const bool on_gpu,
-                              void *const forward_result) override {}
-  cudaError_t update_top_gradients(const bool on_gpu, const void *const top_gradients) override { throw; }
-
   HybridSparseEmbedding(const Tensors2<dtype> &train_input_tensors,
                         const Tensors2<dtype> &evaluate_input_tensors,
                         const HybridSparseEmbeddingParams<emtype> &embedding_params,
@@ -182,40 +194,31 @@ class HybridSparseEmbedding : public IEmbedding {
   void load_parameters(std::istream &stream) override;
   void dump_parameters(std::ostream &stream) const override;
   void set_learning_rate(float lr) override;
-  // TODO: a workaround to enable GPU LR for HE only; need a better way
+  // TODO(MLPERF): a workaround to enable GPU LR for HE only; need a better way
   GpuLearningRateSchedulers get_learning_rate_schedulers() const override;
 
   size_t get_params_num() const override;
   size_t get_vocabulary_size() const override;
   size_t get_max_vocabulary_size() const override;
+
+  // TODO(MLPERF): implemented the empty virtual functions below
+  void load_parameters(const BufferBag2 &keys, const Tensor2<float> &embeddings,
+                       size_t num) override {}
+  void dump_parameters(BufferBag2 keys, Tensor2<float> &embeddings, size_t *num) const override {}
+
+  void reset() override {}
+
+  void dump_opt_states(std::ofstream& stream) override {} 
+  void load_opt_states(std::ifstream& stream) override {} 
+
+  void check_overflow() const override {}
+  void get_forward_results_tf(const bool is_train, const bool on_gpu,
+                              void *const forward_result) override {}
+
   std::vector<TensorBag2> get_train_output_tensors() const override;
   std::vector<TensorBag2> get_evaluate_output_tensors() const override;
 
-  // just a simulate function
-  void gen_mock_data(Tensors2<dtype> &mock_data_v, cudaStream_t stream) {
-    std::mt19937 rnd(12345);
-    size_t num_samples = embedding_params_.num_iterations_statistics * get_batch_size(true);
-    std::vector<dtype> h_mock_data(num_samples * get_slot_num());
-    for (size_t sample = 0; sample < num_samples; ++sample) {
-      for (size_t slot = 0; slot < get_slot_num(); ++slot) {
-        size_t slot_size = embedding_params_.slot_size_array[slot];
-        h_mock_data[sample * get_slot_num() + slot] = rnd() % slot_size;
-      }
-    }
-
-    for (size_t id = 0; id < resource_manager_->get_local_gpu_count(); ++id) {
-      int cur_device = get_local_gpu(id).get_device_id();
-      CudaDeviceContext context;
-      context.set_device(cur_device);
-      std::shared_ptr<GeneralBuffer2<CudaAllocator>> buf = GeneralBuffer2<CudaAllocator>::create();
-      Tensor2<dtype> mock_data;
-      buf->reserve({num_samples * get_slot_num(), 1}, &mock_data);
-      buf->allocate();
-      upload_tensor<dtype>(h_mock_data, mock_data, stream);
-      mock_data_v.push_back(mock_data);
-    }
-  }
-
+  cudaError_t update_top_gradients(const bool on_gpu, const void *const top_gradients) override { throw; }
 };
 
 }  // namespace HugeCTR

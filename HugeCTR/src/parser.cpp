@@ -243,9 +243,9 @@ void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_dat
                                           const std::shared_ptr<ResourceManager>& resource_manager,
                                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad) {
   try {
-    nlohmann::json config = parser.config_;
+    nlohmann::json config = config_;
     auto j_layers_array = get_json(config, "layers");
-    bool use_mixed_precision = parser.use_mixed_precision_;
+    bool use_mixed_precision = use_mixed_precision_;
     size_t embed_wgrad_size = 0;
     for (unsigned int i = 1; i < j_layers_array.size(); i++) {
       const nlohmann::json& j = j_layers_array[i];
@@ -272,7 +272,7 @@ void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_dat
         }
       }
     }
-    if (parser.grouped_all_reduce_) {
+    if (grouped_all_reduce_) {
       exchange_wgrad->update_embed_wgrad_size(embed_wgrad_size);
     }
   } catch (const std::runtime_error& rt_err) {

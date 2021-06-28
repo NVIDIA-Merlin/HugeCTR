@@ -42,8 +42,8 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     bool use_mixed_precision,
     float scaler,
     const nlohmann::json& j_layers,
-    bool use_cuda_graph = false,
-    bool grouped_all_reduce = false) {
+    bool use_cuda_graph,
+    bool grouped_all_reduce) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &pid);

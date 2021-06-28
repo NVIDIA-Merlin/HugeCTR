@@ -139,7 +139,7 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
     }
   }
 
-  // TODO: currently it is only for HE
+  // TODO(MLPERF): currently it is only for HE
   if (embeddings_.size() == 1) {
     auto lr_scheds = embeddings_[0]->get_learning_rate_schedulers();
     for (size_t i = 0; i < lr_scheds.size(); i++) {
@@ -151,8 +151,6 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
 Error_t Session::initialize() {
   try {
     parser_->initialize_pipeline(init_data_reader_, embeddings_, resource_manager_, exchange_wgrad_);
-    // TODO(MLPERF): find out if deleting the init reader is faster than keeping it
-    //init_data_reader_.reset();
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     return rt_err.get_error();
