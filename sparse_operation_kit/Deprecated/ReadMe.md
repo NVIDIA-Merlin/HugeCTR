@@ -1,3 +1,6 @@
+# It will be deprecated in next release #
+---
+
 # HugeCTR Embedding TF plugin #
 ---
 This tool is used to wrap HugeCTR's embedding layer into a tensorflow plugin.
