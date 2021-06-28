@@ -337,6 +337,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
     const Tensor2<float> &embeddings, size_t num, size_t embedding_vec_size,
     Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes,
     const Tensors2<uint32_t> &mapping_offsets_per_gpu_tensors) {
+  if (num == 0) return;
+
   CudaDeviceContext context;
   if (keys.get_dimensions()[0] < num || embeddings.get_dimensions()[0] < num) {
     CK_THROW_(Error_t::WrongInput, "The rows of keys and embeddings are not consistent.");
@@ -591,7 +593,8 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
     const std::string &sparse_model, size_t embedding_vec_size,
-    const Tensors2<float> &hash_table_value_tensors, const std::vector<size_t> &slot_sizes) const {
+    const Tensors2<float> &hash_table_value_tensors,
+    const std::vector<size_t> &slot_sizes) const {
   CudaDeviceContext context;
   size_t local_gpu_count = Base::get_resource_manager().get_local_gpu_count();
 
@@ -754,8 +757,9 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_parameters(
-    Tensor2<TypeHashKey> &keys, Tensor2<size_t> &slot_id, Tensor2<float> &embeddings, size_t *num,
-    size_t embedding_vec_size, const Tensors2<float> &hash_table_value_tensors,
+    Tensor2<TypeHashKey> &keys, Tensor2<size_t> &slot_id,
+    Tensor2<float> &embeddings, size_t *num, size_t embedding_vec_size,
+    const Tensors2<float> &hash_table_value_tensors,
     const std::vector<size_t> &slot_sizes) const {
   TypeHashKey *key_ptr = keys.get_ptr();
   size_t *slot_id_ptr = slot_id.get_ptr();
@@ -765,7 +769,6 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
   // memory allocation
   std::unique_ptr<size_t[]> count(new size_t[local_gpu_count]);
-  size_t max_count = 0;
   size_t total_count = 0;
 
   CudaDeviceContext context;
@@ -778,49 +781,27 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
         count[id] += slot_sizes[i];
       }
     }
-    max_count = max(max_count, count[id]);
     total_count += count[id];
   }
 
-#ifdef ENABLE_MPI
-  CK_MPI_THROW_(
-      MPI_Allreduce(MPI_IN_PLACE, &max_count, sizeof(size_t), MPI_CHAR, MPI_MAX, MPI_COMM_WORLD));
-#endif
+  std::vector<size_t> offset_host(local_gpu_count, 0);
+  std::exclusive_scan(count.get(), count.get() + local_gpu_count, offset_host.begin(), 0);
+  *num = total_count;
 
-  /*if (total_count > (size_t)vocabulary_size) {
-    CK_THROW_(Error_t::WrongInput,
-              "Error: required download size is larger than hash table vocabulary_size");
-  }*/
-
-  std::unique_ptr<TypeHashKey *[]> h_hash_table_key(new TypeHashKey *[local_gpu_count]);
   std::unique_ptr<TypeHashKey *[]> d_hash_table_key(new TypeHashKey *[local_gpu_count]);
-  std::unique_ptr<size_t *[]> h_hash_table_slot_id(new size_t *[local_gpu_count]);
   std::unique_ptr<size_t *[]> d_hash_table_slot_id(new size_t *[local_gpu_count]);
-  std::unique_ptr<float *[]> h_hash_table_value(new float *[local_gpu_count]);
-  for (size_t id = 0; id < local_gpu_count; id++) {
-    if (count[id] == 0) {
-      continue;
-    }
 
+  for (size_t id = 0; id < local_gpu_count; id++) {
+    if (count[id] == 0) continue;
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
-    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
     CK_CUDA_THROW_(cudaMalloc(&d_hash_table_key[id], count[id] * sizeof(TypeHashKey)));
-    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_slot_id[id], count[id] * sizeof(size_t)));
     CK_CUDA_THROW_(cudaMalloc(&d_hash_table_slot_id[id], count[id] * sizeof(size_t)));
-    CK_CUDA_THROW_(cudaMallocHost(&h_hash_table_value[id], count[id] * embedding_vec_size * sizeof(float)));
   }
 
   // Generate key and slot_id tensor, dump value tensor on GPU
   for (size_t id = 0; id < local_gpu_count; id++) {
-    if (count[id] == 0) {
-      continue;
-    }
-
-    MESSAGE_("Rank" + std::to_string(Base::get_resource_manager().get_process_id()) +
-             ": Dump embedding table from GPU" + std::to_string(id),
-						 true);
-
+    if (count[id] == 0) continue;
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
     // Loop for each slot
@@ -833,69 +814,49 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
         for (size_t j = 0; j < i; j++) {
           key_offset += slot_sizes[j];
         }
-        functors_.memset_liner(d_hash_table_key[id] + buffer_offset, (TypeHashKey)key_offset,
-                               (TypeHashKey)1, slot_sizes[i], Base::get_local_gpu(id).get_stream());
+        functors_.memset_liner(d_hash_table_key[id] + buffer_offset,
+                               static_cast<TypeHashKey>(key_offset),
+                               static_cast<TypeHashKey>(1),
+                               slot_sizes[i],
+                               Base::get_local_gpu(id).get_stream());
 
         // Generate slot_id
-        functors_.memset_const(d_hash_table_slot_id[id] + buffer_offset, i, slot_sizes[i],
+        functors_.memset_const(d_hash_table_slot_id[id] + buffer_offset,
+                               i, slot_sizes[i],
                                Base::get_local_gpu(id).get_stream());
 
         buffer_offset += slot_sizes[i];
       }
     }
     // Copy key buffer to host
-    CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_key[id], d_hash_table_key[id],
-                                   count[id] * sizeof(TypeHashKey), cudaMemcpyDeviceToHost,
+    CK_CUDA_THROW_(cudaMemcpyAsync(key_ptr + offset_host[id],
+                                   d_hash_table_key[id],
+                                   count[id] * sizeof(TypeHashKey),
+                                   cudaMemcpyDeviceToHost,
                                    Base::get_local_gpu(id).get_stream()));
     // Copy value buffer to host
-    CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_value[id], hash_table_value_tensors[id].get_ptr(),
-                                   count[id] * embedding_vec_size * sizeof(float),
-                                   cudaMemcpyDeviceToHost, Base::get_local_gpu(id).get_stream()));
+    CK_CUDA_THROW_(cudaMemcpyAsync(
+        embedding_ptr + offset_host[id] * embedding_vec_size,
+        hash_table_value_tensors[id].get_ptr(),
+        count[id] * embedding_vec_size * sizeof(float),
+        cudaMemcpyDeviceToHost,
+        Base::get_local_gpu(id).get_stream()));
     // Copy slot_id to host
-    CK_CUDA_THROW_(cudaMemcpyAsync(h_hash_table_slot_id[id], d_hash_table_slot_id[id],
-                                   count[id] * sizeof(size_t), cudaMemcpyDeviceToHost,
+    CK_CUDA_THROW_(cudaMemcpyAsync(slot_id_ptr + offset_host[id],
+                                   d_hash_table_slot_id[id],
+                                   count[id] * sizeof(size_t),
+                                   cudaMemcpyDeviceToHost,
                                    Base::get_local_gpu(id).get_stream()));
   }
-
-  // sync wait
   functors_.sync_all_gpus(Base::get_resource_manager());
 
-  // TODO: could be optimized ???
-  // one pair in the file includes <key,slot_id,value>
-  size_t key_size = sizeof(TypeHashKey);
-  size_t slot_id_size = sizeof(size_t);
-  size_t value_size = sizeof(float) * embedding_vec_size;
-
-  size_t offset = 0;
   for (size_t id = 0; id < local_gpu_count; id++) {
-    for (unsigned int k = 0; k < count[id]; k++) {
-      memcpy(key_ptr + offset, h_hash_table_key[id] + k, key_size);
-      memcpy(slot_id_ptr + offset, h_hash_table_slot_id[id] + k, slot_id_size);
-      memcpy(embedding_ptr + offset * embedding_vec_size,
-             h_hash_table_value[id] + k * embedding_vec_size, value_size);
-      offset += 1;
-    }
-
-    MESSAGE_("Write hash table <key,slot_id,value> pairs to file");
-  }
-
-  *num = offset;
-
-  for (size_t id = 0; id < local_gpu_count; id++) {
-    if (count[id] == 0) {
-      continue;
-    }
-
+    if (count[id] == 0) continue;
     context.set_device(Base::get_local_gpu(id).get_device_id());
 
-    CK_CUDA_THROW_(cudaFreeHost(h_hash_table_key[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_key[id]));
-    CK_CUDA_THROW_(cudaFreeHost(h_hash_table_slot_id[id]));
     CK_CUDA_THROW_(cudaFree(d_hash_table_slot_id[id]));
-    CK_CUDA_THROW_(cudaFreeHost(h_hash_table_value[id]));
   }
-
-  return;
 }
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>

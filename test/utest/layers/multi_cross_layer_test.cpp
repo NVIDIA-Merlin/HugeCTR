@@ -32,6 +32,7 @@ class MultiCrossLayerTest {
   const size_t w_;
   const int layers_;
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> blob_buf_;
+  std::shared_ptr<BufferBlock2<float>> master_weight_buff_;
   std::shared_ptr<BufferBlock2<T>> weight_buf_;
   std::shared_ptr<BufferBlock2<T>> wgrad_buf_;
 
@@ -295,6 +296,7 @@ class MultiCrossLayerTest {
         layers_(layers),
         blob_buf_(GeneralBuffer2<CudaAllocator>::create()),
         data_sim_(normal_params_().first, normal_params_().second) {
+    master_weight_buff_ = blob_buf_->create_block<float>();
     weight_buf_ = blob_buf_->create_block<T>();
     wgrad_buf_ = blob_buf_->create_block<T>();
 
@@ -315,7 +317,7 @@ class MultiCrossLayerTest {
     }
 
     // layer
-    layer_.reset(new MultiCrossLayer<T>(weight_buf_, wgrad_buf_, blob_buf_, d_input_, d_output_,
+    layer_.reset(new MultiCrossLayer<T>(master_weight_buff_, weight_buf_, wgrad_buf_, blob_buf_, d_input_, d_output_,
                                      test::get_default_gpu(), layers));
 
     blob_buf_->allocate();

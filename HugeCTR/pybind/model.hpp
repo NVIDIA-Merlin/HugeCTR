@@ -72,7 +72,8 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
   {Layer_t::Add, "Add"},
   {Layer_t::ReduceSum, "ReduceSum"},
   {Layer_t::DotProduct, "DotProduct"},
-  {Layer_t::FusedInnerProduct, "FusedInnerProduct"}};
+  {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
+  {Layer_t::MultiCross, "MultiCross"}};
 
 std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
     {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedSlotSparseEmbeddingHash"},
@@ -239,17 +240,20 @@ Input get_input_from_json(const nlohmann::json& j_input);
 
 DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer);
 
-SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_embedding);
+SparseEmbedding get_sparse_embedding_from_json(
+    const nlohmann::json& j_sparse_embedding);
 
 void save_graph_to_json(nlohmann::json& layer_config_array,
-                      std::vector<DenseLayer>& dense_layer_params,
-                      std::vector<SparseEmbedding>& sparse_embedding_params,
-                      std::vector<Input>& input_params,
-                      std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list);
+                       std::vector<DenseLayer>& dense_layer_params,
+                       std::vector<SparseEmbedding>& sparse_embedding_params,
+                       std::vector<Input>& input_params,
+                       std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list);
 
-void init_optimizer(OptParams& opt_params, const Solver& solver, const std::shared_ptr<OptParamsPy>& opt_params_py);
+void init_optimizer(OptParams& opt_params, const Solver& solver,
+                    const std::shared_ptr<OptParamsPy>& opt_params_py);
 
-void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch, const Solver& solver);
+void init_learning_rate_scheduler(
+    std::shared_ptr<LearningRateScheduler>& lr_sch, const Solver& solver);
 /**
  * @brief Main HugeCTR class
  *
@@ -285,7 +289,8 @@ class Model {
   void fit(int num_epochs, int max_iter, int display, int eval_interval,
           int snapshot, std::string snapshot_prefix);
 
-  void set_source(std::vector<std::string> source, std::vector<std::string> keyset, std::string eval_source);
+  void set_source(std::vector<std::string> source,
+                  std::vector<std::string> keyset, std::string eval_source);
 
   void set_source(std::string source, std::string eval_source);
 
@@ -299,7 +304,8 @@ class Model {
 
   Error_t download_params_to_files(std::string prefix, int iter);
 
-  Error_t export_predictions(const std::string& output_prediction_file_name, const std::string& output_label_file_name);
+  Error_t export_predictions(const std::string& output_prediction_file_name,
+                             const std::string& output_label_file_name);
 
   void check_overflow() const;
 
@@ -310,10 +316,11 @@ class Model {
     evaluate_data_reader_->start();
   }
 
-  void reset_learning_rate_scheduler(float base_lr, size_t warmup_steps, size_t decay_start,
-            size_t decay_steps, float decay_power, float end_lr) {
+  void reset_learning_rate_scheduler(float base_lr, size_t warmup_steps,
+      size_t decay_start, size_t decay_steps, float decay_power, float end_lr) {
     if (!lr_sch_) {
-      CK_THROW_(Error_t::IllegalCall, "learning rate scheduler should be initialized first");
+      CK_THROW_(Error_t::IllegalCall,
+          "learning rate scheduler should be initialized first");
     }
     lr_sch_->reset(base_lr, warmup_steps, decay_start, decay_steps, decay_power, end_lr);
   }

@@ -77,6 +77,39 @@ std::vector<size_t> slot_sizes;  // null means use vocabulary_size/gpu_count/loa
 // // just for verify
 
 //-----------------------------------------------------------------------------------------
+auto load_sparse_model_to_map = [](std::vector<T>& key_vec, std::vector<T>& slot_vec,
+    std::vector<float>& vec_vec, const std::string& sparse_model) {
+  const std::string key_file(sparse_model + "/" + sparse_model + ".key");
+  const std::string slot_file(sparse_model + "/" + sparse_model + ".slot");
+  const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
+
+  std::ifstream fs_key(key_file, std::ifstream::binary);
+  std::ifstream fs_slot(slot_file, std::ifstream::binary);
+  std::ifstream fs_vec(vec_file, std::ifstream::binary);
+
+  const size_t key_file_size_in_B = fs::file_size(key_file);
+  const size_t slot_file_size_in_B = fs::file_size(slot_file);
+  const size_t vec_file_size_in_B = fs::file_size(vec_file);
+  const long long num_key = key_file_size_in_B / sizeof(T);
+  const long long num_slot = slot_file_size_in_B / sizeof(T);
+  const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
+
+  if (num_key != num_vec || num_key != num_slot || num_key != vocabulary_size) {
+    CK_THROW_(Error_t::BrokenFile, "num_key != num_vec (num_slot) || num_key != vocabulary_size");
+  }
+
+  key_vec.clear();
+  key_vec.reserve(num_key);
+  slot_vec.clear();
+  slot_vec.reserve(num_key);
+  vec_vec.clear();
+  vec_vec.reserve(num_vec * embedding_vec_size);
+
+  fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
+  fs_slot.read(reinterpret_cast<char *>(slot_vec.data()), slot_file_size_in_B);
+  fs_vec.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_B);
+};
+
 void init_sparse_model(const char *sparse_model) {
   std::cout << "Init hash table";
   // init hash table file: <key, solt_id, value>
@@ -424,9 +457,18 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 template <typename TypeEmbeddingComp>
 void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                    const Update_t &update_type) {
+  using TypeKey = T;
   OptHyperParams hyper_params;
   hyper_params.adam.beta1 = 0.9f;
   hyper_params.adam.beta2 = 0.999f;
+  float tolerance;
+  if (std::is_same<TypeEmbeddingComp, __half>::value) {
+    hyper_params.adam.epsilon = 1e-4f;
+    tolerance = 5e-3f;
+  } else {
+    hyper_params.adam.epsilon = 1e-7f;
+    tolerance = 1e-4f;
+  }
   if (std::is_same<TypeEmbeddingComp, __half>::value) {
     hyper_params.adam.epsilon = 1e-4f;
     hyper_params.adagrad.epsilon = 1e-4f;
@@ -500,24 +542,54 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   printf("max_vocabulary_size=%zu, vocabulary_size=%zu\n", embedding->get_max_vocabulary_size(),
          embedding->get_vocabulary_size());
 
-  std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> blobs_buff =
-      GeneralBuffer2<CudaHostAllocator>::create();
-
-  Tensor2<T> keys;
-  blobs_buff->reserve({embedding->get_max_vocabulary_size()}, &keys);
-
-  Tensor2<size_t> slot_id;
-  blobs_buff->reserve({embedding->get_max_vocabulary_size()}, &slot_id);
-
-  Tensor2<float> embeddings;
-  blobs_buff->reserve({embedding->get_max_vocabulary_size(), embedding_vec_size}, &embeddings);
-
-  blobs_buff->allocate();
-
   BufferBag buf_bag;
-  buf_bag.keys = keys.shrink();
-  buf_bag.slot_id = slot_id.shrink();
-  buf_bag.embedding = embeddings;
+  {
+    size_t buffer_size = embedding->get_max_vocabulary_size();
+    size_t max_voc_size_per_gpu = embedding_params.max_vocabulary_size_per_gpu;
+
+    auto host_blobs_buff = GeneralBuffer2<CudaHostAllocator>::create();
+
+    Tensor2<TypeKey> tensor_keys;
+    Tensor2<size_t> tensor_slot_id;
+    host_blobs_buff->reserve({buffer_size}, &tensor_keys);
+    host_blobs_buff->reserve({buffer_size}, &tensor_slot_id);
+    host_blobs_buff->reserve({buffer_size, embedding_vec_size}, &(buf_bag.embedding));
+
+    buf_bag.keys = tensor_keys.shrink();
+    buf_bag.slot_id = tensor_slot_id.shrink();
+
+    const size_t local_gpu_count = resource_manager->get_local_gpu_count();
+
+    for (size_t id = 0; id < local_gpu_count; id++) {
+      Tensor2<float> tensor;
+      host_blobs_buff->reserve({max_voc_size_per_gpu, embedding_vec_size}, &tensor);
+      buf_bag.h_value_tensors.push_back(tensor);
+
+      Tensor2<size_t> tensor_slot_id;
+      host_blobs_buff->reserve({max_voc_size_per_gpu}, &tensor_slot_id);
+      buf_bag.h_slot_id_tensors.push_back(tensor_slot_id);
+    }
+    host_blobs_buff->allocate();
+
+    CudaDeviceContext context;
+    for (size_t id = 0; id < local_gpu_count; id++) {
+      context.set_device(resource_manager->get_local_gpu(id)->get_device_id());
+      {
+        auto uvm_blobs_buff = GeneralBuffer2<CudaManagedAllocator>::create();
+        Tensor2<TypeKey> tensor;
+        uvm_blobs_buff->reserve({max_voc_size_per_gpu}, &tensor);
+        buf_bag.uvm_key_tensor_bags.push_back(tensor.shrink());
+        uvm_blobs_buff->allocate();
+      }
+      {
+        auto hbm_blobs_buff = GeneralBuffer2<CudaAllocator>::create();
+        Tensor2<size_t> tensor;
+        hbm_blobs_buff->reserve({max_voc_size_per_gpu}, &tensor);
+        buf_bag.d_value_index_tensors.push_back(tensor);
+        hbm_blobs_buff->allocate();
+      }
+    }
+  }
 
   size_t dump_size;
   embedding->dump_parameters(buf_bag, &dump_size);
@@ -544,6 +616,34 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+
+  std::string tmp_sparse_model_file{"tmp_sparse_model"};
+  embedding->dump_parameters(tmp_sparse_model_file);
+
+  std::vector<T> hash_table_key_from_cpu;
+  std::vector<T> slot_id_from_cpu;
+  std::vector<float> hash_table_value_from_cpu;
+  load_sparse_model_to_map(hash_table_key_from_cpu, slot_id_from_cpu,
+                           hash_table_value_from_cpu, sparse_model_file);
+
+  std::vector<T> hash_table_key_from_gpu;
+  std::vector<T> slot_id_from_gpu;
+  std::vector<float> hash_table_value_from_gpu;
+  load_sparse_model_to_map(hash_table_key_from_gpu, slot_id_from_gpu,
+                           hash_table_value_from_gpu, tmp_sparse_model_file);
+
+  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+
+  ASSERT_TRUE(compare_hash_table(vocabulary_size,
+      hash_table_key_from_gpu.data(),
+      reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.data()),
+      hash_table_key_from_cpu.data(),
+      reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu.data()),
+      tolerance));
+
+  ASSERT_TRUE(compare_key_slot(vocabulary_size,
+      hash_table_key_from_gpu.data(), slot_id_from_gpu.data(),
+      hash_table_key_from_cpu.data(), slot_id_from_cpu.data()));
 }
 
 template <typename TypeEmbeddingComp>
@@ -647,39 +747,6 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 #ifdef ENABLE_MPI
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
-
-  auto load_sparse_model_to_map = [](std::vector<T>& key_vec, std::vector<T>& slot_vec,
-      std::vector<float>& vec_vec, const std::string& sparse_model) {
-    const std::string key_file(sparse_model + "/" + sparse_model + ".key");
-    const std::string slot_file(sparse_model + "/" + sparse_model + ".slot");
-    const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
-
-    std::ifstream fs_key(key_file, std::ifstream::binary);
-    std::ifstream fs_slot(slot_file, std::ifstream::binary);
-    std::ifstream fs_vec(vec_file, std::ifstream::binary);
-
-    const size_t key_file_size_in_B = fs::file_size(key_file);
-    const size_t slot_file_size_in_B = fs::file_size(slot_file);
-    const size_t vec_file_size_in_B = fs::file_size(vec_file);
-    const long long num_key = key_file_size_in_B / sizeof(T);
-    const long long num_slot = slot_file_size_in_B / sizeof(T);
-    const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
-
-    if (num_key != num_vec || num_key != num_slot || num_key != vocabulary_size) {
-      CK_THROW_(Error_t::BrokenFile, "num_key != num_vec (num_slot) || num_key != vocabulary_size");
-    }
-
-    key_vec.clear();
-    key_vec.reserve(num_key);
-    slot_vec.clear();
-    slot_vec.reserve(num_key);
-    vec_vec.clear();
-    vec_vec.reserve(num_vec * embedding_vec_size);
-
-    fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
-    fs_slot.read(reinterpret_cast<char *>(slot_vec.data()), slot_file_size_in_B);
-    fs_vec.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_B);
-  };
 
   std::vector<T> hash_table_key_from_cpu;
   std::vector<T> slot_id_from_cpu;
@@ -803,8 +870,12 @@ TEST(localized_sparse_embedding_hash_test, fp16_adagrad_8gpu) {
   train_and_test<__half>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::AdaGrad, Update_t::Local);
 }
 
-TEST(localized_sparse_embedding_hash_test, load_and_dump) {
+TEST(localized_sparse_embedding_hash_test, load_and_dump_1gpu) {
   load_and_dump<float>({0}, Optimizer_t::SGD, Update_t::Global);
+}
+
+TEST(localized_sparse_embedding_hash_test, load_and_dump_8gpu) {
+  load_and_dump<float>({0, 1, 2, 3, 4, 5, 6, 7}, Optimizer_t::SGD, Update_t::Global);
 }
 
 TEST(localized_sparse_embedding_hash_test, load_and_dump_file_1gpu) {
