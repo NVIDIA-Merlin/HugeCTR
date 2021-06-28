@@ -109,10 +109,13 @@ build_embedding:
     - echo "FROM ${IMAGE_EMBEDDING}" > ${JOB_DOCKERFILE}
     - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
     - echo "
-      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && cd embedding_plugin/Deprecated && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM .. && make -j\$(nproc) && make install
+      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && cd sparse_operation_kit/Deprecated && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DSM=\$SM .. && make -j\$(nproc) && make install
       " >> ${JOB_DOCKERFILE}
-    - echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE}
-    - echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE}
+    - echo "
+      RUN cd ${WORK_DIR}/sparse_operation_kit/ && mkdir -p build && cd build && cmake -DSM=\$SM .. && make -j && make install
+      " >> ${JOB_DOCKERFILE}
+    - echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE}
+    - echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE}
     - cat ${JOB_DOCKERFILE}
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - docker pull ${IMAGE_EMBEDDING}
@@ -207,6 +210,7 @@ dcn:
       bash -cx "
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/;
       cd /dataset/criteo_kaggle/dcn;
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_fp16_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_8gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/dcn_localized_embedding_1gpu.json &&
@@ -265,6 +269,7 @@ wdl_deepfm:
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/wdl_fp16_8gpu.json &&
       cd /dataset/criteo_kaggle/deepfm &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_1gpu.json &&
+      python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_fp16_1gpu.json &&
       python3 ${WORK_DIR}/test/pybind_test/single_node_test.py --json-file=${WORK_DIR}/test/scripts/deepfm_8gpu.json"
 
 dlrm:
@@ -359,7 +364,7 @@ mos_single_node:
       python3 ${WORK_DIR}/test/pybind_test/wdl_mos_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json true ${CI_PROJECT_DIR}"
   timeout: 2 hours
 
-mos_multi_node:
+mos_multi_node_ssd:
   extends: .cluster_test_train_job
   script:
     - srun --ntasks=4
@@ -381,6 +386,11 @@ mos_multi_node:
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
       python3 ${WORK_DIR}/test/pybind_test/wdl_mos_mpi_high_level.py ${WORK_DIR}/test/scripts/wdl_1gpu.json false ${CI_PROJECT_DIR}"
+  timeout: 2 hours
+
+mos_multi_node_mem:
+  extends: .cluster_test_train_job
+  script:
     - srun --ntasks=4
       -A devtech -J devtech:hugectr -p luna
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
@@ -458,6 +468,13 @@ embedding_plugin1:
       bash -cx "
       cd ${WORK_DIR}/test/embedding_plugin_test &&
       python3 embedding_plugin_deepfm_main.py --batch_size=16384 --batch_size_eval=4 --n_epochs=1 --gpus 0 1 3 4 --embedding_vec_size=10 --data_path=/dataset/criteo_kaggle/embedding_plugin/"
+    - srun --ntasks=1
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      bash -cx "
+      cd ${WORK_DIR}/sparse_operation_kit/unit_test/test_scripts &&
+      bash script.sh"
 
 nightly_build_train:
   tags:

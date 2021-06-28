@@ -609,7 +609,7 @@ hugectr.inference.CreateInferenceSession()
 ```bash
 hugectr.inference.InferenceSession.predict()
 ```
-The `predict` method of InferenceSession currently supports model with only one embedding table. This method makes predictions for the samples in the inference inputs.
+The `predict` method of InferenceSession makes predictions for the samples in the inference inputs. 
 
 **Arguments**
 * `dense_feature`: List[float], the dense features of the samples.
@@ -621,3 +621,39 @@ The `predict` method of InferenceSession currently supports model with only one 
 * `i64_input_key`: Boolean, whether to use I64 input key for the inference session.
 
 Taking Deep and Cross Model on Criteo dataset for example, if the inference request includes two samples, then `dense_feature` will be of the length 2\*13, `embeddingcolumns` will be of the length 2\*26, and `row_ptrs` will be like [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52].
+***
+
+**predict method**
+```bash
+hugectr.inference.InferenceSession.predict()
+```
+The `predict` method of InferenceSession makes predictions based on the dataset of Norm or Parquet format. It returns the prediction results in the form of 1-D numpy array for the specified number of prediction batches. 
+
+**Arguments**
+* `num_batches`: Integer, the number of prediction batches.
+
+* `source`: String, the source of prediction dataset. It should be the file list for Norm or Parquet format data.
+
+* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Norm` and `hugectr.DataReaderType_t.Parquet` currently.
+
+* `check_type`: `hugectr.Check_t`, the check type for the data source. We support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non` currently.
+
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
+***
+
+**evaluate method**
+```bash
+hugectr.inference.InferenceSession.evaluate()
+```
+The `evaluate` method of InferenceSession does evaluations based on the dataset of Norm or Parquet format. It requires that the dataset contains the label field. This method returns the AUC value for the specified evaluation batches.
+
+**Arguments**
+* `num_batches`: Integer, the number of evaluation batches.
+
+* `source`: String, the source of evaluation dataset. It should be the file list for Norm or Parquet format data.
+
+* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Norm` and `hugectr.DataReaderType_t.Parquet` currently.
+
+* `check_type`: `hugectr.Check_t`, the check type for the data source. We support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non` currently.
+
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
