@@ -150,7 +150,7 @@ enum class Embedding_t {
 enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
 
 typedef struct DataSetHeader_ {
-  long long error_check;        // 0: no error check; 1: check_num
+  long long error_check;        // 0: no error check; 1: check_sum
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
   long long dense_dim;          // dimension of dense feature
