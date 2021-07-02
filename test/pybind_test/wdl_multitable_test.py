@@ -33,18 +33,19 @@ def wdl_inference(model_name, network_file, dense_file, embedding_file_list, dat
     inference_session = CreateInferenceSession(config_file, inference_params)
     output = inference_session.predict(dense_features, embedding_columns, row_ptrs)
     miss=np.mean((np.array(output) - np.array(result)) ** 2)
-    print(output)
-    print(miss)
+    print("WDL multi-embedding table inference result is {}".format(output))
     if enable_cache:
         if miss>0.0001:
-            print("[HUGECTR][INFO] WDL multi-embedding table inference using GPU cache, prediction error is geater than threshold:{}, error is {}".format(0.0001, miss))
+            raise RuntimeError("WDL multi-embedding table inference using GPU cache, prediction error is greater than threshold: {}, error is {}".format(0.0001, miss))
+            sys.exit(1)
         else:
             print("[HUGECTR][INFO] WDL multi-embedding table inference using GPU cache, prediction error is less  than threshold:{}, error is {}".format(0.0001, miss))
     else:
         if miss>0.0001:
-            print("[HUGECTR][INFO] WDL multi-embedding table inference without GPU cache, prediction error is geater than threshold:{}, error is {}".format(0.0001, miss))
+            raise RuntimeError("[HUGECTR][INFO] WDL multi-embedding table inference without GPU cache, prediction error is greater than threshold:{}, error is {}".format(0.0001, miss))
+            sys.exit(1)
         else:
-            print("[HUGECTR][INFO] WDL multi-embedding table inference without GPU cache, prediction error is less than threshold:{}, error is {}".format(0.0001, miss))
+            print("[HUGECTR][INFO] WDL multi-embedding table inference without GPU cache, prediction error is less than threshold: {}, error is {}".format(0.0001, miss))
 
 if __name__ == "__main__":
     model_name = sys.argv[1]
