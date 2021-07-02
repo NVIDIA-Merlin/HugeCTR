@@ -194,9 +194,8 @@ void DataReaderWorker<T>::read_a_batch() {
               int nnz;
               CK_THROW_(checker_->read(reinterpret_cast<char*>(&nnz), sizeof(int)),
                         "failure in reading nnz");
-
               if (nnz > (int)buffer_length_ || nnz < 0) {
-                ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0");
+                ERROR_MESSAGE_("nnz > buffer_length_ | nnz < 0 nnz:" + std::to_string(nnz));
               }
 
               CK_THROW_(checker_->read(reinterpret_cast<char*>(feature_ids_),
