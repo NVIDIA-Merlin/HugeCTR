@@ -19,18 +19,12 @@ file(GLOB async_reader_src
   data_reader_async_adapter_test.cpp
   data_reader_async_test.cpp
 )
-if (DISABLE_CUDF) 
-  file(GLOB data_reader_test_src
-    data_reader_test.cpp
-    data_reader_raw_test.cpp
-  )
-else()
-  file(GLOB data_reader_test_src
-    data_reader_test.cpp
-    data_reader_raw_test.cpp
-    data_reader_parquet_test.cpp
-  )
-endif()
+
+file(GLOB data_reader_test_src
+  data_reader_test.cpp
+  data_reader_raw_test.cpp
+  data_reader_parquet_test.cpp
+)
 
 add_executable(data_reader_test ${data_reader_test_src})
 add_executable(async_reader ${async_reader_src})

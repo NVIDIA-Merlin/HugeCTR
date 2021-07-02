@@ -61,20 +61,15 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_start", float(i) / solver_config.max_iter);
     timer_eval.start();
     bool good = true;
-    for (int j = 0; j < solver_config.eval_batches; ++j) {
+    for (int j = 0; j < solver_config.max_eval_batches; ++j) {
       good = session_instance->eval(j);
       if (good == false) {
-        data_reader_eval->set_file_list_source();
+        data_reader_eval->set_source();
       }
     }
     if (good == false) {
       data_reader_eval->set_source();
     }
-
-    auto training_progress = [i, current_epoch](bool is_epoch, size_t max_iter) {
-      if (is_epoch) return " at epoch " + std::to_string(current_epoch);
-      else return " at training percentage " + std::to_string(float(i) / max_iter * 100.) + "%";
-    };
 
     auto eval_metrics = session_instance->get_eval_metrics();
     for (auto& eval_metric : eval_metrics) {
@@ -92,7 +87,7 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
           size_t train_samples =
               static_cast<size_t>(i + 1) * static_cast<size_t>(solver_config.batchsize);
 
-          std::string progress = training_progress(solver_config.num_epochs > 0, solver_config.max_iter);
+          std::string epoch_num_str = std::to_string(float(i) / solver_config.max_iter);
 
           std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at epoch " +
                            epoch_num_str + " with batchsize: "
@@ -101,7 +96,7 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
                     << float(i) * solver_config.batchsize / timer.elapsedSeconds() << " records/s."
                     << std::endl;
 
-          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop" + progress);
+          HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
 
           HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
 
@@ -218,16 +213,16 @@ void train(std::string config_file) {
         }
         if (pid == 0) {
           if (!solver_config.use_holistic_cuda_graph) {
-            MESSAGE_("Iter: " + std::to_string(i) +
-                     " Time(" + std::to_string(solver_config.display) +
-                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                     "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) +
+                              " Time(" + std::to_string(solver_config.display) +
+                              " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                              "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
           }
           else {
-            MESSAGE_("Iter: " + std::to_string(i) +
-                     " Time(" + std::to_string(solver_config.display) +
-                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                     "s Loss: " + std::to_string(loss));
+            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) +
+                              " Time(" + std::to_string(solver_config.display) +
+                              " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                              "s Loss: " + std::to_string(loss));
           }
         }
         timer_train.start();
@@ -268,10 +263,10 @@ void train(std::string config_file) {
                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
           }
           if (pid == 0) {
-            MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
-                     std::to_string(solver_config.display) +
-                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                     "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
+                              std::to_string(solver_config.display) +
+                              " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                              "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
           }
           timer_train.start();
         }

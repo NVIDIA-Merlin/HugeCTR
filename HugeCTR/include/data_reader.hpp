@@ -25,9 +25,7 @@
 #include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker_group_norm.hpp>
 
-#ifndef DISABLE_CUDF
 #include <data_readers/data_reader_worker_group_parquet.hpp>
-#endif
 
 #include <data_readers/data_reader_worker_group_raw.hpp>
 #include <data_readers/file_list.hpp>
