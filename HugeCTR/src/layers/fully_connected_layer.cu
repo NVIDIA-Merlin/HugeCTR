@@ -25,13 +25,47 @@
 
 namespace HugeCTR {
 
-FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                                         const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                                         const Tensor2<float>& in_tensor,
-                                         const Tensor2<float>& out_tensor,
-                                         const std::shared_ptr<GPUResource>& gpu_resource,
-                                         bool use_mixed_precision, bool enable_tf32_compute,
-                                         std::vector<Initializer_t> initializer_types)
+namespace {
+
+void __global__ add_bias_kernel_row(float* data, const float* bias, const int m, const int n) {
+  int offset = blockIdx.x * n;
+  for (int tid = threadIdx.x; tid < n; tid += blockDim.x) {
+    data[offset + tid] += bias[tid];
+  }
+}
+void __global__ add_bias_kernel_col(float* data, const float* bias, const int m, const int n) {
+  int offset = blockIdx.x * m;
+  float b = bias[blockIdx.x];
+  for (int tid = threadIdx.x; tid < m; tid += blockDim.x) {
+    data[offset + tid] += b;
+  }
+}
+void add_bias(float* data, const float* bias, const int m, const int n, bool row_major,
+              cudaStream_t stream) {
+  if (row_major) {
+    dim3 grid(m);
+    dim3 block(min(n, 1024));
+    add_bias_kernel_row<<<grid, block, 0, stream>>>(data, bias, m, n);
+  } else {
+    dim3 grid(n);
+    dim3 block(min(m, 1024));
+    add_bias_kernel_col<<<grid, block, 0, stream>>>(data, bias, m, n);
+  }
+#ifndef NDEBUG
+  cudaDeviceSynchronize();
+  CK_CUDA_THROW_(cudaGetLastError());
+#endif
+}
+
+} // namespace
+
+FullyConnectedLayer<float>::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                                                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                                                const Tensor2<float>& in_tensor,
+                                                const Tensor2<float>& out_tensor,
+                                                const std::shared_ptr<GPUResource>& gpu_resource,
+                                                bool use_mixed_precision, bool enable_tf32_compute,
+                                                std::vector<Initializer_t> initializer_types)
     : Layer(gpu_resource, initializer_types),
       use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
@@ -82,36 +116,6 @@ FullyConnectedLayer::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<floa
     std::cerr << rt_err.what() << std::endl;
     throw;
   }
-}
-
-void __global__ add_bias_kernel_row(float* data, const float* bias, const int m, const int n) {
-  int offset = blockIdx.x * n;
-  for (int tid = threadIdx.x; tid < n; tid += blockDim.x) {
-    data[offset + tid] += bias[tid];
-  }
-}
-void __global__ add_bias_kernel_col(float* data, const float* bias, const int m, const int n) {
-  int offset = blockIdx.x * m;
-  float b = bias[blockIdx.x];
-  for (int tid = threadIdx.x; tid < m; tid += blockDim.x) {
-    data[offset + tid] += b;
-  }
-}
-void add_bias(float* data, const float* bias, const int m, const int n, bool row_major,
-              cudaStream_t stream) {
-  if (row_major) {
-    dim3 grid(m);
-    dim3 block(min(n, 1024));
-    add_bias_kernel_row<<<grid, block, 0, stream>>>(data, bias, m, n);
-  } else {
-    dim3 grid(n);
-    dim3 block(min(m, 1024));
-    add_bias_kernel_col<<<grid, block, 0, stream>>>(data, bias, m, n);
-  }
-#ifndef NDEBUG
-  cudaDeviceSynchronize();
-  CK_CUDA_THROW_(cudaGetLastError());
-#endif
 }
 
 void FullyConnectedLayer<float>::fprop(bool is_train) {

@@ -36,7 +36,7 @@ class ResourceManagerExt : public ResourceManager {
   ResourceManagerExt(std::shared_ptr<ResourceManager> core);
  public:
   static std::shared_ptr<ResourceManager> create(
-      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed);
+      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed, DeviceMap::Layout layout=DeviceMap::LOCAL_FIRST);
 
   ResourceManagerExt(const ResourceManagerExt&) = delete;
   ResourceManagerExt& operator=(const ResourceManagerExt&) = delete;
@@ -82,6 +82,25 @@ class ResourceManagerExt : public ResourceManager {
   }
   bool all_p2p_enabled() const override {
     return core_->all_p2p_enabled();
+  }
+
+  DeviceMap::Layout get_device_layout() const override {
+    return core_->get_device_layout();
+  }
+
+#ifdef ENABLE_MPI
+  IbComm* get_ib_comm() const override {
+    return core_->get_ib_comm();
+  }
+  void set_ready_to_transfer() override { 
+    core_->set_ready_to_transfer();
+  }
+#endif
+  void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override {
+    core_->set_ar_comm(algo, use_mixed_precision);
+  }
+  AllReduceInPlaceComm* get_ar_comm() const override {
+    return core_->get_ar_comm();
   }
 
   // its own methods

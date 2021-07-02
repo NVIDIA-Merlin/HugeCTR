@@ -655,6 +655,4 @@ std::vector<std::string> split_string(const std::string &text, const char *delim
 
 }  // namespace DLRM_RAW
 
-} // namespace DLRM_RAW
-
 #endif // DLRM_RAW_UTILS_H_

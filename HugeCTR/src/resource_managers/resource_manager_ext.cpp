@@ -43,8 +43,8 @@ void ResourceManagerExt::initialize_rmm_resources() {
 }
 
 std::shared_ptr<ResourceManager> ResourceManagerExt::create(
-    const std::vector<std::vector<int>>& visible_devices, unsigned long long seed) {
-  auto core = ResourceManager::create(visible_devices, seed);
+    const std::vector<std::vector<int>>& visible_devices, unsigned long long seed, DeviceMap::Layout layout) {
+  auto core = ResourceManager::create(visible_devices, seed, layout);
 
   return std::shared_ptr<ResourceManager>(new ResourceManagerExt(core));
 }

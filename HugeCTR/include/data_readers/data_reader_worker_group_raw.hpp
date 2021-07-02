@@ -42,7 +42,7 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
     file_offset_list = file_offset_list_;
     create_offset_ = (worker_id == num_worker - 1) ? true : create_offset_;
 
-    return std::make_shared<MmapSource>(file_offset_list, worker_id);
+    return std::make_shared<RawSource>(file_offset_list, worker_id);
   }
 
  public:

@@ -25,9 +25,7 @@
 #include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker_group_norm.hpp>
 
-#ifndef DISABLE_CUDF
 #include <data_readers/data_reader_worker_group_parquet.hpp>
-#endif
 
 #include <data_readers/data_reader_worker_group_raw.hpp>
 #include <fstream>
@@ -37,9 +35,6 @@
 #include <vector>
 
 namespace HugeCTR {
-
-static int core_offset_ = 0;
-
 /**
  * @brief Data reading controller.
  *
@@ -166,7 +161,6 @@ class DataReader : public IDataReader {
     file_name_ = file_name;
   }
 
-#ifndef DISABLE_CUDF
   void create_drwg_parquet(std::string file_name, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
     source_type_ = SourceType_t::Parquet;
@@ -175,7 +169,6 @@ class DataReader : public IDataReader {
           csr_heap_, file_name, params_, slot_offset, resource_manager_,
           start_reading_from_beginning));
   }
-#endif
 
   void set_source(std::string file_name = std::string()) override {
     try {
@@ -330,8 +323,6 @@ DataReader<TypeKey>::DataReader(int batchsize, size_t label_dim, int dense_dim,
                                      local_gpu->get_memcpy_stream()));
     }
   }
-
-  core_offset_ += 64;
 
   return;
 }

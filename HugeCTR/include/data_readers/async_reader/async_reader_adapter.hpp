@@ -24,6 +24,7 @@ class AsyncReader : public IDataReaderWithScheduling {
 	      Alignment_t aligned = Alignment_t::None);
 
   long long read_a_batch_to_device_delay_release() override;
+  long long get_full_batchsize() const override;
   void ready_to_collect() override;
   long long read_a_batch_to_device() override;
   void schedule_here(cudaStream_t stream, int raw_device_id) override;
@@ -45,11 +46,9 @@ class AsyncReader : public IDataReaderWithScheduling {
   void create_drwg_raw(std::string file_name, long long num_samples,
                        const std::vector<long long> slot_offset, bool float_label_dense,
                        bool data_shuffle, bool start_reading_from_beginning = true) override;
-#ifndef DISABLE_CUDF
   void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override;
-#endif
-  void set_file_list_source(std::string file_list = std::string()) override;
+  void set_source(std::string file_list = std::string()) override;
 
   ~AsyncReader();
 

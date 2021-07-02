@@ -174,8 +174,8 @@ include_directories(
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
-  ${UCX_INC_PATHS})
-  ${SHARP_INC_PATHS}
+  ${UCX_INC_PATHS}
+  ${SHARP_INC_PATHS})
 
 if (CUDA_VERSION_MAJOR LESS 11)
   include_directories(${PROJECT_SOURCE_DIR}/third_party/cub)

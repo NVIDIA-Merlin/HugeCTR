@@ -59,7 +59,7 @@ struct HybridSparseEmbeddingParams {
   double max_all_to_all_bandwidth;
   double efficiency_bandwidth_ratio;
   hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
-  OptParams<TypeEmbedding> opt_params;  // optimizer params
+  OptParams opt_params;  // optimizer params
 };
 
 ///
@@ -97,7 +97,7 @@ class HybridSparseEmbedding : public IEmbedding {
   // model_, data_, calibration_ and statistics_ are replications of the model
   // and input data on each gpu. The HybridSparseEmbedding class manages
   // it's scope / frees the memory.
-  std::vector<Model<dtype>> model_;
+  std::vector<hybrid_embedding::Model<dtype>> model_;
   std::vector<Data<dtype>> data_train_;
   std::vector<Data<dtype>> data_evaluate_;
   std::vector<Data<dtype>> data_statistics_;
@@ -123,7 +123,7 @@ class HybridSparseEmbedding : public IEmbedding {
   std::vector<BuffPtr<emtype>> grouped_wgrad_buff_;
   bool grouped_all_reduce_ = false;
 
-  std::vector<OptParams<emtype>> opt_params_; /**< Optimizer params. */
+  std::vector<OptParams> opt_params_; /**< Optimizer params. */
 
   GpuLearningRateSchedulers lr_scheds_;
   bool graph_mode_;
@@ -191,8 +191,8 @@ class HybridSparseEmbedding : public IEmbedding {
   void backward() override;
   void update_params() override;
   void init_params() override;
-  void load_parameters(std::istream &stream) override;
-  void dump_parameters(std::ostream &stream) const override;
+  void load_parameters(std::string sparse_model) override;
+  void dump_parameters(std::string sparse_model) const override;
   void set_learning_rate(float lr) override;
   // TODO(MLPERF): a workaround to enable GPU LR for HE only; need a better way
   GpuLearningRateSchedulers get_learning_rate_schedulers() const override;
@@ -201,10 +201,10 @@ class HybridSparseEmbedding : public IEmbedding {
   size_t get_vocabulary_size() const override;
   size_t get_max_vocabulary_size() const override;
 
+  Embedding_t get_embedding_type() const override { return Embedding_t::HybridSparseEmbedding; }
   // TODO(MLPERF): implemented the empty virtual functions below
-  void load_parameters(const BufferBag2 &keys, const Tensor2<float> &embeddings,
-                       size_t num) override {}
-  void dump_parameters(BufferBag2 keys, Tensor2<float> &embeddings, size_t *num) const override {}
+  void load_parameters(BufferBag &keys, size_t num) override {}
+  void dump_parameters(BufferBag& keys, size_t *num) const override {}
 
   void reset() override {}
 

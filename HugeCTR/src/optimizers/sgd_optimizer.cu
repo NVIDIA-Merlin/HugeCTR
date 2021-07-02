@@ -88,29 +88,16 @@ void SGDOptimizer<T>::update() {
   const size_t grid_dim = (len + block_dim*vec_width - 1) / (block_dim*vec_width);
 
   float* weight = weight_main_.get_ptr();
+  const T* wgrad = wgrad_.get_ptr();
 
   if (gpu_learning_rate_scheduler_ == nullptr) {
-    if (mixed_precision_) {
-      const __half* fp16_wgrad = fp16_wgrad_.get_ptr();
-      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, fp16_wgrad, lr_, scaler_);
-    } else {
-      const float* fp32_wgrad = fp32_wgrad_.get_ptr();
-      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, fp32_wgrad, lr_, scaler_);
-    }
+    sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, wgrad, lr_, scaler_);
   }
   else {
     float* lr_ptr = gpu_learning_rate_scheduler_->get_learning_rate();
-    if (mixed_precision_) {
-      const __half* fp16_wgrad = fp16_wgrad_.get_ptr();
-      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, fp16_wgrad, lr_ptr, scaler_);
-    } else {
-      const float* fp32_wgrad = fp32_wgrad_.get_ptr();
-      sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-          len, weight, fp32_wgrad, lr_ptr, scaler_);
-    }
+    sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
+        len, weight, wgrad, lr_ptr, scaler_);
     gpu_learning_rate_scheduler_->update();
   }
 

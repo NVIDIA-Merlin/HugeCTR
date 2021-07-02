@@ -227,7 +227,7 @@ void SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
     size_t embedding_vec_size, size_t max_vocabulary_size,
-    const OptParams<TypeEmbeddingComp> &opt_params, size_t nnz,
+    const OptParams &opt_params, size_t nnz,
     const Tensor2<size_t> &hash_value_index, const Tensor2<TypeEmbeddingComp> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
     size_t sm_count, cudaStream_t stream, bool force_stats) {
@@ -263,58 +263,14 @@ template void SparseEmbeddingFunctors::opt_sgd_atomic_cached<__half>(
     float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
     cudaStream_t stream, bool force_stats);
 
-template void SparseEmbeddingFunctors::update_params<unsigned int, float>(
-    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-    size_t max_vocabulary_size_per_gpu, OptParams<float> &opt_params, size_t nnz,
-    const Tensor2<unsigned int> &row_offset, Tensor2<size_t> &hash_value_index,
-    Tensor2<unsigned int> &sample_id, Tensor2<unsigned int> &sample_id_sort,
-    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
-    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
-    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
-    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad, Tensor2<float> &hash_table_value,
-    size_t sm_count, cudaStream_t stream);
-
-template void SparseEmbeddingFunctors::update_params<long long, float>(
-    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-    size_t max_vocabulary_size_per_gpu, OptParams<float> &opt_params, size_t nnz,
-    const Tensor2<long long> &row_offset, Tensor2<size_t> &hash_value_index,
-    Tensor2<long long> &sample_id, Tensor2<long long> &sample_id_sort,
-    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
-    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
-    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
-    Tensor2<void> &temp_storage_scan, const Tensor2<float> &wgrad, Tensor2<float> &hash_table_value,
-    size_t sm_count, cudaStream_t stream);
-
-template void SparseEmbeddingFunctors::update_params<unsigned int, __half>(
-    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-    size_t max_vocabulary_size_per_gpu, OptParams<__half> &opt_params, size_t nnz,
-    const Tensor2<unsigned int> &row_offset, Tensor2<size_t> &hash_value_index,
-    Tensor2<unsigned int> &sample_id, Tensor2<unsigned int> &sample_id_sort,
-    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
-    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
-    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
-    Tensor2<void> &temp_storage_scan, const Tensor2<__half> &wgrad,
-    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
-
-template void SparseEmbeddingFunctors::update_params<long long, __half>(
-    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-    size_t max_vocabulary_size_per_gpu, OptParams<__half> &opt_params, size_t nnz,
-    const Tensor2<long long> &row_offset, Tensor2<size_t> &hash_value_index,
-    Tensor2<long long> &sample_id, Tensor2<long long> &sample_id_sort,
-    Tensor2<size_t> &hash_value_index_sort, Tensor2<uint32_t> &hash_value_index_count_offset,
-    Tensor2<uint32_t> &new_hash_value_flag, Tensor2<uint32_t> &hash_value_flag_sumed,
-    Tensor2<uint32_t> &hash_value_index_count_counter, Tensor2<void> &temp_storage_sort,
-    Tensor2<void> &temp_storage_scan, const Tensor2<__half> &wgrad,
-    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
-
 template void SparseEmbeddingFunctors::update_params<float>(
-    size_t embedding_vec_size, size_t max_vocabulary_size, const OptParams<float> &opt_params,
+    size_t embedding_vec_size, size_t max_vocabulary_size, const OptParams &opt_params,
     size_t nnz, const Tensor2<size_t> &hash_value_index, const Tensor2<float> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
     size_t sm_count, cudaStream_t stream, bool force_stats);
 
 template void SparseEmbeddingFunctors::update_params<__half>(
-    size_t embedding_vec_size, size_t max_vocabulary_size, const OptParams<__half> &opt_params,
+    size_t embedding_vec_size, size_t max_vocabulary_size, const OptParams &opt_params,
     size_t nnz, const Tensor2<size_t> &hash_value_index, const Tensor2<__half> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
     size_t sm_count, cudaStream_t stream, bool force_stats);

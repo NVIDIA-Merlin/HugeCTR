@@ -54,7 +54,8 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
         const Tensors2<TypeHashKey> &evaluate_value_tensors,
         const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
         const SparseEmbeddingHashParams &embedding_params,
-        const std::shared_ptr<ResourceManager> &resource_manager)
+        const std::shared_ptr<ResourceManager> &resource_manager,
+        bool use_cuda_graph, bool force_stats)
     : Base(train_row_offsets_tensors, train_value_tensors, train_nnz_array,
            evaluate_row_offsets_tensors, evaluate_value_tensors, evaluate_nnz_array,
            Embedding_t::LocalizedSlotSparseEmbeddingOneHot, embedding_params, resource_manager),

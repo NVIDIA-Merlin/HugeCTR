@@ -133,10 +133,8 @@ else()
   target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} numa stdc++fs)
 endif()
 
-if(NOT DISABLE_CUDF)
-  target_link_libraries(huge_ctr_static PUBLIC cudf)
-  target_link_libraries(huge_ctr_shared PUBLIC cudf)
-endif()
+target_link_libraries(huge_ctr_static PUBLIC cudf)
+target_link_libraries(huge_ctr_shared PUBLIC cudf)
 
 if (ENABLE_MULTINODES)
   if (SHARP_FOUND)

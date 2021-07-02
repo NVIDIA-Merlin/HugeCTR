@@ -251,8 +251,19 @@ void Network::upload_params_to_device_inference(const std::string& model_file) {
 
   std::unique_ptr<char[]> params(new char[evaluate_weight_tensor_.get_size_in_bytes()]);
   model_stream.read(params.get(), evaluate_weight_tensor_.get_size_in_bytes());
-  CK_CUDA_THROW_(cudaMemcpy(evaluate_weight_tensor_.get_ptr(), params.get(),
-                            evaluate_weight_tensor_.get_size_in_bytes(), cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), params.get(),
+                                 evaluate_weight_tensor_.get_size_in_bytes(),
+                                 cudaMemcpyHostToDevice,
+                                 gpu_resource_->get_stream()
+                                 ));
+  model_stream.close();
+  if (use_mixed_precision_) {
+    conv_weight_(evaluate_weight_tensor_half_, evaluate_weight_tensor_);
+  }
+  return;
+}
+
+
 
 void Network::download_params_to_host(float* weight) {
   CudaDeviceContext context(get_device_id());

@@ -26,6 +26,7 @@
 #include <layers/fully_connected_layer.hpp>
 #include <layers/fully_connected_layer_half.hpp>
 #include <layers/fused_fully_connected_layer.hpp>
+#include <layers/fused_relu_bias_fully_connected_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/weight_multiply_layer.hpp>
@@ -1034,24 +1035,28 @@ Network* Network::create_network(const nlohmann::json& j_array,
 
   std::shared_ptr<BufferBlock2<float>> train_weight_buff = blobs_buff->create_block<float>();
   std::shared_ptr<BufferBlock2<__half>> train_weight_buff_half = blobs_buff->create_block<__half>();
-  // std::shared_ptr<BufferBlock2<float>> wgrad_buff = blobs_buff->create_block<float>();
-  // std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = blobs_buff->create_block<__half>();
   std::shared_ptr<BufferBlock2<float>> wgrad_buff = nullptr;
   std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = nullptr;
 
-  if (use_mixed_precision) {
-    auto id = gpu_resource->get_local_id();
-    wgrad_buff_half = (grouped_all_reduce) ? 
-      std::dynamic_pointer_cast<GroupedExchangeWgrad<__half>>(exchange_wgrad)->get_network_wgrad_buffs()[id] :
-      std::dynamic_pointer_cast<NetworkExchangeWgrad<__half>>(exchange_wgrad)->get_network_wgrad_buffs()[id];
-    wgrad_buff = blobs_buff->create_block<float>(); // placeholder
+  if (!inference_flag) {
+    if (use_mixed_precision) {
+      auto id = gpu_resource->get_local_id();
+      wgrad_buff_half = (grouped_all_reduce) ? 
+        std::dynamic_pointer_cast<GroupedExchangeWgrad<__half>>(exchange_wgrad)->get_network_wgrad_buffs()[id] :
+        std::dynamic_pointer_cast<NetworkExchangeWgrad<__half>>(exchange_wgrad)->get_network_wgrad_buffs()[id];
+      wgrad_buff = blobs_buff->create_block<float>(); // placeholder
+    }
+    else {
+      auto id = gpu_resource->get_local_id();
+      wgrad_buff = (grouped_all_reduce) ? 
+        std::dynamic_pointer_cast<GroupedExchangeWgrad<float>>(exchange_wgrad)->get_network_wgrad_buffs()[id] :
+        std::dynamic_pointer_cast<NetworkExchangeWgrad<float>>(exchange_wgrad)->get_network_wgrad_buffs()[id];
+      wgrad_buff_half = blobs_buff->create_block<__half>(); // placeholder
+    }
   }
   else {
-    auto id = gpu_resource->get_local_id();
-    wgrad_buff = (grouped_all_reduce) ? 
-      std::dynamic_pointer_cast<GroupedExchangeWgrad<float>>(exchange_wgrad)->get_network_wgrad_buffs()[id] :
-      std::dynamic_pointer_cast<NetworkExchangeWgrad<float>>(exchange_wgrad)->get_network_wgrad_buffs()[id];
-    wgrad_buff_half = blobs_buff->create_block<__half>(); // placeholder
+    wgrad_buff = blobs_buff->create_block<float>();
+    wgrad_buff_half = blobs_buff->create_block<__half>();
   }
 
   std::shared_ptr<BufferBlock2<float>> evaluate_weight_buff = blobs_buff->create_block<float>();
@@ -1097,7 +1102,7 @@ Network* Network::create_network(const nlohmann::json& j_array,
                 wgrad_buff_placeholder,
                 wgrad_buff_half_placeholder,
                 evaluate_loss_tensor,
-                gpu_resource, h
+                gpu_resource,
                 use_mixed_precision,
                 enable_tf32_compute,
                 num_networks_in_global,

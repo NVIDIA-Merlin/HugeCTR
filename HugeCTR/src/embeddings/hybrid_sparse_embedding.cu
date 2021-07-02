@@ -77,7 +77,7 @@ HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
 
     // 1. initialize optimizer
     for (size_t id = 0; id < local_gpu_count; id++) {
-      OptParams<emtype> opt_params;
+      OptParams opt_params;
       opt_params.optimizer = embedding_params_.opt_params.optimizer;
       opt_params.lr = embedding_params_.opt_params.lr;
       opt_params.update_type = embedding_params_.opt_params.update_type;
@@ -934,13 +934,12 @@ void HybridSparseEmbedding<dtype, emtype>::init_params() {
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::load_parameters(std::istream &stream) {
+void HybridSparseEmbedding<dtype, emtype>::load_parameters(std::string sparse_model) {
   // TODO: create load_parameters()
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::dump_parameters(std::ostream &stream) const {
-  // TODO: create dump_parameters()
+void HybridSparseEmbedding<dtype, emtype>::dump_parameters(std::string sparse_model) const { // TODO: create dump_parameters()
 }
 
 template <typename dtype, typename emtype>

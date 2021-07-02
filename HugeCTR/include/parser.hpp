@@ -57,7 +57,7 @@ struct SolverParser {
   int snapshot;                             /**< the number of iterations for a snapshot */
   std::string snapshot_prefix;              /**< naming prefix of snapshot file */
   int eval_interval;                        /**< the interval of evaluations */
-  int eval_batches;                         /**< the number of batches for evaluations */
+  int max_eval_batches;                     /**< the number of batches for evaluations */
   int batchsize_eval;                       /**< batchsize for eval */
   int batchsize;                            /**< batchsize */
   std::string model_file;                   /**< name of model file */
@@ -96,6 +96,7 @@ struct Solver {
   int batchsize;                            /**< batchsize */
   std::vector<std::vector<int>> vvgpu;      /**< device map */
   bool repeat_dataset;
+  DeviceMap::Layout device_layout = DeviceMap::LOCAL_FIRST; /**< device distribution */
   bool use_mixed_precision;
   bool enable_tf32_compute;
   float scaler;
@@ -182,35 +183,16 @@ class Parser {
       std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 
  public:
+  //
   /**
    * Ctor.
-   * Ctor only verify the configure file, doesn't create pipeline.
+   * Ctor doesn't create pipeline.
    */
+  // TODO(MLPERF): consider to remove default arguments
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
-         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false, bool enable_tf32_compute = false,
-         float scaler = 1.0f, bool use_algorithm_search = true, bool use_cuda_graph = true)
-      : batch_size_(batch_size),
-        batch_size_eval_(batch_size_eval),
-        repeat_dataset_(repeat_dataset),
-        i64_input_key_(i64_input_key),
-        use_mixed_precision_(use_mixed_precision),
-        enable_tf32_compute_(enable_tf32_compute),
-        scaler_(scaler),
-        use_algorithm_search_(use_algorithm_search),
-        use_cuda_graph_(use_cuda_graph) {
-    try {
-      std::ifstream file(configure_file);
-      if (!file.is_open()) {
-        CK_THROW_(Error_t::FileCannotOpen, "file.is_open() failed: " + configure_file);
-      }
-      file >> config_;
-      file.close();
-    } catch (const std::runtime_error& rt_err) {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
-    }
-    return;
-  }
+         bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
+         bool enable_tf32_compute = false, float scaler = 1.0f, bool use_algorithm_search = true,
+         bool use_cuda_graph = true);
 
   /**
    * Create the pipeline, which includes data reader, embedding.
@@ -488,11 +470,12 @@ struct create_embedding {
                   const std::shared_ptr<ResourceManager>& resource_manager,
                   size_t batch_size,
                   size_t batch_size_eval,
+                  std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
                   bool use_mixed_precision,
                   float scaler,
                   const nlohmann::json& j_layers,
                   bool use_cuda_graph = false,
-                  bool grouped_all_reduce = false) {
+                  bool grouped_all_reduce = false);
 
   void operator()(const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
@@ -510,12 +493,14 @@ struct create_datareader {
                   std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::vector<TensorEntry>* train_tensor_entries_list,
                   std::vector<TensorEntry>* evaluate_tensor_entries_list,
+                  std::shared_ptr<IDataReader>& init_data_reader,
                   std::shared_ptr<IDataReader>& data_reader,
                   std::shared_ptr<IDataReader>& data_reader_eval,
                   size_t batch_size,
                   size_t batch_size_eval,
                   bool use_mixed_precision,
                   bool repeat_dataset,
+                  bool enable_overlap,
                   const std::shared_ptr<ResourceManager> resource_manager);
 
   void operator()(const InferenceParams& inference_params,

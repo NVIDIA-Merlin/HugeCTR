@@ -17,6 +17,8 @@
 #pragma once
 
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/types.h>
 #include <sys/types.h>
 #include <unistd.h>
 

@@ -228,8 +228,8 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       const Tensors2<TypeHashKey> &evaluate_value_tensors,
       const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
       const SparseEmbeddingHashParams &embedding_params,
-      const std::shared_ptr<ResourceManager> &resource_manager);
-      bool use_cuda_graph = false, bool fs = false);
+      const std::shared_ptr<ResourceManager> &resource_manager,
+      bool use_cuda_graph = false, bool force_stats = false);
 
   /**
    * The forward propagation of embedding layer.
@@ -554,11 +554,11 @@ class LocalizedSlotSparseEmbeddingOneHot : public Embedding<TypeHashKey, TypeEmb
       PROFILE_RECORD("localized_slot_sparse_embedding_one_hot.update_params.start", worker_stream,
                      false);
       // accumulate times for adam optimizer
-      Base::get_opt_params(id).hyperparams.adam.times++;
+      Base::get_opt_params().hyperparams.adam.times++;
 
       // do update params operation: only support SGD
       functors_.update_params(
-          Base::get_embedding_vec_size(), max_vocabulary_size_, Base::get_opt_params(id),
+          Base::get_embedding_vec_size(), max_vocabulary_size_, Base::get_opt_params(),
           *Base::get_nnz_array(true)[id], hash_value_index_tensors_[id], wgrad_tensors_[id],
           hash_table_value_tensors_[id], top_categories_[id], size_top_categories_[id],
           Base::get_local_gpu(id).get_sm_count(), worker_stream, force_stats_);

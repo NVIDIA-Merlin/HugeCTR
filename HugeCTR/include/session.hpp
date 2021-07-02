@@ -127,8 +127,6 @@ class Session {
     return !embeddings_[0]->get_learning_rate_schedulers().empty();
   }
 
-  void copy_weights_for_evaluation();
-
  private:
   std::vector<std::shared_ptr<Network>> networks_;      /**< networks (dense) used in training. */
   std::vector<std::shared_ptr<IEmbedding>> embeddings_; /**< embedding */

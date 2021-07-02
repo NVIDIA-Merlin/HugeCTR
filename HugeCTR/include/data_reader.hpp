@@ -49,9 +49,6 @@ namespace HugeCTR {
  * thread consumes the data (DataCollector),
  * and copy the data to GPU buffer.
  */
-//TODO(MLPERF(1.0): remove it if unnecessary
-[[maybe_unused]] static int core_offset_ = 0;
-
 class IDataReader {
  public:
   virtual ~IDataReader() {}
@@ -72,10 +69,8 @@ class IDataReader {
                                const std::vector<long long> slot_offset, bool float_label_dense,
                                bool data_shuffle, bool start_reading_from_beginning = true) = 0;
 
-#ifndef DISABLE_CUDF
   virtual void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
                                    bool start_reading_from_beginning = true) = 0;
-#endif
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type
   virtual void set_source(std::string file_name = std::string()) = 0;

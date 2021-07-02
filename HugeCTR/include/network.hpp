@@ -75,6 +75,9 @@ class Network {
   Tensor2<float> evaluate_loss_tensor_; /**< loss tensor */
   metrics::RawMetricMap raw_metrics_;
 
+  Tensor2<float> pred_tensor_;
+  Tensor2<__half> pred_tensor_half_;
+
   std::shared_ptr<CPUResource> cpu_resource_;
   std::shared_ptr<GPUResource> gpu_resource_; /**< gpu resource */
   bool use_mixed_precision_;
@@ -228,21 +231,21 @@ class Network {
   /**
    * factory method to create network
    */
-  static Network* Network::create_network(const nlohmann::json& j_array,
-                                          const nlohmann::json& j_optimizer,
-                                          std::vector<TensorEntry>& train_tensor_entries,
-                                          std::vector<TensorEntry>& evaluate_tensor_entries,
-                                          int num_networks_in_global,
-                                          std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
-                                          const std::shared_ptr<CPUResource>& cpu_resource,
-                                          const std::shared_ptr<GPUResource>& gpu_resource,
-                                          bool use_mixed_precision,
-                                          bool enable_tf32_compute,
-                                          float scaler,
-                                          bool use_algorithm_search,
-                                          bool use_cuda_graph,
-                                          bool inference_flag,
-                                          bool grouped_all_reduce);
+  static Network* create_network(const nlohmann::json& j_array,
+                                 const nlohmann::json& j_optimizer,
+                                 std::vector<TensorEntry>& train_tensor_entries,
+                                 std::vector<TensorEntry>& evaluate_tensor_entries,
+                                 int num_networks_in_global,
+                                 std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
+                                 const std::shared_ptr<CPUResource>& cpu_resource,
+                                 const std::shared_ptr<GPUResource>& gpu_resource,
+                                 bool use_mixed_precision,
+                                 bool enable_tf32_compute,
+                                 float scaler,
+                                 bool use_algorithm_search,
+                                 bool use_cuda_graph,
+                                 bool inference_flag,
+                                 bool grouped_all_reduce);
   
   /**
    * add layer to network, python interface use only

@@ -15,6 +15,7 @@
  */
 
 #include <data_readers/data_reader.hpp>
+#include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <optimizer.hpp>
@@ -37,7 +38,8 @@ void create_datareader<TypeKey>::operator()(
     size_t batch_size,
     size_t batch_size_eval,
     bool use_mixed_precision,
-    bool repeat_dataset_,
+    bool repeat_dataset,
+    bool enable_overlap,
     const std::shared_ptr<ResourceManager> resource_manager) {
   const auto layer_type_name = get_value_from_json<std::string>(j, "type");
   if (layer_type_name.compare("Data") != 0) {
@@ -122,11 +124,11 @@ void create_datareader<TypeKey>::operator()(
 
   DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
       batch_size, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-      repeat_dataset_, num_workers, use_mixed_precision, false);
+      repeat_dataset, num_workers, use_mixed_precision, false);
   train_data_reader.reset(data_reader_tk);
   DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
       batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-      repeat_dataset_, num_workers, use_mixed_precision, cache_eval_data);
+      repeat_dataset, num_workers, use_mixed_precision, cache_eval_data);
   evaluate_data_reader.reset(data_reader_eval_tk);
 
   auto f = [&j]() -> std::vector<long long> {
@@ -175,14 +177,10 @@ void create_datareader<TypeKey>::operator()(
              std::to_string(num_iterations_statistics));
     MESSAGE_("AsyncReader: shuffle = " + std::string(shuffle ? "ON" : "OFF"));
 
-    // If the overlap is disabled, scheduling the data reader should be off
-    auto j_solver = get_json(config, "solver");
-    auto overlap = get_value_from_json_soft<bool>(j_solver, "enable_overlap", false);
-
     train_data_reader.reset(new AsyncReader<TypeKey>(
         source_data, batch_size, label_dim, dense_dim, data_reader_sparse_param_array,
         use_mixed_precision, resource_manager, num_threads, num_batches_per_thread,
-        io_block_size, io_depth, io_alignment, shuffle, overlap, aligned_type));
+        io_block_size, io_depth, io_alignment, shuffle, enable_overlap, aligned_type));
 
     // If we want to cache eval, make sure we have enough buffers
     auto eval_num_batches_per_thread = num_batches_per_thread;
@@ -237,7 +235,7 @@ void create_datareader<TypeKey>::operator()(
 
   switch (format) {
     case DataReaderType_t::Norm: {
-      bool start_right_now = repeat_dataset_;
+      bool start_right_now = repeat_dataset;
       train_data_reader->create_drwg_norm(source_data, check_type, start_right_now);
       evaluate_data_reader->create_drwg_norm(eval_source, check_type, start_right_now);
       break;
@@ -269,9 +267,9 @@ void create_datareader<TypeKey>::operator()(
 
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     train_tensor_entries_list[i].push_back(
-        {top_strs_label, data_reader_tk->get_label_tensors()[i].shrink()});
+        {top_strs_label, data_reader_tk->get_label_tensors()[i]});
     evaluate_tensor_entries_list[i].push_back(
-        {top_strs_label, data_reader_eval_tk->get_label_tensors()[i].shrink()});
+        {top_strs_label, data_reader_eval_tk->get_label_tensors()[i]});
 
     if (use_mixed_precision) {
       train_tensor_entries_list[i].push_back(
@@ -354,7 +352,7 @@ void create_datareader<TypeKey>::operator()(const InferenceParams& inference_par
     }
   }
   
-  label_dense_map.emplace(inference_parser.label_name, data_reader_tk->get_label_tensors()[0].shrink());
+  label_dense_map.emplace(inference_parser.label_name, data_reader_tk->get_label_tensors()[0]);
   label_dense_map.emplace(inference_parser.dense_name, data_reader_tk->get_dense_tensors()[0]);
 
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {

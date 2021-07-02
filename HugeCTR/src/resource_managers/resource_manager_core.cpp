@@ -22,6 +22,37 @@
 
 namespace HugeCTR {
 
+void ResourceManagerCore::all2all_warmup() {
+  auto num_global_gpus = get_global_gpu_count();
+  auto num_local_gpus = get_local_gpu_count();
+  Tensors2<uint64_t> all2all_warmup_tensors(num_local_gpus);
+
+  // Allocate temp buffers
+  for (size_t g = 0; g < get_local_gpu_count(); g++) {
+    auto& local_gpu = get_local_gpu(g);
+    CudaDeviceContext context(local_gpu->get_device_id());
+    auto buf = GeneralBuffer2<CudaAllocator>::create();
+    buf->reserve({num_global_gpus}, &all2all_warmup_tensors[g]);
+    buf->allocate();
+  }
+
+  // Do all2all warmup
+  MESSAGE_("Start all2all warmup");
+  CK_NCCL_THROW_(ncclGroupStart());
+  for (size_t g = 0; g < get_local_gpu_count(); g++) {
+    auto& local_gpu = get_local_gpu(g);
+    CudaDeviceContext context(local_gpu->get_device_id());
+    auto& stream = local_gpu->get_stream();
+    auto& comm = local_gpu->get_nccl();
+    for (size_t s = 0; s < num_global_gpus; s++) {
+      CK_NCCL_THROW_(ncclSend(all2all_warmup_tensors[g].get_ptr() + s, 1, ncclUint64, s, comm, stream));
+      CK_NCCL_THROW_(ncclRecv(all2all_warmup_tensors[g].get_ptr() + s, 1, ncclUint64, s, comm, stream));
+    }
+  }
+  CK_NCCL_THROW_(ncclGroupEnd());
+  MESSAGE_("End all2all warmup");
+}
+
 ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
                                  unsigned long long seed)
     : num_process_(num_process), process_id_(process_id), device_map_(std::move(device_map)) {
@@ -88,6 +119,7 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
   {
     size_t id = omp_get_thread_num();
     set_local_gpu(std::make_shared<GPUResource>(local_gpu_device_id_list[id],
+                                                id,
                                                 device_map_.get_global_id(id),
                                                 replica_uniform_seed,
                                                 local_replica_variant_seeds[id],
@@ -102,6 +134,15 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
   enable_all_peer_accesses();
   if (all_p2p_enabled() == false) {
     MESSAGE_("Peer-to-peer access cannot be fully enabled.");
+  }
+
+  all2all_warmup();
+
+  if (num_process_ > 1) {
+#ifdef ENABLE_MPI
+    ib_comm_ = std::make_unique<IbComm>();
+    ib_comm_->init(num_process_, local_gpu_count, process_id_, local_gpu_device_id_list);
+#endif
   }
 }
 
@@ -154,5 +195,16 @@ void ResourceManagerCore::enable_all_peer_accesses() {
     }
   }
 }
+
+void ResourceManagerCore::set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision)
+{
+#ifdef ENABLE_MPI
+  ar_comm_ = AllReduceInPlaceComm::create(num_process_, algo, use_mixed_precision, gpu_resources_,
+                                          ib_comm_.get());
+#else
+  ar_comm_ = AllReduceInPlaceComm::create(num_process_, algo, use_mixed_precision, gpu_resources_);
+#endif
+}
+
 
 }  // namespace HugeCTR

@@ -44,13 +44,13 @@ class RawOffsetList {
   // stride: samle size in byte
   RawOffsetList(std::string file_name, long long num_samples, long long stride, long long batchsize,
                 bool use_shuffle, int num_workers, bool repeat)
-      : file_name_(file_name),
-        num_samples_(num_samples),
+      : num_samples_(num_samples),
         stride_(stride),
         batchsize_(batchsize),
         use_shuffle_(use_shuffle),
         num_workers_(num_workers),
-        repeat_(repeat) {
+        repeat_(repeat),
+        file_name_(file_name) {
     try {
       auto offset_gen = [stride](long long idx, long long samples) -> FileOffset {
         char* offset = (char*)(idx * stride);

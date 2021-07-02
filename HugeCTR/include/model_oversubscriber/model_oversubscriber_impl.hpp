@@ -60,9 +60,11 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
 
  public:
   ModelOversubscriberImpl(
+      bool use_host_ps,
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-      const std::vector<SparseEmbeddingHashParams<TypeEmbeddingComp>>& embedding_params,
-      const SolverParser& solver_config, const std::string& temp_embedding_dir);
+      const std::vector<SparseEmbeddingHashParams>& embedding_params,
+      const std::vector<std::string>& sparse_embedding_files,
+      std::shared_ptr<ResourceManager> resource_manager);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;
   ModelOversubscriberImpl& operator=(const ModelOversubscriberImpl&) = delete;

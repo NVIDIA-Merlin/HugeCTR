@@ -20,8 +20,10 @@
 
 namespace HugeCTR {
 
-GPUResource::GPUResource(int device_id, size_t local_id, size_t global_id, unsigned long long replica_uniform_seed,
-                         unsigned long long replica_variant_seed, const ncclComm_t& comm)
+GPUResource::GPUResource(int device_id, size_t local_id, size_t global_id,
+                         unsigned long long replica_uniform_seed,
+                         unsigned long long replica_variant_seed,
+                         const ncclComm_t& comm)
     : device_id_(device_id), local_id_(local_id), global_id_(global_id), comm_(comm) {
   CudaDeviceContext context(device_id);
   CK_CUDA_THROW_(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));

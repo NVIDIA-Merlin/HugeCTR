@@ -184,6 +184,11 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
   return current_batch_size_;
 }
 
+template <typename SparseType>
+long long AsyncReader<SparseType>::get_full_batchsize() const {
+  return batch_size_;
+}
+
 template <typename SparseType> 
 void AsyncReader<SparseType>::ready_to_collect() {
   auto raw_device_id = reader_impl_->get_last_batch_device();
@@ -270,14 +275,12 @@ void AsyncReader<SparseType>::create_drwg_raw(
   std::string file_name, long long num_samples,
   const std::vector<long long> slot_offset, bool float_label_dense,
   bool data_shuffle, bool start_reading_from_beginning) {}
-#ifndef DISABLE_CUDF
 template <typename SparseType> 
 void AsyncReader<SparseType>::create_drwg_parquet(
   std::string file_list, const std::vector<long long> slot_offset,
   bool start_reading_from_beginning) {}
-#endif
 template <typename SparseType> 
-void AsyncReader<SparseType>::set_file_list_source(std::string file_list) {}
+void AsyncReader<SparseType>::set_source(std::string file_list) {}
 
 template <typename SparseType> 
 AsyncReader<SparseType>::~AsyncReader(){
