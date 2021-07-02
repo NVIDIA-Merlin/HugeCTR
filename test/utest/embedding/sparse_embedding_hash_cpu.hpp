@@ -915,10 +915,6 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adagr
         printf("Error: optimizer not supported in CPU version\n");
       }
     }
-    default: {
-      printf("Error: optimizer not supported in CPU version\n");
-    }
-  }
 
     return;
   }

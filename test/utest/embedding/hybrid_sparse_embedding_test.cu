@@ -62,13 +62,9 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  /*
-  const auto &resource_manager = ResourceManager::create(vvgpu, 0, layout);
-  */
 
-  DeviceMap device_map(vvgpu, 0, layout);
-  std::shared_ptr<ResourceManager> resource_manager(
-      new ResourceManager(numprocs, 0, std::move(device_map), (unsigned long long)1234));
+  auto resource_manager =
+      ResourceManager::create(vvgpu, (unsigned long long)1234);
   size_t total_gpu_count = resource_manager->get_global_gpu_count();
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
   size_t total_categories = 0;
@@ -88,9 +84,9 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
   };
   HybridEmbeddingInputGenerator<TypeKey> generator(test_config, slot_size_array, 848484);
 
-  OptHyperParams<TypeFP> hyper_params;
+  OptHyperParams hyper_params;
   hyper_params.sgd.atomic_update = true;
-  const OptParams<TypeFP> opt_params = {optimizer, lr, hyper_params, update_type, scaler};
+  const OptParams opt_params = {optimizer, lr, hyper_params, update_type, scaler};
   const HybridSparseEmbeddingParams<TypeFP> embedding_params = {
       train_batch_size,
       evaluate_batch_size,

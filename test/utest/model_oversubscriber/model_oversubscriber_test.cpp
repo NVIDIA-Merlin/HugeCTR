@@ -109,11 +109,11 @@ void do_upload_and_download_snapshot(
       max_feature_num, slot_num,  combiner,        opt_params};
 
   auto embedding = init_embedding<TypeKey, float>(
-      data_reader_train->get_row_offsets_tensors(),
-      data_reader_train->get_value_tensors(),
+      bags_to_tensors<TypeKey>(data_reader_train->get_row_offsets_tensors()),
+      bags_to_tensors<TypeKey>(data_reader_train->get_value_tensors()),
       data_reader_train->get_nnz_array(),
-      data_reader_eval->get_row_offsets_tensors(),
-      data_reader_eval->get_value_tensors(),
+      bags_to_tensors<TypeKey>(data_reader_eval->get_row_offsets_tensors()),
+      bags_to_tensors<TypeKey>(data_reader_eval->get_value_tensors()),
       data_reader_eval->get_nnz_array(),
       embedding_param, resource_manager, embedding_type);
   embedding->init_params();

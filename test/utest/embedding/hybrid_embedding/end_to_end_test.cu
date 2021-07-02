@@ -93,7 +93,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       bw_ratio_a2a_over_ar,
       1.0,
       HybridEmbeddingType::Distributed,
-      OptParams<emtype>{Optimizer_t::SGD, lr, {}, Update_t::Global, 1.0f}};
+      OptParams{Optimizer_t::SGD, lr, {}, Update_t::Global, 1.0f}};
 
   std::vector<std::shared_ptr<BufferBlock2<emtype>>> placeholder( 
       resource_manager->get_local_gpu_count(), NULL);

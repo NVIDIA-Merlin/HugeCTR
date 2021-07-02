@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <sys/stat.h>
 
 #include <common.hpp>

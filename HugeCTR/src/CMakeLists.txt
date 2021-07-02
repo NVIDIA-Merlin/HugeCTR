@@ -115,8 +115,6 @@ endif()
 #   session.cpp
 # )
 
-set(CMAKE_CXX_STANDARD 17)
-
 file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 list(FILTER huge_ctr_src EXCLUDE REGEX ".*main.cpp")
 
@@ -139,12 +137,13 @@ target_link_libraries(huge_ctr_shared PUBLIC cudf)
 if (ENABLE_MULTINODES)
   if (SHARP_FOUND)
     target_link_libraries(huge_ctr_static PRIVATE sharp sharp_coll)
+    target_link_libraries(huge_ctr_shared PRIVATE sharp sharp_coll)
   else()
     message(FATAL_ERROR "Multi-node enabled but SHARP not found")
   endif()
 endif()
 
-target_link_libraries(huge_ctr_static PRIVATE CUDA:nvml nlohmann_json::nlohmann_json aio numa)
+target_link_libraries(huge_ctr_static PRIVATE CUDA::nvml nlohmann_json::nlohmann_json aio numa)
 target_link_libraries(huge_ctr_static PUBLIC gpu_cache)
 target_compile_features(huge_ctr_static PUBLIC cxx_std_17)
 
@@ -152,7 +151,7 @@ target_compile_features(huge_ctr_static PUBLIC cxx_std_17)
 set_target_properties(huge_ctr_static PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_target_properties(huge_ctr_static PROPERTIES CUDA_ARCHITECTURES OFF)
 
-target_link_libraries(huge_ctr_shared PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(huge_ctr_shared PRIVATE CUDA::nvml nlohmann_json::nlohmann_json aio numa)
 target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)
 target_compile_features(huge_ctr_shared PUBLIC cxx_std_17)
 set_target_properties(huge_ctr_shared PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
@@ -160,7 +159,7 @@ set_target_properties(huge_ctr_shared PROPERTIES CUDA_ARCHITECTURES OFF)
 
 add_executable(huge_ctr main.cpp)
 target_link_libraries(huge_ctr PUBLIC huge_ctr_static)
-target_compile_features(huge_ctr PUBLIC cxx_std_14)
+target_compile_features(huge_ctr PUBLIC cxx_std_17)
 
 add_library(hugectr MODULE ../pybind/module_main.cpp)
 target_link_libraries(hugectr PUBLIC pybind11::module ${CUDA_LIBRARIES} huge_ctr_shared)

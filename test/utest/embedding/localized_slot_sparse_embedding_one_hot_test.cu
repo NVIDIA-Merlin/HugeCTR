@@ -237,7 +237,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
           train_data_reader->get_nnz_array(),
           bags_to_tensors<T>(test_data_reader->get_row_offsets_tensors()),
           bags_to_tensors<T>(test_data_reader->get_value_tensors()),
-          test_data_reader->get_nnz_array(), embedding_params, plan_file, resource_manager));
+          test_data_reader->get_nnz_array(),
+          embedding_params,
+          resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -463,10 +465,14 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>(
-          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
-          train_data_reader->get_nnz_array(), train_data_reader->get_row_offsets_tensors(),
-          train_data_reader->get_value_tensors(), train_data_reader->get_nnz_array(),
-          embedding_params, resource_manager));
+          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
+          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
+          train_data_reader->get_nnz_array(),
+          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
+          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
+          train_data_reader->get_nnz_array(),
+          embedding_params,
+          resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -581,10 +587,14 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>(
-          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
-          train_data_reader->get_nnz_array(), train_data_reader->get_row_offsets_tensors(),
-          train_data_reader->get_value_tensors(), train_data_reader->get_nnz_array(),
-          embedding_params, resource_manager));
+          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
+          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
+          train_data_reader->get_nnz_array(),
+          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
+          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
+          train_data_reader->get_nnz_array(),
+          embedding_params,
+          resource_manager));
 
   // init hash table file
   if (pid == 0) {
@@ -701,7 +711,6 @@ TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_global_update_4gpu) {
   train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global);
 }
 
-<<<<<<< HEAD
 TEST(localized_sparse_embedding_one_hot_test, load_and_dump) {
   load_and_dump<float>({0}, Optimizer_t::SGD, Update_t::Global);
 }
