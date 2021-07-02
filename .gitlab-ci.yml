@@ -321,7 +321,8 @@ py_inference:
       bash -cx "
       cd /dataset/criteo_kaggle/dcn &&
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      python3 ${WORK_DIR}/test/pybind_test/dcn_inference.py ${WORK_DIR}/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt"
+      python3 ${WORK_DIR}/test/pybind_test/dcn_inference.py ${WORK_DIR}/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt &&
+      python3 ${WORK_DIR}/test/pybind_test/wdl_multitable_test.py wdl  /hugectr/test/utest/wdl_test_files/wdl_infer.json /hugectr/test/utest/wdl_test_files/wdl_dense_2000.model /hugectr/test/utest/wdl_test_files/wdl0_sparse_2000.model,/hugectr/test/utest/wdl_test_files/wdl1_sparse_2000.model  /hugectr/test/utest/wdl_test_files/first_ten.csv"
 
 py_low_level:
   extends: .cluster_test_train_job
