@@ -336,14 +336,16 @@ void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
   else{
     //Query the shuffled embeddingcolumns from Parameter Server & copy to device output buffer
     size_t acc_emb_vec_offset = 0;
+    size_t acc_emb_table_offset = 0;
     for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
       TypeHashKey* h_query_key_ptr = (TypeHashKey*)(workspace_handler.h_shuffled_embeddingcolumns_) + workspace_handler.h_shuffled_embedding_offset_[i];
       size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] - workspace_handler.h_shuffled_embedding_offset_[i];
       size_t query_length_in_float = query_length * cache_config_.embedding_vec_size_[i];
       size_t query_length_in_byte = query_length_in_float * sizeof(float);
-      float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
-      float* d_vals_retrieved_ptr = d_shuffled_embeddingoutputvector + acc_emb_vec_offset;
+      float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ +  acc_emb_vec_offset;
+      float* d_vals_retrieved_ptr = d_shuffled_embeddingoutputvector +  acc_emb_table_offset;
       acc_emb_vec_offset += query_length_in_float;
+      acc_emb_table_offset += cache_config_.max_query_len_per_emb_table_[i] * cache_config_.embedding_vec_size_[i];
       parameter_server_ -> look_up(h_query_key_ptr, query_length, h_vals_retrieved_ptr, cache_config_.model_name_, i);
       CK_CUDA_THROW_(cudaMemcpyAsync(d_vals_retrieved_ptr, h_vals_retrieved_ptr, query_length_in_byte, cudaMemcpyHostToDevice, streams[i]));
     }

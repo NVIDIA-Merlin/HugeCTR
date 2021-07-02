@@ -69,7 +69,7 @@ InferenceSession::~InferenceSession() {
 void InferenceSession::separate_keys_by_table_(int* d_row_ptrs, const std::vector<size_t>& embedding_table_slot_size, int num_samples) {
   size_t slot_num = inference_parser_.slot_num;
   size_t num_embedding_tables = inference_parser_.num_embedding_tables;
-  size_t row_ptrs_size_sample = num_samples * slot_num + 1;
+  size_t row_ptrs_size_sample = num_samples * slot_num + num_embedding_tables;
   size_t row_ptrs_size_in_bytes_sample = row_ptrs_size_sample * sizeof(int);
   std::unique_ptr<int[]> h_row_ptrs(new int[row_ptrs_size_sample]);
   CK_CUDA_THROW_(cudaMemcpy(h_row_ptrs.get(), d_row_ptrs, row_ptrs_size_in_bytes_sample, cudaMemcpyDeviceToHost));
@@ -79,8 +79,10 @@ void InferenceSession::separate_keys_by_table_(int* d_row_ptrs, const std::vecto
   for (int i = 0; i < num_samples; i++) {
     size_t acc_emb_key_offset=0;
     for (int j = 0; j < static_cast<int>(num_embedding_tables); j++) {
-      h_embedding_offset_[i*num_embedding_tables + j + 1] = i*slot_num + inference_parser_.slot_num_for_tables[j] + acc_emb_key_offset;
-      acc_emb_key_offset += inference_parser_.slot_num_for_tables[j];
+      size_t num_of_feature=h_row_ptrs[(i+1)*inference_parser_.slot_num_for_tables[j]+acc_emb_key_offset]-h_row_ptrs[i*inference_parser_.slot_num_for_tables[j]+acc_emb_key_offset];
+      h_embedding_offset_[i*num_embedding_tables + j + 1] = h_embedding_offset_[i*num_embedding_tables + j]+num_of_feature;
+      acc_emb_key_offset += num_samples*inference_parser_.slot_num_for_tables[j]+1;
+
     }
   }
 }
