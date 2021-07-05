@@ -71,7 +71,7 @@ void do_upload_and_download_snapshot(
   copy_sparse_model(snapshot_src_file, snapshot_dst_file);
 
   auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
-    return std::string(sparse_model_file) + "/" + sparse_model_file + "." + ext;
+    return std::string(sparse_model_file) + "/" + ext;
   };
 
   // Create a ParameterServer
@@ -82,15 +82,24 @@ void do_upload_and_download_snapshot(
   {
     size_t key_file_size_in_byte =
         fs::file_size(get_ext_file(snapshot_dst_file, "key"));
-    size_t num_keys = key_file_size_in_byte / sizeof(TypeKey);
-    std::vector<TypeKey> keys_in_file(num_keys);
+    size_t num_keys = key_file_size_in_byte / sizeof(long long);
+    std::vector<long long> keys_in_file(num_keys);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
     key_ifs.read(reinterpret_cast<char *>(keys_in_file.data()),
                                           key_file_size_in_byte);
+    TypeKey *key_ptr = nullptr;
+    std::vector<TypeKey> key_vec;
+    if (std::is_same<TypeKey, long long>::value) {
+      key_ptr = reinterpret_cast<TypeKey*>(keys_in_file.data());
+    } else {
+      key_vec.resize(num_keys);
+      std::transform(keys_in_file.begin(), keys_in_file.end(), key_vec.begin(),
+                     [](long long key) { return static_cast<unsigned>(key); });
+      key_ptr = key_vec.data();
+    }
     std::ofstream key_ofs(keyset_file_name, std::ofstream::binary |
                                             std::ofstream::trunc);
-    key_ofs.write(reinterpret_cast<char *>(keys_in_file.data()),
-                                           key_file_size_in_byte);
+    key_ofs.write(reinterpret_cast<char *>(key_ptr), num_keys * sizeof(TypeKey));
   }
 
   BufferBag buf_bag;
@@ -126,9 +135,9 @@ void do_upload_and_download_snapshot(
 
   // Check if the result is correct
   ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "key"));
-  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "vec"));
+  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "emb_vector"));
   if (!is_distributed)
-    ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "slot"));
+    ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "slot_id"));
 }
 
 TEST(parameter_server_test, long_long_ssd_distributed) {

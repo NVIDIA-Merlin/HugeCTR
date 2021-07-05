@@ -38,6 +38,20 @@ namespace HugeCTR {
 
 namespace mos_test {
 
+template <typename TypeKey>
+void load_key_to_vec(std::vector<TypeKey> &key_vec, std::ifstream &key_ifs,
+    size_t num_key, size_t key_file_size_in_byte) {
+  key_vec.resize(num_key);
+  if (std::is_same<TypeKey, long long>::value) {
+    key_ifs.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_byte);
+  } else {
+    std::vector<long long> i64_key_vec(num_key, 0);
+    key_ifs.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
+    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_vec.begin(),
+                   [](long long key) { return static_cast<unsigned>(key); });
+  }
+}
+
 inline std::vector<char> load_to_vector(const std::string& file_name) {
   std::ifstream stream(file_name, std::ifstream::binary);
   if (!stream.is_open()) {
@@ -85,22 +99,12 @@ inline void copy_sparse_model(
     fs::remove_all(sparse_model_dst);
   }
   fs::copy(sparse_model_src, sparse_model_dst, fs::copy_options::recursive);
-  std::string src_prefix = std::string(sparse_model_dst) + "/" + sparse_model_src;
-  std::string dst_prefix = std::string(sparse_model_dst) + "/" + sparse_model_dst;
-  fs::rename((src_prefix + ".key").c_str(), (dst_prefix + ".key").c_str());
-  fs::rename((src_prefix + ".vec").c_str(), (dst_prefix + ".vec").c_str());
-
-  if (fs::exists(src_prefix + ".slot")) {
-    fs::rename((src_prefix + ".slot").c_str(), (dst_prefix + ".slot").c_str());
-  }
 }
 
 inline bool check_vector_equality(const char *sparse_model_src,
     const char *sparse_model_dst, const char *ext) {
-  const std::string src_file(
-      std::string(sparse_model_src) + "/" + sparse_model_src + "." + ext);
-  const std::string dst_file(
-      std::string(sparse_model_dst) + "/" + sparse_model_dst + "." + ext);
+  const std::string src_file(std::string(sparse_model_src) + "/" + ext);
+  const std::string dst_file(std::string(sparse_model_dst) + "/" + ext);
 
   std::vector<char> vec_src = load_to_vector(src_file);
   std::vector<char> vec_dst = load_to_vector(dst_file);

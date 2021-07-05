@@ -77,11 +77,12 @@ std::vector<size_t> slot_sizes;  // null means use vocabulary_size/gpu_count/loa
 // // just for verify
 
 //-----------------------------------------------------------------------------------------
-auto load_sparse_model_to_map = [](std::vector<T>& key_vec, std::vector<T>& slot_vec,
+auto load_sparse_model_to_map = [](
+    std::vector<T>& key_vec, std::vector<size_t>& slot_vec,
     std::vector<float>& vec_vec, const std::string& sparse_model) {
-  const std::string key_file(sparse_model + "/" + sparse_model + ".key");
-  const std::string slot_file(sparse_model + "/" + sparse_model + ".slot");
-  const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
+  const std::string key_file(sparse_model + "/key");
+  const std::string slot_file(sparse_model + "/slot_id");
+  const std::string vec_file(sparse_model + "/emb_vector");
 
   std::ifstream fs_key(key_file, std::ifstream::binary);
   std::ifstream fs_slot(slot_file, std::ifstream::binary);
@@ -90,8 +91,8 @@ auto load_sparse_model_to_map = [](std::vector<T>& key_vec, std::vector<T>& slot
   const size_t key_file_size_in_B = fs::file_size(key_file);
   const size_t slot_file_size_in_B = fs::file_size(slot_file);
   const size_t vec_file_size_in_B = fs::file_size(vec_file);
-  const long long num_key = key_file_size_in_B / sizeof(T);
-  const long long num_slot = slot_file_size_in_B / sizeof(T);
+  const long long num_key = key_file_size_in_B / sizeof(long long);
+  const long long num_slot = slot_file_size_in_B / sizeof(size_t);
   const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
 
   if (num_key != num_vec || num_key != num_slot || num_key != vocabulary_size) {
@@ -99,13 +100,21 @@ auto load_sparse_model_to_map = [](std::vector<T>& key_vec, std::vector<T>& slot
   }
 
   key_vec.clear();
-  key_vec.reserve(num_key);
+  key_vec.resize(num_key);
   slot_vec.clear();
-  slot_vec.reserve(num_key);
+  slot_vec.resize(num_key);
   vec_vec.clear();
-  vec_vec.reserve(num_vec * embedding_vec_size);
+  vec_vec.resize(num_vec * embedding_vec_size);
 
-  fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
+  using TypeKey = typename std::decay<decltype(*key_vec.begin())>::type;
+  if (std::is_same<TypeKey, long long>::value) {
+    fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
+  } else {
+    std::vector<long long> i64_key_vec(num_key, 0);
+    fs_key.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_B);
+    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_vec.begin(),
+                   [](long long key) { return static_cast<unsigned>(key); });
+  }
   fs_slot.read(reinterpret_cast<char *>(slot_vec.data()), slot_file_size_in_B);
   fs_vec.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_B);
 };
@@ -116,9 +125,9 @@ void init_sparse_model(const char *sparse_model) {
   if (!fs::exists(sparse_model)) {
     fs::create_directory(sparse_model);
   }
-  const std::string key_file = std::string(sparse_model) + "/" + sparse_model + ".key";
-  const std::string slot_file = std::string(sparse_model) + "/" + sparse_model + ".slot";
-  const std::string vec_file = std::string(sparse_model) + "/" + sparse_model + ".vec";
+  const std::string key_file = std::string(sparse_model) + "/key";
+  const std::string slot_file = std::string(sparse_model) + "/slot_id";
+  const std::string vec_file = std::string(sparse_model) + "/emb_vector";
 
   std::ofstream fs_key(key_file);
   std::ofstream fs_slot(slot_file);
@@ -621,13 +630,13 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   embedding->dump_parameters(tmp_sparse_model_file);
 
   std::vector<T> hash_table_key_from_cpu;
-  std::vector<T> slot_id_from_cpu;
+  std::vector<size_t> slot_id_from_cpu;
   std::vector<float> hash_table_value_from_cpu;
   load_sparse_model_to_map(hash_table_key_from_cpu, slot_id_from_cpu,
                            hash_table_value_from_cpu, sparse_model_file);
 
   std::vector<T> hash_table_key_from_gpu;
-  std::vector<T> slot_id_from_gpu;
+  std::vector<size_t> slot_id_from_gpu;
   std::vector<float> hash_table_value_from_gpu;
   load_sparse_model_to_map(hash_table_key_from_gpu, slot_id_from_gpu,
                            hash_table_value_from_gpu, tmp_sparse_model_file);
@@ -749,12 +758,12 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 #endif
 
   std::vector<T> hash_table_key_from_cpu;
-  std::vector<T> slot_id_from_cpu;
+  std::vector<size_t> slot_id_from_cpu;
   std::vector<float> hash_table_value_from_cpu;
   load_sparse_model_to_map(hash_table_key_from_cpu, slot_id_from_cpu, hash_table_value_from_cpu, sparse_model_src);
 
   std::vector<T> hash_table_key_from_gpu;
-  std::vector<T> slot_id_from_gpu;
+  std::vector<size_t> slot_id_from_gpu;
   std::vector<float> hash_table_value_from_gpu;
   load_sparse_model_to_map(hash_table_key_from_gpu, slot_id_from_gpu, hash_table_value_from_gpu, sparse_model_dst);
 

@@ -452,7 +452,7 @@ py_multi_node:
 
 
 # embedding_plugin
-embedding_plugin1:
+embedding_plugin:
   extends: .cluster_test_embedding_job
   script:
     - srun --ntasks=1
@@ -474,8 +474,16 @@ embedding_plugin1:
       --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
+      cd ${WORK_DIR}/sparse_operation_kit/Deprecated &&
+      python3 unit_test_v2.py --fast_testing=1"
+    - srun --ntasks=1
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      bash -cx "
       cd ${WORK_DIR}/sparse_operation_kit/unit_test/test_scripts &&
       bash script.sh"
+  timeout: 2 hours
 
 nightly_build_train:
   tags:
