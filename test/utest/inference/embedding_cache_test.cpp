@@ -189,21 +189,13 @@ void embedding_cache_test(const std::string& config_file,
     num_duplicate_embeddingcolumns[sample_id] = sample_duplicate_embeddingcolumns;
   }
 
-  auto remove_prefix = [](const std::string& path) {
-    size_t found = path.rfind("/");
-    if (found != std::string::npos)
-      return std::string(path, found + 1);
-    else
-      return path;
-  };
-
   // Read all the embeddings from the model
   std::string emb_file_path = sparse_model_file;
   size_t embedding_vec_size = inference_info.embedding_vec_size_[0];
 
-  std::string emb_file_prefix(sparse_model_file + "/" + remove_prefix(sparse_model_file));
-  std::ifstream key_stream(emb_file_prefix + ".key");
-  std::ifstream vec_stream(emb_file_prefix + ".vec");
+  std::string emb_file_prefix(sparse_model_file + "/");
+  std::ifstream key_stream(emb_file_prefix + "key");
+  std::ifstream vec_stream(emb_file_prefix + "emb_vector");
   // Check if file is opened successfully
   if (!key_stream.is_open() || !vec_stream.is_open()) {
     CK_THROW_(Error_t::WrongInput, "Error: embeddings file cannot open for reading");
@@ -215,7 +207,7 @@ void embedding_cache_test(const std::string& config_file,
   // The max value of all embedding ids
   TypeHashKey max_emb_id = 0;
   // The num of embeddings in the file
-  size_t row_num = fs::file_size(emb_file_prefix + ".key") / sizeof(TypeHashKey);
+  size_t row_num = fs::file_size(emb_file_prefix + "key") / sizeof(long long);
 
   CK_CUDA_THROW_(cudaHostAlloc((void**)&h_total_embeddingcolumns, row_num * sizeof(TypeHashKey),
                               cudaHostAllocPortable));
@@ -223,7 +215,13 @@ void embedding_cache_test(const std::string& config_file,
                               cudaHostAllocPortable));
   for(size_t pair = 0; pair < row_num; pair++){
     // Read out the emb_id and emb_vec
-    key_stream.read(reinterpret_cast<char *>(h_total_embeddingcolumns + pair), sizeof(TypeHashKey));
+    if (std::is_same<TypeHashKey, long long>::value) {
+      key_stream.read(reinterpret_cast<char *>(h_total_embeddingcolumns + pair), sizeof(long long));
+    } else {
+      long long tmp_key;
+      key_stream.read(reinterpret_cast<char *>(&tmp_key), sizeof(long long));
+      h_total_embeddingcolumns[pair] = static_cast<TypeHashKey>(tmp_key);
+    }
     vec_stream.read(reinterpret_cast<char *>(h_total_embeddingvector + pair * embedding_vec_size),
                   sizeof(float) * embedding_vec_size);
     // Calculate the max id

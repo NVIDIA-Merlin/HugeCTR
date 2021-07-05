@@ -265,9 +265,9 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   if (!fs::exists(sparse_model)) {
     CK_THROW_(Error_t::WrongInput, std::string("Error: folder ") + sparse_model + " doesn't exist");
   }
-  const std::string key_file(sparse_model + "/" + sparse_model + ".key");
-  const std::string slot_file(sparse_model + "/" + sparse_model + ".slot");
-  const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
+  const std::string key_file(sparse_model + "/key");
+  const std::string slot_file(sparse_model + "/slot_id");
+  const std::string vec_file(sparse_model + "/emb_vector");
 
   std::ifstream key_stream(key_file, std::ifstream::binary);
   std::ifstream slot_stream(slot_file, std::ifstream::binary);
@@ -281,14 +281,15 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   size_t slot_file_size_in_byte = fs::file_size(slot_file);
   size_t vec_file_size_in_byte = fs::file_size(vec_file);
 
-  size_t key_size = sizeof(TypeHashKey);
+  size_t key_size = sizeof(long long);
   size_t slot_size = sizeof(size_t);
   size_t vec_size = sizeof(float) * Base::get_embedding_vec_size();
   size_t key_num = key_file_size_in_byte / key_size;
   size_t slot_num = slot_file_size_in_byte / slot_size;
   size_t vec_num = vec_file_size_in_byte / vec_size;
 
-  if (key_num != vec_num || key_file_size_in_byte % key_size != 0 || vec_file_size_in_byte % vec_size != 0 ||
+  if (key_num != vec_num || key_file_size_in_byte % key_size != 0 ||
+      vec_file_size_in_byte % vec_size != 0 ||
       key_num != slot_num || slot_file_size_in_byte % slot_size != 0) {
     CK_THROW_(Error_t::WrongInput, "Error: file size is not correct");
   }
@@ -310,7 +311,14 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::load_pa
   size_t *slot_id_ptr = slot_id.get_ptr();
   float *embedding_ptr = embeddings.get_ptr();
 
-  key_stream.read(reinterpret_cast<char *>(key_ptr), key_file_size_in_byte);
+  if (std::is_same<TypeHashKey, long long>::value) {
+    key_stream.read(reinterpret_cast<char *>(key_ptr), key_file_size_in_byte);
+  } else {
+    std::vector<long long> i64_key_vec(key_num, 0);
+    key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
+    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_ptr,
+                   [](long long key) { return static_cast<unsigned>(key); });
+  }
   slot_stream.read(reinterpret_cast<char *>(slot_id_ptr), slot_file_size_in_byte);
   vec_stream.read(reinterpret_cast<char *>(embedding_ptr), vec_file_size_in_byte);
 
@@ -601,9 +609,9 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
   if (!fs::exists(sparse_model)) {
     fs::create_directory(sparse_model);
   }
-  const std::string key_file(sparse_model + "/" + sparse_model + ".key");
-  const std::string slot_file(sparse_model + "/" + sparse_model + ".slot");
-  const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
+  const std::string key_file(sparse_model + "/key");
+  const std::string slot_file(sparse_model + "/slot_id");
+  const std::string vec_file(sparse_model + "/emb_vector");
 
 #ifdef ENABLE_MPI
   MPI_File key_fh, slot_fh, vec_fh;
@@ -707,7 +715,19 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
   }
   functors_.sync_all_gpus(Base::get_resource_manager());
 
-  const size_t key_size = sizeof(TypeHashKey);
+  long long *h_key_ptr;
+  std::vector<long long> i64_key_vec;
+  if (std::is_same<TypeHashKey, long long>::value) {
+    h_key_ptr = reinterpret_cast<long long *>(h_hash_table_key);
+  } else {
+    i64_key_vec.resize(total_count);
+    std::transform(h_hash_table_key, h_hash_table_key + total_count,
+                   i64_key_vec.begin(),
+                   [](unsigned key) { return static_cast<long long>(key); });
+    h_key_ptr = i64_key_vec.data();
+  }
+
+  const size_t key_size = sizeof(long long);
   const size_t slot_size = sizeof(size_t);
   const size_t vec_size = sizeof(float) * embedding_vec_size;
 
@@ -729,7 +749,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
   CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
   MPI_Status status;
-  CK_MPI_THROW_(MPI_File_write_at(key_fh, key_offset, h_hash_table_key, total_count * key_size, MPI_CHAR, &status));
+  CK_MPI_THROW_(MPI_File_write_at(key_fh, key_offset, h_key_ptr, total_count * key_size, MPI_CHAR, &status));
   CK_MPI_THROW_(MPI_File_write_at(slot_fh, slot_offset, h_hash_table_slot_id, total_count * slot_size, MPI_CHAR, &status));
   CK_MPI_THROW_(MPI_File_write_at(vec_fh, vec_offset, h_hash_table_value, total_count * vec_size, MPI_CHAR, &status));
 
@@ -737,7 +757,7 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
   CK_MPI_THROW_(MPI_File_close(&slot_fh));
   CK_MPI_THROW_(MPI_File_close(&vec_fh));
 #else
-  key_stream.write(reinterpret_cast<char*>(h_hash_table_key), total_count * key_size);
+  key_stream.write(reinterpret_cast<char*>(h_key_ptr), total_count * key_size);
   slot_stream.write(reinterpret_cast<char*>(h_hash_table_slot_id), total_count * slot_size);
   vec_stream.write(reinterpret_cast<char*>(h_hash_table_value), total_count * vec_size);
 #endif
