@@ -73,27 +73,13 @@ struct SparseEmbeddingHashParams {
   size_t get_universal_batch_size() const {
     return std::max(train_batch_size, evaluate_batch_size);
   }
-
-  const Update_t& get_update_type() const {
-    return opt_params.update_type;
-  }
-
-  const Optimizer_t& get_optimizer() const {
-    return opt_params.optimizer;
-  }
-
-  OptParams& get_opt_params() {
-    return opt_params;
-  }
-
+  const Update_t& get_update_type() const { return opt_params.update_type; }
+  const Optimizer_t& get_optimizer() const { return opt_params.optimizer; }
+  OptParams& get_opt_params() { return opt_params; }
   size_t get_embedding_vec_size() const { return embedding_vec_size; }
-
   size_t get_max_feature_num() const { return max_feature_num; }
-
   size_t get_slot_num() const { return slot_num; }
-
   int get_combiner() const { return combiner; }
-
   size_t get_max_vocabulary_size_per_gpu() const {
     return max_vocabulary_size_per_gpu;
   }

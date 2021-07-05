@@ -116,19 +116,12 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
     cache_config_.max_query_len_per_emb_table_.emplace_back(max_batchsize * max_feature_num_per_sample[i]);
   }
 
-  auto remove_prefix = [](const std::string& path) {
-    size_t found = path.rfind("/");
-    if (found != std::string::npos)
-      return std::string(path, found + 1);
-    else
-      return path;
-  };
   // Query the size of all embedding tables and calculate the size of each embedding cache
   if(cache_config_.use_gpu_embedding_cache_){
     for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
-      std::string key_file(emb_file_path[i] + "/" + remove_prefix(emb_file_path[i]) + ".key");
-      size_t row_num = fs::file_size(key_file) / sizeof(TypeHashKey);
-      if (fs::file_size(key_file) % sizeof(TypeHashKey) != 0){
+      std::string key_file(emb_file_path[i] + "/key");
+      size_t row_num = fs::file_size(key_file) / sizeof(long long);
+      if (fs::file_size(key_file) % sizeof(long long) != 0){
         CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
       }
 
