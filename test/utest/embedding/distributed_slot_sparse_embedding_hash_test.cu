@@ -69,15 +69,15 @@ const char *opt_file_name = "distributed_opt.bin";
 
 auto load_sparse_model_to_map = [](std::vector<T>& key_vec,
     std::vector<float>& vec_vec, const std::string& sparse_model) {
-  const std::string key_file(sparse_model + "/" + sparse_model + ".key");
-  const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
+  const std::string key_file(sparse_model + "/key");
+  const std::string vec_file(sparse_model + "/emb_vector");
 
   std::ifstream fs_key(key_file, std::ifstream::binary);
   std::ifstream fs_vec(vec_file, std::ifstream::binary);
 
   const size_t key_file_size_in_B = fs::file_size(key_file);
   const size_t vec_file_size_in_B = fs::file_size(vec_file);
-  const long long num_key = key_file_size_in_B / sizeof(T);
+  const long long num_key = key_file_size_in_B / sizeof(long long);
   const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
 
   if (num_key != num_vec || num_key != vocabulary_size) {
@@ -85,11 +85,19 @@ auto load_sparse_model_to_map = [](std::vector<T>& key_vec,
   }
 
   key_vec.clear();
-  key_vec.reserve(num_key);
+  key_vec.resize(num_key);
   vec_vec.clear();
-  vec_vec.reserve(num_vec * embedding_vec_size);
+  vec_vec.resize(num_vec * embedding_vec_size);
 
-  fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
+  using TypeKey = typename std::decay<decltype(*key_vec.begin())>::type;
+  if (std::is_same<TypeKey, long long>::value) {
+    fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
+  } else {
+    std::vector<long long> i64_key_vec(num_key, 0);
+    fs_key.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_B);
+    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_vec.begin(),
+                   [](long long key) { return static_cast<unsigned>(key); });
+  }
   fs_vec.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_B);
 };
 
@@ -97,8 +105,8 @@ void init_sparse_model(const char *sparse_model) {
   if (!fs::exists(sparse_model)) {
     fs::create_directory(sparse_model);
   }
-  const std::string key_file = std::string(sparse_model) + "/" + sparse_model + ".key";
-  const std::string vec_file = std::string(sparse_model) + "/" + sparse_model + ".vec";
+  const std::string key_file = std::string(sparse_model) + "/key";
+  const std::string vec_file = std::string(sparse_model) + "/emb_vector";
 
   std::ofstream fs_key(key_file);
   std::ofstream fs_vec(vec_file);

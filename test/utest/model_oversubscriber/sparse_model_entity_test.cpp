@@ -70,7 +70,7 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
   copy_sparse_model(snapshot_src_file, snapshot_dst_file);
 
   auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
-    return std::string(sparse_model_file) + "/" + sparse_model_file + "." + ext;
+    return std::string(sparse_model_file) + "/" + ext;
   };
 
   BufferBag buf_bag;
@@ -97,15 +97,16 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
       embedding_type, emb_vec_size, resource_manager);
 
   size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
-  size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "vec"));
-  size_t num_keys = key_file_size_in_byte / sizeof(TypeKey);
+  size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "emb_vector"));
+  size_t num_keys = key_file_size_in_byte / sizeof(long long);
   ASSERT_TRUE(num_keys == vec_file_size_in_byte / sizeof(float) / emb_vec_size);
 
   std::vector<TypeKey> key_in_file(num_keys);
-  std::vector<float> vec_in_file(num_keys * emb_vec_size);
   std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
-  std::ifstream vec_ifs(get_ext_file(snapshot_dst_file, "vec"));
-  key_ifs.read(reinterpret_cast<char *>(key_in_file.data()), key_file_size_in_byte);
+  load_key_to_vec(key_in_file, key_ifs, num_keys, key_file_size_in_byte);
+
+  std::vector<float> vec_in_file(num_keys * emb_vec_size);
+  std::ifstream vec_ifs(get_ext_file(snapshot_dst_file, "emb_vector"));
   vec_ifs.read(reinterpret_cast<char *>(vec_in_file.data()), vec_file_size_in_byte);
 
   // load all embedding features
@@ -118,8 +119,8 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
   
   std::vector<size_t> slot_in_file(num_keys);
   if (!is_distributed) {
-    size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot"));
-    std::ifstream slot_ifs(get_ext_file(snapshot_dst_file, "slot"));
+    size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot_id"));
+    std::ifstream slot_ifs(get_ext_file(snapshot_dst_file, "slot_id"));
     slot_ifs.read(reinterpret_cast<char *>(slot_in_file.data()), slot_file_size_in_byte);
 
     size_t *slot_id_ptr = Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr();
@@ -135,14 +136,14 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
   for_each(vec_in_file.begin(), vec_in_file.end(), gen_real_rand_op);
   memcpy(emb_ptr, vec_in_file.data(), vec_in_file.size() * sizeof(float));
   {
-    std::ofstream vec_ofs(get_ext_file(snapshot_src_file, "vec"), std::ofstream::trunc);
+    std::ofstream vec_ofs(get_ext_file(snapshot_src_file, "emb_vector"), std::ofstream::trunc);
     vec_ofs.write(reinterpret_cast<char *>(vec_in_file.data()), vec_in_file.size() * sizeof(float));
   }
 
   // dump all embedding features
   sparse_model_entity.dump_vec_by_key(buf_bag, hit_size);
   if (use_host_mem) sparse_model_entity.flush_emb_tbl_to_ssd();
-  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "vec"));
+  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "emb_vector"));
 
   // load part embedding features
   MESSAGE_("[TEST] both load and dump");
@@ -176,7 +177,7 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
     iota(vec_indices.begin(), vec_indices.end(), 0);
     sparse_model_file.dump_exist_vec_by_key(selt_keys, vec_indices, selt_vecs.data());
   }
-  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "vec"));
+  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "emb_vector"));
 }
 
 TEST(sparse_model_entity_test, long_long_ssd_distributed) {
