@@ -122,33 +122,6 @@ void create_datareader<TypeKey>::operator()(
   std::string eval_source;
   FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
 
-  DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
-      batch_size, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-      repeat_dataset, num_workers, use_mixed_precision, false);
-  train_data_reader.reset(data_reader_tk);
-  DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
-      batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-      repeat_dataset, num_workers, use_mixed_precision, cache_eval_data);
-  evaluate_data_reader.reset(data_reader_eval_tk);
-
-  auto f = [&j]() -> std::vector<long long> {
-    std::vector<long long> slot_offset;
-    if (has_key_(j, "slot_size_array")) {
-      auto slot_size_array = get_json(j, "slot_size_array");
-      if (!slot_size_array.is_array()) {
-        CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
-      }
-      long long slot_sum = 0;
-      for (auto j_slot_size : slot_size_array) {
-        slot_offset.push_back(slot_sum);
-        long long slot_size = j_slot_size.get<long long>();
-        slot_sum += slot_size;
-      }
-      MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
-    }
-    return slot_offset;
-  };
-
   if (format == DataReaderType_t::RawAsync) {
     Alignment_t aligned_type = Alignment_t::None;
     if (has_key_(j_dense, "aligned")) {
@@ -232,66 +205,94 @@ void create_datareader<TypeKey>::operator()(
 
     return;
   }
+  else {
+    DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
+        batch_size, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
+        repeat_dataset, num_workers, use_mixed_precision, false);
+    train_data_reader.reset(data_reader_tk);
+    DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
+        batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
+        repeat_dataset, num_workers, use_mixed_precision, cache_eval_data);
+    evaluate_data_reader.reset(data_reader_eval_tk);
 
-  switch (format) {
-    case DataReaderType_t::Norm: {
-      bool start_right_now = repeat_dataset;
-      train_data_reader->create_drwg_norm(source_data, check_type, start_right_now);
-      evaluate_data_reader->create_drwg_norm(eval_source, check_type, start_right_now);
-      break;
-    }
-    case DataReaderType_t::Raw: {
-      const auto num_samples = get_value_from_json<long long>(j, "num_samples");
-      const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
-      std::vector<long long> slot_offset = f();
-      bool float_label_dense = get_value_from_json_soft<bool>(j, "float_label_dense", false);
-      train_data_reader->create_drwg_raw(source_data, num_samples, slot_offset, float_label_dense,
-                                         true, false);
-      evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples, slot_offset,
-                                            float_label_dense, false, false);
+    auto f = [&j]() -> std::vector<long long> {
+      std::vector<long long> slot_offset;
+      if (has_key_(j, "slot_size_array")) {
+        auto slot_size_array = get_json(j, "slot_size_array");
+        if (!slot_size_array.is_array()) {
+          CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
+        }
+        long long slot_sum = 0;
+        for (auto j_slot_size : slot_size_array) {
+          slot_offset.push_back(slot_sum);
+          long long slot_size = j_slot_size.get<long long>();
+          slot_sum += slot_size;
+        }
+        MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+      }
+      return slot_offset;
+    };
 
-      break;
-    }
-    case DataReaderType_t::Parquet: {
-      // @Future: Should be slot_offset here and data_reader ctor should
-      // be TypeKey not long long
-      std::vector<long long> slot_offset = f();
-      train_data_reader->create_drwg_parquet(source_data, slot_offset, true);
-      evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, true);
-      break;
-    }
-    default: {
-      assert(!"Error: no such option && should never get here!");
-    }
-  }
+    switch (format) {
+      case DataReaderType_t::Norm: {
+        bool start_right_now = repeat_dataset;
+        train_data_reader->create_drwg_norm(source_data, check_type, start_right_now);
+        evaluate_data_reader->create_drwg_norm(eval_source, check_type, start_right_now);
+        break;
+      }
+      case DataReaderType_t::Raw: {
+        const auto num_samples = get_value_from_json<long long>(j, "num_samples");
+        const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
+        std::vector<long long> slot_offset = f();
+        bool float_label_dense = get_value_from_json_soft<bool>(j, "float_label_dense", false);
+        train_data_reader->create_drwg_raw(source_data, num_samples, slot_offset, float_label_dense,
+                                           true, false);
+        evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples, slot_offset,
+                                              float_label_dense, false, false);
 
-  for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
-    train_tensor_entries_list[i].push_back(
-        {top_strs_label, data_reader_tk->get_label_tensors()[i]});
-    evaluate_tensor_entries_list[i].push_back(
-        {top_strs_label, data_reader_eval_tk->get_label_tensors()[i]});
+        break;
+      }
+      case DataReaderType_t::Parquet: {
+        // @Future: Should be slot_offset here and data_reader ctor should
+        // be TypeKey not long long
+        std::vector<long long> slot_offset = f();
+        train_data_reader->create_drwg_parquet(source_data, slot_offset, true);
+        evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, true);
+        break;
+      }
+      default: {
+        assert(!"Error: no such option && should never get here!");
+      }
+    }
 
-    if (use_mixed_precision) {
+    for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
       train_tensor_entries_list[i].push_back(
-          {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
+          {top_strs_label, data_reader_tk->get_label_tensors()[i]});
       evaluate_tensor_entries_list[i].push_back(
-          {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
-    } else {
-      train_tensor_entries_list[i].push_back(
-          {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
-      evaluate_tensor_entries_list[i].push_back(
-          {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
-    }
-  }
+          {top_strs_label, data_reader_eval_tk->get_label_tensors()[i]});
 
-  for (unsigned int i = 0; i < j_sparse.size(); i++) {
-    const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
-    sparse_input->second.train_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
-    sparse_input->second.train_values = data_reader_tk->get_value_tensors(i);
-    sparse_input->second.train_nnz = data_reader_tk->get_nnz_array(i);
-    sparse_input->second.evaluate_row_offsets = data_reader_eval_tk->get_row_offsets_tensors(i);
-    sparse_input->second.evaluate_values = data_reader_eval_tk->get_value_tensors(i);
-    sparse_input->second.evaluate_nnz = data_reader_eval_tk->get_nnz_array(i);
+      if (use_mixed_precision) {
+        train_tensor_entries_list[i].push_back(
+            {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
+        evaluate_tensor_entries_list[i].push_back(
+            {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
+      } else {
+        train_tensor_entries_list[i].push_back(
+            {top_strs_dense, data_reader_tk->get_dense_tensors()[i]});
+        evaluate_tensor_entries_list[i].push_back(
+            {top_strs_dense, data_reader_eval_tk->get_dense_tensors()[i]});
+      }
+    }
+
+    for (unsigned int i = 0; i < j_sparse.size(); i++) {
+      const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
+      sparse_input->second.train_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
+      sparse_input->second.train_values = data_reader_tk->get_value_tensors(i);
+      sparse_input->second.train_nnz = data_reader_tk->get_nnz_array(i);
+      sparse_input->second.evaluate_row_offsets = data_reader_eval_tk->get_row_offsets_tensors(i);
+      sparse_input->second.evaluate_values = data_reader_eval_tk->get_value_tensors(i);
+      sparse_input->second.evaluate_nnz = data_reader_eval_tk->get_nnz_array(i);
+    }
   }
 }
 
