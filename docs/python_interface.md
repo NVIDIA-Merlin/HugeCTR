@@ -302,7 +302,7 @@ hugectr.CreateOptimizer()
 `CreateOptimizer` returns an `OptParamsPy` object according to the custom argument values，which specify the optimizer type and the corresponding hyperparameters. The `OptParamsPy` object will be used to initialize the `Model` instance and it applies to the weights of dense layers. Sparse embedding layers which do not have a specified optimizer will adopt this optimizer as well. Please **NOTE** that the hyperparameters should be configured meticulously when mixed precision training is employed, e.g., the `epsilon` value for the `Adam` optimizer should be set larger.
 
 The embedding update supports three algorithms specified with `update_type`:
-* `Local` (default value): The optimizer will only update the hot columns of an embedding in each iteration.
+* `Local` (default value): The optimizer will only update the hot columns (embedding vectors which is hit in this iteration of training) of an embedding in each iteration.
 * `Global`: The optimizer will update all the columns. The embedding update type takes longer than the other embedding update types.
 * `LazyGlobal`: The optimizer will only update the hot columns of an embedding in each iteration while using different semantics from the *local* and *global* updates.
 
