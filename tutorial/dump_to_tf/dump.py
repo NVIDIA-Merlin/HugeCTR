@@ -34,8 +34,9 @@ class DumpToTF(object):
         self.embedding_layers = None
         self.dense_layers = None
         self.gpus = [0]
-        self.key_type = 'I32' # {'I64', 'I32'}, default is 'I32'
+        self.key_type = 'I64' # must be I64 when dumping sparse model
         self.key_type_map = {"I32": ["I", 4], "I64": ["q", 8]}
+        self.data_key_type = 'I32'
 
         self.parse_json()
 
@@ -57,9 +58,9 @@ class DumpToTF(object):
                 self.model_content = json.load(model_json)
 
                 self.gpus = self.model_content["solver"]["gpu"]
-                key_type = self.model_content["solver"].get("input_key_type")
-                if key_type is not None:
-                    self.key_type = key_type                
+                data_key_type = self.model_content["solver"].get("input_key_type")
+                if data_key_type is not None:
+                    self.data_key_type = data_key_type     
                 
                 layers = self.model_content["layers"]
                 # embedding_layers
@@ -87,39 +88,28 @@ class DumpToTF(object):
 
         for index, layer in enumerate(self.embedding_layers):
             print("[INFO] begin to parse embedding weights: %s" %layer["name"])
-
-            each_key_size = 0
             layer_type = layer["type"]
             embedding_vec_size = layer["sparse_embedding_hparam"]["embedding_vec_size"]
             max_vocab_size_per_gpu = layer["sparse_embedding_hparam"]["max_vocabulary_size_per_gpu"]
-
             vocabulary_size = max_vocab_size_per_gpu * len(self.gpus)
-
-            if layer_type == "DistributedSlotSparseEmbeddingHash":
-                # sizeof(TypeHashKey) + sizeof(float) * embedding_vec_size
-                each_key_size = self.key_type_map[self.key_type][1] + 4 * embedding_vec_size
-
-            elif layer_type == "LocalizedSlotSparseEmbeddingHash":
-                # sizeof(TypeHashKey) + sizeof(size_t) + sizeof(float) * embedding_vec_size
-                each_key_size = self.key_type_map[self.key_type][1] + 8 + 4 * embedding_vec_size
-
             embedding_table = np.zeros(shape=(vocabulary_size, embedding_vec_size), dtype=np.float32)
 
-            with open(self.sparse_model_names[index], 'rb') as file:
+            with open(self.sparse_model_names[index]+ "/key", 'rb') as key_file, \
+                 open(self.sparse_model_names[index]+ "/emb_vector", 'rb') as vec_file:
                 try:
                     while True:
-                        buffer = file.read(each_key_size)
-                        if len(buffer) == 0:
+                        key_buffer = key_file.read(self.key_type_map[self.key_type][1])
+                        vec_buffer = vec_file.read(4 * embedding_vec_size)
+                        if len(key_buffer) == 0 or len(vec_buffer) == 0:
                             break
                         
                         if layer_type == "DistributedSlotSparseEmbeddingHash":
-                            key = struct.unpack(self.key_type_map[self.key_type][0], buffer[0: self.key_type_map[self.key_type][1]])
-                            values = struct.unpack(str(embedding_vec_size) + "f", buffer[self.key_type_map[self.key_type][1]: ])
+                            key = struct.unpack(self.key_type_map[self.key_type][0], key_buffer)[0]
+                            values = struct.unpack(str(embedding_vec_size) + "f", vec_buffer)
 
                         elif layer_type == "LocalizedSlotSparseEmbeddingHash":
-                            key = struct.unpack(self.key_type_map[self.key_type][0], buffer[0 : self.key_type_map[self.key_type][1]])[0]
-                            slot_id = struct.unpack("Q", buffer[self.key_type_map[self.key_type][1] : self.key_type_map[self.key_type][1] + 8])[0]
-                            values = struct.unpack(str(embedding_vec_size) + "f", buffer[self.key_type_map[self.key_type][1] + 8: ])
+                            key = struct.unpack(self.key_type_map[self.key_type][0], key_buffer)[0]
+                            values = struct.unpack(str(embedding_vec_size) + "f", vec_buffer)
 
                         embedding_table[key] = values
 
@@ -204,7 +194,7 @@ class DumpToTF(object):
         pass
 
     def get_key_type(self):
-        return self.key_type
+        return self.data_key_type
 
 
 if __name__ == "__main__":
