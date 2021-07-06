@@ -119,20 +119,9 @@ $ make -j
 ```
 
 ## Use Cases ##
-The Python interface can be used to quickly and easily train models while the C++ interface can be used to train with one-hot/multi-hot data.
+Starding from v3.1, HugeCTR will not support the training with command line and configuration file. The Python interface will be the standard usage in model training. 
 
-### Training Models with the Python Interface
-If you are already using a configuration file to train models on HugeCTR, you'll only have to locate the `hugectr.so` file when training models using the Python interface. For more information about training models using the Python interface, see [Python Interface](./python_interface.md#about-hugectr-python-interface).
-
-You'll also need to set the `PYTHONPATH` environment variable. You can still configure your model in your configuration file, but the training options such as `batch_size` must be specified through `hugectr.solver_parser_helper()` in Python. For more information regarding how to use the HugeCTR Python API and comprehend its API signature, see our [Jupyter Notebook Tutorial](../notebooks/python_interface.ipynb).
-
-### Training One-Hot and Multi-Hot Data with the C++ Interface
-If training with a single node using the C++ interface, run the following command:
-```shell
-$ huge_ctr --train <config>.json
-```
-
-You'll need to create a configuration file in order to train with one-hot and multi-hot data. To load a particular snapshot, modify the `dense_model_file` and `sparse_model_file` files within the solver clause for that snapshot. For more information, see [Python Interface](./python_interface.md#about-hugectr-python-interface) and [samples](../samples).
+For more information regarding how to use the HugeCTR Python API and comprehend its API signature, see our [Python Interface Introduction](./python_interface.md).
 
 ## Core Features ##
 In addition to single node and full precision training, HugeCTR supports a variety of features including the following:
@@ -146,10 +135,7 @@ In addition to single node and full precision training, HugeCTR supports a varie
 ### Multi-Node Training ###
 Multi-node training makes it easy to train an embedding table of arbitrary size. In a multi-node solution, the sparse model, which is referred to as the embedding layer, is distributed across the nodes. Meanwhile, the dense model, such as DNN, is data parallel and contains a copy of the dense model in each GPU (see Fig. 2). In our implementation, HugeCTR leverages NCCL for high speed and scalable inter- and intra-node communication.
 
-To run with multiple nodes, HugeCTR should be built with OpenMPI. GPUDirect support is recommended for high performance. Additionally, the configuration file and model files should be located in the Network File System and be visible to each of the processes. Here's an example of how your command should be set up when running in two nodes:
-```shell
-$ mpirun -N2 ./huge_ctr --train config.json
-```
+To run with multiple nodes, HugeCTR should be built with OpenMPI. GPUDirect support is recommended for high performance. Please find dcn multi-node training sample [here](../samples/dcn/dcn_2node_8gpu.py) 
 
 ### Mixed Precision Training ###
 Mixed precision training is supported to help improve and reduce the memory throughput footprint. In this mode, TensorCores are used to boost performance for matrix multiplication-based layers, such as `FullyConnectedLayer` and `InteractionLayer`, on Volta, Turing, and Ampere architectures. For the other layers, including embeddings, the data type is changed to FP16 so that both memory bandwidth and capacity are saved. To enable mixed precision mode, specify the mixed_precision option in the configuration file. When [`mixed_precision`](https://arxiv.org/abs/1710.03740) is set, the full FP16 pipeline will be triggered. Loss scaling will be applied to avoid the arithmetic underflow (see Fig. 5). Mixed precision training can be enabled using the configuration file.
@@ -162,19 +148,7 @@ Mixed precision training is supported to help improve and reduce the memory thro
 ### SGD Optimizer and Learning Rate Scheduling ###
 Learning rate scheduling allows users to configure its hyperparameters. You can set the base learning rate (`learning_rate`), number of initial steps used for warm-up (`warmup_steps`), when the learning rate decay starts (`decay_start`), and the decay period in step (`decay_steps`). Fig. 6 illustrates how these hyperparameters interact with the actual learning rate.
 
-For example:
-```json
-"optimizer": {
-  "type": "SGD",
-  "update_type": "Local",
-  "sgd_hparam": {
-    "learning_rate": 24.0,
-    "warmup_steps": 8000,
-    "decay_start": 48000,
-    "decay_steps": 24000
-  }
-}
-```
+Please find more information under [Python Interface Introduction](./python_interface.md).
 
 <div align=center><img width="439" height="282" src="user_guide_src/learning_rate_scheduling.png"/></div>
 <div align=center>Fig. 6: Learning Rate Scheduling</div>
