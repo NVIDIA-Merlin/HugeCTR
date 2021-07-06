@@ -169,6 +169,8 @@ def dcn_model(args):
                                         in_feature=concat2.shape[1],
                                         out_feature=num_output)
         fc4 = innerproduct_layer(concat2, weight_fc4, bias_fc4)
+        
+        sigmoid1 = tf.nn.sigmoid(fc4)
 
         # check whether all dense weights are parsed.
         dump.read_dense_complete()
@@ -186,7 +188,7 @@ def dcn_model(args):
         # check inference output
         label, dense, keys = read_a_sample_for_dcn(args, dump.get_key_type())
         keys[keys == -1] = vocabulary_size # map -1 to invalid zeros embedding feature
-        output = sess.run(fc4, feed_dict={dense_input: dense,
+        output = sess.run(sigmoid1, feed_dict={dense_input: dense,
                                           sparse_input: keys})
         print("[INFO] output = %f" %output)
 
@@ -325,6 +327,8 @@ def criteo_model(args):
                                                 in_feature=relu3.shape[1],
                                                 out_feature=num_output)
         fc4 = innerproduct_layer(relu3, weight_fc4, bias_fc4)
+        
+        sigmoid1 = tf.nn.sigmoid(fc4)
 
         # check whether all dense weights are parsed
         dump.read_dense_complete()
@@ -342,7 +346,7 @@ def criteo_model(args):
         # check inference output
         label, dense, keys = read_a_sample_for_criteo(args, dump.get_key_type())
         keys[keys == -1] = vocabulary_size # map -1 to invalid zeros embedding feature
-        output = sess.run(fc4, feed_dict={sparse_input: keys})
+        output = sess.run(sigmoid1, feed_dict={sparse_input: keys})
         print("[INFO] output = %f" %output)
 
         # save checkpoint
