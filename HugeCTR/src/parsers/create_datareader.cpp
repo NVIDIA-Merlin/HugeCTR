@@ -81,6 +81,7 @@ void create_datareader<TypeKey>::operator()(
     CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
   }
 
+  // TODO(MLPERF): they are not used by aysnc reader
 #ifdef VAL
   const int num_workers = 1;
 #else
