@@ -82,6 +82,7 @@ void CommonPybind(pybind11::module& m) {
       .value("Concat", HugeCTR::Layer_t::Concat)
       .value("CrossEntropyLoss", HugeCTR::Layer_t::CrossEntropyLoss)
       .value("Dropout", HugeCTR::Layer_t::Dropout)
+      .value("ElementwiseMultiply", HugeCTR::Layer_t::ElementwiseMultiply)
       .value("ELU", HugeCTR::Layer_t::ELU)
       .value("InnerProduct", HugeCTR::Layer_t::InnerProduct)
       .value("FusedInnerProduct", HugeCTR::Layer_t::FusedInnerProduct)
@@ -129,6 +130,7 @@ void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::metrics::Type>(m, "MetricsType")
       .value("AUC", HugeCTR::metrics::Type::AUC)
       .value("AverageLoss", HugeCTR::metrics::Type::AverageLoss)
+      .value("HitRate", HugeCTR::metrics::Type::HitRate)
       .export_values();
 }
 
