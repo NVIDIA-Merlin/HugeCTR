@@ -52,6 +52,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING = {
   {Layer_t::DotProduct, "DotProduct"},
   {Layer_t::CrossEntropyLoss, "CrossEntropyLoss"},
   {Layer_t::MultiCrossEntropyLoss, "MultiCrossEntropyLoss"},
+  {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
   {Layer_t::MultiCross, "MultiCross"}};
 
 std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
@@ -72,6 +73,7 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
   {Layer_t::Add, "Add"},
   {Layer_t::ReduceSum, "ReduceSum"},
   {Layer_t::DotProduct, "DotProduct"},
+  {Layer_t::ElementwiseMultiply, "ElementwiseMultiply"},
   {Layer_t::FusedInnerProduct, "FusedInnerProduct"},
   {Layer_t::MultiCross, "MultiCross"}};
 

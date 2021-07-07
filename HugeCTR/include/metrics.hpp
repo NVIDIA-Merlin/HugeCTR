@@ -32,7 +32,7 @@ namespace metrics {
 
 using CountType = u_int32_t;
 enum class RawType { Loss, Pred, Label };
-enum class Type { AUC, AverageLoss };
+enum class Type { AUC, AverageLoss, HitRate };
 
 using RawMetricMap = std::map<RawType, TensorBag2>;
 
@@ -74,6 +74,38 @@ class AverageLoss : public Metric {
   float loss_global_;
   int n_batches_;
 };
+
+
+template <typename T>
+class HitRate : public Metric {
+ public:
+  using PredType = T;
+  using LabelType = float;
+  HitRate(int batch_size_per_gpu,
+      const std::shared_ptr<ResourceManager>& resource_manager);
+  ~HitRate() override;
+
+  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
+  void global_reduce(int n_nets) override;
+  float finalize_metric() override;
+  std::string name() const override { return "HitRate"; };
+
+ private:
+  void free_all();
+
+  std::shared_ptr<ResourceManager> resource_manager_;
+  int batch_size_per_gpu_;
+  int n_batches_;
+  int num_local_gpus_;
+
+  std::vector<int*> checked_count_;
+  std::vector<int*> hit_count_;
+  std::vector<int> checked_local_;
+  std::vector<int> hits_local_;
+  int checked_global_;
+  int hits_global_;
+};
+
 
 class AUCStorage {
   public:
@@ -119,15 +151,16 @@ class AUCStorage {
     void realloc_workspace(size_t temp_storage);
     void free_all();
 
+    float*     ptr_preds_1_                = nullptr;
+    float*     ptr_labels_1_               = nullptr;
+    float*     ptr_preds_2_                = nullptr;
+    float*     ptr_labels_2_               = nullptr;
+
   private:
     const float reallocate_factor_ = 1.2f;
     size_t allocated_temp_storage_ = 0;
     size_t num_allocated_redistributed_ = 0;
 
-    float*     ptr_preds_1_                = nullptr;
-    float*     ptr_labels_1_               = nullptr;
-    float*     ptr_preds_2_                = nullptr;
-    float*     ptr_labels_2_               = nullptr;
     CountType* ptr_local_bins_             = nullptr;
     CountType* ptr_global_bins_            = nullptr;
     CountType* ptr_global_bins_sum_        = nullptr;
@@ -204,6 +237,47 @@ class AUC : public Metric {
   std::vector<size_t> offsets_;
   std::vector<AUCStorage> storage_;
 };
+
+/*
+template <typename T>
+class HitRate: public Metric {
+ public:
+  using PredType = T;
+  using LabelType = float;
+  HitRate(int batch_size_per_gpu, int n_batches,
+      const std::shared_ptr<ResourceManager>& resource_manager);
+  ~HitRate() override;
+
+  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
+  void global_reduce(int n_nets) override;
+  float finalize_metric() override;
+  std::string name() const override { return "HitRate"; };
+
+  // Public in order to use device lambda
+  float _finalize_metric_per_gpu(int device_id);
+
+ private:
+  const float pred_min_ = 0.0f;
+  const float pred_max_ = 1.0f;
+  const int num_bins_per_gpu_ = 10000;
+
+  std::shared_ptr<ResourceManager> resource_manager_;
+
+  int n_batches_;
+  int num_local_gpus_;
+  int num_global_gpus_;
+  int batch_size_per_gpu_;
+  int num_bins_;
+  int num_partitions_;
+  size_t num_total_samples_;
+
+  AUCBarrier barrier_;
+
+  std::vector<size_t> offsets_;
+  std::vector<AUCStorage> storage_;
+};
+*/
+
 
 }  // namespace metrics
 
