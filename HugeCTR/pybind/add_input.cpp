@@ -110,27 +110,6 @@ void add_input(Input& input, DataReaderParams& reader_params,
     slot_sum += slot_size;
   }
 
-  if (!repeat_dataset && (format == DataReaderType_t::Norm || format == DataReaderType_t::Parquet)) {
-    std::ifstream train_read_stream(source_data, std::ifstream::in);
-    std::ifstream eval_read_stream(eval_source, std::ifstream::in);
-    if (!train_read_stream.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "file list open failed: " + source_data);
-    }
-    if (!eval_read_stream.is_open()) {
-      CK_THROW_(Error_t::FileCannotOpen, "file list open failed: " + eval_source);
-    }
-    std::string train_buff, eval_buff;
-    std::getline(train_read_stream, train_buff);
-    std::getline(eval_read_stream, eval_buff);
-    int train_num_of_files = std::stoi(train_buff);
-    int eval_num_of_files = std::stoi(eval_buff);
-    if (train_num_of_files % num_workers != 0 || eval_num_of_files % num_workers != 0) {
-        MESSAGE_("WARNING: the number of data reader workers is not a divisor of the number of data files. \
-                                             In epoch mode, this may cause more than expected batches to be discarded.");
-    }
-    train_read_stream.close();
-  }
-
   switch (format) {
     case DataReaderType_t::Norm: {
       bool start_right_now = repeat_dataset;
