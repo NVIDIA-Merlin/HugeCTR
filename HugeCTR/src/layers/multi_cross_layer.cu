@@ -28,6 +28,28 @@
 #include <utils.hpp>
 #include <vector>
 
+/** Overload of built-in atomicAdd for support on Pascal architectures */
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600 && __CUDA_ARCH__ < 700
+
+__inline__ __device__ __half atomicAdd(__half* address, __half val) {
+  size_t base_offset = ((size_t)address & 2);
+  uint32_t* base_address = (uint32_t*)((char*)(address) - base_offset);
+
+  uint32_t old = *base_address, assumed;
+  do {
+    assumed = old;
+    {
+      __half assumed_f16 = __ushort_as_half((uint16_t)(assumed >> (base_offset << 3)));
+      uint32_t new_val = assumed;
+      ((uint16_t*)(&new_val))[base_offset >> 1] = __half_as_ushort(__hadd(assumed_f16, val));
+      old = atomicCAS(base_address, assumed, new_val);
+    }
+  } while (assumed != old);
+  return __ushort_as_half((uint16_t)(old >> (base_offset << 3)));
+}
+
+#endif  // defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600 && __CUDA_ARCH__ < 700
+
 namespace HugeCTR {
 
 // kernels
