@@ -21,6 +21,7 @@
 #include <layers/concat_layer.hpp>
 #include <layers/dot_product_layer.hpp>
 #include <layers/dropout_layer.hpp>
+#include <layers/elementwise_multiply_layer.hpp>
 #include <layers/elu_layer.hpp>
 #include <layers/fm_order2_layer.hpp>
 #include <layers/fully_connected_layer.hpp>
@@ -892,6 +893,23 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         }
         break;
       }
+      case Layer_t::ElementwiseMultiply: {
+        if (use_mixed_precision) {
+          Tensors2<__half> in_tensors;
+          for (const auto& bag : input_output_info.inputs) {
+            in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
+          }                                                                                                                                    Tensor2<__half> out_tensor;
+          blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+          layers.emplace_back(
+              new ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));                                         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        } else {                                                                                                                               Tensors2<float> in_tensors;
+          for (const auto& bag : input_output_info.inputs) {
+            in_tensors.push_back(Tensor2<float>::stretch_from(bag));                                                                           }
+          Tensor2<float> out_tensor;
+          blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+          layers.emplace_back(                                                                                                                     new ElementwiseMultiplyLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        }                                                                                                                                    break;                                                                                                                             } 
       default:
         assert(!"Error: no such layer && should never get here!");
     }  // end of switch

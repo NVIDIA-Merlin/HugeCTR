@@ -12,6 +12,7 @@ This document introduces different layer classes and corresponding methods in th
   * [MultiCross Layer](#multicross-layer)
   * [FmOrder2 Layer](#fmorder2-layer)
   * [WeightMultiply Layer](#weightmultiply-layer)
+  * [ElementwiseMultiply Layer](#elementwisemultiply-layer)
   * [BatchNorm Layer](#batchnorm-layer)
   * [Concat Layer](#concat-layer)
   * [Reshape Layer](#reshape-layer)
@@ -155,7 +156,7 @@ hugectr.DenseLayer()
 `DenseLayer` specifies the parameters related to the dense layer or the loss function. HugeCTR currently supports multiple dense layers and loss functions. Please **NOTE** that the final sigmoid function is fused with the loss function to better utilize memory bandwidth.
 
 **Arguments**
-* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.DotProduct`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
+* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.DotProduct`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.Layer_t.ElementwiseMultiply`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
 
 * `bottom_names`: List[str], the list of bottom tensor names to be consumed by this dense layer. Each name in the list should be the predefined tensor name. There is NO default value and it should be specified by users.
 
@@ -275,6 +276,23 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.WeightMultiply,
                             top_names = ["fmorder2"],
                             weight_dims = [13, 10]),
                             weight_init_type = hugectr.Initializer_t.XavierUniform)
+```
+
+### ElementwiseMultiply Layer
+The ElementwiseMultiply Layer maps two inputs into a single resulting vector by performing an element-wise multiplication of the two inputs.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: 2x(batch_size, num_elem)
+* output: (batch_size, num_elem)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ElementwiseMultiply,
+                            bottom_names = ["slice1","slice2"],
+                            top_names = ["eltmultiply1"])
 ```
 
 ### BatchNorm Layer 
