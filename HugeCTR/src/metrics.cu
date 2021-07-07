@@ -343,6 +343,9 @@ std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision
     case Type::AverageLoss:
       ret.reset(new AverageLoss<float>(resource_manager));
       break;
+    case Type::HitRate:
+      ret.reset(new HitRate<float>(batch_size_eval, resource_manager));
+      break;
   }
   return ret;
 }
@@ -410,6 +413,7 @@ float AverageLoss<T>::finalize_metric() {
   n_batches_ = 0;
   return ret;
 }
+
 
 
 void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
@@ -573,6 +577,7 @@ int get_num_valid_samples(int global_device_id, int current_batch_size, int batc
   int remaining = current_batch_size - global_device_id*batch_per_gpu;
   return std::max(std::min(remaining, batch_per_gpu), 0); 
 }
+
 
 template <typename T>
 void AUC<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
@@ -877,9 +882,149 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
   return *st.d_auc();
 }
 
+
+
+// HitRate Metric function implementations
+template <typename T>
+HitRate<T>::HitRate(int batch_size_per_gpu, const std::shared_ptr<ResourceManager>& resource_manager)
+    : Metric(),
+      batch_size_per_gpu_(batch_size_per_gpu),
+      resource_manager_(resource_manager),
+      num_local_gpus_ (resource_manager_->get_local_gpu_count()),
+      checked_count_(resource_manager_->get_local_gpu_count()),
+      hit_count_(resource_manager_->get_local_gpu_count()),
+      checked_local_(std::vector<int>(resource_manager->get_local_gpu_count(), 0)),
+      hits_local_(std::vector<int>(resource_manager->get_local_gpu_count(), 0)),
+      hits_global_(0),
+      checked_global_(0),
+      n_batches_(0) {
+      
+  for (int i=0; i<num_local_gpus_; i++) {
+    int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
+    CudaDeviceContext context(device_id);
+
+    CK_CUDA_THROW_(cudaMalloc((void**)(&(checked_count_[i])), sizeof(int)));
+    CK_CUDA_THROW_(cudaMalloc((void**)(&(hit_count_[i])), sizeof(int)));
+  }
+
+}
+
+template<typename T>
+void HitRate<T>::free_all() {
+  for (int i=0; i<num_local_gpus_; i++) {
+    int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
+    CudaDeviceContext context(device_id);
+    CK_CUDA_THROW_(cudaFree(checked_count_[i]));
+    CK_CUDA_THROW_(cudaFree(hit_count_[i]));
+  }
+}
+
+template <typename T>
+HitRate<T>::~HitRate() {
+  free_all();
+}
+
+template <typename T>
+__global__ void collect_hits(T* preds, T* labels, int num_samples, int* checked, int* hits) {
+  for(int i=blockIdx.x*blockDim.x+threadIdx.x; i<num_samples; i+=blockDim.x*gridDim.x) {
+    if(preds[i] > 0.8) {
+      atomicAdd(checked, 1);
+      if(labels[i] == 1.0) {
+        atomicAdd(hits, 1);
+      }
+    }
+  }
+}
+
+template <typename T>
+void HitRate<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
+
+  const auto& local_gpu = resource_manager_->get_local_gpu(local_gpu_id);
+  CudaDeviceContext context(local_gpu->get_device_id());
+
+  int global_device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_global_id();
+  int num_valid_samples = get_num_valid_samples(global_device_id,
+                                                current_batch_size_, batch_size_per_gpu_);
+
+  Tensor2<T> pred_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Pred ]);
+  Tensor2<T> label_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Label]);
+
+  dim3 grid(160, 1, 1);
+  dim3 block(1024, 1, 1);
+
+  cudaMemsetAsync(checked_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream());
+  cudaMemsetAsync(hit_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream());
+
+  collect_hits<T><<<grid,block,0,local_gpu->get_stream()>>>(pred_tensor.get_ptr(), label_tensor.get_ptr(), num_valid_samples, checked_count_[local_gpu_id], hit_count_[local_gpu_id]);
+  int checked_host = 0;
+  int hits_host = 0;
+  CK_CUDA_THROW_(
+      cudaMemcpyAsync(&checked_host, checked_count_[local_gpu_id], sizeof(int), cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+  checked_local_[local_gpu_id] = checked_host;
+  CK_CUDA_THROW_(
+      cudaMemcpyAsync(&hits_host, hit_count_[local_gpu_id], sizeof(int), cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+  hits_local_[local_gpu_id] = hits_host;
+}
+
+template <typename T>
+void HitRate<T>::global_reduce(int n_nets) {
+  int checked_inter = 0;
+  int hits_inter = 0;
+
+  for(auto& hits_local : hits_local_) {
+    hits_inter += hits_local;
+  }
+  for(auto& checked_local : checked_local_) {
+    checked_inter += checked_local;
+  }
+
+#ifdef ENABLE_MPI
+  if (resource_manager_->get_num_process() > 1) {
+    int hits_reduced = 0;
+    int checked_reduced = 0;
+    CK_MPI_THROW_(MPI_Reduce(&hits_inter, &hits_reduced, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
+    CK_MPI_THROW_(MPI_Reduce(&checked_inter, &checked_reduced, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
+    hits_inter = hits_reduced;
+    checked_inter = checked_reduced;
+  }
+#endif
+
+  hits_global_ += hits_inter;
+  checked_global_ += checked_inter;
+  
+  n_batches_++;
+}
+
+template <typename T>
+float HitRate<T>::finalize_metric() {
+
+  float ret = 0.0f;
+  if (resource_manager_->is_master_process()) {
+    if (n_batches_) {
+      ret = ((float)hits_global_) / (float)(checked_global_);
+    }
+  }
+#ifdef ENABLE_MPI
+  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+  CK_MPI_THROW_(MPI_Bcast(&ret, 1, MPI_FLOAT, 0, MPI_COMM_WORLD));
+#endif
+  hits_global_ = 0;
+  checked_global_ = 0;
+  for (auto& hits_local : hits_local_) {
+    hits_local = 0;
+  }
+  for (auto& checked_local : checked_local_) {
+    checked_local = 0;
+  }
+  n_batches_ = 0;
+  return ret;
+}
+
+
 template class AverageLoss<float>;
 template class AUC<float>;
 template class AUC<__half>;
+template class HitRate<float>;
 
 }  // namespace metrics
 

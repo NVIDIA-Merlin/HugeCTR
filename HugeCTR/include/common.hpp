@@ -138,7 +138,8 @@ enum class Layer_t {
   ReduceSum,
   MultiCross,
   Cast,
-  DotProduct
+  DotProduct,
+  ElementwiseMultiply
 };
 
 enum class Embedding_t {
