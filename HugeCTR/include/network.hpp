@@ -111,7 +111,7 @@ class Network {
   /**
    * Forward only.
    */
-  void eval();
+  void eval(long long current_batchsize);
 
   /**
    * Forward only for inference.

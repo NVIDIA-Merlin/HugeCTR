@@ -792,7 +792,18 @@ bool Model::train() {
                 "Start the data reader first before calling Model::train()");
     }
 #ifndef DATA_READING_TEST
-    long long current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release();
+    // TODO: assuming the there are enough training iterations, incomplete batches
+    // are discarded, so that we can bypass the runtime error in the epoch mode,
+    // whilst maintaining the dense network training logic.
+    // To minimize the wasted batches, consider to adjust # of data reader workers.
+    // For instance, with a file list source, set "num_workers" to a dvisior of
+    // the number of data files in the file list.
+    // We will look into some alternatives in the long term.
+    long long current_batchsize = 0;
+    while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
+           (current_batchsize < train_data_reader_->get_full_batchsize())) {
+      train_data_reader_->ready_to_collect();
+    }
     if (!current_batchsize) {
       return false;
     }
@@ -848,13 +859,18 @@ bool Model::eval() {
     if (evaluate_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::eval()");
     }
-    long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device();
+    long long current_batchsize = 0;
+    while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
+           (current_batchsize < evaluate_data_reader_->get_full_batchsize())) {
+      evaluate_data_reader_->ready_to_collect();
+    }
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
     }
     if (!current_batchsize) {
       return false;
     }
+    evaluate_data_reader_->ready_to_collect();
 #ifndef DATA_READING_TEST
     for (auto& one_embedding : embeddings_) {
       one_embedding->forward(false);
@@ -864,14 +880,17 @@ bool Model::eval() {
 #pragma omp parallel num_threads(networks_.size())
       {
         size_t id = omp_get_thread_num();
-        networks_[id]->eval();
+        long long current_batchsize_per_device =
+            evaluate_data_reader_->get_current_batchsize_per_device(id);
+        networks_[id]->eval(current_batchsize_per_device);
         for (auto& metric : metrics_) {
           metric->local_reduce(id, networks_[id]->get_raw_metrics());
         }
       }
-
     } else if (networks_.size() == 1) {
-      networks_[0]->eval();
+      long long current_batchsize_per_device =
+            evaluate_data_reader_->get_current_batchsize_per_device(0);
+      networks_[0]->eval(current_batchsize_per_device);
       for (auto& metric : metrics_) {
         metric->local_reduce(0, networks_[0]->get_raw_metrics());
       }
