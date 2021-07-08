@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-#include "embeddings/embedding_lookuper.h"
+#include "parameters/dumping_functions.h"
+#include "common/include/forward_functions.cuh"
 
 namespace SparseOperationKit {
 
-EmbeddingLookuper::EmbeddingLookuper(ConstructionContext_t construction_context, 
-                                     std::shared_ptr<ParamInterface> param)
-: Operation(construction_context), param_(param) 
-{}
+void get_hash_value(size_t count, size_t embedding_vec_size, const size_t *value_index,
+                const float *embedding_table, float *value_retrieved,
+                cudaStream_t stream) {
+const size_t block_size = embedding_vec_size;
+const size_t grid_size = count;
 
-bool EmbeddingLookuper::save_params(const std::string filepath) const {
-    // by default, this operation does nothing, which means it does 
-    // not help ParamInterface to saving parameters to file, 
-    // so that false is returned.
-    // If an instance want to save_params for ParamInterface, then 
-    // true should be returned.
-    return false;
+HugeCTR::get_hash_value_kernel<<<grid_size, block_size, 0, stream>>>(count, embedding_vec_size,
+                                                value_index, embedding_table, value_retrieved);
 }
 
 } // namespace SparseOperationKit

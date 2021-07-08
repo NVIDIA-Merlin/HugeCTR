@@ -40,17 +40,15 @@ public:
     virtual std::shared_ptr<Tensor>& get_embedding_table_tensor(const size_t local_replica_id) = 0;
     std::shared_ptr<Tensor>& get_tensor(const size_t local_replica_id) override;
     virtual std::string get_var_name() const = 0;
-    virtual void dump_to_file(const std::string filename) = 0;
-    virtual void restore_from_file(const std::string filename) = 0;
-    virtual void load_tensors_to_memory(const std::vector<std::shared_ptr<Tensor>>& tensors) = 0;
+    virtual void dump_to_file(const std::string filepath) = 0;
+    virtual void restore_from_file(const std::string filepath) = 0;
+    virtual void load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensors) = 0;
     // It is not compulsory for the subclass to override this function.
     virtual void set_user(std::shared_ptr<EmbeddingLayer>& embedding);
+    virtual void let_user_dump_to_file(const std::string filepath);
+    virtual void let_user_restore_from_file(const std::string filepath);
+    virtual void let_user_load_embedding_values(const std::vector<std::shared_ptr<Tensor>> &tensor_list);
 };
-
-void GetParamFromVariantTensor(const tensorflow::Tensor* tensor,
-                               std::shared_ptr<ParamInterface>& out_param);
-void StoreParamInVariantTensor(const std::shared_ptr<ParamInterface>& param, 
-                               tensorflow::Tensor* tensor);
 
 } // namespace SparseOperationKit 
 

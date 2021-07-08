@@ -28,17 +28,25 @@ class RestoreFromFileOp : public OpKernel {
 public:
     explicit RestoreFromFileOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
     void Compute(OpKernelContext* ctx) override {
-        const Tensor* var_handle_tensor = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->input("var_handle", &var_handle_tensor));
-        const Tensor* filename_tensor = nullptr;
-        OP_REQUIRES_OK(ctx, ctx->input("filename", &filename_tensor));
+        core::RefCountPtr<EmbeddingVariable> variable;
+        const ResourceHandle &handle = HandleFromInput(ctx, 0);
+        auto status = LookupResource(ctx, handle, &variable);
+        OP_REQUIRES(ctx, status.ok(), 
+                        errors::FailedPrecondition(
+                            "Error in reading EmbeddingVariable: ", handle.name(),
+                            " from container: ", handle.container(),
+                            ". This coule mean that you haven't create it. ",
+                            status.ToString()));
+
+        const Tensor* filepath_tensor = nullptr;
+        OP_REQUIRES_OK(ctx, ctx->input("filepath", &filepath_tensor));
 
         Tensor* status_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {}, &status_tensor));
 
         try {
-            SparseOperationKit::Facade::instance()->restore_from_file(var_handle_tensor, 
-                                            filename_tensor->flat<tstring>()(0));
+            SparseOperationKit::Facade::instance()->restore_from_file(variable, 
+                                            filepath_tensor->flat<tstring>()(0));
         } catch (const std::exception& error) {
             ctx->SetStatus(errors::Aborted(error.what()));
             return;
@@ -48,7 +56,9 @@ public:
 };
 
 REGISTER_KERNEL_BUILDER(Name("RestoreFromFile")
-                        .Device(DEVICE_CPU),
-                        RestoreFromFileOp<CPUDevice>);
+                        .Device(DEVICE_GPU)
+                        .HostMemory("var_handle")
+                        .HostMemory("filepath"),
+                        RestoreFromFileOp<GPUDevice>);
 
 } // namespace tensorflow

@@ -16,7 +16,7 @@
 
 import argparse
 
-import sys
+import sys, os
 sys.path.append("../../") # where to find plugin
 import sparse_operation_kit as sok
 import tensorflow as tf
@@ -104,7 +104,12 @@ def test_sok_demo(args, init_tensors, *random_samples):
         dense_opt = utils.get_dense_optimizer(args.optimizer)(learning_rate=0.1)
 
     plugin_saver = sok.Saver()
-    status = plugin_saver.load_tensors_to_variable(plugin_demo.embedding_layer.embedding_variable, init_tensors)
+
+    if (1 == args.restore_params): # restore from trained parameters
+        filepath = r"./embedding_variables"
+        plugin_saver.restore_from_file(plugin_demo.embedding_layer.embedding_variable, filepath)
+    else: # initialize using randomized initial value
+        status = plugin_saver.load_embedding_values(plugin_demo.embedding_layer.embedding_variable, init_tensors)
 
     loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
     def _replica_loss(labels, logits):
@@ -149,7 +154,14 @@ def test_sok_demo(args, init_tensors, *random_samples):
         import time
         time.sleep(0.2) # seconds
     
-    return sok_results
+    # save params to file.
+    if 1 == args.save_params:
+        filepath = r"./embedding_variables/"
+        utils.try_make_dirs(filepath)
+
+        plugin_saver.dump_to_file(plugin_demo.embedding_layer.embedding_variable, filepath)
+
+    return sok_results, plugin_demo.embedding_layer.embedding_variable.values[0].m_var_name
 
 def test_tf_demo(args, init_tensors, *random_samples):
     dataset = utils.tf_dataset(*random_samples, batchsize=args.global_batch_size, to_sparse_tensor=True, repeat=1)
@@ -182,7 +194,36 @@ def test_tf_demo(args, init_tensors, *random_samples):
         import time
         time.sleep(0.2) # seconds
 
+    if not hasattr(args, "task_id"):
+        # In single worker, which means MirroedStrategy is used.
+        args.task_id = 0
+    if 1 == args.save_params and args.task_id == 0:
+        filepath = r"./embedding_variables/"
+        utils.save_to_file(os.path.join(filepath, r"tf_variable.file"), 
+                           tf_demo.params.numpy())
+
     return tf_results
+
+def check_saved_embedding_variables(args, embedding_variable_name):
+    filepath = r"./embedding_variables"
+    
+    sok_keys_filename = os.path.join(filepath, embedding_variable_name + r"_keys.file")
+    sok_keys = utils.read_binary_file(sok_keys_filename, element_type="long long")
+    sok_values_filename = os.path.join(filepath, embedding_variable_name + r"_values.file")
+    sok_values = utils.read_binary_file(sok_values_filename, element_type="float")
+
+    sorted_sok_keys, sorted_sok_values = utils.sort_embedding_variables_by_key(sok_keys, sok_values, 
+                                                    embedding_vec_size=args.embedding_vec_size)
+
+    tf_values_filename = os.path.join(filepath, r"tf_variable.file")
+    tf_values = utils.restore_from_file(tf_values_filename)
+    valid_tf_values = utils.get_valid_tf_values(sorted_sok_keys, tf_values[0])
+
+    tf.debugging.assert_near(tf.reshape(sorted_sok_values, 
+                                shape=(sorted_sok_keys.size, args.embedding_vec_size)), 
+                            valid_tf_values, 
+                            atol=1e-4, rtol=1e-4)
+    print("[INFO]: the saved parameters are consistent between sparse operation kit and TensorFlow")
 
 
 def compare_sok_with_tf(args):
@@ -199,11 +240,22 @@ def compare_sok_with_tf(args):
     else:
         random_samples = utils.restore_from_file(r"./random_samples.file")
 
-    init_tensors = utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
-                                         embedding_vec_size=args.embedding_vec_size,
-                                         num=args.gpu_num)
+    if (1 == args.restore_params): # initialize using trained params
+        filepath = r"./embedding_variables"
 
-    sok_results = test_sok_demo(args, init_tensors, *random_samples)
+        # because we already checked the Variable consistency when saving.
+        # so that here we can directly use TensorFlow Variable file to initialize
+        # tf's variable.
+        # FIXME: what if not all TensorFlow embedding vectors are used??
+        tf_values_filename = os.path.join(filepath, r"tf_variable.file")
+        init_tensors = utils.restore_from_file(tf_values_filename)
+
+    else: # initialize using random initial value
+        init_tensors = utils.get_ones_tensor(max_vocab_size_per_gpu=args.max_vocabulary_size_per_gpu,
+                                            embedding_vec_size=args.embedding_vec_size,
+                                            num=args.gpu_num)
+
+    sok_results, embedding_variable_name = test_sok_demo(args, init_tensors, *random_samples)
     tf_results = test_tf_demo(args, init_tensors, *random_samples)
 
     if (len(sok_results) != len(tf_results)):
@@ -223,6 +275,9 @@ def compare_sok_with_tf(args):
     print("\n[INFO]: With MirroredStrategy, the embedding vector obtained from " +\
           "sparse operation kit and tensorflow are consistent for %d iterations." 
           %args.iter_num)
+
+    if (1 == args.save_params):
+        check_saved_embedding_variables(args, embedding_variable_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='test demo model with single worker.')
@@ -255,6 +310,15 @@ if __name__ == "__main__":
     parser.add_argument('--generate_new_datas', type=int, choices=[0, 1],
                         help='whether to generate new random samples',
                         required=False, default=1)
+    parser.add_argument('--save_params', type=int, choices=[0, 1],
+                        help='whether to save the trained parameters.',
+                        required=False, default=0)
+    parser.add_argument('--restore_params', type=int, choices=[0, 1],
+                        help='whether to restore from saved files. '+\
+                             'By default, the testing program will generate random ' +\
+                             'initial value to initialize trainable parameters '+\
+                             'rather than restore trainable parameters from file.',
+                        required=False, default=0)
 
     args = parser.parse_args()
 

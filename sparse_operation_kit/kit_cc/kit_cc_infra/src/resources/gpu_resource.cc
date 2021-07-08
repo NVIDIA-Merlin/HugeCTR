@@ -25,7 +25,8 @@ GpuResource::GpuResource(const size_t local_device_id, const size_t global_devic
                         const uint64_t replica_variant_seed,
                         const ncclComm_t& nccl_comm) 
 : local_device_id_(local_device_id), global_device_id_(global_device_id), 
-out_stream_(false), nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0)
+out_stream_(false), nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0),
+nccl_sync_data_(nullptr)
 {
     CK_CUDA(cudaStreamCreateWithFlags(&computation_stream_, cudaStreamNonBlocking));
     CK_CUDA(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
@@ -44,6 +45,8 @@ out_stream_(false), nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_
     CK_CUDA(cudaDeviceGetAttribute(&sm_count_, cudaDevAttrMultiProcessorCount, local_device_id_));
     CK_CUDA(cudaDeviceGetAttribute(&cc_major_, cudaDevAttrComputeCapabilityMajor, local_device_id_));
     CK_CUDA(cudaDeviceGetAttribute(&cc_minor_, cudaDevAttrComputeCapabilityMinor, local_device_id_));
+
+    CK_CUDA(cudaMalloc(&nccl_sync_data_, sizeof(int32_t) * 1));
 }
 
 GpuResource::GpuResource(const size_t local_device_id, const size_t global_device_id, 
@@ -53,7 +56,8 @@ GpuResource::GpuResource(const size_t local_device_id, const size_t global_devic
                         const cudaStream_t& cuda_stream) 
 : local_device_id_(local_device_id), global_device_id_(global_device_id), 
 computation_stream_(cuda_stream), out_stream_(true), 
-nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0)
+nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0),
+nccl_sync_data_(nullptr)
 {
     CK_CUDA(cudaStreamCreateWithFlags(&memcpy_stream_, cudaStreamNonBlocking));
     CK_CUDA(cudaEventCreateWithFlags(&compute_wait_memcpy_event_, cudaEventDisableTiming));
@@ -71,6 +75,8 @@ nccl_comm_(nccl_comm), sm_count_(0), cc_major_(0), cc_minor_(0)
     CK_CUDA(cudaDeviceGetAttribute(&sm_count_, cudaDevAttrMultiProcessorCount, local_device_id_));
     CK_CUDA(cudaDeviceGetAttribute(&cc_major_, cudaDevAttrComputeCapabilityMajor, local_device_id_));
     CK_CUDA(cudaDeviceGetAttribute(&cc_minor_, cudaDevAttrComputeCapabilityMinor, local_device_id_));
+
+    CK_CUDA(cudaMalloc(&nccl_sync_data_, sizeof(int32_t) * 1));
 }
 
 GpuResource::~GpuResource() {
@@ -82,6 +88,7 @@ GpuResource::~GpuResource() {
         if (!out_stream_) CK_CUDA(cudaStreamDestroy(computation_stream_));
         CK_CUDA(cudaStreamDestroy(memcpy_stream_));
         CK_CUDA(cudaEventDestroy(compute_wait_memcpy_event_));
+        if (nccl_sync_data_) CK_CUDA(cudaFree(nccl_sync_data_));
     } catch (const std::exception& error) {
         std::cerr << error.what() << std::endl;
     }
@@ -150,6 +157,16 @@ void GpuResource::make_comput_wait_memcpy() const {
     CK_CUDA(cudaEventSynchronize(compute_wait_memcpy_event_)); // necessary??
     CK_CUDA(cudaEventRecord(compute_wait_memcpy_event_, memcpy_stream_));
     CK_CUDA(cudaStreamWaitEvent(computation_stream_, compute_wait_memcpy_event_, 0));
+}
+
+void GpuResource::sync_gpu_via_nccl(const cudaStream_t& stream) const {
+    CK_NCCL(ncclAllReduce(/*sendbuff=*/nccl_sync_data_, 
+                          /*recvbuff=*/nccl_sync_data_,
+                          /*count=*/1ul,
+                          /*datatype=*/ncclUint64,
+                          /*op=*/ncclMax,
+                          nccl_comm_,
+                          stream));
 }
 
 } // namespace SparseOperationKit
