@@ -20,7 +20,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-from sparse_operation_kit.kit_lib import create_var, create_embedding_sparse, plugin_sparse_fprop
+from sparse_operation_kit.kit_lib import create_embedding_sparse, plugin_sparse_fprop
 from sparse_operation_kit.core.embedding_variable import EmbeddingVariable
 
 class DistributedEmbedding(tf.keras.layers.Layer):

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -255,6 +255,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
     {"DotProduct", Layer_t::DotProduct},
     {"Dropout", Layer_t::Dropout},
+    {"ElementwiseMultiply", Layer_t::ElementwiseMultiply},
     {"ELU", Layer_t::ELU},
     {"FmOrder2", Layer_t::FmOrder2},
     {"InnerProduct", Layer_t::InnerProduct},
@@ -275,6 +276,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"Concat", Layer_t::Concat},
     {"DotProduct", Layer_t::DotProduct},
     {"Dropout", Layer_t::Dropout},
+    {"ElementwiseMultiply", Layer_t::ElementwiseMultiply},
     {"ELU", Layer_t::ELU},
     {"FmOrder2", Layer_t::FmOrder2},
     {"FusedInnerProduct", Layer_t::FusedInnerProduct},

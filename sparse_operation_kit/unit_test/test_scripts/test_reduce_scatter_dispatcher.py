@@ -61,7 +61,9 @@ class TestReduceScatterDispatcher_single(SingleWorkerbase):
 
         for i in range(len(input_in_each_gpu)):
             tf.debugging.assert_near(target[i], outputs.values[i],
-                                     message="output %d not meet target.")
+                                     message="output %d not meet target.",
+                                     atol=1e-5,
+                                     rtol=1e-5)
 
 
 if __name__ == "__main__":

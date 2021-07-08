@@ -15,7 +15,7 @@
  */
 
 #include "operation/operation_interface.h"
-#include "operation/conversion_kernels.cuh"
+#include "common/include/conversion_kernels.cuh"
 #include "common.cuh"
 #include <cub/cub.cuh>
 
@@ -38,7 +38,8 @@ public:
         csr_row_offsets_cast_.reserve(local_gpu_count);
     }
 
-    void allocate_forward_spaces(size_t const global_batch_size) override {
+    void allocate_forward_spaces() override {
+        const size_t global_batch_size = base_context()->get_global_batch_size();
         for (size_t dev_id = 0; dev_id < resource_mgr_->get_local_gpu_count(); ++dev_id) {
             auto &buffer = base_context()->get_buffer(dev_id);
             auto &host_buffer = base_context()->get_host_buffer(dev_id);
@@ -95,7 +96,7 @@ public:
         } // for dev_id
     }
 
-    void allocate_backward_spaces(size_t const global_batch_size) override {
+    void allocate_backward_spaces() override {
         // it does nothing
     }
 

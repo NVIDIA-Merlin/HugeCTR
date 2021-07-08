@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,14 +91,6 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
     CK_THROW_(Error_t::WrongInput, "Wrong input: The size of parameter server parameters are not correct.");
   }
 
-  auto remove_prefix = [](const std::string& path) {
-    size_t found = path.rfind("/");
-    if (found != std::string::npos)
-      return std::string(path, found + 1);
-    else
-      return path;
-  };
-
   // Load embeddings for each embedding table from each model
   for(unsigned int i = 0; i < model_config_path.size(); i++){
     size_t num_emb_table = (ps_config_.emb_file_name_[i]).size();
@@ -106,10 +98,9 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
     std::vector<std::unordered_map<TypeHashKey, std::vector<float>>> model_emb_table;
     for(unsigned int j = 0; j < num_emb_table; j++){
       // Create input file stream to read the embedding file
-      const std::string emb_file_prefix = ps_config_.emb_file_name_[i][j] + "/" +
-                                          remove_prefix(ps_config_.emb_file_name_[i][j]);
-      const std::string key_file = emb_file_prefix + ".key";
-      const std::string vec_file = emb_file_prefix + ".vec";
+      const std::string emb_file_prefix = ps_config_.emb_file_name_[i][j] + "/";
+      const std::string key_file = emb_file_prefix + "key";
+      const std::string vec_file = emb_file_prefix + "emb_vector";
       std::ifstream key_stream(key_file);
       std::ifstream vec_stream(vec_file);
       // Check if file is opened successfully
@@ -119,7 +110,7 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
       size_t key_file_size_in_byte = fs::file_size(key_file);
       size_t vec_file_size_in_byte = fs::file_size(vec_file);
 
-      size_t key_size_in_byte = sizeof(TypeHashKey);
+      size_t key_size_in_byte = sizeof(long long);
       size_t vec_size_in_byte = sizeof(float) * ps_config_.embedding_vec_size_[i][j];
 
       size_t num_key = key_file_size_in_byte / key_size_in_byte;
@@ -131,8 +122,16 @@ parameter_server<TypeHashKey>::parameter_server(const std::string& framework_nam
 
       // The temp embedding table
       std::vector<TypeHashKey> key_vec(num_key, 0);
+      if (std::is_same<TypeHashKey, long long>::value) {
+        key_stream.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_byte);
+      } else {
+        std::vector<long long> i64_key_vec(num_key, 0);
+        key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
+        std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_vec.begin(),
+                       [](long long key) { return static_cast<unsigned>(key); });
+      }
+
       std::vector<float> vec_vec(num_float_val_in_vec_file, 0.0f);
-      key_stream.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_byte);
       vec_stream.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_byte);
 
       std::unordered_map<TypeHashKey, std::vector<float>> emb_table;

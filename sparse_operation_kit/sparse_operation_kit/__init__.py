@@ -16,6 +16,8 @@
 
 print("[INFO]: %s is imported" %__name__)
 
+from sparse_operation_kit.core._version import __version__
+
 import os
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -33,5 +35,6 @@ from sparse_operation_kit.embeddings import test
 from sparse_operation_kit.core.initialize import Init
 from sparse_operation_kit.core.context_scope import OptimizerScope
 from sparse_operation_kit.embeddings.distributed_embedding import DistributedEmbedding
+from sparse_operation_kit.embeddings.all2all_dense_embedding import All2AllDenseEmbedding
 from sparse_operation_kit.saver.Saver import Saver
 from sparse_operation_kit.optimizers.utils import split_embedding_variable_from_others

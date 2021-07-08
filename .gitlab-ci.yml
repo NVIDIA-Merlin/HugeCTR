@@ -321,7 +321,8 @@ py_inference:
       bash -cx "
       cd /dataset/criteo_kaggle/dcn &&
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
-      python3 ${WORK_DIR}/test/pybind_test/dcn_inference.py ${WORK_DIR}/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt"
+      python3 ${WORK_DIR}/test/pybind_test/dcn_inference.py ${WORK_DIR}/test/scripts/dcn_inference.json DCN /hugectr/test/utest/dcn_csr.txt &&
+      python3 ${WORK_DIR}/test/pybind_test/wdl_multitable_test.py wdl  /hugectr/test/utest/wdl_test_files/wdl_infer.json /hugectr/test/utest/wdl_test_files/wdl_dense_2000.model /hugectr/test/utest/wdl_test_files/wdl0_sparse_2000.model,/hugectr/test/utest/wdl_test_files/wdl1_sparse_2000.model  /hugectr/test/utest/wdl_test_files/first_ten.csv"
 
 py_low_level:
   extends: .cluster_test_train_job
@@ -451,7 +452,7 @@ py_multi_node:
 
 
 # embedding_plugin
-embedding_plugin1:
+embedding_plugin:
   extends: .cluster_test_embedding_job
   script:
     - srun --ntasks=1
@@ -473,8 +474,16 @@ embedding_plugin1:
       --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       bash -cx "
+      cd ${WORK_DIR}/sparse_operation_kit/Deprecated &&
+      python3 unit_test_v2.py --fast_testing=1"
+    - srun --ntasks=1
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${EMBEDDING_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      bash -cx "
       cd ${WORK_DIR}/sparse_operation_kit/unit_test/test_scripts &&
       bash script.sh"
+  timeout: 2 hours
 
 nightly_build_train:
   tags:

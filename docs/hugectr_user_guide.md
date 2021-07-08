@@ -119,20 +119,9 @@ $ make -j
 ```
 
 ## Use Cases ##
-The Python interface can be used to quickly and easily train models while the C++ interface can be used to train with one-hot/multi-hot data.
+Starding from v3.1, HugeCTR will not support the training with command line and configuration file. The Python interface will be the standard usage in model training. 
 
-### Training Models with the Python Interface
-If you are already using a configuration file to train models on HugeCTR, you'll only have to locate the `hugectr.so` file when training models using the Python interface. For more information, see [Configuration File Setup](./configuration_file_setup.md).
-
-You'll also need to set the `PYTHONPATH` environment variable. You can still configure your model in your configuration file, but the training options such as `batch_size` must be specified through `hugectr.solver_parser_helper()` in Python. For more information regarding how to use the HugeCTR Python API and comprehend its API signature, see our [Jupyter Notebook Tutorial](../notebooks/python_interface.ipynb).
-
-### Training One-Hot and Multi-Hot Data with the C++ Interface
-If training with a single node using the C++ interface, run the following command:
-```shell
-$ huge_ctr --train <config>.json
-```
-
-You'll need to create a configuration file in order to train with one-hot and multi-hot data. To load a particular snapshot, modify the `dense_model_file` and `sparse_model_file` files within the solver clause for that snapshot. For more information, see [Configuration File Setup](./configuration_file_setup.md) and [samples](../samples).
+For more information regarding how to use the HugeCTR Python API and comprehend its API signature, see our [Python Interface Introduction](./python_interface.md).
 
 ## Core Features ##
 In addition to single node and full precision training, HugeCTR supports a variety of features including the following:
@@ -146,10 +135,7 @@ In addition to single node and full precision training, HugeCTR supports a varie
 ### Multi-Node Training ###
 Multi-node training makes it easy to train an embedding table of arbitrary size. In a multi-node solution, the sparse model, which is referred to as the embedding layer, is distributed across the nodes. Meanwhile, the dense model, such as DNN, is data parallel and contains a copy of the dense model in each GPU (see Fig. 2). In our implementation, HugeCTR leverages NCCL for high speed and scalable inter- and intra-node communication.
 
-To run with multiple nodes, HugeCTR should be built with OpenMPI. GPUDirect support is recommended for high performance. Additionally, the configuration file and model files should be located in the Network File System and be visible to each of the processes. Here's an example of how your command should be set up when running in two nodes:
-```shell
-$ mpirun -N2 ./huge_ctr --train config.json
-```
+To run with multiple nodes, HugeCTR should be built with OpenMPI. GPUDirect support is recommended for high performance. Please find dcn multi-node training sample [here](../samples/dcn/dcn_2node_8gpu.py) 
 
 ### Mixed Precision Training ###
 Mixed precision training is supported to help improve and reduce the memory throughput footprint. In this mode, TensorCores are used to boost performance for matrix multiplication-based layers, such as `FullyConnectedLayer` and `InteractionLayer`, on Volta, Turing, and Ampere architectures. For the other layers, including embeddings, the data type is changed to FP16 so that both memory bandwidth and capacity are saved. To enable mixed precision mode, specify the mixed_precision option in the configuration file. When [`mixed_precision`](https://arxiv.org/abs/1710.03740) is set, the full FP16 pipeline will be triggered. Loss scaling will be applied to avoid the arithmetic underflow (see Fig. 5). Mixed precision training can be enabled using the configuration file.
@@ -162,19 +148,7 @@ Mixed precision training is supported to help improve and reduce the memory thro
 ### SGD Optimizer and Learning Rate Scheduling ###
 Learning rate scheduling allows users to configure its hyperparameters. You can set the base learning rate (`learning_rate`), number of initial steps used for warm-up (`warmup_steps`), when the learning rate decay starts (`decay_start`), and the decay period in step (`decay_steps`). Fig. 6 illustrates how these hyperparameters interact with the actual learning rate.
 
-For example:
-```json
-"optimizer": {
-  "type": "SGD",
-  "update_type": "Local",
-  "sgd_hparam": {
-    "learning_rate": 24.0,
-    "warmup_steps": 8000,
-    "decay_start": 48000,
-    "decay_steps": 24000
-  }
-}
-```
+Please find more information under [Python Interface Introduction](./python_interface.md).
 
 <div align=center><img width="439" height="282" src="user_guide_src/learning_rate_scheduling.png"/></div>
 <div align=center>Fig. 6: Learning Rate Scheduling</div>
@@ -182,7 +156,7 @@ For example:
 <br></br>
 
 ### Model Oversubscription ###
-Model oversubscription gives you the ability to train a large model up to TeraBytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU's memory, into the GPU in a coarse-grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them (see Fig. 7).<br/>This feature currently supports both single and multi-node training. It supports all embedding types and can be used with [`Norm`](./configuration_file_setup.md#norm) and [`Raw`](https://gitlab-master.nvidia.com/dl/hugectr/hugectr/-/blob/master/docs/configuration_file_setup.md#raw) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to this dataset.
+Model oversubscription gives you the ability to train a large model up to TeraBytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU's memory, into the GPU in a coarse-grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them (see Fig. 7).<br/>This feature currently supports both single and multi-node training. It supports all embedding types and can be used with [Norm](./python_interface.md#norm) and [Raw](./python_interface.md#raw) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to this dataset.
 
 <div align=center><img width="520" height="153" src="user_guide_src/dataset_split.png"/></div>
 <div align=center>Fig. 7: Preprocessing of dataset for model oversubscription</div>
@@ -193,20 +167,18 @@ We currently support the following tools:
 * [Preprocessing Script](#downloading-and-preprocessing-datasets): A set of scripts to convert the original Criteo dataset into HugeCTR using supported dataset formats such as Norm and RAW. It's used in all of our samples to prepare the data and train various recommender models.
 
 ### Generating Synthetic Data and Benchmarks
-The [Norm](./configuration_file_setup.md#norm) (with Header) and [Raw](./configuration_file_setup.md#raw) (without Header) datasets can be generated with `data_generator`. For categorical features, you can configure the probability distribution to be uniform or power-law. The default distribution is uniform.
+The [Norm](./python_interface.md#norm) (with Header) and [Raw](./python_interface.md#raw) (without Header) datasets can be generated with `data_generator`. For categorical features, you can configure the probability distribution to be uniform or power-law. The default distribution is uniform.
 - Using the `Norm` dataset format, run the following command: <br>
 ```bash
 $ data_generator --config-file your_config.json --voc-size-array <vocabulary size array in csv>  --distribution <powerlaw | unified> [option: --nnz-array <nnz array in csv: all one hot>] [option: --alpha xxx or --longtail <long | medium | short>] [option:--data-folder <folder_path: ./>] [option:--files <number of files: 128>] [option:--samples <samples per file: 40960>]
-$ huge_ctr --train your_config.json
 ```
 - Using the `Raw` dataset format, run the following command: <br>
 ```bash
 $ data_generator --config-file your_config.json --distribution <powerlaw | unified> [option: --nnz-array <nnz array in csv: all one hot>] [option: --alpha xxx or --longtail <long | medium | short>]
-$ huge_ctr --train your_config.json
 ```
 
 Set the following parameters:
-+ `config-file`: The JSON configuration file you used in your training. The data generator will read the configuration file to get necessary data information.
++ `config-file`: The JSON configuration file with training specific setting. The data generator will read the configuration file to get necessary data information. Please find samples [data_generate_norm.json](../tools/data_generator/data_generate_norm.json) [../tools/data_generator/data_generate_raw.json]. **Note that every item in the configuration file should match your python training script; for "input_key_type" there are two options: I64 and I32**. 
 + `data_folder`: Directory where the generated dataset is stored. The default value is `./`
 + `voc-size-array`: Vocabulary size per slot of your target dataset. For example, the `voc-size-array` for a dataset with six slots would appear as follows: "--voc-size-array 100,23,111,45,23,2452". There shouldn't be any spaces between numbers. 
 + `nnz-array`: Simulates one-hot or multi-hot encodings. This option doesn't need to be specified if one-hot encodings are being used. If this option specified, the length of the array should be the same as `voc-size-array` for the norm format or `slot_size_array` in the JSON configuration file within the data layer.
@@ -216,15 +188,17 @@ Set the following parameters:
 + `alpha`: If `powerlaw` is specified, `alpha` or `long-tail` can be specified to configure the distribution.  
 + `long-tail`: Characterizes properties of the tail. Available options include: `long`, `medium`, and `short`. If you want to generate data with the powerlaw distribution for categorical features, use this option. The scaling exponent will be 1, 3, and 5 respectively.
 
-Here are two examples of how to generate a one-hot dataset where the vocabulary size is 434428 based on the DCN configuration file.
+Here are two examples of how to generate a one-hot dataset where the vocabulary size is 434428 based on the DCN configuration file. Under `tools/data_generator/`:
 ```bash
-$ ./data_generator --config-file dcn.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
-$ ./data_generator --config-file dcn.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --nnz-array 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 --distribution powerlaw --alpha -1.2
+$ data_generator --config-file data_generate_norm.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --distribution powerlaw --alpha -1.2
+$ data_generator --config-file data_generate_norm.json --voc-size-array 39884,39043,17289,7420,20263,3,7120,1543,39884,39043,17289,7420,20263,3,7120,1543,63,63,39884,39043,17289,7420,20263,3,7120,1543 --nnz-array 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 --distribution powerlaw --alpha -1.2
+$ python data_generate_norm_dcn.py
 ```
 
 Here's an example of how to generate a one-hot dataset using the DLRM configuration file.
 ```bash
-$ ./data_generator --config-file dlrm_fp16_64k.json --distribution powerlaw --alpha -1.2
+$ data_generator --config-file data_generate_raw.json  --distribution powerlaw --alpha -1.2
+$ python data_generate_raw_dlrm.py
 ```
 
 ### Downloading and Preprocessing Datasets

@@ -67,31 +67,37 @@ void EmbeddingManager::create_embedding(const std::shared_ptr<ParamInterface>& p
     // create sparse construction context
     SparseConstructionContext_t construction_context = SparseConstructionContext::create(
                                 resource_mgr_, buffers_, host_buffers_, 
+                                get_replica_batch_size(),
                                 slot_num, max_nnz, max_feature_num, combiner, param);
 
     // produce input_dispatcher
     auto input_dis_builder = InputContainer::instance("input_dispatcher_builders")->get_builder(input_dispatcher);
     std::shared_ptr<Dispatcher> _input_dispatcher = input_dis_builder->produce(construction_context);
+    _input_dispatcher->set_op_name(input_dispatcher);
     
     // produce input_dispatcher subsequent operations
     for (auto op_name : input_dispatcher_subsequent_ops) {
         auto builder = OperationContainer::instance("operation_builders")->get_builder(op_name);
         std::shared_ptr<Operation> _operation = builder->produce(construction_context);
+        _operation->set_op_name(op_name);
         _input_dispatcher->set_next(_operation); // link this op to input_dispatcher
     } // for op_name in input_dispatcher_subsequent_ops
 
     // produce embedding executor
     auto emb_lookuper_builder = LookuperContainer::instance("embedding_lookuper_builders")->get_builder(embedding_executor);
     std::shared_ptr<EmbeddingLookuper> _embedding_lookuper = emb_lookuper_builder->produce(construction_context, param);
+    _embedding_lookuper->set_op_name(embedding_executor);
 
     // produce output_dispatcher
     auto output_dis_builder = OutputContainer::instance("output_dispatcher_builders")->get_builder(output_dispatcher);
     std::shared_ptr<Dispatcher> _output_dispatcher = output_dis_builder->produce(construction_context);
+    _output_dispatcher->set_op_name(output_dispatcher);
 
     // produce output_dispatcher subsequent operations
     for (auto op_name : output_dispatcher_subsequent_ops) {
         auto builder = OperationContainer::instance("operation_builders")->get_builder(op_name);
         std::shared_ptr<Operation> _operation = builder->produce(construction_context);
+        _operation->set_op_name(op_name);
         _output_dispatcher->set_next(_operation); // link this op to output_dispatcher
     } // for op_name in output_dispatcher_subsequent_ops
 
@@ -99,8 +105,8 @@ void EmbeddingManager::create_embedding(const std::shared_ptr<ParamInterface>& p
     std::shared_ptr<EmbeddingLayer> embedding_temp = EmbeddingLayer::create(_input_dispatcher,
                                                 _embedding_lookuper, _output_dispatcher,
                                                 construction_context);
-    embedding_temp->allocate_forward_spaces(global_batch_size_);
-    if (param->trainable()) embedding_temp->allocate_backward_spaces(global_batch_size_);
+    embedding_temp->allocate_forward_spaces();
+    if (param->trainable()) embedding_temp->allocate_backward_spaces();
     param->set_user(embedding_temp);
     embeddings_.emplace_back(embedding_temp);
     embedding = embedding_temp;
@@ -119,31 +125,38 @@ void EmbeddingManager::create_embedding(const std::shared_ptr<ParamInterface>& p
                                         std::shared_ptr<EmbeddingLayer>& embedding) {
     // create dense construction_context
     DenseConstructionContext_t construction_context = DenseConstructionContext::create(
-        resource_mgr_, buffers_, host_buffers_, slot_num, nnz_per_slot, param);
+        resource_mgr_, buffers_, host_buffers_, 
+        get_replica_batch_size(),
+        slot_num, nnz_per_slot, param);
 
     // produce input_dispatcher
     auto input_dis_builder = InputContainer::instance("input_dispatcher_builders")->get_builder(input_dispatcher);
     std::shared_ptr<Dispatcher> _input_dispatcher = input_dis_builder->produce(construction_context);
+    _input_dispatcher->set_op_name(input_dispatcher);
 
     // produce input_dispatcher subsequent operations
     for (auto op_name : input_dispatcher_subsequent_ops) {
         auto builder = OperationContainer::instance("operation_builders")->get_builder(op_name);
         std::shared_ptr<Operation> _operation = builder->produce(construction_context);
+        _operation->set_op_name(op_name);
         _input_dispatcher->set_next(_operation); // link this op to input_dispatcher
     } // for op_name in input_dispatcher_subsequent_ops
 
     // produce embedding lookuper
     auto emb_lookuper_builder = LookuperContainer::instance("embedding_lookuper_builders")->get_builder(embedding_lookuper);
     std::shared_ptr<EmbeddingLookuper> _embedding_lookuper = emb_lookuper_builder->produce(construction_context, param);
+    _embedding_lookuper->set_op_name(embedding_lookuper);
 
     // produce output_dispatcher
     auto output_dis_builder = OutputContainer::instance("output_dispatcher_builders")->get_builder(output_dispatcher);
     std::shared_ptr<Dispatcher> _output_dispatcher = output_dis_builder->produce(construction_context);
+    _output_dispatcher->set_op_name(output_dispatcher);
 
     // produce output_dispatcher subsequent operations
     for (auto op_name : output_dispatcher_subsequent_ops) {
         auto builder = OperationContainer::instance("operation_builders")->get_builder(op_name);
         std::shared_ptr<Operation> _operation = builder->produce(construction_context);
+        _operation->set_op_name(op_name);
         _output_dispatcher->set_next(_operation); // link this op to output_dispatcher
     }
 
@@ -153,8 +166,8 @@ void EmbeddingManager::create_embedding(const std::shared_ptr<ParamInterface>& p
                                                                 _embedding_lookuper,
                                                                 _output_dispatcher,
                                                                 construction_context);
-    embedding_temp->allocate_forward_spaces(global_batch_size_);
-    if (param->trainable()) embedding_temp->allocate_backward_spaces(global_batch_size_);
+    embedding_temp->allocate_forward_spaces();
+    if (param->trainable()) embedding_temp->allocate_backward_spaces();
     param->set_user(embedding_temp);
     embeddings_.emplace_back(embedding_temp);
     embedding = embedding_temp;

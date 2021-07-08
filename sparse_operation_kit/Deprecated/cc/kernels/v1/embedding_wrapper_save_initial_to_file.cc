@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020, NVIDIA CORPORATION.
+* Copyright (c) 2021, NVIDIA CORPORATION.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -38,16 +38,9 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
     std::shared_ptr<EmbeddingParams> params = get_embedding_params(embedding_name);
     if (!params) return tensorflow::errors::NotFound(__FILE__, ": ", __LINE__, " Not found embedding params for ", embedding_name);
 
-    auto remove_prefix = [](const std::string& path) {
-      size_t found = path.rfind("/");
-      if (found != std::string::npos)
-        return std::string(path, found + 1);
-      else
-        return path;
-    };
-    const std::string key_file = save_name + remove_prefix(save_name) + ".key";
-    const std::string slot_file = save_name + remove_prefix(save_name) + ".slot";
-    const std::string vec_file = save_name + remove_prefix(save_name) + ".vec";
+    const std::string key_file = save_name + "/key";
+    const std::string slot_file = save_name  + "/slot_id";
+    const std::string vec_file = save_name + "/emb_vector";
 
     if (!fs::exists(save_name)) {
       fs::create_directory(save_name);
@@ -75,8 +68,8 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
 
     auto init_value_flat = init_value->flat<float>();
     for (long int row = 0; row < init_value->dim_size(0); ++row) { // each row
-        TypeKey key = static_cast<TypeKey>(row); // key
-        key_stream.write(reinterpret_cast<char*>(&key), sizeof(TypeKey));
+        long long key = static_cast<long long>(row); // key
+        key_stream.write(reinterpret_cast<char*>(&key), sizeof(long long));
 
         switch (params->embedding_type_) {
             case Embedding_t::DistributedSlotSparseEmbeddingHash: {
@@ -88,16 +81,16 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_initial_to_file(const
                                                    sizeof(float) * params->embedding_vec_size_,
                                                    cudaMemcpyDeviceToHost));
                     vec_stream.write(reinterpret_cast<char*>(temp_init_value.get()),
-                                           sizeof(float) * params->embedding_vec_size_);
+                                     sizeof(float) * params->embedding_vec_size_);
                 } else { // on cpu
                     vec_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * params->embedding_vec_size_),
-                                            sizeof(float) * params->embedding_vec_size_); 
+                                     sizeof(float) * params->embedding_vec_size_);
                 }
                 break;
             }
             case Embedding_t::LocalizedSlotSparseEmbeddingOneHot:
             case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-                size_t slot_id = key % params->slot_num_; // slot_id
+                size_t slot_id = static_cast<size_t>(key) % params->slot_num_; // slot_id
                 slot_stream.write(reinterpret_cast<char*>(&slot_id), sizeof(size_t));
 
                 // embedding vector values

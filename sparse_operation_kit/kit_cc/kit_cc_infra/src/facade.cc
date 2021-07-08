@@ -359,31 +359,31 @@ void Facade::apply_gradients(const tensorflow::core::RefCountPtr<tensorflow::Emb
 }
 
 
-void Facade::dump_to_file(const tensorflow::Tensor* var_handle,
-                          const std::string filename) {
+void Facade::dump_to_file(const tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
+                          const std::string filepath) {
     // get param handle
     std::shared_ptr<ParamInterface> param;
-    GetParamFromVariantTensor(var_handle, param);
+    emb_variable->get_param(param);
 
     // delegate dump to file to param manager.
-    params_mgr_->dump_to_file(param, filename);
+    params_mgr_->dump_to_file(param, filepath);
 }
 
-void Facade::restore_from_file(const tensorflow::Tensor* var_handle,
-                               const std::string filename) {
+void Facade::restore_from_file(tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
+                               const std::string filepath) {
     // try to allocate internal memory
     try_allocate_memory();
 
     // get param handle
     std::shared_ptr<ParamInterface> param;
-    GetParamFromVariantTensor(var_handle, param);
+    emb_variable->get_param(param);
 
     // delegate restore from file to param manager.
-    params_mgr_->restore_from_file(param, filename);
+    params_mgr_->restore_from_file(param, filepath);
 
 }
 
-void Facade::load_tensors_to_var(tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
+void Facade::load_embedding_values(tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
                                  const tensorflow::OpInputList* tensor_list) {
     if (tensor_list->size() < 1) throw std::runtime_error(ErrorBase + "There must be at least one tensor.");
 
@@ -409,7 +409,7 @@ void Facade::load_tensors_to_var(tensorflow::core::RefCountPtr<tensorflow::Embed
     } // iter in tensor_list
 
     // delegate this job to param manager
-    params_mgr_->load_tensors_to_var(param, tensors);
+    params_mgr_->load_embedding_values(param, tensors);
 }
 
 // backdoors for unit test

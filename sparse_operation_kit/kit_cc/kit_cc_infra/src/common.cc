@@ -16,6 +16,8 @@
 
 #include "common.h"
 #include <cstring>
+#include <fstream>
+#include <cstdio>
 
 namespace SparseOperationKit {
 
@@ -87,7 +89,19 @@ int32_t string2num(const std::string& str) {
     return (!(ss >> result) ? -1 : result);
 }
 
+void delete_file(const std::string filename) {
+    try {
+        if (0 != std::remove(filename.c_str())) 
+            throw std::runtime_error("Delete " + filename + " failed.");
+    } catch (const std::exception &error) {
+        throw std::runtime_error(ErrorBase + error.what());
+    }
+}
 
+bool file_exist(const std::string filename) {
+    const std::ifstream file(filename);
+    return file.good();
+}
 
 } // namespace SparseOperationKit
 

@@ -23,6 +23,6 @@ using namespace tensorflow;
 using namespace tensorflow::shape_inference;
 
 REGISTER_OP("DumpToFile")
-    .Input("var_handle: variant")
-    .Input("filename: string")
+    .Input("var_handle: resource")
+    .Input("filepath: string")
     .Output("status: string");

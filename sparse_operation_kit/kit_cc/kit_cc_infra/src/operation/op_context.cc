@@ -90,6 +90,7 @@ void Context::set_output(const std::string name, const HugeCTR::Tensor2<T>& tens
 template void Context::set_output(const std::string name, const HugeCTR::Tensor2<uint64_t>& tensor, const bool overwrite);
 template void Context::set_output(const std::string name, const HugeCTR::Tensor2<int64_t>& tensor, const bool overwrite);
 template void Context::set_output(const std::string name, const HugeCTR::Tensor2<float>& tensor, const bool overwrite);
+template void Context::set_output(const std::string name, const HugeCTR::Tensor2<uint32_t>& tensor, const bool overwrite);
 
 size_t Context::get_global_replica_id() const {
     return global_replica_id_;

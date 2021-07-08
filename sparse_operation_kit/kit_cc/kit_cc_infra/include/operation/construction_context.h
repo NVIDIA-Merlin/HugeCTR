@@ -31,6 +31,8 @@ public:
                                                             const size_t local_replcia_id) = 0;
     virtual std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>& get_host_buffer(
                                                             const size_t local_replcia_id) = 0;
+    virtual size_t get_replica_batch_size() const = 0;
+    virtual size_t get_global_batch_size() const = 0;
     virtual size_t get_slot_num() const = 0;
     virtual size_t get_nnz_per_slot() const = 0;
     virtual const std::shared_ptr<ParamInterface>& get_param() const = 0;
@@ -48,7 +50,7 @@ public:
         const std::shared_ptr<ResourcesManager>& resource_mgr,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>& host_buffers,
-        const size_t slot_num, const size_t nnz_per_slot, 
+        const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot, 
         std::shared_ptr<ParamInterface> param);
 
     const std::shared_ptr<ResourcesManager>& get_resource_mgr() const override;
@@ -56,6 +58,8 @@ public:
                                                 const size_t local_replcia_id) override;
     std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>& get_host_buffer(
                                                 const size_t local_replcia_id) override;
+    size_t get_replica_batch_size() const override;
+    size_t get_global_batch_size() const override;
     size_t get_slot_num() const override;
     size_t get_nnz_per_slot() const override;
     const std::shared_ptr<ParamInterface>& get_param() const override;
@@ -68,13 +72,15 @@ protected:
     DenseConstructionContext(const std::shared_ptr<ResourcesManager>& resource_mgr,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>& host_buffers,
-        const size_t slot_num, const size_t nnz_per_slot, 
+        const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot, 
         std::shared_ptr<ParamInterface> param);
 
 private:
     std::shared_ptr<ResourcesManager> resource_mgr_;
     std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>> buffers_;
     std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>> host_buffers_;
+    const size_t replica_batch_size_;
+    const size_t global_batch_size_;
     const size_t slot_num_;
     const size_t nnz_per_slot_;
     std::shared_ptr<ParamInterface> param_;
@@ -88,7 +94,8 @@ public:
         const std::shared_ptr<ResourcesManager>& resource_mgr,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>& host_buffers,
-        const size_t rows_num_per_sample, const size_t max_nnz, const size_t max_feature_num,
+        const size_t replica_batch_size, const size_t rows_num_per_sample, 
+        const size_t max_nnz, const size_t max_feature_num,
         const CombinerType combiner, std::shared_ptr<ParamInterface> param);
 
     size_t get_nnz_per_slot() const override;
@@ -101,7 +108,8 @@ private:
     SparseConstructionContext(const std::shared_ptr<ResourcesManager>& resource_mgr,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>& host_buffers,
-        const size_t rows_num_per_sample, const size_t max_nnz, const size_t max_feature_num, 
+        const size_t replica_batch_size, const size_t rows_num_per_sample, 
+        const size_t max_nnz, const size_t max_feature_num, 
         const CombinerType combiner, std::shared_ptr<ParamInterface> param);
 
     const size_t max_nnz_;

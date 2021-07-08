@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020, NVIDIA CORPORATION.
+* Copyright (c) 2021, NVIDIA CORPORATION.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -36,9 +36,23 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_init_value_to_file(
     if (!hyper_params) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
                     "Cannot find hyper params of ", embedding_name);
 
-    std::ofstream file_stream(save_name, std::ofstream::binary);
-    if (!file_stream.is_open()) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
-                    "file_stream of ", embedding_name, " init_value open failed.");
+    const std::string key_file = save_name + "/key";
+    const std::string slot_file = save_name  + "/slot_id";
+    const std::string vec_file = save_name + "/emb_vector";
+
+    if (!fs::exists(save_name)) {
+      fs::create_directory(save_name);
+    }
+
+    std::ofstream key_stream(key_file, std::ofstream::binary | std::ofstream::trunc);
+    if (!key_stream.is_open()) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ", " key file open failed.");
+
+    std::ofstream slot_stream(slot_file, std::ofstream::binary | std::ofstream::trunc);
+    if (!slot_stream.is_open()) return tensorflow::errors::Aborted(__FILE__, ": ", __LINE__, " slot file open faild.");
+
+    std::ofstream vec_stream(vec_file, std::ofstream::binary | std::ofstream::trunc);
+    if (!vec_stream.is_open()) return tensorflow::errors::Aborted(__FILE__, ": ", __LINE__, " vec file open faild.");
+
     if (init_value->dims() != 2) return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
                     "init_value's dims should be 2.");
     if (static_cast<size_t>(init_value->dim_size(0)) > 
@@ -46,11 +60,11 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_init_value_to_file(
         return tensorflow::errors::Aborted(__FILE__, ":", __LINE__, " ",
                     "vocabulary_size of init_value is larger than the allocated memory space.");
     }
-    
+
     auto init_value_flat = init_value->flat<float>();
     for (long long row = 0; row < init_value->dim_size(0); ++row) { // each row
-        TypeKey key = static_cast<TypeKey>(row); // key
-        file_stream.write(reinterpret_cast<char*>(&key), sizeof(TypeKey));
+        long long key = row; // key
+        key_stream.write(reinterpret_cast<char*>(&key), sizeof(long long));
 
         switch (hyper_params->embedding_type_) {
             case Embedding_t::DistributedSlotSparseEmbeddingHash: {
@@ -61,18 +75,18 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_init_value_to_file(
                                                    init_value_flat.data() + row * hyper_params->embedding_vec_size_,
                                                    sizeof(float) * hyper_params->embedding_vec_size_,
                                                    cudaMemcpyDeviceToHost));
-                    file_stream.write(reinterpret_cast<char*>(temp_init_value.get()), 
-                                           sizeof(float) * hyper_params->embedding_vec_size_);
+                    vec_stream.write(reinterpret_cast<char*>(temp_init_value.get()),
+                                     sizeof(float) * hyper_params->embedding_vec_size_);
                 } else { // on cpu
-                    file_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * hyper_params->embedding_vec_size_),
-                                            sizeof(float) * hyper_params->embedding_vec_size_); 
+                    vec_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * hyper_params->embedding_vec_size_),
+                                     sizeof(float) * hyper_params->embedding_vec_size_);
                 }
                 break;
             }
             case Embedding_t::LocalizedSlotSparseEmbeddingOneHot:
             case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
                 size_t slot_id = key % hyper_params->slot_num_; // slot_id
-                file_stream.write(reinterpret_cast<char*>(&slot_id), sizeof(size_t));
+                slot_stream.write(reinterpret_cast<char*>(&slot_id), sizeof(size_t));
 
                 // embedding vector values
                 if (on_gpu) {
@@ -81,11 +95,11 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_init_value_to_file(
                                                    init_value_flat.data() + row * hyper_params->embedding_vec_size_,
                                                    sizeof(float) * hyper_params->embedding_vec_size_,
                                                    cudaMemcpyDeviceToHost));
-                    file_stream.write(reinterpret_cast<char*>(temp_init_value.get()), 
-                                           sizeof(float) * hyper_params->embedding_vec_size_);
+                    vec_stream.write(reinterpret_cast<char*>(temp_init_value.get()),
+                                     sizeof(float) * hyper_params->embedding_vec_size_);
                 } else { // on cpu
-                    file_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * hyper_params->embedding_vec_size_),
-                                       sizeof(float) * hyper_params->embedding_vec_size_);
+                    vec_stream.write(reinterpret_cast<const char*>(init_value_flat.data() + row * hyper_params->embedding_vec_size_),
+                                     sizeof(float) * hyper_params->embedding_vec_size_);
                 }
                 break;
             }
@@ -94,7 +108,6 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::save_init_value_to_file(
             }
         } // switch (hyper_params->embedding_type_)
     } // for row
-    file_stream.close();
 
     return tensorflow::Status::OK();
 }
