@@ -32,11 +32,15 @@ Besides tf.distribute.MultiWorkerMirroredStrategy, it supports multi-node synchr
 
 ## What's New in Version 3.0.1
 
-+ **DLRM Inference Benchmark**: We've added two detailed Jupyter notebooks to illustrate how to train and deploy a DLRM model with HugeCTR whilst benchmarking its performance. The inference notebook demonstrates how to create Triton and HugeCTR backend configs, prepare the inference data, and deploy a trained model by another notebook on Triton Inference Server. It also shows the way of benchmarking its performance (throughput and latency), based on Triton Performance Analyzer. For more details, check out our [HugeCTR inference repository](https://github.com/triton-inference-server/hugectr_backend/tree/v3.0.1-integration/samples/dlrm).
-+ **FP16 Speicific Optimization in More Dense Layers**: We've optimized DotProduct, ELU, and Sigmoid layers based on `__half2` vectorized loads and stores, so that they better utilize device memory bandwidth. Now most layers have been optimized in such a way except MultiCross, FmOrder2, ReduceSum, and Multiply layers.
-+ **More Finely Tunable Synthetic Data Generator**: Our new data generator can generate uniformly distributed datasets in addition to power law based datasets. Instead of specifying `vocabulary_size` in total and `max_nnz`, you can specify such information per categorical feature. See [our user guide](docs/hugectr_user_guide.md#generating-synthetic-data-and-benchmarks) to learn its changed usage.
-+ **Decreased Memory Demands of Trained Model Exportation**: To prevent the out of memory error from happening in saving a trained model including a very large embedding table, the actual amount of memory allocated by the related functions was effectively reduced.
-+ **CUDA Graph Compatible Dropout Layer**: HugeCTR Dropout Layer uses cuDNN by default, so that it can be used together with CUDA Graph. In the previous version, if Dropout was used, CUDA Graph was implicitly turned off.
++ **New DLRM Inference Benchmark**: We've added two detailed Jupyter notebooks to demonstrate how to train, deploy, and benchmark the performance of a deep learning recommendation model (DLRM) with HugeCTR. For more information, see our [HugeCTR Inference Notebooks](https://github.com/triton-inference-server/hugectr_backend/tree/v3.0.1-integration/samples/dlrm).
+
++ **FP16 Optimization**: We've optimized the DotProduct, ELU, and Sigmoid layers based on `__half2` vectorized loads and stores, improving their device memory bandwidth utilization. MultiCross, FmOrder2, ReduceSum, and Multiply are the only layers that still need to be optimized for FP16.
+
++ **Synthetic Data Generator Enhancement**: We've enhanced our synthetic data generator so that it can generate uniformly distributed datasets, as well as power-law based datasets. You can now specify the `vocabulary_size` and `max_nnz` per categorical feature instead of across all categorial features. For more information, see our [user guide](docs/hugectr_user_guide.md#generating-synthetic-data-and-benchmarks).
+
++ **Reduced Memory Allocation for Trained Model Exportation**: To prevent the "Out of Memory" error message from displaying when exporting a trained model, which may include a very large embedding table, the amount of memory allocated by the related functions has been significantly reduced.
+
++ **Dropout Layer Enhancement**: We've made the Dropout layer compatible with CUDA Graph. The Dropout layer is using cuDNN by default so that it can be used with CUDA Graph.
 
 ## What’s New in Version 3.0
 
