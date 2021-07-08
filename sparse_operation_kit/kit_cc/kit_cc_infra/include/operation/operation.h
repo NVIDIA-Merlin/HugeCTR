@@ -22,6 +22,10 @@
 #include "operation/construction_context.h"
 #include <vector>
 #include <memory>
+#include <unordered_set>
+#include <string>
+#include <fstream>
+#include <functional>
 
 namespace SparseOperationKit {
 /*
@@ -39,19 +43,52 @@ protected:
 public:
     explicit Operation(ConstructionContext_t context);
     virtual ~Operation() {}
-    void AllocateForwardSpaces(size_t const global_batch_size);
-    virtual void allocate_forward_spaces(size_t const global_batch_size) = 0;
-    void AllocateBackwardSpaces(size_t const global_batch_size);
-    virtual void allocate_backward_spaces(size_t const global_batch_size) = 0;
+    void AllocateForwardSpaces();
+    virtual void allocate_forward_spaces() = 0;
+    void AllocateBackwardSpaces();
+    virtual void allocate_backward_spaces() = 0;
     void Forward(const Context_t &replica_context, const bool training);
     virtual void forward(const Context_t &replica_context, const bool training) = 0;
     void Backward(const Context_t &replica_context);
     virtual void backward(const Context_t &replica_context) = 0;
 
     void set_next(std::shared_ptr<Operation> operation);
+
+    void set_op_name(const std::string& op_name);
+    std::string get_op_name() const;
+
+    void DumpToFile(const std::string filepath) const;
+    /**
+    * by default, operation did not do anything when this function is called.
+    * if an operation instance has something needed to be dumped to file, 
+    * it has to override this virtual function and return true.
+    */
+    using DumpCallBack = std::function<void(std::ofstream&)> &;
+    virtual bool dump(DumpCallBack dump_call_back) const;
+
+    void RestoreFromFile(const std::string filepath);
+    /**
+    * by default, operation did not do anything when this function is called.
+    * if an operation has something needed to be restored from file,
+    * it has to override this virtual function.
+    */
+    virtual void restore(const std::ifstream &filestream);
+
+    void LoadEmbeddingValues(const std::vector<std::shared_ptr<Tensor>>& tensor_list);
+    /**
+    * by default, operation did not do anything when this function is called.
+    * if an operation instance has something needed to be modified with embedding values,
+    * it has to override this virtual function.
+    */
+    virtual void load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensor_list);
+
+    static std::string gen_unique_op_name(const std::string op_name);
 private:
     std::shared_ptr<Operation> next_op_ = nullptr;
     ConstructionContext_t base_context_;
+    std::string op_name_;
+
+    static std::unordered_set<std::string> operation_names;
 };
 
 using Dispatcher = Operation;

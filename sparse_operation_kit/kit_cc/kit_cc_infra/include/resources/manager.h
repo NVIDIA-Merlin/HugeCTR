@@ -52,6 +52,8 @@ public:
     void sync_local_gpus() const;
     void sync_local_memcpys() const;
     void sync_gpu(const size_t local_dev_id) const;
+    void sync_all_workers() const; // synchronize each CPU-process
+    void sync_all_gpus(const size_t local_dev_id) const; // synchronize each CPU-thread
 
     // synchronize CPU threads
     void sync_cpu_threads() const;
