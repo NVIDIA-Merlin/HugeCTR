@@ -19,7 +19,7 @@ Besides tf.distribute.MultiWorkerMirroredStrategy, it supports multi-node synchr
 
 + **Supporting Mixed-precision in more layers**: The MultiCross layer now supports mixed-precision (FP16). As a result, all layers now support mixed-precision.
 
-+ **Supporting Optimizer States Save/Load for continued training**: You can choose to store optimizer states updated during the training to files like you save trained weights of your model. For instance, Adam optimizer has the first moment (m) and the second moment (v), which keep being updated across training iterations. By default, they are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more details, find `dense_opt_states_file` and `sparse_opt_states_file` in  [Configuration File Setup](docs/configuration_file_setup.md#solver).
++ **Supporting Optimizer States Save/Load for continued training**: You can choose to store optimizer states updated during the training to files like you save trained weights of your model. For instance, Adam optimizer has the first moment (m) and the second moment (v), which keep being updated across training iterations. By default, they are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more details, find `dense_opt_states_file` and `sparse_opt_states_file` in  [Python Interface](docs/python_interface.md#load_dense_weights-method).
 
 + **Supporting FP16 in inference**: We have supported FP16 for the inference pipeline which means that half precision forward propagation can be adopted by the dense layers during inference.
 
