@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-#include "tensorflow/core/framework/op.h"
-#include "tensorflow/core/framework/shape_inference.h"
-#include "tensorflow/core/framework/common_shape_fns.h"
-#include "tensorflow/core/framework/types.h"
+ #ifndef DUMPING_FUNCTIONS_H
+ #define DUMPING_FUNCTIONS_H
 
-using namespace tensorflow;
-using namespace tensorflow::shape_inference;
+#include "optimizer/update_functions.h"
+#include <cuda_runtime_api.h>
 
-REGISTER_OP("DumpToFile")
-    .Input("var_handle: resource")
-    .Input("filepath: string")
-    .Output("status: string");
+namespace SparseOperationKit {
+
+void get_hash_value(size_t count, size_t embedding_vec_size, const size_t *value_index,
+                const float *embedding_table, float *value_retrieved,
+                cudaStream_t stream);
+
+} // namespace SparseOperationKit
+
+#endif // DUMPING_FUNCTIONS_H

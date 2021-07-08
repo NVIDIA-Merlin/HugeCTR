@@ -58,15 +58,16 @@ void UnitTester::test_all_gather_dispatcher(const size_t rows_num_per_sample,
                                             tensorflow::Tensor* total_valid_num_tensor) {
     SparseConstructionContext_t base_context = SparseConstructionContext::create(
         resource_mgr_, buffers_, host_buffers_, 
+        /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(),
         rows_num_per_sample, max_nnz, /*max_feature_num=*/rows_num_per_sample * max_nnz,
         /*combiner=*/CombinerType::Mean, /*param=*/nullptr);
 
     auto builder = InputContainer::instance("input_dispatcher_builders")->get_builder("all_gather_dispatcher");
     static std::shared_ptr<Dispatcher> dispatcher = builder->produce(base_context);
 
-    auto init = [this, rows_num_per_sample, max_nnz, global_batch_size]() {
-        dispatcher->allocate_forward_spaces(global_batch_size);
-        dispatcher->allocate_backward_spaces(global_batch_size);
+    auto init = [this, rows_num_per_sample, max_nnz]() {
+        dispatcher->allocate_forward_spaces();
+        dispatcher->allocate_backward_spaces();
     };
     resource_mgr_->blocking_call_once(init);
 
@@ -126,15 +127,16 @@ void UnitTester::test_csr_conversion_distributed(const size_t global_replica_id,
                                                  tensorflow::Tensor* replica_nnz_tensor) {
     SparseConstructionContext_t base_context = SparseConstructionContext::create(
         resource_mgr_, buffers_, host_buffers_, 
+        /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(),
         slot_num, max_nnz, /*max_feature_num=*/slot_num * max_nnz,
         /*combiner=*/CombinerType::Mean, /*param=*/nullptr);
 
     auto builder = OperationContainer::instance("operation_builders")->get_builder("csr_conversion_distributed");
     static std::shared_ptr<Operation> csr_conver = builder->produce(base_context);
 
-    auto init = [this, slot_num, max_nnz, global_batch_size]() {
-        csr_conver->allocate_forward_spaces(global_batch_size);
-        csr_conver->allocate_backward_spaces(global_batch_size);
+    auto init = [this, slot_num, max_nnz]() {
+        csr_conver->allocate_forward_spaces();
+        csr_conver->allocate_backward_spaces();
     };
     resource_mgr_->blocking_call_once(init);
 
@@ -190,15 +192,16 @@ void UnitTester::test_reduce_scatter_dispatcher(const size_t global_replica_id,
                                                 tensorflow::Tensor* output) {
     SparseConstructionContext_t base_context = SparseConstructionContext::create(
         resource_mgr_, buffers_, host_buffers_, 
+        /*replica_batch_size=*/global_batch_size / resource_mgr_->get_global_gpu_count(),
         slot_num, max_nnz, /*max_feature_num=*/slot_num * max_nnz,
         /*combiner=*/CombinerType::Mean, /*param=*/nullptr);
 
     auto builder = OutputContainer::instance("output_dispatcher_builders")->get_builder("reduce_scatter_dispatcher");
     static std::shared_ptr<Dispatcher> reduce_scatter_dispatcher = builder->produce(base_context);
 
-    auto init = [this, slot_num, max_nnz, global_batch_size]() {
-        reduce_scatter_dispatcher->allocate_forward_spaces(global_batch_size);
-        reduce_scatter_dispatcher->allocate_backward_spaces(global_batch_size);
+    auto init = [this, slot_num, max_nnz]() {
+        reduce_scatter_dispatcher->allocate_forward_spaces();
+        reduce_scatter_dispatcher->allocate_backward_spaces();
     };
     resource_mgr_->blocking_call_once(init);
 

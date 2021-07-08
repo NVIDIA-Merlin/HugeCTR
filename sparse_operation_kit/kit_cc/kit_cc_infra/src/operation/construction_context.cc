@@ -21,9 +21,11 @@ namespace SparseOperationKit {
 DenseConstructionContext::DenseConstructionContext(const std::shared_ptr<ResourcesManager>& resource_mgr,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>& host_buffers,
-        const size_t slot_num, const size_t nnz_per_slot, 
+        const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot, 
         std::shared_ptr<ParamInterface> param) 
 : resource_mgr_(resource_mgr), buffers_(buffers), host_buffers_(host_buffers),
+replica_batch_size_(replica_batch_size), 
+global_batch_size_(replica_batch_size_ * resource_mgr_->get_global_gpu_count()),
 slot_num_(slot_num), nnz_per_slot_(nnz_per_slot), param_(param)
 {}
 
@@ -31,10 +33,10 @@ std::shared_ptr<DenseConstructionContext> DenseConstructionContext::create(
         const std::shared_ptr<ResourcesManager>& resource_mgr,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>& host_buffers,
-        const size_t slot_num, const size_t nnz_per_slot, 
+        const size_t replica_batch_size, const size_t slot_num, const size_t nnz_per_slot, 
         std::shared_ptr<ParamInterface> param) {
     return std::shared_ptr<DenseConstructionContext>(new DenseConstructionContext(resource_mgr, 
-            buffers, host_buffers, slot_num, nnz_per_slot, param));
+            buffers, host_buffers, replica_batch_size, slot_num, nnz_per_slot, param));
 }
 
 const std::shared_ptr<ResourcesManager>& DenseConstructionContext::get_resource_mgr() const {
@@ -55,6 +57,14 @@ std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>& DenseConst
         throw std::runtime_error(ErrorBase + "local_replcia_id is out of the range of host buffers' size.");
     
     return host_buffers_[local_replcia_id];
+}
+
+size_t DenseConstructionContext::get_replica_batch_size() const {
+    return replica_batch_size_;
+}
+
+size_t DenseConstructionContext::get_global_batch_size() const {
+    return global_batch_size_;
 }
 
 size_t DenseConstructionContext::get_slot_num() const {
@@ -88,9 +98,11 @@ bool DenseConstructionContext::used_for_sparse_embedding() const {
 SparseConstructionContext::SparseConstructionContext(const std::shared_ptr<ResourcesManager>& resource_mgr,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>& host_buffers,
-        const size_t rows_num_per_sample, const size_t max_nnz, const size_t max_feature_num, 
+        const size_t replica_batch_size, const size_t rows_num_per_sample, 
+        const size_t max_nnz, const size_t max_feature_num, 
         const CombinerType combiner, std::shared_ptr<ParamInterface> param)
-: DenseConstructionContext(resource_mgr, buffers, host_buffers, /*slot_num=*/rows_num_per_sample, 
+: DenseConstructionContext(resource_mgr, buffers, host_buffers, replica_batch_size, 
+                           /*slot_num=*/rows_num_per_sample, 
                            /*nnz_per_slot=*/0, param),
 max_nnz_(max_nnz), max_feature_num_(max_feature_num), combiner_(combiner)
 {}
@@ -99,10 +111,11 @@ std::shared_ptr<SparseConstructionContext> SparseConstructionContext::create(
         const std::shared_ptr<ResourcesManager>& resource_mgr,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaAllocator>>>& buffers,
         const std::vector<std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>>>& host_buffers,
-        const size_t rows_num_per_sample, const size_t max_nnz, const size_t max_feature_num, 
+        const size_t replica_batch_size, const size_t rows_num_per_sample, 
+        const size_t max_nnz, const size_t max_feature_num, 
         const CombinerType combiner, std::shared_ptr<ParamInterface> param) {
     return std::shared_ptr<SparseConstructionContext>(new SparseConstructionContext(
-        resource_mgr, buffers, host_buffers, rows_num_per_sample, max_nnz, max_feature_num, 
+        resource_mgr, buffers, host_buffers, replica_batch_size, rows_num_per_sample, max_nnz, max_feature_num, 
         combiner, param));
 }
 
