@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "embeddings/backward_functions.h"
-#include "embeddings/backward_functions.cuh"
+#include "common/include/backward_functions.h"
+#include "common/include/backward_functions.cuh"
 #include <cmath>
 
 namespace SparseOperationKit {

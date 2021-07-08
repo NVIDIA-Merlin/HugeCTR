@@ -121,6 +121,10 @@ std::vector<std::string> str_split(const std::string& input_s, const std::string
 std::string strs_concat(const std::vector<std::string>& str_vector, const std::string& connection);
 int32_t string2num(const std::string& str);
 
+
+bool file_exist(const std::string filename);
+void delete_file(const std::string filename);
+
 } // namespace SparseOperationKit
 
 

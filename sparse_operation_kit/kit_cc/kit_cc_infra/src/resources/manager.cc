@@ -208,6 +208,28 @@ void ResourcesManager::sync_gpu(const size_t local_dev_id) const {
     }
 }
 
+void ResourcesManager::sync_all_workers() const {
+    sync_local_gpus();
+
+    CK_NCCL(ncclGroupStart());
+    for (size_t dev_id = 0; dev_id < get_local_gpu_count(); dev_id++) {
+        const auto &local_gpu = get_local_gpu(dev_id);
+        local_gpu->sync_gpu_via_nccl(local_gpu->get_stream());
+    } // for dev_id in local_gpu_count
+    CK_NCCL(ncclGroupEnd());
+
+    sync_local_gpus();
+}
+
+void ResourcesManager::sync_all_gpus(const size_t local_dev_id) const {
+    sync_gpu(local_dev_id);
+
+    const auto &local_gpu = get_local_gpu(local_dev_id);
+    local_gpu->sync_gpu_via_nccl(local_gpu->get_stream());
+
+    sync_gpu(local_dev_id);
+}
+
 void ResourcesManager::sync_cpu_threads() const {
     cpu_resource_->sync_cpu_threads();
 }

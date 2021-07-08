@@ -64,7 +64,7 @@ class EmbeddingVariable(BaseResourceVariable):
                  initial_value="random_uniform",
                  trainable=True,
                  use_hashtable=True,
-                 name="test",
+                 name="EmbeddingVariable",
                  *args,
                  **kwargs):
         if (not isinstance(shape, list)) or (len(shape) != 2):
@@ -119,7 +119,7 @@ class EmbeddingVariable(BaseResourceVariable):
         # might not actually be the handle. This line bypasses it.
             tape.record_operation(
                 "ReadEmbeddingVariableOp", [result], [self._handle, self.tf_handle],
-                backward_function=lambda x: [x],
+                backward_function=lambda x: [x, None],
                 forward_function=lambda x: [x])
         return result
 

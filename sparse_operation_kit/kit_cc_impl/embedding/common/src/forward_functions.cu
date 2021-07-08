@@ -14,20 +14,10 @@
  * limitations under the License.
  */
 
-#include "embeddings/forward_functions.h"
-#include "embeddings/forward_functions.cuh"
+#include "common/include/forward_functions.h"
+#include "common/include/forward_functions.cuh"
 
 namespace SparseOperationKit {
-
-void get_hash_value(size_t count, size_t embedding_vec_size, const size_t *value_index,
-                    const float *embedding_table, float *value_retrieved,
-                    cudaStream_t stream) {
-    const size_t block_size = embedding_vec_size;
-    const size_t grid_size = count;
-
-    HugeCTR::get_hash_value_kernel<<<grid_size, block_size, 0, stream>>>(count, embedding_vec_size,
-                                                    value_index, embedding_table, value_retrieved);
-}
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void forward_sum(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
@@ -79,5 +69,19 @@ void memset_liner(Type *data, Type start_value, Type stride_value,
 
 template void memset_liner(size_t *data, size_t start_value, size_t stride_value,
                   size_t n, cudaStream_t stream);
+
+
+template <typename EmbeddingType, typename IndiceType>
+void gather(const size_t grid, const size_t block, cudaStream_t stream, 
+            const size_t embedding_dim, EmbeddingType *inputs, IndiceType *indices, 
+            size_t num_indices, EmbeddingType *outputs) {
+    gatherKernel<<<grid, block, 0, stream>>>(
+        embedding_dim, inputs, indices, num_indices, outputs);
+}
+
+template void gather(const size_t grid, const size_t block, cudaStream_t stream, 
+            const size_t embedding_dim, float *inputs, size_t *indices, 
+            size_t num_indices, float *outputs);
+
 
 } // namespace SparseOperationKit

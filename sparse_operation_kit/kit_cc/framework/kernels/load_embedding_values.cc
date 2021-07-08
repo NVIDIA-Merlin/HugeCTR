@@ -24,9 +24,9 @@ using GPUDevice = Eigen::GpuDevice;
 using CPUDevice = Eigen::ThreadPoolDevice; 
 
 template <typename Device>
-class LoadTensorsToVariablesOp : public OpKernel {
+class LoadEmbeddingValuesOp : public OpKernel {
 public:
-    explicit LoadTensorsToVariablesOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
+    explicit LoadEmbeddingValuesOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
     void Compute(OpKernelContext* ctx) override {
         core::RefCountPtr<EmbeddingVariable> variable;
         const ResourceHandle& handle = HandleFromInput(ctx, 0);
@@ -40,14 +40,14 @@ public:
 
 
         OpInputList tensors_list;
-        OP_REQUIRES_OK(ctx, ctx->input_list("tensors", &tensors_list));
+        OP_REQUIRES_OK(ctx, ctx->input_list("embedding_values", &tensors_list));
 
         Tensor* status_tensor = nullptr;
         OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {}, &status_tensor));
 
         try {
-            SparseOperationKit::Facade::instance()->load_tensors_to_var(variable, 
-                                                                     &tensors_list);
+            SparseOperationKit::Facade::instance()->load_embedding_values(variable, 
+                                                                          &tensors_list);
         } catch (const std::exception& error) {
             ctx->SetStatus(errors::Aborted(error.what()));
             return;
@@ -57,11 +57,11 @@ public:
     }
 }; 
 
-REGISTER_KERNEL_BUILDER(Name("LoadTensorsToVariable")
+REGISTER_KERNEL_BUILDER(Name("LoadEmbeddingValues")
                         .Device(DEVICE_GPU)
                         .HostMemory("var_handle")
-                        .HostMemory("tensors"),
-                        LoadTensorsToVariablesOp<GPUDevice>);
+                        .HostMemory("embedding_values"),
+                        LoadEmbeddingValuesOp<GPUDevice>);
 
 
 } // namespace tensorflow

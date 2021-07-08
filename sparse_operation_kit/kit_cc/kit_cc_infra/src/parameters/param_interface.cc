@@ -26,62 +26,20 @@ void ParamInterface::set_user(std::shared_ptr<EmbeddingLayer>& embedding) {
     throw std::runtime_error(ErrorBase + "Not implemented.");
 }
 
+void ParamInterface::let_user_dump_to_file(const std::string filepath) {
+    // by default, it does nothing.
+}
+
+void ParamInterface::let_user_restore_from_file(const std::string filepath) {
+    // by default, it does nothing.
+}
+
+void ParamInterface::let_user_load_embedding_values(const std::vector<std::shared_ptr<Tensor>> &tensor_list) {
+    // by default, it does nothing
+}
+
 std::shared_ptr<Tensor>& ParamInterface::get_tensor(const size_t local_replica_id) {
     return get_embedding_table_tensor(local_replica_id);
 }
-
-class ParamVariantWrapper {
-public:
-    ParamVariantWrapper() : param_(nullptr) {}
-    explicit ParamVariantWrapper(const std::shared_ptr<ParamInterface> param) : param_(param) {}
-    ParamVariantWrapper(const ParamVariantWrapper& other): param_(other.param_) {}
-    ParamVariantWrapper& operator=(ParamVariantWrapper&& other) {
-        if (&other == this) return *this;
-        param_ = other.param_;
-        return *this;
-    }
-    ParamVariantWrapper& operator=(const ParamVariantWrapper& other) = delete;
-
-    std::shared_ptr<ParamInterface> get() const { return param_; }
-
-    ~ParamVariantWrapper() = default;
-    tensorflow::string TypeName() const { return "EmbeddingPlugin::ParamVariantWrapper"; }
-    void Encode(tensorflow::VariantTensorData* data) const {
-        LOG(ERROR) << "The Encode() method is not implemented for "
-                      "ParamVariantWrapper objects.";
-    }
-    bool Decode(const tensorflow::VariantTensorData& data) {
-        LOG(ERROR) << "The Decode() method is not implemented for "
-                      "ParamVariantWrapper objects.";
-        return false;
-    }
-
-private:
-    std::shared_ptr<ParamInterface> param_;
-};
-
-
-void GetParamFromVariantTensor(const tensorflow::Tensor* tensor,
-                               std::shared_ptr<ParamInterface>& out_param) {
-    if (!(tensor->dtype() == tensorflow::DT_VARIANT && 
-          tensorflow::TensorShapeUtils::IsScalar(tensor->shape()))) {
-        throw std::runtime_error(ErrorBase + "Param tensor must be a scalar of dtype DT_VARIANT.");
-    }
-    const tensorflow::Variant& variant = tensor->scalar<tensorflow::Variant>()();
-    const ParamVariantWrapper* wrapper = variant.get<ParamVariantWrapper>();
-    if (nullptr == wrapper) throw std::runtime_error(ErrorBase + "Tensor must be a EmbeddingPlugin::Param object.");
-    out_param = wrapper->get();
-    if (!out_param) throw std::runtime_error(ErrorBase + "read empty param pointer.");
-}
-
-void StoreParamInVariantTensor(const std::shared_ptr<ParamInterface>& param, 
-                               tensorflow::Tensor* tensor) {
-    if (!(tensor->dtype() == tensorflow::DT_VARIANT &&
-          tensorflow::TensorShapeUtils::IsScalar(tensor->shape()))) {
-        throw std::runtime_error(ErrorBase + "Param tensor must be a scalar of dtype DT_VARIANT.");
-    }
-    tensor->scalar<tensorflow::Variant>()() = ParamVariantWrapper(param);
-}
-
 
 } // namespace SparseOperationKit

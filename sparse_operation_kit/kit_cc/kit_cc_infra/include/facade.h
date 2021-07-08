@@ -127,11 +127,11 @@ public:
                          const float learning_rate,
                          const size_t current_step);
 
-    void dump_to_file(const tensorflow::Tensor* var_handle,
-                      const std::string filename);
-    void restore_from_file(const tensorflow::Tensor* var_handle,
-                           const std::string filename);
-    void load_tensors_to_var(tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
+    void dump_to_file(const tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
+                      const std::string filepath);
+    void restore_from_file(tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
+                           const std::string filepath);
+    void load_embedding_values(tensorflow::core::RefCountPtr<tensorflow::EmbeddingVariable>& emb_variable,
                              const tensorflow::OpInputList* tensor_list);
 
 
