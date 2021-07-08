@@ -73,7 +73,7 @@ REGISTER_KERNEL_BUILDER(Name("CreateEmbeddingDense")
                         .Device(DEVICE_GPU)
                         .HostMemory("var_handle")
                         .HostMemory("input_dispatcher")
-                        .HostMemory("embedding_executor")
+                        .HostMemory("embedding_lookuper")
                         .HostMemory("output_dispatcher")
                         .HostMemory("emb_handle"),
                         CreateEmbeddingDenseOp<GPUDevice>);

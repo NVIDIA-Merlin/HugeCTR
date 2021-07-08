@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -42,6 +42,7 @@ file(GLOB huge_ctr_src
   ../layers/add_layer.cu
   ../layers/reduce_sum_layer.cu
   ../layers/dot_product_layer.cu
+  ../layers/elementwise_multiply_layer.cu
   ../loss.cu
   ../network.cu
   ../network.cpp

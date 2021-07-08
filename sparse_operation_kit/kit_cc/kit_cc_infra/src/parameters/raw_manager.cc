@@ -144,18 +144,52 @@ void RawManager::params_initialization(const size_t global_replica_id) const {
 }
 
 void RawManager::dump_to_file(const std::shared_ptr<ParamInterface>& param,
-                              const std::string filename) {
-    param->dump_to_file(filename);
+                              const std::string filepath) {
+    try {
+        MESSAGE("Saving " + param->get_var_name() + " to " + filepath + "..");
+        resource_mgr_->sync_all_workers();
+        // step 1: save param to file.
+        param->dump_to_file(filepath);
+
+        // step 2: save operations' content from param's user to file
+        param->let_user_dump_to_file(filepath);
+        resource_mgr_->sync_all_workers();
+        MESSAGE("Saved " + param->get_var_name() + " to " + filepath + ".");
+    } catch (const std::exception &error) {
+        throw std::runtime_error(ErrorBase + error.what());
+    }
 }
 
 void RawManager::restore_from_file(const std::shared_ptr<ParamInterface>& param,
-                                   const std::string filename) {
-    param->restore_from_file(filename);
+                                   const std::string filepath) {
+    try {
+        MESSAGE("Restoring " + param->get_var_name() + " from " + filepath + "..");
+        resource_mgr_->sync_all_workers();
+        // step 1: restore param from file
+        param->restore_from_file(filepath);
+
+        // step 2: restore operations' content from file
+        param->let_user_restore_from_file(filepath);
+        resource_mgr_->sync_all_workers();
+        MESSAGE("Restored " + param->get_var_name() + " from " + filepath + ".");
+    } catch (const std::exception &error) {
+        throw std::runtime_error(ErrorBase + error.what());
+    }
 }
 
-void RawManager::load_tensors_to_var(std::shared_ptr<ParamInterface>& param, 
-                                     const std::vector<std::shared_ptr<Tensor>>& tensors) {
-    param->load_tensors_to_memory(tensors);
+void RawManager::load_embedding_values(std::shared_ptr<ParamInterface>& param, 
+                                     const std::vector<std::shared_ptr<Tensor>>& tensor_list) {
+    MESSAGE("Loading embedding values to Variable: " + param->get_var_name() + "...");
+    resource_mgr_->sync_all_workers();
+
+    // step 1: let param to modify its memory states with these tensor_list
+    param->load_embedding_values(tensor_list);
+
+    // step 2: let operations modify their memory states with these tensor_list
+    param->let_user_load_embedding_values(tensor_list);
+
+    resource_mgr_->sync_all_workers();
+    MESSAGE("Loaded embedding values to Variable: " + param->get_var_name() + ".");
 }
 
 void RawManager::push_back_embedding_buffer_builder(const size_t local_replica_id,

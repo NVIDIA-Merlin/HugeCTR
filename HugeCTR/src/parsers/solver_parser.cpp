@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -180,7 +180,7 @@ SolverParser::SolverParser(const std::string& file) {
     }
 
     const std::map<std::string, metrics::Type> metrics_map = {
-        {"AverageLoss", metrics::Type::AverageLoss}, {"AUC", metrics::Type::AUC}};
+        {"AverageLoss", metrics::Type::AverageLoss}, {"AUC", metrics::Type::AUC}, {"HitRate", metrics::Type::HitRate} };
 
     if (has_key_(j, "eval_metrics")) {
       auto eval_metrics = get_json(j, "eval_metrics");
@@ -208,6 +208,14 @@ SolverParser::SolverParser(const std::string& file) {
                 metrics_spec[metrics::Type::AUC] = val;
                 break;
               }
+              case metrics::Type::HitRate: {
+                float val = (metric_strs.size() == 1) ? 1.f : std::stof(metric_strs[1]);
+                if (val < 0.0 || val > 1.0) {
+                  CK_THROW_(Error_t::WrongInput, "0 <= HitRate threshold <= 1 is not true");
+                }
+                metrics_spec[metrics::Type::HitRate] = val;
+                break;
+	      }
               default: {
                 CK_THROW_(Error_t::WrongInput, "Unreachable");
                 break;

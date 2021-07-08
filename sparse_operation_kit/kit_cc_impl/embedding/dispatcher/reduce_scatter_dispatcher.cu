@@ -15,21 +15,21 @@
  */
 
 #include "operation/operation_interface.h"
-#include "embeddings/forward_functions.h"
+#include "common/include/forward_functions.h"
 
 namespace SparseOperationKit {
 
 class ReduceScatterDispatcher : public Dispatcher {
 public:
     explicit ReduceScatterDispatcher(ConstructionContext_t context)
-    : Dispatcher(context), resource_mgr_(context->get_resource_mgr())
+    : Dispatcher(context), resource_mgr_(context->get_resource_mgr()),
+    global_batch_size_(base_context()->get_global_batch_size())
     {}
 
-    void allocate_forward_spaces(size_t const global_batch_size) override {
-        global_batch_size_ = global_batch_size;
+    void allocate_forward_spaces() override {
     }
 
-    void allocate_backward_spaces(size_t const global_batch_size) override {
+    void allocate_backward_spaces() override {
 
     }
 
@@ -94,7 +94,7 @@ public:
 
 private:
     std::shared_ptr<ResourcesManager> resource_mgr_;
-    size_t global_batch_size_ = 0;
+    const size_t global_batch_size_;
 };
 
 REGISTER_OUTPUT_DISPATHER_BUILDER("reduce_scatter_dispatcher", ReduceScatterDispatcher);

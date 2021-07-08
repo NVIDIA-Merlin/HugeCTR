@@ -54,7 +54,7 @@ plugin_bprop = kit_ops.plugin_bprop
 
 dump_to_file = kit_ops.dump_to_file
 restore_from_file = kit_ops.restore_from_file
-load_tensors_to_variable = kit_ops.load_tensors_to_variable
+load_embedding_values = kit_ops.load_embedding_values
 read_embedding_variable = kit_ops.read_embedding_variable_op
 
 create_global_adam_optimizer = kit_ops.create_global_adam_optimizer

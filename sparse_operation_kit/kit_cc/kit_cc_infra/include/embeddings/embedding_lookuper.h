@@ -26,7 +26,17 @@ class EmbeddingLookuper : public Operation {
 public:
     EmbeddingLookuper(ConstructionContext_t construction_context, std::shared_ptr<ParamInterface> param);
 
-    virtual void load_tensors_to_memory(const std::vector<std::shared_ptr<Tensor>>& tensors) = 0;
+    // help param to save parameters from GPU to file
+    /**
+    * by default, it return false, which means it does not help ParamInterface to save parameters to file.
+    * if it want to help ParamInterface to save to file, then override this function and return true.
+    */
+    virtual bool save_params(const std::string filepath) const;
+
+    // help Param to restore parameters from CPU tensor to GPU memory 
+    virtual void restore_params(const std::shared_ptr<Tensor> &keys, 
+                                const std::shared_ptr<Tensor> &embedding_values,
+                                const size_t num_total_keys) = 0;
 
 protected:
     std::shared_ptr<ParamInterface> param_;

@@ -1,5 +1,5 @@
  /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey
   output_.resize(num_samples);
   size_t num_keys = embeddingcolumns.size();
   CK_CUDA_THROW_(cudaMemcpy(d_dense_, dense.data(), num_samples*inference_parser_.dense_dim*sizeof(float), cudaMemcpyHostToDevice));
-  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs_, row_ptrs.data(), (num_samples*inference_parser_.slot_num+1)*sizeof(int), cudaMemcpyHostToDevice)); 
+  CK_CUDA_THROW_(cudaMemcpy(d_row_ptrs_, row_ptrs.data(), (num_samples*inference_parser_.slot_num+inference_parser_.num_embedding_tables)*sizeof(int), cudaMemcpyHostToDevice)); 
   memcpy(h_embeddingcolumns_, embeddingcolumns.data(), num_keys * sizeof(TypeKey));
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, static_cast<int>(num_samples));

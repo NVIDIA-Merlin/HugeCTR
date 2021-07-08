@@ -64,10 +64,12 @@ public:
         
     }
 
-    void allocate_forward_spaces(size_t const global_batch_size) override {
+    void allocate_forward_spaces() override {
         auto rows_num_per_sample = base_context()->get_slot_num();
         auto max_nnz = base_context()->get_max_nnz();
         auto max_feature_num = base_context()->get_max_feature_num();
+
+        const size_t global_batch_size = base_context()->get_global_batch_size();
 
         for (size_t dev_id = 0; dev_id < resource_mgr_->get_local_gpu_count(); ++dev_id) {
             auto &buffer = base_context()->get_buffer(dev_id);
@@ -110,7 +112,7 @@ public:
         } // for dev_id
     }
 
-    void allocate_backward_spaces(size_t const global_batch_size) override {
+    void allocate_backward_spaces() override {
 
     }
 

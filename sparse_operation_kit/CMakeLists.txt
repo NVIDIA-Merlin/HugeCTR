@@ -33,6 +33,7 @@ option(USE_NVTX "Use nvtx for profiling" OFF)
 if (USE_NVTX)
     message(STATUS "Add nvtx for profiling")
     add_definitions(-DUSE_NVTX)
+    find_package(NVTX REQUIRED)
 endif()
 
 # setting compiler flags
@@ -101,6 +102,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/include/
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
     ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
+    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
     ${CUDA_INCLUDE_DIRS}
     ${NCCL_INC_PATHS}
 )
@@ -128,6 +130,7 @@ file(GLOB kit_infra
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/*.cu
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/resources/*.cc
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/parameters/*.cc
+    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/parameters/*.cu
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/hashtable/*.cu
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/embeddings/*.cc
     ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/embeddings/*.cu
@@ -144,8 +147,8 @@ file(GLOB kit_infra
 
 # code sources for the concrete algorithm implementations of the kit
 file(GLOB kit_impl
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/*.cu
+    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/common/src/*.cc
+    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/common/src/*.cu
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/dispatcher/*.cc
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/dispatcher/*.cu
     ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/lookuper/*.cc
@@ -164,7 +167,7 @@ add_library(sparse_operation_kit SHARED ${framework} ${kit_infra} ${kit_impl})
 target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl cusparse)
 
 if (USE_NVTX)
-    target_link_libraries(sparse_operation_kit PUBLIC nvToolsExt)
+    target_link_libraries(sparse_operation_kit PUBLIC ${NVTX_LIB})
 endif()
 
 set_target_properties(sparse_operation_kit PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)

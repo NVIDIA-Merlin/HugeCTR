@@ -41,6 +41,8 @@ private:
     int32_t cc_major_;
     int32_t cc_minor_;
 
+    int32_t *nccl_sync_data_;
+
     GpuResource(const size_t local_device_id, const size_t global_device_id, 
                 const uint64_t replica_uniform_seed,
                 const uint64_t replica_variant_seed,
@@ -77,6 +79,8 @@ public:
     const ncclComm_t& get_nccl() const;
     const cusparseHandle_t& get_cusparse() const;
     void make_comput_wait_memcpy() const;
+
+    void sync_gpu_via_nccl(const cudaStream_t& stream) const;
 };
 
 

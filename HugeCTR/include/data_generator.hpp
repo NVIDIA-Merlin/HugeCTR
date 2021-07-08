@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -487,7 +487,6 @@ inline void data_generation_for_raw(
   //check input
 
   std::vector<std::shared_ptr<IDataSimulator<long long>>> ldata_sim_vec;
-  size_t accum = 0;
   
   if(slot_size.size() != nnz_array.size() && !nnz_array.empty()){
     std::cout << "Error: slot_size.size() != nnz_array.size() && !nnz_array.empty()" << std::endl;
@@ -495,14 +494,12 @@ inline void data_generation_for_raw(
   }
 
   for(auto& voc: slot_size){
-    size_t accum_next = accum+voc; 
     if(long_tail){
-      ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<long long>(accum, accum_next - 1, alpha));
+      ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<long long>(0, voc-1, alpha));
     }
     else{
-      ldata_sim_vec.emplace_back(new IntUniformDataSimulator<long long>(accum, accum_next - 1));
+      ldata_sim_vec.emplace_back(new IntUniformDataSimulator<long long>(0, voc-1));
     }
-    accum = accum_next;
   }
 
   for (long long i = 0; i < num_samples; i++) {

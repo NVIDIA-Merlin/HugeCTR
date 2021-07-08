@@ -15,8 +15,8 @@
  */
 
 #include "operation/operation_interface.h"
-#include "embeddings/forward_functions.h"
-#include "embeddings/backward_functions.h"
+#include "common/include/forward_functions.h"
+#include "common/include/backward_functions.h"
 
 namespace SparseOperationKit {
 
@@ -25,7 +25,7 @@ public:
     explicit DistribtuedLookuper(ConstructionContext_t context, std::shared_ptr<ParamInterface> param)
     : EmbeddingLookuper(context, param), resource_mgr_(context->get_resource_mgr()), 
     max_feature_num_(context->get_max_feature_num()), slot_num_(context->get_slot_num()),
-    combiner_(context->get_combiner())
+    combiner_(context->get_combiner()), global_batch_size_(base_context()->get_global_batch_size())
     {
         const size_t local_gpu_count = resource_mgr_->get_local_gpu_count();
         hash_value_index_tensors_.reserve(local_gpu_count);
@@ -34,7 +34,7 @@ public:
         if (combiner_ == CombinerType::Mean) row_offset_allreduce_tensors_.reserve(local_gpu_count);
     }
 
-    void allocate_forward_spaces(size_t const global_batch_size) override {
+    void allocate_forward_spaces() override {
         size_t max_vocabulary_size_per_gpu = param_->get_max_vocabulary_size_per_gpu();
         size_t max_vocabulary_size_in_total = max_vocabulary_size_per_gpu * resource_mgr_->get_global_gpu_count();
 
@@ -45,39 +45,37 @@ public:
             // new hash table value (index) that get() from hashtable
             {
                 Tensor2<size_t> tensor;
-                buffer->reserve({1, global_batch_size * max_feature_num_}, &tensor);
+                buffer->reserve({1, global_batch_size_ * max_feature_num_}, &tensor);
                 hash_value_index_tensors_.push_back(tensor);
             #ifdef DEBUG
                 std::cout << "hash_value_index_tensor size on dev_id " << dev_id << " = "
                           << "global_batch_size * max_feature_num " << ", "
-                          << "global_batch_size = " << global_batch_size << ", "
+                          << "global_batch_size = " << global_batch_size_ << ", "
                           << "max_feature_num = " << max_feature_num_ << std::endl;
             #endif // DEBUG
             }
             // new embedding features reduced by hash table values.
             {
                 Tensor2<float> tensor;
-                buffer->reserve({global_batch_size * slot_num_, param_->get_embedding_vec_size()}, &tensor);
+                buffer->reserve({global_batch_size_ * slot_num_, param_->get_embedding_vec_size()}, &tensor);
                 embedding_feature_tensors_.push_back(tensor);
             }
         } // for dev_id
-
-        global_batch_size_ = global_batch_size;
     }
 
-    void allocate_backward_spaces(size_t const global_batch_size) override {
+    void allocate_backward_spaces() override {
         for (size_t dev_id = 0; dev_id < resource_mgr_->get_local_gpu_count(); ++dev_id) { 
             auto &buffer = base_context()->get_buffer(dev_id);
             // new wgrad used by backward
             {
                 Tensor2<float> tensor;
-                buffer->reserve({global_batch_size * slot_num_, param_->get_embedding_vec_size()}, &tensor);
+                buffer->reserve({global_batch_size_ * slot_num_, param_->get_embedding_vec_size()}, &tensor);
                 wgrad_tensors_.push_back(tensor);
             }
             {
                 if (CombinerType::Mean == combiner_) {
                     Tensor2<int64_t> tensor;
-                    buffer->reserve({1, global_batch_size * slot_num_ + 1}, &tensor);
+                    buffer->reserve({1, global_batch_size_ * slot_num_ + 1}, &tensor);
                     row_offset_allreduce_tensors_.push_back(tensor);
                 } // if combiner_ == mean
             }
@@ -261,52 +259,17 @@ public:
     #endif // DEBUG
     }
 
-    void load_tensors_to_memory(const std::vector<std::shared_ptr<Tensor>>& tensors) override {
-        /*step 1 allocate temp spaces*/
-        const size_t embedding_vec_size = param_->get_embedding_vec_size();
-        size_t rows_num = 0;
-        for (auto tensor : tensors) { 
-            size_t row_num = tensor->get_num_elements() / embedding_vec_size;
-            rows_num += row_num; 
-        } // iter on tensors
+    void restore_params(const std::shared_ptr<Tensor> &keys, 
+                        const std::shared_ptr<Tensor> &embedding_values,
+                        const size_t num_total_keys) override {
+        const size_t total_max_vocabulary_size = 
+            param_->get_max_vocabulary_size_per_gpu() * resource_mgr_->get_global_gpu_count();
 
-        std::shared_ptr<HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>> blobs_buff = 
-            HugeCTR::GeneralBuffer2<HugeCTR::CudaHostAllocator>::create();
+        MESSAGE("num_total_keys = " + std::to_string(num_total_keys) + ", "
+                "while total_max_vocabulary_size = " + std::to_string(total_max_vocabulary_size));
 
-        Tensor2<int64_t> keys;
-        blobs_buff->reserve({rows_num}, &keys);
-        Tensor2<float> embedding_vectors;
-        blobs_buff->reserve({rows_num, embedding_vec_size}, &embedding_vectors);
-        blobs_buff->allocate();
-        MESSAGE("Allocated temporary buffer for loading tensors.");
-
-        /*step 2: write content to temporary spaces*/
-        size_t row_offset = 0;
-        for (auto tensor : tensors) {
-            size_t row_num = tensor->get_num_elements() / embedding_vec_size;
-            for (size_t i = 0; i < row_num; i++) {
-                size_t row_idx = row_offset + i;
-                int64_t key = row_idx; // use row-idx as hash_value_index
-                std::memcpy(keys.get_ptr() + row_idx, &key, sizeof(int64_t));
-                std::memcpy(embedding_vectors.get_ptr() + row_idx * embedding_vec_size,
-                            tensor->GetPtrWithType<float>() + i * embedding_vec_size, 
-                            sizeof(float) * embedding_vec_size);
-            } // for i in row_num
-            row_offset += row_num;
-        } // iter on tensors
-        if (row_offset != rows_num) throw std::runtime_error(ErrorBase + "Error happened in copy tensor content.");
-
-        size_t total_max_vocabulary_size = param_->get_max_vocabulary_size_per_gpu() * resource_mgr_->get_global_gpu_count();
-        if (rows_num > total_max_vocabulary_size) throw std::runtime_error(ErrorBase + 
-                        "The total rows_num is out of the range of total vocabulary_size of this variable.");
-        
-        MESSAGE("Total rows_num = " + std::to_string(rows_num) + ", " +
-                "while total vocabulary_size = " + std::to_string(total_max_vocabulary_size));
-
-        load_parameters(keys, embedding_vectors, rows_num, 
-                        total_max_vocabulary_size,
-                        param_->get_embedding_vec_size(),
-                        param_->get_max_vocabulary_size_per_gpu());
+        load_parameters(keys, embedding_values, num_total_keys, total_max_vocabulary_size,
+                        param_->get_embedding_vec_size(), param_->get_max_vocabulary_size_per_gpu());
     }
 
 private:
@@ -314,7 +277,7 @@ private:
     const size_t max_feature_num_;
     const size_t slot_num_;
     CombinerType combiner_;
-    size_t global_batch_size_ = 0;
+    const size_t global_batch_size_;
 
     // forward spaces
     Tensors2<size_t> hash_value_index_tensors_;
@@ -324,33 +287,31 @@ private:
     Tensors2<float> wgrad_tensors_;
     Tensors2<int64_t> row_offset_allreduce_tensors_;
 
-    void load_parameters(const Tensor2<int64_t>& keys,
-                        const Tensor2<float>& embeddings,
-                        size_t row_num,
-                        size_t vocabulary_size,
-                        size_t embedding_vec_size,
-                        size_t max_vocabulary_size_per_gpu) {
-        if (keys.get_dimensions()[0] != row_num || embeddings.get_dimensions()[0] != row_num) 
-            throw std::runtime_error(ErrorBase + "The rows of keys and embeddings are not consistent.");
-        if (row_num > vocabulary_size)
-            throw std::runtime_error(ErrorBase + "file size is larger than vocabulary_size.");
+    void load_parameters(const std::shared_ptr<Tensor> &keys,
+                        const std::shared_ptr<Tensor> &embeddings,
+                        const size_t rows_num,
+                        const size_t total_vocabulary_size,
+                        const size_t embedding_vec_size,
+                        const size_t max_vocabulary_size_per_gpu) {
+        if (rows_num > total_vocabulary_size)
+            throw std::runtime_error(ErrorBase + "file size is larger than total_vocabulary_size.");
 
-        const int64_t *key_ptr = keys.get_ptr();
-        const float *embedding_ptr = embeddings.get_ptr();
+        const int64_t *key_ptr = keys->GetPtrWithType<int64_t>();
+        const float *embedding_ptr = embeddings->GetPtrWithType<float>();
 
         /*step 5: allocate temporary spaces*/
         const size_t worker_id = resource_mgr_->get_worker_id();
         const size_t local_gpu_count = resource_mgr_->get_local_gpu_count();
-        const size_t chunk_size = 1000;
-        size_t hash_table_key_tile_size = 1; // ????
-        size_t hash_table_key_tile_size_in_bytes = hash_table_key_tile_size * sizeof(int64_t); // TODO: make it template
-        size_t hash_table_key_chunk_size = hash_table_key_tile_size * chunk_size;
-        size_t hash_table_key_chunk_size_in_bytes = hash_table_key_chunk_size * sizeof(int64_t);
-        size_t hash_table_value_index_chunk_size_in_bytes = hash_table_key_chunk_size * sizeof(size_t);
-        size_t hash_table_value_tile_size = embedding_vec_size;
-        size_t hash_table_value_tile_size_in_bytes = hash_table_value_tile_size * sizeof(float);
-        size_t hash_table_value_chunk_size = hash_table_value_tile_size * chunk_size;
-        size_t hash_table_value_chunk_size_in_bytes = hash_table_value_chunk_size * sizeof(float);
+        constexpr size_t chunk_size = 1000;
+        constexpr size_t hash_table_key_tile_size = 1; // ????
+        const size_t hash_table_key_tile_size_in_bytes = hash_table_key_tile_size * sizeof(int64_t); // TODO: make it template
+        const size_t hash_table_key_chunk_size = hash_table_key_tile_size * chunk_size;
+        const size_t hash_table_key_chunk_size_in_bytes = hash_table_key_chunk_size * sizeof(int64_t);
+        const size_t hash_table_value_index_chunk_size_in_bytes = hash_table_key_chunk_size * sizeof(size_t);
+        const size_t hash_table_value_tile_size = embedding_vec_size;
+        const size_t hash_table_value_tile_size_in_bytes = hash_table_value_tile_size * sizeof(float);
+        const size_t hash_table_value_chunk_size = hash_table_value_tile_size * chunk_size;
+        const size_t hash_table_value_chunk_size_in_bytes = hash_table_value_chunk_size * sizeof(float);
 
         // Cannot decide precise the number of values for each GPU, so allocate enough spaces
         std::unique_ptr<size_t []> tile_counter_per_gpu(new size_t[local_gpu_count]()); // hash_table_value_index_per_gpu_size
@@ -382,17 +343,17 @@ private:
         resource_mgr_->sync_local_gpus();
 
         /*step 6: do uploading*/
-        size_t loop_num = row_num / chunk_size;
-        MESSAGE("Rank " + std::to_string(worker_id) + ": Start uploading parameters. "
+        size_t loop_num = rows_num / chunk_size;
+        MESSAGE("Worker " + std::to_string(worker_id) + ": Start uploading parameters. "
                 "Total loop_num = " + std::to_string(loop_num));
         for (size_t i = 0; i < loop_num; i++) {
             int64_t *key_dst_buf;
             float *value_dst_buf;
             for (size_t k = 0; k < chunk_size; k++) {
-                int64_t key = key_ptr[i * chunk_size + k];
-                size_t global_gpu_id = key % resource_mgr_->get_global_gpu_count();
-                size_t local_gpu_id = resource_mgr_->cal_local_id_from_global_id(global_gpu_id);
-                size_t dst_worker = resource_mgr_->cal_worker_id_from_global_id(global_gpu_id);
+                const int64_t key = key_ptr[i * chunk_size + k];
+                const size_t global_gpu_id = key % resource_mgr_->get_global_gpu_count();
+                const size_t local_gpu_id = resource_mgr_->cal_local_id_from_global_id(global_gpu_id);
+                const size_t dst_worker = resource_mgr_->cal_worker_id_from_global_id(global_gpu_id);
                 if (dst_worker == worker_id) { // it belongs to this worker
                     key_dst_buf = h_hash_table_key_chunk_per_gpu[local_gpu_id] + 
                                 tile_counter_in_chunk_per_gpu[local_gpu_id] * hash_table_key_tile_size;
@@ -414,14 +375,14 @@ private:
                 const auto& local_gpu = resource_mgr_->get_local_gpu(id);
                 context.set_device(local_gpu->get_local_device_id());
 
-                size_t tile_count = tile_counter_in_chunk_per_gpu[id];
+                const size_t tile_count = tile_counter_in_chunk_per_gpu[id];
                 CK_CUDA(cudaMemcpyAsync(d_hash_table_key_chunk_per_gpu[id],
                                         h_hash_table_key_chunk_per_gpu[id],
                                         tile_count * sizeof(int64_t),
                                         cudaMemcpyHostToDevice,
                                         local_gpu->get_stream()));
                 
-                size_t value_index_offset = tile_counter_per_gpu[id];
+                const size_t value_index_offset = tile_counter_per_gpu[id];
                 size_t *value_index_buf = d_hash_table_value_index_chunk_per_gpu[id];
                 if (tile_count > 0) {
                     memset_liner(value_index_buf, value_index_offset, 1ul, tile_count,
@@ -441,9 +402,9 @@ private:
                 const auto& local_gpu = resource_mgr_->get_local_gpu(id);
                 context.set_device(local_gpu->get_local_device_id());
 
-                size_t value_chunk_size = tile_counter_in_chunk_per_gpu[id] * embedding_vec_size;
-                size_t value_chunk_offset = tile_counter_per_gpu[id] * embedding_vec_size;
-                float *src_buf = h_hash_table_value_chunk_per_gpu[id];
+                const size_t value_chunk_size = tile_counter_in_chunk_per_gpu[id] * embedding_vec_size;
+                const size_t value_chunk_offset = tile_counter_per_gpu[id] * embedding_vec_size;
+                const float *src_buf = h_hash_table_value_chunk_per_gpu[id];
                 float *dst_buf = param_->get_embedding_table_tensor(id)->GetPtrWithType<float>() + value_chunk_offset;
                 CK_CUDA(cudaMemcpyAsync(dst_buf, src_buf, value_chunk_size * sizeof(float),
                                         cudaMemcpyHostToDevice, local_gpu->get_stream()));
@@ -463,15 +424,15 @@ private:
         } // for i in loop_num
 
         /*step 7: process the remaining data (less than a chunk)*/
-        size_t remain_loop_num = row_num - loop_num * chunk_size;
+        const size_t remain_loop_num = rows_num - loop_num * chunk_size;
         int64_t *key_dst_buf;
         size_t *value_index_buf;
         float *value_dst_buf;
         for (size_t i = 0; i < remain_loop_num; i++) {
-            int64_t key = key_ptr[loop_num * chunk_size + i];
-            size_t global_gpu_id = key % resource_mgr_->get_global_gpu_count();
-            size_t local_gpu_id = resource_mgr_->cal_local_id_from_global_id(global_gpu_id);
-            size_t dst_worker = resource_mgr_->cal_worker_id_from_global_id(global_gpu_id);
+            const int64_t key = key_ptr[loop_num * chunk_size + i];
+            const size_t global_gpu_id = key % resource_mgr_->get_global_gpu_count();
+            const size_t local_gpu_id = resource_mgr_->cal_local_id_from_global_id(global_gpu_id);
+            const size_t dst_worker = resource_mgr_->cal_worker_id_from_global_id(global_gpu_id);
 
             if (worker_id == dst_worker) {
                 const auto& local_gpu = resource_mgr_->get_local_gpu(local_gpu_id);
@@ -484,7 +445,7 @@ private:
                                         local_gpu->get_stream()));
                 
                 // set value_index
-                size_t value_index_offset = tile_counter_per_gpu[local_gpu_id];
+                const size_t value_index_offset = tile_counter_per_gpu[local_gpu_id];
                 value_index_buf = d_hash_table_value_index_chunk_per_gpu[local_gpu_id];
                 memset_liner(value_index_buf, value_index_offset, 1ul, 1ul,
                             local_gpu->get_stream());
@@ -497,7 +458,7 @@ private:
                                         hash_table_key_tile_size, local_gpu->get_stream());
                                     
                 // memcpy embeddding vectors
-                size_t value_offset = tile_counter_per_gpu[local_gpu_id] * embedding_vec_size;
+                const size_t value_offset = tile_counter_per_gpu[local_gpu_id] * embedding_vec_size;
                 value_dst_buf = param_->get_embedding_table_tensor(local_gpu_id)->GetPtrWithType<float>() + value_offset;
                 CK_CUDA(cudaMemcpyAsync(value_dst_buf, 
                             embedding_ptr + (loop_num * chunk_size + i) * embedding_vec_size,

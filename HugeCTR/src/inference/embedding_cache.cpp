@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,19 +116,12 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
     cache_config_.max_query_len_per_emb_table_.emplace_back(max_batchsize * max_feature_num_per_sample[i]);
   }
 
-  auto remove_prefix = [](const std::string& path) {
-    size_t found = path.rfind("/");
-    if (found != std::string::npos)
-      return std::string(path, found + 1);
-    else
-      return path;
-  };
   // Query the size of all embedding tables and calculate the size of each embedding cache
   if(cache_config_.use_gpu_embedding_cache_){
     for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
-      std::string key_file(emb_file_path[i] + "/" + remove_prefix(emb_file_path[i]) + ".key");
-      size_t row_num = fs::file_size(key_file) / sizeof(TypeHashKey);
-      if (fs::file_size(key_file) % sizeof(TypeHashKey) != 0){
+      std::string key_file(emb_file_path[i] + "/key");
+      size_t row_num = fs::file_size(key_file) / sizeof(long long);
+      if (fs::file_size(key_file) % sizeof(long long) != 0){
         CK_THROW_(Error_t::WrongInput, "Error: embeddings file size is not correct");
       }
 
@@ -336,14 +329,16 @@ void embedding_cache<TypeHashKey>::look_up(const void* h_embeddingcolumns,
   else{
     //Query the shuffled embeddingcolumns from Parameter Server & copy to device output buffer
     size_t acc_emb_vec_offset = 0;
+    size_t acc_emb_table_offset = 0;
     for(unsigned int i = 0; i < cache_config_.num_emb_table_; i++){
       TypeHashKey* h_query_key_ptr = (TypeHashKey*)(workspace_handler.h_shuffled_embeddingcolumns_) + workspace_handler.h_shuffled_embedding_offset_[i];
       size_t query_length = workspace_handler.h_shuffled_embedding_offset_[i + 1] - workspace_handler.h_shuffled_embedding_offset_[i];
       size_t query_length_in_float = query_length * cache_config_.embedding_vec_size_[i];
       size_t query_length_in_byte = query_length_in_float * sizeof(float);
-      float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ + acc_emb_vec_offset;
-      float* d_vals_retrieved_ptr = d_shuffled_embeddingoutputvector + acc_emb_vec_offset;
+      float* h_vals_retrieved_ptr = workspace_handler.h_missing_emb_vec_ +  acc_emb_vec_offset;
+      float* d_vals_retrieved_ptr = d_shuffled_embeddingoutputvector +  acc_emb_table_offset;
       acc_emb_vec_offset += query_length_in_float;
+      acc_emb_table_offset += cache_config_.max_query_len_per_emb_table_[i] * cache_config_.embedding_vec_size_[i];
       parameter_server_ -> look_up(h_query_key_ptr, query_length, h_vals_retrieved_ptr, cache_config_.model_name_, i);
       CK_CUDA_THROW_(cudaMemcpyAsync(d_vals_retrieved_ptr, h_vals_retrieved_ptr, query_length_in_byte, cudaMemcpyHostToDevice, streams[i]));
     }

@@ -15,7 +15,7 @@
 """
 
 import tensorflow as tf
-from sparse_operation_kit.kit_lib import dump_to_file, restore_from_file, load_tensors_to_variable
+from sparse_operation_kit.kit_lib import dump_to_file, restore_from_file, load_embedding_values
 
 
 # TODO: make it inherit from trackable???
@@ -27,19 +27,19 @@ class Saver(object):
     def __call__(self):
         pass
 
-    def dump_to_file(self, emb_var_handle, filename):
+    def dump_to_file(self, embedding_variable, filepath):
         """
         This function is used to save one emb_var to file.
         """
-        return dump_to_file(emb_var_handle, filename)
+        return dump_to_file(embedding_variable.values[0].emb_handle, filepath)
 
-    def restore_from_file(self, emb_var_handle, filename):
+    def restore_from_file(self, embedding_variable, filepath):
         """
         This function is used to restore one emb_var from file.
         """
-        return restore_from_file(emb_var_handle, filename)
+        return restore_from_file(embedding_variable.values[0].emb_handle, filepath)
 
-    def load_tensors_to_variable(self, embedding_variable, tensors):
+    def load_embedding_values(self, embedding_variable, tensors):
         """
         This function is used to load tensors to variable GPU memory.
         The input tensors is a list of tensor, where all tensor
@@ -47,6 +47,6 @@ class Saver(object):
         tensors = ([vocabulary_size_0, embedding_vec_size], [vocabulary_size_1, embedding_vec_size])
         It is equal to a big tensor whose shape is [vocabulary_size_0 + vocabulary_size_1, embedding_vec_size].
         """
-        return load_tensors_to_variable(embedding_variable.values[0].emb_handle, tensors)
+        return load_embedding_values(embedding_variable.values[0].emb_handle, tensors)
 
     

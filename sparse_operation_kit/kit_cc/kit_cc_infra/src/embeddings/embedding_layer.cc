@@ -25,7 +25,8 @@ EmbeddingLayer::EmbeddingLayer(std::shared_ptr<Dispatcher> input_dispatcher,
                                std::shared_ptr<Dispatcher> output_dispatcher,
                                ConstructionContext_t context)
 : input_dispatcher_(input_dispatcher), embedding_lookuper_(embedding_lookuper),
-output_dispatcher_(output_dispatcher), base_context_(context)
+output_dispatcher_(output_dispatcher), base_context_(context),
+global_batch_size_(context->get_replica_batch_size() * context->get_resource_mgr()->get_global_gpu_count())
 {}
 
 std::shared_ptr<EmbeddingLayer> EmbeddingLayer::create(std::shared_ptr<Dispatcher> input_dispatcher,
@@ -36,40 +37,27 @@ std::shared_ptr<EmbeddingLayer> EmbeddingLayer::create(std::shared_ptr<Dispatche
                                                               output_dispatcher, context));
 }
 
-void EmbeddingLayer::allocate_forward_spaces(size_t const global_batch_size) {
-    global_batch_size_ = global_batch_size;
-    input_dispatcher_->AllocateForwardSpaces(global_batch_size);
-    embedding_lookuper_->AllocateForwardSpaces(global_batch_size);
-    output_dispatcher_->AllocateForwardSpaces(global_batch_size);
+void EmbeddingLayer::allocate_forward_spaces() {
+    input_dispatcher_->AllocateForwardSpaces();
+    embedding_lookuper_->AllocateForwardSpaces();
+    output_dispatcher_->AllocateForwardSpaces();
 }
 
-void EmbeddingLayer::allocate_backward_spaces(size_t const global_batch_size) {
-    input_dispatcher_->AllocateBackwardSpaces(global_batch_size);
-    embedding_lookuper_->AllocateBackwardSpaces(global_batch_size);
-    output_dispatcher_->AllocateBackwardSpaces(global_batch_size);
+void EmbeddingLayer::allocate_backward_spaces() {
+    input_dispatcher_->AllocateBackwardSpaces();
+    embedding_lookuper_->AllocateBackwardSpaces();
+    output_dispatcher_->AllocateBackwardSpaces();
 }
 
 void EmbeddingLayer::forward(const Context_t &replica_context, const bool training) {
-#ifdef USE_NVTX
-    nvtxRangeId_t input_dispatcher_forward_marker = nvtxRangeStartA("input_dispather_forward");
-#endif
     // step 1 dispatch input to each GPU, Data-Parallel -> Model Parallel
     input_dispatcher_->Forward(replica_context, training);
-#ifdef USE_NVTX
-    nvtxRangeEnd(input_dispatcher_forward_marker);
-    nvtxRangeId_t embedding_forward_marker = nvtxRangeStartA("embedding_forward");
-#endif
+
     // step 2 do embedding lookup on each GPU independently
     embedding_lookuper_->Forward(replica_context, training);
-#ifdef USE_NVTX
-    nvtxRangeEnd(embedding_forward_marker);
-    nvtxRangeId_t output_dispatcher_forward_marker = nvtxRangeStartA("output_dispatcher_forward");
-#endif
+    
     // step 3 dispatch embedding vector to each GPU, Model-Parallel -> Data-Parallel
     output_dispatcher_->Forward(replica_context, training);
-#ifdef USE_NVTX
-    nvtxRangeEnd(output_dispatcher_forward_marker);
-#endif
 }
 
 void EmbeddingLayer::backward(const Context_t &replica_context) {
@@ -119,17 +107,42 @@ size_t EmbeddingLayer::get_max_vocabulary_size_per_gpu() const {
     return base_context_->get_param()->get_max_vocabulary_size_per_gpu();
 }
 
-void EmbeddingLayer::dump_to_file(std::ofstream& file_stream) const {
-    throw std::runtime_error(ErrorBase + "dump_to_file not implemented.");
+void EmbeddingLayer::dump_to_file(const std::string filepath) const {
+    input_dispatcher_->DumpToFile(filepath);
+
+    embedding_lookuper_->DumpToFile(filepath);
+
+    output_dispatcher_->DumpToFile(filepath);
 }
 
-void EmbeddingLayer::restore_from_file(std::ifstream& file_stream) {
-    throw std::runtime_error(ErrorBase + "restore_from_file not implemented.");
+void EmbeddingLayer::restore_from_file(const std::string filepath) {
+    input_dispatcher_->RestoreFromFile(filepath);
+
+    embedding_lookuper_->RestoreFromFile(filepath);
+
+    output_dispatcher_->RestoreFromFile(filepath);
 }
 
-void EmbeddingLayer::load_tensors_to_memory(const std::vector<std::shared_ptr<Tensor>>& tensors) {
-    // TODO: only embedding_lookuper_ has parameters to save
-    embedding_lookuper_->load_tensors_to_memory(tensors);
+void EmbeddingLayer::restore_params(const std::shared_ptr<Tensor> &keys,
+                                    const std::shared_ptr<Tensor> &embedding_values,
+                                    const size_t num_total_keys) {
+    // because the params is only used by embedding lookuper,
+    // so that delegate this job to embedding lookuper
+    embedding_lookuper_->restore_params(keys, embedding_values, num_total_keys); 
+}
+
+bool EmbeddingLayer::save_params(const std::string filepath) const {
+    // because the params is only used by embedding lookuper,
+    // so that delegate this job to embedding lookuper
+    return embedding_lookuper_->save_params(filepath);
+}
+
+void EmbeddingLayer::load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensor_list) {
+    input_dispatcher_->LoadEmbeddingValues(tensor_list);
+
+    embedding_lookuper_->LoadEmbeddingValues(tensor_list);
+
+    output_dispatcher_->LoadEmbeddingValues(tensor_list);
 }
 
 ConstructionContext_t EmbeddingLayer::base_context() const {
@@ -165,7 +178,7 @@ void DenseEmbeddingLayer::get_output_shape(std::vector<int64_t>& output_shape) c
 }
 
 size_t DenseEmbeddingLayer::get_max_feature_num() const {
-    throw std::runtime_error(ErrorBase + "DenseEmbeddingLayer does not have max_feature_num attributed.");
+    return base_context()->get_slot_num() * base_context()->get_nnz_per_slot();
 }
 
 class EmbeddingVariantWrapper {

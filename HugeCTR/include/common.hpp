@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 namespace HugeCTR {
 
 #define HUGECTR_VERSION_MAJOR 3
-#define HUGECTR_VERSION_MINOR 0
+#define HUGECTR_VERSION_MINOR 1
 #define HUGECTR_VERSION_PATCH 0
 
 #define WARP_SIZE 32
@@ -138,7 +138,8 @@ enum class Layer_t {
   ReduceSum,
   MultiCross,
   Cast,
-  DotProduct
+  DotProduct,
+  ElementwiseMultiply
 };
 
 enum class Embedding_t {
@@ -150,7 +151,7 @@ enum class Embedding_t {
 enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
 
 typedef struct DataSetHeader_ {
-  long long error_check;        // 0: no error check; 1: check_num
+  long long error_check;        // 0: no error check; 1: check_sum
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
   long long dense_dim;          // dimension of dense feature

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ void Network::train(long long current_batchsize) {
   return;
 }
 
-void Network::eval() {
+void Network::eval(long long current_batchsize) {
   if (enable_cuda_graph_) {
     if (!eval_graph_created_) {
       CK_CUDA_THROW_(
@@ -130,7 +130,7 @@ void Network::eval() {
       layer->fprop(false);
     }
   }
-  evaluate_loss_->compute(false);
+  evaluate_loss_->compute(false, current_batchsize);
 
   return;
 }

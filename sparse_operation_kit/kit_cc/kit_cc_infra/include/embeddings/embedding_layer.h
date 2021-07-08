@@ -20,7 +20,6 @@
 #include "operation/operation.h"
 #include "embeddings/embedding_lookuper.h"
 #include "tensorflow/core/framework/tensor.h"
-#include <fstream>
 
 namespace SparseOperationKit {
 
@@ -31,8 +30,8 @@ public:
                                                   std::shared_ptr<Dispatcher> output_dispatcher,
                                                   ConstructionContext_t context);
 
-    void allocate_forward_spaces(size_t const global_batch_size);
-    void allocate_backward_spaces(size_t const global_batch_size);
+    void allocate_forward_spaces();
+    void allocate_backward_spaces();
     void forward(const Context_t &replica_context, const bool training);
     void backward(const Context_t &replica_context);
 
@@ -44,9 +43,16 @@ public:
     std::string get_var_name() const;
     size_t get_max_vocabulary_size_per_gpu() const;
 
-    void dump_to_file(std::ofstream& file_stream) const;
-    void restore_from_file(std::ifstream& file_stream);
-    void load_tensors_to_memory(const std::vector<std::shared_ptr<Tensor>>& tensors);
+    void dump_to_file(const std::string filepath) const;
+    // restore the operations' content from file
+    void restore_from_file(const std::string filepath);
+    // help to restore params 
+    void restore_params(const std::shared_ptr<Tensor> &keys,
+                        const std::shared_ptr<Tensor> &embedding_values,
+                        const size_t num_total_keys);
+    // help to save params
+    bool save_params(const std::string filepath) const;
+    void load_embedding_values(const std::vector<std::shared_ptr<Tensor>>& tensor_list);
 
 protected:
     EmbeddingLayer(std::shared_ptr<Dispatcher> input_dispatcher,
@@ -61,7 +67,7 @@ private:
     const std::shared_ptr<EmbeddingLookuper> embedding_lookuper_;
     const std::shared_ptr<Dispatcher> output_dispatcher_;
     const ConstructionContext_t base_context_;
-    size_t global_batch_size_ = 0;
+    const size_t global_batch_size_;
 };
 
 
