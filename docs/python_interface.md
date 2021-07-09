@@ -745,6 +745,13 @@ hugectr.Model.save_params_to_files()
 ```
 This method save the model parameters to files. If model oversubscriber is utilized, this method will save sparse weights, dense weights and dense optimizer states. Otherwise, this method will save sparse weights, sparse optimizer states, dense weights and dense optimizer states.
 
+The stored sparse model can be used for both the later training and inference cases. Each sparse model will be dumped as a separate folder that contains two files (`key`, `emb_vector`) for the DistributedSlotEmbedding or three files (`key`, `slot_id`, `emb_vector`) for the LocalizedSlotEmbedding. Details of these files are:
+* `key`: The unique keys appeared in the training data. All keys are stored in `long long` format, and HugeCTR will handle the datatype conversion internally for the case when `i64_input_key = False`.
+* `slot_id`: The key distribution info internally used by the LocalizedSlotEmbedding.
+* `emb_vector`: The embedding vectors corresponding to keys stored in the `key` file.
+
+Note that the key, slot id, and embedding vector are stored in the sparse model in the same sequence, so both the nth slot id in `slot_id` file and the nth embedding vector in the `emb_vector` file are mapped to the nth key in the `key` file.
+
 **Arguments**
 * `prefix`: String, the prefix of the saved files for model weights and optimizer states. There is NO default value and it should be specified by users.
 
