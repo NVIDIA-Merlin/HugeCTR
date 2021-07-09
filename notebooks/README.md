@@ -5,7 +5,7 @@ This directory contains a set of Jupyter Notebook demos for HugeCTR.
 The quickest way to run a notebook here is with a docker container, which provides a self-contained, isolated, and reproducible environment for repetitive experiments. HugeCTR is available as buildable source code, but the easiest way to install and run HugeCTR is to use the pre-built Docker image available from the NVIDIA GPU Cloud (NGC). If you want to build the HugeCTR docker image on your own, please refer to [Use Docker Container](../docs/mainpage.md#use-docker-container).
 
 ### Pull the NGC Docker
-To start the [embedding_plugin.ipynb](embedding_plugin.ipynb) notebook, pull this docker image:
+To start the [embedding_plugin.ipynb](embedding_plugin_deprecated.ipynb) notebook, pull this docker image:
 ```
 docker pull nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.5
 ```
@@ -61,5 +61,6 @@ The notebooks are located within the container and can be found here: `/hugectr/
 Here's a list of notebooks that you can run:
 - [ecommerce-example.ipynb](ecommerce-example.ipynb): Explains how to train and inference with the eCommerce dataset.
 - [movie-lens-example.ipynb](movie-lens-example.ipynb): Explains how to train and inference with the MoveLense dataset.
-- [embedding_plugin.ipynb](embedding_plugin.ipynb): Explains how to install and use the HugeCTR embedding plugin with Tensorflow.
+- [embedding_plugin.ipynb](embedding_plugin_deprecated.ipynb): Explains how to install and use the HugeCTR embedding plugin with Tensorflow. Please be noted that this library is deprecated, and its features are moved to [sparse_operation_kit](sparse_operation_kit_demo.ipynb).
+- [sparse_operation_kit_demo.ipynb](sparse_operation_kit_demo.ipynb): Demos of new TensorFlow plugins for sparse operations (embedding layers).
 - [hugectr-criteo.ipynb](hugectr_criteo.ipynb): Explains the usage of HugeCTR Python interface with the Criteo dataset.
