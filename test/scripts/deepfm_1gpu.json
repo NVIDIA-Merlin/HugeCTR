@@ -20,7 +20,7 @@
       "learning_rate": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.0000001
+      "epsilon": 1e-07
     }
   },
   "layers": [
@@ -41,9 +41,9 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "DistributedSlot",
-          "max_feature_num_per_sample": 30,
-          "slot_num": 26
+          "slot_num": 26,
+          "is_fixed_length": false,
+          "nnz_per_slot": 2
         }
       ]
     },
@@ -53,9 +53,9 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 1737709,
         "embedding_vec_size": 11,
-        "combiner": 0
+        "combiner": "sum",
+        "workspace_size_per_gpu_in_mb": 73
       }
     },
     {

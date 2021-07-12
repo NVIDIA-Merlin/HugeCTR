@@ -17,6 +17,7 @@
 #pragma once
 #include <cuda_runtime_api.h>
 #include <memory>
+#include <numeric>
 #include "HugeCTR/include/tensor2.hpp"
 
 namespace HugeCTR {
@@ -149,12 +150,12 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
       buffer_impl_->initialize(buffer, offset);
     }
   };
-
+  
   Allocator allocator_;
   void *ptr_;
   size_t total_size_in_bytes_;
   std::vector<std::shared_ptr<BufferInternal>> reserved_buffers_;
-
+  
   GeneralBuffer2() : ptr_(nullptr), total_size_in_bytes_(0) {}
 
  public:
@@ -217,6 +218,32 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
     reserved_buffers_.push_back(buffer_impl);
 
     *tensor = Tensor2<T>(dimensions, buffer_impl);
+  }
+
+  template <typename T>
+  void reserve(const std::vector<size_t> &dimensions, const size_t slot_num, SparseTensor<T> *tensor) {
+    if (allocated()) {
+      CK_THROW_(Error_t::IllegalCall, "General buffer is finalized.");
+    }
+    size_t max_nnz = get_num_elements_from_dimensions(dimensions);
+    size_t value_size_in_bytes = max_nnz * TensorScalarSizeFunc<T>::get_element_size();
+    
+    std::shared_ptr<TensorBufferImpl> value_buffer_impl =
+        std::make_shared<TensorBufferImpl>(value_size_in_bytes);
+    reserved_buffers_.push_back(value_buffer_impl);
+    
+    size_t rowoffset_count = slot_num;
+    for(int i = dimensions.size() - 2; i >= 0; --i){
+      rowoffset_count *= dimensions[i];
+    }
+    size_t rowoffset_size_in_bytes = (rowoffset_count + 1) * TensorScalarSizeFunc<T>::get_element_size();
+    
+    std::shared_ptr<TensorBufferImpl> rowoffset_buffer_impl =
+        std::make_shared<TensorBufferImpl>(rowoffset_size_in_bytes);
+    reserved_buffers_.push_back(rowoffset_buffer_impl);
+
+    std::shared_ptr<size_t> nnz_ptr(new size_t);
+    *tensor = SparseTensor<T>(dimensions, value_buffer_impl, rowoffset_buffer_impl, nnz_ptr, rowoffset_count + 1);
   }
 
   bool allocated() const { return total_size_in_bytes_ != 0 && ptr_ != nullptr; }

@@ -41,7 +41,7 @@ class FileSource : public Source {
       : file_list_(file_list),
       offset_(offset),
       stride_(stride),
-      repeat_(repeat) {}
+      repeat_(repeat) { }
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.

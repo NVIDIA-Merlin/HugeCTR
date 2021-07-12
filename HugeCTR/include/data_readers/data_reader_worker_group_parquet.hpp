@@ -24,24 +24,28 @@ namespace HugeCTR {
 template <typename TypeKey>
 class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
-      const std::string& file_name, bool repeat) override {
+                                        const std::string& file_name, bool repeat) override {
     CK_THROW_(Error_t::UnspecificError, "Invalid Call");
     return std::shared_ptr<Source>(reinterpret_cast<Source*>(new int));
   }
 
  public:
-  // Ctor
-  DataReaderWorkerGroupParquet(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap,
+  DataReaderWorkerGroupParquet(const std::vector<std::shared_ptr<ThreadBuffer>>& output_buffers,
                                std::string file_list,
                                const std::vector<DataReaderSparseParam> params,
                                const std::vector<long long> slot_offset,
-                               const std::shared_ptr<ResourceManager> resource_manager,
+                               const std::shared_ptr<ResourceManager>& resource_manager_,
                                bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Parquet) {
     if (file_list.empty()) {
       CK_THROW_(Error_t::WrongInput, "file_name.empty()");
     }
     // create data reader workers
+    size_t num_workers = output_buffers.size();
+    size_t local_gpu_count = resource_manager_->get_local_gpu_count();
+    if (num_workers != local_gpu_count) {
+      CK_THROW_(Error_t::WrongInput, "parquet workers should be as many as local_gpu_count");
+    }
     int max_feature_num_per_sample = 0;
     for (auto& param : params) {
       max_feature_num_per_sample += param.max_feature_num;
@@ -50,14 +54,13 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
         CK_THROW_(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
       }
     }
-
-    this->set_resource_manager(resource_manager);
+    this->set_resource_manager(resource_manager_);
     auto local_device_list = resource_manager_->get_local_gpu_device_id_list();
-    int NumThreads = csr_heap->get_size();
-    for (int i = 0; i < NumThreads; i++) {
+    for (size_t i = 0; i < num_workers; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
-          i, NumThreads, csr_heap, file_list, max_feature_num_per_sample, params, slot_offset,
-          local_device_list[i], resource_manager_));
+          i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count),
+          &data_reader_loop_flag_, output_buffers[i], file_list, params, slot_offset, local_device_list[i],
+          resource_manager_));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();

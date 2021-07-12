@@ -17,14 +17,14 @@
 #pragma once
 
 #include "embedding.hpp"
-#include "HugeCTR/include/embeddings/embedding.hpp"
+#include "HugeCTR/include/embeddings/embedding_data.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 #include "HugeCTR/include/model_oversubscriber/model_oversubscriber_impl.hpp"
 
 namespace HugeCTR {
 
 class ModelOversubscriber {
-private:
+ private:
   std::unique_ptr<ModelOversubscriberImplBase> impl_base_;
 
 public:
@@ -36,22 +36,14 @@ public:
     std::vector<SparseEmbeddingHashParams> embedding_params;
     if (is_i64_key) {
       for (auto& embedding : embeddings) {
-        const auto& param = use_mixed_precision ?
-            dynamic_cast<Embedding<long long, __half>*>(embedding.get())
-                ->get_embedding_params() :
-            dynamic_cast<Embedding<long long, float>*>(embedding.get())
-                ->get_embedding_params();
+        const auto& param = embedding->get_embedding_params();
         embedding_params.push_back(param);
       }
       impl_base_.reset(new ModelOversubscriberImpl<long long>(use_host_ps,
           embeddings, embedding_params, sparse_embedding_files, resource_manager));
     } else {
       for (auto& embedding : embeddings) {
-        const auto& param = use_mixed_precision ?
-            dynamic_cast<Embedding<unsigned, __half>*>(embedding.get())
-                ->get_embedding_params() :
-            dynamic_cast<Embedding<unsigned, float>*>(embedding.get())
-                ->get_embedding_params();
+        const auto& param = embedding->get_embedding_params();
         embedding_params.push_back(param);
       }
       impl_base_.reset(new ModelOversubscriberImpl<unsigned>(use_host_ps,
@@ -61,9 +53,7 @@ public:
 
   void dump() { impl_base_->dump(); }
 
-  void update(std::vector<std::string>& keyset_file_list) {
-    impl_base_->update(keyset_file_list);
-  }
+  void update(std::vector<std::string>& keyset_file_list) { impl_base_->update(keyset_file_list); }
 
   void update(std::string& keyset_file) {
     impl_base_->update(keyset_file);

@@ -33,7 +33,7 @@ def parse_args(parser):
   args.num_samples = data_config.get('num_samples', 0)
   args.eval_num_samples = data_config.get('eval_num_samples', 0)
   args.float_label_dense = data_config.get('float_label_dense', False)
-  args.num_workers = data_config.get('num_workers', 12)
+  args.num_workers = data_config.get('num_workers', 16)
   args.slot_size_array = data_config.get('slot_size_array', [])
   args.optimizer_type = OPTIMIZER_TYPE[optimizer_config["type"]]
   args.update_type = UPDATE_TYPE[optimizer_config['update_type']]
