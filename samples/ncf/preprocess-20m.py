@@ -82,7 +82,7 @@ train_negs = train_negs.reshape(-1, 100)
 
 sampler = _TestNegSampler(df.values, nb_users, nb_items, 1)  # using 1 negative sample for testing
 test_negs = sampler.generate()
-test_negs = test_negs.reshape(-1, 2)
+test_negs = test_negs.reshape(-1, 1)
 
 
 import numpy as np

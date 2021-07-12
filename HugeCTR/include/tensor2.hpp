@@ -17,8 +17,8 @@
 #pragma once
 #include <common.hpp>
 #include <memory>
+#include <numeric>
 #include <vector>
-
 namespace HugeCTR {
 
 enum class TensorScalarType { None, Void, Float32, Float16, Int64, UInt64, Int32, UInt32, Size_t };
@@ -98,9 +98,12 @@ class TensorBag2 {
 
  public:
   TensorBag2() : scalar_type_(TensorScalarType::None) {}
+
   const std::vector<size_t> &get_dimensions() const { return dimensions_; }
-  void* get_ptr() { return buffer_->get_ptr(); }
+
+  void *get_ptr() { return buffer_->get_ptr(); }
 };
+using TensorBags2 = std::vector<TensorBag2>;
 
 template <typename T>
 class Tensor2 {
@@ -138,7 +141,9 @@ class Tensor2 {
     return num_elements_ * TensorScalarSizeFunc<T>::get_element_size();
   }
 
-  void set_buffer(const std::shared_ptr<TensorBuffer2>& buffer) { buffer_ = buffer; }
+  void set_buffer(const std::shared_ptr<TensorBuffer2> &buffer) { buffer_ = buffer; }
+
+  std::shared_ptr<TensorBuffer2> get_buffer() const { return buffer_; }
 
   const T *get_ptr() const { return reinterpret_cast<const T *>(buffer_->get_ptr()); }
 
@@ -148,4 +153,140 @@ class Tensor2 {
 template <typename T>
 using Tensors2 = std::vector<Tensor2<T>>;
 
+class SparseTensorBag {
+  template <typename T>
+  friend class SparseTensor;
+
+  std::vector<size_t> dimensions_;
+  std::shared_ptr<TensorBuffer2> value_buffer_;
+  std::shared_ptr<TensorBuffer2> rowoffset_buffer_;
+  std::shared_ptr<size_t> nnz_;
+  size_t rowoffset_count_;
+  TensorScalarType scalar_type_;
+
+  SparseTensorBag(const std::vector<size_t> &dimensions,
+                  const std::shared_ptr<TensorBuffer2> &value_buffer,
+                  const std::shared_ptr<TensorBuffer2> &rowoffset_buffer,
+                  const std::shared_ptr<size_t> &nnz, const size_t rowoffset_count,
+                  TensorScalarType scalar_type)
+      : dimensions_(dimensions),
+        value_buffer_(value_buffer),
+        rowoffset_buffer_(rowoffset_buffer),
+        nnz_(nnz),
+        rowoffset_count_(rowoffset_count),
+        scalar_type_(scalar_type) {}
+
+ public:
+  SparseTensorBag() : scalar_type_(TensorScalarType::None) {}
+  const std::vector<size_t> &get_dimensions() const { return dimensions_; }
+};
+
+template <typename T>
+class SparseTensor {
+  std::vector<size_t> dimensions_;
+  std::shared_ptr<TensorBuffer2> value_buffer_;
+  std::shared_ptr<TensorBuffer2> rowoffset_buffer_;
+  std::shared_ptr<size_t> nnz_;  // maybe size_t for FixedLengthSparseTensor
+  size_t rowoffset_count_;
+
+ public:
+  SparseTensor() {}
+  SparseTensor(const std::vector<size_t> &dimensions,
+               const std::shared_ptr<TensorBuffer2> &value_buffer,
+               const std::shared_ptr<TensorBuffer2> &rowoffset_buffer,
+               const std::shared_ptr<size_t> &nnz, const size_t rowoffset_count)
+      : dimensions_(dimensions),
+        value_buffer_(value_buffer),
+        rowoffset_buffer_(rowoffset_buffer),
+        nnz_(nnz),
+        rowoffset_count_(rowoffset_count) {}
+
+  SparseTensor(const Tensor2<T> &value_tensor, const Tensor2<T> &rowoffset_tensor,
+               const std::shared_ptr<size_t> nnz)
+      : dimensions_(value_tensor.get_dimensions()),
+        value_buffer_(value_tensor.get_buffer()),
+        rowoffset_buffer_(rowoffset_tensor.get_buffer()),
+        nnz_(nnz),
+        rowoffset_count_(rowoffset_tensor.get_num_elements()) {}
+
+  static SparseTensor stretch_from(const SparseTensorBag &bag) {
+    if (bag.scalar_type_ != TensorScalarTypeFunc<T>::get_type()) {
+      CK_THROW_(Error_t::WrongInput, "Inconsistent sparse tensor type");
+    }
+    return SparseTensor(bag.dimensions_, bag.value_buffer_, bag.rowoffset_buffer_, bag.nnz_,
+                        bag.rowoffset_count_);
+  }
+
+  SparseTensorBag shrink() const {
+    return SparseTensorBag(dimensions_, value_buffer_, rowoffset_buffer_, nnz_, rowoffset_count_,
+                           TensorScalarTypeFunc<T>::get_type());
+  }
+
+  T *get_value_ptr() { return reinterpret_cast<T *>(value_buffer_->get_ptr()); }
+
+  const T *get_value_ptr() const { return reinterpret_cast<const T *>(value_buffer_->get_ptr()); }
+
+  Tensor2<T> get_value_tensor() const { return Tensor2<T>({*nnz_}, value_buffer_); }
+
+  T *get_rowoffset_ptr() { return reinterpret_cast<T *>(rowoffset_buffer_->get_ptr()); }
+
+  const T *get_rowoffset_ptr() const {
+    return reinterpret_cast<const T *>(rowoffset_buffer_->get_ptr());
+  }
+
+  Tensor2<T> get_rowoffset_tensor() const {
+    return Tensor2<T>({rowoffset_count_}, rowoffset_buffer_);
+  }
+
+  const std::vector<size_t> &get_dimensions() const { return dimensions_; }
+
+  size_t max_nnz() const { return get_num_elements_from_dimensions(dimensions_); }
+
+  size_t nnz() const { return *nnz_; }
+
+  std::shared_ptr<size_t> get_nnz_ptr() { return nnz_; }
+
+  size_t rowoffset_count() const { return rowoffset_count_; }
+};
+
+template <typename T>
+using SparseTensors = std::vector<SparseTensor<T>>;
+
+template <typename T>
+class CSR;
+namespace sparse_tensor_helper {
+namespace cuda {
+template <typename T>
+void copy_async(SparseTensor<T> &dst, const SparseTensor<T> &src, cudaMemcpyKind kind,
+                cudaStream_t stream) {
+  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_value_ptr(), src.get_value_ptr(), src.nnz() * sizeof(T),
+                                 kind, stream));
+
+  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_rowoffset_ptr(), src.get_rowoffset_ptr(),
+                                 src.rowoffset_count() * sizeof(T), kind, stream));
+
+  *dst.get_nnz_ptr() = src.nnz();
+}
+
+template <typename T>
+void copy_async(SparseTensor<T> &dst, const CSR<T> &src, cudaStream_t stream) {
+  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_value_ptr(), src.get_value_tensor().get_ptr(), src.get_num_values() * sizeof(T),
+                                 cudaMemcpyHostToDevice, stream));
+
+  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_rowoffset_ptr(), src.get_row_offset_tensor().get_ptr(),
+                                 src.get_row_offset_tensor().get_size_in_bytes(), cudaMemcpyHostToDevice, stream));
+
+  *dst.get_nnz_ptr() = src.get_num_values();
+}
+}  // namespace cuda
+namespace cpu {
+  template <typename T>
+  void copy(SparseTensor<T> &dst, const SparseTensor<T> &src) {
+    memcpy(dst.get_value_ptr(), src.get_value_ptr(), src.nnz() * sizeof(T));
+    memcpy(dst.get_rowoffset_ptr(), src.get_rowoffset_ptr(), src.rowoffset_count() * sizeof(T));
+
+    *dst.get_nnz_ptr() = src.nnz();
+  }
+}
+}  // namespace sparse_tensor_helper
 }  // namespace HugeCTR

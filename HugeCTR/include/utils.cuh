@@ -117,7 +117,7 @@ __inline__ __device__ T blockReduceSum(T val) {
 }
 
 template <typename T>
-__global__ void initialize_array(T* array, size_t num_elements, T value) {
+__global__ void initialize_array(T *array, size_t num_elements, T value) {
   const size_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
   const size_t num_threads = blockDim.x * gridDim.x;
   for (size_t tid = tid_base; tid < num_elements; tid += num_threads) {
@@ -126,7 +126,7 @@ __global__ void initialize_array(T* array, size_t num_elements, T value) {
 }
 
 template <typename TIN, typename TOUT, typename Lambda>
-__global__ void transform_array(const TIN* in, TOUT* out, size_t num_elements, Lambda op) {
+__global__ void transform_array(const TIN *in, TOUT *out, size_t num_elements, Lambda op) {
   const size_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
   const size_t num_threads = blockDim.x * gridDim.x;
   for (size_t tid = tid_base; tid < num_elements; tid += num_threads) {
@@ -135,12 +135,56 @@ __global__ void transform_array(const TIN* in, TOUT* out, size_t num_elements, L
 }
 
 template <typename TIN, typename TOUT>
-__global__ void convert_array(TOUT* out, const TIN* in, size_t num_elements) {
+__global__ void convert_array(TOUT *out, const TIN *in, size_t num_elements) {
   const size_t tid_base = blockIdx.x * blockDim.x + threadIdx.x;
   const size_t num_threads = blockDim.x * gridDim.x;
   for (size_t tid = tid_base; tid < num_elements; tid += num_threads) {
     out[tid] = TypeConvertFunc<TOUT, TIN>::convert(__ldg(in + tid));
   }
 }
+
+namespace unique_key_kernels {
+// for onehot
+template <typename TypeKey>
+__global__ void data_to_unique_categories_kernel(TypeKey *__restrict__ data,
+                                                 const TypeKey *__restrict__ embedding_offsets,
+                                                 int num_tables, int num_data) {
+  for (int idx = threadIdx.x + blockIdx.x * blockDim.x; idx < num_data;
+       idx += blockDim.x * gridDim.x) {
+    data[idx] = data[idx] + embedding_offsets[idx % num_tables];
+  }
+}
+
+template <typename TypeKey>
+__global__ void data_to_unique_categories_align2_kernel(
+    TypeKey *__restrict__ data, const TypeKey *__restrict__ embedding_offsets, int num_tables,
+    int num_data) {
+  for (int idx = threadIdx.x + blockIdx.x * blockDim.x; idx < num_data;
+       idx += blockDim.x * gridDim.x) {
+    uint2 load_data = reinterpret_cast<uint2 *>(data)[idx];
+    uint2 load_embedding_offsets =
+        reinterpret_cast<const uint2 *>(embedding_offsets)[idx % num_tables];
+
+    load_data.x += load_embedding_offsets.x;
+    load_data.y += load_embedding_offsets.y;
+    reinterpret_cast<uint2 *>(data)[idx] = load_data;
+  }
+}
+
+// for multihot
+template <typename TypeKey>
+__global__ void data_to_unique_categories_kernel(TypeKey *__restrict__ values,
+                                                 const TypeKey *__restrict__ rowoffsets,
+                                                 const TypeKey *__restrict__ embedding_offsets,
+                                                 int num_tables, int num_rowoffsets) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < num_rowoffsets) {
+    TypeKey offset = embedding_offsets[tid % num_tables];
+    for (int i = rowoffsets[tid]; i < rowoffsets[tid + 1]; ++i) {
+      values[i] += offset;
+    }
+  }
+}
+}  // namespace unique_key_kernels
 
 }  // namespace HugeCTR

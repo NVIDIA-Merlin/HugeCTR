@@ -173,8 +173,8 @@ void InferenceSessionPy::load_data_(const std::string& source, const DataReaderT
     CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.dense_name);
   }
   d_dense_ = reinterpret_cast<float*>(dense_tensor.get_ptr());
-  d_reader_keys_ = reinterpret_cast<void*>(sparse_input.evaluate_values[0].get_ptr());
-  d_reader_row_ptrs_ = reinterpret_cast<void*>(sparse_input.evaluate_row_offsets[0].get_ptr());
+  d_reader_keys_ = reinterpret_cast<void*>(sparse_input.evaluate_sparse_tensors[0].get_value_ptr());
+  d_reader_row_ptrs_ = reinterpret_cast<void*>(sparse_input.evaluate_sparse_tensors[0].get_rowoffset_ptr());
 }
 
 template <typename TypeKey>
@@ -217,6 +217,7 @@ pybind11::array_t<float> InferenceSessionPy::predict_(const size_t num_batches, 
     long long current_batchsize = data_reader_->read_a_batch_to_device();
     CK_CUDA_THROW_(cudaMemcpy(h_embeddingcolumns_, d_reader_keys_,  keys_elements*sizeof(TypeKey), cudaMemcpyDeviceToHost));
     convert_array_on_device(d_row_ptrs_, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_), row_ptr_elements, resource_manager_->get_local_gpu(0)->get_stream());
+
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, current_batchsize);
     CK_CUDA_THROW_(cudaMemcpy(pred_ptr + pred_ptr_offset, d_output_, inference_params_.max_batchsize * sizeof(float), cudaMemcpyDeviceToHost));
     pred_ptr_offset += inference_params_.max_batchsize;

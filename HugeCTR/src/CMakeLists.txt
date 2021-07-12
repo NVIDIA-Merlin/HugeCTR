@@ -72,34 +72,7 @@ file(GLOB huge_ctr_src
   data_readers/data_collector.cu
   data_readers/parquet_data_converter.cu
   hashtable/nv_hashtable.cu
-  embeddings/sync_all_gpus_functor.cu
-  embeddings/init_embedding_functor.cu
-  embeddings/forward_per_gpu_functor.cu
-  embeddings/forward_scale_functor.cu
-  embeddings/forward_reorder_functor.cu
-  embeddings/forward_mapping_per_gpu_functor.cu
-  embeddings/forward_fuse_per_gpu_functor.cu
-  embeddings/store_slot_id_functor.cu
-  embeddings/backward_functor.cu
-  embeddings/backward_reorder_functor.cu
-  embeddings/backward_fuse_per_gpu_functor.cu
-  embeddings/update_params_functor.cu
-  embeddings/get_update_params_results_functor.cu
-  embeddings/reduce_scatter_functor.cu
-  embeddings/all_reduce_functor.cu
-  embeddings/all_gather_functor.cu
-  embeddings/all2all_init_forward_functor.cu
-  embeddings/all2all_init_backward_functor.cu
-  embeddings/all2all_forward_functor.cu
-  embeddings/all2all_backward_functor.cu
-  embeddings/all2all_exec_functor.cu
-  embeddings/get_forward_results_functor.cu
-  embeddings/get_backward_results_functor.cu
-  embeddings/utils_functor.cu
-  embeddings/distributed_slot_sparse_embedding_hash.cu
-  embeddings/localized_slot_sparse_embedding_hash.cu
-  embeddings/localized_slot_sparse_embedding_one_hot.cu
-  embeddings/opt_states_functor.cu
+  embeddings/*.cu
   model_oversubscriber/model_oversubscriber_impl.cpp
   model_oversubscriber/parameter_server.cpp
   model_oversubscriber/parameter_server_manager.cpp
@@ -121,9 +94,12 @@ target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt
 target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs tbb)
 
 if(MPI_FOUND)
-  target_link_libraries(huge_ctr_static PUBLIC ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct)
-  target_link_libraries(huge_ctr_shared PUBLIC ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct)
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf stdc++fs numa)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} ${MPI_CXX_LIBRARIES} hwloc ucp ucs ucm uct cudf stdc++fs numa)
   message(STATUS "${MPI_CXX_LIBRARIES}")
+else()
+  target_link_libraries(huge_ctr_static PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs numa)
+  target_link_libraries(huge_ctr_shared PUBLIC cublas curand cudnn nccl nvToolsExt ${CMAKE_THREAD_LIBS_INIT} cudf stdc++fs numa)
 endif()
 
 target_link_libraries(huge_ctr_static PRIVATE nlohmann_json::nlohmann_json)

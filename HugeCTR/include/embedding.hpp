@@ -17,7 +17,6 @@
 #pragma once
 #include <optimizer.hpp>
 #include <tensor2.hpp>
-
 #include <vector>
 
 namespace HugeCTR {
@@ -44,23 +43,27 @@ class IEmbedding {
   virtual void dump_opt_states(std::ofstream& stream) = 0;
   virtual void load_opt_states(std::ifstream& stream) = 0;
 
+  virtual const SparseEmbeddingHashParams& get_embedding_params() const = 0;
   virtual std::vector<TensorBag2> get_train_output_tensors() const = 0;
   virtual std::vector<TensorBag2> get_evaluate_output_tensors() const = 0;
   virtual void check_overflow() const = 0;
-  virtual void get_forward_results_tf(const bool is_train, const bool on_gpu, void* const forward_result) = 0;
+  virtual void get_forward_results_tf(const bool is_train, const bool on_gpu,
+                                      void* const forward_result) = 0;
   virtual cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) = 0;
 };
 
 struct SparseEmbeddingHashParams {
   size_t train_batch_size;  // batch size
   size_t evaluate_batch_size;
-  size_t max_vocabulary_size_per_gpu;       // max row number of hash table for each gpu
-  std::vector<size_t> slot_size_array;      // max row number for each slot
-  size_t embedding_vec_size;                // col number of hash table value
-  size_t max_feature_num;                   // max feature number of all input samples of all slots
-  size_t slot_num;                          // slot number
-  int combiner;                             // 0-sum, 1-mean
-  OptParams opt_params;  // optimizer params
+  size_t max_vocabulary_size_per_gpu;   // max row number of hash table for each gpu
+  std::vector<size_t> slot_size_array;  // max row number for each slot
+  size_t embedding_vec_size;            // col number of hash table value
+  size_t max_feature_num;               // max feature number of all input samples of all slots
+  size_t slot_num;                      // slot number
+  int combiner;                         // 0-sum, 1-mean
+  OptParams opt_params;                 // optimizer params
+  bool is_data_parallel = true;                // Temp test
+  bool do_unique_key_flag = true; // do not do unique_key in ci
 
   size_t get_batch_size(bool is_train) const {
     if (is_train) {
@@ -73,18 +76,30 @@ struct SparseEmbeddingHashParams {
   size_t get_universal_batch_size() const {
     return std::max(train_batch_size, evaluate_batch_size);
   }
-  const Update_t& get_update_type() const { return opt_params.update_type; }
-  const Optimizer_t& get_optimizer() const { return opt_params.optimizer; }
-  OptParams& get_opt_params() { return opt_params; }
-  size_t get_embedding_vec_size() const { return embedding_vec_size; }
-  size_t get_max_feature_num() const { return max_feature_num; }
-  size_t get_slot_num() const { return slot_num; }
-  int get_combiner() const { return combiner; }
-  size_t get_max_vocabulary_size_per_gpu() const {
-    return max_vocabulary_size_per_gpu;
-  }
 
 };
+
+static size_t get_slot_num(const SparseTensorBag& bag) {
+  const std::vector<size_t>& dimension = bag.get_dimensions();
+  if (dimension.size() == 2) {
+    return dimension[1];
+  }
+  CK_THROW_(Error_t::IllegalCall,
+            "slot_num is avaiable when sparse tensor shape is (batchsize, slot_num)");
+  return 0;
+}
+
+template <typename T>
+struct SparseInput {
+  SparseTensors<T> train_sparse_tensors;
+  SparseTensors<T> evaluate_sparse_tensors;
+  size_t slot_num;
+  size_t max_feature_num_per_sample;
+  SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
+      : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
+  SparseInput() {}
+};
+
 struct BufferBag {
   TensorBag2 keys;
   TensorBag2 slot_id;

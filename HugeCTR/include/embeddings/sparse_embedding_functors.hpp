@@ -19,8 +19,21 @@
 #include "HugeCTR/include/hashtable/nv_hashtable.hpp"
 #include "HugeCTR/include/resource_manager.hpp"
 #include "HugeCTR/include/tensor2.hpp"
-
 namespace HugeCTR {
+
+template <typename Type>
+struct SparseTensorAllGatherConfig {
+  Tensor2<size_t> nnzs;
+  Tensor2<size_t> nnzs_num;
+  size_t total_nnz;
+
+  SparseTensorAllGatherConfig(size_t total_gpu_count): total_nnz(0)  {
+    const auto &host_buf = GeneralBuffer2<CudaHostAllocator>::create();         
+    host_buf->reserve({total_gpu_count}, &nnzs);
+    host_buf->reserve({total_gpu_count}, &nnzs_num);
+    host_buf->allocate();
+  }
+};
 
 class SparseEmbeddingFunctors {
  public:
@@ -250,7 +263,7 @@ class SparseEmbeddingFunctors {
                              size_t embedding_vec_size, int combiner,
                              const Tensor2<TypeEmbeddingComp *> &embedding_features,
                              Tensor2<TypeEmbeddingComp> &wgrad, size_t sm, cudaStream_t stream);
-  
+
   /**
    * update_params for LocalizedSlotSparseEmbeddingOneHot.
    * overload for fp16. Only support atmoic SGD currently.
@@ -264,8 +277,8 @@ class SparseEmbeddingFunctors {
    * @param hash_table_value the pointer of hash table value, which will be updated
    */
   template <typename TypeEmbeddingComp>
-  void update_params(size_t embedding_vec_size, const OptParams &opt_params,
-                     size_t nnz, const Tensor2<size_t> &hash_value_index,
+  void update_params(size_t embedding_vec_size, const OptParams &opt_params, size_t nnz,
+                     const Tensor2<size_t> &hash_value_index,
                      const Tensor2<TypeEmbeddingComp> &wgrad, Tensor2<float> &hash_table_value,
                      size_t sm_count, cudaStream_t stream);
 
@@ -304,6 +317,14 @@ class SparseEmbeddingFunctors {
   template <typename TypeHashKey>
   void all_gather(size_t send_count, const Tensors2<TypeHashKey> &send_tensors,
                   Tensors2<TypeHashKey> &recv_tensors, const ResourceManager &resource_manager);
+
+  template <typename Type>
+  void prepare_for_sparse_all_gather(const SparseTensors<Type> &send_tensors, SparseTensorAllGatherConfig<Type> &config,  const ResourceManager &resource_manager);
+
+  template <typename Type>
+  void all_gather(const SparseTensor<Type> &send_tensor, SparseTensor<Type> &recv_tensor,
+                  SparseTensorAllGatherConfig<Type> &config, size_t id,
+                  const ResourceManager &resource_manager, cudaStream_t stream);
 
 #ifdef ENABLE_MPI
   /**
@@ -460,8 +481,8 @@ class SparseEmbeddingFunctors {
 
   template <typename TypeEmbeddingComp>
   std::vector<Tensors2<TypeEmbeddingComp>> get_opt_states(
-                      const std::vector<OptimizerTensor<TypeEmbeddingComp>> &opt_tensors_,
-                      Optimizer_t optimizer_type, size_t local_gpu_count);
+      const std::vector<OptimizerTensor<TypeEmbeddingComp>> &opt_tensors_,
+      Optimizer_t optimizer_type, size_t local_gpu_count);
 
   template <typename TypeEmbeddingComp>
   void dump_opt_states(std::ofstream &stream, const ResourceManager &resource_manager,

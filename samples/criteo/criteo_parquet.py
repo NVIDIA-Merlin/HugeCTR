@@ -21,12 +21,11 @@ model = hugectr.Model(solver, reader, optimizer)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 0, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 100, 100, 26)],
-                        sparse_names = ["data1"]))
+                        [hugectr.DataReaderSparseParam("data1", 2, False, 26)]))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 1737715,
+                            workspace_size_per_gpu_in_mb = 425,
                             embedding_vec_size = 64,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "data1",
                             optimizer = optimizer))
@@ -64,4 +63,4 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
                             top_names = ["loss"]))
 model.compile()
 model.summary()
-model.fit(max_iter = 2300, display = 200, eval_interval = 1000, snapshot = 1000000, snapshot_prefix = "deepfm")
+model.fit(max_iter = 2300, display = 10, eval_interval = 1000, snapshot = 1000000, snapshot_prefix = "deepfm")
