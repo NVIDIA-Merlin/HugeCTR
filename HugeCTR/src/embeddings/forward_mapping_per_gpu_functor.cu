@@ -58,7 +58,6 @@ void SparseEmbeddingFunctors::forward_mapping_per_gpu(size_t batch_size, size_t 
   // remove hashtable get_insert(), and do linear mapping between key and value_index
   hash_key_value_index_mapping_kernel<<<(nnz + 255) / 256, 256, 0, stream>>>(
       nnz, slot_num, mapping_offsets.get_ptr(), hash_key.get_ptr(), hash_value_index.get_ptr());
-
   return;
 }
 

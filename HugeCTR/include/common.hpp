@@ -19,13 +19,18 @@
 #include <assert.h>
 #include <cublas_v2.h>
 #include <curand.h>
+#include <nvml.h>
+
+#include <algorithm>
 #include <config.hpp>
 #include <ctime>
 #include <exception>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <utility>
+#include <vector>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -59,6 +64,7 @@ enum class Error_t {
   CudnnError,
   CudaError,
   NcclError,
+  NvmlError,
   DataCheckError,
   UnspecificError,
   EndOfFile
@@ -71,13 +77,6 @@ enum class DataReaderSparse_t { Distributed, Localized };
 enum class DataReaderType_t { Norm, Raw, Parquet };
 
 enum class SourceType_t { FileList, Mmap, Parquet };
-
-struct DataReaderSparseParam {
-  DataReaderSparse_t type;
-  int max_feature_num;
-  int max_nnz;
-  int slot_num;
-};
 
 struct NameID {
   std::string file_name;
@@ -158,6 +157,18 @@ typedef struct DataSetHeader_ {
   long long slot_num;           // slot_num for each embedding
   long long reserved[3];        // reserved for future use
 } DataSetHeader;
+
+#define DISALLOW_COPY(ClassName)        \
+  ClassName(const ClassName&) = delete; \
+  ClassName& operator=(const ClassName&) = delete;
+
+#define DISALLOW_MOVE(ClassName)   \
+  ClassName(ClassName&&) = delete; \
+  ClassName& operator=(ClassName&&) = delete;
+
+#define DISALLOW_COPY_AND_MOVE(ClassName) \
+  DISALLOW_COPY(ClassName)                \
+  DISALLOW_MOVE(ClassName)
 
 #ifdef ENABLE_MPI
 #define CK_MPI_THROW_(cmd)                                                                       \
@@ -244,6 +255,17 @@ inline void MESSAGE_(const std::string msg,
       throw internal_runtime_error(Error_t::CudaError,                                             \
                                    std::string("Runtime error: ") + (cudaGetErrorString(retval)) + \
                                        " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");   \
+    }                                                                                              \
+  } while (0)
+
+#define CK_NVML_THROW_(x)                                                                          \
+  do {                                                                                             \
+    nvmlReturn_t retval = (x);                                                                     \
+    if (retval != NVML_SUCCESS) {                                                                  \
+      throw HugeCTR::internal_runtime_error(HugeCTR::Error_t::NvmlError,                           \
+                                            std::string("Runtime error: ") +                       \
+                                                (nvmlErrorString(retval)) + " " + __FILE__ + ":" + \
+                                                std::to_string(__LINE__) + " \n");                 \
     }                                                                                              \
   } while (0)
 
@@ -352,5 +374,42 @@ inline void LOG(const Args&... args) {
 
   return;
 }
+
+struct DataReaderSparseParam {
+  std::string top_name;
+  std::vector<int> nnz_per_slot;
+  bool is_fixed_length;
+  int slot_num;
+
+  DataReaderSparse_t type;
+  int max_feature_num;
+  int max_nnz;
+
+  DataReaderSparseParam() {}
+  DataReaderSparseParam(const std::string& top_name_, const std::vector<int>& nnz_per_slot_,
+                        bool is_fixed_length_, int slot_num_)
+      : top_name(top_name_),
+        nnz_per_slot(nnz_per_slot_),
+        is_fixed_length(is_fixed_length_),
+        slot_num(slot_num_),
+        type(DataReaderSparse_t::Distributed) {
+    if (static_cast<size_t>(slot_num_) != nnz_per_slot_.size()) {
+      CK_THROW_(Error_t::WrongInput, "slot num != nnz_per_slot.size().");
+    }
+    max_feature_num = std::accumulate(nnz_per_slot.begin(), nnz_per_slot.end(), 0);
+    max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
+  }
+
+  DataReaderSparseParam(const std::string& top_name_, const int nnz_per_slot_,
+                        bool is_fixed_length_, int slot_num_)
+      : top_name(top_name_),
+        nnz_per_slot(slot_num_, nnz_per_slot_),
+        is_fixed_length(is_fixed_length_),
+        slot_num(slot_num_),
+        type(DataReaderSparse_t::Distributed) {
+    max_feature_num = std::accumulate(nnz_per_slot.begin(), nnz_per_slot.end(), 0);
+    max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
+  }
+};
 
 }  // namespace HugeCTR

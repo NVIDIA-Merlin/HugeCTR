@@ -12,8 +12,7 @@ reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Ra
                                   eval_source = "./test_data.bin",
                                   num_samples = 36634624,
                                   eval_num_samples = 4584062,
-                                  check_type = hugectr.Check_t.Non,
-                                  slot_size_array = [1459, 583, 6373320, 1977439, 305, 24, 12513, 633, 3, 92719, 5681, 5666265, 3193, 27, 14986, 4209368, 10, 5652, 2173, 4, 5058596, 18, 15, 282062, 105, 141594])
+                                  check_type = hugectr.Check_t.Non)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.SGD,
                                     update_type = hugectr.Update_t.Local,
                                     atomic_update = True)
@@ -21,13 +20,12 @@ model = hugectr.Model(solver, reader, optimizer)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Localized, 26, 1, 26)],
-                        sparse_names = ["data1"]))
+                        [hugectr.DataReaderSparseParam("data1", 2, False, 26)]))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot, 
                             slot_size_array = [1459, 583, 6373320, 1977439, 305, 24, 12513, 633, 3, 92719, 5681, 5666265, 3193, 27, 14986, 4209368, 10, 5652, 2173, 4, 5058596, 18, 15, 282062, 105, 141594],
-                            max_vocabulary_size_per_gpu = 23848747,
+                            workspace_size_per_gpu_in_mb = 11645,
                             embedding_vec_size = 128,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "data1",
                             optimizer = optimizer))
