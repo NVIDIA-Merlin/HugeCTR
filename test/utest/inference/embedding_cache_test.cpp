@@ -90,7 +90,9 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   const nlohmann::json& j_data_layer = j_layers[0];
   const nlohmann::json& j_data_layer_sparse_layer = get_json(j_data_layer, "sparse");
   for(unsigned int i = 0; i < j_data_layer_sparse_layer.size(); i++){
-    max_feature_num_per_sample_.emplace_back(get_value_from_json<int>(j_data_layer_sparse_layer[i], "max_feature_num_per_sample"));
+    size_t max_feature_num_per_sample = static_cast<size_t>(get_max_feature_num_per_sample_from_nnz_per_slot(j_data_layer_sparse_layer[i]));
+    
+    max_feature_num_per_sample_.emplace_back(max_feature_num_per_sample);
   }
 
   for(unsigned int i = 1; i < j_layers.size(); i++){

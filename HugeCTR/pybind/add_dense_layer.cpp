@@ -62,12 +62,12 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
   input_label_config["label_dim"] = input_param.label_dim;
   input_dense_config["top"] = input_param.dense_name;
   input_dense_config["dense_dim"] = input_param.dense_dim;
-  for (size_t i = 0; i < input_param.sparse_names.size(); ++i) {
+  for (size_t i = 0; i < input_param.data_reader_sparse_param_array.size(); ++i) {
     nlohmann::json input_sparse_config;
-    input_sparse_config["top"] = input_param.sparse_names[i];
+    input_sparse_config["top"] = input_param.data_reader_sparse_param_array[i].top_name;
     input_sparse_config["type"] = READER_SPARSE_TYPE_TO_STRING[input_param.data_reader_sparse_param_array[i].type];
-    input_sparse_config["max_feature_num_per_sample"] = input_param.data_reader_sparse_param_array[i].max_feature_num;
-    input_sparse_config["max_nnz"] = input_param.data_reader_sparse_param_array[i].max_nnz;
+    input_sparse_config["nnz_per_slot"] = input_param.data_reader_sparse_param_array[i].nnz_per_slot;
+    input_sparse_config["is_fixed_length"] = input_param.data_reader_sparse_param_array[i].is_fixed_length;
     input_sparse_config["slot_num"] = input_param.data_reader_sparse_param_array[i].slot_num;
     input_sparse_config_array.push_back(input_sparse_config);
   }
@@ -81,9 +81,15 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     sparse_config["bottom"] = sparse_embedding_params[i].bottom_name;
     sparse_config["top"] = sparse_embedding_params[i].sparse_embedding_name;
     nlohmann::json sparse_hparam_config;
-    sparse_hparam_config["max_vocabulary_size_per_gpu"] = sparse_embedding_params[i].max_vocabulary_size_per_gpu;
+    sparse_hparam_config["workspace_size_per_gpu_in_mb"] = sparse_embedding_params[i].max_vocabulary_size_per_gpu * sparse_embedding_params[i].embedding_vec_size * sizeof(float) / 1024 / 1024;
     sparse_hparam_config["embedding_vec_size"] = sparse_embedding_params[i].embedding_vec_size;
-    sparse_hparam_config["combiner"] = sparse_embedding_params[i].combiner;
+    if(sparse_embedding_params[i].combiner == 0){
+      sparse_hparam_config["combiner"] = "sum";
+    }else if(sparse_embedding_params[i].combiner == 1){
+      sparse_hparam_config["combiner"] = "mean";
+    }else {
+      CK_THROW_(Error_t::WrongInput, "combiner error");
+    }
     if (sparse_embedding_params[i].slot_size_array.size() > 0) {
       sparse_hparam_config["slot_size_array"] = sparse_embedding_params[i].slot_size_array;
     }

@@ -17,7 +17,6 @@
 #pragma once
 
 #include <embedding.hpp>
-#include "HugeCTR/include/embeddings/embedding.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"

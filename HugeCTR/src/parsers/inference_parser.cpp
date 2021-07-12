@@ -105,7 +105,9 @@ InferenceParser::InferenceParser(const nlohmann::json& config) : config_(config)
   {
     for (int i = 0; i < (int)num_embedding_tables; i++) {
       const nlohmann::json& j = j_sparse_data[i];
-      auto max_feature_num_per_sample_per_table = get_value_from_json<size_t>(j, "max_feature_num_per_sample");
+      size_t max_feature_num_per_sample_per_table = get_max_feature_num_per_sample_from_nnz_per_slot(j);
+      
+      
       auto current_slot_num = get_value_from_json<size_t>(j, "slot_num");
       auto sparse_name = get_value_from_json<std::string>(j, "top");
       max_feature_num_for_tables.push_back(max_feature_num_per_sample_per_table);
@@ -159,7 +161,7 @@ void create_embedding<TypeKey, TypeFP>::operator() (
   for (unsigned int i = 0; i < j_sparse_input.size(); ++i) {
     auto top = get_value_from_json<std::string>(j_sparse_input[i], "top");
     auto slot_num = get_value_from_json<int>(j_sparse_input[i], "slot_num");
-    auto max_feature_num_per_sample = get_value_from_json<int>(j_sparse_input[i], "max_feature_num_per_sample");
+    int max_feature_num_per_sample = get_max_feature_num_per_sample_from_nnz_per_slot(j_sparse_input[i]);
     MESSAGE_("sparse_input name " + top);
     slot_nums_map[top] = std::make_pair(slot_num,max_feature_num_per_sample);
   }
@@ -181,14 +183,14 @@ void create_embedding<TypeKey, TypeFP>::operator() (
     int slot_num = slot_nums_map_iter->second.first;
     int max_feature_num_per_sample = slot_nums_map_iter->second.second;
     auto j_hparam = get_json(j, "sparse_embedding_hparam");
-    auto combiner = get_value_from_json<int>(j_hparam, "combiner");
+    auto combiner_str = get_value_from_json<std::string>(j_hparam, "combiner");
     EmbeddingFeatureCombiner_t feature_combiner_type;
-    if (combiner == 0) {
+    if (combiner_str == "sum") {
       feature_combiner_type = EmbeddingFeatureCombiner_t::Sum;
-    } else if(combiner == 1){
+    } else if(combiner_str == "mean"){
       feature_combiner_type = EmbeddingFeatureCombiner_t::Mean;
     } else{
-      CK_THROW_(Error_t::WrongInput, "combiner need to be 0 or 1");
+      CK_THROW_(Error_t::WrongInput, "combiner need to be sum or mean");
     }
     size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
 

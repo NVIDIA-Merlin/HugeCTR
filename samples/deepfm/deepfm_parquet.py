@@ -10,8 +10,8 @@ solver = hugectr.CreateSolver(max_eval_batches = 300,
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,
                                   source = ["./criteo_data/train/_file_list.txt"],
                                   eval_source = "./criteo_data/val/_file_list.txt",
-                                  check_type = hugectr.Check_t.Non,
-                                  slot_size_array = [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49, 186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15, 204515, 141526, 199433, 60919, 9137, 71, 34])
+                                  slot_size_array = [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49, 186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15, 204515, 141526, 199433, 60919, 9137, 71, 34],
+                                  check_type = hugectr.Check_t.Non)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
                                     update_type = hugectr.Update_t.Global,
                                     beta1 = 0.9,
@@ -21,14 +21,14 @@ model = hugectr.Model(solver, reader, optimizer)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Localized, 30, 1, 26)],
-                        sparse_names = ["data1"]))
+                        [hugectr.DataReaderSparseParam("data1", 2, False, 26)]))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 1447751,
+                            workspace_size_per_gpu_in_mb = 61,
                             embedding_vec_size = 11,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "data1",
+                            slot_size_array = [203931, 18598, 14092, 7012, 18977, 4, 6385, 1245, 49, 186213, 71328, 67288, 11, 2168, 7338, 61, 4, 932, 15, 204515, 141526, 199433, 60919, 9137, 71, 34],
                             optimizer = optimizer))
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Reshape,
                             bottom_names = ["sparse_embedding1"],

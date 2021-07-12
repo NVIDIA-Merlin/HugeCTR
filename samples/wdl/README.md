@@ -117,16 +117,16 @@ model.add(hugectr.Input(label_dim = 1, label_name = "label",
 ```
 ```
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 5863985,
+                            workspace_size_per_gpu_in_mb = 5863985,
                             embedding_vec_size = 1,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding2",
                             bottom_name = "wide_data",
                             optimizer = optimizer))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 5863985,
+                            workspace_size_per_gpu_in_mb = 5863985,
                             embedding_vec_size = 16,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "deep_data",
                             optimizer = optimizer))

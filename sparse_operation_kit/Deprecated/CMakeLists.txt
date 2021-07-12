@@ -216,6 +216,7 @@ FILE(GLOB  hugectr_src
   ${HugeCTR_Path}/HugeCTR/src/embeddings/utils_functor.cu
   ${HugeCTR_Path}/HugeCTR/src/embeddings/opt_states_functor.cu
   ${HugeCTR_Path}/HugeCTR/src/diagnose.cu
+  ${HugeCTR_Path}/HugeCTR/src/utils.cu
 )
 
 FILE(GLOB  hugectr_partial_embedding

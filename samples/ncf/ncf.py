@@ -12,7 +12,8 @@ solver = hugectr.CreateSolver(max_eval_batches = 100,
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
                                   source = ["./data/ml-20m/train_filelist.txt"],
                                   eval_source = "./data/ml-20m/test_filelist.txt",
-                                  check_type = hugectr.Check_t.Non)
+                                  check_type = hugectr.Check_t.Non,
+                                  num_workers = 8)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
                                     update_type = hugectr.Update_t.Global,
                                     beta1 = 0.25,
@@ -22,12 +23,12 @@ model = hugectr.Model(solver, reader, optimizer)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 1, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 2, 1, 2)],
-                        sparse_names = ["data"]))
+                        [hugectr.DataReaderSparseParam("data", 1, True, 2)]
+                        ))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 200000,
+                            workspace_size_per_gpu_in_mb = 49,
                             embedding_vec_size = 64,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "mlp_embedding",
                             bottom_name = "data",
                             optimizer = optimizer))
@@ -91,5 +92,5 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
                             top_names = ["loss"]))
 model.compile()
 model.summary()
-#model.fit(max_iter = 100, display = 10, eval_interval = 50, snapshot = 10000, snapshot_prefix = "ncf")
+# model.fit(max_iter = 100, display = 10, eval_interval = 50, snapshot = 10000, snapshot_prefix = "ncf")
 model.fit(num_epochs = 10, display = 100, eval_interval = 100, snapshot = 1000000, snapshot_prefix = "ncf")

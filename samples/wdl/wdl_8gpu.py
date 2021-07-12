@@ -19,20 +19,19 @@ model = hugectr.Model(solver, reader, optimizer)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 2, 1),
-                        hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Localized, 30, 1, 26)],
-                        sparse_names = ["wide_data", "deep_data"]))
+                        [hugectr.DataReaderSparseParam("wide_data", 30, True, 1),
+                        hugectr.DataReaderSparseParam("deep_data", 2, False, 26)]))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 5863985,
+                            workspace_size_per_gpu_in_mb = 23,
                             embedding_vec_size = 1,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding2",
                             bottom_name = "wide_data",
                             optimizer = optimizer))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 5863985,
+                            workspace_size_per_gpu_in_mb = 358,
                             embedding_vec_size = 16,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "deep_data",
                             optimizer = optimizer))

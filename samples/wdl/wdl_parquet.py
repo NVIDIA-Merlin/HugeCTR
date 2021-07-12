@@ -10,8 +10,8 @@ solver = hugectr.CreateSolver(max_eval_batches = 300,
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,
                                   source = ["./criteo_data/train/_file_list.txt"],
                                   eval_source = "./criteo_data/val/_file_list.txt",
-                                  check_type = hugectr.Check_t.Non,
-                                  slot_size_array = [278899, 355877, 203750, 18573, 14082, 7020, 18966, 4, 6382, 1246, 49, 185920, 71354, 67346, 11, 2166, 7340, 60, 4, 934, 15, 204208, 141572, 199066, 60940, 9115, 72, 34])
+                                  slot_size_array = [278899, 355877, 203750, 18573, 14082, 7020, 18966, 4, 6382, 1246, 49, 185920, 71354, 67346, 11, 2166, 7340, 60, 4, 934, 15, 204208, 141572, 199066, 60940, 9115, 72, 34],
+                                  check_type = hugectr.Check_t.Non)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
                                     update_type = hugectr.Update_t.Global,
                                     beta1 = 0.9,
@@ -21,20 +21,19 @@ model = hugectr.Model(solver, reader, optimizer)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 2),
-                        hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 26)],
-                        sparse_names = ["wide_data", "deep_data"]))
+                        [hugectr.DataReaderSparseParam("wide_data", 1, True, 2),
+                        hugectr.DataReaderSparseParam("deep_data", 2, False, 26)]))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 1855005,
+                            workspace_size_per_gpu_in_mb = 8,
                             embedding_vec_size = 1,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding2",
                             bottom_name = "wide_data",
                             optimizer = optimizer))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 1855005,
+                            workspace_size_per_gpu_in_mb = 114,
                             embedding_vec_size = 16,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "deep_data",
                             optimizer = optimizer))

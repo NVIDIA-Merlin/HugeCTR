@@ -22,7 +22,6 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_readers/check_none.hpp"
 #include "HugeCTR/include/data_readers/check_sum.hpp"
-#include "HugeCTR/include/data_readers/csr_chunk.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
 #include "HugeCTR/include/data_readers/file_source.hpp"
 #include "utest/embedding/cpu_hashtable.hpp"
