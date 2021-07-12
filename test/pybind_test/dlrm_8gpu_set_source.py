@@ -23,7 +23,6 @@ def set_source_raw_test(json_file):
                                     source = [train_data],
                                     eval_source = test_data,
                                     check_type = hugectr.Check_t.Non,
-                                    slot_size_array = [39884406,    39043,    17289,     7420,    20263,    3,  7120,     1543,  63, 38532951,  2953546,   403346, 10,     2208,    11938,      155,        4,      976, 14, 39979771, 25641295, 39664984,   585935,    12972,  108,  36],
                                     num_samples = 4195155968,
                                     eval_num_samples = 89137319,
                                     cache_eval_data = 1361)

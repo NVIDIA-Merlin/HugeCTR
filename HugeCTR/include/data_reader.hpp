@@ -56,13 +56,11 @@ public:
                         bool start_reading_from_beginning = true) = 0;
   virtual void create_drwg_raw( std::string file_name, 
                         long long num_samples,
-                        const std::vector<long long> slot_offset, 
                         bool float_label_dense,
                         bool data_shuffle, 
                         bool start_reading_from_beginning = true) = 0;
 
-  virtual void create_drwg_parquet( std::string file_list,
-                            const std::vector<long long> slot_offset,
+  virtual void create_drwg_parquet( std::string file_list,const std::vector<long long> slot_offset,
                             bool start_reading_from_beginning = true) = 0;
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type

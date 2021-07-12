@@ -141,7 +141,9 @@ class CSR {
   size_t get_num_values() const { return size_of_value_; }
   size_t get_num_rows() const { return num_rows_; }
   Tensor2<T>& get_row_offset_tensor() { return row_offset_tensor_; };
+  const Tensor2<T>& get_row_offset_tensor() const { return row_offset_tensor_; };
   Tensor2<T>& get_value_tensor() { return value_tensor_; };
+  const Tensor2<T>& get_value_tensor() const { return value_tensor_; };
   void update_value_size(size_t update_size) { size_of_value_ += update_size; };
   void update_row_offset(size_t update_size) { size_of_row_offset_ += update_size; };
 };

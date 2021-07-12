@@ -83,7 +83,7 @@ embedding_cache<TypeHashKey>::embedding_cache(const std::string& model_config_pa
   }
   std::vector<size_t> max_feature_num_per_sample;
   for(unsigned int i = 0; i < j_data_layer_sparse_layer.size(); i++){
-    max_feature_num_per_sample.emplace_back(get_value_from_json<size_t>(j_data_layer_sparse_layer[i], "max_feature_num_per_sample"));
+    max_feature_num_per_sample.emplace_back(static_cast<size_t>(get_max_feature_num_per_sample_from_nnz_per_slot(j_data_layer_sparse_layer[i])));
   }
 
   // Read embedding layer config

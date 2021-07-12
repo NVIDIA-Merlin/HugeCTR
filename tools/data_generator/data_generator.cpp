@@ -303,21 +303,21 @@ int main(int argc, char* argv[]) {
 	// train data
 	data_generation_for_raw<long long>(source_data, num_samples, label_dim, dense_dim,
 					   float_label_dense, slot_size_array, nnz_array,
-					   use_long_tail, alpha);
+					   use_long_tail, alpha, nullptr);
 	// eval data
 	data_generation_for_raw<long long>(eval_source, eval_num_samples, label_dim, dense_dim,
 					   float_label_dense, slot_size_array, nnz_array,
-					   use_long_tail, alpha);
+					   use_long_tail, alpha, nullptr);
       }
       else {
 	// train data
 	data_generation_for_raw<unsigned int>(source_data, num_samples, label_dim, dense_dim,
 					      float_label_dense, slot_size_array, nnz_array,
-					      use_long_tail, alpha);
+					      use_long_tail, alpha, nullptr);
 	// eval data
 	data_generation_for_raw<unsigned int>(eval_source, eval_num_samples, label_dim, dense_dim,
 					      float_label_dense, slot_size_array, nnz_array,
-					      use_long_tail, alpha);
+					      use_long_tail, alpha, nullptr);
       }
 
 

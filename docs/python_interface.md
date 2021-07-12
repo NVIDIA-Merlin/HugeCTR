@@ -353,9 +353,7 @@ hugectr.Input()
 
 * `dense_name`: Integer, the name of the dense input tensor to be referenced by following layers. There is NO default value and it should be specified by users.
 
-* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with `hugectr.DataReaderSparse_t`, `max_feature_num`, `max_nnz` and `slot_num`. The supported types of `hugectr.DataReaderSparse_t` include `hugectr.DataReaderSparse_t.Distributed` and `hugectr.DataReaderSparse_t.Localized`. The maximum number of features per sample for the specified spare input can be specified by `max_feature_num`. For `max_nnz`, if it is set to 1, the dataset is specified as one-hot so that the memory consumption can be reduced. As for `slot_num`, it specifies the number of slots used for this sparse input in the dataset. The total number of categorical inputs is exactly the length of `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
-
-* `sparse_names`: List[str], the list of names of the sparse input tensors to be referenced by following layers. The order of the names should be consistent with sparse parameters in `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
+* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with  `sparse_name`, `nnz_per_slot`, `is_fixed_length` and `slot_num`. `sparse_name` is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users. The maximum number of features per slot for the specified spare input can be specified by `nnz_per_slot`. The `nnz_per_slot` can be an `int` which means average nnz per slot so the maximum number of features per sample should be `nnz_per_slot * slot_num`. Or you can use List[int] to initialize `nnz_per_slot`, then the maximum number of features per sample should be `sum(nnz_per_slot)` and in this case, the length of the array `nnz_per_slot` should be the same with `slot_num`. For `is_fixed_length`, if it is set to True, which means for each slot, different samples have the same number of features. So HugeCTR can use this information to reduce data transferring time. As for `slot_num`, it specifies the number of slots used for this sparse input in the dataset. The total number of categorical inputs is exactly the length of `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
 
 ### SparseEmbedding  ###
 ```bash
@@ -366,11 +364,11 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users.
 
-* `max_vocabulary_size_per_gpu`: Integer, the maximum vocabulary size or cardinality across all the input features. There is NO default value and it should be specified by users.
+* `workspace_size_per_gpu_in_mb`: Integer, the maximum vocabulary memory usage size or cardinality across all the input features. There is NO default value and it should be specified by users.
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
-* `combiner`: Integer, the intra-slot reduction operation (0=sum, 1=average). There is NO default value and it should be specified by users.
+* `combiner`: String, the intra-slot reduction operation, now support `sum` or `mean`. There is NO default value and it should be specified by users.
 
 * `sparse_embedding_name`: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.
 
