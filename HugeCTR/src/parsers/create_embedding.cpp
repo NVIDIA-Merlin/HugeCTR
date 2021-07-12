@@ -216,7 +216,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
                   "No such hybrid embedding type: " + hybrid_embedding_type_string);
       }
 
-      // TODO(MLPERF): can we remove dynamic_cast?
+      // TODO: can we remove dynamic_cast?
       auto& embed_wgrad_buff = (grouped_all_reduce) ? 
             std::dynamic_pointer_cast<GroupedExchangeWgrad<TypeFP>>(exchange_wgrad)->get_embed_wgrad_buffs() :
                 std::dynamic_pointer_cast<NetworkExchangeWgrad<TypeFP>>(exchange_wgrad)->get_embed_wgrad_buffs();

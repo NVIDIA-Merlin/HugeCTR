@@ -118,7 +118,7 @@ enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD };
 
 enum class Update_t { Local, Global, LazyGlobal };
 
-//TODO(MLPERF1.0): Consider to move them into a separate file
+//TODO: Consider to move them into a separate file
 enum class Activation_t { Relu, None };
 
 enum class FcPosition_t { None, Head, Body, Tail, Isolated };
@@ -166,7 +166,7 @@ enum class TrainState_t {
   TopMLPBprop, MLPExchangeWgrad, MLPUpdate, Finalize
 };
 
-//TODO(MLPERF1.0): Consider to move them into a separate file
+//TODO: Consider to move them into a separate file
 struct TrainState {
   TrainState_t state = TrainState_t::Init;
   cudaEvent_t* event = nullptr;

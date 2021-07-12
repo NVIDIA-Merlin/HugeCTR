@@ -81,16 +81,6 @@ void create_datareader<TypeKey>::operator()(
     CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
   }
 
-  // TODO(MLPERF): they are not used by aysnc reader
-#ifdef VAL
-  const int num_workers = 1;
-#else
-  int num_workers_default =
-      format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
-  const int num_workers = get_value_from_json_soft<int>(j, "num_workers", num_workers_default);
-#endif
-  MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
-
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
 
   const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
@@ -207,6 +197,15 @@ void create_datareader<TypeKey>::operator()(
     return;
   }
   else {
+#ifdef VAL
+    const int num_workers = 1;
+#else
+    int num_workers_default =
+        format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
+    const int num_workers = get_value_from_json_soft<int>(j, "num_workers", num_workers_default);
+#endif
+    MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
+
     DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
         batch_size, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
         repeat_dataset, num_workers, use_mixed_precision, false);

@@ -74,7 +74,7 @@ void InferenceParser::create_pipeline_inference(const InferenceParams& inference
       input_buffer);
 
   input_buffer->allocate();
-  // TODO(MLPERF): perhaps it is better to make a wrapper of this function for the inference
+  // TODO: perhaps it is better to make a wrapper of this function for the inference
   // rather than passing unused parameters here.
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_dummy;
   *network = Network::create_network(

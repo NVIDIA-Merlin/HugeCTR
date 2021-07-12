@@ -184,6 +184,7 @@ class HybridSparseEmbedding : public IEmbedding {
                         const std::shared_ptr<ResourceManager> &resource_manager);
   ~HybridSparseEmbedding();
 
+  // TODO: consider to merge it with init_params
   void init_model(const Tensors2<dtype> &data, size_t& wgrad_offset);
 
   TrainState train(bool is_train, int i, TrainState state) override;
@@ -194,7 +195,7 @@ class HybridSparseEmbedding : public IEmbedding {
   void load_parameters(std::string sparse_model) override;
   void dump_parameters(std::string sparse_model) const override;
   void set_learning_rate(float lr) override;
-  // TODO(MLPERF): a workaround to enable GPU LR for HE only; need a better way
+  // TODO: a workaround to enable GPU LR for HE only; need a better way
   GpuLearningRateSchedulers get_learning_rate_schedulers() const override;
 
   size_t get_params_num() const override;
@@ -202,7 +203,7 @@ class HybridSparseEmbedding : public IEmbedding {
   size_t get_max_vocabulary_size() const override;
 
   Embedding_t get_embedding_type() const override { return Embedding_t::HybridSparseEmbedding; }
-  // TODO(MLPERF): implemented the empty virtual functions below
+  // TODO: implemented the empty virtual functions below and in the corresponding CU file.
   void load_parameters(BufferBag &keys, size_t num) override {}
   void dump_parameters(BufferBag& keys, size_t *num) const override {}
 

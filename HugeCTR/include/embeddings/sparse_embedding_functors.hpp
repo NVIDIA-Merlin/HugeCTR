@@ -516,7 +516,7 @@ class SparseEmbeddingFunctors {
                        std::vector<Tensors2<TypeEmbeddingComp>> &opt_states);
 };
 
-// TODO(MLPERF1.0): can we move them?
+// TODO: consider to move them; they are currently only used for an utest
 size_t get_max_size_top_categories();
 size_t get_num_samples_per_block();
 size_t get_embedding_block_size();

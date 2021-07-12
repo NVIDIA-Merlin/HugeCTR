@@ -31,25 +31,7 @@ size_t get_embedding_block_size() { return embedding_block_size; }
 
 namespace {
 
-// Helper function to accumulate the weight gradients for a thread's embedding vector
-template <typename TypeKey, typename TypeEmbeddingComp>
-__device__ __forceinline__ float accumulate_gradients(int embedding_vec_size,
-                                                      const TypeKey *sample_id,
-                                                      const uint32_t *hash_value_index_count_offset,
-                                                      const TypeEmbeddingComp *wgrad, float scaler,
-                                                      uint32_t offset, int bid, int tid) {
-  uint32_t sample_num = hash_value_index_count_offset[bid + 1] - hash_value_index_count_offset[bid];
-
-  float gi = 0.0f;
-  for (int i = 0; i < sample_num; i++) {
-    int sample_index = sample_id[offset + i];
-    gi += TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-        wgrad[sample_index * embedding_vec_size + tid]);
-  }
-  return gi / scaler;
-}
-
-// TODO(MLPERF): it must be moved to SparseOptimizer
+// TODO: it must be moved to SparseOptimizer
 // The local memory version of the atomic update kernel - opt_sgd_atomic_kernel for one hot
 // embedding.
 //

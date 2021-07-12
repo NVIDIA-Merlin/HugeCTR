@@ -237,6 +237,8 @@ void Parser::create_pipeline(std::shared_ptr<IDataReader>& init_data_reader,std:
         exchange_wgrad);
   }
 }
+
+// TODO: this whole function is only for HE. It is better to refactor or generalize it.
 template <typename TypeKey>
 void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
                                           std::vector<std::shared_ptr<IEmbedding>>& embedding,
@@ -254,7 +256,6 @@ void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_dat
       (void)find_item_in_map(embedding_type, embedding_name, EMBEDDING_TYPE_MAP);
       if (embedding_type == Embedding_t::HybridSparseEmbedding) {
         if (use_mixed_precision) {
-          //TODO(MLPERF): "we should find a better way than dynamic_pointer_cast"
           std::shared_ptr<HybridSparseEmbedding<TypeKey, __half>> hybrid_embedding =
               std::dynamic_pointer_cast<HybridSparseEmbedding<TypeKey, __half>>(embedding[i - 1]);
 

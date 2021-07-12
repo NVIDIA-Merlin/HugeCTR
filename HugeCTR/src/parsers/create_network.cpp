@@ -171,8 +171,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       continue;
     }
 
-    // TODO(MLPERF): we should not rely on the name of the bottom.
-    // check if we should use bottom mlp or top mlp
+    // TODO: to make it generalized, we should not assume that the bottom name
+    // includes "embedding". We need a better way to analyze such dependencies.
     auto bottom = get_json(j, "bottom");
     std::vector<std::string> bottom_strs = get_layer_names(bottom);
     for(const std::string& str: bottom_strs) {

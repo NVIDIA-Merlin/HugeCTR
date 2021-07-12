@@ -37,7 +37,7 @@ class IEmbedding {
   virtual void load_parameters(std::string sparse_model) = 0;
   virtual void dump_parameters(std::string sparse_model) const = 0;
   virtual void set_learning_rate(float lr) = 0;
-  // TODO(MLPERF): a workaround to enable GPU LR for HE only; need a better way
+  // TODO: a workaround to enable GPU LR for HE only; need a better way
   virtual GpuLearningRateSchedulers get_learning_rate_schedulers() const {
     return GpuLearningRateSchedulers();
   }

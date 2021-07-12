@@ -188,7 +188,7 @@ class Parser {
    * Ctor.
    * Ctor doesn't create pipeline.
    */
-  // TODO(MLPERF): consider to remove default arguments
+  // TODO: consider to remove default arguments
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
          bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
          bool enable_tf32_compute = false, float scaler = 1.0f, bool use_algorithm_search = true,
