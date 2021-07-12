@@ -322,6 +322,8 @@ tensorflow::Status EmbeddingWrapper<TypeKey, TypeFP>::create_embedding(
                 distribute_keys_func = &EmbeddingWrapper<TypeKey, TypeFP>::distribute_keys_gpu_localized;
                 break;
             }
+            default:
+                return tensorflow::errors::InvalidArgument("Not supported embedding_type.");
         }
         distribute_keys_on_gpu_func_.emplace(std::make_pair(embedding_name, distribute_keys_func));
 

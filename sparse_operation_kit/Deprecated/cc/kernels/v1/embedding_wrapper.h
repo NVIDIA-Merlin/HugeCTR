@@ -17,7 +17,7 @@
 #ifndef EMBEDDING_WRAPPER_H
 #define EMBEDDING_WRAPPER_H
 
-#include "HugeCTR/include/embeddings/embedding.hpp"
+#include "HugeCTR/include/embeddings/embedding_data.hpp"
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include "tensorflow/core/platform/errors.h"

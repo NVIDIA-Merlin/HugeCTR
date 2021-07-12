@@ -3,7 +3,9 @@
     "lr_policy": "fixed",
     "display": 200,
     "max_iter": 5000,
-    "gpu": [0],
+    "gpu": [
+      0
+    ],
     "batchsize": 512,
     "snapshot": 10000,
     "snapshot_prefix": "./",
@@ -12,7 +14,6 @@
     "max_eval_batches": 100,
     "input_key_type": "I64"
   },
-  
   "optimizer": {
     "type": "Adam",
     "update_type": "Local",
@@ -20,19 +21,18 @@
       "learning_rate": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.0000001
+      "epsilon": 1e-07
     }
   },
-
-  "layers": [ 
-  {
+  "layers": [
+    {
       "name": "data",
       "type": "Data",
-       "format": "Parquet",
-        "slot_size_array": [132, 421, 1398, 1787, 53, 10, 3043, 78, 4, 2192, 2130, 1432, 1805, 25, 1854, 1559, 10, 1113, 515, 4, 1473, 9, 15, 1579, 40, 1193],
+      "format": "Parquet",
       "source": "./_file_list.txt",
       "eval_source": "./_file_list.txt",
       "check": "None",
+      "slot_size_array": [132, 421, 1398, 1787, 53, 10, 3043, 78, 4, 2192, 2130, 1432, 1805, 25, 1854, 1559, 10, 1113, 515, 4, 1473, 9, 15, 1579, 40, 1193],
       "label": {
         "top": "label",
         "label_dim": 1
@@ -44,26 +44,24 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "DistributedSlot",
-          "max_feature_num_per_sample": 100,
-          "slot_num": 26
-        }        
+          "slot_num": 26,
+          "is_fixed_length": false,
+          "nnz_per_slot": 4
+        }
       ]
     },
-    
-    
     {
       "name": "sparse_embedding1",
       "type": "DistributedSlotSparseEmbeddingHash",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 801807,
         "embedding_vec_size": 64,
-        "combiner": 0
+        "combiner": "sum",
+        "slot_size_array": [132, 421, 1398, 1787, 53, 10, 3043, 78, 4, 2192, 2130, 1432, 1805, 25, 1854, 1559, 10, 1113, 515, 4, 1473, 9, 15, 1579, 40, 1193],
+        "workspace_size_per_gpu_in_mb": 196
       }
     },
-
     {
       "name": "reshape1",
       "type": "Reshape",
@@ -71,13 +69,12 @@
       "top": "reshape1",
       "leading_dim": 64
     },
-
     {
       "name": "fc1",
       "type": "InnerProduct",
       "bottom": "reshape1",
       "top": "fc1",
-       "fc_param": {
+      "fc_param": {
         "num_output": 200
       }
     },
@@ -86,61 +83,54 @@
       "type": "ReLU",
       "bottom": "fc1",
       "top": "relu1"
-     
     },
-      
     {
       "name": "fc2",
       "type": "InnerProduct",
       "bottom": "relu1",
       "top": "fc2",
-       "fc_param": {
+      "fc_param": {
         "num_output": 200
       }
     },
-
     {
       "name": "relu2",
       "type": "ReLU",
       "bottom": "fc2",
       "top": "relu2"
-     
     },
-    
     {
       "name": "fc3",
       "type": "InnerProduct",
       "bottom": "relu2",
       "top": "fc3",
-       "fc_param": {
+      "fc_param": {
         "num_output": 200
       }
     },
-
     {
       "name": "relu3",
       "type": "ReLU",
       "bottom": "fc3",
       "top": "relu3"
-     
     },
-
     {
       "name": "fc4",
       "type": "InnerProduct",
       "bottom": "relu3",
       "top": "fc4",
-       "fc_param": {
+      "fc_param": {
         "num_output": 1
       }
     },
-
-    
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": ["fc4","label"],
+      "bottom": [
+        "fc4",
+        "label"
+      ],
       "top": "loss"
-    } 
+    }
   ]
 }

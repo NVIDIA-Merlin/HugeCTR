@@ -74,21 +74,14 @@ void do_upload_and_download_snapshot(
       vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
 
   // create train/eval data readers
-  const DataReaderSparseParam param = {
-      DataReaderSparse_t::Distributed,
-      max_feature_num,
-      max_nnz_per_slot,
-      slot_num
-  };
+  const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz_per_slot), false, slot_num};
   std::vector<DataReaderSparseParam> data_reader_params;
   data_reader_params.push_back(param);
 
-  std::unique_ptr<DataReader<TypeKey>> data_reader_train(
-      new DataReader<TypeKey>(batchsize, label_dim, dense_dim,
-          data_reader_params, resource_manager, true, num_workers, false, 0));
-  std::unique_ptr<DataReader<TypeKey>> data_reader_eval(
-      new DataReader<TypeKey>(batchsize, label_dim, dense_dim,
-          data_reader_params, resource_manager, true, num_workers, false, 0));
+  std::unique_ptr<DataReader<TypeKey>> data_reader_train(new DataReader<TypeKey>(
+      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false));
+  std::unique_ptr<DataReader<TypeKey>> data_reader_eval(new DataReader<TypeKey>(
+      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false));
 
   data_reader_train->create_drwg_norm(file_list_name_train, check);
   data_reader_eval->create_drwg_norm(file_list_name_eval, check);
@@ -108,14 +101,20 @@ void do_upload_and_download_snapshot(
       batchsize,       batchsize, vocabulary_size, {},        emb_vec_size,
       max_feature_num, slot_num,  combiner,        opt_params};
 
-  auto embedding = init_embedding<TypeKey, float>(
-      data_reader_train->get_row_offsets_tensors(),
-      data_reader_train->get_value_tensors(),
-      data_reader_train->get_nnz_array(),
-      data_reader_eval->get_row_offsets_tensors(),
-      data_reader_eval->get_value_tensors(),
-      data_reader_eval->get_nnz_array(),
-      embedding_param, resource_manager, embedding_type);
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<TypeKey> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<TypeKey> train_inputs;
+  copy(data_reader_train->get_sparse_tensors("distributed"), train_inputs);
+  SparseTensors<TypeKey> eval_inputs;
+  copy(data_reader_eval->get_sparse_tensors("distributed"), eval_inputs);
+
+  std::shared_ptr<IEmbedding> embedding = init_embedding<TypeKey, float>(
+          train_inputs, eval_inputs,
+          embedding_param, resource_manager, embedding_type);
   embedding->init_params();
 
   // train the embedding

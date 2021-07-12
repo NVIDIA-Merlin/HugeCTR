@@ -16,48 +16,26 @@
 
 #pragma once
 
+#include <unistd.h>
+
 #include <atomic>
 #include <common.hpp>
-#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <queue>
-#include <thread>
-#include <unistd.h>
-#include <data_readers/csr.hpp>
-#include <data_readers/csr_chunk.hpp>
-#include <data_readers/chunk_consumer.hpp>
 #include <resource_manager.hpp>
+#include <thread>
 #include <utils.hpp>
+
+#include "data_readers/data_reader_common.hpp"
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
 namespace HugeCTR {
 
-#ifdef ENABLE_MPI
-template <typename TypeKey>
-struct ToMpiType;
-
-template <>
-struct ToMpiType<long long> {
-  static MPI_Datatype T() { return MPI_LONG_LONG; }
-};
-
-template <>
-struct ToMpiType<unsigned int> {
-  static MPI_Datatype T() { return MPI_UNSIGNED; }
-};
-
-template <>
-struct ToMpiType<float> {
-  static MPI_Datatype T() { return MPI_FLOAT; }
-};
-
-#endif
-
 template <typename TypeComp>
-void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
-           const Tensor2<float>& label_dense_buffer, cudaStream_t stream);
+void split(Tensor2<float> &label_tensor, Tensor2<TypeComp> &dense_tensor,
+           const Tensor2<float> &label_dense_buffer, cudaStream_t stream);
 
 /**
  * @brief A helper class of data reader.
@@ -66,404 +44,235 @@ void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
  * to output of data reader, thus data collection and training
  * can work in a pipeline.
  */
-template <typename TypeKey>
+template <typename T>
 class DataCollector {
- private:
-  static int id_;
+  class BackgroundDataCollectorThread {
+    std::vector<std::shared_ptr<ThreadBuffer>> thread_buffers_;
+    std::shared_ptr<BroadcastBuffer> broadcast_buffer_;
 
-  enum STATUS { READY_TO_WRITE, READY_TO_READ, STOP };
-  std::atomic<STATUS> stat_{READY_TO_WRITE};
-  std::mutex stat_mtx_;
-  std::condition_variable stat_cv_;
-  std::shared_ptr<ChunkConsumer<CSRChunk<TypeKey>>> csr_heap_;
+    std::atomic<bool> loop_flag_;
+    int counter_;
+    std::vector<size_t> last_batch_nnz_;  // local_gpu_count * embedding number
+    std::vector<char> worker_status_;
+    int eof_worker_num_;
 
-  Tensors2<float> label_tensors_;
-  std::vector<TensorBag2> dense_tensors_;
-  Tensors2<TypeKey> row_offset_tensors_;
-  Tensors2<TypeKey> value_tensors_;
-  std::vector<std::shared_ptr<size_t>> nnz_array_;
-  std::shared_ptr<ResourceManager> resource_manager_;
-  int num_params_;
-  size_t counter_{0};
-  std::vector<unsigned int> pre_nnz_;
-  bool use_mixed_precision_;
-  const bool one_hot_;
-  const size_t cache_size_;
+    std::shared_ptr<ResourceManager> resource_manager_;
 
-  struct InternalBuffer_ {
-    Tensors2<float> label_dense_tensors;
-    Tensors2<TypeKey> row_offset_tensors;
-    Tensors2<TypeKey> value_tensors;
-    std::vector<std::shared_ptr<size_t>> nnz_array;
-    long long current_batchsize{0};
+   public:
+    BackgroundDataCollectorThread(const std::vector<std::shared_ptr<ThreadBuffer>> &thread_buffers,
+                                  const std::shared_ptr<BroadcastBuffer> &broadcast_buffer,
+                                  const std::shared_ptr<ResourceManager> &resource_manager)
+        : thread_buffers_(thread_buffers),
+          broadcast_buffer_(broadcast_buffer),
+          loop_flag_{true},
+          counter_{0},
+          last_batch_nnz_(
+              broadcast_buffer->is_fixed_length.size() * resource_manager->get_local_gpu_count(),
+              0),
+          worker_status_(thread_buffers.size(), 0),
+          eof_worker_num_(0),
+          resource_manager_(resource_manager) {}
+
+    void start() {
+      while (loop_flag_.load()) {
+        auto &current_src_buffer = thread_buffers_[counter_];
+        // auto &next_src_buffer = thread_buffers_[(counter_ + 1) % thread_buffers_.size()];
+        auto &dst_buffer = broadcast_buffer_;
+        auto src_expected = BufferState::ReadyForRead;
+        auto dst_expected = BufferState::ReadyForWrite;
+        int local_gpu_count = resource_manager_->get_local_gpu_count();
+        int batch_size = current_src_buffer->batch_size;
+        int label_dim = current_src_buffer->label_dim;
+        int dense_dim = current_src_buffer->dense_dim;
+        int param_num = current_src_buffer->param_num;
+
+        int batch_size_per_gpu = batch_size / resource_manager_->get_global_gpu_count();
+        
+        if(worker_status_[counter_]) {
+          counter_ = (counter_ + 1) % thread_buffers_.size();
+          continue;
+        }
+        
+
+        if ((current_src_buffer->state.load() == BufferState::Reading ||
+             current_src_buffer->state.compare_exchange_weak(src_expected, BufferState::Reading)) && (dst_buffer->state.load() == BufferState::Writing ||
+            dst_buffer->state.compare_exchange_weak(dst_expected, BufferState::Writing))){
+            assert(current_src_buffer->state.load() == BufferState::Reading);
+            assert(dst_buffer->state.load() == BufferState::Writing);
+
+            if(current_src_buffer->current_batch_size == 0) {
+              worker_status_[counter_] = 1;
+              eof_worker_num_ += 1;
+            }
+            if(static_cast<size_t>(eof_worker_num_) != thread_buffers_.size() && current_src_buffer->current_batch_size == 0) {
+              counter_ = (counter_ + 1) % thread_buffers_.size();
+              current_src_buffer->state.store(BufferState::ReadyForWrite);
+              dst_buffer->state.store(BufferState::ReadyForWrite);
+              continue;
+            }
+            dst_buffer->current_batch_size = current_src_buffer->current_batch_size;
+            if(current_src_buffer->current_batch_size != 0) {
+  #pragma omp parallel for num_threads(local_gpu_count)
+              for (int i = 0; i < local_gpu_count; ++i) {
+                auto local_gpu = resource_manager_->get_local_gpu(i);
+
+                CudaDeviceContext ctx(local_gpu->get_device_id());
+
+                for (int param_id = 0; param_id < param_num; ++param_id) {
+                  auto src_sparse_tensor = SparseTensor<T>::stretch_from(
+                      current_src_buffer->device_sparse_buffers[param_id]);
+                  auto dst_sparse_tensor = SparseTensor<T>::stretch_from(
+                      dst_buffer->sparse_buffers[i * param_num + param_id]);
+
+                  if (current_src_buffer->is_fixed_length[param_id] &&
+                      last_batch_nnz_[i * param_num + param_id] == src_sparse_tensor.nnz()) {
+                    CK_CUDA_THROW_(cudaMemcpyAsync(
+                        dst_sparse_tensor.get_value_ptr(), src_sparse_tensor.get_value_ptr(),
+                        src_sparse_tensor.nnz() * sizeof(T), cudaMemcpyDeviceToDevice,
+                        local_gpu->get_memcpy_stream()));
+                  } else {
+                    sparse_tensor_helper::cuda::copy_async(dst_sparse_tensor, src_sparse_tensor,
+                                                          cudaMemcpyDeviceToDevice,
+                                                          local_gpu->get_memcpy_stream());
+                    last_batch_nnz_[i * param_num + param_id] = src_sparse_tensor.nnz();
+                  }
+                }
+
+                auto dst_dense_tensor = Tensor2<float>::stretch_from(dst_buffer->dense_tensors[i]);
+                auto src_dense_tensor =
+                    Tensor2<float>::stretch_from(current_src_buffer->device_dense_buffers);
+                CK_CUDA_THROW_(cudaMemcpyAsync(
+                    dst_dense_tensor.get_ptr(),
+                    src_dense_tensor.get_ptr() + i * batch_size_per_gpu * (label_dim + dense_dim),
+                    batch_size_per_gpu * (label_dim + dense_dim) * sizeof(float),
+                    cudaMemcpyDeviceToDevice, local_gpu->get_memcpy_stream()));
+                CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_memcpy_stream()));
+                // CK_CUDA_THROW_(cudaEventRecord(broadcast_buffer_->finish_broadcast_events[i],
+                // local_gpu->get_memcpy_stream()));
+                // CK_CUDA_THROW_(cudaEventSynchronize(broadcast_buffer_->finish_broadcast_events[i]));
+              }
+              counter_ = (counter_ + 1) % thread_buffers_.size();
+            } else {
+              memset(worker_status_.data(), 0, sizeof(char) * worker_status_.size());
+              eof_worker_num_ = 0;
+              counter_ = 0;
+            }
+            
+
+            current_src_buffer->state.store(BufferState::ReadyForWrite);
+            dst_buffer->state.store(BufferState::ReadyForRead);
+        } else {
+          usleep(2);
+        }
+      }
+    }
+
+    void stop() { loop_flag_.store(false); }
   };
 
-  std::vector<std::shared_ptr<InternalBuffer_>> internal_buffers_;
+  std::shared_ptr<BroadcastBuffer> broadcast_buffer_;
+  std::shared_ptr<DataReaderOutput> output_buffer_;
 
-  bool reverse_;
-  std::thread data_collector_thread_; /**< A data_collector_thread. */
-  int data_reader_loop_flag_ = 1;
+  BackgroundDataCollectorThread background_collector_;
+  std::thread background_collector_thread_;
 
-  void collect_blank_();
-  void collect_();
-  bool started_ = false;
+  std::atomic<bool> loop_flag_;
+  std::vector<size_t> last_batch_nnz_;
+
+  std::shared_ptr<ResourceManager> resource_manager_;
 
  public:
-  /**
-   * Ctor.
-   * @param label_tensors label tensors (GPU) of data reader.
-   * @param dense_tensors dense tensors (GPU) of data reader.
-   * @param csr_buffers csr buffers (GPU) of data reader.
-   * @param device_resources gpu resources.
-   * @param csr_heap heap of data reader.
-   */
-
-  DataCollector(const Tensors2<float>& label_tensors, const std::vector<TensorBag2>& dense_tensors,
-                const Tensors2<TypeKey>& row_offset_tensors, const Tensors2<TypeKey>& value_tensors,
-                const std::vector<std::shared_ptr<size_t>>& nnz_array,
-                const std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& buffs,
-                const std::shared_ptr<ResourceManager>& resource_manager,
-                const std::shared_ptr<ChunkConsumer<CSRChunk<TypeKey>>>& csr_heap = nullptr,
-                const bool use_mixed_precision = false, const bool one_hot = false,
-                const size_t cache_size = 0);
-
-  void set_ready_to_write();
-
-  void set_ready_to_write_sync();
-  /**
-   * Collect data from heap to each GPU (node).
-   */
-  void collect();
-
-  /**
-   * Read a batch to device.
-   */
-  long long read_a_batch_to_device();
-
-  /**
-   * Break the collecting and stop. Only used in destruction.
-   */
-  void stop() {
-    data_reader_loop_flag_ = 0;
-#ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
-#endif
-    stat_ = STOP;
-    // stat_cv_.notify_all();
+  DataCollector(const std::vector<std::shared_ptr<ThreadBuffer>> &thread_buffers,
+                const std::shared_ptr<BroadcastBuffer> &broadcast_buffer,
+                std::shared_ptr<DataReaderOutput> &output,
+                const std::shared_ptr<ResourceManager> &resource_manager)
+      : broadcast_buffer_(broadcast_buffer),
+        output_buffer_(output),
+        background_collector_(thread_buffers, broadcast_buffer, resource_manager),
+        loop_flag_{true},
+        last_batch_nnz_(
+            broadcast_buffer->is_fixed_length.size() * resource_manager->get_local_gpu_count(), 0),
+        resource_manager_(resource_manager) {
+    background_collector_thread_ = std::thread([this]() { background_collector_.start(); });
   }
 
-  void start();
-
-  /**
-   * Dtor.
-   */
   ~DataCollector() {
-    if (stat_ != STOP) stop();
-    data_collector_thread_.join();
+    background_collector_.stop();
+    background_collector_thread_.join();
   }
-};
 
-/**
- * A helper function to for reading data from
- * CSRChunk to data_reader (GPU) local buffer in a new thread.
- * @param data_reader a pointer of data_collector.
- * @param p_loop_flag a flag to control the loop and
-                      break loop when DataReader is destroyed.
- */
-template <typename TypeKey>
-static void data_collector_thread_func_(DataCollector<TypeKey>* data_collector, int* p_loop_flag) {
-  try {
-    while ((*p_loop_flag) == 0) {
+  long long read_a_batch_to_device() {
+    // MESSAGE_("data collector waiting read_a_batch_to_device");
+    BufferState expected = BufferState::ReadyForRead;
+    while (!broadcast_buffer_->state.compare_exchange_weak(expected, BufferState::Reading)) {
+      expected = BufferState::ReadyForRead;
       usleep(2);
     }
+    long long current_batch_size = broadcast_buffer_->current_batch_size;
+    if (current_batch_size != 0) {
+      int local_gpu_count = resource_manager_->get_local_gpu_count();
 
-    while (*p_loop_flag) {
-      data_collector->collect();
-    }
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  }
-}
+#pragma omp parallel for num_threads(local_gpu_count)
+      for (int i = 0; i < local_gpu_count; ++i) {
+        auto local_gpu = resource_manager_->get_local_gpu(i);
 
-template <typename TypeKey>
-int DataCollector<TypeKey>::id_ = 0;
+        CudaDeviceContext ctx(local_gpu->get_device_id());
 
-template <typename TypeKey>
-DataCollector<TypeKey>::DataCollector(
-    const Tensors2<float>& label_tensors, const std::vector<TensorBag2>& dense_tensors,
-    const Tensors2<TypeKey>& row_offset_tensors, const Tensors2<TypeKey>& value_tensors,
-    const std::vector<std::shared_ptr<size_t>>& nnz_array,
-    const std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& buffs,
-    const std::shared_ptr<ResourceManager>& resource_manager,
-    const std::shared_ptr<ChunkConsumer<CSRChunk<TypeKey>>>& csr_heap, const bool use_mixed_precision,
-    const bool one_hot, const size_t cache_size)
-    : csr_heap_(csr_heap),
-      label_tensors_(label_tensors),
-      dense_tensors_(dense_tensors),
-      row_offset_tensors_(row_offset_tensors),
-      value_tensors_(value_tensors),
-      nnz_array_(nnz_array),
-      resource_manager_(resource_manager),
-      pre_nnz_(row_offset_tensors.size(), 0),
-      use_mixed_precision_(use_mixed_precision),
-      one_hot_(one_hot),
-      cache_size_(cache_size),
-      reverse_(false) {
-  try {
-    // input check
-    if (stat_ != READY_TO_WRITE) {
-      CK_THROW_(Error_t::WrongInput, "stat_ != READY_TO_WRITE");
-    }
-    if (label_tensors.size() != dense_tensors.size()) {
-      CK_THROW_(Error_t::WrongInput, "label_tensors.size() != dense_tensors.size()");
-    }
-    if (row_offset_tensors.size() != value_tensors.size()) {
-      CK_THROW_(Error_t::WrongInput, "row_offset_tensors.size() != value_tensors.size()");
-    }
+        // wait until last iteration finish
+        CK_CUDA_THROW_(
+            cudaEventRecord(output_buffer_->last_batch_finish_events[i], local_gpu->get_stream()));
+        CK_CUDA_THROW_(cudaEventSynchronize(output_buffer_->last_batch_finish_events[i]));
+        auto label_tensor = Tensor2<float>::stretch_from(output_buffer_->label_tensors[i]);
+        auto label_dense_tensor = Tensor2<float>::stretch_from(broadcast_buffer_->dense_tensors[i]);
 
-    // create internal buffers
-    size_t local_gpu_count = resource_manager_->get_local_gpu_count();
+        for(size_t param_id = 0; param_id < output_buffer_->sparse_name_vec.size(); ++param_id) {
+          const auto &top_name = output_buffer_->sparse_name_vec[param_id];
+          int idx_broadcast = i * broadcast_buffer_->param_num + param_id;
+          auto src_sparse_tensor =
+              SparseTensor<T>::stretch_from(broadcast_buffer_->sparse_buffers[idx_broadcast]);
+          if(output_buffer_->sparse_tensors_map.find(top_name) == output_buffer_->sparse_tensors_map.end()) {
+            CK_THROW_(Error_t::IllegalCall, "can not find sparse name");
+          }
+          auto dst_sparse_tensor = SparseTensor<T>::stretch_from(output_buffer_->sparse_tensors_map[top_name][i]);
 
-    size_t num_internal_buffers = cache_size_ == 0 ? 1 : cache_size_;
-
-    MESSAGE_("num_internal_buffers " + std::to_string(num_internal_buffers));
-
-    for (size_t j = 0; j < num_internal_buffers; j++) {
-      auto internal_buffer = std::make_shared<InternalBuffer_>();
-      for (size_t i = 0; i < local_gpu_count; i++) {
-        int buf_size = label_tensors_[i].get_num_elements();
-        if (use_mixed_precision) {
-          Tensor2<__half> dense_tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
-          buf_size += dense_tensor.get_num_elements();
-        } else {
-          Tensor2<float> dense_tensor = Tensor2<float>::stretch_from(dense_tensors_[i]);
-          buf_size += dense_tensor.get_num_elements();
+          if (broadcast_buffer_->is_fixed_length[idx_broadcast] &&
+              last_batch_nnz_[idx_broadcast] ==
+                  src_sparse_tensor.nnz()) {
+            CK_CUDA_THROW_(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
+                                           src_sparse_tensor.get_value_ptr(),
+                                           src_sparse_tensor.nnz() * sizeof(T),
+                                           cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
+          } else {
+            sparse_tensor_helper::cuda::copy_async(dst_sparse_tensor, src_sparse_tensor,
+                                                   cudaMemcpyDeviceToDevice,
+                                                   local_gpu->get_stream());
+            last_batch_nnz_[idx_broadcast] = src_sparse_tensor.nnz();
+          }
         }
-        Tensor2<float> tensor;
-        buffs[i]->reserve({static_cast<size_t>(buf_size)}, &tensor);
-        internal_buffer->label_dense_tensors.push_back(tensor);
-      }
-      size_t k = row_offset_tensors_.size() / local_gpu_count;
-      for (size_t i = 0; i < row_offset_tensors_.size(); i++) {
-        Tensor2<TypeKey> row_offset_tensor;
-        buffs[i / k]->reserve(row_offset_tensors_[i].get_dimensions(), &row_offset_tensor);
-        internal_buffer->row_offset_tensors.push_back(row_offset_tensor);
-        Tensor2<TypeKey> value_tensor;
-        buffs[i / k]->reserve(value_tensors_[i].get_dimensions(), &value_tensor);
-        internal_buffer->value_tensors.push_back(value_tensor);
-      }
-      for (size_t i = 0; i < nnz_array_.size(); i++) {
-        internal_buffer->nnz_array.emplace_back(new size_t);
-      }
-      internal_buffers_.push_back(internal_buffer);
-    }
 
-    num_params_ = row_offset_tensors_.size() / local_gpu_count;
-
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-  }
-
-  id_++;
-}
-
-template <typename TypeKey>
-void DataCollector<TypeKey>::start() {
-  if (started_ == false) {
-    data_collector_thread_ =
-        std::thread(data_collector_thread_func_<TypeKey>, this, &data_reader_loop_flag_);
-    set_affinity(data_collector_thread_, {}, true);
-    started_ = true;
-  } else {
-    CK_THROW_(Error_t::WrongInput, "Data collector has been started");
-  }
-}
-
-template <typename TypeKey>
-void DataCollector<TypeKey>::collect() {
-  if (counter_ < cache_size_ || cache_size_ == 0) {
-    collect_();
-  } else {
-    collect_blank_();
-  }
-}
-
-template <typename TypeKey>
-void DataCollector<TypeKey>::collect_blank_() {
-  std::unique_lock<std::mutex> lock(stat_mtx_);
-
-  while (stat_ != READY_TO_WRITE && stat_ != STOP) {
-    // stat_cv_.wait(lock);
-    usleep(2);
-  }
-  if (stat_ == STOP) {
-    return;
-  }
-
-  stat_ = READY_TO_READ;
-  lock.unlock();
-  // stat_cv_.notify_all();
-}
-
-/**************************************
- * Each node will have one DataCollector.
- * Each iteration, one of the data collector will
- * send it's CSR buffers to remote node.
- ************************************/
-template <typename TypeKey>
-void DataCollector<TypeKey>::collect_() {
-  std::unique_lock<std::mutex> lock(stat_mtx_);
-
-  // my turn
-  CSRChunk<TypeKey>* chunk_tmp = csr_heap_->checkout_data_chunk();
-
-  int total_device_count = resource_manager_->get_global_gpu_count();
-
-  while (stat_ != READY_TO_WRITE && stat_ != STOP) {
-    usleep(2);
-  }
-  if (stat_ == STOP) {
-    return;
-  }
-
-  if (chunk_tmp == nullptr) {
-    auto& internal_buffer = internal_buffers_[counter_ % internal_buffers_.size()];
-    internal_buffer->current_batchsize = 0;
-    reverse_ = !reverse_;
-    csr_heap_->return_free_chunk();
-    stat_ = READY_TO_READ;
-    return;
-  }
-
-  auto& csr_cpu_buffers = chunk_tmp->get_csr_buffers();
-  auto& label_dense_buffers = chunk_tmp->get_label_buffers();
-
-  const int num_params =
-      chunk_tmp->get_num_params();  // equal to the num of output of data reader in json
-  if (num_params_ != num_params) {
-    CK_THROW_(Error_t::WrongInput, "job_ is ???");
-  }
-  assert(static_cast<int>(label_dense_buffers.size()) == total_device_count);
-
-  auto& internal_buffer = internal_buffers_[counter_ % internal_buffers_.size()];
-  internal_buffer->current_batchsize = chunk_tmp->get_current_batchsize();
-
-  for (int ix = 0; ix < total_device_count; ix++) {
-    int i =
-        ((id_ == 0 && !reverse_) || (id_ == 1 && reverse_)) ? ix : (total_device_count - 1 - ix);
-    int pid = resource_manager_->get_process_id_from_gpu_global_id(i);
-    int label_copy_num = (label_dense_buffers[0]).get_num_elements();
-    if (pid == resource_manager_->get_process_id()) {
-      size_t local_id = resource_manager_->get_gpu_local_id_from_global_id(i);
-      const auto& local_gpu = resource_manager_->get_local_gpu(local_id);
-
-      CudaDeviceContext context(local_gpu->get_device_id());
-      for (int j = 0; j < num_params; j++) {
-        unsigned int nnz = csr_cpu_buffers[i * num_params + j]
-                               .get_row_offset_tensor()
-                               .get_ptr()[csr_cpu_buffers[i * num_params + j].get_num_rows()];
-
-        if (pre_nnz_[local_id * num_params + j] != nnz || cache_size_ != 0 || !one_hot_) {
-          pre_nnz_[local_id * num_params + j] = nnz;
-          CK_CUDA_THROW_(cudaMemcpyAsync(
-              internal_buffer->row_offset_tensors[local_id * num_params + j].get_ptr(),
-              csr_cpu_buffers[i * num_params + j].get_row_offset_tensor().get_ptr(),
-              csr_cpu_buffers[i * num_params + j].get_row_offset_tensor().get_size_in_bytes(),
-              cudaMemcpyHostToDevice, local_gpu->get_memcpy_stream()));
-          CK_CUDA_THROW_(cudaMemcpyAsync(
-              internal_buffer->value_tensors[local_id * num_params + j].get_ptr(),
-              csr_cpu_buffers[i * num_params + j].get_value_tensor().get_ptr(),
-              csr_cpu_buffers[i * num_params + j].get_num_values() * sizeof(TypeKey),
-              cudaMemcpyHostToDevice, local_gpu->get_memcpy_stream()));
+        if (output_buffer_->use_mixed_precision) {
+          auto dense_tensor = Tensor2<__half>::stretch_from(output_buffer_->dense_tensors[i]);
+          split(label_tensor, dense_tensor, label_dense_tensor, local_gpu->get_stream());
         } else {
-          CK_CUDA_THROW_(cudaMemcpyAsync(
-              internal_buffer->value_tensors[local_id * num_params + j].get_ptr(),
-              csr_cpu_buffers[i * num_params + j].get_value_tensor().get_ptr(),
-              csr_cpu_buffers[i * num_params + j].get_num_values() * sizeof(TypeKey),
-              cudaMemcpyHostToDevice,
-              local_gpu->get_memcpy_stream()));
+          auto dense_tensor = Tensor2<float>::stretch_from(output_buffer_->dense_tensors[i]);
+          split(label_tensor, dense_tensor, label_dense_tensor, local_gpu->get_stream());
         }
-        *(internal_buffer->nnz_array[local_id * num_params + j]) = nnz;
       }
-      CK_CUDA_THROW_(
-          cudaMemcpyAsync(internal_buffer->label_dense_tensors[local_id].get_ptr(),
-                          label_dense_buffers[i].get_ptr(), label_copy_num * sizeof(float),
-                          cudaMemcpyHostToDevice, local_gpu->get_memcpy_stream()));
+    }else {
+      broadcast_buffer_->state.store(BufferState::ReadyForWrite);
     }
+    return current_batch_size;
   }
-  // sync
-  for (int ix = 0; ix < total_device_count; ix++) {
-    int i =
-        ((id_ == 0 && !reverse_) || (id_ == 1 && reverse_)) ? ix : (total_device_count - 1 - ix);
-    int pid = resource_manager_->get_process_id_from_gpu_global_id(i);
-    if (pid == resource_manager_->get_process_id()) {
-      size_t local_id = resource_manager_->get_gpu_local_id_from_global_id(i);
-      const auto& local_gpu = resource_manager_->get_local_gpu(local_id);
+
+  void finalize_batch() {
+    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+      const auto &local_gpu = resource_manager_->get_local_gpu(i);
       CudaDeviceContext context(local_gpu->get_device_id());
-      CK_CUDA_THROW_(cudaStreamSynchronize(local_gpu->get_memcpy_stream()));
+      cudaStreamSynchronize(local_gpu->get_stream());
     }
+
+    broadcast_buffer_->state.store(BufferState::ReadyForWrite);
   }
-
-  reverse_ = !reverse_;
-
-  csr_heap_->return_free_chunk();
-
-  stat_ = READY_TO_READ;
-}
-
-template <typename TypeKey>
-long long DataCollector<TypeKey>::read_a_batch_to_device() {
-  auto& internal_buffer = internal_buffers_[counter_ % internal_buffers_.size()];
-  while (stat_ != READY_TO_READ && stat_ != STOP) {
-    usleep(2);
-  }
-  if (stat_ == STOP || internal_buffer->current_batchsize == 0) {
-    counter_++;
-    return internal_buffer->current_batchsize;
-  }
-
-  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    const auto& local_gpu = resource_manager_->get_local_gpu(i);
-    CudaDeviceContext context(local_gpu->get_device_id());
-    for (int j = 0; j < num_params_; j++) {
-      int csr_id = i * num_params_ + j;
-      CK_CUDA_THROW_(cudaMemcpyAsync(row_offset_tensors_[csr_id].get_ptr(),
-                                     internal_buffer->row_offset_tensors[csr_id].get_ptr(),
-                                     internal_buffer->row_offset_tensors[csr_id].get_size_in_bytes(),
-                                     cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
-      CK_CUDA_THROW_(cudaMemcpyAsync(value_tensors_[csr_id].get_ptr(),
-                                     internal_buffer->value_tensors[csr_id].get_ptr(),
-                                     internal_buffer->value_tensors[csr_id].get_size_in_bytes(),
-                                     cudaMemcpyDeviceToDevice, local_gpu->get_stream()));
-      *(nnz_array_[csr_id]) = *(internal_buffer->nnz_array[csr_id]);
-    }
-    if (use_mixed_precision_) {
-      Tensor2<__half> tensor = Tensor2<__half>::stretch_from(dense_tensors_[i]);
-      split(label_tensors_[i], tensor, internal_buffer->label_dense_tensors[i],
-            local_gpu->get_stream());
-    } else {
-      Tensor2<float> tensor = Tensor2<float>::stretch_from(dense_tensors_[i]);
-      split(label_tensors_[i], tensor, internal_buffer->label_dense_tensors[i],
-            local_gpu->get_stream());
-    }
-  }
-  counter_++;
-  return internal_buffer->current_batchsize;
-}
-
-template <typename TypeKey>
-void DataCollector<TypeKey>::set_ready_to_write_sync() {
-  for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
-    const auto& local_gpu = resource_manager_->get_local_gpu(i);
-    CudaDeviceContext context(local_gpu->get_device_id());
-    cudaStreamSynchronize(local_gpu->get_stream());
-  }
-  set_ready_to_write();
-}
-
-template <typename TypeKey>
-void DataCollector<TypeKey>::set_ready_to_write() {
-  stat_ = READY_TO_WRITE;
-}
-
+};
 }  // namespace HugeCTR
+

@@ -18,28 +18,25 @@
 #include <common.hpp>
 #include <data_readers/check_none.hpp>
 #include <data_readers/csr.hpp>
-#include <data_readers/csr_chunk.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
-#include <data_readers/heapex.hpp>
 #include <data_readers/mmap_source.hpp>
 #include <fstream>
 #include <vector>
+
+#include "data_readers/data_reader_common.hpp"
+#include "tensor2.hpp"
 
 namespace HugeCTR {
 template <class T>
 class DataReaderWorkerRaw : public IDataReaderWorker {
  private:
-  const unsigned int worker_id_{0};
-  const unsigned int worker_num_{0};
-  std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
-  std::vector<DataReaderSparseParam> params_;     /**< configuration of data reader sparse input */
-  int* feature_ids_;               /**< a buffer to cache the readed feature from data set */
-  bool skip_read_{false};          /**< set to true when you want to stop the data reading */
-  const int MAX_TRY = 10;
-  int slots_{0};
-  const std::vector<long long> slot_offset_;
-  const int label_dim_{1};
-  const bool float_label_dense_;
+  std::vector<DataReaderSparseParam> params_; /**< configuration of data reader sparse input */
+  bool float_label_dense_;
+  size_t total_slot_num_;
+  std::vector<size_t> last_batch_nnz_;
+
+  Tensor2<float> host_dense_buffer_;
+  std::vector<CSR<T>> host_sparse_buffer_;
 
   void read_new_file() {
     Error_t flag = source_->next_source();
@@ -47,13 +44,13 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
       throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
     }
   }
-  //  std::vector<int> data_buffer_; /**< data buffer with size of full batchsize*/
-
-  std::condition_variable eof_cv_;
-  std::mutex eof_mtx_;
 
   void post_set_source() override {
-    eof_cv_.notify_all();
+    auto expected = BufferState::FileEOF;
+    while (buffer_->state.compare_exchange_weak(expected, BufferState::ReadyForWrite)) {
+      expected = BufferState::FileEOF;
+      usleep(2);
+    }
     is_eof_ = false;
   }
 
@@ -61,197 +58,184 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   /**
    * Ctor
    */
-  DataReaderWorkerRaw(unsigned int worker_id, unsigned int worker_num,
-                      std::shared_ptr<MmapOffsetList>& file_offset_list,
-                      const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
-                      bool repeat,
-                      const std::vector<DataReaderSparseParam>& params,
-                      const std::vector<long long>& slot_offset, int label_dim,
-                      bool float_label_dense)
-      : worker_id_(worker_id),
-        worker_num_(worker_num),
-        csr_heap_(csr_heap),
+  DataReaderWorkerRaw(const int worker_id, const int worker_num,
+                      const std::shared_ptr<GPUResource>& gpu_resource, int* loop_flag,
+                      const std::shared_ptr<ThreadBuffer>& buffer,
+                      std::shared_ptr<MmapOffsetList>& file_offset_list, bool repeat,
+                      const std::vector<DataReaderSparseParam>& params, bool float_label_dense)
+      : IDataReaderWorker(worker_id, worker_num, gpu_resource, !repeat, loop_flag, buffer),
         params_(params),
-        slot_offset_(slot_offset),
-        label_dim_(label_dim),
-        float_label_dense_(float_label_dense) {
+        float_label_dense_(float_label_dense),
+        total_slot_num_(0),
+        last_batch_nnz_(params.size(), 0) {
     if (worker_id >= worker_num) {
       CK_THROW_(Error_t::BrokenFile, "DataReaderWorkerRaw: worker_id >= worker_num");
     }
-    slots_ = 0;
-    for (auto& p : params) {
-      slots_ += p.slot_num;
-    }
-    if (slots_ != (int)slot_offset_.size() && !slot_offset_.empty()) {
-      CK_THROW_(Error_t::WrongInput, "DataReaderWorkerRaw: slots_ != slot_offset_.size()");
-    }
-    feature_ids_ = new int[slots_]();
 
     source_ = std::make_shared<MmapSource>(file_offset_list, worker_id);
 
-    if (!repeat) {
-      is_eof_ = true;
+    int batch_size = buffer->batch_size;
+    int batch_size_start_idx = buffer->batch_size_start_idx;
+    int batch_size_end_idx = buffer->batch_size_end_idx;
+    int label_dim = buffer->label_dim;
+    int dense_dim = buffer->dense_dim;
+
+    CudaDeviceContext ctx(gpu_resource->get_device_id());
+    std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =
+        GeneralBuffer2<CudaHostAllocator>::create();
+
+    buff->reserve({static_cast<size_t>(batch_size_end_idx - batch_size_start_idx),
+                   static_cast<size_t>(label_dim + dense_dim)},
+                  &host_dense_buffer_);
+
+    for (auto& param : params) {
+      host_sparse_buffer_.emplace_back(batch_size * param.slot_num,
+                                       batch_size * param.max_feature_num);
+    }
+
+    buff->allocate();
+    for (auto& param : params) {
+      total_slot_num_ += param.slot_num;
     }
   }
   /**
    * read a batch of data from data set to heap.
    */
-  void read_a_batch();
+  void read_a_batch() {
+    try {
+      read_new_file();
+    } catch (const internal_runtime_error& rt_err) {
+      Error_t err = rt_err.get_error();
+      if (err == Error_t::EndOfFile) {
+        if (!wait_until_h2d_ready()) return;
+        buffer_->current_batch_size = 0;
+        assert(buffer_->state.load() == BufferState::Writing);
+        buffer_->state.store(BufferState::ReadyForRead);
+        is_eof_ = true;
+        if (!wait_until_h2d_ready()) return;
+        buffer_->state.store(BufferState::FileEOF);
+        while (buffer_->state.load() != BufferState::ReadyForWrite) {
+          usleep(2);
+          if (*loop_flag_ == 0) return;
+        }
+        return;
+      } else {
+        throw;
+      }
+    }
 
-  /**
-   * skip data reading in read_a_batch()
-   */
-  void skip_read() {
-    skip_read_ = true;
-    eof_cv_.notify_all();
+    long long current_batchsize = source_->get_num_of_items_in_source();
+    if (current_batchsize != buffer_->batch_size) {
+      std::cout << "current_batchsize: " << current_batchsize
+                << "batchsize: " << buffer_->batch_size << std::endl;
+    }
+
+    char* data_buffer = source_->get_ptr();
+    int label_dim = buffer_->label_dim;
+    int dense_dim = buffer_->dense_dim;
+    int label_dense_dim = label_dim + dense_dim;
+    int batch_size_start_idx = buffer_->batch_size_start_idx;
+    int batch_size_end_idx = buffer_->batch_size_end_idx;
+    size_t label_dense_length =
+        label_dense_dim * (float_label_dense_ ? sizeof(float) : sizeof(int));
+    size_t sample_length = total_slot_num_ * sizeof(int) + label_dense_length;
+
+    for (auto& each_csr : host_sparse_buffer_) {
+      each_csr.reset();
+    }
+    for (int batch_idx = 0; batch_idx < buffer_->batch_size; ++batch_idx) {
+      if (batch_idx >= current_batchsize) {
+        for (size_t param_id = 0; param_id < params_.size(); ++param_id) {
+          auto& param = params_[param_id];
+          auto& current_csr = host_sparse_buffer_[param_id];
+          for (int k = 0; k < param.slot_num; k++) {
+            current_csr.new_row();
+          }
+        }
+        if (batch_idx >= batch_size_start_idx &&
+            batch_idx < batch_size_end_idx) {  // only read local device dense data
+          float* ptr =
+              host_dense_buffer_.get_ptr() + (batch_idx - batch_size_start_idx) * label_dense_dim;
+
+          for (int j = 0; j < label_dense_dim; j++) {
+            ptr[j] = 0.f;
+          }
+        }
+        continue;
+      }
+      char* sample_cur = data_buffer + sample_length * batch_idx;
+
+      if (batch_idx >= batch_size_start_idx &&
+          batch_idx < batch_size_end_idx) {  // only read local device dense data
+        float* ptr =
+            host_dense_buffer_.get_ptr() + (batch_idx - batch_size_start_idx) * label_dense_dim;
+
+        for (int j = 0; j < label_dense_dim; j++) {
+          if (j < label_dim) {
+            // label buffer is in row-major layout
+            ptr[j] = float_label_dense_ ? reinterpret_cast<float*>(sample_cur)[j]
+                                        : reinterpret_cast<int*>(sample_cur)[j];
+          } else {
+            // if the underlying value is int, do DLRM-style preprocessing
+            // otherwise, the value is just directly used.
+            float val = float_label_dense_ ? reinterpret_cast<float*>(sample_cur)[j]
+                                           : log(reinterpret_cast<int*>(sample_cur)[j] + 1.f);
+            ptr[j] = val;
+          }
+        }
+      }
+      {
+        int* feature_ids = reinterpret_cast<int*>(sample_cur + label_dense_length);
+
+        for (size_t param_id = 0; param_id < params_.size(); ++param_id) {
+          auto& param = params_[param_id];
+          auto& current_csr = host_sparse_buffer_[param_id];
+          for (int k = 0; k < param.slot_num; k++) {
+            current_csr.push_back_new_row(feature_ids[k]);
+          }
+          feature_ids += param.slot_num;
+        }
+      }
+    }
+    for (auto& each_csr : host_sparse_buffer_) {
+      each_csr.new_row();
+    }
+
+    // do h2d
+    // wait buffer and schedule
+    if (!wait_until_h2d_ready()) return;
+    buffer_->current_batch_size = current_batchsize;
+    {
+      CudaDeviceContext context(gpu_resource_->get_device_id());
+      auto dst_dense_tensor = Tensor2<float>::stretch_from(buffer_->device_dense_buffers);
+      CK_CUDA_THROW_(cudaMemcpyAsync(dst_dense_tensor.get_ptr(), host_dense_buffer_.get_ptr(),
+                                     host_dense_buffer_.get_size_in_bytes(), cudaMemcpyHostToDevice,
+                                     gpu_resource_->get_memcpy_stream()));
+
+      for (size_t param_id = 0; param_id < params_.size(); ++param_id) {
+        auto dst_sparse_tensor =
+            SparseTensor<T>::stretch_from(buffer_->device_sparse_buffers[param_id]);
+        if (buffer_->is_fixed_length[param_id] &&
+            last_batch_nnz_[param_id] == host_sparse_buffer_[param_id].get_num_values()) {
+          CK_CUDA_THROW_(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
+                                         host_sparse_buffer_[param_id].get_value_tensor().get_ptr(),
+                                         host_sparse_buffer_[param_id].get_num_values() * sizeof(T),
+                                         cudaMemcpyHostToDevice,
+                                         gpu_resource_->get_memcpy_stream()));
+        } else {
+          sparse_tensor_helper::cuda::copy_async(dst_sparse_tensor, host_sparse_buffer_[param_id],
+                                                 gpu_resource_->get_memcpy_stream());
+          last_batch_nnz_[param_id] = host_sparse_buffer_[param_id].get_num_values();
+        }
+      }
+      CK_CUDA_THROW_(cudaStreamSynchronize(gpu_resource_->get_memcpy_stream()));
+    }
+
+    assert(buffer_->state.load() == BufferState::Writing);
+    buffer_->state.store(BufferState::ReadyForRead);
+
+    return;
   }
 };
-
-template <class T>
-void DataReaderWorkerRaw<T>::read_a_batch() {
-  try {
-    read_new_file();
-
-    CSRChunk<T>* csr_chunk = csr_heap_->checkout_free_chunk(worker_id_);
-
-    if (!skip_read_ && csr_chunk != nullptr) {
-      long long current_batchsize = source_->get_num_of_items_in_source();
-      if (current_batchsize != csr_chunk->get_batchsize()) {
-        std::cout << "current_batchsize: " << current_batchsize
-                  << "batchsize: " << csr_chunk->get_batchsize() << std::endl;
-      }
-      csr_chunk->set_current_batchsize(current_batchsize);
-      Tensors2<float>& label_dense_buffers = csr_chunk->get_label_buffers();
-
-      int slot_id = 0;
-
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::reset);
-      assert(label_dense_buffers.size() > 0);
-
-      size_t num_slots = 0;
-      for (auto& param : params_) {
-        num_slots += param.slot_num;
-      }
-      const int label_dense_dim = csr_chunk->get_label_dense_dim();
-      size_t label_dense_length =
-          label_dense_dim * (float_label_dense_ ? sizeof(float) : sizeof(int));
-      size_t sample_length = num_slots * sizeof(int) + label_dense_length;
-
-      char* data_buffer = source_->get_ptr();
-
-      // batch loop
-      for (int i = 0; i < csr_chunk->get_batchsize(); i++) {
-        // to compensate the csr when current_batchsize != csr_chunk->get_batchsize()
-        char* sample_cur = data_buffer + sample_length * i;
-        if (i >= current_batchsize) {
-	  fill_empty_sample(params_, csr_chunk);
-          continue;
-        }  // if(i>= current_batchsize)
-
-        int param_id = 0;
-        csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
-
-        {
-          // We suppose that the data parallel mode is like this
-          // The subsequence samples will be located to the same GPU
-          int buffer_id = i / (csr_chunk->get_batchsize() / label_dense_buffers.size());
-          assert((unsigned int)buffer_id < label_dense_buffers.size());
-          int local_id = i % (csr_chunk->get_batchsize() / label_dense_buffers.size());
-          assert((unsigned int)local_id <
-                 (csr_chunk->get_batchsize() / label_dense_buffers.size()));
-
-          float* ptr = label_dense_buffers[buffer_id].get_ptr();
-          for (int j = 0; j < label_dense_dim; j++) {
-            if (j < label_dim_) {
-              // label buffer is in row-major layout
-              ptr[local_id * label_dense_dim + j] = float_label_dense_
-                                                        ? reinterpret_cast<float*>(sample_cur)[j]
-                                                        : reinterpret_cast<int*>(sample_cur)[j];
-            } else {
-              // if the underlying value is int, do DLRM-style preprocessing
-              // otherwise, the value is just directly used.
-              float val = float_label_dense_ ? reinterpret_cast<float*>(sample_cur)[j]
-                                             : log(reinterpret_cast<int*>(sample_cur)[j] + 1.f);
-              ptr[local_id * label_dense_dim + j] = val;
-            }
-          }
-          // if(local_id == 0)
-          //   std::cout << std::endl;
-        }
-
-        int* feature_ids = reinterpret_cast<int*>(sample_cur + label_dense_length);
-        if (params_.size() == 1 && params_[0].type == DataReaderSparse_t::Localized &&
-            !slot_offset_.empty()) {
-          auto& param = params_[0];
-          for (int k = 0; k < param.slot_num; k++) {
-            int dev_id = k % csr_chunk->get_num_devices();
-            T local_id = feature_ids[k] + slot_offset_[k];
-            csr_chunk->get_csr_buffer(param_id, dev_id).push_back_new_row(local_id);
-          }
-        } else {
-          slot_id = 0;
-          for (auto& param : params_) {
-            for (int k = 0; k < param.slot_num; k++) {
-              long long slot_offset = slot_offset_.empty() ? 0 : slot_offset_[slot_id];
-              if (param.type == DataReaderSparse_t::Distributed) {
-                for (int dev_id = 0; dev_id < csr_chunk->get_num_devices(); dev_id++) {
-                  csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
-                }
-                {
-                  T local_id = feature_ids[k] + slot_offset;
-                  int dev_id = local_id % csr_chunk->get_num_devices();
-                  dev_id = std::abs(dev_id);
-
-                  assert(dev_id < csr_chunk->get_num_devices());
-                  /* #ifndef NDEBUG
-                                    if (i >= 0)
-                                      std::cout << "[HCDEBUG]"
-                                                << "feature_ids:" << feature_ids[k] << " local_id: "
-                  << local_id
-                                                << " param_id: " << param_id << " dev_id: " <<
-                  dev_id << std::endl;
-                  #endif */
-
-                  csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
-                }
-              } else if (param.type == DataReaderSparse_t::Localized) {
-                int dev_id = k % csr_chunk->get_num_devices();
-                csr_chunk->get_csr_buffer(param_id, dev_id).new_row();
-                T local_id = feature_ids[k] + slot_offset;
-                csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
-
-              } else {
-                CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
-              }
-              slot_id++;
-            }
-            feature_ids += param.slot_num;
-            param_id++;
-          }  // for(auto& param: params_)
-        }
-      }  // batch loop
-      // write the last index to row
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
-    }
-    csr_heap_->commit_data_chunk(worker_id_, false);
-  } catch (const internal_runtime_error& rt_err) {
-    Error_t err = rt_err.get_error();
-    if (err == Error_t::EndOfFile) {
-      // push nop to singal to DataCollector that it is the EOF
-      csr_heap_->commit_data_chunk(worker_id_, true);
-      is_eof_ = true;
-      std::unique_lock<std::mutex> lock(eof_mtx_);
-      // wait for the new source is set
-      eof_cv_.wait(lock);
-    } else {
-      std::cerr << rt_err.what() << std::endl;
-      throw;
-    }
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    throw;
-  }
-  return;
-}
 
 }  // namespace HugeCTR

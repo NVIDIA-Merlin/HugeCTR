@@ -11,7 +11,7 @@
     "snapshot_prefix": "./",
     "eval_interval": 1000,
     "max_eval_batches": 2048,
-    "auc_threshold": 0.8010
+    "auc_threshold": 0.801
   },
   "optimizer": {
     "type": "Adam",
@@ -20,7 +20,7 @@
       "learning_rate": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.0000001
+      "epsilon": 1e-07
     }
   },
   "layers": [
@@ -41,15 +41,15 @@
       "sparse": [
         {
           "top": "wide_data",
-          "type": "DistributedSlot",
-          "max_feature_num_per_sample": 30,
-          "slot_num": 1
+          "slot_num": 1,
+          "is_fixed_length": true,
+          "nnz_per_slot": 30
         },
         {
           "top": "deep_data",
-          "type": "DistributedSlot",
-          "max_feature_num_per_sample": 30,
-          "slot_num": 26
+          "slot_num": 26,
+          "is_fixed_length": false,
+          "nnz_per_slot": 2
         }
       ]
     },
@@ -59,9 +59,9 @@
       "bottom": "wide_data",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 2322444,
         "embedding_vec_size": 1,
-        "combiner": 0
+        "combiner": "sum",
+        "workspace_size_per_gpu_in_mb": 9
       },
       "optimizer": {
         "type": "Adam",
@@ -70,7 +70,7 @@
           "learning_rate": 0.001,
           "beta1": 0.9,
           "beta2": 0.999,
-          "epsilon": 0.0000001
+          "epsilon": 1e-07
         }
       }
     },
@@ -80,9 +80,9 @@
       "bottom": "deep_data",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 2322444,
         "embedding_vec_size": 16,
-        "combiner": 0
+        "combiner": "sum",
+        "workspace_size_per_gpu_in_mb": 142
       },
       "optimizer": {
         "type": "Adam",
@@ -91,7 +91,7 @@
           "learning_rate": 0.001,
           "beta1": 0.9,
           "beta2": 0.999,
-          "epsilon": 0.0000001
+          "epsilon": 1e-07
         }
       }
     },
