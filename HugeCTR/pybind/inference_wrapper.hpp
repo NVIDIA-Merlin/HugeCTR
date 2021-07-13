@@ -79,7 +79,7 @@ InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
   : InferenceSession(model_config_path, inference_params, embedding_cache) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   CK_CUDA_THROW_(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *  inference_parser_.dense_dim * sizeof(float)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_params_.max_batchsize *  inference_parser_.slot_num + 1) * sizeof(int)));
+  CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_params_.max_batchsize *  inference_parser_.slot_num + inference_parser_.num_embedding_tables) * sizeof(int)));
   CK_CUDA_THROW_(cudaMalloc((void**)&d_output_, inference_params_.max_batchsize * inference_parser_.label_dim * sizeof(float)));
   if (inference_params_.i64_input_key) {
     CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(long long), cudaHostAllocPortable));
@@ -101,7 +101,7 @@ void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey
   if (inference_parser_.slot_num == 0) {
     CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
   }
-  size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
+  size_t num_samples = (row_ptrs.size() - inference_parser_.num_embedding_tables) / inference_parser_.slot_num;
   if (num_samples > inference_params_.max_batchsize) {
     CK_THROW_(Error_t::WrongInput, "The number of samples should not exceed max_batchsize");
   }
