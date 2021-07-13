@@ -493,9 +493,10 @@ nightly_build_train:
   script:
     - export TRAIN_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_train"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - cd ./tools/dockerfiles/
     - docker build --pull
       -t "${TRAIN_IMAGE_RELEASE}"
-      -f ./tools/dockerfiles/Dockerfile.train
+      -f ./Dockerfile.train
       ${PWD}
     - docker push ${TRAIN_IMAGE_RELEASE}
   only:
@@ -509,9 +510,10 @@ nightly_build_inference:
   script:
     - export INFER_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_inference"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - cd ./tools/dockerfiles/
     - docker build --pull
       -t "${INFER_IMAGE_RELEASE}"
-      -f ./tools/dockerfiles/Dockerfile.inference
+      -f ./Dockerfile.inference
       --build-arg RELEASE=true
       ${PWD}
     - docker push ${INFER_IMAGE_RELEASE}
@@ -526,9 +528,10 @@ nightly_build_embedding:
   script:
     - export EMB_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_embedding"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - cd ./tools/dockerfiles/
     - docker build --pull
       -t "${EMB_IMAGE_RELEASE}"
-      -f ./tools/dockerfiles/Dockerfile.plugin-embedding
+      -f ./Dockerfile.plugin-embedding
       ${PWD}
     - docker push ${EMB_IMAGE_RELEASE}
   only:
