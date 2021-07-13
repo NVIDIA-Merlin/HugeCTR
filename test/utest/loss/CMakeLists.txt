@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
 file(GLOB loss_test_src
   loss_test.cpp
   multi_cross_entropy_loss_test.cpp

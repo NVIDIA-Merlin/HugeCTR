@@ -80,11 +80,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
   int dense_dim = input.dense_dim;
 
 
-#ifdef VAL
-  const int num_workers = 1;
-#else
   const int num_workers = format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : reader_params.num_workers;
-#endif
   MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
 
   for (unsigned int i = 0; i < input.sparse_names.size(); i++) {

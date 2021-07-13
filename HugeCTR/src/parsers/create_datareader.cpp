@@ -197,13 +197,9 @@ void create_datareader<TypeKey>::operator()(
     return;
   }
   else {
-#ifdef VAL
-    const int num_workers = 1;
-#else
     int num_workers_default =
         format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
     const int num_workers = get_value_from_json_soft<int>(j, "num_workers", num_workers_default);
-#endif
     MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
 
     DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(

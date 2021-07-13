@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
 file(GLOB layers_test_src
   dropout_layer_test.cpp
   batch_norm_layer_test.cpp

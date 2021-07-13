@@ -13,11 +13,11 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
 
 file(GLOB_RECURSE ib_comms_test_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 
 add_executable(ib_comms_test ${ib_comms_test_src})
-target_compile_features(ib_comms_test PUBLIC cxx_std_14)
+target_compile_features(ib_comms_test PUBLIC cxx_std_17)
 target_link_libraries(ib_comms_test PUBLIC huge_ctr_static gtest gtest_main)
 set_target_properties(ib_comms_test PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
