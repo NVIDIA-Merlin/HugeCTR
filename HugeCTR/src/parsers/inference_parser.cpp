@@ -106,12 +106,12 @@ InferenceParser::InferenceParser(const nlohmann::json& config) : config_(config)
     for (int i = 0; i < (int)num_embedding_tables; i++) {
       const nlohmann::json& j = j_sparse_data[i];
       size_t max_feature_num_per_sample_per_table = get_max_feature_num_per_sample_from_nnz_per_slot(j);
-      
-      
       auto current_slot_num = get_value_from_json<size_t>(j, "slot_num");
+      int current_max_nnz = get_max_nnz_from_nnz_per_slot(j);
       auto sparse_name = get_value_from_json<std::string>(j, "top");
       max_feature_num_for_tables.push_back(max_feature_num_per_sample_per_table);
       slot_num_for_tables.push_back(current_slot_num);
+      max_nnz_for_tables.push_back(current_max_nnz);
       sparse_names.push_back(sparse_name);
       slot_num += current_slot_num;
     }

@@ -114,6 +114,7 @@ public:
   size_t slot_num;                                     /**< total slot number */
   size_t num_embedding_tables;                         /**< number of embedding tables */
   std::vector<std::size_t> slot_num_for_tables;        /**< slot_num for each embedding table */
+  std::vector<std::size_t> max_nnz_for_tables;         /**< max nnz for each embedding table*/
   std::vector<std::size_t> max_feature_num_for_tables; /**< max feature number of each embedding table */
   std::vector<std::size_t>  embed_vec_size_for_tables; /**< embedding vector size for each embedding table */
   size_t max_feature_num_per_sample;                   /**< max feature number per table */
@@ -452,6 +453,21 @@ inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json
     max_feature_num_per_sample += max_nnz * slot_num;
   }
   return max_feature_num_per_sample;
+}
+
+inline int get_max_nnz_from_nnz_per_slot(const nlohmann::json &j) {
+  int max_nnz = 0;
+  auto slot_num = get_value_from_json<int>(j, "slot_num");
+  auto nnz_per_slot = get_json(j, "nnz_per_slot");
+  if (nnz_per_slot.is_array()) {
+    if (nnz_per_slot.size() != static_cast<size_t>(slot_num)) {
+      CK_THROW_(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
+    }
+    max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
+  } else {
+    max_nnz = nnz_per_slot.get<int>();
+  }
+  return max_nnz;
 }
 
 }  // namespace HugeCTR
