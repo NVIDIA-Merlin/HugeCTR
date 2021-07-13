@@ -25,7 +25,7 @@
 #include <string>
 #include <thread>
 #include <utility>
-#include <HugeCTR/include/embeddings/embedding.hpp>
+#include <HugeCTR/include/embedding.hpp>
 #include <HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp>
 
 namespace HugeCTR {
@@ -106,7 +106,7 @@ struct DataReaderParams {
   long long eval_num_samples;
   bool float_label_dense;
   int num_workers;
-  std::vector<long long> slot_size_array;
+  std::vector<long long int> slot_size_array;
   DataReaderParams(DataReaderType_t data_reader_type,
        std::vector<std::string> source,
        std::vector<std::string> keyset,
@@ -117,7 +117,7 @@ struct DataReaderParams {
        long long eval_num_samples,
        bool float_label_dense,
        int num_workers,
-       std::vector<long long>& slot_size_array);
+       std::vector<long long int> slot_size_array = std::vector<long long int>());
 };
 
 struct Input {
@@ -126,13 +126,11 @@ struct Input {
   int dense_dim;
   std::string dense_name;
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
-  std::vector<std::string> sparse_names;
   Input(int label_dim,
        std::string label_name,
        int dense_dim,
        std::string dense_name,
-       std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-       std::vector<std::string>& sparse_names);
+       std::vector<DataReaderSparseParam>& data_reader_sparse_param_array);
 };
 
 struct SparseEmbedding {
@@ -144,14 +142,16 @@ struct SparseEmbedding {
   std::string bottom_name;
   std::vector<size_t> slot_size_array; 
   std::shared_ptr<OptParamsPy> embedding_opt_params;
+  
   SparseEmbedding(Embedding_t embedding_type,
-                 size_t max_vocabulary_size_per_gpu,
+                 size_t workspace_size_per_gpu_in_mb,
                  size_t embedding_vec_size,
-                 int combiner,
+                 const std::string &combiner_str,
                  std::string sparse_embedding_name,
                  std::string bottom_name,
                  std::vector<size_t>& slot_size_array,
                  std::shared_ptr<OptParamsPy>& embedding_opt_params);
+
 };
 
 struct ModelOversubscriberParams {

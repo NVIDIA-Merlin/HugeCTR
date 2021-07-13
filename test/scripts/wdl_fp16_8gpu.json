@@ -49,14 +49,14 @@
       "sparse": [
         {
           "top": "wide_data",
-          "type": "DistributedSlot",
-          "max_feature_num_per_sample": 30,
+          "nnz_per_slot": 30,
+          "is_fixed_length": false,
           "slot_num": 1
         },
         {
           "top": "deep_data",
-          "type": "LocalizedSlot",
-          "max_feature_num_per_sample": 30,
+          "nnz_per_slot": 2,
+          "is_fixed_length": false,
           "slot_num": 26
         }
       ]
@@ -67,9 +67,9 @@
       "bottom": "wide_data",
       "top": "sparse_embedding2",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 290350,
+        "workspace_size_per_gpu_in_mb": 1135,
         "embedding_vec_size": 1,
-        "combiner": 0
+        "combiner": "sum"
       },
       "optimizer": {
         "type": "Adam",
@@ -88,9 +88,9 @@
       "bottom": "deep_data",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 828103,
         "embedding_vec_size": 16,
-        "combiner": 0
+        "combiner": "sum",
+        "workspace_size_per_gpu_in_mb": 51
       },
       "optimizer": {
         "type": "Adam",

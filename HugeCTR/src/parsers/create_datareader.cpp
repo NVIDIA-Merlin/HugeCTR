@@ -50,8 +50,6 @@ void create_datareader<TypeKey>::operator()(
     }
   }
 
-  auto cache_eval_data = get_value_from_json_soft<int>(j, "cache_eval_data", 0);
-
   std::string source_data = get_value_from_json<std::string>(j, "source");
 
   auto j_label = get_json(j, "label");
@@ -75,33 +73,51 @@ void create_datareader<TypeKey>::operator()(
   const int num_workers = 1;
 #else
   int num_workers_default =
-      format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 12;
+      format == DataReaderType_t::Parquet ? resource_manager->get_local_gpu_count() : 2 * resource_manager->get_local_gpu_count();
   const int num_workers = get_value_from_json_soft<int>(j, "num_workers", num_workers_default);
 #endif
   MESSAGE_("num of DataReader workers: " + std::to_string(num_workers));
 
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
 
-  const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
-      {"DistributedSlot", DataReaderSparse_t::Distributed},
-      {"LocalizedSlot", DataReaderSparse_t::Localized},
-  };
-
   auto j_sparse = get_json(j, "sparse");
   std::vector<std::string> sparse_names;
 
   for (unsigned int i = 0; i < j_sparse.size(); i++) {
-    DataReaderSparseParam param;
-
     const nlohmann::json& js = j_sparse[i];
     const auto sparse_name = get_value_from_json<std::string>(js, "top");
-    const auto data_type_name = get_value_from_json<std::string>(js, "type");
-    if (!find_item_in_map(param.type, data_type_name, DATA_TYPE_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "Not supported data type: " + data_type_name);
+    bool is_fixed_length = get_value_from_json<int>(js, "is_fixed_length");
+    int slot_num = get_value_from_json<int>(js, "slot_num");
+    auto nnz_per_slot = get_json(js, "nnz_per_slot");
+    std::vector<int> nnz_per_slot_vec;
+
+    if(nnz_per_slot.is_array()) {
+      if(nnz_per_slot.size() != static_cast<size_t>(slot_num)) {
+        CK_THROW_(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
+      }
+      for(int slot_id = 0; slot_id < slot_num; ++slot_id){
+        nnz_per_slot_vec.push_back(nnz_per_slot[slot_id].get<int>());
+      }  
+    }else {
+      // max nnz for each slot is the same
+      int max_nnz = nnz_per_slot.get<int>();
+      for(int slot_id = 0; slot_id < slot_num; ++slot_id){
+        nnz_per_slot_vec.push_back(max_nnz);
+      }
     }
-    param.max_feature_num = get_value_from_json<int>(js, "max_feature_num_per_sample");
-    param.max_nnz = get_value_from_json_soft<int>(js, "max_nnz", param.max_feature_num);
-    param.slot_num = get_value_from_json<int>(js, "slot_num");
+    DataReaderSparseParam param{sparse_name, nnz_per_slot_vec, is_fixed_length, slot_num};
+    
+    // DataReaderSparseParam param;
+
+    // const nlohmann::json& js = j_sparse[i];
+    // const auto sparse_name = get_value_from_json<std::string>(js, "top");
+    // const auto data_type_name = get_value_from_json<std::string>(js, "type");
+    // if (!find_item_in_map(param.type, data_type_name, DATA_TYPE_MAP)) {
+    //   CK_THROW_(Error_t::WrongInput, "Not supported data type: " + data_type_name);
+    // }
+    // param.max_feature_num = get_value_from_json<int>(js, "max_feature_num_per_sample");
+    // param.max_nnz = get_value_from_json_soft<int>(js, "max_nnz", param.max_feature_num);
+    // param.slot_num = get_value_from_json<int>(js, "slot_num");
     data_reader_sparse_param_array.push_back(param);
     SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
     sparse_input_map.emplace(sparse_name, sparse_input);
@@ -114,13 +130,13 @@ void create_datareader<TypeKey>::operator()(
 
   DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
       batch_size, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-      repeat_dataset_, num_workers, use_mixed_precision, false);
+      repeat_dataset_, num_workers, use_mixed_precision);
   train_data_reader.reset(data_reader_tk);
   DataReader<TypeKey>* data_reader_eval_tk = new DataReader<TypeKey>(
       batch_size_eval, label_dim, dense_dim, data_reader_sparse_param_array, resource_manager,
-      repeat_dataset_, num_workers, use_mixed_precision, cache_eval_data);
+      repeat_dataset_, num_workers, use_mixed_precision);
   evaluate_data_reader.reset(data_reader_eval_tk);
-
+  
   auto f = [&j]() -> std::vector<long long> {
     std::vector<long long> slot_offset;
     if (has_key_(j, "slot_size_array")) {
@@ -149,21 +165,21 @@ void create_datareader<TypeKey>::operator()(
     case DataReaderType_t::Raw: {
       const auto num_samples = get_value_from_json<long long>(j, "num_samples");
       const auto eval_num_samples = get_value_from_json<long long>(j, "eval_num_samples");
-      std::vector<long long> slot_offset = f();
       bool float_label_dense = get_value_from_json_soft<bool>(j, "float_label_dense", false);
-      train_data_reader->create_drwg_raw(source_data, num_samples, slot_offset, float_label_dense,
+      train_data_reader->create_drwg_raw(source_data, num_samples, float_label_dense,
                                          true, false);
-      evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples, slot_offset,
+      evaluate_data_reader->create_drwg_raw(eval_source, eval_num_samples,
                                             float_label_dense, false, false);
 
       break;
     }
     case DataReaderType_t::Parquet: {
+      
       // @Future: Should be slot_offset here and data_reader ctor should
       // be TypeKey not long long
       std::vector<long long> slot_offset = f();
-      train_data_reader->create_drwg_parquet(source_data, slot_offset, true);
-      evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, true);
+      train_data_reader->create_drwg_parquet(source_data,slot_offset, true);
+      evaluate_data_reader->create_drwg_parquet(eval_source,slot_offset, true);
       break;
     }
     default: {
@@ -173,9 +189,9 @@ void create_datareader<TypeKey>::operator()(
 
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     train_tensor_entries_list[i].push_back(
-        {top_strs_label, data_reader_tk->get_label_tensors()[i].shrink()});
+        {top_strs_label, data_reader_tk->get_label_tensors()[i]});
     evaluate_tensor_entries_list[i].push_back(
-        {top_strs_label, data_reader_eval_tk->get_label_tensors()[i].shrink()});
+        {top_strs_label, data_reader_eval_tk->get_label_tensors()[i]});
 
     if (use_mixed_precision) {
       train_tensor_entries_list[i].push_back(
@@ -191,13 +207,17 @@ void create_datareader<TypeKey>::operator()(
   }
 
   for (unsigned int i = 0; i < j_sparse.size(); i++) {
-    const auto& sparse_input = sparse_input_map.find(sparse_names[i]);
-    sparse_input->second.train_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
-    sparse_input->second.train_values = data_reader_tk->get_value_tensors(i);
-    sparse_input->second.train_nnz = data_reader_tk->get_nnz_array(i);
-    sparse_input->second.evaluate_row_offsets = data_reader_eval_tk->get_row_offsets_tensors(i);
-    sparse_input->second.evaluate_values = data_reader_eval_tk->get_value_tensors(i);
-    sparse_input->second.evaluate_nnz = data_reader_eval_tk->get_nnz_array(i);
+    const std::string &sparse_name = sparse_names[i];
+    const auto& sparse_input = sparse_input_map.find(sparse_name);
+
+    auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<TypeKey> &sparse_tensors) {
+      sparse_tensors.resize(tensorbags.size());
+      for(size_t j = 0; j < tensorbags.size(); ++j){
+        sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
+      }
+    };
+    copy(data_reader_tk->get_sparse_tensors(sparse_name), sparse_input->second.train_sparse_tensors);
+    copy(data_reader_eval_tk->get_sparse_tensors(sparse_name), sparse_input->second.evaluate_sparse_tensors);
   }
 }
 
@@ -222,10 +242,10 @@ void create_datareader<TypeKey>::operator()(const InferenceParams& inference_par
   std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
   for (size_t i = 0; i < inference_parser.slot_num_for_tables.size(); i++) {
     DataReaderSparseParam param;
-    param.type = DataReaderSparse_t::Localized;
+    param.top_name = inference_parser.sparse_names[i];
     param.max_feature_num = inference_parser.max_feature_num_for_tables[i];
     param.slot_num = inference_parser.slot_num_for_tables[i];
-    param.max_nnz = 1;
+    param.max_nnz = inference_parser.max_nnz_for_tables[i];
     data_reader_sparse_param_array.push_back(param);
   }
 
@@ -239,7 +259,7 @@ void create_datareader<TypeKey>::operator()(const InferenceParams& inference_par
   DataReader<TypeKey>* data_reader_tk = new DataReader<TypeKey>(
       inference_params.max_batchsize, inference_parser.label_dim, inference_parser.dense_dim, 
       data_reader_sparse_param_array, resource_manager,
-      true, 1, false, false);
+      true, 1, false);
   data_reader.reset(data_reader_tk);
   
   switch (data_reader_type) {
@@ -249,7 +269,7 @@ void create_datareader<TypeKey>::operator()(const InferenceParams& inference_par
       break;
     }
     case DataReaderType_t::Parquet: {
-      data_reader->create_drwg_parquet(source, slot_offset, true);
+      data_reader->create_drwg_parquet(source,slot_offset, true);
       MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
       break;
     }
@@ -258,14 +278,20 @@ void create_datareader<TypeKey>::operator()(const InferenceParams& inference_par
     }
   }
   
-  label_dense_map.emplace(inference_parser.label_name, data_reader_tk->get_label_tensors()[0].shrink());
+  label_dense_map.emplace(inference_parser.label_name, data_reader_tk->get_label_tensors()[0]);
   label_dense_map.emplace(inference_parser.dense_name, data_reader_tk->get_dense_tensors()[0]);
 
   for (unsigned int i = 0; i < inference_parser.sparse_names.size(); i++) {
-    const auto& sparse_input = sparse_input_map.find(inference_parser.sparse_names[i]);
-    sparse_input->second.evaluate_row_offsets = data_reader_tk->get_row_offsets_tensors(i);
-    sparse_input->second.evaluate_values = data_reader_tk->get_value_tensors(i);
-    sparse_input->second.evaluate_nnz = data_reader_tk->get_nnz_array(i);
+    const std::string &sparse_name = inference_parser.sparse_names[i];
+    const auto& sparse_input = sparse_input_map.find(sparse_name);
+
+    auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<TypeKey> &sparse_tensors) {
+      sparse_tensors.resize(tensorbags.size());
+      for(size_t j = 0; j < tensorbags.size(); ++j){
+        sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
+      }
+    };
+    copy(data_reader_tk->get_sparse_tensors(sparse_name), sparse_input->second.evaluate_sparse_tensors);
   }
 }
 

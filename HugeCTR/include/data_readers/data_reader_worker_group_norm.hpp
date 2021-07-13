@@ -32,16 +32,20 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
 
  public:
   // Ctor
-  DataReaderWorkerGroupNorm(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap,
+  DataReaderWorkerGroupNorm(const std::vector<std::shared_ptr<ThreadBuffer>> &output_buffers,
+                           const std::shared_ptr<ResourceManager> &resource_manager_,
                             std::string file_list,
                             bool repeat,
                             Check_t check_type,
-                            const std::vector<DataReaderSparseParam> params,
+                            const std::vector<DataReaderSparseParam> &params,
                             bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Norm) {
     if (file_list.empty()) {
       CK_THROW_(Error_t::WrongInput, "file_name.empty()");
     }
+    int num_threads = output_buffers.size();
+    size_t local_gpu_count = resource_manager_->get_local_gpu_count();
+    
     // create data reader workers
     int max_feature_num_per_sample = 0;
     for (auto& param : params) {
@@ -51,10 +55,10 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
         CK_THROW_(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
       }
     }
-    int NumThreads = csr_heap->get_size();
-    for (int i = 0; i < NumThreads; i++) {
+    
+    for (int i = 0; i < num_threads; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorker<TypeKey>(
-          i, NumThreads, csr_heap, file_list, max_feature_num_per_sample, repeat, check_type, params));
+          i, num_threads, resource_manager_->get_local_gpu(i % local_gpu_count), &data_reader_loop_flag_, output_buffers[i], file_list, max_feature_num_per_sample, repeat, check_type, params));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();

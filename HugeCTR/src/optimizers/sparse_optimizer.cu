@@ -28,32 +28,32 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &buf)
     : param(param) {
   // new optimizer params used by update_params
-  switch (param.get_optimizer()) {
+  switch (param.opt_params.optimizer) {
     case Optimizer_t::Adam:  // adam
     {
       {
-        buf->reserve({max_vocabulary_size_per_gpu_, param.get_embedding_vec_size()}, &opt_tensors_.opt_m_tensors_);
-        buf->reserve({max_vocabulary_size_per_gpu_, param.get_embedding_vec_size()}, &opt_tensors_.opt_v_tensors_);
+        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_m_tensors_);
+        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_v_tensors_);
       }
-      if (param.get_update_type() == Update_t::LazyGlobal) {
-        buf->reserve({max_vocabulary_size_per_gpu_, param.get_embedding_vec_size()}, &opt_tensors_.opt_prev_time_tensors_);
+      if (param.opt_params.update_type == Update_t::LazyGlobal) {
+        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_prev_time_tensors_);
       }
       break;
     }
     case Optimizer_t::AdaGrad:  // nesterov
     {
-      buf->reserve({max_vocabulary_size_per_gpu_, param.get_embedding_vec_size()}, &opt_tensors_.opt_accm_tensors_);
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_accm_tensors_);
       break;
     }
     case Optimizer_t::MomentumSGD:  // momentum_sgd
     {
-      buf->reserve({max_vocabulary_size_per_gpu_, param.get_embedding_vec_size()}, &opt_tensors_.opt_momentum_tensors_);
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_momentum_tensors_);
       break;
     }
 
     case Optimizer_t::Nesterov:  // nesterov
     {
-      buf->reserve({max_vocabulary_size_per_gpu_, param.get_embedding_vec_size()}, &opt_tensors_.opt_accm_tensors_);
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_accm_tensors_);
       break;
     }
 
@@ -66,22 +66,22 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
   }
 
   {
-    buf->reserve({1, param.get_batch_size(true) * param.get_max_feature_num()}, &sample_id_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &sample_id_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.get_max_feature_num()}, &sample_id_sort_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &sample_id_sort_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.get_max_feature_num()}, &hash_value_index_sort_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &hash_value_index_sort_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.get_max_feature_num() + 1}, &hash_value_index_count_offset_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num + 1}, &hash_value_index_count_offset_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.get_max_feature_num()}, &new_hash_value_flag_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &new_hash_value_flag_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.get_max_feature_num()}, &hash_value_flag_sumed_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &hash_value_flag_sumed_tensors_);
   }
   {
     buf->reserve({1, 1}, &hash_value_index_count_counter_tensors_);
@@ -91,7 +91,7 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
     size_t size = 0;
     cub::DeviceRadixSort::SortPairs((void *)nullptr, size, (size_t *)nullptr, (size_t *)nullptr,
                                     (TypeHashKey *)nullptr, (TypeHashKey *)nullptr,
-                                    param.get_batch_size(true) * param.get_max_feature_num());
+                                    param.get_batch_size(true) * param.max_feature_num);
 
     // new temp storage tensors for CUB radix sort
     buf->reserve({size}, &temp_storage_sort_tensors_);
@@ -101,7 +101,7 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
     size_t size = 0;
     cub::DeviceScan::InclusiveSum((void *)nullptr, size, (uint32_t *)nullptr,
                                   (uint32_t *)nullptr,
-                                  param.get_batch_size(true) * param.get_max_feature_num());
+                                  param.get_batch_size(true) * param.max_feature_num);
 
     buf->reserve({size}, &temp_storage_scan_tensors_);
   }
@@ -109,7 +109,7 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPUResource &local_gpu) {
-  switch (param.get_optimizer()) {
+  switch (param.opt_params.optimizer) {
     case Optimizer_t::Adam:  // adam
       CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_m_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_m_tensors_.get_size_in_bytes(),
@@ -117,7 +117,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPURes
       CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_v_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_v_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
-      if (param.get_update_type() == Update_t::LazyGlobal) {
+      if (param.opt_params.update_type == Update_t::LazyGlobal) {
         dim3 grid(local_gpu.get_sm_count() * 4, 1, 1);
         dim3 block(512, 1, 1);
         initialize_array<<<grid, block, 0, local_gpu.get_stream()>>>(
@@ -607,7 +607,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
     const Tensor2<TypeEmbeddingComp> &wgrad,
     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream) {
   OptimizerTensor<TypeEmbeddingComp> &opt_tensor = opt_tensors_;
-  OptParams &opt_params = param.get_opt_params();
+  OptParams &opt_params = param.opt_params;
   Tensor2<TypeHashKey> &sample_id = sample_id_tensors_;
   Tensor2<TypeHashKey> &sample_id_sort = sample_id_sort_tensors_;
   Tensor2<size_t> &hash_value_index_sort = hash_value_index_sort_tensors_;

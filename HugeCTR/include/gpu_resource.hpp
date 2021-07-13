@@ -19,6 +19,7 @@
 #include <cudnn.h>
 #include <curand.h>
 #include <nccl.h>
+#include "utils.hpp"
 
 namespace HugeCTR {
 

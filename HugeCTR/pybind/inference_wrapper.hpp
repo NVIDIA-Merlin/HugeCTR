@@ -68,8 +68,8 @@ private:
   void* h_embeddingcolumns_;
   int* d_row_ptrs_;
   float* d_output_;
-  void* d_reader_keys_;
-  void* d_reader_row_ptrs_;
+  std::vector<void*> d_reader_keys_list_;
+  std::vector<void*> d_reader_row_ptrs_list_;
   TensorBag2 label_tensor_;
 };
 
@@ -79,7 +79,7 @@ InferenceSessionPy::InferenceSessionPy(const std::string& model_config_path,
   : InferenceSession(model_config_path, inference_params, embedding_cache) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   CK_CUDA_THROW_(cudaMalloc((void**)&d_dense_, inference_params_.max_batchsize *  inference_parser_.dense_dim * sizeof(float)));
-  CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_params_.max_batchsize *  inference_parser_.slot_num + 1) * sizeof(int)));
+  CK_CUDA_THROW_(cudaMalloc((void**)&d_row_ptrs_, (inference_params_.max_batchsize *  inference_parser_.slot_num + inference_parser_.num_embedding_tables) * sizeof(int)));
   CK_CUDA_THROW_(cudaMalloc((void**)&d_output_, inference_params_.max_batchsize * inference_parser_.label_dim * sizeof(float)));
   if (inference_params_.i64_input_key) {
     CK_CUDA_THROW_(cudaHostAlloc((void**)&h_embeddingcolumns_, inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample * sizeof(long long), cudaHostAllocPortable));
@@ -101,7 +101,7 @@ void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey
   if (inference_parser_.slot_num == 0) {
     CK_THROW_(Error_t::WrongInput, "The number of slots should not be zero");
   }
-  size_t num_samples = (row_ptrs.size() - 1) / inference_parser_.slot_num;
+  size_t num_samples = (row_ptrs.size() - inference_parser_.num_embedding_tables) / inference_parser_.slot_num;
   if (num_samples > inference_params_.max_batchsize) {
     CK_THROW_(Error_t::WrongInput, "The number of samples should not exceed max_batchsize");
   }
@@ -117,9 +117,9 @@ void InferenceSessionPy::predict_(std::vector<float>& dense, std::vector<TypeKey
   size_t num_embeddingcolumns=0;
   size_t row_ptr_offset=0;
   for (int j = 0; j < static_cast<int>(inference_parser_.num_embedding_tables); j++) {
-      num_embeddingcolumns += row_ptrs[num_samples * inference_parser_.slot_num_for_tables[j] + row_ptr_offset];
-      row_ptr_offset += num_samples * inference_parser_.slot_num_for_tables[j]+1;
-    }
+    num_embeddingcolumns += row_ptrs[num_samples * inference_parser_.slot_num_for_tables[j] + row_ptr_offset];
+    row_ptr_offset += num_samples * inference_parser_.slot_num_for_tables[j]+1;
+  }
   if (embeddingcolumns.size() != num_embeddingcolumns) {
     CK_THROW_(Error_t::WrongInput, "The dimension of embedding keys is not consistent with row pointers");
   }
@@ -161,11 +161,7 @@ void InferenceSessionPy::load_data_(const std::string& source, const DataReaderT
   if (data_reader_->is_started() == false) {
     CK_THROW_(Error_t::IllegalCall, "Start the data reader first before evaluation");
   }
-  SparseInput<TypeKey> sparse_input;
   TensorBag2 dense_tensor;
-  if (!find_item_in_map(sparse_input, inference_parser_.sparse_names[0], sparse_input_map)) {
-    CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.sparse_names[0]);
-  }
   if (!find_item_in_map(label_tensor_, inference_parser_.label_name, label_dense_map)) {
     CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.label_name);
   }
@@ -173,8 +169,14 @@ void InferenceSessionPy::load_data_(const std::string& source, const DataReaderT
     CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.dense_name);
   }
   d_dense_ = reinterpret_cast<float*>(dense_tensor.get_ptr());
-  d_reader_keys_ = reinterpret_cast<void*>(sparse_input.evaluate_values[0].get_ptr());
-  d_reader_row_ptrs_ = reinterpret_cast<void*>(sparse_input.evaluate_row_offsets[0].get_ptr());
+  for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
+    SparseInput<TypeKey> sparse_input;
+    if (!find_item_in_map(sparse_input, inference_parser_.sparse_names[i], sparse_input_map)) {
+      CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.sparse_names[i]);
+    }
+    d_reader_keys_list_.push_back(reinterpret_cast<void*>(sparse_input.evaluate_sparse_tensors[0].get_value_ptr()));
+    d_reader_row_ptrs_list_.push_back(reinterpret_cast<void*>(sparse_input.evaluate_sparse_tensors[0].get_rowoffset_ptr()));
+  }
 }
 
 template <typename TypeKey>
@@ -182,8 +184,12 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
                                 const Check_t check_type, const std::vector<long long>& slot_size_array) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   load_data_<TypeKey>(source, data_reader_type, check_type, slot_size_array);
-  size_t keys_elements = inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample;
-  size_t row_ptr_elements =  inference_params_.max_batchsize *  inference_parser_.slot_num + 1;
+  std::vector<size_t> keys_elements_list(inference_parser_.num_embedding_tables);
+  std::vector<size_t> row_ptr_elements_list(inference_parser_.num_embedding_tables);
+  for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
+    keys_elements_list[i] = inference_params_.max_batchsize *  inference_parser_.max_feature_num_for_tables[i];
+    row_ptr_elements_list[i] =  inference_params_.max_batchsize *  inference_parser_.slot_num_for_tables[i] + 1;
+  }
   std::vector<size_t> pred_dims = {1, inference_params_.max_batchsize};
   std::shared_ptr<TensorBuffer2> pred_buff = PreallocatedBuffer2<float>::create(d_output_, pred_dims);
   Tensor2<float> pred_tensor(pred_dims, pred_buff);
@@ -191,8 +197,16 @@ float InferenceSessionPy::evaluate_(const size_t num_batches, const std::string&
   metrics::RawMetricMap metric_maps = {{metrics::RawType::Pred, pred_tensor.shrink()}, {metrics::RawType::Label,  label_tensor_}};
   for (size_t batch = 0; batch < num_batches; batch++) {
     long long current_batchsize = data_reader_->read_a_batch_to_device();
-    CK_CUDA_THROW_(cudaMemcpy(h_embeddingcolumns_, d_reader_keys_,  keys_elements*sizeof(TypeKey), cudaMemcpyDeviceToHost));
-    convert_array_on_device(d_row_ptrs_, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_), row_ptr_elements, resource_manager_->get_local_gpu(0)->get_stream());
+    size_t keys_offset = 0;
+    size_t row_ptrs_offset = 0;
+    std::vector<TypeKey> h_reader_keys(inference_params_.max_batchsize * inference_parser_.max_feature_num_per_sample);
+    for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
+      CK_CUDA_THROW_(cudaMemcpy(h_reader_keys.data()+keys_offset, d_reader_keys_list_[i],  keys_elements_list[i]*sizeof(TypeKey), cudaMemcpyDeviceToHost));
+      convert_array_on_device(d_row_ptrs_+row_ptrs_offset, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_list_[i]), row_ptr_elements_list[i], resource_manager_->get_local_gpu(0)->get_stream());
+      keys_offset += keys_elements_list[i];
+      row_ptrs_offset += row_ptr_elements_list[i];
+    }
+    distribute_keys_for_inference(reinterpret_cast<TypeKey*>(h_embeddingcolumns_), h_reader_keys.data(), inference_params_.max_batchsize, inference_parser_.max_feature_num_for_tables);
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, current_batchsize);
     metric->set_current_batch_size(current_batchsize);
     metric->local_reduce(0, metric_maps);
@@ -207,16 +221,28 @@ pybind11::array_t<float> InferenceSessionPy::predict_(const size_t num_batches, 
                                                     const Check_t check_type, const std::vector<long long>& slot_size_array) {
   CudaDeviceContext context(resource_manager_->get_local_gpu(0)->get_device_id());
   load_data_<TypeKey>(source, data_reader_type, check_type, slot_size_array);
-  size_t keys_elements = inference_params_.max_batchsize *  inference_parser_.max_feature_num_per_sample;
-  size_t row_ptr_elements =  inference_params_.max_batchsize *  inference_parser_.slot_num + 1;
+  std::vector<size_t> keys_elements_list(inference_parser_.num_embedding_tables);
+  std::vector<size_t> row_ptr_elements_list(inference_parser_.num_embedding_tables);
+  for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
+    keys_elements_list[i] = inference_params_.max_batchsize *  inference_parser_.max_feature_num_for_tables[i];
+    row_ptr_elements_list[i] =  inference_params_.max_batchsize *  inference_parser_.slot_num_for_tables[i] + 1;
+  }
   auto pred = pybind11::array_t<float>(inference_params_.max_batchsize * num_batches);
   pybind11::buffer_info pred_array_buff = pred.request();
   float* pred_ptr = static_cast<float*>(pred_array_buff.ptr);
   size_t pred_ptr_offset = 0;
   for (size_t batch = 0; batch < num_batches; batch++) {
     long long current_batchsize = data_reader_->read_a_batch_to_device();
-    CK_CUDA_THROW_(cudaMemcpy(h_embeddingcolumns_, d_reader_keys_,  keys_elements*sizeof(TypeKey), cudaMemcpyDeviceToHost));
-    convert_array_on_device(d_row_ptrs_, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_), row_ptr_elements, resource_manager_->get_local_gpu(0)->get_stream());
+    size_t keys_offset = 0;
+    size_t row_ptrs_offset = 0;
+    std::vector<TypeKey> h_reader_keys(inference_params_.max_batchsize * inference_parser_.max_feature_num_per_sample);
+    for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
+      CK_CUDA_THROW_(cudaMemcpy(h_reader_keys.data()+keys_offset, d_reader_keys_list_[i],  keys_elements_list[i]*sizeof(TypeKey), cudaMemcpyDeviceToHost));
+      convert_array_on_device(d_row_ptrs_+row_ptrs_offset, reinterpret_cast<TypeKey*>(d_reader_row_ptrs_list_[i]), row_ptr_elements_list[i], resource_manager_->get_local_gpu(0)->get_stream());
+      keys_offset += keys_elements_list[i];
+      row_ptrs_offset += row_ptr_elements_list[i];
+    }
+    distribute_keys_for_inference(reinterpret_cast<TypeKey*>(h_embeddingcolumns_), h_reader_keys.data(), inference_params_.max_batchsize, inference_parser_.max_feature_num_for_tables);
     InferenceSession::predict(d_dense_, h_embeddingcolumns_, d_row_ptrs_, d_output_, current_batchsize);
     CK_CUDA_THROW_(cudaMemcpy(pred_ptr + pred_ptr_offset, d_output_, inference_params_.max_batchsize * sizeof(float), cudaMemcpyDeviceToHost));
     pred_ptr_offset += inference_params_.max_batchsize;

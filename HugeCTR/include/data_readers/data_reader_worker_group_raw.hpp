@@ -44,13 +44,14 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
 
     return std::make_shared<MmapSource>(mmap_offset_list, worker_id);
   }
-
+ 
  public:
   // Ctor
-  DataReaderWorkerGroupRaw(std::shared_ptr<HeapEx<CSRChunk<TypeKey>>> csr_heap,
+  DataReaderWorkerGroupRaw(const std::vector<std::shared_ptr<ThreadBuffer>> &output_buffers,
+                           const std::shared_ptr<ResourceManager> &resource_manager_,
                            std::string file_name, long long num_samples, bool repeat,
                            const std::vector<DataReaderSparseParam> params,
-                           const std::vector<long long> slot_offset, int label_dim, int dense_dim,
+                           int label_dim, int dense_dim,
                            int batchsize, bool float_label_dense, bool data_shuffle = false,
                            bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Raw),
@@ -61,6 +62,8 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
     if (file_name.empty()) {
       CK_THROW_(Error_t::WrongInput, "file_name.empty()");
     }
+    size_t num_workers = output_buffers.size();
+    size_t local_gpu_count = resource_manager_->get_local_gpu_count();
 
     {
       int slots = 0;
@@ -70,14 +73,13 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
       size_t stride = slots * sizeof(int) +
                       (label_dim + dense_dim) * (float_label_dense ? sizeof(float) : sizeof(int));
       file_offset_list_.reset(new MmapOffsetList(file_name, num_samples, stride, batchsize,
-                                                 data_shuffle, csr_heap->get_size(), repeat));
+                                                 data_shuffle, num_workers, repeat));
       stride_ = stride;
     }
 
-    for (int i = 0; i < csr_heap->get_size(); i++) {
+    for (size_t i = 0; i < num_workers; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorkerRaw<TypeKey>(
-          i, csr_heap->get_size(), file_offset_list_, csr_heap, repeat, params, slot_offset,
-          label_dim, float_label_dense));
+          i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count), &data_reader_loop_flag_, output_buffers[i], file_offset_list_, repeat, params, float_label_dense));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();

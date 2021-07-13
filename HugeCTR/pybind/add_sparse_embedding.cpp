@@ -28,36 +28,33 @@
 namespace HugeCTR {
 
 SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_embedding) {
-  Embedding_t embedding_type;
-  std::vector<size_t> slot_size_array;
-  size_t max_vocabulary_size_per_gpu = 0;
-  auto embedding_type_name = get_value_from_json<std::string>(j_sparse_embedding, "type");
-  if (!find_item_in_map(embedding_type, embedding_type_name, EMBEDDING_TYPE_MAP)) {
-    CK_THROW_(Error_t::WrongInput, "No such embedding type: " + embedding_type_name); 
-  }
-  auto j_hparam = get_json(j_sparse_embedding, "sparse_embedding_hparam");
-  if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
-    max_vocabulary_size_per_gpu =
-        get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
-  } else {
-    if (has_key_(j_hparam, "max_vocabulary_size_per_gpu")) {
-      max_vocabulary_size_per_gpu =
-          get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
-    } else if (has_key_(j_hparam, "slot_size_array")) {
-      auto slots = get_json(j_hparam, "slot_size_array");
-      assert(slots.is_array());
-      for (auto slot : slots) {
-        slot_size_array.emplace_back(slot.get<size_t>());
-      }
-    } else {
-      CK_THROW_(Error_t::WrongInput,
-                "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_type_name);
-    }
-  }
   auto bottom_name = get_value_from_json<std::string>(j_sparse_embedding, "bottom");
   auto top_name = get_value_from_json<std::string>(j_sparse_embedding, "top");
-  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
-  auto combiner = get_value_from_json<int>(j_hparam, "combiner");
+  auto embedding_type_name = get_value_from_json<std::string>(j_sparse_embedding, "type");
+  Embedding_t embedding_type;
+  if (!find_item_in_map(embedding_type, embedding_type_name, EMBEDDING_TYPE_MAP)) {
+    CK_THROW_(Error_t::WrongInput, "No such embedding type: " + embedding_type_name);
+  }
+  auto j_hparam = get_json(j_sparse_embedding, "sparse_embedding_hparam");
+  
+  if(!has_key_(j_hparam, "workspace_size_per_gpu_in_mb") && !has_key_(j_hparam, "slot_size_array")) {
+    CK_THROW_(Error_t::WrongInput, "need workspace_size_per_gpu_in_mb or slot_size_array");
+  }
+  size_t workspace_size_per_gpu_in_mb = get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
+
+  size_t embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+
+  auto combiner_str = get_value_from_json<std::string>(j_hparam, "combiner");
+  
+  std::vector<size_t> slot_size_array;
+  if (has_key_(j_hparam, "slot_size_array")) {
+    auto slots = get_json(j_hparam, "slot_size_array");
+    assert(slots.is_array());
+    for (auto slot : slots) {
+      slot_size_array.emplace_back(slot.get<size_t>());
+    }
+  }
+
   std::shared_ptr<OptParamsPy> embedding_opt_params(new OptParamsPy());
   if (has_key_(j_sparse_embedding, "optimizer")) {
     auto j_optimizer = get_json(j_sparse_embedding, "optimizer");
@@ -118,8 +115,8 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
       }
     }
   }
-  SparseEmbedding sparse_embedding = SparseEmbedding(embedding_type, max_vocabulary_size_per_gpu,
-                                                    embedding_vec_size, combiner, top_name,
+  SparseEmbedding sparse_embedding = SparseEmbedding(embedding_type, workspace_size_per_gpu_in_mb,
+                                                    embedding_vec_size, combiner_str, top_name,
                                                     bottom_name, slot_size_array, embedding_opt_params);
   return sparse_embedding;
 }
@@ -164,9 +161,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
       embeddings.emplace_back(new DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
-          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
-          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, resource_manager));
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params, resource_manager));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
@@ -181,9 +176,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
-          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
-          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, resource_manager));
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params, resource_manager));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
@@ -198,11 +191,11 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
           combiner,  // combiner: 0-sum, 1-mean
           embedding_opt_params};
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
-          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
-          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, resource_manager));
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params, resource_manager));
       break;
     }
+    default:
+      CK_THROW_(Error_t::UnspecificError, "add_sparse_embedding with no specified embedding type.");
   }  // switch
 
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {

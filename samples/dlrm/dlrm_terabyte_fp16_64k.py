@@ -19,8 +19,7 @@ reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Ra
                                   num_samples = 4195155968,
                                   eval_num_samples = 89137319,
                                   check_type = hugectr.Check_t.Non,
-                                  cache_eval_data = 1361,
-                                  slot_size_array = [39884407, 39043, 17289, 7420, 20263, 3, 7120, 1543, 63, 38532952, 2953546, 403346, 10, 2208, 11938, 155, 4, 976, 14, 39979772, 25641295, 39664985, 585935, 12972, 108, 36])
+                                  cache_eval_data = 1361)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.SGD,
                                     update_type = hugectr.Update_t.Local,
                                     atomic_update = True)
@@ -28,13 +27,12 @@ model = hugectr.Model(solver, reader, optimizer)
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                        [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Localized, 26, 1, 26)],
-                        sparse_names = ["data1"]))
+                        [hugectr.DataReaderSparseParam("data1", 2, False, 26)]))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot, 
                             slot_size_array = [39884407, 39043, 17289, 7420, 20263, 3, 7120, 1543, 63, 38532952, 2953546, 403346, 10, 2208, 11938, 155, 4, 976, 14, 39979772, 25641295, 39664985, 585935, 12972, 108, 36],
-                            max_vocabulary_size_per_gpu = 187767403,
+                            workspace_size_per_gpu_in_mb = 91684,
                             embedding_vec_size = 128,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "data1",
                             optimizer = optimizer))

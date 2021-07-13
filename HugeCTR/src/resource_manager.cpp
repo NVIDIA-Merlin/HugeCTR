@@ -20,6 +20,7 @@
 #include <utils.hpp>
 
 namespace HugeCTR {
+// std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
 std::shared_ptr<ResourceManager> ResourceManager::create(
     const std::vector<std::vector<int>>& visible_devices, unsigned long long seed) {
@@ -41,6 +42,9 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
 #endif
 
   MESSAGE_("Global seed is " + std::to_string(seed));
+  
+  // CK_NVML_THROW_(nvmlInit_v2());
+  // CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());
 
   return std::shared_ptr<ResourceManager>(
       new ResourceManagerCore(size, rank, std::move(device_map), seed));

@@ -18,6 +18,7 @@ file(GLOB embedding_test_src
   distributed_slot_sparse_embedding_hash_test.cu 
   localized_slot_sparse_embedding_hash_test.cu 
   localized_slot_sparse_embedding_one_hot_test.cu 
+  unified_embedding_test.cpp
 )
 
 add_executable(embedding_test ${embedding_test_src})
