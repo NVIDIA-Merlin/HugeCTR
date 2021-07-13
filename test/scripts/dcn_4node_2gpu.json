@@ -3,7 +3,24 @@
     "lr_policy": "fixed",
     "display": 1000,
     "max_iter": 3000,
-    "gpu": [[0,1],[2,3],[4,5],[6,7]],
+    "gpu": [
+      [
+        0,
+        1
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        6,
+        7
+      ]
+    ],
     "batchsize": 16384,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
@@ -17,7 +34,7 @@
       "learning_rate": 0.001,
       "beta1": 0.9,
       "beta2": 0.999,
-      "epsilon": 0.0000001
+      "epsilon": 1e-07
     }
   },
   "layers": [
@@ -38,9 +55,9 @@
       "sparse": [
         {
           "top": "data1",
-          "type": "DistributedSlot",
-          "max_feature_num_per_sample": 30,
-          "slot_num": 26
+          "slot_num": 26,
+          "is_fixed_length": false,
+          "nnz_per_slot": 2
         }
       ]
     },
@@ -50,9 +67,9 @@
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "max_vocabulary_size_per_gpu": 217214,
         "embedding_vec_size": 16,
-        "combiner": 0
+        "combiner": "sum",
+        "workspace_size_per_gpu_in_mb": 14
       },
       "optimizer": {
         "type": "Adam",
@@ -61,7 +78,7 @@
           "learning_rate": 0.001,
           "beta1": 0.9,
           "beta2": 0.999,
-          "epsilon": 0.0000001
+          "epsilon": 1e-07
         }
       }
     },

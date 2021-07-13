@@ -55,7 +55,7 @@ const float scaler = 1.0f;  // used in mixed precision training
 // size of max_vocabulary_size_per_gpu, which should be more than vocabulary_size/gpu_count,
 // eg: 1.25x of that.
 
-const int num_chunk_threads = 1;  // must be 1 for CPU and GPU results comparation
+const int num_threads = 1;  // must be 1 for CPU and GPU results comparation
 const int num_files = 1;
 const Check_t CHK = Check_t::Sum;  // Check_t::Sum
 const char *train_file_list_name = "train_file_list.txt";
@@ -243,18 +243,18 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 #endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
-                                       max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {"localized", max_nnz_per_slot ,
+                                       true, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_threads, false));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
   std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
-      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_threads, false));
 
   test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
@@ -272,13 +272,22 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
-      max_feature_num, slot_num,       combiner,        opt_params};
+      max_feature_num, slot_num,       combiner,        opt_params, true, false};
+  
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<T> train_input;
+  copy(train_data_reader->get_sparse_tensors("localized"), train_input);
+  SparseTensors<T> test_input;
+  copy(test_data_reader->get_sparse_tensors("localized"), test_input);
 
-  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
+  std::unique_ptr<LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
-          train_data_reader->get_nnz_array(), test_data_reader->get_row_offsets_tensors(),
-          test_data_reader->get_value_tensors(), test_data_reader->get_nnz_array(),
+          train_input, test_input,
           embedding_params, resource_manager));
 
   // upload hash table to device
@@ -518,13 +527,13 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   }
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
-                                       max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {"localized", max_nnz_per_slot,
+                                       true, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_threads, false));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
@@ -536,13 +545,20 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
-      max_feature_num, slot_num,       combiner,        opt_params};
+      max_feature_num, slot_num,       combiner,        opt_params, true, false};
+  
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<T> train_input;
+  copy(train_data_reader->get_sparse_tensors("localized"), train_input);
 
-  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
+  std::unique_ptr<LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
-          train_data_reader->get_nnz_array(), train_data_reader->get_row_offsets_tensors(),
-          train_data_reader->get_value_tensors(), train_data_reader->get_nnz_array(),
+          train_input, train_input,
           embedding_params, resource_manager));
 
   // upload hash table to device
@@ -709,13 +725,13 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 #endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
-                                       max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {"localized", max_nnz_per_slot,
+                                       true, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_threads, false));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
@@ -724,13 +740,20 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 
   const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, vocabulary_size, {},        embedding_vec_size,
-      max_feature_num, slot_num,       combiner,        opt_params};
+      max_feature_num, slot_num,       combiner,        opt_params, true, false};
 
-  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<T> train_input;
+  copy(train_data_reader->get_sparse_tensors("localized"), train_input);
+
+  std::unique_ptr<LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingHash<T, TypeEmbeddingComp>(
-          train_data_reader->get_row_offsets_tensors(), train_data_reader->get_value_tensors(),
-          train_data_reader->get_nnz_array(), train_data_reader->get_row_offsets_tensors(),
-          train_data_reader->get_value_tensors(), train_data_reader->get_nnz_array(),
+          train_input, train_input,
           embedding_params, resource_manager));
 
   // init hash table file

@@ -34,7 +34,12 @@
 #include <getopt.h>
 #include <sstream>
 #include <algorithm>
+#include <nccl.h>
+#include <numa.h>
 
+#ifdef ENABLE_MPI
+#include <mpi.h>
+#endif
 namespace HugeCTR {
 
 // const static char* data_generator_options = "";
@@ -272,6 +277,65 @@ class CudaDeviceContext {
   void set_device(int device) const { CK_CUDA_THROW_(cudaSetDevice(device)); }
 };
 
+
+/**
+ * Helper class for switching device and the associated NUMA domain.
+ * Sticky: thread will remember the context and affinity.
+ */
+// class CudaCPUDeviceContext {
+//  public:
+//   CudaCPUDeviceContext(int device_id) {
+//     auto node_it = device_id_to_numa_node_.find(device_id);
+//     assert(node_it != device_id_to_numa_node_.end());
+//     CK_CUDA_THROW_(cudaSetDevice(device_id));
+
+//     int node = node_it->second;
+//     if (node >= 0) {
+//       numa_run_on_node(node);
+//       numa_set_preferred(node);
+//     }
+//   }
+
+//   static void init_cpu_mapping(std::vector<int> device_ids) {
+//     constexpr int pci_id_len = 16;
+//     char pci_id[pci_id_len];
+
+//     std::stringstream ss;
+//     ss << "Device to NUMA mapping:" << std::endl;
+
+//     device_id_to_numa_node_.clear();
+//     auto cpu_mask = numa_allocate_cpumask();
+
+//     auto select_node = [](const bitmask* nvml_cpus) -> int {
+//       for (int cpu = 0; cpu < numa_num_possible_cpus(); cpu++) {
+//         if (numa_bitmask_isbitset(nvml_cpus, cpu)) {
+//           return numa_node_of_cpu(cpu);
+//         }
+//       }
+//       return -1;
+//     };
+
+//     for (auto device_id : device_ids) {
+//       nvmlDevice_t handle;
+//       CK_CUDA_THROW_(cudaDeviceGetPCIBusId(pci_id, pci_id_len, device_id));
+//       CK_NVML_THROW_(nvmlDeviceGetHandleByPciBusId_v2(pci_id, &handle));
+//       CK_NVML_THROW_(nvmlDeviceGetCpuAffinity(handle, cpu_mask->size / (sizeof(unsigned long) * 8),
+//                                               cpu_mask->maskp));
+//       int node = select_node(cpu_mask);
+//       device_id_to_numa_node_[device_id] = node;
+//       ss << "  GPU " << device_id << " -> "
+//          << " node " << node << std::endl;
+//     }
+
+//     MESSAGE_(ss.str());
+
+//     numa_bitmask_free(cpu_mask);
+//   }
+
+//  public:
+//   static std::unordered_map<int, int> device_id_to_numa_node_;
+// };
+
 /**
  * Get total product from dims.
  */
@@ -370,7 +434,77 @@ struct CudnnDataType<__half> {
   static cudnnDataType_t getType() { return CUDNN_DATA_HALF; }
 };
 
+template <typename T>
+struct NcclDataType;
+
+template <>
+struct NcclDataType<float> {
+  static ncclDataType_t getType() { return ncclFloat32; }
+};
+
+template <>
+struct NcclDataType<long long> {
+  static ncclDataType_t getType() { return ncclInt64; }
+};
+
+template <>
+struct NcclDataType<unsigned int> {
+  static ncclDataType_t getType() { return ncclUint32; }
+};
+
+
+#ifdef ENABLE_MPI
+template <typename TypeKey>
+struct ToMpiType;
+
+template <>
+struct ToMpiType<long long> {
+  static MPI_Datatype T() { return MPI_LONG_LONG; }
+};
+
+template <>
+struct ToMpiType<unsigned int> {
+  static MPI_Datatype T() { return MPI_UNSIGNED; }
+};
+
+template <>
+struct ToMpiType<float> {
+  static MPI_Datatype T() { return MPI_FLOAT; }
+};
+
+#endif
 template <typename TIN, typename TOUT>
 void convert_array_on_device(TOUT* out, const TIN* in, size_t num_elements, const cudaStream_t& stream);
+
+template <typename TypeKey>
+void data_to_unique_categories(TypeKey *value, const TypeKey *rowoffset,
+                               const TypeKey *emmbedding_offsets, int num_tables,
+                               int num_rowoffsets, const cudaStream_t &stream);
+
+template <typename TypeKey>
+void data_to_unique_categories(TypeKey *value, const TypeKey *emmbedding_offsets, int num_tables,
+                               int nnz, const cudaStream_t &stream);
+
+template <typename TypeKey>
+void distribute_keys_for_inference(TypeKey* out, TypeKey* in, size_t batchsize, std::vector<size_t>& max_feature_num_for_tables) {
+  size_t num_tables = max_feature_num_for_tables.size();
+  std::vector<size_t> batch_keys_offset(num_tables, 0);
+  std::vector<size_t> sample_keys_offset(num_tables, 0);
+  size_t num_keys_per_sample = 0;
+  for (size_t i = 0; i < num_tables; i++) {
+    num_keys_per_sample += max_feature_num_for_tables[i];
+    if (i > 0) {
+      batch_keys_offset[i] = batch_keys_offset[i-1] + batchsize*max_feature_num_for_tables[i-1];
+      sample_keys_offset[i] = sample_keys_offset[i-1] + max_feature_num_for_tables[i-1];
+    }
+  }
+  for (size_t i = 0; i < batchsize; i++) {
+    for (size_t j = 0; j < num_tables; j++) {
+      for (size_t k = 0; k < max_feature_num_for_tables[j]; k++) {
+        out[i*num_keys_per_sample+sample_keys_offset[j]+k] = in[batch_keys_offset[j]+i*max_feature_num_for_tables[j]+k];
+      }
+    }
+  }
+}
 
 }  // namespace HugeCTR
