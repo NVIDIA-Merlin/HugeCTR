@@ -21,12 +21,14 @@
       "sparse": [
         {
           "top": "data1",
+          "type": "DistributedSlot",
           "slot_num": 26,
           "is_fixed_length": false,
           "nnz_per_slot": 2
         }
       ]
     },
+
     {
       "name": "sparse_embedding1",
       "type": "DistributedSlotSparseEmbeddingHash",
