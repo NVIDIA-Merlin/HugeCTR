@@ -245,7 +245,7 @@ void create_datareader<TypeKey>::operator()(const InferenceParams& inference_par
     param.top_name = inference_parser.sparse_names[i];
     param.max_feature_num = inference_parser.max_feature_num_for_tables[i];
     param.slot_num = inference_parser.slot_num_for_tables[i];
-    param.max_nnz = 1;
+    param.max_nnz = inference_parser.max_nnz_for_tables[i];
     data_reader_sparse_param_array.push_back(param);
   }
 
