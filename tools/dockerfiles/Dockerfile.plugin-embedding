@@ -72,7 +72,7 @@ RUN if [ "$RELEASE" = "true" ]; \
       mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch master https://github.com/NVIDIA/HugeCTR.git HugeCTR && cd - && \
       cd /var/tmp/HugeCTR && \
       git submodule update --init --recursive && \
-      cd embedding_plugin/Deprecated && mkdir -p build && cd build && \
+      cd sparse_operation_kit && mkdir -p build && cd build && \
       cmake -DCMAKE_BUILD_TYPE=Release -DSM=$SM .. && make -j$(nproc) && make install && \
       rm -rf /var/tmp/HugeCTR; \
     else \
