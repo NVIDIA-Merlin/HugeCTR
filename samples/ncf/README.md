@@ -35,7 +35,7 @@ python ncf.py
 ```
 By default, this will run 10 epochs of the dataset and provide Cumulative Hit Rate (HitRate) accuracy results after each.  The HitRate provided by HugeCTR is computed on testing data as the fraction of predictions that are over a threshold (0.8) and correspond to a real interaction (i.e., label is 1). 
 
-If you are using the `Movielens 1M` dataset instead, simply edit `ncf.py` to use `ml-1m` directories, and reduce `max_vocabulary_size_per_gpu` to 12000.  Note that in general, `max_vocabulary_size_per_gpu` should be approximately the sum of users and items in the dataset.
+If you are using the `Movielens 1M` dataset instead, simply edit `ncf.py` to use `ml-1m` directories, and reduce `workspace_size_per_gpu_in_mb` to 3.  Note that in general, `workspace_size_per_gpu_in_mb` should be approximately the sum of users and items in the dataset.
 
 
 ## Performance Evaluation ##
