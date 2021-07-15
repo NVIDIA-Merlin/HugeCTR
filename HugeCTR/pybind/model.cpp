@@ -850,6 +850,7 @@ bool Model::train() {
     long long current_batchsize = 0;
     while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
            (current_batchsize < train_data_reader_->get_full_batchsize())) {
+      MESSAGE_("train drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
       train_data_reader_->ready_to_collect();
     }
     if (!current_batchsize) {
@@ -910,6 +911,7 @@ bool Model::eval() {
     long long current_batchsize = 0;
     while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
            (current_batchsize < evaluate_data_reader_->get_full_batchsize())) {
+      MESSAGE_("eval drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
       evaluate_data_reader_->ready_to_collect();
     }
     for (auto& metric : metrics_) {
