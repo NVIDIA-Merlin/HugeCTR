@@ -32,7 +32,7 @@ HugeCTR Python Interface includes training API and inference API. From version 3
      * [unfreeze_embedding()](#unfreezeembedding-method)
      * [reset_learning_rate_scheduler()](#resetlearningratescheduler-method)
      * [set_source()](#setsource-method)
-    <summary></summary>
+     <summary>Details</summary>
 * [Low-level Training API](#low-level-training-api)<details>
   * [get_next()](#getnext-method)
   * [set_source()](#setsource-method)
@@ -342,7 +342,7 @@ Please refer to [hugectr_layer_book](./hugectr_layer_book.md#table-of-contents) 
 ```bash
 hugectr.Input()
 ```
-`Input`specifies the parameters related to the data input. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Input Detail](./hugectr_layer_book#input-layer) if you want to get detailed information about Input.
+`Input`specifies the parameters related to the data input. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Input Detail](./hugectr_layer_book.md#input-layer) if you want to get detailed information about Input.
 
 **Arguments**
 * `label_dim`: Integer, the label dimension. 1 implies it is a binary label. For example, if an item is clicked or not. There is NO default value and it should be specified by users.
@@ -359,7 +359,7 @@ hugectr.Input()
 ```bash
 hugectr.SparseEmbedding()
 ```
-`SparseEmbedding` specifies the parameters related to the sparse embedding layer. One or several `SparseEmbedding` layers should be added to the Model instance after `Input` and before `DenseLayer`. Please refer to [SparseEmbedding Detail](./hugectr_layer_book#sparse-embedding) if you want to get detailed information about SparseEmbedding.
+`SparseEmbedding` specifies the parameters related to the sparse embedding layer. One or several `SparseEmbedding` layers should be added to the Model instance after `Input` and before `DenseLayer`. Please refer to [SparseEmbedding Detail](./hugectr_layer_book.md#sparse-embedding) if you want to get detailed information about SparseEmbedding.
 
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users.
