@@ -41,26 +41,26 @@ hugectr.Input()
 
 * `dense_name`: Integer, the name of the dense input tensor to be referenced by following layers. There is NO default value and it should be specified by users.
 
-* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with `hugectr.DataReaderSparse_t`, `max_feature_num`, `max_nnz` and `slot_num`. The supported types of `hugectr.DataReaderSparse_t` include `hugectr.DataReaderSparse_t.Distributed` and `hugectr.DataReaderSparse_t.Localized`. The maximum number of features per sample for the specified spare input can be specified by `max_feature_num`. For `max_nnz`, if it is set to 1, the dataset is specified as one-hot so that the memory consumption can be reduced. As for `slot_num`, it specifies the number of slots used for this sparse input in the dataset. The total number of categorical inputs is exactly the length of `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
-
-* `sparse_names`: List[str], the list of names of the sparse input tensors to be referenced by following layers. The order of the names should be consistent with sparse parameters in `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
+* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with  `sparse_name`, `nnz_per_slot`, `is_fixed_length` and `slot_num`. 
+  * `sparse_name` is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users. 
+  * `nnz_per_slot` is the maximum number of features for each slot for the specified spare input. The `nnz_per_slot` can be an `int` which means average nnz per slot so the maximum number of features per sample should be `nnz_per_slot * slot_num`. Or you can use List[int] to initialize `nnz_per_slot`, then the maximum number of features per sample should be `sum(nnz_per_slot)` and in this case, the length of the array `nnz_per_slot` should be the same with `slot_num`. 
+  * `is_fixed_length` is used to identify whether categorical inputs has the same length for each slot among all samples. If different samples have the same number of features for each slot, then user can set `is_fixed_length = True` and HugeCTR can use this information to reduce data transferring time. 
+  * `slot_num` specifies the number of slots used for this sparse input in the dataset.
 
 **Example:**
 ```python
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                            [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 26)],
-                        sparse_names = ["data1"]))
+                            [hugectr.DataReaderSparseParam("data1", 1, True, 26)]))
 ```
 
 ```python
 model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         dense_dim = 13, dense_name = "dense",
                         data_reader_sparse_param_array = 
-                            [hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 2),
-                            hugectr.DataReaderSparseParam(hugectr.DataReaderSparse_t.Distributed, 30, 1, 26)],
-                        sparse_names = ["wide_data", "deep_data"]))
+                            [hugectr.DataReaderSparseParam("wide_data", 2, True, 2),
+                            hugectr.DataReaderSparseParam("deep_data", 2, True, 26)]))
 ```
 
 ## Sparse Embedding ##
@@ -73,17 +73,17 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users. For detail about different embedding types, please refer to [Embedding Types Detail](./hugectr_layer_book.md#embedding-types-detail).
 
-* `max_vocabulary_size_per_gpu`: Integer, the maximum vocabulary size or cardinality across all the input features. There is NO default value and it should be specified by users.
+* `workspace_size_per_gpu_in_mb`: Integer, the maximum vocabulary memory usage size or cardinality across all the input features. There is NO default value and it should be specified by users.
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
-* `combiner`: Integer, the intra-slot reduction operation (0=sum, 1=average). There is NO default value and it should be specified by users.
+* `combiner`: String, the intra-slot reduction operation, now support `sum` or `mean`. There is NO default value and it should be specified by users.
 
 * `sparse_embedding_name`: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored. There is NO default value and it should be specified by users.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. If `workspace_size_per_gpu_in_mb` is specified, this parameter is ignored. There is NO default value and it should be specified by users.
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 
@@ -101,9 +101,9 @@ All the embedding vectors in a single embedding layer must have the same size. I
 ```python
 model.add(hugectr.SparseEmbedding(
             embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-            max_vocabulary_size_per_gpu = 5863985,
+            workspace_size_per_gpu_in_mb = 23,
             embedding_vec_size = 1,
-            combiner = 0,
+            combiner = 'sum',
             sparse_embedding_name = "sparse_embedding1",
             bottom_name = "input_data",
             optimizer = optimizer))
@@ -122,9 +122,9 @@ Example:
 ```python
 model.add(hugectr.SparseEmbedding(
             embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash, 
-            max_vocabulary_size_per_gpu = 5863985,
+            workspace_size_per_gpu_in_mb = 23,
             embedding_vec_size = 1,
-            combiner = 0,
+            combiner = 'sum',
             sparse_embedding_name = "sparse_embedding1",
             bottom_name = "input_data",
             optimizer = optimizer))
@@ -142,7 +142,7 @@ model.add(hugectr.SparseEmbedding(
             embedding_type = hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot, 
             slot_size_array = [1221, 754, 8, 4, 12, 49, 2]
             embedding_vec_size = 128,
-            combiner = 0,
+            combiner = 'sum',
             sparse_embedding_name = "sparse_embedding1",
             bottom_name = "input_data",
             optimizer = optimizer))
