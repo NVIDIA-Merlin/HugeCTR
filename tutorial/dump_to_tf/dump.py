@@ -90,7 +90,8 @@ class DumpToTF(object):
             print("[INFO] begin to parse embedding weights: %s" %layer["name"])
             layer_type = layer["type"]
             embedding_vec_size = layer["sparse_embedding_hparam"]["embedding_vec_size"]
-            max_vocab_size_per_gpu = layer["sparse_embedding_hparam"]["max_vocabulary_size_per_gpu"]
+            workspace_size_per_gpu_in_mb = layer["sparse_embedding_hparam"]["workspace_size_per_gpu_in_mb"]
+            max_vocab_size_per_gpu = workspace_size_per_gpu_in_mb * embedding_vec_size * 4 / 1024 / 1024
             vocabulary_size = max_vocab_size_per_gpu * len(self.gpus)
             embedding_table = np.zeros(shape=(vocabulary_size, embedding_vec_size), dtype=np.float32)
 
