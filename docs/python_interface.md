@@ -251,15 +251,16 @@ The Raw dataset format is different from the Norm dataset format in that the tra
 
 **NOTE**: Only one-hot data is accepted with this format.
 
-When using the Raw dataset format, a user must preprocess their own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, when referencing the configuration snippet above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 39884405}` while slot 1 has its keyset on a different space `{0, 1, 2 ... 39043}`.
+When using the Raw dataset format, a user must preprocess their own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, when referencing the configuration snippet above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 39884405}` while slot 1 has its keyset on a different space `{0, 1, 2 ... 39043}`. 
+
+The Raw dataset format can be used with embedding type LocalizedSlotSparseEmbeddingOneHot only.
 
 Example:
 ```python
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Raw,
                                   source = ["./wdl_raw/train_data.bin"],
                                   eval_source = "./wdl_raw/validation_data.bin",
-                                  check_type = hugectr.Check_t.Sum,
-                                  slot_size_array = [278899, 355877, 203750, 18573, 14082, 7020, 18966, 4, 6382, 1246, 49, 185920, 71354, 67346, 11, 2166, 7340, 60, 4, 934, 15, 204208, 141572, 199066, 60940, 9115, 72, 34])
+                                  check_type = hugectr.Check_t.Sum)
 ```
 
 
@@ -368,18 +369,18 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users.
 
-* `workspace_size_per_gpu_in_mb`: Integer, the maximum vocabulary memory usage size or cardinality across all the input features. There is NO default value and it should be specified by users.
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
-* `combiner`: String, the intra-slot reduction operation, now support `sum` or `mean`. There is NO default value and it should be specified by users.
+* `combiner`: String, the intra-slot reduction operation, currently `sum` or `mean` are supported. There is NO default value and it should be specified by users.
 
 * `sparse_embedding_name`: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. If `workspace_size_per_gpu_in_mb` is specified, this parameter is ignored. There is NO default value and it should be specified by users.
-s
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file). There is NO default value and it should be specified by users.
+
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 
 
