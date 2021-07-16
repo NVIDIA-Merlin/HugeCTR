@@ -969,7 +969,7 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
   try {
     if(current_eval_batchsize_ == 0) {
       MESSAGE_("Reach end of eval dataset. Skip export prediction");
-      return;
+      return Error_t::Success;
     }
     CudaDeviceContext context;
     const std::vector<int>& local_gpu_device_id_list =
