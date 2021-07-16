@@ -431,6 +431,8 @@ class Model {
   std::shared_ptr<ResourceManager> resource_manager_; /**< GPU resources include handles and streams etc.*/
   metrics::Metrics metrics_; /**< evaluation metrics. */
   
+  long long current_eval_batchsize_; /**< used for export prediction in epoch mode. */
+  
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);
                                           
