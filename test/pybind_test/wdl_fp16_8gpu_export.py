@@ -36,8 +36,8 @@ def wdl_test(json_file, export_path_prefix):
     if (i%1000 == 0 and i != 0):
       for _ in range(solver.max_eval_batches):
         model.eval()
+        model.export_predictions(export_path_prefix + "prediction" + str(i), export_path_prefix + "label" + str(i))
       metrics = model.get_eval_metrics()
-      model.export_predictions(export_path_prefix + "prediction" + str(i), export_path_prefix + "label" + str(i))
       print("[HUGECTR][INFO] iter: {}, {}".format(i, metrics))
   return
 
