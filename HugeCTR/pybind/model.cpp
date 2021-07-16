@@ -219,7 +219,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       buff_allocated_(false),
       mos_created_(false),
       is_embedding_trainable_(true),
-      is_dense_trainable_(true) {
+      is_dense_trainable_(true),
+      current_eval_batchsize_(0) {
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -917,6 +918,7 @@ bool Model::eval() {
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
     }
+    current_eval_batchsize_ = current_batchsize;
     if (!current_batchsize) {
       return false;
     }
@@ -965,6 +967,10 @@ bool Model::eval() {
 Error_t Model::export_predictions(const std::string& output_prediction_file_name,
                                   const std::string& output_label_file_name) {
   try {
+    if(current_eval_batchsize_ == 0) {
+      MESSAGE_("Reach end of eval dataset. Skip export prediction");
+      return;
+    }
     CudaDeviceContext context;
     const std::vector<int>& local_gpu_device_id_list =
         resource_manager_->get_local_gpu_device_id_list();
@@ -1025,8 +1031,8 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
         output_stream.close();
       };
       write_func(output_prediction_file_name, global_prediction_result.get(),
-                 solver_.batchsize_eval);
-      write_func(output_label_file_name, global_label_result.get(), solver_.batchsize_eval);
+                 current_eval_batchsize_);
+      write_func(output_label_file_name, global_label_result.get(), current_eval_batchsize_);
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
