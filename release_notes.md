@@ -4,13 +4,13 @@
 
 + **Enhancements to the Python Interface**: We’ve enhanced the Python interface for HugeCTR so that you no longer have to manually create a JSON configuration file. Our Python APIs can now be used to create the computation graph. They can also be used to dump the model graph as a JSON object and save the model weights as binary files so that continuous training and inference can take place. We've added an Inference API that takes Norm or Parquet datasets as input to facilitate the inference process. For more information, see [HugeCTR Python Interface](docs/python_interface.md) and [HugeCTR Criteo Notebook](notebooks/hugectr_criteo.ipynb).
 
-+ **New Interface for Unified Embedding**: We’re introducing a new interface to simplify the use of embeddings and datareaders. To help you specify the number of keys in each slot, we added `nnz_per_slot` and `is_fixed_length`. You can now directly configure how much memory usage you need by specifying `workspace_size_per_gpu_in_mb` instead of `max_vocabulary_size_per_gpu`. For convenience, `mean/sum` is used in combinators instead of 0 and 1. In cases where you don't know which embedding type you should choose, you can specify `use_hash_table` and let HugeCTR automatically select the embedding type based on your configuration. For more information, see [HugeCTR Python Interface](docs/python_interface.md).
++ **New Interface for Unified Embedding**: We’re introducing a new interface to simplify the use of embeddings and datareaders. To help you specify the number of keys in each slot, we added `nnz_per_slot` and `is_fixed_length`. You can now directly configure how much memory usage you need by specifying `workspace_size_per_gpu_in_mb` instead of `max_vocabulary_size_per_gpu`. For convenience, `mean/sum` is used in combinators instead of 0 and 1. In cases where you don't know which embedding type you should use, you can specify `use_hash_table` and let HugeCTR automatically select the embedding type based on your configuration. For more information, see [HugeCTR Python Interface](docs/python_interface.md).
 
-+ **Multi-Node Support for Embedding Training Cache (MOS)**: We’ve enabled multi-node support for the embedding training cache. You can now train a model with a terabyte-size embedding table using one node or multiple nodes even if the entire embedding table can't fit into the GPU memory. We're also introducing the host memory (HMEM)-based parameter server (PS) along with its SSD-based counterpart. If the sparse model can fit into the host memory of all training nodes, the optimized HMEM-based PS can provide better model loading and dumping performance with a bandwidth that's five times more effective. For more information, see [HugeCTR Python Interface](docs/python_interface.md).
++ **Multi-Node Support for Embedding Training Cache (MOS)**: We’ve enabled multi-node support for the embedding training cache. You can now train a model with a terabyte-size embedding table using one node or multiple nodes even if the entire embedding table can't fit into the GPU memory. We're also introducing the host memory (HMEM) based parameter server (PS) along with its SSD-based counterpart. If the sparse model can fit into the host memory of each training node, the optimized HMEM-based PS can provide better model loading and dumping performance with a more effective bandwidth. For more information, see [HugeCTR Python Interface](docs/python_interface.md).
 
-+ **Enhancements to the Multi-Nodes TensorFlow Plugin**: The Multi-Nodes TensorFlow Plugin now supports multi-node synchronized training via tf.distribute.MultiWorkerMirroredStrategy. With minimal code changes, you can now easily scale your single GPU training to multi-node multi GPU training. The Multi-Nodes TensorFlow Plugin also supports multi-node synchronized training via Horovod. The inputs for embedding plugins are now data-parallel, so the datareader no longer needs to preprocess data for different GPUs based on concrete embedding algorithms.
++ **Enhancements to the Multi-Nodes TensorFlow Plugin**: The Multi-Nodes TensorFlow Plugin now supports multi-node synchronized training via tf.distribute.MultiWorkerMirroredStrategy. With minimal code changes, you can now easily scale your single GPU training to multi-node multi GPU training. The Multi-Nodes TensorFlow Plugin also supports multi-node synchronized training via Horovod. The inputs for embedding plugins are now data parallel, so the datareader no longer needs to preprocess data for different GPUs based on concrete embedding algorithms.
 	
-+ **NCF Model Support**: We've added support for the NCF model, as well as the GMF and NeuMF variant models. With this enhancement, we're introducing a new element-wise multiplication layer and HitRate evaluation metric. Sample code was added that demonstrates how to preprocess user-item interaction data and train a NCF model with it. New examples have also been added using MovieLens datasets.
++ **NCF Model Support**: We've added support for the NCF model, as well as the GMF and NeuMF variant models. With this enhancement, we're introducing a new element-wise multiplication layer and HitRate evaluation metric. Sample code was added that demonstrates how to preprocess user-item interaction data and train a NCF model with it. New examples have also been added that demonstrate how to train NCF models using MovieLens datasets.
 
 + **DIN Model Support**: 
 
@@ -18,13 +18,13 @@
 
 + **Mixed Precision (FP16) Support in More Layers**: The MultiCross layer now supports mixed precision (FP16). All layers now support FP16.
 
-+ **Mixed Precision (FP16) Support in Inference**: We've added FP16 support for the inference pipeline. Therefore, dense layers can now adopt half precision forward propagation during inference.
++ **Mixed Precision (FP16) Support in Inference**: We've added FP16 support for the inference pipeline. Therefore, dense layers can now adopt FP16 during inference.
 
-+ **Optimizer State Enhancements**: You can choose to store optimizer states that are updated during training as files, such as the Adam optimizer's first moment (m) and second moment (v) that are updated across training iterations. By default, the optimizer states are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more information, see `dense_opt_states_file` and `sparse_opt_states_file` in  [Python Interface](docs/python_interface.md#load_dense_weights-method).
++ **Optimizer State Enhancements for Continuous Training**: You can now store optimizer states that are updated during continuous training as files, such as the Adam optimizer's first moment (m) and second moment (v). By default, the optimizer states are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more information, see `dense_opt_states_file` and `sparse_opt_states_file` in [Python Interface](docs/python_interface.md#load_dense_weights-method).
 
-+ **New Library File for GPU Embedding Cache Data**: We’ve moved the header/source code of the GPU embedding cache data structure into a stand-alone folder. It has been compiled into a stand-alone library file. Similar to HugeCTR, your application programs can now be directly linked from it.   
++ **New Library File for GPU Embedding Cache Data**: We’ve moved the header/source code of the GPU embedding cache data structure into a stand-alone folder. It has been compiled into a stand-alone library file. Similar to HugeCTR, your application programs can now be directly linked from this new library file for future use. For more information, see our [GPU Embedding Cache ReadMe](gpu_cache/ReadMe.md).
 
-+ **Embedding Plugin Enhancements**: We’ve moved all the embedding plugin files into a stand-along folder. The embedding plugin can be used as a stand-alone python module, and works with TensorFlow to accelerate the embedding training process.
++ **Embedding Plugin Enhancements**: We’ve moved all the embedding plugin files into a stand-alone folder. The embedding plugin can be used as a stand-alone python module, and works with TensorFlow to accelerate the embedding training process.
 
 + **Adagrad Support**: Adagrad can now be used to optimize your embedding and network. To use it, change the optimizer type in the Optimizer layer and set the corresponding parameters.
 
@@ -42,9 +42,9 @@
 
 ## What’s New in Version 3.0
 
-+ **Inference Support**: To streamline the recommender system workflow, we’ve implemented a custom HugeCTR backend on the [NVIDIA Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server). The HugeCTR backend leverages the embedding cache and parameter server to efficiently manage embeddings of different sizes and models in a hierarchical manner. For additional information, see [our inference repository](https://github.com/triton-inference-server/hugectr_backend).
++ **Inference Support**: To streamline the recommender system workflow, we’ve implemented a custom HugeCTR backend on the [NVIDIA Triton Inference Server](https://developer.nvidia.com/nvidia-triton-inference-server). The HugeCTR backend leverages the embedding cache and parameter server to efficiently manage embeddings of different sizes and models in a hierarchical manner. For more information, see [our inference repository](https://github.com/triton-inference-server/hugectr_backend).
 
-+ **New High-Level API**: You can now also construct and train your models using the Python interface with our new high-level API. See [our preview example code](samples/preview) to grasp how it works.
++ **New High-Level API**: You can now also construct and train your models using the Python interface with our new high-level API. For more information, see [our preview example code](samples/preview) to grasp how this new API works.
 
 + **[FP16 Support](hugectr_user_guide.md#mixed-precision-training) in More Layers**: All the layers except `MultiCross` support mixed precision mode. We’ve also optimized some of the FP16 layer implementations based on vectorized loads and stores.
 
@@ -72,7 +72,7 @@
 
 + **Model Oversubscription**: To enable a model with large embedding tables that exceeds the single GPU's memory limit, we've added a new model oversubscription feature, giving you the ability to load a subset of an embedding table into the GPU in a coarse grained, on-demand manner during the training stage.
 
-+ **TF32 Support**: We've added TensorFloat-32 (TF32), a new math mode and third-generation of Tensor Cores, support on Ampere. TF32 uses the same 10-bit mantissa as FP16 to ensure accuracy while providing the same range as FP32 by using an 8-bit exponent. Since TF32 is an internal data type that accelerates FP32 GEMM computations with tensor cores, you can simply turn it on with a newly added configuration option. For additional information, see [Solver](docs/hugectr_user_guide.md#solver).
++ **TF32 Support**: We've added TensorFloat-32 (TF32), a new math mode and third-generation of Tensor Cores, support on Ampere. TF32 uses the same 10-bit mantissa as FP16 to ensure accuracy while providing the same range as FP32 by using an 8-bit exponent. Since TF32 is an internal data type that accelerates FP32 GEMM computations with tensor cores, you can simply turn it on with a newly added configuration option. For more information, see [Solver](docs/hugectr_user_guide.md#solver).
 
 + **Enhanced AUC Implementation**: To enhance the performance of our AUC computation on multi-node environments, we've redesigned our AUC implementation to improve how the computational load gets distributed across nodes.
 
@@ -82,7 +82,7 @@
 
 + **Power Law Distribution Support with Data Generator**: Because of the increased need for generating a random dataset whose categorical features follows the power-law distribution, we've revised our data generation tool to support this use case. For additional information, refer to the `--long-tail` description [here](../docs/hugectr_user_guide.md#Generating Synthetic Data and Benchmarks).
 
-+ **Multi-GPU Preprocessing Script for Criteo Samples**: Multiple GPUs can now be used when preparing the dataset for our [samples](../samples). For additional information, see how [preprocess_nvt.py](../tools/criteo_script/preprocess_nvt.py) is used to preprocess the Criteo dataset for DCN, DeepFM, and W&D samples.
++ **Multi-GPU Preprocessing Script for Criteo Samples**: Multiple GPUs can now be used when preparing the dataset for our [samples](../samples). For more information, see how [preprocess_nvt.py](../tools/criteo_script/preprocess_nvt.py) is used to preprocess the Criteo dataset for DCN, DeepFM, and W&D samples.
 
 ## Known Issues
 + Since the automatic plan file generator isn't able to handle systems that contain one GPU, you must manually create a JSON plan file with the following parameters and rename it using the name listed in the HugeCTR configuration file: `{"type": "all2all", "num_gpus": 1, "main_gpu": 0, "num_steps": 1, "num_chunks": 1, "plan": [[0, 0]], and "chunks": [1]}`.
@@ -103,4 +103,4 @@
 
 + If the number of samples in a dataset is not divisible by the batch size when in epoch mode and using the `num_epochs` instead of `max_iter`, a few remaining samples are truncated. If the training dataset is large enough, its impact can be negligible. If you want to minimize the wasted batches, try adjusting the number of data reader workers. For example, using a file list source, set the `num_workers` parameter to an advisor based on the number of data files in the file list.
 
-+ MultiCross layer doesn't support mixed precision mode yet.
++ The MultiCross layer doesn't support mixed precision mode yet.
