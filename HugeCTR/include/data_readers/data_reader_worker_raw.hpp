@@ -46,12 +46,8 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
   }
 
   void post_set_source() override {
-    auto expected = BufferState::FileEOF;
-    while (buffer_->state.compare_exchange_weak(expected, BufferState::ReadyForWrite)) {
-      expected = BufferState::FileEOF;
-      usleep(2);
-    }
     is_eof_ = false;
+    buffer_->state.store(BufferState::ReadyForWrite);
   }
 
  public:
@@ -110,10 +106,9 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
         if (!wait_until_h2d_ready()) return;
         buffer_->current_batch_size = 0;
         assert(buffer_->state.load() == BufferState::Writing);
-        buffer_->state.store(BufferState::ReadyForRead);
         is_eof_ = true;
-        if (!wait_until_h2d_ready()) return;
-        buffer_->state.store(BufferState::FileEOF);
+        buffer_->state.store(BufferState::ReadyForRead);
+        
         while (buffer_->state.load() != BufferState::ReadyForWrite) {
           usleep(2);
           if (*loop_flag_ == 0) return;
