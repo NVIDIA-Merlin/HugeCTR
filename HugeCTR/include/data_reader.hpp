@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,6 @@
 
 #include <atomic>
 #include <common.hpp>
-//TODO(MLPERF(1.0): do they really need to be here?
-#include <data_readers/csr.hpp>
-#include <data_readers/csr_chunk.hpp>
-#include <data_readers/data_collector.hpp>
-#include <data_readers/data_reader_worker_group.hpp>
-#include <data_readers/data_reader_worker_group_norm.hpp>
-
-#include <data_readers/data_reader_worker_group_parquet.hpp>
-
-#include <data_readers/data_reader_worker_group_raw.hpp>
-#include <data_readers/file_list.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <utils.hpp>
@@ -61,22 +50,20 @@ class IDataReader {
   virtual bool is_started() const = 0;
   virtual void start() = 0;
 
-  virtual void create_drwg_norm(std::string file_list, Check_t check_type,
-                                bool start_reading_from_beginning = true) = 0;
-  virtual void create_drwg_raw(std::string file_name, long long num_samples,
-                               const std::vector<long long> slot_offset, bool float_label_dense,
-                               bool data_shuffle, bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_norm(std::string file_list, 
+                        Check_t check_type,
+                        bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_raw( std::string file_name, 
+                        long long num_samples,
+                        bool float_label_dense,
+                        bool data_shuffle, 
+                        bool start_reading_from_beginning = true) = 0;
 
-  virtual void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
-                                   bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_parquet( std::string file_list,const std::vector<long long> slot_offset,
+                            bool start_reading_from_beginning = true) = 0;
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type
   virtual void set_source(std::string file_name = std::string()) = 0;
-  // TODO(MLPERF1.0): consider to move it
-  virtual std::vector<TensorBag2> get_label_tensors() const = 0;
-  virtual std::vector<TensorBag2> get_dense_tensors() const = 0;
-  virtual std::vector<TensorBag2> get_row_offsets_tensors() const = 0;
-  virtual std::vector<TensorBag2> get_value_tensors() const = 0;
 };
 
 class IDataReaderWithScheduling : public IDataReader {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,8 +34,14 @@ class FileSource : public Source {
   unsigned int counter_{0};
 
  public:
-  FileSource(long long offset, long long stride, const std::string& file_list, bool repeat)
-      : file_list_(file_list), offset_(offset), stride_(stride), repeat_(repeat) {}
+  FileSource(long long offset,
+             long long stride,
+             const std::string& file_list,
+             bool repeat)
+      : file_list_(file_list),
+      offset_(offset),
+      stride_(stride),
+      repeat_(repeat) { }
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.

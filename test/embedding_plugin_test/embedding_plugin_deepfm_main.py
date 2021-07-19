@@ -1,5 +1,5 @@
 """
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 """
 
 import sys
-sys.path.append("../../embedding_plugin/Deprecated/python")
-sys.path.append("../../embedding_plugin/Deprecated/performance_profile")
+sys.path.append("../../sparse_operation_kit/Deprecated/python/")
+sys.path.append("../../sparse_operation_kit/Deprecated/performance_profile/")
 
 import hugectr_tf_ops
 from read_data import create_dataset

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,6 +73,22 @@ template <typename T>
   } else {
     return ::testing::AssertionSuccess();
   }
+}
+
+template <typename T>
+::testing::AssertionResult compare_array_approx_rel(const T* h_out, const T* h_exp, int len,
+                                                    T max_rel_err, T max_abs_err) {
+  for (int i = 0; i < len; ++i) {
+    auto output = h_out[i];
+    auto expected = h_exp[i];
+    T abs_err = abs(output - expected);
+    T rel_err = abs_err / expected;
+    if (abs_err > max_abs_err && rel_err > max_rel_err) {
+      return ::testing::AssertionFailure()
+             << "output: " << output << " != expected: " << expected << " at idx " << i;
+    }
+  }
+  return ::testing::AssertionSuccess();
 }
 
 __forceinline__ bool cpu_gpu_cmp(float* cpu_p, float* gpu_p, int len) {

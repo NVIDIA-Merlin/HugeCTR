@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
 
 #include <math.h>
-
+#include <cuda_fp16.h>
 #include <memory>
 #include <vector>
 
@@ -26,6 +26,7 @@
 
 using namespace HugeCTR;
 
+template <typename T>
 class MultiCrossLayerTest {
  private:
   const float eps = 1;
@@ -33,29 +34,44 @@ class MultiCrossLayerTest {
   const size_t w_;
   const int layers_;
   std::shared_ptr<GeneralBuffer2<CudaAllocator>> blob_buf_;
-  std::shared_ptr<BufferBlock2<float>> weight_buf_;
-  std::shared_ptr<BufferBlock2<float>> wgrad_buf_;
+  std::shared_ptr<BufferBlock2<float>> master_weight_buff_;
+  std::shared_ptr<BufferBlock2<T>> weight_buf_;
+  std::shared_ptr<BufferBlock2<T>> wgrad_buf_;
 
-  Tensor2<float> weight_;
-  Tensor2<float> wgrad_;
+  Tensor2<T> weight_;
+  Tensor2<T> wgrad_;
 
-  Tensor2<float> d_input_;
-  Tensor2<float> d_output_;
+  Tensor2<T> d_input_;
+  Tensor2<T> d_output_;
 
-  std::vector<float> h_input_;
-  std::vector<float> h_input_grad_;
-  std::vector<float> h_output_grad_;
-  std::vector<std::vector<float>> h_kernels_;
-  std::vector<std::vector<float>> h_biases_;
+  std::vector<T> h_input_;
+  std::vector<T> h_input_grad_;
+  std::vector<T> h_output_grad_;
+  std::vector<std::vector<T>> h_kernels_;
+  std::vector<std::vector<T>> h_biases_;
 
-  std::vector<std::vector<float>> h_outputs_;
-  std::vector<std::vector<float>> h_hiddens_;
+  std::vector<std::vector<T>> h_outputs_;
+  std::vector<std::vector<T>> h_hiddens_;
 
-  std::vector<std::vector<float>> h_kernel_grads_;
-  std::vector<std::vector<float>> h_bias_grads_;
+  std::vector<std::vector<T>> h_kernel_grads_;
+  std::vector<std::vector<T>> h_bias_grads_;
 
-  std::shared_ptr<MultiCrossLayer> layer_;
+  std::shared_ptr<MultiCrossLayer<T>> layer_;
   test::GaussianDataSimulator data_sim_;
+
+  constexpr std::pair<float, float> normal_params_() const noexcept {
+    if (std::is_same<T, __half>::value) {
+      return {0.0f, 0.125f};
+    }
+    return {0.0f, 1.0f};
+  } 
+
+  constexpr T eps_() const noexcept {
+    if (std::is_same<T, __half>::value) {
+      return 2.0f;
+    }
+    return 1.0f;
+  }
 
   void reset_forward_() {
     data_sim_.fill(h_input_.data(), batchsize_ * w_);
@@ -68,13 +84,13 @@ class MultiCrossLayerTest {
 
     CK_CUDA_THROW_(cudaMemcpy(d_input_.get_ptr(), h_input_.data(), d_input_.get_size_in_bytes(),
                               cudaMemcpyHostToDevice));
-    float* p = weight_.get_ptr();
+    T* p = weight_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       CK_CUDA_THROW_(
-          cudaMemcpy(p, h_kernels_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
+          cudaMemcpy(p, h_kernels_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
       CK_CUDA_THROW_(
-          cudaMemcpy(p, h_biases_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
+          cudaMemcpy(p, h_biases_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
     }
     return;
@@ -95,29 +111,29 @@ class MultiCrossLayerTest {
       }
     }
     CK_CUDA_THROW_(cudaMemcpy(d_output_.get_ptr(), h_output_grad_.data(),
-                              batchsize_ * w_ * sizeof(float), cudaMemcpyHostToDevice));
-    float* p = wgrad_.get_ptr();
+                              batchsize_ * w_ * sizeof(T), cudaMemcpyHostToDevice));
+    T* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       CK_CUDA_THROW_(
-          cudaMemcpy(p, h_kernel_grads_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
+          cudaMemcpy(p, h_kernel_grads_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
       CK_CUDA_THROW_(
-          cudaMemcpy(p, h_bias_grads_[i].data(), w_ * sizeof(float), cudaMemcpyHostToDevice));
+          cudaMemcpy(p, h_bias_grads_[i].data(), w_ * sizeof(T), cudaMemcpyHostToDevice));
       p += w_;
     }
   }
 
-  void matrix_vec_mul(float* out, const float* in_m, const float* in_v, size_t h, size_t w) {
+  void matrix_vec_mul(T* out, const T* in_m, const T* in_v, size_t h, size_t w) {
     for (size_t j = 0; j < h; j++) {
       out[j] = 0.0f;
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
-        out[j] += in_m[k] * in_v[i];
+        out[j] = out[j] + T(in_m[k] * in_v[i]);
       }
     }
   }
 
-  void row_scaling(float* out, const float* in_m, const float* in_v, size_t h, size_t w) {
+  void row_scaling(T* out, const T* in_m, const T* in_v, size_t h, size_t w) {
     for (size_t j = 0; j < h; j++) {
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
@@ -126,7 +142,7 @@ class MultiCrossLayerTest {
     }
   }
 
-  void matrix_add(float* out, const float* in_m_1, const float* in_m_2, size_t h, size_t w) {
+  void matrix_add(T* out, const T* in_m_1, const T* in_m_2, size_t h, size_t w) {
     for (size_t j = 0; j < h; j++) {
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
@@ -135,7 +151,7 @@ class MultiCrossLayerTest {
     }
   }
 
-  void matrix_vec_add(float* out, const float* in_m, const float* in_v, size_t h, size_t w) {
+  void matrix_vec_add(T* out, const T* in_m, const T* in_v, size_t h, size_t w) {
     for (size_t j = 0; j < h; j++) {
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
@@ -144,37 +160,37 @@ class MultiCrossLayerTest {
     }
   }
 
-  void matrix_pair_mul(float* out, const float* in_m_1, const float* in_m_2, size_t h, size_t w) {
+  void matrix_pair_mul(T* out, const T* in_m_1, const T* in_m_2, size_t h, size_t w) {
     for (size_t j = 0; j < h; j++) {
       out[j] = 0.0f;
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
-        out[j] += in_m_1[k] * in_m_2[k];
+        out[j] = out[j] + T(in_m_1[k] * in_m_2[k]);
       }
     }
   }
 
-  void row_scaling_sum(float* out, const float* in_m, const float* in_v, size_t h, size_t w) {
+  void row_scaling_sum(T* out, const T* in_m, const T* in_v, size_t h, size_t w) {
     for (size_t i = 0; i < w; i++) {
       out[i] = 0.0f;
       for (size_t j = 0; j < h; j++) {
         size_t k = j * w + i;
-        out[i] += in_m[k] * in_v[j];
+        out[i] = out[i] + T(in_m[k] * in_v[j]);
       }
     }
   }
 
-  void rows_sum(float* out, const float* in_m, size_t h, size_t w) {
+  void rows_sum(T* out, const T* in_m, size_t h, size_t w) {
     for (size_t i = 0; i < w; i++) {
       out[i] = 0.0f;
       for (size_t j = 0; j < h; j++) {
         size_t k = j * w + i;
-        out[i] += in_m[k];
+        out[i] = out[i] + in_m[k];
       }
     }
   }
 
-  void out_product(float* out, const float* in_v_1, const float* in_v_2, size_t h, size_t w) {
+  void out_product(T* out, const T* in_v_1, const T* in_v_2, size_t h, size_t w) {
     for (size_t j = 0; j < h; j++) {
       for (size_t i = 0; i < w; i++) {
         size_t k = j * w + i;
@@ -202,10 +218,10 @@ class MultiCrossLayerTest {
   }
 
   void cpu_bprop_() {
-    std::vector<float> tmp_mat_0(batchsize_ * w_);
-    std::vector<float> tmp_mat_1(batchsize_ * w_);
-    std::vector<float> tmp_vec(batchsize_);
-    memset(h_input_grad_.data(), 0, h_input_grad_.size() * sizeof(float));
+    std::vector<T> tmp_mat_0(batchsize_ * w_);
+    std::vector<T> tmp_mat_1(batchsize_ * w_);
+    std::vector<T> tmp_vec(batchsize_);
+    memset(h_input_grad_.data(), 0, h_input_grad_.size() * sizeof(T));
     for (int i = layers_ - 1; i >= 0; i--) {
       row_scaling(tmp_mat_0.data(), i == layers_ - 1 ? h_output_grad_.data() : tmp_mat_1.data(),
                   h_hiddens_[i].data(), batchsize_, w_);
@@ -231,49 +247,47 @@ class MultiCrossLayerTest {
   }
 
   void compare_forward_() {
-    std::vector<float> d2h_output;
+    std::vector<T> d2h_output;
     d2h_output.resize(batchsize_ * w_);
 
     CK_CUDA_THROW_(cudaMemcpy(d2h_output.data(), d_output_.get_ptr(), d_output_.get_size_in_bytes(),
                               cudaMemcpyDeviceToHost));
 
-    // todo compare
-    ASSERT_TRUE(test::compare_array_approx_with_ratio<float>(
-        d2h_output.data(), h_outputs_.back().data(), h_outputs_.back().size(), eps, 0.05f));
+    ASSERT_TRUE(test::compare_array_approx_rel<T>(
+        d2h_output.data(), h_outputs_.back().data(), h_outputs_.back().size(), 0.1f, eps_())); 
   }
 
   void compare_backward_() {
-    std::vector<float> d2h_input_grad;
-    std::vector<std::vector<float>> d2h_kernel_grads_;
-    std::vector<std::vector<float>> d2h_bias_grads_;
+    std::vector<T> d2h_input_grad;
+    std::vector<std::vector<T>> d2h_kernel_grads_;
+    std::vector<std::vector<T>> d2h_bias_grads_;
 
     d2h_input_grad.resize(batchsize_ * w_);
     for (int i = 0; i < layers_; i++) {
-      d2h_kernel_grads_.push_back(std::vector<float>(1 * w_));
-      d2h_bias_grads_.push_back(std::vector<float>(1 * w_));
+      d2h_kernel_grads_.push_back(std::vector<T>(1 * w_));
+      d2h_bias_grads_.push_back(std::vector<T>(1 * w_));
     }
 
     CK_CUDA_THROW_(cudaMemcpy(d2h_input_grad.data(), d_input_.get_ptr(),
                               d_input_.get_size_in_bytes(), cudaMemcpyDeviceToHost));
-    float* p = wgrad_.get_ptr();
+    T* p = wgrad_.get_ptr();
     for (int i = 0; i < layers_; i++) {
       CK_CUDA_THROW_(
-          cudaMemcpy(d2h_kernel_grads_[i].data(), p, w_ * sizeof(float), cudaMemcpyDeviceToHost));
+          cudaMemcpy(d2h_kernel_grads_[i].data(), p, w_ * sizeof(T), cudaMemcpyDeviceToHost));
       p += w_;
       CK_CUDA_THROW_(
-          cudaMemcpy(d2h_bias_grads_[i].data(), p, w_ * sizeof(float), cudaMemcpyDeviceToHost));
+          cudaMemcpy(d2h_bias_grads_[i].data(), p, w_ * sizeof(T), cudaMemcpyDeviceToHost));
       p += w_;
     }
 
-    ASSERT_TRUE(test::compare_array_approx_with_ratio<float>(
-        d2h_input_grad.data(), h_input_grad_.data(), h_input_grad_.size(), eps, 0.05f));
+    ASSERT_TRUE(test::compare_array_approx_rel<T>(
+        d2h_input_grad.data(), h_input_grad_.data(), h_input_grad_.size(), 0.4f, eps_()));
     for (int i = 0; i < layers_; i++) {
-      ASSERT_TRUE(test::compare_array_approx_with_ratio<float>(
+      ASSERT_TRUE(test::compare_array_approx_rel<T>(
           d2h_kernel_grads_[i].data(), h_kernel_grads_[i].data(), h_kernel_grads_[i].size(),
-          eps * 10, 0.40f));
-      ASSERT_TRUE(test::compare_array_approx_with_ratio<float>(
-          d2h_bias_grads_[i].data(), h_bias_grads_[i].data(), h_bias_grads_[i].size(), eps * 10,
-          0.20f));
+          0.4f, eps_()));
+      ASSERT_TRUE(test::compare_array_approx_rel<T>(
+          d2h_bias_grads_[i].data(), h_bias_grads_[i].data(), h_bias_grads_[i].size(), 0.2f, eps_()));
     }
   }
 
@@ -283,9 +297,10 @@ class MultiCrossLayerTest {
         w_(w),
         layers_(layers),
         blob_buf_(GeneralBuffer2<CudaAllocator>::create()),
-        data_sim_(0.0f, 1.0f) {
-    weight_buf_ = blob_buf_->create_block<float>();
-    wgrad_buf_ = blob_buf_->create_block<float>();
+        data_sim_(normal_params_().first, normal_params_().second) {
+    master_weight_buff_ = blob_buf_->create_block<float>();
+    weight_buf_ = blob_buf_->create_block<T>();
+    wgrad_buf_ = blob_buf_->create_block<T>();
 
     blob_buf_->reserve({batchsize, w}, &d_input_);
     blob_buf_->reserve({batchsize, w}, &d_output_);
@@ -295,16 +310,16 @@ class MultiCrossLayerTest {
     h_input_grad_.resize(batchsize * w);
 
     for (int i = 0; i < layers_; i++) {
-      h_kernels_.push_back(std::vector<float>(1 * w));
-      h_biases_.push_back(std::vector<float>(1 * w));
-      h_outputs_.push_back(std::vector<float>(batchsize * w));
-      h_hiddens_.push_back(std::vector<float>(batchsize * 1));
-      h_kernel_grads_.push_back(std::vector<float>(1 * w));
-      h_bias_grads_.push_back(std::vector<float>(1 * w));
+      h_kernels_.push_back(std::vector<T>(1 * w));
+      h_biases_.push_back(std::vector<T>(1 * w));
+      h_outputs_.push_back(std::vector<T>(batchsize * w));
+      h_hiddens_.push_back(std::vector<T>(batchsize * 1));
+      h_kernel_grads_.push_back(std::vector<T>(1 * w));
+      h_bias_grads_.push_back(std::vector<T>(1 * w));
     }
 
     // layer
-    layer_.reset(new MultiCrossLayer(weight_buf_, wgrad_buf_, blob_buf_, d_input_, d_output_,
+    layer_.reset(new MultiCrossLayer<T>(master_weight_buff_, weight_buf_, wgrad_buf_, blob_buf_, d_input_, d_output_,
                                      test::get_default_gpu(), layers));
 
     blob_buf_->allocate();
@@ -329,36 +344,71 @@ class MultiCrossLayerTest {
 };
 
 TEST(multi_cross_layer, fp32_1x1024x1) {
-  MultiCrossLayerTest test(1, 1024, 1);
+  MultiCrossLayerTest<float> test(1, 1024, 1);
   test.test();
 }
 
 TEST(multi_cross_layer, fp32_1x1024x2) {
-  MultiCrossLayerTest test(1, 1024, 2);
+  MultiCrossLayerTest<float> test(1, 1024, 2);
   test.test();
 }
 
 TEST(multi_cross_layer, fp32_1x1024x3) {
-  MultiCrossLayerTest test(1, 1024, 3);
+  MultiCrossLayerTest<float> test(1, 1024, 3);
   test.test();
 }
 
 TEST(multi_cross_layer, fp32_32x1024x3) {
-  MultiCrossLayerTest test(32, 1024, 3);
+  MultiCrossLayerTest<float> test(32, 1024, 3);
   test.test();
 }
 
 TEST(multi_cross_layer, fp32_4096x1024x2) {
-  MultiCrossLayerTest test(4096, 1024, 2);
+  MultiCrossLayerTest<float> test(4096, 1024, 2);
   test.test();
 }
 
 TEST(multi_cross_layer, fp32_4096x1024x3) {
-  MultiCrossLayerTest test(4096, 1024, 3);
+  MultiCrossLayerTest<float> test(4096, 1024, 3);
   test.test();
 }
 
 TEST(multi_cross_layer, fp32_40963x356x3) {
-  MultiCrossLayerTest test(40963, 356, 3);
+  MultiCrossLayerTest<float> test(40963, 356, 3);
+  test.test();
+}
+
+TEST(multi_cross_layer, fp16_1x1024x1) {
+  MultiCrossLayerTest<__half> test(1, 1024, 1);
+  test.test();
+}
+
+TEST(multi_cross_layer, fp16_1x1024x2) {
+  MultiCrossLayerTest<__half> test(1, 1024, 2);
+  test.test();
+}
+
+TEST(multi_cross_layer, fp16_1x1024x3) {
+  MultiCrossLayerTest<__half> test(1, 1024, 3);
+  test.test();
+}
+
+TEST(multi_cross_layer, fp16_32x1024x3) {
+  MultiCrossLayerTest<__half> test(32, 1024, 3);
+  test.test();
+}
+
+TEST(multi_cross_layer, fp16_1024x1024x2) {
+  MultiCrossLayerTest<__half> test(1024, 1024, 2);
+  test.test();
+}
+
+TEST(multi_cross_layer, fp16_1024x1024x3) {
+  MultiCrossLayerTest<__half> test(1024, 1024, 3);
+  test.test();
+}
+
+TEST(multi_cross_layer, fp16_1283x356x3) {
+  MultiCrossLayerTest<__half> test(1283, 356, 3);
   test.test();
 }

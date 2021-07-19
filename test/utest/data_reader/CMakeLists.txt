@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -31,3 +31,4 @@ add_executable(async_reader ${async_reader_src})
 target_compile_features(data_reader_test PUBLIC cxx_std_17)
 target_link_libraries(async_reader PUBLIC huge_ctr_static gtest gtest_main)
 target_link_libraries(data_reader_test PUBLIC huge_ctr_static gtest gtest_main)
+ 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
   copy_sparse_model(snapshot_src_file, snapshot_dst_file);
 
   auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
-    return std::string(sparse_model_file) + "/" + sparse_model_file + "." + ext;
+    return std::string(sparse_model_file) + "/" + ext;
   };
 
   // test load_emb_tbl_to_mem
@@ -83,15 +83,15 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
     sparse_model_file.load_emb_tbl_to_mem(mem_key_index_map, mem_emb_table);
 
     size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
-    size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "vec"));
-    size_t num_keys = key_file_size_in_byte / sizeof(TypeKey);
+    size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "emb_vector"));
+    size_t num_keys = key_file_size_in_byte / sizeof(long long);
 
     ASSERT_TRUE(mem_key_index_map.size() == num_keys);
     ASSERT_TRUE(mem_emb_table.size() == vec_file_size_in_byte / sizeof(float));
     ASSERT_TRUE(num_keys == mem_emb_table.size() / emb_vec_size);
 
     if (!is_distributed) {
-      size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot"));
+      size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot_id"));
       ASSERT_TRUE(num_keys == slot_file_size_in_byte / sizeof(size_t));
     }
 
@@ -125,14 +125,14 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
     std::vector<TypeKey> key_in_file(num_keys);
     std::vector<float> vec_in_file(num_keys * emb_vec_size);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
-    std::ifstream vec_ifs(get_ext_file(snapshot_dst_file, "vec"));
-    key_ifs.read(reinterpret_cast<char *>(key_in_file.data()), key_file_size_in_byte);
+    std::ifstream vec_ifs(get_ext_file(snapshot_dst_file, "emb_vector"));
+    load_key_to_vec(key_in_file, key_ifs, num_keys, key_file_size_in_byte);
     vec_ifs.read(reinterpret_cast<char *>(vec_in_file.data()), vec_file_size_in_byte);
 
     std::vector<size_t> slot_in_file(num_keys);
     if (!is_distributed) {
-      size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot"));
-      std::ifstream slot_ifs(get_ext_file(snapshot_dst_file, "slot"));
+      size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot_id"));
+      std::ifstream slot_ifs(get_ext_file(snapshot_dst_file, "slot_id"));
       slot_ifs.read(reinterpret_cast<char *>(slot_in_file.data()), slot_file_size_in_byte);
     }
 
@@ -159,20 +159,21 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
         embedding_type, emb_vec_size, resource_manager);
 
     size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
-    size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "vec"));
-    size_t num_keys = key_file_size_in_byte / sizeof(TypeKey);
+    size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "emb_vector"));
+    size_t num_keys = key_file_size_in_byte / sizeof(long long);
 
     std::vector<TypeKey> key_in_file(num_keys);
-    std::vector<float> vec_in_file(num_keys * emb_vec_size);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
-    std::ifstream vec_ifs(get_ext_file(snapshot_dst_file, "vec"));
-    key_ifs.read(reinterpret_cast<char *>(key_in_file.data()), key_file_size_in_byte);
+    load_key_to_vec(key_in_file, key_ifs, num_keys, key_file_size_in_byte);
+
+    std::vector<float> vec_in_file(num_keys * emb_vec_size);
+    std::ifstream vec_ifs(get_ext_file(snapshot_dst_file, "emb_vector"));
     vec_ifs.read(reinterpret_cast<char *>(vec_in_file.data()), vec_file_size_in_byte);
 
     std::vector<size_t> slot_in_file(num_keys);
     if (!is_distributed) {
-      size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot"));
-      std::ifstream slot_ifs(get_ext_file(snapshot_dst_file, "slot"));
+      size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot_id"));
+      std::ifstream slot_ifs(get_ext_file(snapshot_dst_file, "slot_id"));
       slot_ifs.read(reinterpret_cast<char *>(slot_in_file.data()), slot_file_size_in_byte);
     }
 
@@ -189,9 +190,9 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
     }
 
     check_vector_equality(temp_snapshot_file, snapshot_dst_file, "key");
-    check_vector_equality(temp_snapshot_file, snapshot_dst_file, "vec");
+    check_vector_equality(temp_snapshot_file, snapshot_dst_file, "emb_vector");
     if (!is_distributed) {
-      check_vector_equality(temp_snapshot_file, snapshot_dst_file, "slot");
+      check_vector_equality(temp_snapshot_file, snapshot_dst_file, "slot_id");
     }
 
     // test load_exist_vec_by_key
@@ -211,15 +212,15 @@ void sparse_model_file_test(int batch_num_train, bool is_distributed) {
         embedding_type, emb_vec_size, resource_manager);
 
     size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
-    size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "vec"));
-    size_t num_keys = key_file_size_in_byte / sizeof(TypeKey);
+    size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "emb_vector"));
+    size_t num_keys = key_file_size_in_byte / sizeof(long long);
     size_t num_vecs = vec_file_size_in_byte / (emb_vec_size * sizeof(float));
     ASSERT_TRUE(num_keys == num_vecs);
 
     std::vector<TypeKey> all_keys(num_keys);
     {
       std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
-      key_ifs.read(reinterpret_cast<char *>(all_keys.data()), key_file_size_in_byte);
+      load_key_to_vec(all_keys, key_ifs, num_keys, key_file_size_in_byte);
     }
 
     std::vector<TypeKey> rand_idx(1024);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,21 +74,14 @@ void do_upload_and_download_snapshot(
       vocabulary_size, label_dim, dense_dim, max_nnz_per_slot);
 
   // create train/eval data readers
-  const DataReaderSparseParam param = {
-      DataReaderSparse_t::Distributed,
-      max_feature_num,
-      max_nnz_per_slot,
-      slot_num
-  };
+  const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz_per_slot), false, slot_num};
   std::vector<DataReaderSparseParam> data_reader_params;
   data_reader_params.push_back(param);
 
-  std::unique_ptr<DataReader<TypeKey>> data_reader_train(
-      new DataReader<TypeKey>(batchsize, label_dim, dense_dim,
-          data_reader_params, resource_manager, true, num_workers, false, 0));
-  std::unique_ptr<DataReader<TypeKey>> data_reader_eval(
-      new DataReader<TypeKey>(batchsize, label_dim, dense_dim,
-          data_reader_params, resource_manager, true, num_workers, false, 0));
+  std::unique_ptr<DataReader<TypeKey>> data_reader_train(new DataReader<TypeKey>(
+      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false));
+  std::unique_ptr<DataReader<TypeKey>> data_reader_eval(new DataReader<TypeKey>(
+      batchsize, label_dim, dense_dim, data_reader_params, resource_manager, true, num_workers, false));
 
   data_reader_train->create_drwg_norm(file_list_name_train, check);
   data_reader_eval->create_drwg_norm(file_list_name_eval, check);
@@ -108,14 +101,20 @@ void do_upload_and_download_snapshot(
       batchsize,       batchsize, vocabulary_size, {},        emb_vec_size,
       max_feature_num, slot_num,  combiner,        opt_params};
 
-  auto embedding = init_embedding<TypeKey, float>(
-      bags_to_tensors<TypeKey>(data_reader_train->get_row_offsets_tensors()),
-      bags_to_tensors<TypeKey>(data_reader_train->get_value_tensors()),
-      data_reader_train->get_nnz_array(),
-      bags_to_tensors<TypeKey>(data_reader_eval->get_row_offsets_tensors()),
-      bags_to_tensors<TypeKey>(data_reader_eval->get_value_tensors()),
-      data_reader_eval->get_nnz_array(),
-      embedding_param, resource_manager, embedding_type);
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<TypeKey> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<TypeKey> train_inputs;
+  copy(data_reader_train->get_sparse_tensors("distributed"), train_inputs);
+  SparseTensors<TypeKey> eval_inputs;
+  copy(data_reader_eval->get_sparse_tensors("distributed"), eval_inputs);
+
+  std::shared_ptr<IEmbedding> embedding = init_embedding<TypeKey, float>(
+          train_inputs, eval_inputs,
+          embedding_param, resource_manager, embedding_type);
   embedding->init_params();
 
   // train the embedding
@@ -129,22 +128,31 @@ void do_upload_and_download_snapshot(
   copy_sparse_model(snapshot_src_file, snapshot_dst_file);
 
   auto get_ext_file = [](const std::string& sparse_model_file, std::string ext) {
-    return std::string(sparse_model_file) + "/" + sparse_model_file + "." + ext;
+    return std::string(sparse_model_file) + "/" + ext;
   };
 
   // Make a synthetic keyset files
   {
     size_t key_file_size_in_byte =
         fs::file_size(get_ext_file(snapshot_dst_file, "key"));
-    size_t num_keys = key_file_size_in_byte / sizeof(TypeKey);
-    std::vector<TypeKey> keys_in_file(num_keys);
+    size_t num_keys = key_file_size_in_byte / sizeof(long long);
+    std::vector<long long> keys_in_file(num_keys);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
     key_ifs.read(reinterpret_cast<char *>(keys_in_file.data()),
                                           key_file_size_in_byte);
+    TypeKey *key_ptr = nullptr;
+    std::vector<TypeKey> key_vec;
+    if (std::is_same<TypeKey, long long>::value) {
+      key_ptr = reinterpret_cast<TypeKey*>(keys_in_file.data());
+    } else {
+      key_vec.resize(num_keys);
+      std::transform(keys_in_file.begin(), keys_in_file.end(), key_vec.begin(),
+                     [](long long key) { return static_cast<unsigned>(key); });
+      key_ptr = key_vec.data();
+    }
     std::ofstream key_ofs(keyset_file_name, std::ofstream::binary |
                                             std::ofstream::trunc);
-    key_ofs.write(reinterpret_cast<char *>(keys_in_file.data()),
-                                           key_file_size_in_byte);
+    key_ofs.write(reinterpret_cast<char *>(key_ptr), num_keys * sizeof(TypeKey));
   }
 
   std::vector<std::string> keyset_file_list;
@@ -156,10 +164,11 @@ void do_upload_and_download_snapshot(
   std::vector<std::shared_ptr<IEmbedding>> embeddings;
   embeddings.push_back(embedding);
   bool is_i64_key = std::is_same<TypeKey, unsigned>::value ? false : true;
+  bool use_mixed_precision = false;
 
   std::shared_ptr<ModelOversubscriber> model_oversubscriber(
       new ModelOversubscriber(use_host_ps, embeddings, sparse_embedding_files,
-                              resource_manager, is_i64_key));
+                              resource_manager, use_mixed_precision, is_i64_key));
 
   Timer timer_ps;
   timer_ps.start();
@@ -175,26 +184,26 @@ void do_upload_and_download_snapshot(
 
   // Check if the result is correct
   ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "key"));
-  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "vec"));
+  ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "emb_vector"));
   if (!is_distributed) {
-    ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "slot"));
+    ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "slot_id"));
   }
 }
 
 TEST(model_oversubscriber_test, long_long_ssd_distributed) {
   do_upload_and_download_snapshot<long long>(30, false, true);
 }
-/*
+
 TEST(model_oversubscriber_test, unsigned_host_distributed) {
   do_upload_and_download_snapshot<unsigned>(20, true, true);
 }
-*/
+
 TEST(model_oversubscriber_test, long_long_ssd_localized) {
   do_upload_and_download_snapshot<long long>(20, false, false);
 }
-/*
+
 TEST(model_oversubscriber_test, unsigned_host_localized) {
   do_upload_and_download_snapshot<unsigned>(20, true, false);
 }
-*/
+
 }  // namespace

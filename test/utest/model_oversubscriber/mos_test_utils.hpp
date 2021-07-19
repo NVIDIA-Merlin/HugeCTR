@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,20 @@ namespace HugeCTR {
 
 namespace mos_test {
 
+template <typename TypeKey>
+void load_key_to_vec(std::vector<TypeKey> &key_vec, std::ifstream &key_ifs,
+    size_t num_key, size_t key_file_size_in_byte) {
+  key_vec.resize(num_key);
+  if (std::is_same<TypeKey, long long>::value) {
+    key_ifs.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_byte);
+  } else {
+    std::vector<long long> i64_key_vec(num_key, 0);
+    key_ifs.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_byte);
+    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_vec.begin(),
+                   [](long long key) { return static_cast<unsigned>(key); });
+  }
+}
+
 inline std::vector<char> load_to_vector(const std::string& file_name) {
   std::ifstream stream(file_name, std::ifstream::binary);
   if (!stream.is_open()) {
@@ -51,30 +65,24 @@ inline std::vector<char> load_to_vector(const std::string& file_name) {
   return vec;
 }
 
-template <typename TypeKey, typename EmbeddingCompType>
-std::shared_ptr<Embedding<TypeKey, EmbeddingCompType>> init_embedding(
-    const Tensors2<TypeKey> &train_row_offsets_tensors,
-    const Tensors2<TypeKey> &train_value_tensors,
-    const std::vector<std::shared_ptr<size_t>> &train_nnz_array,
-    const Tensors2<TypeKey> &evaluate_row_offsets_tensors,
-    const Tensors2<TypeKey> &evaluate_value_tensors,
-    const std::vector<std::shared_ptr<size_t>> &evaluate_nnz_array,
+template <typename KeyType, typename EmbeddingCompType>
+std::unique_ptr<IEmbedding> init_embedding(
+    const SparseTensors<KeyType> &train_sparse_tensors,
+    const SparseTensors<KeyType> &evaluate_sparse_tensors,
     const SparseEmbeddingHashParams &embedding_params,
     const std::shared_ptr<ResourceManager> &resource_manager,
     const Embedding_t embedding_type) {
   if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
-    std::shared_ptr<Embedding<TypeKey, EmbeddingCompType>> embedding(
-        new DistributedSlotSparseEmbeddingHash<TypeKey, EmbeddingCompType>(
-            train_row_offsets_tensors, train_value_tensors, train_nnz_array,
-            evaluate_row_offsets_tensors, evaluate_value_tensors,
-            evaluate_nnz_array, embedding_params, resource_manager));
+    std::unique_ptr<IEmbedding> embedding(
+        new DistributedSlotSparseEmbeddingHash<KeyType, EmbeddingCompType>(
+            train_sparse_tensors, evaluate_sparse_tensors,
+            embedding_params, resource_manager));
     return embedding;
   } else {
-    std::shared_ptr<Embedding<TypeKey, EmbeddingCompType>> embedding(
-        new LocalizedSlotSparseEmbeddingHash<TypeKey, EmbeddingCompType>(
-            train_row_offsets_tensors, train_value_tensors, train_nnz_array,
-            evaluate_row_offsets_tensors, evaluate_value_tensors,
-            evaluate_nnz_array, embedding_params, resource_manager));
+    std::unique_ptr<IEmbedding> embedding(
+        new LocalizedSlotSparseEmbeddingHash<KeyType, EmbeddingCompType>(
+            train_sparse_tensors, evaluate_sparse_tensors,
+            embedding_params, resource_manager));
     return embedding;
   }
 }
@@ -85,22 +93,12 @@ inline void copy_sparse_model(
     fs::remove_all(sparse_model_dst);
   }
   fs::copy(sparse_model_src, sparse_model_dst, fs::copy_options::recursive);
-  std::string src_prefix = std::string(sparse_model_dst) + "/" + sparse_model_src;
-  std::string dst_prefix = std::string(sparse_model_dst) + "/" + sparse_model_dst;
-  fs::rename((src_prefix + ".key").c_str(), (dst_prefix + ".key").c_str());
-  fs::rename((src_prefix + ".vec").c_str(), (dst_prefix + ".vec").c_str());
-
-  if (fs::exists(src_prefix + ".slot")) {
-    fs::rename((src_prefix + ".slot").c_str(), (dst_prefix + ".slot").c_str());
-  }
 }
 
 inline bool check_vector_equality(const char *sparse_model_src,
     const char *sparse_model_dst, const char *ext) {
-  const std::string src_file(
-      std::string(sparse_model_src) + "/" + sparse_model_src + "." + ext);
-  const std::string dst_file(
-      std::string(sparse_model_dst) + "/" + sparse_model_dst + "." + ext);
+  const std::string src_file(std::string(sparse_model_src) + "/" + ext);
+  const std::string dst_file(std::string(sparse_model_dst) + "/" + ext);
 
   std::vector<char> vec_src = load_to_vector(src_file);
   std::vector<char> vec_dst = load_to_vector(dst_file);
@@ -142,9 +140,9 @@ inline void generate_sparse_model_impl(std::string sparse_model_name,
 
   // create train/eval data readers
   const DataReaderSparseParam param = {
-      DataReaderSparse_t::Distributed,
-      static_cast<int>(max_feature_num),
+      "distributed",
       max_nnz_per_slot,
+      false,
       static_cast<int>(slot_num)
   };
   std::vector<DataReaderSparseParam> data_reader_params;
@@ -152,10 +150,10 @@ inline void generate_sparse_model_impl(std::string sparse_model_name,
 
   std::unique_ptr<DataReader<TypeKey>> data_reader_train(
       new DataReader<TypeKey>(batchsize, label_dim, dense_dim,
-          data_reader_params, resource_manager, true, num_workers, false, 0));
+          data_reader_params, resource_manager, true, num_workers, false));
   std::unique_ptr<DataReader<TypeKey>> data_reader_eval(
       new DataReader<TypeKey>(batchsize, label_dim, dense_dim,
-          data_reader_params, resource_manager, true, num_workers, false, 0));
+          data_reader_params, resource_manager, true, num_workers, false));
 
   data_reader_train->create_drwg_norm(file_list_name_train, check);
   data_reader_eval->create_drwg_norm(file_list_name_eval, check);
@@ -177,13 +175,20 @@ inline void generate_sparse_model_impl(std::string sparse_model_name,
       batchsize,       batchsize, vocabulary_size, {},         emb_vec_size,
       max_feature_num, slot_num,  combiner,        opt_params};
 
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<TypeKey> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<TypeKey>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<TypeKey> train_inputs;
+  copy(data_reader_train->get_sparse_tensors("distributed"), train_inputs);
+  SparseTensors<TypeKey> eval_inputs;
+  copy(data_reader_eval->get_sparse_tensors("distributed"), eval_inputs);
+
   auto embedding = init_embedding<TypeKey, float>(
-      bags_to_tensors<TypeKey>(data_reader_train->get_row_offsets_tensors()),
-      bags_to_tensors<TypeKey>(data_reader_train->get_value_tensors()),
-      data_reader_train->get_nnz_array(),
-      bags_to_tensors<TypeKey>(data_reader_eval->get_row_offsets_tensors()),
-      bags_to_tensors<TypeKey>(data_reader_eval->get_value_tensors()),
-      data_reader_eval->get_nnz_array(),
+      train_inputs,
+      eval_inputs,
       embedding_params, resource_manager, embedding_type);
   embedding->init_params();
 

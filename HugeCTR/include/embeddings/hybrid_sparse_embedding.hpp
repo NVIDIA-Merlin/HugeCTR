@@ -111,8 +111,8 @@ class HybridSparseEmbedding : public IEmbedding {
   std::vector<std::unordered_map<std::string, cudaStream_t>> stream_map;
   std::vector<std::unordered_map<std::string, cudaEvent_t>> event_map;
 
-  Tensors2<dtype> train_input_tensors_;
-  Tensors2<dtype> evaluate_input_tensors_;
+  SparseTensors<dtype> train_input_tensors_;
+  SparseTensors<dtype> evaluate_input_tensors_;
   HybridSparseEmbeddingParams<emtype> embedding_params_;
   std::shared_ptr<ResourceManager> resource_manager_;
 
@@ -127,6 +127,10 @@ class HybridSparseEmbedding : public IEmbedding {
 
   GpuLearningRateSchedulers lr_scheds_;
   bool graph_mode_;
+
+  // TODO: this parameter is not used by HE at all.
+  // We should be in pursuit of merging SparseEmbeddingHashParams and HybridSparseEmbeddingParams
+  SparseEmbeddingHashParams dummy_params_;
   
   void index_calculation(bool is_train, int eval_batch, int i, cudaStream_t stream);
   void forward          (bool is_train, int eval_batch, int i, cudaStream_t stream);
@@ -175,8 +179,8 @@ class HybridSparseEmbedding : public IEmbedding {
   void destroy_events();
 
  public:
-  HybridSparseEmbedding(const Tensors2<dtype> &train_input_tensors,
-                        const Tensors2<dtype> &evaluate_input_tensors,
+  HybridSparseEmbedding(const SparseTensors<dtype> &train_input_tensors,
+                        const SparseTensors<dtype> &evaluate_input_tensors,
                         const HybridSparseEmbeddingParams<emtype> &embedding_params,
                         const std::vector<BuffPtr<emtype>>& grouped_wgrad_buff,
                         const GpuLearningRateSchedulers lr_scheds,
@@ -185,7 +189,7 @@ class HybridSparseEmbedding : public IEmbedding {
   ~HybridSparseEmbedding();
 
   // TODO: consider to merge it with init_params
-  void init_model(const Tensors2<dtype> &data, size_t& wgrad_offset);
+  void init_model(const SparseTensors<dtype> &data, size_t& wgrad_offset);
 
   TrainState train(bool is_train, int i, TrainState state) override;
   void forward(bool is_train, int eval_batch = -1) override;
@@ -212,6 +216,9 @@ class HybridSparseEmbedding : public IEmbedding {
   void dump_opt_states(std::ofstream& stream) override {} 
   void load_opt_states(std::ifstream& stream) override {} 
 
+  const SparseEmbeddingHashParams& get_embedding_params() const override {
+    return dummy_params_;
+  }
   void check_overflow() const override {}
   void get_forward_results_tf(const bool is_train, const bool on_gpu,
                               void *const forward_result) override {}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,17 @@
 #include <curand.h>
 #include <nvml.h>
 
+#include <algorithm>
 #include <config.hpp>
 #include <ctime>
 #include <exception>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <utility>
 #include <unordered_map>
+#include <vector>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -75,13 +78,6 @@ enum class DataReaderSparse_t { Distributed, Localized };
 enum class DataReaderType_t { Norm, Raw, Parquet, RawAsync };
 
 enum class SourceType_t { FileList, Mmap, Parquet };
-
-struct DataReaderSparseParam {
-  DataReaderSparse_t type;
-  int max_feature_num;
-  int max_nnz;
-  int slot_num;
-};
 
 struct NameID {
   std::string file_name;
@@ -149,7 +145,8 @@ enum class Layer_t {
   ReduceSum,
   MultiCross,
   Cast,
-  DotProduct
+  DotProduct,
+  ElementwiseMultiply
 };
 
 enum class Embedding_t {
@@ -173,13 +170,25 @@ struct TrainState {
 };
 
 typedef struct DataSetHeader_ {
-  long long error_check;        // 0: no error check; 1: check_num
+  long long error_check;        // 0: no error check; 1: check_sum
   long long number_of_records;  // the number of samples in this data file
   long long label_dim;          // dimension of label
   long long dense_dim;          // dimension of dense feature
   long long slot_num;           // slot_num for each embedding
   long long reserved[3];        // reserved for future use
 } DataSetHeader;
+
+#define DISALLOW_COPY(ClassName)        \
+  ClassName(const ClassName&) = delete; \
+  ClassName& operator=(const ClassName&) = delete;
+
+#define DISALLOW_MOVE(ClassName)   \
+  ClassName(ClassName&&) = delete; \
+  ClassName& operator=(ClassName&&) = delete;
+
+#define DISALLOW_COPY_AND_MOVE(ClassName) \
+  DISALLOW_COPY(ClassName)                \
+  DISALLOW_MOVE(ClassName)
 
 #ifdef ENABLE_MPI
 #define CK_MPI_THROW_(cmd)                                                                       \
@@ -394,6 +403,43 @@ inline void LOG(const Args&... args) {
 
   return;
 }
+
+struct DataReaderSparseParam {
+  std::string top_name;
+  std::vector<int> nnz_per_slot;
+  bool is_fixed_length;
+  int slot_num;
+
+  DataReaderSparse_t type;
+  int max_feature_num;
+  int max_nnz;
+
+  DataReaderSparseParam() {}
+  DataReaderSparseParam(const std::string& top_name_, const std::vector<int>& nnz_per_slot_,
+                        bool is_fixed_length_, int slot_num_)
+      : top_name(top_name_),
+        nnz_per_slot(nnz_per_slot_),
+        is_fixed_length(is_fixed_length_),
+        slot_num(slot_num_),
+        type(DataReaderSparse_t::Distributed) {
+    if (static_cast<size_t>(slot_num_) != nnz_per_slot_.size()) {
+      CK_THROW_(Error_t::WrongInput, "slot num != nnz_per_slot.size().");
+    }
+    max_feature_num = std::accumulate(nnz_per_slot.begin(), nnz_per_slot.end(), 0);
+    max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
+  }
+
+  DataReaderSparseParam(const std::string& top_name_, const int nnz_per_slot_,
+                        bool is_fixed_length_, int slot_num_)
+      : top_name(top_name_),
+        nnz_per_slot(slot_num_, nnz_per_slot_),
+        is_fixed_length(is_fixed_length_),
+        slot_num(slot_num_),
+        type(DataReaderSparse_t::Distributed) {
+    max_feature_num = std::accumulate(nnz_per_slot.begin(), nnz_per_slot.end(), 0);
+    max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
+  }
+};
 
 }  // namespace HugeCTR
 

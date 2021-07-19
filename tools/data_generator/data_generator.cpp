@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,22 +43,48 @@ static std::string TAIL{"medium"};
 static bool use_long_tail = false;
 static float alpha = 0.0;
 
-template <typename TypeKey>
-static void parse_data_layer(const nlohmann::json& j, int& label_dim, int& dense_dim,
-                             Check_t& check_type, std::string& source_data,
-                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-                             std::string& eval_source, std::string& top_strs_label,
-                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
-                             std::map<std::string, SparseInput<TypeKey>>& sparse_input_map) {
+
+
+void parse_common_arguments(const nlohmann::json& j, DataReaderType_t& format, 
+			    int& label_dim, int& dense_dim,int& num_slot,
+			    std::string& source_data,
+			    std::string& eval_source, bool& i64_input_key){
   source_data = get_value_from_json<std::string>(j, "source");
+  FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
+  label_dim = get_value_from_json<int>(j, "label_dim");
+  dense_dim = get_value_from_json<int>(j, "dense_dim");
 
-  auto j_label = get_json(j, "label");
-  top_strs_label = get_value_from_json<std::string>(j_label, "top");
-  label_dim = get_value_from_json<int>(j_label, "label_dim");
+  const std::map<std::string, DataReaderType_t> Data_READER_TYPE = {
+      {"Norm", DataReaderType_t::Norm}, {"Raw", DataReaderType_t::Raw}};
+  format = DataReaderType_t::Norm;
+  if (has_key_(j, "format")) {
+    const auto data_format_name = get_value_from_json<std::string>(j, "format");
+    if (!find_item_in_map(format, data_format_name, Data_READER_TYPE)) {
+      CK_THROW_(Error_t::WrongInput, "No such data format: " + data_format_name);
+    }
+  }
+  num_slot = get_value_from_json<int>(j, "num_slot");
+  i64_input_key = false;
+  if (has_key_(j, "input_key_type")) {
+    auto str = get_value_from_json<std::string>(j, "input_key_type");
+    if (0 == str.compare("I64")) {
+      i64_input_key = true;
+      MESSAGE_("input_key_type is I64.");
+    } else if (0 == str.compare("I32")) {
+      i64_input_key = false;
+      MESSAGE_("input_key_type is I32.");
+    } else {
+      CK_THROW_(Error_t::WrongInput, "input_key_type must be {I64 or I32}");
+    }
+  } else {
+    i64_input_key = false;
+    MESSAGE_("Default input_key_type is I32.");
+  }
 
-  auto j_dense = get_json(j, "dense");
-  top_strs_dense = get_value_from_json<std::string>(j_dense, "top");
-  dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
+}
+
+static void parse_norm_arguments(const nlohmann::json& j, 
+                             Check_t& check_type){
 
   const std::map<std::string, Check_t> CHECK_TYPE_MAP = {{"Sum", Check_t::Sum},
                                                          {"None", Check_t::None}};
@@ -67,43 +93,41 @@ static void parse_data_layer(const nlohmann::json& j, int& label_dim, int& dense
   if (!find_item_in_map(check_type, check_str, CHECK_TYPE_MAP)) {
     CK_THROW_(Error_t::WrongInput, "Not supported check type: " + check_str);
   }
+}
 
-  const std::map<std::string, DataReaderSparse_t> DATA_TYPE_MAP = {
-      {"DistributedSlot", DataReaderSparse_t::Distributed},
-      {"LocalizedSlot", DataReaderSparse_t::Localized},
-  };
 
-  auto j_sparse = get_json(j, "sparse");
-  for (unsigned int i = 0; i < j_sparse.size(); i++) {
-    DataReaderSparseParam param;
+void parse_raw_arguments(const nlohmann::json& j, 
+			 long long& num_samples, long long& eval_num_samples, 
+			 std::vector<size_t>& slot_size_array, bool& float_label_dense){
 
-    const nlohmann::json& js = j_sparse[i];
-    const auto sparse_name = get_value_from_json<std::string>(js, "top");
-    const auto data_type_name = get_value_from_json<std::string>(js, "type");
-    if (!find_item_in_map(param.type, data_type_name, DATA_TYPE_MAP)) {
-      CK_THROW_(Error_t::WrongInput, "Not supported data type: " + data_type_name);
+  if (has_key_(j, "slot_size_array")) {
+    auto temp_array = get_json(j, "slot_size_array");
+    if (!temp_array.is_array()) {
+      CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
     }
-    param.max_feature_num = get_value_from_json<int>(js, "max_feature_num_per_sample");
-    param.max_nnz = get_value_from_json_soft<int>(js, "max_nnz", param.max_feature_num);
-    param.slot_num = get_value_from_json<int>(js, "slot_num");
-    data_reader_sparse_param_array.push_back(param);
-    SparseInput<TypeKey> sparse_input(param.slot_num, param.max_feature_num);
-    sparse_input_map.emplace(sparse_name, sparse_input);
-    sparse_names.push_back(sparse_name);
+    long long slot_num = 0;
+    for (auto j_slot_size : temp_array) {
+      size_t slot_size = j_slot_size.get<size_t>();
+      slot_size_array.push_back(slot_size);
+      slot_num += slot_size;
+    }
+    MESSAGE_("vocabulary size: " + std::to_string(slot_num));
+
+  } else {
+    CK_THROW_(Error_t::WrongInput, "No such key in json file: slot_size_array.");
   }
-  FIND_AND_ASSIGN_STRING_KEY(eval_source, j);
+
+  float_label_dense =
+    get_value_from_json_soft<bool>(j, "float_label_dense", false);
+
+  num_samples = get_value_from_json<long long>(j, "num_samples");
+  eval_num_samples =
+          get_value_from_json<long long>(j, "eval_num_samples");
+
+
 }
 
 
-void parse_data_layer_helper(const nlohmann::json& j, int& label_dim, int& dense_dim,
-                             Check_t& check_type, std::string& source_data,
-                             std::vector<DataReaderSparseParam>& data_reader_sparse_param_array,
-                             std::string& eval_source, std::string& top_strs_label,
-                             std::string& top_strs_dense, std::vector<std::string>& sparse_names,
-                             std::map<std::string, SparseInput<long long>>& sparse_input_map) {
-  parse_data_layer(j, label_dim, dense_dim, check_type, source_data, data_reader_sparse_param_array,
-                   eval_source, top_strs_label, top_strs_dense, sparse_names, sparse_input_map);
-}
 
 int main(int argc, char* argv[]) {
   if (ArgParser::has_arg("help", argc, argv)){
@@ -125,18 +149,13 @@ int main(int argc, char* argv[]) {
   nlohmann::json config;
   file >> config;
   file.close();
-  auto j_layers_array = config.find("layers").value();
 
-  const std::map<std::string, DataReaderType_t> Data_READER_TYPE = {
-      {"Norm", DataReaderType_t::Norm}, {"Raw", DataReaderType_t::Raw}};
-
-  DataReaderType_t format = DataReaderType_t::Norm;
-  if (has_key_(j_layers_array[0], "format")) {
-    const auto data_format_name = get_value_from_json<std::string>(j_layers_array[0], "format");
-    if (!find_item_in_map(format, data_format_name, Data_READER_TYPE)) {
-      CK_THROW_(Error_t::WrongInput, "No such data format: " + data_format_name);
-    }
-  }
+  DataReaderType_t format;
+  int label_dim, dense_dim, num_slot;
+  std::string source_data;
+  std::string eval_source;
+  bool i64_input_key;
+  parse_common_arguments(config, format, label_dim, dense_dim, num_slot, source_data, eval_source, i64_input_key);
 
   auto get_dist = [&](){
     auto distri = ArgParser::get_arg<std::string>("distribution", argc, argv, "powerlow");
@@ -169,25 +188,6 @@ int main(int argc, char* argv[]) {
 
   std::vector<int> nnz_array =  ArgParser::get_arg<std::vector<int>>("nnz-array", argc, argv, std::vector<int>());
 
-
-  /*parse the solver*/
-  bool i64_input_key(false);
-  auto j_solver = get_json(config, "solver");
-  if (has_key_(j_solver, "input_key_type")) {
-    auto str = get_value_from_json<std::string>(j_solver, "input_key_type");
-    if (0 == str.compare("I64")) {
-      i64_input_key = true;
-      MESSAGE_("input_key_type is I64.");
-    } else if (0 == str.compare("I32")) {
-      i64_input_key = false;
-      MESSAGE_("input_key_type is I32.");
-    } else {
-      CK_THROW_(Error_t::WrongInput, "input_key_type must be {I64 or I32}");
-    }
-  } else {
-    i64_input_key = false;
-    MESSAGE_("Default input_key_type is I32.");
-  }
   
   switch (format) {
     case DataReaderType_t::Norm: {
@@ -204,9 +204,6 @@ int main(int argc, char* argv[]) {
       NUM_FILES = ArgParser::get_arg<int>("files", argc, argv, 128);
       NUM_SAMPLES_PER_FILE = ArgParser::get_arg<int>("samples", argc, argv, 40960);
 
-
-      //      HugeCTR::ArgParser::parse_data_generator_args(argc, argv, NUM_FILES, NUM_SAMPLES_PER_FILE, TAIL, use_long_tail);
-
       get_dist();
       
       std::cout << "Configure File: " << config_file << ", Data Folder: " << data_folder << ", voc_size_array: " << vec_to_string(voc_size_array) << ", nnz array: " << vec_to_string(nnz_array)
@@ -214,22 +211,8 @@ int main(int argc, char* argv[]) {
                 << ", Use power law distribution: " << use_long_tail
                 << ", alpha of power law: " << alpha << std::endl;
 
-      int label_dim = 0, dense_dim = 0;
       Check_t check_type;
-      std::string source_data;
-      std::vector<DataReaderSparseParam> data_reader_sparse_param_array;
-      std::string eval_source;
-      std::string top_strs_label, top_strs_dense;
-      std::vector<std::string> sparse_names;
-      std::map<std::string, SparseInput<long long>> sparse_input_map;
-      parse_data_layer_helper(j_layers_array[0], label_dim, dense_dim, check_type, source_data,
-                              data_reader_sparse_param_array, eval_source, top_strs_label,
-                              top_strs_dense, sparse_names, sparse_input_map);
-
-      int num_slot = 0;
-      for (auto& param : data_reader_sparse_param_array) {
-        num_slot += param.slot_num;
-      }
+      parse_norm_arguments(config, check_type);
 
       check_make_dir(data_folder);
 
@@ -269,51 +252,20 @@ int main(int argc, char* argv[]) {
       break;
     }
     case DataReaderType_t::Raw: {
-      // NUM_FILES and NUM_SAMPLES_PER_FILE will not be used for generating data of Type Raw
-      //      HugeCTR::ArgParser::parse_data_generator_args(argc, argv, NUM_FILES, NUM_SAMPLES_PER_FILE, TAIL, use_long_tail);
-
       get_dist();
-
-      // use_long_tail = ArgParser::has_arg("long-tail", argc, argv);
-      // if(use_long_tail){
-      // 	TAIL = ArgParser::get_arg("long-tail", argc, argv, "medium");
-      // }
-
-      // if (use_long_tail && TAIL_TYPE.find(TAIL) != std::end(TAIL_TYPE)) {
-      //   if (TAIL == "long")
-      //     alpha = 1.0;
-      //   else if (TAIL == "medium")
-      //     alpha = 3.0;
-      //   else
-      //     alpha = 5.0;
-      // }
-
-      const auto num_samples = get_value_from_json<long long>(j_layers_array[0], "num_samples");
-      const auto eval_num_samples =
-          get_value_from_json<long long>(j_layers_array[0], "eval_num_samples");
+      std::vector<size_t> slot_size_array;
+      long long num_samples, eval_num_samples;
+      bool float_label_dense;
+      parse_raw_arguments(config, num_samples, eval_num_samples, 
+			  slot_size_array, float_label_dense);
+      
 
       std::cout << "Configure File: " << config_file << ", Number of train samples: " << num_samples
                 << ", Number of eval samples: " << eval_num_samples
                 << ", Use power law distribution: " << use_long_tail
                 << ", alpha of power law: " << alpha << std::endl;
 
-      std::vector<size_t> slot_size_array;
-      if (has_key_(j_layers_array[0], "slot_size_array")) {
-        auto temp_array = get_json(j_layers_array[0], "slot_size_array");
-        if (!temp_array.is_array()) {
-          CK_THROW_(Error_t::WrongInput, "!slot_size_array.is_array()");
-        }
-        long long slot_num = 0;
-        for (auto j_slot_size : temp_array) {
-          size_t slot_size = j_slot_size.get<size_t>();
-          slot_size_array.push_back(slot_size);
-          slot_num += slot_size;
-        }
-        MESSAGE_("vocabulary size: " + std::to_string(slot_num));
 
-      } else {
-        CK_THROW_(Error_t::WrongInput, "No such key in json file: slot_size_array.");
-      }
 
       if(nnz_array.empty()){
 	for(size_t i=0; i<slot_size_array.size(); i++){
@@ -325,14 +277,6 @@ int main(int argc, char* argv[]) {
 	CK_THROW_(Error_t::WrongInput, "The length of slot size array  != nnz array in command line option");
       }
 
-      const auto j_label = get_json(j_layers_array[0], "label");
-      const auto label_dim = get_value_from_json<int>(j_label, "label_dim");
-
-      const auto j_dense = get_json(j_layers_array[0], "dense");
-      const auto dense_dim = get_value_from_json<int>(j_dense, "dense_dim");
-
-      const auto source_data = get_value_from_json<std::string>(j_layers_array[0], "source");
-      const auto eval_source = get_value_from_json<std::string>(j_layers_array[0], "eval_source");
       if (file_exist(source_data)) {
         CK_THROW_(Error_t::WrongInput, source_data + " already exist!");
         exit(-1);
@@ -342,8 +286,6 @@ int main(int argc, char* argv[]) {
         exit(-1);
       }
 
-      const auto float_label_dense =
-          get_value_from_json_soft<bool>(j_layers_array[0], "float_label_dense", false);
 
       std::string source_dir;
       const size_t last_slash_idx = source_data.rfind('/');
@@ -364,21 +306,21 @@ int main(int argc, char* argv[]) {
 	// train data
 	data_generation_for_raw<long long>(source_data, num_samples, label_dim, dense_dim,
 					   float_label_dense, slot_size_array, nnz_array,
-					   use_long_tail, alpha);
+					   use_long_tail, alpha, nullptr);
 	// eval data
 	data_generation_for_raw<long long>(eval_source, eval_num_samples, label_dim, dense_dim,
 					   float_label_dense, slot_size_array, nnz_array,
-					   use_long_tail, alpha);
+					   use_long_tail, alpha, nullptr);
       }
       else {
 	// train data
 	data_generation_for_raw<unsigned int>(source_data, num_samples, label_dim, dense_dim,
 					      float_label_dense, slot_size_array, nnz_array,
-					      use_long_tail, alpha);
+					      use_long_tail, alpha, nullptr);
 	// eval data
 	data_generation_for_raw<unsigned int>(eval_source, eval_num_samples, label_dim, dense_dim,
 					      float_label_dense, slot_size_array, nnz_array,
-					      use_long_tail, alpha);
+					      use_long_tail, alpha, nullptr);
       }
 
 

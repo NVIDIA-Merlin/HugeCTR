@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -176,7 +176,7 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
 
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
-    size_t num_samples, size_t max_vocabulary_size, size_t embedding_vec_size,
+    size_t num_samples, size_t embedding_vec_size,
     const size_t *hash_value_index, float lr, float scaler, const TypeEmbeddingComp *wgrad,
     float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
     cudaStream_t stream, bool force_stats) {
@@ -208,7 +208,7 @@ void SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
 
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
-    size_t embedding_vec_size, size_t max_vocabulary_size,
+    size_t embedding_vec_size,
     const OptParams &opt_params, size_t nnz,
     const Tensor2<size_t> &hash_value_index, const Tensor2<TypeEmbeddingComp> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
@@ -218,7 +218,7 @@ void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
       float lr_scale = opt_params.lr / opt_params.scaler;
 
       opt_sgd_atomic_cached<TypeEmbeddingComp>(
-          nnz, max_vocabulary_size, embedding_vec_size, hash_value_index.get_ptr(), opt_params.lr,
+          nnz, embedding_vec_size, hash_value_index.get_ptr(), opt_params.lr,
           opt_params.scaler, wgrad.get_ptr(), hash_table_value.get_ptr(), top_categories.get_ptr(),
           size_top_categories, stream, force_stats);
     } else {
@@ -234,25 +234,25 @@ void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
 }
 
 template void SparseEmbeddingFunctors::opt_sgd_atomic_cached<float>(
-    size_t num_samples, size_t max_vocabulary_size, size_t embedding_vec_size,
+    size_t num_samples, size_t embedding_vec_size,
     const size_t *hash_value_index, float lr, float scaler, const float *wgrad,
     float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
     cudaStream_t stream, bool force_stats);
 
 template void SparseEmbeddingFunctors::opt_sgd_atomic_cached<__half>(
-    size_t num_samples, size_t max_vocabulary_size, size_t embedding_vec_size,
+    size_t num_samples, size_t embedding_vec_size,
     const size_t *hash_value_index, float lr, float scaler, const __half *wgrad,
     float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
     cudaStream_t stream, bool force_stats);
 
 template void SparseEmbeddingFunctors::update_params<float>(
-    size_t embedding_vec_size, size_t max_vocabulary_size, const OptParams &opt_params,
+    size_t embedding_vec_size, const OptParams &opt_params,
     size_t nnz, const Tensor2<size_t> &hash_value_index, const Tensor2<float> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
     size_t sm_count, cudaStream_t stream, bool force_stats);
 
 template void SparseEmbeddingFunctors::update_params<__half>(
-    size_t embedding_vec_size, size_t max_vocabulary_size, const OptParams &opt_params,
+    size_t embedding_vec_size, const OptParams &opt_params,
     size_t nnz, const Tensor2<size_t> &hash_value_index, const Tensor2<__half> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
     size_t sm_count, cudaStream_t stream, bool force_stats);

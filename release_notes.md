@@ -1,5 +1,35 @@
 # Release Notes
 
+## What's New in Version 3.1
+MLPerf v1.0 DLRM benchmark 
++ **Python Interface Enhancements (drop json config file)**: We’ve enhanced the Python interface for HugeCTR, which supports constructing the computation graph with Python APIs and saves users from the effort of manually writing the JSON configuration file. We also provide APIs to dump the model graph to JSON and to save the model weights to binary files, which can be used for both continuous training and inference. Besides, an inference API that takes Norm or Parquet dataset as input is provided to facilitate the inference work. Please refer to [HugeCTR Python Interface](docs/python_interface.md) to get familiar with the APIs and [HugeCTR Criteo Notebook](notebooks/hugectr_criteo.ipynb) to see the usage.
+
++ **Unified Embedding**: We’re introducing a new interface for embedding and datareader to simplify the use of embedding and datareader. For datareader, we now provide `nnz_per_slot` and `is_fixed_length` to help you specify the number of keys in each slot. For embedding, you can now directly configure how much memory usage you need by specifying `workspace_size_per_gpu_in_mb` instead of the origin of `max_vocabulary_size_per_gpu`. Now we use `mean/sum` in combinators instead of numbers 0/1, which is more convenient to use. And if you do not know which  embedding type you should choose, you can choose to specify `use_hash_table` and let HugeCTR automatically select the embedding type according to your configuration. You can learn how to use the new interface in [HugeCTR Python Interface](docs/python_interface.md).
+
++ **Multi-nodes Embedding training Cache (MOS)**: We’ve enabled multi-node support for the embedding training cache. This will allow you to train a model with a terabyte size embedding table using a single or several nodes even though the whole embedding table can not fit into the GPU memory. Besides, we introduced the host memory (HMEM)-based parameter server (PS) along with its SSD-based counterpart, and the optimized HMEM-based PS can give better performance (>5x higher effective bandwidth) of model loading and dumping if the sparse model can fit into the host memory of all training nodes. Please refer to the [HugeCTR Python Interface](docs/python_interface.md) to learn more about the interface and configuration details.
+
++ **Multi-nodes TF Plugin**: It supports Multi-node synchronized training via tf.distribute.MultiWorkerMirroredStrategy. With little code changing, you can scale up your training process from single GPU training to multi-node multi GPU training. We will provide detailed examples and references in the near future.
+Besides tf.distribute.MultiWorkerMirroredStrategy, it supports multi-node synchronized training via Horovod. We will provide usage examples in the near future. From now on, the inputs to embedding plugins are data-parallel rather than GPU-specific datas, which means the datareader no longer needs to preprocess datas for different GPUs based on concrete embedding algorithms.
+	
++ **NCF model support**: We have added support for the NCF model and two variants, the GMF and NeuMF models. This support includes a new element-wise multiplication layer and a new HitRate evaluation metric. Sample code was added that demonstrates how to preprocess user-item interaction data and use it to train an NCF model, with examples given using MovieLens datasets.
+
++ **Supporting DIN model**: 
+
++ **Supporting multi-hot in parquet data reader**: We've added multi-hot support of parquet dataset file. You can train models with a dataset containing both one hot and multi-hot slots. Currently, only iteration-based training mode is supported with parquet dataset format.
+
++ **Supporting Mixed-precision in more layers**: The MultiCross layer now supports mixed-precision (FP16). As a result, all layers now support mixed-precision.
+
++ **Supporting Optimizer States Save/Load for continued training**: You can choose to store optimizer states updated during the training to files like you save trained weights of your model. For instance, Adam optimizer has the first moment (m) and the second moment (v), which keep being updated across training iterations. By default, they are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more details, find `dense_opt_states_file` and `sparse_opt_states_file` in  [Python Interface](docs/python_interface.md#load_dense_weights-method).
+
++ **Supporting FP16 in inference**: We have supported FP16 for the inference pipeline which means that half precision forward propagation can be adopted by the dense layers during inference.
+
++ **Embedding cache release in submodule**: We’ve separated the header/source code/document of GPU embedding cache data structure into a stand-alone folder. Now it will be compiled into a stand-alone library file, so your application programs can be directly linked against it just as HugeCTR does.   
+
++ **Embedding plugin release in submodule**: We’ve separated all the files related to embedding plugin into a stand-along folder. It can be used as a stand-alone python module, and works with TensorFlow to accelerate the embedding training process.
+
++ **Supporting Adagrad**: HugeCTR now supports Adagrad to optimize your embedding and network now. You can use it just by changing the optimizer type in `Optimizer` and set corresponding parameters.
+
+
 ## What's New in Version 3.0.1
 
 + **DLRM Inference Benchmark**: We've added two detailed Jupyter notebooks to illustrate how to train and deploy a DLRM model with HugeCTR whilst benchmarking its performance. The inference notebook demonstrates how to create Triton and HugeCTR backend configs, prepare the inference data, and deploy a trained model by another notebook on Triton Inference Server. It also shows the way of benchmarking its performance (throughput and latency), based on Triton Performance Analyzer. For more details, check out our [HugeCTR inference repository](https://github.com/triton-inference-server/hugectr_backend/tree/v3.0.1-integration/samples/dlrm).

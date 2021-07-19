@@ -16,7 +16,11 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
    $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.5
-   ```
+   ```  
+3. Activate the merlin conda environment by running the following command:  
+   ```shell.
+   source activate merlin
+   ```  
 
 ### Build the HugeCTR Docker Container on Your Own ###
 If you want to build the HugeCTR Docker container on your own, please refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training) and [Use the Docker Container](../docs/mainpage.md#use-docker-container).
@@ -113,16 +117,16 @@ model.add(hugectr.Input(label_dim = 1, label_name = "label",
 ```
 ```
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 5863985,
+                            workspace_size_per_gpu_in_mb = 5863985,
                             embedding_vec_size = 1,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding2",
                             bottom_name = "wide_data",
                             optimizer = optimizer))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            max_vocabulary_size_per_gpu = 5863985,
+                            workspace_size_per_gpu_in_mb = 5863985,
                             embedding_vec_size = 16,
-                            combiner = 0,
+                            combiner = "sum",
                             sparse_embedding_name = "sparse_embedding1",
                             bottom_name = "deep_data",
                             optimizer = optimizer))

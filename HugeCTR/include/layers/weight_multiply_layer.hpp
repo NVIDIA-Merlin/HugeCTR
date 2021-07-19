@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,11 @@ class WeightMultiplyLayer : public Layer {
   /*
    * stores the weight tensors of this layer.
    */
-  Tensors2<__half> weights_half_;
+  Tensors2<float> master_weights_;
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors2<T> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
@@ -79,7 +83,8 @@ class WeightMultiplyLayer : public Layer {
   void bprop() override;
 
  private:
-  Tensor2<T>& get_weights_tensor();
+  void reserve_master_weight_tensor(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                                    const std::vector<size_t>& weight_dims);
   std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;

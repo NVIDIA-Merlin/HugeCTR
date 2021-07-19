@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,26 +83,27 @@ class IntUniformDataSimulator : public IDataSimulator<T> {
 };
 
 template <typename T>
-class IntPowerLawDataSimulator: public IDataSimulator<T> {
-  public:
-    IntPowerLawDataSimulator(T min, T max, float alpha): gen_(std::random_device()()), dis_(0, 1), alpha_(alpha){
-      min_ = 1;
-      max_ = max - min + 1;
-      offset_ = min - 1; //to handle the case min_ <= 0 and alpha_ < -1
-    }
-    
-    T get_num() override {
-      double x = dis_(gen_);
-      double y = (pow( (pow(max_, alpha_+1) - pow(min_, alpha_+1)) * x + pow(min_, alpha_+1) , 1.0/(alpha_+1.0)) );
-      return static_cast<T>(round(y) + offset_);
-    }
-  
-  private:
-  
-    std::mt19937 gen_;
-    std::uniform_real_distribution<float> dis_;
-    float alpha_;
-    double min_, max_, offset_;
+class IntPowerLawDataSimulator : public IDataSimulator<T> {
+ public:
+  IntPowerLawDataSimulator(T min, T max, float alpha)
+      : gen_(std::random_device()()), dis_(0, 1), alpha_(alpha) {
+    min_ = 1;
+    max_ = max - min + 1;
+    offset_ = min - 1;  // to handle the case min_ <= 0 and alpha_ < -1
+  }
+
+  T get_num() override {
+    double x = dis_(gen_);
+    double y = (pow((pow(max_, alpha_ + 1) - pow(min_, alpha_ + 1)) * x + pow(min_, alpha_ + 1),
+                    1.0 / (alpha_ + 1.0)));
+    return static_cast<T>(round(y) + offset_);
+  }
+
+ private:
+  std::mt19937 gen_;
+  std::uniform_real_distribution<float> dis_;
+  float alpha_;
+  double min_, max_, offset_;
 };
 
 /**
@@ -167,7 +168,10 @@ template <typename T, Check_t CK_T>
 void data_generation_for_test(std::string file_list_name, std::string data_prefix, int num_files,
                               int num_records_per_file, int slot_num, int vocabulary_size,
                               int label_dim, int dense_dim, int max_nnz, bool long_tail = false,
-                              float alpha = 0.0) {
+                              float alpha = 0.0, std::vector<T>* generated_value = nullptr,
+                              std::vector<T>* generated_rowoffset = nullptr,
+                              std::vector<float> *generated_label = nullptr,
+                              std::vector<float> *generated_dense = nullptr) {
   if (file_exist(file_list_name)) {
     std::cout << "File (" + file_list_name +
                      ") exist. To generate new dataset plesae remove this file."
@@ -208,6 +212,12 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
         ldata_sim.reset(new IntUniformDataSimulator<T>(0, vocabulary_size - 1));  // for key
       for (int j = 0; j < label_dim + dense_dim; j++) {
         float label_dense = fdata_sim.get_num();
+        if(j < label_dim && generated_label != nullptr) {
+          generated_label->push_back(label_dense);
+        }
+        if(j >= label_dim && generated_dense != nullptr) {
+          generated_dense->push_back(label_dense);
+        }
         data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
       }
       for (int k = 0; k < slot_num; k++) {
@@ -220,6 +230,12 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
             key = ldata_sim->get_num();
           }
           data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
+          if(generated_value != nullptr) {
+            generated_value->push_back(key);
+          }
+        }
+        if(generated_rowoffset != nullptr){
+          generated_rowoffset->push_back(nnz);
         }
       }
       data_writer.write();
@@ -231,18 +247,20 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
   return;
 }
 
-
-  /**
-   * Adding finer control e.g.: --voc-size-array=312,32,231234,124332,4554 --nnz-array=23,3,45,66,23,1,1,1,1
-   */
+/**
+ * Adding finer control e.g.: --voc-size-array=312,32,231234,124332,4554
+ * --nnz-array=23,3,45,66,23,1,1,1,1
+ */
 template <typename T, Check_t CK_T>
 void data_generation_for_test2(std::string file_list_name, std::string data_prefix, int num_files,
-                              int num_records_per_file, int slot_num, std::vector<size_t> voc_size_array,
-                              int label_dim, int dense_dim, std::vector<int> nnz_array, bool long_tail = false, float alpha = 0.0) {
-
-  //check if slot_num == voc_size_array.size == nnz_array.size
-  if(slot_num != (int)voc_size_array.size() || slot_num != (int)nnz_array.size()){
-    std::cout << "Error: slot_num != voc_size_array.size() || slot_num != nnz_array.size()" << std::endl;
+                               int num_records_per_file, int slot_num,
+                               std::vector<size_t> voc_size_array, int label_dim, int dense_dim,
+                               std::vector<int> nnz_array, bool long_tail = false,
+                               float alpha = 0.0) {
+  // check if slot_num == voc_size_array.size == nnz_array.size
+  if (slot_num != (int)voc_size_array.size() || slot_num != (int)nnz_array.size()) {
+    std::cout << "Error: slot_num != voc_size_array.size() || slot_num != nnz_array.size()"
+              << std::endl;
     exit(-1);
   }
 
@@ -276,17 +294,16 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
     data_writer.append(reinterpret_cast<char*>(&header), sizeof(DataSetHeader));
     data_writer.write();
     // Initialize Simulators
-    FloatUniformDataSimulator<float> fdata_sim(0, 1);              // for lable and dense
+    FloatUniformDataSimulator<float> fdata_sim(0, 1);  // for lable and dense
     std::vector<std::shared_ptr<IDataSimulator<T>>> ldata_sim_vec;
     size_t accum = 0;
-    //todo risk of type Int
-    for(auto& voc: voc_size_array){
-      size_t accum_next = accum+voc; 
-      if(long_tail){
-	ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<T>(accum, accum_next - 1, alpha));
-      }
-      else{
-	ldata_sim_vec.emplace_back(new IntUniformDataSimulator<T>(accum, accum_next - 1));
+    // todo risk of type Int
+    for (auto& voc : voc_size_array) {
+      size_t accum_next = accum + voc;
+      if (long_tail) {
+        ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<T>(accum, accum_next - 1, alpha));
+      } else {
+        ldata_sim_vec.emplace_back(new IntUniformDataSimulator<T>(accum, accum_next - 1));
       }
       accum = accum_next;
     }
@@ -298,12 +315,12 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
       }
 
       for (int k = 0; k < slot_num; k++) {
-	int nnz = nnz_array[k];
-	data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
-	for (int j = 0; j < nnz; j++) {
-	  T key = ldata_sim_vec[k]->get_num();
-	  data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
-	}
+        int nnz = nnz_array[k];
+        data_writer.append(reinterpret_cast<char*>(&nnz), sizeof(int));
+        for (int j = 0; j < nnz; j++) {
+          T key = ldata_sim_vec[k]->get_num();
+          data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
+        }
       }
 
       data_writer.write();
@@ -341,7 +358,6 @@ void data_generation_for_test2(std::string file_list_name, std::string data_pref
   std::cout << file_list_name << " done!" << std::endl;
   return;
 }
-
 
 // Add a new data_generation function for LocalizedSparseEmbedding testing
 // In this function, the relationship between key and slot_id is: key's slot_id=(key%slot_num)
@@ -473,23 +489,23 @@ void data_generation_for_localized_test(std::string file_list_name, std::string 
   return;
 }
 
-
 template <typename T = unsigned int>
-inline void data_generation_for_raw(
-    std::string file_name, long long num_samples, int label_dim, int dense_dim,
-    float float_label_dense,
-    const std::vector<size_t> slot_size, std::vector<int> nnz_array = std::vector<int>(),
-    bool long_tail = false, float alpha = 0.0) {
-
+inline void data_generation_for_raw(std::string file_name, long long num_samples, int label_dim,
+                                    int dense_dim, float float_label_dense,
+                                    const std::vector<size_t> slot_size,
+                                    std::vector<int> nnz_array = std::vector<int>(),
+                                    bool long_tail = false, float alpha = 0.0,
+                                    std::vector<T>* generated_sparse_data = nullptr,
+                                    std::vector<float> *generated_dense_data = nullptr,
+                                    std::vector<float> *generated_label_data = nullptr) {
   static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
-		"type not support");
+                "type not support");
 
   std::ofstream out_stream(file_name, std::ofstream::binary);
   size_t size_label_dense = float_label_dense ? sizeof(float) : sizeof(T);
-  //check input
+  // check input
 
   std::vector<std::shared_ptr<IDataSimulator<long long>>> ldata_sim_vec;
-  size_t accum = 0;
   
   if(slot_size.size() != nnz_array.size() && !nnz_array.empty()){
     std::cout << "Error: slot_size.size() != nnz_array.size() && !nnz_array.empty()" << std::endl;
@@ -497,14 +513,12 @@ inline void data_generation_for_raw(
   }
 
   for(auto& voc: slot_size){
-    size_t accum_next = accum+voc; 
     if(long_tail){
-      ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<long long>(accum, accum_next - 1, alpha));
+      ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<long long>(0, voc-1, alpha));
     }
     else{
-      ldata_sim_vec.emplace_back(new IntUniformDataSimulator<long long>(accum, accum_next - 1));
+      ldata_sim_vec.emplace_back(new IntUniformDataSimulator<long long>(0, voc-1));
     }
-    accum = accum_next;
   }
 
   for (long long i = 0; i < num_samples; i++) {
@@ -513,6 +527,9 @@ inline void data_generation_for_raw(
       float label_float = static_cast<float>(label_int);
       char* label_ptr = float_label_dense ? reinterpret_cast<char*>(&label_float)
                                           : reinterpret_cast<char*>(&label_int);
+      if(generated_label_data != nullptr) {
+        generated_label_data->push_back(label_float);
+      }
       out_stream.write(label_ptr, size_label_dense);
     }
     for (int j = 0; j < dense_dim; j++) {
@@ -520,19 +537,25 @@ inline void data_generation_for_raw(
       float dense_float = static_cast<float>(dense_int);
       char* dense_ptr = float_label_dense ? reinterpret_cast<char*>(&dense_float)
                                           : reinterpret_cast<char*>(&dense_int);
+      if(generated_dense_data != nullptr) {
+        generated_dense_data->push_back(dense_float);
+      }
       out_stream.write(dense_ptr, size_label_dense);
     }
-    
 
     for (size_t j = 0; j < ldata_sim_vec.size(); j++) {
       int nnz = 1;
-      if(!nnz_array.empty()){
-	nnz = nnz_array[j];
+      if (!nnz_array.empty()) {
+        nnz = nnz_array[j];
       }
-      for(int k = 0; k < nnz; k ++){
-	long long num_tmp = ldata_sim_vec[j]->get_num();
-	T sparse = num_tmp > std::numeric_limits<T>::max() ? std::numeric_limits<T>::max() : num_tmp;
-	out_stream.write(reinterpret_cast<char*>(&sparse), sizeof(T));
+      for (int k = 0; k < nnz; k++) {
+        long long num_tmp = ldata_sim_vec[j]->get_num();
+        T sparse =
+            num_tmp > std::numeric_limits<T>::max() ? std::numeric_limits<T>::max() : num_tmp;
+        if (generated_sparse_data != nullptr) {
+          generated_sparse_data->push_back(sparse);
+        }
+        out_stream.write(reinterpret_cast<char*>(&sparse), sizeof(T));
       }
     }
 
@@ -541,7 +564,8 @@ inline void data_generation_for_raw(
     //   if (slot_size.size() != 0) {
     //     std::shared_ptr<IDataSimulator<long long>> temp_sim;
     //     if (long_tail)
-    //       temp_sim.reset(new IntPowerLawDataSimulator<long long>(0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1), alpha));
+    //       temp_sim.reset(new IntPowerLawDataSimulator<long long>(0, (slot_size[j] - 1) < 0 ? 0 :
+    //       (slot_size[j] - 1), alpha));
     //     else
     //       temp_sim.reset(new IntUniformDataSimulator<long long>(
     //         0, (slot_size[j] - 1) < 0 ? 0 : (slot_size[j] - 1)));  // range = [0, slot_size[j])

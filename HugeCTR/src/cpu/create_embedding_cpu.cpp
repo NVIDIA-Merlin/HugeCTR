@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ void create_embedding_cpu<TypeFP>::operator() (
   for (unsigned int i = 0; i < j_sparse_input.size(); ++i) {
     auto top = get_value_from_json<std::string>(j_sparse_input[i], "top");
     auto slot_num = get_value_from_json<int>(j_sparse_input[i], "slot_num");
-    auto max_feature_num_per_sample = get_value_from_json<int>(j_sparse_input[i], "max_feature_num_per_sample");
+    auto max_feature_num_per_sample = get_max_feature_num_per_sample_from_nnz_per_slot(j_sparse_input[i]);
     MESSAGE_("sparse_input name " + top);
     slot_nums_map[top] = std::make_pair(slot_num,max_feature_num_per_sample);
   }
@@ -60,11 +60,11 @@ void create_embedding_cpu<TypeFP>::operator() (
     int slot_num = slot_nums_map_iter->second.first;
     int max_feature_num_per_sample = slot_nums_map_iter->second.second;
     auto j_hparam = get_json(j, "sparse_embedding_hparam");
-    auto combiner = get_value_from_json<int>(j_hparam, "combiner");
+    auto combiner = get_value_from_json<std::string>(j_hparam, "combiner");
     EmbeddingFeatureCombiner_t feature_combiner_type;
-    if (combiner == 0) {
+    if (combiner == "sum") {
       feature_combiner_type = EmbeddingFeatureCombiner_t::Sum;
-    } else if(combiner == 1){
+    } else if(combiner == "mean"){
       feature_combiner_type = EmbeddingFeatureCombiner_t::Mean;
     } else{
       CK_THROW_(Error_t::WrongInput, "combiner need to be 0 or 1");

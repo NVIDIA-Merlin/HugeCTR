@@ -88,13 +88,13 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
   }
 
   std::vector<DataReaderSparseParam> params{
-      {DataReaderSparse_t::Distributed, sparse_dim, 1, sparse_dim}};
+      DataReaderSparseParam("dummy", std::vector<int>(), true, sparse_dim)};
   AsyncReader<dtype> data_reader(fname, batch_size, label_dim, dense_dim, params, true,
                                  resource_manager, num_threads, batches_per_thread, 512000, 2, 512);
 
   auto label_tensors = bags_to_tensors<float>(data_reader.get_label_tensors());
   auto dense_tensors = bags_to_tensors<__half>(data_reader.get_dense_tensors());
-  auto sparse_tensors = bags_to_tensors<dtype>(data_reader.get_value_tensors());
+  auto sparse_tensors = data_reader.get_value_tensors();
 
   data_reader.start();
 
@@ -123,7 +123,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
 
         download_tensor(labels, label_tensors[id], device->get_stream());
         download_tensor(denses, dense_tensors[id], device->get_stream());
-        download_tensor(sparses, sparse_tensors[id], device->get_stream());
+        download_tensor(sparses, sparse_tensors[id].get_value_tensor(), device->get_stream());
 
         auto cur_ref = ref_data.data() + total_read * sample_dim;
 

@@ -1,11 +1,12 @@
-#include "common.hpp"
-#include "utils.hpp"
-#include "data_reader.hpp"
-#include "data_readers/async_reader/async_reader.hpp"
-#include "data_readers/async_reader/async_reader_common.hpp"
-#include "data_readers/async_reader/split_label_dense_sparse.hpp"
-#include "data_readers/async_reader/async_reader_adapter.hpp"
-#include "tensor2.hpp"
+#include <common.hpp>
+#include <utils.hpp>
+#include <data_reader.hpp>
+#include <data_readers/async_reader/async_reader_adapter.hpp>
+#include <data_readers/async_reader/async_reader.hpp>
+#include <data_readers/async_reader/async_reader_common.hpp>
+#include <data_readers/async_reader/split_label_dense_sparse.hpp>
+#include <resource_manager.hpp>
+#include <tensor2.hpp>
 
 namespace {
 using namespace HugeCTR;
@@ -122,8 +123,12 @@ AsyncReader<SparseType>::AsyncReader(
 
     auto sparse_buffer_ =
         std::make_shared<RawPtrBuffer>(batch_size * sparse_dim * sizeof(SparseType));
+
+    auto value_tensor = Tensor2<SparseType>({batch_size, sparse_dim}, sparse_buffer_);
+    auto dummy_row_offset_tensor = Tensor2<SparseType>();
+    std::shared_ptr<size_t> dummy_nnz(new size_t);
     sparse_tensors_.emplace_back(
-        Tensor2<SparseType>({batch_size, sparse_dim}, sparse_buffer_).shrink());
+        SparseTensor<SparseType>(value_tensor, dummy_row_offset_tensor, dummy_nnz));
   }
 
   // zero-initialization
@@ -166,14 +171,14 @@ long long AsyncReader<SparseType>::read_a_batch_to_device_delay_release() {
       split_3_way<__half, SparseType>(
           Tensor2<LabelType>::stretch_from(label_tensors_[i]),
           Tensor2<__half>::stretch_from(dense_tensors_[i]),
-          Tensor2<SparseType>::stretch_from(sparse_tensors_[i]),
+          sparse_tensors_[i].get_value_tensor(),
           Tensor2<InputType>({current_batch_size_, sample_size_items_}, ptr_wrap),
           local_gpu->get_stream());
     } else {
       split_3_way<float, SparseType>(
           Tensor2<LabelType>::stretch_from(label_tensors_[i]),
           Tensor2<float>::stretch_from(dense_tensors_[i]),
-          Tensor2<SparseType>::stretch_from(sparse_tensors_[i]),
+          sparse_tensors_[i].get_value_tensor(),
           Tensor2<InputType>({current_batch_size_, sample_size_items_}, ptr_wrap),
           local_gpu->get_stream());
     }
@@ -257,12 +262,14 @@ template <typename SparseType>
 std::vector<TensorBag2> AsyncReader<SparseType>::get_dense_tensors() const {
   return dense_tensors_per_dev_; 
 }
+
+// template <typename SparseType> 
+// std::vector<TensorBag2> AsyncReader<SparseType>::get_value_tensors() const {
+//   return sparse_tensors_;
+// }
+
 template <typename SparseType> 
-std::vector<TensorBag2> AsyncReader<SparseType>::get_row_offsets_tensors() const {
-  return {};
-}
-template <typename SparseType> 
-std::vector<TensorBag2> AsyncReader<SparseType>::get_value_tensors() const {
+SparseTensors<SparseType> AsyncReader<SparseType>::get_value_tensors() const {
   return sparse_tensors_;
 }
 
@@ -272,9 +279,11 @@ void AsyncReader<SparseType>::create_drwg_norm(
   bool start_reading_from_beginning) {}
 template <typename SparseType> 
 void AsyncReader<SparseType>::create_drwg_raw(
-  std::string file_name, long long num_samples,
-  const std::vector<long long> slot_offset, bool float_label_dense,
-  bool data_shuffle, bool start_reading_from_beginning) {}
+  std::string file_name, 
+  long long num_samples,
+  bool float_label_dense,
+  bool data_shuffle, 
+  bool start_reading_from_beginning) {}
 template <typename SparseType> 
 void AsyncReader<SparseType>::create_drwg_parquet(
   std::string file_list, const std::vector<long long> slot_offset,

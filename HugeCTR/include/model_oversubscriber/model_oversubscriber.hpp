@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #pragma once
 
 #include "embedding.hpp"
-#include "HugeCTR/include/embeddings/embedding.hpp"
+#include "HugeCTR/include/embeddings/embedding_data.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 #include "HugeCTR/include/model_oversubscriber/model_oversubscriber_impl.hpp"
 
@@ -31,21 +31,20 @@ public:
   ModelOversubscriber(bool use_host_ps,
       std::vector<std::shared_ptr<IEmbedding>>& embeddings,
       const std::vector<std::string>& sparse_embedding_files,
-      std::shared_ptr<ResourceManager> resource_manager, bool is_i64_key) {
+      std::shared_ptr<ResourceManager> resource_manager,
+      bool use_mixed_precision, bool is_i64_key) {
     std::vector<SparseEmbeddingHashParams> embedding_params;
     if (is_i64_key) {
-      for (auto& one_embedding : embeddings) {
-        embedding_params.push_back(
-            dynamic_cast<Embedding<long long, float>*>(one_embedding.get())
-                ->get_embedding_params());
+      for (auto& embedding : embeddings) {
+        const auto& param = embedding->get_embedding_params();
+        embedding_params.push_back(param);
       }
       impl_base_.reset(new ModelOversubscriberImpl<long long>(use_host_ps,
           embeddings, embedding_params, sparse_embedding_files, resource_manager));
     } else {
-      for (auto& one_embedding : embeddings) {
-        embedding_params.push_back(
-            dynamic_cast<Embedding<unsigned, float>*>(one_embedding.get())
-                ->get_embedding_params());
+      for (auto& embedding : embeddings) {
+        const auto& param = embedding->get_embedding_params();
+        embedding_params.push_back(param);
       }
       impl_base_.reset(new ModelOversubscriberImpl<unsigned>(use_host_ps,
           embeddings, embedding_params, sparse_embedding_files, resource_manager));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,21 +57,33 @@ void create_embedding<TypeKey, TypeFP>::operator()(
   auto top_name = get_value_from_json<std::string>(j_layers, "top");
 
   auto j_hparam = get_json(j_layers, "sparse_embedding_hparam");
-  size_t max_vocabulary_size_per_gpu = 0;
-  if (embedding_type == Embedding_t::DistributedSlotSparseEmbeddingHash) {
-    max_vocabulary_size_per_gpu =
-        get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
-  } else if (embedding_type == Embedding_t::LocalizedSlotSparseEmbeddingHash) {
-    if (has_key_(j_hparam, "max_vocabulary_size_per_gpu")) {
-      max_vocabulary_size_per_gpu =
-          get_value_from_json<size_t>(j_hparam, "max_vocabulary_size_per_gpu");
-    } else if (!has_key_(j_hparam, "slot_size_array")) {
-      CK_THROW_(Error_t::WrongInput,
-                "No max_vocabulary_size_per_gpu or slot_size_array in: " + embedding_name);
+  if(!has_key_(j_hparam, "workspace_size_per_gpu_in_mb") && !has_key_(j_hparam, "slot_size_array")) {
+    CK_THROW_(Error_t::WrongInput, "need workspace_size_per_gpu_in_mb or slot_size_array");
+  }
+  size_t workspace_size_per_gpu_in_mb = get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
+  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
+  
+  size_t max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
+
+  auto combiner_str = get_value_from_json<std::string>(j_hparam, "combiner");
+
+  int combiner;
+  if (combiner_str == "sum") {
+    combiner = 0;
+  } else if (combiner_str == "mean") {
+    combiner = 1;
+  } else {
+    CK_THROW_(Error_t::WrongInput, "No such combiner type: " + combiner_str);
+  }
+
+  std::vector<size_t> slot_size_array;
+  if (has_key_(j_hparam, "slot_size_array")) {
+    auto slots = get_json(j_hparam, "slot_size_array");
+    assert(slots.is_array());
+    for (auto slot : slots) {
+      slot_size_array.emplace_back(slot.get<size_t>());
     }
   }
-  auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
-  auto combiner = get_value_from_json<int>(j_hparam, "combiner");
 
   SparseInput<TypeKey> sparse_input;
   if (!find_item_in_map(sparse_input, bottom_name, sparse_input_map)) {
@@ -100,21 +112,10 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           embedding_opt_params};
 
       embeddings.emplace_back(new DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
-          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
-          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, resource_manager));
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params, resource_manager));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-
-      std::vector<size_t> slot_size_array;
-      if (has_key_(j_hparam, "slot_size_array")) {
-        auto slots = get_json(j_hparam, "slot_size_array");
-        assert(slots.is_array());
-        for (auto slot : slots) {
-          slot_size_array.emplace_back(slot.get<size_t>());
-        }
-      }
 
       const SparseEmbeddingHashParams embedding_params = {
           batch_size,
@@ -128,20 +129,11 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           embedding_opt_params};
 
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
-          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
-          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, resource_manager));
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params, resource_manager));
 
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-      std::vector<size_t> slot_size_array;
-      auto slots = get_json(j_hparam, "slot_size_array");
-      assert(slots.is_array());
-      for (auto slot : slots) {
-        slot_size_array.emplace_back(slot.get<size_t>());
-      }
-
       const SparseEmbeddingHashParams embedding_params = {
           batch_size,
           batch_size_eval,
@@ -154,10 +146,10 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           embedding_opt_params};
 
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
-          sparse_input.train_row_offsets, sparse_input.train_values, sparse_input.train_nnz,
-          sparse_input.evaluate_row_offsets, sparse_input.evaluate_values,
-          sparse_input.evaluate_nnz, embedding_params, resource_manager,
-          use_cuda_graph));
+          sparse_input.train_sparse_tensors,
+          sparse_input.evaluate_sparse_tensors,
+          embedding_params,
+          resource_manager));
 
       break;
     }
@@ -216,7 +208,6 @@ void create_embedding<TypeKey, TypeFP>::operator()(
                   "No such hybrid embedding type: " + hybrid_embedding_type_string);
       }
 
-      // TODO: can we remove dynamic_cast?
       auto& embed_wgrad_buff = (grouped_all_reduce) ? 
             std::dynamic_pointer_cast<GroupedExchangeWgrad<TypeFP>>(exchange_wgrad)->get_embed_wgrad_buffs() :
                 std::dynamic_pointer_cast<NetworkExchangeWgrad<TypeFP>>(exchange_wgrad)->get_embed_wgrad_buffs();
@@ -241,13 +232,15 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           hybrid_embedding_type,
           embedding_opt_params};
       embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(
-          sparse_input.train_values, sparse_input.evaluate_values, embedding_params,
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params,
           embed_wgrad_buff,
           get_gpu_learning_rate_schedulers(config, resource_manager),
           graph_mode,
           resource_manager));
       break;
     }
+    default:
+      CK_THROW_(Error_t::UnspecificError, "create embedding with no specified embedding type.");
   }  // switch
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     train_tensor_entries_list[i].push_back(

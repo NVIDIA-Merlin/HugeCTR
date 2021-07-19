@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 #include <atomic>
 #include <common.hpp>
 #include <data_readers/csr.hpp>
-#include <data_readers/csr_chunk.hpp>
 #include <data_readers/data_reader_worker_interface.hpp>
 #include <fstream>
 #include <thread>
@@ -47,7 +46,6 @@ static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& d
     while (*p_loop_flag) {
       data_reader->read_a_batch();
     }
-
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
   }
@@ -55,9 +53,9 @@ static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& d
 
 class DataReaderWorkerGroup {
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
+ protected:
   int data_reader_loop_flag_{0};                 /**< p_loop_flag a flag to control the loop */
   DataReaderType_t data_reader_type_;
- protected:
   std::vector<std::shared_ptr<IDataReaderWorker>>
       data_readers_; /**< A vector of DataReaderWorker' pointer.*/
   std::shared_ptr<ResourceManager> resource_manager_;
@@ -165,6 +163,7 @@ class DataReaderWorkerGroup {
       data_reader->skip_read();
     }
   }
+
   virtual ~DataReaderWorkerGroup() {
     for (auto& data_reader_thread : data_reader_threads_) {
       data_reader_thread.join();

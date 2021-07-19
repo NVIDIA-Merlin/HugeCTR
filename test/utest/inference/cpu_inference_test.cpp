@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,10 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
   for (int i = 0; i < (int)j_sparse_inputs.size(); i++) {
     const nlohmann::json& j_sparse = j_sparse_inputs[0];
     slot_num.push_back(get_value_from_json<int>(j_sparse, "slot_num"));
-    max_feature_num_per_sample.push_back(get_value_from_json<int>(j_sparse, "max_feature_num_per_sample"));
+    
+    size_t max_feature_num_per_sample_ = static_cast<size_t>(get_max_feature_num_per_sample_from_nnz_per_slot(j_sparse));
+    
+    max_feature_num_per_sample.push_back(max_feature_num_per_sample_);
   }
   // get embedding params: embedding_vec_size, combiner_type
   {
@@ -79,9 +82,9 @@ InferenceInfo::InferenceInfo(const nlohmann::json& config) {
       }
       auto j_embed_params =  get_json(j, "sparse_embedding_hparam");
       auto vec_size = get_value_from_json<int>(j_embed_params, "embedding_vec_size");
-      auto combiner = get_value_from_json<int>(j_embed_params, "combiner");
+      auto combiner = get_value_from_json<std::string>(j_embed_params, "combiner");
       embedding_vec_size.push_back(vec_size);
-      if (combiner == 1) {
+      if (combiner == "mean") {
         combiner_type.push_back(HugeCTR::EmbeddingFeatureCombiner_t::Mean);
       } else {
         combiner_type.push_back(HugeCTR::EmbeddingFeatureCombiner_t::Sum);

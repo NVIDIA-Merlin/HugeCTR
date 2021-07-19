@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,12 +73,10 @@ __global__ void get_insert_kernel(Table* table, const typename Table::key_type* 
 template <typename Table>
 __global__ void get_mark_kernel(Table* table, const typename Table::key_type* const keys,
                                 typename Table::mapped_type* const vals, size_t len) {
-  ReplaceOp<typename Table::mapped_type> op;
   const size_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     auto it = table->find(keys[i]);
-    vals[i] = (it != table->end()) ?
-              it->second :
+    vals[i] = (it != table->end()) ? it->second :
               std::numeric_limits<typename Table::mapped_type>::max();
   }
 }

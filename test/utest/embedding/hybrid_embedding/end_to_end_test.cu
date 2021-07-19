@@ -55,17 +55,21 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
   size_t num_init_batches = 50;
 
-  Tensors2<dtype> inputs;
-  Tensors2<dtype> inits;
+  SparseTensors<dtype> inputs;
+  SparseTensors<dtype> inits;
   for (size_t i = 0; i < local_gpu_count; i++) {
     CudaDeviceContext context(resource_manager->get_local_gpu(i)->get_device_id());
     auto buf = GeneralBuffer2<CudaManagedAllocator>::create();
-    Tensor2<dtype> tensor;
-    buf->reserve({batch_size, num_tables}, &tensor);
-    inputs.emplace_back(tensor);
+    Tensor2<dtype> value_tensor;
+    buf->reserve({batch_size, num_tables}, &value_tensor);
+    auto dummy_row_offset_tensor = Tensor2<dtype>();
+    std::shared_ptr<size_t> dummy_nnz(new size_t);
+    inputs.emplace_back(
+        SparseTensor<dtype>(value_tensor, dummy_row_offset_tensor, dummy_nnz));
 
-    buf->reserve({num_init_batches * batch_size, num_tables}, &tensor);
-    inits.emplace_back(tensor);
+    buf->reserve({num_init_batches * batch_size, num_tables}, &value_tensor);
+    inits.emplace_back(
+        SparseTensor<dtype>(value_tensor, dummy_row_offset_tensor, dummy_nnz));
     buf->allocate();
   }
 
@@ -127,7 +131,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   for (size_t lgpu = 0; lgpu < local_gpu_count; ++lgpu) {
     CudaDeviceContext context(resource_manager->get_local_gpu(lgpu)->get_device_id());
     auto stream = resource_manager->get_local_gpu(lgpu)->get_stream();
-    upload_tensor(initial_input, inits[lgpu], stream);
+    upload_tensor(initial_input, inits[lgpu].get_value_tensor(), stream);
   }
   size_t tmp_size = 0;
   embedding->init_model(inits, tmp_size);
@@ -246,7 +250,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   for (size_t lgpu = 0; lgpu < local_gpu_count; ++lgpu) {
     CudaDeviceContext context(resource_manager->get_local_gpu(lgpu)->get_device_id());
     auto stream = resource_manager->get_local_gpu(lgpu)->get_stream();
-    upload_tensor(input, inputs[lgpu], stream);
+    upload_tensor(input, inputs[lgpu].get_value_tensor(), stream);
   }
 
   if (debug_print) {

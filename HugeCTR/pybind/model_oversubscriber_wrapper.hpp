@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,18 +25,6 @@ namespace HugeCTR {
 
 namespace python_lib {
 
-namespace {
-
-auto remove_prefix(const std::string& path) {
-  size_t found = path.rfind("/");
-  if (found != std::string::npos)
-    return std::string(path, found + 1);
-  else
-    return path;
-}
-
-}
-
 std::shared_ptr<ModelOversubscriberParams> CreateMOS(
     bool train_from_scratch, bool use_host_memory_ps,
     std::vector<std::string>& trained_sparse_models,
@@ -51,8 +39,7 @@ std::shared_ptr<ModelOversubscriberParams> CreateMOS(
       [](const std::string& sparse_model) {
         if (fs::exists(sparse_model) && fs::is_directory(sparse_model) &&
             !fs::is_empty(sparse_model)) {
-          std::string file_name(sparse_model + "/" +
-                                remove_prefix(sparse_model) + ".key");
+          std::string file_name(sparse_model + "/key");
           if(fs::file_size(file_name) != 0) {
             CK_THROW_(Error_t::WrongInput,
                 sparse_model + " exist and not empty, please use another name");

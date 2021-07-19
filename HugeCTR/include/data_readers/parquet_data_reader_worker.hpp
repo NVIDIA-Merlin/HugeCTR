@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,18 +51,15 @@ namespace HugeCTR {
 template <class T>
 class ParquetDataReaderWorker : public IDataReaderWorker {
  private:
-  const unsigned int worker_id_{0};
-  const unsigned int worker_num_{0};
-  size_t buffer_length_;                          /**< buffer size for internal use */
-  std::shared_ptr<HeapEx<CSRChunk<T>>> csr_heap_; /**< heap to cache the data set */
-  std::vector<DataReaderSparseParam> params_;     /**< configuration of data reader sparse input */
+  std::vector<DataReaderSparseParam> params_; /**< configuration of data reader sparse input */
   bool skip_read_{false}; /**< set to true when you want to stop the data reading */
   const int MAX_TRY = 10;
   long long records_in_file_;
   long long current_record_index_{0};
   int slots_{0};
-  const std::vector<long long> slot_offset_;
+  std::vector<long long> slot_offset_;
   std::vector<T> slot_offset_dtype_;
+  std::shared_ptr<rmm::device_buffer> slot_offset_device_buf_; /**< GPU buffer w/ slot offset*/
   std::shared_ptr<rmm::mr::device_memory_resource>
       memory_resource_;                            /**< RMM device memory resource object */
   int device_id_{0};                               /**< GPU id for execution */
@@ -70,12 +67,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   cudaStream_t dense_stream_;                      /**< Stream for Parquet to dense work  */
   std::map<int, int> dense_idx_to_parquet_col_;    /**< dense feature to parquet column idx */
   std::map<int, int> categorical_idx_parquet_col_; /**< cat(slot) to parquet column idx */
-  std::shared_ptr<rmm::device_buffer> slot_offset_device_buf_; /**< GPU buffer w/ slot offset*/
   bool thread_resource_allocated_{false};  /**< Flag to set/allocate worker thread resources */
   std::unique_ptr<cudf::table> cached_df_; /**< Cached row_group from Parquet */
   Tensor2<int64_t> host_memory_pointer_staging_;
   /**< Pinned memory for async column dev ptr copy */
-  Tensor2<uint32_t> host_pinned_csr_inc_; /**< Pinned memory to copy csr push_back values */
+  Tensor2<T> host_pinned_csr_inc_; /**< Pinned memory to copy csr push_back values */
   long long row_group_size_;
   long long row_group_index_;
   long long row_group_carry_forward_;
@@ -87,6 +83,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   }
 
   void read_new_file() {
+    std::set<int> tmp_col_index;
     auto source = parquet_file_source();
     for (int i = 0; i < MAX_TRY; i++) {
       Error_t err = source->next_source();
@@ -99,24 +96,38 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
 
           if (dense_idx_to_parquet_col_.size() !=
               (label_col_names.size() + dense_col_names.size())) {
-            dense_idx_to_parquet_col_.clear();
             int i = 0;
+            dense_idx_to_parquet_col_.clear();
+            tmp_col_index.clear();
             for (auto& c : label_col_names) {
-              dense_idx_to_parquet_col_.insert(std::make_pair(i, c.index));
+              tmp_col_index.insert(c.index);
+            }
+            for(auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++){
+              dense_idx_to_parquet_col_.insert(std::make_pair(i, *it));
               i++;
             }
+            tmp_col_index.clear();
             for (auto& c : dense_col_names) {
-              dense_idx_to_parquet_col_.insert(std::make_pair(i, c.index));
+              tmp_col_index.insert(c.index);
+            }
+            for(auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++){
+              dense_idx_to_parquet_col_.insert(std::make_pair(i, *it));
               i++;
             }
           }
+          
+          tmp_col_index.clear();
 
           auto cat_col_names = metadata.get_cat_names();
           if (categorical_idx_parquet_col_.size() != cat_col_names.size()) {
             categorical_idx_parquet_col_.clear();
             int i = 0;
             for (auto& c : cat_col_names) {
+              tmp_col_index.insert(c.index);
               categorical_idx_parquet_col_.insert(std::make_pair(i, c.index));
+            }
+            for(auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++){
+              categorical_idx_parquet_col_.insert(std::make_pair(i, *it));
               i++;
             }
           }
@@ -137,15 +148,13 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
    * Ctor
    */
   ParquetDataReaderWorker(unsigned int worker_id, unsigned int worker_num,
-                          const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
-                          const std::string& file_list, size_t buffer_length,
-                          const std::vector<DataReaderSparseParam>& params,
+                          // const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
+                          const std::shared_ptr<GPUResource>& gpu_resource, int* loop_flag,
+                          const std::shared_ptr<ThreadBuffer>& buffer, const std::string& file_list,
+                          const std::vector<DataReaderSparseParam>& params, 
                           const std::vector<long long>& slot_offset, int device_id,
                           const std::shared_ptr<ResourceManager>& resource_manager)
-      : worker_id_(worker_id),
-        worker_num_(worker_num),
-        buffer_length_(buffer_length),
-        csr_heap_(csr_heap),
+      : IDataReaderWorker(worker_id, worker_num, gpu_resource, false, loop_flag, buffer),
         params_(params),
         slot_offset_(slot_offset),
         device_id_(device_id),
@@ -158,7 +167,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     buff->allocate();
 
     ResourceManagerExt* ext = dynamic_cast<ResourceManagerExt*>(resource_manager_.get());
-    if(ext == nullptr) {
+    if (ext == nullptr) {
       CK_THROW_(Error_t::WrongInput, "Invalid ResourceManager");
     }
     memory_resource_ = ext->get_device_rmm_device_memory_resource(device_id_);
@@ -172,7 +181,10 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     }
     source_ = std::make_shared<ParquetFileSource>(worker_id, worker_num, file_list);
 
-    assert((int)slot_offset_.size() == slots_);
+    // assert((int)slot_offset_.size() == slots_);
+    if((int)slot_offset_.size() < slots_){
+      slot_offset_.resize(slots_,static_cast<long long int> (0));
+    }
     for (auto& c : slot_offset_) {
       if ((c >= std::numeric_limits<T>::min()) && (c <= std::numeric_limits<T>::max()))
         slot_offset_dtype_.push_back((T)c);
@@ -233,11 +245,18 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
     if (!source->is_open()) {
       read_new_file();
     }
-    CSRChunk<T>* csr_chunk = csr_heap_->checkout_free_chunk(worker_id_);
-
+    // dense_buffers store only data for local gpus, clipped by batch_size_start_idx &
+    // batch_size_end_idx
+    int dense_start = buffer_->batch_size_start_idx;  // dense buffer
+    int dense_end = buffer_->batch_size_end_idx;      // dense buffer
+    int batch_size = buffer_->batch_size;
+    const int label_dense_dim = buffer_->label_dim + buffer_->dense_dim;
+    size_t param_num = buffer_->param_num;
     if (!skip_read_) {
-      csr_chunk->set_current_batchsize(csr_chunk->get_batchsize());
-      int batch_size = csr_chunk->get_batchsize();
+      if (!wait_until_h2d_ready()) return;
+      buffer_->current_batch_size = buffer_->batch_size;
+      
+      auto dst_dense_tensor = Tensor2<dtype_dense>::stretch_from(buffer_->device_dense_buffers);
 
       long long elements_to_read = batch_size;
       std::vector<cudf::table_view> table_view_for_concat;
@@ -251,6 +270,8 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
                                                                  tbl_w_metadata.tbl->view()};
             // swap here will automatically release previous cached DF
             (cudf::concatenate(table_views_for_concat, memory_resource_.get())).swap(cached_df_);
+            // roll back if concat happens between group
+            current_record_index_ -= row_group_carry_forward_;
             row_group_size_ = cached_df_->num_rows();
             row_group_carry_forward_ = 0;
             table_view_for_concat.clear();
@@ -282,13 +303,14 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           }
           row_group_index_ += avail_rows;
           current_record_index_ += avail_rows;
-          // elements_to_read -= avail_rows; //
           row_group_carry_forward_ = avail_rows;
         }
 
         // read_next_file if needed
         if (current_record_index_ >= records_in_file_) {
           read_new_file();  // set current_record_index_ to zero
+          // we merge last slice to next file, so need to move current_record_index_ forward
+          current_record_index_ += row_group_carry_forward_;
           if (row_group_carry_forward_ > 0)
             records_in_file_ += row_group_carry_forward_;
           else if ((row_group_size_ - row_group_index_) > 0)
@@ -298,29 +320,17 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
 
       cudf::table_view data_view = cached_df_->view();
 
-      Tensors2<float>& label_dense_buffers = csr_chunk->get_label_buffers();  // get_num_elements
-      const int label_dense_dim = csr_chunk->get_label_dense_dim();
-      int num_dense_buffers = label_dense_buffers.size();
-
+      // potential bugs here ??? it's hard to count how many pointers are used....
       int64_t num_of_pointer_staging =
-          2 * (csr_chunk->get_label_dense_dim() + num_dense_buffers) +
-          3 * (int)csr_chunk->get_csr_buffers().size() * params_.size() + slots_ +
-          +csr_chunk->get_num_devices();
+          2 * (buffer_->label_dim + buffer_->label_dim + 1) + 2 * params_.size() + 2 * slots_;
 
       // PinnedBuffer extend on unique_ptr cant realloc properly and safely (cudaContext)
       if ((int64_t)host_memory_pointer_staging_.get_num_elements() < num_of_pointer_staging)
         CK_THROW_(Error_t::UnspecificError, "Parquet reader worker: not enough pinned storge");
 
       // calculate rows for each buffer
-      size_t device_staging_dense_size = ((batch_size - 1) / num_dense_buffers + 1);
+      size_t device_staging_dense_size = dense_end - dense_start;
       device_staging_dense_size *= ((size_t)label_dense_dim * sizeof(dtype_dense));
-
-      std::vector<rmm::device_buffer> dense_data_buffers(num_dense_buffers);
-      for (int k = 0; k < num_dense_buffers; k++) {
-        dense_data_buffers[k] =
-            rmm::device_buffer(device_staging_dense_size, dense_stream_, memory_resource_.get());
-      }
-
       std::vector<cudf::column_view> dense_columns_view_ref;
       for (int k = 0; k < label_dense_dim; k++) {
         dense_columns_view_ref.emplace_back(
@@ -336,192 +346,128 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         dtype_dense* column_ptr =
             const_cast<dtype_dense*>(dense_columns_view_ref[k].data<dtype_dense>());
         column_ptr =
-            reinterpret_cast<dtype_dense*>((size_t)column_ptr + sizeof(dtype_dense) * view_offset_);
+            // only proceed dense for local gpu
+            reinterpret_cast<dtype_dense*>((size_t)column_ptr + sizeof(dtype_dense) * view_offset_ +
+                                           sizeof(dtype_dense) * dense_start);
         dense_column_data_ptr.push_back(column_ptr);
       }
 
       std::deque<rmm::device_buffer> rmm_resources;
-
-      // kernel from dense_column_data_ptr to device_staging_dense_size with data transpose
-      convert_parquet_dense_columns(dense_column_data_ptr, label_dense_dim, batch_size,
-                                    num_dense_buffers, dense_data_buffers,
+      convert_parquet_dense_columns(dense_column_data_ptr, label_dense_dim, batch_size, dense_start,
+                                    dense_end, dst_dense_tensor.get_ptr(),
                                     host_memory_pointer_staging_.get_ptr(), rmm_resources,
                                     memory_resource_.get(), dense_stream_);
 
-      for (int k = 0; k < num_dense_buffers; k++) {
-        Tensor2<float>& buf = label_dense_buffers[k];
-        size_t copy_size = buf.get_num_elements() * sizeof(dtype_dense);
-        CK_CUDA_THROW_(cudaMemcpyAsync(buf.get_ptr(), dense_data_buffers[k].data(), copy_size,
-                                       cudaMemcpyDeviceToHost, dense_stream_));
-      }
+      const int num_csr_buffers = param_num;
+      auto dst_sparse_tensors = buffer_->device_sparse_buffers;
+      // device output pointer
+      std::vector<void*> device_csr_value_buffers(num_csr_buffers);
+      std::vector<void*> device_csr_row_offset_buffers(num_csr_buffers);
 
-      // device/buffer wise distribution is important
-      // label device buffer - as many as csr buffers
-      // transpose on gpu kernel
-      // memcpy to csr label_dense_buffers
-
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::reset);
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::set_check_point);
-      auto& csr_buffers = csr_chunk->get_csr_buffers();
-      int num_csr_buffers = csr_buffers.size();
-      std::vector<rmm::device_buffer> device_csr_value_buffers(num_csr_buffers);
-      std::vector<rmm::device_buffer> device_csr_row_offset_buffers(num_csr_buffers);
-
-      // caution for mhot
-      // use nnz = 1, so device allocations needn't be variable length
-      // @future - parquet multi-hot change these allocation size
-      size_t size_of_csr_buffer = sizeof(T) * slots_ * batch_size;
-      size_t size_of_csr_roff_buffer = sizeof(T) * (slots_ * batch_size + 1);
       for (int k = 0; k < num_csr_buffers; k++) {
-        device_csr_value_buffers[k] =
-            rmm::device_buffer(size_of_csr_buffer, task_stream_, memory_resource_.get());
+        auto dst_sparse_tensor = SparseTensor<T>::stretch_from(dst_sparse_tensors[k]);
+        device_csr_value_buffers[k] = reinterpret_cast<void*>(dst_sparse_tensor.get_value_ptr());
         device_csr_row_offset_buffers[k] =
-            rmm::device_buffer(size_of_csr_roff_buffer, task_stream_, memory_resource_.get());
-
-        CK_CUDA_THROW_(cudaMemsetAsync(device_csr_row_offset_buffers[k].data(), 0,
-                                       size_of_csr_roff_buffer, task_stream_));
+            reinterpret_cast<void*>(dst_sparse_tensor.get_rowoffset_ptr());
+        size_t size_of_csr_roff_buffer = sizeof(T) * (slots_ * batch_size + 1);
+        CK_CUDA_THROW_(cudaMemsetAsync(device_csr_row_offset_buffers[k], 0, size_of_csr_roff_buffer,
+                                       task_stream_));
       }
 
-      size_t embed_param_offset_buf_size = num_csr_buffers * sizeof(uint32_t);
-      rmm::device_buffer device_embed_param_start_offset(embed_param_offset_buf_size, task_stream_,
-                                                         memory_resource_.get());
-
-      CK_CUDA_THROW_(cudaMemsetAsync(device_embed_param_start_offset.data(), 0,
-                                     embed_param_offset_buf_size, task_stream_));
-
-      // categoricals
-      // param_id unroll with param : params_ --> param.slot_num
-      int csr_chunk_devices = csr_chunk->get_num_devices();
       int param_id = 0;
       int df_column_id = 0;
-      int param_size = params_.size();
 
-      int64_t* pinned_staging_buffer = reinterpret_cast<int64_t*>(
-          (size_t)host_memory_pointer_staging_.get_ptr() +
-          sizeof(int64_t) * 2 * (csr_chunk->get_label_dense_dim() + num_dense_buffers));
+      int64_t* pinned_staging_buffer =
+          reinterpret_cast<int64_t*>((size_t)host_memory_pointer_staging_.get_ptr() +
+                                     sizeof(int64_t) * 2 * (label_dense_dim + 1));
       size_t pinned_buffer_offset_count = 0;
 
       for (auto& param : params_) {
-        bool distributed_slot = false;
         int slot_count = param.slot_num;
         std::vector<cudf::column_view> cat_columns_view_ref;
         for (int k = 0; k < slot_count; k++) {
           cat_columns_view_ref.emplace_back(
               std::move(data_view.column(categorical_idx_parquet_col_[df_column_id + k])));
-          if (cudf::size_of(cat_columns_view_ref.back().type()) != sizeof(T)) {
+        }
+
+        /*
+          slots input data: value, row_offset
+          for m-hot slots , row_offset = column::child(0).data , value = column::child(1).data
+          for s-hot row_offset = nullptr, value = column.data()
+        */
+        std::vector<T*> cat_column_data_ptr;
+        std::vector<int32_t*> cat_column_row_offset_ptr;
+
+        for (int k = 0; k < slot_count; k++) {
+          cudf::type_id type_of_column = cat_columns_view_ref[k].type().id();
+
+          // m-hot
+          if (type_of_column == cudf::type_to_id<cudf::list_view>()) {
+            cudf::column_view row_offset_view = cat_columns_view_ref[k].child(0);
+            cudf::column_view value_view = cat_columns_view_ref[k].child(1);
+            if (cudf::size_of(value_view.type()) != sizeof(T)) {
+              CK_THROW_(Error_t::WrongInput,
+                        "Parquet worker : cat m-hot KeyType does not match Parquet column type");
+            }
+            if (row_offset_view.type().id() != cudf::type_to_id<int32_t>()) {
+              CK_THROW_(Error_t::WrongInput, "Parquet worker : row_offset type should be int32_t");
+            }
+            int32_t* row_ptr = const_cast<int32_t*>(row_offset_view.data<int32_t>());
+            T* column_ptr = const_cast<T*>(value_view.data<T>());
+            cat_column_row_offset_ptr.push_back(row_ptr);
+            cat_column_data_ptr.push_back(column_ptr);
+          }
+          // s-hot
+          else if (cudf::size_of(cat_columns_view_ref[k].type()) == sizeof(T)) {
+            T* column_ptr = const_cast<T*>(cat_columns_view_ref[k].data<T>());
+            column_ptr = reinterpret_cast<T*>((size_t)column_ptr);
+            cat_column_data_ptr.push_back(column_ptr);
+            cat_column_row_offset_ptr.push_back(nullptr);
+          } else {
             CK_THROW_(Error_t::WrongInput,
-                      "Parquet reader: Slot KeyType and Parquet column type don't match");
+                      "Parquet worker : cat m-hot KeyType does not match Parquet column type");
           }
         }
-
-        std::vector<T*> cat_column_data_ptr;
-        for (int k = 0; k < slot_count; k++) {
-          T* column_ptr = const_cast<T*>(cat_columns_view_ref[k].data<T>());
-          column_ptr = reinterpret_cast<T*>((size_t)column_ptr + sizeof(T) * view_offset_);
-          cat_column_data_ptr.push_back(column_ptr);
-        }
-
         T* dev_slot_offset_ptr = reinterpret_cast<T*>((size_t)slot_offset_device_buf_->data() +
                                                       (df_column_id * sizeof(T)));
-
         int64_t* pinned_staging_buffer_param = reinterpret_cast<int64_t*>(
             (size_t)pinned_staging_buffer + pinned_buffer_offset_count * sizeof(int64_t));
-        if (param.type == DataReaderSparse_t::Distributed) {
-          distributed_slot = true;
-          // added row to all device csr buffer based on param_id
-          // distribute input based on input read feature % num_devices
-          // csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
+        {
+          // optimize converter in the future when slots nnz for current param_id is fixed
           pinned_buffer_offset_count += convert_parquet_cat_columns(
-              cat_column_data_ptr, param_size, param_id, slot_count, batch_size, num_csr_buffers,
-              csr_chunk_devices, distributed_slot, resource_manager_->get_process_id(), resource_manager_,
-              device_csr_value_buffers, device_csr_row_offset_buffers, pinned_staging_buffer_param,
-              (uint32_t*)device_embed_param_start_offset.data(), dev_slot_offset_ptr, rmm_resources,
-              memory_resource_.get(), task_stream_);
-        } else if (param.type == DataReaderSparse_t::Localized) {
-          // Add row to one buffer
-          // buffer select based on k % num_gpus k -> loop on slot_num
-          // csr_chunk->get_csr_buffer(param_id, dev_id).push_back(local_id);
-
-          // for all slots
-          // k is slot_id in current slot
-          // int dev_id = k % csr_chunk->get_num_devices();
-          // dev_id * num_params_ + param_id
-          // call GPU kernel to rearrage the value in individual buffers
-          // call GPU kernel for row_offset as well
-          // row_increments go for respective buffers that got data
-
-          pinned_buffer_offset_count += convert_parquet_cat_columns(
-              cat_column_data_ptr, param_size, param_id, slot_count, batch_size, num_csr_buffers,
-              csr_chunk_devices, distributed_slot, resource_manager_->get_process_id(), resource_manager_,
-              device_csr_value_buffers, device_csr_row_offset_buffers, pinned_staging_buffer_param,
-              (uint32_t*)device_embed_param_start_offset.data(), dev_slot_offset_ptr, rmm_resources,
-              memory_resource_.get(), task_stream_);
-        } else {
-          CK_THROW_(Error_t::UnspecificError, "param.type is not defined");
+              cat_column_data_ptr, cat_column_row_offset_ptr, view_offset_, param_num, param_id,
+              param.max_nnz, slot_count, batch_size, resource_manager_->get_process_id(),
+              resource_manager_, device_csr_value_buffers, device_csr_row_offset_buffers,
+              pinned_staging_buffer_param, dev_slot_offset_ptr,rmm_resources, memory_resource_.get(), task_stream_);
         }
         df_column_id += param.slot_num;
         param_id++;
       }
 
-      assert((int)host_pinned_csr_inc_.get_num_elements() >= num_csr_buffers);
-      CK_CUDA_THROW_(
-          cudaMemcpyAsync(host_pinned_csr_inc_.get_ptr(), device_embed_param_start_offset.data(),
-                          embed_param_offset_buf_size, cudaMemcpyDeviceToHost, task_stream_));
-
-      // need this sync here to adjust for memcpy size from D2H of csr bufs
       CK_CUDA_THROW_(cudaStreamSynchronize(task_stream_));
 
-      // data copied to csr_chunk are based on valid-data
-      for (int param_idx = 0; param_idx < param_size; param_idx++) {
-        for (int device = 0; device < csr_chunk_devices; device++) {
-          int buf_id = device * param_size + param_idx;
+      // get nnz info
+      for (size_t buffer_id = 0; buffer_id < param_num; buffer_id++) {
+        int64_t last_row = batch_size * params_[buffer_id].slot_num;
+        int64_t dev_row_pointer =
+            reinterpret_cast<int64_t>(device_csr_row_offset_buffers[buffer_id]) +
+            last_row * sizeof(T);
 
-          // save on memcpy to host bottlenecks
-          if (resource_manager_->get_process_id() == resource_manager_->get_process_id_from_gpu_global_id(device)) {
-            size_t copy_size = host_pinned_csr_inc_.get_ptr()[buf_id] * sizeof(T);
-            CK_CUDA_THROW_(cudaMemcpyAsync(csr_chunk->get_csr_buffer(buf_id).get_value_tensor().get_ptr(),
-                                          device_csr_value_buffers[buf_id].data(), copy_size,
-                                          cudaMemcpyDeviceToHost, task_stream_));
-
-            if (params_[param_idx].type == DataReaderSparse_t::Distributed) {
-              copy_size = sizeof(T) * (batch_size * params_[param_idx].slot_num + 1);
-            } else {
-              copy_size += sizeof(T);
-            }
-
-            CK_CUDA_THROW_(cudaMemcpyAsync(csr_chunk->get_csr_buffer(buf_id).get_row_offset_tensor().get_ptr(),
-                                          device_csr_row_offset_buffers[buf_id].data(), copy_size,
-                                          cudaMemcpyDeviceToHost, task_stream_));
-          }
-        }
-      }
-
-      for (int param_idx = 0; param_idx < param_size; param_idx++) {
-        for (int device = 0; device < csr_chunk_devices; device++) {
-          int buf_id = device * param_size + param_idx;
-          csr_chunk->get_csr_buffer(buf_id).update_value_size(
-              host_pinned_csr_inc_.get_ptr()[buf_id]);
-
-          if (params_[param_idx].type == DataReaderSparse_t::Localized) {
-            csr_chunk->get_csr_buffer(buf_id).update_row_offset(
-                host_pinned_csr_inc_.get_ptr()[buf_id]);
-          } else if (params_[param_idx].type == DataReaderSparse_t::Distributed) {
-            csr_chunk->get_csr_buffer(buf_id).update_row_offset(batch_size *
-                                                                params_[param_idx].slot_num);
-          }
-        }
+        auto dst_sparse_tensor = SparseTensor<T>::stretch_from(dst_sparse_tensors[buffer_id]);
+        CK_CUDA_THROW_(cudaMemcpyAsync(reinterpret_cast<void*>(host_pinned_csr_inc_.get_ptr()),
+                                       reinterpret_cast<void*>(dev_row_pointer), sizeof(T) * 1,
+                                       cudaMemcpyDeviceToHost, task_stream_));
+        CK_CUDA_THROW_(cudaStreamSynchronize(task_stream_));
+        size_t nnz = static_cast<size_t>(host_pinned_csr_inc_.get_ptr()[0]);
+        *dst_sparse_tensor.get_nnz_ptr() = nnz;
       }
 
       CK_CUDA_THROW_(cudaStreamSynchronize(task_stream_));
       CK_CUDA_THROW_(cudaStreamSynchronize(dense_stream_));
 
-      csr_chunk->apply_to_csr_buffers(&CSR<T>::new_row);
-
-      // caching index increment
       view_offset_ = row_group_index_;
     }
-
-    csr_heap_->commit_data_chunk(worker_id_, false);
+    buffer_->state.store(BufferState::ReadyForRead);
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;

@@ -537,14 +537,18 @@ bool Session::eval(int eval_batch) {
       #pragma omp parallel num_threads(networks_.size())
       {
         size_t id = omp_get_thread_num();
-        networks_[id]->eval();
+        long long current_batchsize_per_device =
+          evaluate_data_reader_->get_current_batchsize_per_device(id);
+        networks_[id]->eval(current_batchsize_per_device);
         for (auto& metric : metrics_) {
           metric->local_reduce(id, networks_[id]->get_raw_metrics());
         }
       }
 
     } else if (networks_.size() == 1) {
-      networks_[0]->eval();
+      long long current_batchsize_per_device =
+        evaluate_data_reader_->get_current_batchsize_per_device(0);
+      networks_[0]->eval(current_batchsize_per_device);
       for (auto& metric : metrics_) {
         metric->local_reduce(0, networks_[0]->get_raw_metrics());
       }

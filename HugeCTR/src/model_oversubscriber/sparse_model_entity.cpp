@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
+#include "utils.hpp"
 #include "model_oversubscriber/sparse_model_entity.hpp"
 
 #include <string>
+#include <thread>
 #include <fstream>
 #include <sstream>
 #include <iterator>
+#include <numeric>
 #include <algorithm>
+#include <execution>
 #include <experimental/filesystem>
 #include <omp.h>
 
@@ -61,31 +65,72 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey>& keys,
       // load vectors from host memory
       std::vector<size_t> idx_exist;
       idx_exist.reserve(keys.size());
-      size_t cnt_hit_keys = 0;
 
-      auto insert_key_op = [this, &idx_exist, &cnt_hit_keys, &key_ptr, &slot_id_ptr](auto iter) {
-        key_ptr[cnt_hit_keys] = iter->first;
-        if (!is_distributed_) {
-          slot_id_ptr[cnt_hit_keys] = iter->second.first;
-        }
-        idx_exist.push_back(iter->second.second);
-        cnt_hit_keys++;
-      };
+      const size_t chunk_num = std::thread::hardware_concurrency();
+      std::vector<std::vector<TypeKey>> chunk_keys(chunk_num);
+      std::vector<std::vector<size_t>> chunk_slot_id(chunk_num);
+      std::vector<std::vector<size_t>> chunk_idx_exist(chunk_num);
 
-      for (auto key : keys) {
-        auto iter = exist_key_idx_mapping_.find(key);
-        if (iter != exist_key_idx_mapping_.end()) {
-          insert_key_op(iter);
-        } else {
-          iter = new_key_idx_mapping_.find(key);
-          if (iter != new_key_idx_mapping_.end()) {
+      #pragma omp parallel num_threads(chunk_num)
+      {
+        const size_t tid = omp_get_thread_num();
+        const size_t thread_num = omp_get_num_threads();
+        size_t sub_chunk_size = keys.size() / thread_num;
+        size_t res_chunk_size = keys.size() % thread_num;
+        const size_t idx = tid * sub_chunk_size;
+
+        if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
+        chunk_keys[tid].reserve(sub_chunk_size);
+        chunk_idx_exist[tid].reserve(sub_chunk_size);
+        if (!is_distributed_) chunk_slot_id[tid].reserve(sub_chunk_size);
+
+        auto insert_key_op = [&](auto iter) {
+          chunk_keys[tid].push_back(iter->first);
+          chunk_idx_exist[tid].push_back(iter->second.second);
+          if (!is_distributed_) chunk_slot_id[tid].push_back(iter->second.first);
+        };
+
+        for (size_t i = 0; i < sub_chunk_size; i++) {
+          auto key = keys[idx + i];
+          auto iter = exist_key_idx_mapping_.find(key);
+          if (iter != exist_key_idx_mapping_.end()) {
             insert_key_op(iter);
+          } else {
+            iter = new_key_idx_mapping_.find(key);
+            if (iter != new_key_idx_mapping_.end()) {
+              insert_key_op(iter);
+            }
           }
         }
       }
+      size_t cnt_hit_keys = 0;
+      for (const auto& chunk_key : chunk_keys) {
+        cnt_hit_keys += chunk_key.size();
+      }
+
+      idx_exist.resize(cnt_hit_keys);
+
+      TypeKey *dst_key_ptr = key_ptr;
+      size_t *dst_slot_id_ptr = slot_id_ptr;
+      size_t *dst_idx_exist_ptr = idx_exist.data();
+      for (size_t i = 0; i < chunk_keys.size(); i++) {
+        const auto num_elem = chunk_keys[i].size();
+
+        memcpy(dst_key_ptr, chunk_keys[i].data(), num_elem * sizeof(TypeKey));
+        dst_key_ptr += num_elem;
+
+        memcpy(dst_idx_exist_ptr, chunk_idx_exist[i].data(), num_elem * sizeof(size_t));
+        dst_idx_exist_ptr += num_elem;
+
+        if (!is_distributed_) {
+          memcpy(dst_slot_id_ptr, chunk_slot_id[i].data(), num_elem * sizeof(size_t));
+          dst_slot_id_ptr += num_elem;
+        }
+      }
+
       hit_size = cnt_hit_keys;
 
-      #pragma omp parallel num_threads(8)
+      #pragma omp parallel num_threads(chunk_num)
       {
         const size_t tid = omp_get_thread_num();
         const size_t thread_num = omp_get_num_threads();
@@ -145,7 +190,8 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey>& keys,
 }
 
 template <typename TypeKey>
-void SparseModelEntity<TypeKey>::dump_vec_by_key(BufferBag &buf_bag, const size_t dump_size) {
+void SparseModelEntity<TypeKey>::dump_vec_by_key(BufferBag &buf_bag,
+                                                 const size_t dump_size) {
   try {
     if (dump_size == 0) return;
 
@@ -161,29 +207,91 @@ void SparseModelEntity<TypeKey>::dump_vec_by_key(BufferBag &buf_bag, const size_
       const size_t num_exist_vecs = host_emb_tabel_.size() / emb_vec_size_;
 
       std::vector<size_t> idx_dst;
-      idx_dst.reserve(dump_size);
+      idx_dst.resize(dump_size);
 
-      for (size_t cnt = 0; cnt < dump_size; cnt++) {
-        auto iter = exist_key_idx_mapping_.find(key_ptr[cnt]);
-        if (iter != exist_key_idx_mapping_.end()) {
-          idx_dst.push_back(iter->second.second);
-          continue;
-        }
+      const size_t chunk_num = std::thread::hardware_concurrency();
+      std::vector<std::vector<int64_t>> chunk_idx_dst(chunk_num);
+      std::vector<HashTableType> chunk_new_key_idx_mapping(chunk_num);
+      std::vector<size_t> chunk_cnt_new_keys(chunk_num, 0);
 
-        iter = new_key_idx_mapping_.find(key_ptr[cnt]);
-        if (iter == new_key_idx_mapping_.end()) {
-          size_t slot_id_temp = is_distributed_ ? 0 : slot_id_ptr[cnt];
-          size_t vec_idx_temp = num_exist_vecs + cnt_new_keys++;
-          new_key_idx_mapping_.emplace(key_ptr[cnt], std::make_pair(slot_id_temp, vec_idx_temp));
-          idx_dst.push_back(vec_idx_temp);
-        } else {
-          idx_dst.push_back(iter->second.second);
+      #pragma omp parallel num_threads(chunk_num)
+      {
+        const size_t tid = omp_get_thread_num();
+        const size_t thread_num = omp_get_num_threads();
+        size_t sub_chunk_size = dump_size / thread_num;
+        size_t res_chunk_size = dump_size % thread_num;
+        const size_t idx = tid * sub_chunk_size;
+
+        if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
+        chunk_idx_dst[tid].reserve(sub_chunk_size);
+        chunk_new_key_idx_mapping[tid].reserve(sub_chunk_size);
+
+        for (size_t i = 0; i < sub_chunk_size; i++) {
+          const auto key = key_ptr[idx + i];
+          auto iter = exist_key_idx_mapping_.find(key);
+          if (iter != exist_key_idx_mapping_.end()) {
+            chunk_idx_dst[tid].push_back(iter->second.second);
+            continue;
+          }
+
+          iter = new_key_idx_mapping_.find(key);
+          if (iter == new_key_idx_mapping_.end()) {
+            size_t slot_id_temp = is_distributed_ ? 0 : slot_id_ptr[idx + i];
+            size_t vec_idx_temp = num_exist_vecs + chunk_cnt_new_keys[tid]++;
+            chunk_new_key_idx_mapping[tid].emplace(
+                key, std::make_pair(slot_id_temp, vec_idx_temp));
+            chunk_idx_dst[tid].push_back(-1 * vec_idx_temp - 1);
+          } else {
+            chunk_idx_dst[tid].push_back(iter->second.second);
+          }
         }
       }
-      size_t extended_table_size = host_emb_tabel_.size() + cnt_new_keys * emb_vec_size_;
+
+      std::vector<size_t> new_key_offset(chunk_cnt_new_keys.size());
+      std::exclusive_scan(chunk_cnt_new_keys.begin(), chunk_cnt_new_keys.end(),
+                          new_key_offset.begin(), 0);
+
+      std::vector<std::vector<size_t>> tmp_idx_dst(chunk_num);
+
+      for (size_t tid = 0; tid < chunk_num; tid++) {
+        tmp_idx_dst[tid].resize(chunk_idx_dst[tid].size());
+
+        #pragma omp parallel for num_threads(chunk_num)
+        for (size_t i = 0; i < chunk_idx_dst[tid].size(); i++) {
+          auto tmp_idx = chunk_idx_dst[tid][i];
+          tmp_idx_dst[tid][i] = (tmp_idx < 0) ?
+                                -1 * (tmp_idx + 1) + new_key_offset[tid] :
+                                tmp_idx;
+        }
+      }
+
+      #pragma omp parallel for num_threads(chunk_num)
+      for (size_t tid = 0; tid < chunk_num; tid++) {
+        size_t offset = (tid == 0) ? 0 : dump_size / chunk_num * tid;
+        memcpy(idx_dst.data() + offset, tmp_idx_dst[tid].data(),
+               tmp_idx_dst[tid].size() * sizeof(size_t));
+
+        for_each(std::execution::par,
+            chunk_new_key_idx_mapping[tid].begin(),
+            chunk_new_key_idx_mapping[tid].end(),
+            [val = new_key_offset[tid]](auto& pair) {
+              pair.second.second += val;
+        });
+      }
+
+      cnt_new_keys = 0;
+      for (size_t tid = 0; tid < chunk_num; tid++) {
+        new_key_idx_mapping_.insert(chunk_new_key_idx_mapping[tid].begin(),
+                                    chunk_new_key_idx_mapping[tid].end());
+
+        cnt_new_keys += chunk_new_key_idx_mapping[tid].size();
+      }
+
+      size_t extended_table_size = host_emb_tabel_.size() +
+                                   cnt_new_keys * emb_vec_size_;
       host_emb_tabel_.resize(extended_table_size);
 
-      #pragma omp parallel num_threads(8)
+      #pragma omp parallel num_threads(chunk_num)
       {
         const size_t tid = omp_get_thread_num();
         const size_t thread_num = omp_get_num_threads();
@@ -196,7 +304,8 @@ void SparseModelEntity<TypeKey>::dump_vec_by_key(BufferBag &buf_bag, const size_
         for (size_t i = 0; i < sub_chunk_size; i++) {
           size_t src_idx = (idx + i) * emb_vec_size_;
           size_t dst_idx = idx_dst[idx + i] * emb_vec_size_;
-          memcpy(&host_emb_tabel_[dst_idx], &vec_ptr[src_idx], emb_vec_size_ * sizeof(float));
+          memcpy(&host_emb_tabel_[dst_idx], &vec_ptr[src_idx],
+                 emb_vec_size_ * sizeof(float));
         }
       }
     } else {

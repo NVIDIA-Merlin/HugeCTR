@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -166,9 +166,9 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
   return state;
 }
 
-void Network::eval() {
+void Network::eval(long long current_batchsize) {
   prop_layers(evaluate_layers_, eval_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(), false);
-  evaluate_loss_->compute(false);
+  evaluate_loss_->compute(false, current_batchsize);
 }
 void Network::predict() {
   prop_layers(evaluate_layers_, predict_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(), false);

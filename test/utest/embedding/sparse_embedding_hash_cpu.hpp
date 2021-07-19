@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/data_readers/check_none.hpp"
 #include "HugeCTR/include/data_readers/check_sum.hpp"
-#include "HugeCTR/include/data_readers/csr_chunk.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
 #include "HugeCTR/include/data_readers/file_source.hpp"
 #include "utest/embedding/cpu_hashtable.hpp"
@@ -290,8 +289,8 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
 
   // read hash table
   {
-    const std::string key_file(hash_table_file + "/" + hash_table_file + ".key");
-    const std::string vec_file(hash_table_file + "/" + hash_table_file + ".vec");
+    const std::string key_file(hash_table_file + "/key");
+    const std::string vec_file(hash_table_file + "/emb_vector");
 
     std::ifstream key_stream(key_file, std::ifstream::binary);
     std::ifstream vec_stream(vec_file, std::ifstream::binary);
@@ -301,15 +300,21 @@ SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::SparseEmbeddingHashCpu(
     }
     auto key_file_size_in_B = fs::file_size(key_file);
     auto vec_file_size_in_B = fs::file_size(vec_file);
-    const int num_key = key_file_size_in_B / sizeof(TypeHashKey);
+    const int num_key = key_file_size_in_B / sizeof(long long);
     const int num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size_);
 
     if (num_key != num_vec || num_key > vocabulary_size_) {
       ERROR_MESSAGE_("Error: hash table file size is smaller than embedding_table_size required");
       return;
     }
-
-    key_stream.read(reinterpret_cast<char *>(hash_table_key_.get()), key_file_size_in_B);
+    if (std::is_same<TypeHashKey, long long>::value) {
+      key_stream.read(reinterpret_cast<char *>(hash_table_key_.get()), key_file_size_in_B);
+    } else {
+      std::vector<long long> i64_key_vec(num_key, 0);
+      key_stream.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_B);
+      std::transform(i64_key_vec.begin(), i64_key_vec.end(), hash_table_key_.get(),
+                     [](long long key) { return static_cast<unsigned>(key); });
+    }
     vec_stream.read(reinterpret_cast<char *>(hash_table_value_.get()), vec_file_size_in_B);
   }
 

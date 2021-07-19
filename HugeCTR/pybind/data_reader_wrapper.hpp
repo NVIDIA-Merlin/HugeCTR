@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,10 +25,18 @@ void DataReaderPybind(pybind11::module& m) {
   pybind11::class_<HugeCTR::IDataReader, std::shared_ptr<HugeCTR::IDataReader>>(m, "IDataReader");
   pybind11::class_<HugeCTR::DataReader<long long>, std::shared_ptr<HugeCTR::DataReader<long long>>, HugeCTR::IDataReader>(m, "DataReader64")
       .def("set_source", &HugeCTR::DataReader<long long>::set_source,
-           pybind11::arg("file_name") = std::string());
+           pybind11::arg("file_name") = std::string())
+      .def("is_started", &HugeCTR::DataReader<long long>::is_started)
+      .def("ready_to_collect", &HugeCTR::DataReader<long long>::ready_to_collect)
+      .def("read_a_batch_to_device", &HugeCTR::DataReader<long long>::read_a_batch_to_device)
+      .def("read_a_batch_to_device_delay_release", &HugeCTR::DataReader<long long>::read_a_batch_to_device_delay_release);
   pybind11::class_<HugeCTR::DataReader<unsigned int>, std::shared_ptr<HugeCTR::DataReader<unsigned int>>, HugeCTR::IDataReader>(m, "DataReader32")
       .def("set_source", &HugeCTR::DataReader<unsigned int>::set_source,
-           pybind11::arg("file_name") = std::string());
+           pybind11::arg("file_name") = std::string())
+      .def("is_started", &HugeCTR::DataReader<unsigned int>::is_started)
+      .def("ready_to_collect", &HugeCTR::DataReader<unsigned int>::ready_to_collect)
+      .def("read_a_batch_to_device", &HugeCTR::DataReader<unsigned int>::read_a_batch_to_device)
+      .def("read_a_batch_to_device_delay_release", &HugeCTR::DataReader<unsigned int>::read_a_batch_to_device_delay_release);
 }
 
 }  // namespace python_lib

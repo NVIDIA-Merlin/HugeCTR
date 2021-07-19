@@ -1,9 +1,9 @@
-#include "common.hpp"
-#include "data_reader.hpp"
-#include "data_readers/async_reader/async_reader.hpp"
-#include "data_readers/async_reader/async_reader_common.hpp"
-#include "data_readers/async_reader/split_label_dense_sparse.hpp"
-#include "tensor2.hpp"
+#include <common.hpp>
+#include <data_reader.hpp>
+#include <data_readers/async_reader/async_reader.hpp>
+#include <data_readers/async_reader/async_reader_common.hpp>
+#include <data_readers/async_reader/split_label_dense_sparse.hpp>
+#include <tensor2.hpp>
 
 namespace HugeCTR {
 
@@ -36,17 +36,20 @@ class AsyncReader : public IDataReaderWithScheduling {
   bool is_started() const override;
   void start() override;
 
-  std::vector<TensorBag2> get_label_tensors() const override;
-  std::vector<TensorBag2> get_dense_tensors() const override;
-  std::vector<TensorBag2> get_row_offsets_tensors() const override;
-  std::vector<TensorBag2> get_value_tensors() const override;
+  std::vector<TensorBag2> get_label_tensors() const;
+  std::vector<TensorBag2> get_dense_tensors() const;
+  SparseTensors<SparseType> get_value_tensors() const;
 
-  void create_drwg_norm(std::string file_list, Check_t check_type,
+  void create_drwg_norm(std::string file_list,
+                        Check_t check_type,
                         bool start_reading_from_beginning = true) override;
-  void create_drwg_raw(std::string file_name, long long num_samples,
-                       const std::vector<long long> slot_offset, bool float_label_dense,
-                       bool data_shuffle, bool start_reading_from_beginning = true) override;
-  void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
+  void create_drwg_raw(std::string file_name, 
+                       long long num_samples,
+                       bool float_label_dense,
+                       bool data_shuffle, 
+                       bool start_reading_from_beginning = true) override;
+  void create_drwg_parquet(std::string file_list,
+                           const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override;
   void set_source(std::string file_list = std::string()) override;
 
@@ -63,7 +66,8 @@ class AsyncReader : public IDataReaderWithScheduling {
   std::vector<TensorBag2> dense_tensors_;
   std::vector<TensorBag2> label_tensors_per_dev_;
   std::vector<TensorBag2> dense_tensors_per_dev_;
-  std::vector<TensorBag2> sparse_tensors_;
+  // std::vector<TensorBag2> sparse_tensors_;
+  std::vector<SparseTensor<SparseType>> sparse_tensors_;
   std::vector<cudaEvent_t> completion_events_, schedule_events_;
 };
 

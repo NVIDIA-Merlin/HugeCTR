@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,56 +22,63 @@
 
 namespace HugeCTR {
 
+template <typename T>
 struct MultiCrossForwardFunctor {
   MultiCrossForwardFunctor() = default;
   MultiCrossForwardFunctor(const MultiCrossForwardFunctor&) = delete;
   MultiCrossForwardFunctor& operator=(const MultiCrossForwardFunctor&) = delete;
 
   void operator()(cudaStream_t stream, cublasHandle_t cublas_handle,
-                  const Tensor2<float>& input_tensor, const Tensors2<float>& kernel_tensors,
-                  const Tensors2<float>& bias_tensors, Tensors2<float>& layer_output_tensors,
-                  Tensors2<float>& layer_hidden_tensors, int num_layers) const;
+                  const Tensor2<T>& input_tensor, const Tensors2<T>& kernel_tensors,
+                  const Tensors2<T>& bias_tensors, Tensors2<T>& layer_output_tensors,
+                  Tensors2<T>& layer_hidden_tensors, int num_layers) const;
 };
 
+template <typename T>
 struct MultiCrossBackwardFunctor {
   MultiCrossBackwardFunctor() = default;
   MultiCrossBackwardFunctor(const MultiCrossBackwardFunctor&) = delete;
   MultiCrossBackwardFunctor& operator=(const MultiCrossBackwardFunctor&) = delete;
 
-  void operator()(cudaStream_t stream, const Tensor2<float>& input_tensor,
-                  const Tensors2<float>& kernel_tensors,
-                  const Tensors2<float>& layer_output_tensors,
-                  const Tensors2<float>& layer_hidden_tensors, const Tensor2<float>& grad_tensor,
-                  Tensor2<float>& output_tensor, Tensors2<float>& kernel_output_tensors,
-                  Tensors2<float>& bias_output_tensors, Tensor2<float>& tmp_vec_tensor,
-                  Tensor2<float> tmp_mat_tensors[], int num_layers) const;
+  void operator()(cudaStream_t stream, const Tensor2<T>& input_tensor,
+                  const Tensors2<T>& kernel_tensors,
+                  const Tensors2<T>& layer_output_tensors,
+                  const Tensors2<T>& layer_hidden_tensors, const Tensor2<T>& grad_tensor,
+                  Tensor2<T>& output_tensor, Tensors2<T>& kernel_output_tensors,
+                  Tensors2<T>& bias_output_tensors, Tensor2<T>& tmp_vec_tensor,
+                  Tensor2<T> tmp_mat_tensors[], int num_layers) const;
 };
 
+template <typename T>
 class MultiCrossLayer : public Layer {
  private:
   const int num_layers_;
-  Tensors2<float> blob_tensors_; /**< vector of internal blobs' tensors */
-  Tensors2<float> vec_tensors_;  //[h,1]
+  Tensors2<T> blob_tensors_; /**< vector of internal blobs' tensors */
+  Tensors2<T> vec_tensors_;  //[h,1]
 
-  Tensor2<float> tmp_mat_tensors_[3];  //[h,w]
-  Tensor2<float> tmp_vec_tensor_;      //[h,1]
+  Tensor2<T> tmp_mat_tensors_[3];  //[h,w]
+  Tensor2<T> tmp_vec_tensor_;      //[h,1]
 
   /*
    * stores the weight tensors of this layer.
    */
-  // Tensors<float> weights_; It is inherited from Layer, and named as weights_;
+  Tensors2<float> master_weights_;
+  /*
+   * stores the weight tensors of this layer.
+   */
+  Tensors2<T> weights_;
   /*
    * stores the weight gradient tensors of this layer.
    */
-  Tensors2<float> wgrad_;
+  Tensors2<T> wgrad_;
   /*
    * stores the references to the input tensors of this layer.
    */
-  Tensors2<float> in_tensors_;
+  Tensors2<T> in_tensors_;
   /*
    * stores the references to the output tensors of this layer.
    */
-  Tensors2<float> out_tensors_;
+  Tensors2<T> out_tensors_;
 
  public:
   /**
@@ -83,16 +90,19 @@ class MultiCrossLayer : public Layer {
    */
   void bprop() final;
 
-  MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+  MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                  const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+                  const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
                   const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                  const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
+                  const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
                   const std::shared_ptr<GPUResource>& gpu_resource, int num_layers,
                   std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   MultiCrossLayer(const MultiCrossLayer&) = delete;
   MultiCrossLayer& operator=(const MultiCrossLayer&) = delete;
 
  private:
+  void reserve_master_weight_tensor(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+                                    const std::vector<size_t>& weight_bias_dim);
   std::unique_ptr<DataSimulator> get_default_initializer(const int index) override;
 };
 }  // namespace HugeCTR

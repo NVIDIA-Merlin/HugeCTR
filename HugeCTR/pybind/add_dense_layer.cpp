@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 #include <layers/reshape_layer.hpp>
 #include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
+#include <layers/elementwise_multiply_layer.hpp>
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <regularizers/no_regularizer.hpp>
@@ -61,12 +62,12 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
   input_label_config["label_dim"] = input_param.label_dim;
   input_dense_config["top"] = input_param.dense_name;
   input_dense_config["dense_dim"] = input_param.dense_dim;
-  for (size_t i = 0; i < input_param.sparse_names.size(); ++i) {
+  for (size_t i = 0; i < input_param.data_reader_sparse_param_array.size(); ++i) {
     nlohmann::json input_sparse_config;
-    input_sparse_config["top"] = input_param.sparse_names[i];
+    input_sparse_config["top"] = input_param.data_reader_sparse_param_array[i].top_name;
     input_sparse_config["type"] = READER_SPARSE_TYPE_TO_STRING[input_param.data_reader_sparse_param_array[i].type];
-    input_sparse_config["max_feature_num_per_sample"] = input_param.data_reader_sparse_param_array[i].max_feature_num;
-    input_sparse_config["max_nnz"] = input_param.data_reader_sparse_param_array[i].max_nnz;
+    input_sparse_config["nnz_per_slot"] = input_param.data_reader_sparse_param_array[i].nnz_per_slot;
+    input_sparse_config["is_fixed_length"] = input_param.data_reader_sparse_param_array[i].is_fixed_length;
     input_sparse_config["slot_num"] = input_param.data_reader_sparse_param_array[i].slot_num;
     input_sparse_config_array.push_back(input_sparse_config);
   }
@@ -80,9 +81,15 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     sparse_config["bottom"] = sparse_embedding_params[i].bottom_name;
     sparse_config["top"] = sparse_embedding_params[i].sparse_embedding_name;
     nlohmann::json sparse_hparam_config;
-    sparse_hparam_config["max_vocabulary_size_per_gpu"] = sparse_embedding_params[i].max_vocabulary_size_per_gpu;
+    sparse_hparam_config["workspace_size_per_gpu_in_mb"] = sparse_embedding_params[i].max_vocabulary_size_per_gpu * sparse_embedding_params[i].embedding_vec_size * sizeof(float) / 1024 / 1024;
     sparse_hparam_config["embedding_vec_size"] = sparse_embedding_params[i].embedding_vec_size;
-    sparse_hparam_config["combiner"] = sparse_embedding_params[i].combiner;
+    if(sparse_embedding_params[i].combiner == 0){
+      sparse_hparam_config["combiner"] = "sum";
+    }else if(sparse_embedding_params[i].combiner == 1){
+      sparse_hparam_config["combiner"] = "mean";
+    }else {
+      CK_THROW_(Error_t::WrongInput, "combiner error");
+    }
     if (sparse_embedding_params[i].slot_size_array.size() > 0) {
       sparse_hparam_config["slot_size_array"] = sparse_embedding_params[i].slot_size_array;
     }
@@ -846,12 +853,21 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
     case Layer_t::MultiCross: {
       std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type, dense_layer.bias_init_type};
       int num_layers = dense_layer.num_layers;
-      Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
-      Tensor2<float> out_tensor;
-      blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
-      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-      layers.emplace_back(new MultiCrossLayer(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
-                                              out_tensor, gpu_resource, num_layers, initializer_types));
+      if (use_mixed_precision) {
+        Tensor2<__half> mc_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<__half> out_tensor;
+        blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        layers.emplace_back(new MultiCrossLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
+                                                out_tensor, gpu_resource, num_layers, initializer_types));
+      } else {
+        Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        layers.emplace_back(new MultiCrossLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
+                                                out_tensor, gpu_resource, num_layers, initializer_types));
+      }
       break;
     }
     case Layer_t::MultiCrossEntropyLoss: {
@@ -1084,6 +1100,30 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         Tensor2<float> out_tensor;
         blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
         layers.emplace_back(new DotProductLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      }
+      break;
+    }
+    case Layer_t::ElementwiseMultiply: {
+      if (use_mixed_precision) {
+        Tensors2<__half> in_tensors;
+        for (const auto& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
+        }
+        Tensor2<__half> out_tensor;
+        blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+        layers.emplace_back(
+            new ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      } else {
+        Tensors2<float> in_tensors;
+        for (const auto& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+        }
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+        layers.emplace_back(
+            new ElementwiseMultiplyLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       }
       break;

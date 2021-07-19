@@ -4,8 +4,8 @@
 #include <thread>
 #include <vector>
 
-#include "async_reader_common.hpp"
-#include "thread_async_reader.hpp"
+#include <data_readers/async_reader/async_reader_common.hpp>
+#include <data_readers/async_reader/thread_async_reader.hpp>
 
 namespace HugeCTR {
 

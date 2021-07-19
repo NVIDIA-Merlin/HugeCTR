@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -36,6 +36,7 @@ file(GLOB layers_test_src
   reduce_sum_layer_test.cpp
   dot_product_layer_test.cpp
   sigmoid_layer_test.cpp
+  elementwise_multiply_layer_test.cpp
 )
 
 add_executable(layers_test ${layers_test_src})

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include <parser.hpp>
 #include <embeddings/hybrid_sparse_embedding.hpp>
+#include <data_readers/async_reader/async_reader_adapter.hpp>
 
 namespace HugeCTR {
 
@@ -238,7 +239,7 @@ void Parser::create_pipeline(std::shared_ptr<IDataReader>& init_data_reader,std:
   }
 }
 
-// TODO: this whole function is only for HE. It is better to refactor or generalize it.
+// TODO: this whole function is only for HE & AysncReader. It is better to refactor or generalize it.
 template <typename TypeKey>
 void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
                                           std::vector<std::shared_ptr<IEmbedding>>& embedding,
@@ -255,21 +256,24 @@ void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_dat
       Embedding_t embedding_type = Embedding_t::LocalizedSlotSparseEmbeddingOneHot;
       (void)find_item_in_map(embedding_type, embedding_name, EMBEDDING_TYPE_MAP);
       if (embedding_type == Embedding_t::HybridSparseEmbedding) {
+        auto init_data_reader_as = std::dynamic_pointer_cast<AsyncReader<TypeKey>>(init_data_reader);
         if (use_mixed_precision) {
           std::shared_ptr<HybridSparseEmbedding<TypeKey, __half>> hybrid_embedding =
               std::dynamic_pointer_cast<HybridSparseEmbedding<TypeKey, __half>>(embedding[i - 1]);
 
-          init_data_reader->start();
-          init_data_reader->read_a_batch_to_device();
+          init_data_reader_as->start();
+          init_data_reader_as->read_a_batch_to_device();
           hybrid_embedding->init_model(
-              bags_to_tensors<TypeKey>(init_data_reader->get_value_tensors()), embed_wgrad_size);
+              // bags_to_tensors<TypeKey>(init_data_reader_as->get_value_tensors()), embed_wgrad_size);
+              init_data_reader_as->get_value_tensors(), embed_wgrad_size);
         } else {
           std::shared_ptr<HybridSparseEmbedding<TypeKey, float>> hybrid_embedding =
               std::dynamic_pointer_cast<HybridSparseEmbedding<TypeKey, float>>(embedding[i - 1]);
-          init_data_reader->start();
-          init_data_reader->read_a_batch_to_device();
+          init_data_reader_as->start();
+          init_data_reader_as->read_a_batch_to_device();
           hybrid_embedding->init_model(
-              bags_to_tensors<TypeKey>(init_data_reader->get_value_tensors()), embed_wgrad_size);
+              // bags_to_tensors<TypeKey>(init_data_reader_as->get_value_tensors()), embed_wgrad_size);
+              init_data_reader_as->get_value_tensors(), embed_wgrad_size);
         }
       }
     }

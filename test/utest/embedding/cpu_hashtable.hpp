@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #ifndef CPUV_HASHTABLE_H_
 #define CPUV_HASHTABLE_H_
 #include <unordered_map>
-
+#include <iostream>
 template <typename KeyType, typename ValType>
 class HashTableCpu {
  public:
@@ -47,7 +47,6 @@ class HashTableCpu {
     if (len == 0) {
       return;
     }
-
     for (size_t i = 0; i < len; i++) {
       auto it = table_->find(keys[i]);
       assert(it != table_->end() && "error: can't find key");

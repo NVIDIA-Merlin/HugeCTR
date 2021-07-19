@@ -24,7 +24,6 @@
 #include <thread>
 #include <utility>
 
-#include "HugeCTR/include/embeddings/embedding.hpp"
 #include <exchange_wgrad.hpp>
 
 namespace HugeCTR {

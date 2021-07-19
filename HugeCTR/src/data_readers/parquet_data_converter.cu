@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,27 @@ __device__ __forceinline__ unsigned int __mylaneid() {
   asm volatile("mov.u32 %0, %laneid;" : "=r"(laneid));
   return laneid;
 }
+template <typename T>
+__device__ __forceinline__ T device_min(T a, T b) {
+  return a > b ? b : a;
+}
+//  type of row_offset : int32_t
+template <typename T>
+__device__ __forceinline__ T *upper_bound(T *start, T *end, T target) {
+  T left = 0;
+  T right = end - start;
+
+  while (left < right) {
+    T mid = (left + right) >> 1;
+    T val = *(start + mid);
+    if (val > target) {
+      right = mid;
+    } else {
+      left = mid + 1;
+    }
+  }
+  return start + left;
+}
 
 __device__ __forceinline__ unsigned int abs(unsigned int x) { return x; }
 
@@ -40,7 +61,6 @@ template <typename T>
 __global__ void dense_data_converter_kernel__(int64_t *dense_data_column_ptrs,
                                               const int label_dense_dim, int batch_size,
                                               int num_dense_buffers, int64_t *dense_data_out_ptrs) {
-  // extern __shared__ char smem_[];
   // 8 warps/block
   int tile_w = 32;  // 32x32 tile
   int smem_pitch = 33;
@@ -83,6 +103,7 @@ __global__ void dense_data_converter_kernel__(int64_t *dense_data_column_ptrs,
           int buffer_id = curr_out_row / (batch_size / num_dense_buffers);
           int local_id = curr_out_row % (batch_size / num_dense_buffers);
 
+          // buffer_id = gpu_id
           int64_t addr = dense_data_out_ptrs[buffer_id];
           T *data = reinterpret_cast<T *>(addr);
 
@@ -95,261 +116,130 @@ __global__ void dense_data_converter_kernel__(int64_t *dense_data_column_ptrs,
   }
 }
 
+// caution that the input row_offset is always int32_t (According to the cudf definition)
+// the output row_offset can be flexible: a template parameter
 template <typename T>
-__global__ void cat_local_slot_converter_kernel__(int64_t *cat_data_column_ptrs, int num_params,
-                                                  int param_id, int num_slots, int batch_size,
-                                                  int num_devices, int32_t *dev_slot_per_device,
-                                                  T *dev_slot_offset_ptr,
-                                                  int64_t *dev_csr_value_ptr,
-                                                  int64_t *dev_csr_row_offset_ptr,
-                                                  uint32_t *dev_csr_row_offset_counter) {
-  // 8 warps/block
-  int tile_w = 32;  // 32x32 tile
-  int smem_pitch = 33;
+void __global__ offset_kernel__(int64_t *row_offsets_src, int view_offset, int num_params,
+                                          int param_id, int slots_num, int64_t *row_len_dst,
+                                          int batchsize) {
   extern __shared__ char smem_[];
-  T *smem_staging_ptr = reinterpret_cast<T *>(smem_);
-  int num_warps = blockDim.x / warpSize;
-  uint32_t *block_atomic_accum =
-      reinterpret_cast<uint32_t *>(smem_ + (num_warps * warpSize * smem_pitch * sizeof(T)));
+  T *smem = reinterpret_cast<T *>(smem_);
+  const int tid = threadIdx.x;
+  const int gtid = tid + blockIdx.x * blockDim.x;
+  const int lda = 33;
+  for (int i = 0; i < slots_num; i += warpSize) {
+    for (int j = 0; j < warpSize; j++) {
+      int slot_id = i + j;
+      if (slot_id < slots_num) {
+        // multi_hot
+        if (row_offsets_src[slot_id]) {
+          int64_t addr = row_offsets_src[slot_id];
+          int32_t *data = reinterpret_cast<int32_t *>(addr) + view_offset;
+          if (gtid < batchsize) {
+            smem[tid * lda + j] = static_cast<T>(data[gtid + 1] - data[gtid]);
+          }
 
-  // zero out smem_accum
-  for (int i = threadIdx.x; i < num_params * num_devices; i += blockDim.x)
-    block_atomic_accum[i] = 0;
-  __syncthreads();
-
-  int start_idx = threadIdx.x + (blockDim.x * blockIdx.x);
-
-  for (int i = 0; i < num_slots; i += warpSize) {
-    // stage 32x32 tile - stage 32 columns of data
-    // warpSize drives the row dim to 32
-    for (int j = 0; j < tile_w; j++) {
-      // warp does one column at a time
-      int col = i + j;
-      if (col < num_slots) {
-        int64_t addr = cat_data_column_ptrs[col];
-        T *data = reinterpret_cast<T *>(addr);
-        if (start_idx < batch_size) {
-          smem_staging_ptr[threadIdx.x * smem_pitch + j] =
-              data[start_idx] + dev_slot_offset_ptr[col];
+        }
+        // one-hot
+        else {
+          if (gtid < batchsize) {
+            smem[tid * lda + j] = static_cast<T>(1);
+          }
         }
       }
     }
     __syncthreads();
 
-    // write out
+    int out_row_idx = __shfl_sync(0xffffffff, gtid, 0);
 
-    int out_row_idx = __shfl_sync(0xffffffff, start_idx, 0);
-    // each warp writes out 32 rows and whatever active columns in j(32)
-    if ((__mylaneid() + i) < num_slots) {
-      // activate threads
-
-      // blockStrided warp over 32 rows write out
+    if ((__mylaneid() + i) < slots_num) {
       int warp_id = threadIdx.x / warpSize;
       int smem_row = warp_id * warpSize;
 
-      // warpsize doing tile_h
       for (int j = 0; j < warpSize; j++) {
-        if ((j + out_row_idx) < batch_size) {
+        if ((j + out_row_idx) < batchsize) {
           int curr_out_row = j + out_row_idx;  // batch n
-
-          // select buffer:, use dev_slot_per_device for row in that and value buffer
+          // offset
           int slot_id = (__mylaneid() + i);
-          int dev_id = slot_id % num_devices;
-          int buffer_id = dev_id * num_params + param_id;
-          int local_id = (slot_id - dev_id) / num_devices;
+          int local_id = slot_id;
 
-          int64_t addr = dev_csr_value_ptr[buffer_id];  // dev_csr_value_ptr
+          uint32_t idx_to_buffers = curr_out_row * slots_num + local_id;
+          int64_t addr = row_len_dst[param_id];
           T *data = reinterpret_cast<T *>(addr);
-          uint32_t idx_to_buffers = curr_out_row * dev_slot_per_device[dev_id] + local_id;
-          data[idx_to_buffers] = smem_staging_ptr[(smem_row + j) * smem_pitch + __mylaneid()];
-
-          int64_t addr_row_buf = dev_csr_row_offset_ptr[buffer_id];
-          T *row_offset = reinterpret_cast<T *>(addr_row_buf);
-          row_offset[idx_to_buffers] = 1;
-
-          atomicAdd(&(block_atomic_accum[buffer_id]), 1);
+          data[idx_to_buffers + 1] = smem[(smem_row + j) * lda + __mylaneid()];
         }
       }
     }
-    __syncthreads();
   }
-  // update global atomic buffer
-  for (int i = threadIdx.x; i < num_params * num_devices; i += blockDim.x) {
-    atomicAdd(&(dev_csr_row_offset_counter[i]), block_atomic_accum[i]);
+  // set first element to zero
+  if (!gtid) {
+    int64_t addr = row_len_dst[param_id];
+    T *data = reinterpret_cast<T *>(addr);
+    data[0] = 0;
   }
 }
-
+//! note that type of input row_offsets_src is int32_t, input slot_value_src is T
+//! output row_offsets_dst & slot_value_out is T
 template <typename T>
-__global__ void cat_distributed_slot_csr_roffset_kernel__(int64_t *cat_data_column_ptrs,
-                                                          int num_params, int param_id,
-                                                          int num_slots, int batch_size,
-                                                          int num_devices, T *dev_slot_offset_ptr,
-                                                          int64_t *dev_csr_row_offset_ptr,
-                                                          uint32_t *dev_csr_row_offset_counter) {
-  // 8 warps/block
-  int tile_w = 32;  // 32x32 tile
-  int smem_pitch = 33;
-  extern __shared__ char smem_[];
-  T *smem_staging_ptr = reinterpret_cast<T *>(smem_);
-  int num_warps = blockDim.x / warpSize;
-  uint32_t *block_atomic_accum =
-      reinterpret_cast<uint32_t *>(smem_ + (num_warps * warpSize * smem_pitch * sizeof(T)));
+void __global__ value_kernel_without_shared_mem__(
+    int64_t *row_offsets_src, int64_t *slot_value_src,T *dev_slot_offset_ptr, int view_offset, int num_params,
+    int param_id, int slots_num, int64_t *row_offset_dst, int64_t *slot_value_out, int batchsize) {
+  // #samples = blockDim.x;
+  const int sample_num = blockDim.x;
+  const int total_dim = slots_num;
+  const int tid = threadIdx.x;
 
-  // zero out smem_accum
-  for (int i = threadIdx.x; i < num_params * num_devices; i += blockDim.x)
-    block_atomic_accum[i] = 0;
-  __syncthreads();
+  int sample_start =
+      device_min(static_cast<int>(sample_num * blockIdx.x), static_cast<int>(batchsize - 1));
+  int sample_end =
+      device_min(static_cast<int>(sample_num * (blockIdx.x + 1)), static_cast<int>(batchsize));
+  for (int i = 0; i < total_dim; i++) {
+    int64_t addr = row_offsets_src[i];
+    int32_t *row_offsets_in = reinterpret_cast<int32_t *>(addr);
+    addr = slot_value_src[i];
+    T *value_in = reinterpret_cast<T *>(addr);
+    int32_t row_start, row_end;
+    int32_t proceeded_nnz = view_offset;
 
-  int start_idx = threadIdx.x + (blockDim.x * blockIdx.x);
-
-  for (int i = 0; i < num_slots; i += warpSize) {
-    // stage 32x32 tile - stage 32 columns of data
-    // warpSize drives the row dim to 32
-    for (int j = 0; j < tile_w; j++) {
-      // warp does one column at a time
-      int col = i + j;
-      if (col < num_slots) {
-        int64_t addr = cat_data_column_ptrs[col];
-        T *data = reinterpret_cast<T *>(addr);
-        if (start_idx < batch_size) {
-          smem_staging_ptr[threadIdx.x * smem_pitch + j] =
-              data[start_idx] + dev_slot_offset_ptr[col];
-        }
-      }
+    if (row_offsets_in) {
+      proceeded_nnz = row_offsets_in[view_offset];
+      row_offsets_in += view_offset;
+      row_start = row_offsets_in[sample_start] - proceeded_nnz;
+      row_end = row_offsets_in[sample_end] - proceeded_nnz;
+    } else {
+      row_start = sample_start;
+      row_end = sample_end;
     }
-    __syncthreads();
+    value_in += proceeded_nnz;
+    int buffer_id = param_id;
+    addr = row_offset_dst[buffer_id];
+    T *row_offset_write = reinterpret_cast<T *>(addr);
 
-    // write out
-
-    int out_row_idx = __shfl_sync(0xffffffff, start_idx, 0);
-    // each warp writes out 32 rows and whatever active columns in j(32)
-    if ((__mylaneid() + i) < num_slots) {
-      // activate threads
-
-      // blockStrided warp over 32 rows write out
-      int warp_id = threadIdx.x / warpSize;
-      int smem_row = warp_id * warpSize;
-
-      // warpsize doing tile_h
-      for (int j = 0; j < warpSize; j++) {
-        if ((j + out_row_idx) < batch_size) {
-          int curr_out_row = j + out_row_idx;  // batch n
-
-          T val = smem_staging_ptr[(smem_row + j) * smem_pitch + __mylaneid()];
-          int dev_id = abs(val % num_devices);
-          int buffer_id = dev_id * num_params + param_id;
-          int slot_id = (__mylaneid() + i);
-
-          // adjust this with prev param count as well
-          uint32_t idx_to_buffers = curr_out_row * num_slots + slot_id;
-
-          // dont need this if using staging for initial idx markers
-          // idx_to_buffers += param_offset_buf[buffer_id];  // TBD
-
-          int64_t addr_row_buf = dev_csr_row_offset_ptr[buffer_id];
-          T *row_offset = reinterpret_cast<T *>(addr_row_buf);
-          row_offset[idx_to_buffers] = 1;
-          // row_offset[idx_to_buffers] = 1 + param_offset_buf[buffer_id];
-
-          // for ex scan to get write values in distributed row_offset csr buffers
-          if ((slot_id == (num_slots - 1)) && (curr_out_row == (batch_size - 1)))
-            row_offset[idx_to_buffers + 1] = 1;
-
-          atomicAdd(&(block_atomic_accum[buffer_id]), 1);
-        }
+      // load to reg and store to global memory directly
+    for (int row_idx = tid + row_start; row_idx < row_end; row_idx += blockDim.x) {
+      int sample_id;
+      if (row_offsets_in) {
+        sample_id = static_cast<int>(
+            upper_bound(row_offsets_in + sample_start, row_offsets_in + sample_end, row_idx + proceeded_nnz) -
+            row_offsets_in - 1);
+      } else {
+        sample_id = row_idx;
       }
-    }
-    __syncthreads();
-  }
+      unsigned int idx_to_buffers = sample_id * slots_num + i;
 
-  // update global atomic buffer
-  for (int i = threadIdx.x; i < num_params * num_devices; i += blockDim.x) {
-    atomicAdd(&(dev_csr_row_offset_counter[i]), block_atomic_accum[i]);
-  }
-}
-
-template <typename T>
-__global__ void cat_distributed_slot_csr_val_kernel__(int64_t *cat_data_column_ptrs, int num_params,
-                                                      int param_id, int num_slots, int batch_size,
-                                                      int num_devices, T *dev_slot_offset_ptr,
-                                                      int64_t *dev_csr_row_val_ptr,
-                                                      int64_t *dev_csr_row_offset_ptr) {
-  // 8 warps/block
-  int tile_w = 32;  // 32x32 tile
-  int smem_pitch = 33;
-  extern __shared__ char smem_[];
-  T *smem_staging_ptr = reinterpret_cast<T *>(smem_);
-
-  int start_idx = threadIdx.x + (blockDim.x * blockIdx.x);
-
-  for (int i = 0; i < num_slots; i += warpSize) {
-    // stage 32x32 tile - stage 32 columns of data
-    // warpSize drives the row dim to 32
-    for (int j = 0; j < tile_w; j++) {
-      // warp does one column at a time
-      int col = i + j;
-      if (col < num_slots) {
-        int64_t addr = cat_data_column_ptrs[col];
-        T *data = reinterpret_cast<T *>(addr);
-        if (start_idx < batch_size) {
-          smem_staging_ptr[threadIdx.x * smem_pitch + j] =
-              data[start_idx] + dev_slot_offset_ptr[col];
-        }
+      T dst_offset = 0;
+      // m-hot
+      if (row_offsets_in) {
+        dst_offset = row_offset_write[idx_to_buffers];
+        int slot_id = static_cast<T>(row_idx) + proceeded_nnz - row_offsets_in[sample_id];
+        dst_offset += slot_id;
+      } else {  // s-hot
+        dst_offset = row_offset_write[idx_to_buffers];
       }
-    }
-    __syncthreads();
 
-    // write out
-
-    int out_row_idx = __shfl_sync(0xffffffff, start_idx, 0);
-    // each warp writes out 32 rows and whatever active columns in j(32)
-    if ((__mylaneid() + i) < num_slots) {
-      // activate threads
-
-      // blockStrided warp over 32 rows write out
-      int warp_id = threadIdx.x / warpSize;
-      int smem_row = warp_id * warpSize;
-
-      // warpsize doing tile_h
-      for (int j = 0; j < warpSize; j++) {
-        if ((j + out_row_idx) < batch_size) {
-          int curr_out_row = j + out_row_idx;  // batch n
-
-          T val = smem_staging_ptr[(smem_row + j) * smem_pitch + __mylaneid()];
-          int dev_id = abs(val % num_devices);
-          int buffer_id = dev_id * num_params + param_id;
-          int slot_id = (__mylaneid() + i);
-
-          uint32_t idx_to_buffers = curr_out_row * num_slots + slot_id;
-          int64_t addr_row_buf = dev_csr_row_offset_ptr[buffer_id];
-          T *row_offset = reinterpret_cast<T *>(addr_row_buf);
-          T idx = row_offset[idx_to_buffers];
-
-          int64_t addr_val_buf = dev_csr_row_val_ptr[buffer_id];
-          T *val_buf = reinterpret_cast<T *>(addr_val_buf);
-          val_buf[idx] = val;
-        }
-      }
-    }
-    __syncthreads();
-  }
-}
-
-template <typename T>
-__global__ void check_and_set_csr_row_kernel_(int64_t *dev_csr_row_offset_ptr,
-                                              uint32_t *dev_csr_row_offset_counter,
-                                              int max_elements_csr_row, int buffer_id) {
-  uint32_t idx = threadIdx.x + blockIdx.x * blockDim.x;
-
-  int64_t addr = dev_csr_row_offset_ptr[buffer_id];
-  T *data = reinterpret_cast<T *>(addr);
-
-  if (idx < max_elements_csr_row) {
-    T val = data[idx];
-    if (val == 1) {
-      data[idx] = (T)idx;
-    } else if (idx == dev_csr_row_offset_counter[buffer_id]) {
-      data[idx] = (T)idx;
+      addr = slot_value_out[buffer_id];
+      T *value_write = reinterpret_cast<T *>(addr);
+      value_write[dst_offset] = value_in[row_idx] + dev_slot_offset_ptr[i];
     }
   }
 }
@@ -359,8 +249,10 @@ __global__ void check_and_set_csr_row_kernel_(int64_t *dev_csr_row_offset_ptr,
  * @param dense_column_data_ptr vector of device pointers to Parquet columns
  * @param label_dense_dim number of dense values
  * @param batch_size batch size to load
+ * @param batch_start sample start to load for local gpus
+ * @param batch_end sample end to to load for local gpus
  * @param num_dense_buffers number of dense buffers
- * @param dense_data_buffers vector of device buffers to write output
+ * @param dense_data_buffers buffers to write output
  * @param dev_ptr_staging pointer to pinned memory for copying pointer address from h2d
  * @param rmm_resources Queue to hold reference to RMM allocations
  * @param mr Device memory resource for RMM allocations
@@ -368,12 +260,15 @@ __global__ void check_and_set_csr_row_kernel_(int64_t *dev_csr_row_offset_ptr,
  */
 template <typename T>
 void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
-                                   const int label_dense_dim, int batch_size, int num_dense_buffers,
-                                   std::vector<rmm::device_buffer> &dense_data_buffers,
-                                   int64_t *dev_ptr_staging,
+                                   const int label_dense_dim, int batch_size, int batch_start,
+                                   int batch_end,
+                                   //  std::vector<rmm::device_buffer> &dense_data_buffers,
+                                   void *dense_data_buffers, int64_t *dev_ptr_staging,
                                    std::deque<rmm::device_buffer> &rmm_resources,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   // tiled load and transpose
+  int num_dense_buffers = 1;
+  int samples_to_interleaved = batch_end - batch_start;
   size_t size_of_col_ptrs = dense_column_data_ptr.size() * sizeof(T *);
   std::memcpy(dev_ptr_staging, dense_column_data_ptr.data(), size_of_col_ptrs);
 
@@ -382,13 +277,11 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
   CK_CUDA_THROW_(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
                                  cudaMemcpyHostToDevice, task_stream));
 
+  // TODO no need to use pointer array since there's only one buffer, remove in the future
   int64_t *pinned_dev_out_buffer =
       reinterpret_cast<int64_t *>((size_t)(dev_ptr_staging) + size_of_col_ptrs);
-  for (unsigned int i = 0; i < dense_data_buffers.size(); i++) {
-    pinned_dev_out_buffer[i] = (int64_t)dense_data_buffers[i].data();
-  }
-
-  size_t size_of_out_ptrs = dense_data_buffers.size() * sizeof(int64_t);
+  pinned_dev_out_buffer[0] = (int64_t)dense_data_buffers;
+  size_t size_of_out_ptrs = 1 * sizeof(int64_t);
 
   rmm_resources.emplace_back(size_of_out_ptrs, task_stream, mr);
   rmm::device_buffer &dev_out_data_ptr = rmm_resources.back();
@@ -401,53 +294,49 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
   // 12 warps -> 384 threads/block
   // size_t smem_size = 48 * 1024 * 1024;
   dim3 block(256, 1, 1);
-  dim3 grid((batch_size - 1) / block.x + 1, 1, 1);
+  dim3 grid((samples_to_interleaved - 1) / block.x + 1, 1, 1);
 
   dense_data_converter_kernel__<T><<<grid, block, 0, task_stream>>>(
-      (int64_t *)dev_in_column_ptr.data(), label_dense_dim, batch_size, num_dense_buffers,
-      (int64_t *)dev_out_data_ptr.data());
-
+      (int64_t *)dev_in_column_ptr.data(), label_dense_dim, samples_to_interleaved,
+      num_dense_buffers, (int64_t *)dev_out_data_ptr.data());
   CK_CUDA_THROW_(cudaGetLastError());
-
   return;
 }
 
 /**
  * Interleave categoricals (slot) data parquet columns and write to csr buffers
  * @param cat_column_data_ptr vector of device pointers to Parquet columns
+ * @param cat_column_row_offset_ptr vector of device pointers to Parquet row_offset (m-hot)
+ * @param view_offset starting index of current batch in parquet column
  * @param num_params number of Embedding params
  * @param param_id param idx for current param
+ * @param max_nnz max_nnz for all slots
  * @param num_slots number of slots in current param
  * @param batch_size batch size to load
- * @param num_csr_buffers number of csr buffers in csr heap
- * @param num_devices number of gpu devices
- * @param distributed_slot flag to set distributed slot processing
  * @param pid pid of node
  * @param resource_manager ResourceManager handle for session
  * @param csr_value_buffers vector of device buffers to write csr values
  * @param csr_row_offset_buffers vector of device buffers to write csr row offset values
  * @param dev_ptr_staging pointer to pinned memory for copying pointer address from h2d
- * @param dev_embed_param_offset_buf memory to atomically accumulate values written to csr val buf
- * @param dev_slot_offset_ptr device buffer with value for slot value offsets to make unique index
  * @param rmm_resources Queue to hold reference to RMM allocations
  * @param mr Device memory resource for RMM allocations
  * @param task_stream Stream to allocate memory and launch kerenels
  */
-// for nnz =1 csr size_of_value and size_of_row_offset inc will be same
+
 template <typename T>
-size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int num_params,
-                                   int param_id, int num_slots, int batch_size, int num_csr_buffers,
-                                   int num_devices, bool distributed_slot, int pid,
-                                   const std::shared_ptr<ResourceManager> resource_manager,
-                                   std::vector<rmm::device_buffer> &csr_value_buffers,
-                                   std::vector<rmm::device_buffer> &csr_row_offset_buffers,
-                                   int64_t *dev_ptr_staging, uint32_t *dev_embed_param_offset_buf,
-                                   T *dev_slot_offset_ptr,
-                                   std::deque<rmm::device_buffer> &rmm_resources,
-                                   rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
+size_t convert_parquet_cat_columns(
+    std::vector<T *> &cat_column_data_ptr, std::vector<int32_t *> &cat_column_row_offset_ptr,
+    int view_offset, int num_params, int param_id, int max_nnz, int num_slots, int batch_size, int pid,
+    const std::shared_ptr<ResourceManager> resource_manager, std::vector<void *> &csr_value_buffers,
+    std::vector<void *> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
+    T* dev_slot_offset_ptr,
+    std::deque<rmm::device_buffer> &rmm_resources,
+    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   size_t pinned_staging_elements_used = 0;
-  // tiled load and transpose
+
   size_t size_of_col_ptrs = cat_column_data_ptr.size() * sizeof(int64_t *);
+
+  // prepare for value input
   std::memcpy(dev_ptr_staging, cat_column_data_ptr.data(), size_of_col_ptrs);
   pinned_staging_elements_used += cat_column_data_ptr.size();
 
@@ -456,14 +345,26 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
   CK_CUDA_THROW_(cudaMemcpyAsync(dev_in_column_ptr.data(), dev_ptr_staging, size_of_col_ptrs,
                                  cudaMemcpyHostToDevice, task_stream));
 
-  size_t size_of_csr_pointers = num_csr_buffers * sizeof(int64_t);
+  int64_t *pinned_csr_offset_in_buffer =
+      reinterpret_cast<int64_t *>((size_t)(dev_ptr_staging) + size_of_col_ptrs);
+
+  // prepare for row_offset input
+  std::memcpy(pinned_csr_offset_in_buffer, cat_column_row_offset_ptr.data(), size_of_col_ptrs);
+  pinned_staging_elements_used += cat_column_row_offset_ptr.size();
+
+  rmm_resources.emplace_back(size_of_col_ptrs, task_stream, mr);
+  rmm::device_buffer &dev_csr_offset_in_buffer = rmm_resources.back();
+  CK_CUDA_THROW_(cudaMemcpyAsync(dev_csr_offset_in_buffer.data(), pinned_csr_offset_in_buffer,
+                                 size_of_col_ptrs, cudaMemcpyHostToDevice, task_stream));
+
+  size_t size_of_csr_pointers = num_params * sizeof(int64_t);
 
   int64_t *pinned_csr_val_out_buffer =
-      reinterpret_cast<int64_t *>((size_t)(dev_ptr_staging) + size_of_col_ptrs);
-  for (int i = 0; i < num_csr_buffers; i++) {
-    pinned_csr_val_out_buffer[i] = (int64_t)csr_value_buffers[i].data();
+      reinterpret_cast<int64_t *>((size_t)(dev_ptr_staging) + 2 * size_of_col_ptrs);
+  for (int i = 0; i < num_params; i++) {
+    pinned_csr_val_out_buffer[i] = (int64_t)csr_value_buffers[i];
   }
-  pinned_staging_elements_used += num_csr_buffers;
+  pinned_staging_elements_used += num_params;
 
   rmm_resources.emplace_back(size_of_csr_pointers, task_stream, mr);
   rmm::device_buffer &dev_csr_value_ptr = rmm_resources.back();
@@ -471,159 +372,62 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
                                  size_of_csr_pointers, cudaMemcpyHostToDevice, task_stream));
 
   int64_t *pinned_csr_row_offset_buffer = reinterpret_cast<int64_t *>(
-      (size_t)(dev_ptr_staging) + size_of_col_ptrs + size_of_csr_pointers);
-  for (int i = 0; i < num_csr_buffers; i++) {
-    pinned_csr_row_offset_buffer[i] = (int64_t)csr_row_offset_buffers[i].data();
+      (size_t)(dev_ptr_staging) + 2 * size_of_col_ptrs + size_of_csr_pointers);
+  for (int i = 0; i < num_params; i++) {
+    pinned_csr_row_offset_buffer[i] = (int64_t)csr_row_offset_buffers[i];
   }
-  pinned_staging_elements_used += num_csr_buffers;
+  pinned_staging_elements_used += num_params;
 
   rmm_resources.emplace_back(size_of_csr_pointers, task_stream, mr);
   rmm::device_buffer &dev_csr_row_offset_ptr = rmm_resources.back();
   CK_CUDA_THROW_(cudaMemcpyAsync(dev_csr_row_offset_ptr.data(), pinned_csr_row_offset_buffer,
                                  size_of_csr_pointers, cudaMemcpyHostToDevice, task_stream));
-
-  if (distributed_slot) {
-    std::vector<rmm::device_buffer> csr_row_offset_staging;
-    size_t csr_roff_buf_size = (size_t)((num_slots * batch_size + 1) * sizeof(T));
-    for (int i = 0; i < num_csr_buffers; i++) {
-      csr_row_offset_staging.emplace_back(csr_roff_buf_size, task_stream, mr);
-
-      CK_CUDA_THROW_(
-          cudaMemsetAsync(csr_row_offset_staging.back().data(), 0, csr_roff_buf_size, task_stream));
-    }
-
-    int64_t *pinned_csr_row_offset_staging =
-        reinterpret_cast<int64_t *>((size_t)pinned_csr_row_offset_buffer + size_of_csr_pointers);
-
-    for (int i = 0; i < num_csr_buffers; i++) {
-      pinned_csr_row_offset_staging[i] = (int64_t)csr_row_offset_staging[i].data();
-    }
-    pinned_staging_elements_used += num_csr_buffers;
-
-    rmm_resources.emplace_back(size_of_csr_pointers, task_stream, mr);
-    rmm::device_buffer &dev_csr_row_offset_staging_ptr = rmm_resources.back();
-    CK_CUDA_THROW_(cudaMemcpyAsync(dev_csr_row_offset_staging_ptr.data(),
-                                   pinned_csr_row_offset_staging, size_of_csr_pointers,
-                                   cudaMemcpyHostToDevice, task_stream));
-
+  {
     int block_size = (sizeof(T) == 8) ? 128 : 256;
     dim3 block(block_size, 1, 1);
     dim3 grid((batch_size - 1) / block.x + 1, 1, 1);
     size_t smem_size = (block_size / 32) * sizeof(T) * 32 * 33;
-    size_t smem_atomic_buffer = num_devices * num_params * sizeof(uint32_t);
-    smem_size += smem_atomic_buffer;
     size_t max_smem_size = 48 * 1024;
 
     if (smem_size > max_smem_size)
       CK_THROW_(Error_t::OutOfMemory, "Parquet Converter: Not enough shared memory availble");
 
-    // 2 -pass, setup row_offset, prefix_sum, write val to buf idx provided by prefix sum
-    cat_distributed_slot_csr_roffset_kernel__<T><<<grid, block, smem_size, task_stream>>>(
-        (int64_t *)dev_in_column_ptr.data(), num_params, param_id, num_slots, batch_size,
-        num_devices, dev_slot_offset_ptr, (int64_t *)dev_csr_row_offset_staging_ptr.data(),
-        dev_embed_param_offset_buf);
+    offset_kernel__<T><<<grid, block, smem_size, task_stream>>>(
+        reinterpret_cast<int64_t *>(dev_csr_offset_in_buffer.data()), view_offset, num_params,
+        param_id, num_slots, reinterpret_cast<int64_t *>(dev_csr_row_offset_ptr.data()),
+        batch_size);
 
-    CK_CUDA_THROW_(cudaGetLastError());
-    for (int i = 0; i < num_csr_buffers; i++) {
-      rmm_resources.emplace_back(std::move(csr_row_offset_staging.back()));
-      csr_row_offset_staging.pop_back();
-    }
-    // prefix sum
-    // dont really need to do prefix sum on int64 - check for future
-    void *tmp_storage = NULL;
+    int buffer_id = param_id;
+    void *d_temp_storage = NULL;
     size_t temp_storage_bytes = 0;
-    int prefix_sum_items = num_slots * batch_size + 1;
-    CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum(
-        tmp_storage, temp_storage_bytes, reinterpret_cast<T *>(pinned_csr_row_offset_staging[0]),
-        reinterpret_cast<T *>(pinned_csr_row_offset_buffer[0]), prefix_sum_items, task_stream));
-
+    int64_t prefix_sum_items = num_slots * batch_size + 1;
+    CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
+        d_temp_storage, temp_storage_bytes,
+        reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]),
+        reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]), prefix_sum_items,
+        task_stream));
     rmm_resources.emplace_back(temp_storage_bytes, task_stream, mr);
     rmm::device_buffer &cub_tmp_storage = rmm_resources.back();
+    CK_CUDA_THROW_(cub::DeviceScan::InclusiveSum(
+        cub_tmp_storage.data(), temp_storage_bytes,
+        reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]),
+        reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]), prefix_sum_items,
+        task_stream));
 
-    /********************
-    how to make prefix sum write at correct location??
-    - you already incremented the staging with running atomic counter in kernel
-    will exscan sum even work when buffers start rolling in ?
-    may need inscan for param_id > 0 */
+    int num_keys = 512;
 
-    // dont need all that per param csr buffers are different
-    // exscan on only current param's csr buffers
-    for (int i = 0; i < num_devices; i++) {
-      if (pid == resource_manager->get_process_id_from_gpu_global_id(i)) {
-        int buffer_id = i * num_params + param_id;
-        CK_CUDA_THROW_(cub::DeviceScan::ExclusiveSum(
-            cub_tmp_storage.data(), temp_storage_bytes,
-            reinterpret_cast<T *>(pinned_csr_row_offset_staging[buffer_id]),
-            reinterpret_cast<T *>(pinned_csr_row_offset_buffer[buffer_id]), prefix_sum_items,
-            task_stream));
-      } else {
-        // pinned_csr_row_offset_buffer[x] are init'd to zero - no need to set again
-      }
-    }
+    int samples_per_block = (num_keys - 1) / max_nnz + 1;
+    int block_per_grid = (batch_size - 1) / samples_per_block + 1;
 
-    // kernel to set csr value based on idx generated in prefix scan - everything is single-hot
-    cat_distributed_slot_csr_val_kernel__<T><<<grid, block, smem_size, task_stream>>>(
-        (int64_t *)dev_in_column_ptr.data(), num_params, param_id, num_slots, batch_size,
-        num_devices, dev_slot_offset_ptr, (int64_t *)dev_csr_value_ptr.data(),
-        (int64_t *)dev_csr_row_offset_ptr.data());
-    CK_CUDA_THROW_(cudaGetLastError());
-  } else {
-    int32_t *pinned_slot_per_device =
-        reinterpret_cast<int32_t *>((size_t)pinned_csr_row_offset_buffer + size_of_csr_pointers);
-    // localized embedding , generate slot to idx count mappings
-    for (int i = 0; i < num_devices; i++) pinned_slot_per_device[i] = 0;
-
-    for (int i = 0; i < num_slots; i++) {
-      pinned_slot_per_device[i % num_devices]++;
-    }
-    pinned_staging_elements_used += num_devices;
-
-    rmm_resources.emplace_back(num_devices * sizeof(int32_t), task_stream, mr);
-    rmm::device_buffer &dev_slot_per_device_ptr = rmm_resources.back();
-
-    CK_CUDA_THROW_(cudaMemcpyAsync(dev_slot_per_device_ptr.data(), pinned_slot_per_device,
-                                   num_devices * sizeof(int32_t), cudaMemcpyHostToDevice,
-                                   task_stream));
-
-    int block_size = (sizeof(T) == 8) ? 128 : 256;
-    dim3 block(block_size, 1, 1);
-    dim3 grid((batch_size - 1) / block.x + 1, 1, 1);
-    size_t smem_size = (block_size / 32) * sizeof(T) * 32 * 33;
-    size_t smem_atomic_buffer = num_devices * num_params * sizeof(uint32_t);
-    smem_size += smem_atomic_buffer;
-    size_t max_smem_size = 48 * 1024;
-
-    if (smem_size > max_smem_size)
-      CK_THROW_(Error_t::OutOfMemory, "Parquet Converter: Not enough shared memory availble");
-
-    cat_local_slot_converter_kernel__<T><<<grid, block, smem_size, task_stream>>>(
-        (int64_t *)dev_in_column_ptr.data(), num_params, param_id, num_slots, batch_size,
-        num_devices, (int32_t *)dev_slot_per_device_ptr.data(), dev_slot_offset_ptr,
-        (int64_t *)dev_csr_value_ptr.data(), (int64_t *)dev_csr_row_offset_ptr.data(),
-        dev_embed_param_offset_buf);
+    value_kernel_without_shared_mem__<T>
+        <<<block_per_grid, samples_per_block, 0, task_stream>>>(
+            reinterpret_cast<int64_t *>(dev_csr_offset_in_buffer.data()),
+            reinterpret_cast<int64_t *>(dev_in_column_ptr.data()), dev_slot_offset_ptr,view_offset, num_params,
+            param_id, num_slots, reinterpret_cast<int64_t *>(dev_csr_row_offset_ptr.data()),
+            reinterpret_cast<int64_t *>(dev_csr_value_ptr.data()), batch_size);
 
     CK_CUDA_THROW_(cudaGetLastError());
-    // csr_row_offset col val = idx
-    // everything is single-hot , single-param for now
-    // future - take-in atomic_offset_counter from last fn call to start at right offset of
-    // csr_row_offset_buf same offset goes to converter_kernel as well for both value, row_offset
-    // buffer
-
-    int max_elements_csr_row = num_slots * batch_size + 1;
-    dim3 block_2(1024, 1, 1);
-    dim3 grid_2((max_elements_csr_row - 1) / block_2.x + 1, 1, 1);
-
-    for (int device = 0; device < num_devices; device++) {
-      if (pid == resource_manager->get_process_id_from_gpu_global_id(device)) {
-        int buf_id = device * num_params + param_id;
-        check_and_set_csr_row_kernel_<T><<<grid_2, block_2, 0, task_stream>>>(
-            (int64_t *)dev_csr_row_offset_ptr.data(), dev_embed_param_offset_buf,
-            max_elements_csr_row, buf_id);
-      }
-    }
   }
-
-  CK_CUDA_THROW_(cudaGetLastError());
 
   return pinned_staging_elements_used;
 }
@@ -631,27 +435,30 @@ size_t convert_parquet_cat_columns(std::vector<T *> &cat_column_data_ptr, int nu
 // init function instances here
 template void convert_parquet_dense_columns<float>(
     std::vector<float *> &dense_column_data_ptr, const int label_dense_dim, int batch_size,
-    int num_dense_buffers, std::vector<rmm::device_buffer> &dense_data_buffers,
-    int64_t *dev_ptr_staging, std::deque<rmm::device_buffer> &rmm_resources,
-    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream);
+    int batch_start, int batch_end,
+    void *dense_data_buffers, int64_t *dev_ptr_staging,
+    std::deque<rmm::device_buffer> &rmm_resources, rmm::mr::device_memory_resource *mr,
+    cudaStream_t task_stream);
 
 template size_t convert_parquet_cat_columns<long long int>(
-    std::vector<long long int *> &cat_column_data_ptr, int num_params, int param_id, int num_slots,
-    int batch_size, int num_csr_buffers, int num_devices, bool distributed_slot, int pid,
-    const std::shared_ptr<ResourceManager> resource_manager,
-    std::vector<rmm::device_buffer> &csr_value_buffers,
-    std::vector<rmm::device_buffer> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
-    uint32_t *dev_embed_param_offset_buf, long long *dev_slot_offset_ptr,
+    std::vector<long long int *> &cat_column_data_ptr,
+    std::vector<int32_t *> &cat_column_row_offset_ptr, int view_offset, int num_params,
+    int param_id, int nnz, int num_slots, int batch_size,
+    int pid, const std::shared_ptr<ResourceManager> resource_manager,
+    std::vector<void *> &csr_value_buffers, std::vector<void *> &csr_row_offset_buffers,
+    int64_t *dev_ptr_staging,
+    long long int * slot_offset,
     std::deque<rmm::device_buffer> &rmm_resources, rmm::mr::device_memory_resource *mr,
     cudaStream_t task_stream);
 
 template size_t convert_parquet_cat_columns<unsigned int>(
-    std::vector<unsigned int *> &cat_column_data_ptr, int num_params, int param_id, int num_slots,
-    int batch_size, int num_csr_buffers, int num_devices, bool distributed_slot, int pid,
-    const std::shared_ptr<ResourceManager> resource_manager,
-    std::vector<rmm::device_buffer> &csr_value_buffers,
-    std::vector<rmm::device_buffer> &csr_row_offset_buffers, int64_t *dev_ptr_staging,
-    uint32_t *dev_embed_param_offset_buf, unsigned int *dev_slot_offset_ptr,
+    std::vector<unsigned int *> &cat_column_data_ptr,
+    std::vector<int32_t *> &cat_column_row_offset_ptr, int view_offset, int num_params,
+    int param_id, int nnz, int num_slots, int batch_size,
+    int pid, const std::shared_ptr<ResourceManager> resource_manager,
+    std::vector<void *> &csr_value_buffers, std::vector<void *> &csr_row_offset_buffers,
+    int64_t *dev_ptr_staging,
+    unsigned int * slot_offset,
     std::deque<rmm::device_buffer> &rmm_resources, rmm::mr::device_memory_resource *mr,
     cudaStream_t task_stream);
 

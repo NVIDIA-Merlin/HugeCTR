@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ void CommonPybind(pybind11::module& m) {
       .value("Concat", HugeCTR::Layer_t::Concat)
       .value("CrossEntropyLoss", HugeCTR::Layer_t::CrossEntropyLoss)
       .value("Dropout", HugeCTR::Layer_t::Dropout)
+      .value("ElementwiseMultiply", HugeCTR::Layer_t::ElementwiseMultiply)
       .value("ELU", HugeCTR::Layer_t::ELU)
       .value("InnerProduct", HugeCTR::Layer_t::InnerProduct)
       .value("FusedInnerProduct", HugeCTR::Layer_t::FusedInnerProduct)
@@ -100,8 +101,10 @@ void CommonPybind(pybind11::module& m) {
       .value("DotProduct", HugeCTR::Layer_t::DotProduct)
       .export_values();
   pybind11::class_<HugeCTR::DataReaderSparseParam>(m, "DataReaderSparseParam")
-      .def(pybind11::init<HugeCTR::DataReaderSparse_t, int, int, int>(), pybind11::arg("type"),
-           pybind11::arg("max_feature_num"), pybind11::arg("max_nnz"), pybind11::arg("slot_num"));
+      .def(pybind11::init<const std::string&, const std::vector<int> &, bool, int>(), pybind11::arg("top_name"),
+           pybind11::arg("nnz_per_slot"), pybind11::arg("is_fixed_length"), pybind11::arg("slot_num"))
+      .def(pybind11::init<const std::string&, const int, bool, int>(), pybind11::arg("top_name"),
+           pybind11::arg("nnz_per_slot"), pybind11::arg("is_fixed_length"), pybind11::arg("slot_num"));
   pybind11::enum_<HugeCTR::LrPolicy_t>(m, "LrPolicy_t")
       .value("fixed", HugeCTR::LrPolicy_t::fixed)
       .export_values();
@@ -129,6 +132,7 @@ void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::metrics::Type>(m, "MetricsType")
       .value("AUC", HugeCTR::metrics::Type::AUC)
       .value("AverageLoss", HugeCTR::metrics::Type::AverageLoss)
+      .value("HitRate", HugeCTR::metrics::Type::HitRate)
       .export_values();
 }
 

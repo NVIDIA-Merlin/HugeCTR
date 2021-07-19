@@ -1,47 +1,66 @@
-FROM nvcr.io/nvidia/tritonserver:21.04-py3 AS devel
+# Copyright (c) 2021, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+ARG TRITION_VERSION=21.04-py3
+FROM nvcr.io/nvidia/tritonserver:${TRITION_VERSION} AS devel
+
+ARG CMAKE_VERSION=3.19.6
+ARG PYTHON_VERSION=3.8
+ARG RAPIDS_VERSION=21.06
 
 ARG SM="70;75;80"
 ARG RELEASE=false
 
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        git gdb make wget curl \
-        python3-pip python3-setuptools python3-wheel \
-        zlib1g-dev lsb-release rapidjson-dev ca-certificates libboost-all-dev software-properties-common && \
+        git \
+        gdb \
+        make \
+        wget \
+        curl && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --upgrade pip && \
-    pip3 install pandas sklearn && \
-    pip3 cache purge
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp http://repo.anaconda.com/miniconda/Miniconda3-4.7.12-Linux-x86_64.sh && \
+    bash /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh -b -p /opt/conda && \
+    /opt/conda/bin/conda init && \
+    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+    /opt/conda/bin/conda clean -afy && \
+    rm -rf /var/tmp/Miniconda3-4.7.12-Linux-x86_64.sh
+ENV CPATH=/opt/conda/include:$CPATH \
+    LD_LIBRARY_PATH=/opt/conda/lib:$LD_LIBRARY_PATH \
+    LIBRARY_PATH=/opt/conda/lib:$LIBRARY_PATH \
+    PATH=/opt/conda/bin:$PATH \
+    CONDA_PREFIX=/opt/conda \
+    NCCL_LAUNCH_MODE=PARALLEL
 
-# CMake-3.19.6
-RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://cmake.org/files/v3.19/cmake-3.19.6-Linux-x86_64.sh && \
-    mkdir -p /usr/local && \
-    /bin/sh /var/tmp/cmake-3.19.6-Linux-x86_64.sh --prefix=/usr/local --skip-license && \
-    rm -rf /var/tmp/cmake-3.19.6-Linux-x86_64.sh
-ENV PATH=/usr/local/bin:$PATH
+RUN conda update -n base -c defaults conda && \
+    conda install -c rapidsai -c nvidia -c numba -c conda-forge \
+        cudf=${RAPIDS_VERSION} \
+        python=${PYTHON_VERSION} \
+        cupy \
+        cudatoolkit \
+        rapidjson \
+        cmake=${CMAKE_VERSION} \
+        pip \
+        pandas \
+        sklearn-pandas && \
+    conda clean -afy
 
-# NCCL-p2p
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch p2p https://github.com/NVIDIA/nccl.git nccl && cd - && \
-    cd /var/tmp/nccl && \
-    PREFIX=/usr/local/nccl make -j$(nproc) install && \
-    rm -rf /var/tmp/nccl
-ENV CPATH=/usr/local/nccl/include:$CPATH \
-    LD_LIBRARY_PATH=/usr/local/nccl/lib:$LD_LIBRARY_PATH \
-    LIBRARY_PATH=/usr/local/nccl/lib:$LIBRARY_PATH \
-    PATH=/usr/local/nccl/bin:$PATH
-
-RUN mkdir -p /opt/conda
-ENV CONDA_PREFIX=/opt/conda
-
-# RMM-0.19
-RUN mkdir -p /var/tmp && cd /var/tmp && git clone --depth=1 --branch branch-0.19 https://github.com/rapidsai/rmm.git rmm && cd - && \
-    cd /var/tmp/rmm && \
-    mkdir -p build && cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBUILD_TESTS=OFF && \
-    make -j$(nproc) && \
-    make -j$(nproc) install && \
-    rm -rf /var/tmp/rmm
+COPY clean_conda.sh .
+RUN chmod +x ./clean_conda.sh && \
+    ./clean_conda.sh cudnn nccl && \
+    rm -rfv ./clean_conda.sh
 
 # HugeCTR Inference
 RUN if [ "$RELEASE" = "true" ]; \

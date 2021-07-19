@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,15 +83,57 @@ std::vector<size_t> slot_sizes = {100, 100, 100, 100, 100, 100, 100, 100, 100,
                                   100, 100, 100, 100, 100, 100, 100, 100};  // just for verify
 
 //-----------------------------------------------------------------------------------------
+
+auto load_sparse_model_to_map = [](
+    std::vector<T>& key_vec, std::vector<size_t>& slot_vec,
+    std::vector<float>& vec_vec, const std::string& sparse_model) {
+  const std::string key_file(sparse_model + "/key");
+  const std::string slot_file(sparse_model + "/slot_id");
+  const std::string vec_file(sparse_model + "/emb_vector");
+
+  std::ifstream fs_key(key_file, std::ifstream::binary);
+  std::ifstream fs_slot(slot_file, std::ifstream::binary);
+  std::ifstream fs_vec(vec_file, std::ifstream::binary);
+
+  const size_t key_file_size_in_B = fs::file_size(key_file);
+  const size_t slot_file_size_in_B = fs::file_size(slot_file);
+  const size_t vec_file_size_in_B = fs::file_size(vec_file);
+
+  const long long num_key = key_file_size_in_B / sizeof(long long);
+  const long long num_slot = slot_file_size_in_B / sizeof(size_t);
+  const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
+  if (num_key != num_vec || num_key != num_slot || num_key != vocabulary_size) {
+    CK_THROW_(Error_t::BrokenFile, "num_key != num_vec (num_slot) || num_key != vocabulary_size");
+  }
+  key_vec.clear();
+  key_vec.resize(num_key);
+  slot_vec.clear();
+  slot_vec.resize(num_key);
+  vec_vec.clear();
+  vec_vec.resize(num_vec * embedding_vec_size);
+
+  using TypeKey = typename std::decay<decltype(*key_vec.begin())>::type;
+  if (std::is_same<TypeKey, long long>::value) {
+    fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
+  } else {
+    std::vector<long long> i64_key_vec(num_key, 0);
+    fs_key.read(reinterpret_cast<char *>(i64_key_vec.data()), key_file_size_in_B);
+    std::transform(i64_key_vec.begin(), i64_key_vec.end(), key_vec.begin(),
+                   [](long long key) { return static_cast<unsigned>(key); });
+  }
+  fs_slot.read(reinterpret_cast<char *>(slot_vec.data()), slot_file_size_in_B);
+  fs_vec.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_B);
+};
+
 void init_sparse_model(const char *sparse_model) {
   std::cout << "Init hash table";
   // init hash table file: <key, solt_id, value>
   if (!fs::exists(sparse_model)) {
     fs::create_directory(sparse_model);
   }
-  const std::string key_file = std::string(sparse_model) + "/" + sparse_model + ".key";
-  const std::string slot_file = std::string(sparse_model) + "/" + sparse_model + ".slot";
-  const std::string vec_file = std::string(sparse_model) + "/" + sparse_model + ".vec";
+  const std::string key_file = std::string(sparse_model) + "/key";
+  const std::string slot_file = std::string(sparse_model) + "/slot_id";
+  const std::string vec_file = std::string(sparse_model) + "/emb_vector";
   std::ofstream fs_key(key_file);
   std::ofstream fs_slot(slot_file);
   std::ofstream fs_vec(vec_file);
@@ -202,18 +244,17 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 #endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
-                                       max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {"localized", max_nnz_per_slot, true, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
   std::unique_ptr<DataReader<T>> test_data_reader(new DataReader<T>(
-      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+      test_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false));
 
   test_data_reader->create_drwg_norm(test_file_list_name, CHK);
 
@@ -228,18 +269,23 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, 0,        slot_sizes, embedding_vec_size,
-      max_feature_num, slot_num,       combiner, opt_params};
+      max_feature_num, slot_num,       combiner, opt_params, true, false};
+  
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<T> train_input;
+  copy(train_data_reader->get_sparse_tensors("localized"), train_input);
+  SparseTensors<T> test_input;
+  copy(test_data_reader->get_sparse_tensors("localized"), test_input);
 
-  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
+  std::unique_ptr<LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>(
-          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
-          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
-          train_data_reader->get_nnz_array(),
-          bags_to_tensors<T>(test_data_reader->get_row_offsets_tensors()),
-          bags_to_tensors<T>(test_data_reader->get_value_tensors()),
-          test_data_reader->get_nnz_array(),
-          embedding_params,
-          resource_manager));
+          train_input, test_input,
+          embedding_params, resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -415,6 +461,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 template <typename TypeEmbeddingComp>
 void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optimizer,
                    const Update_t &update_type) {
+  float tolerance = 1e-4f;
   OptHyperParams hyper_params;
   hyper_params.sgd.atomic_update = true;
   const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
@@ -446,13 +493,13 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
   }
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
-                                       max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {"localized", max_nnz_per_slot,
+                                       true, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
@@ -461,18 +508,21 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, 0,        slot_sizes, embedding_vec_size,
-      max_feature_num, slot_num,       combiner, opt_params};
+      max_feature_num, slot_num,       combiner, opt_params, true, false};
 
-  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<T> train_input;
+  copy(train_data_reader->get_sparse_tensors("localized"), train_input);
+
+  std::unique_ptr<LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>(
-          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
-          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
-          train_data_reader->get_nnz_array(),
-          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
-          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
-          train_data_reader->get_nnz_array(),
-          embedding_params,
-          resource_manager));
+          train_input, train_input,
+          embedding_params, resource_manager));
 
   // upload hash table to device
   embedding->load_parameters(sparse_model_file);
@@ -524,6 +574,34 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   printf("dump_size=%zu, max_vocabulary_size=%zu, vocabulary_size=%zu\n", dump_size,
          embedding->get_max_vocabulary_size(), embedding->get_vocabulary_size());
+
+  std::string tmp_sparse_model_file{"tmp_sparse_model"};
+  embedding->dump_parameters(tmp_sparse_model_file);
+
+  std::vector<T> hash_table_key_from_cpu;
+  std::vector<size_t> slot_id_from_cpu;
+  std::vector<float> hash_table_value_from_cpu;
+  load_sparse_model_to_map(hash_table_key_from_cpu, slot_id_from_cpu,
+                           hash_table_value_from_cpu, sparse_model_file);
+
+  std::vector<T> hash_table_key_from_gpu;
+  std::vector<size_t> slot_id_from_gpu;
+  std::vector<float> hash_table_value_from_gpu;
+  load_sparse_model_to_map(hash_table_key_from_gpu, slot_id_from_gpu,
+                           hash_table_value_from_gpu, tmp_sparse_model_file);
+
+  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+
+  ASSERT_TRUE(compare_hash_table(vocabulary_size,
+      hash_table_key_from_gpu.data(),
+      reinterpret_cast<TypeHashValue *>(hash_table_value_from_gpu.data()),
+      hash_table_key_from_cpu.data(),
+      reinterpret_cast<TypeHashValue *>(hash_table_value_from_cpu.data()),
+      tolerance));
+
+  ASSERT_TRUE(compare_key_slot(vocabulary_size,
+      hash_table_key_from_gpu.data(), slot_id_from_gpu.data(),
+      hash_table_key_from_cpu.data(), slot_id_from_cpu.data()));
 }
 
 template <typename TypeEmbeddingComp>
@@ -571,30 +649,33 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
 #endif
 
   // setup a data reader
-  const DataReaderSparseParam param = {DataReaderSparse_t::Localized, max_nnz_per_slot * slot_num,
-                                       max_nnz_per_slot, slot_num};
+  const DataReaderSparseParam param = {"localized", max_nnz_per_slot,
+                                       true, slot_num};
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
   std::unique_ptr<DataReader<T>> train_data_reader(new DataReader<T>(
-      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false, 0));
+      train_batchsize, label_dim, dense_dim, params, resource_manager, true, num_chunk_threads, false));
 
   train_data_reader->create_drwg_norm(train_file_list_name, CHK);
 
   const SparseEmbeddingHashParams embedding_params = {
       train_batchsize, test_batchsize, 0,        slot_sizes, embedding_vec_size,
-      max_feature_num, slot_num,       combiner, opt_params};
+      max_feature_num, slot_num,       combiner, opt_params, true, false};
 
-  std::unique_ptr<Embedding<T, TypeEmbeddingComp>> embedding(
+  auto copy = [](const std::vector<SparseTensorBag> &tensorbags, SparseTensors<T> &sparse_tensors) {
+    sparse_tensors.resize(tensorbags.size());
+    for(size_t j = 0; j < tensorbags.size(); ++j){
+      sparse_tensors[j] = SparseTensor<T>::stretch_from(tensorbags[j]);
+    }
+  };
+  SparseTensors<T> train_input;
+  copy(train_data_reader->get_sparse_tensors("localized"), train_input);
+
+  std::unique_ptr<LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>> embedding(
       new LocalizedSlotSparseEmbeddingOneHot<T, TypeEmbeddingComp>(
-          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
-          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
-          train_data_reader->get_nnz_array(),
-          bags_to_tensors<T>(train_data_reader->get_row_offsets_tensors()),
-          bags_to_tensors<T>(train_data_reader->get_value_tensors()),
-          train_data_reader->get_nnz_array(),
-          embedding_params,
-          resource_manager));
+          train_input, train_input,
+          embedding_params, resource_manager));
 
   // init hash table file
   if (pid == 0) {
@@ -620,46 +701,13 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
-  auto load_sparse_model_to_map = [](std::vector<T>& key_vec, std::vector<T>& slot_vec,
-      std::vector<float>& vec_vec, const std::string& sparse_model) {
-    const std::string key_file(sparse_model + "/" + sparse_model + ".key");
-    const std::string slot_file(sparse_model + "/" + sparse_model + ".slot");
-    const std::string vec_file(sparse_model + "/" + sparse_model + ".vec");
-
-    std::ifstream fs_key(key_file, std::ifstream::binary);
-    std::ifstream fs_slot(slot_file, std::ifstream::binary);
-    std::ifstream fs_vec(vec_file, std::ifstream::binary);
-
-    const size_t key_file_size_in_B = fs::file_size(key_file);
-    const size_t slot_file_size_in_B = fs::file_size(slot_file);
-    const size_t vec_file_size_in_B = fs::file_size(vec_file);
-    const long long num_key = key_file_size_in_B / sizeof(T);
-    const long long num_slot = slot_file_size_in_B / sizeof(T);
-    const long long num_vec = vec_file_size_in_B / (sizeof(float) * embedding_vec_size);
-
-    if (num_key != num_vec || num_key != num_slot || num_key != vocabulary_size) {
-      CK_THROW_(Error_t::BrokenFile, "num_key != num_vec (num_slot) || num_key != vocabulary_size");
-    }
-
-    key_vec.clear();
-    key_vec.reserve(num_key);
-    slot_vec.clear();
-    slot_vec.reserve(num_key);
-    vec_vec.clear();
-    vec_vec.reserve(num_vec * embedding_vec_size);
-
-    fs_key.read(reinterpret_cast<char *>(key_vec.data()), key_file_size_in_B);
-    fs_slot.read(reinterpret_cast<char *>(slot_vec.data()), slot_file_size_in_B);
-    fs_vec.read(reinterpret_cast<char *>(vec_vec.data()), vec_file_size_in_B);
-  };
-
   std::vector<T> hash_table_key_from_cpu;
-  std::vector<T> slot_id_from_cpu;
+  std::vector<size_t> slot_id_from_cpu;
   std::vector<float> hash_table_value_from_cpu;
   load_sparse_model_to_map(hash_table_key_from_cpu, slot_id_from_cpu, hash_table_value_from_cpu, sparse_model_src);
 
   std::vector<T> hash_table_key_from_gpu;
-  std::vector<T> slot_id_from_gpu;
+  std::vector<size_t> slot_id_from_gpu;
   std::vector<float> hash_table_value_from_gpu;
   load_sparse_model_to_map(hash_table_key_from_gpu, slot_id_from_gpu, hash_table_value_from_gpu, sparse_model_dst);
 
@@ -711,8 +759,12 @@ TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_global_update_4gpu) {
   train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global);
 }
 
-TEST(localized_sparse_embedding_one_hot_test, load_and_dump) {
+TEST(localized_sparse_embedding_one_hot_test, load_and_dump_1gpu) {
   load_and_dump<float>({0}, Optimizer_t::SGD, Update_t::Global);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, load_and_dump_4gpu) {
+  load_and_dump<float>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global);
 }
 
 TEST(localized_sparse_embedding_one_hot_test, load_and_dump_file_1gpu) {

@@ -34,7 +34,8 @@
 namespace HugeCTR {
 template <typename dtype, typename emtype>
 HybridSparseEmbedding<dtype, emtype>::HybridSparseEmbedding(
-    const Tensors2<dtype> &train_input_tensors, const Tensors2<dtype> &evaluate_input_tensors,
+    const SparseTensors<dtype> &train_input_tensors,
+    const SparseTensors<dtype> &evaluate_input_tensors,
     const HybridSparseEmbeddingParams<emtype> &embedding_params,
     const std::vector<BuffPtr<emtype>> &grouped_wgrad_buff,
     const GpuLearningRateSchedulers lr_scheds,
@@ -393,7 +394,7 @@ HybridSparseEmbedding<dtype, emtype>::~HybridSparseEmbedding() {
 }
 
 template <typename dtype, typename emtype>
-void HybridSparseEmbedding<dtype, emtype>::init_model(const Tensors2<dtype> &data,
+void HybridSparseEmbedding<dtype, emtype>::init_model(const SparseTensors<dtype> &data,
                                                       size_t &wgrad_offset_in_bytes) {
   size_t local_gpu_count = resource_manager_->get_local_gpu_count();
 #pragma omp parallel for num_threads(local_gpu_count)
@@ -401,7 +402,7 @@ void HybridSparseEmbedding<dtype, emtype>::init_model(const Tensors2<dtype> &dat
     int cur_device = get_local_gpu(id).get_device_id();
     CudaDeviceContext context(cur_device);
     auto stream = get_local_gpu(id).get_stream();
-    data_statistics_[id].data_to_unique_categories(data[id], stream);
+    data_statistics_[id].data_to_unique_categories(data[id].get_value_tensor(), stream);
     model_[id].init_hybrid_model(calibration_[id], statistics_[id], data_statistics_[id], stream);
     frequent_embeddings_[id].initialize_embedding_vectors(wgrad_offset_in_bytes);
     infrequent_embeddings_[id].initialize_embedding_vectors();
@@ -487,7 +488,8 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, int 
 
   auto &data = (is_train) ? data_train_[i] : data_evaluate_[i];
   auto &output = (is_train) ? train_output_tensors_[i] : evaluate_output_tensors_[i];
-  auto &input = (is_train) ? train_input_tensors_[i] : evaluate_input_tensors_[i];
+  auto input = (is_train) ? train_input_tensors_[i].get_value_tensor() :
+                            evaluate_input_tensors_[i].get_value_tensor();
 
   frequent_embeddings_[i].data_ = data;
   infrequent_embeddings_[i].data_ = data;

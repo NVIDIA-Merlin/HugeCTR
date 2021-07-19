@@ -23,7 +23,7 @@ namespace HugeCTR {
 
 /* This implements inter-node portion of hierarchical all-to-all for node first device layout. */
 
-#if defined(NCCL_A2A) && defined(ENABLE_MPI)
+#if defined(ENABLE_MPI)
 
 template <typename TypeEmbeddingComp>
 class InterNodeHierarchicalAlltoAll {

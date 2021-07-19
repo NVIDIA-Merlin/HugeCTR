@@ -2,8 +2,17 @@
   "solver": {
     "lr_policy": "fixed",
     "display": 1000,
-    "max_iter":64013,
-    "gpu": [0,1,2,3,4,5,6,7],
+    "max_iter": 64013,
+    "gpu": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
     "batchsize": 65536,
     "snapshot": 10000000,
     "snapshot_prefix": "./",
@@ -11,7 +20,6 @@
     "eval_batches": 1361,
     "mixed_precision": 1024
   },
-  
   "optimizer": {
     "type": "SGD",
     "update_type": "Local",
@@ -25,47 +33,70 @@
       "end_lr": 0.0
     }
   },
-
-  "layers": [ 
-      {
-	 "name": "data",
-	  "type": "Data",
-	  "format": "Raw",
-	  "num_samples": 4195155968,
-	  "slot_size_array": [39884406,    39043,    17289,     7420,    20263,    3,  7120,     1543,  63, 38532951,  2953546,   403346, 10,     2208,    11938,      155,        4,      976, 14, 39979771, 25641295, 39664984,   585935,    12972,  108,  36],
-	  "source": "./train_data.bin",
-	  "eval_num_samples": 89137319,
-	  "eval_source": "./test_data.bin",
-	  "check": "None",
-	  "cache_eval_data": 1361,
-	  "label": {
-              "top": "label",
-              "label_dim": 1
-	  },
-	  "dense": {
-              "top": "dense",
-              "dense_dim": 13
-	  },
-	  "sparse": [
-              {
-		  "top": "data1",
-		  "type": "LocalizedSlot",
-		  "max_feature_num_per_sample": 26,
-                  "max_nnz": 1,
-		  "slot_num": 26
-              }
-	  ]
+  "layers": [
+    {
+      "name": "data",
+      "type": "Data",
+      "format": "Raw",
+      "num_samples": 4195155968,
+      "source": "./train_data.bin",
+      "eval_num_samples": 89137319,
+      "eval_source": "./test_data.bin",
+      "check": "None",
+      "cache_eval_data": 1361,
+      "label": {
+        "top": "label",
+        "label_dim": 1
+      },
+      "dense": {
+        "top": "dense",
+        "dense_dim": 13
+      },
+      "sparse": [
+        {
+          "top": "data1",
+          "slot_num": 26,
+          "is_fixed_length": false,
+          "nnz_per_slot": 1
+        }
+      ]
     },
-
     {
       "name": "sparse_embedding1",
       "type": "LocalizedSlotSparseEmbeddingOneHot",
       "bottom": "data1",
       "top": "sparse_embedding1",
       "sparse_embedding_hparam": {
-        "slot_size_array": [39884406,    39043,    17289,     7420,    20263,    3,  7120,     1543,  63, 38532951,  2953546,   403346, 10,     2208,    11938,      155,        4,      976, 14, 39979771, 25641295, 39664984,   585935,    12972,  108,  36],
+        "slot_size_array": [
+          39884406,
+          39043,
+          17289,
+          7420,
+          20263,
+          3,
+          7120,
+          1543,
+          63,
+          38532951,
+          2953546,
+          403346,
+          10,
+          2208,
+          11938,
+          155,
+          4,
+          976,
+          14,
+          39979771,
+          25641295,
+          39664984,
+          585935,
+          12972,
+          108,
+          36
+        ],
         "embedding_vec_size": 128,
-        "combiner": 0
+        "combiner": "sum"
       },
       "optimizer": {
         "type": "SGD",
@@ -81,7 +112,6 @@
         }
       }
     },
-
     {
       "name": "fc1",
       "type": "FusedInnerProduct",
@@ -91,7 +121,6 @@
         "num_output": 512
       }
     },
-
     {
       "name": "fc2",
       "type": "FusedInnerProduct",
@@ -101,8 +130,6 @@
         "num_output": 256
       }
     },
-
-   
     {
       "name": "fc3",
       "type": "FusedInnerProduct",
@@ -112,24 +139,24 @@
         "num_output": 128
       }
     },
-
     {
       "name": "interaction1",
       "type": "Interaction",
-      "bottom": ["fc3", "sparse_embedding1"],
+      "bottom": [
+        "fc3",
+        "sparse_embedding1"
+      ],
       "top": "interaction1"
     },
-
     {
       "name": "fc4",
       "type": "FusedInnerProduct",
       "bottom": "interaction1",
       "top": "fc4",
-       "fc_param": {
+      "fc_param": {
         "num_output": 1024
       }
     },
-
     {
       "name": "fc5",
       "type": "FusedInnerProduct",
@@ -139,7 +166,6 @@
         "num_output": 1024
       }
     },
-
     {
       "name": "fc6",
       "type": "FusedInnerProduct",
@@ -149,7 +175,6 @@
         "num_output": 512
       }
     },
-
     {
       "name": "fc7",
       "type": "FusedInnerProduct",
@@ -159,7 +184,6 @@
         "num_output": 256
       }
     },
-
     {
       "name": "fc8",
       "type": "InnerProduct",
@@ -169,12 +193,14 @@
         "num_output": 1
       }
     },
-    
     {
       "name": "loss",
       "type": "BinaryCrossEntropyLoss",
-      "bottom": ["fc8","label"],
+      "bottom": [
+        "fc8",
+        "label"
+      ],
       "top": "loss"
-    } 
+    }
   ]
 }

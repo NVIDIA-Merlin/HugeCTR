@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 namespace HugeCTR {
+// std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
 std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
@@ -52,6 +53,9 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
 #endif
 
   MESSAGE_("Global seed is " + std::to_string(seed));
+  
+  // CK_NVML_THROW_(nvmlInit_v2());
+  // CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());
 
   CK_NVML_THROW_(nvmlInit_v2());
   CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());

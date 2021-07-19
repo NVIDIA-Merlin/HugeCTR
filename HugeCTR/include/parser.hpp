@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,6 +120,7 @@ public:
   size_t slot_num;                                     /**< total slot number */
   size_t num_embedding_tables;                         /**< number of embedding tables */
   std::vector<std::size_t> slot_num_for_tables;        /**< slot_num for each embedding table */
+  std::vector<std::size_t> max_nnz_for_tables;         /**< max nnz for each embedding table*/
   std::vector<std::size_t> max_feature_num_for_tables; /**< max feature number of each embedding table */
   std::vector<std::size_t>  embed_vec_size_for_tables; /**< embedding vector size for each embedding table */
   size_t max_feature_num_per_sample;                   /**< max feature number per table */
@@ -230,26 +231,6 @@ GpuLearningRateSchedulers get_gpu_learning_rate_schedulers(
     const nlohmann::json& config,
     const std::shared_ptr<ResourceManager>& resource_manager);
 
-/**
- * Solver Parser.
- * This class is designed to parse the solver clause of the configure file.
- */
-
-template <typename T>
-struct SparseInput {
-  Tensors2<T> train_row_offsets;
-  Tensors2<T> train_values;
-  std::vector<std::shared_ptr<size_t>> train_nnz;
-  Tensors2<T> evaluate_row_offsets;
-  Tensors2<T> evaluate_values;
-  std::vector<std::shared_ptr<size_t>> evaluate_nnz;
-  size_t slot_num;
-  size_t max_feature_num_per_sample;
-  SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
-      : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
-  SparseInput() {}
-};
-
 #define HAS_KEY_(j_in, key_in)                                          \
   do {                                                                  \
     const nlohmann::json& j__ = (j_in);                                 \
@@ -289,6 +270,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP = {
     {"CrossEntropyLoss", Layer_t::CrossEntropyLoss},
     {"DotProduct", Layer_t::DotProduct},
     {"Dropout", Layer_t::Dropout},
+    {"ElementwiseMultiply", Layer_t::ElementwiseMultiply},
     {"ELU", Layer_t::ELU},
     {"FmOrder2", Layer_t::FmOrder2},
     {"InnerProduct", Layer_t::InnerProduct},
@@ -309,11 +291,13 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"Concat", Layer_t::Concat},
     {"DotProduct", Layer_t::DotProduct},
     {"Dropout", Layer_t::Dropout},
+    {"ElementwiseMultiply", Layer_t::ElementwiseMultiply},
     {"ELU", Layer_t::ELU},
     {"FmOrder2", Layer_t::FmOrder2},
     {"FusedInnerProduct", Layer_t::FusedInnerProduct},
     {"InnerProduct", Layer_t::InnerProduct},
     {"Interaction", Layer_t::Interaction},
+    {"MultiCross", Layer_t::MultiCross},
     {"WeightMultiply", Layer_t::WeightMultiply},
     {"ReduceSum", Layer_t::ReduceSum},
     {"ReLU", Layer_t::ReLU},
@@ -515,5 +499,39 @@ struct create_datareader {
                   const std::vector<long long>& slot_size_array,
                   const bool repeat_dataset);
 };
+
+
+inline int get_max_feature_num_per_sample_from_nnz_per_slot(const nlohmann::json &j) {
+  int max_feature_num_per_sample = 0;
+  auto slot_num = get_value_from_json<int>(j, "slot_num");
+  auto nnz_per_slot = get_json(j, "nnz_per_slot");
+  if(nnz_per_slot.is_array()) {
+    if(nnz_per_slot.size() != static_cast<size_t>(slot_num)) {
+      CK_THROW_(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
+    }
+    for(int slot_id = 0; slot_id < slot_num; ++slot_id){
+      max_feature_num_per_sample += nnz_per_slot[slot_id].get<int>();
+    }  
+  }else {
+    int max_nnz = nnz_per_slot.get<int>();
+    max_feature_num_per_sample += max_nnz * slot_num;
+  }
+  return max_feature_num_per_sample;
+}
+
+inline int get_max_nnz_from_nnz_per_slot(const nlohmann::json &j) {
+  int max_nnz = 0;
+  auto slot_num = get_value_from_json<int>(j, "slot_num");
+  auto nnz_per_slot = get_json(j, "nnz_per_slot");
+  if (nnz_per_slot.is_array()) {
+    if (nnz_per_slot.size() != static_cast<size_t>(slot_num)) {
+      CK_THROW_(Error_t::WrongInput, "nnz_per_slot.size() != slot_num");
+    }
+    max_nnz = *std::max_element(nnz_per_slot.begin(), nnz_per_slot.end());
+  } else {
+    max_nnz = nnz_per_slot.get<int>();
+  }
+  return max_nnz;
+}
 
 }  // namespace HugeCTR
