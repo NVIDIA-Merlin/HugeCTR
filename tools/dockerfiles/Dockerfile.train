@@ -130,7 +130,3 @@ ENV PATH=/usr/local/hugectr/bin:$PATH \
     LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
     LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
     PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
-
-HEALTHCHECK NONE
-ENTRYPOINT []
-CMD ["/bin/bash"]
