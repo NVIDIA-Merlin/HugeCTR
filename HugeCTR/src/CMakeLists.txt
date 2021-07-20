@@ -35,6 +35,14 @@ endif()
 file(GLOB_RECURSE huge_ctr_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp *.cu)
 list(FILTER huge_ctr_src EXCLUDE REGEX ".*main.cpp")
 
+file(GLOB hugectr_pybind
+  ../pybind/model.cpp
+  ../pybind/add_input.cpp
+  ../pybind/add_sparse_embedding.cpp
+  ../pybind/add_dense_layer.cpp
+)
+list (APPEND huge_ctr_src ${hugectr_pybind})
+
 add_library(huge_ctr_static STATIC ${huge_ctr_src})
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 
