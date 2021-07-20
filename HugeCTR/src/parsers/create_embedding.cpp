@@ -175,10 +175,6 @@ void create_embedding<TypeKey, TypeFP>::operator()(
       double efficiency_bandwidth_ratio =
           get_value_from_json_soft<double>(j_hparam, "efficiency_bandwidth_ratio", 1.0);
 
-      const std::map<std::string, hybrid_embedding::CommunicationType> COMMUNICATION_TYPE_MAP = {
-          {"IB_NVLink_Hierarchical", hybrid_embedding::CommunicationType::IB_NVLink_Hier},
-          {"IB_NVLink", hybrid_embedding::CommunicationType::IB_NVLink},
-          {"NVLink_SingleNode", hybrid_embedding::CommunicationType::NVLink_SingleNode}};
       std::string communication_type_string;
       if (has_key_(j_hparam, "communication_type")) {
         communication_type_string =
@@ -192,8 +188,6 @@ void create_embedding<TypeKey, TypeFP>::operator()(
         CK_THROW_(Error_t::WrongInput, "No such communication type: " + communication_type_string);
       }
 
-      const std::map<std::string, hybrid_embedding::HybridEmbeddingType> HYBRID_EMBEDDING_TYPE_MAP =
-          {{"Distributed", hybrid_embedding::HybridEmbeddingType::Distributed}};
       std::string hybrid_embedding_type_string;
       if (has_key_(j_hparam, "hybrid_embedding_type")) {
         hybrid_embedding_type_string =
