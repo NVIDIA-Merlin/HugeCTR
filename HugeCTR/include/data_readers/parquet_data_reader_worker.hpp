@@ -368,7 +368,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         device_csr_value_buffers[k] = reinterpret_cast<void*>(dst_sparse_tensor.get_value_ptr());
         device_csr_row_offset_buffers[k] =
             reinterpret_cast<void*>(dst_sparse_tensor.get_rowoffset_ptr());
-        size_t size_of_csr_roff_buffer = sizeof(T) * (slots_ * batch_size + 1);
+        size_t size_of_csr_roff_buffer = sizeof(T) * (params_[k].slot_num * batch_size + 1);
         CK_CUDA_THROW_(cudaMemsetAsync(device_csr_row_offset_buffers[k], 0, size_of_csr_roff_buffer,
                                        task_stream_));
       }

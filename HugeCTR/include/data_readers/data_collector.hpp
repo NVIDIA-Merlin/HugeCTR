@@ -103,10 +103,10 @@ class DataCollector {
             if(current_src_buffer->current_batch_size == 0) {
               worker_status_[counter_] = 1;
               eof_worker_num_ += 1;
+              current_src_buffer->state.store(BufferState::FileEOF);
             }
             if(static_cast<size_t>(eof_worker_num_) != thread_buffers_.size() && current_src_buffer->current_batch_size == 0) {
               counter_ = (counter_ + 1) % thread_buffers_.size();
-              current_src_buffer->state.store(BufferState::ReadyForWrite);
               dst_buffer->state.store(BufferState::ReadyForWrite);
               continue;
             }
@@ -151,15 +151,14 @@ class DataCollector {
                 // local_gpu->get_memcpy_stream()));
                 // CK_CUDA_THROW_(cudaEventSynchronize(broadcast_buffer_->finish_broadcast_events[i]));
               }
+              current_src_buffer->state.store(BufferState::ReadyForWrite);
               counter_ = (counter_ + 1) % thread_buffers_.size();
             } else {
               memset(worker_status_.data(), 0, sizeof(char) * worker_status_.size());
               eof_worker_num_ = 0;
               counter_ = 0;
             }
-            
 
-            current_src_buffer->state.store(BufferState::ReadyForWrite);
             dst_buffer->state.store(BufferState::ReadyForRead);
         } else {
           usleep(2);
@@ -274,5 +273,4 @@ class DataCollector {
     broadcast_buffer_->state.store(BufferState::ReadyForWrite);
   }
 };
-}  // namespace HugeCTR
-
+}  // namespace HugeC
