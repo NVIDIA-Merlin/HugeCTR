@@ -47,6 +47,13 @@ namespace HugeCTR {
 
 #define WARP_SIZE 32
 
+namespace hybrid_embedding {
+
+enum class HybridEmbeddingType;
+enum class CommunicationType;
+
+}
+
 //#define DATA_READING_TEST
 
 enum class Error_t {
@@ -167,6 +174,27 @@ enum class TrainState_t {
 struct TrainState {
   TrainState_t state = TrainState_t::Init;
   cudaEvent_t* event = nullptr;
+};
+
+struct AsyncParam {
+  int num_threads;
+  int num_batches_per_thread;
+  int io_block_size;
+  int io_depth;
+  int io_alignment;
+  bool shuffle;
+  Alignment_t aligned_type;
+};
+
+struct HybridEmbeddingParam {
+  size_t max_num_frequent_categories;
+  int64_t max_num_infrequent_samples;
+  double p_dup_max;
+  double max_all_reduce_bandwidth;
+  double max_all_to_all_bandwidth;
+  double efficiency_bandwidth_ratio;
+  hybrid_embedding::CommunicationType communication_type;
+  hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
 };
 
 typedef struct DataSetHeader_ {

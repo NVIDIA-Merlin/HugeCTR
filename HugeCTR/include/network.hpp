@@ -268,7 +268,8 @@ class Network {
                 std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
                 std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
                 std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list);
+                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
+                bool mlperf_bottom_mlp);
   friend class Model;
   /**
    * copy weights from train layers to evaluate layers

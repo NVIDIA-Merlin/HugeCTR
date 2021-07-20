@@ -96,7 +96,7 @@ struct Solver {
   int batchsize;                            /**< batchsize */
   std::vector<std::vector<int>> vvgpu;      /**< device map */
   bool repeat_dataset;
-  DeviceMap::Layout device_layout = DeviceMap::LOCAL_FIRST; /**< device distribution */
+  DeviceMap::Layout device_layout;
   bool use_mixed_precision;
   bool enable_tf32_compute;
   float scaler;
@@ -104,6 +104,12 @@ struct Solver {
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
+  bool use_holistic_cuda_graph;
+  bool use_overlapped_pipeline;
+  AllReduceAlgo all_reduce_algo;
+  bool grouped_all_reduce;
+  size_t num_iterations_statistics;
+  bool is_mlperf;
   Solver() {}
 };
 
@@ -338,6 +344,7 @@ static const std::map<std::string, FcPosition_t> FCPOSITION_TYPE_MAP = {
     {"Body", FcPosition_t::Body},
     {"Tail", FcPosition_t::Tail},
     {"Isolated", FcPosition_t::Isolated},
+    {"None", FcPosition_t::None}
 };
 
 static const std::map<std::string, Activation_t> ACTIVATION_TYPE_MAP = {
@@ -348,6 +355,16 @@ static const std::map<std::string, Activation_t> ACTIVATION_TYPE_MAP = {
 static const std::map<std::string, Alignment_t> ALIGNED_TYPE_MAP = {
     {"Auto", Alignment_t::Auto},
     {"None", Alignment_t::None},
+};
+
+static const std::map<std::string, hybrid_embedding::CommunicationType> COMMUNICATION_TYPE_MAP = {
+    {"IB_NVLink_Hierarchical", hybrid_embedding::CommunicationType::IB_NVLink_Hier},
+    {"IB_NVLink", hybrid_embedding::CommunicationType::IB_NVLink},
+    {"NVLink_SingleNode", hybrid_embedding::CommunicationType::NVLink_SingleNode}
+};
+
+static const std::map<std::string, hybrid_embedding::HybridEmbeddingType> HYBRID_EMBEDDING_TYPE_MAP ={
+    {"Distributed", hybrid_embedding::HybridEmbeddingType::Distributed}
 };
 
 inline bool has_key_(const nlohmann::json& j_in, const std::string& key_in) {
@@ -379,6 +396,18 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
     return value.get<T>();
   } else {
     MESSAGE_(key + " is not specified using default: " + std::to_string(B));
+    return B;
+  }
+}
+
+template<>
+inline std::string get_value_from_json_soft(const nlohmann::json& json, const std::string key, const std::string B) {
+  if (has_key_(json, key)) {
+    auto value = json.find(key).value();
+    CK_SIZE_(value, 1);
+    return value.get<std::string>();
+  } else {
+    MESSAGE_(key + " is not specified using default: " + B);
     return B;
   }
 }
