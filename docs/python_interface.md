@@ -32,7 +32,7 @@ HugeCTR Python Interface includes training API and inference API. From version 3
      * [unfreeze_embedding()](#unfreezeembedding-method)
      * [reset_learning_rate_scheduler()](#resetlearningratescheduler-method)
      * [set_source()](#setsource-method)
-    <summary></summary>
+     <summary>Details</summary>
 * [Low-level Training API](#low-level-training-api)<details>
   * [get_next()](#getnext-method)
   * [set_source()](#setsource-method)
@@ -251,15 +251,16 @@ The Raw dataset format is different from the Norm dataset format in that the tra
 
 **NOTE**: Only one-hot data is accepted with this format.
 
-When using the Raw dataset format, a user must preprocess their own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, when referencing the configuration snippet above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 39884405}` while slot 1 has its keyset on a different space `{0, 1, 2 ... 39043}`.
+When using the Raw dataset format, a user must preprocess their own dataset to generate the continuous keys for each slot, and specify the list of the slot sizes with the `slot_size_array` option. Therefore, when referencing the configuration snippet above, we assume that slot 0 has the continuous keyset `{0, 1, 2 ... 39884405}` while slot 1 has its keyset on a different space `{0, 1, 2 ... 39043}`. 
+
+The Raw dataset format can be used with embedding type LocalizedSlotSparseEmbeddingOneHot only.
 
 Example:
 ```python
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Raw,
                                   source = ["./wdl_raw/train_data.bin"],
                                   eval_source = "./wdl_raw/validation_data.bin",
-                                  check_type = hugectr.Check_t.Sum,
-                                  slot_size_array = [278899, 355877, 203750, 18573, 14082, 7020, 18966, 4, 6382, 1246, 49, 185920, 71354, 67346, 11, 2166, 7340, 60, 4, 934, 15, 204208, 141572, 199066, 60940, 9115, 72, 34])
+                                  check_type = hugectr.Check_t.Sum)
 ```
 
 
@@ -342,7 +343,7 @@ Please refer to [hugectr_layer_book](./hugectr_layer_book.md#table-of-contents) 
 ```bash
 hugectr.Input()
 ```
-`Input`specifies the parameters related to the data input. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Input Detail](./hugectr_layer_book#input-layer) if you want to get detailed information about Input.
+`Input`specifies the parameters related to the data input. An `Input` instance should be added to the Model instance first so that the following `SparseEmbedding` and `DenseLayer` instances can access the inputs with their specified names. Please refer to [Input Detail](./hugectr_layer_book.md#input-layer) if you want to get detailed information about Input.
 
 **Arguments**
 * `label_dim`: Integer, the label dimension. 1 implies it is a binary label. For example, if an item is clicked or not. There is NO default value and it should be specified by users.
@@ -353,28 +354,32 @@ hugectr.Input()
 
 * `dense_name`: Integer, the name of the dense input tensor to be referenced by following layers. There is NO default value and it should be specified by users.
 
-* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with  `sparse_name`, `nnz_per_slot`, `is_fixed_length` and `slot_num`. `sparse_name` is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users. The maximum number of features per slot for the specified spare input can be specified by `nnz_per_slot`. The `nnz_per_slot` can be an `int` which means average nnz per slot so the maximum number of features per sample should be `nnz_per_slot * slot_num`. Or you can use List[int] to initialize `nnz_per_slot`, then the maximum number of features per sample should be `sum(nnz_per_slot)` and in this case, the length of the array `nnz_per_slot` should be the same with `slot_num`. For `is_fixed_length`, if it is set to True, which means for each slot, different samples have the same number of features. So HugeCTR can use this information to reduce data transferring time. As for `slot_num`, it specifies the number of slots used for this sparse input in the dataset. The total number of categorical inputs is exactly the length of `data_reader_sparse_param_array`. There is NO default value and it should be specified by users.
+* `data_reader_sparse_param_array`: List[hugectr.DataReaderSparseParam], the list of the sparse parameters for categorical inputs. Each `DataReaderSparseParam` instance should be constructed with  `sparse_name`, `nnz_per_slot`, `is_fixed_length` and `slot_num`. 
+  * `sparse_name` is the name of the sparse input tensors to be referenced by following layers. There is NO default value and it should be specified by users. 
+  * `nnz_per_slot` is the maximum number of features for each slot for the specified spare input. The `nnz_per_slot` can be an `int` which means average nnz per slot so the maximum number of features per sample should be `nnz_per_slot * slot_num`. Or you can use List[int] to initialize `nnz_per_slot`, then the maximum number of features per sample should be `sum(nnz_per_slot)` and in this case, the length of the array `nnz_per_slot` should be the same with `slot_num`. 
+  * `is_fixed_length` is used to identify whether categorical inputs has the same length for each slot among all samples. If different samples have the same number of features for each slot, then user can set `is_fixed_length = True` and HugeCTR can use this information to reduce data transferring time. 
+  * `slot_num` specifies the number of slots used for this sparse input in the dataset.
 
 ### SparseEmbedding  ###
 ```bash
 hugectr.SparseEmbedding()
 ```
-`SparseEmbedding` specifies the parameters related to the sparse embedding layer. One or several `SparseEmbedding` layers should be added to the Model instance after `Input` and before `DenseLayer`. Please refer to [SparseEmbedding Detail](./hugectr_layer_book#sparse-embedding) if you want to get detailed information about SparseEmbedding.
+`SparseEmbedding` specifies the parameters related to the sparse embedding layer. One or several `SparseEmbedding` layers should be added to the Model instance after `Input` and before `DenseLayer`. Please refer to [SparseEmbedding Detail](./hugectr_layer_book.md#sparse-embedding) if you want to get detailed information about SparseEmbedding.
 
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users.
 
-* `workspace_size_per_gpu_in_mb`: Integer, the maximum vocabulary memory usage size or cardinality across all the input features. There is NO default value and it should be specified by users.
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
-* `combiner`: String, the intra-slot reduction operation, now support `sum` or `mean`. There is NO default value and it should be specified by users.
+* `combiner`: String, the intra-slot reduction operation, currently `sum` or `mean` are supported. There is NO default value and it should be specified by users.
 
 * `sparse_embedding_name`: String, the name of the sparse embedding tensor to be referenced by following layers. There is NO default value and it should be specified by users.
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. If `max_vocabulary_size_per_gpu` is specified, this parameter is ignored. There is NO default value and it should be specified by users.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file). There is NO default value and it should be specified by users.
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 
