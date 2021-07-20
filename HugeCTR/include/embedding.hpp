@@ -30,7 +30,7 @@ class IEmbedding {
   virtual TrainState train(bool is_train, int i, TrainState state) { 
     return TrainState();
   }
-  // TODO(MLPerf): can we remove the default argument?
+  // TODO: can we remove the default argument?
   virtual void forward(bool is_train, int eval_batch = -1) = 0;
   virtual void backward() = 0;
   virtual void update_params() = 0;

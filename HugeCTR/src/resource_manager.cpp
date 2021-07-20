@@ -21,13 +21,11 @@
 #include <utils.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-//#include <rmm/mr/device/cnmem_memory_resource.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 namespace HugeCTR {
-// std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
 std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
@@ -54,9 +52,6 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
 
   MESSAGE_("Global seed is " + std::to_string(seed));
   
-  // CK_NVML_THROW_(nvmlInit_v2());
-  // CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());
-
   CK_NVML_THROW_(nvmlInit_v2());
   CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());
 

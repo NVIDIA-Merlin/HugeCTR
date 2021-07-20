@@ -47,6 +47,7 @@ if (DISABLE_CUDF)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDISABLE_CUDF")
 endif()
 
+option(SHARP_A2A "Enable SHARP All2All" OFF)
 if (SHARP_A2A)
   message (STATUS "-- SHARP_A2A is ON")
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSHARP_A2A")
