@@ -99,7 +99,7 @@ std::map<AllReduceAlgo, std::string> ALLREDUCE_ALGO_TO_STRING = {
   {AllReduceAlgo::NCCL, "NCCL"}};
 
 std::map<hybrid_embedding::CommunicationType, std::string> HE_COMM_TYPE_TO_STRING = {
-  {hybrid_embedding::CommunicationType::IB_NVLink_Hier, "IB_NVLink_Hier"},
+  {hybrid_embedding::CommunicationType::IB_NVLink_Hier, "IB_NVLink_Hierarchical"},
   {hybrid_embedding::CommunicationType::IB_NVLink, "IB_NVLink"},
   {hybrid_embedding::CommunicationType::NVLink_SingleNode, "NVLink_SingleNode"}};
 
