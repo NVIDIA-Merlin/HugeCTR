@@ -27,6 +27,7 @@
 #include <utility>
 #include <HugeCTR/include/embedding.hpp>
 #include <HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp>
+#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
@@ -80,18 +81,41 @@ std::map<Layer_t, std::string> LAYER_TYPE_TO_STRING_MP = {
 std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
     {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedSlotSparseEmbeddingHash"},
     {Embedding_t::LocalizedSlotSparseEmbeddingHash, "LocalizedSlotSparseEmbeddingHash"},
-    {Embedding_t::LocalizedSlotSparseEmbeddingOneHot, "LocalizedSlotSparseEmbeddingOneHot"}};
+    {Embedding_t::LocalizedSlotSparseEmbeddingOneHot, "LocalizedSlotSparseEmbeddingOneHot"},
+    {Embedding_t::HybridSparseEmbedding, "HybridSparseEmbedding"}};
 
 std::map<DataReaderSparse_t, std::string> READER_SPARSE_TYPE_TO_STRING = {
     {DataReaderSparse_t::Distributed, "DistributedSlot"},
     {DataReaderSparse_t::Localized, "LocalizedSlot"}};
-
 
 std::map<Initializer_t, std::string> INITIALIZER_TYPE_TO_STRING = {
   {Initializer_t::Uniform, "Uniform"},
   {Initializer_t::XavierNorm, "XavierNorm"},
   {Initializer_t::XavierUniform, "XavierUniform"},
   {Initializer_t::Zero, "Zero"}};
+
+std::map<AllReduceAlgo, std::string> ALLREDUCE_ALGO_TO_STRING = {
+  {AllReduceAlgo::ONESHOT, "OneShot"},
+  {AllReduceAlgo::NCCL, "NCCL"}};
+
+std::map<hybrid_embedding::CommunicationType, std::string> HE_COMM_TYPE_TO_STRING = {
+  {hybrid_embedding::CommunicationType::IB_NVLink_Hier, "IB_NVLink_Hier"},
+  {hybrid_embedding::CommunicationType::IB_NVLink, "IB_NVLink"},
+  {hybrid_embedding::CommunicationType::NVLink_SingleNode, "NVLink_SingleNode"}};
+
+std::map<hybrid_embedding::HybridEmbeddingType, std::string> HE_TYPE_TO_STRING = {
+  {hybrid_embedding::HybridEmbeddingType::Distributed, "Distributed"}};
+
+std::map<FcPosition_t, std::string> FC_POSITION_TO_STRING = {
+  {FcPosition_t::Head, "Head"},
+  {FcPosition_t::Body, "Body"},
+  {FcPosition_t::Tail, "Tail"},
+  {FcPosition_t::Isolated, "Isolated"},
+  {FcPosition_t::None, "None"},};
+
+std::map<Activation_t, std::string> FC_ACTIVATION_TO_STRING = {
+  {Activation_t::Relu, "Relu"},
+  {Activation_t::None, "None"}};
 
 } // end of namespace
 
@@ -107,6 +131,7 @@ struct DataReaderParams {
   bool float_label_dense;
   int num_workers;
   std::vector<long long int> slot_size_array;
+  AsyncParam async_param;
   DataReaderParams(DataReaderType_t data_reader_type,
        std::vector<std::string> source,
        std::vector<std::string> keyset,
@@ -117,7 +142,8 @@ struct DataReaderParams {
        long long eval_num_samples,
        bool float_label_dense,
        int num_workers,
-       std::vector<long long int> slot_size_array = std::vector<long long int>());
+       std::vector<long long>& slot_size_array,
+      const AsyncParam& async_param);
 };
 
 struct Input {
@@ -142,7 +168,7 @@ struct SparseEmbedding {
   std::string bottom_name;
   std::vector<size_t> slot_size_array; 
   std::shared_ptr<OptParamsPy> embedding_opt_params;
-  
+  HybridEmbeddingParam hybrid_embedding_param;
   SparseEmbedding(Embedding_t embedding_type,
                  size_t workspace_size_per_gpu_in_mb,
                  size_t embedding_vec_size,
@@ -150,7 +176,8 @@ struct SparseEmbedding {
                  std::string sparse_embedding_name,
                  std::string bottom_name,
                  std::vector<size_t>& slot_size_array,
-                 std::shared_ptr<OptParamsPy>& embedding_opt_params);
+                 std::shared_ptr<OptParamsPy>& embedding_opt_params,
+                 const HybridEmbeddingParam& hybrid_embedding_param);
 
 };
 
@@ -191,6 +218,8 @@ struct DenseLayer {
   bool use_regularizer;
   Regularizer_t regularizer_type;
   float lambda;
+  FcPosition_t pos_type;
+  Activation_t act_type;
   DenseLayer(Layer_t layer_type,
             std::vector<std::string>& bottom_names,
             std::vector<std::string>& top_names,
@@ -214,7 +243,9 @@ struct DenseLayer {
             std::vector<float> target_weight_vec = std::vector<float>(),
             bool use_regularizer = false,
             Regularizer_t regularizer_type = Regularizer_t::L1,
-            float lambda = 0);
+            float lambda = 0,
+            FcPosition_t pos_type = FcPosition_t::Isolated,
+            Activation_t act_type = Activation_t::Relu);
 };
 
 template <typename TypeKey>
@@ -223,8 +254,10 @@ void add_input(Input& input, DataReaderParams& reader_params,
             std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
             std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
             std::shared_ptr<IDataReader>& train_data_reader,
-            std::shared_ptr<IDataReader>& evaluate_data_reader, size_t batch_size,
+            std::shared_ptr<IDataReader>& evaluate_data_reader,
+            std::shared_ptr<IDataReader>& init_data_reader, size_t batch_size,
             size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
+            bool enable_overlap, size_t num_iterations_statistics,
             const std::shared_ptr<ResourceManager> resource_manager);
 
 template <typename TypeKey, typename TypeFP>
@@ -235,7 +268,11 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
             std::vector<std::shared_ptr<IEmbedding>>& embeddings,
             const std::shared_ptr<ResourceManager>& resource_manager,
             size_t batch_size, size_t batch_size_eval,
-            OptParams& embedding_opt_params);
+            OptParams& embedding_opt_params,
+            std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
+            bool use_cuda_graph, bool grouped_all_reduce,
+            bool use_holistic_cuda_graph, size_t num_iterations_statistics,
+            GpuLearningRateSchedulers& gpu_lr_sches);
 
 
 Input get_input_from_json(const nlohmann::json& j_input);
@@ -249,13 +286,15 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
                        std::vector<DenseLayer>& dense_layer_params,
                        std::vector<SparseEmbedding>& sparse_embedding_params,
                        std::vector<Input>& input_params,
-                       std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list);
+                       std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list,
+                       bool use_mixed_precision);
 
 void init_optimizer(OptParams& opt_params, const Solver& solver,
                     const std::shared_ptr<OptParamsPy>& opt_params_py);
 
-void init_learning_rate_scheduler(
-    std::shared_ptr<LearningRateScheduler>& lr_sch, const Solver& solver);
+void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch, const Solver& solver,
+                                  GpuLearningRateSchedulers& gpu_lr_sches,
+                                  const std::shared_ptr<ResourceManager>& resource_manager);
 /**
  * @brief Main HugeCTR class
  *
@@ -298,7 +337,7 @@ class Model {
 
   bool train();
 
-  bool eval();
+  bool eval(int eval_batch = -1);
 
   std::vector<std::pair<std::string, float>> get_eval_metrics();
 
@@ -373,6 +412,10 @@ class Model {
     return lr_sch_; 
   }
 
+  bool use_gpu_learning_rate_scheduling() const {
+    return !embeddings_[0]->get_learning_rate_schedulers().empty();
+  }
+
   void load_dense_weights(const std::string& dense_model_file);
   void load_sparse_weights(const std::vector<std::string>& sparse_embedding_files);
   void load_dense_optimizer_states(const std::string& dense_opt_states_file);
@@ -390,6 +433,8 @@ class Model {
   std::shared_ptr<ModelOversubscriberParams> mos_params_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
+  GpuLearningRateSchedulers gpu_lr_sches_;
+
   std::map<std::string, SparseInput<long long>> sparse_input_map_64_;
   std::map<std::string, SparseInput<unsigned int>> sparse_input_map_32_;
   std::vector<std::vector<TensorEntry>> train_tensor_entries_list_;
@@ -431,6 +476,15 @@ class Model {
   std::shared_ptr<ResourceManager> resource_manager_; /**< GPU resources include handles and streams etc.*/
   metrics::Metrics metrics_; /**< evaluation metrics. */
   
+  std::shared_ptr<IDataReader> init_data_reader_;
+  std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
+  struct HolisticCudaGraph {
+    std::vector<bool> initialized;
+    std::vector<cudaGraphExec_t> instance;
+    std::vector<cudaEvent_t> fork_event;
+  } train_graph_;
+  bool mlperf_bottom_mlp_;
+
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);
                                           
@@ -449,6 +503,8 @@ class Model {
   Error_t load_params_for_sparse_(const std::vector<std::string>& embedding_file);
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
   Error_t load_opt_states_for_sparse_(const std::vector<std::string>& sparse_opt_states_files);
+  void exchange_wgrad(size_t device_id);
+  void train_overlapped();
 };
 
 } // namespace HugeCTR

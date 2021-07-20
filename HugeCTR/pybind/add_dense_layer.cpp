@@ -26,6 +26,7 @@
 #include <layers/fully_connected_layer.hpp>
 #include <layers/fully_connected_layer_half.hpp>
 #include <layers/fused_fully_connected_layer.hpp>
+#include <layers/fused_relu_bias_fully_connected_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
 #include <layers/weight_multiply_layer.hpp>
@@ -50,7 +51,8 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
                       std::vector<DenseLayer>& dense_layer_params,
                       std::vector<SparseEmbedding>& sparse_embedding_params,
                       std::vector<Input>& input_params,
-                      std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list) {
+                      std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list,
+                      bool use_mixed_precision) {
   nlohmann::json input_config;
   input_config["type"] = "Data";
   nlohmann::json input_label_config;
@@ -92,6 +94,16 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     }
     if (sparse_embedding_params[i].slot_size_array.size() > 0) {
       sparse_hparam_config["slot_size_array"] = sparse_embedding_params[i].slot_size_array;
+    }
+    if (sparse_embedding_params[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
+      sparse_hparam_config["max_num_frequent_categories"] = sparse_embedding_params[i].hybrid_embedding_param.max_num_frequent_categories;
+      sparse_hparam_config["max_num_infrequent_samples"] = sparse_embedding_params[i].hybrid_embedding_param.max_num_infrequent_samples;
+      sparse_hparam_config["p_dup_max"] = sparse_embedding_params[i].hybrid_embedding_param.p_dup_max;
+      sparse_hparam_config["max_all_reduce_bandwidth"] = sparse_embedding_params[i].hybrid_embedding_param.max_all_reduce_bandwidth;
+      sparse_hparam_config["max_all_to_all_bandwidth"] = sparse_embedding_params[i].hybrid_embedding_param.max_all_to_all_bandwidth;
+      sparse_hparam_config["efficiency_bandwidth_ratio"] = sparse_embedding_params[i].hybrid_embedding_param.efficiency_bandwidth_ratio;
+      sparse_hparam_config["communication_type"] = HE_COMM_TYPE_TO_STRING[sparse_embedding_params[i].hybrid_embedding_param.communication_type];
+      sparse_hparam_config["hybrid_embedding_type"] = HE_TYPE_TO_STRING[sparse_embedding_params[i].hybrid_embedding_param.hybrid_embedding_type];
     }
     sparse_config["sparse_embedding_hparam"] = sparse_hparam_config;
     nlohmann::json optimizer_config;
@@ -139,10 +151,10 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     sparse_config["optimizer"] = optimizer_config;
     layer_config_array.push_back(sparse_config);
   }
-
+  auto& layer_type_to_string = use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
   for (size_t i = 0; i < dense_layer_params.size(); ++i) {
     nlohmann::json layer_config;
-    layer_config["type"] = LAYER_TYPE_TO_STRING[dense_layer_params[i].layer_type];
+    layer_config["type"] = layer_type_to_string[dense_layer_params[i].layer_type];
     if (dense_layer_params[i].bottom_names.size() == 1) {
       layer_config["bottom"] = dense_layer_params[i].bottom_names[0];
     } else {
@@ -186,6 +198,8 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         if (dense_layer_params[i].bias_init_type != Initializer_t::Default) {
           fc_param_config["bias_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
         }
+        layer_config["position"] = FC_POSITION_TO_STRING[dense_layer_params[i].pos_type];
+        layer_config["activation"] = FC_ACTIVATION_TO_STRING[dense_layer_params[i].act_type];
         layer_config["fc_param"] = fc_param_config;
         break;     
       }
@@ -343,6 +357,24 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
           dense_layer.bias_init_type = bias_init_type;
         } else {
           CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+        }
+      }
+      if (has_key_(j_dense_layer, "position")) {
+        const auto position_name = get_value_from_json<std::string>(j_dense_layer, "position");
+        FcPosition_t pos_type;
+        if (find_item_in_map(pos_type, position_name, FCPOSITION_TYPE_MAP)) {
+          dense_layer.pos_type = pos_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such position: " + position_name);
+        }
+      }
+      if (has_key_(j_dense_layer, "activation")) {
+        const auto act_name = get_value_from_json<std::string>(j_dense_layer, "activation");
+        Activation_t act_type;
+        if (find_item_in_map(act_type, act_name, ACTIVATION_TYPE_MAP)) {
+          dense_layer.act_type = act_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such activation: " + act_name);
         }
       }
       // establish out tensor
@@ -602,7 +634,11 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
                 bool use_mixed_precision,
                 bool enable_tf32_compute,
                 float scaler,
-                bool use_algorithm_search) {
+                bool use_algorithm_search,
+                std::vector<Layer*>* top_layers = nullptr,
+                std::vector<Layer*>* bottom_layers = nullptr,
+                bool mlperf_bottom_mlp = false) {
+  bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string = use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
   if (layer_type_to_string.find(layer_type) == layer_type_to_string.end()) {
@@ -770,16 +806,69 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
     }
     case Layer_t::FusedInnerProduct: {
       std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type, dense_layer.bias_init_type};
+      // check the position of this layer
+      int input_size = input_output_info.inputs.size();
+      int output_size = input_output_info.output_names.size();
       size_t output = dense_layer.num_output;
+      auto pos_type = dense_layer.pos_type;
+      auto act_type = dense_layer.act_type;
+      if (pos_type == FcPosition_t::Head && input_size == 1 && output_size == 4) {
+      } else if (pos_type == FcPosition_t::Body && input_size == 4 && output_size == 4) {
+      } else if (pos_type == FcPosition_t::Tail && input_size == 4 && output_size == 1) {
+      } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
+      } else if (pos_type == FcPosition_t::None && input_size == 1 && output_size == 1) {
+      } else {
+        CK_THROW_(Error_t::WrongInput, 
+                  "The position and dimension of bottom and top layer aren't compatible: " +
+                      LAYER_TYPE_TO_STRING_MP[layer_type]);
+      }
+
+      if (act_type == Activation_t::None && pos_type != FcPosition_t::Tail) {
+        CK_THROW_(Error_t::WrongInput,
+                  "The layer without activation function must be the last layer in MLP.");
+      }
+
       if (use_mixed_precision) {
-        Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
-        Tensor2<__half> fc_out_tensor;
-        blobs_buff->reserve({(in_tensor.get_dimensions())[0], output}, &fc_out_tensor);
-        output_tensor_entries.push_back(
-            {input_output_info.output_names[0], fc_out_tensor.shrink()});
-        layers.emplace_back(new FusedFullyConnectedLayer(
-            weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, fc_out_tensor,
-            gpu_resource, initializer_types));
+        Tensor2<__half> train_in_tensor =
+              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<__half> mask_in_tensor, dRelu_in_tensor, db_in_tensor;
+        if (pos_type == FcPosition_t::Body || pos_type == FcPosition_t::Tail) {
+          mask_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
+          dRelu_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[2]);
+          db_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[3]);
+        }
+        Tensor2<__half> train_out_tensor, mask_out_tensor, dRelu_out_tensor, db_out_tensor;
+        blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &train_out_tensor);
+        blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &mask_out_tensor);
+        blobs_buff->reserve({(train_in_tensor.get_dimensions())[0], output}, &dRelu_out_tensor);
+
+        // establish layer
+        if (pos_type == FcPosition_t::None) {
+          layers.emplace_back(new FusedFullyConnectedLayer(
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
+              train_out_tensor, gpu_resource, initializer_types));
+        } else {
+          layers.emplace_back(new FusedReluBiasFullyConnectedLayer(
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, train_in_tensor,
+              mask_in_tensor, dRelu_in_tensor, db_in_tensor, train_out_tensor, mask_out_tensor,
+              dRelu_out_tensor, db_out_tensor, gpu_resource, pos_type, act_type, skip_dgrad,
+              initializer_types));
+        }
+
+        if (pos_type == FcPosition_t::Tail || pos_type == FcPosition_t::Isolated ||
+            pos_type == FcPosition_t::None)
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], train_out_tensor.shrink()});
+        else {
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[0], train_out_tensor.shrink()});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[1], mask_out_tensor.shrink()});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[2], dRelu_out_tensor.shrink()});
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[3], db_out_tensor.shrink()});
+        }
       } else {
         CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
       }
@@ -1138,6 +1227,15 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
     for (auto& output_tensor_entry : output_tensor_entries) {
       tensor_entries.push_back(output_tensor_entry);
     }
+    if (mlperf_bottom_mlp) {
+      if (bottom_layers) {
+        bottom_layers->emplace_back(layers.back().get());
+      }
+    } else {
+      if (top_layers) {
+        top_layers->emplace_back(layers.back().get());
+      }
+    }
   } else if (raw_metrics) {
     (*raw_metrics)[metrics::RawType::Loss] = loss_tensor.shrink();
     (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
@@ -1163,7 +1261,8 @@ void add_dense_layer(DenseLayer& dense_layer,
                 std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
                 std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
                 std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list) {
+                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
+                bool mlperf_bottom_mlp) {
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     // add dense layer for train
     add_dense_layer_internal(dense_layer,
@@ -1183,7 +1282,10 @@ void add_dense_layer(DenseLayer& dense_layer,
                 use_mixed_precision,
                 enable_tf32_compute,
                 scaler,
-                use_algorithm_search);
+                use_algorithm_search,
+                &networks[i]->top_layers_,
+                &networks[i]->bottom_layers_,
+                mlperf_bottom_mlp);
     // add dense layer for evaluation
     add_dense_layer_internal(dense_layer,
                 evaluate_tensor_entries_list[i],
