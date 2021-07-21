@@ -1106,6 +1106,10 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
                ": Write hash table <key,value> pairs to file",
            true);
 #ifdef ENABLE_MPI
+  MPI_Datatype TYPE_EMB_VECTOR;
+  CK_MPI_THROW_(MPI_Type_contiguous(embedding_vec_size, MPI_FLOAT, &TYPE_EMB_VECTOR));
+  CK_MPI_THROW_(MPI_Type_commit(&TYPE_EMB_VECTOR));
+
   int my_rank = embedding_data_.get_resource_manager().get_process_id();
   int n_ranks = embedding_data_.get_resource_manager().get_num_process();
 
@@ -1120,13 +1124,14 @@ void LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::dump_pa
 
   CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
   MPI_Status status;
-  CK_MPI_THROW_(MPI_File_write_at(key_fh, key_offset, h_key_ptr, total_count * key_size, MPI_CHAR, &status));
-  CK_MPI_THROW_(MPI_File_write_at(slot_fh, slot_offset, h_hash_table_slot_id, total_count * slot_size, MPI_CHAR, &status));
-  CK_MPI_THROW_(MPI_File_write_at(vec_fh, vec_offset, h_hash_table_value, total_count * vec_size, MPI_CHAR, &status));
+  CK_MPI_THROW_(MPI_File_write_at(key_fh, key_offset, h_key_ptr, total_count, MPI_LONG_LONG_INT, &status));
+  CK_MPI_THROW_(MPI_File_write_at(slot_fh, slot_offset, h_hash_table_slot_id, total_count, MPI_SIZE_T, &status));
+  CK_MPI_THROW_(MPI_File_write_at(vec_fh, vec_offset, h_hash_table_value, total_count, TYPE_EMB_VECTOR, &status));
 
   CK_MPI_THROW_(MPI_File_close(&key_fh));
   CK_MPI_THROW_(MPI_File_close(&slot_fh));
   CK_MPI_THROW_(MPI_File_close(&vec_fh));
+  CK_MPI_THROW_(MPI_Type_free(&TYPE_EMB_VECTOR));
 #else
   key_stream.write(reinterpret_cast<char*>(h_key_ptr), total_count * key_size);
   slot_stream.write(reinterpret_cast<char*>(h_hash_table_slot_id), total_count * slot_size);
