@@ -24,6 +24,7 @@
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
 #include "utest/embedding/embedding_test_utils.hpp"
@@ -162,7 +163,7 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
   if (pid == 0) {
     // re-generate the dataset files
@@ -448,7 +449,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
   // re-generate the dataset files
   {
@@ -621,7 +622,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
   if (pid == 0) {
     // re-generate the dataset files

@@ -33,19 +33,12 @@ class ResourceManagerCore : public ResourceManager {
   std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
   std::vector<std::vector<bool>> p2p_matrix_;
 
-#ifdef ENABLE_MPI
-  std::unique_ptr<IbComm> ib_comm_ = NULL;
-#endif
-  std::shared_ptr<AllReduceInPlaceComm> ar_comm_ = NULL;
-
   void all2all_warmup();
   void enable_all_peer_accesses();
 
-  ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
-      unsigned long long seed);
  public:
-  friend std::shared_ptr<ResourceManager> ResourceManager::create(
-      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed, DeviceMap::Layout layout);
+  ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
+                      unsigned long long seed);
   ResourceManagerCore(const ResourceManagerCore&) = delete;
   ResourceManagerCore& operator=(const ResourceManagerCore&) = delete;
 
@@ -58,6 +51,9 @@ class ResourceManagerCore : public ResourceManager {
       CK_THROW_(Error_t::WrongInput, "Error: Already initialized");
     }
     gpu_resources_[local_gpu_id] = gpu_resource;
+  }
+  const std::vector<std::shared_ptr<GPUResource>>& get_local_gpus() const override {
+    return gpu_resources_;
   }
   const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const override {
     return gpu_resources_[local_gpu_id];
@@ -96,11 +92,21 @@ class ResourceManagerCore : public ResourceManager {
   DeviceMap::Layout get_device_layout() const override { return device_map_.get_device_layout(); }
 
 #ifdef ENABLE_MPI
-  IbComm* get_ib_comm() const override { return ib_comm_.get(); }
-  void set_ready_to_transfer() override { if (ib_comm_) ib_comm_->set_ready_to_transfer(); }
+  IbComm* get_ib_comm() const override { 
+    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+    return nullptr;
+  }
+  void set_ready_to_transfer() override { 
+    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+  }
 #endif
-  void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override;
-  AllReduceInPlaceComm* get_ar_comm() const override { return ar_comm_.get(); }
+  void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override {
+    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+  }
+  AllReduceInPlaceComm* get_ar_comm() const override {
+    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+    return nullptr;
+  }
 
 };
 }  // namespace HugeCTR

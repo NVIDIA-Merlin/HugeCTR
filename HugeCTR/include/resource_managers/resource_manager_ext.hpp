@@ -33,6 +33,11 @@ class ResourceManagerExt : public ResourceManager {
 
   void initialize_rmm_resources();
 
+#ifdef ENABLE_MPI
+  std::unique_ptr<IbComm> ib_comm_ = NULL;
+#endif
+  std::shared_ptr<AllReduceInPlaceComm> ar_comm_ = NULL;
+
   ResourceManagerExt(std::shared_ptr<ResourceManager> core);
  public:
   static std::shared_ptr<ResourceManager> create(
@@ -43,6 +48,9 @@ class ResourceManagerExt : public ResourceManager {
 
   // from ResourceManagerBase
   void set_local_gpu(std::shared_ptr<GPUResource> gpu_resource, size_t local_gpu_id) override { core_->set_local_gpu(gpu_resource, local_gpu_id);
+  }
+  const std::vector<std::shared_ptr<GPUResource>>& get_local_gpus() const override {
+    return core_->get_local_gpus();
   }
   const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const override {
     return core_->get_local_gpu(local_gpu_id);
@@ -89,21 +97,12 @@ class ResourceManagerExt : public ResourceManager {
   }
 
 #ifdef ENABLE_MPI
-  IbComm* get_ib_comm() const override {
-    return core_->get_ib_comm();
-  }
-  void set_ready_to_transfer() override { 
-    core_->set_ready_to_transfer();
-  }
+  IbComm* get_ib_comm() const override { return ib_comm_.get(); }
+  void set_ready_to_transfer() override { if (ib_comm_) ib_comm_->set_ready_to_transfer(); }
 #endif
-  void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override {
-    core_->set_ar_comm(algo, use_mixed_precision);
-  }
-  AllReduceInPlaceComm* get_ar_comm() const override {
-    return core_->get_ar_comm();
-  }
+  void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override;
+  AllReduceInPlaceComm* get_ar_comm() const override { return ar_comm_.get(); }
 
-  // its own methods
   const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
       int local_gpu_id) const;
 };

@@ -137,13 +137,6 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
   }
 
   all2all_warmup();
-
-  if (num_process_ > 1) {
-#ifdef ENABLE_MPI
-    ib_comm_ = std::make_unique<IbComm>();
-    ib_comm_->init(num_process_, local_gpu_count, process_id_, local_gpu_device_id_list);
-#endif
-  }
 }
 
 bool ResourceManagerCore::p2p_enabled(int src_device_id, int dst_device_id) const {
@@ -195,16 +188,5 @@ void ResourceManagerCore::enable_all_peer_accesses() {
     }
   }
 }
-
-void ResourceManagerCore::set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision)
-{
-#ifdef ENABLE_MPI
-  ar_comm_ = AllReduceInPlaceComm::create(num_process_, algo, use_mixed_precision, gpu_resources_,
-                                          ib_comm_.get());
-#else
-  ar_comm_ = AllReduceInPlaceComm::create(num_process_, algo, use_mixed_precision, gpu_resources_);
-#endif
-}
-
 
 }  // namespace HugeCTR

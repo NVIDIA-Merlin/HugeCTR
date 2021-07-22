@@ -22,7 +22,7 @@
 
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/metrics.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -189,7 +189,7 @@ void auc_test(std::vector<int> device_list, size_t batch_size, size_t num_total_
   for (int i = 0; i < num_procs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto resource_manager = ResourceManager::create(vvgpu, 424242);
+  const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
 
   // Create AUC metric
   auto metric = std::make_unique<metrics::AUC<T>>(batch_size, num_batches, resource_manager);

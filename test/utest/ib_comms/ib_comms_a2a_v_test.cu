@@ -22,7 +22,7 @@
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/utils.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "utest/test_utils.h"
 #include "gtest/gtest.h"
 
@@ -65,7 +65,7 @@ namespace {
           for (int i = 0; i < num_procs_; i++) {
             vvgpu.push_back(device_list);
           }
-          resource_manager_ = ResourceManager::create(vvgpu, 0, DeviceMap::LOCAL_FIRST);
+          resource_manager_ = ResourceManagerExt::create(vvgpu, 0, DeviceMap::LOCAL_FIRST);
           ib_comm_ = resource_manager_->get_ib_comm();
 
           init_buffers();

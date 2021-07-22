@@ -59,7 +59,7 @@ void do_upload_and_download_snapshot(
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back({0});
-  const auto resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
   // generate train/test datasets
   if (fs::exists(file_list_name_train)) { fs::remove(file_list_name_train); }

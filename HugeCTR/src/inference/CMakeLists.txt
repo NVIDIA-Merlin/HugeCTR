@@ -19,7 +19,6 @@ file(GLOB huge_ctr_src
   ../gpu_resource.cpp
   ../resource_manager.cpp
   ../resource_managers/resource_manager_core.cpp
-  ../resource_managers/resource_manager_ext.cpp
   ../data_simulator.cu
   ../data_reader.cpp
   ../layer.cpp
@@ -31,6 +30,7 @@ file(GLOB huge_ctr_src
   ../layers/fully_connected_layer.cu
   ../layers/fully_connected_layer_half.cu
   ../layers/fused_fully_connected_layer.cu
+  ../layers/fused_relu_bias_fully_connected_layer.cu
   ../layers/interaction_layer.cu
   ../layers/relu_layer.cu
   ../layers/reshape_layer.cu
@@ -56,6 +56,7 @@ file(GLOB huge_ctr_src
   inference_utilis.cpp
   unique_op/unique_op.cu
   ../data_readers/metadata.cpp
+  ../gpu_learning_rate_scheduler.cu
   ../metrics.cu
   ../optimizers/*.cu
   ../optimizer.cpp

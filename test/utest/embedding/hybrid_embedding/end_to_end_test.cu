@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "HugeCTR/include/tensor2.hpp"
 #include "gtest/gtest.h"
 #include "input_generator.hpp"
@@ -41,7 +41,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
   for (int i = 0; i < num_procs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto resource_manager = ResourceManager::create(vvgpu, seed);
+  const auto resource_manager = ResourceManagerExt::create(vvgpu, seed);
 
   size_t total_gpu_count = resource_manager->get_global_gpu_count();
   size_t local_gpu_count = resource_manager->get_local_gpu_count();

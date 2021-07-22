@@ -39,6 +39,7 @@ class ResourceManager : public ResourceManagerBase {
   virtual bool is_master_process() const = 0;
   virtual const std::shared_ptr<CPUResource>& get_local_cpu() const = 0;
   virtual const std::vector<int>& get_local_gpu_device_id_list() const = 0;
+  const virtual std::vector<std::shared_ptr<GPUResource>>& get_local_gpus() const = 0;
   virtual int get_process_id_from_gpu_global_id(size_t global_gpu_id) const = 0;
   virtual size_t get_gpu_local_id_from_global_id(size_t global_gpu_id) const = 0;
   virtual size_t get_gpu_global_id_from_local_id(size_t local_gpu_id) const = 0;

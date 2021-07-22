@@ -45,7 +45,7 @@ void test_parser(std::string& json_name) {
   std::shared_ptr<IDataReader> data_reader_eval;
   std::vector<std::shared_ptr<IEmbedding>> embedding;
   std::vector<std::shared_ptr<Network>> networks;
-  const auto& resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
   std::shared_ptr<ExchangeWgrad> fake_exchange_wgrad = NULL;
 
   p.create_pipeline(init_data_reader, data_reader, data_reader_eval, embedding, networks,

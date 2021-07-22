@@ -25,7 +25,7 @@
 
 #include "HugeCTR/include/data_readers/async_reader/async_reader.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "common.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -42,7 +42,7 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  const auto resource_manager = ResourceManager::create(vvgpu, 424242);
+  const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
 
   CK_CUDA_THROW_(cudaMallocManaged(&ref_data, file_size));
   CK_CUDA_THROW_(cudaMallocManaged(&read_data, file_size));

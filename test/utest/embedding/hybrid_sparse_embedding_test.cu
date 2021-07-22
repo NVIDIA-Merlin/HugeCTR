@@ -19,6 +19,7 @@
 #define private public
 #define protected public
 #include "HugeCTR/include/embeddings/hybrid_sparse_embedding.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "HugeCTR/include/utils.cuh"
 #include "hybrid_embedding/input_generator.hpp"
 
@@ -64,7 +65,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
   }
 
   auto resource_manager =
-      ResourceManager::create(vvgpu, (unsigned long long)1234);
+      ResourceManagerExt::create(vvgpu, (unsigned long long)1234);
   size_t total_gpu_count = resource_manager->get_global_gpu_count();
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
   size_t total_categories = 0;

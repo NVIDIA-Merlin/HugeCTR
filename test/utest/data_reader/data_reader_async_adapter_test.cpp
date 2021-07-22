@@ -26,7 +26,7 @@
 #include "HugeCTR/include/data_readers/async_reader/async_reader_adapter.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
 #include "HugeCTR/include/general_buffer2.hpp"
-#include "HugeCTR/include/resource_manager.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "common.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
@@ -49,7 +49,7 @@ void reader_adapter_test(std::vector<int> device_list, size_t batch_size, int nu
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  const auto resource_manager = ResourceManager::create(vvgpu, 424242);
+  const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
 
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
   const int sample_dim = label_dim + dense_dim + sparse_dim * (sizeof(dtype) / sizeof(float));
