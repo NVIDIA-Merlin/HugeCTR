@@ -21,6 +21,7 @@
 #include <collectives/ib_comm.hpp>
 #include <collectives/all_reduce_comm.hpp>
 #include <device_map.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace HugeCTR {
 
@@ -47,6 +48,8 @@ class ResourceManager : public ResourceManagerBase {
   virtual bool all_p2p_enabled() const = 0;
 
   virtual DeviceMap::Layout get_device_layout() const = 0;
+
+  virtual const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(int local_gpu_id) const = 0;
 
 #ifdef ENABLE_MPI
   virtual IbComm* get_ib_comm() const = 0;

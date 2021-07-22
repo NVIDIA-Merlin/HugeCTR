@@ -33,8 +33,12 @@ class ResourceManagerCore : public ResourceManager {
   std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
   std::vector<std::vector<bool>> p2p_matrix_;
 
+  std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> base_cuda_mr_;
+  std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> memory_resource_;
+
   void all2all_warmup();
   void enable_all_peer_accesses();
+  void initialize_rmm_resources();
 
  public:
   ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
@@ -52,9 +56,6 @@ class ResourceManagerCore : public ResourceManager {
     }
     gpu_resources_[local_gpu_id] = gpu_resource;
   }
-  const std::vector<std::shared_ptr<GPUResource>>& get_local_gpus() const override {
-    return gpu_resources_;
-  }
   const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const override {
     return gpu_resources_[local_gpu_id];
   }
@@ -69,6 +70,10 @@ class ResourceManagerCore : public ResourceManager {
   bool is_master_process() const override { return process_id_ == 0; }
 
   const std::shared_ptr<CPUResource>& get_local_cpu() const override { return cpu_resource_; }
+
+  const std::vector<std::shared_ptr<GPUResource>>& get_local_gpus() const override {
+    return gpu_resources_;
+  }
 
   const std::vector<int>& get_local_gpu_device_id_list() const override {
     return device_map_.get_device_list();
@@ -90,6 +95,9 @@ class ResourceManagerCore : public ResourceManager {
   bool all_p2p_enabled() const override;
 
   DeviceMap::Layout get_device_layout() const override { return device_map_.get_device_layout(); }
+
+  const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
+      int local_gpu_id) const override;
 
 #ifdef ENABLE_MPI
   IbComm* get_ib_comm() const override { 
