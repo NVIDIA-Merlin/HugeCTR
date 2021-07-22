@@ -7,12 +7,12 @@ The quickest way to run a notebook here is with a docker container, which provid
 ### Pull the NGC Docker
 To start the [embedding_plugin.ipynb](embedding_plugin_deprecated.ipynb) notebook, pull this docker image:
 ```
-docker pull nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.5
+docker pull nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.6
 ```
 
 To start the other notebooks, pull the docker image using the following command:
 ```
-docker pull nvcr.io/nvidia/merlin/merlin-training:0.5
+docker pull nvcr.io/nvidia/merlin/merlin-training:0.6
 ```
 
 ### Clone the HugeCTR Repository
@@ -25,11 +25,11 @@ git clone https://github.com/NVIDIA/HugeCTR
 
 1. Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command: 
    ```
-   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:0.5
+   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvidia/merlin/merlin-training:0.6
    ```  
    Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command to run [embedding_plugin.ipynb](embedding_plugin.ipynb) notebook : 
    ```
-   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.5
+   docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8888:8888 nvcr.io/nvstaging/merlin/merlin-tensorflow-training:0.6
    ```
 
 2. Activate the merlin conda environment by running the following command:  
