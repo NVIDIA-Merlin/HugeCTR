@@ -18,6 +18,7 @@ This document introduces different layer classes and corresponding methods in th
   * [Reshape Layer](#reshape-layer)
   * [Slice Layer](#slice-layer)
   * [Dropout Layer](#dropout-layer)
+  * [DotProduct Layer](#dotproduct-layer)
   * [ELU Layer](#elu-layer)
   * [Interaction Layer](#interaction-layer)
   * [Add Layer](#add-layer)
@@ -415,12 +416,33 @@ Parameter:
 
 * `dropout_rate`: Float, The dropout rate to be used for the `Dropout` layer. It should be between 0 and 1. Setting it to 1 indicates that there is no dropped element at all. The default value is 0.5.
 
+Input and Output Shapes:
+
+* input: (batch_size, num_elems)
+* output: same as input
+
 Example:
 ```python
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Dropout,
                             bottom_names = ["relu1"],
                             top_names = ["dropout1"],
                             dropout_rate=0.5))
+```
+### DotProduct Layer
+The DotProduct Layer performs an element-wise multiplication of the two inputs.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: 2x(batch_size, num_elem)
+* output: (batch_size, num_elem)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.DotProduct, 
+                            bottom_names = ["Scale_item2", "item_his2"],
+                            top_names = ["DotProduct_i"]))
 ```
 
 ### ELU Layer
