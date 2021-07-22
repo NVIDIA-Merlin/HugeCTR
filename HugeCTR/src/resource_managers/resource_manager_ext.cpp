@@ -55,14 +55,14 @@ std::shared_ptr<ResourceManager> ResourceManagerExt::create(
 
 ResourceManagerExt::ResourceManagerExt(std::shared_ptr<ResourceManager> core)
     : core_(core) {
-  int num_process = get_num_process();
-  int process_id = get_process_id();
-  if (num_process > 1) {
 #ifdef ENABLE_MPI
+  int num_process = get_num_process();
+  if (num_process > 1) {
+    int process_id = get_process_id();
     ib_comm_ = std::make_unique<IbComm>();
     ib_comm_->init(num_process, get_local_gpu_count(), process_id, get_local_gpu_device_id_list());
-#endif
   }
+#endif
 }
 
 void ResourceManagerExt::set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision)
