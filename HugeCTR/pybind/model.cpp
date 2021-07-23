@@ -16,7 +16,13 @@
 
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <HugeCTR/pybind/model.hpp>
+#include <algorithm>
+#include <fstream>
 #include <iomanip>
+#include <iterator>
+#include <experimental/filesystem>
+
+namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -88,18 +94,39 @@ static void check_device(int device_id, int min_major, int min_minor) {
   return;
 }
 
+template <typename TypeKey>
+auto load_key_files(std::vector<std::string> const& key_files) {
+  std::vector<TypeKey> keys_vec;
+  for (auto const& key_file : key_files) {
+    auto key_file_size = fs::file_size(key_file);
+    auto num_new_keys = key_file_size / sizeof(TypeKey);
+    std::ifstream key_fs(key_file, std::ifstream::binary);
+    if (!key_fs.is_open()) {
+      CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + key_file);
+    }
+    auto num_exist_keys = keys_vec.size();
+    keys_vec.resize(num_exist_keys + num_new_keys);
+    key_fs.read(reinterpret_cast<char *>(&keys_vec[num_exist_keys]), key_file_size);
+  }
+  std::sort(keys_vec.begin(), keys_vec.end());
+  keys_vec.erase(std::unique(keys_vec.begin(), keys_vec.end()), keys_vec.end());
+  return keys_vec;
+}
+
 }  // end namespace
 
 ModelOversubscriberParams::ModelOversubscriberParams(
     bool _train_from_scratch, bool _use_host_memory_ps,
-    std::vector<std::string>& _trained_sparse_models, std::vector<std::string>& _dest_sparse_models)
+    std::vector<std::string>& _trained_sparse_models,
+    std::vector<std::string>& _dest_sparse_models)
     : use_model_oversubscriber(true),
       use_host_memory_ps(_use_host_memory_ps),
       train_from_scratch(_train_from_scratch),
       trained_sparse_models(_trained_sparse_models),
       dest_sparse_models(_dest_sparse_models) {}
 
-ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
+ModelOversubscriberParams::ModelOversubscriberParams()
+    : use_model_oversubscriber(false) {}
 
 DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
                                    std::vector<std::string> source, std::vector<std::string> keyset,
@@ -253,8 +280,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   }
   if (mos_params_->use_model_oversubscriber && solver_.repeat_dataset) {
     CK_THROW_(Error_t::WrongInput,
-              "The model oversubscriber can only be used under epoch mode, i.e., repeat_dataset is "
-              "set False");
+              "The model oversubscriber can only be used under epoch mode, "
+              "i.e., repeat_dataset is set False");
   }
   if (mos_params_->use_model_oversubscriber &&
       reader_params_.keyset.size() != reader_params_.source.size()) {
@@ -611,9 +638,18 @@ void Model::set_source(std::vector<std::string> source, std::vector<std::string>
     CK_THROW_(Error_t::WrongInput,
               "The number of training data sources should equal that of the keyset files");
   }
+  if (set_source_flag_) {
+    mos_params_->incremental_keyset_files.insert(
+        mos_params_->incremental_keyset_files.end(),
+        reader_params_.keyset.begin(), reader_params_.keyset.end());
+    set_source_flag_ = false;
+  }
   reader_params_.source.assign(source.begin(), source.end());
   reader_params_.keyset.assign(keyset.begin(), keyset.end());
   reader_params_.eval_source.assign(eval_source);
+
+  auto it{mos_params_->incremental_keyset_files.end()};
+  mos_params_->incremental_keyset_files.insert(it, keyset.begin(), keyset.end());
 }
 
 void Model::set_source(std::string source, std::string eval_source) {
@@ -1319,6 +1355,36 @@ void Model::init_model_oversubscriber_(bool use_host_memory_ps,
         create_model_oversubscriber_<float>(use_host_memory_ps, sparse_embedding_files);
   }
   mos_created_ = true;
+}
+
+std::vector<std::pair<std::vector<long long>, std::vector<float>>>&
+Model::get_incremental_model() {
+  if (!mos_params_->use_model_oversubscriber) {
+    CK_THROW_(Error_t::IllegalCall, "Get incremental is only supported in MOS");
+  }
+  if (set_source_flag_) {
+    mos_params_->incremental_keyset_files.insert(
+        mos_params_->incremental_keyset_files.end(),
+        reader_params_.keyset.begin(), reader_params_.keyset.end());
+    set_source_flag_ = false;
+  }
+  // dump model from GPU to PS
+  model_oversubscriber_->dump();
+  // load keyset to vector (processed keys_vec should be long long format)
+  auto& inc_keyset_file{mos_params_->incremental_keyset_files};
+  std::vector<long long> keys_vec;
+  if (solver_.i64_input_key) {
+    keys_vec = load_key_files<long long>(inc_keyset_file);
+  } else {
+    auto keys_i32_vec = load_key_files<unsigned>(inc_keyset_file);
+    keys_vec.resize(keys_i32_vec.size());
+    std::transform(keys_i32_vec.begin(), keys_i32_vec.end(), keys_vec.begin(),
+        [](unsigned key) { return static_cast<long long>(key); });
+  }
+  inc_keyset_file.clear();
+  // get the incremental sparse model
+  inc_sparse_model_ = model_oversubscriber_->get_incremental_model(keys_vec);
+  return inc_sparse_model_;
 }
 
 }  // namespace HugeCTR

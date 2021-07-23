@@ -16,7 +16,7 @@
 #pragma once
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-
+#include <pybind11/numpy.h>
 #include <HugeCTR/pybind/model.hpp>
 
 namespace HugeCTR {
@@ -126,8 +126,33 @@ void ModelPybind(pybind11::module &m) {
              float loss = 0;
              self.get_current_loss(&loss);
              return loss;
-           })
-      .def("get_eval_metrics", &HugeCTR::Model::get_eval_metrics)
+       })
+    .def("get_eval_metrics", &HugeCTR::Model::get_eval_metrics)
+    .def("get_incremental_model", [](HugeCTR::Model &self) {
+             auto inc_sparse_model = self.get_incremental_model();
+             std::vector<std::pair<pybind11::array_t<long long>, pybind11::array_t<float>>> array_inc_sparse_model;
+             for (const auto& pair:inc_sparse_model) {
+               size_t num_keys = pair.first.size();
+               size_t emb_vec_size = pair.second.size() / num_keys;
+               long long* keys = new long long[num_keys];
+               float* emb_vecs = new float[pair.second.size()];
+               memcpy(keys, pair.first.data(), num_keys*sizeof(long long));
+               memcpy(emb_vecs, pair.second.data(), num_keys*emb_vec_size*sizeof(float));
+               auto keys_capsule = pybind11::capsule(keys, [](void *v) { 
+                    long long* vv = reinterpret_cast<long long*>(v);
+                    delete[] vv; 
+               });
+               auto emb_vecs_capsule = pybind11::capsule(emb_vecs, [](void *v) {
+                    float* vv = reinterpret_cast<float*>(v);
+                    delete[] vv; 
+               });
+               array_inc_sparse_model.push_back(std::make_pair(
+                    pybind11::array_t<long long>(num_keys, keys, keys_capsule),
+                    pybind11::array_t<float>({num_keys, emb_vec_size}, emb_vecs, emb_vecs_capsule)));
+             }
+             inc_sparse_model.clear();
+             return array_inc_sparse_model;
+       })
       .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
            pybind11::arg("prefix"), pybind11::arg("iter") = 0)
       .def("get_model_oversubscriber", &HugeCTR::Model::get_model_oversubscriber)

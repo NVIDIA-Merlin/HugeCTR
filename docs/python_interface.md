@@ -752,6 +752,17 @@ hugectr.Model.get_eval_metrics()
 This method takes no extra arguments and returns the average evaluation metrics of several minibatches of evaluation data.
 ***
 
+#### **get_incremental_model method**
+```bash
+updated_model = hugectr.Model.get_incremental_model()
+```
+This method is only supported when the model oversubscription with **HMEM-based** parameter server  is utilized. It returns the updated embedding table since the last time calling this method to `updated_model`. Note that `updated_model` only stores the embedding features being touched instead of the whole table.
+
+When training with multi-node, the `updated_model` returned in each node doesn't have common embedding features, and the aggregations of `updated_model` from each node form the complete updated sparse model.
+
+The length of `updated_model` is equal to the number of embedding tables in your model, e.g., `length(updated_model)==2` for the wdl model. Each element in `updated_model` is a pair of NumPy arrays: a 1-D array stores keys in `long long` format, and another 2-D array stores embedding vectors in `float` format, where the leading dimension is the embedding vector size. E.g., `updated_model[0][0]` stores keys, and `updated_model[0][1]` stores the embedding vectors corresponding to keys in `updated_model[0][0]`.
+***
+
 #### **save_params_to_files method**
 ```bash
 hugectr.Model.save_params_to_files()

@@ -30,6 +30,8 @@ def model_oversubscriber_test(json_file, output_dir, use_host_ps):
                    keyset = ["file_list."+str(i)+".keyset" for i in range(6,9)], 
                    eval_source = "./file_list.5.txt")
   model.fit(num_epochs=1, eval_interval=1000000, display =200)
+  if use_host_ps:
+    updated_model = model.get_incremental_model()
   model.save_params_to_files("wdl")
 
 if __name__ == "__main__":
