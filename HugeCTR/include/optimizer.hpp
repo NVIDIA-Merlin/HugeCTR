@@ -189,6 +189,10 @@ public:
   EmbeddingOptimizer(size_t max_vocabulary_size_per_gpu_, SparseEmbeddingHashParams &param, const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &buf);
   
   void initialize(const GPUResource &local_gpu);
+
+  void reset(GPUResource const& local_gpu) {
+    initialize(local_gpu);
+  }
   
   void update(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,

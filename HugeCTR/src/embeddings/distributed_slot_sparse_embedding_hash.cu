@@ -1256,6 +1256,16 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::reset()
   
 }
 
+template <typename TypeHashKey, typename TypeEmbeddingComp>
+void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::reset_optimizer() {
+  CudaDeviceContext context;
+  auto local_gpu_count{embedding_data_.get_resource_manager().get_local_gpu_count()};
+  for (size_t id{0}; id < local_gpu_count; id++) {
+    context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
+    embedding_optimizers_[id].reset(embedding_data_.get_local_gpu(id));
+  }
+}
+
 template class DistributedSlotSparseEmbeddingHash<unsigned int, float>;
 template class DistributedSlotSparseEmbeddingHash<long long, float>;
 template class DistributedSlotSparseEmbeddingHash<unsigned int, __half>;
