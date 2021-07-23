@@ -92,11 +92,12 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 ModelOversubscriberParams::ModelOversubscriberParams(
     bool _train_from_scratch, bool _use_host_memory_ps,
-    std::vector<std::string>& _trained_sparse_models,
-    std::vector<std::string>& _dest_sparse_models)
-  : use_model_oversubscriber(true), use_host_memory_ps(_use_host_memory_ps),
-    train_from_scratch(_train_from_scratch),
-    trained_sparse_models(_trained_sparse_models), dest_sparse_models(_dest_sparse_models) {}
+    std::vector<std::string>& _trained_sparse_models, std::vector<std::string>& _dest_sparse_models)
+    : use_model_oversubscriber(true),
+      use_host_memory_ps(_use_host_memory_ps),
+      train_from_scratch(_train_from_scratch),
+      trained_sparse_models(_trained_sparse_models),
+      dest_sparse_models(_dest_sparse_models) {}
 
 ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
 
@@ -106,7 +107,7 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
                                    long long num_samples, long long eval_num_samples,
                                    bool float_label_dense, int num_workers,
                                    std::vector<long long int> slot_size_array)
-                                   
+
     : data_reader_type(data_reader_type),
       source(source),
       keyset(keyset),
@@ -138,7 +139,6 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
       bottom_name(bottom_name),
       slot_size_array(slot_size_array),
       embedding_opt_params(embedding_opt_params) {
-  
   if (combiner_str == "sum") {
     combiner = 0;
   } else if (combiner_str == "mean") {
@@ -147,7 +147,8 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
     CK_THROW_(Error_t::WrongInput, "No such combiner type: " + combiner_str);
   }
 
-  max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
+  max_vocabulary_size_per_gpu =
+      (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
 }
 
 DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
@@ -155,10 +156,12 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
                        Initializer_t gamma_init_type, Initializer_t beta_init_type,
                        float dropout_rate, float elu_alpha, size_t num_output,
                        Initializer_t weight_init_type, Initializer_t bias_init_type, int num_layers,
-                       size_t leading_dim, bool selected, std::vector<int> selected_slots,
-                       std::vector<std::pair<int, int>> ranges, std::vector<size_t> weight_dims,
-                       size_t out_dim, int axis, std::vector<float> target_weight_vec,
-                       bool use_regularizer, Regularizer_t regularizer_type, float lambda)
+                       size_t leading_dim, size_t time_step, size_t batchsize, size_t SeqLength,
+                       size_t vector_size, bool selected, std::vector<int> selected_slots,
+                       std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
+                       std::vector<size_t> weight_dims, size_t out_dim, int axis,
+                       std::vector<float> target_weight_vec, bool use_regularizer,
+                       Regularizer_t regularizer_type, float lambda)
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -173,9 +176,14 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       bias_init_type(bias_init_type),
       num_layers(num_layers),
       leading_dim(leading_dim),
+      time_step(time_step),
+      batchsize(batchsize),
+      SeqLength(SeqLength),
+      vector_size(vector_size),
       selected(selected),
       selected_slots(selected_slots),
       ranges(ranges),
+      indices(indices),
       weight_dims(weight_dims),
       out_dim(out_dim),
       axis(axis),
@@ -831,8 +839,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter);
       }
-    } // end for iter
-  } // end if else
+    }  // end for iter
+  }    // end if else
 }
 
 bool Model::train() {
@@ -941,7 +949,7 @@ bool Model::eval() {
       }
     } else if (networks_.size() == 1) {
       long long current_batchsize_per_device =
-            evaluate_data_reader_->get_current_batchsize_per_device(0);
+          evaluate_data_reader_->get_current_batchsize_per_device(0);
       networks_[0]->eval(current_batchsize_per_device);
       for (auto& metric : metrics_) {
         metric->local_reduce(0, networks_[0]->get_raw_metrics());
@@ -967,7 +975,7 @@ bool Model::eval() {
 Error_t Model::export_predictions(const std::string& output_prediction_file_name,
                                   const std::string& output_label_file_name) {
   try {
-    if(current_eval_batchsize_ == 0) {
+    if (current_eval_batchsize_ == 0) {
       MESSAGE_("Reach end of eval dataset. Skip export prediction");
       return Error_t::Success;
     }
@@ -1112,7 +1120,7 @@ void Model::copy_weights_for_evaluation() {
 }
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
-                                              std::string dense_opt_states_file) {
+                                               std::string dense_opt_states_file) {
   try {
     if (resource_manager_->is_master_process()) {
       std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
@@ -1142,8 +1150,9 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
   return Error_t::Success;
 }
 
-Error_t Model::download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
-                                                const std::vector<std::string>& sparse_opt_state_files) {
+Error_t Model::download_sparse_params_to_files_(
+    const std::vector<std::string>& embedding_files,
+    const std::vector<std::string>& sparse_opt_state_files) {
   try {
     {
       int i = 0;
@@ -1182,9 +1191,9 @@ std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
                 "must provide sparse_model_file. \
           if train from scratch, please specify a name to store the trained embedding model");
     }
-    return std::shared_ptr<ModelOversubscriber>(
-        new ModelOversubscriber(use_host_memory_ps, embeddings_, sparse_embedding_files,
-            resource_manager_, solver_.use_mixed_precision, solver_.i64_input_key));
+    return std::shared_ptr<ModelOversubscriber>(new ModelOversubscriber(
+        use_host_memory_ps, embeddings_, sparse_embedding_files, resource_manager_,
+        solver_.use_mixed_precision, solver_.i64_input_key));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -1301,13 +1310,13 @@ void Model::init_params_for_sparse_() {
 }
 
 void Model::init_model_oversubscriber_(bool use_host_memory_ps,
-    const std::vector<std::string>& sparse_embedding_files) {
+                                       const std::vector<std::string>& sparse_embedding_files) {
   if (solver_.use_mixed_precision) {
-    model_oversubscriber_ = create_model_oversubscriber_<__half>(
-        use_host_memory_ps, sparse_embedding_files);
+    model_oversubscriber_ =
+        create_model_oversubscriber_<__half>(use_host_memory_ps, sparse_embedding_files);
   } else {
-    model_oversubscriber_ = create_model_oversubscriber_<float>(
-        use_host_memory_ps, sparse_embedding_files);
+    model_oversubscriber_ =
+        create_model_oversubscriber_<float>(use_host_memory_ps, sparse_embedding_files);
   }
   mos_created_ = true;
 }

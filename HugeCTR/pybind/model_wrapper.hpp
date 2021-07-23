@@ -27,7 +27,8 @@ void ModelPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::DataReaderParams, std::shared_ptr<HugeCTR::DataReaderParams>>(
       m, "DataReaderParams")
       .def(pybind11::init<DataReaderType_t, std::vector<std::string>, std::vector<std::string>,
-                          std::string, Check_t, int, long long, long long, bool, int,std::vector<long long int>>(),
+                          std::string, Check_t, int, long long, long long, bool, int,
+                          std::vector<long long int>>(),
            pybind11::arg("data_reader_type"), pybind11::arg("source"),
            pybind11::arg("keyset") = std::vector<std::string>(), pybind11::arg("eval_source"),
            pybind11::arg("check_type"), pybind11::arg("cache_eval_data") = 0,
@@ -51,8 +52,9 @@ void ModelPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
       .def(pybind11::init<Layer_t, std::vector<std::string> &, std::vector<std::string> &, float,
                           float, Initializer_t, Initializer_t, float, float, size_t, Initializer_t,
-                          Initializer_t, int, size_t, bool, std::vector<int> &,
-                          std::vector<std::pair<int, int>> &, std::vector<size_t> &, size_t, int,
+                          Initializer_t, int, size_t, size_t, size_t, size_t, size_t, bool,
+                          std::vector<int> &, std::vector<std::pair<int, int>> &,
+                          std::vector<int> &, std::vector<size_t> &, size_t, int,
                           std::vector<float> &, bool, Regularizer_t, float>(),
            pybind11::arg("layer_type"), pybind11::arg("bottom_names"), pybind11::arg("top_names"),
            pybind11::arg("factor") = 1.0, pybind11::arg("eps") = 0.00001,
@@ -63,8 +65,11 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("weight_init_type") = Initializer_t::Default,
            pybind11::arg("bias_init_type") = Initializer_t::Default,
            pybind11::arg("num_layers") = 0, pybind11::arg("leading_dim") = 1,
+           pybind11::arg("time_step") = 0, pybind11::arg("batchsize") = 1,
+           pybind11::arg("SeqLength") = 1, pybind11::arg("vector_size") = 1,
            pybind11::arg("selected") = false, pybind11::arg("selected_slots") = std::vector<int>(),
            pybind11::arg("ranges") = std::vector<std::pair<int, int>>(),
+           pybind11::arg("indices") = std::vector<int>(),
            pybind11::arg("weight_dims") = std::vector<size_t>(), pybind11::arg("out_dim") = 0,
            pybind11::arg("axis") = 1, pybind11::arg("target_weight_vec") = std::vector<float>(),
            pybind11::arg("use_regularizer") = false,
@@ -121,18 +126,16 @@ void ModelPybind(pybind11::module &m) {
              float loss = 0;
              self.get_current_loss(&loss);
              return loss;
-       })
-    .def("get_eval_metrics", &HugeCTR::Model::get_eval_metrics)
-    .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
-              pybind11::arg("prefix"),
-              pybind11::arg("iter") = 0)
-    .def("get_model_oversubscriber", &HugeCTR::Model::get_model_oversubscriber)
-    .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
-    .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)
-    .def("get_learning_rate_scheduler", &HugeCTR::Model::get_learning_rate_scheduler)
-    .def("export_predictions", &HugeCTR::Model::export_predictions,
-           pybind11::arg("output_prediction_file_name"),
-           pybind11::arg("output_label_file_name"));
+           })
+      .def("get_eval_metrics", &HugeCTR::Model::get_eval_metrics)
+      .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
+           pybind11::arg("prefix"), pybind11::arg("iter") = 0)
+      .def("get_model_oversubscriber", &HugeCTR::Model::get_model_oversubscriber)
+      .def("get_data_reader_train", &HugeCTR::Model::get_train_data_reader)
+      .def("get_data_reader_eval", &HugeCTR::Model::get_evaluate_data_reader)
+      .def("get_learning_rate_scheduler", &HugeCTR::Model::get_learning_rate_scheduler)
+      .def("export_predictions", &HugeCTR::Model::export_predictions,
+           pybind11::arg("output_prediction_file_name"), pybind11::arg("output_label_file_name"));
 }
 
 }  // namespace python_lib

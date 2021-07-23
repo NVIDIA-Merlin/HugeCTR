@@ -23,6 +23,15 @@ This document introduces different layer classes and corresponding methods in th
   * [Interaction Layer](#interaction-layer)
   * [Add Layer](#add-layer)
   * [ReduceSum Layer](#reducesum-layer)
+  * [GRU Layer](#gru-layer)
+  * [FusedReshapeConcat Layer](#fusedreshapeconcat-layer)
+  * [FusedReshapeConcatGeneral Layer](#fusedreshapeconcatgeneral-layer)
+  * [Gather Layer](#gather-layer)
+  * [PReLUDice Layer](#preludice-layer)
+  * [ReduceMean Layer](#reducemean-layer)
+  * [Scale Layer](#scale-layer)
+  * [Softmax Layer](#softmax-layer)
+  * [Sub Layer](#sub-layer)
   * [BinaryCrossEntropyLoss](#binarycrossentropyloss)
   * [CrossEntropyLoss](#crossentropyloss)
   * [MultiCrossEntropyLoss](#multicrossentropyloss)
@@ -157,7 +166,7 @@ hugectr.DenseLayer()
 `DenseLayer` specifies the parameters related to the dense layer or the loss function. HugeCTR currently supports multiple dense layers and loss functions. Please **NOTE** that the final sigmoid function is fused with the loss function to better utilize memory bandwidth.
 
 **Arguments**
-* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.DotProduct`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.Layer_t.ElementwiseMultiply`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
+* `layer_type`: The layer type to be used. The supported types include `hugectr.Layer_t.Add`, `hugectr.Layer_t.BatchNorm`, `hugectr.Layer_t.Cast`, `hugectr.Layer_t.Concat`, `hugectr.Layer_t.DotProduct`, `hugectr.Layer_t.Dropout`, `hugectr.Layer_t.ELU`, `hugectr.Layer_t.FmOrder2`, `hugectr.Layer_t.FusedInnerProduct`, `hugectr.Layer_t.InnerProduct`, `hugectr.Layer_t.Interaction`, `hugectr.Layer_t.MultiCross`, `hugectr.Layer_t.ReLU`, `hugectr.Layer_t.ReduceSum`, `hugectr.Layer_t.Reshape`, `hugectr.Layer_t.Sigmoid`, `hugectr.Layer_t.Slice`, `hugectr.Layer_t.WeightMultiply`, `hugectr.Layer_t.ElementwiseMultiply`, `hugectr.Layer_t.GRU`, `hugectr.Layer_t.Scale`, `hugectr.Layer_t.FusedReshapeConcat`, `hugectr.Layer_t.FusedReshapeConcatGeneral`, `hugectr.Layer_t.Softmax`, `hugectr.Layer_t.PReLU_Dice`, `hugectr.Layer_t.ReduceMean`, `hugectr.Layer_t.Sub`, `hugectr.Layer_t.Gather`, `hugectr.Layer_t.BinaryCrossEntropyLoss`, `hugectr.Layer_t.CrossEntropyLoss` and `hugectr.Layer_t.MultiCrossEntropyLoss`. There is NO default value and it should be specified by users.
 
 * `bottom_names`: List[str], the list of bottom tensor names to be consumed by this dense layer. Each name in the list should be the predefined tensor name. There is NO default value and it should be specified by users.
 
@@ -517,6 +526,184 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceSum,
                             bottom_names = ["fmorder2"],
                             top_names = ["reducesum1"],
                             axis=1))
+```
+##### GRU Layer
+The GRU layer is Gated Recurrent Unit.
+
+Parameters:
+
+* `num_output`: Number of output elements.
+* `batchsize`: Number of batchsize.
+* `SeqLength`: Length of the sequence.
+* `vector_size`: size of the input vector.
+* `weight_init_type`: Specifies how to initialize the weight array. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+* `bias_init_type`: Specifies how to initialize the bias array. The supported types include `hugectr.Initializer_t.Default`, `hugectr.Initializer_t.Uniform`, `hugectr.Initializer_t.XavierNorm`, `hugectr.Initializer_t.XavierUniform` and `hugectr.Initializer_t.Zero`. The default value is `hugectr.Initializer_t.Default`.
+
+Input and Output Shapes:
+
+* input: (1, batch_size*SeqLength*embedding_vec_size)
+* output: (1, batch_size*SeqLength*embedding_vec_size)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.GRU,
+                            bottom_names = ["GRU1"],
+                            top_names = ["conncat1"],
+                            num_output=256,
+                            batchsize=13,
+                            SeqLength=20,
+                            vector_size=20))
+```
+
+##### PReLUDice Layer
+The PReLUDice layer represents the Parametric Rectified Linear Unit, which adaptively adjusts the rectified point according to distribution of input data.
+
+Parameters:
+
+* `elu_alpha`: A scalar that decides the value where this activation function saturates for negative values.
+* `eps`: Epsilon value used in the PReLU/Dice formula.
+
+Input and Output Shapes:
+
+* input: (batch_size, *) where * represents any number of elements
+* output: same as input
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.PReLU_Dice,
+                            bottom_names = ["fc_din_i1"],
+                            top_names = ["dice_1"],
+                            elu_alpha=0.2, eps=1e-8))
+```
+
+##### Scale Layer
+The Scale layer scales the input 2D tensor to specific size on the designate axis. 
+
+Parameters:
+
+* `axis`: Along the designate axis to scale the tensor. The designate axis could be axis 0, 1.
+* `factor `: scale factor.
+
+Input and Output Shapes:
+
+* input: (batch_size, num_elems)
+* output: if axis = 0; (batch_size, num_elems * factor), if axis = 1; (batch_size * factor, num_elems)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Scale,
+                            bottom_names = ["item1"],
+                            top_names = ["Scale_item"],
+                            axis = 1, factor = 10))
+```
+
+##### FusedReshapeConcat Layer
+The FusedReshapeConcat layer cross combinate the input tensors and outputs item tensor, AD tensor.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: {(batch_size, num_feas, num_elems_0), (batch_size, num_feas, num_elems_1), ...}, the input tensors are embeddings.
+* output: {(batch_size x num_feas, (num_elems_0 + num_elems_1 + ...)), (batch_size, (num_elems_0 + num_elems_1 + ...))}.
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedReshapeConcat,
+                            bottom_names = ["sparse_embedding_good", "sparse_embedding_cate"],
+                            top_names = ["FusedReshapeConcat_item_his_em", "FusedReshapeConcat_item"]))
+```
+
+##### FusedReshapeConcatGeneral Layer
+The FusedReshapeConcatGeneral layer cross combinate the input tensors and outputs item tensor, AD tensor.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: {(batch_size, num_feas, num_elems_0), (batch_size, num_feas, num_elems_1), ...}, the input tensors are embeddings.
+* output: (batch_size x num_feas, (num_elems_0 + num_elems_1 + ...)).
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.FusedReshapeConcatGeneral,
+                            bottom_names = ["sparse_embedding_good", "sparse_embedding_cate"],
+                            top_names = ["FusedReshapeConcat_item_his_em"]))
+```
+
+##### Softmax Layer
+The Softmax layer computes softmax activations.
+
+Parameter: None
+
+Input and Output Shapes:
+
+* input: (batch_size, num_elems)
+* output: same as input
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Softmax,
+                            bottom_names = ["reshape1"],
+                            top_names = ["softmax_i"]))
+```
+
+##### Sub Layer
+Inputs: x tensor, y tensor in same size. 
+Produce x - y in element wise manner.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: Nx(batch_size, num_elems) where N is the number of input tensors
+* output: (batch_size, num_elems)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Sub,
+                            bottom_names = ["Scale_item1", "item_his1"],
+                            top_names = ["sub_ih"]))
+```
+
+##### ReduceMean Layer
+The ReduceMean Layer computes the mean of elements across a specified dimension.
+
+Parameter:
+
+* `axis`: The dimension to reduce. If the input is N-dimensional, 0 <= axis < N.
+
+Input and Output Shapes:
+
+* input: (batch_size, ...) where ... represents any number of elements with an arbitrary number of dimensions
+* output: Dimension corresponding to axis is set to 1. The others remain the same as the input.
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceMean,
+                            bottom_names = ["fmorder2"],
+                            top_names = ["reducemean1"],
+                            axis=1))
+```
+
+##### Gather Layer
+The Gather layer gather multiple output tensor slices from an input tensors on the last dimension.
+
+Parameter:
+
+* `indices`: A list of indices in which each one represents an index in the input tensor to generate the corresponding output tensor. For example, [2, 8] indicates the second and eights tensor slice in the input tensor which are used to create an output tensor.
+
+Input and Output Shapes:
+
+* input: (batch_size, num_elems)
+* output: (num_indices, num_elems)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Gather,
+                            bottom_names = ["reshape1"],
+                            top_names = ["gather1"],
+                            indices=[1,3,5]))
 ```
 
 ### BinaryCrossEntropyLoss

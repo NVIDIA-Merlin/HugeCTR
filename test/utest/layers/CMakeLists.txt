@@ -23,16 +23,25 @@ file(GLOB layers_test_src
   fully_connected_layer_test.cpp
   fully_connected_layer_half_test.cpp
   fused_fully_connected_layer_test.cpp
+  gru_layer_test.cpp
   interaction_layer_test.cpp
   relu_layer_test.cpp
   slice_layer_test.cpp
   reshape_layer_test.cpp
   reshape_layer_test_sel.cpp
+  prelu_dice_layer_test.cpp
   fm_order2_layer_test.cpp
   weight_multiply_layer_test.cpp
   multi_cross_layer_test.cpp
   add_layer_test.cpp
   reduce_sum_layer_test.cpp
+  softmax_layer_test.cpp
+  scale_layer_test.cpp
+  fused_reshape_concat_general_layer_test.cpp
+  fused_reshape_concat_layer_test.cpp
+  sub_layer_test.cpp
+  gather_layer_test.cpp
+  reduce_mean_layer_test.cpp
   dot_product_layer_test.cpp
   sigmoid_layer_test.cpp
   elementwise_multiply_layer_test.cpp
