@@ -117,6 +117,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPURes
       CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_v_tensors_.get_ptr(), 0,
                                      opt_tensors_.opt_v_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
+      param.opt_params.hyperparams.adam.times = 0;
       if (param.opt_params.update_type == Update_t::LazyGlobal) {
         dim3 grid(local_gpu.get_sm_count() * 4, 1, 1);
         dim3 block(512, 1, 1);

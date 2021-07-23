@@ -286,6 +286,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
 
   void dump_opt_states(std::ofstream& stream) override;
   void load_opt_states(std::ifstream& stream) override;
+  void reset_optimizer() override;
 
   /**
    * Reset the embedding

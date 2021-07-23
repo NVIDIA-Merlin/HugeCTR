@@ -98,8 +98,9 @@ void ModelOversubscriberImpl<TypeKey>::update(
     MESSAGE_("Preparing embedding table for next pass", false, false);
 #endif
     dump();
-    for (auto& one_embedding : embeddings_) {
-      one_embedding->reset();
+    for (auto& embedding : embeddings_) {
+      embedding->reset();
+      embedding->reset_optimizer();
     }
     load_(keyset_file_list);
 #ifdef ENABLE_MPI
