@@ -151,7 +151,6 @@ ReduceSumLayer<T>::ReduceSumLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_t
     blobs_buff->reserve(out_dims, &out_tensor);
     out_tensors_.push_back(out_tensor);
     in_tensors_.push_back(in_tensor);
-
   } catch (const std::runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;

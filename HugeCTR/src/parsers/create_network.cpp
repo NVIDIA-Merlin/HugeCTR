@@ -27,14 +27,17 @@
 #include <layers/fully_connected_layer.hpp>
 #include <layers/fully_connected_layer_half.hpp>
 #include <layers/fused_fully_connected_layer.hpp>
+#include <layers/fused_reshape_concat_general_layer.hpp>
+#include <layers/fused_reshape_concat_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
-#include <layers/weight_multiply_layer.hpp>
 #include <layers/reduce_sum_layer.hpp>
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
+#include <layers/scale_layer.hpp>
 #include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
+#include <layers/weight_multiply_layer.hpp>
 #include <loss.hpp>
 #include <metrics.hpp>
 #include <optimizer.hpp>
@@ -42,6 +45,13 @@
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <regularizers/no_regularizer.hpp>
+
+#include <layers/gather_layer.hpp>
+#include <layers/gru_layer.hpp>
+#include <layers/prelu_dice_layer.hpp>
+#include <layers/reduce_mean_layer.hpp>
+#include <layers/softmax_layer.hpp>
+#include <layers/sub_layer.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -113,9 +123,7 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
         reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
         break;
       }
-      default: {
-        assert(!"Error: no such regularizer!");
-      }
+      default: { assert(!"Error: no such regularizer!"); }
     }
   }
   return reg;
@@ -146,7 +154,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       }
       continue;
     }
-    
+
     std::vector<TensorEntry> output_tensor_entries;
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_entries);
     switch (layer_type) {
@@ -217,8 +225,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             layers.emplace_back(
                 new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back(
-                {"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
           } else {
             // establish out tensor
             Tensor2<float> sigmoid_in_tensor =
@@ -227,8 +234,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             layers.emplace_back(
                 new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back(
-                {"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
           }
           break;
         }
@@ -288,8 +294,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             layers.emplace_back(
                 new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back(
-                {"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
           } else {
             // establish out tensor
             Tensor2<float> sigmoid_in_tensor =
@@ -298,8 +303,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             layers.emplace_back(
                 new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back(
-                {"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
           }
           break;
         }
@@ -338,7 +342,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
           layers.emplace_back(new DropoutLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                            rate, gpu_resource));
+                                                       rate, gpu_resource));
         } else {
           // establish out tensor
           Tensor2<float> do_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
@@ -349,8 +353,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-          layers.emplace_back(new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                           rate, gpu_resource));
+          layers.emplace_back(
+              new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
         }
 
         break;
@@ -561,18 +565,18 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
           // establish layer
-          layers.emplace_back(new MultiCrossLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
-                                                  out_tensor, gpu_resource, num_layers,
-                                                  initializer_types));
+          layers.emplace_back(new MultiCrossLayer<__half>(
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor, out_tensor,
+              gpu_resource, num_layers, initializer_types));
         } else {
           Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
           blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
           // establish layer
-          layers.emplace_back(new MultiCrossLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
-                                                  out_tensor, gpu_resource, num_layers,
-                                                  initializer_types));
+          layers.emplace_back(new MultiCrossLayer<float>(
+              weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor, out_tensor,
+              gpu_resource, num_layers, initializer_types));
         }
         break;
       }
@@ -590,8 +594,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             layers.emplace_back(
                 new SigmoidLayer<__half>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back(
-                {"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
           } else {
             // establish out tensor
             Tensor2<float> sigmoid_in_tensor =
@@ -600,8 +603,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
             layers.emplace_back(
                 new SigmoidLayer<float>(sigmoid_in_tensor, sigmoid_out_tensor, gpu_resource));
-            output_tensor_entries.push_back(
-                {"sigmoid", sigmoid_out_tensor.shrink()});
+            output_tensor_entries.push_back({"sigmoid", sigmoid_out_tensor.shrink()});
           }
           break;
         }
@@ -657,6 +659,143 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
 
         break;
       }
+      case Layer_t::ReduceMean: {
+        int axis = get_json(j, "axis").get<int>();
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> out_tensor;
+        layers.emplace_back(
+            new ReduceMeanLayer<float>(in_tensor, out_tensor, blobs_buff, axis, gpu_resource));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        break;
+      }
+      case Layer_t::Sub: {
+        Tensors2<float> in_tensors;
+        for (const auto& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+        }
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+        layers.emplace_back(new SubLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        break;
+      }
+      case Layer_t::Gather: {
+        std::vector<int> indices;
+        auto j_indices = get_json(j, "indices");
+        assert(j_indices.is_array());
+        for (auto j_index : j_indices) {
+          indices.emplace_back(int(j_index));
+        }
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> out_tensor;
+        layers.emplace_back(
+            new GatherLayer<float>(in_tensor, out_tensor, blobs_buff, indices, gpu_resource));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+
+        break;
+      }
+      case Layer_t::GRU: {
+        auto j_gru_param = get_json(j, "gru_param");
+        // establish initializer
+        std::vector<Initializer_t> initializer_types(2, Initializer_t::Default);
+        if (has_key_(j_gru_param, "weight_init")) {
+          const auto weight_init_name =
+              get_value_from_json<std::string>(j_gru_param, "weight_init");
+          Initializer_t weight_init_type;
+          if (!find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+          } else {
+            initializer_types[0] = weight_init_type;
+          }
+        }
+        if (has_key_(j_gru_param, "bias_init")) {
+          const auto bias_init_name = get_value_from_json<std::string>(j_gru_param, "bias_init");
+          Initializer_t bias_init_type;
+          if (!find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
+            CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+          } else {
+            initializer_types[1] = bias_init_type;
+          }
+        }
+
+        // establish out tensor
+        auto output = get_value_from_json<size_t>(j_gru_param, "num_output");
+        auto batchsize = get_value_from_json<size_t>(j_gru_param, "batchsize");
+        auto SeqLength = get_value_from_json<size_t>(j_gru_param, "SeqLength");
+        auto embedding_vec_size = get_value_from_json<size_t>(j_gru_param, "vector_size");
+
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> gru_out_tensor;
+        blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &gru_out_tensor);
+        // establish layer
+        layers.emplace_back(new GRULayer<float>(weight_buff, wgrad_buff, in_tensor, gru_out_tensor,
+                                                output, batchsize, SeqLength, embedding_vec_size,
+                                                gpu_resource, initializer_types));
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], gru_out_tensor.shrink()});
+
+        break;
+      }
+      case Layer_t::Softmax: {
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        layers.emplace_back(
+            new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+        break;
+      }
+      case Layer_t::PReLU_Dice: {
+        Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> out_tensor;
+        blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        // get PReLU_Dice params
+        auto j_prelu_dice_param = get_json(j, "prelu_dice_param");
+        auto alpha = get_value_from_json<float>(j_prelu_dice_param, "alpha");
+        auto epsilon = get_value_from_json<float>(j_prelu_dice_param, "epsilon");
+        layers.emplace_back(new PRelu_Dice_Layer<float>(in_tensor, out_tensor, blobs_buff, alpha,
+                                                        epsilon, gpu_resource));
+        break;
+      }
+      case Layer_t::Scale: {
+        Tensor2<float> scale_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<float> scale_out_tensor;
+        // get Scale params
+        auto j_scale_param = get_json(j, "scale_param");
+        auto axis = get_value_from_json<float>(j_scale_param, "axis");
+        auto factor = get_value_from_json<float>(j_scale_param, "factor");
+        layers.emplace_back(new ScaleLayer<float>(scale_in_tensor, scale_out_tensor, blobs_buff,
+                                                  axis, factor, gpu_resource));
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[0], scale_out_tensor.shrink()});
+        break;
+      }
+      case Layer_t::FusedReshapeConcat: {
+        Tensors2<float> in_tensors;
+        for (const auto& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+        }
+        Tensors2<float> out_tensors;
+        layers.emplace_back(
+            new FusedReshapeConcatLayer<float>(in_tensors, out_tensors, blobs_buff, gpu_resource));
+        for (size_t i = 0; i < out_tensors.size(); i++) {
+          output_tensor_entries.push_back(
+              {input_output_info.output_names[i], out_tensors[i].shrink()});
+        }
+        break;
+      }
+      case Layer_t::FusedReshapeConcatGeneral: {
+        Tensors2<float> in_tensors;
+        for (const auto& bag : input_output_info.inputs) {
+          in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+        }
+        Tensor2<float> out_tensor;
+        layers.emplace_back(new FusedReshapeConcatGeneralLayer<float>(in_tensors, out_tensor,
+                                                                      blobs_buff, gpu_resource));
+        output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        break;
+      }
       case Layer_t::Reshape: {
         auto selected_it = j.find("selected");
         // selective reshape
@@ -688,9 +827,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         // general purpose reshape
         else {
           auto leading_dim_it = j.find("leading_dim");
-
+          auto j_time_step = j.find("time_step");
           // if leading_dim is not specified, default leading_dim = n_slots * vector_length
-
           if (use_mixed_precision) {
             Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
             Tensor2<__half> out_tensor;
@@ -698,8 +836,16 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             size_t leading_dim = (leading_dim_it != j.end())
                                      ? (*leading_dim_it).get<int>()
                                      : in_tensor.get_num_elements() / in_dims[0];
-            layers.emplace_back(new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff,
-                                                         leading_dim, gpu_resource));
+            size_t time_step = (j_time_step != j.end()) ? (*j_time_step).get<int>() : 0;
+            if (time_step == 0) {  // 2D output
+              blobs_buff->reserve({in_tensor.get_num_elements() / leading_dim, leading_dim},
+                                  &out_tensor);
+            } else {  // 3D output
+              size_t batch_size = in_tensor.get_num_elements() / leading_dim / time_step;
+              blobs_buff->reserve({batch_size, time_step, leading_dim}, &out_tensor);
+            }
+            layers.emplace_back(
+                new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff, gpu_resource));
             output_tensor_entries.push_back(
                 {input_output_info.output_names[0], out_tensor.shrink()});
           } else {
@@ -709,8 +855,16 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             size_t leading_dim = (leading_dim_it != j.end())
                                      ? (*leading_dim_it).get<int>()
                                      : in_tensor.get_num_elements() / in_dims[0];
-            layers.emplace_back(new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff,
-                                                        leading_dim, gpu_resource));
+            size_t time_step = (j_time_step != j.end()) ? (*j_time_step).get<int>() : 0;
+            if (time_step == 0) {  // 2D output
+              blobs_buff->reserve({in_tensor.get_num_elements() / leading_dim, leading_dim},
+                                  &out_tensor);
+            } else {  // 3D output
+              size_t batch_size = in_tensor.get_num_elements() / leading_dim / time_step;
+              blobs_buff->reserve({batch_size, time_step, leading_dim}, &out_tensor);
+            }
+            layers.emplace_back(
+                new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
             output_tensor_entries.push_back(
                 {input_output_info.output_names[0], out_tensor.shrink()});
           }
@@ -793,16 +947,16 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (use_mixed_precision) {
           Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> out_tensor;
-          layers.emplace_back(
-              new WeightMultiplyLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
-                                              out_tensor, weight_dims, gpu_resource, initializer_types));
+          layers.emplace_back(new WeightMultiplyLayer<__half>(
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, out_tensor,
+              weight_dims, gpu_resource, initializer_types));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
-          layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff,
-                                                             in_tensor, out_tensor, weight_dims,
-                                                             gpu_resource, initializer_types));
+          layers.emplace_back(new WeightMultiplyLayer<float>(
+              weight_buff, weight_buff, wgrad_buff, blobs_buff, in_tensor, out_tensor, weight_dims,
+              gpu_resource, initializer_types));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;
@@ -898,24 +1052,31 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           Tensors2<__half> in_tensors;
           for (const auto& bag : input_output_info.inputs) {
             in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
-          }                                                                                                                                    Tensor2<__half> out_tensor;
+          }
+          Tensor2<__half> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(
-              new ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));                                         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        } else {                                                                                                                               Tensors2<float> in_tensors;
+          layers.emplace_back(new ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor,
+                                                                   blobs_buff, gpu_resource));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+        } else {
+          Tensors2<float> in_tensors;
           for (const auto& bag : input_output_info.inputs) {
-            in_tensors.push_back(Tensor2<float>::stretch_from(bag));                                                                           }
+            in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+          }
           Tensor2<float> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(                                                                                                                     new ElementwiseMultiplyLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+          layers.emplace_back(new ElementwiseMultiplyLayer<float>(in_tensors, out_tensor,
+                                                                  blobs_buff, gpu_resource));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        }                                                                                                                                    break;                                                                                                                             } 
+        }
+        break;
+      }
       default:
         assert(!"Error: no such layer && should never get here!");
     }  // end of switch
-    if (!inference_flag && (layer_type == Layer_t::CrossEntropyLoss ||
-              layer_type == Layer_t::BinaryCrossEntropyLoss ||
-              layer_type == Layer_t::MultiCrossEntropyLoss)) {
+    if (!inference_flag &&
+        (layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
+         layer_type == Layer_t::MultiCrossEntropyLoss)) {
       if (raw_metrics) {
         (*raw_metrics)[metrics::RawType::Loss] = loss_tensor.shrink();
         (*raw_metrics)[metrics::RawType::Pred] = input_output_info.inputs[0];
@@ -970,7 +1131,7 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
   std::shared_ptr<BufferBlock2<float>> opt_buff = blobs_buff->create_block<float>();
   std::shared_ptr<BufferBlock2<__half>> opt_buff_half = blobs_buff->create_block<__half>();
 
-  if (!inference_flag){
+  if (!inference_flag) {
     // create train layers
     create_layers(j_array, train_tensor_entries, blobs_buff, train_weight_buff,
                   train_weight_buff_half, wgrad_buff, wgrad_buff_half, train_loss_tensor,
@@ -987,19 +1148,19 @@ Network* Network::create_network(const nlohmann::json& j_array, const nlohmann::
 
   // create optimizer
   if (!inference_flag) {
-    if(use_mixed_precision){
+    if (use_mixed_precision) {
       auto opt_param = get_optimizer_param(j_optimizer);
 
-      network->optimizer_ = std::move(Optimizer::Create(
-        opt_param, train_weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-        scaler, opt_buff_half, gpu_resource));
-    }else {
+      network->optimizer_ = std::move(Optimizer::Create(opt_param, train_weight_buff->as_tensor(),
+                                                        wgrad_buff_half->as_tensor(), scaler,
+                                                        opt_buff_half, gpu_resource));
+    } else {
       auto opt_param = get_optimizer_param(j_optimizer);
 
-      network->optimizer_ = std::move(Optimizer::Create(
-        opt_param, train_weight_buff->as_tensor(), wgrad_buff->as_tensor(), scaler, opt_buff, gpu_resource));
+      network->optimizer_ =
+          std::move(Optimizer::Create(opt_param, train_weight_buff->as_tensor(),
+                                      wgrad_buff->as_tensor(), scaler, opt_buff, gpu_resource));
     }
-    
   } else {
     try {
       TensorEntry pred_tensor_entry = evaluate_tensor_entries.back();
