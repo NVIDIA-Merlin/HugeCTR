@@ -29,12 +29,11 @@ class IDataReaderWorker {
       CK_THROW_(Error_t::IllegalCall,
           "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker is not in the EOF state.");
     }
-
     pre_set_source();
     source_ = source;
     post_set_source();
   }
-
+  ~IDataReaderWorker(){};
   IDataReaderWorker()
       : is_eof_(false) {
   }

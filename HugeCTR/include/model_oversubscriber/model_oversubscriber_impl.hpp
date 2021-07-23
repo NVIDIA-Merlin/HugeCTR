@@ -29,9 +29,11 @@ namespace HugeCTR {
 class ModelOversubscriberImplBase {
 public:
   virtual void dump() = 0;
-  virtual void update(std::vector<std::string>& keyset_file_list) = 0;
-  virtual void update(std::string& keyset_file) = 0;
+  virtual void update(std::vector<std::string>&) = 0;
+  virtual void update(std::string&) = 0;
   virtual void update_sparse_model_file() = 0;
+  virtual std::vector<std::pair<std::vector<long long>, std::vector<float>>>
+      get_incremental_model(const std::vector<long long>&) = 0;
   virtual ~ModelOversubscriberImplBase() = default;
 };
 
@@ -87,6 +89,9 @@ public:
    * @param keyset_file A single file storing keysets for all embeddings.
    */
   void update(std::string& keyset_file) override;
+
+  std::vector<std::pair<std::vector<long long>, std::vector<float>>>
+      get_incremental_model(const std::vector<long long> &keys_to_load) override;
 
   void update_sparse_model_file() override {
     ps_manager_.update_sparse_model_file();

@@ -63,14 +63,13 @@ class ReshapeLayer : public Layer {
    * General Purpose Ctor of ReshapeLayer.
    * @param in_tensor the input tensor
    * @param out_tensor the resulting output tensor
-   * @param leading_dim must be a multiple of the innermost dimesion
    * e.g., leading_dim % vector_size == 0
    * and it must be able to divide the total number of elements in in_tensor
    * e.g., batch_size * n_slots * vector_size % leading_dim == 0
    * @param device_id the id of GPU where this layer belongs
    */
   ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, size_t leading_dim,
+               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
                const std::shared_ptr<GPUResource>& gpu_resource);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor

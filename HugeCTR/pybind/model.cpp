@@ -16,7 +16,13 @@
 
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <HugeCTR/pybind/model.hpp>
+#include <algorithm>
+#include <fstream>
 #include <iomanip>
+#include <iterator>
+#include <experimental/filesystem>
+
+namespace fs = std::experimental::filesystem;
 
 namespace HugeCTR {
 
@@ -88,17 +94,39 @@ static void check_device(int device_id, int min_major, int min_minor) {
   return;
 }
 
+template <typename TypeKey>
+auto load_key_files(std::vector<std::string> const& key_files) {
+  std::vector<TypeKey> keys_vec;
+  for (auto const& key_file : key_files) {
+    auto key_file_size = fs::file_size(key_file);
+    auto num_new_keys = key_file_size / sizeof(TypeKey);
+    std::ifstream key_fs(key_file, std::ifstream::binary);
+    if (!key_fs.is_open()) {
+      CK_THROW_(Error_t::WrongInput, "Cannot open the file: " + key_file);
+    }
+    auto num_exist_keys = keys_vec.size();
+    keys_vec.resize(num_exist_keys + num_new_keys);
+    key_fs.read(reinterpret_cast<char *>(&keys_vec[num_exist_keys]), key_file_size);
+  }
+  std::sort(keys_vec.begin(), keys_vec.end());
+  keys_vec.erase(std::unique(keys_vec.begin(), keys_vec.end()), keys_vec.end());
+  return keys_vec;
+}
+
 }  // end namespace
 
 ModelOversubscriberParams::ModelOversubscriberParams(
     bool _train_from_scratch, bool _use_host_memory_ps,
     std::vector<std::string>& _trained_sparse_models,
     std::vector<std::string>& _dest_sparse_models)
-  : use_model_oversubscriber(true), use_host_memory_ps(_use_host_memory_ps),
-    train_from_scratch(_train_from_scratch),
-    trained_sparse_models(_trained_sparse_models), dest_sparse_models(_dest_sparse_models) {}
+    : use_model_oversubscriber(true),
+      use_host_memory_ps(_use_host_memory_ps),
+      train_from_scratch(_train_from_scratch),
+      trained_sparse_models(_trained_sparse_models),
+      dest_sparse_models(_dest_sparse_models) {}
 
-ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
+ModelOversubscriberParams::ModelOversubscriberParams()
+    : use_model_oversubscriber(false) {}
 
 DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
                                    std::vector<std::string> source, std::vector<std::string> keyset,
@@ -106,7 +134,7 @@ DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
                                    long long num_samples, long long eval_num_samples,
                                    bool float_label_dense, int num_workers,
                                    std::vector<long long int> slot_size_array)
-                                   
+
     : data_reader_type(data_reader_type),
       source(source),
       keyset(keyset),
@@ -138,7 +166,6 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
       bottom_name(bottom_name),
       slot_size_array(slot_size_array),
       embedding_opt_params(embedding_opt_params) {
-  
   if (combiner_str == "sum") {
     combiner = 0;
   } else if (combiner_str == "mean") {
@@ -147,7 +174,8 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
     CK_THROW_(Error_t::WrongInput, "No such combiner type: " + combiner_str);
   }
 
-  max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
+  max_vocabulary_size_per_gpu =
+      (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
 }
 
 DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
@@ -155,10 +183,12 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
                        Initializer_t gamma_init_type, Initializer_t beta_init_type,
                        float dropout_rate, float elu_alpha, size_t num_output,
                        Initializer_t weight_init_type, Initializer_t bias_init_type, int num_layers,
-                       size_t leading_dim, bool selected, std::vector<int> selected_slots,
-                       std::vector<std::pair<int, int>> ranges, std::vector<size_t> weight_dims,
-                       size_t out_dim, int axis, std::vector<float> target_weight_vec,
-                       bool use_regularizer, Regularizer_t regularizer_type, float lambda)
+                       size_t leading_dim, size_t time_step, size_t batchsize, size_t SeqLength,
+                       size_t vector_size, bool selected, std::vector<int> selected_slots,
+                       std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
+                       std::vector<size_t> weight_dims, size_t out_dim, int axis,
+                       std::vector<float> target_weight_vec, bool use_regularizer,
+                       Regularizer_t regularizer_type, float lambda)
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -173,9 +203,14 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       bias_init_type(bias_init_type),
       num_layers(num_layers),
       leading_dim(leading_dim),
+      time_step(time_step),
+      batchsize(batchsize),
+      SeqLength(SeqLength),
+      vector_size(vector_size),
       selected(selected),
       selected_slots(selected_slots),
       ranges(ranges),
+      indices(indices),
       weight_dims(weight_dims),
       out_dim(out_dim),
       axis(axis),
@@ -219,7 +254,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       buff_allocated_(false),
       mos_created_(false),
       is_embedding_trainable_(true),
-      is_dense_trainable_(true) {
+      is_dense_trainable_(true),
+      current_eval_batchsize_(0) {
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -244,8 +280,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   }
   if (mos_params_->use_model_oversubscriber && solver_.repeat_dataset) {
     CK_THROW_(Error_t::WrongInput,
-              "The model oversubscriber can only be used under epoch mode, i.e., repeat_dataset is "
-              "set False");
+              "The model oversubscriber can only be used under epoch mode, "
+              "i.e., repeat_dataset is set False");
   }
   if (mos_params_->use_model_oversubscriber &&
       reader_params_.keyset.size() != reader_params_.source.size()) {
@@ -602,9 +638,18 @@ void Model::set_source(std::vector<std::string> source, std::vector<std::string>
     CK_THROW_(Error_t::WrongInput,
               "The number of training data sources should equal that of the keyset files");
   }
+  if (set_source_flag_) {
+    mos_params_->incremental_keyset_files.insert(
+        mos_params_->incremental_keyset_files.end(),
+        reader_params_.keyset.begin(), reader_params_.keyset.end());
+    set_source_flag_ = false;
+  }
   reader_params_.source.assign(source.begin(), source.end());
   reader_params_.keyset.assign(keyset.begin(), keyset.end());
   reader_params_.eval_source.assign(eval_source);
+
+  auto it{mos_params_->incremental_keyset_files.end()};
+  mos_params_->incremental_keyset_files.insert(it, keyset.begin(), keyset.end());
 }
 
 void Model::set_source(std::string source, std::string eval_source) {
@@ -830,8 +875,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter);
       }
-    } // end for iter
-  } // end if else
+    }  // end for iter
+  }    // end if else
 }
 
 bool Model::train() {
@@ -850,6 +895,7 @@ bool Model::train() {
     long long current_batchsize = 0;
     while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
            (current_batchsize < train_data_reader_->get_full_batchsize())) {
+      MESSAGE_("train drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
       train_data_reader_->ready_to_collect();
     }
     if (!current_batchsize) {
@@ -910,11 +956,13 @@ bool Model::eval() {
     long long current_batchsize = 0;
     while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
            (current_batchsize < evaluate_data_reader_->get_full_batchsize())) {
+      MESSAGE_("eval drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
       evaluate_data_reader_->ready_to_collect();
     }
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
     }
+    current_eval_batchsize_ = current_batchsize;
     if (!current_batchsize) {
       return false;
     }
@@ -937,7 +985,7 @@ bool Model::eval() {
       }
     } else if (networks_.size() == 1) {
       long long current_batchsize_per_device =
-            evaluate_data_reader_->get_current_batchsize_per_device(0);
+          evaluate_data_reader_->get_current_batchsize_per_device(0);
       networks_[0]->eval(current_batchsize_per_device);
       for (auto& metric : metrics_) {
         metric->local_reduce(0, networks_[0]->get_raw_metrics());
@@ -963,6 +1011,10 @@ bool Model::eval() {
 Error_t Model::export_predictions(const std::string& output_prediction_file_name,
                                   const std::string& output_label_file_name) {
   try {
+    if (current_eval_batchsize_ == 0) {
+      MESSAGE_("Reach end of eval dataset. Skip export prediction");
+      return Error_t::Success;
+    }
     CudaDeviceContext context;
     const std::vector<int>& local_gpu_device_id_list =
         resource_manager_->get_local_gpu_device_id_list();
@@ -1023,8 +1075,8 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
         output_stream.close();
       };
       write_func(output_prediction_file_name, global_prediction_result.get(),
-                 solver_.batchsize_eval);
-      write_func(output_label_file_name, global_label_result.get(), solver_.batchsize_eval);
+                 current_eval_batchsize_);
+      write_func(output_label_file_name, global_label_result.get(), current_eval_batchsize_);
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -1104,7 +1156,7 @@ void Model::copy_weights_for_evaluation() {
 }
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
-                                              std::string dense_opt_states_file) {
+                                               std::string dense_opt_states_file) {
   try {
     if (resource_manager_->is_master_process()) {
       std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
@@ -1134,8 +1186,9 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
   return Error_t::Success;
 }
 
-Error_t Model::download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
-                                                const std::vector<std::string>& sparse_opt_state_files) {
+Error_t Model::download_sparse_params_to_files_(
+    const std::vector<std::string>& embedding_files,
+    const std::vector<std::string>& sparse_opt_state_files) {
   try {
     {
       int i = 0;
@@ -1174,9 +1227,9 @@ std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
                 "must provide sparse_model_file. \
           if train from scratch, please specify a name to store the trained embedding model");
     }
-    return std::shared_ptr<ModelOversubscriber>(
-        new ModelOversubscriber(use_host_memory_ps, embeddings_, sparse_embedding_files,
-            resource_manager_, solver_.use_mixed_precision, solver_.i64_input_key));
+    return std::shared_ptr<ModelOversubscriber>(new ModelOversubscriber(
+        use_host_memory_ps, embeddings_, sparse_embedding_files, resource_manager_,
+        solver_.use_mixed_precision, solver_.i64_input_key));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -1293,15 +1346,45 @@ void Model::init_params_for_sparse_() {
 }
 
 void Model::init_model_oversubscriber_(bool use_host_memory_ps,
-    const std::vector<std::string>& sparse_embedding_files) {
+                                       const std::vector<std::string>& sparse_embedding_files) {
   if (solver_.use_mixed_precision) {
-    model_oversubscriber_ = create_model_oversubscriber_<__half>(
-        use_host_memory_ps, sparse_embedding_files);
+    model_oversubscriber_ =
+        create_model_oversubscriber_<__half>(use_host_memory_ps, sparse_embedding_files);
   } else {
-    model_oversubscriber_ = create_model_oversubscriber_<float>(
-        use_host_memory_ps, sparse_embedding_files);
+    model_oversubscriber_ =
+        create_model_oversubscriber_<float>(use_host_memory_ps, sparse_embedding_files);
   }
   mos_created_ = true;
+}
+
+std::vector<std::pair<std::vector<long long>, std::vector<float>>>&
+Model::get_incremental_model() {
+  if (!mos_params_->use_model_oversubscriber) {
+    CK_THROW_(Error_t::IllegalCall, "Get incremental is only supported in MOS");
+  }
+  if (set_source_flag_) {
+    mos_params_->incremental_keyset_files.insert(
+        mos_params_->incremental_keyset_files.end(),
+        reader_params_.keyset.begin(), reader_params_.keyset.end());
+    set_source_flag_ = false;
+  }
+  // dump model from GPU to PS
+  model_oversubscriber_->dump();
+  // load keyset to vector (processed keys_vec should be long long format)
+  auto& inc_keyset_file{mos_params_->incremental_keyset_files};
+  std::vector<long long> keys_vec;
+  if (solver_.i64_input_key) {
+    keys_vec = load_key_files<long long>(inc_keyset_file);
+  } else {
+    auto keys_i32_vec = load_key_files<unsigned>(inc_keyset_file);
+    keys_vec.resize(keys_i32_vec.size());
+    std::transform(keys_i32_vec.begin(), keys_i32_vec.end(), keys_vec.begin(),
+        [](unsigned key) { return static_cast<long long>(key); });
+  }
+  inc_keyset_file.clear();
+  // get the incremental sparse model
+  inc_sparse_model_ = model_oversubscriber_->get_incremental_model(keys_vec);
+  return inc_sparse_model_;
 }
 
 }  // namespace HugeCTR

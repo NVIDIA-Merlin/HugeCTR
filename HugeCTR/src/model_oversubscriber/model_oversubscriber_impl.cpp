@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/model_oversubscriber/model_oversubscriber_impl.hpp"
+#include <sstream>
 #include <string>
 
 namespace HugeCTR {
@@ -98,8 +99,9 @@ void ModelOversubscriberImpl<TypeKey>::update(
     MESSAGE_("Preparing embedding table for next pass", false, false);
 #endif
     dump();
-    for (auto& one_embedding : embeddings_) {
-      one_embedding->reset();
+    for (auto& embedding : embeddings_) {
+      embedding->reset();
+      embedding->reset_optimizer();
     }
     load_(keyset_file_list);
 #ifdef ENABLE_MPI
@@ -122,6 +124,38 @@ void ModelOversubscriberImpl<TypeKey>::update(
     std::string& keyset_file) {
   std::vector<std::string> keyset_file_list(embeddings_.size(), keyset_file);
   update(keyset_file_list);
+}
+
+template <typename TypeKey>
+std::vector<std::pair<std::vector<long long>, std::vector<float>>>
+ModelOversubscriberImpl<TypeKey>::get_incremental_model(
+    const std::vector<long long> &keys_to_load) {
+  std::vector<std::pair<std::vector<long long>, std::vector<float>>> inc_model;
+  size_t dump_size{0};
+
+  for (size_t i = 0; i < embeddings_.size(); i++) {
+    auto ptr_ps{ps_manager_.get_parameter_server(i)};
+    auto key_vec_pair{ptr_ps->pull(keys_to_load)};
+
+    dump_size += key_vec_pair.first.size();
+    inc_model.push_back(std::move(key_vec_pair));
+  }
+
+#ifdef ENABLE_MPI
+    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+    CK_MPI_THROW_(MPI_Allreduce(&dump_size, &dump_size, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
+#endif
+  if (dump_size != keys_to_load.size()) {
+    // CK_THROW_(Error_t::UnspecificError, "dump_size != key_to_load.size()");
+    std::stringstream ss;
+    ss << "WARNING: keyset file is insistent with dataset! Only "
+       << dump_size << " out of " << keys_to_load.size()
+       << " keys found in parameter server.";
+    MESSAGE_(ss.str());
+  }
+  MESSAGE_("Get updated portion of embedding table [DONE}");
+
+  return inc_model;
 }
 
 template class ModelOversubscriberImpl<long long>;

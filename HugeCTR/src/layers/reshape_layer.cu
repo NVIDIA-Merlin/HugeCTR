@@ -52,34 +52,40 @@ __global__ void reshape_kernel(T* input, T* output, int batch_size, int n_slot, 
 template <typename T>
 ReshapeLayer<T>::ReshapeLayer(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
                               const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                              size_t leading_dim, const std::shared_ptr<GPUResource>& gpu_resource)
+                              const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource),
       in_place_(true),
-      batch_size_(0),
+      batch_size_(out_tensor.get_dimensions()[0]),
       n_slot_(0),
       vector_length_(0),
       n_active_slot_(0) {
   try {
-    const std::vector<size_t>& in_dims = in_tensor.get_dimensions();
-    int im_idx = in_dims.size() - 1;
-    if (leading_dim < in_dims[im_idx] || leading_dim % in_dims[im_idx] != 0) {
-      CK_THROW_(Error_t::WrongInput,
-                "leading_dim < in_dims[im_idx] or leading_dim % in_dims[2] != 0");
-    }
-
     size_t n_in_elems = in_tensor.get_num_elements();
-    if (leading_dim > n_in_elems) {
-      CK_THROW_(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
+    const std::vector<size_t>& out_dims = out_tensor.get_dimensions();
+    switch (out_dims.size()) {
+      case 2:
+        vector_length_ = out_tensor.get_dimensions()[1];
+        if (size_t(vector_length_) > n_in_elems) {
+          CK_THROW_(Error_t::WrongInput, "leading_dim cannot be bigger than n_in_elems");
+        }
+        if (n_in_elems % vector_length_ != 0) {
+          CK_THROW_(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
+        }
+        break;
+      case 3:
+        n_slot_ = out_tensor.get_dimensions()[1];
+        vector_length_ = out_tensor.get_dimensions()[2];
+        if (size_t(vector_length_ * n_slot_) > n_in_elems) {
+          CK_THROW_(Error_t::WrongInput,
+                    "leading_dim and time_step cannot be bigger than n_in_elems");
+        }
+        if (n_in_elems % (vector_length_ * n_slot_) != 0) {
+          CK_THROW_(Error_t::WrongInput, "n_in_elems % (vector_length_ * n_slot_) != 0");
+        }
+        break;
+      default:
+        CK_THROW_(Error_t::WrongInput, "Output tensor dimension is not supported.");
     }
-
-    if (n_in_elems % leading_dim != 0) {
-      CK_THROW_(Error_t::WrongInput, "n_in_elems % leading_dim != 0");
-    }
-
-    size_t trailing_dim = n_in_elems / leading_dim;
-    std::vector<size_t> out_dims = {trailing_dim, leading_dim};
-
-    blobs_buff->reserve(out_dims, &out_tensor);
 
     in_tensors_.push_back(in_tensor);
     out_tensors_.push_back(out_tensor);
@@ -156,11 +162,13 @@ void ReshapeLayer<T>::prop_common(bool forward, bool is_train, cudaStream_t stre
 
   if (in_place_) {
     if (forward) {
-      CK_CUDA_THROW_(cudaMemcpyAsync(out_tensor.get_ptr(), in_tensor.get_ptr(), in_tensor.get_size_in_bytes(),
-                      cudaMemcpyDeviceToDevice, stream));
+      CK_CUDA_THROW_(cudaMemcpyAsync(out_tensor.get_ptr(), in_tensor.get_ptr(),
+                                     in_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                                     stream));
     } else {
-      CK_CUDA_THROW_(cudaMemcpyAsync(in_tensor.get_ptr(), out_tensor.get_ptr(), out_tensor.get_size_in_bytes(),
-                      cudaMemcpyDeviceToDevice, stream));
+      CK_CUDA_THROW_(cudaMemcpyAsync(in_tensor.get_ptr(), out_tensor.get_ptr(),
+                                     out_tensor.get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                                     stream));
     }
   } else {
     int block_size = 128;
