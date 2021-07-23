@@ -76,9 +76,9 @@ class _TestNegSampler:
         items = torch.LongTensor(items)
         return items
 
-sampler = _TestNegSampler(df.values, nb_users, nb_items, 100)  # using 100 negative samples
+sampler = _TestNegSampler(df.values, nb_users, nb_items, 102)  # using 102 negative samples for even batches
 train_negs = sampler.generate()
-train_negs = train_negs.reshape(-1, 100)
+train_negs = train_negs.reshape(-1, 102)
 
 sampler = _TestNegSampler(df.values, nb_users, nb_items, 1)  # using 1 negative test sample
 test_negs = sampler.generate()

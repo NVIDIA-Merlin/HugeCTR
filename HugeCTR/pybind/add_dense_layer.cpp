@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <HugeCTR/pybind/model.hpp>
 #include <layer.hpp>
 #include <layers/add_layer.hpp>
 #include <layers/batch_norm_layer.hpp>
@@ -21,6 +22,7 @@
 #include <layers/concat_layer.hpp>
 #include <layers/dot_product_layer.hpp>
 #include <layers/dropout_layer.hpp>
+#include <layers/elementwise_multiply_layer.hpp>
 #include <layers/elu_layer.hpp>
 #include <layers/fm_order2_layer.hpp>
 #include <layers/fully_connected_layer.hpp>
@@ -28,17 +30,25 @@
 #include <layers/fused_fully_connected_layer.hpp>
 #include <layers/interaction_layer.hpp>
 #include <layers/multi_cross_layer.hpp>
-#include <layers/weight_multiply_layer.hpp>
 #include <layers/reduce_sum_layer.hpp>
 #include <layers/relu_layer.hpp>
 #include <layers/reshape_layer.hpp>
 #include <layers/sigmoid_layer.hpp>
 #include <layers/slice_layer.hpp>
-#include <layers/elementwise_multiply_layer.hpp>
+#include <layers/weight_multiply_layer.hpp>
 #include <regularizers/l1_regularizer.hpp>
 #include <regularizers/l2_regularizer.hpp>
 #include <regularizers/no_regularizer.hpp>
-#include <HugeCTR/pybind/model.hpp>
+
+#include <layers/fused_reshape_concat_general_layer.hpp>
+#include <layers/fused_reshape_concat_layer.hpp>
+#include <layers/gather_layer.hpp>
+#include <layers/gru_layer.hpp>
+#include <layers/prelu_dice_layer.hpp>
+#include <layers/reduce_mean_layer.hpp>
+#include <layers/scale_layer.hpp>
+#include <layers/softmax_layer.hpp>
+#include <layers/sub_layer.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -47,16 +57,16 @@
 namespace HugeCTR {
 
 void save_graph_to_json(nlohmann::json& layer_config_array,
-                      std::vector<DenseLayer>& dense_layer_params,
-                      std::vector<SparseEmbedding>& sparse_embedding_params,
-                      std::vector<Input>& input_params,
-                      std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list) {
+                        std::vector<DenseLayer>& dense_layer_params,
+                        std::vector<SparseEmbedding>& sparse_embedding_params,
+                        std::vector<Input>& input_params,
+                        std::vector<std::shared_ptr<OptParamsPy>>& embedding_opt_params_list) {
   nlohmann::json input_config;
   input_config["type"] = "Data";
   nlohmann::json input_label_config;
   nlohmann::json input_dense_config;
   nlohmann::json input_sparse_config_array = nlohmann::json::array();
-  assert(input_params.size()==1);
+  assert(input_params.size() == 1);
   Input input_param = input_params[0];
   input_label_config["top"] = input_param.label_name;
   input_label_config["label_dim"] = input_param.label_dim;
@@ -65,9 +75,12 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
   for (size_t i = 0; i < input_param.data_reader_sparse_param_array.size(); ++i) {
     nlohmann::json input_sparse_config;
     input_sparse_config["top"] = input_param.data_reader_sparse_param_array[i].top_name;
-    input_sparse_config["type"] = READER_SPARSE_TYPE_TO_STRING[input_param.data_reader_sparse_param_array[i].type];
-    input_sparse_config["nnz_per_slot"] = input_param.data_reader_sparse_param_array[i].nnz_per_slot;
-    input_sparse_config["is_fixed_length"] = input_param.data_reader_sparse_param_array[i].is_fixed_length;
+    input_sparse_config["type"] =
+        READER_SPARSE_TYPE_TO_STRING[input_param.data_reader_sparse_param_array[i].type];
+    input_sparse_config["nnz_per_slot"] =
+        input_param.data_reader_sparse_param_array[i].nnz_per_slot;
+    input_sparse_config["is_fixed_length"] =
+        input_param.data_reader_sparse_param_array[i].is_fixed_length;
     input_sparse_config["slot_num"] = input_param.data_reader_sparse_param_array[i].slot_num;
     input_sparse_config_array.push_back(input_sparse_config);
   }
@@ -81,13 +94,15 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     sparse_config["bottom"] = sparse_embedding_params[i].bottom_name;
     sparse_config["top"] = sparse_embedding_params[i].sparse_embedding_name;
     nlohmann::json sparse_hparam_config;
-    sparse_hparam_config["workspace_size_per_gpu_in_mb"] = sparse_embedding_params[i].max_vocabulary_size_per_gpu * sparse_embedding_params[i].embedding_vec_size * sizeof(float) / 1024 / 1024;
+    sparse_hparam_config["workspace_size_per_gpu_in_mb"] =
+        sparse_embedding_params[i].max_vocabulary_size_per_gpu *
+        sparse_embedding_params[i].embedding_vec_size * sizeof(float) / 1024 / 1024;
     sparse_hparam_config["embedding_vec_size"] = sparse_embedding_params[i].embedding_vec_size;
-    if(sparse_embedding_params[i].combiner == 0){
+    if (sparse_embedding_params[i].combiner == 0) {
       sparse_hparam_config["combiner"] = "sum";
-    }else if(sparse_embedding_params[i].combiner == 1){
+    } else if (sparse_embedding_params[i].combiner == 1) {
       sparse_hparam_config["combiner"] = "mean";
-    }else {
+    } else {
       CK_THROW_(Error_t::WrongInput, "combiner error");
     }
     if (sparse_embedding_params[i].slot_size_array.size() > 0) {
@@ -96,8 +111,11 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     sparse_config["sparse_embedding_hparam"] = sparse_hparam_config;
     nlohmann::json optimizer_config;
     nlohmann::json optimizer_hparam_config;
-    optimizer_config["update_type"] = embedding_opt_params_list[i]->update_type == Update_t::Global ? "Global" : 
-                                      (embedding_opt_params_list[i]->update_type == Update_t::Local ? "Local" : "LazyGlobal");
+    optimizer_config["update_type"] =
+        embedding_opt_params_list[i]->update_type == Update_t::Global
+            ? "Global"
+            : (embedding_opt_params_list[i]->update_type == Update_t::Local ? "Local"
+                                                                            : "LazyGlobal");
     switch (embedding_opt_params_list[i]->optimizer) {
       case Optimizer_t::Adam: {
         optimizer_config["type"] = "Adam";
@@ -109,32 +127,35 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
       }
       case Optimizer_t::AdaGrad: {
         optimizer_config["type"] = "AdaGrad";
-        optimizer_hparam_config["initial_accu_value"] = embedding_opt_params_list[i]->hyperparams.adagrad.initial_accu_value;
-        optimizer_hparam_config["epsilon"] = embedding_opt_params_list[i]->hyperparams.adagrad.epsilon;
+        optimizer_hparam_config["initial_accu_value"] =
+            embedding_opt_params_list[i]->hyperparams.adagrad.initial_accu_value;
+        optimizer_hparam_config["epsilon"] =
+            embedding_opt_params_list[i]->hyperparams.adagrad.epsilon;
         optimizer_config["adagrad_hparam"] = optimizer_hparam_config;
         break;
       }
       case Optimizer_t::MomentumSGD: {
         optimizer_config["type"] = "MomentumSGD";
-        optimizer_hparam_config["momentum_factor"] = embedding_opt_params_list[i]->hyperparams.momentum.factor;
+        optimizer_hparam_config["momentum_factor"] =
+            embedding_opt_params_list[i]->hyperparams.momentum.factor;
         optimizer_config["momentum_sgd_hparam"] = optimizer_hparam_config;
         break;
       }
       case Optimizer_t::Nesterov: {
         optimizer_config["type"] = "Nesterov";
-        optimizer_hparam_config["momentum_factor"] = embedding_opt_params_list[i]->hyperparams.nesterov.mu;
+        optimizer_hparam_config["momentum_factor"] =
+            embedding_opt_params_list[i]->hyperparams.nesterov.mu;
         optimizer_config["nesterov_hparam"] = optimizer_hparam_config;
         break;
       }
       case Optimizer_t::SGD: {
         optimizer_config["type"] = "SGD";
-        optimizer_hparam_config["atomic_update"] = embedding_opt_params_list[i]->hyperparams.sgd.atomic_update;
+        optimizer_hparam_config["atomic_update"] =
+            embedding_opt_params_list[i]->hyperparams.sgd.atomic_update;
         optimizer_config["sgd_hparam"] = optimizer_hparam_config;
         break;
       }
-      default: {
-        assert(!"Error: no such optimizer && should never get here!");
-      }
+      default: { assert(!"Error: no such optimizer && should never get here!"); }
     }
     sparse_config["optimizer"] = optimizer_config;
     layer_config_array.push_back(sparse_config);
@@ -159,10 +180,12 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         bn_param_config["factor"] = dense_layer_params[i].factor;
         bn_param_config["eps"] = dense_layer_params[i].eps;
         if (dense_layer_params[i].gamma_init_type != Initializer_t::Default) {
-          bn_param_config["gamma_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].gamma_init_type];
+          bn_param_config["gamma_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].gamma_init_type];
         }
         if (dense_layer_params[i].beta_init_type != Initializer_t::Default) {
-          bn_param_config["beta_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].beta_init_type];
+          bn_param_config["beta_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].beta_init_type];
         }
         layer_config["bn_param"] = bn_param_config;
         break;
@@ -181,22 +204,26 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         nlohmann::json fc_param_config;
         fc_param_config["num_output"] = dense_layer_params[i].num_output;
         if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
-          fc_param_config["weight_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+          fc_param_config["weight_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
         }
         if (dense_layer_params[i].bias_init_type != Initializer_t::Default) {
-          fc_param_config["bias_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
+          fc_param_config["bias_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
         }
         layer_config["fc_param"] = fc_param_config;
-        break;     
+        break;
       }
       case Layer_t::InnerProduct: {
         nlohmann::json fc_param_config;
         fc_param_config["num_output"] = dense_layer_params[i].num_output;
         if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
-          fc_param_config["weight_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+          fc_param_config["weight_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
         }
         if (dense_layer_params[i].bias_init_type != Initializer_t::Default) {
-          fc_param_config["bias_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
+          fc_param_config["bias_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
         }
         layer_config["fc_param"] = fc_param_config;
         break;
@@ -205,10 +232,12 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         nlohmann::json mc_param_config;
         mc_param_config["num_layers"] = dense_layer_params[i].num_layers;
         if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
-          mc_param_config["weight_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+          mc_param_config["weight_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
         }
         if (dense_layer_params[i].bias_init_type != Initializer_t::Default) {
-          mc_param_config["bias_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
+          mc_param_config["bias_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
         }
         layer_config["mc_param"] = mc_param_config;
         break;
@@ -218,6 +247,7 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
           layer_config["selected"] = dense_layer_params[i].selected_slots;
         } else {
           layer_config["leading_dim"] = dense_layer_params[i].leading_dim;
+          layer_config["time_step"] = dense_layer_params[i].time_step;
         }
         break;
       }
@@ -228,16 +258,56 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
       case Layer_t::WeightMultiply: {
         layer_config["weight_dims"] = dense_layer_params[i].weight_dims;
         if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
-          layer_config["weight_init"] = INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+          layer_config["weight_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
         }
         break;
       }
       case Layer_t::FmOrder2: {
         layer_config["out_dim"] = dense_layer_params[i].out_dim;
-        break;       
+        break;
       }
       case Layer_t::ReduceSum: {
         layer_config["axis"] = dense_layer_params[i].axis;
+        break;
+      }
+      case Layer_t::ReduceMean: {
+        layer_config["axis"] = dense_layer_params[i].axis;
+        break;
+      }
+      case Layer_t::Gather: {
+        layer_config["indices"] = dense_layer_params[i].indices;
+        break;
+      }
+      case Layer_t::GRU: {
+        nlohmann::json gru_param_config;
+        gru_param_config["num_output"] = dense_layer_params[i].num_output;
+        gru_param_config["batchsize"] = dense_layer_params[i].batchsize;
+        gru_param_config["SeqLength"] = dense_layer_params[i].SeqLength;
+        gru_param_config["vector_size"] = dense_layer_params[i].vector_size;
+        if (dense_layer_params[i].weight_init_type != Initializer_t::Default) {
+          gru_param_config["weight_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].weight_init_type];
+        }
+        if (dense_layer_params[i].bias_init_type != Initializer_t::Default) {
+          gru_param_config["bias_init"] =
+              INITIALIZER_TYPE_TO_STRING[dense_layer_params[i].bias_init_type];
+        }
+        layer_config["gru_param"] = gru_param_config;
+        break;
+      }
+      case Layer_t::PReLU_Dice: {
+        nlohmann::json prelu_dice_param_config;
+        prelu_dice_param_config["alpha"] = dense_layer_params[i].elu_alpha;
+        prelu_dice_param_config["eps"] = dense_layer_params[i].eps;
+        layer_config["prelu_dice_param"] = prelu_dice_param_config;
+        break;
+      }
+      case Layer_t::Scale: {
+        nlohmann::json scale_param_config;
+        scale_param_config["axis"] = dense_layer_params[i].axis;
+        scale_param_config["factor"] = dense_layer_params[i].factor;
+        layer_config["scale_param"] = scale_param_config;
         break;
       }
       case Layer_t::MultiCrossEntropyLoss: {
@@ -245,28 +315,29 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
           layer_config["target_weight"] = dense_layer_params[i].target_weight_vec;
         }
         if (dense_layer_params[i].use_regularizer) {
-          layer_config["regularizer"] = dense_layer_params[i].regularizer_type == Regularizer_t::L1? "L1":"L2";
+          layer_config["regularizer"] =
+              dense_layer_params[i].regularizer_type == Regularizer_t::L1 ? "L1" : "L2";
           layer_config["lambda"] = dense_layer_params[i].lambda;
         }
         break;
       }
       case Layer_t::BinaryCrossEntropyLoss: {
         if (dense_layer_params[i].use_regularizer) {
-          layer_config["regularizer"] = dense_layer_params[i].regularizer_type == Regularizer_t::L1? "L1":"L2";
+          layer_config["regularizer"] =
+              dense_layer_params[i].regularizer_type == Regularizer_t::L1 ? "L1" : "L2";
           layer_config["lambda"] = dense_layer_params[i].lambda;
         }
         break;
       }
       case Layer_t::CrossEntropyLoss: {
         if (dense_layer_params[i].use_regularizer) {
-          layer_config["regularizer"] = dense_layer_params[i].regularizer_type == Regularizer_t::L1? "L1":"L2";
+          layer_config["regularizer"] =
+              dense_layer_params[i].regularizer_type == Regularizer_t::L1 ? "L1" : "L2";
           layer_config["lambda"] = dense_layer_params[i].lambda;
         }
         break;
       }
-      default: {
-        break;
-      }
+      default: { break; }
     }
     layer_config_array.push_back(layer_config);
   }
@@ -296,8 +367,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         Initializer_t gamma_init_type;
         if (find_item_in_map(gamma_init_type, gamma_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.gamma_init_type = gamma_init_type;
-        }
-        else {
+        } else {
           CK_THROW_(Error_t::WrongInput, "No such initializer: " + gamma_init_name);
         }
       }
@@ -415,6 +485,12 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
         auto leading_dim = get_value_from_json<size_t>(j_dense_layer, "leading_dim");
         dense_layer.selected = false;
         dense_layer.leading_dim = leading_dim;
+        auto time_step = j_dense_layer.find("time_step");
+        if (time_step != j_dense_layer.end()) {
+          dense_layer.time_step = time_step.value();
+        } else {
+          dense_layer.time_step = 0;
+        }
       }
       break;
     }
@@ -429,6 +505,67 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
       dense_layer.ranges = ranges;
       break;
     }
+    case Layer_t::ReduceMean: {
+      int axis = get_json(j_dense_layer, "axis").get<int>();
+      dense_layer.axis = axis;
+      break;
+    }
+    case Layer_t::Gather: {
+      std::vector<int> indices;
+      auto j_indices = get_json(j_dense_layer, "indices");
+      assert(j_indices.is_array());
+      for (auto j_indice : j_indices) {
+        indices.emplace_back(j_indice.get<int>());
+      }
+      dense_layer.indices = indices;
+      break;
+    }
+    case Layer_t::GRU: {
+      auto j_gru_param = get_json(j_dense_layer, "gru_param");
+      if (has_key_(j_gru_param, "weight_init")) {
+        const auto weight_init_name = get_value_from_json<std::string>(j_gru_param, "weight_init");
+        Initializer_t weight_init_type;
+        if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.weight_init_type = weight_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + weight_init_name);
+        }
+      }
+      if (has_key_(j_gru_param, "bias_init")) {
+        const auto bias_init_name = get_value_from_json<std::string>(j_gru_param, "bias_init");
+        Initializer_t bias_init_type;
+        if (find_item_in_map(bias_init_type, bias_init_name, INITIALIZER_TYPE_MAP)) {
+          dense_layer.bias_init_type = bias_init_type;
+        } else {
+          CK_THROW_(Error_t::WrongInput, "No such initializer: " + bias_init_name);
+        }
+      }
+      auto num_output = get_value_from_json<int>(j_gru_param, "num_output");
+      auto batchsize = get_value_from_json<int>(j_gru_param, "batchsize");
+      auto SeqLength = get_value_from_json<int>(j_gru_param, "SeqLength");
+      auto vector_size = get_value_from_json<int>(j_gru_param, "vector_size");
+      dense_layer.num_output = num_output;
+      dense_layer.batchsize = batchsize;
+      dense_layer.SeqLength = SeqLength;
+      dense_layer.vector_size = vector_size;
+      break;
+    }
+    case Layer_t::PReLU_Dice: {
+      auto j_prelu_dice_hparam = get_json(j_dense_layer, "prelu_dice_param");
+      auto alpha = get_value_from_json<float>(j_prelu_dice_hparam, "elu_alpha");
+      auto epsilon = get_value_from_json<float>(j_prelu_dice_hparam, "eps");
+      dense_layer.elu_alpha = alpha;
+      dense_layer.eps = epsilon;
+      break;
+    }
+    case Layer_t::Scale: {
+      auto j_scale_hparam = get_json(j_dense_layer, "scale_param");
+      int axis = get_value_from_json<float>(j_scale_hparam, "axis");
+      auto factor = get_value_from_json<float>(j_scale_hparam, "factor");
+      dense_layer.axis = axis;
+      dense_layer.factor = factor;
+      break;
+    }
     case Layer_t::WeightMultiply: {
       std::vector<size_t> weight_dims;
       auto dims = get_json(j_dense_layer, "weight_dims");
@@ -438,7 +575,8 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
       }
       dense_layer.weight_dims = weight_dims;
       if (has_key_(j_dense_layer, "weight_init")) {
-        const auto weight_init_name = get_value_from_json<std::string>(j_dense_layer, "weight_init");
+        const auto weight_init_name =
+            get_value_from_json<std::string>(j_dense_layer, "weight_init");
         Initializer_t weight_init_type;
         if (find_item_in_map(weight_init_type, weight_init_name, INITIALIZER_TYPE_MAP)) {
           dense_layer.weight_init_type = weight_init_type;
@@ -519,9 +657,7 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
       }
       break;
     }
-    default: {
-      break;
-    }
+    default: { break; }
   }
   return dense_layer;
 }
@@ -543,9 +679,8 @@ static bool get_tensor_from_entries(const std::vector<TensorEntry> tensor_entrie
 }
 
 static InputOutputInfo get_input_tensor_and_output_name(
-  std::vector<std::string>& bottom_names,
-  std::vector<std::string>& top_names,
-  const std::vector<TensorEntry>& tensor_entries) {
+    std::vector<std::string>& bottom_names, std::vector<std::string>& top_names,
+    const std::vector<TensorEntry>& tensor_entries) {
   std::vector<TensorBag2> bottom_bags;
   for (auto& bottom_name : bottom_names) {
     for (auto& top_name : top_names) {
@@ -564,9 +699,11 @@ static InputOutputInfo get_input_tensor_and_output_name(
 
 template <typename T>
 static std::shared_ptr<Regularizer<T>> create_regularizer(
-    bool use_regularizer, Regularizer_t regularizer_type, float lambda, const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff,
-    const int batch_size, const std::shared_ptr<GPUResource>& gpu_resource) {
-  std::shared_ptr<Regularizer<T>> reg(new NoRegularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource));
+    bool use_regularizer, Regularizer_t regularizer_type, float lambda,
+    const Tensor2<float>& weight_buff, const Tensor2<T>& wgrad_buff, const int batch_size,
+    const std::shared_ptr<GPUResource>& gpu_resource) {
+  std::shared_ptr<Regularizer<T>> reg(
+      new NoRegularizer<T>(weight_buff, wgrad_buff, batch_size, gpu_resource));
   if (use_regularizer) {
     switch (regularizer_type) {
       case Regularizer_t::L1: {
@@ -577,34 +714,28 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
         reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
         break;
       }
-      default: {
-        assert(!"Error: no such regularizer!");
-      }
+      default: { assert(!"Error: no such regularizer!"); }
     }
   }
   return reg;
 }
 
-void add_dense_layer_internal(DenseLayer& dense_layer,
-                std::vector<TensorEntry>& tensor_entries,
-                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
-                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                Tensor2<float>& loss_tensor,
-                std::vector<std::unique_ptr<Layer>>& layers,
-                std::unique_ptr<ILoss>& loss,
-                bool enable_cuda_graph,
-                metrics::RawMetricMap* raw_metrics,
-                int num_networks_in_global,
-                const std::shared_ptr<GPUResource>& gpu_resource,
-                bool use_mixed_precision,
-                bool enable_tf32_compute,
-                float scaler,
-                bool use_algorithm_search) {
+void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
+                              const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                              const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                              const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
+                              const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                              const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
+                              Tensor2<float>& loss_tensor,
+                              std::vector<std::unique_ptr<Layer>>& layers,
+                              std::unique_ptr<ILoss>& loss, bool enable_cuda_graph,
+                              metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
+                              const std::shared_ptr<GPUResource>& gpu_resource,
+                              bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                              bool use_algorithm_search) {
   Layer_t layer_type = dense_layer.layer_type;
-  const auto& layer_type_to_string = use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
+  const auto& layer_type_to_string =
+      use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
   if (layer_type_to_string.find(layer_type) == layer_type_to_string.end()) {
     if (use_mixed_precision) {
       auto layer_type_name = LAYER_TYPE_TO_STRING[layer_type];
@@ -616,8 +747,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
   }
   std::vector<TensorEntry> output_tensor_entries;
   auto input_output_info = get_input_tensor_and_output_name(dense_layer.bottom_names,
-                                                            dense_layer.top_names,
-                                                            tensor_entries);
+                                                            dense_layer.top_names, tensor_entries);
   switch (layer_type) {
     case Layer_t::BatchNorm: {
       if (use_mixed_precision) {
@@ -626,24 +756,26 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         Tensor2<__half> bn_out_tensor;
         blobs_buff->reserve(bn_in_tensor.get_dimensions(), &bn_out_tensor);
         output_tensor_entries.push_back(
-              {input_output_info.output_names[0], bn_out_tensor.shrink()});
-        std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type, dense_layer.beta_init_type};
+            {input_output_info.output_names[0], bn_out_tensor.shrink()});
+        std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
+                                                     dense_layer.beta_init_type};
         BatchNormLayer<__half>::Params params = {dense_layer.factor, dense_layer.eps};
-        layers.emplace_back(new BatchNormLayer<__half>(weight_buff, wgrad_buff, blobs_buff, bn_in_tensor,
-                                                bn_out_tensor, params, gpu_resource,
-                                                initializer_types));
+        layers.emplace_back(new BatchNormLayer<__half>(weight_buff, wgrad_buff, blobs_buff,
+                                                       bn_in_tensor, bn_out_tensor, params,
+                                                       gpu_resource, initializer_types));
       } else {
         Tensor2<float> bn_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         // establish out tensor
         Tensor2<float> bn_out_tensor;
         blobs_buff->reserve(bn_in_tensor.get_dimensions(), &bn_out_tensor);
         output_tensor_entries.push_back(
-              {input_output_info.output_names[0], bn_out_tensor.shrink()});
-        std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type, dense_layer.beta_init_type};
+            {input_output_info.output_names[0], bn_out_tensor.shrink()});
+        std::vector<Initializer_t> initializer_types{dense_layer.gamma_init_type,
+                                                     dense_layer.beta_init_type};
         BatchNormLayer<float>::Params params = {dense_layer.factor, dense_layer.eps};
-        layers.emplace_back(new BatchNormLayer<float>(weight_buff, wgrad_buff, blobs_buff, bn_in_tensor,
-                                                bn_out_tensor, params, gpu_resource,
-                                                initializer_types));
+        layers.emplace_back(new BatchNormLayer<float>(weight_buff, wgrad_buff, blobs_buff,
+                                                      bn_in_tensor, bn_out_tensor, params,
+                                                      gpu_resource, initializer_types));
       }
       break;
     }
@@ -657,19 +789,19 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         loss.reset(new BinaryCrossEntropyLoss<__half>(
             label_tensor, in_tensor, loss_tensor,
-            create_regularizer(dense_layer.use_regularizer,
-                            dense_layer.regularizer_type, dense_layer.lambda,
-                            weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-                            in_tensor.get_dimensions()[0], gpu_resource),
+            create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
+                               dense_layer.lambda, weight_buff->as_tensor(),
+                               wgrad_buff_half->as_tensor(), in_tensor.get_dimensions()[0],
+                               gpu_resource),
             gpu_resource, num_networks_in_global, scaler));
       } else {
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         loss.reset(new BinaryCrossEntropyLoss<float>(
             label_tensor, in_tensor, loss_tensor,
-            create_regularizer(dense_layer.use_regularizer,
-                            dense_layer.regularizer_type, dense_layer.lambda,
-                            weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                            in_tensor.get_dimensions()[0], gpu_resource),
+            create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
+                               dense_layer.lambda, weight_buff->as_tensor(),
+                               wgrad_buff->as_tensor(), in_tensor.get_dimensions()[0],
+                               gpu_resource),
             gpu_resource, num_networks_in_global, scaler));
       }
       break;
@@ -707,20 +839,20 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
             Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         loss.reset(new CrossEntropyLoss<__half>(
             label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
-            create_regularizer(dense_layer.use_regularizer,
-                              dense_layer.regularizer_type, dense_layer.lambda,
-                              weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-                              cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
+            create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
+                               dense_layer.lambda, weight_buff->as_tensor(),
+                               wgrad_buff_half->as_tensor(),
+                               cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
             gpu_resource, num_networks_in_global, scaler));
       } else {
         Tensor2<float> cross_entropy_loss_in_tensor =
             Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         loss.reset(new CrossEntropyLoss<float>(
             label_tensor, cross_entropy_loss_in_tensor, loss_tensor,
-            create_regularizer(dense_layer.use_regularizer,
-                              dense_layer.regularizer_type, dense_layer.lambda,
-                              weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                              cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
+            create_regularizer(dense_layer.use_regularizer, dense_layer.regularizer_type,
+                               dense_layer.lambda, weight_buff->as_tensor(),
+                               wgrad_buff->as_tensor(),
+                               cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
             gpu_resource, num_networks_in_global, scaler));
       }
       break;
@@ -733,8 +865,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         output_tensor_entries.push_back(
             {input_output_info.output_names[0], do_out_tensor.shrink()});
         float rate = dense_layer.dropout_rate;
-        layers.emplace_back(new DropoutLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                          rate, gpu_resource));
+        layers.emplace_back(
+            new DropoutLayer<__half>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
       } else {
         Tensor2<float> do_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> do_out_tensor;
@@ -742,8 +874,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         output_tensor_entries.push_back(
             {input_output_info.output_names[0], do_out_tensor.shrink()});
         float rate = dense_layer.dropout_rate;
-        layers.emplace_back(new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                          rate, gpu_resource));
+        layers.emplace_back(
+            new DropoutLayer<float>(do_in_tensor, do_out_tensor, blobs_buff, rate, gpu_resource));
       }
       // to be fixed
       break;
@@ -756,7 +888,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         output_tensor_entries.push_back(
             {input_output_info.output_names[0], elu_out_tensor.shrink()});
         float alpha = dense_layer.elu_alpha;
-        layers.emplace_back(new EluLayer<__half>(elu_in_tensor, elu_out_tensor, alpha, gpu_resource));
+        layers.emplace_back(
+            new EluLayer<__half>(elu_in_tensor, elu_out_tensor, alpha, gpu_resource));
       } else {
         Tensor2<float> elu_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> elu_out_tensor;
@@ -764,12 +897,14 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         output_tensor_entries.push_back(
             {input_output_info.output_names[0], elu_out_tensor.shrink()});
         float alpha = dense_layer.elu_alpha;
-        layers.emplace_back(new EluLayer<float>(elu_in_tensor, elu_out_tensor, alpha, gpu_resource));
+        layers.emplace_back(
+            new EluLayer<float>(elu_in_tensor, elu_out_tensor, alpha, gpu_resource));
       }
       break;
     }
     case Layer_t::FusedInnerProduct: {
-      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type, dense_layer.bias_init_type};
+      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                   dense_layer.bias_init_type};
       size_t output = dense_layer.num_output;
       if (use_mixed_precision) {
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
@@ -802,7 +937,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
       break;
     }
     case Layer_t::InnerProduct: {
-      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type, dense_layer.bias_init_type};
+      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                   dense_layer.bias_init_type};
       size_t output = dense_layer.num_output;
       if (use_mixed_precision) {
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
@@ -829,44 +965,47 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
       if (use_mixed_precision) {
         if (gpu_resource->get_cc_major() < 7) {
           CK_THROW_(Error_t::WrongInput, "InteractionLayer<__half> is not supported in SM " +
-                                              std::to_string(gpu_resource->get_cc_major()) + "." +
-                                              std::to_string(gpu_resource->get_cc_minor()));
+                                             std::to_string(gpu_resource->get_cc_major()) + "." +
+                                             std::to_string(gpu_resource->get_cc_minor()));
         }
         Tensor2<__half> in_mlp_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> in_emb_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
         Tensor2<__half> out_tensor;
-        layers.emplace_back(
-            new InteractionLayer<__half>(in_mlp_tensor, in_emb_tensor, out_tensor, blobs_buff,
-                                        gpu_resource, use_mixed_precision, enable_tf32_compute));
+        layers.emplace_back(new InteractionLayer<__half>(in_mlp_tensor, in_emb_tensor, out_tensor,
+                                                         blobs_buff, gpu_resource,
+                                                         use_mixed_precision, enable_tf32_compute));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       } else {
         Tensor2<float> in_mlp_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> in_emb_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
         Tensor2<float> out_tensor;
-        layers.emplace_back(
-            new InteractionLayer<float>(in_mlp_tensor, in_emb_tensor, out_tensor, blobs_buff,
-                                        gpu_resource, use_mixed_precision, enable_tf32_compute));
+        layers.emplace_back(new InteractionLayer<float>(in_mlp_tensor, in_emb_tensor, out_tensor,
+                                                        blobs_buff, gpu_resource,
+                                                        use_mixed_precision, enable_tf32_compute));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       }
       break;
     }
     case Layer_t::MultiCross: {
-      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type, dense_layer.bias_init_type};
+      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                   dense_layer.bias_init_type};
       int num_layers = dense_layer.num_layers;
       if (use_mixed_precision) {
         Tensor2<__half> mc_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> out_tensor;
         blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        layers.emplace_back(new MultiCrossLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
-                                                out_tensor, gpu_resource, num_layers, initializer_types));
+        layers.emplace_back(new MultiCrossLayer<__half>(
+            weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor, out_tensor,
+            gpu_resource, num_layers, initializer_types));
       } else {
         Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
         blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        layers.emplace_back(new MultiCrossLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
-                                                out_tensor, gpu_resource, num_layers, initializer_types));
+        layers.emplace_back(new MultiCrossLayer<float>(
+            weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor, out_tensor,
+            gpu_resource, num_layers, initializer_types));
       }
       break;
     }
@@ -881,30 +1020,27 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
             Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         loss.reset(new MultiCrossEntropyLoss<__half>(
             label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
-            create_regularizer(dense_layer.use_regularizer,
-                              dense_layer.regularizer_type, dense_layer.lambda,
-                              weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
-                              multi_cross_entropy_loss_in_tensor.get_dimensions()[0],
-                              gpu_resource),
+            create_regularizer(
+                dense_layer.use_regularizer, dense_layer.regularizer_type, dense_layer.lambda,
+                weight_buff->as_tensor(), wgrad_buff_half->as_tensor(),
+                multi_cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
             dense_layer.target_weight_vec, gpu_resource, num_networks_in_global, scaler));
       } else {
         Tensor2<float> multi_cross_entropy_loss_in_tensor =
             Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         loss.reset(new MultiCrossEntropyLoss<float>(
             label_tensor, multi_cross_entropy_loss_in_tensor, loss_tensor,
-            create_regularizer(dense_layer.use_regularizer,
-                              dense_layer.regularizer_type, dense_layer.lambda,
-                              weight_buff->as_tensor(), wgrad_buff->as_tensor(),
-                              multi_cross_entropy_loss_in_tensor.get_dimensions()[0],
-                              gpu_resource),
+            create_regularizer(
+                dense_layer.use_regularizer, dense_layer.regularizer_type, dense_layer.lambda,
+                weight_buff->as_tensor(), wgrad_buff->as_tensor(),
+                multi_cross_entropy_loss_in_tensor.get_dimensions()[0], gpu_resource),
             dense_layer.target_weight_vec, gpu_resource, num_networks_in_global, scaler));
       }
       break;
     }
     case Layer_t::ReLU: {
       if (use_mixed_precision) {
-        Tensor2<__half> relu_in_tensor =
-            Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+        Tensor2<__half> relu_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> relu_out_tensor;
         blobs_buff->reserve(relu_in_tensor.get_dimensions(), &relu_out_tensor);
         layers.emplace_back(new ReluLayer<__half>(relu_in_tensor, relu_out_tensor, gpu_resource));
@@ -927,34 +1063,44 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
           Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> out_tensor;
           layers.emplace_back(new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff,
-                                                    dense_layer.selected_slots, gpu_resource));
-          output_tensor_entries.push_back(
-              {input_output_info.output_names[0], out_tensor.shrink()});
+                                                       dense_layer.selected_slots, gpu_resource));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
           layers.emplace_back(new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff,
-                                                    dense_layer.selected_slots, gpu_resource));
-          output_tensor_entries.push_back(
-              {input_output_info.output_names[0], out_tensor.shrink()});
+                                                      dense_layer.selected_slots, gpu_resource));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
-      }
-      else {
+      } else {
         size_t leading_dim = dense_layer.leading_dim;
+        size_t time_step = dense_layer.time_step;
         if (use_mixed_precision) {
           Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> out_tensor;
-          layers.emplace_back(new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff,
-                                                        leading_dim, gpu_resource));
-          output_tensor_entries.push_back(
-              {input_output_info.output_names[0], out_tensor.shrink()});
+          if (time_step == 0) {  // 2D output
+            blobs_buff->reserve({in_tensor.get_num_elements() / leading_dim, leading_dim},
+                                &out_tensor);
+          } else {  // 3D output
+            size_t batch_size = in_tensor.get_num_elements() / leading_dim / time_step;
+            blobs_buff->reserve({batch_size, time_step, leading_dim}, &out_tensor);
+          }
+          layers.emplace_back(
+              new ReshapeLayer<__half>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
-          layers.emplace_back(new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff,
-                                                      leading_dim, gpu_resource));
-          output_tensor_entries.push_back(
-              {input_output_info.output_names[0], out_tensor.shrink()});
+          if (time_step == 0) {  // 2D output
+            blobs_buff->reserve({in_tensor.get_num_elements() / leading_dim, leading_dim},
+                                &out_tensor);
+          } else {  // 3D output
+            size_t batch_size = in_tensor.get_num_elements() / leading_dim / time_step;
+            blobs_buff->reserve({batch_size, time_step, leading_dim}, &out_tensor);
+          }
+          layers.emplace_back(
+              new ReshapeLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+          output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
       }
       break;
@@ -985,8 +1131,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
       if (use_mixed_precision) {
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensors2<__half> out_tensors;
-        layers.emplace_back(
-            new SliceLayer<__half>(in_tensor, out_tensors, blobs_buff, dense_layer.ranges, gpu_resource));
+        layers.emplace_back(new SliceLayer<__half>(in_tensor, out_tensors, blobs_buff,
+                                                   dense_layer.ranges, gpu_resource));
         for (size_t i = 0; i < out_tensors.size(); i++) {
           output_tensor_entries.push_back(
               {input_output_info.output_names[i], out_tensors[i].shrink()});
@@ -994,8 +1140,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
       } else {
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensors2<float> out_tensors;
-        layers.emplace_back(
-            new SliceLayer<float>(in_tensor, out_tensors, blobs_buff, dense_layer.ranges, gpu_resource));
+        layers.emplace_back(new SliceLayer<float>(in_tensor, out_tensors, blobs_buff,
+                                                  dense_layer.ranges, gpu_resource));
         for (size_t i = 0; i < out_tensors.size(); i++) {
           output_tensor_entries.push_back(
               {input_output_info.output_names[i], out_tensors[i].shrink()});
@@ -1008,17 +1154,17 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type};
         Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> out_tensor;
-        layers.emplace_back(new WeightMultiplyLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
-                                              out_tensor, dense_layer.weight_dims, gpu_resource,
-                                              initializer_types));
+        layers.emplace_back(new WeightMultiplyLayer<__half>(
+            weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, out_tensor,
+            dense_layer.weight_dims, gpu_resource, initializer_types));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       } else {
         std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type};
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
-        layers.emplace_back(new WeightMultiplyLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, in_tensor,
-                                              out_tensor, dense_layer.weight_dims, gpu_resource,
-                                              initializer_types));
+        layers.emplace_back(new WeightMultiplyLayer<float>(
+            weight_buff, weight_buff, wgrad_buff, blobs_buff, in_tensor, out_tensor,
+            dense_layer.weight_dims, gpu_resource, initializer_types));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       }
       break;
@@ -1049,8 +1195,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         }
         Tensor2<__half> out_tensor;
         blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-        layers.emplace_back(
-            new AddLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        layers.emplace_back(new AddLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       } else {
         Tensors2<float> in_tensors;
@@ -1059,8 +1204,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         }
         Tensor2<float> out_tensor;
         blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-        layers.emplace_back(
-            new AddLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        layers.emplace_back(new AddLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       }
       break;
@@ -1082,6 +1226,99 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
       }
       break;
     }
+    case Layer_t::ReduceMean: {
+      Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+      Tensor2<float> out_tensor;
+      layers.emplace_back(new ReduceMeanLayer<float>(in_tensor, out_tensor, blobs_buff,
+                                                     dense_layer.axis, gpu_resource));
+      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      break;
+    }
+    case Layer_t::Sub: {
+      Tensors2<float> in_tensors;
+      for (const auto& bag : input_output_info.inputs) {
+        in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+      }
+      Tensor2<float> out_tensor;
+      blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
+      layers.emplace_back(new SubLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      break;
+    }
+    case Layer_t::Gather: {
+      Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+      Tensor2<float> out_tensor;
+      layers.emplace_back(new GatherLayer<float>(in_tensor, out_tensor, blobs_buff,
+                                                 dense_layer.indices, gpu_resource));
+      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      break;
+    }
+    case Layer_t::GRU: {
+      std::vector<Initializer_t> initializer_types{dense_layer.weight_init_type,
+                                                   dense_layer.bias_init_type};
+      Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+      Tensor2<float> gru_out_tensor;
+      blobs_buff->reserve({in_tensor.get_dimensions()[0], dense_layer.num_output}, &gru_out_tensor);
+      layers.emplace_back(new GRULayer<float>(weight_buff, wgrad_buff, in_tensor, gru_out_tensor,
+                                              dense_layer.num_output, dense_layer.batchsize,
+                                              dense_layer.SeqLength, dense_layer.vector_size,
+                                              gpu_resource, initializer_types));
+      output_tensor_entries.push_back({input_output_info.output_names[0], gru_out_tensor.shrink()});
+
+      break;
+    }
+    case Layer_t::Softmax: {
+      Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+      Tensor2<float> out_tensor;
+      blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      layers.emplace_back(new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
+      break;
+    }
+    case Layer_t::PReLU_Dice: {
+      Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+      Tensor2<float> out_tensor;
+      blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
+      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      layers.emplace_back(new PRelu_Dice_Layer<float>(
+          in_tensor, out_tensor, blobs_buff, dense_layer.elu_alpha, dense_layer.eps, gpu_resource));
+      break;
+    }
+    case Layer_t::Scale: {
+      Tensor2<float> scale_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
+      Tensor2<float> scale_out_tensor;
+      layers.emplace_back(new ScaleLayer<float>(scale_in_tensor, scale_out_tensor, blobs_buff,
+                                                dense_layer.axis, dense_layer.factor,
+                                                gpu_resource));
+      output_tensor_entries.push_back(
+          {input_output_info.output_names[0], scale_out_tensor.shrink()});
+      break;
+    }
+    case Layer_t::FusedReshapeConcat: {
+      Tensors2<float> in_tensors;
+      for (const auto& bag : input_output_info.inputs) {
+        in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+      }
+      Tensors2<float> out_tensors;
+      layers.emplace_back(
+          new FusedReshapeConcatLayer<float>(in_tensors, out_tensors, blobs_buff, gpu_resource));
+      for (size_t i = 0; i < out_tensors.size(); i++) {
+        output_tensor_entries.push_back(
+            {input_output_info.output_names[i], out_tensors[i].shrink()});
+      }
+      break;
+    }
+    case Layer_t::FusedReshapeConcatGeneral: {
+      Tensors2<float> in_tensors;
+      for (const auto& bag : input_output_info.inputs) {
+        in_tensors.push_back(Tensor2<float>::stretch_from(bag));
+      }
+      Tensor2<float> out_tensor;
+      layers.emplace_back(new FusedReshapeConcatGeneralLayer<float>(in_tensors, out_tensor,
+                                                                    blobs_buff, gpu_resource));
+      output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
+      break;
+    }
     case Layer_t::DotProduct: {
       if (use_mixed_precision) {
         Tensors2<__half> in_tensors;
@@ -1090,7 +1327,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         }
         Tensor2<__half> out_tensor;
         blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-        layers.emplace_back(new DotProductLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        layers.emplace_back(
+            new DotProductLayer<__half>(in_tensors, out_tensor, blobs_buff, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       } else {
         Tensors2<float> in_tensors;
@@ -1099,7 +1337,8 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
         }
         Tensor2<float> out_tensor;
         blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-        layers.emplace_back(new DotProductLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        layers.emplace_back(
+            new DotProductLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
       }
       break;
@@ -1128,12 +1367,9 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
       }
       break;
     }
-    default: {
-      assert(!"Error: no such layer && should never get here!");
-    }
-  } // end of switch
-  if (!(layer_type == Layer_t::CrossEntropyLoss ||
-        layer_type == Layer_t::BinaryCrossEntropyLoss ||
+    default: { assert(!"Error: no such layer && should never get here!"); }
+  }  // end of switch
+  if (!(layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
         layer_type == Layer_t::MultiCrossEntropyLoss)) {
     for (auto& output_tensor_entry : output_tensor_entries) {
       tensor_entries.push_back(output_tensor_entry);
@@ -1145,65 +1381,40 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
   }
 }
 
-void add_dense_layer(DenseLayer& dense_layer,
-                std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
-                std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
-                const std::shared_ptr<ResourceManager>& resource_manager,
-                bool use_mixed_precision,
-                bool enable_tf32_compute,
-                float scaler,
-                bool use_algorithm_search,
-                bool use_cuda_graph,
-                std::vector<std::shared_ptr<Network>>& networks,
-                std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& blobs_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& train_weight_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& train_weight_buff_half_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_list, 
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list) {
+void add_dense_layer(
+    DenseLayer& dense_layer, std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
+    std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
+    const std::shared_ptr<ResourceManager>& resource_manager, bool use_mixed_precision,
+    bool enable_tf32_compute, float scaler, bool use_algorithm_search, bool use_cuda_graph,
+    std::vector<std::shared_ptr<Network>>& networks,
+    std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& blobs_buff_list,
+    std::vector<std::shared_ptr<BufferBlock2<float>>>& train_weight_buff_list,
+    std::vector<std::shared_ptr<BufferBlock2<__half>>>& train_weight_buff_half_list,
+    std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_list,
+    std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_list,
+    std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
+    std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
+    std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
+    std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list) {
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     // add dense layer for train
-    add_dense_layer_internal(dense_layer,
-                train_tensor_entries_list[i],
-                blobs_buff_list[i],
-                train_weight_buff_list[i],
-                train_weight_buff_half_list[i],
-                wgrad_buff_list[i],
-                wgrad_buff_half_list[i],
-                networks[i]->train_loss_tensor_,
-                networks[i]->train_layers_,
-                networks[i]->train_loss_,
-                networks[i]->enable_cuda_graph_,
-                nullptr,
-                resource_manager->get_global_gpu_count(),
-                resource_manager->get_local_gpu(i),
-                use_mixed_precision,
-                enable_tf32_compute,
-                scaler,
-                use_algorithm_search);
+    add_dense_layer_internal(
+        dense_layer, train_tensor_entries_list[i], blobs_buff_list[i], train_weight_buff_list[i],
+        train_weight_buff_half_list[i], wgrad_buff_list[i], wgrad_buff_half_list[i],
+        networks[i]->train_loss_tensor_, networks[i]->train_layers_, networks[i]->train_loss_,
+        networks[i]->enable_cuda_graph_, nullptr, resource_manager->get_global_gpu_count(),
+        resource_manager->get_local_gpu(i), use_mixed_precision, enable_tf32_compute, scaler,
+        use_algorithm_search);
     // add dense layer for evaluation
-    add_dense_layer_internal(dense_layer,
-                evaluate_tensor_entries_list[i],
-                blobs_buff_list[i],
-                evaluate_weight_buff_list[i],
-                evaluate_weight_buff_half_list[i],
-                wgrad_buff_placeholder_list[i],
-                wgrad_buff_half_placeholder_list[i],
-                networks[i]->evaluate_loss_tensor_,
-                networks[i]->evaluate_layers_,
-                networks[i]->evaluate_loss_,
-                networks[i]->enable_cuda_graph_,
-                &(networks[i]->raw_metrics_),
-                resource_manager->get_global_gpu_count(),
-                resource_manager->get_local_gpu(i),
-                use_mixed_precision,
-                enable_tf32_compute,
-                scaler,
-                use_algorithm_search);
+    add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list[i], blobs_buff_list[i],
+                             evaluate_weight_buff_list[i], evaluate_weight_buff_half_list[i],
+                             wgrad_buff_placeholder_list[i], wgrad_buff_half_placeholder_list[i],
+                             networks[i]->evaluate_loss_tensor_, networks[i]->evaluate_layers_,
+                             networks[i]->evaluate_loss_, networks[i]->enable_cuda_graph_,
+                             &(networks[i]->raw_metrics_), resource_manager->get_global_gpu_count(),
+                             resource_manager->get_local_gpu(i), use_mixed_precision,
+                             enable_tf32_compute, scaler, use_algorithm_search);
   }
 }
 
-} // namespace HugeCTR
+}  // namespace HugeCTR

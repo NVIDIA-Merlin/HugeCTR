@@ -205,6 +205,7 @@ void reduce_sum_test(size_t batch_size, size_t slot_num, size_t embedding_vec_si
 TEST(reduce_sum_layer, fp32_2x3x4_0) { reduce_sum_test<float>(2, 3, 4, 0); }
 TEST(reduce_sum_layer, fp32_2x3x4_1) { reduce_sum_test<float>(2, 3, 4, 1); }
 TEST(reduce_sum_layer, fp32_2x3x4_2) { reduce_sum_test<float>(2, 3, 4, 2); }
+TEST(reduce_sum_layer, fp32_23x100x18_1) { reduce_sum_test<float>(23, 100, 18, 1); }
 TEST(reduce_sum_layer, fp32_40960x39x1_1) { reduce_sum_test<float>(40960, 39, 1, 1); }
 TEST(reduce_sum_layer, fp16_2x3x4_0) { reduce_sum_test<__half>(2, 3, 4, 0); }
 TEST(reduce_sum_layer, fp16_2x3x4_1) { reduce_sum_test<__half>(2, 3, 4, 1); }
