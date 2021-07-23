@@ -30,6 +30,106 @@
 
 namespace fs = std::experimental::filesystem;
 
+namespace {
+
+using namespace HugeCTR;
+
+template <typename TypeDst, typename TypeSrc>
+void type_convert(std::vector<TypeDst> &dst_vec,
+                  const std::vector<TypeSrc> &src_vec) {
+  dst_vec.resize(src_vec.size());
+  std::transform(std::execution::par,
+      src_vec.begin(), src_vec.end(), dst_vec.begin(),
+      [](TypeSrc key) { return static_cast<TypeDst>(key); });
+}
+
+template <typename TypeKey>
+void parallel_table_lookup(const std::vector<TypeKey> &keys,
+    const std::unordered_map<TypeKey, std::pair<size_t, size_t>> &exist_key_idx_mapping,
+    const std::unordered_map<TypeKey, std::pair<size_t, size_t>> &new_key_idx_mapping,
+    BufferBag &buf_bag, std::vector<TypeKey> &exist_keys, std::vector<size_t> &exist_idx,
+    bool is_distributed, bool save_to_buf_bag) {
+  TypeKey *key_ptr{nullptr};
+  size_t *slot_id_ptr{nullptr};
+
+  if (save_to_buf_bag) {
+    key_ptr = Tensor2<TypeKey>::stretch_from(buf_bag.keys).get_ptr();
+    if (!is_distributed) {
+      slot_id_ptr = Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr();
+    }
+  }
+
+  exist_idx.reserve(keys.size());
+
+  const size_t chunk_num = std::thread::hardware_concurrency();
+  std::vector<std::vector<TypeKey>> chunk_keys(chunk_num);
+  std::vector<std::vector<size_t>> chunk_slot_id(chunk_num);
+  std::vector<std::vector<size_t>> chunk_idx_exist(chunk_num);
+
+  #pragma omp parallel num_threads(chunk_num)
+  {
+    const size_t tid = omp_get_thread_num();
+    const size_t thread_num = omp_get_num_threads();
+    size_t sub_chunk_size = keys.size() / thread_num;
+    size_t res_chunk_size = keys.size() % thread_num;
+    const size_t idx = tid * sub_chunk_size;
+
+    if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
+    chunk_keys[tid].reserve(sub_chunk_size);
+    chunk_idx_exist[tid].reserve(sub_chunk_size);
+    if (!is_distributed) chunk_slot_id[tid].reserve(sub_chunk_size);
+
+    auto insert_key_op = [&](auto iter) {
+      chunk_keys[tid].push_back(iter->first);
+      chunk_idx_exist[tid].push_back(iter->second.second);
+      if (!is_distributed) chunk_slot_id[tid].push_back(iter->second.first);
+    };
+
+    for (size_t i = 0; i < sub_chunk_size; i++) {
+      auto key = keys[idx + i];
+      auto iter = exist_key_idx_mapping.find(key);
+      if (iter != exist_key_idx_mapping.end()) {
+        insert_key_op(iter);
+      } else {
+        iter = new_key_idx_mapping.find(key);
+        if (iter != new_key_idx_mapping.end()) {
+          insert_key_op(iter);
+        }
+      }
+    }
+  }
+  size_t cnt_hit_keys = 0;
+  for (const auto& chunk_key : chunk_keys) {
+    cnt_hit_keys += chunk_key.size();
+  }
+
+  exist_idx.resize(cnt_hit_keys);
+  if (!save_to_buf_bag) {
+    exist_keys.resize(cnt_hit_keys);
+  }
+
+  TypeKey *dst_key_ptr = save_to_buf_bag ? key_ptr : exist_keys.data();
+  size_t *dst_slot_id_ptr = slot_id_ptr;
+  size_t *dst_idx_exist_ptr = exist_idx.data();
+
+  for (size_t i = 0; i < chunk_keys.size(); i++) {
+    const auto num_elem = chunk_keys[i].size();
+
+    memcpy(dst_key_ptr, chunk_keys[i].data(), num_elem * sizeof(TypeKey));
+    dst_key_ptr += num_elem;
+
+    memcpy(dst_idx_exist_ptr, chunk_idx_exist[i].data(), num_elem * sizeof(size_t));
+    dst_idx_exist_ptr += num_elem;
+
+    if (!is_distributed && save_to_buf_bag) {
+      memcpy(dst_slot_id_ptr, chunk_slot_id[i].data(), num_elem * sizeof(size_t));
+      dst_slot_id_ptr += num_elem;
+    }
+  }
+}
+
+}
+
 namespace HugeCTR {
 
 template <typename TypeKey>
@@ -54,83 +154,17 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey>& keys,
       MESSAGE_("No keyset specified for loading");
       return;
     }
-    TypeKey *key_ptr = Tensor2<TypeKey>::stretch_from(buf_bag.keys).get_ptr();
     float *vec_ptr = buf_bag.embedding.get_ptr();
-    size_t *slot_id_ptr = nullptr;
-    if (!is_distributed_) {
-      slot_id_ptr = Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr();
-    }
 
     if (use_host_ps_) {
       // load vectors from host memory
+      std::vector<TypeKey> key_exist;
       std::vector<size_t> idx_exist;
-      idx_exist.reserve(keys.size());
+      parallel_table_lookup(keys, exist_key_idx_mapping_, new_key_idx_mapping_,
+          buf_bag, key_exist, idx_exist, is_distributed_, true);
+      hit_size = idx_exist.size();
 
-      const size_t chunk_num = std::thread::hardware_concurrency();
-      std::vector<std::vector<TypeKey>> chunk_keys(chunk_num);
-      std::vector<std::vector<size_t>> chunk_slot_id(chunk_num);
-      std::vector<std::vector<size_t>> chunk_idx_exist(chunk_num);
-
-      #pragma omp parallel num_threads(chunk_num)
-      {
-        const size_t tid = omp_get_thread_num();
-        const size_t thread_num = omp_get_num_threads();
-        size_t sub_chunk_size = keys.size() / thread_num;
-        size_t res_chunk_size = keys.size() % thread_num;
-        const size_t idx = tid * sub_chunk_size;
-
-        if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
-        chunk_keys[tid].reserve(sub_chunk_size);
-        chunk_idx_exist[tid].reserve(sub_chunk_size);
-        if (!is_distributed_) chunk_slot_id[tid].reserve(sub_chunk_size);
-
-        auto insert_key_op = [&](auto iter) {
-          chunk_keys[tid].push_back(iter->first);
-          chunk_idx_exist[tid].push_back(iter->second.second);
-          if (!is_distributed_) chunk_slot_id[tid].push_back(iter->second.first);
-        };
-
-        for (size_t i = 0; i < sub_chunk_size; i++) {
-          auto key = keys[idx + i];
-          auto iter = exist_key_idx_mapping_.find(key);
-          if (iter != exist_key_idx_mapping_.end()) {
-            insert_key_op(iter);
-          } else {
-            iter = new_key_idx_mapping_.find(key);
-            if (iter != new_key_idx_mapping_.end()) {
-              insert_key_op(iter);
-            }
-          }
-        }
-      }
-      size_t cnt_hit_keys = 0;
-      for (const auto& chunk_key : chunk_keys) {
-        cnt_hit_keys += chunk_key.size();
-      }
-
-      idx_exist.resize(cnt_hit_keys);
-
-      TypeKey *dst_key_ptr = key_ptr;
-      size_t *dst_slot_id_ptr = slot_id_ptr;
-      size_t *dst_idx_exist_ptr = idx_exist.data();
-      for (size_t i = 0; i < chunk_keys.size(); i++) {
-        const auto num_elem = chunk_keys[i].size();
-
-        memcpy(dst_key_ptr, chunk_keys[i].data(), num_elem * sizeof(TypeKey));
-        dst_key_ptr += num_elem;
-
-        memcpy(dst_idx_exist_ptr, chunk_idx_exist[i].data(), num_elem * sizeof(size_t));
-        dst_idx_exist_ptr += num_elem;
-
-        if (!is_distributed_) {
-          memcpy(dst_slot_id_ptr, chunk_slot_id[i].data(), num_elem * sizeof(size_t));
-          dst_slot_id_ptr += num_elem;
-        }
-      }
-
-      hit_size = cnt_hit_keys;
-
-      #pragma omp parallel num_threads(chunk_num)
+      #pragma omp parallel num_threads(std::thread::hardware_concurrency())
       {
         const size_t tid = omp_get_thread_num();
         const size_t thread_num = omp_get_num_threads();
@@ -147,6 +181,11 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey>& keys,
         }
       }
     } else {
+      TypeKey *key_ptr = Tensor2<TypeKey>::stretch_from(buf_bag.keys).get_ptr();
+      size_t *slot_id_ptr = nullptr;
+      if (!is_distributed_) {
+        slot_id_ptr = Tensor2<size_t>::stretch_from(buf_bag.slot_id).get_ptr();
+      }
       // load vectors from ssd
       std::vector<TypeKey> exist_keys;
       exist_keys.reserve(keys.size());
@@ -180,6 +219,59 @@ void SparseModelEntity<TypeKey>::load_vec_by_key(std::vector<TypeKey>& keys,
        << hit_size * 100.0 / keys.size() << "%) in existing model";
     MESSAGE_(ss.str(), true);
 #endif
+  } catch (const internal_runtime_error& rt_err) {
+    std::cerr << rt_err.what() << std::endl;
+    throw;
+  } catch (const std::exception& err) {
+    std::cerr << err.what() << std::endl;
+    throw;
+  }
+}
+
+template <typename TypeKey>
+std::pair<std::vector<long long>, std::vector<float>>
+SparseModelEntity<TypeKey>::load_vec_by_key(const std::vector<long long> &keys) {
+  if (!use_host_ps_) {
+    CK_THROW_(Error_t::IllegalCall,
+        "Get incremental model is not supported in SSD-based parameter server");
+  }
+  try {
+    std::vector<TypeKey> key_to_search;
+    type_convert(key_to_search, keys);
+
+    BufferBag buf_bag_tmp;
+    std::vector<TypeKey> key_exist;
+    std::vector<size_t> idx_exist;
+    parallel_table_lookup(
+        key_to_search, exist_key_idx_mapping_, new_key_idx_mapping_,
+        buf_bag_tmp, key_exist, idx_exist, is_distributed_, false);
+
+    auto hit_size = idx_exist.size();
+
+    std::vector<long long> key_ll_exist;
+    type_convert(key_ll_exist, key_exist);
+
+    std::vector<float> emb_vectors(hit_size * emb_vec_size_);
+    float *vec_ptr = emb_vectors.data();
+
+    #pragma omp parallel num_threads(std::thread::hardware_concurrency())
+    {
+      const size_t tid = omp_get_thread_num();
+      const size_t thread_num = omp_get_num_threads();
+      size_t sub_chunk_size = idx_exist.size() / thread_num;
+      size_t res_chunk_size = idx_exist.size() % thread_num;
+      const size_t idx = tid * sub_chunk_size;
+
+      if (tid == thread_num - 1) sub_chunk_size += res_chunk_size;
+
+      for (size_t i = 0; i < sub_chunk_size; i++) {
+        size_t src_idx = idx_exist[idx + i] * emb_vec_size_;
+        size_t dst_idx = (idx + i) * emb_vec_size_;
+        memcpy(&vec_ptr[dst_idx], &host_emb_tabel_[src_idx], emb_vec_size_ * sizeof(float));
+      }
+    }
+
+    return std::pair(std::move(key_ll_exist), std::move(emb_vectors));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw;

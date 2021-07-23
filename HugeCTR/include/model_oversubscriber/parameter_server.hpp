@@ -61,6 +61,9 @@ class ParameterServer {
    */
   void pull(BufferBag &buf_bag, size_t& hit_size);
 
+  std::pair<std::vector<long long>, std::vector<float>>
+      pull(const std::vector<long long> &keys_to_load);
+
   /**
    * @brief Push the embedding table downloaded from devices to the trained
    *        sparse model.

@@ -155,6 +155,7 @@ struct ModelOversubscriberParams {
   bool train_from_scratch;
   std::vector<std::string> trained_sparse_models;
   std::vector<std::string> dest_sparse_models;
+  std::vector<std::string> incremental_keyset_files;
   ModelOversubscriberParams(bool train_from_scratch, bool use_host_memory_ps,
                             std::vector<std::string>& trained_sparse_models,
                             std::vector<std::string>& dest_sparse_models);
@@ -368,6 +369,7 @@ class Model {
   void freeze_dense() { is_dense_trainable_ = false; };
   void unfreeze_embedding() { is_embedding_trainable_ = true; };
   void unfreeze_dense() { is_dense_trainable_ = true; };
+  std::vector<std::pair<std::vector<long long>, std::vector<float>>>& get_incremental_model();
 
  private:
   Solver solver_;
@@ -401,6 +403,9 @@ class Model {
 
   std::vector<std::shared_ptr<BufferBlock2<float>>> opt_buff_list_;
   std::vector<std::shared_ptr<BufferBlock2<__half>>> opt_buff_half_list_;
+
+  bool set_source_flag_{true};
+  std::vector<std::pair<std::vector<long long>, std::vector<float>>> inc_sparse_model_;
 
   std::vector<DenseLayer> dense_layer_params_;
   std::vector<SparseEmbedding> sparse_embedding_params_;
