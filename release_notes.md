@@ -12,7 +12,7 @@
 	
 + **NCF Model Support**: We've added support for the NCF model, as well as the GMF and NeuMF variant models. With this enhancement, we're introducing a new element-wise multiplication layer and HitRate evaluation metric. Sample code was added that demonstrates how to preprocess user-item interaction data and train a NCF model with it. New examples have also been added that demonstrate how to train NCF models using MovieLens datasets.
 
-+ **DIN Model Support**: 
++ **DIN Model Support**: We have added all the layers support for the DIN model and most of the layers support for DIEN model. The added layers include: GRU layer, FusedReshapeConcat layer, FusedReshapeConcatGeneral layer, Gather layer, PReLUDice layer, ReduceMean layer, Scale layer, Softmax layer, Sub layer. We also added a sample code to demonstrate how to use the Amazon dataset to train the DIN model.
 
 + **Multi-Hot Support for Parquet Datasets**: We've added multi-hot support for parquet datasets, so you can now train models with a paraquet dataset that contains both one hot and multi-hot slots.
 
