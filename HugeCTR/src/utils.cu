@@ -22,7 +22,9 @@ namespace HugeCTR {
 template <typename TIN, typename TOUT>
 void convert_array_on_device(TOUT *out, const TIN *in, size_t num_elements,
                              const cudaStream_t &stream) {
-  convert_array<<<(num_elements - 1) / 1024 + 1, 1024, 0, stream>>>(out, in, num_elements);
+  if (num_elements > 0) {
+    convert_array<<<(num_elements - 1) / 1024 + 1, 1024, 0, stream>>>(out, in, num_elements);
+  }
 }
 
 template void convert_array_on_device<long long, int>(int *, const long long *, size_t,
