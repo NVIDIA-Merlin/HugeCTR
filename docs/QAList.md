@@ -85,16 +85,16 @@ nnz=0 is supported in HugeCTR input. That means no features will be looked up.
 Firstly, you should construct your own configure file. You can refer to our [User Guide](hugectr_user_guide.md) and samples.
 Secondly, using our `data_generator` to generate a random dataset. Seeing [introductions](../README.md#benchmark).
 Thirdly, run with `./huge_ctr --train ./your_config.json`
-### 24. How to set max_vocabulary_size_per_gpu and slot_size_array in .json file? ###
+### 24. How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file? ###
 As embeddings are model parallel in HugeCTR,
 it's a reference number for HugeCTR to allocate GPU memory accordingly and not necessarily the exact number of features in your dataset.
 In practice, we usually set it larger than the real size because of the non-uniform distribution of the keys.
-In DistributedSlotEmbedding, HugeCTR will allocate the same size of memory on each GPU which is `max_vocabulary_size_per_gpu`.
+In DistributedSlotEmbedding, HugeCTR will allocate the same size of memory on each GPU which is `workspace_size_per_gpu_in_mb`.
 Users have to set this parameter big enough to make sure no overflow in any GPUs.
-In LocalizedSlotEmbedding, user can also provide `max_vocabulary_size_per_gpu`,
+In LocalizedSlotEmbedding, user can also provide `workspace_size_per_gpu_in_mb`,
 if the slot sizes are significantly different, we recommend that users give a number large enough to prevent overflow.
 Another approach for LocalizedSlotEmbedding is that users can provide the exact size for each slot,
-which is `slot_size_array` and HugeCTR will calculate the `max_vocabulary_size_per_gpu` according to the given slot sizes.
+which is `slot_size_array` and HugeCTR will calculate the `workspace_size_per_gpu_in_mb` according to the given slot sizes.
 ### 25. Is nvlink required in HugeCTR? ###
 GPU with nvlink is not required, but recommended because the performance of CTR training highly relies on the performance of inter-GPUs communication. GPU servers with PCIE connections are also supported.
 ### 26. Is DGX the only GPU server that is required in HugeCTR? ###

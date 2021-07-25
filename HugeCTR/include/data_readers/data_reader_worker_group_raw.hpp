@@ -73,7 +73,7 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
       size_t stride = slots * sizeof(int) +
                       (label_dim + dense_dim) * (float_label_dense ? sizeof(float) : sizeof(int));
       file_offset_list_.reset(new MmapOffsetList(file_name, num_samples, stride, batchsize,
-                                                data_shuffle, num_workers, repeat));
+                                                 data_shuffle, num_workers, repeat));
       stride_ = stride;
     }
 

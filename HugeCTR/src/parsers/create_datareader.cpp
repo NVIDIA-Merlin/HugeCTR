@@ -60,8 +60,6 @@ void create_datareader<TypeKey>::operator()(
     }
   }
 
-  auto cache_eval_data = get_value_from_json_soft<int>(j, "cache_eval_data", 0);
-
   std::string source_data = get_value_from_json<std::string>(j, "source");
 
   auto j_label = get_json(j, "label");

@@ -419,6 +419,8 @@ float AverageLoss<T>::finalize_metric() {
   return ret;
 }
 
+
+
 void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
                             size_t num_global_gpus) {
   size_t bins_buffer_size = num_bins * sizeof(CountType);

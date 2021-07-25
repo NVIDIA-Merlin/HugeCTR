@@ -78,7 +78,6 @@ void add_input(Input& input, DataReaderParams& reader_params,
             const std::shared_ptr<ResourceManager> resource_manager) {
   DataReaderType_t format = reader_params.data_reader_type;
   Check_t check_type = reader_params.check_type;
-  int cache_eval_data = reader_params.cache_eval_data;
   std::string source_data = reader_params.source[0];
   std::string eval_source =  reader_params.eval_source;
   long long num_samples = reader_params.num_samples;

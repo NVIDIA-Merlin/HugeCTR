@@ -20,6 +20,7 @@
 #include <utils.hpp>
 
 namespace HugeCTR {
+// std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
 std::shared_ptr<ResourceManager> ResourceManager::create(
     const std::vector<std::vector<int>>& visible_devices, unsigned long long seed,

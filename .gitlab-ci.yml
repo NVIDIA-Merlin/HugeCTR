@@ -14,6 +14,8 @@ variables:
   DATASET: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_MOUNT: /dataset/criteo_kaggle
   DLRM_DATASET: /raid/datasets/criteo/mlperf/40m.limit_preshuffled
+  DIN_DATASET_MOUNT: /dataset
+  DIN_DATASET: /lustre/fsw/devtech/hpc-hugectr/din
   DATASET_CRITEO_SELENE: /lustre/fsw/devtech/hpc-hugectr/criteo_kaggle
   DATASET_CRITEO_CIRCE: /gpfs/fs1/minseokl/datasets/criteo_kaggle
   DATASET_NEW_CRITEO_SELENE: /lustre/fsw/devtech/hpc-hugectr/new-criteo-dataset
@@ -344,6 +346,26 @@ py_low_level:
       cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle &&
       python3 ${WORK_DIR}/test/pybind_test/dlrm_8gpu_set_source.py ${WORK_DIR}/test/scripts/dlrm_set_source.json"
+
+din_single_node:
+  extends: .cluster_test_train_job
+  script:
+    - srun --ntasks=1
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DIN_DATASET}:${DIN_DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      bash -cx "
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/ &&
+      python3 ${WORK_DIR}/test/pybind_test/din_fp32_1gpu.py"
+    - srun --ntasks=1
+      -A devtech -J devtech:hugectr -p luna
+      --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
+      --container-mounts ${DIN_DATASET}:${DIN_DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
+      bash -cx "
+      cp ${WORK_DIR}/build/build_single/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
+      cd /dataset/ &&
+      python3 ${WORK_DIR}/test/pybind_test/din_fp32_2gpu.py"
 
 mos_single_node:
   extends: .cluster_test_train_job

@@ -94,11 +94,12 @@ static void check_device(int device_id, int min_major, int min_minor) {
 
 ModelOversubscriberParams::ModelOversubscriberParams(
     bool _train_from_scratch, bool _use_host_memory_ps,
-    std::vector<std::string>& _trained_sparse_models,
-    std::vector<std::string>& _dest_sparse_models)
-  : use_model_oversubscriber(true), use_host_memory_ps(_use_host_memory_ps),
-    train_from_scratch(_train_from_scratch),
-    trained_sparse_models(_trained_sparse_models), dest_sparse_models(_dest_sparse_models) {}
+    std::vector<std::string>& _trained_sparse_models, std::vector<std::string>& _dest_sparse_models)
+    : use_model_oversubscriber(true),
+      use_host_memory_ps(_use_host_memory_ps),
+      train_from_scratch(_train_from_scratch),
+      trained_sparse_models(_trained_sparse_models),
+      dest_sparse_models(_dest_sparse_models) {}
 
 ModelOversubscriberParams::ModelOversubscriberParams() : use_model_oversubscriber(false) {}
 
@@ -150,43 +151,70 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type,
   } else {
     CK_THROW_(Error_t::WrongInput, "No such combiner type: " + combiner_str);
   }
-  max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
+  max_vocabulary_size_per_gpu =
+      (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
 }
 
 DenseLayer::DenseLayer(Layer_t layer_type,
-            std::vector<std::string>& bottom_names,
-            std::vector<std::string>& top_names,
-            float factor,
-            float eps,
-            Initializer_t gamma_init_type,
-            Initializer_t beta_init_type,
-            float dropout_rate,
-            float elu_alpha,
-            size_t num_output,
-            Initializer_t weight_init_type,
-            Initializer_t bias_init_type,
-            int num_layers,
-            size_t leading_dim,
-            bool selected,
-            std::vector<int> selected_slots,
-            std::vector<std::pair<int, int>> ranges,
-            std::vector<size_t> weight_dims,
-            size_t out_dim,
-            int axis,
-            std::vector<float> target_weight_vec,
-            bool use_regularizer,
-            Regularizer_t regularizer_type,
-            float lambda,
-            FcPosition_t pos_type,
-            Activation_t act_type) 
-    : layer_type(layer_type), bottom_names(bottom_names), top_names(top_names),
-      factor(factor), eps(eps), gamma_init_type(gamma_init_type),
-      beta_init_type(beta_init_type), dropout_rate(dropout_rate), elu_alpha(elu_alpha),
-      num_output(num_output), weight_init_type(weight_init_type), bias_init_type(bias_init_type),
-      num_layers(num_layers), leading_dim(leading_dim), selected(selected),
-      selected_slots(selected_slots), ranges(ranges), weight_dims(weight_dims),
-      out_dim(out_dim), axis(axis), target_weight_vec(target_weight_vec),
-      use_regularizer(use_regularizer), regularizer_type(regularizer_type), lambda(lambda),
+                       std::vector<std::string>& bottom_names,
+                       std::vector<std::string>& top_names,
+                       float factor,
+                       float eps,
+                       Initializer_t gamma_init_type,
+                       Initializer_t beta_init_type,
+                       float dropout_rate,
+                       float elu_alpha,
+                       size_t num_output,
+                       Initializer_t weight_init_type,
+                       Initializer_t bias_init_type,
+                       int num_layers,
+                       size_t leading_dim,
+                       size_t time_step,
+                       size_t batchsize,
+                       size_t SeqLength,
+                       size_t vector_size,
+                       bool selected,
+                       std::vector<int> selected_slots,
+                       std::vector<std::pair<int, int>> ranges,
+                       std::vector<int> indices,
+                       std::vector<size_t> weight_dims,
+                       size_t out_dim,
+                       int axis,
+                       std::vector<float> target_weight_vec,
+                       bool use_regularizer,
+                       Regularizer_t regularizer_type,
+                       float lambda,
+                       FcPosition_t pos_type,
+                       Activation_t act_type) 
+    : layer_type(layer_type),
+      bottom_names(bottom_names),
+      top_names(top_names),
+      factor(factor),
+      eps(eps),
+      gamma_init_type(gamma_init_type),
+      beta_init_type(beta_init_type),
+      dropout_rate(dropout_rate),
+      elu_alpha(elu_alpha),
+      num_output(num_output),
+      weight_init_type(weight_init_type),
+      bias_init_type(bias_init_type),
+      num_layers(num_layers),
+      leading_dim(leading_dim),
+      time_step(time_step),
+      batchsize(batchsize),
+      SeqLength(SeqLength),
+      vector_size(vector_size),
+      selected(selected),
+      selected_slots(selected_slots),
+      ranges(ranges),
+      indices(indices),
+      weight_dims(weight_dims),
+      out_dim(out_dim),
+      axis(axis),
+      target_weight_vec(target_weight_vec),
+      use_regularizer(use_regularizer),
+      regularizer_type(regularizer_type),
+      lambda(lambda),
       pos_type(pos_type), act_type(act_type) {}
 
 void init_optimizer(OptParams& opt_params, const Solver& solver,
@@ -242,9 +270,18 @@ void init_exchange_wgrad(const std::shared_ptr<ResourceManager>& resource_manage
 Model::Model(const Solver& solver, const DataReaderParams& reader_params,
             std::shared_ptr<OptParamsPy>& opt_params_py,
             std::shared_ptr<ModelOversubscriberParams>& mos_params)
-  : solver_(solver), reader_params_(reader_params), opt_params_py_(opt_params_py), mos_params_(mos_params),
-  data_reader_train_status_(false), data_reader_eval_status_(false), buff_allocated_(false),
-  mos_created_(false), is_embedding_trainable_(true), is_dense_trainable_(true), mlperf_bottom_mlp_(true) {
+    : solver_(solver),
+      reader_params_(reader_params),
+      opt_params_py_(opt_params_py),
+      mos_params_(mos_params),
+      data_reader_train_status_(false),
+      data_reader_eval_status_(false),
+      buff_allocated_(false),
+      mos_created_(false),
+      is_embedding_trainable_(true),
+      is_dense_trainable_(true),
+      current_eval_batchsize_(0),
+      mlperf_bottom_mlp_(true) {
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -267,7 +304,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
     }
   }
   if (reader_params_.source.size() < 1 || reader_params_.eval_source.empty()) {
-    CK_THROW_(Error_t::WrongInput, "The data source for training and evaluation should be specified");
+    CK_THROW_(Error_t::WrongInput,
+              " The data source for training and evaluation should be specified");
   }
   if (mos_params_->use_model_oversubscriber && solver_.repeat_dataset) {
     CK_THROW_(Error_t::WrongInput,
@@ -342,7 +380,13 @@ void Model::graph_to_json(std::string graph_config_file) {
   nlohmann::json graph_config;
   std::ofstream file_stream(graph_config_file);
   nlohmann::json layer_config_array = nlohmann::json::array();
-  save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_, input_params_, embedding_opt_params_list_, solver_.use_mixed_precision);
+  if (solver_.use_mixed_precision) {
+    save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_,
+                       input_params_, embedding_opt_params_list_);
+  } else {
+    save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_,
+                       input_params_, embedding_opt_params_list_);
+  }
   graph_config["layers"] = layer_config_array;
   file_stream << std::setw(2) << graph_config;
   file_stream.close();
@@ -754,10 +798,11 @@ void Model::set_source(std::string source, std::string eval_source) {
   reader_params_.eval_source.assign(eval_source);
 }
 
-void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
-              int snapshot, std::string snapshot_prefix) {
+void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, int snapshot,
+                std::string snapshot_prefix) {
   if (!buff_allocated_) {
-    CK_THROW_(Error_t::IllegalCall, "Cannot start the training process before calling Model.compile()");
+    CK_THROW_(Error_t::IllegalCall,
+              "Cannot start the training process before calling Model.compile()");
   }
   if (solver_.repeat_dataset && max_iter <= 0) {
     CK_THROW_(Error_t::WrongInput, "Require max_iter>0 under non-epoch mode");
@@ -780,15 +825,22 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
 
   bool epoch_mode = !solver_.repeat_dataset;
   bool mos_mode = mos_params_->use_model_oversubscriber;
-  int mos_epochs = num_epochs<1?1:num_epochs;
-
+  int mos_epochs = num_epochs < 1 ? 1 : num_epochs;
+  int __PID(0);
+#ifdef ENABLE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
+#endif
   if (__PID == 0) {
-    std::cout << "=====================================================Model Fit=====================================================" << std::endl;
+    std::cout << "=====================================================Model "
+                 "Fit====================================================="
+              << std::endl;
   }
   if (epoch_mode && !mos_mode) {
     MESSAGE_("Use epoch mode with number of epochs: " + std::to_string(num_epochs));
   } else if (epoch_mode && mos_mode) {
-    MESSAGE_("Use model oversubscriber mode with number of training sources: " + std::to_string(reader_params_.source.size()) + ", number of epochs: " + std::to_string(mos_epochs));
+    MESSAGE_("Use model oversubscriber mode with number of training sources: " +
+             std::to_string(reader_params_.source.size()) +
+             ", number of epochs: " + std::to_string(mos_epochs));
   } else {
     MESSAGE_("Use non-epoch mode with number of iterations: " + std::to_string(max_iter));
   }
@@ -827,7 +879,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
     MESSAGE_("Training source file: " + reader_params_.source[0]);
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
     for (int e = 0; e < num_epochs; e++) {
-      MESSAGE_("-----------------------------------Epoch " + std::to_string(e) + "-----------------------------------");
+      MESSAGE_("-----------------------------------Epoch " + std::to_string(e) +
+               "-----------------------------------");
       data_reader_train->set_source(reader_params_.source[0]);
       data_reader_train_status_ = true;
       do {
@@ -900,7 +953,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
             }
           }
           MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
-            " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+                   " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
         }
         if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
           this->download_params_to_files(snapshot_prefix, iter);
@@ -928,7 +981,8 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
     for (int e = 0; e < mos_epochs; e++) {
       for (unsigned int f = 0; f < reader_params_.source.size(); f++) {
-        MESSAGE_("--------------------Epoch " + std::to_string(e) + ", source file: " + reader_params_.source[f] + "--------------------");
+        MESSAGE_("--------------------Epoch " + std::to_string(e) +
+                 ", source file: " + reader_params_.source[f] + "--------------------");
         data_reader_train->set_source(reader_params_.source[f]);
         data_reader_train_status_ = true;
         model_oversubscriber->update(reader_params_.keyset[f]);
@@ -951,7 +1005,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
             this->get_current_loss(&loss);
             if (isnan(loss)) {
               throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") +
-                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
+                                       " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
             }
             if (!solver_.use_holistic_cuda_graph) {
               MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
@@ -983,15 +1037,16 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
             timer_eval.stop();
             auto eval_metrics = this->get_eval_metrics();
             for (auto& eval_metric : eval_metrics) {
-              MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+              MESSAGE_("Evaluation, " + eval_metric.first + ": " +
+                       std::to_string(eval_metric.second));
             }
             MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
-              " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+                     " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
           }
           iter++;
         } while (data_reader_train_status_);
-      } // end for file list
-    } // end for epoch
+      }  // end for file list
+    }    // end for epoch
   } else {
     MESSAGE_("Training source file: " + reader_params_.source[0]);
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
@@ -1060,7 +1115,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval,
           }
         }
         MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
-          " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+                 " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter);
@@ -1193,11 +1248,22 @@ void Model::train_overlapped() {
 bool Model::train() {
   try {
     if (train_data_reader_->is_started() == false) {
-      CK_THROW_(Error_t::IllegalCall,
-                "Start the data reader first before calling Model::train()");
+      CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::train()");
     }
 #ifndef DATA_READING_TEST
-    long long current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release();
+    // TODO: assuming the there are enough training iterations, incomplete batches
+    // are discarded, so that we can bypass the runtime error in the epoch mode,
+    // whilst maintaining the dense network training logic.
+    // To minimize the wasted batches, consider to adjust # of data reader workers.
+    // For instance, with a file list source, set "num_workers" to a dvisior of
+    // the number of data files in the file list.
+    // We will look into some alternatives in the long term.
+    long long current_batchsize = 0;
+    while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
+           (current_batchsize < train_data_reader_->get_full_batchsize())) {
+      MESSAGE_("train drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
+      train_data_reader_->ready_to_collect();
+    }
     if (!current_batchsize) {
       return false;
     }
@@ -1306,13 +1372,20 @@ bool Model::eval(int eval_batch) {
     if (evaluate_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::eval()");
     }
-    long long current_batchsize = evaluate_data_reader_->read_a_batch_to_device();
+    long long current_batchsize = 0;
+    while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
+           (current_batchsize < evaluate_data_reader_->get_full_batchsize())) {
+      MESSAGE_("eval drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
+      evaluate_data_reader_->ready_to_collect();
+    }
     for (auto& metric : metrics_) {
       metric->set_current_batch_size(current_batchsize);
     }
+    current_eval_batchsize_ = current_batchsize;
     if (!current_batchsize) {
       return false;
     }
+    evaluate_data_reader_->ready_to_collect();
 #ifndef DATA_READING_TEST
     for (auto& one_embedding : embeddings_) {
       one_embedding->forward(false, eval_batch);
@@ -1357,6 +1430,10 @@ bool Model::eval(int eval_batch) {
 Error_t Model::export_predictions(const std::string& output_prediction_file_name,
                                   const std::string& output_label_file_name) {
   try {
+    if (current_eval_batchsize_ == 0) {
+      MESSAGE_("Reach end of eval dataset. Skip export prediction");
+      return Error_t::Success;
+    }
     CudaDeviceContext context;
     const std::vector<int>& local_gpu_device_id_list =
         resource_manager_->get_local_gpu_device_id_list();
@@ -1417,8 +1494,8 @@ Error_t Model::export_predictions(const std::string& output_prediction_file_name
         output_stream.close();
       };
       write_func(output_prediction_file_name, global_prediction_result.get(),
-                 solver_.batchsize_eval);
-      write_func(output_label_file_name, global_label_result.get(), solver_.batchsize_eval);
+                 current_eval_batchsize_);
+      write_func(output_label_file_name, global_label_result.get(), current_eval_batchsize_);
     }
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
@@ -1498,7 +1575,7 @@ void Model::copy_weights_for_evaluation() {
 }
 
 Error_t Model::download_dense_params_to_files_(std::string weights_file,
-                                              std::string dense_opt_states_file) {
+                                               std::string dense_opt_states_file) {
   try {
     if (resource_manager_->is_master_process()) {
       std::ofstream out_stream_weight(weights_file, std::ofstream::binary);
@@ -1528,8 +1605,9 @@ Error_t Model::download_dense_params_to_files_(std::string weights_file,
   return Error_t::Success;
 }
 
-Error_t Model::download_sparse_params_to_files_(const std::vector<std::string>& embedding_files,
-                                                const std::vector<std::string>& sparse_opt_state_files) {
+Error_t Model::download_sparse_params_to_files_(
+    const std::vector<std::string>& embedding_files,
+    const std::vector<std::string>& sparse_opt_state_files) {
   try {
     {
       int i = 0;
@@ -1568,9 +1646,9 @@ std::shared_ptr<ModelOversubscriber> Model::create_model_oversubscriber_(
                 "must provide sparse_model_file. \
           if train from scratch, please specify a name to store the trained embedding model");
     }
-    return std::shared_ptr<ModelOversubscriber>(
-        new ModelOversubscriber(use_host_memory_ps, embeddings_, sparse_embedding_files,
-            resource_manager_, solver_.use_mixed_precision, solver_.i64_input_key));
+    return std::shared_ptr<ModelOversubscriber>(new ModelOversubscriber(
+        use_host_memory_ps, embeddings_, sparse_embedding_files, resource_manager_,
+        solver_.use_mixed_precision, solver_.i64_input_key));
   } catch (const internal_runtime_error& rt_err) {
     std::cerr << rt_err.what() << std::endl;
     throw rt_err;
@@ -1687,13 +1765,13 @@ void Model::init_params_for_sparse_() {
 }
 
 void Model::init_model_oversubscriber_(bool use_host_memory_ps,
-    const std::vector<std::string>& sparse_embedding_files) {
+                                       const std::vector<std::string>& sparse_embedding_files) {
   if (solver_.use_mixed_precision) {
-    model_oversubscriber_ = create_model_oversubscriber_<__half>(
-        use_host_memory_ps, sparse_embedding_files);
+    model_oversubscriber_ =
+        create_model_oversubscriber_<__half>(use_host_memory_ps, sparse_embedding_files);
   } else {
-    model_oversubscriber_ = create_model_oversubscriber_<float>(
-        use_host_memory_ps, sparse_embedding_files);
+    model_oversubscriber_ =
+        create_model_oversubscriber_<float>(use_host_memory_ps, sparse_embedding_files);
   }
   mos_created_ = true;
 }

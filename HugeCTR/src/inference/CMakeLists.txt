@@ -43,6 +43,15 @@ file(GLOB huge_ctr_src
   ../layers/reduce_sum_layer.cu
   ../layers/dot_product_layer.cu
   ../layers/elementwise_multiply_layer.cu
+  ../layers/gru_layer.cu
+  ../layers/prelu_dice_layer.cu
+  ../layers/softmax_layer.cu
+  ../layers/scale_layer.cu
+  ../layers/fused_reshape_concat_general_layer.cu
+  ../layers/fused_reshape_concat_layer.cu
+  ../layers/sub_layer.cu
+  ../layers/gather_layer.cu
+  ../layers/reduce_mean_layer.cu
   ../loss.cu
   ../network.cu
   ../network.cpp

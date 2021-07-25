@@ -264,6 +264,47 @@ class HitRate: public Metric {
 */
 
 
+/*
+template <typename T>
+class HitRate: public Metric {
+ public:
+  using PredType = T;
+  using LabelType = float;
+  HitRate(int batch_size_per_gpu, int n_batches,
+      const std::shared_ptr<ResourceManager>& resource_manager);
+  ~HitRate() override;
+
+  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
+  void global_reduce(int n_nets) override;
+  float finalize_metric() override;
+  std::string name() const override { return "HitRate"; };
+
+  // Public in order to use device lambda
+  float _finalize_metric_per_gpu(int device_id);
+
+ private:
+  const float pred_min_ = 0.0f;
+  const float pred_max_ = 1.0f;
+  const int num_bins_per_gpu_ = 10000;
+
+  std::shared_ptr<ResourceManager> resource_manager_;
+
+  int n_batches_;
+  int num_local_gpus_;
+  int num_global_gpus_;
+  int batch_size_per_gpu_;
+  int num_bins_;
+  int num_partitions_;
+  size_t num_total_samples_;
+
+  AUCBarrier barrier_;
+
+  std::vector<size_t> offsets_;
+  std::vector<AUCStorage> storage_;
+};
+*/
+
+
 }  // namespace metrics
 
 }  // namespace HugeCTR

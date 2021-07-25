@@ -260,7 +260,8 @@ int main(int argc, char* argv[]) {
 			  slot_size_array, float_label_dense);
       
 
-      std::cout << "Configure File: " << config_file << ", Number of train samples: " << num_samples
+      std::cout << "Configure File: " << config_file
+                << ", Number of train samples: " << num_samples
                 << ", Number of eval samples: " << eval_num_samples
                 << ", Use power law distribution: " << use_long_tail
                 << ", alpha of power law: " << alpha << std::endl;
