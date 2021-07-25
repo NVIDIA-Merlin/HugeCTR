@@ -211,10 +211,10 @@ class HybridSparseEmbedding : public IEmbedding {
   void load_parameters(BufferBag &keys, size_t num) override {}
   void dump_parameters(BufferBag& keys, size_t *num) const override {}
 
-  void reset() override {}
-
   void dump_opt_states(std::ofstream& stream) override {} 
   void load_opt_states(std::ifstream& stream) override {} 
+  void reset_optimizer() override {}
+  void reset() override {}
 
   const SparseEmbeddingHashParams& get_embedding_params() const override {
     return dummy_params_;

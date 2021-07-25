@@ -661,18 +661,18 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
           // establish layer
-          layers.emplace_back(new MultiCrossLayer<__half>(weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor,
-                                                  out_tensor, gpu_resource, num_layers,
-                                                  initializer_types));
+          emplaceback_layer(new MultiCrossLayer<__half>(
+              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, mc_in_tensor, out_tensor,
+              gpu_resource, num_layers, initializer_types));
         } else {
           Tensor2<float> mc_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
           blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
           // establish layer
-          layers.emplace_back(new MultiCrossLayer<float>(weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
-                                                  out_tensor, gpu_resource, num_layers,
-                                                  initializer_types));
+          emplaceback_layer(new MultiCrossLayer<float>(
+              weight_buff, weight_buff, wgrad_buff, blobs_buff, mc_in_tensor, out_tensor,
+              gpu_resource, num_layers, initializer_types));
         }
         break;
       }
@@ -759,7 +759,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         int axis = get_json(j, "axis").get<int>();
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
-        layers.emplace_back(
+        emplaceback_layer(
             new ReduceMeanLayer<float>(in_tensor, out_tensor, blobs_buff, axis, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         break;
@@ -771,7 +771,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         }
         Tensor2<float> out_tensor;
         blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-        layers.emplace_back(new SubLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
+        emplaceback_layer(new SubLayer<float>(in_tensors, out_tensor, blobs_buff, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         break;
       }
@@ -784,7 +784,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         }
         Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
         Tensor2<float> out_tensor;
-        layers.emplace_back(
+        emplaceback_layer(
             new GatherLayer<float>(in_tensor, out_tensor, blobs_buff, indices, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
 
@@ -824,7 +824,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         Tensor2<float> gru_out_tensor;
         blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &gru_out_tensor);
         // establish layer
-        layers.emplace_back(new GRULayer<float>(weight_buff, wgrad_buff, in_tensor, gru_out_tensor,
+        emplaceback_layer(new GRULayer<float>(weight_buff, wgrad_buff, in_tensor, gru_out_tensor,
                                                 output, batchsize, SeqLength, embedding_vec_size,
                                                 gpu_resource, initializer_types));
         output_tensor_entries.push_back(
@@ -837,7 +837,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         Tensor2<float> out_tensor;
         blobs_buff->reserve(in_tensor.get_dimensions(), &out_tensor);
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
-        layers.emplace_back(
+        emplaceback_layer(
             new SoftmaxLayer<float>(in_tensor, out_tensor, blobs_buff, gpu_resource));
         break;
       }
@@ -850,7 +850,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         auto j_prelu_dice_param = get_json(j, "prelu_dice_param");
         auto alpha = get_value_from_json<float>(j_prelu_dice_param, "alpha");
         auto epsilon = get_value_from_json<float>(j_prelu_dice_param, "epsilon");
-        layers.emplace_back(new PRelu_Dice_Layer<float>(in_tensor, out_tensor, blobs_buff, alpha,
+        emplaceback_layer(new PRelu_Dice_Layer<float>(in_tensor, out_tensor, blobs_buff, alpha,
                                                         epsilon, gpu_resource));
         break;
       }
@@ -861,7 +861,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         auto j_scale_param = get_json(j, "scale_param");
         auto axis = get_value_from_json<float>(j_scale_param, "axis");
         auto factor = get_value_from_json<float>(j_scale_param, "factor");
-        layers.emplace_back(new ScaleLayer<float>(scale_in_tensor, scale_out_tensor, blobs_buff,
+        emplaceback_layer(new ScaleLayer<float>(scale_in_tensor, scale_out_tensor, blobs_buff,
                                                   axis, factor, gpu_resource));
         output_tensor_entries.push_back(
             {input_output_info.output_names[0], scale_out_tensor.shrink()});
@@ -873,7 +873,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           in_tensors.push_back(Tensor2<float>::stretch_from(bag));
         }
         Tensors2<float> out_tensors;
-        layers.emplace_back(
+        emplaceback_layer(
             new FusedReshapeConcatLayer<float>(in_tensors, out_tensors, blobs_buff, gpu_resource));
         for (size_t i = 0; i < out_tensors.size(); i++) {
           output_tensor_entries.push_back(
@@ -887,7 +887,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           in_tensors.push_back(Tensor2<float>::stretch_from(bag));
         }
         Tensor2<float> out_tensor;
-        layers.emplace_back(new FusedReshapeConcatGeneralLayer<float>(in_tensors, out_tensor,
+        emplaceback_layer(new FusedReshapeConcatGeneralLayer<float>(in_tensors, out_tensor,
                                                                       blobs_buff, gpu_resource));
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         break;
@@ -1151,7 +1151,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           }
           Tensor2<__half> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(new ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor,
+          emplaceback_layer(new ElementwiseMultiplyLayer<__half>(in_tensors, out_tensor,
                                                                    blobs_buff, gpu_resource));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
@@ -1161,7 +1161,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           }
           Tensor2<float> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(new ElementwiseMultiplyLayer<float>(in_tensors, out_tensor,
+          emplaceback_layer(new ElementwiseMultiplyLayer<float>(in_tensors, out_tensor,
                                                                   blobs_buff, gpu_resource));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }

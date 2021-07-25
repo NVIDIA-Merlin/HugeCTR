@@ -492,6 +492,11 @@ void data_to_unique_categories(TypeKey *value, const TypeKey *rowoffset,
                                int num_rowoffsets, const cudaStream_t &stream);
 
 template <typename TypeKey>
+void data_to_unique_categories(TypeKey *value, const TypeKey *rowoffset,
+                               const TypeKey *emmbedding_offsets, int num_tables,
+                               int num_rowoffsets, const cudaStream_t &stream);
+
+template <typename TypeKey>
 void data_to_unique_categories(TypeKey *value, const TypeKey *emmbedding_offsets, int num_tables,
                                int nnz, const cudaStream_t &stream);
 
@@ -516,10 +521,5 @@ void distribute_keys_for_inference(TypeKey* out, TypeKey* in, size_t batchsize, 
     }
   }
 }
-
-template <typename TypeKey>
-void data_to_unique_categories(TypeKey *value, const TypeKey *rowoffset,
-                               const TypeKey *emmbedding_offsets, int num_tables,
-                               int num_rowoffsets, const cudaStream_t &stream);
 
 }  // namespace HugeCTR

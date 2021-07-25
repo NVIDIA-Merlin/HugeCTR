@@ -326,5 +326,4 @@ namespace cpu {
   }
 }
 }  // namespace sparse_tensor_helper
-
 }  // namespace HugeCTR

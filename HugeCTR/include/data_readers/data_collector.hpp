@@ -182,6 +182,9 @@ class DataCollector {
   std::shared_ptr<ResourceManager> resource_manager_;
 
  public:
+  void stop(){ 
+    background_collector_.stop();
+  }
   DataCollector(const std::vector<std::shared_ptr<ThreadBuffer>> &thread_buffers,
                 const std::shared_ptr<BroadcastBuffer> &broadcast_buffer,
                 std::shared_ptr<DataReaderOutput> &output,

@@ -21,10 +21,6 @@ HugeCTR is available as buildable source code, but the easiest way to install an
    ```shell.
    source activate merlin
    ```
-3. Activate the merlin conda environment by running the following command:  
-   ```shell.
-   source activate merlin
-   ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
 If you want to build the HugeCTR Docker container on your own, refer to [Build HugeCTR Docker Containers](../../tools/dockerfiles#build-container-for-model-training).

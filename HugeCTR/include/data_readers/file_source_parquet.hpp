@@ -59,6 +59,7 @@ class ParquetFileSource : public Source {
   char* mmapped_data_;        /**< Memory mapped file pointer */
   int fd_;                    /**< File descriptor for mapped file */
 
+  bool repeat_;
   /**
    * Private Helper function to get metdata file address
    */
@@ -82,8 +83,9 @@ class ParquetFileSource : public Source {
   /**
    * Ctor
    */
-  ParquetFileSource(unsigned int offset, unsigned int stride, const std::string& file_list)
+  ParquetFileSource(unsigned int offset, unsigned int stride, const std::string& file_list,bool repeat)
       : file_list_(file_list),
+        repeat_(repeat),
         offset_(offset),
         stride_(stride),
         can_read_file_(false),
@@ -126,9 +128,15 @@ class ParquetFileSource : public Source {
         fd_ = -1;
         can_read_file_ = false;
       }
-      file_name_ = file_list_.get_a_file_with_id(offset_ + counter_ * stride_, true);
-
+      file_name_ = file_list_.get_a_file_with_id(offset_ + counter_ * stride_, repeat_);
+      std::stringstream ss ;
+      // ss<<"worker_id "<<offset<<" counter_ "<<" counter_ "
+      counter_++;         // counter_ should be accum for every source.
       // check if file exists
+      if (file_name_.empty()) {
+        return Error_t::EndOfFile;
+      }
+
       in_file_stream_.open(file_name_, std::ifstream::binary);
       if (!in_file_stream_.is_open()) {
         CK_RETURN_(Error_t::FileCannotOpen, "in_file_stream_.is_open() failed: " + file_name_);
@@ -149,9 +157,7 @@ class ParquetFileSource : public Source {
         CK_RETURN_(Error_t::BrokenFile, "Error mmapping the file");
       }
 
-      parquet_args =
-          cudf_io::parquet_reader_options::builder(cudf_io::source_info{mmapped_data_, file_size_});
-      counter_++;         // counter_ should be accum for every source.
+      parquet_args = cudf_io::parquet_reader_options::builder(cudf_io::source_info{mmapped_data_, file_size_});
       curr_row_idx_ = 0;  // set row to zero id
       file_total_rows_ = 0;
       curr_row_group_ = 0;

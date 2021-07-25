@@ -213,6 +213,7 @@ class DataReader : public IDataReader {
   ~DataReader() override {
     try {
       // stop all the loops
+      data_collector_->stop();
       worker_group_->end();
       size_t local_gpu_count = resource_manager_->get_local_gpu_count();
       for (size_t i = 0; i < local_gpu_count; ++i) {
@@ -302,7 +303,7 @@ class DataReader : public IDataReader {
     source_type_ = SourceType_t::Parquet;
     // worker_group_.empty
     worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
-        thread_buffers_, file_name, params_, slot_offset, resource_manager_, start_reading_from_beginning));
+        thread_buffers_, file_name, repeat_, params_, slot_offset, resource_manager_, start_reading_from_beginning));
   }
 
   void set_source(std::string file_name = std::string()) override {

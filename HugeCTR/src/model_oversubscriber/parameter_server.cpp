@@ -73,10 +73,19 @@ void ParameterServer<TypeKey>::load_keyset_from_file(
 
 template <typename TypeKey>
 void ParameterServer<TypeKey>::pull(BufferBag& buf_bag, size_t& hit_size) {
-  if (keyset_.size() == 0) {
+  if (keyset_.empty()) {
     CK_THROW_(Error_t::WrongInput, "keyset is empty");
   }
   sparse_model_entity_.load_vec_by_key(keyset_, buf_bag, hit_size);
+}
+
+template <typename TypeKey>
+std::pair<std::vector<long long>, std::vector<float>>
+ParameterServer<TypeKey>::pull(const std::vector<long long> &keys_to_load) {
+  if (keys_to_load.empty()) {
+    CK_THROW_(Error_t::WrongInput, "keyset is empty");
+  }
+  return sparse_model_entity_.load_vec_by_key(keys_to_load);
 }
 
 template <typename TypeKey>

@@ -33,13 +33,14 @@ class IDataReaderWorker {
                 "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker "
                 "is not in the EOF state.");
     }
-
     pre_set_source();
     source_ = source;
     post_set_source();
   }
-
-  IDataReaderWorker() : is_eof_(false) {}
+  ~IDataReaderWorker(){};
+  IDataReaderWorker()
+      : is_eof_(false) {
+  }
 
  protected:
   std::shared_ptr<Source> source_; /**< source: can be file or network */

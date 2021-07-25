@@ -151,17 +151,18 @@ class DataReaderWorkerGroup {
   bool is_started() const { return data_reader_loop_flag_; }
   void start() { data_reader_loop_flag_ = 1; }
   void end() {
+
+    for (auto& data_reader : data_readers_) {
+      data_reader->skip_read();
+    }
     // Make sure the data reader  threads escape the pre-main loop
     if (data_reader_loop_flag_ == 0) {
       data_reader_loop_flag_ = 1;
       sleep(2);
     }
-
     // Data reader threads escape the main loop
     data_reader_loop_flag_ = 0;
-    for (auto& data_reader : data_readers_) {
-      data_reader->skip_read();
-    }
+
   }
 
   virtual ~DataReaderWorkerGroup() {
@@ -172,8 +173,9 @@ class DataReaderWorkerGroup {
 
   void set_source(SourceType_t source_type, const std::string& file_name, bool repeat) {
     if (!((source_type == SourceType_t::FileList && data_reader_type_ == DataReaderType_t::Norm) ||
-          (source_type == SourceType_t::Mmap && data_reader_type_ == DataReaderType_t::Raw))) {
-      CK_THROW_(Error_t::WrongInput, "set_source only supports FileList for Norm & Mmap for Raw");
+          (source_type == SourceType_t::Mmap && data_reader_type_ == DataReaderType_t::Raw) || 
+          (source_type == SourceType_t::Parquet && data_reader_type_ == DataReaderType_t::Parquet))) {
+      CK_THROW_(Error_t::WrongInput, "set_source only supports FileList for Norm & Mmap for Raw & Parquet for Parquet");
     }
     size_t num_workers = data_readers_.size();
     for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {

@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include "utest/model_oversubscriber/mos_test_utils.hpp"
 #include "HugeCTR/include/model_oversubscriber/sparse_model_entity.hpp"
 
@@ -91,10 +92,11 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
   }
   float *emb_ptr = buf_bag.embedding.get_ptr();
 
+  HugeCTR::SparseModelEntity<TypeKey> sparse_model_entity(use_host_mem, snapshot_dst_file,
+    embedding_type, emb_vec_size, resource_manager);
+
   // test load_vec_by_key
   MESSAGE_("[TEST] sparse_model_entity::load_vec_by_key");
-  HugeCTR::SparseModelEntity<TypeKey> sparse_model_entity(use_host_mem, snapshot_dst_file,
-      embedding_type, emb_vec_size, resource_manager);
 
   size_t key_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "key"));
   size_t vec_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "emb_vector"));
@@ -116,7 +118,19 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
 
   ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char *>(vec_in_file.data()),
       reinterpret_cast<char *>(emb_ptr), vec_in_file.size() * sizeof(float), 0));
-  
+
+  if (use_host_mem) {
+    std::vector<long long> key_ll(key_in_file.size());
+    std::transform(key_in_file.begin(), key_in_file.end(), key_ll.begin(), [](TypeKey key) {
+      return static_cast<long long>(key);
+    });
+
+    auto key_vec_pair = sparse_model_entity.load_vec_by_key(key_ll);
+    ASSERT_EQ(key_vec_pair.first.size(), key_in_file.size());
+    ASSERT_TRUE(test::compare_array_approx<char>(reinterpret_cast<char *>(vec_in_file.data()),
+        reinterpret_cast<char *>(key_vec_pair.second.data()), vec_in_file.size() * sizeof(float), 0));
+  }
+
   std::vector<size_t> slot_in_file(num_keys);
   if (!is_distributed) {
     size_t slot_file_size_in_byte = fs::file_size(get_ext_file(snapshot_dst_file, "slot_id"));

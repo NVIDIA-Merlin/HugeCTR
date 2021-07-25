@@ -1,8 +1,8 @@
 import hugectr
 from mpi4py import MPI
 solver = hugectr.CreateSolver(max_eval_batches = 100,
-                              batchsize_eval = 2**16,
-                              batchsize = 2**16,
+                              batchsize_eval = 27700,
+                              batchsize = 175480,
                               lr = 0.0045,
                               vvgpu = [[0]],
                               metrics_spec = {hugectr.MetricsType.HitRate: 0.8,
@@ -10,10 +10,10 @@ solver = hugectr.CreateSolver(max_eval_batches = 100,
                                               hugectr.MetricsType.AUC: 1.0},
                               repeat_dataset = False)
 reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Norm,
-                                  source = ["./data/ml-1m/train_filelist.txt"],
-                                  eval_source = "./data/ml-1m/test_filelist.txt",
+                                  source = ["./data/ml-20m/train_filelist.txt"],
+                                  eval_source = "./data/ml-20m/test_filelist.txt",
                                   check_type = hugectr.Check_t.Non,
-                                  num_workers = 8)
+                                  num_workers = 10)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
                                     update_type = hugectr.Update_t.Global,
                                     beta1 = 0.25,
@@ -27,7 +27,7 @@ model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         data_reader_sparse_param_array = 
                         [hugectr.DataReaderSparseParam("data", 1, True, 2)]))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            workspace_size_per_gpu_in_mb = 4,
+                            workspace_size_per_gpu_in_mb = 60,
                             embedding_vec_size = 72,
                             combiner = "sum",
                             sparse_embedding_name = "mixed_embedding",
@@ -94,7 +94,7 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Slice,
                             bottom_names = ["gmf_embedding"],
                             top_names = ["user", "item"],
                             ranges=[(0,7),(8,15)]))
-model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ElementwiseMultiply,
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.DotProduct,
                             bottom_names = ["user", "item"],
                             top_names = ["gmf_multiply"]))
 
@@ -113,5 +113,4 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
                             top_names = ["loss"]))
 model.compile()
 model.summary()
-#model.fit(max_iter = 100, display = 10, eval_interval = 50, snapshot = 10000, snapshot_prefix = "neumf")
-model.fit(num_epochs = 10, display = 100, eval_interval = 100, snapshot = 1000000, snapshot_prefix = "neumf")
+model.fit(num_epochs = 10, display = 200, eval_interval = 200, snapshot = 100000, snapshot_prefix = "neumf")

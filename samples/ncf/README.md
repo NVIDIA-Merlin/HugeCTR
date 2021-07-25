@@ -26,16 +26,22 @@ $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 ## Download and Preprocess the MovieLens data ##
 The [Movielens dataset](https://grouplens.org/datasets/movielens/) provided by GroupLens Research is used in this example, but the provided prerocessing scripts can be edited to format other user-item interaction data for use with this example. Scripts are provided to download and preprocess both the 1M and 20M MovieLens datasets, and minor editing of the model definition is needed to use this sample code on other datasets. The default 20M MovieLens dataset used in this example contains 20 million interactions between 138493 users and 26744 items.  After preprocessing, each interaction is simply a userId and itemId.
 
-The provided script `get_ml20_dataset.sh` downloads and extracts the MovieLens 20M dataset. The dataset can then be prepared for training of the NCF model by running the provided python script `preprocess_20m.py`. Running `python preprocess_20m.py` generates a series of negative interactions to add to the dataset and writes the combined result out to a series of files that can be used by HugeCTR to train the NCF model.
+The provided script `get_ml20_dataset.sh` downloads and extracts the MovieLens 20M dataset. The dataset can then be prepared for training of the NCF model by running the provided python script `preprocess-20m.py`.  To run the preprocessing python script in the docker container, first install pytorch with the command:
+
+```shell
+$ pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
+```
+
+Running `python preprocess-20m.py` generates a series of negative interactions to add to the dataset and writes the combined result out to a series of files that can be used by HugeCTR to train the NCF model.
 
 ## Train and validate the NCF model ##
 With the above steps, the preprocessed data is saved locally in the `data/` directory. To train the NCF model using the data, simply run:
-```
-python ncf.py
+``` shell
+$ python ncf.py
 ```
 By default, this will run 10 epochs of the dataset and provide Cumulative Hit Rate (HitRate) accuracy results after each.  The HitRate provided by HugeCTR is computed on testing data as the fraction of predictions that are over a threshold (0.8) and correspond to a real interaction (i.e., label is 1). 
 
-If you are using the `Movielens 1M` dataset instead, simply edit `ncf.py` to use `ml-1m` directories, and reduce `workspace_size_per_gpu_in_mb` to 3.  Note that in general, `workspace_size_per_gpu_in_mb` should be approximately the sum of users and items in the dataset.
+If you are using the `Movielens 1M` dataset instead, simply run `get_ml1_data.sh` and `python preprocess-1m.py` to prepare the dataset.  Then edit `ncf.py` to use `ml-1m` directories, and change  parameters to the values that are commented out in `ncf.py` (such as `workspace_size_per_gpu_in_mb`).  Note that in general, `workspace_size_per_gpu_in_mb` should be approximately the sum of users and items in the dataset.
 
 
 ## Performance Evaluation ##

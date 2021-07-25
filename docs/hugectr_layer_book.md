@@ -18,6 +18,7 @@ This document introduces different layer classes and corresponding methods in th
   * [Reshape Layer](#reshape-layer)
   * [Slice Layer](#slice-layer)
   * [Dropout Layer](#dropout-layer)
+  * [DotProduct Layer](#dotproduct-layer)
   * [ELU Layer](#elu-layer)
   * [Interaction Layer](#interaction-layer)
   * [Add Layer](#add-layer)
@@ -82,7 +83,7 @@ hugectr.SparseEmbedding()
 **Arguments**
 * `embedding_type`: The embedding type to be used. The supported types include `hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash`, `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingHash` and `hugectr.Embedding_t.LocalizedSlotSparseEmbeddingOneHot`. There is NO default value and it should be specified by users. For detail about different embedding types, please refer to [Embedding Types Detail](./hugectr_layer_book.md#embedding-types-detail).
 
-* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md#24](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file).
+* `workspace_size_per_gpu_in_mb`: Integer, the workspace memory size in megabyte per GPU. This workspace memory must be big enough to hold all the embedding vocabulary used during the training and evaluation. There is NO default value and it should be specified by users. To understand how to set this value, please refer [QAList.md#24](./QAList.md#24.-How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file?).
 
 * `embedding_vec_size`: Integer, the embedding vector size. There is NO default value and it should be specified by users.
 
@@ -92,7 +93,7 @@ hugectr.SparseEmbedding()
 
 * `bottom_name`: String, the number of the bottom tensor to be consumed by this sparse embedding layer. Please note that it should be a predefined sparse input name. There is NO default value and it should be specified by users.
 
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file). There is NO default value and it should be specified by users.
+* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. This parameter is used in `LocalizedSlotSparseEmbeddingHash` and `LocalizedSlotSparseEmbeddingOneHot`, which can help avoid wasting memory caused by imbalance vocabulary size. Please refer [How to set workspace_size_per_gpu_in_mb and slot_size_array in .json file](./QAList.md#24.-How-to-set-workspace_size_per_gpu_in_mb-and-slot_size_array-in-.json-file?). There is NO default value and it should be specified by users.
 
 * `optimizer`: OptParamsPy, the optimizer dedicated to this sparse embedding layer. If the user does not specify the optimizer for the sparse embedding, it will adopt the same optimizer as dense layers. 
 
@@ -424,12 +425,33 @@ Parameter:
 
 * `dropout_rate`: Float, The dropout rate to be used for the `Dropout` layer. It should be between 0 and 1. Setting it to 1 indicates that there is no dropped element at all. The default value is 0.5.
 
+Input and Output Shapes:
+
+* input: (batch_size, num_elems)
+* output: same as input
+
 Example:
 ```python
 model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Dropout,
                             bottom_names = ["relu1"],
                             top_names = ["dropout1"],
                             dropout_rate=0.5))
+```
+### DotProduct Layer
+The DotProduct Layer performs an element-wise multiplication of the two inputs.
+
+Parameters: None
+
+Input and Output Shapes:
+
+* input: 2x(batch_size, num_elem)
+* output: (batch_size, num_elem)
+
+Example:
+```python
+model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.DotProduct, 
+                            bottom_names = ["Scale_item2", "item_his2"],
+                            top_names = ["DotProduct_i"]))
 ```
 
 ### ELU Layer

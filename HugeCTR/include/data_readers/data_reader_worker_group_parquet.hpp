@@ -25,13 +25,12 @@ template <typename TypeKey>
 class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
                                         const std::string& file_name, bool repeat) override {
-    CK_THROW_(Error_t::UnspecificError, "Invalid Call");
-    return std::shared_ptr<Source>(reinterpret_cast<Source*>(new int));
+    return std::make_shared<ParquetFileSource>(worker_id, num_worker, file_name, repeat);
   }
 
  public:
   DataReaderWorkerGroupParquet(const std::vector<std::shared_ptr<ThreadBuffer>>& output_buffers,
-                               std::string file_list,
+                               std::string file_list,bool repeat,
                                const std::vector<DataReaderSparseParam> params,
                                const std::vector<long long> slot_offset,
                                const std::shared_ptr<ResourceManager>& resource_manager_,
@@ -59,7 +58,7 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
     for (size_t i = 0; i < num_workers; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new ParquetDataReaderWorker<TypeKey>(
           i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count),
-          &data_reader_loop_flag_, output_buffers[i], file_list, params, slot_offset, local_device_list[i],
+          &data_reader_loop_flag_, output_buffers[i], file_list,repeat, params, slot_offset, local_device_list[i],
           resource_manager_));
       data_readers_.push_back(data_reader);
     }

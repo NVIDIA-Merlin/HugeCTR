@@ -59,6 +59,11 @@ public:
     impl_base_->update(keyset_file);
   }
 
+  std::vector<std::pair<std::vector<long long>, std::vector<float>>>
+      get_incremental_model(const std::vector<long long> &keys_to_load) {
+    return impl_base_->get_incremental_model(keys_to_load);
+  }
+
   void update_sparse_model_file() { impl_base_->update_sparse_model_file(); }
 };
 

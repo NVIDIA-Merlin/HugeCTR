@@ -82,6 +82,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     return static_cast<ParquetFileSource*>(source_.get());
   }
 
+  void post_set_source() override {
+    is_eof_ = false;
+    buffer_->state.store(BufferState::ReadyForWrite);
+  }
+
   void read_new_file() {
     std::set<int> tmp_col_index;
     auto source = parquet_file_source();
@@ -102,7 +107,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
             for (auto& c : label_col_names) {
               tmp_col_index.insert(c.index);
             }
-            for(auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++){
+            for (auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++) {
               dense_idx_to_parquet_col_.insert(std::make_pair(i, *it));
               i++;
             }
@@ -110,12 +115,14 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
             for (auto& c : dense_col_names) {
               tmp_col_index.insert(c.index);
             }
-            for(auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++){
+            for (auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++) {
               dense_idx_to_parquet_col_.insert(std::make_pair(i, *it));
               i++;
             }
           }
           
+          tmp_col_index.clear();
+
           tmp_col_index.clear();
 
           auto cat_col_names = metadata.get_cat_names();
@@ -126,7 +133,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
               tmp_col_index.insert(c.index);
               categorical_idx_parquet_col_.insert(std::make_pair(i, c.index));
             }
-            for(auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++){
+            for (auto it = tmp_col_index.begin(); it != tmp_col_index.end(); it++) {
               categorical_idx_parquet_col_.insert(std::make_pair(i, *it));
               i++;
             }
@@ -138,6 +145,9 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
           CK_THROW_(Error_t::BrokenFile, "failed to read a file");
         }
         return;
+      } else if (err == Error_t::EndOfFile) {
+        // std::cout<<" catch EOF\n";
+        throw internal_runtime_error(Error_t::EndOfFile, "EndOfFile");
       }
     }
     CK_THROW_(Error_t::BrokenFile, "failed to read a file");
@@ -151,10 +161,10 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
                           // const std::shared_ptr<HeapEx<CSRChunk<T>>>& csr_heap,
                           const std::shared_ptr<GPUResource>& gpu_resource, int* loop_flag,
                           const std::shared_ptr<ThreadBuffer>& buffer, const std::string& file_list,
-                          const std::vector<DataReaderSparseParam>& params, 
+                          bool repeat, const std::vector<DataReaderSparseParam>& params,
                           const std::vector<long long>& slot_offset, int device_id,
                           const std::shared_ptr<ResourceManager>& resource_manager)
-      : IDataReaderWorker(worker_id, worker_num, gpu_resource, false, loop_flag, buffer),
+      : IDataReaderWorker(worker_id, worker_num, gpu_resource, !repeat, loop_flag, buffer),
         params_(params),
         slot_offset_(slot_offset),
         device_id_(device_id),
@@ -166,7 +176,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     buff->reserve({32}, &host_pinned_csr_inc_);
     buff->allocate();
 
-    memory_resource_ = resource_manager_->get_device_rmm_device_memory_resource(device_id_);
+    ResourceManagerExt* ext = dynamic_cast<ResourceManagerExt*>(resource_manager_.get());
+    if (ext == nullptr) {
+      CK_THROW_(Error_t::WrongInput, "Invalid ResourceManager");
+    }
+    memory_resource_ = ext->get_device_rmm_device_memory_resource(device_id_);
 
     if (worker_id >= worker_num) {
       CK_THROW_(Error_t::BrokenFile, "ParquetDataReaderWorker: worker_id >= worker_num");
@@ -175,11 +189,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     for (auto& p : params) {
       slots_ += p.slot_num;
     }
-    source_ = std::make_shared<ParquetFileSource>(worker_id, worker_num, file_list);
+    source_ = std::make_shared<ParquetFileSource>(worker_id, worker_num, file_list, repeat);
 
     // assert((int)slot_offset_.size() == slots_);
-    if((int)slot_offset_.size() < slots_){
-      slot_offset_.resize(slots_,static_cast<long long int> (0));
+    if ((int)slot_offset_.size() < slots_) {
+      slot_offset_.resize(slots_, static_cast<long long int>(0));
     }
     for (auto& c : slot_offset_) {
       if ((c >= std::numeric_limits<T>::min()) && (c <= std::numeric_limits<T>::max()))
@@ -190,6 +204,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   }
 
   ~ParquetDataReaderWorker() {
+    memory_resource_.reset();
     // dont have a good place to destroy resource - before worker threads exits
     if (thread_resource_allocated_) {
       CudaDeviceContext context(device_id_);
@@ -214,12 +229,11 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
   void skip_read() { skip_read_ = true; }
 };
 
+//! Caution. For parquet worker in epoch mode, there's no filling empty samples logic
+// for sparse data. The length of output row_offset is (current_batch_size + 1) but not
+// batchsize + 1
 template <class T>
 void ParquetDataReaderWorker<T>::read_a_batch() {
-  // get csr chunk
-  // staging on cpu csr_chunk heap in first prototype
-  // will shift to gpu tensors in next iteration - need collector changes
-  // and possible gpu location/memory issues??
   using dtype_dense = float;
 
   if (!thread_resource_allocated_) {
@@ -235,6 +249,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
                                    slot_offset_buf_size, cudaMemcpyHostToDevice, task_stream_));
     thread_resource_allocated_ = true;
   }
+  int current_batch_size = 0;
 
   try {
     auto source = parquet_file_source();
@@ -243,15 +258,13 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
     }
     // dense_buffers store only data for local gpus, clipped by batch_size_start_idx &
     // batch_size_end_idx
-    int dense_start = buffer_->batch_size_start_idx;  // dense buffer
-    int dense_end = buffer_->batch_size_end_idx;      // dense buffer
+    const int dense_start = buffer_->batch_size_start_idx;  // dense buffer
+    const int dense_end = buffer_->batch_size_end_idx;      // dense buffer
     int batch_size = buffer_->batch_size;
     const int label_dense_dim = buffer_->label_dim + buffer_->dense_dim;
     size_t param_num = buffer_->param_num;
     if (!skip_read_) {
       if (!wait_until_h2d_ready()) return;
-      buffer_->current_batch_size = buffer_->batch_size;
-      
       auto dst_dense_tensor = Tensor2<dtype_dense>::stretch_from(buffer_->device_dense_buffers);
 
       long long elements_to_read = batch_size;
@@ -284,6 +297,7 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           row_group_index_ += elements_to_read;
           current_record_index_ += elements_to_read;
           elements_to_read = 0;
+          current_batch_size = 0;
         } else if (row_group_index_ < row_group_size_) {
           long long avail_rows = (row_group_size_ - row_group_index_);
 
@@ -300,22 +314,38 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           row_group_index_ += avail_rows;
           current_record_index_ += avail_rows;
           row_group_carry_forward_ = avail_rows;
+          current_batch_size = avail_rows;
         }
 
         // read_next_file if needed
         if (current_record_index_ >= records_in_file_) {
-          read_new_file();  // set current_record_index_ to zero
-          // we merge last slice to next file, so need to move current_record_index_ forward
-          current_record_index_ += row_group_carry_forward_;
-          if (row_group_carry_forward_ > 0)
-            records_in_file_ += row_group_carry_forward_;
-          else if ((row_group_size_ - row_group_index_) > 0)
-            records_in_file_ += (row_group_size_ - row_group_index_);
+          try {
+            read_new_file();  // set current_record_index_ to zero; can throw EOF
+
+            // we merge last slice to next file, so need to move current_record_index_ forward
+            current_record_index_ += row_group_carry_forward_;
+            if (row_group_carry_forward_ > 0)
+              records_in_file_ += row_group_carry_forward_;
+            else if ((row_group_size_ - row_group_index_) > 0)
+              records_in_file_ += (row_group_size_ - row_group_index_);
+          } catch (const internal_runtime_error& rt_err) {
+            Error_t err = rt_err.get_error();
+            // last file
+            if (err == Error_t::EndOfFile) {
+              elements_to_read = 0;
+            } else {
+              std::cerr << rt_err.what() << std::endl;
+              throw;
+            }
+          }
         }
       }
 
       cudf::table_view data_view = cached_df_->view();
-
+      if (current_batch_size == 0) {
+        current_batch_size = batch_size;
+      }
+      buffer_->current_batch_size = current_batch_size;
       // potential bugs here ??? it's hard to count how many pointers are used....
       int64_t num_of_pointer_staging =
           2 * (buffer_->label_dim + buffer_->label_dim + 1) + 2 * params_.size() + 2 * slots_;
@@ -323,7 +353,6 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       // PinnedBuffer extend on unique_ptr cant realloc properly and safely (cudaContext)
       if ((int64_t)host_memory_pointer_staging_.get_num_elements() < num_of_pointer_staging)
         CK_THROW_(Error_t::UnspecificError, "Parquet reader worker: not enough pinned storge");
-
       // calculate rows for each buffer
       size_t device_staging_dense_size = dense_end - dense_start;
       device_staging_dense_size *= ((size_t)label_dense_dim * sizeof(dtype_dense));
@@ -337,6 +366,9 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         }
       }
 
+      int offset_start = std::min(dense_start, current_batch_size);
+      int offset_end = std::min(dense_end, current_batch_size);
+      int samples_to_be_transposed = offset_end - offset_start;
       std::vector<dtype_dense*> dense_column_data_ptr;
       for (int k = 0; k < label_dense_dim; k++) {
         dtype_dense* column_ptr =
@@ -344,16 +376,15 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
         column_ptr =
             // only proceed dense for local gpu
             reinterpret_cast<dtype_dense*>((size_t)column_ptr + sizeof(dtype_dense) * view_offset_ +
-                                           sizeof(dtype_dense) * dense_start);
+                                           sizeof(dtype_dense) * offset_start);
         dense_column_data_ptr.push_back(column_ptr);
       }
 
       std::deque<rmm::device_buffer> rmm_resources;
-      convert_parquet_dense_columns(dense_column_data_ptr, label_dense_dim, batch_size, dense_start,
-                                    dense_end, dst_dense_tensor.get_ptr(),
-                                    host_memory_pointer_staging_.get_ptr(), rmm_resources,
-                                    memory_resource_.get(), dense_stream_);
-
+      convert_parquet_dense_columns(
+          dense_column_data_ptr, label_dense_dim, samples_to_be_transposed, dense_start, dense_end,
+          reinterpret_cast<dtype_dense*>(dst_dense_tensor.get_ptr()), host_memory_pointer_staging_.get_ptr(), rmm_resources,
+          memory_resource_.get(), dense_stream_);
       const int num_csr_buffers = param_num;
       auto dst_sparse_tensors = buffer_->device_sparse_buffers;
       // device output pointer
@@ -432,9 +463,10 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
           // optimize converter in the future when slots nnz for current param_id is fixed
           pinned_buffer_offset_count += convert_parquet_cat_columns(
               cat_column_data_ptr, cat_column_row_offset_ptr, view_offset_, param_num, param_id,
-              param.max_nnz, slot_count, batch_size, resource_manager_->get_process_id(),
+              param.max_nnz, slot_count, current_batch_size, resource_manager_->get_process_id(),
               resource_manager_, device_csr_value_buffers, device_csr_row_offset_buffers,
-              pinned_staging_buffer_param, dev_slot_offset_ptr,rmm_resources, memory_resource_.get(), task_stream_);
+              pinned_staging_buffer_param, dev_slot_offset_ptr, rmm_resources,
+              memory_resource_.get(), task_stream_);
         }
         df_column_id += param.slot_num;
         param_id++;
@@ -444,7 +476,8 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
 
       // get nnz info
       for (size_t buffer_id = 0; buffer_id < param_num; buffer_id++) {
-        int64_t last_row = batch_size * params_[buffer_id].slot_num;
+        //! caution ! not batch_size but current_batch_size
+        int64_t last_row = current_batch_size * params_[buffer_id].slot_num;
         int64_t dev_row_pointer =
             reinterpret_cast<int64_t>(device_csr_row_offset_buffers[buffer_id]) +
             last_row * sizeof(T);
@@ -464,9 +497,23 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       view_offset_ = row_group_index_;
     }
     buffer_->state.store(BufferState::ReadyForRead);
-  } catch (const std::runtime_error& rt_err) {
-    std::cerr << rt_err.what() << std::endl;
-    throw;
+  } catch (const internal_runtime_error& rt_err) {
+    Error_t err = rt_err.get_error();
+    if (err == Error_t::EndOfFile) {
+      if (!wait_until_h2d_ready()) return;
+      buffer_->current_batch_size = 0;
+      assert(buffer_->state.load() == BufferState::Writing);
+      is_eof_ = true;
+      buffer_->state.store(BufferState::ReadyForRead);
+
+      while (buffer_->state.load() != BufferState::ReadyForWrite) {
+        usleep(2);
+        if (*loop_flag_ == 0) return;  // in case main thread exit
+      }
+      return;  // need this return to run from begining
+    } else {
+      throw;
+    }
   }
   return;
 }

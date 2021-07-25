@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
 #include "utest/model_oversubscriber/mos_test_utils.hpp"
 #include "HugeCTR/include/model_oversubscriber/model_oversubscriber.hpp"
 #include "HugeCTR/include/parser.hpp"
@@ -132,11 +133,12 @@ void do_upload_and_download_snapshot(
   };
 
   // Make a synthetic keyset files
+  std::vector<long long> keys_in_file;
   {
     size_t key_file_size_in_byte =
         fs::file_size(get_ext_file(snapshot_dst_file, "key"));
     size_t num_keys = key_file_size_in_byte / sizeof(long long);
-    std::vector<long long> keys_in_file(num_keys);
+    keys_in_file.resize(num_keys);
     std::ifstream key_ifs(get_ext_file(snapshot_dst_file, "key"));
     key_ifs.read(reinterpret_cast<char *>(keys_in_file.data()),
                                           key_file_size_in_byte);
@@ -188,6 +190,24 @@ void do_upload_and_download_snapshot(
   if (!is_distributed) {
     ASSERT_TRUE(check_vector_equality(snapshot_src_file, snapshot_dst_file, "slot_id"));
   }
+
+  if (!use_host_ps) return;
+
+  auto inc_model{model_oversubscriber->get_incremental_model(keys_in_file)};
+
+  ASSERT_TRUE(inc_model.size() == 1);
+  auto& key_vec_pair = inc_model[0];
+
+  ASSERT_EQ(keys_in_file.size(), inc_model[0].first.size());
+  ASSERT_EQ(key_vec_pair.first.size(), key_vec_pair.second.size() / emb_vec_size);
+
+  std::string vec_file_name("./emb_vector");
+  std::ofstream vec_ofs(vec_file_name, std::ofstream::binary | std::ofstream::trunc);
+  vec_ofs.write(reinterpret_cast<char *>(key_vec_pair.second.data()),
+      key_vec_pair.second.size() * sizeof(float));
+
+  ASSERT_EQ(key_vec_pair.first.size(), keys_in_file.size());
+  ASSERT_TRUE(check_vector_equality(snapshot_src_file, "./", "emb_vector"));
 }
 
 TEST(model_oversubscriber_test, long_long_ssd_distributed) {

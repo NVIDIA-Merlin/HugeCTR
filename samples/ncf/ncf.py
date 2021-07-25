@@ -1,8 +1,8 @@
 import hugectr
 from mpi4py import MPI
 solver = hugectr.CreateSolver(max_eval_batches = 100,
-                              batchsize_eval = 2**16,
-                              batchsize = 2**16,
+                              batchsize_eval = 27700, # 1208 for 1M dataset
+                              batchsize = 175480, # 32205 for 1M dataset
                               lr = 0.0045,
                               vvgpu = [[0]],
                               metrics_spec = {hugectr.MetricsType.HitRate: 0.8,
@@ -13,7 +13,7 @@ reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.No
                                   source = ["./data/ml-20m/train_filelist.txt"],
                                   eval_source = "./data/ml-20m/test_filelist.txt",
                                   check_type = hugectr.Check_t.Non,
-                                  num_workers = 8)
+                                  num_workers = 10)
 optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
                                     update_type = hugectr.Update_t.Global,
                                     beta1 = 0.25,
@@ -26,7 +26,7 @@ model.add(hugectr.Input(label_dim = 1, label_name = "label",
                         [hugectr.DataReaderSparseParam("data", 1, True, 2)]
                         ))
 model.add(hugectr.SparseEmbedding(embedding_type = hugectr.Embedding_t.DistributedSlotSparseEmbeddingHash, 
-                            workspace_size_per_gpu_in_mb = 49,
+                            workspace_size_per_gpu_in_mb = 49, # 3 for 1M dataset
                             embedding_vec_size = 64,
                             combiner = "sum",
                             sparse_embedding_name = "mlp_embedding",
@@ -92,5 +92,4 @@ model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.BinaryCrossEntropyLoss
                             top_names = ["loss"]))
 model.compile()
 model.summary()
-# model.fit(max_iter = 100, display = 10, eval_interval = 50, snapshot = 10000, snapshot_prefix = "ncf")
-model.fit(num_epochs = 10, display = 100, eval_interval = 100, snapshot = 1000000, snapshot_prefix = "ncf")
+model.fit(num_epochs = 10, display = 200, eval_interval = 200, snapshot = 1000000, snapshot_prefix = "ncf")  # display = 50 for 1M

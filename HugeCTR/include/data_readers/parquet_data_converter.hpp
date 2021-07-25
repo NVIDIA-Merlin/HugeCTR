@@ -24,7 +24,7 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
                                    const int label_dense_dim, int batch_size, int batch_start,
                                    int batch_end,
                                    //  std::vector<rmm::device_buffer> &dense_data_buffers,
-                                   void *dense_data_buffers, int64_t *dev_ptr_staging,
+                                   T *dense_data_buffers, int64_t *dev_ptr_staging,
                                    std::deque<rmm::device_buffer> &rmm_resources,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream);
 template <typename T>
