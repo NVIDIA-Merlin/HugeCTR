@@ -171,10 +171,9 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     sparse_config["optimizer"] = optimizer_config;
     layer_config_array.push_back(sparse_config);
   }
-  auto& layer_type_to_string = use_mixed_precision ? LAYER_TYPE_TO_STRING_MP : LAYER_TYPE_TO_STRING;
   for (size_t i = 0; i < dense_layer_params.size(); ++i) {
     nlohmann::json layer_config;
-    layer_config["type"] = layer_type_to_string[dense_layer_params[i].layer_type];
+    layer_config["type"] = LAYER_TYPE_TO_STRING[dense_layer_params[i].layer_type];
     if (dense_layer_params[i].bottom_names.size() == 1) {
       layer_config["bottom"] = dense_layer_params[i].bottom_names[0];
     } else {

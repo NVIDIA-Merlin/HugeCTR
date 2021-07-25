@@ -68,8 +68,6 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   }
 
   CudaDeviceContext context(get_device_id());
-
-  CudaDeviceContext context(get_device_id());
   PROFILE_RECORD("compute.start", get_gpu().get_stream(), false);
   Tensor2<T> &input_tensor = get_input_tensors(is_train)[0];
   const Tensor2<float> &label_tensor = get_label_tensors(is_train)[0];

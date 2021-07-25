@@ -51,7 +51,6 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("embedding_vec_size"), pybind11::arg("combiner"),
            pybind11::arg("sparse_embedding_name"), pybind11::arg("bottom_name"),
            pybind11::arg("slot_size_array") = std::vector<size_t>(),
-<<<<<<< HEAD
            pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()),
            pybind11::arg("hybrid_embedding_param") = HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 1.9e11, 1.0,
                                                                       hybrid_embedding::CommunicationType::NVLink_SingleNode,
@@ -59,20 +58,10 @@ void ModelPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
       .def(pybind11::init<Layer_t, std::vector<std::string> &, std::vector<std::string> &, float,
                           float, Initializer_t, Initializer_t, float, float, size_t, Initializer_t,
-                          Initializer_t, int, size_t, bool, std::vector<int> &,
-                          std::vector<std::pair<int, int>> &, std::vector<size_t> &, size_t, int,
+                          Initializer_t, int, size_t, size_t, size_t, size_t, size_t, bool, std::vector<int> &,
+                          std::vector<std::pair<int, int>> &, std::vector<int> &, std::vector<size_t> &, size_t, int,
                           std::vector<float> &, bool, Regularizer_t, float,
                           FcPosition_t, Activation_t>(),
-=======
-           pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()));
-  pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
-      .def(pybind11::init<Layer_t, std::vector<std::string> &, std::vector<std::string> &, float,
-                          float, Initializer_t, Initializer_t, float, float, size_t, Initializer_t,
-                          Initializer_t, int, size_t, size_t, size_t, size_t, size_t, bool,
-                          std::vector<int> &, std::vector<std::pair<int, int>> &,
-                          std::vector<int> &, std::vector<size_t> &, size_t, int,
-                          std::vector<float> &, bool, Regularizer_t, float>(),
->>>>>>> v3.1-integration
            pybind11::arg("layer_type"), pybind11::arg("bottom_names"), pybind11::arg("top_names"),
            pybind11::arg("factor") = 1.0, pybind11::arg("eps") = 0.00001,
            pybind11::arg("gamma_init_type") = Initializer_t::Default,
@@ -82,17 +71,6 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("weight_init_type") = Initializer_t::Default,
            pybind11::arg("bias_init_type") = Initializer_t::Default,
            pybind11::arg("num_layers") = 0, pybind11::arg("leading_dim") = 1,
-<<<<<<< HEAD
-           pybind11::arg("selected") = false, pybind11::arg("selected_slots") = std::vector<int>(),
-           pybind11::arg("ranges") = std::vector<std::pair<int, int>>(),
-           pybind11::arg("weight_dims") = std::vector<size_t>(), pybind11::arg("out_dim") = 0,
-           pybind11::arg("axis") = 1, pybind11::arg("target_weight_vec") = std::vector<float>(),
-           pybind11::arg("use_regularizer") = false,
-           pybind11::arg("regularizer_type") = Regularizer_t::L1,
-           pybind11::arg("lambda") = 0,
-           pybind11::arg("pos_type") = FcPosition_t::None,
-           pybind11::arg("act_type") = Activation_t::Relu);
-=======
            pybind11::arg("time_step") = 0, pybind11::arg("batchsize") = 1,
            pybind11::arg("SeqLength") = 1, pybind11::arg("vector_size") = 1,
            pybind11::arg("selected") = false, pybind11::arg("selected_slots") = std::vector<int>(),
@@ -101,8 +79,10 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("weight_dims") = std::vector<size_t>(), pybind11::arg("out_dim") = 0,
            pybind11::arg("axis") = 1, pybind11::arg("target_weight_vec") = std::vector<float>(),
            pybind11::arg("use_regularizer") = false,
-           pybind11::arg("regularizer_type") = Regularizer_t::L1, pybind11::arg("lambda") = 0);
->>>>>>> v3.1-integration
+           pybind11::arg("regularizer_type") = Regularizer_t::L1,
+           pybind11::arg("lambda") = 0,
+           pybind11::arg("pos_type") = FcPosition_t::None,
+           pybind11::arg("act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")
       .def(pybind11::init<const Solver &, const DataReaderParams &, std::shared_ptr<OptParamsPy> &,
                           std::shared_ptr<ModelOversubscriberParams> &>(),
@@ -148,16 +128,12 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("dense_layer"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train)
-<<<<<<< HEAD
       .def("eval", 
           [](HugeCTR::Model &self) {
                self.check_overflow();
                self.copy_weights_for_evaluation();
                self.eval();   
           })
-=======
-      .def("eval", &HugeCTR::Model::eval)
->>>>>>> v3.1-integration
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",
            [](HugeCTR::Model &self) {

@@ -497,6 +497,8 @@ class Model {
   std::shared_ptr<ResourceManager>
       resource_manager_;     /**< GPU resources include handles and streams etc.*/
   metrics::Metrics metrics_; /**< evaluation metrics. */
+
+  long long current_eval_batchsize_; /**< used for export prediction in epoch mode. */
   
   std::shared_ptr<IDataReader> init_data_reader_;
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
@@ -506,8 +508,6 @@ class Model {
     std::vector<cudaEvent_t> fork_event;
   } train_graph_;
   bool mlperf_bottom_mlp_;
-
-  long long current_eval_batchsize_; /**< used for export prediction in epoch mode. */
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);

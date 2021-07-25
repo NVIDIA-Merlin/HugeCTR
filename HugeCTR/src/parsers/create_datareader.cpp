@@ -164,6 +164,7 @@ void create_datareader<TypeKey>::operator()(
 
     // If we want to cache eval, make sure we have enough buffers
     auto eval_num_batches_per_thread = num_batches_per_thread;
+    auto cache_eval_data = get_value_from_json_soft<int>(j, "cache_eval_data", 0);
     if (cache_eval_data > num_threads * num_batches_per_thread) {
       eval_num_batches_per_thread = (cache_eval_data + num_threads - 1) / num_threads;
       MESSAGE_("AsyncReader: eval reader increased batches per thread to " +

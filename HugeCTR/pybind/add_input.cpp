@@ -119,6 +119,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
 
     // If we want to cache eval, make sure we have enough buffers
     auto eval_num_batches_per_thread = num_batches_per_thread;
+    int cache_eval_data = reader_params.cache_eval_data;
     if (cache_eval_data > num_threads * num_batches_per_thread) {
       eval_num_batches_per_thread = (cache_eval_data + num_threads - 1) / num_threads;
       MESSAGE_("AsyncReader: eval reader increased batches per thread to " +

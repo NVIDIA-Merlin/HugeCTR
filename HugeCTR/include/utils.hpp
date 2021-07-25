@@ -522,30 +522,4 @@ void data_to_unique_categories(TypeKey *value, const TypeKey *rowoffset,
                                const TypeKey *emmbedding_offsets, int num_tables,
                                int num_rowoffsets, const cudaStream_t &stream);
 
-template <typename TypeKey>
-void data_to_unique_categories(TypeKey *value, const TypeKey *emmbedding_offsets, int num_tables,
-                               int nnz, const cudaStream_t &stream);
-
-template <typename TypeKey>
-void distribute_keys_for_inference(TypeKey* out, TypeKey* in, size_t batchsize, std::vector<size_t>& max_feature_num_for_tables) {
-  size_t num_tables = max_feature_num_for_tables.size();
-  std::vector<size_t> batch_keys_offset(num_tables, 0);
-  std::vector<size_t> sample_keys_offset(num_tables, 0);
-  size_t num_keys_per_sample = 0;
-  for (size_t i = 0; i < num_tables; i++) {
-    num_keys_per_sample += max_feature_num_for_tables[i];
-    if (i > 0) {
-      batch_keys_offset[i] = batch_keys_offset[i-1] + batchsize*max_feature_num_for_tables[i-1];
-      sample_keys_offset[i] = sample_keys_offset[i-1] + max_feature_num_for_tables[i-1];
-    }
-  }
-  for (size_t i = 0; i < batchsize; i++) {
-    for (size_t j = 0; j < num_tables; j++) {
-      for (size_t k = 0; k < max_feature_num_for_tables[j]; k++) {
-        out[i*num_keys_per_sample+sample_keys_offset[j]+k] = in[batch_keys_offset[j]+i*max_feature_num_for_tables[j]+k];
-      }
-    }
-  }
-}
-
 }  // namespace HugeCTR

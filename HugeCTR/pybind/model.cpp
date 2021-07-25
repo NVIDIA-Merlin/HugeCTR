@@ -826,10 +826,6 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   bool epoch_mode = !solver_.repeat_dataset;
   bool mos_mode = mos_params_->use_model_oversubscriber;
   int mos_epochs = num_epochs < 1 ? 1 : num_epochs;
-  int __PID(0);
-#ifdef ENABLE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
-#endif
   if (__PID == 0) {
     std::cout << "=====================================================Model "
                  "Fit====================================================="
