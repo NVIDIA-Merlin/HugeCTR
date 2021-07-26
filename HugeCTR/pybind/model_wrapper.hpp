@@ -132,7 +132,7 @@ void ModelPybind(pybind11::module &m) {
           [](HugeCTR::Model &self) {
                self.check_overflow();
                self.copy_weights_for_evaluation();
-               self.eval();   
+               return self.eval();   
           })
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",
