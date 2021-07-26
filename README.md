@@ -15,10 +15,14 @@ Design Goals:
 
 ## Core Features ##
 HugeCTR supports a variety of features, including the following:
+* [high-level abstracted recsys specific user interface](docs/python_interface.md)
+* [model parallel training](docs/hugectr_user_guide.md#model-parallel-training)
+* [well optimized full GPU workflow](performance.md)
 * [multi-node training](docs/hugectr_user_guide.md#multi-node-training)
 * [mixed precision training](docs/hugectr_user_guide.md#mixed-precision-training)
-* [SGD optimizer and learning rate scheduling](docs/hugectr_user_guide.md#sgd-optimizer-and-learning-rate-scheduling)
-* [model oversubscription](docs/hugectr_user_guide.md#model-oversubscription)
+* [embedding training cache](docs/hugectr_user_guide.md#embedding-training-cache)
+* [Caching of most frequent embedding for inference](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
+* [GPU / CPU memory sharing mechanism across different inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
 
 To learn about our latest enhancements, see our [release notes](release_notes.md).
 
