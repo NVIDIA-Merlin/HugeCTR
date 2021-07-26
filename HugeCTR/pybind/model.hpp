@@ -513,6 +513,7 @@ class Model {
     std::vector<cudaEvent_t> fork_event;
   } train_graph_;
   bool dlrm_bottom_mlp_;
+  bool high_level_eval_;
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);

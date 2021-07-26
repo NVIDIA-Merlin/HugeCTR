@@ -316,7 +316,8 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       is_embedding_trainable_(true),
       is_dense_trainable_(true),
       current_eval_batchsize_(0),
-      dlrm_bottom_mlp_(true) {
+      dlrm_bottom_mlp_(true),
+      high_level_eval_(false) {
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -857,7 +858,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   if (mos_params_->use_model_oversubscriber && !mos_created_) {
     CK_THROW_(Error_t::IllegalCall, "The model oversubscriber should be created first");
   }
-
+  high_level_eval_ = true;
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -1168,6 +1169,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
                 << std::setprecision(2) << timer.elapsedSeconds() << "s" << std::endl;
     }
   } // end if else
+  high_level_eval_ = false;
 }
 
 void Model::exchange_wgrad(size_t device_id) {
@@ -1411,6 +1413,10 @@ bool Model::eval(int eval_batch) {
     if (evaluate_data_reader_ == nullptr) return true;
     if (evaluate_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::eval()");
+    }
+    if (!high_level_eval_) {
+      this->check_overflow();
+      this->copy_weights_for_evaluation();
     }
     long long current_batchsize = 0;
     while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&

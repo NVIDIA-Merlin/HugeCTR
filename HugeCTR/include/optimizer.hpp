@@ -127,8 +127,8 @@ class Optimizer {
                 "set_learning_rate cannot be used together with set_learing_rate_scheduler");
     }
 
-    if (lr <= 0) {
-      CK_THROW_(Error_t::WrongInput, "lr <= 0");
+    if (lr < 0) {
+      CK_THROW_(Error_t::WrongInput, "lr < 0");
     }
     lr_ = lr;
   }
