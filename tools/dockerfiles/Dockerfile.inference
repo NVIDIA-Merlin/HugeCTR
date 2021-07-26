@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ARG TRITON_VERSION=21.04-py3
-ARG TRITON_BRANCH=21.04
+ARG TRITON_BRANCH=r21.04
 FROM nvcr.io/nvidia/tritonserver:${TRITON_VERSION} AS devel
 
 ARG CMAKE_VERSION=3.19.6
