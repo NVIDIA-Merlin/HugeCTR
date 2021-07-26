@@ -16,16 +16,19 @@
 
 #pragma once
 #include <common.hpp>
-#include <data_reader.hpp>
+#include <data_readers/data_reader.hpp>
+#include <device_map.hpp>
 #include <embedding.hpp>
 #include <fstream>
 #include <functional>
 #include <gpu_resource.hpp>
 #include <learning_rate_scheduler.hpp>
+#include <gpu_learning_rate_scheduler.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
 #include <nlohmann/json.hpp>
 #include <inference/inference_utils.hpp>
+#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
@@ -46,7 +49,6 @@ inline nlohmann::json read_json_file(const std::string& filename) {
  * This class is designed to parse the solver clause of the configure file.
  */
 struct SolverParser {
-  //  std::string configure_file;
   unsigned long long seed;                  /**< seed of data simulator */
   LrPolicy_t lr_policy;                     /**< the only fixed lr is supported now. */
   int display;                              /**< the interval of loss display. */
@@ -55,7 +57,7 @@ struct SolverParser {
   int snapshot;                             /**< the number of iterations for a snapshot */
   std::string snapshot_prefix;              /**< naming prefix of snapshot file */
   int eval_interval;                        /**< the interval of evaluations */
-  int max_eval_batches;                         /**< the number of batches for evaluations */
+  int max_eval_batches;                     /**< the number of batches for evaluations */
   int batchsize_eval;                       /**< batchsize for eval */
   int batchsize;                            /**< batchsize */
   std::string model_file;                   /**< name of model file */
@@ -63,6 +65,7 @@ struct SolverParser {
   std::vector<std::string> embedding_files; /**< name of embedding file */
   std::vector<std::string> sparse_opt_states_files;
   std::vector<std::vector<int>> vvgpu;      /**< device map */
+  DeviceMap::Layout device_layout = DeviceMap::LOCAL_FIRST; /**< device distribution */
   bool use_mixed_precision;
   bool enable_tf32_compute;
   float scaler;
@@ -70,6 +73,8 @@ struct SolverParser {
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
+  bool use_holistic_cuda_graph;
+  bool use_overlapped_pipeline;
   std::string export_predictions_prefix;
   bool use_model_oversubscriber;
   SolverParser(const std::string& file);
@@ -91,6 +96,7 @@ struct Solver {
   int batchsize;                            /**< batchsize */
   std::vector<std::vector<int>> vvgpu;      /**< device map */
   bool repeat_dataset;
+  DeviceMap::Layout device_layout;
   bool use_mixed_precision;
   bool enable_tf32_compute;
   float scaler;
@@ -98,6 +104,12 @@ struct Solver {
   bool i64_input_key;
   bool use_algorithm_search;
   bool use_cuda_graph;
+  bool use_holistic_cuda_graph;
+  bool use_overlapped_pipeline;
+  AllReduceAlgo all_reduce_algo;
+  bool grouped_all_reduce;
+  size_t num_iterations_statistics;
+  bool is_dlrm;
   Solver() {}
 };
 
@@ -169,21 +181,21 @@ class Parser {
   const float scaler_{1.f};
   const bool use_algorithm_search_;
   const bool use_cuda_graph_;
+  bool grouped_all_reduce_ = false;
 
   std::map<std::string, bool> tensor_active_; /**< whether a tensor is active. */
 
-  template <typename TypeKey>
-  void create_pipeline_internal(std::shared_ptr<IDataReader>& data_reader,
-                                std::shared_ptr<IDataReader>& data_reader_eval,
-                                std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-                                std::vector<std::shared_ptr<Network>>& network,
-                                const std::shared_ptr<ResourceManager>& resource_manager);
+  void create_allreduce_comm(
+      const std::shared_ptr<ResourceManager>& resource_manager,
+      std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 
  public:
+  //
   /**
    * Ctor.
-   * Ctor only verify the configure file, doesn't create pipeline.
+   * Ctor doesn't create pipeline.
    */
+  // TODO: consider to remove default arguments
   Parser(const std::string& configure_file, size_t batch_size, size_t batch_size_eval,
          bool repeat_dataset, bool i64_input_key = false, bool use_mixed_precision = false,
          bool enable_tf32_compute = false, float scaler = 1.0f, bool use_algorithm_search = true,
@@ -192,15 +204,38 @@ class Parser {
   /**
    * Create the pipeline, which includes data reader, embedding.
    */
-  void create_pipeline(std::shared_ptr<IDataReader>& train_data_reader,
+  void create_pipeline(std::shared_ptr<IDataReader>& init_data_reader,std::shared_ptr<IDataReader>& train_data_reader,
                        std::shared_ptr<IDataReader>& evaluate_data_reader,
                        std::vector<std::shared_ptr<IEmbedding>>& embeddings,
                        std::vector<std::shared_ptr<Network>>& networks,
-                       const std::shared_ptr<ResourceManager>& resource_manager);
+                       const std::shared_ptr<ResourceManager>& resource_manager,
+                       std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
+
+  template <typename TypeKey>
+  void create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,std::shared_ptr<IDataReader>& train_data_reader,
+                                std::shared_ptr<IDataReader>& evaluate_data_reader,
+                                std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                                std::vector<std::shared_ptr<Network>>& networks,
+                                const std::shared_ptr<ResourceManager>& resource_manager,
+                                std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
+
+  void initialize_pipeline(std::shared_ptr<IDataReader>& init_data_reader,
+                           std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                           const std::shared_ptr<ResourceManager>& resource_manager,
+                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
+  template <typename TypeKey>
+  void initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
+                                    std::vector<std::shared_ptr<IEmbedding>>& embedding,
+                                    const std::shared_ptr<ResourceManager>& resource_manager,
+                                    std::shared_ptr<ExchangeWgrad>& exchange_wgrad);
 };
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
     const std::string configure_file);
+
+GpuLearningRateSchedulers get_gpu_learning_rate_schedulers(
+    const nlohmann::json& config,
+    const std::shared_ptr<ResourceManager>& resource_manager);
 
 #define HAS_KEY_(j_in, key_in)                                          \
   do {                                                                  \
@@ -287,12 +322,16 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
 const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
     {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},
-    {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot}};
+    {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot},
+    {"HybridSparseEmbedding", Embedding_t::HybridSparseEmbedding}};
 const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
     {"Uniform", Initializer_t::Uniform},
     {"XavierNorm", Initializer_t::XavierNorm},
     {"XavierUniform", Initializer_t::XavierUniform},
     {"Zero", Initializer_t::Zero}};
+static const std::map<std::string, AllReduceAlgo> ALLREDUCE_ALGO_MAP = {
+  {"Oneshot", AllReduceAlgo::ONESHOT},
+  {"NCCL", AllReduceAlgo::NCCL}};
 
 static const std::map<std::string, Optimizer_t> OPTIMIZER_TYPE_MAP = {
     {"Adam", Optimizer_t::Adam},
@@ -307,6 +346,34 @@ static const std::map<std::string, Update_t> UPDATE_TYPE_MAP = {
 static const std::map<std::string, Regularizer_t> REGULARIZER_TYPE_MAP = {
     {"L1", Regularizer_t::L1},
     {"L2", Regularizer_t::L2},
+};
+
+static const std::map<std::string, FcPosition_t> FCPOSITION_TYPE_MAP = {
+    {"Head", FcPosition_t::Head},
+    {"Body", FcPosition_t::Body},
+    {"Tail", FcPosition_t::Tail},
+    {"Isolated", FcPosition_t::Isolated},
+    {"None", FcPosition_t::None}
+};
+
+static const std::map<std::string, Activation_t> ACTIVATION_TYPE_MAP = {
+    {"Relu", Activation_t::Relu},
+    {"None", Activation_t::None},
+};
+
+static const std::map<std::string, Alignment_t> ALIGNED_TYPE_MAP = {
+    {"Auto", Alignment_t::Auto},
+    {"None", Alignment_t::None},
+};
+
+static const std::map<std::string, hybrid_embedding::CommunicationType> COMMUNICATION_TYPE_MAP = {
+    {"IB_NVLink_Hierarchical", hybrid_embedding::CommunicationType::IB_NVLink_Hier},
+    {"IB_NVLink", hybrid_embedding::CommunicationType::IB_NVLink},
+    {"NVLink_SingleNode", hybrid_embedding::CommunicationType::NVLink_SingleNode}
+};
+
+static const std::map<std::string, hybrid_embedding::HybridEmbeddingType> HYBRID_EMBEDDING_TYPE_MAP ={
+    {"Distributed", hybrid_embedding::HybridEmbeddingType::Distributed}
 };
 
 inline bool has_key_(const nlohmann::json& j_in, const std::string& key_in) {
@@ -338,6 +405,18 @@ inline T get_value_from_json_soft(const nlohmann::json& json, const std::string 
     return value.get<T>();
   } else {
     MESSAGE_(key + " is not specified using default: " + std::to_string(B));
+    return B;
+  }
+}
+
+template<>
+inline std::string get_value_from_json_soft(const nlohmann::json& json, const std::string key, const std::string B) {
+  if (has_key_(json, key)) {
+    auto value = json.find(key).value();
+    CK_SIZE_(value, 1);
+    return value.get<std::string>();
+  } else {
+    MESSAGE_(key + " is not specified using default: " + B);
     return B;
   }
 }
@@ -407,11 +486,18 @@ struct create_embedding {
   void operator()(std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::vector<TensorEntry>* train_tensor_entries_list,
                   std::vector<TensorEntry>* evaluate_tensor_entries_list,
-                  std::vector<std::shared_ptr<IEmbedding>>& embeddings, Embedding_t embedding_type,
+                  std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                  Embedding_t embedding_type,
                   const nlohmann::json& config,
-                  const std::shared_ptr<ResourceManager>& resource_manager, size_t batch_size,
-                  size_t batch_size_eval, bool use_mixed_precision, float scaler,
-                  const nlohmann::json& j_layers);
+                  const std::shared_ptr<ResourceManager>& resource_manager,
+                  size_t batch_size,
+                  size_t batch_size_eval,
+                  std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
+                  bool use_mixed_precision,
+                  float scaler,
+                  const nlohmann::json& j_layers,
+                  bool use_cuda_graph = false,
+                  bool grouped_all_reduce = false);
 
   void operator()(const InferenceParams& inference_params, const nlohmann::json& j_layers_array,
                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
@@ -429,9 +515,14 @@ struct create_datareader {
                   std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::vector<TensorEntry>* train_tensor_entries_list,
                   std::vector<TensorEntry>* evaluate_tensor_entries_list,
+                  std::shared_ptr<IDataReader>& init_data_reader,
                   std::shared_ptr<IDataReader>& data_reader,
-                  std::shared_ptr<IDataReader>& data_reader_eval, size_t batch_size,
-                  size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
+                  std::shared_ptr<IDataReader>& data_reader_eval,
+                  size_t batch_size,
+                  size_t batch_size_eval,
+                  bool use_mixed_precision,
+                  bool repeat_dataset,
+                  bool enable_overlap,
                   const std::shared_ptr<ResourceManager> resource_manager);
 
   void operator()(const InferenceParams& inference_params,
@@ -440,8 +531,10 @@ struct create_datareader {
                   const std::shared_ptr<ResourceManager> resource_manager,
                   std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
                   std::map<std::string, TensorBag2>& label_dense_map,
-                  const std::string& source, const DataReaderType_t data_reader_type,
-                  const Check_t check_type, const std::vector<long long>& slot_size_array,
+                  const std::string& source,
+                  const DataReaderType_t data_reader_type,
+                  const Check_t check_type,
+                  const std::vector<long long>& slot_size_array,
                   const bool repeat_dataset);
 };
 

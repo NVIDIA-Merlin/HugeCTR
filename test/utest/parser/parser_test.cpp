@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "HugeCTR/include/data_generator.hpp"
+#include "HugeCTR/include/exchange_wgrad.hpp"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
@@ -39,14 +40,16 @@ void test_parser(std::string& json_name) {
   vvgpu.push_back(device_list);
   int batch_size = 4096;
   Parser p(json_name, batch_size, batch_size, true, false, false);
-  std::shared_ptr<IDataReader> train_data_reader;
-  std::shared_ptr<IDataReader> evaluate_data_reader;
-  std::vector<std::shared_ptr<IEmbedding>> embeddings;
+  std::shared_ptr<IDataReader> init_data_reader;
+  std::shared_ptr<IDataReader> data_reader;
+  std::shared_ptr<IDataReader> data_reader_eval;
+  std::vector<std::shared_ptr<IEmbedding>> embedding;
   std::vector<std::shared_ptr<Network>> networks;
-  const auto& resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  std::shared_ptr<ExchangeWgrad> fake_exchange_wgrad = NULL;
 
-  p.create_pipeline(train_data_reader, evaluate_data_reader, embeddings, networks,
-                    resource_manager);
+  p.create_pipeline(init_data_reader, data_reader, data_reader_eval, embedding, networks,
+                    resource_manager, fake_exchange_wgrad);
   return;
 }
 

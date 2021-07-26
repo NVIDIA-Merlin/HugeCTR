@@ -13,10 +13,11 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
 project(HugeCTR LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
 option(CLANGFORMAT "Setup clangformat target" OFF)
@@ -38,6 +39,22 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
+option(DISABLE_CUDF "Disable cudf: disable parquet format related features" OFF)
+if (DISABLE_CUDF) 
+  message(STATUS "-- DISABLE_CUDF is ON")
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DDISABLE_CUDF")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DDISABLE_CUDF")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDISABLE_CUDF")
+endif()
+
+option(SHARP_A2A "Enable SHARP All2All" OFF)
+if (SHARP_A2A)
+  message (STATUS "-- SHARP_A2A is ON")
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSHARP_A2A")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DSHARP_A2A")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DSHARP_A2A")
+endif()
+
 find_package(CUDA REQUIRED)
 find_package(CUDNN REQUIRED)
 find_package(NCCL REQUIRED)
@@ -46,29 +63,23 @@ find_package(Threads)
 
 option(ENABLE_MULTINODES "Enable multi-nodes training" OFF)
 if(ENABLE_MULTINODES)
-message(STATUS "Multi Node Enabled")
-find_package(MPI)
-find_package(UCX)
-find_package(HWLOC)
+  message(STATUS "Multi Node Enabled")
+  find_package(MPI)
+  find_package(UCX)
+  find_package(HWLOC)
+  find_package(SHARP)
 endif()
 
-set(CUDA_SEPARABLE_COMPILATION ON) 
+set(CUDA_SEPARABLE_COMPILATION ON)
 
 if (OPENMP_FOUND)
-message(STATUS "OPENMP FOUND")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+  message(STATUS "OPENMP FOUND")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
 set(JSON_BuildTests OFF CACHE INTERNAL "")
-
-option(VAL_MODE "Validation mode: set determined mode for data reader and csv format for loss print" OFF)
-if (VAL_MODE) 
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DVAL")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DVAL")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DVAL")
-endif()
 
 option(KEY_HIT_RATIO "Verbose mode of embedding training cache: print out the key hit ratio" OFF)
 if (KEY_HIT_RATIO)
@@ -79,10 +90,10 @@ endif()
 
 # setting compiler flags
 foreach(arch_name ${SM})
-    if (arch_name STREQUAL 80 OR 
-        arch_name STREQUAL 75 OR 
-        arch_name STREQUAL 70 OR 
-        arch_name STREQUAL 61 OR 
+    if (arch_name STREQUAL 80 OR
+        arch_name STREQUAL 75 OR
+        arch_name STREQUAL 70 OR
+        arch_name STREQUAL 61 OR
         arch_name STREQUAL 60)
         list(APPEND cuda_arch_list ${arch_name})
         message(STATUS "-- Assign GPU architecture (sm=${arch_name})")
@@ -103,11 +114,12 @@ endforeach()
 
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Werror -Wno-unknown-pragmas")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp")
+#TODO: the warning should not be suppresed in the  long term
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses -Xcudafe --display_error_number -Xcudafe --diag_suppress=177")
 
-set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -Wall -Werror")
-set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -Wall -Werror -Wno-unknown-pragmas")
-set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp")
+set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG} -O0 -g -Wall -Werror")
+set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -Wall -Werror -Wno-unknown-pragmas -Wno-sign-compare")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall,-Werror,-Wno-error=cpp,-Wno-error=parentheses,-Wno-sign-compare")
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
 
@@ -115,6 +127,24 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+if(ENABLE_MULTINODES)
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_MPI")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_MPI")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_MPI")
+  include_directories(${MPI_INCLUDE_PATH})
+  include_directories(${HWLOC_INC_PATHS})
+  include_directories(${UCX_INC_PATHS})
+endif()
+
+option(ENABLE_PROFILING "Profiling mode: whether to turn on inline profiling" OFF)
+if(ENABLE_PROFILING)
+  message("STATUS" "-- PROFILING is ON")
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_PROFILING")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_PROFILING")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_PROFILING")
+  link_libraries(cuda)
+endif()
 
 configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)
 
@@ -126,30 +156,28 @@ include_directories(
   $ENV{CONDA_PREFIX}/include
   $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx
   ${CUDA_INCLUDE_DIRS}
-  ${PROJECT_SOURCE_DIR}/third_party/cutlass
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/include
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/src_prims
   ${PROJECT_SOURCE_DIR}/HugeCTR
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   ${PROJECT_SOURCE_DIR}/third_party
+  ${PROJECT_SOURCE_DIR}/third_party/cutlass
   ${PROJECT_SOURCE_DIR}/third_party/googletest/googletest/include
+  ${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock/include
   ${PROJECT_SOURCE_DIR}/third_party/json/single_include
   ${PROJECT_SOURCE_DIR}/gpu_cache/include
 
   ${CUDNN_INC_PATHS}
   ${NCCL_INC_PATHS}
   ${HWLOC_INC_PATHS}
-  ${UCX_INC_PATHS})
+  ${UCX_INC_PATHS}
+  ${SHARP_INC_PATHS})
 
-if(ENABLE_MULTINODES)
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_MPI")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_MPI")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_MPI")
-  include_directories(${MPI_INCLUDE_PATH})
-  include_directories(${HWLOC_INC_PATHS})
-  include_directories(${UCX_INC_PATHS})
+if (CUDA_VERSION_MAJOR LESS 11)
+  include_directories(${PROJECT_SOURCE_DIR}/third_party/cub)
 endif()
+
 
 if(OPENMP_FOUND)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
@@ -163,6 +191,7 @@ link_directories(
   ${NCCL_LIB_PATHS}
   ${HWLOC_LIB_PATHS}
   ${UCX_LIB_PATHS}
+  ${SHARP_LIB_PATHS}
   $ENV{CONDA_PREFIX}/lib)
 
 #setting python interface file install path

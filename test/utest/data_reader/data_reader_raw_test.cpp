@@ -63,7 +63,7 @@ void data_reader_worker_raw_test_impl(bool float_label_dense, bool repeat) {
   ASSERT_TRUE(generated_dense_data.size() == num_samples * dense_dim);
   ASSERT_TRUE(generated_label_data.size() == num_samples * label_dim);
 
-  auto resource_manager = ResourceManager::create({{0}}, 0);
+  auto resource_manager = ResourceManagerExt::create({{0}}, 0);
   auto local_gpu = resource_manager->get_local_gpu(0);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
@@ -185,7 +185,7 @@ void data_reader_raw_test_impl(const std::vector<int> &device_list, int num_thre
 
   std::vector<std::vector<int>> vvgpu{device_list};
 
-  auto resource_manager = ResourceManager::create(vvgpu, 0);
+  auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
   size_t total_gpu_count = resource_manager->get_global_gpu_count();
   int batch_size_per_gpu = batchsize / total_gpu_count;

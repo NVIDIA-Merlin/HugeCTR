@@ -164,6 +164,21 @@ LocalizedSlotSparseEmbeddingOneHot<TypeHashKey, TypeEmbeddingComp>::
         hash_table_value_tensors_.push_back(block->as_tensor());
       }
 
+      // list of top categories, from single iteration worth of data, so max size is same as
+      // hash_table_value_index_ array
+      {
+        std::cout << "Initializing size_top_categories_ and top_categories.." << std::endl;
+        Tensor2<size_t> tensor;
+        buf->reserve({1, embedding_data_.embedding_params_.get_universal_batch_size() *
+                             embedding_data_.embedding_params_.max_feature_num},
+                      &tensor);
+        size_top_categories_.push_back(0);
+        top_categories_.push_back(tensor);
+        // std::cout << "top_categories size : " << Base::get_universal_batch_size() *
+        // Base::get_max_feature_num()
+        // << std::endl;
+      }
+
       // new hash table value_index that get() from HashTable
       {
         Tensor2<size_t> tensor;

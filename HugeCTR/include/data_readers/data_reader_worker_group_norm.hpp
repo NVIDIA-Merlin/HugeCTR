@@ -33,7 +33,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
  public:
   // Ctor
   DataReaderWorkerGroupNorm(const std::vector<std::shared_ptr<ThreadBuffer>> &output_buffers,
-                           const std::shared_ptr<ResourceManager> &resource_manager_,
+                            const std::shared_ptr<ResourceManager> &resource_manager_,
                             std::string file_list,
                             bool repeat,
                             Check_t check_type,

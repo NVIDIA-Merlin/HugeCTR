@@ -36,9 +36,8 @@ namespace HugeCTR {
  * thread consumes the data (DataCollector),
  * and copy the data to GPU buffer.
  */
-
 class IDataReader {
-public:
+ public:
   virtual ~IDataReader() {}
 
   virtual TensorScalarType get_scalar_type() const = 0;
@@ -67,5 +66,11 @@ public:
   virtual void set_source(std::string file_name = std::string()) = 0;
 };
 
+class IDataReaderWithScheduling : public IDataReader {
+ public:
+  virtual void schedule_here(cudaStream_t stream, int raw_device_id) = 0;
+  virtual void schedule_here_graph(cudaStream_t stream, int raw_device_id) = 0;
+  virtual void update_schedule_graph(int raw_device_id) = 0;
+};
 
 }  // namespace HugeCTR

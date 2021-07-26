@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_utils.cuh>
+
 #include "coalesced_reduction.cuh"
 #include "strided_reduction.cuh"
 

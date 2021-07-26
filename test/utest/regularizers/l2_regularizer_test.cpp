@@ -17,10 +17,12 @@
 #include "HugeCTR/include/regularizers/l2_regularizer.hpp"
 
 #include <curand.h>
+
 #include <cmath>
 #include <cstdlib>
 #include <utility>
 #include <vector>
+
 #include "cublas_v2.h"
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"

@@ -656,6 +656,9 @@ void SparseEmbeddingHashCpu<TypeHashKey, TypeEmbeddingComp>::cpu_optimizer_adam(
           v[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(vi);
           break;
         }
+        default: {
+          CK_THROW_(Error_t::WrongInput, "Error: Invalid update type");
+        }
       }
     }
   }
