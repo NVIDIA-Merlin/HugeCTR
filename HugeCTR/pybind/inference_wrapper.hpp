@@ -169,6 +169,8 @@ void InferenceSessionPy::load_data_(const std::string& source, const DataReaderT
     CK_THROW_(Error_t::WrongInput, "Cannot find " + inference_parser_.dense_name);
   }
   d_dense_ = reinterpret_cast<float*>(dense_tensor.get_ptr());
+  d_reader_keys_list_.clear();
+  d_reader_row_ptrs_list_.clear();
   for (size_t i = 0; i < inference_parser_.num_embedding_tables; i++) {
     SparseInput<TypeKey> sparse_input;
     if (!find_item_in_map(sparse_input, inference_parser_.sparse_names[i], sparse_input_map)) {
