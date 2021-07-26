@@ -266,8 +266,8 @@ struct DenseLayer {
              bool use_regularizer = false,
              Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0,
-             FcPosition_t pos_type = FcPosition_t::Isolated,
-             Activation_t act_type = Activation_t::None);
+             FcPosition_t pos_type = FcPosition_t::None,
+             Activation_t act_type = Activation_t::Relu);
 };
 
 template <typename TypeKey>

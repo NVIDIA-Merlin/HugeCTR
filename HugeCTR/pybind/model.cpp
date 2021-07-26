@@ -467,7 +467,7 @@ void Model::construct_from_json(const std::string& graph_config_file, bool inclu
 
 void Model::add(Input& input) {
   if (!solver_.is_dlrm && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
-    CK_THROW_(Error_t::WrongInput, "Raw async reader is restricted to MLPerf use");
+    CK_THROW_(Error_t::WrongInput, "Raw async reader is restricted to DLRM use");
   }
   input_params_.push_back(input);
   activate_tensor(tensor_active_, input.label_name);
@@ -501,7 +501,7 @@ void Model::add(Input& input) {
 
 void Model::add(SparseEmbedding& sparse_embedding) {
   if (!solver_.is_dlrm && sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding) {
-    CK_THROW_(Error_t::WrongInput, "Hybrid embedding is restricted to MLPerf use");
+    CK_THROW_(Error_t::WrongInput, "Hybrid embedding is restricted to DLRM use");
   }
   if ((reader_params_.data_reader_type == DataReaderType_t::RawAsync 
       && sparse_embedding.embedding_type != Embedding_t::HybridSparseEmbedding) ||
@@ -558,7 +558,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
 
 void Model::add(DenseLayer& dense_layer) {
   if (!solver_.is_dlrm && dense_layer.pos_type != FcPosition_t::None) {
-    CK_THROW_(Error_t::WrongInput, "Specific fully connected position is restricted to MLPerf use");
+    CK_THROW_(Error_t::WrongInput, "Specific fully connected position is restricted to DLRM use");
   }
   dense_layer_params_.push_back(dense_layer);
   for (auto bottom_name : dense_layer.bottom_names) {
