@@ -543,6 +543,7 @@ nightly_build_inference:
     variables:
       - $NIGHTLY == "1"
 
+
 nightly_build_embedding:
   tags:
     - 1GPU
