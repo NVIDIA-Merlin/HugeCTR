@@ -1,7 +1,7 @@
 # <img src="docs/user_guide_src/merlin_logo.png" alt="logo" width="85"/> Merlin: HugeCTR #
 [![v30](docs/user_guide_src/version.JPG)](release_notes.md)
 
-HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), which is used to build large-scale deep learning recommender systems. For additional information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
+HugeCTR is a GPU-accelerated recommender framework designed to distribute training across multiple GPUs and nodes and estimate Click-Through Rates (CTRs). HugeCTR supports model-parallel embedding tables and data-parallel neural networks and their variants such as [DIN](https://arxiv.org/pdf/1706.06978.pdf), [NCF](https://arxiv.org/abs/1708.05031), [Wide and Deep Learning (WDL)](https://arxiv.org/abs/1606.07792), [Deep Cross Network (DCN)](https://arxiv.org/abs/1708.05123), [DeepFM](https://arxiv.org/abs/1703.04247), and [Deep Learning Recommendation Model (DLRM)](https://arxiv.org/abs/1906.00091). HugeCTR is a component of [NVIDIA Merlin Open Beta](https://developer.nvidia.com/nvidia-merlin), which is used to build large-scale deep learning recommender systems. For additional information, see [HugeCTR User Guide](docs/hugectr_user_guide.md).
 
 Design Goals:
 * **Fast**: HugeCTR is a speed-of-light CTR model framework that can [outperform](performance.md) popular recommender systems such as TensorFlow (TF).
@@ -21,7 +21,7 @@ HugeCTR supports a variety of features, including the following:
 * [multi-node training](docs/hugectr_user_guide.md#multi-node-training)
 * [mixed precision training](docs/hugectr_user_guide.md#mixed-precision-training)
 * [embedding training cache](docs/hugectr_user_guide.md#embedding-training-cache)
-* [Caching of most frequent embedding for inference](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
+* [caching of most frequent embedding for inference](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
 * [GPU / CPU memory sharing mechanism across different inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
 
 To learn about our latest enhancements, see our [release notes](release_notes.md).
