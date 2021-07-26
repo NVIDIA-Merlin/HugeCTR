@@ -800,6 +800,7 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
               break;
             }
+            case Optimizer_t::AdaGrad:
             case Optimizer_t::MomentumSGD:
             case Optimizer_t::Nesterov:
             case Optimizer_t::SGD: {
