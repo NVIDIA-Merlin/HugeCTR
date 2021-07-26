@@ -195,6 +195,7 @@ criteo_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/criteo &&
@@ -297,6 +298,7 @@ dcn_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/dcn &&
@@ -306,6 +308,7 @@ dcn_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/dcn_parquet &&
@@ -396,6 +399,7 @@ mos_multi_node_ssd:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
@@ -406,6 +410,7 @@ mos_multi_node_ssd:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
@@ -420,6 +425,7 @@ mos_multi_node_mem:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
@@ -430,6 +436,7 @@ mos_multi_node_mem:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
@@ -459,6 +466,7 @@ py_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cd /dataset/criteo_kaggle/dcn &&
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
@@ -468,6 +476,7 @@ py_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cd /dataset/criteo_kaggle/criteo &&
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
@@ -601,6 +610,7 @@ nightly_build_embedding:
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cd ${CI_PROJECT_DIR} &&
       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
@@ -720,6 +730,7 @@ nightly_build_embedding:
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
+      -network sharp
       bash -cx "
       cd ${CI_PROJECT_DIR} &&
       export PYTHONPATH=${WORK_DIR}/build/build_multi_nccl/lib &&
