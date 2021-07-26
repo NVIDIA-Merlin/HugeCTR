@@ -8,7 +8,7 @@ We've tested HugeCTR's performance on the following systems:
 ## Evaluating HugeCTR's Performance on the DGX-2 and DGX A100
 We submitted the DLRM benchmark with HugeCTR version 2.2 to [MLPerf Training v0.7](https://mlperf.org/training-results-0-7) and HugeCTR v3.1 to [MLPerf Training v1.0](https://mlcommons.org/en/news/mlperf-training-v10). We used the [Criteo Terabyte Click Logs dataset](https://labs.criteo.com/2013/12/download-terabyte-click-logs/), which contains 4 billion user and item interactions over 24 days. The target machines were DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs. For additional information, see [this blog post](https://developer.nvidia.com/blog/optimizing-ai-performance-for-mlperf-v0-7-training/).
 
-<div align=center><img width = '800' height ='400' src ="docs/user_guide_src/mlperf_10.PNG"/></div>
+<div align=center><img width = '600' height ='400' src ="docs/user_guide_src/mlperf_10.PNG"/></div>
 <div align=center>Fig. 1: HugeCTR's MLPerf v1.0 Result</div>
 
 ## Evaluating HugeCTR's Performance on the DGX-1
