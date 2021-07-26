@@ -125,7 +125,7 @@ For more information regarding how to use the HugeCTR Python API and comprehend 
 
 ## Core Features ##
 In addition to single node and full precision training, HugeCTR supports a variety of features including the following:
-* [Model Parallel Training](#Model Parallel Training)
+* [Model Parallel Training](#model-parallel-training)
 * [multi-node training](#multi-node-training)
 * [mixed precision training](#mixed-precision-training)
 * [SGD optimizer and learning rate scheduling](#sgd-optimizer-and-learning-rate-scheduling)
