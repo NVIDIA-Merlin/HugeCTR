@@ -128,12 +128,7 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("dense_layer"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train)
-      .def("eval", 
-          [](HugeCTR::Model &self) {
-               self.check_overflow();
-               self.copy_weights_for_evaluation();
-               return self.eval();   
-          })
+      .def("eval", &HugeCTR::Model::eval)
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",
            [](HugeCTR::Model &self) {
