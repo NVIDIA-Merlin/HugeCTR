@@ -34,16 +34,16 @@ Preprocessing:
 The scalability of HugeCTR and the number of active GPUs have increased simply because of the high efficient data exchange and three-stage processing pipeline. In this pipeline, we overlap the data reading from the file, host to the device data transaction (inter-node and intra-node), and train the GPU. The following chart shows the scalability of HugeCTR with Batch Size=16384 and Layers=7 on DGX1 servers.
 
 <div align=center><img width = '800' height ='400' src ="docs/user_guide_src/fig12_multi_gpu_performance.PNG"/></div>
-<div align=center>Fig. 1: HugeCTR's Multi-GPU Performance</div>
+<div align=center>Fig. 2: HugeCTR's Multi-GPU Performance</div>
 
 
 ## Evaluating HugeCTR's Performance on TensorFlow
 In the TensorFlow test case below, HugeCTR exhibits a speedup up to 114x compared to a CPU server running TensorFlow with only one V100 GPU and almost the same loss curve.
 
 <div align=center><img width = '800' height ='400' src ="docs/user_guide_src/WDL.JPG"/></div>
-<div align=center>Fig. 2: WDL Performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
+<div align=center>Fig. 3: WDL Performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
 
 <br></br>
 
 <div align=center><img width = '800' height ='400' src ="docs/user_guide_src/DCN.JPG"/></div>
-<div align=center>Fig. 3: DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
+<div align=center>Fig. 4: DCN performance and Loss Curve Comparison with TensorFlow Version 2.0</div>
