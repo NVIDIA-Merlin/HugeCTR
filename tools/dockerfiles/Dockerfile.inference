@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG TRITION_VERSION=21.04-py3
-FROM nvcr.io/nvidia/tritonserver:${TRITION_VERSION} AS devel
+ARG TRITON_VERSION=21.04-py3
+ARG TRITON_BRANCH=21.04
+FROM nvcr.io/nvidia/tritonserver:${TRITON_VERSION} AS devel
 
 ARG CMAKE_VERSION=3.19.6
 ARG PYTHON_VERSION=3.8
@@ -28,6 +29,10 @@ RUN apt-get update -y && \
         gdb \
         make \
         wget \
+        libboost-all-dev \
+        libboost-regex-dev \
+        libboost-system-dev \
+        libboost-filesystem-dev \
         curl && \
     rm -rf /var/lib/apt/lists/*
 
@@ -75,7 +80,7 @@ RUN if [ "$RELEASE" = "true" ]; \
       cd /var/tmp && git clone --depth=1 --branch main https://github.com/triton-inference-server/hugectr_backend hugectr_inference_backend && cd - && \
       cd /var/tmp/hugectr_inference_backend && \
       mkdir -p build && cd build && \
-      cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr .. && make -j$(nproc) && make install && \
+      cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH  -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH  .. && make -j$(nproc) && make install && \
       rm -rf /var/tmp/HugeCTR /var/tmp/hugectr_inference_backend; \
     else \
       echo "Build container for development successfully"; \
