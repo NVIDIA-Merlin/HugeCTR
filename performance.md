@@ -1,11 +1,13 @@
 # Performance
 
+Best perforamnce is one of the most important target for HugeCTR. Different to the other frameworks, we apply all the optimizations in mlperf submission to our release versions. 
+
 We've tested HugeCTR's performance on the following systems:
-* [DGX-2 and DGX A100](evaluating-hugectrs-performance-on-the-dgx-2-and-dgx-a100)
+* [MLPerf on DGX-2 and DGX A100](evaluating-hugectrs-performance-on-the-dgx-2-and-dgx-a100)
 * [DGX-1](evaluating-hugectrs-performance-on-the-dgx-1)
 * [TensorFlow (TF)](evaluating-hugectrs-performance-on-tensorflow)
 
-## Evaluating HugeCTR's Performance on the DGX-2 and DGX A100
+## MLPerf on DGX-2 and DGX A100
 We submitted the DLRM benchmark with HugeCTR version 2.2 to [MLPerf Training v0.7](https://mlperf.org/training-results-0-7) and HugeCTR v3.1 to [MLPerf Training v1.0](https://mlcommons.org/en/news/mlperf-training-v10). We used the [Criteo Terabyte Click Logs dataset](https://labs.criteo.com/2013/12/download-terabyte-click-logs/), which contains 4 billion user and item interactions over 24 days. The target machines were DGX-2 with 16 V100 GPUs and DGX A100 with eight A100 GPUs. For additional information, see [this blog post](https://developer.nvidia.com/blog/optimizing-ai-performance-for-mlperf-v0-7-training/).
 
 <div align=center><img width = '600' height ='400' src ="docs/user_guide_src/mlperf_10.PNG"/></div>
