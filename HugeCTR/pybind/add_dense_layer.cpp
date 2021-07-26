@@ -770,7 +770,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
                 bool use_algorithm_search,
                 std::vector<Layer*>* top_layers = nullptr,
                 std::vector<Layer*>* bottom_layers = nullptr,
-                bool mlperf_bottom_mlp = false) {
+                bool dlrm_bottom_mlp = false) {
   bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string =
@@ -1466,7 +1466,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
     for (auto& output_tensor_entry : output_tensor_entries) {
       tensor_entries.push_back(output_tensor_entry);
     }
-    if (mlperf_bottom_mlp) {
+    if (dlrm_bottom_mlp) {
       if (bottom_layers) {
         bottom_layers->emplace_back(layers.back().get());
       }
@@ -1501,7 +1501,7 @@ void add_dense_layer(DenseLayer& dense_layer,
                 std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
                 std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
                 std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
-                bool mlperf_bottom_mlp) {
+                bool dlrm_bottom_mlp) {
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     // add dense layer for train
     add_dense_layer_internal(dense_layer,
@@ -1524,7 +1524,7 @@ void add_dense_layer(DenseLayer& dense_layer,
                 use_algorithm_search,
                 &networks[i]->top_layers_,
                 &networks[i]->bottom_layers_,
-                mlperf_bottom_mlp);
+                dlrm_bottom_mlp);
     // add dense layer for evaluation
     add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list[i], blobs_buff_list[i],
                              evaluate_weight_buff_list[i], evaluate_weight_buff_half_list[i],

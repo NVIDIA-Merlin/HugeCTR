@@ -31,21 +31,21 @@ std::unique_ptr<Solver> CreateSolver(
     bool use_algorithm_search, bool use_cuda_graph, DeviceMap::Layout device_layout,
     bool use_holistic_cuda_graph, bool use_overlapped_pipeline,
     AllReduceAlgo all_reduce_algo, bool grouped_all_reduce, size_t num_iterations_statistics,
-    bool is_mlperf) {
+    bool is_dlrm) {
   if (use_mixed_precision && enable_tf32_compute) {
     CK_THROW_(Error_t::WrongInput, "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
   }
   if (use_mixed_precision && scaler != 128 && scaler != 256 && scaler != 512 && scaler != 1024) {
     CK_THROW_(Error_t::WrongInput, "Scaler of mixed precision training should be either 128/256/512/1024");
   }
-  if (!is_mlperf && use_holistic_cuda_graph) {
-    CK_THROW_(Error_t::WrongInput, "Holistic cuda graph is restricted to MLPerf use");
+  if (!is_dlrm && use_holistic_cuda_graph) {
+    CK_THROW_(Error_t::WrongInput, "Holistic cuda graph is restricted to DLRM use");
   }
-  if (!is_mlperf && use_overlapped_pipeline) {
-    CK_THROW_(Error_t::WrongInput, "Overlapped pipeline is restricted to MLPerf use");
+  if (!is_dlrm && use_overlapped_pipeline) {
+    CK_THROW_(Error_t::WrongInput, "Overlapped pipeline is restricted to DLRM use");
   }
-  if (!is_mlperf && grouped_all_reduce) {
-    CK_THROW_(Error_t::WrongInput, "Grouped all reduce is restricted to MLPerf use");
+  if (!is_dlrm && grouped_all_reduce) {
+    CK_THROW_(Error_t::WrongInput, "Grouped all reduce is restricted to DLRM use");
   }
   if (use_holistic_cuda_graph && use_cuda_graph) {
     CK_THROW_(Error_t::WrongInput, "Must turn off local cuda graph when using holistic cuda graph");
@@ -77,7 +77,7 @@ std::unique_ptr<Solver> CreateSolver(
   solver->all_reduce_algo = all_reduce_algo;
   solver->grouped_all_reduce = grouped_all_reduce;
   solver->num_iterations_statistics = num_iterations_statistics;
-  solver->is_mlperf = is_mlperf;
+  solver->is_dlrm = is_dlrm;
   return solver;
 }
 
@@ -110,7 +110,7 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("all_reduce_algo", &HugeCTR::Solver::all_reduce_algo)
       .def_readonly("grouped_all_reduce", &HugeCTR::Solver::grouped_all_reduce)
       .def_readonly("num_iterations_statistics", &HugeCTR::Solver::num_iterations_statistics)
-      .def_readonly("is_mlperf", &HugeCTR::Solver::is_mlperf);
+      .def_readonly("is_dlrm", &HugeCTR::Solver::is_dlrm);
   m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver,
        pybind11::arg("seed") = 0,
        pybind11::arg("lr_policy") = LrPolicy_t::fixed,
@@ -138,7 +138,7 @@ void SolverPybind(pybind11::module& m) {
        pybind11::arg("all_reduce_algo") = AllReduceAlgo::ONESHOT,
        pybind11::arg("grouped_all_reduce") = false,
        pybind11::arg("num_iterations_statistics") = 20,
-       pybind11::arg("is_mlperf") = false);
+       pybind11::arg("is_dlrm") = false);
 }
 
 }  // namespace python_lib

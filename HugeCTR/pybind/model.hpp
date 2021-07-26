@@ -267,7 +267,7 @@ struct DenseLayer {
              Regularizer_t regularizer_type = Regularizer_t::L1,
              float lambda = 0,
              FcPosition_t pos_type = FcPosition_t::Isolated,
-             Activation_t act_type = Activation_t::Relu);
+             Activation_t act_type = Activation_t::None);
 };
 
 template <typename TypeKey>
@@ -512,7 +512,7 @@ class Model {
     std::vector<cudaGraphExec_t> instance;
     std::vector<cudaEvent_t> fork_event;
   } train_graph_;
-  bool mlperf_bottom_mlp_;
+  bool dlrm_bottom_mlp_;
 
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);

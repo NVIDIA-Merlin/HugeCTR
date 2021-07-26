@@ -316,7 +316,7 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       is_embedding_trainable_(true),
       is_dense_trainable_(true),
       current_eval_batchsize_(0),
-      mlperf_bottom_mlp_(true) {
+      dlrm_bottom_mlp_(true) {
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -466,7 +466,7 @@ void Model::construct_from_json(const std::string& graph_config_file, bool inclu
 }
 
 void Model::add(Input& input) {
-  if (!solver_.is_mlperf && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
+  if (!solver_.is_dlrm && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
     CK_THROW_(Error_t::WrongInput, "Raw async reader is restricted to MLPerf use");
   }
   input_params_.push_back(input);
@@ -500,7 +500,7 @@ void Model::add(Input& input) {
 }
 
 void Model::add(SparseEmbedding& sparse_embedding) {
-  if (!solver_.is_mlperf && sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding) {
+  if (!solver_.is_dlrm && sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding) {
     CK_THROW_(Error_t::WrongInput, "Hybrid embedding is restricted to MLPerf use");
   }
   if ((reader_params_.data_reader_type == DataReaderType_t::RawAsync 
@@ -557,7 +557,7 @@ void Model::add(SparseEmbedding& sparse_embedding) {
 }
 
 void Model::add(DenseLayer& dense_layer) {
-  if (!solver_.is_mlperf && dense_layer.pos_type != FcPosition_t::None) {
+  if (!solver_.is_dlrm && dense_layer.pos_type != FcPosition_t::None) {
     CK_THROW_(Error_t::WrongInput, "Specific fully connected position is restricted to MLPerf use");
   }
   dense_layer_params_.push_back(dense_layer);
@@ -576,7 +576,7 @@ void Model::add(DenseLayer& dense_layer) {
     layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
   }
   if (dense_layer.layer_type == Layer_t::Interaction) {
-    mlperf_bottom_mlp_ = false;
+    dlrm_bottom_mlp_ = false;
   }
   add_dense_layer(dense_layer, train_tensor_entries_list_, evaluate_tensor_entries_list_,
                 resource_manager_, solver_.use_mixed_precision, solver_.enable_tf32_compute,
@@ -584,7 +584,7 @@ void Model::add(DenseLayer& dense_layer) {
                 networks_, blobs_buff_list_, train_weight_buff_list_, train_weight_buff_half_list_,
                 wgrad_buff_list_, wgrad_buff_half_list_, evaluate_weight_buff_list_,
                 evaluate_weight_buff_half_list_, wgrad_buff_placeholder_list_,
-                wgrad_buff_half_placeholder_list_, mlperf_bottom_mlp_);
+                wgrad_buff_half_placeholder_list_, dlrm_bottom_mlp_);
 }
 
 void Model::compile() {

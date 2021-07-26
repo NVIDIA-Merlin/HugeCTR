@@ -109,7 +109,7 @@ struct Solver {
   AllReduceAlgo all_reduce_algo;
   bool grouped_all_reduce;
   size_t num_iterations_statistics;
-  bool is_mlperf;
+  bool is_dlrm;
   Solver() {}
 };
 

@@ -152,7 +152,7 @@ class Session {
   } train_graph_;
 
 
-  // TODO(MLPERF): these two variables for export_predictions.
+  // TODO: these two variables for export_predictions.
   // There may be a better place for them.
   bool use_mixed_precision_;
   size_t batchsize_eval_;

@@ -139,7 +139,7 @@ Session::Session(const SolverParser& solver_config, const std::string& config_fi
     }
   }
 
-  // TODO(MLPERF): currently it is only for HE
+  // TODO: currently it is only for HE
   if (embeddings_.size() == 1) {
     auto lr_scheds = embeddings_[0]->get_learning_rate_schedulers();
     for (size_t i = 0; i < lr_scheds.size(); i++) {
