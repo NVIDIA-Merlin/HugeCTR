@@ -12,7 +12,7 @@
 	
 + **NCF Model Support**: We've added support for the NCF model, as well as the GMF and NeuMF variant models. With this enhancement, we're introducing a new element-wise multiplication layer and HitRate evaluation metric. Sample code was added that demonstrates how to preprocess user-item interaction data and train a NCF model with it. New examples have also been added that demonstrate how to train NCF models using MovieLens datasets.
 
-+ **DIN Model Support**: We have added all the layers support for the DIN model and most of the layers support for DIEN model. The added layers include: GRU layer, FusedReshapeConcat layer, FusedReshapeConcatGeneral layer, Gather layer, PReLUDice layer, ReduceMean layer, Scale layer, Softmax layer, Sub layer. We also added a sample code to demonstrate how to use the Amazon dataset to train the DIN model.
++ **DIN Model Support**: All of our layers support the DIN model. The following layers support the DIEN model: FusedReshapeConcat, FusedReshapeConcatGeneral, Gather, GRU, PReLUDice, ReduceMean, Scale, Softmax, and Sub. We also added sample code to demonstrate how to use the Amazon dataset to train the DIN model.
 
 + **Multi-Hot Support for Parquet Datasets**: We've added multi-hot support for parquet datasets, so you can now train models with a paraquet dataset that contains both one hot and multi-hot slots.
 
@@ -20,7 +20,7 @@
 
 + **Mixed Precision (FP16) Support in Inference**: We've added FP16 support for the inference pipeline. Therefore, dense layers can now adopt FP16 during inference.
 
-+ **Optimizer State Enhancements for Continuous Training**: You can now store optimizer states that are updated during continuous training as files, such as the Adam optimizer's first moment (m) and second moment (v). By default, the optimizer states are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more information, see `dense_opt_states_file` and `sparse_opt_states_file` in [Python Interface](docs/python_interface.md#load_dense_weights-method).
++ **Optimizer State Enhancements for Continuous Training**: You can now store optimizer states that are updated during continuous training as files, such as the Adam optimizer's first moment (m) and second moment (v). By default, the optimizer states are initialized with zeros, but you can specify a set of optimizer state files to recover their previous values. For more information about `dense_opt_states_file` and `sparse_opt_states_file`, see [Python Interface](docs/python_interface.md#load_dense_weights-method).
 
 + **New Library File for GPU Embedding Cache Data**: We’ve moved the header/source code of the GPU embedding cache data structure into a stand-alone folder. It has been compiled into a stand-alone library file. Similar to HugeCTR, your application programs can now be directly linked from this new library file for future use. For more information, see our [GPU Embedding Cache ReadMe](gpu_cache/ReadMe.md).
 
@@ -38,7 +38,7 @@
 
 + **Reduced Memory Allocation for Trained Model Exportation**: To prevent the "Out of Memory" error message from displaying when exporting a trained model, which may include a very large embedding table, the amount of memory allocated by the related functions has been significantly reduced.
 
-+ **Dropout Layer Enhancement**: We've made the Dropout layer compatible with CUDA Graph. The Dropout layer is using cuDNN by default so that it can be used with CUDA Graph.
++ **Dropout Layer Enhancement**: The Dropout layer is now compatible with CUDA Graph. The Dropout layer is using cuDNN by default so that it can be used with CUDA Graph.
 
 ## What’s New in Version 3.0
 
