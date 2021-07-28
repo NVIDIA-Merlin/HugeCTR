@@ -16,15 +16,15 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <resource_manager.hpp>
 #include <string>
 #include <tensor2.hpp>
 #include <utils.hpp>
 #include <vector>
-#include <mutex>
-#include <condition_variable>
 
 namespace HugeCTR {
 
@@ -185,21 +185,6 @@ class AUCStorage {
     void realloc_ptr(void** ptr, size_t old_size, size_t new_size, cudaStream_t stream);
 };
 
-class AUCBarrier {
-public:
-    AUCBarrier(std::size_t thread_count);
-    void wait();
-
-private:
-    std::mutex mutex_;
-    std::condition_variable cond_;
-    std::size_t threshold_;
-    std::size_t count_;
-    std::size_t generation_;
-};
-
-
-
 template <typename T>
 class AUC : public Metric {
  public:
@@ -213,6 +198,45 @@ class AUC : public Metric {
   void global_reduce(int n_nets) override;
   float finalize_metric() override;
   std::string name() const override { return "AUC"; };
+
+  // Public in order to use device lambda
+  float _finalize_metric_per_gpu(int device_id);
+
+ private:
+  void warm_up(size_t num_local_samples);
+
+  const float pred_min_ = 0.0f;
+  const float pred_max_ = 1.0f;
+  const int num_bins_per_gpu_ = 10000;
+
+  std::shared_ptr<ResourceManager> resource_manager_;
+
+  int n_batches_;
+  int num_local_gpus_;
+  int num_global_gpus_;
+  int batch_size_per_gpu_;
+  int num_bins_;
+  int num_partitions_;
+  size_t num_total_samples_;
+
+  std::vector<size_t> offsets_;
+  std::vector<AUCStorage> storage_;
+};
+
+/*
+template <typename T>
+class HitRate: public Metric {
+ public:
+  using PredType = T;
+  using LabelType = float;
+  HitRate(int batch_size_per_gpu, int n_batches,
+      const std::shared_ptr<ResourceManager>& resource_manager);
+  ~HitRate() override;
+
+  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
+  void global_reduce(int n_nets) override;
+  float finalize_metric() override;
+  std::string name() const override { return "HitRate"; };
 
   // Public in order to use device lambda
   float _finalize_metric_per_gpu(int device_id);
@@ -237,6 +261,49 @@ class AUC : public Metric {
   std::vector<size_t> offsets_;
   std::vector<AUCStorage> storage_;
 };
+*/
+
+
+/*
+template <typename T>
+class HitRate: public Metric {
+ public:
+  using PredType = T;
+  using LabelType = float;
+  HitRate(int batch_size_per_gpu, int n_batches,
+      const std::shared_ptr<ResourceManager>& resource_manager);
+  ~HitRate() override;
+
+  void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
+  void global_reduce(int n_nets) override;
+  float finalize_metric() override;
+  std::string name() const override { return "HitRate"; };
+
+  // Public in order to use device lambda
+  float _finalize_metric_per_gpu(int device_id);
+
+ private:
+  const float pred_min_ = 0.0f;
+  const float pred_max_ = 1.0f;
+  const int num_bins_per_gpu_ = 10000;
+
+  std::shared_ptr<ResourceManager> resource_manager_;
+
+  int n_batches_;
+  int num_local_gpus_;
+  int num_global_gpus_;
+  int batch_size_per_gpu_;
+  int num_bins_;
+  int num_partitions_;
+  size_t num_total_samples_;
+
+  AUCBarrier barrier_;
+
+  std::vector<size_t> offsets_;
+  std::vector<AUCStorage> storage_;
+};
+*/
+
 
 /*
 template <typename T>

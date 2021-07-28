@@ -14,81 +14,68 @@
  * limitations under the License.
  */
 
- #ifndef HASH_ALLOCATOR_CUH
- #define HASH_ALLOCATOR_CUH
- 
- #include <new>
- 
- #include <rmm/mr/device/device_memory_resource.hpp>
- #include <rmm/mr/device/managed_memory_resource.hpp>
- #include <rmm/mr/device/per_device_resource.hpp>
- 
- template <class T>
- struct managed_allocator {
-   typedef T value_type;
-   rmm::mr::device_memory_resource* mr = new rmm::mr::managed_memory_resource;
- 
-   managed_allocator() = default;
- 
-   template <class U>
-   constexpr managed_allocator(const managed_allocator<U>&) noexcept
-   {
-   }
- 
-   T* allocate(std::size_t n, cudaStream_t stream = 0) const
-   {
-     return static_cast<T*>(mr->allocate(n * sizeof(T), stream));
-   }
- 
-   void deallocate(T* p, std::size_t n, cudaStream_t stream = 0) const
-   {
-     mr->deallocate(p, n * sizeof(T), stream);
-   }
- };
- 
- template <class T, class U>
- bool operator==(const managed_allocator<T>&, const managed_allocator<U>&)
- {
-   return true;
- }
- template <class T, class U>
- bool operator!=(const managed_allocator<T>&, const managed_allocator<U>&)
- {
-   return false;
- }
- 
- template <class T>
- struct default_allocator {
-   typedef T value_type;
-   rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource();
- 
-   default_allocator() = default;
- 
-   template <class U>
-   constexpr default_allocator(const default_allocator<U>&) noexcept
-   {
-   }
- 
-   T* allocate(std::size_t n, cudaStream_t stream = 0) const
-   {
-     return static_cast<T*>(mr->allocate(n * sizeof(T), stream));
-   }
- 
-   void deallocate(T* p, std::size_t n, cudaStream_t stream = 0) const
-   {
-     mr->deallocate(p, n * sizeof(T), stream);
-   }
- };
- 
- template <class T, class U>
- bool operator==(const default_allocator<T>&, const default_allocator<U>&)
- {
-   return true;
- }
- template <class T, class U>
- bool operator!=(const default_allocator<T>&, const default_allocator<U>&)
- {
-   return false;
- }
- 
- #endif
+#ifndef HASH_ALLOCATOR_CUH
+#define HASH_ALLOCATOR_CUH
+
+#include <new>
+#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+
+template <class T>
+struct managed_allocator {
+  typedef T value_type;
+  rmm::mr::device_memory_resource* mr = new rmm::mr::managed_memory_resource;
+
+  managed_allocator() = default;
+
+  template <class U>
+  constexpr managed_allocator(const managed_allocator<U>&) noexcept {}
+
+  T* allocate(std::size_t n, cudaStream_t stream = 0) const {
+    return static_cast<T*>(mr->allocate(n * sizeof(T), stream));
+  }
+
+  void deallocate(T* p, std::size_t n, cudaStream_t stream = 0) const {
+    mr->deallocate(p, n * sizeof(T), stream);
+  }
+};
+
+template <class T, class U>
+bool operator==(const managed_allocator<T>&, const managed_allocator<U>&) {
+  return true;
+}
+template <class T, class U>
+bool operator!=(const managed_allocator<T>&, const managed_allocator<U>&) {
+  return false;
+}
+
+template <class T>
+struct default_allocator {
+  typedef T value_type;
+  rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource();
+
+  default_allocator() = default;
+
+  template <class U>
+  constexpr default_allocator(const default_allocator<U>&) noexcept {}
+
+  T* allocate(std::size_t n, cudaStream_t stream = 0) const {
+    return static_cast<T*>(mr->allocate(n * sizeof(T), stream));
+  }
+
+  void deallocate(T* p, std::size_t n, cudaStream_t stream = 0) const {
+    mr->deallocate(p, n * sizeof(T), stream);
+  }
+};
+
+template <class T, class U>
+bool operator==(const default_allocator<T>&, const default_allocator<U>&) {
+  return true;
+}
+template <class T, class U>
+bool operator!=(const default_allocator<T>&, const default_allocator<U>&) {
+  return false;
+}
+
+#endif

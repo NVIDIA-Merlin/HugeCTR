@@ -378,6 +378,34 @@ TEST(data_reader_group_test, data_reader_group_test_3files_1worker_iter) {
   std::vector<DataReaderSparseParam> params;
   params.push_back(param);
 
+  CudaDeviceContext context(0);
+  auto buff = GeneralBuffer2<CudaAllocator>::create();
+  // create buffer for a reader worker
+  std::shared_ptr<ThreadBuffer> thread_buffer = std::make_shared<ThreadBuffer>();
+  // readytowrite
+  thread_buffer->state.store(BufferState::ReadyForWrite);
+  thread_buffer->batch_size = batchsize;
+  thread_buffer->param_num = params.size();
+  thread_buffer->label_dim = label_dim;
+  thread_buffer->dense_dim = dense_dim;
+
+  int batch_start = 5;
+  int batch_end = 10;
+  thread_buffer->batch_size_start_idx = batch_start;
+  thread_buffer->batch_size_end_idx = batch_end;
+  for (size_t i = 0; i < params.size(); ++i) {
+    auto& param = params[i];
+    thread_buffer->is_fixed_length.push_back(params[i].is_fixed_length);
+    SparseTensor<T> sparse_tensor;
+    buff->reserve({(size_t)batchsize, (size_t)param.max_feature_num}, param.slot_num,
+                  &sparse_tensor);
+    thread_buffer->device_sparse_buffers.push_back(sparse_tensor.shrink());
+  }
+  Tensor2<float> label_dense_tensor;
+  buff->reserve({(size_t)batchsize, (size_t)(label_dim + dense_dim)}, &label_dense_tensor);
+  thread_buffer->device_dense_buffers = label_dense_tensor.shrink();
+  buff->allocate();
+
   std::vector<long long> slot_offset(slot_size.size(), 0);
   for (unsigned int i = 1; i < slot_size.size(); i++) {
     slot_offset[i] = slot_offset[i - 1] + slot_size[i - 1];

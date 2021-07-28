@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
 file(GLOB prims_test_src
   matrix_vector_op.cu
   #reduce.cu

@@ -1264,6 +1264,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::reset_o
     context.set_device(embedding_data_.get_local_gpu(id).get_device_id());
     embedding_optimizers_[id].reset(embedding_data_.get_local_gpu(id));
   }
+  
 }
 
 template class DistributedSlotSparseEmbeddingHash<unsigned int, float>;

@@ -16,6 +16,8 @@
 
 #include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <HugeCTR/pybind/model.hpp>
+#include <embeddings/hybrid_sparse_embedding.hpp>
+#include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
@@ -129,23 +131,29 @@ ModelOversubscriberParams::ModelOversubscriberParams()
     : use_model_oversubscriber(false) {}
 
 DataReaderParams::DataReaderParams(DataReaderType_t data_reader_type,
-                                   std::vector<std::string> source, std::vector<std::string> keyset,
-                                   std::string eval_source, Check_t check_type, int cache_eval_data,
-                                   long long num_samples, long long eval_num_samples,
-                                   bool float_label_dense, int num_workers,
-                                   std::vector<long long int> slot_size_array)
-
+                                   std::vector<std::string> source,
+                                   std::vector<std::string> keyset,
+                                   std::string eval_source,
+                                   Check_t check_type,
+                                   int cache_eval_data,
+                                   long long num_samples,
+                                   long long eval_num_samples,
+                                   bool float_label_dense,
+                                   int num_workers,
+                                   std::vector<long long>& slot_size_array,
+                                   const AsyncParam& async_param)
     : data_reader_type(data_reader_type),
       source(source),
       keyset(keyset),
       eval_source(eval_source),
       check_type(check_type),
       cache_eval_data(cache_eval_data),
-      num_samples(num_samples),
+      num_samples(num_samples), 
       eval_num_samples(eval_num_samples),
       float_label_dense(float_label_dense),
       num_workers(num_workers),
-      slot_size_array(slot_size_array) {}
+      slot_size_array(slot_size_array),
+      async_param(async_param) {}
 
 Input::Input(int label_dim, std::string label_name, int dense_dim, std::string dense_name,
              std::vector<DataReaderSparseParam>& data_reader_sparse_param_array)
@@ -155,17 +163,22 @@ Input::Input(int label_dim, std::string label_name, int dense_dim, std::string d
       dense_name(dense_name),
       data_reader_sparse_param_array(data_reader_sparse_param_array) {}
 
-SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_size_per_gpu_in_mb,
-                                 size_t embedding_vec_size, const std::string& combiner_str,
-                                 std::string sparse_embedding_name, std::string bottom_name,
-                                 std::vector<size_t>& slot_size_array,
-                                 std::shared_ptr<OptParamsPy>& embedding_opt_params)
+SparseEmbedding::SparseEmbedding(Embedding_t embedding_type,
+       size_t workspace_size_per_gpu_in_mb,
+       size_t embedding_vec_size,
+       const std::string& combiner_str,
+       std::string sparse_embedding_name,
+       std::string bottom_name,
+       std::vector<size_t>& slot_size_array,
+       std::shared_ptr<OptParamsPy>& embedding_opt_params,
+       const HybridEmbeddingParam& hybrid_embedding_param)
     : embedding_type(embedding_type),
       embedding_vec_size(embedding_vec_size),
       sparse_embedding_name(sparse_embedding_name),
       bottom_name(bottom_name),
       slot_size_array(slot_size_array),
-      embedding_opt_params(embedding_opt_params) {
+      embedding_opt_params(embedding_opt_params),
+      hybrid_embedding_param(hybrid_embedding_param) {
   if (combiner_str == "sum") {
     combiner = 0;
   } else if (combiner_str == "mean") {
@@ -173,22 +186,41 @@ SparseEmbedding::SparseEmbedding(Embedding_t embedding_type, size_t workspace_si
   } else {
     CK_THROW_(Error_t::WrongInput, "No such combiner type: " + combiner_str);
   }
-
   max_vocabulary_size_per_gpu =
       (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
 }
 
-DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_names,
-                       std::vector<std::string>& top_names, float factor, float eps,
-                       Initializer_t gamma_init_type, Initializer_t beta_init_type,
-                       float dropout_rate, float elu_alpha, size_t num_output,
-                       Initializer_t weight_init_type, Initializer_t bias_init_type, int num_layers,
-                       size_t leading_dim, size_t time_step, size_t batchsize, size_t SeqLength,
-                       size_t vector_size, bool selected, std::vector<int> selected_slots,
-                       std::vector<std::pair<int, int>> ranges, std::vector<int> indices,
-                       std::vector<size_t> weight_dims, size_t out_dim, int axis,
-                       std::vector<float> target_weight_vec, bool use_regularizer,
-                       Regularizer_t regularizer_type, float lambda)
+DenseLayer::DenseLayer(Layer_t layer_type,
+                       std::vector<std::string>& bottom_names,
+                       std::vector<std::string>& top_names,
+                       float factor,
+                       float eps,
+                       Initializer_t gamma_init_type,
+                       Initializer_t beta_init_type,
+                       float dropout_rate,
+                       float elu_alpha,
+                       size_t num_output,
+                       Initializer_t weight_init_type,
+                       Initializer_t bias_init_type,
+                       int num_layers,
+                       size_t leading_dim,
+                       size_t time_step,
+                       size_t batchsize,
+                       size_t SeqLength,
+                       size_t vector_size,
+                       bool selected,
+                       std::vector<int> selected_slots,
+                       std::vector<std::pair<int, int>> ranges,
+                       std::vector<int> indices,
+                       std::vector<size_t> weight_dims,
+                       size_t out_dim,
+                       int axis,
+                       std::vector<float> target_weight_vec,
+                       bool use_regularizer,
+                       Regularizer_t regularizer_type,
+                       float lambda,
+                       FcPosition_t pos_type,
+                       Activation_t act_type) 
     : layer_type(layer_type),
       bottom_names(bottom_names),
       top_names(top_names),
@@ -217,7 +249,8 @@ DenseLayer::DenseLayer(Layer_t layer_type, std::vector<std::string>& bottom_name
       target_weight_vec(target_weight_vec),
       use_regularizer(use_regularizer),
       regularizer_type(regularizer_type),
-      lambda(lambda) {}
+      lambda(lambda),
+      pos_type(pos_type), act_type(act_type) {}
 
 void init_optimizer(OptParams& opt_params, const Solver& solver,
                     const std::shared_ptr<OptParamsPy>& opt_params_py) {
@@ -236,15 +269,42 @@ void init_optimizer(OptParams& opt_params, const Solver& solver,
   opt_params.hyperparams.sgd.atomic_update = opt_params_py->hyperparams.sgd.atomic_update;
 }
 
-void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch,
-                                  const Solver& solver) {
+void init_learning_rate_scheduler(std::shared_ptr<LearningRateScheduler>& lr_sch, const Solver& solver,
+                                  GpuLearningRateSchedulers& gpu_lr_sches,
+                                  const std::shared_ptr<ResourceManager>& resource_manager) {
   lr_sch.reset(new LearningRateScheduler(solver.lr, solver.warmup_steps, solver.decay_start,
-                                         solver.decay_steps, solver.decay_power, solver.end_lr));
+                                        solver.decay_steps, solver.decay_power, solver.end_lr));
+  for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
+    auto& gpu_resource = resource_manager->get_local_gpu(i);
+    gpu_lr_sches.emplace_back(new GpuLearningRateScheduler(
+          solver.lr, solver.warmup_steps, solver.decay_start, solver.decay_steps, 
+          solver.decay_power, solver.end_lr, gpu_resource));
+  }
+}
+
+void init_exchange_wgrad(const std::shared_ptr<ResourceManager>& resource_manager, std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
+                        const Solver& solver) {
+  MESSAGE_("Using All-reduce algorithm " + ALLREDUCE_ALGO_TO_STRING[solver.all_reduce_algo]);
+  resource_manager->set_ar_comm(solver.all_reduce_algo, solver.use_mixed_precision);
+  if (solver.grouped_all_reduce) {
+    if (solver.use_mixed_precision) {
+      exchange_wgrad =  std::make_shared<GroupedExchangeWgrad<__half>>(resource_manager);
+    } else {
+      exchange_wgrad =  std::make_shared<GroupedExchangeWgrad<float>>(resource_manager);
+    }
+  }
+  else {
+    if (solver.use_mixed_precision) {
+      exchange_wgrad =  std::make_shared<NetworkExchangeWgrad<__half>>(resource_manager);
+    } else {
+      exchange_wgrad =  std::make_shared<NetworkExchangeWgrad<float>>(resource_manager);
+    }
+  }
 }
 
 Model::Model(const Solver& solver, const DataReaderParams& reader_params,
-             std::shared_ptr<OptParamsPy>& opt_params_py,
-             std::shared_ptr<ModelOversubscriberParams>& mos_params)
+            std::shared_ptr<OptParamsPy>& opt_params_py,
+            std::shared_ptr<ModelOversubscriberParams>& mos_params)
     : solver_(solver),
       reader_params_(reader_params),
       opt_params_py_(opt_params_py),
@@ -255,7 +315,9 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       mos_created_(false),
       is_embedding_trainable_(true),
       is_dense_trainable_(true),
-      current_eval_batchsize_(0) {
+      current_eval_batchsize_(0),
+      dlrm_bottom_mlp_(true),
+      high_level_eval_(false) {
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -265,7 +327,10 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
                  "Init====================================================="
               << std::endl;
   }
-  resource_manager_ = ResourceManagerExt::create(solver.vvgpu, solver.seed);
+  resource_manager_ = ResourceManagerExt::create(solver.vvgpu, solver.seed, solver.device_layout);
+  
+  init_exchange_wgrad(resource_manager_, exchange_wgrad_, solver_);
+  
   for (auto dev : resource_manager_->get_local_gpu_device_id_list()) {
     if (solver_.use_mixed_precision) {
       check_device(dev, 7,
@@ -304,14 +369,25 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
   for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
     train_weight_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
     train_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
-    wgrad_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
-    wgrad_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
     evaluate_weight_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
     evaluate_weight_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
     wgrad_buff_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
     wgrad_buff_half_placeholder_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
     opt_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
     opt_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>());
+    auto id = resource_manager_->get_local_gpu(i)->get_local_id();
+    if (solver_.use_mixed_precision) {
+      wgrad_buff_half_list_.emplace_back((solver_.grouped_all_reduce) ? 
+        std::dynamic_pointer_cast<GroupedExchangeWgrad<__half>>(exchange_wgrad_)->get_network_wgrad_buffs()[id] :
+        std::dynamic_pointer_cast<NetworkExchangeWgrad<__half>>(exchange_wgrad_)->get_network_wgrad_buffs()[id]);
+      wgrad_buff_list_.emplace_back(blobs_buff_list_[i]->create_block<float>());
+    }
+    else {
+      wgrad_buff_list_.emplace_back((solver_.grouped_all_reduce) ? 
+        std::dynamic_pointer_cast<GroupedExchangeWgrad<float>>(exchange_wgrad_)->get_network_wgrad_buffs()[id] :
+        std::dynamic_pointer_cast<NetworkExchangeWgrad<float>>(exchange_wgrad_)->get_network_wgrad_buffs()[id]);
+      wgrad_buff_half_list_.emplace_back(blobs_buff_list_[i]->create_block<__half>()); // placeholder
+    }
   }
 
   // resize train_tensor_entries_list_ and evaluate_tensor_entries_list_
@@ -320,7 +396,7 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
 
   // initialize optimizer
   init_optimizer(opt_params_, solver_, opt_params_py);
-  init_learning_rate_scheduler(lr_sch_, solver_);
+  init_learning_rate_scheduler(lr_sch_, solver_, gpu_lr_sches_, resource_manager_);
 }
 
 Model::~Model() {
@@ -340,13 +416,8 @@ void Model::graph_to_json(std::string graph_config_file) {
   nlohmann::json graph_config;
   std::ofstream file_stream(graph_config_file);
   nlohmann::json layer_config_array = nlohmann::json::array();
-  if (solver_.use_mixed_precision) {
-    save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_,
-                       input_params_, embedding_opt_params_list_);
-  } else {
-    save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_,
-                       input_params_, embedding_opt_params_list_);
-  }
+  save_graph_to_json(layer_config_array, dense_layer_params_, sparse_embedding_params_,
+                      input_params_, embedding_opt_params_list_, solver_.use_mixed_precision);
   graph_config["layers"] = layer_config_array;
   file_stream << std::setw(2) << graph_config;
   file_stream.close();
@@ -391,6 +462,9 @@ void Model::construct_from_json(const std::string& graph_config_file, bool inclu
 }
 
 void Model::add(Input& input) {
+  if (!solver_.is_dlrm && reader_params_.data_reader_type == DataReaderType_t::RawAsync) {
+    CK_THROW_(Error_t::WrongInput, "Raw async reader is restricted to DLRM use");
+  }
   input_params_.push_back(input);
   activate_tensor(tensor_active_, input.label_name);
   activate_tensor(tensor_active_, input.dense_name);
@@ -406,18 +480,31 @@ void Model::add(Input& input) {
   }
   if (solver_.i64_input_key) {
     add_input<long long>(input, reader_params_, sparse_input_map_64_, train_tensor_entries_list_,
-                         evaluate_tensor_entries_list_, train_data_reader_, evaluate_data_reader_,
-                         solver_.batchsize, solver_.batchsize_eval, solver_.use_mixed_precision,
-                         solver_.repeat_dataset, resource_manager_);
+                        evaluate_tensor_entries_list_, train_data_reader_,
+                        evaluate_data_reader_, init_data_reader_, solver_.batchsize,
+                        solver_.batchsize_eval, solver_.use_mixed_precision, 
+                        solver_.repeat_dataset, solver_.use_overlapped_pipeline,
+                        solver_.num_iterations_statistics, resource_manager_);
   } else {
     add_input<unsigned int>(input, reader_params_, sparse_input_map_32_, train_tensor_entries_list_,
-                            evaluate_tensor_entries_list_, train_data_reader_,
-                            evaluate_data_reader_, solver_.batchsize, solver_.batchsize_eval,
-                            solver_.use_mixed_precision, solver_.repeat_dataset, resource_manager_);
+                        evaluate_tensor_entries_list_, train_data_reader_,
+                        evaluate_data_reader_, init_data_reader_, solver_.batchsize,
+                        solver_.batchsize_eval, solver_.use_mixed_precision, 
+                        solver_.repeat_dataset, solver_.use_overlapped_pipeline,
+                        solver_.num_iterations_statistics, resource_manager_);
   }
 }
 
 void Model::add(SparseEmbedding& sparse_embedding) {
+  if (!solver_.is_dlrm && sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding) {
+    CK_THROW_(Error_t::WrongInput, "Hybrid embedding is restricted to DLRM use");
+  }
+  if ((reader_params_.data_reader_type == DataReaderType_t::RawAsync 
+      && sparse_embedding.embedding_type != Embedding_t::HybridSparseEmbedding) ||
+      (reader_params_.data_reader_type != DataReaderType_t::RawAsync 
+      && sparse_embedding.embedding_type == Embedding_t::HybridSparseEmbedding)) {
+    CK_THROW_(Error_t::WrongInput, "Raw async reader and hybrid embedding must come together");
+  }
   sparse_embedding_params_.push_back(sparse_embedding);
   deactivate_tensor(tensor_active_, sparse_embedding.bottom_name);
   activate_tensor(tensor_active_, sparse_embedding.sparse_embedding_name);
@@ -431,29 +518,44 @@ void Model::add(SparseEmbedding& sparse_embedding) {
   embedding_opt_params_list_.push_back(sparse_embedding.embedding_opt_params);
   init_optimizer(embedding_opt_params, solver_, sparse_embedding.embedding_opt_params);
   if (solver_.i64_input_key && !solver_.use_mixed_precision) {
-    add_sparse_embedding<long long, float>(
-        sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
-        evaluate_tensor_entries_list_, embeddings_, resource_manager_, solver_.batchsize,
-        solver_.batchsize_eval, embedding_opt_params);
+    add_sparse_embedding<long long, float>(sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
+                        evaluate_tensor_entries_list_, embeddings_,
+                        resource_manager_, solver_.batchsize,
+                        solver_.batchsize_eval, embedding_opt_params,
+                        exchange_wgrad_, solver_.use_cuda_graph,
+                        solver_.grouped_all_reduce, solver_.use_holistic_cuda_graph,
+                        solver_.num_iterations_statistics, gpu_lr_sches_);
   } else if (solver_.i64_input_key && solver_.use_mixed_precision) {
-    add_sparse_embedding<long long, __half>(
-        sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
-        evaluate_tensor_entries_list_, embeddings_, resource_manager_, solver_.batchsize,
-        solver_.batchsize_eval, embedding_opt_params);
+    add_sparse_embedding<long long, __half>(sparse_embedding, sparse_input_map_64_, train_tensor_entries_list_,
+                        evaluate_tensor_entries_list_, embeddings_,
+                        resource_manager_, solver_.batchsize,
+                        solver_.batchsize_eval, embedding_opt_params,
+                        exchange_wgrad_, solver_.use_cuda_graph,
+                        solver_.grouped_all_reduce, solver_.use_holistic_cuda_graph,
+                        solver_.num_iterations_statistics, gpu_lr_sches_);
   } else if (!solver_.i64_input_key && !solver_.use_mixed_precision) {
-    add_sparse_embedding<unsigned int, float>(
-        sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
-        evaluate_tensor_entries_list_, embeddings_, resource_manager_, solver_.batchsize,
-        solver_.batchsize_eval, embedding_opt_params);
+    add_sparse_embedding<unsigned int, float>(sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
+                        evaluate_tensor_entries_list_, embeddings_,
+                        resource_manager_, solver_.batchsize,
+                        solver_.batchsize_eval, embedding_opt_params,
+                        exchange_wgrad_, solver_.use_cuda_graph,
+                        solver_.grouped_all_reduce, solver_.use_holistic_cuda_graph,
+                        solver_.num_iterations_statistics, gpu_lr_sches_);
   } else {
-    add_sparse_embedding<unsigned int, __half>(
-        sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
-        evaluate_tensor_entries_list_, embeddings_, resource_manager_, solver_.batchsize,
-        solver_.batchsize_eval, embedding_opt_params);
+    add_sparse_embedding<unsigned int, __half>(sparse_embedding, sparse_input_map_32_, train_tensor_entries_list_,
+                        evaluate_tensor_entries_list_, embeddings_,
+                        resource_manager_, solver_.batchsize,
+                        solver_.batchsize_eval, embedding_opt_params,
+                        exchange_wgrad_, solver_.use_cuda_graph,
+                        solver_.grouped_all_reduce, solver_.use_holistic_cuda_graph,
+                        solver_.num_iterations_statistics, gpu_lr_sches_);
   }
 }
 
 void Model::add(DenseLayer& dense_layer) {
+  if (!solver_.is_dlrm && dense_layer.pos_type != FcPosition_t::None) {
+    CK_THROW_(Error_t::WrongInput, "Specific fully connected position is restricted to DLRM use");
+  }
   dense_layer_params_.push_back(dense_layer);
   for (auto bottom_name : dense_layer.bottom_names) {
     deactivate_tensor(tensor_active_, bottom_name);
@@ -469,13 +571,16 @@ void Model::add(DenseLayer& dense_layer) {
   } else {
     layer_info_.push_back(LAYER_TYPE_TO_STRING[dense_layer.layer_type]);
   }
+  if (dense_layer.layer_type == Layer_t::Interaction) {
+    dlrm_bottom_mlp_ = false;
+  }
   add_dense_layer(dense_layer, train_tensor_entries_list_, evaluate_tensor_entries_list_,
-                  resource_manager_, solver_.use_mixed_precision, solver_.enable_tf32_compute,
-                  solver_.scaler, solver_.use_algorithm_search, solver_.use_cuda_graph, networks_,
-                  blobs_buff_list_, train_weight_buff_list_, train_weight_buff_half_list_,
-                  wgrad_buff_list_, wgrad_buff_half_list_, evaluate_weight_buff_list_,
-                  evaluate_weight_buff_half_list_, wgrad_buff_placeholder_list_,
-                  wgrad_buff_half_placeholder_list_);
+                resource_manager_, solver_.use_mixed_precision, solver_.enable_tf32_compute,
+                solver_.scaler, solver_.use_algorithm_search, solver_.use_cuda_graph,
+                networks_, blobs_buff_list_, train_weight_buff_list_, train_weight_buff_half_list_,
+                wgrad_buff_list_, wgrad_buff_half_list_, evaluate_weight_buff_list_,
+                evaluate_weight_buff_half_list_, wgrad_buff_placeholder_list_,
+                wgrad_buff_half_placeholder_list_, dlrm_bottom_mlp_);
 }
 
 void Model::compile() {
@@ -514,15 +619,17 @@ void Model::compile() {
     CudaDeviceContext context(resource_manager_->get_local_gpu(i)->get_device_id());
     blobs_buff_list_[i]->allocate();
   }
+  exchange_wgrad_->allocate();
   buff_allocated_ = true;
 #ifndef DATA_READING_TEST
-  for (auto& network : networks_) {
-    network->initialize();
-  }
-  if (solver_.use_algorithm_search) {
-    for (auto& network : networks_) {
-      network->search_algorithm();
+  #pragma omp parallel num_threads(networks_.size())
+  {
+    size_t id = omp_get_thread_num();
+    networks_[id]->initialize();
+    if (solver_.use_algorithm_search) {
+      networks_[id]->search_algorithm();
     }
+    CK_CUDA_THROW_(cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream()));
   }
 #endif
   init_params_for_dense_();
@@ -539,6 +646,76 @@ void Model::compile() {
         metric.first, solver_.use_mixed_precision, solver_.batchsize_eval / num_total_gpus,
         solver_.max_eval_batches, resource_manager_)));
   }
+
+  if (solver_.use_holistic_cuda_graph) {
+    train_graph_.initialized.resize(networks_.size(), false);
+    train_graph_.instance.resize(networks_.size());
+    for (size_t i = 0; i < resource_manager_->get_local_gpu_count(); i++) {
+      auto& gpu_resource = resource_manager_->get_local_gpu(i);
+      CudaCPUDeviceContext context(gpu_resource->get_device_id());
+      // CudaDeviceContext context(gpu_resource->get_device_id());
+      cudaEvent_t event;
+      CK_CUDA_THROW_(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+      train_graph_.fork_event.push_back(event);
+    }
+  }
+
+  // TODO: currently it is only for HE
+  if (embeddings_.size() == 1) {
+    auto lr_scheds = embeddings_[0]->get_learning_rate_schedulers();
+    for (size_t i = 0; i < lr_scheds.size(); i++) {
+      networks_[i]->set_learning_rate_scheduler(lr_scheds[i]);
+    }
+  }
+
+  size_t embed_wgrad_size = 0;
+  for (size_t i = 0; i < sparse_embedding_params_.size(); i++) {
+    if (sparse_embedding_params_[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
+      if (solver_.use_mixed_precision && solver_.i64_input_key) {
+        auto init_data_reader_as = std::dynamic_pointer_cast<AsyncReader<long long>>(init_data_reader_);
+        std::shared_ptr<HybridSparseEmbedding<long long, __half>> hybrid_embedding =
+            std::dynamic_pointer_cast<HybridSparseEmbedding<long long, __half>>(embeddings_[i]);
+        init_data_reader_as->start();
+        init_data_reader_as->read_a_batch_to_device();
+        hybrid_embedding->init_model(
+            init_data_reader_as->get_value_tensors(), embed_wgrad_size);
+      } else if (solver_.use_mixed_precision && !solver_.i64_input_key) {
+        auto init_data_reader_as = std::dynamic_pointer_cast<AsyncReader<unsigned int>>(init_data_reader_);
+        std::shared_ptr<HybridSparseEmbedding<unsigned int, __half>> hybrid_embedding =
+            std::dynamic_pointer_cast<HybridSparseEmbedding<unsigned int, __half>>(embeddings_[i]);
+        init_data_reader_as->start();
+        init_data_reader_as->read_a_batch_to_device();
+        hybrid_embedding->init_model(
+            init_data_reader_as->get_value_tensors(), embed_wgrad_size);
+      } else if (!solver_.use_mixed_precision && solver_.i64_input_key) {
+        auto init_data_reader_as = std::dynamic_pointer_cast<AsyncReader<long long>>(init_data_reader_);
+        std::shared_ptr<HybridSparseEmbedding<long long, float>> hybrid_embedding =
+            std::dynamic_pointer_cast<HybridSparseEmbedding<long long, float>>(embeddings_[i]);
+        init_data_reader_as->start();
+        init_data_reader_as->read_a_batch_to_device();
+        hybrid_embedding->init_model(
+            init_data_reader_as->get_value_tensors(), embed_wgrad_size);
+      } else {
+        auto init_data_reader_as = std::dynamic_pointer_cast<AsyncReader<unsigned int>>(init_data_reader_);
+        std::shared_ptr<HybridSparseEmbedding<unsigned int, float>> hybrid_embedding =
+            std::dynamic_pointer_cast<HybridSparseEmbedding<unsigned int, float>>(embeddings_[0]);
+        init_data_reader_as->start();
+        init_data_reader_as->read_a_batch_to_device();
+        hybrid_embedding->init_model(
+            init_data_reader_as->get_value_tensors(), embed_wgrad_size);
+      }
+    }
+  }
+
+  if (solver_.grouped_all_reduce) {
+    exchange_wgrad_->update_embed_wgrad_size(embed_wgrad_size);
+  }
+
+#ifdef ENABLE_MPI
+  if (resource_manager_->get_num_process() > 1) {
+    resource_manager_->set_ready_to_transfer();
+  }
+#endif
 }
 
 void Model::load_dense_optimizer_states(const std::string& dense_opt_states_file) {
@@ -676,16 +853,19 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   if (mos_params_->use_model_oversubscriber && !mos_created_) {
     CK_THROW_(Error_t::IllegalCall, "The model oversubscriber should be created first");
   }
-  HugeCTR::Timer timer_train;
-  HugeCTR::Timer timer_eval;
-  timer_train.start();
-  bool epoch_mode = !solver_.repeat_dataset;
-  bool mos_mode = mos_params_->use_model_oversubscriber;
-  int mos_epochs = num_epochs < 1 ? 1 : num_epochs;
+  high_level_eval_ = true;
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
 #endif
+
+  HugeCTR::Timer timer;
+  HugeCTR::Timer timer_train;
+  HugeCTR::Timer timer_eval;
+
+  bool epoch_mode = !solver_.repeat_dataset;
+  bool mos_mode = mos_params_->use_model_oversubscriber;
+  int mos_epochs = num_epochs < 1 ? 1 : num_epochs;
   if (__PID == 0) {
     std::cout << "=====================================================Model "
                  "Fit====================================================="
@@ -700,20 +880,29 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   } else {
     MESSAGE_("Use non-epoch mode with number of iterations: " + std::to_string(max_iter));
   }
-  MESSAGE_("Training batchsize: " + std::to_string(solver_.batchsize) +
-           ", evaluation batchsize: " + std::to_string(solver_.batchsize_eval));
-  MESSAGE_("Evaluation interval: " + std::to_string(eval_interval) +
-           ", snapshot interval: " + std::to_string(snapshot));
-  MESSAGE_("Sparse embedding trainable: " + std::to_string(is_embedding_trainable_) +
-           ", dense network trainable: " + std::to_string(is_dense_trainable_));
-  MESSAGE_("Use mixed precision: " + std::to_string(solver_.use_mixed_precision) +
-           ", scaler: " + std::to_string(solver_.scaler) +
-           ", use cuda graph: " + std::to_string(solver_.use_cuda_graph));
-  MESSAGE_("lr: " + std::to_string(solver_.lr) +
-           ", warmup_steps: " + std::to_string(solver_.warmup_steps) +
-           ", decay_start: " + std::to_string(solver_.decay_start) +
-           ", decay_steps: " + std::to_string(solver_.decay_steps) + ", decay_power: " +
-           std::to_string(solver_.decay_power) + ", end_lr: " + std::to_string(solver_.end_lr));
+  MESSAGE_("Training batchsize: " + std::to_string(solver_.batchsize) 
+         + ", evaluation batchsize: " + std::to_string(solver_.batchsize_eval));
+  MESSAGE_("Evaluation interval: " + std::to_string(eval_interval) 
+         + ", snapshot interval: " + std::to_string(snapshot));
+  MESSAGE_("Sparse embedding trainable: " + std::to_string(is_embedding_trainable_) 
+         + ", dense network trainable: " + std::to_string(is_dense_trainable_));
+  MESSAGE_("Use mixed precision: " + std::to_string(solver_.use_mixed_precision) 
+         + ", scaler: " + std::to_string(solver_.scaler)
+         + ", use cuda graph: " + std::to_string(solver_.use_cuda_graph));
+  MESSAGE_("lr: " + std::to_string(solver_.lr)
+         + ", warmup_steps: " + std::to_string(solver_.warmup_steps)
+         + ", decay_start: " + std::to_string(solver_.decay_start)
+         + ", decay_steps: " + std::to_string(solver_.decay_steps)
+         + ", decay_power: " + std::to_string(solver_.decay_power)
+         + ", end_lr: " + std::to_string(solver_.end_lr));
+
+  timer.start();
+  timer_train.start();
+
+#ifdef ENABLE_PROFILING
+  HugeCTR::global_profiler.initialize(solver_config.use_cuda_graph);
+#endif
+
   if (epoch_mode && !mos_mode) {
     int iter = 0;
     int batches;
@@ -731,8 +920,17 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       data_reader_train->set_source(reader_params_.source[0]);
       data_reader_train_status_ = true;
       do {
-        float lr = lr_sch_->get_next();
-        this->set_learning_rate(lr);
+        float lr = 0;
+        if (!this->use_gpu_learning_rate_scheduling()) {
+#ifdef ENABLE_PROFILING
+            // profiler may run very long, so prevent lr < 0
+          lr = std::numeric_limits<float>::min();
+          this->set_learning_rate(lr);
+#else
+          lr = lr_sch_->get_next();
+          this->set_learning_rate(lr);
+#endif
+        }
         data_reader_train_status_ = this->train();
         if (display > 0 && iter % display == 0 && iter != 0) {
           timer_train.stop();
@@ -742,19 +940,27 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
             throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") +
                                      " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
           }
-          MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                   " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                   "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+          if (!solver_.use_holistic_cuda_graph) {
+            MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
+                    " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                    "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+          } else {
+            MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
+                    " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                    "s Loss: " + std::to_string(loss));
+          }
           timer_train.start();
         }
         if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+          this->check_overflow();
+          this->copy_weights_for_evaluation();
           batches = 0;
           timer_eval.start();
           while (data_reader_eval_status_) {
             if (solver_.max_eval_batches == 0 || batches >= solver_.max_eval_batches) {
               break;
             }
-            data_reader_eval_status_ = this->eval();
+            data_reader_eval_status_ = this->eval(batches);
             batches++;
           }
           if (!data_reader_eval_status_) {
@@ -764,8 +970,23 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           timer_eval.stop();
           auto eval_metrics = this->get_eval_metrics();
           for (auto& eval_metric : eval_metrics) {
-            MESSAGE_("Evaluation, " + eval_metric.first + ": " +
-                     std::to_string(eval_metric.second));
+            MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+            if (!eval_metric.first.compare("AUC")) {
+              const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
+              if (eval_metric.second >= auc_threshold) {
+                timer.stop();
+                if (__PID == 0) {
+                  std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at " +
+                          std::to_string(e)  + "/" + std::to_string(num_epochs) + " epochs "
+                          + std::to_string(iter) + " global iterations" + " with batchsize "
+                  << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                  << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
+                  << float(iter) * solver_.batchsize / timer.elapsedSeconds() << " records/s."
+                  << std::endl;
+                }
+                return;
+              }
+            }
           }
           MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
                    " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
@@ -775,7 +996,14 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         }
         iter++;
       } while (data_reader_train_status_);
-    }  // end for epoch
+      timer.stop();
+    } // end for epoch
+    if (__PID == 0) {
+      std::cout << "Finish " << std::to_string(num_epochs) + " epochs " 
+                        + std::to_string(iter) + " global iterations with batchsize "
+                << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                << std::setprecision(2) << timer.elapsedSeconds() << "s" << std::endl;
+    }
   } else if (epoch_mode && mos_mode) {
     int iter = 0;
     int batches;
@@ -795,8 +1023,17 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         data_reader_train_status_ = true;
         model_oversubscriber->update(reader_params_.keyset[f]);
         do {
-          float lr = lr_sch_->get_next();
-          this->set_learning_rate(lr);
+          float lr = 0;
+          if (!this->use_gpu_learning_rate_scheduling()) {
+#ifdef ENABLE_PROFILING
+            // profiler may run very long, so prevent lr < 0
+            lr = std::numeric_limits<float>::min();
+            this->set_learning_rate(lr);
+#else
+            lr = lr_sch_->get_next();
+            this->set_learning_rate(lr);
+#endif
+          }
           data_reader_train_status_ = this->train();
           if (display > 0 && iter % display == 0 && iter != 0) {
             timer_train.stop();
@@ -806,19 +1043,27 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
               throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") +
                                        " " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");
             }
-            MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                     " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                     "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+            if (!solver_.use_holistic_cuda_graph) {
+              MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
+                      " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                      "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+            } else {
+              MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
+                      " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                      "s Loss: " + std::to_string(loss));
+            }
             timer_train.start();
           }
           if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+            this->check_overflow();
+            this->copy_weights_for_evaluation();            
             batches = 0;
             timer_eval.start();
             while (data_reader_eval_status_) {
               if (solver_.max_eval_batches == 0 || batches >= solver_.max_eval_batches) {
                 break;
               }
-              data_reader_eval_status_ = this->eval();
+              data_reader_eval_status_ = this->eval(batches);
               batches++;
             }
             if (!data_reader_eval_status_) {
@@ -843,9 +1088,22 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
     this->start_data_reading();
     for (int iter = 0; iter < max_iter; iter++) {
-      float lr = lr_sch_->get_next();
-      this->set_learning_rate(lr);
+      float lr = 0;
+      if (!this->use_gpu_learning_rate_scheduling()) {
+#ifdef ENABLE_PROFILING
+        // profiler may run very long, so prevent lr < 0
+        lr = std::numeric_limits<float>::min();
+        this->set_learning_rate(lr);
+#else
+        lr = lr_sch_->get_next();
+        this->set_learning_rate(lr);
+#endif
+      }
       this->train();
+#ifdef ENABLE_PROFILING
+      iter = 0;
+      continue;
+#endif
       if (display > 0 && iter % display == 0 && iter != 0) {
         timer_train.stop();
         float loss = 0;
@@ -854,20 +1112,43 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
           throw std::runtime_error(std::string("Train Runtime error: Loss cannot converge") + " " +
                                    __FILE__ + ":" + std::to_string(__LINE__) + " \n");
         }
-        MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
-                 " iters): " + std::to_string(timer_train.elapsedSeconds()) +
-                 "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+        if (!solver_.use_holistic_cuda_graph) {
+          MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
+                  " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                  "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
+        } else {
+          MESSAGE_("Iter: " + std::to_string(iter) + " Time(" + std::to_string(display) +
+                  " iters): " + std::to_string(timer_train.elapsedSeconds()) +
+                  "s Loss: " + std::to_string(loss));
+        }
         timer_train.start();
       }
       if (eval_interval > 0 && iter % eval_interval == 0 && iter != 0) {
+        this->check_overflow();
+        this->copy_weights_for_evaluation();
         timer_eval.start();
         for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
-          this->eval();
+          this->eval(batches);
         }
         timer_eval.stop();
         auto eval_metrics = this->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
           MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+          if (!eval_metric.first.compare("AUC")) {
+            const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
+            if (eval_metric.second >= auc_threshold) {
+              timer.stop();
+              if (__PID == 0) {
+                std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at " +
+                        std::to_string(iter)  + "/" + std::to_string(max_iter) + " iterations with batchsize "
+                << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
+                << float(iter) * solver_.batchsize / timer.elapsedSeconds() << " records/s."
+                << std::endl;
+              }
+              return;
+            }
+          }
         }
         MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
                  " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
@@ -875,8 +1156,130 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter);
       }
-    }  // end for iter
-  }    // end if else
+    } // end for iter
+    timer.stop();
+    if (__PID == 0) {
+      std::cout << "Finish " << std::to_string(max_iter) + " iterations with batchsize: "
+                << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                << std::setprecision(2) << timer.elapsedSeconds() << "s" << std::endl;
+    }
+  } // end if else
+  high_level_eval_ = false;
+}
+
+void Model::exchange_wgrad(size_t device_id) {
+  auto& gpu_resource = resource_manager_->get_local_gpu(device_id);
+  CudaCPUDeviceContext context(gpu_resource->get_device_id());
+  // CudaDeviceContext context(gpu_resource->get_device_id());
+  PROFILE_RECORD("exchange_wgrad.start", gpu_resource->get_stream(), false);
+  exchange_wgrad_->allreduce(device_id, gpu_resource->get_stream());
+  PROFILE_RECORD("exchange_wgrad.stop", gpu_resource->get_stream(), false);
+}
+
+void Model::train_overlapped() {
+  auto change_state = [] (TrainState* state) -> bool {
+    switch(state->state) {
+      case TrainState_t::Init:
+        state->state = TrainState_t::BottomMLPFprop;
+        break;
+      case TrainState_t::BottomMLPFprop:
+        state->state = TrainState_t::TopMLPFprop;
+        break;
+      case TrainState_t::TopMLPFprop:
+        state->state = TrainState_t::TopMLPBprop;
+        break;
+      case TrainState_t::TopMLPBprop:
+        state->state = TrainState_t::BottomMLPBprop;
+        break;
+      case TrainState_t::BottomMLPBprop:
+        state->state = TrainState_t::MLPExchangeWgrad;
+        break;
+      case TrainState_t::MLPExchangeWgrad:
+        state->state = TrainState_t::MLPUpdate;
+        break;
+      case TrainState_t::MLPUpdate:
+        state->state = TrainState_t::Finalize;
+        break;
+      case TrainState_t::Finalize:
+        return false;
+      default:
+        CK_THROW_(Error_t::InvalidEnv, "model state reached invalid status");
+    }
+    return true;
+  };
+
+  auto scheduled_reader = dynamic_cast<IDataReaderWithScheduling*>(train_data_reader_.get());
+#pragma omp parallel num_threads(resource_manager_->get_local_gpu_count())
+  {
+    size_t id = omp_get_thread_num();
+    auto device_id = resource_manager_->get_local_gpu(id)->get_device_id();
+    auto stream = resource_manager_->get_local_gpu(id)->get_stream();
+    CudaCPUDeviceContext context(device_id);
+    // CudaDeviceContext context(device_id);
+    long long current_batchsize_per_device = train_data_reader_->get_current_batchsize_per_device(id);
+      
+    TrainState state;
+    auto sync = [&state, &stream, id] () {
+      if (state.event) { CK_CUDA_THROW_(cudaStreamWaitEvent(stream, *state.event)); }
+      state.event = nullptr;
+    };
+
+    auto schedule_reader = [&, this] (TrainState_t expected) {
+      if (scheduled_reader && state.state == expected) {
+        if (solver_.use_holistic_cuda_graph) {
+          scheduled_reader->schedule_here_graph(stream, id);
+        } else {
+          scheduled_reader->schedule_here(stream, id);
+        }
+      }
+    };
+
+    auto do_it = [&, this](int id, int batch_size) {
+      if (solver_.use_holistic_cuda_graph) {
+        CK_CUDA_THROW_(cudaEventRecord(train_graph_.fork_event[id], stream));
+        state.event = &train_graph_.fork_event[id];
+      }
+
+      // Network just runs unconditionally
+      // Embedding manages events from the networks and waits if necessary
+      // Session inserts a wait if it gets a non-null event from the embedding
+
+      do {
+        state = embeddings_[0]->train(true, id, state);
+        sync();
+        if (resource_manager_->get_num_process() == 1) {
+          schedule_reader(TrainState_t::TopMLPFprop);
+        }
+        state = networks_[id]->train(
+          batch_size,
+          [this, id] () { this->exchange_wgrad(id); },
+          state
+        );
+        if (resource_manager_->get_num_process() > 1) {
+          schedule_reader(TrainState_t::TopMLPFprop);
+        }
+      } while(change_state(&state));
+      sync();
+    };
+
+    if (solver_.use_holistic_cuda_graph) {
+      if (!train_graph_.initialized[id]) {
+        cudaGraph_t graph;
+        CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
+        do_it(id, current_batchsize_per_device);
+        CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph));
+        CK_CUDA_THROW_(cudaGraphInstantiate(&train_graph_.instance[id], graph, NULL, NULL, 0));
+        train_graph_.initialized[id] = true;
+      }
+      CK_CUDA_THROW_(cudaGraphLaunch(train_graph_.instance[id], stream));
+      if (scheduled_reader) {
+        scheduled_reader->update_schedule_graph(id);
+      }
+    }
+    else {
+      do_it(id, current_batchsize_per_device);
+    }
+  }
 }
 
 bool Model::train() {
@@ -901,36 +1304,91 @@ bool Model::train() {
     if (!current_batchsize) {
       return false;
     }
+    #pragma omp parallel num_threads(networks_.size())
+    {
+      size_t id = omp_get_thread_num();
+      CudaCPUDeviceContext ctx(resource_manager_->get_local_gpu(id)->get_device_id());
+      // CudaDeviceContext context(resource_manager_->get_local_gpu(id)->get_device_id());
+      cudaStreamSynchronize(resource_manager_->get_local_gpu(id)->get_stream());
+    }
     train_data_reader_->ready_to_collect();
-    for (auto& one_embedding : embeddings_) {
-      one_embedding->forward(true);
-    }
-    if (networks_.size() > 1) {
-// execute dense forward and backward with multi-cpu threads
-#pragma omp parallel num_threads(networks_.size())
-      {
-        size_t id = omp_get_thread_num();
-        long long current_batchsize_per_device =
-            train_data_reader_->get_current_batchsize_per_device(id);
-        networks_[id]->train(current_batchsize_per_device);
-        networks_[id]->exchange_wgrad();
-        networks_[id]->update_params();
-      }
-    } else if (resource_manager_->get_global_gpu_count() > 1) {
-      long long current_batchsize_per_device =
-          train_data_reader_->get_current_batchsize_per_device(0);
-      networks_[0]->train(current_batchsize_per_device);
-      networks_[0]->exchange_wgrad();
-      networks_[0]->update_params();
+#ifdef ENABLE_PROFILING
+    global_profiler.iter_check();
+#endif
+
+    if (solver_.use_overlapped_pipeline) {
+      // std::cout << "train overlapped" << std::endl;
+      train_overlapped();
     } else {
-      long long current_batchsize_per_device =
-          train_data_reader_->get_current_batchsize_per_device(0);
-      networks_[0]->train(current_batchsize_per_device);
-      networks_[0]->update_params();
-    }
-    for (auto& one_embedding : embeddings_) {
-      one_embedding->backward();
-      one_embedding->update_params();
+      // std::cout << "train" << std::endl;
+      for (auto& one_embedding : embeddings_) {
+        one_embedding->forward(true);
+      }
+      if (networks_.size() > 1) {
+        // execute dense forward and backward with multi-cpu threads
+        #pragma omp parallel num_threads(networks_.size())
+        {
+          size_t id = omp_get_thread_num();
+          long long current_batchsize_per_device =
+              train_data_reader_->get_current_batchsize_per_device(id);
+          networks_[id]->train(current_batchsize_per_device);
+          const auto& local_gpu = resource_manager_->get_local_gpu(id);
+          local_gpu->set_compute_event_sync(local_gpu->get_stream());
+          local_gpu->wait_on_compute_event(local_gpu->get_comp_overlap_stream());
+        }
+      } else if (resource_manager_->get_global_gpu_count() > 1) {
+        long long current_batchsize_per_device =
+            train_data_reader_->get_current_batchsize_per_device(0);
+        networks_[0]->train(current_batchsize_per_device);
+        const auto& local_gpu = resource_manager_->get_local_gpu(0);
+        local_gpu->set_compute_event_sync(local_gpu->get_stream());
+        local_gpu->wait_on_compute_event(local_gpu->get_comp_overlap_stream());
+      } else {
+        long long current_batchsize_per_device =
+            train_data_reader_->get_current_batchsize_per_device(0);
+        networks_[0]->train(current_batchsize_per_device);
+        const auto& local_gpu = resource_manager_->get_local_gpu(0);
+        local_gpu->set_compute_event_sync(local_gpu->get_stream());
+        local_gpu->wait_on_compute_event(local_gpu->get_comp_overlap_stream());
+        networks_[0]->update_params();
+      }
+
+      // Embedding backward
+      for (auto& one_embedding : embeddings_) {
+        one_embedding->backward();
+      }
+
+      // Exchange wgrad and update params
+      if (networks_.size() > 1) {
+        #pragma omp parallel num_threads(networks_.size())
+        {
+          size_t id = omp_get_thread_num();
+          exchange_wgrad(id);
+          networks_[id]->update_params();
+        }
+      } else if (resource_manager_->get_global_gpu_count() > 1) {
+        exchange_wgrad(0);
+        networks_[0]->update_params();
+      } 
+      for (const auto& one_embedding : embeddings_) {
+        one_embedding->update_params();
+      }
+
+      // Join streams
+      if (networks_.size() > 1) {
+        #pragma omp parallel num_threads(networks_.size())
+        {
+          size_t id = omp_get_thread_num();
+          const auto& local_gpu = resource_manager_->get_local_gpu(id);
+          local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
+          local_gpu->wait_on_compute2_event(local_gpu->get_stream());
+        }
+      }
+      else {
+        const auto& local_gpu = resource_manager_->get_local_gpu(0);
+        local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
+        local_gpu->wait_on_compute2_event(local_gpu->get_stream());
+      }
     }
     return true;
 #else
@@ -945,13 +1403,15 @@ bool Model::train() {
   }
 }
 
-bool Model::eval() {
+bool Model::eval(int eval_batch) {
   try {
     if (evaluate_data_reader_ == nullptr) return true;
-    this->check_overflow();
-    this->copy_weights_for_evaluation();
     if (evaluate_data_reader_->is_started() == false) {
       CK_THROW_(Error_t::IllegalCall, "Start the data reader first before calling Model::eval()");
+    }
+    if (!high_level_eval_) {
+      this->check_overflow();
+      this->copy_weights_for_evaluation();
     }
     long long current_batchsize = 0;
     while ((current_batchsize = evaluate_data_reader_->read_a_batch_to_device_delay_release()) &&
@@ -969,11 +1429,11 @@ bool Model::eval() {
     evaluate_data_reader_->ready_to_collect();
 #ifndef DATA_READING_TEST
     for (auto& one_embedding : embeddings_) {
-      one_embedding->forward(false);
+      one_embedding->forward(false, eval_batch);
     }
 
     if (networks_.size() > 1) {
-#pragma omp parallel num_threads(networks_.size())
+      #pragma omp parallel num_threads(networks_.size())
       {
         size_t id = omp_get_thread_num();
         long long current_batchsize_per_device =

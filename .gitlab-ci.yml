@@ -26,6 +26,7 @@ variables:
   WORK_DIR: /hugectr_ci_workdir
   TRAIN_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}"
   TRAIN_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:train_${CI_PIPELINE_ID}
+  INFER_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:infer_${CI_PIPELINE_ID}"
   EMBEDDING_IMAGE_VERSIONED: "${CI_REGISTRY}/dl/hugectr/hugectr:embedding_${CI_PIPELINE_ID}"
   EMBEDDING_IMAGE_VERSIONED_ENROOT: gitlab-master.nvidia.com/dl/hugectr/hugectr:embedding_${CI_PIPELINE_ID}
   TRAIN_IMAGE_RELEASE_ENROOT: gitlab-master.nvidia.com:5005/dl/hugectr/hugectr:v3.0
@@ -67,7 +68,6 @@ before_script:
   extends: .cluster_test_job
   dependencies:
     - build_embedding
-
 
 ### Stage: build
 build_train:
@@ -126,6 +126,32 @@ build_embedding:
       -f "${JOB_DOCKERFILE}"
       ${PWD}
     - docker push "${EMBEDDING_IMAGE_VERSIONED}"
+
+build_inference:
+  extends: .build
+  tags:
+    - 1GPU
+  script:
+    - export OPENED_MR_ON_BRANCH=$(curl --header "Private-Token:${CI_PRIVATE_KEY}" "https://$CI_SERVER_HOST/api/v4/merge_requests?project_id=$CI_PROJECT_ID&source_branch=$CI_COMMIT_BRANCH&state=opened&wip=no")
+    - |
+      if [[ "${OPENED_MR_ON_BRANCH}" != "[]" && -n "$CI_COMMIT_BRANCH" ]]; then \
+        echo "There is at least one MR opened on branch $CI_COMMIT_BRANCH. Stopping the push pipeline in favor of the merge request pipeline"; \
+        exit 1; \
+      fi
+    - export JOB_DOCKERFILE="inference.Dockerfile.${CI_JOB_NAME%%--*}.${CI_PIPELINE_ID}" && echo ${JOB_DOCKERFILE}
+    - echo "FROM ${IMAGE_INFER}" > ${JOB_DOCKERFILE}
+    - echo "ARG SM=\"70;75;80\"" >> ${JOB_DOCKERFILE}
+    - echo "
+      RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr.git ${WORK_DIR} && cd ${WORK_DIR} && git checkout ${CI_COMMIT_SHA} && git submodule update --init --recursive && mkdir build && cd build && cmake -DENABLE_INFERENCE=ON  -DCMAKE_BUILD_TYPE=Release -DSM=\$SM .. && make -j\$(nproc) && make install
+      " >> ${JOB_DOCKERFILE}
+    - cat ${JOB_DOCKERFILE}
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker pull ${IMAGE_INFER}
+    - docker build --pull
+      -t "${INFER_IMAGE_VERSIONED}"
+      -f "${JOB_DOCKERFILE}"
+      ${PWD}
+    - docker push "${INFER_IMAGE_VERSIONED}"
 
 ### Stage: test
 # unit test
@@ -196,6 +222,7 @@ criteo_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/criteo &&
@@ -298,6 +325,7 @@ dcn_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/dcn &&
@@ -307,6 +335,7 @@ dcn_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/dcn_parquet &&
@@ -397,6 +426,7 @@ mos_multi_node_ssd:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
@@ -407,6 +437,7 @@ mos_multi_node_ssd:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
@@ -421,6 +452,7 @@ mos_multi_node_mem:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
@@ -431,6 +463,7 @@ mos_multi_node_mem:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
       cd /dataset/criteo_kaggle/wdl_data_keyset &&
@@ -460,6 +493,7 @@ py_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cd /dataset/criteo_kaggle/dcn &&
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
@@ -469,6 +503,7 @@ py_multi_node:
       --container-image ${TRAIN_IMAGE_VERSIONED_ENROOT}
       --container-mounts ${DATASET}:${DATASET_MOUNT},${CI_PROJECT_DIR}:${CI_PROJECT_DIR}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cd /dataset/criteo_kaggle/criteo &&
       cp ${WORK_DIR}/build/build_multi_nccl/lib/hugectr.so ${WORK_DIR}/test/pybind_test/ &&
@@ -545,6 +580,7 @@ nightly_build_inference:
     variables:
       - $NIGHTLY == "1"
 
+
 nightly_build_embedding:
   tags:
     - 1GPU
@@ -603,6 +639,7 @@ nightly_build_embedding:
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cd ${CI_PROJECT_DIR} &&
       export PYTHONPATH=${WORK_DIR}/build/build_single/lib &&
@@ -722,6 +759,7 @@ nightly_build_embedding:
       --container-image ${CONTAINER_IMAGE}
       --container-mounts ${CONTS}
       --ntasks-per-node 1
+      --network sharp
       bash -cx "
       cd ${CI_PROJECT_DIR} &&
       export PYTHONPATH=${WORK_DIR}/build/build_multi_nccl/lib &&

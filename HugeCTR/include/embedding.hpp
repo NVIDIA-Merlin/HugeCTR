@@ -17,20 +17,31 @@
 #pragma once
 #include <optimizer.hpp>
 #include <tensor2.hpp>
+#include <gpu_learning_rate_scheduler.hpp>
 #include <vector>
 
+#include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
 namespace HugeCTR {
 struct BufferBag;
 class IEmbedding {
  public:
   virtual ~IEmbedding() {}
-  virtual void forward(bool is_train) = 0;
+
+  virtual TrainState train(bool is_train, int i, TrainState state) { 
+    return TrainState();
+  }
+  // TODO: can we remove the default argument?
+  virtual void forward(bool is_train, int eval_batch = -1) = 0;
   virtual void backward() = 0;
   virtual void update_params() = 0;
   virtual void init_params() = 0;
   virtual void load_parameters(std::string sparse_model) = 0;
   virtual void dump_parameters(std::string sparse_model) const = 0;
   virtual void set_learning_rate(float lr) = 0;
+  // TODO: a workaround to enable GPU LR for HE only; need a better way
+  virtual GpuLearningRateSchedulers get_learning_rate_schedulers() const {
+    return GpuLearningRateSchedulers();
+  }
   virtual size_t get_params_num() const = 0;
   virtual size_t get_vocabulary_size() const = 0;
   virtual size_t get_max_vocabulary_size() const = 0;
@@ -111,4 +122,5 @@ struct BufferBag {
   std::vector<TensorBag2> uvm_key_tensor_bags;
   Tensors2<size_t> d_value_index_tensors;
 };
+
 }  // namespace HugeCTR

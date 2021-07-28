@@ -15,6 +15,8 @@
  */
 
 #include "utest/embedding/unified_embedding.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
+
 using namespace HugeCTR;
 using namespace unified_embedding_test;
 namespace {
@@ -31,7 +33,7 @@ void unified_embedding_forward(const TestParams &test_param,
   for (int i = 0; i < numprocs; ++i) {
     vvgpu.push_back(device_list);
   }
-  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
   size_t total_gpu_count = resource_manager->get_global_gpu_count();
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
   

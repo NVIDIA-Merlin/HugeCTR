@@ -76,7 +76,8 @@ int main(int argc, char *argv[]) {
       FILELIST_LENGTH = atoi(argv[5]);
       std::cout << FILELIST_LENGTH << std::endl;
     } else {
-      std::cerr << "The number of files in file_list should greater than 0 (default is 0)..." << std::endl;
+      std::cerr << "The number of files in file_list should greater than 0 (default is 0)..."
+                << std::endl;
     }
   }
 
@@ -308,4 +309,3 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-

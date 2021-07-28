@@ -15,10 +15,12 @@
  */
 
 #include "HugeCTR/include/layers/multi_cross_layer.hpp"
+
 #include <math.h>
 #include <cuda_fp16.h>
 #include <memory>
 #include <vector>
+
 #include "gtest/gtest.h"
 #include "utest/test_utils.h"
 
