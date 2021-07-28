@@ -1337,7 +1337,7 @@ bool Model::train() {
     // We will look into some alternatives in the long term.
     long long current_batchsize = 0;
     while ((current_batchsize = train_data_reader_->read_a_batch_to_device_delay_release()) &&
-           (current_batchsize < train_data_reader_->get_full_batchsize())) {
+           (current_batchsize < train_data_reader_->get_full_batchsize()) && !solver_.is_dlrm) {
       MESSAGE_("train drop incomplete batch. batchsize:" + std::to_string(current_batchsize));
       train_data_reader_->ready_to_collect();
     }
