@@ -62,7 +62,6 @@ class ResourceManagerCore : public ResourceManager {
   size_t get_local_gpu_count() const override { return device_map_.get_device_list().size(); }
   size_t get_global_gpu_count() const override { return device_map_.size(); }
 
-
   // from ResourceManager
   int get_num_process() const override { return num_process_; }
   int get_process_id() const override { return process_id_; }
@@ -100,11 +99,11 @@ class ResourceManagerCore : public ResourceManager {
       int local_gpu_id) const override;
 
 #ifdef ENABLE_MPI
-  IbComm* get_ib_comm() const override { 
+  IbComm* get_ib_comm() const override {
     CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
     return nullptr;
   }
-  void set_ready_to_transfer() override { 
+  void set_ready_to_transfer() override {
     CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
   }
 #endif
@@ -115,6 +114,5 @@ class ResourceManagerCore : public ResourceManager {
     CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
     return nullptr;
   }
-
 };
 }  // namespace HugeCTR

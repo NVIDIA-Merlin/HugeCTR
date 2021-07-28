@@ -15,8 +15,8 @@
  */
 
 #include <common.hpp>
-#include <utils.hpp>
 #include <cpu/layers/reshape_layer_cpu.hpp>
+#include <utils.hpp>
 #ifndef NDEBUG
 #include <iostream>
 #endif
@@ -25,9 +25,9 @@ namespace HugeCTR {
 
 namespace {
 
-template <typename T> 
+template <typename T>
 void reshape_fprop_cpu(int batch_size, int n_slot, int vector_length, size_t num_elements,
-                      std::vector<int> selected, T* h_in, T* h_ref) {
+                       std::vector<int> selected, T* h_in, T* h_ref) {
   int n_active_slot = selected.empty() ? n_slot : int(selected.size());
   if (selected.empty()) {
     for (size_t i = 0; i < num_elements; i++) {
@@ -49,9 +49,9 @@ void reshape_fprop_cpu(int batch_size, int n_slot, int vector_length, size_t num
 }  // anonymous namespace
 
 template <typename T>
-ReshapeLayerCPU<T>::ReshapeLayerCPU(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-                              const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-                              size_t leading_dim)
+ReshapeLayerCPU<T>::ReshapeLayerCPU(
+    const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+    const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff, size_t leading_dim)
     : LayerCPU(),
       in_place_(true),
       batch_size_(0),
@@ -90,9 +90,9 @@ ReshapeLayerCPU<T>::ReshapeLayerCPU(const Tensor2<T>& in_tensor, Tensor2<T>& out
 }
 
 template <typename T>
-ReshapeLayerCPU<T>::ReshapeLayerCPU(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-                              const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-                              std::vector<int>& selected)
+ReshapeLayerCPU<T>::ReshapeLayerCPU(
+    const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+    const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff, std::vector<int>& selected)
     : LayerCPU(),
       in_place_(selected.empty()),
       batch_size_(0),

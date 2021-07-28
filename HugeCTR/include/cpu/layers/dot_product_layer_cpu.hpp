@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cpu/layer_cpu.hpp>
-
 #include <vector>
 
 namespace HugeCTR {
@@ -45,7 +44,7 @@ class DotProductLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   DotProductLayerCPU(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-                  const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff);
+                     const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff);
 
   void initialize() override;
 

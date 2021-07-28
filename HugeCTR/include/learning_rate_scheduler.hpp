@@ -43,8 +43,8 @@ class LearningRateScheduler {
     }
   }
 
-  void reset(float base_lr, size_t warmup_steps, size_t decay_start,
-            size_t decay_steps, float decay_power, float end_lr) {
+  void reset(float base_lr, size_t warmup_steps, size_t decay_start, size_t decay_steps,
+             float decay_power, float end_lr) {
     if (base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0f || end_lr < 0.f) {
       CK_THROW_(Error_t::WrongInput,
                 "base_lr < 0 || warmup_steps < 1 || decay_steps < 1 || decay_power < 1.0 || end_lr "

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <parser.hpp>
 #include <cpu/embedding_feature_combiner_cpu.hpp>
 #include <inference/preallocated_buffer2.hpp>
+#include <parser.hpp>
 
 namespace HugeCTR {
 
@@ -31,4 +31,4 @@ struct create_embedding_cpu {
                   std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff);
 };
 
-} // namespace HugeCTR
+}  // namespace HugeCTR

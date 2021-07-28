@@ -160,15 +160,15 @@ FusedFullyConnectedLayer::FusedFullyConnectedLayer(
 void FusedFullyConnectedLayer::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
 
-  #ifdef ENABLE_PROFILING
-    // only apply to dlrm model. Other model will yield error
-    // int met_times = global_profiler.event_met_times_within_stream("fused_fully_connected.fprop", get_gpu().get_stream());
-    // if (met_times == 0) {
-    //   //PROFILE_RECORD("BottomMLP.fprop.start", get_gpu().get_stream());
-    // } else if (met_times == 3) {
-    //   //PROFILE_RECORD("TopMLP.fprop.start", get_gpu().get_stream());
-    // }
-  #endif
+#ifdef ENABLE_PROFILING
+  // only apply to dlrm model. Other model will yield error
+  // int met_times = global_profiler.event_met_times_within_stream("fused_fully_connected.fprop",
+  // get_gpu().get_stream()); if (met_times == 0) {
+  //   //PROFILE_RECORD("BottomMLP.fprop.start", get_gpu().get_stream());
+  // } else if (met_times == 3) {
+  //   //PROFILE_RECORD("TopMLP.fprop.start", get_gpu().get_stream());
+  // }
+#endif
 
   PROFILE_RECORD("fused_fully_connected.fprop.start", get_gpu().get_stream());
   const __half* kernel = weights_half_[0].get_ptr();
@@ -205,13 +205,13 @@ void FusedFullyConnectedLayer::fprop(bool is_train) {
 
   PROFILE_RECORD("fused_fully_connected.fprop.stop", get_gpu().get_stream());
 
-  #ifdef ENABLE_PROFILING
-    // only apply to dlrm model. Other model will yield error
-    // met_times = global_profiler.event_met_times_within_stream("fused_fully_connected.fprop", get_gpu().get_stream());
-    // if (met_times == 3) {
-    //   PROFILE_RECORD("BottomMLP.fprop.stop", get_gpu().get_stream());
-    // }
-  #endif
+#ifdef ENABLE_PROFILING
+  // only apply to dlrm model. Other model will yield error
+  // met_times = global_profiler.event_met_times_within_stream("fused_fully_connected.fprop",
+  // get_gpu().get_stream()); if (met_times == 3) {
+  //   PROFILE_RECORD("BottomMLP.fprop.stop", get_gpu().get_stream());
+  // }
+#endif
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -222,13 +222,13 @@ void FusedFullyConnectedLayer::fprop(bool is_train) {
 void FusedFullyConnectedLayer::bprop() {
   CudaDeviceContext context(get_device_id());
 
-  #ifdef ENABLE_PROFILING
-    // only apply to dlrm model. Other model will yield error
-    // int met_times = global_profiler.event_met_times_within_stream("fused_fully_connected.bprop", get_gpu().get_stream());
-    // if (met_times == 4) {
-    //   PROFILE_RECORD("BottomMLP.bprop.start", get_gpu().get_stream());
-    // }
-  #endif
+#ifdef ENABLE_PROFILING
+  // only apply to dlrm model. Other model will yield error
+  // int met_times = global_profiler.event_met_times_within_stream("fused_fully_connected.bprop",
+  // get_gpu().get_stream()); if (met_times == 4) {
+  //   PROFILE_RECORD("BottomMLP.bprop.start", get_gpu().get_stream());
+  // }
+#endif
 
   PROFILE_RECORD("fused_fully_connected.bprop.start", get_gpu().get_stream());
 
@@ -283,15 +283,15 @@ void FusedFullyConnectedLayer::bprop() {
 
   PROFILE_RECORD("fused_fully_connected.bprop.stop", get_gpu().get_stream());
 
-  #ifdef ENABLE_PROFILING
-    // only apply to dlrm model. Other model will yield error
-    // met_times = global_profiler.event_met_times_within_stream("fused_fully_connected.bprop", get_gpu().get_stream());
-    // if (met_times == 7) {
-    //   //PROFILE_RECORD("BottomMLP.bprop.stop", get_gpu().get_stream());
-    // } else if (met_times == 4) {
-    //   //PROFILE_RECORD("TopMLP.bprop.stop", get_gpu().get_stream());
-    // }
-  #endif
+#ifdef ENABLE_PROFILING
+  // only apply to dlrm model. Other model will yield error
+  // met_times = global_profiler.event_met_times_within_stream("fused_fully_connected.bprop",
+  // get_gpu().get_stream()); if (met_times == 7) {
+  //   //PROFILE_RECORD("BottomMLP.bprop.stop", get_gpu().get_stream());
+  // } else if (met_times == 4) {
+  //   //PROFILE_RECORD("TopMLP.bprop.stop", get_gpu().get_stream());
+  // }
+#endif
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

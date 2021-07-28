@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <gpu_learning_rate_scheduler.hpp>
 #include <common.hpp>
+#include <gpu_learning_rate_scheduler.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
 
@@ -24,14 +24,13 @@ namespace HugeCTR {
 namespace {
 
 __global__ void lr_update_kernel(float base_lr, size_t warmup_steps, size_t decay_start,
-                                 size_t decay_steps, float decay_power, float end_lr,
-                                 size_t* step, float* current_lr) {
+                                 size_t decay_steps, float decay_power, float end_lr, size_t* step,
+                                 float* current_lr) {
   size_t step_val = *step + 1;
   *step = step_val;
   if (step_val <= warmup_steps) {
     *current_lr = step_val * base_lr / warmup_steps;
-  }
-  else {
+  } else {
     if (decay_start != 0) {
       if (step_val <= decay_start) {
         *current_lr = base_lr;
@@ -50,10 +49,10 @@ __global__ void lr_update_kernel(float base_lr, size_t warmup_steps, size_t deca
 
 }  // namespace
 
-GpuLearningRateScheduler::GpuLearningRateScheduler(
-        float base_lr, size_t warmup_steps, size_t decay_start,
-        size_t decay_steps, float decay_power, float end_lr,
-        const std::shared_ptr<GPUResource>& gpu_resource)
+GpuLearningRateScheduler::GpuLearningRateScheduler(float base_lr, size_t warmup_steps,
+                                                   size_t decay_start, size_t decay_steps,
+                                                   float decay_power, float end_lr,
+                                                   const std::shared_ptr<GPUResource>& gpu_resource)
     : base_lr_(base_lr),
       warmup_steps_(warmup_steps),
       decay_start_(decay_start),
@@ -71,8 +70,9 @@ GpuLearningRateScheduler::GpuLearningRateScheduler(
   CK_CUDA_THROW_(cudaMalloc(&step_, sizeof(size_t)));
   CK_CUDA_THROW_(cudaMalloc(&current_lr_, sizeof(float)));
   initialize_array<<<1, 1, 0, gpu_resource_->get_stream()>>>(step_, 1, (size_t)0);
-  lr_update_kernel<<<1, 1, 0, gpu_resource_->get_stream()>>>(
-      base_lr_, warmup_steps_, decay_start_, decay_steps_, decay_power_, end_lr_, step_, current_lr_);
+  lr_update_kernel<<<1, 1, 0, gpu_resource_->get_stream()>>>(base_lr_, warmup_steps_, decay_start_,
+                                                             decay_steps_, decay_power_, end_lr_,
+                                                             step_, current_lr_);
 }
 
 GpuLearningRateScheduler::~GpuLearningRateScheduler() {
@@ -82,8 +82,9 @@ GpuLearningRateScheduler::~GpuLearningRateScheduler() {
 
 void GpuLearningRateScheduler::update() {
   CudaDeviceContext context(gpu_resource_->get_device_id());
-  lr_update_kernel<<<1, 1, 0, gpu_resource_->get_stream()>>>(
-      base_lr_, warmup_steps_, decay_start_, decay_steps_, decay_power_, end_lr_, step_, current_lr_);
+  lr_update_kernel<<<1, 1, 0, gpu_resource_->get_stream()>>>(base_lr_, warmup_steps_, decay_start_,
+                                                             decay_steps_, decay_power_, end_lr_,
+                                                             step_, current_lr_);
 }
 
 }  // namespace HugeCTR

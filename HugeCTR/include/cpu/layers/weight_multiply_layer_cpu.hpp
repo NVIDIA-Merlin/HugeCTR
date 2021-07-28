@@ -57,10 +57,10 @@ class WeightMultiplyLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   WeightMultiplyLayerCPU(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
-                      const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
-                const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blob_buff,
-                const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-                const std::vector<size_t>& weight_dims);
+                         const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
+                         const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blob_buff,
+                         const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+                         const std::vector<size_t>& weight_dims);
   ~WeightMultiplyLayerCPU() override{};
 
   /**

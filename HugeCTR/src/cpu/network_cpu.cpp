@@ -18,11 +18,8 @@
 
 namespace HugeCTR {
 
-NetworkCPU::NetworkCPU(const std::shared_ptr<CPUResource>& cpu_resource,
-                      bool use_mixed_precision)
-    : cpu_resource_(cpu_resource),
-      use_mixed_precision_(use_mixed_precision) {
-}
+NetworkCPU::NetworkCPU(const std::shared_ptr<CPUResource>& cpu_resource, bool use_mixed_precision)
+    : cpu_resource_(cpu_resource), use_mixed_precision_(use_mixed_precision) {}
 
 void NetworkCPU::conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source) {
   size_t elems = source.get_num_elements();

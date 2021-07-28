@@ -24,8 +24,8 @@
 #include <data_readers/data_reader_worker_interface.hpp>
 #include <fstream>
 #include <thread>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -54,7 +54,7 @@ static void data_reader_thread_func_(const std::shared_ptr<IDataReaderWorker>& d
 class DataReaderWorkerGroup {
   std::vector<std::thread> data_reader_threads_; /**< A vector of the pointers of data reader .*/
  protected:
-  int data_reader_loop_flag_{0};                 /**< p_loop_flag a flag to control the loop */
+  int data_reader_loop_flag_{0}; /**< p_loop_flag a flag to control the loop */
   DataReaderType_t data_reader_type_;
   std::vector<std::shared_ptr<IDataReaderWorker>>
       data_readers_; /**< A vector of DataReaderWorker' pointer.*/
@@ -151,7 +151,6 @@ class DataReaderWorkerGroup {
   bool is_started() const { return data_reader_loop_flag_; }
   void start() { data_reader_loop_flag_ = 1; }
   void end() {
-
     for (auto& data_reader : data_readers_) {
       data_reader->skip_read();
     }
@@ -162,7 +161,6 @@ class DataReaderWorkerGroup {
     }
     // Data reader threads escape the main loop
     data_reader_loop_flag_ = 0;
-
   }
 
   virtual ~DataReaderWorkerGroup() {
@@ -173,9 +171,11 @@ class DataReaderWorkerGroup {
 
   void set_source(SourceType_t source_type, const std::string& file_name, bool repeat) {
     if (!((source_type == SourceType_t::FileList && data_reader_type_ == DataReaderType_t::Norm) ||
-          (source_type == SourceType_t::Mmap && data_reader_type_ == DataReaderType_t::Raw) || 
-          (source_type == SourceType_t::Parquet && data_reader_type_ == DataReaderType_t::Parquet))) {
-      CK_THROW_(Error_t::WrongInput, "set_source only supports FileList for Norm & Mmap for Raw & Parquet for Parquet");
+          (source_type == SourceType_t::Mmap && data_reader_type_ == DataReaderType_t::Raw) ||
+          (source_type == SourceType_t::Parquet &&
+           data_reader_type_ == DataReaderType_t::Parquet))) {
+      CK_THROW_(Error_t::WrongInput,
+                "set_source only supports FileList for Norm & Mmap for Raw & Parquet for Parquet");
     }
     size_t num_workers = data_readers_.size();
     for (size_t worker_id = 0; worker_id < num_workers; worker_id++) {
@@ -187,8 +187,8 @@ class DataReaderWorkerGroup {
     }
   }
 
-private:
+ private:
   virtual std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
-      const std::string& file_name, bool repeat) = 0;
+                                                const std::string& file_name, bool repeat) = 0;
 };
 }  // namespace HugeCTR

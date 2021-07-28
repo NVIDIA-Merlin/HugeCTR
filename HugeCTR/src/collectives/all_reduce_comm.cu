@@ -18,144 +18,132 @@
 #include <collectives/ib_comm.hpp>
 #include <utils.hpp>
 
-namespace HugeCTR
-{
+namespace HugeCTR {
 
-  std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create_nccl(
+std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create_nccl(
     size_t num_process, bool use_mixed_precision,
-    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources)
-  {
-    if (use_mixed_precision) {
-      return std::make_shared<NCCLARInplaceComm<__half>>(num_process, gpu_resources);
-    } else {
-      return std::make_shared<NCCLARInplaceComm<float>>(num_process, gpu_resources);
-    }
+    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources) {
+  if (use_mixed_precision) {
+    return std::make_shared<NCCLARInplaceComm<__half>>(num_process, gpu_resources);
+  } else {
+    return std::make_shared<NCCLARInplaceComm<float>>(num_process, gpu_resources);
   }
+}
 
-  std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create_oneshot(
+std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create_oneshot(
     size_t num_process, bool use_mixed_precision,
-    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources)
-  {
-    if (num_process > 1) {
-      CK_THROW_(Error_t::WrongInput, "Oneshot multi-node is not supported without MPI");
-    }
+    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources) {
+  if (num_process > 1) {
+    CK_THROW_(Error_t::WrongInput, "Oneshot multi-node is not supported without MPI");
+  }
+  if (use_mixed_precision) {
+    return std::make_shared<OneshotSingleARInplaceComm<__half>>(gpu_resources);
+  } else {
+    return std::make_shared<OneshotSingleARInplaceComm<float>>(gpu_resources);
+  }
+}
+
+#ifdef ENABLE_MPI
+
+std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create_oneshot(
+    size_t num_process, bool use_mixed_precision,
+    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources, IbComm* ib_comm) {
+  if (num_process == 1) {
     if (use_mixed_precision) {
       return std::make_shared<OneshotSingleARInplaceComm<__half>>(gpu_resources);
     } else {
       return std::make_shared<OneshotSingleARInplaceComm<float>>(gpu_resources);
     }
   }
-      
-#ifdef ENABLE_MPI
-
-  std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create_oneshot(
-    size_t num_process, bool use_mixed_precision,
-    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources, IbComm* ib_comm)
-  {
-    if (num_process == 1) {
-      if (use_mixed_precision) {
-        return std::make_shared<OneshotSingleARInplaceComm<__half>>(gpu_resources);
-      } else {
-        return std::make_shared<OneshotSingleARInplaceComm<float>>(gpu_resources);
-      }
-    }
-    if (use_mixed_precision) {
-      return std::make_shared<OneshotMultiARInplaceComm<__half>>(ib_comm, num_process, gpu_resources);
-    } else {
-      return std::make_shared<OneshotMultiARInplaceComm<float>>(ib_comm, num_process, gpu_resources);
-    }
+  if (use_mixed_precision) {
+    return std::make_shared<OneshotMultiARInplaceComm<__half>>(ib_comm, num_process, gpu_resources);
+  } else {
+    return std::make_shared<OneshotMultiARInplaceComm<float>>(ib_comm, num_process, gpu_resources);
   }
+}
 
-  std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create(
+std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create(
     size_t num_process, AllReduceAlgo algo, bool use_mixed_precision,
-    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources, IbComm* ib_comm)
-  {
-    return (algo == AllReduceAlgo::ONESHOT) ? 
-      create_oneshot(num_process, use_mixed_precision, gpu_resources, ib_comm) :
-      create_nccl(num_process, use_mixed_precision, gpu_resources);
-  }
+    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources, IbComm* ib_comm) {
+  return (algo == AllReduceAlgo::ONESHOT)
+             ? create_oneshot(num_process, use_mixed_precision, gpu_resources, ib_comm)
+             : create_nccl(num_process, use_mixed_precision, gpu_resources);
+}
 
 #else
-  
-  std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create(
+
+std::shared_ptr<AllReduceInPlaceComm> AllReduceInPlaceComm::create(
     size_t num_process, AllReduceAlgo algo, bool use_mixed_precision,
-    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources)
-  {
-    return (algo == AllReduceAlgo::ONESHOT) ? 
-      create_oneshot(num_process, use_mixed_precision, gpu_resources) :
-      create_nccl(num_process, use_mixed_precision, gpu_resources);
-  }
+    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources) {
+  return (algo == AllReduceAlgo::ONESHOT)
+             ? create_oneshot(num_process, use_mixed_precision, gpu_resources)
+             : create_nccl(num_process, use_mixed_precision, gpu_resources);
+}
 
 #endif
 
 #ifdef ENABLE_MPI
-  template <typename T>
-  OneshotMultiARInplaceComm<T>::OneshotMultiARInplaceComm(
-      IbComm* ib_comm,
-      size_t num_procs,
-      const std::vector<std::shared_ptr<GPUResource>>& gpu_resources):
-    ib_comm_(ib_comm),
-    num_procs_(num_procs),
-    gpu_resources_(gpu_resources),
-    num_gpus_(gpu_resources.size())
-  {
-  }
+template <typename T>
+OneshotMultiARInplaceComm<T>::OneshotMultiARInplaceComm(
+    IbComm* ib_comm, size_t num_procs,
+    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources)
+    : ib_comm_(ib_comm),
+      num_procs_(num_procs),
+      gpu_resources_(gpu_resources),
+      num_gpus_(gpu_resources.size()) {}
 
-  template <typename T>
-  AllReduceInPlaceComm::Handle OneshotMultiARInplaceComm<T>::register_coll()
-  {
-    ar_ctx_.emplace_back(std::make_unique<ARContext>());
-    Handle handle = (Handle)(ar_ctx_.size() - 1);
-    auto& ar_ctx_g = ar_ctx_[handle];
-    ar_ctx_g->ctx_.resize(num_gpus_);
-    ar_ctx_[handle]->ib_comm_handle_ = ib_comm_->register_ar_coll();
+template <typename T>
+AllReduceInPlaceComm::Handle OneshotMultiARInplaceComm<T>::register_coll() {
+  ar_ctx_.emplace_back(std::make_unique<ARContext>());
+  Handle handle = (Handle)(ar_ctx_.size() - 1);
+  auto& ar_ctx_g = ar_ctx_[handle];
+  ar_ctx_g->ctx_.resize(num_gpus_);
+  ar_ctx_[handle]->ib_comm_handle_ = ib_comm_->register_ar_coll();
 
-    return handle;
-  }
+  return handle;
+}
 
-  template<typename T>
-  void OneshotMultiARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size_t ar_size, size_t g)
-  {
-    auto& ctx = ar_ctx_[coll];
-    auto& ctx_g = ctx->ctx_[g];
-    ctx_g.ar_ptr_ = ar_ptr;
-    if ((ctx->ar_size_ != 0) && (ctx->ar_size_ != ar_size)) {
-      CK_THROW_(Error_t::WrongInput, "AR size mismatch");
-    }
-    ctx->ar_size_ = ar_size;
-    ib_comm_->set_ar_coll_buf<T>(ctx->ib_comm_handle_, ar_ptr, ar_size, g);
-    // MESSAGE_("Oneshot AR size: " + std::to_string(ar_size));
+template <typename T>
+void OneshotMultiARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size_t ar_size,
+                                                size_t g) {
+  auto& ctx = ar_ctx_[coll];
+  auto& ctx_g = ctx->ctx_[g];
+  ctx_g.ar_ptr_ = ar_ptr;
+  if ((ctx->ar_size_ != 0) && (ctx->ar_size_ != ar_size)) {
+    CK_THROW_(Error_t::WrongInput, "AR size mismatch");
   }
+  ctx->ar_size_ = ar_size;
+  ib_comm_->set_ar_coll_buf<T>(ctx->ib_comm_handle_, ar_ptr, ar_size, g);
+  // MESSAGE_("Oneshot AR size: " + std::to_string(ar_size));
+}
 
-  template<typename T>
-  void OneshotMultiARInplaceComm<T>::update_size(Handle coll, const size_t ar_size)
-  {
-    auto& ctx = ar_ctx_[coll];
-    ctx->ar_size_ = ar_size;
-    ib_comm_->update_size(ctx->ib_comm_handle_, ar_size);
-    // MESSAGE_("Oneshot AR size updated to: " + std::to_string(ar_size));
-  }
+template <typename T>
+void OneshotMultiARInplaceComm<T>::update_size(Handle coll, const size_t ar_size) {
+  auto& ctx = ar_ctx_[coll];
+  ctx->ar_size_ = ar_size;
+  ib_comm_->update_size(ctx->ib_comm_handle_, ar_size);
+  // MESSAGE_("Oneshot AR size updated to: " + std::to_string(ar_size));
+}
 
-  template <typename T>
-  void OneshotMultiARInplaceComm<T>::register_coll_buf(Handle coll)
-  {
-    auto& ctx = ar_ctx_[coll];
-    ib_comm_->register_ar_coll_buf(ctx->ib_comm_handle_);
-  }
+template <typename T>
+void OneshotMultiARInplaceComm<T>::register_coll_buf(Handle coll) {
+  auto& ctx = ar_ctx_[coll];
+  ib_comm_->register_ar_coll_buf(ctx->ib_comm_handle_);
+}
 
-  template <typename T>
-  void OneshotMultiARInplaceComm<T>::all_reduce(AllReduceInPlaceComm::Handle coll, cudaStream_t stream, size_t g)
-  {
-    auto& ctx = ar_ctx_[coll];
-    ib_comm_->all_reduce<T>(ctx->ib_comm_handle_, stream, g);
-  }
-  
-  template class OneshotMultiARInplaceComm<__half>;
-  template class OneshotMultiARInplaceComm<float>;
+template <typename T>
+void OneshotMultiARInplaceComm<T>::all_reduce(AllReduceInPlaceComm::Handle coll,
+                                              cudaStream_t stream, size_t g) {
+  auto& ctx = ar_ctx_[coll];
+  ib_comm_->all_reduce<T>(ctx->ib_comm_handle_, stream, g);
+}
+
+template class OneshotMultiARInplaceComm<__half>;
+template class OneshotMultiARInplaceComm<float>;
 #endif
 
 #define MAX_LOCAL_RANKS 32
-#define TOTAL_FLAGS (2*MAX_LOCAL_RANKS + MAX_AR_CHANNELS)
+#define TOTAL_FLAGS (2 * MAX_LOCAL_RANKS + MAX_AR_CHANNELS)
 #define MAX_AR_CHANNELS 31
 #define AR_MAX_THREADS 1024
 #define AR_BARRIER_FLAG_OFFSET 0
@@ -163,12 +151,10 @@ namespace HugeCTR
 #define AG_RANK_BCAST_OFFSET (RANKS + MAX_AR_CHANNELS)
 #define UNROLL 8
 
-template<int RANKS, typename T>
+template <int RANKS, typename T>
 static __global__ void __launch_bounds__(AR_MAX_THREADS)
-all_reduce_cuda_single(void** __restrict__ d_peer_ptrs, const int numlines,
-    size_t* d_coll_cmd_, size_t** flags,
-    const int device_id)
-{
+    all_reduce_cuda_single(void** __restrict__ d_peer_ptrs, const int numlines, size_t* d_coll_cmd_,
+                           size_t** flags, const int device_id) {
   // Do a barrier across all ranks
   volatile size_t* my_flag = flags[device_id];
   size_t base_count = *d_coll_cmd_;
@@ -291,16 +277,15 @@ all_reduce_cuda_single(void** __restrict__ d_peer_ptrs, const int numlines,
 
 template <typename T>
 OneshotSingleARInplaceComm<T>::OneshotSingleARInplaceComm(
-    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources):
-  gpu_resources_(gpu_resources),
-  num_gpus_(gpu_resources.size())
-{
-  if (getenv("ONESHOT_NCHANNELS"))   { cfg_nchannels_ = atoi(getenv("ONESHOT_NCHANNELS")); }
+    const std::vector<std::shared_ptr<GPUResource>>& gpu_resources)
+    : gpu_resources_(gpu_resources), num_gpus_(gpu_resources.size()) {
+  if (getenv("ONESHOT_NCHANNELS")) {
+    cfg_nchannels_ = atoi(getenv("ONESHOT_NCHANNELS"));
+  }
 }
 
 template <typename T>
-AllReduceInPlaceComm::Handle OneshotSingleARInplaceComm<T>::register_coll()
-{
+AllReduceInPlaceComm::Handle OneshotSingleARInplaceComm<T>::register_coll() {
   ar_ctx_.emplace_back(std::make_unique<ARContext>());
   Handle handle = (Handle)(ar_ctx_.size() - 1);
   auto& ar_ctx_g = ar_ctx_[handle];
@@ -308,9 +293,9 @@ AllReduceInPlaceComm::Handle OneshotSingleARInplaceComm<T>::register_coll()
   return handle;
 }
 
-template<typename T>
-void OneshotSingleARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size_t ar_size, size_t g)
-{
+template <typename T>
+void OneshotSingleARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size_t ar_size,
+                                                 size_t g) {
   auto& ctx = ar_ctx_[coll];
   auto& ctx_g = ctx->ctx_[g];
   ctx_g.ar_ptr_ = ar_ptr;
@@ -321,17 +306,15 @@ void OneshotSingleARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size
   // MESSAGE_("Oneshot AR size: " + std::to_string(ar_size));
 }
 
-template<typename T>
-void OneshotSingleARInplaceComm<T>::update_size(Handle coll, const size_t ar_size)
-{
+template <typename T>
+void OneshotSingleARInplaceComm<T>::update_size(Handle coll, const size_t ar_size) {
   auto& ctx = ar_ctx_[coll];
   ctx->ar_size_ = ar_size;
   // MESSAGE_("Oneshot AR size updated to: " + std::to_string(ar_size));
 }
 
 template <typename T>
-void OneshotSingleARInplaceComm<T>::register_coll_buf(Handle coll)
-{ 
+void OneshotSingleARInplaceComm<T>::register_coll_buf(Handle coll) {
   auto& ctx = ar_ctx_[coll];
   // Allocations
   for (size_t g = 0; g < num_gpus_; g++) {
@@ -343,8 +326,7 @@ void OneshotSingleARInplaceComm<T>::register_coll_buf(Handle coll)
     gpu_ctx.buf_->reserve({TOTAL_FLAGS}, &gpu_ctx.d_flags_);
     gpu_ctx.buf_->reserve({num_gpus_}, &gpu_ctx.d_flags_ptrs_);
     gpu_ctx.buf_->allocate();
-    CK_CUDA_THROW_(cudaMemset(gpu_ctx.buf_->get_ptr(), 
-          0, gpu_ctx.buf_->get_size_in_bytes()));
+    CK_CUDA_THROW_(cudaMemset(gpu_ctx.buf_->get_ptr(), 0, gpu_ctx.buf_->get_size_in_bytes()));
   }
 
   std::vector<void*> h_peer_ptrs(num_gpus_);
@@ -358,99 +340,80 @@ void OneshotSingleARInplaceComm<T>::register_coll_buf(Handle coll)
   for (size_t g = 0; g < num_gpus_; g++) {
     auto& gpu_ctx = ctx->ctx_[g];
     CK_CUDA_THROW_(cudaSetDevice(gpu_resources_[g]->get_device_id()));
-    CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_peer_ptrs_.get_ptr(), 
-          h_peer_ptrs.data(), num_gpus_*sizeof(void*),
-          cudaMemcpyHostToDevice));
-    CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_flags_ptrs_.get_ptr(),
-          h_peer_flag_ptrs.data(), num_gpus_*sizeof(size_t*),
-          cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_peer_ptrs_.get_ptr(), h_peer_ptrs.data(),
+                              num_gpus_ * sizeof(void*), cudaMemcpyHostToDevice));
+    CK_CUDA_THROW_(cudaMemcpy(gpu_ctx.d_flags_ptrs_.get_ptr(), h_peer_flag_ptrs.data(),
+                              num_gpus_ * sizeof(size_t*), cudaMemcpyHostToDevice));
   }
-
 }
 
 template <typename T>
-void OneshotSingleARInplaceComm<T>::all_reduce(AllReduceInPlaceComm::Handle coll, cudaStream_t stream, size_t g)
-{
+void OneshotSingleARInplaceComm<T>::all_reduce(AllReduceInPlaceComm::Handle coll,
+                                               cudaStream_t stream, size_t g) {
   auto& ctx = ar_ctx_[coll];
   auto& gpu_ctx = ctx->ctx_[g];
   int numlines = ctx->ar_size_ / sizeof(uint4);
   int device_id_int = static_cast<int>(g);
-  #define LAUNCH_KERNEL(RANKS) if(num_gpus_==RANKS) \
+#define LAUNCH_KERNEL(RANKS)                                                         \
+  if (num_gpus_ == RANKS)                                                            \
     all_reduce_cuda_single<RANKS, T><<<cfg_nchannels_, AR_MAX_THREADS, 0, stream>>>( \
-    gpu_ctx.d_peer_ptrs_.get_ptr(), \
-    numlines, \
-    gpu_ctx.d_coll_cmd_.get_ptr(),  \
-    gpu_ctx.d_flags_ptrs_.get_ptr(), \
-    device_id_int);
+        gpu_ctx.d_peer_ptrs_.get_ptr(), numlines, gpu_ctx.d_coll_cmd_.get_ptr(),     \
+        gpu_ctx.d_flags_ptrs_.get_ptr(), device_id_int);
   LAUNCH_KERNEL(2);
-  LAUNCH_KERNEL(4);  
+  LAUNCH_KERNEL(4);
   LAUNCH_KERNEL(8);
 }
 
 template class OneshotSingleARInplaceComm<__half>;
 template class OneshotSingleARInplaceComm<float>;
 
-  template <typename T>
-  NCCLARInplaceComm<T>::NCCLARInplaceComm(
-      size_t num_procs,
-      const std::vector<std::shared_ptr<GPUResource>>& gpu_resources):
-    num_procs_(num_procs),
-    gpu_resources_(gpu_resources),
-    num_gpus_(gpu_resources.size())
-  {
-  }
+template <typename T>
+NCCLARInplaceComm<T>::NCCLARInplaceComm(
+    size_t num_procs, const std::vector<std::shared_ptr<GPUResource>>& gpu_resources)
+    : num_procs_(num_procs), gpu_resources_(gpu_resources), num_gpus_(gpu_resources.size()) {}
 
-  template <typename T>
-  AllReduceInPlaceComm::Handle NCCLARInplaceComm<T>::register_coll()
-  {
-    ar_ctx_.emplace_back(std::make_unique<ARContext>());
-    Handle handle = (Handle)(ar_ctx_.size() - 1);
-    auto& ar_ctx_g = ar_ctx_[handle];
-    ar_ctx_g->ctx_.resize(num_gpus_);
-    
-    return handle;
-  }
+template <typename T>
+AllReduceInPlaceComm::Handle NCCLARInplaceComm<T>::register_coll() {
+  ar_ctx_.emplace_back(std::make_unique<ARContext>());
+  Handle handle = (Handle)(ar_ctx_.size() - 1);
+  auto& ar_ctx_g = ar_ctx_[handle];
+  ar_ctx_g->ctx_.resize(num_gpus_);
 
-  template<typename T>
-  void NCCLARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size_t ar_size, size_t g)
-  {
-    auto& ctx = ar_ctx_[coll];
-    auto& ctx_g = ctx->ctx_[g];
-    ctx_g.ar_ptr_ = ar_ptr;
-    if ((ctx->ar_size_ != 0) && (ctx->ar_size_ != ar_size)) {
-      CK_THROW_(Error_t::WrongInput, "AR size mismatch");
-    }
-    ctx->ar_size_ = ar_size;
-    // MESSAGE_("NCCL AR size: " + std::to_string(ar_size));
-  }
-
-  template<typename T>
-  void NCCLARInplaceComm<T>::update_size(Handle coll, const size_t ar_size)
-  {
-    auto& ctx = ar_ctx_[coll];
-    ctx->ar_size_ = ar_size;
-    // MESSAGE_("NCCL AR size updated to: " + std::to_string(ar_size));
-  }
-
-  template<typename T>
-  void NCCLARInplaceComm<T>::register_coll_buf(Handle coll)
-  {
-  }
-
-  template <typename T>
-  void NCCLARInplaceComm<T>::all_reduce(AllReduceInPlaceComm::Handle coll, cudaStream_t stream, size_t g)
-  {
-    auto& ctx = ar_ctx_[coll];
-    auto& ctx_g = ctx->ctx_[g];
-    CK_NCCL_THROW_(ncclAllReduce(
-          (const void*) ctx_g.ar_ptr_, ctx_g.ar_ptr_,
-          ctx->ar_size_ / sizeof(T),
-          NcclDataType<T>::getType(),
-          ncclSum,
-          gpu_resources_[g]->get_nccl(),
-          stream));
-  }
-
-  template class NCCLARInplaceComm<__half>;
-  template class NCCLARInplaceComm<float>;
+  return handle;
 }
+
+template <typename T>
+void NCCLARInplaceComm<T>::set_coll_buf(Handle coll, void* ar_ptr, size_t ar_size, size_t g) {
+  auto& ctx = ar_ctx_[coll];
+  auto& ctx_g = ctx->ctx_[g];
+  ctx_g.ar_ptr_ = ar_ptr;
+  if ((ctx->ar_size_ != 0) && (ctx->ar_size_ != ar_size)) {
+    CK_THROW_(Error_t::WrongInput, "AR size mismatch");
+  }
+  ctx->ar_size_ = ar_size;
+  // MESSAGE_("NCCL AR size: " + std::to_string(ar_size));
+}
+
+template <typename T>
+void NCCLARInplaceComm<T>::update_size(Handle coll, const size_t ar_size) {
+  auto& ctx = ar_ctx_[coll];
+  ctx->ar_size_ = ar_size;
+  // MESSAGE_("NCCL AR size updated to: " + std::to_string(ar_size));
+}
+
+template <typename T>
+void NCCLARInplaceComm<T>::register_coll_buf(Handle coll) {}
+
+template <typename T>
+void NCCLARInplaceComm<T>::all_reduce(AllReduceInPlaceComm::Handle coll, cudaStream_t stream,
+                                      size_t g) {
+  auto& ctx = ar_ctx_[coll];
+  auto& ctx_g = ctx->ctx_[g];
+  CK_NCCL_THROW_(ncclAllReduce((const void*)ctx_g.ar_ptr_, ctx_g.ar_ptr_, ctx->ar_size_ / sizeof(T),
+                               NcclDataType<T>::getType(), ncclSum, gpu_resources_[g]->get_nccl(),
+                               stream));
+}
+
+template class NCCLARInplaceComm<__half>;
+template class NCCLARInplaceComm<float>;
+}  // namespace HugeCTR

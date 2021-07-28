@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/model_oversubscriber/model_oversubscriber_impl.hpp"
+
 #include <sstream>
 #include <string>
 
@@ -26,30 +27,27 @@ std::vector<Embedding_t> get_embedding_type(
     const std::vector<std::shared_ptr<IEmbedding>>& embeddings) {
   std::vector<Embedding_t> embedding_types;
   transform(embeddings.begin(), embeddings.end(), std::back_inserter(embedding_types),
-      [](auto& emb) { return emb->get_embedding_type(); });
+            [](auto& emb) { return emb->get_embedding_type(); });
   return embedding_types;
 }
 
-}
+}  // namespace
 
 template <typename TypeKey>
-ModelOversubscriberImpl<TypeKey>::ModelOversubscriberImpl(bool use_host_ps,
-    std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+ModelOversubscriberImpl<TypeKey>::ModelOversubscriberImpl(
+    bool use_host_ps, std::vector<std::shared_ptr<IEmbedding>>& embeddings,
     const std::vector<SparseEmbeddingHashParams>& embedding_params,
     const std::vector<std::string>& sparse_embedding_files,
     std::shared_ptr<ResourceManager> resource_manager)
     : embeddings_(embeddings),
-      ps_manager_(use_host_ps, sparse_embedding_files,
-                  get_embedding_type(embeddings), embedding_params,
-                  get_max_embedding_size_(), resource_manager) {}
+      ps_manager_(use_host_ps, sparse_embedding_files, get_embedding_type(embeddings),
+                  embedding_params, get_max_embedding_size_(), resource_manager) {}
 
 template <typename TypeKey>
-void ModelOversubscriberImpl<TypeKey>::load_(
-    std::vector<std::string>& keyset_file_list) {
+void ModelOversubscriberImpl<TypeKey>::load_(std::vector<std::string>& keyset_file_list) {
   try {
     if (keyset_file_list.size() != embeddings_.size()) {
-      CK_THROW_(Error_t::WrongInput,
-                "num of keyset_file and num of embeddings don't equal");
+      CK_THROW_(Error_t::WrongInput, "num of keyset_file and num of embeddings don't equal");
     }
 
     for (size_t i = 0; i < ps_manager_.get_size(); i++) {
@@ -92,8 +90,7 @@ void ModelOversubscriberImpl<TypeKey>::dump() {
 }
 
 template <typename TypeKey>
-void ModelOversubscriberImpl<TypeKey>::update(
-    std::vector<std::string>& keyset_file_list) {
+void ModelOversubscriberImpl<TypeKey>::update(std::vector<std::string>& keyset_file_list) {
   try {
 #ifndef KEY_HIT_RATIO
     MESSAGE_("Preparing embedding table for next pass", false, false);
@@ -120,8 +117,7 @@ void ModelOversubscriberImpl<TypeKey>::update(
 }
 
 template <typename TypeKey>
-void ModelOversubscriberImpl<TypeKey>::update(
-    std::string& keyset_file) {
+void ModelOversubscriberImpl<TypeKey>::update(std::string& keyset_file) {
   std::vector<std::string> keyset_file_list(embeddings_.size(), keyset_file);
   update(keyset_file_list);
 }
@@ -129,7 +125,7 @@ void ModelOversubscriberImpl<TypeKey>::update(
 template <typename TypeKey>
 std::vector<std::pair<std::vector<long long>, std::vector<float>>>
 ModelOversubscriberImpl<TypeKey>::get_incremental_model(
-    const std::vector<long long> &keys_to_load) {
+    const std::vector<long long>& keys_to_load) {
   std::vector<std::pair<std::vector<long long>, std::vector<float>>> inc_model;
   size_t dump_size{0};
 
@@ -142,15 +138,14 @@ ModelOversubscriberImpl<TypeKey>::get_incremental_model(
   }
 
 #ifdef ENABLE_MPI
-    CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
-    CK_MPI_THROW_(MPI_Allreduce(&dump_size, &dump_size, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
+  CK_MPI_THROW_(MPI_Barrier(MPI_COMM_WORLD));
+  CK_MPI_THROW_(MPI_Allreduce(&dump_size, &dump_size, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
 #endif
   if (dump_size != keys_to_load.size()) {
     // CK_THROW_(Error_t::UnspecificError, "dump_size != key_to_load.size()");
     std::stringstream ss;
-    ss << "WARNING: keyset file is insistent with dataset! Only "
-       << dump_size << " out of " << keys_to_load.size()
-       << " keys found in parameter server.";
+    ss << "WARNING: keyset file is insistent with dataset! Only " << dump_size << " out of "
+       << keys_to_load.size() << " keys found in parameter server.";
     MESSAGE_(ss.str());
   }
   MESSAGE_("Get updated portion of embedding table [DONE}");

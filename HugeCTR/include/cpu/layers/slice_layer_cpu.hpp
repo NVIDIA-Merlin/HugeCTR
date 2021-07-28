@@ -16,10 +16,9 @@
 
 #pragma once
 
+#include <cpu/layer_cpu.hpp>
 #include <set>
 #include <vector>
-
-#include <cpu/layer_cpu.hpp>
 
 namespace HugeCTR {
 
@@ -64,8 +63,8 @@ class SliceLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   SliceLayerCPU(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
-             const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-             std::vector<std::pair<int, int>>& ranges);
+                const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                std::vector<std::pair<int, int>>& ranges);
   ~SliceLayerCPU() override{};
 
   /**
@@ -78,7 +77,6 @@ class SliceLayerCPU : public LayerCPU {
    * @param stream CUDA stream where the foward propagation is executed
    */
   void bprop() override;
-
 };
 
 }  // namespace HugeCTR

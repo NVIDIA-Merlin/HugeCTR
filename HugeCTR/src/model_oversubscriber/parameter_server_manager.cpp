@@ -15,26 +15,28 @@
  */
 
 #include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
+
 #include <string>
 
 namespace HugeCTR {
 
 template <typename TypeKey>
-ParameterServerManager<TypeKey>::ParameterServerManager(bool use_host_ps,
-    const std::vector<std::string>& sparse_embedding_files,
+ParameterServerManager<TypeKey>::ParameterServerManager(
+    bool use_host_ps, const std::vector<std::string>& sparse_embedding_files,
     const std::vector<Embedding_t>& embedding_types,
-    const std::vector<SparseEmbeddingHashParams>& embedding_params,
-    size_t buffer_size, std::shared_ptr<ResourceManager> resource_manager) {
+    const std::vector<SparseEmbeddingHashParams>& embedding_params, size_t buffer_size,
+    std::shared_ptr<ResourceManager> resource_manager) {
   try {
     if (sparse_embedding_files.size() == 0)
-      CK_THROW_(Error_t::WrongInput, "must provide sparse_model_file. \
+      CK_THROW_(Error_t::WrongInput,
+                "must provide sparse_model_file. \
           if train from scratch, please specify a name to store the trained embedding model");
 
     if (embedding_params.size() != sparse_embedding_files.size())
       CK_THROW_(Error_t::WrongInput,
-          std::string("embedding_params.size() != sparse_embedding_files.size()") + ": " +
-          std::to_string(embedding_params.size()) + " != " + 
-          std::to_string(sparse_embedding_files.size()));
+                std::string("embedding_params.size() != sparse_embedding_files.size()") + ": " +
+                    std::to_string(embedding_params.size()) +
+                    " != " + std::to_string(sparse_embedding_files.size()));
 
     if (use_host_ps) {
       MESSAGE_("Host MEM-based Parameter Server is enabled");
@@ -48,13 +50,13 @@ ParameterServerManager<TypeKey>::ParameterServerManager(bool use_host_ps,
       max_vec_size = (ith_vec_size > max_vec_size) ? ith_vec_size : max_vec_size;
 
       size_t tmp_voc_size = embedding_params[i].max_vocabulary_size_per_gpu;
-      max_voc_size_per_gpu = (tmp_voc_size > max_voc_size_per_gpu) ?
-                             tmp_voc_size : max_voc_size_per_gpu;
+      max_voc_size_per_gpu =
+          (tmp_voc_size > max_voc_size_per_gpu) ? tmp_voc_size : max_voc_size_per_gpu;
 
       MESSAGE_("construct sparse models for model oversubscriber: " + sparse_embedding_files[i]);
-      ps_.push_back(std::make_shared<ParameterServer<TypeKey>>(use_host_ps,
-          sparse_embedding_files[i], embedding_types[i], embedding_params[i].embedding_vec_size,
-          resource_manager));
+      ps_.push_back(std::make_shared<ParameterServer<TypeKey>>(
+          use_host_ps, sparse_embedding_files[i], embedding_types[i],
+          embedding_params[i].embedding_vec_size, resource_manager));
     }
 
     bool has_localized_embedding = false;

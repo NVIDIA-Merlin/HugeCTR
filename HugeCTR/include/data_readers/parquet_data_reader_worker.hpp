@@ -120,7 +120,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
               i++;
             }
           }
-          
+
           tmp_col_index.clear();
 
           tmp_col_index.clear();
@@ -377,10 +377,11 @@ void ParquetDataReaderWorker<T>::read_a_batch() {
       }
 
       std::deque<rmm::device_buffer> rmm_resources;
-      convert_parquet_dense_columns(
-          dense_column_data_ptr, label_dense_dim, samples_to_be_transposed, dense_start, dense_end,
-          reinterpret_cast<dtype_dense*>(dst_dense_tensor.get_ptr()), host_memory_pointer_staging_.get_ptr(), rmm_resources,
-          memory_resource_.get(), dense_stream_);
+      convert_parquet_dense_columns(dense_column_data_ptr, label_dense_dim,
+                                    samples_to_be_transposed, dense_start, dense_end,
+                                    reinterpret_cast<dtype_dense*>(dst_dense_tensor.get_ptr()),
+                                    host_memory_pointer_staging_.get_ptr(), rmm_resources,
+                                    memory_resource_.get(), dense_stream_);
       const int num_csr_buffers = param_num;
       auto dst_sparse_tensors = buffer_->device_sparse_buffers;
       // device output pointer

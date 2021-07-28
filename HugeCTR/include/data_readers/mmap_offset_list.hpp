@@ -63,9 +63,7 @@ class MmapOffsetList {
   // stride: samle size in byte
   MmapOffsetList(std::string file_name, long long num_samples, long long stride,
                  long long batchsize, bool use_shuffle, int num_workers, bool repeat)
-      : length_(num_samples * stride),
-        num_workers_(num_workers),
-        repeat_(repeat) {
+      : length_(num_samples * stride), num_workers_(num_workers), repeat_(repeat) {
     try {
       fd_ = open(file_name.c_str(), O_RDONLY, 0);
       if (fd_ == -1) {

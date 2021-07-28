@@ -93,7 +93,8 @@ int main(int argc, char *argv[]) {
       // if end
       if (txt_file.eof()) {
         txt_file.close();
-        // it is possible that the header only data file is created, but it is not counted as a valid one.
+        // it is possible that the header only data file is created, but it is not counted as a
+        // valid one.
         data_file.seekp(std::ios_base::beg);
         DataSetHeader last_header = {
             1, static_cast<long long>(i), label_dim, 0, static_cast<long long>(SLOT_NUM), 0, 0, 0};

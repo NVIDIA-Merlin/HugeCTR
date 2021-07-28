@@ -23,7 +23,8 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-__global__ void ada_grad_update_kernel(int len, float *weight, const T* wgrad, T *sum, float lr, const float epsilon, float scaler){
+__global__ void ada_grad_update_kernel(int len, float* weight, const T* wgrad, T* sum, float lr,
+                                       const float epsilon, float scaler) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     float gi = TypeConvertFunc<float, T>::convert(wgrad[i]) / scaler;
@@ -34,29 +35,28 @@ __global__ void ada_grad_update_kernel(int len, float *weight, const T* wgrad, T
     sum[i] = TypeConvertFunc<T, float>::convert(accum_);
   }
 }
-}
+}  // namespace
 
 template <typename T>
 AdaGradOptimizer<T>::AdaGradOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                             const std::shared_ptr<BufferBlock2<T>>& opt_buf,
-                             const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate,
-                             float initial_accu_value, float epsilon, float scaler)
-    : Optimizer(weight_main, gpu_resource, learning_rate,
-                scaler),
+                                      const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                                      const std::shared_ptr<GPUResource>& gpu_resource,
+                                      float learning_rate, float initial_accu_value, float epsilon,
+                                      float scaler)
+    : Optimizer(weight_main, gpu_resource, learning_rate, scaler),
       wgrad_(wgrad),
       initial_accumulator_value_(initial_accu_value),
       epsilon_(epsilon) {
-  if(weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    CK_THROW_(Error_t::WrongInput,
-                  "weight->get_num_elements() != wgrad->get_num_elements()");
+  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
   }
   opt_buf->reserve({weight_main.get_num_elements()}, &accum_);
 }
 
-
 template <typename T>
 void AdaGradOptimizer<T>::initialize() {
-  CK_CUDA_THROW_(cudaMemsetAsync(accum_.get_ptr(), initial_accumulator_value_, accum_.get_size_in_bytes(), gpu_resource_->get_stream()));
+  CK_CUDA_THROW_(cudaMemsetAsync(accum_.get_ptr(), initial_accumulator_value_,
+                                 accum_.get_size_in_bytes(), gpu_resource_->get_stream()));
 }
 
 template <typename T>
@@ -70,7 +70,7 @@ void AdaGradOptimizer<T>::update() {
   float* weight = weight_main_.get_ptr();
   const T* wgrad = wgrad_.get_ptr();
   ada_grad_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, wgrad, accum_.get_ptr(), lr_, epsilon_, scaler_);
+      len, weight, wgrad, accum_.get_ptr(), lr_, epsilon_, scaler_);
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -78,7 +78,6 @@ void AdaGradOptimizer<T>::update() {
 #endif
 }
 
-
 template class AdaGradOptimizer<float>;
 template class AdaGradOptimizer<__half>;
-}
+}  // namespace HugeCTR

@@ -62,9 +62,10 @@ class BatchNormLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   BatchNormLayerCPU(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                 const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                 const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blob_buff,
-                 const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, const Params& params);
+                    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                    const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blob_buff,
+                    const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
+                    const Params& params);
   ~BatchNormLayerCPU() override;
 
   void initialize() override;
@@ -90,7 +91,6 @@ class BatchNormLayerCPU : public LayerCPU {
   Tensor2<float> beta_;
   Tensor2<float> gamma_grad_;
   Tensor2<float> beta_grad_;
-
 };
 
 }  // namespace HugeCTR

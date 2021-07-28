@@ -29,7 +29,8 @@ class AdaGradOptimizer : public Optimizer {
  public:
   /**
    * Constructor of AdaGradOptimizer.
-   * names of hyper-parameters are the same as in AdaGrad paper (https://jmlr.org/papers/volume12/duchi11a/duchi11a.pdf)
+   * names of hyper-parameters are the same as in AdaGrad paper
+   * (https://jmlr.org/papers/volume12/duchi11a/duchi11a.pdf)
    * @param weight_main weights to be updated
    * @param wgrad gradient for weights
    * @param device_id the id of GPU where update kernel is launched
@@ -39,9 +40,9 @@ class AdaGradOptimizer : public Optimizer {
    * @param epsilon epsilon in Adam paper
    */
   AdaGradOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-                const std::shared_ptr<BufferBlock2<T>>& opt_buf,
-                const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
-                float initial_accu_value = 0., float epsilon = 1e-7, float scaler = 1.f);
+                   const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                   const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate = 0.001,
+                   float initial_accu_value = 0., float epsilon = 1e-7, float scaler = 1.f);
 
   void initialize() override;
 
@@ -54,7 +55,7 @@ class AdaGradOptimizer : public Optimizer {
  private:
   Tensor2<T> wgrad_;
   Tensor2<T> accum_;
-  
+
   float initial_accumulator_value_;
   const float epsilon_;
 };

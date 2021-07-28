@@ -42,7 +42,7 @@ class SigmoidLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   SigmoidLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-            const std::shared_ptr<GPUResource>& gpu_resource);
+               const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
    * A method of implementing the forward pass of Sigmoid

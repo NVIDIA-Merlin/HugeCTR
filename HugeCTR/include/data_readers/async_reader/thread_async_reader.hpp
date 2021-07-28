@@ -53,8 +53,8 @@ class ThreadAsyncReader {
   void wait_io();
   bool wait_for_gpu_idle(InternalBatchBuffer* buffer);
   void try_submit_upload(InternalBatchBuffer* buffer);
-  void try_submit_p2p   (InternalBatchBuffer* buffer);
-  bool check_completion (InternalBatchBuffer* buffer);
+  void try_submit_p2p(InternalBatchBuffer* buffer);
+  bool check_completion(InternalBatchBuffer* buffer);
 };
 
 }  // namespace HugeCTR

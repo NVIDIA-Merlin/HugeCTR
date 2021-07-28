@@ -17,7 +17,6 @@
 #pragma once
 
 #include <layer.hpp>
-
 #include <vector>
 
 namespace HugeCTR {

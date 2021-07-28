@@ -14,25 +14,23 @@
  * limitations under the License.
  */
 
+#include <omp.h>
+
 #include <cub/cub.cuh>
 #include <diagnose.hpp>
+#include <general_buffer2.hpp>
 #include <metrics.hpp>
 #include <utils.cuh>
-#include <omp.h>
-#include <general_buffer2.hpp>
 
 namespace HugeCTR {
 
 namespace metrics {
 
-
-
-
 namespace {
 
-__global__ void convert_half_to_float_kernel(__half* src_ptr, float* dst_ptr, size_t num){
+__global__ void convert_half_to_float_kernel(__half* src_ptr, float* dst_ptr, size_t num) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if(idx < num){
+  if (idx < num) {
     dst_ptr[idx] = TypeConvertFunc<float, __half>::convert(src_ptr[idx]);
   }
 }
@@ -234,7 +232,6 @@ __global__ void trapz_kernel(float* y, float* x, float* halo_y, float* halo_x, f
 }
 }  // namespace
 
-
 namespace metric_comm {
 
 template <typename T>
@@ -310,27 +307,35 @@ void send_halo_right(T* srcptr, T* dstptr, int count, int left_neighbor, int rig
 
 }  // namespace metric_comm
 
-void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_type, bool mixed_precision, float *rst, size_t num){
+void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_type,
+                                         bool mixed_precision, float* rst, size_t num) {
   Tensor2<float> device_prediction_result;
-  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buffer_ptr = GeneralBuffer2<CudaAllocator>::create();
-  
-  if(mixed_precision){
+  std::shared_ptr<GeneralBuffer2<CudaAllocator>> buffer_ptr =
+      GeneralBuffer2<CudaAllocator>::create();
+
+  if (mixed_precision) {
     Tensor2<__half> raw_metric_tensor = Tensor2<__half>::stretch_from(metric_map[raw_type]);
-    if(raw_metric_tensor.get_num_elements() != num){
-      CK_THROW_(Error_t::WrongInput, "num elements: " + std::to_string(raw_metric_tensor.get_num_elements()) + " not match with " + std::to_string(num));
+    if (raw_metric_tensor.get_num_elements() != num) {
+      CK_THROW_(Error_t::WrongInput,
+                "num elements: " + std::to_string(raw_metric_tensor.get_num_elements()) +
+                    " not match with " + std::to_string(num));
     }
     buffer_ptr->reserve(raw_metric_tensor.get_dimensions(), &device_prediction_result);
     buffer_ptr->allocate();
     dim3 blockSize(256, 1, 1);
     dim3 gridSize((num + blockSize.x - 1) / blockSize.x, 1, 1);
-    convert_half_to_float_kernel<<<gridSize, blockSize>>>(raw_metric_tensor.get_ptr(), device_prediction_result.get_ptr(), num);
-  }else {
+    convert_half_to_float_kernel<<<gridSize, blockSize>>>(raw_metric_tensor.get_ptr(),
+                                                          device_prediction_result.get_ptr(), num);
+  } else {
     device_prediction_result = Tensor2<float>::stretch_from(metric_map[raw_type]);
-    if(num != device_prediction_result.get_num_elements()){
-      CK_THROW_(Error_t::WrongInput, "num elements: " + std::to_string(device_prediction_result.get_num_elements()) + " not match with " + std::to_string(num));
+    if (num != device_prediction_result.get_num_elements()) {
+      CK_THROW_(Error_t::WrongInput,
+                "num elements: " + std::to_string(device_prediction_result.get_num_elements()) +
+                    " not match with " + std::to_string(num));
     }
   }
-  CK_CUDA_THROW_(cudaMemcpy(rst, device_prediction_result.get_ptr(), num * sizeof(float), cudaMemcpyDeviceToHost));
+  CK_CUDA_THROW_(cudaMemcpy(rst, device_prediction_result.get_ptr(), num * sizeof(float),
+                            cudaMemcpyDeviceToHost));
 }
 
 std::unique_ptr<Metric> Metric::Create(const Type type, bool use_mixed_precision,
@@ -418,8 +423,6 @@ float AverageLoss<T>::finalize_metric() {
   n_batches_ = 0;
   return ret;
 }
-
-
 
 void AUCStorage::alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
                             size_t num_global_gpus) {
@@ -567,7 +570,6 @@ int get_num_valid_samples(int global_device_id, int current_batch_size, int batc
   int remaining = current_batch_size - global_device_id * batch_per_gpu;
   return std::max(std::min(remaining, batch_per_gpu), 0);
 }
-
 
 template <typename T>
 void AUC<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
@@ -860,15 +862,14 @@ float AUC<T>::_finalize_metric_per_gpu(int local_id) {
   return *st.d_auc();
 }
 
-
-
 // HitRate Metric function implementations
 template <typename T>
-HitRate<T>::HitRate(int batch_size_per_gpu, const std::shared_ptr<ResourceManager>& resource_manager)
+HitRate<T>::HitRate(int batch_size_per_gpu,
+                    const std::shared_ptr<ResourceManager>& resource_manager)
     : Metric(),
       batch_size_per_gpu_(batch_size_per_gpu),
       resource_manager_(resource_manager),
-      num_local_gpus_ (resource_manager_->get_local_gpu_count()),
+      num_local_gpus_(resource_manager_->get_local_gpu_count()),
       checked_count_(resource_manager_->get_local_gpu_count()),
       hit_count_(resource_manager_->get_local_gpu_count()),
       checked_local_(std::vector<int>(resource_manager->get_local_gpu_count(), 0)),
@@ -876,20 +877,18 @@ HitRate<T>::HitRate(int batch_size_per_gpu, const std::shared_ptr<ResourceManage
       hits_global_(0),
       checked_global_(0),
       n_batches_(0) {
-      
-  for (int i=0; i<num_local_gpus_; i++) {
+  for (int i = 0; i < num_local_gpus_; i++) {
     int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
     CudaDeviceContext context(device_id);
 
     CK_CUDA_THROW_(cudaMalloc((void**)(&(checked_count_[i])), sizeof(int)));
     CK_CUDA_THROW_(cudaMalloc((void**)(&(hit_count_[i])), sizeof(int)));
   }
-
 }
 
-template<typename T>
+template <typename T>
 void HitRate<T>::free_all() {
-  for (int i=0; i<num_local_gpus_; i++) {
+  for (int i = 0; i < num_local_gpus_; i++) {
     int device_id = resource_manager_->get_local_gpu(i)->get_device_id();
     CudaDeviceContext context(device_id);
     CK_CUDA_THROW_(cudaFree(checked_count_[i]));
@@ -904,10 +903,11 @@ HitRate<T>::~HitRate() {
 
 template <typename T>
 __global__ void collect_hits(T* preds, T* labels, int num_samples, int* checked, int* hits) {
-  for(int i=blockIdx.x*blockDim.x+threadIdx.x; i<num_samples; i+=blockDim.x*gridDim.x) {
-    if(preds[i] > 0.8) {
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < num_samples;
+       i += blockDim.x * gridDim.x) {
+    if (preds[i] > 0.8) {
       atomicAdd(checked, 1);
-      if(labels[i] == 1.0) {
+      if (labels[i] == 1.0) {
         atomicAdd(hits, 1);
       }
     }
@@ -916,15 +916,14 @@ __global__ void collect_hits(T* preds, T* labels, int num_samples, int* checked,
 
 template <typename T>
 void HitRate<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
-
   const auto& local_gpu = resource_manager_->get_local_gpu(local_gpu_id);
   CudaDeviceContext context(local_gpu->get_device_id());
 
   int global_device_id = resource_manager_->get_local_gpu(local_gpu_id)->get_global_id();
-  int num_valid_samples = get_num_valid_samples(global_device_id,
-                                                current_batch_size_, batch_size_per_gpu_);
+  int num_valid_samples =
+      get_num_valid_samples(global_device_id, current_batch_size_, batch_size_per_gpu_);
 
-  Tensor2<T> pred_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Pred ]);
+  Tensor2<T> pred_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Pred]);
   Tensor2<T> label_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Label]);
 
   dim3 grid(160, 1, 1);
@@ -933,14 +932,16 @@ void HitRate<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   cudaMemsetAsync(checked_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream());
   cudaMemsetAsync(hit_count_[local_gpu_id], 0, sizeof(int), local_gpu->get_stream());
 
-  collect_hits<T><<<grid,block,0,local_gpu->get_stream()>>>(pred_tensor.get_ptr(), label_tensor.get_ptr(), num_valid_samples, checked_count_[local_gpu_id], hit_count_[local_gpu_id]);
+  collect_hits<T><<<grid, block, 0, local_gpu->get_stream()>>>(
+      pred_tensor.get_ptr(), label_tensor.get_ptr(), num_valid_samples,
+      checked_count_[local_gpu_id], hit_count_[local_gpu_id]);
   int checked_host = 0;
   int hits_host = 0;
-  CK_CUDA_THROW_(
-      cudaMemcpyAsync(&checked_host, checked_count_[local_gpu_id], sizeof(int), cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+  CK_CUDA_THROW_(cudaMemcpyAsync(&checked_host, checked_count_[local_gpu_id], sizeof(int),
+                                 cudaMemcpyDeviceToHost, local_gpu->get_stream()));
   checked_local_[local_gpu_id] = checked_host;
-  CK_CUDA_THROW_(
-      cudaMemcpyAsync(&hits_host, hit_count_[local_gpu_id], sizeof(int), cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+  CK_CUDA_THROW_(cudaMemcpyAsync(&hits_host, hit_count_[local_gpu_id], sizeof(int),
+                                 cudaMemcpyDeviceToHost, local_gpu->get_stream()));
   hits_local_[local_gpu_id] = hits_host;
 }
 
@@ -949,10 +950,10 @@ void HitRate<T>::global_reduce(int n_nets) {
   int checked_inter = 0;
   int hits_inter = 0;
 
-  for(auto& hits_local : hits_local_) {
+  for (auto& hits_local : hits_local_) {
     hits_inter += hits_local;
   }
-  for(auto& checked_local : checked_local_) {
+  for (auto& checked_local : checked_local_) {
     checked_inter += checked_local;
   }
 
@@ -961,7 +962,8 @@ void HitRate<T>::global_reduce(int n_nets) {
     int hits_reduced = 0;
     int checked_reduced = 0;
     CK_MPI_THROW_(MPI_Reduce(&hits_inter, &hits_reduced, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
-    CK_MPI_THROW_(MPI_Reduce(&checked_inter, &checked_reduced, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
+    CK_MPI_THROW_(
+        MPI_Reduce(&checked_inter, &checked_reduced, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
     hits_inter = hits_reduced;
     checked_inter = checked_reduced;
   }
@@ -969,13 +971,12 @@ void HitRate<T>::global_reduce(int n_nets) {
 
   hits_global_ += hits_inter;
   checked_global_ += checked_inter;
-  
+
   n_batches_++;
 }
 
 template <typename T>
 float HitRate<T>::finalize_metric() {
-
   float ret = 0.0f;
   if (resource_manager_->is_master_process()) {
     if (n_batches_) {
@@ -997,7 +998,6 @@ float HitRate<T>::finalize_metric() {
   n_batches_ = 0;
   return ret;
 }
-
 
 template class AverageLoss<float>;
 template class AUC<float>;

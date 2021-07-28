@@ -29,12 +29,10 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream);
 template <typename T>
 size_t convert_parquet_cat_columns(
-    std::vector<T *> &cat_column_data_ptr, std::vector<int32_t *> &cat_column_row_offset_ptr,int view_offset,
-    int num_params, int param_id,int max_nnz, int num_slots, int batch_size,
+    std::vector<T *> &cat_column_data_ptr, std::vector<int32_t *> &cat_column_row_offset_ptr,
+    int view_offset, int num_params, int param_id, int max_nnz, int num_slots, int batch_size,
     int pid, const std::shared_ptr<ResourceManager> resource_manager,
     std::vector<void *> &csr_value_buffers, std::vector<void *> &csr_row_offset_buffers,
-    int64_t *dev_ptr_staging,
-    T* dev_slot_offset_ptr,
-    std::deque<rmm::device_buffer> &rmm_resources, rmm::mr::device_memory_resource *mr,
-    cudaStream_t task_stream);
+    int64_t *dev_ptr_staging, T *dev_slot_offset_ptr, std::deque<rmm::device_buffer> &rmm_resources,
+    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream);
 }  // namespace HugeCTR

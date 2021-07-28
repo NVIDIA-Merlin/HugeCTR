@@ -35,7 +35,7 @@ class SGDOptimizer : public Optimizer {
    * @param lr learning rate
    # @param scaler scaler factor for mixed precision
    */
-  SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>&wgrad,
+  SGDOptimizer(const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
                const std::shared_ptr<GPUResource>& gpu_resource, float lr = 0.001f,
                float scaler = 1.f);
 

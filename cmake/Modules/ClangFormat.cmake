@@ -25,16 +25,16 @@ function(clangformat_setup clangformat_srcs)
   set(clangformat_srcs "${clangformat_srcs_tmp}")
   unset(clangformat_srcs_tmp)
 
-  add_custom_target(${PROJECT_NAME}_clangformat
+  add_custom_target(${PROJECT_NAME}_clangformat ALL
                     COMMAND ${CLANGFORMAT_EXECUTABLE}
                             -style=file
                             -i
                             ${clangformat_srcs}
                     COMMENT "Formating with ${CLANGFORMAT_EXECUTABLE} ...")
 
-  if(TARGET clangformat)
-    add_dependencies(clangformat ${PROJECT_NAME}_clangformat)
-  else()
-    add_custom_target(clangformat DEPENDS ${PROJECT_NAME}_clangformat)
-  endif()
+#  if(TARGET clangformat)
+#    add_dependencies(clangformat ${PROJECT_NAME}_clangformat)
+#  else()
+#    add_custom_target(clangformat DEPENDS ${PROJECT_NAME}_clangformat)
+#  endif()
 endfunction()

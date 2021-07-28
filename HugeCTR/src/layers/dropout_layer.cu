@@ -31,10 +31,9 @@
 namespace HugeCTR {
 
 template <typename T>
-DropoutLayer<T>::DropoutLayer(
-    const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
-    const std::shared_ptr<GPUResource>& gpu_resource)
+DropoutLayer<T>::DropoutLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
+                              const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff,
+                              float rate, const std::shared_ptr<GPUResource>& gpu_resource)
 
     : Layer(gpu_resource), rate_(rate), scale_(1.0 / (1.0 - rate)) {
   assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
@@ -94,8 +93,8 @@ void DropoutLayer<T>::fprop(bool is_train) {
         in_out_desc_, out_tensors_[0].get_ptr(), mask_.get_ptr(), reserveSpaceSizeInBytes_));
   } else {
     CK_CUDA_THROW_(cudaMemcpyAsync(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(),
-                    in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
-                    get_gpu().get_stream()));
+                                   in_tensors_[0].get_size_in_bytes(), cudaMemcpyDeviceToDevice,
+                                   get_gpu().get_stream()));
   }
 
 #ifndef NDEBUG

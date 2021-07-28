@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include <layers/sub_layer.hpp>
-
 #include <algorithm>
 #include <functional>
+#include <layers/sub_layer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
 

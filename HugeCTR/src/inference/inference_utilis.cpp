@@ -19,20 +19,21 @@
 
 namespace HugeCTR {
 template <typename TypeHashKey>
-HugectrUtility<TypeHashKey>::HugectrUtility(){}
+HugectrUtility<TypeHashKey>::HugectrUtility() {}
 
 template <typename TypeHashKey>
-HugectrUtility<TypeHashKey>::~HugectrUtility(){}
+HugectrUtility<TypeHashKey>::~HugectrUtility() {}
 
 template <typename TypeHashKey>
-HugectrUtility<TypeHashKey>* HugectrUtility<TypeHashKey>::Create_Parameter_Server(INFER_TYPE Infer_type,
-                                                                                const std::vector<std::string>& model_config_path,
-                                                                                const std::vector<InferenceParams>& inference_params_array){
+HugectrUtility<TypeHashKey>* HugectrUtility<TypeHashKey>::Create_Parameter_Server(
+    INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path,
+    const std::vector<InferenceParams>& inference_params_array) {
   HugectrUtility<TypeHashKey>* new_parameter_server;
 
-  switch(Infer_type){
+  switch (Infer_type) {
     case TRITON:
-      new_parameter_server = new parameter_server<TypeHashKey>("TRITON", model_config_path, inference_params_array);
+      new_parameter_server =
+          new parameter_server<TypeHashKey>("TRITON", model_config_path, inference_params_array);
       break;
     default:
       CK_THROW_(Error_t::WrongInput, "Error: unknown framework name.");

@@ -73,7 +73,8 @@ bool eval(const int i, std::shared_ptr<HugeCTR::Session>& session_instance,
 
     auto eval_metrics = session_instance->get_eval_metrics();
     for (auto& eval_metric : eval_metrics) {
-      HugeCTR::MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+      HugeCTR::MESSAGE_("Evaluation, " + eval_metric.first + ": " +
+                        std::to_string(eval_metric.second));
 
       HugeCTR::LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second,
                    float(i) / solver_config.max_iter, i);
@@ -213,14 +214,13 @@ void train(std::string config_file) {
         }
         if (pid == 0) {
           if (!solver_config.use_holistic_cuda_graph) {
-            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) +
-                              " Time(" + std::to_string(solver_config.display) +
+            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
+                              std::to_string(solver_config.display) +
                               " iters): " + std::to_string(timer_train.elapsedSeconds()) +
                               "s Loss: " + std::to_string(loss) + " lr:" + std::to_string(lr));
-          }
-          else {
-            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) +
-                              " Time(" + std::to_string(solver_config.display) +
+          } else {
+            HugeCTR::MESSAGE_("Iter: " + std::to_string(i) + " Time(" +
+                              std::to_string(solver_config.display) +
                               " iters): " + std::to_string(timer_train.elapsedSeconds()) +
                               "s Loss: " + std::to_string(loss));
           }
@@ -292,10 +292,10 @@ void train(std::string config_file) {
     size_t train_samples =
         static_cast<size_t>(solver_config.max_iter) * static_cast<size_t>(solver_config.batchsize);
     HugeCTR::LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
-    
+
     timer.stop();
-    std::cout << "Finished in " << std::setiosflags(std::ios::fixed)
-              << std::setprecision(2) << timer.elapsedSeconds() << "s" << std::endl;
+    std::cout << "Finished in " << std::setiosflags(std::ios::fixed) << std::setprecision(2)
+              << timer.elapsedSeconds() << "s" << std::endl;
   }
   timer_log.stop();
 
@@ -320,7 +320,6 @@ void train(std::string config_file) {
       loss += loss_tmp;
     }
     if (i % solver_config.eval_interval == 0 && i != 0) {
-
       session_instance->check_overflow();
       session_instance->copy_weights_for_evaluation();
 
@@ -330,17 +329,17 @@ void train(std::string config_file) {
 
       bool good = true;
       for (int j = 0; j < solver_config.max_eval_batches && good; ++j) {
-	good = session_instance->eval();
+        good = session_instance->eval();
       }
       if (good == false) {
-	data_reader_eval->set_source();
+        data_reader_eval->set_source();
       }
 
       if (pid == 0) {
         std::cout << loop << " " << loss << " ";
         auto eval_metrics = session_instance->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
-           std::cout << eval_metric.second << " ";
+          std::cout << eval_metric.second << " ";
         }
         std::cout << std::endl;
       }

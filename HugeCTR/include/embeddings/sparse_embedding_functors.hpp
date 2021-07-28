@@ -27,8 +27,8 @@ struct SparseTensorAllGatherConfig {
   Tensor2<size_t> nnzs_num;
   size_t total_nnz;
 
-  SparseTensorAllGatherConfig(size_t total_gpu_count): total_nnz(0)  {
-    const auto &host_buf = GeneralBuffer2<CudaHostAllocator>::create();         
+  SparseTensorAllGatherConfig(size_t total_gpu_count) : total_nnz(0) {
+    const auto &host_buf = GeneralBuffer2<CudaHostAllocator>::create();
     host_buf->reserve({total_gpu_count}, &nnzs);
     host_buf->reserve({total_gpu_count}, &nnzs_num);
     host_buf->allocate();
@@ -318,12 +318,11 @@ class SparseEmbeddingFunctors {
    *
    */
   template <typename TypeEmbeddingComp>
-  static void opt_sgd_atomic_cached(size_t num_samples,
-                                    size_t embedding_vec_size, const size_t *hash_value_index,
-                                    float lr, float scaler, const TypeEmbeddingComp *wgrad,
-                                    float *hash_table_value, size_t *top_categories,
-                                    size_t &size_top_categories, cudaStream_t stream,
-                                    bool force_stats = false);
+  static void opt_sgd_atomic_cached(size_t num_samples, size_t embedding_vec_size,
+                                    const size_t *hash_value_index, float lr, float scaler,
+                                    const TypeEmbeddingComp *wgrad, float *hash_table_value,
+                                    size_t *top_categories, size_t &size_top_categories,
+                                    cudaStream_t stream, bool force_stats = false);
 
   /**
    * collection communication: reduce_scatter f or DistributedSlotSparseEmbeddingHash
@@ -362,7 +361,9 @@ class SparseEmbeddingFunctors {
                   Tensors2<TypeHashKey> &recv_tensors, const ResourceManager &resource_manager);
 
   template <typename Type>
-  void prepare_for_sparse_all_gather(const SparseTensors<Type> &send_tensors, SparseTensorAllGatherConfig<Type> &config,  const ResourceManager &resource_manager);
+  void prepare_for_sparse_all_gather(const SparseTensors<Type> &send_tensors,
+                                     SparseTensorAllGatherConfig<Type> &config,
+                                     const ResourceManager &resource_manager);
 
   template <typename Type>
   void all_gather(const SparseTensor<Type> &send_tensor, SparseTensor<Type> &recv_tensor,

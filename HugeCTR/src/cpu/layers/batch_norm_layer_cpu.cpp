@@ -15,8 +15,8 @@
  */
 
 #include <algorithm>
-#include <functional>
 #include <cpu/layers/batch_norm_layer_cpu.hpp>
+#include <functional>
 #include <string>
 #include <utils.hpp>
 #ifndef NDEBUG
@@ -27,7 +27,7 @@ namespace HugeCTR {
 
 namespace {
 
-constexpr float eps = 1e-4; // Epsilon for CPU computation
+constexpr float eps = 1e-4;  // Epsilon for CPU computation
 
 template <typename T>
 void batch_norm_fprop_cpu(const float* gamma, const float* beta, const T* in, T* out,
@@ -180,16 +180,15 @@ void batch_norm_bprop_cpu<__half>(const float* gamma, const __half* out, __half*
   }
 }
 
-} // end namespace
+}  // end namespace
 
 template <typename T>
-BatchNormLayerCPU<T>::BatchNormLayerCPU(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                                  const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blob_buff,
-                                  const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-                                  const Params& params)
-    : LayerCPU(),
-      params_(params) {
+BatchNormLayerCPU<T>::BatchNormLayerCPU(
+    const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+    const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blob_buff, const Tensor2<T>& in_tensor,
+    const Tensor2<T>& out_tensor, const Params& params)
+    : LayerCPU(), params_(params) {
   const auto& in_tensor_dim = in_tensor.get_dimensions();
 
   size_t num_feature = in_tensor_dim[1];
@@ -232,7 +231,6 @@ void BatchNormLayerCPU<T>::fprop(bool is_train) {
   float* beta = beta_.get_ptr();
 
   batch_norm_fprop_cpu<T>(gamma, beta, in, out, batch_size, num_feature);
-
 }
 
 template <typename T>

@@ -42,10 +42,8 @@ class GpuLearningRateScheduler {
   void update();
 
   float* get_learning_rate() const { return current_lr_; };
-
 };
 
-using GpuLearningRateSchedulers = 
-std::vector<std::shared_ptr<GpuLearningRateScheduler>>;
+using GpuLearningRateSchedulers = std::vector<std::shared_ptr<GpuLearningRateScheduler>>;
 
 }  // namespace HugeCTR

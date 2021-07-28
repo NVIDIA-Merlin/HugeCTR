@@ -38,8 +38,8 @@ void UniformGenerator::fill<float>(float* ptr, size_t num_elements, float a, flo
 template <>
 void UniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b, size_t sm_count,
                                    const curandGenerator_t& generator, const cudaStream_t& stream) {
-  UniformGenerator::fill<float>(tensor.get_ptr(), tensor.get_num_elements(),
-                                a, b, sm_count, generator, stream);
+  UniformGenerator::fill<float>(tensor.get_ptr(), tensor.get_num_elements(), a, b, sm_count,
+                                generator, stream);
 }
 
 template <>
@@ -49,10 +49,10 @@ void HostUniformGenerator::fill<float>(Tensor2<float>& tensor, float a, float b,
   if (a >= b) {
     CK_THROW_(Error_t::WrongInput, "a must be smaller than b");
   }
-  CK_CURAND_THROW_(
-      curandGenerateUniform(generator, tensor.get_ptr(), tensor.get_num_elements() % 2 != 0
-                                                             ? tensor.get_num_elements() + 1
-                                                             : tensor.get_num_elements()));
+  CK_CURAND_THROW_(curandGenerateUniform(generator, tensor.get_ptr(),
+                                         tensor.get_num_elements() % 2 != 0
+                                             ? tensor.get_num_elements() + 1
+                                             : tensor.get_num_elements()));
   float* p = tensor.get_ptr();
   for (size_t i = 0; i < tensor.get_num_elements(); i++) {
     p[i] = p[i] * (b - a) + a;
@@ -69,9 +69,10 @@ void NormalGenerator::fill<float>(Tensor2<float>& tensor, float mean, float stdd
 template <>
 void HostNormalGenerator::fill<float>(Tensor2<float>& tensor, float mean, float stddev,
                                       const curandGenerator_t& gen) {
-  CK_CURAND_THROW_(curandGenerateNormal(gen, tensor.get_ptr(), tensor.get_num_elements() % 2 != 0
-                                                                   ? tensor.get_num_elements() + 1
-                                                                   : tensor.get_num_elements(),
+  CK_CURAND_THROW_(curandGenerateNormal(gen, tensor.get_ptr(),
+                                        tensor.get_num_elements() % 2 != 0
+                                            ? tensor.get_num_elements() + 1
+                                            : tensor.get_num_elements(),
                                         mean, stddev));
 }
 

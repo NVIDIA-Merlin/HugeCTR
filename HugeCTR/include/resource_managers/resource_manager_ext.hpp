@@ -34,22 +34,24 @@ class ResourceManagerExt : public ResourceManager {
   std::shared_ptr<AllReduceInPlaceComm> ar_comm_ = NULL;
 
   ResourceManagerExt(std::shared_ptr<ResourceManager> core);
+
  public:
   static std::shared_ptr<ResourceManager> create(
-      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed, DeviceMap::Layout layout=DeviceMap::LOCAL_FIRST);
+      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed,
+      DeviceMap::Layout layout = DeviceMap::LOCAL_FIRST);
 
   ResourceManagerExt(const ResourceManagerExt&) = delete;
   ResourceManagerExt& operator=(const ResourceManagerExt&) = delete;
 
   // from ResourceManagerBase
-  void set_local_gpu(std::shared_ptr<GPUResource> gpu_resource, size_t local_gpu_id) override { core_->set_local_gpu(gpu_resource, local_gpu_id);
+  void set_local_gpu(std::shared_ptr<GPUResource> gpu_resource, size_t local_gpu_id) override {
+    core_->set_local_gpu(gpu_resource, local_gpu_id);
   }
   const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const override {
     return core_->get_local_gpu(local_gpu_id);
   }
   size_t get_local_gpu_count() const override { return core_->get_local_gpu_count(); }
   size_t get_global_gpu_count() const override { return core_->get_global_gpu_count(); }
-
 
   // from ResourceManager
   int get_num_process() const override { return core_->get_num_process(); }
@@ -84,13 +86,9 @@ class ResourceManagerExt : public ResourceManager {
   bool p2p_enabled(int src_dev, int dst_dev) const override {
     return core_->p2p_enabled(src_dev, dst_dev);
   }
-  bool all_p2p_enabled() const override {
-    return core_->all_p2p_enabled();
-  }
+  bool all_p2p_enabled() const override { return core_->all_p2p_enabled(); }
 
-  DeviceMap::Layout get_device_layout() const override {
-    return core_->get_device_layout();
-  }
+  DeviceMap::Layout get_device_layout() const override { return core_->get_device_layout(); }
 
   const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
       int local_gpu_id) const override {
@@ -99,10 +97,11 @@ class ResourceManagerExt : public ResourceManager {
 
 #ifdef ENABLE_MPI
   IbComm* get_ib_comm() const override { return ib_comm_.get(); }
-  void set_ready_to_transfer() override { if (ib_comm_) ib_comm_->set_ready_to_transfer(); }
+  void set_ready_to_transfer() override {
+    if (ib_comm_) ib_comm_->set_ready_to_transfer();
+  }
 #endif
   void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override;
   AllReduceInPlaceComm* get_ar_comm() const override { return ar_comm_.get(); }
-
 };
 }  // namespace HugeCTR

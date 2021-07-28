@@ -31,12 +31,11 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
   bool data_shuffle_;
 
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
-      const std::string& file_name, bool repeat) override {
-
+                                        const std::string& file_name, bool repeat) override {
     std::shared_ptr<MmapOffsetList> file_offset_list;
     if (!worker_id && create_offset_) {
       file_offset_list_.reset(new MmapOffsetList(file_name, num_samples_, stride_, batchsize_,
-                                                data_shuffle_, num_worker, repeat));
+                                                 data_shuffle_, num_worker, repeat));
       create_offset_ = false;
     }
     file_offset_list = file_offset_list_;
@@ -44,16 +43,15 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
 
     return std::make_shared<MmapSource>(file_offset_list, worker_id);
   }
- 
+
  public:
   // Ctor
-  DataReaderWorkerGroupRaw(const std::vector<std::shared_ptr<ThreadBuffer>> &output_buffers,
-                           const std::shared_ptr<ResourceManager> &resource_manager_,
+  DataReaderWorkerGroupRaw(const std::vector<std::shared_ptr<ThreadBuffer>>& output_buffers,
+                           const std::shared_ptr<ResourceManager>& resource_manager_,
                            std::string file_name, long long num_samples, bool repeat,
-                           const std::vector<DataReaderSparseParam> params,
-                           int label_dim, int dense_dim,
-                           int batchsize, bool float_label_dense, bool data_shuffle = false,
-                           bool start_reading_from_beginning = true)
+                           const std::vector<DataReaderSparseParam> params, int label_dim,
+                           int dense_dim, int batchsize, bool float_label_dense,
+                           bool data_shuffle = false, bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Raw),
         num_samples_(num_samples),
         batchsize_(batchsize),
@@ -79,7 +77,9 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
 
     for (size_t i = 0; i < num_workers; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorkerRaw<TypeKey>(
-          i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count), &data_reader_loop_flag_, output_buffers[i], file_offset_list_, repeat, params, float_label_dense));
+          i, num_workers, resource_manager_->get_local_gpu(i % local_gpu_count),
+          &data_reader_loop_flag_, output_buffers[i], file_offset_list_, repeat, params,
+          float_label_dense));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();

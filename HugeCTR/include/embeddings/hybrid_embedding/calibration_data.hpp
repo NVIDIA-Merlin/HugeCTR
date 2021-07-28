@@ -111,7 +111,8 @@ class ModelInitializationFunctors {
                                                  cudaStream_t stream);
   static double calculate_frequent_probability(const Statistics<dtype> &statistics,
                                                const dtype num_frequent,
-                                               uint32_t *d_total_frequent_count, cudaStream_t stream);
+                                               uint32_t *d_total_frequent_count,
+                                               cudaStream_t stream);
 };
 
 }  // namespace hybrid_embedding
