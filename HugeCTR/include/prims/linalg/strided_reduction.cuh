@@ -146,7 +146,9 @@ void stridedReduction(OutType *dots, InType **data, IdxType D, IdxType N, OutTyp
   ///@todo: this extra should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
 
-  if (!inplace) unaryOp(dots, dots, D, [init] __device__(OutType a) { return init; }, stream);
+  if (!inplace)
+    unaryOp(
+        dots, dots, D, [init] __device__(OutType a) { return init; }, stream);
 
   // Arbitrary numbers for now, probably need to tune
   const dim3 thrds(32, 16);

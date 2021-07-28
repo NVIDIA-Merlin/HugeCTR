@@ -30,6 +30,7 @@
 #include <iostream>
 #include <numeric>
 #include <utility>
+#include <unordered_map>
 #include <vector>
 
 #ifdef ENABLE_MPI
@@ -64,6 +65,13 @@ namespace HugeCTR {
 
 #define WARP_SIZE 32
 
+namespace hybrid_embedding {
+
+enum class HybridEmbeddingType;
+enum class CommunicationType;
+
+}
+
 //#define DATA_READING_TEST
 
 enum class Error_t {
@@ -92,7 +100,7 @@ enum class Check_t { Sum, None };
 
 enum class DataReaderSparse_t { Distributed, Localized };
 
-enum class DataReaderType_t { Norm, Raw, Parquet };
+enum class DataReaderType_t { Norm, Raw, Parquet, RawAsync };
 
 enum class SourceType_t { FileList, Mmap, Parquet };
 
@@ -131,7 +139,14 @@ enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD };
 
 enum class Update_t { Local, Global, LazyGlobal };
 
+//TODO: Consider to move them into a separate file
+enum class Activation_t { Relu, None };
+
+enum class FcPosition_t { None, Head, Body, Tail, Isolated };
+
 enum class Regularizer_t { L1, L2 };
+
+enum class Alignment_t { Auto, None };
 
 enum class Layer_t {
   BatchNorm,
@@ -171,10 +186,43 @@ enum class Layer_t {
 enum class Embedding_t {
   DistributedSlotSparseEmbeddingHash,
   LocalizedSlotSparseEmbeddingHash,
-  LocalizedSlotSparseEmbeddingOneHot
+  LocalizedSlotSparseEmbeddingOneHot,
+  HybridSparseEmbedding
 };
 
 enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
+
+enum class TrainState_t {
+  Init, BottomMLPFprop, TopMLPFprop, BottomMLPBprop,
+  TopMLPBprop, MLPExchangeWgrad, MLPUpdate, Finalize
+};
+
+//TODO: Consider to move them into a separate file
+struct TrainState {
+  TrainState_t state = TrainState_t::Init;
+  cudaEvent_t* event = nullptr;
+};
+
+struct AsyncParam {
+  int num_threads;
+  int num_batches_per_thread;
+  int io_block_size;
+  int io_depth;
+  int io_alignment;
+  bool shuffle;
+  Alignment_t aligned_type;
+};
+
+struct HybridEmbeddingParam {
+  size_t max_num_frequent_categories;
+  int64_t max_num_infrequent_samples;
+  double p_dup_max;
+  double max_all_reduce_bandwidth;
+  double max_all_to_all_bandwidth;
+  double efficiency_bandwidth_ratio;
+  hybrid_embedding::CommunicationType communication_type;
+  hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
+};
 
 typedef struct DataSetHeader_ {
   long long error_check;        // 0: no error check; 1: check_sum
@@ -320,6 +368,15 @@ inline void MESSAGE_(const std::string msg,
   } while (0)
 #endif
 
+#define CK_CU_RESULT_(x)                                                                        \
+  do {                                                                                          \
+    if (x > 0) {                                                                                \
+      throw internal_runtime_error(                                                             \
+          Error_t::CudaError, std::string("CUresult Error, error code: ") + std::to_string(x) + \
+                                  ", " + __FILE__ + ":" + std::to_string(__LINE__) + " \n");    \
+    }                                                                                           \
+  } while (0)
+
 #define CK_CUBLAS_THROW_(x)                                                                        \
   do {                                                                                             \
     cublasStatus_t retval = (x);                                                                   \
@@ -440,3 +497,5 @@ struct DataReaderSparseParam {
 };
 
 }  // namespace HugeCTR
+
+#include <profiler.hpp>

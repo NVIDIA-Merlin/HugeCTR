@@ -175,7 +175,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
   /**
    * The forward propagation of embedding layer.
    */
-  void forward(bool is_train) override {
+  void forward(bool is_train, int eval_batch = -1) override {
     // Read data from input_buffers_ -> look up -> write to output_tensors
 
 #pragma omp parallel num_threads(embedding_data_.get_resource_manager().get_local_gpu_count())
@@ -408,7 +408,7 @@ class DistributedSlotSparseEmbeddingHash : public IEmbedding {
     auto output_tensors = embedding_data_.get_output_tensors(true);
     CudaDeviceContext context;
 
-    const auto top_gradients_internel = reinterpret_cast<const TypeEmbeddingComp*>(top_gradients);
+    const auto top_gradients_internel = reinterpret_cast<const TypeEmbeddingComp *>(top_gradients);
     cudaMemcpyKind direction = (on_gpu ? cudaMemcpyDeviceToDevice : cudaMemcpyHostToDevice);
 
     cudaError_t error = cudaError_t::cudaSuccess;

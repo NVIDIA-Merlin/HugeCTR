@@ -13,9 +13,8 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
 add_subdirectory(criteo_script)
 add_subdirectory(raw_script)
 add_subdirectory(criteo_script_legacy)
-add_subdirectory(data_generator)
 add_subdirectory(dlrm_script)

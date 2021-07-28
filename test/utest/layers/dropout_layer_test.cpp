@@ -19,6 +19,7 @@
 #include <cublas_v2.h>
 #include <gtest/gtest.h>
 #include <utest/test_utils.h>
+
 #include <cmath>
 #include <cstdlib>
 #include <utils.hpp>

@@ -15,8 +15,10 @@
  */
 
 #include "HugeCTR/include/data_readers/data_reader.hpp"
+
 #include <fstream>
 #include <thread>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader_worker.hpp"
 #include "HugeCTR/include/data_readers/file_list.hpp"
@@ -59,7 +61,7 @@ void data_reader_worker_norm_test_impl(bool repeat) {
   ASSERT_TRUE(generated_dense_data.size() == num_samples * dense_dim);
   ASSERT_TRUE(generated_label_data.size() == num_samples * label_dim);
   
-  auto resource_manager = ResourceManager::create({{0}}, 0);
+  auto resource_manager = ResourceManagerExt::create({{0}}, 0);
   auto local_gpu = resource_manager->get_local_gpu(0);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
@@ -186,7 +188,7 @@ void data_reader_norm_test_impl(const std::vector<int> &device_list, int num_thr
 
   std::vector<std::vector<int>> vvgpu{device_list};
 
-  const auto& resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
   // size_t local_gpu_count = resource_manager->get_local_gpu_count();
   
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
@@ -260,7 +262,7 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //   for (int i = 0; i < numprocs; i++) {
 //     vvgpu.push_back(device_list);
 //   }
-//   const auto& resource_manager = ResourceManager::create(vvgpu, 0);
+//   const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
 //   const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num - 5, max_nnz), false, slot_num - 5};
 //   const DataReaderSparseParam param_distributed = {"localized", std::vector<int>(5, max_nnz), false, 5};
 //   std::vector<DataReaderSparseParam> params;
@@ -313,7 +315,7 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //     vvgpu.push_back(device_list_0);
 //     vvgpu.push_back(device_list_1);
 
-//     auto resource_manager = ResourceManager::create(vvgpu, 0);
+//     auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
 //     const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num, max_nnz), false, slot_num};
 //     std::vector<DataReaderSparseParam> params;
 //     params.push_back(param_localized);
@@ -341,7 +343,7 @@ TEST(data_reader_test, data_reader_test_epoch_3) {
 //     std::vector<int> device_list_0 = {0, 1, 2, 3};
 //     vvgpu.push_back(device_list_0);
 
-//     auto resource_manager = ResourceManager::create(vvgpu, 0);
+//     auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
 //     const DataReaderSparseParam param_localized = {"localized", std::vector<int>(slot_num, max_nnz), false, slot_num};
 //     std::vector<DataReaderSparseParam> params;
 //     params.push_back(param_localized);

@@ -86,6 +86,7 @@ FullyConnectedLayer<__half>::FullyConnectedLayer(
 
 void FullyConnectedLayer<__half>::fprop(bool is_train) {
   CudaDeviceContext context(get_device_id());
+  PROFILE_RECORD("fully_connected_layer_half.fprop.start", get_gpu().get_stream());
 
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* bias = weights_half_[1].get_ptr();
@@ -104,13 +105,22 @@ void FullyConnectedLayer<__half>::fprop(bool is_train) {
   const float beta_b = 0.0f;
   const float beta_k = 1.0f;
 
+  PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_1.start", get_gpu().get_stream());
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, 1,
                                 &alpha, bias, CUDA_R_16F, n, identity, CUDA_R_16F, 1, &beta_b, top,
                                 CUDA_R_16F, n, CUDA_R_32F, falgo_b_));
+  PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_1.stop", get_gpu().get_stream());
 
+  PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_2.start", get_gpu().get_stream());
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
                                 &alpha, kernel, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k, top,
                                 CUDA_R_16F, n, CUDA_R_32F, falgo_k_));
+  PROFILE_RECORD("fully_connected_layer_half.fprop.cublasGemmEx_2.stop", get_gpu().get_stream());
+
+  PROFILE_RECORD("fully_connected_layer_half.fprop.stop", get_gpu().get_stream());
+
+  // only apply to dlrm model. Other model will yield error
+  //PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -140,17 +150,28 @@ void FullyConnectedLayer<__half>::bprop() {
   const float beta_k = 1.0f;
   const float beta_x = 0.0f;
 
+  //PROFILE_RECORD("TopMLP.bprop.start", get_gpu().get_stream());
+  PROFILE_RECORD("fully_connected_layer_half.bprop.start", get_gpu().get_stream());
+
+  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_1.start", get_gpu().get_stream());
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_N, n, 1, m,
                                 &alpha, top, CUDA_R_16F, n, identity, CUDA_R_16F, m, &beta_b,
                                 bias_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_b_));
+  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_1.stop", get_gpu().get_stream());
 
+  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_2.start", get_gpu().get_stream());
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
                                 &alpha, top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
                                 kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
+  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_2.stop", get_gpu().get_stream());
 
+  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_3.start", get_gpu().get_stream());
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_T, CUBLAS_OP_N, k, m, n,
                                 &alpha, kernel, CUDA_R_16F, n, top, CUDA_R_16F, n, &beta_x, bottom,
                                 CUDA_R_16F, k, CUDA_R_32F, balgo_x_));
+  PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_3.stop", get_gpu().get_stream());
+
+  PROFILE_RECORD("fully_connected_layer_half.bprop.stop", get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();

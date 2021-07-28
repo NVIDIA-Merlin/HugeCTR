@@ -18,11 +18,14 @@
 #include <curand.h>
 #include <vector>
 
+#include <vector>
+
 namespace HugeCTR {
 
 class CPUResource {
   std::vector<curandGenerator_t> replica_uniform_curand_generators_;
   std::vector<curandGenerator_t> replica_variant_curand_generators_;
+  unsigned long long replica_uniform_seed_;
 
  public:
   CPUResource(unsigned long long replica_uniform_seed,
@@ -30,6 +33,10 @@ class CPUResource {
   CPUResource(const CPUResource&) = delete;
   CPUResource& operator=(const CPUResource&) = delete;
   ~CPUResource();
+
+  unsigned long long get_replica_uniform_seed() const {
+    return replica_uniform_seed_;
+  }
 
   const curandGenerator_t& get_replica_uniform_curand_generator(size_t id) const {
     return replica_uniform_curand_generators_[id];
