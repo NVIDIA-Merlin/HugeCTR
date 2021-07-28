@@ -33,16 +33,16 @@ class DataReaderWorkerGroupRaw : public DataReaderWorkerGroup {
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
       const std::string& file_name, bool repeat) override {
 
-    std::shared_ptr<MmapOffsetList> mmap_offset_list;
+    std::shared_ptr<MmapOffsetList> file_offset_list;
     if (!worker_id && create_offset_) {
-      file_offset_list_.reset(new MmapOffsetList(
-          file_name, num_samples_, stride_, batchsize_, data_shuffle_, num_worker, repeat));
+      file_offset_list_.reset(new MmapOffsetList(file_name, num_samples_, stride_, batchsize_,
+                                                data_shuffle_, num_worker, repeat));
       create_offset_ = false;
     }
-    mmap_offset_list = file_offset_list_;
+    file_offset_list = file_offset_list_;
     create_offset_ = (worker_id == num_worker - 1) ? true : create_offset_;
 
-    return std::make_shared<MmapSource>(mmap_offset_list, worker_id);
+    return std::make_shared<MmapSource>(file_offset_list, worker_id);
   }
  
  public:

@@ -52,6 +52,9 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
   Tensor2<TypeEmbeddingComp *> evaluate_embedding_features_;
   Tensors2<TypeEmbeddingComp> wgrad_tensors_; /**< the input tensor of the backward(). */
 
+  Tensors2<size_t> top_categories_;
+  std::vector<size_t> size_top_categories_;
+
   size_t max_vocabulary_size_;
   size_t max_vocabulary_size_per_gpu_;   /**< Max vocabulary size for each GPU. */
   std::vector<size_t> slot_num_per_gpu_; /* slot_num per GPU */
@@ -199,7 +202,7 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
   /**
    * The forward propagation of embedding layer.
    */
-  void forward(bool is_train) override {
+  void forward(bool is_train, int eval_batch = -1) override {
     CudaDeviceContext context;
     
 #pragma omp parallel for num_threads(embedding_data_.get_resource_manager().get_local_gpu_count())
@@ -269,9 +272,16 @@ class LocalizedSlotSparseEmbeddingOneHot : public IEmbedding {
 
       // do update params operation: only support SGD
       functors_.update_params(
-          embedding_data_.embedding_params_.embedding_vec_size, embedding_data_.embedding_params_.opt_params, *embedding_data_.get_nnz_array(true)[id],
-          hash_value_index_tensors_[id], wgrad_tensors_[id], hash_table_value_tensors_[id],
-          embedding_data_.get_local_gpu(id).get_sm_count(), embedding_data_.get_local_gpu(id).get_stream());
+          embedding_data_.embedding_params_.embedding_vec_size,
+          embedding_data_.embedding_params_.opt_params,
+          *embedding_data_.get_nnz_array(true)[id],
+          hash_value_index_tensors_[id],
+          wgrad_tensors_[id],
+          hash_table_value_tensors_[id],
+          top_categories_[id],
+          size_top_categories_[id],
+          embedding_data_.get_local_gpu(id).get_sm_count(),
+          embedding_data_.get_local_gpu(id).get_stream());
     }
 
     return;

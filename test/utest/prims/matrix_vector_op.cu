@@ -15,11 +15,13 @@
  */
 
 #include <gtest/gtest.h>
-#include <linalg/matrix_vector_op.cuh>
-#include "matrix_vector_op.h"
-#include <random/rng.cuh>
 #include <test/prims/test_utils.h>
+
+#include <linalg/matrix_vector_op.cuh>
 #include <linalg/unary_op.cuh>
+#include <random/rng.cuh>
+
+#include "matrix_vector_op.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -33,8 +35,7 @@ struct MatVecOpInputs {
 };
 
 template <typename T, typename IdxType>
-::std::ostream &operator<<(::std::ostream &os,
-                           const MatVecOpInputs<T, IdxType> &dims) {
+::std::ostream &operator<<(::std::ostream &os, const MatVecOpInputs<T, IdxType> &dims) {
   return os;
 }
 
@@ -42,34 +43,30 @@ template <typename T, typename IdxType>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType>
-void matrixVectorOpLaunch1(T *out, const T *in, const T *vec1,
-                          IdxType D, IdxType N, bool rowMajor,
-                          bool bcastAlongRows, cudaStream_t stream) {
-    matrixVectorOp(
+void matrixVectorOpLaunch1(T *out, const T *in, const T *vec1, IdxType D, IdxType N, bool rowMajor,
+                           bool bcastAlongRows, cudaStream_t stream) {
+  matrixVectorOp(
       out, in, vec1, D, N, rowMajor, bcastAlongRows,
       [] __device__(T a, T b) {
-    	    T in = a + b;
-    	    return (in < 0) ? 0 : in;
-         }, stream);
+        T in = a + b;
+        return (in < 0) ? 0 : in;
+      },
+      stream);
 }
 
 template <typename T, typename IdxType>
-void matrixVectorOpLaunch2(T *out, const T *in, const T *vec1,
-                          IdxType D, IdxType N, bool rowMajor,
-                          bool bcastAlongRows, cudaStream_t stream) {
-    matrixVectorOp(
-      out, in, vec1, D, N, rowMajor, bcastAlongRows,
-      [] __device__(T a, T b) { return a + b; }, stream);
+void matrixVectorOpLaunch2(T *out, const T *in, const T *vec1, IdxType D, IdxType N, bool rowMajor,
+                           bool bcastAlongRows, cudaStream_t stream) {
+  matrixVectorOp(
+      out, in, vec1, D, N, rowMajor, bcastAlongRows, [] __device__(T a, T b) { return a + b; },
+      stream);
 
-    unaryOp(
-        out, out, D * N, [] __device__(T in) { return (in < 0) ? 0 : in; },
-        stream);
-
+  unaryOp(
+      out, out, D * N, [] __device__(T in) { return (in < 0) ? 0 : in; }, stream);
 }
 
 template <typename T, typename IdxType>
-class MatVecOpTest
-  : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
+class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
@@ -93,22 +90,20 @@ class MatVecOpTest
     cudaEventCreate(&stop);
 
     cudaEventRecord(start);
-    matrixVectorOpLaunch1(out_ref, in, vec1, D, N, params.rowMajor,
-                         params.bcastAlongRows, stream);
+    matrixVectorOpLaunch1(out_ref, in, vec1, D, N, params.rowMajor, params.bcastAlongRows, stream);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    //printf("Fused: %f\n", milliseconds);
+    // printf("Fused: %f\n", milliseconds);
 
     cudaEventRecord(start);
-    matrixVectorOpLaunch2(out, in, vec1, D, N, params.rowMajor,
-                         params.bcastAlongRows, stream);
+    matrixVectorOpLaunch2(out, in, vec1, D, N, params.rowMajor, params.bcastAlongRows, stream);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
     milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    //printf("Normal: %f\n", milliseconds);
+    // printf("Normal: %f\n", milliseconds);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -127,82 +122,78 @@ class MatVecOpTest
 };
 
 const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
-  {0.00001f, 10024, 32, true, true, false, 1234ULL},
-  {0.00001f, 10024, 64, true, true, false, 1234ULL},
-  {0.00001f, 10024, 32, true, false, false, 1234ULL},
-  {0.00001f, 10024, 64, true, false, false, 1234ULL},
-  {0.00001f, 10024, 32, false, true, false, 1234ULL},
-  {0.00001f, 10024, 64, false, true, false, 1234ULL},
-  {0.00001f, 10024, 32, false, false, false, 1234ULL},
-  {0.00001f, 10024, 64, false, false, false, 1234ULL},
-  {0.00001f, 10024, 32, true, true, true, 1234ULL},
-  {0.00001f, 10024, 64, true, true, true, 1234ULL},
-  {0.00001f, 10024, 32, true, false, true, 1234ULL},
-  {0.00001f, 10024, 64, true, false, true, 1234ULL},
-  {0.00001f, 10024, 32, false, true, true, 1234ULL},
-  {0.00001f, 10024, 64, false, true, true, 1234ULL},
-  {0.00001f, 10024, 32, false, false, true, 1234ULL},
-  {0.00001f, 10024, 64, false, false, true, 1234ULL}};
+    {0.00001f, 10024, 32, true, true, false, 1234ULL},
+    {0.00001f, 10024, 64, true, true, false, 1234ULL},
+    {0.00001f, 10024, 32, true, false, false, 1234ULL},
+    {0.00001f, 10024, 64, true, false, false, 1234ULL},
+    {0.00001f, 10024, 32, false, true, false, 1234ULL},
+    {0.00001f, 10024, 64, false, true, false, 1234ULL},
+    {0.00001f, 10024, 32, false, false, false, 1234ULL},
+    {0.00001f, 10024, 64, false, false, false, 1234ULL},
+    {0.00001f, 10024, 32, true, true, true, 1234ULL},
+    {0.00001f, 10024, 64, true, true, true, 1234ULL},
+    {0.00001f, 10024, 32, true, false, true, 1234ULL},
+    {0.00001f, 10024, 64, true, false, true, 1234ULL},
+    {0.00001f, 10024, 32, false, true, true, 1234ULL},
+    {0.00001f, 10024, 64, false, true, true, 1234ULL},
+    {0.00001f, 10024, 32, false, false, true, 1234ULL},
+    {0.00001f, 10024, 64, false, false, true, 1234ULL}};
 
 typedef MatVecOpTest<float, int> MatVecOpTestF_i32;
 TEST_P(MatVecOpTestF_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+      devArrMatch(out_ref, out, params.rows * params.cols, CompareApprox<float>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i32,
-                        ::testing::ValuesIn(inputsf_i32));
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i32, ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
-  {0.00001f, 2500, 250, false, false, false, 1234ULL},
-  {0.00001f, 2500, 250, false, false, true, 1234ULL}};
+    {0.00001f, 2500, 250, false, false, false, 1234ULL},
+    {0.00001f, 2500, 250, false, false, true, 1234ULL}};
 
 typedef MatVecOpTest<float, size_t> MatVecOpTestF_i64;
 TEST_P(MatVecOpTestF_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+      devArrMatch(out_ref, out, params.rows * params.cols, CompareApprox<float>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i64,
-                        ::testing::ValuesIn(inputsf_i64));
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i64, ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
-  {0.0000001, 10024, 32, true, true, false, 1234ULL},
-  {0.0000001, 10024, 64, true, true, false, 1234ULL},
-  {0.0000001, 10024, 32, true, false, false, 1234ULL},
-  {0.0000001, 10024, 64, true, false, false, 1234ULL},
-  {0.0000001, 10024, 32, false, true, false, 1234ULL},
-  {0.0000001, 10024, 64, false, true, false, 1234ULL},
-  {0.0000001, 10024, 32, false, false, false, 1234ULL},
-  {0.0000001, 10024, 64, false, false, false, 1234ULL},
-  {0.0000001, 10024, 32, true, true, true, 1234ULL},
-  {0.0000001, 10024, 64, true, true, true, 1234ULL},
-  {0.0000001, 10024, 32, true, false, true, 1234ULL},
-  {0.0000001, 10024, 64, true, false, true, 1234ULL},
-  {0.0000001, 10024, 32, false, true, true, 1234ULL},
-  {0.0000001, 10024, 64, false, true, true, 1234ULL},
-  {0.0000001, 10024, 32, false, false, true, 1234ULL},
-  {0.0000001, 10024, 64, false, false, true, 1234ULL}};
+    {0.0000001, 10024, 32, true, true, false, 1234ULL},
+    {0.0000001, 10024, 64, true, true, false, 1234ULL},
+    {0.0000001, 10024, 32, true, false, false, 1234ULL},
+    {0.0000001, 10024, 64, true, false, false, 1234ULL},
+    {0.0000001, 10024, 32, false, true, false, 1234ULL},
+    {0.0000001, 10024, 64, false, true, false, 1234ULL},
+    {0.0000001, 10024, 32, false, false, false, 1234ULL},
+    {0.0000001, 10024, 64, false, false, false, 1234ULL},
+    {0.0000001, 10024, 32, true, true, true, 1234ULL},
+    {0.0000001, 10024, 64, true, true, true, 1234ULL},
+    {0.0000001, 10024, 32, true, false, true, 1234ULL},
+    {0.0000001, 10024, 64, true, false, true, 1234ULL},
+    {0.0000001, 10024, 32, false, true, true, 1234ULL},
+    {0.0000001, 10024, 64, false, true, true, 1234ULL},
+    {0.0000001, 10024, 32, false, false, true, 1234ULL},
+    {0.0000001, 10024, 64, false, false, true, 1234ULL}};
 
 typedef MatVecOpTest<double, int> MatVecOpTestD_i32;
 TEST_P(MatVecOpTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i32,
-                        ::testing::ValuesIn(inputsd_i32));
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i32, ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
-  {0.0000001, 2500, 250, false, false, false, 1234ULL},
-  {0.0000001, 2500, 250, false, false, true, 1234ULL}};
+    {0.0000001, 2500, 250, false, false, false, 1234ULL},
+    {0.0000001, 2500, 250, false, false, true, 1234ULL}};
 
 typedef MatVecOpTest<double, size_t> MatVecOpTestD_i64;
 TEST_P(MatVecOpTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i64,
-                        ::testing::ValuesIn(inputsd_i64));
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i64, ::testing::ValuesIn(inputsd_i64));
 
 }  // end namespace LinAlg
 }  // end namespace MLCommon

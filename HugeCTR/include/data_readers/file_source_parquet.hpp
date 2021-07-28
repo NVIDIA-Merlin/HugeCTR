@@ -22,11 +22,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <cudf/copying.hpp>
 #include <cudf/io/parquet.hpp>
 #include <fstream>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <vector>
+
 #include "common.hpp"
 #include "data_readers/file_list.hpp"
 #include "data_readers/metadata.hpp"

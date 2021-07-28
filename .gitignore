@@ -3,6 +3,7 @@ debug_build
 release_build
 docs/html
 docs/latex
+.cache
 .vscode
 *.o
 *.so
@@ -26,6 +27,15 @@ tools/embedding_plugin/performance_profile/test
 tools/embedding_plugin/performance_profile/val
 tools/embedding_plugin/performance_profile/valtest
 tools/embedding_plugin/performance_profile/*.txt
+tools/profiler/*
+!tools/profiler/*.py
+!tools/profiler/*.ipynb
+!tools/profiler/README.MD
+prof.*
+prof_report.*
+__pycache__/
+*.ipynb_checkpoints
+*log
 samples/*data
 samples/din/din_data
 test/utest/layers/keras_GRU.py

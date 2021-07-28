@@ -60,7 +60,7 @@ void sparse_model_entity_test(int batch_num_train, bool use_host_mem, bool is_di
   // create a resource manager for a single GPU
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back({0});
-  const auto resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
   generate_sparse_model<TypeKey, check>(snapshot_src_file, snapshot_dst_file,
       snapshot_bkp_file_unsigned, snapshot_bkp_file_longlong,

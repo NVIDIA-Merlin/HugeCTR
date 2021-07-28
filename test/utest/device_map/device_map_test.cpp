@@ -15,6 +15,7 @@
  */
 
 #include "HugeCTR/include/device_map.hpp"
+
 #include "gtest/gtest.h"
 
 using namespace HugeCTR;

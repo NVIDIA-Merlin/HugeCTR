@@ -26,8 +26,6 @@ class DataReaderWorkerGroupParquet : public DataReaderWorkerGroup {
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
                                         const std::string& file_name, bool repeat) override {
     return std::make_shared<ParquetFileSource>(worker_id, num_worker, file_name, repeat);
-    // CK_THROW_(Error_t::UnspecificError, "Invalid Call");
-    // return std::shared_ptr<Source>(reinterpret_cast<Source*>(new int));
   }
 
  public:
