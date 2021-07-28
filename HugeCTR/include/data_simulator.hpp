@@ -23,14 +23,11 @@ namespace HugeCTR {
 class UniformGenerator {
  public:
   template <typename T>
-  static void fill(T* ptr, size_t num_elements,
-                   T a, T b, size_t sm_count,
-                   const curandGenerator_t& generator,
-                   const cudaStream_t& stream);
+  static void fill(T* ptr, size_t num_elements, T a, T b, size_t sm_count,
+                   const curandGenerator_t& generator, const cudaStream_t& stream);
   template <typename T>
   static void fill(Tensor2<T>& tensor, T a, T b, size_t sm_count,
-                   const curandGenerator_t& generator,
-                   const cudaStream_t& stream);
+                   const curandGenerator_t& generator, const cudaStream_t& stream);
 };
 
 class HostUniformGenerator {
@@ -43,7 +40,7 @@ class NormalGenerator {
  public:
   template <typename T>
   static void fill(Tensor2<T>& tensor, float mean, float stddev, size_t sm_count,
-  const curandGenerator_t& generator, const cudaStream_t& stream);
+                   const curandGenerator_t& generator, const cudaStream_t& stream);
 };
 
 class HostNormalGenerator {

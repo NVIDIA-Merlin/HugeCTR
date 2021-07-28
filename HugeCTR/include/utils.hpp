@@ -19,9 +19,11 @@
 #include <cuda_runtime_api.h>
 #include <cudnn.h>
 #include <getopt.h>
+#include <nccl.h>
 #include <numa.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -38,88 +40,75 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
-#include <unistd.h>
-#include <getopt.h>
-#include <sstream>
-#include <algorithm>
-#include <nccl.h>
-#include <numa.h>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
 #endif
 namespace HugeCTR {
 
-template <typename T> inline
-void ArgConvertor(std::string arg, T& ret);
+template <typename T>
+inline void ArgConvertor(std::string arg, T& ret);
 
-template <> inline
-void ArgConvertor(std::string arg, int& ret){
+template <>
+inline void ArgConvertor(std::string arg, int& ret) {
   ret = std::stoi(arg);
 }
 
-template <> inline
-void ArgConvertor(std::string arg, size_t& ret){
+template <>
+inline void ArgConvertor(std::string arg, size_t& ret) {
   ret = std::stoul(arg);
 }
 
-template <> inline
-void ArgConvertor(std::string arg, float& ret){
+template <>
+inline void ArgConvertor(std::string arg, float& ret) {
   ret = std::stof(arg);
 }
 
-
-template<> inline
-void ArgConvertor(std::string arg, std::vector<int>& ret){
+template <>
+inline void ArgConvertor(std::string arg, std::vector<int>& ret) {
   ret.clear();
   std::stringstream ss(arg);
   for (int i; ss >> i;) {
-    ret.push_back(i);    
-    if (ss.peek() == ',')
-      ss.ignore();
+    ret.push_back(i);
+    if (ss.peek() == ',') ss.ignore();
   }
 }
 
-template<> inline
-void ArgConvertor(std::string arg, std::vector<size_t>& ret){
+template <>
+inline void ArgConvertor(std::string arg, std::vector<size_t>& ret) {
   ret.clear();
   std::stringstream ss(arg);
   for (size_t i; ss >> i;) {
-    ret.push_back(i);    
-    if (ss.peek() == ',')
-      ss.ignore();
+    ret.push_back(i);
+    if (ss.peek() == ',') ss.ignore();
   }
 }
 
-
-template<> inline
-void ArgConvertor(std::string arg, std::string& ret){
+template <>
+inline void ArgConvertor(std::string arg, std::string& ret) {
   ret = arg;
 }
 
 struct ArgParser {
-
-private:
-  static std::string get_arg_(const std::string target, int argc, char** argv){
-
-    std::vector <std::string> tokens;
-    for (int i=1; i < argc; ++i)
-      tokens.push_back(std::string(argv[i]));
+ private:
+  static std::string get_arg_(const std::string target, int argc, char** argv) {
+    std::vector<std::string> tokens;
+    for (int i = 1; i < argc; ++i) tokens.push_back(std::string(argv[i]));
     std::vector<std::string>::const_iterator itr;
     const std::string option = "--" + target;
-    itr =  std::find(tokens.begin(), tokens.end(), option);
-    if (itr != tokens.end() && ++itr != tokens.end()){
+    itr = std::find(tokens.begin(), tokens.end(), option);
+    if (itr != tokens.end() && ++itr != tokens.end()) {
       return *itr;
     }
     static const std::string empty_string("");
     return empty_string;
   }
 
-public:
+ public:
   template <typename T>
-  static T get_arg(const std::string target, int argc, char** argv){
+  static T get_arg(const std::string target, int argc, char** argv) {
     auto arg = get_arg_(target, argc, argv);
-    if(arg.empty()){
+    if (arg.empty()) {
       CK_THROW_(Error_t::WrongInput, "Cannot find target string: " + target);
     }
     T ret;
@@ -127,9 +116,9 @@ public:
     return ret;
   }
   template <typename T>
-  static T get_arg(const std::string target, int argc, char** argv, T default_val){
+  static T get_arg(const std::string target, int argc, char** argv, T default_val) {
     auto arg = get_arg_(target, argc, argv);
-    if(arg.empty()){
+    if (arg.empty()) {
       MESSAGE_("Cannot find target string: " + target + " use default value:");
       return default_val;
     }
@@ -137,23 +126,21 @@ public:
     ArgConvertor<T>(arg, ret);
     return ret;
   }
-  static bool has_arg(const std::string target, int argc, char** argv){
-    std::vector <std::string> tokens;
-    for (int i=1; i < argc; ++i)
-      tokens.push_back(std::string(argv[i]));
+  static bool has_arg(const std::string target, int argc, char** argv) {
+    std::vector<std::string> tokens;
+    for (int i = 1; i < argc; ++i) tokens.push_back(std::string(argv[i]));
     const std::string option = "--" + target;
-    return std::find(tokens.begin(), tokens.end(), option)
-      != tokens.end();
+    return std::find(tokens.begin(), tokens.end(), option) != tokens.end();
   }
 };
 
 template <typename T>
-std::string vec_to_string(std::vector<T> vec){
+std::string vec_to_string(std::vector<T> vec) {
   std::string ret;
-  for(auto& elem: vec){
+  for (auto& elem : vec) {
     ret = ret + std::to_string(elem) + ", ";
   }
-  return ret.substr(0, ret.size()-2);
+  return ret.substr(0, ret.size() - 2);
 }
 
 /**
@@ -241,7 +228,6 @@ class CudaDeviceContext {
   void set_device(int device) const { CK_CUDA_THROW_(cudaSetDevice(device)); }
 };
 
-
 /**
  * Helper class for switching device and the associated NUMA domain.
  * Sticky: thread will remember the context and affinity.
@@ -283,7 +269,8 @@ class CudaDeviceContext {
 //       nvmlDevice_t handle;
 //       CK_CUDA_THROW_(cudaDeviceGetPCIBusId(pci_id, pci_id_len, device_id));
 //       CK_NVML_THROW_(nvmlDeviceGetHandleByPciBusId_v2(pci_id, &handle));
-//       CK_NVML_THROW_(nvmlDeviceGetCpuAffinity(handle, cpu_mask->size / (sizeof(unsigned long) * 8),
+//       CK_NVML_THROW_(nvmlDeviceGetCpuAffinity(handle, cpu_mask->size / (sizeof(unsigned long) *
+//       8),
 //                                               cpu_mask->maskp));
 //       int node = select_node(cpu_mask);
 //       device_id_to_numa_node_[device_id] = node;
@@ -430,7 +417,7 @@ struct TypeConvert;
 
 template <>
 struct TypeConvert<float, float> {
-  static __host__ float convert(const float val) { return val;}
+  static __host__ float convert(const float val) { return val; }
 };
 
 template <>
@@ -477,31 +464,52 @@ struct ToMpiType<float> {
 
 #endif
 template <typename TIN, typename TOUT>
-void convert_array_on_device(TOUT* out, const TIN* in, size_t num_elements, const cudaStream_t& stream);
-template <typename T> struct NcclDataType;
-template <> struct NcclDataType<int> { static ncclDataType_t getType() { return ncclInt32; } };
-template <> struct NcclDataType<long long> { static ncclDataType_t getType() { return ncclInt64; } };
-template <> struct NcclDataType<unsigned int> { static ncclDataType_t getType() { return ncclUint32; } };
-template <> struct NcclDataType<unsigned long long> { static ncclDataType_t getType() { return ncclUint64; } };
-template <> struct NcclDataType<float> { static ncclDataType_t getType() { return ncclFloat32; } };
-template <> struct NcclDataType<__half> { static ncclDataType_t getType() { return ncclHalf; } };
+void convert_array_on_device(TOUT* out, const TIN* in, size_t num_elements,
+                             const cudaStream_t& stream);
+template <typename T>
+struct NcclDataType;
+template <>
+struct NcclDataType<int> {
+  static ncclDataType_t getType() { return ncclInt32; }
+};
+template <>
+struct NcclDataType<long long> {
+  static ncclDataType_t getType() { return ncclInt64; }
+};
+template <>
+struct NcclDataType<unsigned int> {
+  static ncclDataType_t getType() { return ncclUint32; }
+};
+template <>
+struct NcclDataType<unsigned long long> {
+  static ncclDataType_t getType() { return ncclUint64; }
+};
+template <>
+struct NcclDataType<float> {
+  static ncclDataType_t getType() { return ncclFloat32; }
+};
+template <>
+struct NcclDataType<__half> {
+  static ncclDataType_t getType() { return ncclHalf; }
+};
 
 template <typename TypeKey>
-void data_to_unique_categories(TypeKey *value, const TypeKey *rowoffset,
-                               const TypeKey *emmbedding_offsets, int num_tables,
-                               int num_rowoffsets, const cudaStream_t &stream);
+void data_to_unique_categories(TypeKey* value, const TypeKey* rowoffset,
+                               const TypeKey* emmbedding_offsets, int num_tables,
+                               int num_rowoffsets, const cudaStream_t& stream);
 
 template <typename TypeKey>
-void data_to_unique_categories(TypeKey *value, const TypeKey *rowoffset,
-                               const TypeKey *emmbedding_offsets, int num_tables,
-                               int num_rowoffsets, const cudaStream_t &stream);
+void data_to_unique_categories(TypeKey* value, const TypeKey* rowoffset,
+                               const TypeKey* emmbedding_offsets, int num_tables,
+                               int num_rowoffsets, const cudaStream_t& stream);
 
 template <typename TypeKey>
-void data_to_unique_categories(TypeKey *value, const TypeKey *emmbedding_offsets, int num_tables,
-                               int nnz, const cudaStream_t &stream);
+void data_to_unique_categories(TypeKey* value, const TypeKey* emmbedding_offsets, int num_tables,
+                               int nnz, const cudaStream_t& stream);
 
 template <typename TypeKey>
-void distribute_keys_for_inference(TypeKey* out, TypeKey* in, size_t batchsize, std::vector<size_t>& max_feature_num_for_tables) {
+void distribute_keys_for_inference(TypeKey* out, TypeKey* in, size_t batchsize,
+                                   std::vector<size_t>& max_feature_num_for_tables) {
   size_t num_tables = max_feature_num_for_tables.size();
   std::vector<size_t> batch_keys_offset(num_tables, 0);
   std::vector<size_t> sample_keys_offset(num_tables, 0);
@@ -509,14 +517,16 @@ void distribute_keys_for_inference(TypeKey* out, TypeKey* in, size_t batchsize, 
   for (size_t i = 0; i < num_tables; i++) {
     num_keys_per_sample += max_feature_num_for_tables[i];
     if (i > 0) {
-      batch_keys_offset[i] = batch_keys_offset[i-1] + batchsize*max_feature_num_for_tables[i-1];
-      sample_keys_offset[i] = sample_keys_offset[i-1] + max_feature_num_for_tables[i-1];
+      batch_keys_offset[i] =
+          batch_keys_offset[i - 1] + batchsize * max_feature_num_for_tables[i - 1];
+      sample_keys_offset[i] = sample_keys_offset[i - 1] + max_feature_num_for_tables[i - 1];
     }
   }
   for (size_t i = 0; i < batchsize; i++) {
     for (size_t j = 0; j < num_tables; j++) {
       for (size_t k = 0; k < max_feature_num_for_tables[j]; k++) {
-        out[i*num_keys_per_sample+sample_keys_offset[j]+k] = in[batch_keys_offset[j]+i*max_feature_num_for_tables[j]+k];
+        out[i * num_keys_per_sample + sample_keys_offset[j] + k] =
+            in[batch_keys_offset[j] + i * max_feature_num_for_tables[j] + k];
       }
     }
   }

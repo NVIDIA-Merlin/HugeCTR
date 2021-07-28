@@ -27,9 +27,8 @@ namespace HugeCTR {
 
 AsyncReaderImpl::AsyncReaderImpl(std::string fname, size_t batch_size_bytes,
                                  const ResourceManager* resource_manager, int num_threads,
-                                 int num_batches_per_thread,
-                                 size_t io_block_size, int io_depth, int io_alignment,
-                                 bool shuffle, bool wait_for_gpu_idle)
+                                 int num_batches_per_thread, size_t io_block_size, int io_depth,
+                                 int io_alignment, bool shuffle, bool wait_for_gpu_idle)
     :
 
       fname_(fname),
@@ -58,7 +57,7 @@ AsyncReaderImpl::AsyncReaderImpl(std::string fname, size_t batch_size_bytes,
   }
 
   // Don't allocate more buffers that number of batches in the file
-  buffers_.resize( std::min((size_t)num_threads_ * num_batches_per_thread, num_batches_) );
+  buffers_.resize(std::min((size_t)num_threads_ * num_batches_per_thread, num_batches_));
   for (auto& buf : buffers_) {
     buf = std::make_unique<InternalBatchBuffer>();
     buf->dev_data.resize(num_devices_);
@@ -110,10 +109,8 @@ void AsyncReaderImpl::create_workers() {
       local_readers_[thid] = std::make_unique<ThreadAsyncReader>(
           fname_, resource_manager_, batch_size_bytes_, raw_id, streams_[raw_id],
           thread_batch_ids_[thid], thread_buffer_ptrs,
-          ThreadAsyncReaderParameters{
-            io_block_size_, io_alignment_, io_depth_, num_devices_,
-            wait_for_gpu_idle_, loop_
-          },
+          ThreadAsyncReaderParameters{io_block_size_, io_alignment_, io_depth_, num_devices_,
+                                      wait_for_gpu_idle_, loop_},
           total_file_size_);
     }));
   }
@@ -190,7 +187,7 @@ void AsyncReaderImpl::wait_for_gpu_event(cudaEvent_t* event, int raw_device_id) 
     for (auto bufid : thread_buffer_ids_[thid]) {
       if (buffers_[bufid]->status == BufferStatus::UploadInProcess) {
         buffers_[bufid]->ready_to_upload_event.store(event);
-        //printf("storing %p to thread %d gpu %d\n", (void*)event, (int)thid, (int)raw_id);
+        // printf("storing %p to thread %d gpu %d\n", (void*)event, (int)thid, (int)raw_id);
       }
     }
   }
@@ -200,10 +197,9 @@ void AsyncReaderImpl::finalize_batch() {
   // Don't update status of finished or resident buffers
   BufferStatus expected = BufferStatus::ReadReady;
   last_buffer_->status.compare_exchange_strong(expected, BufferStatus::IOReady);
-  if (loop_ && last_buffer_->id == (int64_t)num_batches_-1) {
+  if (loop_ && last_buffer_->id == (int64_t)num_batches_ - 1) {
     queue_id_ = 0;
-  }
-  else {
+  } else {
     queue_id_ = (queue_id_ + 1) % buffers_.size();
   }
 }
@@ -216,8 +212,7 @@ void AsyncReaderImpl::finalize_batch(cudaEvent_t* event) {
 int AsyncReaderImpl::get_last_batch_device() {
   if (last_buffer_) {
     return last_buffer_->raw_device_id;
-  }
-  else {
+  } else {
     return buffers_[queue_id_]->raw_device_id;
   }
 }

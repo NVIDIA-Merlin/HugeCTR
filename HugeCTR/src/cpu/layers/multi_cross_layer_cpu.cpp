@@ -15,9 +15,10 @@
  */
 
 #include <math.h>
+
+#include <cpu/layers/multi_cross_layer_cpu.hpp>
 #include <utils.hpp>
 #include <vector>
-#include <cpu/layers/multi_cross_layer_cpu.hpp>
 
 namespace HugeCTR {
 
@@ -61,25 +62,22 @@ void matrix_vec_add(float* out, const float* in_m, const float* in_v, size_t h, 
 }
 
 void multi_cross_fprop_cpu(int layers, size_t batchsize, size_t w, float** h_outputs,
-                        float* h_input, float** h_hiddens, float** h_kernels, float** h_biases) {
+                           float* h_input, float** h_hiddens, float** h_kernels, float** h_biases) {
   for (int i = 0; i < layers; i++) {
-    matrix_vec_mul(h_hiddens[i], i == 0 ? h_input : h_outputs[i - 1],
-                    h_kernels[i], batchsize, w);
+    matrix_vec_mul(h_hiddens[i], i == 0 ? h_input : h_outputs[i - 1], h_kernels[i], batchsize, w);
     row_scaling(h_outputs[i], h_input, h_hiddens[i], batchsize, w);
-    matrix_add(h_outputs[i], h_outputs[i],
-                i == 0 ? h_input : h_outputs[i - 1], batchsize, w);
+    matrix_add(h_outputs[i], h_outputs[i], i == 0 ? h_input : h_outputs[i - 1], batchsize, w);
     matrix_vec_add(h_outputs[i], h_outputs[i], h_biases[i], batchsize, w);
   }
 }
 
 }  // namespace
 
-
-MultiCrossLayerCPU::MultiCrossLayerCPU(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                                 const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                                 const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-                                 const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                                 int num_layers)
+MultiCrossLayerCPU::MultiCrossLayerCPU(
+    const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+    const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+    const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor, int num_layers)
     : LayerCPU(), num_layers_(num_layers) {
   try {
     // check the in_tensor and out_tensor
@@ -189,7 +187,8 @@ void MultiCrossLayerCPU::fprop(bool is_train) {
     h_outputs.push_back(output_tensors[i].get_ptr());
   }
   multi_cross_fprop_cpu(num_layers_, batchsize, vec_length, h_outputs.data(),
-                      blob_tensors_[0].get_ptr(), h_hiddens.data(), h_kernels.data(), h_biases.data());
+                        blob_tensors_[0].get_ptr(), h_hiddens.data(), h_kernels.data(),
+                        h_biases.data());
 }
 
 void MultiCrossLayerCPU::bprop() {}

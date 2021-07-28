@@ -47,7 +47,8 @@ Loss<T>::Loss(const Tensor2<float> &label_tensor, const Tensor2<T> &input_tensor
 
   if (regularizer_ == nullptr) {
     CK_THROW_(Error_t::WrongInput,
-              "There is no regularizer specified. If you intend not to use any regularizer, pass a NoRegularizer object.");
+              "There is no regularizer specified. If you intend not to use any regularizer, pass a "
+              "NoRegularizer object.");
   }
 }
 
@@ -63,8 +64,7 @@ void Loss<T>::compute(bool is_train) {
 template <typename T>
 void Loss<T>::compute(bool is_train, long long current_batchsize) {
   if (regularizer_ == nullptr) {
-    CK_THROW_(Error_t::WrongInput,
-              "Null regularizer is not allowed in calling Loss::compute().");
+    CK_THROW_(Error_t::WrongInput, "Null regularizer is not allowed in calling Loss::compute().");
   }
 
   CudaDeviceContext context(get_device_id());
@@ -96,10 +96,9 @@ void Loss<T>::compute(bool is_train, long long current_batchsize) {
   if (is_train) {
     // once current_batchsize < batch_size in train we set the rest dgrad to 0
     if (current_batchsize < batch_size) {
-      CK_CUDA_THROW_(cudaMemsetAsync(
-            input + current_batchsize * feature_dim, 0,
-            (batch_size - current_batchsize) * feature_dim * sizeof(T),
-            get_gpu().get_stream()));
+      CK_CUDA_THROW_(cudaMemsetAsync(input + current_batchsize * feature_dim, 0,
+                                     (batch_size - current_batchsize) * feature_dim * sizeof(T),
+                                     get_gpu().get_stream()));
     }
   }
 
@@ -213,20 +212,19 @@ __global__ void BinaryCrossEntropy_Kernel(T *input, const float *label, float *b
     const float y = label[tid];
     if (x >= 0) {
       float exp_neg_x = exp(-x);
-      input[tid] = is_train
-                     ? ((1 - y) - exp_neg_x / (1 + exp_neg_x)) * scaler / (float)batch_size /
-                           total_gpu_count
-                     : 1 / (1 + exp_neg_x);
+      input[tid] = is_train ? ((1 - y) - exp_neg_x / (1 + exp_neg_x)) * scaler / (float)batch_size /
+                                  total_gpu_count
+                            : 1 / (1 + exp_neg_x);
       val = x * (1 - y) + log(1 + exp_neg_x);
     } else {
       float exp_x = exp(x);
       input[tid] = is_train
-                     ? (-y + exp_x / (1 + exp_x)) * scaler / (float)batch_size / total_gpu_count
-                     : exp_x / (exp_x + 1);
+                       ? (-y + exp_x / (1 + exp_x)) * scaler / (float)batch_size / total_gpu_count
+                       : exp_x / (exp_x + 1);
       val = -x * y + log(1 + exp_x);
     }
   }
-  
+
   float ret = blockReduceSum(val);
   if (tid < batch_size) {
     if (threadIdx.x == 0) {
@@ -289,9 +287,10 @@ __global__ void MultiCrossEntropy_Kernel(T *input, const float *label, const flo
         (label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] * cross_entropy_loss(x, y));
     loss_s += loss;
     if (is_train) {
-      input[i] = (label[i] < -0.5) ? 0.f : (target_weight[target_weight_idx] *
-                                            cross_entropy_loss_backward(x, y) / size * scaler /
-                                            total_gpu_count);
+      input[i] = (label[i] < -0.5)
+                     ? 0.f
+                     : (target_weight[target_weight_idx] * cross_entropy_loss_backward(x, y) /
+                        size * scaler / total_gpu_count);
     }
   }
 
@@ -307,7 +306,8 @@ void MultiCrossEntropyLoss<T>::do_compute(T *input, const float *label, float *l
                                           int feature_dim, float scaler, float rterm, bool is_train,
                                           cudaStream_t stream) {
   int labels_per_sample = feature_dim;
-  CK_CUDA_THROW_(cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].get_size_in_bytes(), stream));
+  CK_CUDA_THROW_(
+      cudaMemsetAsync(loss, 0, Loss<T>::get_loss_tensors()[0].get_size_in_bytes(), stream));
 
   const int BLOCK_SIZE = 256;
   const int GRID_SIZE = min(40, (batch_size * labels_per_sample - 1) / BLOCK_SIZE);

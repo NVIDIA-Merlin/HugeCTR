@@ -187,8 +187,10 @@ class Profiler {
 
   std::string gpu_event_strfy(Event* event) {
     GPUEvent* gpuevent = static_cast<GPUEvent*>(event);
-    return std::string("Event name: ") + gpuevent->event_name + ". Met time: " + std::to_string(gpuevent->met_times_within_this_stream) +
-      ". Device: " + std::to_string(gpuevent->device_id) + " . Stream: " + stream_str(gpuevent->stream);
+    return std::string("Event name: ") + gpuevent->event_name +
+           ". Met time: " + std::to_string(gpuevent->met_times_within_this_stream) +
+           ". Device: " + std::to_string(gpuevent->device_id) +
+           " . Stream: " + stream_str(gpuevent->stream);
   }
 };
 

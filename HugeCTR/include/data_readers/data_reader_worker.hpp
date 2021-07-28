@@ -40,7 +40,7 @@ class DataReaderWorker : public IDataReaderWorker {
   size_t total_slot_num_;
   std::vector<size_t> last_batch_nnz_;
 
-  Tensor2<float> temp_host_dense_buffer_; // read data to make checker move
+  Tensor2<float> temp_host_dense_buffer_;  // read data to make checker move
   Tensor2<float> host_dense_buffer_;
   std::vector<CSR<T>> host_sparse_buffer_;
 
@@ -85,7 +85,7 @@ class DataReaderWorker : public IDataReaderWorker {
 
   void post_set_source() override {
     create_checker();
-    
+
     is_eof_ = false;
     buffer_->state.store(BufferState::ReadyForWrite);
   }
@@ -168,14 +168,14 @@ class DataReaderWorker : public IDataReaderWorker {
 
         while (buffer_->state.load() != BufferState::ReadyForWrite) {
           usleep(2);
-          if(*loop_flag_ == 0) return; // in case main thread exit
+          if (*loop_flag_ == 0) return;  // in case main thread exit
         }
-        return; // need this return to run from begining
+        return;  // need this return to run from begining
       } else {
         throw;
       }
     }
-    
+
     // if the EOF is faced, the current batch size can be changed later
     if (data_set_header_.label_dim + data_set_header_.dense_dim != label_dense_dim)
       CK_THROW_(Error_t::WrongInput,
@@ -214,7 +214,7 @@ class DataReaderWorker : public IDataReaderWorker {
                                                                  label_dense_dim),
                                      sizeof(float) * label_dense_dim),
                       "failure in reading label_dense");
-          }else {
+          } else {
             CK_THROW_(checker_->read(reinterpret_cast<char*>(temp_host_dense_buffer_.get_ptr()),
                                      sizeof(float) * label_dense_dim),
                       "failure in reading label_dense");
@@ -278,15 +278,15 @@ class DataReaderWorker : public IDataReaderWorker {
     }
     // do h2d
     // wait buffer and schedule
-    
+
     if (!wait_until_h2d_ready()) return;
     buffer_->current_batch_size = current_batch_size;
     {
       CudaDeviceContext context(gpu_resource_->get_device_id());
       auto dst_dense_tensor = Tensor2<float>::stretch_from(buffer_->device_dense_buffers);
       CK_CUDA_THROW_(cudaMemcpyAsync(dst_dense_tensor.get_ptr(), host_dense_buffer_.get_ptr(),
-                                    host_dense_buffer_.get_size_in_bytes(), cudaMemcpyHostToDevice,
-                                    gpu_resource_->get_memcpy_stream()));
+                                     host_dense_buffer_.get_size_in_bytes(), cudaMemcpyHostToDevice,
+                                     gpu_resource_->get_memcpy_stream()));
 
       for (size_t param_id = 0; param_id < params_.size(); ++param_id) {
         auto dst_sparse_tensor =
@@ -294,13 +294,13 @@ class DataReaderWorker : public IDataReaderWorker {
         if (buffer_->is_fixed_length[param_id] &&
             last_batch_nnz_[param_id] == host_sparse_buffer_[param_id].get_num_values()) {
           CK_CUDA_THROW_(cudaMemcpyAsync(dst_sparse_tensor.get_value_ptr(),
-                                        host_sparse_buffer_[param_id].get_value_tensor().get_ptr(),
-                                        host_sparse_buffer_[param_id].get_num_values() * sizeof(T),
-                                        cudaMemcpyHostToDevice,
-                                        gpu_resource_->get_memcpy_stream()));
+                                         host_sparse_buffer_[param_id].get_value_tensor().get_ptr(),
+                                         host_sparse_buffer_[param_id].get_num_values() * sizeof(T),
+                                         cudaMemcpyHostToDevice,
+                                         gpu_resource_->get_memcpy_stream()));
         } else {
           sparse_tensor_helper::cuda::copy_async(dst_sparse_tensor, host_sparse_buffer_[param_id],
-                                                gpu_resource_->get_memcpy_stream());
+                                                 gpu_resource_->get_memcpy_stream());
           last_batch_nnz_[param_id] = host_sparse_buffer_[param_id].get_num_values();
         }
       }

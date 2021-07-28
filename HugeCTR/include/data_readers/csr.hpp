@@ -43,14 +43,15 @@ template <typename T>
 class CSR {
  private:
   const size_t num_rows_;       /**< num rows. */
-  const size_t max_value_size_; /**< number of element of value the CSR matrix will have for num_rows
-                                rows. */
+  const size_t max_value_size_; /**< number of element of value the CSR matrix will have for
+                                num_rows rows. */
 
   Tensor2<T> row_offset_tensor_;
   Tensor2<T> value_tensor_; /**< a unified buffer for row offset and value. */
-  T* row_offset_ptr_; /**< just offset on the buffer, note that the length of it is slot*batchsize+1.
-                   */
-  T* value_ptr_;      /**< pointer of value buffer. */
+  T* row_offset_ptr_;       /**< just offset on the buffer, note that the length of it is
+                             * slot*batchsize+1.
+                             */
+  T* value_ptr_;            /**< pointer of value buffer. */
 
   size_t size_of_row_offset_; /**< num of rows in this CSR buffer */
   size_t size_of_value_;      /**< num of values in this CSR buffer */
@@ -63,8 +64,11 @@ class CSR {
    * @param num_rows num of rows is expected
    * @param max_value_size max size of value buffer.
    */
-  CSR(size_t num_rows, size_t max_value_size) : num_rows_(num_rows), max_value_size_(max_value_size),
-  size_of_row_offset_(0), size_of_value_(0) {
+  CSR(size_t num_rows, size_t max_value_size)
+      : num_rows_(num_rows),
+        max_value_size_(max_value_size),
+        size_of_row_offset_(0),
+        size_of_value_(0) {
     static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                   "type not support");
     std::shared_ptr<GeneralBuffer2<CudaHostAllocator>> buff =

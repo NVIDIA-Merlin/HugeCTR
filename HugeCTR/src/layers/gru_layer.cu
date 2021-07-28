@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <math.h>
+
 #include <algorithm>
 #include <common.hpp>
 #include <functional>
@@ -21,13 +22,12 @@
 #include <include/utils.cuh>
 #include <layers/element_wise_function.hpp>
 #include <layers/gru_layer.hpp>
+#include <linalg/binary_op.cuh>
 #include <linalg/matrix_vector_op.cuh>
+#include <linalg/unary_op.cuh>
 #include <utils.cuh>
 #include <utils.hpp>
 #include <vector>
-
-#include <linalg/binary_op.cuh>
-#include <linalg/unary_op.cuh>
 #ifndef NDEBUG
 #include <iostream>
 #endif
@@ -89,11 +89,11 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
         data_type,                                 // cudnnDataType_t dataType,
         CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED,  // CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED,
                                                    // //cudnnRNNDataLayout_t layout,
-        seqLength_,           // int maxSeqLength,
-        miniBatch,            // int batchSize,
-        embedding_vec_size_,  // int vectorSize,
-        seqLengthArray,       // const int seqLengthArray[],
-        NULL                  // void *paddingFill
+        seqLength_,                                // int maxSeqLength,
+        miniBatch,                                 // int batchSize,
+        embedding_vec_size_,                       // int vectorSize,
+        seqLengthArray,                            // const int seqLengthArray[],
+        NULL                                       // void *paddingFill
         ));
 
     CK_CUDNN_THROW_(cudnnSetRNNDataDescriptor(
@@ -101,11 +101,11 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
         data_type,                                 // cudnnDataType_t dataType,
         CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED,  // CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED,
                                                    // //cudnnRNNDataLayout_t layout,
-        seqLength_,      // int maxSeqLength,
-        miniBatch,       // int batchSize,
-        hiddenSize_,     // int vectorSize,
-        seqLengthArray,  // const int seqLengthArray[],
-        NULL             // void *paddingFill
+        seqLength_,                                // int maxSeqLength,
+        miniBatch,                                 // int batchSize,
+        hiddenSize_,                               // int vectorSize,
+        seqLengthArray,                            // const int seqLengthArray[],
+        NULL                                       // void *paddingFill
         ));
     dimHidden[0] = 1 * 1;
     dimHidden[1] = miniBatch;
@@ -135,11 +135,11 @@ GRULayer<T>::GRULayer(const std::shared_ptr<BufferBlock2<T>>& weight_buff,
         data_type,             // cudnnDataType_t mathPrec,
         CUDNN_TENSOR_OP_MATH,  // CUDNN_DEFAULT_MATH , //cudnnMathType_t mathType,
         embedding_vec_size_,   // int32_t embedding_vec_size, When the inputMode=CUDNN_SKIP_INPUT,
-                              // the embedding_vec_size should match the hiddenSize value
-        hiddenSize_,                  // int32_t hiddenSize,
-        hiddenSize_,                  // int32_t projSize,
-        1,                            // int32_t numLayers, BIDIRECTIONAL=2
-        dropoutDesc,                  // cudnnDropoutDescriptor_t dropoutDesc,
+                               // the embedding_vec_size should match the hiddenSize value
+        hiddenSize_,           // int32_t hiddenSize,
+        hiddenSize_,           // int32_t projSize,
+        1,                     // int32_t numLayers, BIDIRECTIONAL=2
+        dropoutDesc,           // cudnnDropoutDescriptor_t dropoutDesc,
         CUDNN_RNN_PADDED_IO_DISABLED  // uint32_t auxFlags
         ));
 
@@ -316,16 +316,16 @@ void GRULayer<T>::fprop(bool is_train) {
       out_Desc,  // yDesc,
       out,       // y, output data pointer
       hDesc,
-      NULL,  // hx, Input. Pointer to the GPU buffer with the RNN initial hidden state, NULL:
-             // initialized zero.
-      NULL,  // hy,  Output. Pointer to the GPU buffer where the final RNN hidden state should be
-             // stored. NULL: not saved.
+      NULL,   // hx, Input. Pointer to the GPU buffer with the RNN initial hidden state, NULL:
+              // initialized zero.
+      NULL,   // hy,  Output. Pointer to the GPU buffer where the final RNN hidden state should be
+              // stored. NULL: not saved.
       cDesc,  // cDesc, Input. A tensor descriptor, for LSTM networks only.
       NULL,   // cx,
       NULL,   // cy,
       weightSpaceSize,
-      weight,  // weightSpace, The weight space buffer holds all RNN weight matrices and bias
-               // vectors
+      weight,         // weightSpace, The weight space buffer holds all RNN weight matrices and bias
+                      // vectors
       workSpaceSize,  // size_t workSpaceSize,
       workSpace,      // workSpace,
       reserveSpaceSize,

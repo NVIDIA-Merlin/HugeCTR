@@ -15,13 +15,13 @@
  */
 #pragma once
 #include <memory>
+
 #include "HugeCTR/include/common.hpp"
 
 namespace HugeCTR {
 class GPUBarrier {
  public:
-  GPUBarrier(size_t num_gpus, const std::vector<int>& device_list,
-             bool enforce_order = false);
+  GPUBarrier(size_t num_gpus, const std::vector<int>& device_list, bool enforce_order = false);
   ~GPUBarrier();
 
   void sync_all_gpus(const cudaStream_t* streams);

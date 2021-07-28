@@ -29,28 +29,27 @@
 #include <iomanip>
 #include <iostream>
 #include <numeric>
-#include <utility>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #ifdef ENABLE_MPI
-#include <mpi.h>
-
-#include <stdint.h>
 #include <limits.h>
+#include <mpi.h>
+#include <stdint.h>
 
 #if SIZE_MAX == UCHAR_MAX
-   #define MPI_SIZE_T MPI_UNSIGNED_CHAR
+#define MPI_SIZE_T MPI_UNSIGNED_CHAR
 #elif SIZE_MAX == USHRT_MAX
-   #define MPI_SIZE_T MPI_UNSIGNED_SHORT
+#define MPI_SIZE_T MPI_UNSIGNED_SHORT
 #elif SIZE_MAX == UINT_MAX
-   #define MPI_SIZE_T MPI_UNSIGNED
+#define MPI_SIZE_T MPI_UNSIGNED
 #elif SIZE_MAX == ULONG_MAX
-   #define MPI_SIZE_T MPI_UNSIGNED_LONG
+#define MPI_SIZE_T MPI_UNSIGNED_LONG
 #elif SIZE_MAX == ULLONG_MAX
-   #define MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
+#define MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
 #else
-   #error "no suitable MPI type for size_t"
+#error "no suitable MPI type for size_t"
 #endif
 
 #endif
@@ -70,7 +69,7 @@ namespace hybrid_embedding {
 enum class HybridEmbeddingType;
 enum class CommunicationType;
 
-}
+}  // namespace hybrid_embedding
 
 //#define DATA_READING_TEST
 
@@ -139,7 +138,7 @@ enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD };
 
 enum class Update_t { Local, Global, LazyGlobal };
 
-//TODO: Consider to move them into a separate file
+// TODO: Consider to move them into a separate file
 enum class Activation_t { Relu, None };
 
 enum class FcPosition_t { None, Head, Body, Tail, Isolated };
@@ -193,11 +192,17 @@ enum class Embedding_t {
 enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Zero };
 
 enum class TrainState_t {
-  Init, BottomMLPFprop, TopMLPFprop, BottomMLPBprop,
-  TopMLPBprop, MLPExchangeWgrad, MLPUpdate, Finalize
+  Init,
+  BottomMLPFprop,
+  TopMLPFprop,
+  BottomMLPBprop,
+  TopMLPBprop,
+  MLPExchangeWgrad,
+  MLPUpdate,
+  Finalize
 };
 
-//TODO: Consider to move them into a separate file
+// TODO: Consider to move them into a separate file
 struct TrainState {
   TrainState_t state = TrainState_t::Init;
   cudaEvent_t* event = nullptr;
@@ -304,8 +309,8 @@ typedef struct DataSetHeader_ {
     }                                                                              \
   } while (0)
 
-inline void MESSAGE_(const std::string msg,
-    bool per_process = false, bool new_line = true, bool timestamp=true) {
+inline void MESSAGE_(const std::string msg, bool per_process = false, bool new_line = true,
+                     bool timestamp = true) {
 #ifdef ENABLE_MPI
   int __PID(-1);
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -317,8 +322,9 @@ inline void MESSAGE_(const std::string msg,
   std::cout.fill('0');
   if (timestamp)
     std::cout << "[" << std::setw(2) << time_now->tm_mday << "d" << std::setw(2)
-              << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m"
-              << std::setw(2) << time_now->tm_sec << "s" << "][HUGECTR][INFO]: ";
+              << time_now->tm_hour << "h" << std::setw(2) << time_now->tm_min << "m" << std::setw(2)
+              << time_now->tm_sec << "s"
+              << "][HUGECTR][INFO]: ";
   std::cout << str << std::flush;
   if (new_line) std::cout << std::endl;
 }

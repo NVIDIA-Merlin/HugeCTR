@@ -209,7 +209,7 @@ bool Profiler::iter_check() {
         auto measured_time_ms = gpu_timer->get_measured_time_ms();
         if (measured_time_ms < 0.0) {
           throw internal_runtime_error(HugeCTR::Error_t::UnspecificError,
-              gpu_event_strfy(events_[current_event_idx_].get()));
+                                       gpu_event_strfy(events_[current_event_idx_].get()));
         }
         events_[current_event_idx_]->measured_times_ms.push_back(gpu_timer->get_measured_time_ms());
         events_[current_event_idx_]->iter_start_to_event_start_times_ms.push_back(

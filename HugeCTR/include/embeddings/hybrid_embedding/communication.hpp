@@ -17,6 +17,9 @@
 #pragma once
 
 #include <cuda_runtime.h>
+
+#include <collectives/all_reduce_comm.hpp>
+#include <collectives/ib_comm.hpp>
 #include <vector>
 
 #include "HugeCTR/include/common.hpp"
@@ -24,8 +27,6 @@
 #include "HugeCTR/include/general_buffer2.hpp"
 #include "HugeCTR/include/gpu_resource.hpp"
 #include "HugeCTR/include/tensor2.hpp"
-#include <collectives/ib_comm.hpp>
-#include <collectives/all_reduce_comm.hpp>
 
 namespace HugeCTR {
 
@@ -36,7 +37,7 @@ class Communication {
   Communication(size_t width_data_field);
   virtual ~Communication() = default;
   virtual void communicate(cudaStream_t stream) = 0;
-  virtual void update_sizes(cudaStream_t stream) {};
+  virtual void update_sizes(cudaStream_t stream){};
 
  protected:
   size_t width_data_field_;
@@ -95,7 +96,7 @@ template <typename commtype>
 class AllReduceComm : public Communication {
  public:
   AllReduceComm(AllReduceInPlaceComm* ar_comm, AllReduceInPlaceComm::Handle ar_handle,
-      const GPUResource* gpu_resource);
+                const GPUResource* gpu_resource);
   void communicate(cudaStream_t stream) final override;
   ~AllReduceComm() = default;
 
@@ -108,28 +109,22 @@ class AllReduceComm : public Communication {
 #ifdef ENABLE_MPI
 template <typename commtype>
 class HierAll2Allv_Multi_IB : public Communication {
-  public:
-    HierAll2Allv_Multi_IB(
-        uint32_t instance_id,
-        HierA2AvCollHandle coll_handle,
-        size_t** send_sizes,
-        const GPUResource* gpu_resource,
-        IbComm* ib_comm,
-        cudaStream_t comm_stream
-        );
+ public:
+  HierAll2Allv_Multi_IB(uint32_t instance_id, HierA2AvCollHandle coll_handle, size_t** send_sizes,
+                        const GPUResource* gpu_resource, IbComm* ib_comm, cudaStream_t comm_stream);
 
-    void update_sizes(cudaStream_t stream) final override;
-    void communicate(cudaStream_t stream) final override;
-    ~HierAll2Allv_Multi_IB();
+  void update_sizes(cudaStream_t stream) final override;
+  void communicate(cudaStream_t stream) final override;
+  ~HierAll2Allv_Multi_IB();
 
-  private:
-    uint32_t instance_id_;
-    HierA2AvCollHandle coll_handle_;
-    size_t** send_sizes_;
-    const GPUResource* gpu_resource_;
-    IbComm* ib_comm_;
-    cudaStream_t comm_stream_;
-    cudaEvent_t  comm_event_;
+ private:
+  uint32_t instance_id_;
+  HierA2AvCollHandle coll_handle_;
+  size_t** send_sizes_;
+  const GPUResource* gpu_resource_;
+  IbComm* ib_comm_;
+  cudaStream_t comm_stream_;
+  cudaEvent_t comm_event_;
 };
 #endif
 

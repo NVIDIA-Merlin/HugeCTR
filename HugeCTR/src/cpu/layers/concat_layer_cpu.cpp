@@ -27,7 +27,8 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-void concat_cpu(T **input, T *output, size_t height, size_t new_width, int n_ins, const std::vector<size_t>& widths) {
+void concat_cpu(T** input, T* output, size_t height, size_t new_width, int n_ins,
+                const std::vector<size_t>& widths) {
   for (size_t r = 0; r < height; r++) {
     for (size_t c = 0; c < new_width; c++) {
       int out_idx = r * new_width + c;
@@ -52,7 +53,7 @@ void concat_cpu(T **input, T *output, size_t height, size_t new_width, int n_ins
 
 template <typename T>
 ConcatLayerCPU<T>::ConcatLayerCPU(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
-                            const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff)
+                                  const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff)
     : LayerCPU() {
   try {
     if (in_tensors.empty()) {

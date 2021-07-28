@@ -15,20 +15,21 @@
  */
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <HugeCTR/include/common.hpp>
-#include <HugeCTR/include/metrics.hpp>
-#include <HugeCTR/include/device_map.hpp>
+
 #include <HugeCTR/include/collectives/all_reduce_comm.hpp>
+#include <HugeCTR/include/common.hpp>
+#include <HugeCTR/include/device_map.hpp>
 #include <HugeCTR/include/embeddings/hybrid_embedding/utils.hpp>
+#include <HugeCTR/include/metrics.hpp>
 
 namespace HugeCTR {
 
 namespace python_lib {
 
 void CommonPybind(pybind11::module& m) {
-  m.attr("__version__") = std::to_string(HUGECTR_VERSION_MAJOR) 
-	                  + "." + std::to_string(HUGECTR_VERSION_MINOR)
-  	                  + "." + std::to_string(HUGECTR_VERSION_PATCH);\
+  m.attr("__version__") = std::to_string(HUGECTR_VERSION_MAJOR) + "." +
+                          std::to_string(HUGECTR_VERSION_MINOR) + "." +
+                          std::to_string(HUGECTR_VERSION_PATCH);
   pybind11::enum_<HugeCTR::Error_t>(m, "Error_t")
       .value("Success", HugeCTR::Error_t::Success)
       .value("FileCannotOpen", HugeCTR::Error_t::FileCannotOpen)
@@ -69,9 +70,12 @@ void CommonPybind(pybind11::module& m) {
       .value("Parquet", HugeCTR::SourceType_t::Parquet)
       .export_values();
   pybind11::enum_<HugeCTR::Embedding_t>(m, "Embedding_t")
-      .value("DistributedSlotSparseEmbeddingHash", HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash)
-      .value("LocalizedSlotSparseEmbeddingHash", HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash)
-      .value("LocalizedSlotSparseEmbeddingOneHot", HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot)
+      .value("DistributedSlotSparseEmbeddingHash",
+             HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash)
+      .value("LocalizedSlotSparseEmbeddingHash",
+             HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash)
+      .value("LocalizedSlotSparseEmbeddingOneHot",
+             HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot)
       .value("HybridSparseEmbedding", HugeCTR::Embedding_t::HybridSparseEmbedding)
       .export_values();
   pybind11::enum_<HugeCTR::Initializer_t>(m, "Initializer_t")
@@ -116,30 +120,25 @@ void CommonPybind(pybind11::module& m) {
       .value("DotProduct", HugeCTR::Layer_t::DotProduct)
       .export_values();
   pybind11::class_<HugeCTR::DataReaderSparseParam>(m, "DataReaderSparseParam")
-      .def(pybind11::init<const std::string&, const std::vector<int> &, bool, int>(), pybind11::arg("top_name"),
-           pybind11::arg("nnz_per_slot"), pybind11::arg("is_fixed_length"), pybind11::arg("slot_num"))
+      .def(pybind11::init<const std::string&, const std::vector<int>&, bool, int>(),
+           pybind11::arg("top_name"), pybind11::arg("nnz_per_slot"),
+           pybind11::arg("is_fixed_length"), pybind11::arg("slot_num"))
       .def(pybind11::init<const std::string&, const int, bool, int>(), pybind11::arg("top_name"),
-           pybind11::arg("nnz_per_slot"), pybind11::arg("is_fixed_length"), pybind11::arg("slot_num"));
+           pybind11::arg("nnz_per_slot"), pybind11::arg("is_fixed_length"),
+           pybind11::arg("slot_num"));
   pybind11::class_<HugeCTR::AsyncParam>(m, "AsyncParam")
       .def(pybind11::init<int, int, int, int, int, bool, Alignment_t>(),
-           pybind11::arg("num_threads"),
-           pybind11::arg("num_batches_per_thread"),
-           pybind11::arg("io_block_size"),
-           pybind11::arg("io_depth"),
-           pybind11::arg("io_alignment"),
-           pybind11::arg("shuffle"),
-           pybind11::arg("aligned_type"));
+           pybind11::arg("num_threads"), pybind11::arg("num_batches_per_thread"),
+           pybind11::arg("io_block_size"), pybind11::arg("io_depth"), pybind11::arg("io_alignment"),
+           pybind11::arg("shuffle"), pybind11::arg("aligned_type"));
   pybind11::class_<HugeCTR::HybridEmbeddingParam>(m, "HybridEmbeddingParam")
       .def(pybind11::init<size_t, int64_t, double, double, double, double,
-                        hybrid_embedding::CommunicationType,
-                        hybrid_embedding::HybridEmbeddingType>(),
+                          hybrid_embedding::CommunicationType,
+                          hybrid_embedding::HybridEmbeddingType>(),
            pybind11::arg("max_num_frequent_categories"),
-           pybind11::arg("max_num_infrequent_samples"),
-           pybind11::arg("p_dup_max"),
-           pybind11::arg("max_all_reduce_bandwidth"),
-           pybind11::arg("max_all_to_all_bandwidth"),
-           pybind11::arg("efficiency_bandwidth_ratio"),
-           pybind11::arg("communication_type"),
+           pybind11::arg("max_num_infrequent_samples"), pybind11::arg("p_dup_max"),
+           pybind11::arg("max_all_reduce_bandwidth"), pybind11::arg("max_all_to_all_bandwidth"),
+           pybind11::arg("efficiency_bandwidth_ratio"), pybind11::arg("communication_type"),
            pybind11::arg("hybrid_embedding_type"));
   pybind11::enum_<HugeCTR::LrPolicy_t>(m, "LrPolicy_t")
       .value("fixed", HugeCTR::LrPolicy_t::fixed)

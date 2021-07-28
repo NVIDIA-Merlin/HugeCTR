@@ -19,20 +19,22 @@
 #include <type_traits>
 
 #include "HugeCTR/include/common.hpp"
+#include "HugeCTR/include/optimizers/adagrad_optimizer.hpp"
 #include "HugeCTR/include/optimizers/adam_optimizer.hpp"
 #include "HugeCTR/include/optimizers/momentum_sgd_optimizer.hpp"
 #include "HugeCTR/include/optimizers/nesterov_optimizer.hpp"
 #include "HugeCTR/include/optimizers/sgd_optimizer.hpp"
-#include "HugeCTR/include/optimizers/adagrad_optimizer.hpp"
 
 namespace HugeCTR {
 
 OptParamsPy::OptParamsPy() : initialized(false) {}
 
-OptParamsPy::OptParamsPy(Optimizer_t optimizer_type,
-                        Update_t update_t,
-                        OptHyperParams opt_hyper_params)
-  : optimizer(optimizer_type), update_type(update_t), hyperparams(opt_hyper_params), initialized(true) {}
+OptParamsPy::OptParamsPy(Optimizer_t optimizer_type, Update_t update_t,
+                         OptHyperParams opt_hyper_params)
+    : optimizer(optimizer_type),
+      update_type(update_t),
+      hyperparams(opt_hyper_params),
+      initialized(true) {}
 
 template <typename T>
 std::unique_ptr<Optimizer> Optimizer::Create(const OptParams& params,
@@ -56,7 +58,8 @@ std::unique_ptr<Optimizer> Optimizer::Create(const OptParams& params,
       auto lr = params.lr;
       auto initial_accu_value = params.hyperparams.adagrad.initial_accu_value;
       auto epsilon = params.hyperparams.adagrad.epsilon;
-      ret.reset(new AdaGradOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource, lr, initial_accu_value, epsilon, scaler));
+      ret.reset(new AdaGradOptimizer<T>(weight_main, wgrad, opt_buff, gpu_resource, lr,
+                                        initial_accu_value, epsilon, scaler));
     }
     case Optimizer_t::MomentumSGD: {
       auto learning_rate = params.lr;
@@ -89,9 +92,8 @@ template std::unique_ptr<Optimizer> Optimizer::Create<float>(
     const std::shared_ptr<GPUResource>& gpu_resource);
 
 template std::unique_ptr<Optimizer> Optimizer::Create<__half>(
-    const OptParams& params, const Tensor2<float>& weight_main,
-    const Tensor2<__half>& wgrad, const float scaler,
-    const std::shared_ptr<BufferBlock2<__half>>& opt_buff,
+    const OptParams& params, const Tensor2<float>& weight_main, const Tensor2<__half>& wgrad,
+    const float scaler, const std::shared_ptr<BufferBlock2<__half>>& opt_buff,
     const std::shared_ptr<GPUResource>& gpu_resource);
 
 }  // end namespace HugeCTR

@@ -15,9 +15,9 @@
  */
 
 #include <algorithm>
-#include <functional>
 #include <cpu/layers/element_wise_function_cpu.hpp>
 #include <cpu/layers/elu_layer_cpu.hpp>
+#include <functional>
 #include <utils.hpp>
 #ifndef NDEBUG
 #include <iostream>
@@ -41,7 +41,7 @@ void elu_bprop_cpu(const T* d_out, T* d_in, int len, T alpha) {
   }
 }
 
-} // end namespace
+}  // end namespace
 
 template <typename T>
 EluLayerCPU<T>::EluLayerCPU(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor, T alpha)
@@ -54,7 +54,6 @@ EluLayerCPU<T>::EluLayerCPU(const Tensor2<T>& in_tensor, const Tensor2<T>& out_t
 
 template <typename T>
 void EluLayerCPU<T>::fprop(bool is_train) {
-
   const Tensor2<T>& in_tensor = in_tensors_[0];
   Tensor2<T>& out_tensor = out_tensors_[0];
 

@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include <thrust/sort.h>  // for implictly including cub headers
+
 #include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
 #include "HugeCTR/include/utils.cuh"
-#include <thrust/sort.h>  // for implictly including cub headers
 
 #define max_size_top_categories 16
 #define num_samples_per_block 128
@@ -173,13 +174,11 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
 
 }  // namespace
 
-
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
-    size_t num_samples, size_t embedding_vec_size,
-    const size_t *hash_value_index, float lr, float scaler, const TypeEmbeddingComp *wgrad,
-    float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
-    cudaStream_t stream, bool force_stats) {
+    size_t num_samples, size_t embedding_vec_size, const size_t *hash_value_index, float lr,
+    float scaler, const TypeEmbeddingComp *wgrad, float *hash_table_value, size_t *top_categories,
+    size_t &size_top_categories, cudaStream_t stream, bool force_stats) {
   static bool perform_stats = true;
   if (perform_stats || force_stats) {
     uint32_t num_unique_categories;
@@ -208,8 +207,7 @@ void SparseEmbeddingFunctors::opt_sgd_atomic_cached<TypeEmbeddingComp>(
 
 template <typename TypeEmbeddingComp>
 void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
-    size_t embedding_vec_size,
-    const OptParams &opt_params, size_t nnz,
+    size_t embedding_vec_size, const OptParams &opt_params, size_t nnz,
     const Tensor2<size_t> &hash_value_index, const Tensor2<TypeEmbeddingComp> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
     size_t sm_count, cudaStream_t stream, bool force_stats) {
@@ -217,10 +215,10 @@ void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
     if (opt_params.optimizer == Optimizer_t::SGD && opt_params.hyperparams.sgd.atomic_update) {
       float lr_scale = opt_params.lr / opt_params.scaler;
 
-      opt_sgd_atomic_cached<TypeEmbeddingComp>(
-          nnz, embedding_vec_size, hash_value_index.get_ptr(), opt_params.lr,
-          opt_params.scaler, wgrad.get_ptr(), hash_table_value.get_ptr(), top_categories.get_ptr(),
-          size_top_categories, stream, force_stats);
+      opt_sgd_atomic_cached<TypeEmbeddingComp>(nnz, embedding_vec_size, hash_value_index.get_ptr(),
+                                               opt_params.lr, opt_params.scaler, wgrad.get_ptr(),
+                                               hash_table_value.get_ptr(), top_categories.get_ptr(),
+                                               size_top_categories, stream, force_stats);
     } else {
       CK_THROW_(Error_t::WrongInput, "Error: Invalid opitimizer type");
     }
@@ -234,26 +232,24 @@ void SparseEmbeddingFunctors::update_params<TypeEmbeddingComp>(
 }
 
 template void SparseEmbeddingFunctors::opt_sgd_atomic_cached<float>(
-    size_t num_samples, size_t embedding_vec_size,
-    const size_t *hash_value_index, float lr, float scaler, const float *wgrad,
-    float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
-    cudaStream_t stream, bool force_stats);
+    size_t num_samples, size_t embedding_vec_size, const size_t *hash_value_index, float lr,
+    float scaler, const float *wgrad, float *hash_table_value, size_t *top_categories,
+    size_t &size_top_categories, cudaStream_t stream, bool force_stats);
 
 template void SparseEmbeddingFunctors::opt_sgd_atomic_cached<__half>(
-    size_t num_samples, size_t embedding_vec_size,
-    const size_t *hash_value_index, float lr, float scaler, const __half *wgrad,
-    float *hash_table_value, size_t *top_categories, size_t &size_top_categories,
-    cudaStream_t stream, bool force_stats);
+    size_t num_samples, size_t embedding_vec_size, const size_t *hash_value_index, float lr,
+    float scaler, const __half *wgrad, float *hash_table_value, size_t *top_categories,
+    size_t &size_top_categories, cudaStream_t stream, bool force_stats);
 
 template void SparseEmbeddingFunctors::update_params<float>(
-    size_t embedding_vec_size, const OptParams &opt_params,
-    size_t nnz, const Tensor2<size_t> &hash_value_index, const Tensor2<float> &wgrad,
+    size_t embedding_vec_size, const OptParams &opt_params, size_t nnz,
+    const Tensor2<size_t> &hash_value_index, const Tensor2<float> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
     size_t sm_count, cudaStream_t stream, bool force_stats);
 
 template void SparseEmbeddingFunctors::update_params<__half>(
-    size_t embedding_vec_size, const OptParams &opt_params,
-    size_t nnz, const Tensor2<size_t> &hash_value_index, const Tensor2<__half> &wgrad,
+    size_t embedding_vec_size, const OptParams &opt_params, size_t nnz,
+    const Tensor2<size_t> &hash_value_index, const Tensor2<__half> &wgrad,
     Tensor2<float> &hash_table_value, Tensor2<size_t> &top_categories, size_t &size_top_categories,
     size_t sm_count, cudaStream_t stream, bool force_stats);
 

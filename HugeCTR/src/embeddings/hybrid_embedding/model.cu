@@ -123,8 +123,8 @@ void Model<dtype>::init_hybrid_model(const CalibrationData &calibration,
       stream);
 
   frequent_probability = ModelInitializationFunctors<dtype>::calculate_frequent_probability(
-    statistics, num_frequent, d_total_frequent_count.get_ptr(), stream);
-  
+      statistics, num_frequent, d_total_frequent_count.get_ptr(), stream);
+
   dtype num_infrequent = num_categories - num_frequent;
   frequent_categories.reset_shape({(size_t)num_frequent, 1});
   infrequent_categories.reset_shape({(size_t)num_infrequent, 1});

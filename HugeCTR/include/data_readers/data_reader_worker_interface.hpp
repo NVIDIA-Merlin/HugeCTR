@@ -25,8 +25,8 @@ namespace HugeCTR {
 
 class IDataReaderWorker {
  public:
-  virtual void read_a_batch() {};
-  virtual void skip_read() {};
+  virtual void read_a_batch(){};
+  virtual void skip_read(){};
   void set_source(std::shared_ptr<Source> source) {
     if (!is_eof_) {
       CK_THROW_(Error_t::IllegalCall,
@@ -38,9 +38,7 @@ class IDataReaderWorker {
     post_set_source();
   }
   ~IDataReaderWorker(){};
-  IDataReaderWorker()
-      : is_eof_(false) {
-  }
+  IDataReaderWorker() : is_eof_(false) {}
 
  protected:
   std::shared_ptr<Source> source_; /**< source: can be file or network */
@@ -53,19 +51,27 @@ class IDataReaderWorker {
   int *loop_flag_;
 
   std::shared_ptr<ThreadBuffer> buffer_;
-  
-  IDataReaderWorker(const int worker_id, const int worker_num, const std::shared_ptr<GPUResource>& gpu_resource, bool is_eof, int *loop_flag, const std::shared_ptr<ThreadBuffer> &buff) : worker_id_(worker_id), worker_num_(worker_num), gpu_resource_(gpu_resource), is_eof_(is_eof), loop_flag_(loop_flag), buffer_(buff)  { }
+
+  IDataReaderWorker(const int worker_id, const int worker_num,
+                    const std::shared_ptr<GPUResource> &gpu_resource, bool is_eof, int *loop_flag,
+                    const std::shared_ptr<ThreadBuffer> &buff)
+      : worker_id_(worker_id),
+        worker_num_(worker_num),
+        gpu_resource_(gpu_resource),
+        is_eof_(is_eof),
+        loop_flag_(loop_flag),
+        buffer_(buff) {}
 
   bool wait_until_h2d_ready() {
     BufferState expected = BufferState::ReadyForWrite;
     while (!buffer_->state.compare_exchange_weak(expected, BufferState::Writing)) {
       expected = BufferState::ReadyForWrite;
       usleep(2);
-      if(*loop_flag_ == 0) return false; // in case main thread exit
+      if (*loop_flag_ == 0) return false;  // in case main thread exit
     }
     return true;
   }
-  
+
  private:
   virtual void pre_set_source() {}
   virtual void post_set_source() {}

@@ -37,7 +37,8 @@ Network::Network(const std::shared_ptr<CPUResource>& cpu_resource,
 #else
       enable_cuda_graph_(false)
 #endif
-{ }
+{
+}
 
 void Network::update_params() {
   optimizer_->update();
@@ -57,7 +58,7 @@ void Network::conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source
 }
 
 cudaEvent_t& Network::get_train_events(TrainState_t key) {
-  if(train_events_.find(key) == train_events_.end()) {
+  if (train_events_.find(key) == train_events_.end()) {
     cudaEvent_t event;
     CK_CUDA_THROW_(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
     train_events_[key] = event;
@@ -65,17 +66,15 @@ cudaEvent_t& Network::get_train_events(TrainState_t key) {
   return train_events_[key];
 }
 
-template<typename LPtr>
-void Network::prop_layers(const std::vector<LPtr>& layers,
-                          Network::GraphWrapper& graph, bool use_graph,
-                          bool fprop, const cudaStream_t stream, bool train) {
-  auto execute = [&layers, train] (bool fprop) {
+template <typename LPtr>
+void Network::prop_layers(const std::vector<LPtr>& layers, Network::GraphWrapper& graph,
+                          bool use_graph, bool fprop, const cudaStream_t stream, bool train) {
+  auto execute = [&layers, train](bool fprop) {
     if (fprop) {
       for (auto& layer : layers) {
         layer->fprop(train);
       }
-    }
-    else {
+    } else {
       for (auto it = layers.rbegin(); it != layers.rend(); it++) {
         (*it)->bprop();
       }
@@ -93,8 +92,7 @@ void Network::prop_layers(const std::vector<LPtr>& layers,
     do_capture = !graph.initialized_with_profiling;
     graph.initialized = false;
     graph.initialized_with_profiling = true;
-  }
-  else {
+  } else {
     do_capture = !graph.initialized;
     graph.initialized = true;
     graph.initialized_with_profiling = false;
@@ -105,8 +103,7 @@ void Network::prop_layers(const std::vector<LPtr>& layers,
 #endif
 
   if (do_capture) {
-    CK_CUDA_THROW_(
-        cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
+    CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
     execute(fprop);
     CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph.graph));
     CK_CUDA_THROW_(cudaGraphInstantiate(&graph.graph_exec, graph.graph, NULL, NULL, 0));
@@ -119,9 +116,11 @@ void Network::train(long long current_batchsize) {
   if (use_mixed_precision_) {
     conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
   }
-  prop_layers(train_layers_, train_fprop_graph_, enable_cuda_graph_, true,  gpu_resource_->get_stream());
+  prop_layers(train_layers_, train_fprop_graph_, enable_cuda_graph_, true,
+              gpu_resource_->get_stream());
   train_loss_->compute(true, current_batchsize);
-  prop_layers(train_layers_, train_bprop_graph_, enable_cuda_graph_, false, gpu_resource_->get_stream());
+  prop_layers(train_layers_, train_bprop_graph_, enable_cuda_graph_, false,
+              gpu_resource_->get_stream());
   return;
 }
 
@@ -129,9 +128,9 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
                           TrainState state) {
   auto stream = gpu_resource_->get_stream();
 
-  switch(state.state) {
+  switch (state.state) {
     case TrainState_t::Init:
-      if(use_mixed_precision_) {
+      if (use_mixed_precision_) {
         conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
       }
       break;
@@ -167,13 +166,14 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
 }
 
 void Network::eval(long long current_batchsize) {
-  prop_layers(evaluate_layers_, eval_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(), false);
+  prop_layers(evaluate_layers_, eval_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(),
+              false);
   evaluate_loss_->compute(false, current_batchsize);
 }
 void Network::predict() {
-  prop_layers(evaluate_layers_, predict_graph_, enable_cuda_graph_, true, gpu_resource_->get_stream(), false);
+  prop_layers(evaluate_layers_, predict_graph_, enable_cuda_graph_, true,
+              gpu_resource_->get_stream(), false);
 }
-
 
 void Network::download_params_to_host(std::ofstream& weight_stream) {
   // forward
@@ -191,15 +191,13 @@ void Network::download_opt_states_to_host(std::ofstream& opt_states_stream) {
   // forward
   CudaDeviceContext context(get_device_id());
 
-  size_t dst_size_in_byte = use_mixed_precision_?
-                              opt_tensor_half_.get_size_in_bytes() :
-                              opt_tensor_.get_size_in_bytes();
+  size_t dst_size_in_byte =
+      use_mixed_precision_ ? opt_tensor_half_.get_size_in_bytes() : opt_tensor_.get_size_in_bytes();
   std::unique_ptr<char[]> h_opt_states(new char[dst_size_in_byte]);
 
-  void* src = use_mixed_precision_?
-                (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
-  CK_CUDA_THROW_(cudaMemcpy(h_opt_states.get(), src,
-                            dst_size_in_byte, cudaMemcpyDeviceToHost));
+  void* src =
+      use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
+  CK_CUDA_THROW_(cudaMemcpy(h_opt_states.get(), src, dst_size_in_byte, cudaMemcpyDeviceToHost));
 
   opt_states_stream.write(h_opt_states.get(), dst_size_in_byte);
 }
@@ -253,17 +251,13 @@ void Network::upload_params_to_device_inference(const std::string& model_file) {
   model_stream.read(params.get(), evaluate_weight_tensor_.get_size_in_bytes());
   CK_CUDA_THROW_(cudaMemcpyAsync(evaluate_weight_tensor_.get_ptr(), params.get(),
                                  evaluate_weight_tensor_.get_size_in_bytes(),
-                                 cudaMemcpyHostToDevice,
-                                 gpu_resource_->get_stream()
-                                 ));
+                                 cudaMemcpyHostToDevice, gpu_resource_->get_stream()));
   model_stream.close();
   if (use_mixed_precision_) {
     conv_weight_(evaluate_weight_tensor_half_, evaluate_weight_tensor_);
   }
   return;
 }
-
-
 
 void Network::download_params_to_host(float* weight) {
   CudaDeviceContext context(get_device_id());
@@ -286,15 +280,13 @@ void Network::upload_params_to_device(float* params) {
 void Network::upload_opt_states_to_device(char* h_opt_states) {
   CudaDeviceContext context(get_device_id());
 
-  size_t src_size_in_byte = use_mixed_precision_?
-                              opt_tensor_half_.get_size_in_bytes() :
-                              opt_tensor_.get_size_in_bytes();
+  size_t src_size_in_byte =
+      use_mixed_precision_ ? opt_tensor_half_.get_size_in_bytes() : opt_tensor_.get_size_in_bytes();
 
-  void* dst = use_mixed_precision_?
-                (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
+  void* dst =
+      use_mixed_precision_ ? (void*)opt_tensor_half_.get_ptr() : (void*)opt_tensor_.get_ptr();
 
-  CK_CUDA_THROW_(cudaMemcpy(dst, h_opt_states,
-                            src_size_in_byte, cudaMemcpyHostToDevice));
+  CK_CUDA_THROW_(cudaMemcpy(dst, h_opt_states, src_size_in_byte, cudaMemcpyHostToDevice));
 
   return;
 }
@@ -332,10 +324,8 @@ float Network::get_loss() {
   float loss_host = 0.f;
 
   CudaDeviceContext context(get_device_id());
-  CK_CUDA_THROW_(
-      cudaMemcpyAsync(&loss_host, train_loss_tensor_.get_ptr(),
-                      sizeof(float), cudaMemcpyDeviceToHost,
-                      gpu_resource_->get_stream()));
+  CK_CUDA_THROW_(cudaMemcpyAsync(&loss_host, train_loss_tensor_.get_ptr(), sizeof(float),
+                                 cudaMemcpyDeviceToHost, gpu_resource_->get_stream()));
   CK_CUDA_THROW_(cudaStreamSynchronize(gpu_resource_->get_stream()));
   return loss_host;
 }

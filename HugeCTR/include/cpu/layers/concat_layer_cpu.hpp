@@ -68,7 +68,7 @@ class ConcatLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   ConcatLayerCPU(const Tensors2<T>& in_tensors, Tensor2<T>& out_tensor,
-              const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff);
+                 const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff);
   ~ConcatLayerCPU() override{};
 
   /**

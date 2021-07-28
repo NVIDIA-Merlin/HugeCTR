@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "HugeCTR/include/layer.hpp"
-
 #include <vector>
+
+#include "HugeCTR/include/layer.hpp"
 
 namespace HugeCTR {
 
@@ -45,8 +45,8 @@ class ElementwiseMultiplyLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   ElementwiseMultiplyLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-                  const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                  const std::shared_ptr<GPUResource>& gpu_resource);
+                           const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                           const std::shared_ptr<GPUResource>& gpu_resource);
 
   void initialize() override;
 

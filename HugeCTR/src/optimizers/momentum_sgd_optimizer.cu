@@ -38,18 +38,16 @@ __global__ void momentum_sgd_update_kernel(int len, float* weight, T* momentum, 
 
 }  // namespace
 template <typename T>
-MomentumSGDOptimizer<T>::MomentumSGDOptimizer(
-    const Tensor2<float>& weight, const Tensor2<T>& wgrad,
-    const std::shared_ptr<BufferBlock2<T>>& opt_buf,
-    const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate, float momentum_factor,
-    float scaler)
-    : Optimizer(weight, gpu_resource, learning_rate,
-                scaler),
+MomentumSGDOptimizer<T>::MomentumSGDOptimizer(const Tensor2<float>& weight, const Tensor2<T>& wgrad,
+                                              const std::shared_ptr<BufferBlock2<T>>& opt_buf,
+                                              const std::shared_ptr<GPUResource>& gpu_resource,
+                                              float learning_rate, float momentum_factor,
+                                              float scaler)
+    : Optimizer(weight, gpu_resource, learning_rate, scaler),
       wgrad_(wgrad),
       momentum_factor_(momentum_factor) {
-  if(weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
-    CK_THROW_(Error_t::WrongInput,
-                  "weight->get_num_elements() != wgrad->get_num_elements()");
+  if (weight_main_.get_num_elements() != wgrad_.get_num_elements()) {
+    CK_THROW_(Error_t::WrongInput, "weight->get_num_elements() != wgrad->get_num_elements()");
   }
   opt_buf->reserve({weight.get_num_elements()}, &momentum_);
 }
@@ -57,7 +55,7 @@ MomentumSGDOptimizer<T>::MomentumSGDOptimizer(
 template <typename T>
 void MomentumSGDOptimizer<T>::initialize() {
   CK_CUDA_THROW_(cudaMemsetAsync(momentum_.get_ptr(), 0, momentum_.get_size_in_bytes(),
-                    gpu_resource_->get_stream()));
+                                 gpu_resource_->get_stream()));
 }
 
 template <typename T>
@@ -70,17 +68,16 @@ void MomentumSGDOptimizer<T>::update() {
 
   float* weight = weight_main_.get_ptr();
 
-  T *momentum = momentum_.get_ptr();
-  T *wgrad = wgrad_.get_ptr();
+  T* momentum = momentum_.get_ptr();
+  T* wgrad = wgrad_.get_ptr();
   momentum_sgd_update_kernel<<<grid_dim, block_dim, 0, gpu_resource_->get_stream()>>>(
-        len, weight, momentum, wgrad, lr_, momentum_factor_, scaler_);
+      len, weight, momentum, wgrad, lr_, momentum_factor_, scaler_);
 
 #ifndef NDEBUG
   CK_CUDA_THROW_(cudaDeviceSynchronize());
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
 }
-
 
 template class MomentumSGDOptimizer<float>;
 template class MomentumSGDOptimizer<__half>;

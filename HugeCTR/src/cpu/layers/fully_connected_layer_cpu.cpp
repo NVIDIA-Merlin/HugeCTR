@@ -24,7 +24,7 @@ namespace HugeCTR {
 
 namespace {
 
-void cpu_mm(float *a, float *b, float *c, int m, int k, int n) {
+void cpu_mm(float* a, float* b, float* c, int m, int k, int n) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
       c[i * n + j] = 0.0f;
@@ -33,7 +33,7 @@ void cpu_mm(float *a, float *b, float *c, int m, int k, int n) {
   }
 }
 
-void cpu_add_bias(float *out, float *bias, int m, int n) {
+void cpu_add_bias(float* out, float* bias, int m, int n) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
       out[i * n + j] += bias[j];
@@ -41,21 +41,20 @@ void cpu_add_bias(float *out, float *bias, int m, int n) {
   }
 }
 
-void transpose(float *a, int m, int n) {
+void transpose(float* a, int m, int n) {
   std::unique_ptr<float[]> tmp(new float[m * n]);
   for (int i = 0; i < m; ++i)
     for (int j = 0; j < n; ++j) tmp[j * m + i] = a[i * n + j];
   for (int i = 0; i < m * n; ++i) a[i] = tmp[i];
 }
 
-} // end namespace
+}  // end namespace
 
 FullyConnectedLayerCPU<float>::FullyConnectedLayerCPU(
     const std::shared_ptr<BufferBlock2<float>>& weight_buff,
     const std::shared_ptr<BufferBlock2<float>>& wgrad_buff, const Tensor2<float>& in_tensor,
     const Tensor2<float>& out_tensor, bool use_mixed_precision)
-    : LayerCPU(),
-      use_mixed_precision_(use_mixed_precision) {
+    : LayerCPU(), use_mixed_precision_(use_mixed_precision) {
   try {
     // check the in_tensor and out_tensor
     const auto& in_tensor_dim = in_tensor.get_dimensions();

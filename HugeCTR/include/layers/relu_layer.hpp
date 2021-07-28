@@ -78,7 +78,7 @@ class ReluLayer<__half> : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   ReluLayer(const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
-                const std::shared_ptr<GPUResource>& gpu_resource);
+            const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
    * A method of implementing the forward pass of Relu

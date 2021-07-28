@@ -14,30 +14,27 @@
  * limitations under the License.
  */
 
-#include <inference/embedding_interface.hpp>
 #include <inference/embedding_cache.hpp>
+#include <inference/embedding_interface.hpp>
 
-namespace HugeCTR{
+namespace HugeCTR {
 
-embedding_interface::embedding_interface(){}
+embedding_interface::embedding_interface() {}
 
-embedding_interface::~embedding_interface(){}
+embedding_interface::~embedding_interface() {}
 
 template <typename TypeHashKey>
-embedding_interface* embedding_interface::Create_Embedding_Cache(const std::string& model_config_path,
-                                                                const InferenceParams& inference_params,
-                                                                HugectrUtility<TypeHashKey>* parameter_server){
+embedding_interface* embedding_interface::Create_Embedding_Cache(
+    const std::string& model_config_path, const InferenceParams& inference_params,
+    HugectrUtility<TypeHashKey>* parameter_server) {
   embedding_interface* new_embedding_cache;
-  new_embedding_cache = new embedding_cache<TypeHashKey>(model_config_path,
-                                                        inference_params,
-                                                        parameter_server);
+  new_embedding_cache =
+      new embedding_cache<TypeHashKey>(model_config_path, inference_params, parameter_server);
   return new_embedding_cache;
 }
 
-template embedding_interface* embedding_interface::Create_Embedding_Cache<unsigned int>(const std::string&,
-                                                                                        const InferenceParams&,
-                                                                                        HugectrUtility<unsigned int>*);
-template embedding_interface* embedding_interface::Create_Embedding_Cache<long long>(const std::string&,
-                                                                                    const InferenceParams&,
-                                                                                    HugectrUtility<long long>*);
+template embedding_interface* embedding_interface::Create_Embedding_Cache<unsigned int>(
+    const std::string&, const InferenceParams&, HugectrUtility<unsigned int>*);
+template embedding_interface* embedding_interface::Create_Embedding_Cache<long long>(
+    const std::string&, const InferenceParams&, HugectrUtility<long long>*);
 }  // namespace HugeCTR

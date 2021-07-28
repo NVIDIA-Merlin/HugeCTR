@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <cpu/layer_cpu.hpp>
 #include <functional>
 #include <vector>
-#include <cpu/layer_cpu.hpp>
 
 namespace HugeCTR {
 /**
@@ -26,11 +26,9 @@ namespace HugeCTR {
  * This class implements the fully connected layer.
  */
 class FusedFullyConnectedLayerCPU : public LayerCPU {
-
-
   /*
    * stores the weight tensors for compute of this layer.
-  */
+   */
   Tensors2<__half> weights_half_;
 
   /*
@@ -83,12 +81,12 @@ class FusedFullyConnectedLayerCPU : public LayerCPU {
    * @param tensor_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  FusedFullyConnectedLayerCPU(
-      const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
-      const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-      const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor);
+  FusedFullyConnectedLayerCPU(const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
+                              const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
+                              const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
+                              const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                              const Tensor2<__half>& bottom_tensor,
+                              const Tensor2<__half>& top_tensor);
   FusedFullyConnectedLayerCPU(const FusedFullyConnectedLayerCPU&) = delete;
   FusedFullyConnectedLayerCPU& operator=(const FusedFullyConnectedLayerCPU&);
 };

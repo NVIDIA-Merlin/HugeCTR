@@ -14,31 +14,29 @@
  * limitations under the License.
  */
 #pragma once
-#include <parser.hpp>
 #include <cpu/layer_cpu.hpp>
 #include <cpu/network_cpu.hpp>
+#include <parser.hpp>
 
 namespace HugeCTR {
 
-void create_pipeline_cpu(const nlohmann::json& config,
-                      std::map<std::string, bool> tensor_active,
-                      const InferenceParams& inference_params,
-                      Tensor2<float>& dense_input,
-                      std::vector<std::shared_ptr<Tensor2<int>>>& rows,
-                      std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
-                      std::vector<size_t>& embedding_table_slot_size,
-                      std::vector<std::shared_ptr<LayerCPU>>* embeddings, NetworkCPU** network,
-                      const std::shared_ptr<CPUResource>& cpu_resource);
+void create_pipeline_cpu(const nlohmann::json& config, std::map<std::string, bool> tensor_active,
+                         const InferenceParams& inference_params, Tensor2<float>& dense_input,
+                         std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                         std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                         std::vector<size_t>& embedding_table_slot_size,
+                         std::vector<std::shared_ptr<LayerCPU>>* embeddings, NetworkCPU** network,
+                         const std::shared_ptr<CPUResource>& cpu_resource);
 
 template <typename TypeEmbeddingComp>
 void create_pipeline_inference_cpu(const nlohmann::json& config,
-                                  const InferenceParams& inference_params,
-                                  Tensor2<float>& dense_input,
-                                  std::vector<std::shared_ptr<Tensor2<int>>>& rows,
-                                  std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
-                                  std::vector<size_t>& embedding_table_slot_size,
-                                  std::vector<std::shared_ptr<LayerCPU>>* embeddings,
-                                  NetworkCPU** network,
-                                  const std::shared_ptr<CPUResource>& cpu_resource);
+                                   const InferenceParams& inference_params,
+                                   Tensor2<float>& dense_input,
+                                   std::vector<std::shared_ptr<Tensor2<int>>>& rows,
+                                   std::vector<std::shared_ptr<Tensor2<float>>>& embeddingvecs,
+                                   std::vector<size_t>& embedding_table_slot_size,
+                                   std::vector<std::shared_ptr<LayerCPU>>* embeddings,
+                                   NetworkCPU** network,
+                                   const std::shared_ptr<CPUResource>& cpu_resource);
 
-} // namespace HugeCTR
+}  // namespace HugeCTR

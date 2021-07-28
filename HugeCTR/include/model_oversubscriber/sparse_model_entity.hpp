@@ -34,35 +34,34 @@ class SparseModelEntity {
   std::shared_ptr<ResourceManager> resource_manager_;
   SparseModelFile<TypeKey> sparse_model_file_;
 
-public:
+ public:
   SparseModelEntity(bool use_host_ps, const std::string &sparse_model_file,
-      Embedding_t embedding_type, size_t emb_vec_size,
-      std::shared_ptr<ResourceManager> resource_manager);
+                    Embedding_t embedding_type, size_t emb_vec_size,
+                    std::shared_ptr<ResourceManager> resource_manager);
 
   /**
    * @brief Load embedding features (embedding vectors) through provided keys
    *        either from disk (if use_host_ps_==false) or the host memory (if
    *        use_host_ps_==true). Some of the key in keys may not have
    *        corresponding embedding features, and they will be neglected.
-   * 
+   *
    * @param keys Vector stroing the keyset, their corresponding embedding
                  vectors will be loaded.
    * @param buf_bag A buffer bag to store the loaded key (slot_id if localized
                     embedding is used) and embedding vectors.
    * @param hit_size Number of keys that have corresponding embedding features.
    */
-  void load_vec_by_key(std::vector<TypeKey>& keys,
-                       BufferBag &buf_bag, size_t& hit_size);
+  void load_vec_by_key(std::vector<TypeKey> &keys, BufferBag &buf_bag, size_t &hit_size);
 
-  std::pair<std::vector<long long>, std::vector<float>>
-      load_vec_by_key(const std::vector<long long> &keys);
+  std::pair<std::vector<long long>, std::vector<float>> load_vec_by_key(
+      const std::vector<long long> &keys);
 
   /**
    * @brief Dump embedding features (embedding vectors) through provided keys to
    *        disk (if use_host_ps_==false) or the host memory (if use_host_ps_==
    *        true). Some of the keys may not exist in the sparse model, and they
    *        will be inserted after calling this API.
-   * 
+   *
    * @param buf_bag A buffer bag storing the key (slot_id if localized embedding
    *                is used) and embedding vectors, and they will be dumped.
    * @param dump_size Number of keys (slot_ids, embedding features) that are

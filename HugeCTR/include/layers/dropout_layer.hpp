@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cudnn.h>
+
 #include <layer.hpp>
 
 namespace HugeCTR {
@@ -52,8 +53,8 @@ class DropoutLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   DropoutLayer(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-                    const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
-                    const std::shared_ptr<GPUResource>& gpu_resource);
+               const std::shared_ptr<GeneralBuffer2<CudaAllocator>> blobs_buff, float rate,
+               const std::shared_ptr<GPUResource>& gpu_resource);
 
   ~DropoutLayer() override;
 

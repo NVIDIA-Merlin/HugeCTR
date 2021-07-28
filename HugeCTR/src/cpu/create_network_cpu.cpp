@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#include <cpu/network_cpu.hpp>
 #include <cpu/layer_cpu.hpp>
-#include <cpu/layers//add_layer_cpu.hpp>
+#include <cpu/layers/add_layer_cpu.hpp>
 #include <cpu/layers/batch_norm_layer_cpu.hpp>
 #include <cpu/layers/cast_layer_cpu.hpp>
 #include <cpu/layers/concat_layer_cpu.hpp>
@@ -35,6 +34,7 @@
 #include <cpu/layers/sigmoid_layer_cpu.hpp>
 #include <cpu/layers/slice_layer_cpu.hpp>
 #include <cpu/layers/weight_multiply_layer_cpu.hpp>
+#include <cpu/network_cpu.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -89,8 +89,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
                    const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
                    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
                    const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                   bool use_mixed_precision,
-                   std::vector<std::unique_ptr<LayerCPU>>& layers) {
+                   bool use_mixed_precision, std::vector<std::unique_ptr<LayerCPU>>& layers) {
   for (unsigned int i = 1; i < j_array.size(); i++) {
     const nlohmann::json& j = j_array[i];
     const auto layer_type_name = get_value_from_json<std::string>(j, "type");
@@ -108,8 +107,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
 
     std::vector<TensorEntry> output_tensor_entries;
     auto input_output_info = get_input_tensor_and_output_name(j, tensor_entries);
-    if (layer_type == Layer_t::CrossEntropyLoss ||
-        layer_type == Layer_t::BinaryCrossEntropyLoss ||
+    if (layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
         layer_type == Layer_t::MultiCrossEntropyLoss) {
       CK_THROW_(Error_t::WrongInput, "Loss layer is not supported for NetworkCPU");
     }
@@ -150,7 +148,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
 
           BatchNormLayerCPU<__half>::Params params = {factor, eps};
           layers.emplace_back(new BatchNormLayerCPU<__half>(weight_buff, wgrad_buff, blobs_buff,
-                                                         bn_in_tensor, bn_out_tensor, params));
+                                                            bn_in_tensor, bn_out_tensor, params));
         } else {
           Tensor2<float> bn_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           // establish out tensor
@@ -161,7 +159,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
 
           BatchNormLayerCPU<float>::Params params = {factor, eps};
           layers.emplace_back(new BatchNormLayerCPU<float>(weight_buff, wgrad_buff, blobs_buff,
-                                                        bn_in_tensor, bn_out_tensor, params));
+                                                           bn_in_tensor, bn_out_tensor, params));
         }
         break;
       }
@@ -172,8 +170,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             in_tensors.push_back(Tensor2<__half>::stretch_from(bag));
           }
           Tensor2<__half> out_tensor;
-          layers.emplace_back(
-              new ConcatLayerCPU<__half>(in_tensors, out_tensor, blobs_buff));
+          layers.emplace_back(new ConcatLayerCPU<__half>(in_tensors, out_tensor, blobs_buff));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensors2<float> in_tensors;
@@ -181,8 +178,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             in_tensors.push_back(Tensor2<float>::stretch_from(bag));
           }
           Tensor2<float> out_tensor;
-          layers.emplace_back(
-              new ConcatLayerCPU<float>(in_tensors, out_tensor, blobs_buff));
+          layers.emplace_back(new ConcatLayerCPU<float>(in_tensors, out_tensor, blobs_buff));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;
@@ -198,8 +194,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           // get ELU params
           auto rate_it = j.find("rate");
           auto rate = (rate_it != j.end()) ? rate_it->get<float>() : 0.5f;
-          layers.emplace_back(new DropoutLayerCPU<__half>(do_in_tensor, do_out_tensor, blobs_buff,
-                                                       rate));
+          layers.emplace_back(
+              new DropoutLayerCPU<__half>(do_in_tensor, do_out_tensor, blobs_buff, rate));
         } else {
           // establish out tensor
           Tensor2<float> do_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
@@ -228,8 +224,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           // get ELU params
           auto j_elu_hparam = get_json(j, "elu_param");
           auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
-          layers.emplace_back(
-              new EluLayerCPU<__half>(elu_in_tensor, elu_out_tensor, alpha));
+          layers.emplace_back(new EluLayerCPU<__half>(elu_in_tensor, elu_out_tensor, alpha));
 
         } else {
           Tensor2<float> elu_in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
@@ -242,8 +237,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           // get ELU params
           auto j_elu_hparam = get_json(j, "elu_param");
           auto alpha = get_value_from_json<float>(j_elu_hparam, "alpha");
-          layers.emplace_back(
-              new EluLayerCPU<float>(elu_in_tensor, elu_out_tensor, alpha));
+          layers.emplace_back(new EluLayerCPU<float>(elu_in_tensor, elu_out_tensor, alpha));
         }
         break;
       }
@@ -280,8 +274,9 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
               {input_output_info.output_names[0], fc_out_tensor.shrink()});
 
           // establish layer
-          layers.emplace_back(new FusedFullyConnectedLayerCPU(
-              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, fc_out_tensor));
+          layers.emplace_back(new FusedFullyConnectedLayerCPU(weight_buff, weight_buff_half,
+                                                              wgrad_buff_half, blobs_buff,
+                                                              in_tensor, fc_out_tensor));
         } else {
           CK_THROW_(Error_t::WrongInput, "FusedInnerProduct support half only");
         }
@@ -337,8 +332,9 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           blobs_buff->reserve({in_tensor.get_dimensions()[0], output}, &fc_out_tensor);
 
           // establish layer
-          layers.emplace_back(new FullyConnectedLayerCPU<__half>(
-              weight_buff, weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, fc_out_tensor));
+          layers.emplace_back(new FullyConnectedLayerCPU<__half>(weight_buff, weight_buff_half,
+                                                                 wgrad_buff_half, blobs_buff,
+                                                                 in_tensor, fc_out_tensor));
           output_tensor_entries.push_back(
               {input_output_info.output_names[0], fc_out_tensor.shrink()});
         } else {
@@ -373,9 +369,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           Tensor2<float> in_mlp_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> in_emb_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[1]);
           Tensor2<float> out_tensor;
-          layers.emplace_back(
-              new InteractionLayerCPU<float>(in_mlp_tensor, in_emb_tensor, out_tensor, blobs_buff,
-                                          use_mixed_precision));
+          layers.emplace_back(new InteractionLayerCPU<float>(
+              in_mlp_tensor, in_emb_tensor, out_tensor, blobs_buff, use_mixed_precision));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
 
@@ -411,8 +406,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         blobs_buff->reserve(mc_in_tensor.get_dimensions(), &out_tensor);
         output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         // establish layer
-        layers.emplace_back(new MultiCrossLayerCPU(weight_buff, wgrad_buff, blobs_buff, mc_in_tensor,
-                                                out_tensor, num_layers));
+        layers.emplace_back(new MultiCrossLayerCPU(weight_buff, wgrad_buff, blobs_buff,
+                                                   mc_in_tensor, out_tensor, num_layers));
         break;
       }
       case Layer_t::ReLU: {
@@ -451,8 +446,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           if (use_mixed_precision) {
             Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
             Tensor2<__half> out_tensor;
-            layers.emplace_back(new ReshapeLayerCPU<__half>(in_tensor, out_tensor, blobs_buff,
-                                                         selected));
+            layers.emplace_back(
+                new ReshapeLayerCPU<__half>(in_tensor, out_tensor, blobs_buff, selected));
             output_tensor_entries.push_back(
                 {input_output_info.output_names[0], out_tensor.shrink()});
           } else {
@@ -477,8 +472,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             size_t leading_dim = (leading_dim_it != j.end())
                                      ? (*leading_dim_it).get<int>()
                                      : in_tensor.get_num_elements() / in_dims[0];
-            layers.emplace_back(new ReshapeLayerCPU<__half>(in_tensor, out_tensor, blobs_buff,
-                                                         leading_dim));
+            layers.emplace_back(
+                new ReshapeLayerCPU<__half>(in_tensor, out_tensor, blobs_buff, leading_dim));
             output_tensor_entries.push_back(
                 {input_output_info.output_names[0], out_tensor.shrink()});
           } else {
@@ -488,8 +483,8 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
             size_t leading_dim = (leading_dim_it != j.end())
                                      ? (*leading_dim_it).get<int>()
                                      : in_tensor.get_num_elements() / in_dims[0];
-            layers.emplace_back(new ReshapeLayerCPU<float>(in_tensor, out_tensor, blobs_buff,
-                                                        leading_dim));
+            layers.emplace_back(
+                new ReshapeLayerCPU<float>(in_tensor, out_tensor, blobs_buff, leading_dim));
             output_tensor_entries.push_back(
                 {input_output_info.output_names[0], out_tensor.shrink()});
           }
@@ -502,8 +497,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
               Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> sigmoid_out_tensor;
           blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
-          layers.emplace_back(
-              new SigmoidLayerCPU<__half>(sigmoid_in_tensor, sigmoid_out_tensor));
+          layers.emplace_back(new SigmoidLayerCPU<__half>(sigmoid_in_tensor, sigmoid_out_tensor));
           output_tensor_entries.push_back(
               {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
         } else {
@@ -512,8 +506,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
               Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> sigmoid_out_tensor;
           blobs_buff->reserve(sigmoid_in_tensor.get_dimensions(), &sigmoid_out_tensor);
-          layers.emplace_back(
-              new SigmoidLayerCPU<float>(sigmoid_in_tensor, sigmoid_out_tensor));
+          layers.emplace_back(new SigmoidLayerCPU<float>(sigmoid_in_tensor, sigmoid_out_tensor));
           output_tensor_entries.push_back(
               {input_output_info.output_names[0], sigmoid_out_tensor.shrink()});
         }
@@ -540,8 +533,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensors2<float> out_tensors;
-          layers.emplace_back(
-              new SliceLayerCPU<float>(in_tensor, out_tensors, blobs_buff, ranges));
+          layers.emplace_back(new SliceLayerCPU<float>(in_tensor, out_tensors, blobs_buff, ranges));
           for (size_t i = 0; i < out_tensors.size(); i++) {
             output_tensor_entries.push_back(
                 {input_output_info.output_names[i], out_tensors[i].shrink()});
@@ -572,15 +564,14 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
         if (use_mixed_precision) {
           Tensor2<__half> in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
           Tensor2<__half> out_tensor;
-          layers.emplace_back(
-              new WeightMultiplyLayerCPU<__half>(weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor,
-                                              out_tensor, weight_dims));
+          layers.emplace_back(new WeightMultiplyLayerCPU<__half>(
+              weight_buff_half, wgrad_buff_half, blobs_buff, in_tensor, out_tensor, weight_dims));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensor2<float> in_tensor = Tensor2<float>::stretch_from(input_output_info.inputs[0]);
           Tensor2<float> out_tensor;
-          layers.emplace_back(new WeightMultiplyLayerCPU<float>(weight_buff, wgrad_buff, blobs_buff,
-                                                             in_tensor, out_tensor, weight_dims));
+          layers.emplace_back(new WeightMultiplyLayerCPU<float>(
+              weight_buff, wgrad_buff, blobs_buff, in_tensor, out_tensor, weight_dims));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;
@@ -613,8 +604,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           }
           Tensor2<__half> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(
-              new AddLayerCPU<__half>(in_tensors, out_tensor, blobs_buff));
+          layers.emplace_back(new AddLayerCPU<__half>(in_tensors, out_tensor, blobs_buff));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensors2<float> in_tensors;
@@ -623,8 +613,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           }
           Tensor2<float> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(
-              new AddLayerCPU<float>(in_tensors, out_tensor, blobs_buff));
+          layers.emplace_back(new AddLayerCPU<float>(in_tensors, out_tensor, blobs_buff));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;
@@ -655,8 +644,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           }
           Tensor2<__half> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(
-              new DotProductLayerCPU<__half>(in_tensors, out_tensor, blobs_buff));
+          layers.emplace_back(new DotProductLayerCPU<__half>(in_tensors, out_tensor, blobs_buff));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         } else {
           Tensors2<float> in_tensors;
@@ -665,8 +653,7 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
           }
           Tensor2<float> out_tensor;
           blobs_buff->reserve(in_tensors[0].get_dimensions(), &out_tensor);
-          layers.emplace_back(
-              new DotProductLayerCPU<float>(in_tensors, out_tensor, blobs_buff));
+          layers.emplace_back(new DotProductLayerCPU<float>(in_tensors, out_tensor, blobs_buff));
           output_tensor_entries.push_back({input_output_info.output_names[0], out_tensor.shrink()});
         }
         break;
@@ -679,19 +666,19 @@ void create_layers(const nlohmann::json& j_array, std::vector<TensorEntry>& tens
       tensor_entries.push_back(output_tensor_entry);
     }
   }  // for layers
-  for (auto entry:tensor_entries) {
-    std::cout << "[HUGECTR][INFO] layer: "<< entry.name << std::endl;
+  for (auto entry : tensor_entries) {
+    std::cout << "[HUGECTR][INFO] layer: " << entry.name << std::endl;
   }
 }
-              
+
 /*
  * Create single network
  *
  */
 NetworkCPU* NetworkCPU::create_network(const nlohmann::json& j_array,
-                                 std::vector<TensorEntry>& tensor_entries,
-                                 const std::shared_ptr<CPUResource>& cpu_resource,
-                                 bool use_mixed_precision) {
+                                       std::vector<TensorEntry>& tensor_entries,
+                                       const std::shared_ptr<CPUResource>& cpu_resource,
+                                       bool use_mixed_precision) {
   NetworkCPU* network = new NetworkCPU(cpu_resource, use_mixed_precision);
 
   auto& layers = network->layers_;
@@ -705,9 +692,8 @@ NetworkCPU* NetworkCPU::create_network(const nlohmann::json& j_array,
   std::shared_ptr<BufferBlock2<__half>> wgrad_buff_half = blobs_buff->create_block<__half>();
 
   // create layers
-  create_layers(j_array, tensor_entries, blobs_buff, weight_buff,
-                weight_buff_half, wgrad_buff, wgrad_buff_half,
-                use_mixed_precision, layers);
+  create_layers(j_array, tensor_entries, blobs_buff, weight_buff, weight_buff_half, wgrad_buff,
+                wgrad_buff_half, use_mixed_precision, layers);
 
   TensorEntry pred_tensor_entry = tensor_entries.back();
   network->pred_tensor_ = Tensor2<float>::stretch_from(pred_tensor_entry.bag);

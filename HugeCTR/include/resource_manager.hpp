@@ -15,12 +15,12 @@
  */
 
 #pragma once
-#include <resource_manager_base.hpp>
-#include <cpu_resource.hpp>
-#include <gpu_resource.hpp>
-#include <collectives/ib_comm.hpp>
 #include <collectives/all_reduce_comm.hpp>
+#include <collectives/ib_comm.hpp>
+#include <cpu_resource.hpp>
 #include <device_map.hpp>
+#include <gpu_resource.hpp>
+#include <resource_manager_base.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace HugeCTR {
@@ -33,7 +33,8 @@ namespace HugeCTR {
 class ResourceManager : public ResourceManagerBase {
  public:
   static std::shared_ptr<ResourceManager> create(
-      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed, DeviceMap::Layout layout=DeviceMap::LOCAL_FIRST);
+      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed,
+      DeviceMap::Layout layout = DeviceMap::LOCAL_FIRST);
   virtual int get_num_process() const = 0;
   virtual int get_process_id() const = 0;
   virtual int get_master_process_id() const = 0;
@@ -49,7 +50,8 @@ class ResourceManager : public ResourceManagerBase {
 
   virtual DeviceMap::Layout get_device_layout() const = 0;
 
-  virtual const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(int local_gpu_id) const = 0;
+  virtual const std::shared_ptr<rmm::mr::device_memory_resource>&
+  get_device_rmm_device_memory_resource(int local_gpu_id) const = 0;
 
 #ifdef ENABLE_MPI
   virtual IbComm* get_ib_comm() const = 0;
@@ -57,6 +59,5 @@ class ResourceManager : public ResourceManagerBase {
 #endif
   virtual void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) = 0;
   virtual AllReduceInPlaceComm* get_ar_comm() const = 0;
-
 };
 }  // namespace HugeCTR

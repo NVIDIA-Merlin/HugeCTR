@@ -72,14 +72,10 @@ __global__ void frequent_local_reduce(const emtype* __restrict__ gradients_in,
 
 template <typename emtype>
 __forceinline__ __device__ void update_model_direct_common(
-    const emtype* const* __restrict__ gradients_pointers,
-    float* __restrict__ embedding_vectors,
+    const emtype* const* __restrict__ gradients_pointers, float* __restrict__ embedding_vectors,
     const uint32_t* __restrict__ model_cache_indices,
-    const uint32_t* __restrict__ model_cache_indices_offsets,
-    uint32_t num_instances, uint32_t model_id,
-    uint32_t num_frequent_per_model, uint32_t embedding_vec_size,
-    float lr) {
-}
+    const uint32_t* __restrict__ model_cache_indices_offsets, uint32_t num_instances,
+    uint32_t model_id, uint32_t num_frequent_per_model, uint32_t embedding_vec_size, float lr) {}
 
 template <typename emtype>
 __global__ void update_model_direct(const emtype* const* __restrict__ gradients_pointers,
@@ -419,7 +415,8 @@ void FrequentEmbedding<dtype, emtype>::update_model(float* dev_lr, float scale,
                     model_.num_frequent, embedding_vec_size_, dev_lr, scale, stream);
 }
 
-/* Update model for single-node: direct write in category "owner"'s table, lr is a device variable */
+/* Update model for single-node: direct write in category "owner"'s table, lr is a device variable
+ */
 template <typename dtype, typename emtype>
 void FrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, float scale,
                                                            cudaStream_t stream) {

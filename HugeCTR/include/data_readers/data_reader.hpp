@@ -24,9 +24,7 @@
 #include <data_readers/data_reader_common.hpp>
 #include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker_group_norm.hpp>
-
 #include <data_readers/data_reader_worker_group_parquet.hpp>
-
 #include <data_readers/data_reader_worker_group_raw.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
@@ -59,11 +57,11 @@ class DataReader : public IDataReader {
   /* Each gpu will have several csr output for different embedding */
   const std::vector<DataReaderSparseParam> params_;
   std::shared_ptr<ResourceManager> resource_manager_; /**< gpu resource used in this data reader*/
-  const size_t batchsize_; /**< batch size */
+  const size_t batchsize_;                            /**< batch size */
   const size_t label_dim_; /**< dimention of label e.g. 1 for BinaryCrossEntropy */
   const size_t dense_dim_; /**< dimention of dense */
   long long current_batchsize_;
-  
+
   bool repeat_;
   std::string file_name_;
   SourceType_t source_type_;
@@ -150,7 +148,7 @@ class DataReader : public IDataReader {
     output_->label_dense_dim = label_dim + dense_dim;
     for (size_t param_id = 0; param_id < params.size(); ++param_id) {
       auto &param = params_[param_id];
-      
+
       output_->sparse_tensors_map[param.top_name].reserve(local_gpu_count);
       output_->sparse_name_vec.push_back(param.top_name);
     }
@@ -205,8 +203,7 @@ class DataReader : public IDataReader {
     }
 
     data_collector_ = std::make_shared<DataCollector<TypeKey>>(thread_buffers_, broadcast_buffer_,
-                                                               output_, 
-                                                               resource_manager);
+                                                               output_, resource_manager);
     return;
   }
 
@@ -298,12 +295,13 @@ class DataReader : public IDataReader {
     file_name_ = file_name;
   }
 
-  void create_drwg_parquet(std::string file_name,const std::vector<long long> slot_offset,
+  void create_drwg_parquet(std::string file_name, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
     source_type_ = SourceType_t::Parquet;
     // worker_group_.empty
     worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
-        thread_buffers_, file_name, repeat_, params_, slot_offset, resource_manager_, start_reading_from_beginning));
+        thread_buffers_, file_name, repeat_, params_, slot_offset, resource_manager_,
+        start_reading_from_beginning));
   }
 
   void set_source(std::string file_name = std::string()) override {

@@ -34,7 +34,7 @@ template <typename emtype>
 __global__ void sgd_global_update_kernel(const emtype *__restrict__ gradients,
                                          float *__restrict__ embedding_vectors,
                                          uint32_t embedding_vec_size,
-                                         const float* __restrict__ lr_ptr, const float scale) {
+                                         const float *__restrict__ lr_ptr, const float scale) {
   int bid = blockIdx.x;   // block = one vector
   int tid = threadIdx.x;  // thread = one element in a vector
 
@@ -50,7 +50,7 @@ __global__ void sgd_atomic_update_kernel(const emtype *__restrict__ gradients,
                                          float *__restrict__ embedding_vectors,
                                          const uint32_t *__restrict__ num_indices_ptr,
                                          Lambda get_index, uint32_t embedding_vec_size,
-                                         const float* __restrict__ lr_ptr, const float scale) {
+                                         const float *__restrict__ lr_ptr, const float scale) {
   const uint32_t num_indices = __ldg(num_indices_ptr);
 
   float lr = __ldg(lr_ptr) / scale;
@@ -68,9 +68,8 @@ __global__ void sgd_atomic_update_kernel(const emtype *__restrict__ gradients,
 
 template <typename dtype, typename emtype>
 void sgd_global_update(const emtype *gradients, float *embedding_vectors,
-                       dtype num_embedding_vectors, uint32_t embedding_vec_size,
-                       float* lr_ptr, float scale,
-                       cudaStream_t stream) {
+                       dtype num_embedding_vectors, uint32_t embedding_vec_size, float *lr_ptr,
+                       float scale, cudaStream_t stream) {
   if (num_embedding_vectors < 1) return;
   sgd_global_update_kernel<<<num_embedding_vectors, embedding_vec_size, 0, stream>>>(
       gradients, embedding_vectors, embedding_vec_size, lr_ptr, scale);
@@ -80,7 +79,7 @@ void sgd_global_update(const emtype *gradients, float *embedding_vectors,
 template <typename emtype, typename Lambda>
 void sgd_atomic_update(const emtype *gradients, float *embedding_vectors,
                        const uint32_t *num_indices_ptr, Lambda get_index, uint32_t n_blocks,
-                       uint32_t embedding_vec_size, float* lr_ptr, float scale,
+                       uint32_t embedding_vec_size, float *lr_ptr, float scale,
                        cudaStream_t stream) {
   // Note: currently taking the number of blocks as an argument but we can also compute it here with
   // some heuristics if we think it's better

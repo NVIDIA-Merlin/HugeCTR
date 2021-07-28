@@ -15,9 +15,8 @@
  */
 
 #include <common.hpp>
-#include <utils.hpp>
-
 #include <cpu/layers/slice_layer_cpu.hpp>
+#include <utils.hpp>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -29,7 +28,7 @@ namespace {
 
 template <typename T>
 void slice_fprop_cpu(size_t height, size_t width, std::vector<std::pair<int, int>>& ranges,
-                    size_t n_outs, T* h_in, T** h_refs) {
+                     size_t n_outs, T* h_in, T** h_refs) {
   int i = 0;
   for (auto& range : ranges) {
     int out_width = range.second - range.first;
@@ -48,8 +47,8 @@ void slice_fprop_cpu(size_t height, size_t width, std::vector<std::pair<int, int
 
 template <typename T>
 SliceLayerCPU<T>::SliceLayerCPU(const Tensor2<T>& in_tensor, Tensors2<T>& out_tensors,
-                          const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-                          std::vector<std::pair<int, int>>& ranges)
+                                const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                                std::vector<std::pair<int, int>>& ranges)
     : LayerCPU(), virt_w_(0), ranges_(ranges) {
   try {
     if (ranges.empty()) {
