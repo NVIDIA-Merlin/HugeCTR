@@ -18,6 +18,7 @@
 
 #include <math_constants.h>
 #include <stdint.h>
+
 #include <cuml/common/utils.hpp>
 
 namespace MLCommon {

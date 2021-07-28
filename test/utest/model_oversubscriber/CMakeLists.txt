@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
 file(GLOB model_oversubscriber_test_src
   parameter_server_test.cu
   sparse_model_file_test.cpp

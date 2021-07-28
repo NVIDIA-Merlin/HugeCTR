@@ -47,7 +47,6 @@ __global__ void elu_kernel<__half>(const __half* input, __half* output, int size
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < size2) {
     const __half2 in2 = input2[tid];
-    const __half2 tmp2 = alpha2 * (h2exp(in2) - one2);
     const __half2 pred = __hlt2(in2, zero2);
     output2[tid] = pred * (alpha2 * (h2exp(in2) - one2)) + (one2 - pred) * in2;
   }

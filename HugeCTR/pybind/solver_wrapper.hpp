@@ -28,7 +28,28 @@ std::unique_ptr<Solver> CreateSolver(
     int batchsize, std::vector<std::vector<int>> vvgpu, bool repeat_dataset,
     bool use_mixed_precision, bool enable_tf32_compute, float scaler, 
     std::map<metrics::Type, float> metrics_spec, bool i64_input_key,
-    bool use_algorithm_search, bool use_cuda_graph) {
+    bool use_algorithm_search, bool use_cuda_graph, DeviceMap::Layout device_layout,
+    bool use_holistic_cuda_graph, bool use_overlapped_pipeline,
+    AllReduceAlgo all_reduce_algo, bool grouped_all_reduce, size_t num_iterations_statistics,
+    bool is_dlrm) {
+  if (use_mixed_precision && enable_tf32_compute) {
+    CK_THROW_(Error_t::WrongInput, "use_mixed_precision and enable_tf32_compute cannot be true at the same time");
+  }
+  if (use_mixed_precision && scaler != 128 && scaler != 256 && scaler != 512 && scaler != 1024) {
+    CK_THROW_(Error_t::WrongInput, "Scaler of mixed precision training should be either 128/256/512/1024");
+  }
+  if (!is_dlrm && use_holistic_cuda_graph) {
+    CK_THROW_(Error_t::WrongInput, "Holistic cuda graph is restricted to DLRM use");
+  }
+  if (!is_dlrm && use_overlapped_pipeline) {
+    CK_THROW_(Error_t::WrongInput, "Overlapped pipeline is restricted to DLRM use");
+  }
+  if (!is_dlrm && grouped_all_reduce) {
+    CK_THROW_(Error_t::WrongInput, "Grouped all reduce is restricted to DLRM use");
+  }
+  if (use_holistic_cuda_graph && use_cuda_graph) {
+    CK_THROW_(Error_t::WrongInput, "Must turn off local cuda graph when using holistic cuda graph");
+  }
   std::unique_ptr<Solver> solver(new Solver());
   solver->seed = seed;
   solver->lr_policy = lr_policy;
@@ -50,6 +71,13 @@ std::unique_ptr<Solver> CreateSolver(
   solver->i64_input_key = i64_input_key;
   solver->use_algorithm_search = use_algorithm_search;
   solver->use_cuda_graph = use_cuda_graph;
+  solver->device_layout = device_layout;
+  solver->use_holistic_cuda_graph = use_holistic_cuda_graph;
+  solver->use_overlapped_pipeline = use_overlapped_pipeline;
+  solver->all_reduce_algo = all_reduce_algo;
+  solver->grouped_all_reduce = grouped_all_reduce;
+  solver->num_iterations_statistics = num_iterations_statistics;
+  solver->is_dlrm = is_dlrm;
   return solver;
 }
 
@@ -75,7 +103,14 @@ void SolverPybind(pybind11::module& m) {
       .def_readonly("metrics_spec", &HugeCTR::Solver::metrics_spec)
       .def_readonly("i64_input_key", &HugeCTR::Solver::i64_input_key)
       .def_readonly("use_algorithm_search", &HugeCTR::Solver::use_algorithm_search)
-      .def_readonly("use_cuda_graph", &HugeCTR::Solver::use_cuda_graph);
+      .def_readonly("use_cuda_graph", &HugeCTR::Solver::use_cuda_graph)
+      .def_readonly("device_layout", &HugeCTR::Solver::device_layout)
+      .def_readonly("use_holistic_cuda_graph", &HugeCTR::Solver::use_holistic_cuda_graph)
+      .def_readonly("use_overlapped_pipeline", &HugeCTR::Solver::use_overlapped_pipeline)
+      .def_readonly("all_reduce_algo", &HugeCTR::Solver::all_reduce_algo)
+      .def_readonly("grouped_all_reduce", &HugeCTR::Solver::grouped_all_reduce)
+      .def_readonly("num_iterations_statistics", &HugeCTR::Solver::num_iterations_statistics)
+      .def_readonly("is_dlrm", &HugeCTR::Solver::is_dlrm);
   m.def("CreateSolver", &HugeCTR::python_lib::CreateSolver,
        pybind11::arg("seed") = 0,
        pybind11::arg("lr_policy") = LrPolicy_t::fixed,
@@ -96,7 +131,14 @@ void SolverPybind(pybind11::module& m) {
        pybind11::arg("metrics_spec") = std::map<metrics::Type, float>({{metrics::Type::AUC,1.f}}),
        pybind11::arg("i64_input_key") = false,
        pybind11::arg("use_algorithm_search") = true,
-       pybind11::arg("use_cuda_graph") = true);
+       pybind11::arg("use_cuda_graph") = true,
+       pybind11::arg("device_layout") = DeviceMap::Layout::LOCAL_FIRST,
+       pybind11::arg("use_holistic_cuda_graph") = false,
+       pybind11::arg("use_overlapped_pipeline") = false,
+       pybind11::arg("all_reduce_algo") = AllReduceAlgo::ONESHOT,
+       pybind11::arg("grouped_all_reduce") = false,
+       pybind11::arg("num_iterations_statistics") = 20,
+       pybind11::arg("is_dlrm") = false);
 }
 
 }  // namespace python_lib

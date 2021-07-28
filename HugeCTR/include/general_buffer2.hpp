@@ -16,6 +16,7 @@
 
 #pragma once
 #include <cuda_runtime_api.h>
+
 #include <memory>
 #include <numeric>
 #include "HugeCTR/include/tensor2.hpp"
@@ -156,11 +157,13 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
   size_t total_size_in_bytes_;
   std::vector<std::shared_ptr<BufferInternal>> reserved_buffers_;
   
-  GeneralBuffer2() : ptr_(nullptr), total_size_in_bytes_(0) {}
+  GeneralBuffer2(Allocator allocator)
+    : allocator_(allocator), ptr_(nullptr), total_size_in_bytes_(0) {}
+
 
  public:
-  static std::shared_ptr<GeneralBuffer2> create() {
-    return std::shared_ptr<GeneralBuffer2>(new GeneralBuffer2);
+  static std::shared_ptr<GeneralBuffer2> create(Allocator allocator = Allocator()) {
+    return std::shared_ptr<GeneralBuffer2>(new GeneralBuffer2(allocator));
   }
 
   GeneralBuffer2(const GeneralBuffer2 &) = delete;
@@ -173,6 +176,10 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
   }
 
   void allocate() {
+    allocate_aligned(32);
+  }
+
+  void allocate_aligned(size_t align_size) {
     if (ptr_ != nullptr) {
       CK_THROW_(Error_t::WrongInput, "Memory has already been allocated.");
     }
@@ -181,8 +188,8 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
     for (const std::shared_ptr<BufferInternal> &buffer : reserved_buffers_) {
       buffer->initialize(this->shared_from_this(), offset);
       size_t size_in_bytes = buffer->get_size_in_bytes();
-      if (size_in_bytes % 32 != 0) {
-        size_in_bytes += (32 - size_in_bytes % 32);
+      if (size_in_bytes % align_size != 0) {
+        size_in_bytes += (align_size - size_in_bytes % align_size);
       }
       offset += size_in_bytes;
     }
@@ -248,7 +255,10 @@ class GeneralBuffer2 : public std::enable_shared_from_this<GeneralBuffer2<Alloca
 
   bool allocated() const { return total_size_in_bytes_ != 0 && ptr_ != nullptr; }
 
-  void *get_ptr() const {return ptr_;}
+  void *get_ptr() { return ptr_; }
+  const void *get_ptr() const { return ptr_; }
+  size_t get_size_in_bytes() { return total_size_in_bytes_; }
+
 };  // namespace HugeCTR
 
 }  // namespace HugeCTR

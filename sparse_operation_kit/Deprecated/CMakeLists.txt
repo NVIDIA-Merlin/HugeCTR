@@ -183,6 +183,7 @@ FILE(GLOB  hugectr_src
   ${HugeCTR_Path}/HugeCTR/src/resource_manager.cpp
   ${HugeCTR_Path}/HugeCTR/src/resource_managers/resource_manager_core.cpp
   ${HugeCTR_Path}/HugeCTR/src/data_simulator.cu
+  ${HugeCTR_Path}/HugeCTR/src/gpu_learning_rate_scheduler.cu
   ${HugeCTR_Path}/HugeCTR/src/optimizers/*.cu
   ${HugeCTR_Path}/HugeCTR/src/optimizer.cpp
   ${HugeCTR_Path}/HugeCTR/src/regularizer.cu
@@ -190,6 +191,8 @@ FILE(GLOB  hugectr_src
   ${HugeCTR_Path}/HugeCTR/src/regularizers/l2_regularizer.cu
   ${HugeCTR_Path}/HugeCTR/src/regularizers/no_regularizer.cu
   ${HugeCTR_Path}/HugeCTR/src/hashtable/nv_hashtable.cu
+  ${HugeCTR_Path}/HugeCTR/src/embeddings/hybrid_embedding/data.cu
+  ${HugeCTR_Path}/HugeCTR/src/embeddings/hybrid_embedding/statistics.cu
   ${HugeCTR_Path}/HugeCTR/src/embeddings/sync_all_gpus_functor.cu
   ${HugeCTR_Path}/HugeCTR/src/embeddings/init_embedding_functor.cu
   ${HugeCTR_Path}/HugeCTR/src/embeddings/forward_per_gpu_functor.cu

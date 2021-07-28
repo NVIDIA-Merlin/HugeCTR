@@ -15,11 +15,14 @@
  */
 
 #pragma once
+
 #include <common.hpp>
+#include <data_readers/data_reader_common.hpp>
 #include <data_readers/source.hpp>
 #include <memory>
 
 namespace HugeCTR {
+
 class IDataReaderWorker {
  public:
   virtual void read_a_batch() {};
@@ -27,7 +30,8 @@ class IDataReaderWorker {
   void set_source(std::shared_ptr<Source> source) {
     if (!is_eof_) {
       CK_THROW_(Error_t::IllegalCall,
-          "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker is not in the EOF state.");
+                "DataSource cannot be changed in the \"repeat\" mode or when a data reader worker "
+                "is not in the EOF state.");
     }
     pre_set_source();
     source_ = source;

@@ -25,6 +25,7 @@ namespace HugeCTR {
  * A core GPU Resource manager
  */
 class ResourceManagerCore : public ResourceManager {
+ private:
   int num_process_;
   int process_id_;
   DeviceMap device_map_;
@@ -32,12 +33,16 @@ class ResourceManagerCore : public ResourceManager {
   std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
   std::vector<std::vector<bool>> p2p_matrix_;
 
+  std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> base_cuda_mr_;
+  std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> memory_resource_;
+
+  void all2all_warmup();
   void enable_all_peer_accesses();
-  ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
-      unsigned long long seed);
+  void initialize_rmm_resources();
+
  public:
-  friend std::shared_ptr<ResourceManager> ResourceManager::create(
-      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed);
+  ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
+                      unsigned long long seed);
   ResourceManagerCore(const ResourceManagerCore&) = delete;
   ResourceManagerCore& operator=(const ResourceManagerCore&) = delete;
 
@@ -66,6 +71,10 @@ class ResourceManagerCore : public ResourceManager {
 
   const std::shared_ptr<CPUResource>& get_local_cpu() const override { return cpu_resource_; }
 
+  const std::vector<std::shared_ptr<GPUResource>>& get_local_gpus() const override {
+    return gpu_resources_;
+  }
+
   const std::vector<int>& get_local_gpu_device_id_list() const override {
     return device_map_.get_device_list();
   }
@@ -84,5 +93,28 @@ class ResourceManagerCore : public ResourceManager {
 
   bool p2p_enabled(int src_dev, int dst_dev) const override;
   bool all_p2p_enabled() const override;
+
+  DeviceMap::Layout get_device_layout() const override { return device_map_.get_device_layout(); }
+
+  const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
+      int local_gpu_id) const override;
+
+#ifdef ENABLE_MPI
+  IbComm* get_ib_comm() const override { 
+    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+    return nullptr;
+  }
+  void set_ready_to_transfer() override { 
+    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+  }
+#endif
+  void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override {
+    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+  }
+  AllReduceInPlaceComm* get_ar_comm() const override {
+    CK_THROW_(Error_t::IllegalCall, "Error: should not be reached");
+    return nullptr;
+  }
+
 };
 }  // namespace HugeCTR
