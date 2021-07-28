@@ -480,6 +480,8 @@ class Model {
   bool dlrm_bottom_mlp_;
   bool high_level_eval_;
 
+  HugeCTR::Timer timer_log;
+
   Error_t download_dense_params_to_files_(std::string weights_file,
                                           std::string dense_opt_states_file);
 

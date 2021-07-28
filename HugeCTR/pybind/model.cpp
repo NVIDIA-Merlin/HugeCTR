@@ -289,6 +289,11 @@ Model::Model(const Solver& solver, const DataReaderParams& reader_params,
       current_eval_batchsize_(0),
       dlrm_bottom_mlp_(true),
       high_level_eval_(false) {
+  timer_log.start();
+  if(solver_.is_dlrm) {
+    timer_log.start();
+    LOG(timer_log.elapsedMilliseconds(), "init_start");
+  }
   int __PID(0);
 #ifdef ENABLE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &__PID);
@@ -836,6 +841,10 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   HugeCTR::Timer timer_train;
   HugeCTR::Timer timer_eval;
 
+  if(solver_.is_dlrm && __PID == 0) {
+    LOG(timer_log.elapsedMilliseconds(), "init_end");
+    LOG(timer_log.elapsedMilliseconds(), "run_start");
+  }
   bool epoch_mode = !solver_.repeat_dataset;
   bool mos_mode = mos_params_->use_model_oversubscriber;
   int mos_epochs = num_epochs < 1 ? 1 : num_epochs;
@@ -872,7 +881,7 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   timer_train.start();
 
 #ifdef ENABLE_PROFILING
-  HugeCTR::global_profiler.initialize(solver_config.use_cuda_graph);
+  HugeCTR::global_profiler.initialize(solver_.use_cuda_graph);
 #endif
 
   if (epoch_mode && !mos_mode) {
@@ -1062,6 +1071,10 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
   } else {
     MESSAGE_("Training source file: " + reader_params_.source[0]);
     MESSAGE_("Evaluation source file: " + reader_params_.eval_source);
+    if(solver_.is_dlrm) {
+      LOG(timer_log.elapsedMilliseconds(), "train_epoch_start", 0);  // just 1 epoch. dlrm logger
+    }
+
     this->start_data_reading();
     for (int iter = 0; iter < max_iter; iter++) {
       float lr = 0;
@@ -1103,6 +1116,9 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         this->check_overflow();
         this->copy_weights_for_evaluation();
         timer_eval.start();
+        if(solver_.is_dlrm){
+          LOG(timer_log.elapsedMilliseconds(), "eval_start", float(iter) / max_iter);
+        }
         for (int batches = 0; batches < solver_.max_eval_batches; batches++) {
           this->eval(batches);
         }
@@ -1110,10 +1126,40 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         auto eval_metrics = this->get_eval_metrics();
         for (auto& eval_metric : eval_metrics) {
           MESSAGE_("Evaluation, " + eval_metric.first + ": " + std::to_string(eval_metric.second));
+          if(solver_.is_dlrm){
+            LOG(timer_log.elapsedMilliseconds(), "eval_accuracy", eval_metric.second,
+                    float(iter) / max_iter, iter);
+          }
           if (!eval_metric.first.compare("AUC")) {
             const auto auc_threshold = solver_.metrics_spec[HugeCTR::metrics::Type::AUC];
             if (eval_metric.second >= auc_threshold) {
               timer.stop();
+
+              if(solver_.is_dlrm) {
+                size_t train_samples =
+                  static_cast<size_t>(iter + 1) * static_cast<size_t>(solver_.batchsize);
+
+                std::string epoch_num_str = std::to_string(float(iter) / max_iter);
+
+                std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at epoch " +
+                                epoch_num_str + " with batchsize: "
+                          << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                          << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
+                          << float(iter) * solver_.batchsize / timer.elapsedSeconds() << " records/s."
+                          << std::endl;
+
+                LOG(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
+
+                LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+
+                if (__PID == 0) {
+                  LOG(timer_log.elapsedMilliseconds(), "run_stop");
+                  LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
+                }
+                timer_log.stop();
+              }
+              
+
               if (__PID == 0) {
                 std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at " +
                                  std::to_string(iter) + "/" + std::to_string(max_iter) +
@@ -1129,11 +1175,28 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
         }
         MESSAGE_("Eval Time for " + std::to_string(solver_.max_eval_batches) +
                  " iters: " + std::to_string(timer_eval.elapsedSeconds()) + "s");
+        if(solver_.is_dlrm) {
+          LOG(timer_log.elapsedMilliseconds(), "eval_stop",
+            float(iter) / max_iter);  // use iteration to calculate it's in which epoch
+        }
       }
       if (snapshot > 0 && iter % snapshot == 0 && iter != 0) {
         this->download_params_to_files(snapshot_prefix, iter);
       }
-    }  // end for iter
+    } // end for iter
+    if(solver_.is_dlrm) {
+      LOG(timer_log.elapsedMilliseconds(), "train_epoch_end", 1);
+
+      if (__PID == 0) {
+        LOG(timer_log.elapsedMilliseconds(), "run_stop");
+        size_t train_samples =
+            static_cast<size_t>(max_iter) * static_cast<size_t>(solver_.batchsize);
+        LOG(timer_log.elapsedMilliseconds(), "train_samples", train_samples);
+        
+      }
+      timer_log.stop();
+    }
+    
     timer.stop();
     if (__PID == 0) {
       std::cout << "Finish "
