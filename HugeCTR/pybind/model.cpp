@@ -1141,12 +1141,12 @@ void Model::fit(int num_epochs, int max_iter, int display, int eval_interval, in
 
                 std::string epoch_num_str = std::to_string(float(iter) / max_iter);
 
-                std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at epoch " +
-                                epoch_num_str + " with batchsize: "
-                          << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
-                          << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
-                          << float(iter) * solver_.batchsize / timer.elapsedSeconds() << " records/s."
-                          << std::endl;
+                std::cout << "Hit target accuracy AUC " + std::to_string(auc_threshold) + " at " +
+                        std::to_string(iter)  + "/" + std::to_string(max_iter) + " iterations with batchsize "
+                << solver_.batchsize << " in " << std::setiosflags(std::ios::fixed)
+                << std::setprecision(2) << timer.elapsedSeconds() << " s. Average speed "
+                << float(iter) * solver_.batchsize / timer.elapsedSeconds() << " records/s."
+                << std::endl;
 
                 LOG(timer_log.elapsedMilliseconds(), "eval_stop" + epoch_num_str);
 
