@@ -520,6 +520,7 @@ nightly_build_train:
     - docker build --pull
       -t "${TRAIN_IMAGE_RELEASE}"
       -f ./Dockerfile.train
+      --build-arg RELEASE=true
       ${PWD}
     - docker push ${TRAIN_IMAGE_RELEASE}
   only:
@@ -555,6 +556,7 @@ nightly_build_embedding:
     - docker build --pull
       -t "${EMB_IMAGE_RELEASE}"
       -f ./Dockerfile.plugin-embedding
+      --build-arg RELEASE=true
       ${PWD}
     - docker push ${EMB_IMAGE_RELEASE}
   only:
