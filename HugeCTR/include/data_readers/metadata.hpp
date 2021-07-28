@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
 #include "HugeCTR/include/common.hpp"
 
 namespace HugeCTR {

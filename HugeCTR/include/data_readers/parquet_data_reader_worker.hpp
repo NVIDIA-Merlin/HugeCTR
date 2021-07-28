@@ -120,6 +120,8 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
               i++;
             }
           }
+          
+          tmp_col_index.clear();
 
           tmp_col_index.clear();
 
@@ -174,11 +176,7 @@ class ParquetDataReaderWorker : public IDataReaderWorker {
     buff->reserve({32}, &host_pinned_csr_inc_);
     buff->allocate();
 
-    ResourceManagerExt* ext = dynamic_cast<ResourceManagerExt*>(resource_manager_.get());
-    if (ext == nullptr) {
-      CK_THROW_(Error_t::WrongInput, "Invalid ResourceManager");
-    }
-    memory_resource_ = ext->get_device_rmm_device_memory_resource(device_id_);
+    memory_resource_ = resource_manager_->get_device_rmm_device_memory_resource(device_id_);
 
     if (worker_id >= worker_num) {
       CK_THROW_(Error_t::BrokenFile, "ParquetDataReaderWorker: worker_id >= worker_num");

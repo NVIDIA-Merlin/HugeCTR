@@ -32,4 +32,5 @@ class ResourceManagerBase {
   virtual size_t get_local_gpu_count() const = 0;
   virtual size_t get_global_gpu_count() const = 0;
 };
+
 }  // namespace HugeCTR

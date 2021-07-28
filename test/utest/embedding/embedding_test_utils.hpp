@@ -17,10 +17,12 @@
 #pragma once
 
 #include <stdio.h>
+
 #include <cmath>
 #include <fstream>
 #include <type_traits>
 #include <unordered_set>
+
 #include "HugeCTR/include/common.hpp"
 #include "utest/embedding/sparse_embedding_hash_cpu.hpp"
 

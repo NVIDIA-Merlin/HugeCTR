@@ -15,14 +15,17 @@
  */
 
 #include "HugeCTR/include/data_generator.hpp"
+
 #include <sys/stat.h>
+
 #include <fstream>
 #include <ios>
 #include <iostream>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
+
 #include "HugeCTR/include/parser.hpp"
-#include "nlohmann/json.hpp"
 #include "HugeCTR/include/utils.hpp"
 #include <unordered_set>
 #ifdef ENABLE_MPI
@@ -192,10 +195,10 @@ int main(int argc, char* argv[]) {
       //to do: add default value support
       std::vector<size_t> voc_size_array = ArgParser::get_arg<std::vector<size_t>>("voc-size-array", argc, argv);
 
-      if(nnz_array.empty()){
-	for(size_t i=0; i<voc_size_array.size(); i++){
-	  nnz_array.push_back(1);
-	}
+      if(nnz_array.empty()) {
+        for(size_t i=0; i<voc_size_array.size(); i++) {
+          nnz_array.push_back(1);
+        }
       }
 
       NUM_FILES = ArgParser::get_arg<int>("files", argc, argv, 128);
@@ -205,7 +208,8 @@ int main(int argc, char* argv[]) {
       
       std::cout << "Configure File: " << config_file << ", Data Folder: " << data_folder << ", voc_size_array: " << vec_to_string(voc_size_array) << ", nnz array: " << vec_to_string(nnz_array)
                 << ", #files: " << NUM_FILES << ", #samples per file: " << NUM_SAMPLES_PER_FILE
-                << ", Use power law distribution: " << use_long_tail << ", alpha of power law: " << alpha << std::endl;
+                << ", Use power law distribution: " << use_long_tail
+                << ", alpha of power law: " << alpha << std::endl;
 
       Check_t check_type;
       parse_norm_arguments(config, check_type);
@@ -259,7 +263,7 @@ int main(int argc, char* argv[]) {
       std::cout << "Configure File: " << config_file
                 << ", Number of train samples: " << num_samples
                 << ", Number of eval samples: " << eval_num_samples
-                << ", Use power law distribution: " << use_long_tail 
+                << ", Use power law distribution: " << use_long_tail
                 << ", alpha of power law: " << alpha << std::endl;
 
 

@@ -24,7 +24,9 @@
 #include <data_readers/data_reader_common.hpp>
 #include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker_group_norm.hpp>
+
 #include <data_readers/data_reader_worker_group_parquet.hpp>
+
 #include <data_readers/data_reader_worker_group_raw.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
@@ -145,6 +147,7 @@ class DataReader : public IDataReader {
     output_->label_tensors.reserve(local_gpu_count);
     output_->last_batch_finish_events.resize(local_gpu_count);
     output_->use_mixed_precision = use_mixed_precision;
+    output_->label_dense_dim = label_dim + dense_dim;
     for (size_t param_id = 0; param_id < params.size(); ++param_id) {
       auto &param = params_[param_id];
       
@@ -300,7 +303,7 @@ class DataReader : public IDataReader {
     source_type_ = SourceType_t::Parquet;
     // worker_group_.empty
     worker_group_.reset(new DataReaderWorkerGroupParquet<TypeKey>(
-        thread_buffers_, file_name,repeat_, params_, slot_offset, resource_manager_, start_reading_from_beginning));
+        thread_buffers_, file_name, repeat_, params_, slot_offset, resource_manager_, start_reading_from_beginning));
   }
 
   void set_source(std::string file_name = std::string()) override {
