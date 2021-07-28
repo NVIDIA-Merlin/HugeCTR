@@ -41,6 +41,7 @@ $ python ncf.py
 ```
 By default, this will run 10 epochs of the dataset and provide Cumulative Hit Rate (HitRate) accuracy results after each.  The HitRate provided by HugeCTR is computed on testing data as the fraction of predictions that are over a threshold (0.8) and correspond to a real interaction (i.e., label is 1). 
 
+
 If you are using the `Movielens 1M` dataset instead, simply run `get_ml1_data.sh` and `python preprocess-1m.py` to prepare the dataset.  Then edit `ncf.py` to use `ml-1m` directories, and change  parameters to the values that are commented out in `ncf.py` (such as `workspace_size_per_gpu_in_mb`).  Note that in general, `workspace_size_per_gpu_in_mb` should be approximately the sum of users and items in the dataset.
 
 
