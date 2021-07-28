@@ -58,7 +58,7 @@ struct DataReaderOutput {
   std::vector<TensorBag2> dense_tensors;
   std::vector<cudaEvent_t> last_batch_finish_events;
   bool use_mixed_precision;
-
+  int label_dense_dim;
 };
 
 }

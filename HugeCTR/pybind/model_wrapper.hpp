@@ -26,15 +26,17 @@ namespace python_lib {
 void ModelPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::DataReaderParams, std::shared_ptr<HugeCTR::DataReaderParams>>(
       m, "DataReaderParams")
-      .def(pybind11::init<DataReaderType_t, std::vector<std::string>, std::vector<std::string>,
-                          std::string, Check_t, int, long long, long long, bool, int,
-                          std::vector<long long int>>(),
+      .def(pybind11::init<DataReaderType_t,
+           std::vector<std::string>, std::vector<std::string>, std::string, Check_t,
+           int, long long, long long, bool, int, std::vector<long long>&,
+           const AsyncParam&>(),
            pybind11::arg("data_reader_type"), pybind11::arg("source"),
            pybind11::arg("keyset") = std::vector<std::string>(), pybind11::arg("eval_source"),
            pybind11::arg("check_type"), pybind11::arg("cache_eval_data") = 0,
            pybind11::arg("num_samples") = 0, pybind11::arg("eval_num_samples") = 0,
            pybind11::arg("float_label_dense") = false, pybind11::arg("num_workers") = 12,
-           pybind11::arg("slot_size_array") = std::vector<size_t>());
+           pybind11::arg("slot_size_array") = std::vector<long long>(),
+           pybind11::arg("async_param") = AsyncParam{16, 4, 512000, 4, 512, false, Alignment_t::None});
   pybind11::class_<HugeCTR::Input, std::shared_ptr<HugeCTR::Input>>(m, "Input")
       .def(pybind11::init<int, std::string, int, std::string,
                           std::vector<DataReaderSparseParam> &>(),
@@ -42,20 +44,24 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("dense_name"), pybind11::arg("data_reader_sparse_param_array"));
   pybind11::class_<HugeCTR::SparseEmbedding, std::shared_ptr<HugeCTR::SparseEmbedding>>(
       m, "SparseEmbedding")
-      .def(pybind11::init<Embedding_t, size_t, size_t, const std::string &, std::string,
-                          std::string, std::vector<size_t> &, std::shared_ptr<OptParamsPy> &>(),
+      .def(pybind11::init<Embedding_t,
+          size_t, size_t, const std::string &, std::string, std::string, std::vector<size_t>&,
+          std::shared_ptr<OptParamsPy>&, const HybridEmbeddingParam&>(),
            pybind11::arg("embedding_type"), pybind11::arg("workspace_size_per_gpu_in_mb"),
            pybind11::arg("embedding_vec_size"), pybind11::arg("combiner"),
            pybind11::arg("sparse_embedding_name"), pybind11::arg("bottom_name"),
            pybind11::arg("slot_size_array") = std::vector<size_t>(),
-           pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()));
+           pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()),
+           pybind11::arg("hybrid_embedding_param") = HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 1.9e11, 1.0,
+                                                                      hybrid_embedding::CommunicationType::NVLink_SingleNode,
+                                                                      hybrid_embedding::HybridEmbeddingType::Distributed});
   pybind11::class_<HugeCTR::DenseLayer, std::shared_ptr<HugeCTR::DenseLayer>>(m, "DenseLayer")
       .def(pybind11::init<Layer_t, std::vector<std::string> &, std::vector<std::string> &, float,
                           float, Initializer_t, Initializer_t, float, float, size_t, Initializer_t,
-                          Initializer_t, int, size_t, size_t, size_t, size_t, size_t, bool,
-                          std::vector<int> &, std::vector<std::pair<int, int>> &,
-                          std::vector<int> &, std::vector<size_t> &, size_t, int,
-                          std::vector<float> &, bool, Regularizer_t, float>(),
+                          Initializer_t, int, size_t, size_t, size_t, size_t, size_t, bool, std::vector<int> &,
+                          std::vector<std::pair<int, int>> &, std::vector<int> &, std::vector<size_t> &, size_t, int,
+                          std::vector<float> &, bool, Regularizer_t, float,
+                          FcPosition_t, Activation_t>(),
            pybind11::arg("layer_type"), pybind11::arg("bottom_names"), pybind11::arg("top_names"),
            pybind11::arg("factor") = 1.0, pybind11::arg("eps") = 0.00001,
            pybind11::arg("gamma_init_type") = Initializer_t::Default,
@@ -73,7 +79,10 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("weight_dims") = std::vector<size_t>(), pybind11::arg("out_dim") = 0,
            pybind11::arg("axis") = 1, pybind11::arg("target_weight_vec") = std::vector<float>(),
            pybind11::arg("use_regularizer") = false,
-           pybind11::arg("regularizer_type") = Regularizer_t::L1, pybind11::arg("lambda") = 0);
+           pybind11::arg("regularizer_type") = Regularizer_t::L1,
+           pybind11::arg("lambda") = 0,
+           pybind11::arg("pos_type") = FcPosition_t::None,
+           pybind11::arg("act_type") = Activation_t::Relu);
   pybind11::class_<HugeCTR::Model, std::shared_ptr<HugeCTR::Model>>(m, "Model")
       .def(pybind11::init<const Solver &, const DataReaderParams &, std::shared_ptr<OptParamsPy> &,
                           std::shared_ptr<ModelOversubscriberParams> &>(),
@@ -119,40 +128,41 @@ void ModelPybind(pybind11::module &m) {
            pybind11::arg("dense_layer"))
       .def("set_learning_rate", &HugeCTR::Model::set_learning_rate, pybind11::arg("lr"))
       .def("train", &HugeCTR::Model::train)
-      .def("eval", &HugeCTR::Model::eval)
+      .def("eval", &HugeCTR::Model::eval,
+           pybind11::arg("eval_batch") = -1)
       .def("start_data_reading", &HugeCTR::Model::start_data_reading)
       .def("get_current_loss",
            [](HugeCTR::Model &self) {
              float loss = 0;
              self.get_current_loss(&loss);
              return loss;
-       })
-    .def("get_eval_metrics", &HugeCTR::Model::get_eval_metrics)
-    .def("get_incremental_model", [](HugeCTR::Model &self) {
-             auto inc_sparse_model = self.get_incremental_model();
-             std::vector<std::pair<pybind11::array_t<long long>, pybind11::array_t<float>>> array_inc_sparse_model;
-             for (const auto& pair:inc_sparse_model) {
-               size_t num_keys = pair.first.size();
-               size_t emb_vec_size = pair.second.size() / num_keys;
-               long long* keys = new long long[num_keys];
-               float* emb_vecs = new float[pair.second.size()];
-               memcpy(keys, pair.first.data(), num_keys*sizeof(long long));
-               memcpy(emb_vecs, pair.second.data(), num_keys*emb_vec_size*sizeof(float));
-               auto keys_capsule = pybind11::capsule(keys, [](void *v) { 
-                    long long* vv = reinterpret_cast<long long*>(v);
-                    delete[] vv; 
-               });
-               auto emb_vecs_capsule = pybind11::capsule(emb_vecs, [](void *v) {
-                    float* vv = reinterpret_cast<float*>(v);
-                    delete[] vv; 
-               });
-               array_inc_sparse_model.push_back(std::make_pair(
-                    pybind11::array_t<long long>(num_keys, keys, keys_capsule),
-                    pybind11::array_t<float>({num_keys, emb_vec_size}, emb_vecs, emb_vecs_capsule)));
-             }
-             inc_sparse_model.clear();
-             return array_inc_sparse_model;
-       })
+           })
+      .def("get_eval_metrics", &HugeCTR::Model::get_eval_metrics)
+      .def("get_incremental_model", [](HugeCTR::Model &self) {
+               auto inc_sparse_model = self.get_incremental_model();
+               std::vector<std::pair<pybind11::array_t<long long>, pybind11::array_t<float>>> array_inc_sparse_model;
+               for (const auto& pair:inc_sparse_model) {
+                 size_t num_keys = pair.first.size();
+                 size_t emb_vec_size = pair.second.size() / num_keys;
+                 long long* keys = new long long[num_keys];
+                 float* emb_vecs = new float[pair.second.size()];
+                 memcpy(keys, pair.first.data(), num_keys*sizeof(long long));
+                 memcpy(emb_vecs, pair.second.data(), num_keys*emb_vec_size*sizeof(float));
+                 auto keys_capsule = pybind11::capsule(keys, [](void *v) { 
+                      long long* vv = reinterpret_cast<long long*>(v);
+                      delete[] vv; 
+                 });
+                 auto emb_vecs_capsule = pybind11::capsule(emb_vecs, [](void *v) {
+                      float* vv = reinterpret_cast<float*>(v);
+                      delete[] vv; 
+                 });
+                 array_inc_sparse_model.push_back(std::make_pair(
+                      pybind11::array_t<long long>(num_keys, keys, keys_capsule),
+                      pybind11::array_t<float>({num_keys, emb_vec_size}, emb_vecs, emb_vecs_capsule)));
+               }
+               inc_sparse_model.clear();
+               return array_inc_sparse_model;
+         })
       .def("save_params_to_files", &HugeCTR::Model::download_params_to_files,
            pybind11::arg("prefix"), pybind11::arg("iter") = 0)
       .def("get_model_oversubscriber", &HugeCTR::Model::get_model_oversubscriber)

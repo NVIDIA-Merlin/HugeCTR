@@ -17,9 +17,10 @@
 #include <linalg/gemv.h>
 #include <cublas_v2.h>
 #include <math.h>
+
 #include <layers/multi_cross_layer.hpp>
 #include <linalg/binary_op.cuh>
-#include <linalg/gemm.cuh>
+// #include <linalg/gemm.cuh>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/reduce.cuh>
 #include <prims/linalg/matrix_multiplication.cuh>

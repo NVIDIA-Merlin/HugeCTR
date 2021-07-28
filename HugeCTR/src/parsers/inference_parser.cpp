@@ -62,15 +62,38 @@ void InferenceParser::create_pipeline_inference(const InferenceParams& inference
     dense_input_bag = dense_input.shrink();
   }
 
-  create_embedding<unsigned int, TypeEmbeddingComp>()(inference_params, j_layers_array, rows, embeddingvecs, embedding_table_slot_size, &inference_tensor_entries,
-                                                    embeddings, resource_manager->get_local_gpu(0), input_buffer);
+  create_embedding<unsigned int, TypeEmbeddingComp>()(
+      inference_params,
+      j_layers_array,
+      rows,
+      embeddingvecs,
+      embedding_table_slot_size,
+      &inference_tensor_entries,
+      embeddings,
+      resource_manager->get_local_gpu(0),
+      input_buffer);
 
   CudaDeviceContext context(resource_manager->get_local_gpu(0)->get_device_id());
   input_buffer->allocate();
+  // TODO: perhaps it is better to make a wrapper of this function for the inference
+  // rather than passing unused parameters here.
+  std::shared_ptr<ExchangeWgrad> exchange_wgrad_dummy;
   *network = Network::create_network(
-      j_layers_array, "", train_tensor_entries, inference_tensor_entries, 1, resource_manager->get_local_cpu(),
-      resource_manager->get_local_gpu(0), inference_params.use_mixed_precision,
-      false, inference_params.scaler, false, inference_params.use_cuda_graph, true);
+      j_layers_array,
+      "",
+      train_tensor_entries,
+      inference_tensor_entries,
+      1,
+      exchange_wgrad_dummy,
+      resource_manager->get_local_cpu(),
+      resource_manager->get_local_gpu(0),
+      inference_params.use_mixed_precision,
+      false,
+      inference_params.scaler,
+      false,
+      inference_params.use_cuda_graph,
+      true,
+      false);
 }
 
 void InferenceParser::create_pipeline(const InferenceParams& inference_params,

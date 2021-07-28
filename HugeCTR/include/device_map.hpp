@@ -35,23 +35,32 @@ namespace HugeCTR {
  * @endverbaim
  */
 class DeviceMap {
+ public:
+  enum Layout { LOCAL_FIRST, NODE_FIRST };
+
  private:
   const std::vector<std::vector<int>> device_list_total_; /**< device list for all the nodes*/
   std::map<int, int> global_local_map_;                   /**< global to device id (gpu id) map */
-  std::map<int, int> global_pid_map_;      /**< global id to process id map */
-  std::map<int, int> global_local_id_map_; /**< global id to local id map */
-  std::map<int, int> local_global_id_map_; /**< local id to global id map */
-  const int my_pid_;                       /**< process id for local node */
-  const std::vector<int> device_list_;     /**< device list for local node */
+  std::map<int, int> global_pid_map_;                     /**< global id to process id map */
+  std::map<int, int> global_local_id_map_;                /**< global id to local id map */
+  std::map<int, int> local_global_id_map_;                /**< local id to global id map */
+  const int my_pid_;                                      /**< process id for local node */
+  const int num_procs_;
+  const std::vector<int> device_list_; /**< device list for local node */
+  Layout device_layout_;
+
  public:
   /**
    * Ctor.
    * Generate the maps.
    */
-  DeviceMap(const std::vector<std::vector<int>>& device_list_total, int my_pid)
+  DeviceMap(const std::vector<std::vector<int>>& device_list_total, int my_pid,
+            Layout layout = LOCAL_FIRST)
       : device_list_total_(device_list_total),
         my_pid_(my_pid),
-        device_list_(device_list_total_[my_pid_]) {
+        num_procs_(device_list_total.size()),
+        device_list_(device_list_total_[my_pid_]),
+        device_layout_(layout) {
     try {
       if (device_list_total_.size() <= (unsigned int)my_pid) {
         CK_THROW_(Error_t::WrongInput, "device_list_total_.size() <= my_pid");
@@ -65,21 +74,52 @@ class DeviceMap {
         }
       }
 
-      int pid = 0;
-      int global_id = 0;
-      int local_id = 0;
-      for (auto tmp_device_list : device_list_total_) {
-        for (auto tmp_device : tmp_device_list) {
-          if (pid == my_pid_) {
-            global_local_map_.insert(std::pair<int, int>(global_id, tmp_device));
-            global_local_id_map_.insert(std::pair<int, int>(global_id, local_id));
-            local_global_id_map_.insert(std::pair<int, int>(local_id, global_id));
+      if (layout == LOCAL_FIRST) {
+        int pid = 0;
+        int global_id = 0;
+        int local_id = 0;
+        for (auto tmp_device_list : device_list_total_) {
+          for (auto tmp_device : tmp_device_list) {
+            if (pid == my_pid_) {
+              global_local_map_.insert(std::pair<int, int>(global_id, tmp_device));
+              global_local_id_map_.insert(std::pair<int, int>(global_id, local_id));
+              local_global_id_map_.insert(std::pair<int, int>(local_id, global_id));
+              local_id++;
+            }
+            global_pid_map_.insert(std::pair<int, int>(global_id, pid));
+            global_id++;
+          }
+          pid++;
+        }
+      } else if (layout == NODE_FIRST) {
+        // Need to have same number of devices on all nodes else A2A won't work
+        MESSAGE_("Using NODE_FIRST layout");
+        unsigned int mysize = device_list_.size();
+        for (auto tmp_device_list : device_list_total_) {
+          if (tmp_device_list.size() != mysize) {
+            CK_THROW_(Error_t::WrongInput,
+                      "All nodes should have same number of devices for NODE_FIRST layout");
+          }
+        }
+
+        int pid = 0;
+        for (auto& tmp_device_list : device_list_total_) {
+          int local_id = 0;
+          for (auto& tmp_device : tmp_device_list) {
+            int global_id = local_id * num_procs_ + pid;
+            if (pid == my_pid_) {
+              global_local_map_.insert(std::pair<int, int>(global_id, tmp_device));
+              global_local_id_map_.insert(std::pair<int, int>(global_id, local_id));
+              local_global_id_map_.insert(std::pair<int, int>(local_id, global_id));
+            }
+            global_pid_map_.insert(std::pair<int, int>(global_id, pid));
             local_id++;
           }
-          global_pid_map_.insert(std::pair<int, int>(global_id, pid));
-          global_id++;
+          pid++;
         }
-        pid++;
+      } else {
+        throw std::runtime_error(
+            std::string("[HCDEBUG][ERROR] Runtime error: Invalid device layout"));
       }
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
@@ -149,6 +189,8 @@ class DeviceMap {
       return it->second;
     }
   }
+
+  Layout get_device_layout() const { return device_layout_; }
 
   /**
    * Dtor.

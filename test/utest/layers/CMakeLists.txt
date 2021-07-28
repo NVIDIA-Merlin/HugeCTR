@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.17)
 file(GLOB layers_test_src
   dropout_layer_test.cpp
   batch_norm_layer_test.cpp
@@ -23,6 +23,7 @@ file(GLOB layers_test_src
   fully_connected_layer_test.cpp
   fully_connected_layer_half_test.cpp
   fused_fully_connected_layer_test.cpp
+  fused_relu_bias_fully_connected_layer_test.cpp
   gru_layer_test.cpp
   interaction_layer_test.cpp
   relu_layer_test.cpp

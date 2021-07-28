@@ -27,7 +27,7 @@ namespace HugeCTR {
 namespace {
 
 template <size_t length, typename T>
-__device__ int array_length(T (&arr)[length]) {
+__device__ int array_length(T (&)[length]) {
   return length;
 }
 

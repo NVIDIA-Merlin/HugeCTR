@@ -15,12 +15,14 @@
  */
 
 #include <inttypes.h>
+
 #include <cstring>
 #include <cub/cub.cuh>
 #include <deque>
 #include <rmm/device_buffer.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <vector>
+
 #include "HugeCTR/include/common.hpp"
 #include "HugeCTR/include/resource_manager.hpp"
 

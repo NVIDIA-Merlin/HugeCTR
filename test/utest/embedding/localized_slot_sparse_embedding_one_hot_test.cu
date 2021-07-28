@@ -16,13 +16,16 @@
 
 #include <cuda_profiler_api.h>
 #include <sys/time.h>
+
 #include <algorithm>
 #include <fstream>
 #include <functional>
 #include <random>
+
 #include "HugeCTR/include/data_generator.hpp"
 #include "HugeCTR/include/data_readers/data_reader.hpp"
 #include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_one_hot.hpp"
+#include "HugeCTR/include/resource_managers/resource_manager_ext.hpp"
 #include "gtest/gtest.h"
 #include "nvToolsExt.h"
 #include "utest/embedding/embedding_test_utils.hpp"
@@ -178,7 +181,8 @@ void init_sparse_model(const char *sparse_model) {
 
 template <typename TypeEmbeddingComp>
 void train_and_test(const std::vector<int> &device_list, const Optimizer_t &optimizer,
-                    const Update_t &update_type) {
+                    const Update_t &update_type,
+                    const DeviceMap::Layout layout = DeviceMap::LOCAL_FIRST) {
   OptHyperParams hyper_params;
   hyper_params.sgd.atomic_update = true;
   const OptParams opt_params = {optimizer, lr, hyper_params, update_type,
@@ -201,10 +205,11 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0, layout);
 
   if (resource_manager->is_master_process()) {
-    std::cout << "rank " << resource_manager->get_process_id() << " is generating data" << std::endl;
+    std::cout << "rank " << resource_manager->get_process_id() << " is generating data"
+              << std::endl;
     {
       // re-generate the dataset files
       std::ifstream file(train_file_list_name);
@@ -310,7 +315,9 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
   buf->allocate();
 
-  typedef struct TypeHashValue_ { float data[embedding_vec_size]; } TypeHashValue;
+  typedef struct TypeHashValue_ {
+    float data[embedding_vec_size];
+  } TypeHashValue;
 
   for (int i = 0; i < train_batch_num; i++) {
     printf("Rank%d: Round %d start training:\n", resource_manager->get_process_id(), i);
@@ -344,7 +351,17 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
     // GPU backward
     printf("Rank%d: embedding->backward()\n", resource_manager->get_process_id());
+    for (size_t g = 0; g < resource_manager->get_local_gpu_count(); g++) {
+      const auto &local_gpu = resource_manager->get_local_gpu(g);
+      local_gpu->set_compute_event_sync(local_gpu->get_stream());
+      local_gpu->wait_on_compute_event(local_gpu->get_comp_overlap_stream());
+    }
     embedding->backward();
+    for (size_t g = 0; g < resource_manager->get_local_gpu_count(); g++) {
+      const auto &local_gpu = resource_manager->get_local_gpu(g);
+      local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
+      local_gpu->wait_on_compute2_event(local_gpu->get_stream());
+    }
 
     // check the result of backward
     printf("Rank%d: embedding->get_backward_results()\n", resource_manager->get_process_id());
@@ -366,7 +383,17 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
 
     // GPU update_params
     printf("Rank%d: embedding->update_params()\n", resource_manager->get_process_id());
+    for (size_t g = 0; g < resource_manager->get_local_gpu_count(); g++) {
+      const auto &local_gpu = resource_manager->get_local_gpu(g);
+      local_gpu->set_compute_event_sync(local_gpu->get_stream());
+      local_gpu->wait_on_compute_event(local_gpu->get_comp_overlap_stream());
+    }
     embedding->update_params();
+    for (size_t g = 0; g < resource_manager->get_local_gpu_count(); g++) {
+      const auto &local_gpu = resource_manager->get_local_gpu(g);
+      local_gpu->set_compute2_event_sync(local_gpu->get_comp_overlap_stream());
+      local_gpu->wait_on_compute2_event(local_gpu->get_stream());
+    }
 
     if (resource_manager->is_master_process()) {
       // CPU update_params
@@ -385,6 +412,10 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
   // create new obj for eval()
   embedding->dump_parameters(sparse_model_file);
 
+#ifdef ENABLE_MPI
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
   // for SparseEmbeddingCpu eval
   std::unique_ptr<SparseEmbeddingHashCpu<T, TypeEmbeddingComp>> test_embedding_cpu(
       new SparseEmbeddingHashCpu<T, TypeEmbeddingComp>(
@@ -400,7 +431,8 @@ void train_and_test(const std::vector<int> &device_list, const Optimizer_t &opti
     printf("\nRank%d: Round start eval:\n", resource_manager->get_process_id());
 
     // call read a batch
-    printf("Rank%d: data_reader_eval->read_a_batch_to_device()\n", resource_manager->get_process_id());
+    printf("Rank%d: data_reader_eval->read_a_batch_to_device()\n",
+           resource_manager->get_process_id());
     test_data_reader->read_a_batch_to_device();
 
     // GPU forward
@@ -437,7 +469,7 @@ void load_and_dump(const std::vector<int> &device_list, const Optimizer_t &optim
                                                    scaler};
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
   // re-generate the dataset files
   {
@@ -590,7 +622,7 @@ void load_and_dump_file(const std::vector<int> &device_list, const Optimizer_t &
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto &resource_manager = ResourceManager::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
 
   if (pid == 0) {
     // re-generate the dataset files
@@ -742,4 +774,35 @@ TEST(localized_sparse_embedding_one_hot_test, load_and_dump_file_1gpu) {
 
 TEST(localized_sparse_embedding_one_hot_test, load_and_dump_file_4gpu) {
   load_and_dump_file<float>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global);
+}
+TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_1gpu_nf) {
+  train_and_test<float>({0}, Optimizer_t::SGD, Update_t::Local, DeviceMap::NODE_FIRST);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_4gpu_nf) {
+  train_and_test<float>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Local, DeviceMap::NODE_FIRST);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_global_update_1gpu_nf) {
+  train_and_test<float>({0}, Optimizer_t::SGD, Update_t::Global, DeviceMap::NODE_FIRST);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, fp32_sgd_global_update_4gpu_nf) {
+  train_and_test<float>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global, DeviceMap::NODE_FIRST);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_1gpu_nf) {
+  train_and_test<__half>({0}, Optimizer_t::SGD, Update_t::Local, DeviceMap::NODE_FIRST);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_4gpu_nf) {
+  train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Local, DeviceMap::NODE_FIRST);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_global_update_1gpu_nf) {
+  train_and_test<__half>({0}, Optimizer_t::SGD, Update_t::Global, DeviceMap::NODE_FIRST);
+}
+
+TEST(localized_sparse_embedding_one_hot_test, fp16_sgd_global_update_4gpu_nf) {
+  train_and_test<__half>({0, 1, 2, 3}, Optimizer_t::SGD, Update_t::Global, DeviceMap::NODE_FIRST);
 }

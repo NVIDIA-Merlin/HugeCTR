@@ -34,8 +34,9 @@
 namespace HugeCTR {
 
 template <typename TypeComp>
-void split(Tensor2<float> &label_tensor, Tensor2<TypeComp> &dense_tensor,
-           const Tensor2<float> &label_dense_buffer, cudaStream_t stream);
+void split(Tensor2<float>& label_tensor, Tensor2<TypeComp>& dense_tensor,
+           const Tensor2<float>& label_dense_buffer, const int label_dense_dim,
+           cudaStream_t stream);
 
 /**
  * @brief A helper class of data reader.
@@ -251,13 +252,16 @@ class DataCollector {
             last_batch_nnz_[idx_broadcast] = src_sparse_tensor.nnz();
           }
         }
+        const int label_dense_dim = output_buffer_->label_dense_dim;
 
         if (output_buffer_->use_mixed_precision) {
           auto dense_tensor = Tensor2<__half>::stretch_from(output_buffer_->dense_tensors[i]);
-          split(label_tensor, dense_tensor, label_dense_tensor, local_gpu->get_stream());
+          split(label_tensor, dense_tensor, label_dense_tensor, label_dense_dim,
+                local_gpu->get_stream());
         } else {
           auto dense_tensor = Tensor2<float>::stretch_from(output_buffer_->dense_tensors[i]);
-          split(label_tensor, dense_tensor, label_dense_tensor, local_gpu->get_stream());
+          split(label_tensor, dense_tensor, label_dense_tensor, label_dense_dim,
+                local_gpu->get_stream());
         }
       }
     }else {

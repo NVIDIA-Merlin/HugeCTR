@@ -34,7 +34,7 @@ void open_and_get_size(const std::string& file_name, std::ifstream& stream,
   file_size_in_byte = fs::file_size(file_name);
 }
 
-} // namespace
+}  // namespace
 
 template <typename TypeKey>
 ParameterServer<TypeKey>::ParameterServer(bool use_host_ps,
