@@ -260,11 +260,15 @@ void create_datareader<TypeKey>::operator()(
         break;
       }
       case DataReaderType_t::Parquet: {
+#ifdef DISABLE_CUDF
+        CK_THROW_(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+#else
         // @Future: Should be slot_offset here and data_reader ctor should
         // be TypeKey not long long
         std::vector<long long> slot_offset = f();
         train_data_reader->create_drwg_parquet(source_data, slot_offset, true);
         evaluate_data_reader->create_drwg_parquet(eval_source, slot_offset, true);
+#endif
         break;
       }
       default: {
@@ -356,8 +360,12 @@ void create_datareader<TypeKey>::operator()(
       break;
     }
     case DataReaderType_t::Parquet: {
+#ifdef DISABLE_CUDF
+      CK_THROW_(Error_t::WrongInput, "Parquet is not supported under DISABLE_CUDF");
+#else
       data_reader->create_drwg_parquet(source, slot_offset, true);
       MESSAGE_("Vocabulary size: " + std::to_string(slot_sum));
+#endif
       break;
     }
     default: {

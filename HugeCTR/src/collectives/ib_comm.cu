@@ -710,6 +710,37 @@ void IbComm::post_send_command_a2a<T>(HierA2AvCollHandle coll, cudaStream_t dep_
       ctx.d_send_cmd_[device_id], ctx.d_ibv_atomic_[device_id], num_procs_, my_proc_, device_id);
 }
 
+template <typename T>
+void IbComm::post_a2a_send_command<T>(HierA2AvCollHandle coll, cudaStream_t dep_stream,
+                                      size_t device_id) {
+  auto& ctx = *hier_a2a_v_coll_ctx_[coll];
+  auto& gpu_ctx = *ctx.ctx_[device_id];
+  CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
+  CK_CUDA_THROW_(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
+  ctx.barrier_->sync_all_gpus_report_host_and_inc(ctx.d_send_cmd_[device_id], ctx.h_recv_cmd_ptr_,
+                                                  gpu_ctx.stream_, device_id);
+  // TODO: Change it to use max SMs
+  size_t* copy_sizes = &gpu_ctx.d_send_sizes_copy_[my_proc_ * num_gpus_];
+  size_t offset = gpu_ctx.h_max_send_size_ / (num_procs_ * num_gpus_) / sizeof(T);
+  // TODO: This is not good, we are reading the sizes from host, create a device copy!
+  copy_local_segmented<T><<<96, 1024, 0, gpu_ctx.stream_>>>(
+      (T*)gpu_ctx.d_send_ptrs_[0] + (my_proc_ * num_gpus_ * offset),
+      (T*)gpu_ctx.d_recv_ptrs_[0] + (my_proc_ * num_gpus_ * offset), copy_sizes, num_gpus_, offset);
+}
+
+void IbComm::blocking_wait(HierA2AvCollHandle coll, cudaStream_t dep_stream,
+                                      size_t device_id) {
+  auto& ctx = *hier_a2a_v_coll_ctx_[coll];
+  auto& gpu_ctx = *ctx.ctx_[device_id];
+  CK_CUDA_THROW_(cudaEventRecord(gpu_ctx.event_, dep_stream));
+  CK_CUDA_THROW_(cudaStreamWaitEvent(gpu_ctx.stream_, gpu_ctx.event_));
+
+  wait_completion<<<1, 32, 0, gpu_ctx.stream_>>>(
+      ctx.d_send_cmd_[device_id], ctx.d_ibv_atomic_[device_id], num_procs_, my_proc_, device_id);
+}
+
+
+
 static __global__ void wait_recv(size_t* d_ibv_cmd, size_t* atomic, int nDest, int myDest) {
   if ((threadIdx.x < nDest) && (threadIdx.x != myDest)) {
     size_t curr_count = *d_ibv_cmd;
@@ -749,6 +780,15 @@ template void IbComm::post_send_command_a2a<float>(HierA2AvCollHandle coll, cuda
 template void IbComm::post_send_command_a2a<uint32_t>(HierA2AvCollHandle coll,
                                                       cudaStream_t dep_stream, size_t device_id);
 template void IbComm::post_send_command_a2a<uint16_t>(HierA2AvCollHandle coll,
+                                                      cudaStream_t dep_stream, size_t device_id);
+
+template void IbComm::post_a2a_send_command<__half>(HierA2AvCollHandle coll,
+                                                    cudaStream_t dep_stream, size_t device_id);
+template void IbComm::post_a2a_send_command<float>(HierA2AvCollHandle coll, cudaStream_t dep_stream,
+                                                   size_t device_id);
+template void IbComm::post_a2a_send_command<uint32_t>(HierA2AvCollHandle coll,
+                                                      cudaStream_t dep_stream, size_t device_id);
+template void IbComm::post_a2a_send_command<uint16_t>(HierA2AvCollHandle coll,
                                                       cudaStream_t dep_stream, size_t device_id);
 
 void IbComm::finalize() {

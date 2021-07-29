@@ -1,11 +1,11 @@
-# 
+#
 # Copyright (c) 2021, NVIDIA CORPORATION.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -43,8 +43,16 @@ if(CLANGFORMAT)
   clangformat_setup("${clangformat_srcs}")
 endif()
 
+option(DISABLE_A2A_WARMUP "Disable nccl a2a warm up" OFF)
+if (DISABLE_A2A_WARMUP)
+  message(STATUS "-- DISABLE_A2A_WARMUP is ON")
+  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DDISABLE_A2A_WARMUP")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DDISABLE_A2A_WARMUP")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDISABLE_A2A_WARMUP")
+endif()
+
 option(DISABLE_CUDF "Disable cudf: disable parquet format related features" OFF)
-if (DISABLE_CUDF) 
+if (DISABLE_CUDF)
   message(STATUS "-- DISABLE_CUDF is ON")
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DDISABLE_CUDF")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DDISABLE_CUDF")
@@ -139,6 +147,7 @@ if(ENABLE_MULTINODES)
   include_directories(${MPI_INCLUDE_PATH})
   include_directories(${HWLOC_INC_PATHS})
   include_directories(${UCX_INC_PATHS})
+  link_directories(/opt/hpcx/ompi/lib)
 endif()
 
 option(ENABLE_PROFILING "Profiling mode: whether to turn on inline profiling" OFF)
@@ -147,7 +156,6 @@ if(ENABLE_PROFILING)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_PROFILING")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_PROFILING")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_PROFILING")
-  link_libraries(cuda)
 endif()
 
 configure_file(${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp.in ${PROJECT_SOURCE_DIR}/HugeCTR/include/config.hpp)

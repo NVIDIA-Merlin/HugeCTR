@@ -81,7 +81,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
           lr, 1, 0, 1, 2.f, 0.f, resource_manager->get_local_gpu(i)));
   }
 
-  HybridSparseEmbeddingParams<emtype> params = {
+  HybridSparseEmbeddingParams params = {
       batch_size,
       batch_size,
       num_init_batches,
@@ -96,13 +96,14 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       1.0,
       bw_ratio_a2a_over_ar,
       1.0,
+      false, false,
       HybridEmbeddingType::Distributed,
       OptParams{Optimizer_t::SGD, lr, {}, Update_t::Global, 1.0f}};
 
   std::vector<std::shared_ptr<BufferBlock2<emtype>>> placeholder( 
       resource_manager->get_local_gpu_count(), NULL);
   auto embedding = std::make_unique<HybridSparseEmbedding<dtype, emtype>>(inputs, inputs, params, placeholder, lr_scheds, false,
-                                                                          resource_manager);
+                                                                          resource_manager, false);
 
   // Table offsets
   std::vector<size_t> table_offsets(num_tables);
@@ -280,7 +281,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
     {
       std::vector<dtype> tmp;
-      download_tensor(tmp, embedding->infrequent_embeddings_[device].model_indices_, 0);
+      download_tensor(tmp, embedding->infrequent_embeddings_[device].indices_->model_indices_, 0);
 
       printf("Instance %d model indices: ", global_id);
       for (size_t j = 0; j < tmp.size(); j++) {
@@ -291,18 +292,18 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       printf("Instance %d model indices OFFSETS: ", global_id);
       for (int j = 0; j < num_procs + 1; j++) {
         printf(" %d",
-               (int)embedding->infrequent_embeddings_[device].model_indices_offsets_.get_ptr()[j]);
+               (int)embedding->infrequent_embeddings_[device].indices_->model_indices_offsets_.get_ptr()[j]);
       }
       printf("\n");
 
       int num_batch_frequent;
       CK_CUDA_THROW_(cudaMemcpy(
           &num_batch_frequent,
-          embedding->frequent_embeddings_[device].d_num_frequent_sample_indices_.get_ptr(),
+          embedding->frequent_embeddings_[device].indices_->d_num_frequent_sample_indices_.get_ptr(),
           sizeof(uint32_t), cudaMemcpyDeviceToHost));
       printf("Instance %d found %d frequent categories in positions: ", global_id,
              num_batch_frequent);
-      download_tensor(tmp, embedding->frequent_embeddings_[device].frequent_sample_indices_, 0);
+      download_tensor(tmp, embedding->frequent_embeddings_[device].indices_->frequent_sample_indices_, 0);
       for (int j = 0; j < num_batch_frequent; j++) {
         printf(" %d", (int)tmp[j]);
       }
@@ -311,7 +312,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
 
     {
       std::vector<dtype> tmp;
-      download_tensor(tmp, embedding->infrequent_embeddings_[device].network_indices_, 0);
+      download_tensor(tmp, embedding->infrequent_embeddings_[device].indices_->network_indices_, 0);
 
       printf("Instance %d network indices: ", global_id);
       for (size_t j = 0; j < tmp.size(); j++) {
@@ -323,7 +324,7 @@ void end_to_end_impl(std::vector<int> device_list, HybridEmbeddingInputGenerator
       for (int j = 0; j < num_procs + 1; j++) {
         printf(
             " %d",
-            (int)embedding->infrequent_embeddings_[device].network_indices_offsets_.get_ptr()[j]);
+            (int)embedding->infrequent_embeddings_[device].indices_->network_indices_offsets_.get_ptr()[j]);
       }
       printf("\n");
     }

@@ -38,6 +38,8 @@ class Communication {
   virtual ~Communication() = default;
   virtual void communicate(cudaStream_t stream) = 0;
   virtual void update_sizes(cudaStream_t stream){};
+  virtual void initiate_communication(cudaStream_t stream){};
+  virtual void wait_completion(cudaStream_t stream){};
 
  protected:
   size_t width_data_field_;
@@ -115,6 +117,8 @@ class HierAll2Allv_Multi_IB : public Communication {
 
   void update_sizes(cudaStream_t stream) final override;
   void communicate(cudaStream_t stream) final override;
+  void initiate_communication(cudaStream_t stream) final override;
+  void wait_completion(cudaStream_t stream) final override;
   ~HierAll2Allv_Multi_IB();
 
  private:

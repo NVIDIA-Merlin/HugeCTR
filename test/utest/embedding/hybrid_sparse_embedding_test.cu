@@ -88,7 +88,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
   OptHyperParams hyper_params;
   hyper_params.sgd.atomic_update = true;
   const OptParams opt_params = {optimizer, lr, hyper_params, update_type, scaler};
-  const HybridSparseEmbeddingParams<TypeFP> embedding_params = {
+  const HybridSparseEmbeddingParams embedding_params = {
       train_batch_size,
       evaluate_batch_size,
       num_iterations_statistics,
@@ -100,6 +100,7 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
       communication_type,
       max_all_reduce_bandwidth,
       max_all_to_all_bandwidth,
+      false,
       hybrid_embedding_type,
       opt_params};
 
@@ -158,22 +159,6 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
               << embedding->model_[lgpu].h_infrequent_model_table_offsets[slot_num] << std::endl;
   }
 
-#ifdef ENABLE_PROFILING
-  global_profiler.initialize(false, false);
-  global_profiler.profiling_dir += std::string("/") + std::to_string(train_batch_size);
-  bool finished = false;
-  while (1) {
-    for (int i = 0; i < int(resource_manager->get_local_gpu_count()); i++) {
-      auto device_id = resource_manager->get_local_gpu(i)->get_device_id();
-      context.set_device(device_id);
-      CK_CUDA_THROW_(cudaDeviceSynchronize());
-    }
-
-    finished = global_profiler.iter_check();
-    if (finished) {
-      break;
-    }
-#else
   std::chrono::time_point<std::chrono::steady_clock> check;
   for (int j = 0; j < 10000; ++j) {
     for (int i = 0; i < int(resource_manager->get_local_gpu_count()); i++) {
@@ -190,7 +175,6 @@ void hybrid_sparse_embedding_construct(const std::vector<int> &device_list, size
       check = std::chrono::steady_clock::now();
     }
 
-#endif
     embedding->forward(true);
     // std::cout << i << ": fwd" << std::endl;
     embedding->backward();

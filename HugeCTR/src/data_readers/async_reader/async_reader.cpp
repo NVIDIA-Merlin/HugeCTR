@@ -11,17 +11,12 @@
 #include <map>
 #include <numeric>
 #include <random>
+#include <filesystem>
 
 #include "common.hpp"
 #include "resource_manager.hpp"
 #include "utils.hpp"
 
-namespace {
-size_t get_file_size(std::string fname) {
-  std::ifstream in(fname, std::ifstream::ate | std::ifstream::binary);
-  return in.tellg();
-}
-}  // namespace
 
 namespace HugeCTR {
 
@@ -46,7 +41,7 @@ AsyncReaderImpl::AsyncReaderImpl(std::string fname, size_t batch_size_bytes,
       thread_buffer_ids_(num_threads),
       gpu_thread_ids_(num_devices_),
       local_readers_(num_threads_) {
-  total_file_size_ = get_file_size(fname);
+  total_file_size_ = std::filesystem::file_size(fname);
   num_batches_ = (total_file_size_ + batch_size_bytes_ - 1) / batch_size_bytes;
   batch_ids_.resize(num_batches_);
   std::iota(batch_ids_.begin(), batch_ids_.end(), 0);
@@ -121,7 +116,13 @@ void AsyncReaderImpl::create_workers() {
   threads_.clear();
 }
 
-bool AsyncReaderImpl::is_currently_loading() { return !threads_.empty(); }
+bool AsyncReaderImpl::is_currently_loading() {
+  return !threads_.empty();
+}
+
+size_t AsyncReaderImpl::get_num_buffers() {
+  return buffers_.size();
+}
 
 void AsyncReaderImpl::load_async() {
   if (is_currently_loading()) {
@@ -151,7 +152,8 @@ BatchDesc AsyncReaderImpl::get_batch() {
     auto status = last_buffer_->status.load();
     while (status != BufferStatus::Finished) {
       if (status == BufferStatus::ReadReady || status == BufferStatus::PermanentlyResident) {
-        return {last_buffer_->size, last_buffer_->dev_data};
+        return {last_buffer_->size, last_buffer_->dev_data,
+                status == BufferStatus::PermanentlyResident};
       }
       if (wait_for_gpu_idle_) {
         last_buffer_->ready_to_upload_event.store(&event_success_);

@@ -2,6 +2,9 @@
 
 #include <cuda_runtime.h>
 
+// For the tensor bags
+#include "HugeCTR/include/tensor2.hpp"
+
 #include <atomic>
 #include <vector>
 
@@ -57,6 +60,28 @@ struct InternalBatchBuffer {
 struct BatchDesc {
   size_t size_bytes;
   std::vector<char*> dev_data;
+  bool cached;
+};
+
+class RawPtrWrapper : public TensorBuffer2 {
+ public:
+  RawPtrWrapper(void* ptr) : ptr_(ptr) {}
+  bool allocated() const override { return true; }
+  void* get_ptr() override { return ptr_; }
+
+ private:
+  void* ptr_;
+};
+
+class RawPtrBuffer : public TensorBuffer2 {
+ public:
+  RawPtrBuffer(size_t size_bytes) { CK_CUDA_THROW_(cudaMalloc(&ptr_, size_bytes)); }
+  bool allocated() const override { return true; }
+  void* get_ptr() override { return ptr_; }
+  ~RawPtrBuffer() override { cudaFree(ptr_); }
+
+ private:
+  void* ptr_;
 };
 
 }  // namespace HugeCTR

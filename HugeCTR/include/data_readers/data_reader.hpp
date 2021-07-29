@@ -24,7 +24,11 @@
 #include <data_readers/data_reader_common.hpp>
 #include <data_readers/data_reader_worker_group.hpp>
 #include <data_readers/data_reader_worker_group_norm.hpp>
+
+#ifndef DISABLE_CUDF
 #include <data_readers/data_reader_worker_group_parquet.hpp>
+#endif
+
 #include <data_readers/data_reader_worker_group_raw.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
@@ -295,6 +299,7 @@ class DataReader : public IDataReader {
     file_name_ = file_name;
   }
 
+#ifndef DISABLE_CUDF
   void create_drwg_parquet(std::string file_name, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override {
     source_type_ = SourceType_t::Parquet;
@@ -303,6 +308,7 @@ class DataReader : public IDataReader {
         thread_buffers_, file_name, repeat_, params_, slot_offset, resource_manager_,
         start_reading_from_beginning));
   }
+#endif
 
   void set_source(std::string file_name = std::string()) override {
     if (worker_group_ != nullptr) {

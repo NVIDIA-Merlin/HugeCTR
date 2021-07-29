@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <HugeCTR/include/resource_managers/resource_manager_ext.hpp>
 #include <atomic>
 #include <common.hpp>
 #include <fstream>
@@ -55,18 +56,13 @@ class IDataReader {
   virtual void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
                                bool data_shuffle, bool start_reading_from_beginning = true) = 0;
 
+#ifndef DISABLE_CUDF
   virtual void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
                                    bool start_reading_from_beginning = true) = 0;
+#endif
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type
   virtual void set_source(std::string file_name = std::string()) = 0;
-};
-
-class IDataReaderWithScheduling : public IDataReader {
- public:
-  virtual void schedule_here(cudaStream_t stream, int raw_device_id) = 0;
-  virtual void schedule_here_graph(cudaStream_t stream, int raw_device_id) = 0;
-  virtual void update_schedule_graph(int raw_device_id) = 0;
 };
 
 }  // namespace HugeCTR

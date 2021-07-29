@@ -89,25 +89,28 @@ class ForwardNetworkTest : public HybridEmbeddingUnitTest<dtype, emtype> {
                     this->infrequent_embeddings[i].infrequent_embedding_vectors_, this->stream);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
+      this->  frequent_embeddings[i].set_current_indices(&this->  frequent_embedding_indices[i], this->stream);
+      this->infrequent_embeddings[i].set_current_indices(&this->infrequent_embedding_indices[i], this->stream);
+
       if (single_node) {
-        this->frequent_embeddings[i].calculate_cache_masks(this->stream);
-        this->frequent_embeddings[i].calculate_model_cache_indices(this->stream);
+        this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
+        this->frequent_embeddings[i].indices_->calculate_model_cache_indices(80, this->stream);
         this->frequent_embeddings[i].forward_model(this->stream);
       }
     }
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->frequent_embeddings[i].calculate_frequent_sample_indices(this->stream);
+      this->frequent_embeddings[i].indices_->calculate_frequent_sample_indices(this->stream);
       this->frequent_embeddings[i].forward_network(interaction_layer_input[i].get_ptr(),
                                                    single_node, this->stream);
       if (single_node) {
-        this->infrequent_embeddings[i].calculate_model_indices(this->stream);
+        this->infrequent_embeddings[i].indices_->calculate_model_indices(this->stream);
         CK_CUDA_THROW_(cudaMemcpyAsync(
             this->infrequent_embeddings[i].interaction_layer_input_pointers_train_.get_ptr(),
             interaction_layer_input_pointers_.data(), this->num_instances * sizeof(emtype *),
             cudaMemcpyHostToDevice, this->stream));
         this->infrequent_embeddings[i].forward_network_direct(true, this->stream);
       } else {
-        this->infrequent_embeddings[i].calculate_network_indices(this->stream);
+        this->infrequent_embeddings[i].indices_->calculate_network_indices(80, this->stream);
         upload_tensor(cpu_embedding.forward_received_messages[i], received_messages[i],
                       this->stream);
         if (this->config.comm_type == CommunicationType::IB_NVLink_Hier) {
@@ -174,12 +177,13 @@ class FrequentForwardModelTest : public HybridEmbeddingUnitTest<dtype, emtype> {
       upload_tensor(cpu_embedding.gradients[i], gradients[i], this->stream);
       frequent_partial_gradients_pointers[i] =
           this->frequent_embeddings[i].get_gradients().get_ptr();
+      this->frequent_embeddings[i].set_current_indices(&this->frequent_embedding_indices[i], this->stream);
     }
     for (size_t i = 0; i < this->num_instances; i++) {
-      this->frequent_embeddings[i].calculate_cache_masks(this->stream);
-      this->frequent_embeddings[i].calculate_network_cache_indices(this->stream);
-      this->frequent_embeddings[i].calculate_model_cache_indices(this->stream);
-      this->frequent_embeddings[i].calculate_frequent_sample_indices(this->stream);
+      this->frequent_embeddings[i].indices_->calculate_cache_masks(this->stream);
+      this->frequent_embeddings[i].indices_->calculate_network_cache_indices(this->stream);
+      this->frequent_embeddings[i].indices_->calculate_model_cache_indices(80, this->stream);
+      this->frequent_embeddings[i].indices_->calculate_frequent_sample_indices(this->stream);
       this->frequent_embeddings[i].local_reduce(gradients[i].get_ptr(), this->stream, false);
     }
     for (size_t i = 0; i < this->num_instances; i++) {

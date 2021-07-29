@@ -380,8 +380,10 @@ void AverageLoss<T>::local_reduce(int local_gpu_id, RawMetricMap raw_metrics) {
   Tensor2<T> loss_tensor = Tensor2<T>::stretch_from(raw_metrics[RawType::Loss]);
   const auto& local_gpu = resource_manager_->get_local_gpu(local_gpu_id);
   CudaDeviceContext context(local_gpu->get_device_id());
+  PROFILE_RECORD("metric_local_reduce.start", local_gpu->get_stream());
   CK_CUDA_THROW_(cudaMemcpyAsync(&loss_host, loss_tensor.get_ptr(), sizeof(float),
                                  cudaMemcpyDeviceToHost, local_gpu->get_stream()));
+  PROFILE_RECORD("metric_local_reduce.stop", local_gpu->get_stream());
   loss_local_[local_gpu_id] = loss_host;
 }
 

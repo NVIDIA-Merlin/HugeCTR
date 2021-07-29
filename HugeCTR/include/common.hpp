@@ -134,7 +134,7 @@ class internal_runtime_error : public std::runtime_error {
 
 enum class LrPolicy_t { fixed };
 
-enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD };
+enum class Optimizer_t { Adam, AdaGrad, MomentumSGD, Nesterov, SGD, DEFAULT };
 
 enum class Update_t { Local, Global, LazyGlobal };
 
@@ -225,6 +225,7 @@ struct HybridEmbeddingParam {
   double max_all_reduce_bandwidth;
   double max_all_to_all_bandwidth;
   double efficiency_bandwidth_ratio;
+  bool use_train_precompute_indices, use_eval_precompute_indices;
   hybrid_embedding::CommunicationType communication_type;
   hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
 };
@@ -451,8 +452,17 @@ inline void MESSAGE_(const std::string msg, bool per_process = false, bool new_l
   } while (0)
 
 template <typename T>
-inline void print_func(T& t) {
+inline void print_func(T const& t) {
   std::cout << t << ", ";
+  return;
+}
+
+// Set precision for double type
+template <>
+inline void print_func<double>(double const& t) {
+  std::stringstream ss;
+  ss << std::fixed << std::setprecision(2) << t << ", ";
+  std::cout << ss.str();
   return;
 }
 

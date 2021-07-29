@@ -67,9 +67,9 @@ cudaEvent_t& Network::get_train_events(TrainState_t key) {
 }
 
 template <typename LPtr>
-void Network::prop_layers(const std::vector<LPtr>& layers, Network::GraphWrapper& graph,
+void Network::prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph,
                           bool use_graph, bool fprop, const cudaStream_t stream, bool train) {
-  auto execute = [&layers, train](bool fprop) {
+  auto execute = [&layers, train, fprop](cudaStream_t submit_stream) {
     if (fprop) {
       for (auto& layer : layers) {
         layer->fprop(train);
@@ -82,33 +82,23 @@ void Network::prop_layers(const std::vector<LPtr>& layers, Network::GraphWrapper
   };
 
   if (!use_graph) {
-    execute(fprop);
+    execute(stream);
     return;
   }
 
-  bool do_capture;
-#ifdef ENABLE_PROFILING
-  if (global_profiler.init_cuda_graph_this_iter) {
-    do_capture = !graph.initialized_with_profiling;
-    graph.initialized = false;
-    graph.initialized_with_profiling = true;
-  } else {
-    do_capture = !graph.initialized;
-    graph.initialized = true;
-    graph.initialized_with_profiling = false;
-  }
-#else
-  do_capture = !graph.initialized;
+  bool do_capture = !graph.initialized;
   graph.initialized = true;
+#ifdef ENABLE_PROFILING
+  if (profiler_init_cuda_graph_this_iter()) {
+    do_capture = true;
+  }
 #endif
 
   if (do_capture) {
-    CK_CUDA_THROW_(cudaStreamBeginCapture(stream, cudaStreamCaptureModeRelaxed));
-    execute(fprop);
-    CK_CUDA_THROW_(cudaStreamEndCapture(stream, &graph.graph));
-    CK_CUDA_THROW_(cudaGraphInstantiate(&graph.graph_exec, graph.graph, NULL, NULL, 0));
+    graph.initialized = false;
+    graph.capture(execute, stream);
   }
-  CK_CUDA_THROW_(cudaGraphLaunch(graph.graph_exec, stream));
+  graph.exec(stream);
 }
 
 void Network::train(long long current_batchsize) {
@@ -130,15 +120,17 @@ TrainState Network::train(long long current_batchsize, std::function<void()> exc
 
   switch (state.state) {
     case TrainState_t::Init:
-      if (use_mixed_precision_) {
+      if (use_mixed_precision_ && optimizer_->get_optimizer_type() != Optimizer_t::SGD) {
         conv_weight_(train_weight_tensor_half_, train_weight_tensor_);
       }
       break;
     case TrainState_t::BottomMLPFprop:
       prop_layers(bottom_layers_, bottom_train_fprop_graph_, enable_cuda_graph_, true, stream);
+      train_loss_->initialize_wgrad_async();
       break;
     case TrainState_t::TopMLPFprop:
       prop_layers(top_layers_, train_fprop_graph_, enable_cuda_graph_, true, stream);
+      if (lr_sched_->get_overlapped()) lr_sched_->update();
       train_loss_->compute(true, current_batchsize);
       break;
     case TrainState_t::TopMLPBprop:
