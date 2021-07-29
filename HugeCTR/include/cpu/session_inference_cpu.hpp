@@ -15,26 +15,24 @@
  */
 
 #pragma once
+#include <common.hpp>
+#include <cpu/embedding_feature_combiner_cpu.hpp>
+#include <cpu/network_cpu.hpp>
+#include <inference/hugectrmodel.hpp>
+#include <inference/inference_utils.hpp>
+#include <inference/preallocated_buffer2.hpp>
+#include <parser.hpp>
 #include <string>
+#include <tensor2.hpp>
 #include <thread>
 #include <utility>
 #include <vector>
-#include <common.hpp>
-#include <inference/hugectrmodel.hpp>
-#include <inference/preallocated_buffer2.hpp>
-#include <inference/inference_utils.hpp>
-#include <parser.hpp>
-#include <tensor2.hpp>
-
-#include <cpu/network_cpu.hpp>
-#include <cpu/embedding_feature_combiner_cpu.hpp>
-
 
 namespace HugeCTR {
 
 template <typename TypeHashKey>
 class InferenceSessionCPU : public HugeCTRModel {
-private:
+ private:
   nlohmann::json config_;
   std::string model_name_;
   std::vector<size_t> embedding_table_slot_size_;
@@ -53,20 +51,25 @@ private:
   float* h_embeddingvectors_;
   void* h_shuffled_embeddingcolumns_;
   size_t* h_shuffled_embedding_offset_;
-  
-  std::shared_ptr<CPUResource> cpu_resource_;
-  
-  void separate_keys_by_table_(int* h_row_ptrs, const std::vector<size_t>& embedding_table_slot_size, int num_samples);
-  void look_up_(const void* h_embeddingcolumns, const std::vector<size_t>& h_embedding_offset, float* h_embeddingvectors);
 
-protected:
+  std::shared_ptr<CPUResource> cpu_resource_;
+
+  void separate_keys_by_table_(int* h_row_ptrs,
+                               const std::vector<size_t>& embedding_table_slot_size,
+                               int num_samples);
+  void look_up_(const void* h_embeddingcolumns, const std::vector<size_t>& h_embedding_offset,
+                float* h_embeddingvectors);
+
+ protected:
   InferenceParser inference_parser_;
   InferenceParams inference_params_;
 
-public:
-  InferenceSessionCPU(const std::string& model_config_path, const InferenceParams& inference_params, std::shared_ptr<HugectrUtility<TypeHashKey>>& ps);
+ public:
+  InferenceSessionCPU(const std::string& model_config_path, const InferenceParams& inference_params,
+                      std::shared_ptr<HugectrUtility<TypeHashKey>>& ps);
   virtual ~InferenceSessionCPU();
-  void predict(float* h_dense, void* h_embeddingcolumns, int* h_row_ptrs, float* h_output, int num_samples);
+  void predict(float* h_dense, void* h_embeddingcolumns, int* h_row_ptrs, float* h_output,
+               int num_samples);
 };
 
 }  // namespace HugeCTR

@@ -108,7 +108,7 @@ class DataReaderWorkerRaw : public IDataReaderWorker {
         assert(buffer_->state.load() == BufferState::Writing);
         is_eof_ = true;
         buffer_->state.store(BufferState::ReadyForRead);
-        
+
         while (buffer_->state.load() != BufferState::ReadyForWrite) {
           usleep(2);
           if (*loop_flag_ == 0) return;

@@ -15,14 +15,15 @@
  */
 
 #include <pybind11/pybind11.h>
+
 #include <HugeCTR/pybind/common_wrapper.hpp>
-#include <HugeCTR/pybind/solver_wrapper.hpp>
 #include <HugeCTR/pybind/data_reader_wrapper.hpp>
-#include <HugeCTR/pybind/model_oversubscriber_wrapper.hpp>
-#include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
-#include <HugeCTR/pybind/optimizer_wrapper.hpp>
-#include <HugeCTR/pybind/model_wrapper.hpp>
 #include <HugeCTR/pybind/inference_wrapper.hpp>
+#include <HugeCTR/pybind/learning_rate_scheduler_wrapper.hpp>
+#include <HugeCTR/pybind/model_oversubscriber_wrapper.hpp>
+#include <HugeCTR/pybind/model_wrapper.hpp>
+#include <HugeCTR/pybind/optimizer_wrapper.hpp>
+#include <HugeCTR/pybind/solver_wrapper.hpp>
 using namespace HugeCTR::python_lib;
 
 PYBIND11_MODULE(hugectr, m) {

@@ -63,9 +63,9 @@ struct OptParams {
   float scaler;
 };
 
-// 
+//
 class OptParamsPy {
-public:
+ public:
   Optimizer_t optimizer;
   Update_t update_type;
   OptHyperParams hyperparams;
@@ -83,11 +83,11 @@ class Optimizer {
    * Helper to create a speicifed Optimizer object
    */
   template <typename T>
-  static std::unique_ptr<Optimizer> Create(
-      const OptParams& params, const Tensor2<float>& weight_main, const Tensor2<T>& wgrad,
-      const float scaler,
-      const std::shared_ptr<BufferBlock2<T>>& opt_buff,
-      const std::shared_ptr<GPUResource>& gpu_resource);
+  static std::unique_ptr<Optimizer> Create(const OptParams& params,
+                                           const Tensor2<float>& weight_main,
+                                           const Tensor2<T>& wgrad, const float scaler,
+                                           const std::shared_ptr<BufferBlock2<T>>& opt_buff,
+                                           const std::shared_ptr<GPUResource>& gpu_resource);
 
   /**
    * Constructor of Optimizer.
@@ -96,8 +96,8 @@ class Optimizer {
    * @param device_id the id of GPU where update kernel is launched
    * @param learning_rate learning rate
    */
-  Optimizer(const Tensor2<float>& weight_main, 
-            const std::shared_ptr<GPUResource>& gpu_resource, float learning_rate, float scaler)
+  Optimizer(const Tensor2<float>& weight_main, const std::shared_ptr<GPUResource>& gpu_resource,
+            float learning_rate, float scaler)
       : weight_main_(weight_main),
         gpu_resource_(gpu_resource),
         lr_(learning_rate),
@@ -164,21 +164,20 @@ struct OptimizerTensor {
 };
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
-class EmbeddingOptimizer{
-  
+class EmbeddingOptimizer {
   Tensor2<void> temp_storage_encode_tensors_;
 
-  Tensor2<void> temp_storage_sort_tensors_;     /**< The temp memory for the CUB lib sorting
-                                                          API in update_params(). */
+  Tensor2<void> temp_storage_sort_tensors_; /**< The temp memory for the CUB lib sorting
+                                                      API in update_params(). */
 
   Tensor2<void> temp_storage_scan_tensors_; /**< The temp memory for the CUB lib scaning API
                                                       in update_params(). */
-  
+
   Tensor2<TypeHashKey> sample_id_tensors_; /**< The temp memory to store the sample ids of hash
                                               table value in      update_params(). */
-  
-  Tensor2<TypeHashKey> sample_id_sort_tensors_; /**< The temp memory to store the sorted sample
-                                                   ids of hash table value in update_params(). */
+
+  Tensor2<TypeHashKey> sample_id_sort_tensors_;   /**< The temp memory to store the sorted sample
+                                                     ids of hash table value in update_params(). */
   Tensor2<size_t> hash_value_index_sort_tensors_; /**< The temp memory to store the sorted hash
                                                         table value indexes in update_params(). */
 
@@ -194,25 +193,23 @@ class EmbeddingOptimizer{
   Tensor2<uint32_t> hash_value_index_count_counter_tensors_; /**< The temp memory to store the
                                                                 counter of the count of hash table
                                                                 value indexes in update_params(). */
-  SparseEmbeddingHashParams &param;
-public:
+  SparseEmbeddingHashParams& param;
+
+ public:
   OptimizerTensor<TypeEmbeddingComp> opt_tensors_;
 
-  EmbeddingOptimizer(size_t max_vocabulary_size_per_gpu_, SparseEmbeddingHashParams &param, const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &buf);
-  
-  void initialize(const GPUResource &local_gpu);
+  EmbeddingOptimizer(size_t max_vocabulary_size_per_gpu_, SparseEmbeddingHashParams& param,
+                     const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& buf);
 
-  void reset(GPUResource const& local_gpu) {
-    initialize(local_gpu);
-  }
-  
-  void update(
-    size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-    size_t max_vocabulary_size_per_gpu,  size_t nnz,
-    const Tensor2<TypeHashKey> &row_offset, Tensor2<size_t> &hash_value_index,
-    const Tensor2<TypeEmbeddingComp> &wgrad,
-    Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream);
+  void initialize(const GPUResource& local_gpu);
 
+  void reset(GPUResource const& local_gpu) { initialize(local_gpu); }
+
+  void update(size_t batch_size, size_t slot_num, size_t embedding_vec_size,
+              size_t max_vocabulary_size_per_gpu, size_t nnz,
+              const Tensor2<TypeHashKey>& row_offset, Tensor2<size_t>& hash_value_index,
+              const Tensor2<TypeEmbeddingComp>& wgrad, Tensor2<float>& hash_table_value,
+              size_t sm_count, cudaStream_t stream);
 };
 
 }  // namespace HugeCTR

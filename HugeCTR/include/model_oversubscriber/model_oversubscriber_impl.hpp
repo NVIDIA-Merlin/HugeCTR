@@ -16,27 +16,26 @@
 
 #pragma once
 
-#include <embedding.hpp>
-#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
-#include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
-
 #include <algorithm>
+#include <embedding.hpp>
 #include <iterator>
+
+#include "HugeCTR/include/embeddings/distributed_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/embeddings/localized_slot_sparse_embedding_hash.hpp"
+#include "HugeCTR/include/model_oversubscriber/parameter_server_manager.hpp"
 
 namespace HugeCTR {
 
 class ModelOversubscriberImplBase {
-public:
+ public:
   virtual void dump() = 0;
   virtual void update(std::vector<std::string>&) = 0;
   virtual void update(std::string&) = 0;
   virtual void update_sparse_model_file() = 0;
-  virtual std::vector<std::pair<std::vector<long long>, std::vector<float>>>
-      get_incremental_model(const std::vector<long long>&) = 0;
+  virtual std::vector<std::pair<std::vector<long long>, std::vector<float>>> get_incremental_model(
+      const std::vector<long long>&) = 0;
   virtual ~ModelOversubscriberImplBase() = default;
 };
-
 
 template <typename TypeKey>
 class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
@@ -60,12 +59,10 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
   void load_(std::vector<std::string>& keyset_file_list);
 
  public:
-  ModelOversubscriberImpl(
-      bool use_host_ps,
-      std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-      const std::vector<SparseEmbeddingHashParams>& embedding_params,
-      const std::vector<std::string>& sparse_embedding_files,
-      std::shared_ptr<ResourceManager> resource_manager);
+  ModelOversubscriberImpl(bool use_host_ps, std::vector<std::shared_ptr<IEmbedding>>& embeddings,
+                          const std::vector<SparseEmbeddingHashParams>& embedding_params,
+                          const std::vector<std::string>& sparse_embedding_files,
+                          std::shared_ptr<ResourceManager> resource_manager);
 
   ModelOversubscriberImpl(const ModelOversubscriberImpl&) = delete;
   ModelOversubscriberImpl& operator=(const ModelOversubscriberImpl&) = delete;
@@ -73,9 +70,9 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
   ~ModelOversubscriberImpl() = default;
 
   /**
-     * @brief Dump the downloaded embeddings from GPUs to sparse_model_entity_.
-     */
-    void dump() override;
+   * @brief Dump the downloaded embeddings from GPUs to sparse_model_entity_.
+   */
+  void dump() override;
 
   /**
    * @brief Updates the sparse_model_entity_ using embeddings from devices,
@@ -91,12 +88,10 @@ class ModelOversubscriberImpl : public ModelOversubscriberImplBase {
    */
   void update(std::string& keyset_file) override;
 
-  std::vector<std::pair<std::vector<long long>, std::vector<float>>>
-      get_incremental_model(const std::vector<long long> &keys_to_load) override;
+  std::vector<std::pair<std::vector<long long>, std::vector<float>>> get_incremental_model(
+      const std::vector<long long>& keys_to_load) override;
 
-  void update_sparse_model_file() override {
-    ps_manager_.update_sparse_model_file();
-  }
+  void update_sparse_model_file() override { ps_manager_.update_sparse_model_file(); }
 };
 
 }  // namespace HugeCTR

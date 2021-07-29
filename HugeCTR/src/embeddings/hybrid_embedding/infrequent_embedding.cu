@@ -415,23 +415,23 @@ void InfrequentEmbedding<dtype, emtype>::fused_intra_update_network(const emtype
 }
 
 template <typename dtype, typename emtype>
-void InfrequentEmbedding<dtype, emtype>::update_model(const emtype* message_buffer,
-                                                      float* dev_lr, float scale,
-                                                      cudaStream_t stream) {
+void InfrequentEmbedding<dtype, emtype>::update_model(const emtype* message_buffer, float* dev_lr,
+                                                      float scale, cudaStream_t stream) {
   const uint32_t* __restrict__ model_indices = model_indices_.get_ptr();
   const dtype* __restrict__ samples = data_.samples.get_ptr();
   const dtype* __restrict__ category_location = model_.category_location.get_ptr();
 
   uint32_t n_blocks = gpu_resource.get_sm_count();
 
-  sgd_atomic_update(message_buffer, infrequent_embedding_vectors_.get_ptr(),
-                    model_indices_offsets_.get_ptr() + model_.num_instances,
-                    [model_indices, samples, category_location] __device__(uint32_t i) {
-                      uint32_t index = model_indices[i];
-                      dtype category = samples[index];
-                      return category_location[2 * category + 1];
-                    },
-                    n_blocks, embedding_vec_size_, dev_lr, scale, stream);
+  sgd_atomic_update(
+      message_buffer, infrequent_embedding_vectors_.get_ptr(),
+      model_indices_offsets_.get_ptr() + model_.num_instances,
+      [model_indices, samples, category_location] __device__(uint32_t i) {
+        uint32_t index = model_indices[i];
+        dtype category = samples[index];
+        return category_location[2 * category + 1];
+      },
+      n_blocks, embedding_vec_size_, dev_lr, scale, stream);
 }
 
 template <typename dtype, typename emtype>

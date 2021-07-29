@@ -20,6 +20,7 @@
 #include <nccl.h>
 
 #include <common.hpp>
+#include <exchange_wgrad.hpp>
 #include <fstream>
 #include <functional>
 #include <gpu_resource.hpp>
@@ -29,7 +30,6 @@
 #include <nlohmann/json.hpp>
 #include <optimizer.hpp>
 #include <vector>
-#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
@@ -88,13 +88,13 @@ class Network {
 
   void conv_weight_(Tensor2<__half>& target, const Tensor2<float>& source);
 
-  std::map<TrainState_t ,cudaEvent_t> train_events_;
-  
-  template<typename LPtr>
-  void prop_layers(const std::vector<LPtr>& layers,
-                   GraphWrapper& graph, bool use_graph,
-                   bool fprop, const cudaStream_t stream, bool train=true);
+  std::map<TrainState_t, cudaEvent_t> train_events_;
+
+  template <typename LPtr>
+  void prop_layers(const std::vector<LPtr>& layers, GraphWrapper& graph, bool use_graph, bool fprop,
+                   const cudaStream_t stream, bool train = true);
   cudaEvent_t& get_train_events(TrainState_t state);
+
  public:
   /**
    * Ctor.
@@ -147,8 +147,8 @@ class Network {
   size_t get_params_num() const { return train_weight_tensor_.get_num_elements(); }
 
   size_t get_opt_states_size_in_byte() const {
-    return use_mixed_precision_?
-        opt_tensor_half_.get_size_in_bytes() : opt_tensor_.get_size_in_bytes();
+    return use_mixed_precision_ ? opt_tensor_half_.get_size_in_bytes()
+                                : opt_tensor_.get_size_in_bytes();
   }
 
   /**
@@ -231,45 +231,36 @@ class Network {
   /**
    * factory method to create network
    */
-  static Network* create_network(const nlohmann::json& j_array,
-                                 const nlohmann::json& j_optimizer,
+  static Network* create_network(const nlohmann::json& j_array, const nlohmann::json& j_optimizer,
                                  std::vector<TensorEntry>& train_tensor_entries,
                                  std::vector<TensorEntry>& evaluate_tensor_entries,
                                  int num_networks_in_global,
                                  std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
                                  const std::shared_ptr<CPUResource>& cpu_resource,
                                  const std::shared_ptr<GPUResource>& gpu_resource,
-                                 bool use_mixed_precision,
-                                 bool enable_tf32_compute,
-                                 float scaler,
-                                 bool use_algorithm_search,
-                                 bool use_cuda_graph,
-                                 bool inference_flag,
-                                 bool grouped_all_reduce);
-  
+                                 bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                                 bool use_algorithm_search, bool use_cuda_graph,
+                                 bool inference_flag, bool grouped_all_reduce);
+
   /**
    * add layer to network, python interface use only
    */
-  friend void add_dense_layer(DenseLayer& dense_layer,
-                std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
-                std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
-                const std::shared_ptr<ResourceManager>& resource_manager,
-                bool use_mixed_precision,
-                bool enable_tf32_compute,
-                float scaler,
-                bool use_algorithm_search,
-                bool use_cuda_graph,
-                std::vector<std::shared_ptr<Network>>& networks,
-                std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& blobs_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& train_weight_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& train_weight_buff_half_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
-                bool dlrm_bottom_mlp);
+  friend void add_dense_layer(
+      DenseLayer& dense_layer, std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
+      std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
+      const std::shared_ptr<ResourceManager>& resource_manager, bool use_mixed_precision,
+      bool enable_tf32_compute, float scaler, bool use_algorithm_search, bool use_cuda_graph,
+      std::vector<std::shared_ptr<Network>>& networks,
+      std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& blobs_buff_list,
+      std::vector<std::shared_ptr<BufferBlock2<float>>>& train_weight_buff_list,
+      std::vector<std::shared_ptr<BufferBlock2<__half>>>& train_weight_buff_half_list,
+      std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_list,
+      std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_list,
+      std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
+      std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
+      std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
+      std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
+      bool dlrm_bottom_mlp);
   friend class Model;
   /**
    * copy weights from train layers to evaluate layers

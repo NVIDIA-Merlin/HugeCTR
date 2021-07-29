@@ -120,7 +120,7 @@ void FullyConnectedLayer<__half>::fprop(bool is_train) {
   PROFILE_RECORD("fully_connected_layer_half.fprop.stop", get_gpu().get_stream());
 
   // only apply to dlrm model. Other model will yield error
-  //PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
+  // PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
 
 #ifndef NDEBUG
   cudaDeviceSynchronize();
@@ -150,7 +150,7 @@ void FullyConnectedLayer<__half>::bprop() {
   const float beta_k = 1.0f;
   const float beta_x = 0.0f;
 
-  //PROFILE_RECORD("TopMLP.bprop.start", get_gpu().get_stream());
+  // PROFILE_RECORD("TopMLP.bprop.start", get_gpu().get_stream());
   PROFILE_RECORD("fully_connected_layer_half.bprop.start", get_gpu().get_stream());
 
   PROFILE_RECORD("fully_connected_layer_half.bprop.cublasGemmEx_1.start", get_gpu().get_stream());

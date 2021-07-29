@@ -49,8 +49,8 @@ class NesterovOptimizer : public Optimizer {
 
  private:
   Tensor2<T> wgrad_;
-  Tensor2<T> accum_;   // accumulation
-  const float mu_;              // momentum factor
+  Tensor2<T> accum_;  // accumulation
+  const float mu_;    // momentum factor
 };
 
 }  // namespace HugeCTR

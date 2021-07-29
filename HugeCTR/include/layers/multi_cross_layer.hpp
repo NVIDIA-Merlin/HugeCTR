@@ -28,10 +28,10 @@ struct MultiCrossForwardFunctor {
   MultiCrossForwardFunctor(const MultiCrossForwardFunctor&) = delete;
   MultiCrossForwardFunctor& operator=(const MultiCrossForwardFunctor&) = delete;
 
-  void operator()(cudaStream_t stream, cublasHandle_t cublas_handle,
-                  const Tensor2<T>& input_tensor, const Tensors2<T>& kernel_tensors,
-                  const Tensors2<T>& bias_tensors, Tensors2<T>& layer_output_tensors,
-                  Tensors2<T>& layer_hidden_tensors, int num_layers) const;
+  void operator()(cudaStream_t stream, cublasHandle_t cublas_handle, const Tensor2<T>& input_tensor,
+                  const Tensors2<T>& kernel_tensors, const Tensors2<T>& bias_tensors,
+                  Tensors2<T>& layer_output_tensors, Tensors2<T>& layer_hidden_tensors,
+                  int num_layers) const;
 };
 
 template <typename T>
@@ -41,8 +41,7 @@ struct MultiCrossBackwardFunctor {
   MultiCrossBackwardFunctor& operator=(const MultiCrossBackwardFunctor&) = delete;
 
   void operator()(cudaStream_t stream, const Tensor2<T>& input_tensor,
-                  const Tensors2<T>& kernel_tensors,
-                  const Tensors2<T>& layer_output_tensors,
+                  const Tensors2<T>& kernel_tensors, const Tensors2<T>& layer_output_tensors,
                   const Tensors2<T>& layer_hidden_tensors, const Tensor2<T>& grad_tensor,
                   Tensor2<T>& output_tensor, Tensors2<T>& kernel_output_tensors,
                   Tensors2<T>& bias_output_tensors, Tensor2<T>& tmp_vec_tensor,

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <linalg/gemv.h>
 #include <cublas_v2.h>
+#include <linalg/gemv.h>
 #include <math.h>
 
 #include <layers/multi_cross_layer.hpp>
@@ -23,8 +23,8 @@
 // #include <linalg/gemm.cuh>
 #include <linalg/matrix_vector_op.cuh>
 #include <linalg/reduce.cuh>
-#include <prims/linalg/matrix_multiplication.cuh>
 #include <prims/cuda_utils.cuh>
+#include <prims/linalg/matrix_multiplication.cuh>
 #include <utils.cuh>
 #include <utils.hpp>
 #include <vector>
@@ -34,7 +34,7 @@
 
 __inline__ __device__ __half atomicAdd(__half* address, __half val) {
   size_t base_offset = ((size_t)address & 2);
-  uint32_t* base_address = (uint32_t*)((char*)(address) - base_offset);
+  uint32_t* base_address = (uint32_t*)((char*)(address)-base_offset);
 
   uint32_t old = *base_address, assumed;
   do {
@@ -81,8 +81,8 @@ void matrix_vec_mul(Tensor2<float>& out, const Tensor2<float>& mat, const Tensor
   const float beta = 0.0f;
 
   CUBLAS_CHECK(cublasSetStream(cublas_handle, stream));
-  CUBLAS_CHECK(cublasSgemm(cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, h, 1, w, &alpha, pmat, w,
-                              pvec, w, &beta, pout, h));
+  CUBLAS_CHECK(cublasSgemm(cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, h, 1, w, &alpha, pmat, w, pvec,
+                           w, &beta, pout, h));
 }
 
 template <>
@@ -104,8 +104,8 @@ void matrix_vec_mul(Tensor2<__half>& out, const Tensor2<__half>& mat, const Tens
   const __half beta = 0.0f;
 
   CUBLAS_CHECK(cublasSetStream(cublas_handle, stream));
-  CUBLAS_CHECK(cublasHgemm(cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, h, 1, w, &alpha, pmat, w,
-                              pvec, w, &beta, pout, h));
+  CUBLAS_CHECK(cublasHgemm(cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, h, 1, w, &alpha, pmat, w, pvec,
+                           w, &beta, pout, h));
 }
 
 template <typename T>
@@ -124,8 +124,8 @@ void row_scaling(Tensor2<T>& o_mat, const Tensor2<T>& mat, const Tensor2<T>& vec
   const int h = dim[0];
   const int w = dim[1];
 
-  MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, true,
-                                   [] __device__(T a, T b) { return a * b; }, stream);
+  MLCommon::LinAlg::matrixVectorOp(
+      pout, pmat, pvec, h, w, false, true, [] __device__(T a, T b) { return a * b; }, stream);
 }
 
 template <typename T>
@@ -144,8 +144,8 @@ void matrix_vec_add(Tensor2<T>& o_mat, const Tensor2<T>& mat, const Tensor2<T>& 
   const int h = dim[0];
   const int w = dim[1];
 
-  MLCommon::LinAlg::matrixVectorOp(pout, pmat, pvec, h, w, false, false,
-                                   [] __device__(T a, T b) { return a + b; }, stream);
+  MLCommon::LinAlg::matrixVectorOp(
+      pout, pmat, pvec, h, w, false, false, [] __device__(T a, T b) { return a + b; }, stream);
 }
 
 template <typename T>
@@ -164,16 +164,15 @@ void matrix_add(Tensor2<T>& out_mat, const Tensor2<T>& mat_a, const Tensor2<T>& 
   const int h = dim[0];
   const int w = dim[1];
 
-  MLCommon::LinAlg::binaryOp(pout, pmat_a, pmat_b, h * w,
-                             [] __device__(T a, T b) { return a + b; }, stream);
+  MLCommon::LinAlg::binaryOp(
+      pout, pmat_a, pmat_b, h * w, [] __device__(T a, T b) { return a + b; }, stream);
 }
 
 /**
  * compute dot product for each pair of the rows in the two matrix,
  */
 template <typename T>
-__global__ void matrix_pair_mul_kernel(T* o_vec, const T* mat_a, int h, int w,
-                                       const T* mat_b) {
+__global__ void matrix_pair_mul_kernel(T* o_vec, const T* mat_a, int h, int w, const T* mat_b) {
   const int tid = blockDim.x * blockIdx.x + threadIdx.x;
   const int wtid = tid % WARP_SIZE;  // thread id in warp
   const int wid = tid / WARP_SIZE;   // warp id
@@ -192,8 +191,8 @@ __global__ void matrix_pair_mul_kernel(T* o_vec, const T* mat_a, int h, int w,
 }
 
 template <typename T>
-void matrix_pair_mul(Tensor2<T>& o_vec, const Tensor2<T>& mat_a,
-                     const Tensor2<T>& mat_b, cudaStream_t stream) {
+void matrix_pair_mul(Tensor2<T>& o_vec, const Tensor2<T>& mat_a, const Tensor2<T>& mat_b,
+                     cudaStream_t stream) {
   T* pout = o_vec.get_ptr();
   const T* pmat_a = mat_a.get_ptr();
   const T* pmat_b = mat_b.get_ptr();
@@ -247,8 +246,7 @@ void out_product(Tensor2<T>& out_mat, const Tensor2<T>& vec_a, const Tensor2<T>&
  * @param vec: hx1
  */
 template <typename T>
-__global__ void row_scaling_sum_kernel(T* out, const T* mat, int h, int w,
-                                       const T* vec) {
+__global__ void row_scaling_sum_kernel(T* out, const T* mat, int h, int w, const T* vec) {
   const int tid = blockDim.x * blockIdx.x + threadIdx.x;
   const int wtid = tid % WARP_SIZE;  // thread id in warp
   const int wid = tid / WARP_SIZE;   // warp id
@@ -325,13 +323,10 @@ def forward(x, k, b, layers):
  *
  */
 template <typename T>
-void MultiCrossForwardFunctor<T>::operator()(cudaStream_t stream, cublasHandle_t cublas_handle,
-                                          const Tensor2<T>& input_tensor,
-                                          const Tensors2<T>& kernel_tensors,
-                                          const Tensors2<T>& bias_tensors,
-                                          Tensors2<T>& layer_output_tensors,
-                                          Tensors2<T>& layer_hidden_tensors,
-                                          int num_layers) const {
+void MultiCrossForwardFunctor<T>::operator()(
+    cudaStream_t stream, cublasHandle_t cublas_handle, const Tensor2<T>& input_tensor,
+    const Tensors2<T>& kernel_tensors, const Tensors2<T>& bias_tensors,
+    Tensors2<T>& layer_output_tensors, Tensors2<T>& layer_hidden_tensors, int num_layers) const {
   for (int i = 0; i < num_layers; i++) {
     matrix_vec_mul(layer_hidden_tensors[i], i == 0 ? input_tensor : layer_output_tensors[i - 1],
                    kernel_tensors[i], cublas_handle, stream);
@@ -363,9 +358,9 @@ template <typename T>
 void MultiCrossBackwardFunctor<T>::operator()(
     cudaStream_t stream, const Tensor2<T>& input_tensor, const Tensors2<T>& kernel_tensors,
     const Tensors2<T>& layer_output_tensors, const Tensors2<T>& layer_hidden_tensors,
-    const Tensor2<T>& grad_tensor, Tensor2<T>& output_tensor,
-    Tensors2<T>& kernel_output_tensors, Tensors2<T>& bias_output_tensors,
-    Tensor2<T>& tmp_vec_tensor, Tensor2<T> tmp_mat_tensors[], int num_layers) const {
+    const Tensor2<T>& grad_tensor, Tensor2<T>& output_tensor, Tensors2<T>& kernel_output_tensors,
+    Tensors2<T>& bias_output_tensors, Tensor2<T>& tmp_vec_tensor, Tensor2<T> tmp_mat_tensors[],
+    int num_layers) const {
   cudaMemsetAsync(tmp_mat_tensors[2].get_ptr(), 0, tmp_mat_tensors[2].get_size_in_bytes(), stream);
   for (int i = num_layers - 1; i >= 0; i--) {
     row_scaling(tmp_mat_tensors[0], i == num_layers - 1 ? grad_tensor : tmp_mat_tensors[1],
@@ -385,13 +380,13 @@ void MultiCrossBackwardFunctor<T>::operator()(
 }
 
 template <typename T>
-MultiCrossLayer<T>::MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-                                 const std::shared_ptr<BufferBlock2<T>>& weight_buff,
-                                 const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
-                                 const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                                 const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-                                 const std::shared_ptr<GPUResource>& gpu_resource, int num_layers,
-                                 std::vector<Initializer_t> initializer_types)
+MultiCrossLayer<T>::MultiCrossLayer(
+    const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+    const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+    const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff, const Tensor2<T>& in_tensor,
+    const Tensor2<T>& out_tensor, const std::shared_ptr<GPUResource>& gpu_resource, int num_layers,
+    std::vector<Initializer_t> initializer_types)
     : Layer(gpu_resource, initializer_types), num_layers_(num_layers) {
   try {
     // check the in_tensor and out_tensor
@@ -474,13 +469,15 @@ MultiCrossLayer<T>::MultiCrossLayer(const std::shared_ptr<BufferBlock2<float>>& 
   }
 }
 
-template<>
-void MultiCrossLayer<float>::reserve_master_weight_tensor(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-                                                              const std::vector<size_t>& weight_bias_dim) {}
+template <>
+void MultiCrossLayer<float>::reserve_master_weight_tensor(
+    const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+    const std::vector<size_t>& weight_bias_dim) {}
 
-template<>
-void MultiCrossLayer<__half>::reserve_master_weight_tensor(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-                                                              const std::vector<size_t>& weight_bias_dim) {
+template <>
+void MultiCrossLayer<__half>::reserve_master_weight_tensor(
+    const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
+    const std::vector<size_t>& weight_bias_dim) {
   for (int i = 0; i < num_layers_; i++) {
     // setup weights
     {
@@ -516,8 +513,8 @@ void MultiCrossLayer<T>::fprop(bool is_train) {
   }
 
   MultiCrossForwardFunctor<T>()(get_gpu().get_stream(), get_gpu().get_cublas_handle(),
-                             blob_tensors_[0], kernel_tensors, bias_tensors, output_tensors,
-                             hidden_tensors, num_layers_);
+                                blob_tensors_[0], kernel_tensors, bias_tensors, output_tensors,
+                                hidden_tensors, num_layers_);
 }
 
 template <typename T>
@@ -540,10 +537,10 @@ void MultiCrossLayer<T>::bprop() {
     forward_output_tensors.push_back(blob_tensors_[i + 1]);
   }
 
-  MultiCrossBackwardFunctor<T>()(get_gpu().get_stream(), blob_tensors_[0], kernel_tensors,
-                              forward_output_tensors, forward_hidden_tensors,
-                              blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
-                              bias_output_tensors, tmp_vec_tensor_, tmp_mat_tensors_, num_layers_);
+  MultiCrossBackwardFunctor<T>()(
+      get_gpu().get_stream(), blob_tensors_[0], kernel_tensors, forward_output_tensors,
+      forward_hidden_tensors, blob_tensors_[num_layers_], blob_tensors_[0], kernel_output_tensors,
+      bias_output_tensors, tmp_vec_tensor_, tmp_mat_tensors_, num_layers_);
 }
 
 template <typename T>

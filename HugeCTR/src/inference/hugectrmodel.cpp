@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "HugeCTR/include/inference/hugectrmodel.hpp"
+
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -21,7 +23,7 @@
 #include <optimizer.hpp>
 #include <parser.hpp>
 #include <utils.hpp>
-#include "HugeCTR/include/inference/hugectrmodel.hpp"
+
 #include "HugeCTR/include/inference/session_inference.hpp"
 
 namespace HugeCTR {
@@ -29,8 +31,9 @@ HugeCTRModel::HugeCTRModel() {}
 
 HugeCTRModel::~HugeCTRModel() {}
 
-HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type,const std::string& model_config_path,
-                                      const InferenceParams& inference_params, std::shared_ptr<embedding_interface>& embedding_cache) {
+HugeCTRModel* HugeCTRModel::load_model(INFER_TYPE Infer_type, const std::string& model_config_path,
+                                       const InferenceParams& inference_params,
+                                       std::shared_ptr<embedding_interface>& embedding_cache) {
   HugeCTRModel* model;
 
   switch (Infer_type) {

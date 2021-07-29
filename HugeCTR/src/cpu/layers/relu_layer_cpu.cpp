@@ -15,10 +15,9 @@
  */
 
 #include <algorithm>
+#include <cpu/layers/relu_layer_cpu.hpp>
 #include <functional>
 #include <utils.hpp>
-
-#include <cpu/layers/relu_layer_cpu.hpp>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -64,7 +63,6 @@ ReluLayerCPU<T>::ReluLayerCPU(const Tensor2<T>& in_tensor, const Tensor2<T>& out
 
 template <typename T>
 void ReluLayerCPU<T>::fprop(bool is_train) {
-
   int len = in_tensors_[0].get_num_elements();
 
   relu_cpu<T>(out_tensors_[0].get_ptr(), in_tensors_[0].get_ptr(), len);

@@ -360,7 +360,7 @@ class Argument {
   }
 
   template <class F, class... Args>
-  auto action(F &&aAction, Args &&...aBound)
+  auto action(F &&aAction, Args &&... aBound)
       -> std::enable_if_t<std::is_invocable_v<F, Args..., std::string const>, Argument &> {
     using action_type =
         std::conditional_t<std::is_void_v<std::invoke_result_t<F, Args..., std::string const>>,
@@ -825,7 +825,7 @@ class ArgumentParser {
   // Parameter packed add_parents method
   // Accepts a variadic number of ArgumentParser objects
   template <typename... Targs>
-  ArgumentParser &add_parents(const Targs &...Fargs) {
+  ArgumentParser &add_parents(const Targs &... Fargs) {
     for (const ArgumentParser &tParentParser : {std::ref(Fargs)...}) {
       for (auto &tArgument : tParentParser.mPositionalArguments) {
         auto it = mPositionalArguments.insert(cend(mPositionalArguments), tArgument);

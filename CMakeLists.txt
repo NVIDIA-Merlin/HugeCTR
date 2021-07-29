@@ -20,7 +20,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
-option(CLANGFORMAT "Setup clangformat target" OFF)
+option(CLANGFORMAT "Setup clangformat target" ON)
 if(CLANGFORMAT)
   include(ClangFormat)
 
@@ -33,6 +33,10 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/utest/*.cpp
     ${PROJECT_SOURCE_DIR}/utest/*.cu
     ${PROJECT_SOURCE_DIR}/utest/*.cuh
+    ${PROJECT_SOURCE_DIR}/tools/*.hpp
+    ${PROJECT_SOURCE_DIR}/tools/*.cpp
+    ${PROJECT_SOURCE_DIR}/tools/*.cu
+    ${PROJECT_SOURCE_DIR}/tools/*.cuh
   )
 
   set(clangformat_srcs ${HUGECTR_SRC})

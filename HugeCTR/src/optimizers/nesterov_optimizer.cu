@@ -77,7 +77,6 @@ void NesterovOptimizer<T>::update() {
 #endif
 }
 
-
 template class NesterovOptimizer<float>;
 template class NesterovOptimizer<__half>;
 

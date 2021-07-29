@@ -51,7 +51,7 @@ class DropoutLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   DropoutLayerCPU(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<HostAllocator>> blobs_buff, float rate);
+                  const std::shared_ptr<GeneralBuffer2<HostAllocator>> blobs_buff, float rate);
 
   /**
    * A method of implementing the forward pass of Dropout

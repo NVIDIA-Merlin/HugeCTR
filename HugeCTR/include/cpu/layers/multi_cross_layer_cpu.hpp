@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <cpu/layer_cpu.hpp>
 #include <functional>
 #include <vector>
-#include <cpu/layer_cpu.hpp>
 
 namespace HugeCTR {
 
@@ -59,12 +59,11 @@ class MultiCrossLayerCPU : public LayerCPU {
   void bprop() final;
 
   MultiCrossLayerCPU(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                  const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                  const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-                  const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
-                  int num_layers);
+                     const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                     const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                     const Tensor2<float>& in_tensor, const Tensor2<float>& out_tensor,
+                     int num_layers);
   MultiCrossLayerCPU(const MultiCrossLayerCPU&) = delete;
   MultiCrossLayerCPU& operator=(const MultiCrossLayerCPU&) = delete;
-
 };
 }  // namespace HugeCTR

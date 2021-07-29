@@ -16,11 +16,10 @@
 
 #pragma once
 
-#include <functional>
-#include <vector>
-
 #include <cpu/layer_cpu.hpp>
 #include <cpu/layers/fully_connected_layer_cpu.hpp>
+#include <functional>
+#include <vector>
 
 namespace HugeCTR {
 /**
@@ -55,7 +54,6 @@ class FullyConnectedLayerCPU<__half> : public LayerCPU {
    */
   Tensor2<__half> identity_tensor_;
 
-
   Tensor2<__half>& get_bottom_tensor(bool is_train) { return bottom_tensor_; }
 
  public:
@@ -81,12 +79,11 @@ class FullyConnectedLayerCPU<__half> : public LayerCPU {
    * @param tensor_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  FullyConnectedLayerCPU(
-      const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
-      const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-      const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor);
+  FullyConnectedLayerCPU(const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
+                         const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
+                         const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
+                         const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                         const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor);
   FullyConnectedLayerCPU(const FullyConnectedLayerCPU&) = delete;
   FullyConnectedLayerCPU& operator=(const FullyConnectedLayerCPU&);
 };

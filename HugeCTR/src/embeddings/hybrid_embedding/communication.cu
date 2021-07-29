@@ -95,15 +95,10 @@ void AllToAll_Multi_NCCL<commtype>::communicate(cudaStream_t stream) {
  * All Reduce communications
  */
 template <typename commtype>
-AllReduceComm<commtype>::AllReduceComm(AllReduceInPlaceComm* ar_comm, 
-    AllReduceInPlaceComm::Handle ar_handle,
-    const GPUResource* gpu_resource)
-    : Communication(0),
-    ar_comm_(ar_comm),
-    ar_handle_(ar_handle),
-    gpu_resource_(gpu_resource)
-{
-}
+AllReduceComm<commtype>::AllReduceComm(AllReduceInPlaceComm* ar_comm,
+                                       AllReduceInPlaceComm::Handle ar_handle,
+                                       const GPUResource* gpu_resource)
+    : Communication(0), ar_comm_(ar_comm), ar_handle_(ar_handle), gpu_resource_(gpu_resource) {}
 
 template <typename commtype>
 void AllReduceComm<commtype>::communicate(cudaStream_t stream) {
@@ -128,16 +123,12 @@ HierAll2Allv_Multi_IB<commtype>::HierAll2Allv_Multi_IB(uint32_t instance_id,
 }
 
 template <typename commtype>
-void HierAll2Allv_Multi_IB<commtype>::update_sizes(cudaStream_t stream)
-{
-  ib_comm_->pre_intra_update_a2a_coll_sizes(
-      coll_handle_, send_sizes_, 
-      stream, instance_id_);
+void HierAll2Allv_Multi_IB<commtype>::update_sizes(cudaStream_t stream) {
+  ib_comm_->pre_intra_update_a2a_coll_sizes(coll_handle_, send_sizes_, stream, instance_id_);
 }
 
 template <typename commtype>
-void HierAll2Allv_Multi_IB<commtype>::communicate(cudaStream_t stream)
-{
+void HierAll2Allv_Multi_IB<commtype>::communicate(cudaStream_t stream) {
   ib_comm_->post_send_command_a2a<commtype>(coll_handle_, stream, instance_id_);
   CK_CUDA_THROW_(cudaEventRecord(comm_event_, comm_stream_));
   CK_CUDA_THROW_(cudaStreamWaitEvent(stream, comm_event_));

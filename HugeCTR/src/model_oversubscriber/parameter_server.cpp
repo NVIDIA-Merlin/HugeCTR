@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include <model_oversubscriber/parameter_server.hpp>
-
-#include <fstream>
 #include <experimental/filesystem>
+#include <fstream>
+#include <model_oversubscriber/parameter_server.hpp>
 
 namespace fs = std::experimental::filesystem;
 
@@ -37,16 +36,15 @@ void open_and_get_size(const std::string& file_name, std::ifstream& stream,
 }  // namespace
 
 template <typename TypeKey>
-ParameterServer<TypeKey>::ParameterServer(bool use_host_ps,
-    const std::string &sparse_model_file, Embedding_t embedding_type,
-    size_t emb_vec_size, std::shared_ptr<ResourceManager> resource_manager)
+ParameterServer<TypeKey>::ParameterServer(bool use_host_ps, const std::string& sparse_model_file,
+                                          Embedding_t embedding_type, size_t emb_vec_size,
+                                          std::shared_ptr<ResourceManager> resource_manager)
     : use_host_ps_(use_host_ps),
-      sparse_model_entity_(SparseModelEntity<TypeKey>(use_host_ps,
-      sparse_model_file, embedding_type, emb_vec_size, resource_manager)) {}
+      sparse_model_entity_(SparseModelEntity<TypeKey>(
+          use_host_ps, sparse_model_file, embedding_type, emb_vec_size, resource_manager)) {}
 
 template <typename TypeKey>
-void ParameterServer<TypeKey>::load_keyset_from_file(
-	std::string keyset_file) {
+void ParameterServer<TypeKey>::load_keyset_from_file(std::string keyset_file) {
   try {
     std::ifstream keyset_stream;
     size_t file_size_in_byte = 0;
@@ -80,8 +78,8 @@ void ParameterServer<TypeKey>::pull(BufferBag& buf_bag, size_t& hit_size) {
 }
 
 template <typename TypeKey>
-std::pair<std::vector<long long>, std::vector<float>>
-ParameterServer<TypeKey>::pull(const std::vector<long long> &keys_to_load) {
+std::pair<std::vector<long long>, std::vector<float>> ParameterServer<TypeKey>::pull(
+    const std::vector<long long>& keys_to_load) {
   if (keys_to_load.empty()) {
     CK_THROW_(Error_t::WrongInput, "keyset is empty");
   }
@@ -89,7 +87,7 @@ ParameterServer<TypeKey>::pull(const std::vector<long long> &keys_to_load) {
 }
 
 template <typename TypeKey>
-void ParameterServer<TypeKey>::push(BufferBag &buf_bag, size_t dump_size) {
+void ParameterServer<TypeKey>::push(BufferBag& buf_bag, size_t dump_size) {
   if (dump_size == 0) return;
   sparse_model_entity_.dump_vec_by_key(buf_bag, dump_size);
 }

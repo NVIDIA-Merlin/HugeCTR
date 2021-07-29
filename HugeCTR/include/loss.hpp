@@ -70,13 +70,9 @@ class Loss : public ILoss {
                           int feature_dim, float scaler, float rterm, bool is_train,
                           cudaStream_t stream) = 0;
 
-  const Tensors2<float>& get_label_tensors(bool is_train) const {
-      return label_tensors_;
-  }
+  const Tensors2<float>& get_label_tensors(bool is_train) const { return label_tensors_; }
 
-  Tensors2<T>& get_input_tensors(bool is_train) {
-      return input_tensors_;
-  }
+  Tensors2<T>& get_input_tensors(bool is_train) { return input_tensors_; }
 
  protected:
   const Tensors2<float>& get_loss_tensors() const { return loss_tensors_; }

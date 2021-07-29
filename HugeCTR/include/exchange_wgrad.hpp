@@ -36,8 +36,8 @@ class ExchangeWgrad {
 template <typename TypeFP>
 class NetworkExchangeWgrad : public ExchangeWgrad {
  public:
-  const BuffPtrs<TypeFP>& get_network_wgrad_buffs() const  { return network_wgrad_buffs_; }
-  const BuffPtrs<TypeFP>& get_embed_wgrad_buffs() const  { return null_wgrad_buffs_; }
+  const BuffPtrs<TypeFP>& get_network_wgrad_buffs() const { return network_wgrad_buffs_; }
+  const BuffPtrs<TypeFP>& get_embed_wgrad_buffs() const { return null_wgrad_buffs_; }
   void allocate() final;
   void update_embed_wgrad_size(size_t size) final;
   void allreduce(size_t device_id, cudaStream_t stream);
@@ -45,7 +45,6 @@ class NetworkExchangeWgrad : public ExchangeWgrad {
   ~NetworkExchangeWgrad() = default;
 
  private:
-
   BuffPtrs<TypeFP> network_wgrad_buffs_;
   BuffPtrs<TypeFP> null_wgrad_buffs_;
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs_;
@@ -60,8 +59,8 @@ class NetworkExchangeWgrad : public ExchangeWgrad {
 template <typename TypeFP>
 class GroupedExchangeWgrad : public ExchangeWgrad {
  public:
-  const BuffPtrs<TypeFP>& get_network_wgrad_buffs() const  { return network_wgrad_buffs_; }
-  const BuffPtrs<TypeFP>& get_embed_wgrad_buffs() const  { return embed_wgrad_buffs_; }
+  const BuffPtrs<TypeFP>& get_network_wgrad_buffs() const { return network_wgrad_buffs_; }
+  const BuffPtrs<TypeFP>& get_embed_wgrad_buffs() const { return embed_wgrad_buffs_; }
   void allocate() final;
   void update_embed_wgrad_size(size_t size) final;
   void allreduce(size_t device_id, cudaStream_t stream);
@@ -69,17 +68,15 @@ class GroupedExchangeWgrad : public ExchangeWgrad {
   ~GroupedExchangeWgrad() = default;
 
  private:
-
   BuffPtrs<TypeFP> network_wgrad_buffs_;
   BuffPtrs<TypeFP> embed_wgrad_buffs_;
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>> bufs_;
   std::shared_ptr<ResourceManager> resource_manager_;
 
   AllReduceInPlaceComm::Handle ar_handle_;
-  
+
   size_t network_wgrad_size_ = 0;
   size_t embed_wgrad_size_ = 0;
   size_t num_gpus_ = 0;
 };
 }  // namespace HugeCTR
-

@@ -16,15 +16,14 @@
 #include "HugeCTR/include/embedding.hpp"
 #include "HugeCTR/include/utils.cuh"
 #include "cub/device/device_radix_sort.cuh"
-#include "cub/device/device_scan.cuh"
 #include "cub/device/device_run_length_encode.cuh"
+#include "cub/device/device_scan.cuh"
 
 namespace HugeCTR {
 
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
-    size_t max_vocabulary_size_per_gpu_,
-    SparseEmbeddingHashParams &param,
+    size_t max_vocabulary_size_per_gpu_, SparseEmbeddingHashParams &param,
     const std::shared_ptr<GeneralBuffer2<CudaAllocator>> &buf)
     : param(param) {
   // new optimizer params used by update_params
@@ -32,28 +31,34 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
     case Optimizer_t::Adam:  // adam
     {
       {
-        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_m_tensors_);
-        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_v_tensors_);
+        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                     &opt_tensors_.opt_m_tensors_);
+        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                     &opt_tensors_.opt_v_tensors_);
       }
       if (param.opt_params.update_type == Update_t::LazyGlobal) {
-        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_prev_time_tensors_);
+        buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                     &opt_tensors_.opt_prev_time_tensors_);
       }
       break;
     }
     case Optimizer_t::AdaGrad:  // nesterov
     {
-      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_accm_tensors_);
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                   &opt_tensors_.opt_accm_tensors_);
       break;
     }
     case Optimizer_t::MomentumSGD:  // momentum_sgd
     {
-      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_momentum_tensors_);
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                   &opt_tensors_.opt_momentum_tensors_);
       break;
     }
 
     case Optimizer_t::Nesterov:  // nesterov
     {
-      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size}, &opt_tensors_.opt_accm_tensors_);
+      buf->reserve({max_vocabulary_size_per_gpu_, param.embedding_vec_size},
+                   &opt_tensors_.opt_accm_tensors_);
       break;
     }
 
@@ -65,27 +70,27 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
           std::string("[HCDEBUG][ERROR] Runtime error: Invalid optimizer type\n"));
   }
 
-  {
-    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &sample_id_tensors_);
-  }
+  { buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &sample_id_tensors_); }
   {
     buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &sample_id_sort_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &hash_value_index_sort_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num},
+                 &hash_value_index_sort_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num + 1}, &hash_value_index_count_offset_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num + 1},
+                 &hash_value_index_count_offset_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &new_hash_value_flag_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num},
+                 &new_hash_value_flag_tensors_);
   }
   {
-    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num}, &hash_value_flag_sumed_tensors_);
+    buf->reserve({1, param.get_batch_size(true) * param.max_feature_num},
+                 &hash_value_flag_sumed_tensors_);
   }
-  {
-    buf->reserve({1, 1}, &hash_value_index_count_counter_tensors_);
-  }
+  { buf->reserve({1, 1}, &hash_value_index_count_counter_tensors_); }
   {
     // cal the temp storage bytes for CUB radix sort
     size_t size = 0;
@@ -99,8 +104,7 @@ EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::EmbeddingOptimizer(
 
   {
     size_t size = 0;
-    cub::DeviceScan::InclusiveSum((void *)nullptr, size, (uint32_t *)nullptr,
-                                  (uint32_t *)nullptr,
+    cub::DeviceScan::InclusiveSum((void *)nullptr, size, (uint32_t *)nullptr, (uint32_t *)nullptr,
                                   param.get_batch_size(true) * param.max_feature_num);
 
     buf->reserve({size}, &temp_storage_scan_tensors_);
@@ -127,7 +131,8 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::initialize(const GPURes
       }
       break;
     case Optimizer_t::AdaGrad:
-      CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_accm_tensors_.get_ptr(), param.opt_params.hyperparams.adagrad.initial_accu_value,
+      CK_CUDA_THROW_(cudaMemsetAsync(opt_tensors_.opt_accm_tensors_.get_ptr(),
+                                     param.opt_params.hyperparams.adagrad.initial_accu_value,
                                      opt_tensors_.opt_accm_tensors_.get_size_in_bytes(),
                                      local_gpu.get_stream()));
       break;
@@ -227,10 +232,8 @@ __device__ __forceinline__ float accumulate_gradients(int embedding_vec_size,
 // corresponding terms to the moving-average accumulators
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                       const AdamOptHyperParams adam,
-                                       TypeEmbeddingComp *m_ptr,
-                                       TypeEmbeddingComp *v_ptr,
-                                       const TypeKey *sample_id,
+                                       const AdamOptHyperParams adam, TypeEmbeddingComp *m_ptr,
+                                       TypeEmbeddingComp *v_ptr, const TypeKey *sample_id,
                                        const size_t *hash_value_index_sort,
                                        const uint32_t *hash_value_index_count_offset,
                                        const TypeEmbeddingComp *wgrad, float scaler) {
@@ -259,10 +262,9 @@ __global__ void opt_adam_kernel_global(uint32_t hash_value_index_count_num, int 
 template <typename TypeEmbeddingComp>
 __global__ void adam_update_kernel_global(int embedding_vec_size,
                                           size_t table_size,  // vocabulary size / factor
-                                          const AdamOptHyperParams adam,
-                                          TypeEmbeddingComp *m_ptr,
-                                          TypeEmbeddingComp *v_ptr,
-                                          float alpha_t, float *hash_table_value) {
+                                          const AdamOptHyperParams adam, TypeEmbeddingComp *m_ptr,
+                                          TypeEmbeddingComp *v_ptr, float alpha_t,
+                                          float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
@@ -284,9 +286,9 @@ __global__ void adam_update_kernel_global(int embedding_vec_size,
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_momentum_sgd_kernel_global(
     uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
-    const MomentumSGDOptHyperParams momentum, TypeEmbeddingComp *momentum_ptr, const TypeKey *sample_id,
-    const size_t *hash_value_index_sort, const uint32_t *hash_value_index_count_offset,
-    const TypeEmbeddingComp *wgrad, float scaler) {
+    const MomentumSGDOptHyperParams momentum, TypeEmbeddingComp *momentum_ptr,
+    const TypeKey *sample_id, const size_t *hash_value_index_sort,
+    const uint32_t *hash_value_index_count_offset, const TypeEmbeddingComp *wgrad, float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -297,9 +299,8 @@ __global__ void opt_momentum_sgd_kernel_global(
 
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float mo =
-        TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum_ptr[feature_index]) -
-        lr * gi / momentum.factor;
+    float mo = TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum_ptr[feature_index]) -
+               lr * gi / momentum.factor;
     momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
   }
 }
@@ -307,15 +308,15 @@ __global__ void opt_momentum_sgd_kernel_global(
 // Second step of the global update with Momentum SGD: update the momentum and the weights for all
 // the features
 template <typename TypeEmbeddingComp>
-__global__ void momentum_sgd_update_kernel_global(
-    int embedding_vec_size,
-    size_t table_size,  // vocabulary size / factor
-    const MomentumSGDOptHyperParams momentum, TypeEmbeddingComp *momentum_ptr, float *hash_table_value) {
+__global__ void momentum_sgd_update_kernel_global(int embedding_vec_size,
+                                                  size_t table_size,  // vocabulary size / factor
+                                                  const MomentumSGDOptHyperParams momentum,
+                                                  TypeEmbeddingComp *momentum_ptr,
+                                                  float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
-    float mo =
-        TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum_ptr[feature_index]);
+    float mo = TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum_ptr[feature_index]);
     mo *= momentum.factor;
     hash_table_value[feature_index] += mo;
     momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
@@ -324,15 +325,15 @@ __global__ void momentum_sgd_update_kernel_global(
 
 // First step of the global update with Nesterov: update momentum and weights for all the features
 template <typename TypeEmbeddingComp>
-__global__ void nesterov_global_update_kernel_global(
-    int embedding_vec_size,
-    size_t table_size,  // vocabulary size / factor
-    const NesterovOptHyperParams nesterov, TypeEmbeddingComp *accm_ptr, float *hash_table_value) {
+__global__ void nesterov_global_update_kernel_global(int embedding_vec_size,
+                                                     size_t table_size,  // vocabulary size / factor
+                                                     const NesterovOptHyperParams nesterov,
+                                                     TypeEmbeddingComp *accm_ptr,
+                                                     float *hash_table_value) {
   const int TILE_SIZE = blockDim.x * gridDim.x;
   for (size_t feature_index = blockIdx.x * blockDim.x + threadIdx.x;
        feature_index < table_size * embedding_vec_size; feature_index += TILE_SIZE) {
-    float accm =
-        TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
+    float accm = TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
     accm *= nesterov.mu;
     accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm);
     hash_table_value[feature_index] += accm * nesterov.mu;
@@ -357,8 +358,7 @@ __global__ void nesterov_local_update_kernel_global(
 
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float accm =
-        TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
+    float accm = TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
     accm -= lr * gi;
     accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm);
     hash_table_value[feature_index] -= (1 + nesterov.mu) * (lr * gi);
@@ -369,10 +369,9 @@ __global__ void nesterov_local_update_kernel_global(
 // weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                const AdamOptHyperParams adam, 
-                                TypeEmbeddingComp *m_ptr,
-                                TypeEmbeddingComp *v_ptr, float alpha_t,
-                                const TypeKey *sample_id, const size_t *hash_value_index_sort,
+                                const AdamOptHyperParams adam, TypeEmbeddingComp *m_ptr,
+                                TypeEmbeddingComp *v_ptr, float alpha_t, const TypeKey *sample_id,
+                                const size_t *hash_value_index_sort,
                                 const uint32_t *hash_value_index_count_offset,
                                 const TypeEmbeddingComp *wgrad, float *hash_table_value,
                                 float scaler) {
@@ -404,12 +403,12 @@ __global__ void opt_adam_kernel(uint32_t hash_value_index_count_num, int embeddi
 // weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_adagrad_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                float lr, const AdaGradParams adagrad, TypeEmbeddingComp *accum_ptr,
-                                const TypeKey *sample_id,
-                                const size_t *hash_value_index_sort,
-                                const uint32_t *hash_value_index_count_offset,
-                                const TypeEmbeddingComp *wgrad, float *hash_table_value,
-                                float scaler) {
+                                   float lr, const AdaGradParams adagrad,
+                                   TypeEmbeddingComp *accum_ptr, const TypeKey *sample_id,
+                                   const size_t *hash_value_index_sort,
+                                   const uint32_t *hash_value_index_count_offset,
+                                   const TypeEmbeddingComp *wgrad, float *hash_table_value,
+                                   float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -421,7 +420,8 @@ __global__ void opt_adagrad_kernel(uint32_t hash_value_index_count_num, int embe
 
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float accum = TypeConvertFunc<float, TypeEmbeddingComp>::convert(accum_ptr[feature_index]) + gi * gi;
+    float accum =
+        TypeConvertFunc<float, TypeEmbeddingComp>::convert(accum_ptr[feature_index]) + gi * gi;
 
     accum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accum);
     float weight_diff = -lr * gi / (sqrtf(accum) + adagrad.epsilon);
@@ -430,14 +430,15 @@ __global__ void opt_adagrad_kernel(uint32_t hash_value_index_count_num, int embe
   }
 }
 
-
 // Local update for Momentum SGD: compute the gradients and update the momentum and the weights
 template <typename TypeKey, typename TypeEmbeddingComp>
-__global__ void opt_momentum_sgd_kernel(
-    uint32_t hash_value_index_count_num, int embedding_vec_size, float lr,
-    const MomentumSGDOptHyperParams momentum, TypeEmbeddingComp *momentum_ptr, const TypeKey *sample_id,
-    const size_t *hash_value_index_sort, const uint32_t *hash_value_index_count_offset,
-    const TypeEmbeddingComp *wgrad, float *hash_table_value, float scaler) {
+__global__ void opt_momentum_sgd_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
+                                        float lr, const MomentumSGDOptHyperParams momentum,
+                                        TypeEmbeddingComp *momentum_ptr, const TypeKey *sample_id,
+                                        const size_t *hash_value_index_sort,
+                                        const uint32_t *hash_value_index_count_offset,
+                                        const TypeEmbeddingComp *wgrad, float *hash_table_value,
+                                        float scaler) {
   int bid = blockIdx.x;
   int tid = threadIdx.x;
 
@@ -448,8 +449,8 @@ __global__ void opt_momentum_sgd_kernel(
 
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float mo = momentum.factor * TypeConvertFunc<float, TypeEmbeddingComp>::convert(
-                                     momentum_ptr[feature_index]) -
+    float mo = momentum.factor *
+                   TypeConvertFunc<float, TypeEmbeddingComp>::convert(momentum_ptr[feature_index]) -
                lr * gi;
     momentum_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(mo);
 
@@ -460,10 +461,9 @@ __global__ void opt_momentum_sgd_kernel(
 // Local update for Nesterov: compute the gradients and update the accumulators and the weights
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                    float lr,
-                                    const NesterovOptHyperParams nesterov,
-                                    TypeEmbeddingComp *accm_ptr,
-                                    const TypeKey *sample_id, const size_t *hash_value_index_sort,
+                                    float lr, const NesterovOptHyperParams nesterov,
+                                    TypeEmbeddingComp *accm_ptr, const TypeKey *sample_id,
+                                    const size_t *hash_value_index_sort,
                                     const uint32_t *hash_value_index_count_offset,
                                     const TypeEmbeddingComp *wgrad, float *hash_table_value,
                                     float scaler) {
@@ -477,8 +477,7 @@ __global__ void opt_nesterov_kernel(uint32_t hash_value_index_count_num, int emb
 
     size_t row_index = hash_value_index_sort[offset];
     size_t feature_index = row_index * embedding_vec_size + tid;
-    float accm_old =
-        TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
+    float accm_old = TypeConvertFunc<float, TypeEmbeddingComp>::convert(accm_ptr[feature_index]);
     float accm_new = nesterov.mu * accm_old - lr * gi;
     accm_ptr[feature_index] = TypeConvertFunc<TypeEmbeddingComp, float>::convert(accm_new);
     float weight_diff = -nesterov.mu * accm_old + (1.0f + nesterov.mu) * accm_new;
@@ -515,10 +514,8 @@ __global__ void opt_sgd_kernel(uint32_t hash_value_index_count_num, int embeddin
 // accumulators (local approximation of the global update)
 template <typename TypeKey, typename TypeEmbeddingComp>
 __global__ void opt_adam_kernel_lazy(uint32_t hash_value_index_count_num, int embedding_vec_size,
-                                     const AdamOptHyperParams adam,
-                                     uint64_t *prev_time_ptr,
-                                     TypeEmbeddingComp *m_ptr,
-                                     TypeEmbeddingComp *v_ptr,
+                                     const AdamOptHyperParams adam, uint64_t *prev_time_ptr,
+                                     TypeEmbeddingComp *m_ptr, TypeEmbeddingComp *v_ptr,
                                      float alpha_t_common, uint64_t times, const TypeKey *sample_id,
                                      const size_t *hash_value_index_sort,
                                      const uint32_t *hash_value_index_count_offset,
@@ -603,9 +600,8 @@ __global__ void opt_sgd_atomic_kernel(int nnz, int embedding_vec_size, float lr_
 template <typename TypeHashKey, typename TypeEmbeddingComp>
 void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
     size_t batch_size, size_t slot_num, size_t embedding_vec_size,
-    size_t max_vocabulary_size_per_gpu,  size_t nnz,
-    const Tensor2<TypeHashKey> &row_offset, Tensor2<size_t> &hash_value_index,
-    const Tensor2<TypeEmbeddingComp> &wgrad,
+    size_t max_vocabulary_size_per_gpu, size_t nnz, const Tensor2<TypeHashKey> &row_offset,
+    Tensor2<size_t> &hash_value_index, const Tensor2<TypeEmbeddingComp> &wgrad,
     Tensor2<float> &hash_table_value, size_t sm_count, cudaStream_t stream) {
   OptimizerTensor<TypeEmbeddingComp> &opt_tensor = opt_tensors_;
   OptParams &opt_params = param.opt_params;
@@ -699,33 +695,40 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(), opt_params.scaler);
               // all update according to the mi vi
               adam_update_kernel_global<<<1024, 256, 0, stream>>>(
-                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam, opt_tensor.opt_m_tensors_.get_ptr(), opt_tensor.opt_v_tensors_.get_ptr(),
-                  alpha_t, hash_table_value.get_ptr());
+                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.adam,
+                  opt_tensor.opt_m_tensors_.get_ptr(), opt_tensor.opt_v_tensors_.get_ptr(), alpha_t,
+                  hash_table_value.get_ptr());
               break;
             }
             case Optimizer_t::AdaGrad: {
-              opt_adagrad_kernel<<<grid_size, block_size, 0, stream>>>(hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr, opt_params.hyperparams.adagrad, opt_tensor.opt_accm_tensors_.get_ptr(), sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
+              opt_adagrad_kernel<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                  opt_params.hyperparams.adagrad, opt_tensor.opt_accm_tensors_.get_ptr(),
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                  hash_table_value.get_ptr(), opt_params.scaler);
               break;
             }
             case Optimizer_t::MomentumSGD:
               opt_momentum_sgd_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                  opt_params.hyperparams.momentum, opt_tensor.opt_momentum_tensors_.get_ptr(), sample_id_sort.get_ptr(),
-                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                  wgrad.get_ptr(), opt_params.scaler);
+                  opt_params.hyperparams.momentum, opt_tensor.opt_momentum_tensors_.get_ptr(),
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(), opt_params.scaler);
               momentum_sgd_update_kernel_global<<<1024, 256, 0, stream>>>(
-                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum, opt_tensor.opt_momentum_tensors_.get_ptr(), 
-                  hash_table_value.get_ptr());
+                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.momentum,
+                  opt_tensor.opt_momentum_tensors_.get_ptr(), hash_table_value.get_ptr());
               break;
             case Optimizer_t::Nesterov:
               nesterov_global_update_kernel_global<<<1024, 256, 0, stream>>>(
-                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov, opt_tensor.opt_accm_tensors_.get_ptr(),
-                  hash_table_value.get_ptr());
+                  embedding_vec_size, max_vocabulary_size_per_gpu, opt_params.hyperparams.nesterov,
+                  opt_tensor.opt_accm_tensors_.get_ptr(), hash_table_value.get_ptr());
               nesterov_local_update_kernel_global<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                  opt_params.hyperparams.nesterov, opt_tensor.opt_accm_tensors_.get_ptr(), sample_id_sort.get_ptr(),
-                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                  wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
+                  opt_params.hyperparams.nesterov, opt_tensor.opt_accm_tensors_.get_ptr(),
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                  hash_table_value.get_ptr(), opt_params.scaler);
               break;
             case Optimizer_t::SGD:
               // Note: this is in fact a local update
@@ -751,29 +754,37 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   (1 - pow(opt_params.hyperparams.adam.beta1, opt_params.hyperparams.adam.times));
 
               opt_adam_kernel<<<grid_size, block_size, 0, stream>>>(
-                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam, opt_tensor.opt_m_tensors_.get_ptr(), opt_tensor.opt_v_tensors_.get_ptr(),
-                  alpha_t, sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+                  opt_tensor.opt_m_tensors_.get_ptr(), opt_tensor.opt_v_tensors_.get_ptr(), alpha_t,
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
                   hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
                   hash_table_value.get_ptr(), opt_params.scaler);
               break;
             }
             case Optimizer_t::AdaGrad: {
-              opt_adagrad_kernel<<<grid_size, block_size, 0, stream>>>(hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr, opt_params.hyperparams.adagrad, opt_tensor.opt_accm_tensors_.get_ptr(), sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
+              opt_adagrad_kernel<<<grid_size, block_size, 0, stream>>>(
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
+                  opt_params.hyperparams.adagrad, opt_tensor.opt_accm_tensors_.get_ptr(),
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                  hash_table_value.get_ptr(), opt_params.scaler);
               break;
             }
             case Optimizer_t::MomentumSGD:
               opt_momentum_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                  opt_params.hyperparams.momentum, opt_tensor.opt_momentum_tensors_.get_ptr(), sample_id_sort.get_ptr(),
-                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                  wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
+                  opt_params.hyperparams.momentum, opt_tensor.opt_momentum_tensors_.get_ptr(),
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                  hash_table_value.get_ptr(), opt_params.scaler);
               break;
             case Optimizer_t::Nesterov:
               opt_nesterov_kernel<<<grid_size, block_size, 0, stream>>>(
                   hash_hash_value_index_count_num, embedding_vec_size, opt_params.lr,
-                  opt_params.hyperparams.nesterov, opt_tensor.opt_accm_tensors_.get_ptr(), sample_id_sort.get_ptr(),
-                  hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
-                  wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
+                  opt_params.hyperparams.nesterov, opt_tensor.opt_accm_tensors_.get_ptr(),
+                  sample_id_sort.get_ptr(), hash_value_index_sort.get_ptr(),
+                  hash_value_index_count_offset.get_ptr(), wgrad.get_ptr(),
+                  hash_table_value.get_ptr(), opt_params.scaler);
               break;
             case Optimizer_t::SGD:
               opt_sgd_kernel<<<grid_size, block_size, 0, stream>>>(
@@ -794,8 +805,10 @@ void EmbeddingOptimizer<TypeHashKey, TypeEmbeddingComp>::update(
                   opt_params.lr / (1.0f - opt_params.hyperparams.adam.beta1);
 
               opt_adam_kernel_lazy<<<grid_size, block_size, 0, stream>>>(
-                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam, opt_tensor.opt_prev_time_tensors_.get_ptr(), opt_tensor.opt_m_tensors_.get_ptr(), opt_tensor.opt_v_tensors_.get_ptr(),
-                  alpha_t_common, opt_params.hyperparams.adam.times, sample_id_sort.get_ptr(),
+                  hash_hash_value_index_count_num, embedding_vec_size, opt_params.hyperparams.adam,
+                  opt_tensor.opt_prev_time_tensors_.get_ptr(), opt_tensor.opt_m_tensors_.get_ptr(),
+                  opt_tensor.opt_v_tensors_.get_ptr(), alpha_t_common,
+                  opt_params.hyperparams.adam.times, sample_id_sort.get_ptr(),
                   hash_value_index_sort.get_ptr(), hash_value_index_count_offset.get_ptr(),
                   wgrad.get_ptr(), hash_table_value.get_ptr(), opt_params.scaler);
               break;

@@ -33,7 +33,7 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler__(const nlohm
   return lr_sch;
 }
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
     const std::string configure_file) {
@@ -90,8 +90,7 @@ std::unique_ptr<LearningRateScheduler> get_learning_rate_scheduler(
 }
 
 GpuLearningRateSchedulers get_gpu_learning_rate_schedulers(
-    const nlohmann::json& config,
-    const std::shared_ptr<ResourceManager>& resource_manager) {
+    const nlohmann::json& config, const std::shared_ptr<ResourceManager>& resource_manager) {
   /* parse the solver */
   auto j_optimizer = get_json(config, "optimizer");
 
@@ -123,9 +122,7 @@ GpuLearningRateSchedulers get_gpu_learning_rate_schedulers(
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     auto& gpu_resource = resource_manager->get_local_gpu(i);
     lr_scheds.emplace_back(new GpuLearningRateScheduler(
-          base_lr, warmup_steps,
-          decay_start, decay_steps, decay_power, end_lr,
-          gpu_resource));
+        base_lr, warmup_steps, decay_start, decay_steps, decay_power, end_lr, gpu_resource));
   }
 
   return lr_scheds;

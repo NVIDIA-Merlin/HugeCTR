@@ -74,18 +74,20 @@ void SparseEmbeddingFunctors::all_gather(size_t send_count, const Tensors2<Type>
 
   return;
 }
-                               
+
 template <typename Type>
-void SparseEmbeddingFunctors::prepare_for_sparse_all_gather(const SparseTensors<Type> &send_tensors, SparseTensorAllGatherConfig<Type> &config,  const ResourceManager &resource_manager) {
+void SparseEmbeddingFunctors::prepare_for_sparse_all_gather(
+    const SparseTensors<Type> &send_tensors, SparseTensorAllGatherConfig<Type> &config,
+    const ResourceManager &resource_manager) {
   size_t local_gpu_count = resource_manager.get_local_gpu_count();
   size_t total_gpu_count = resource_manager.get_global_gpu_count();
   if (send_tensors.size() != local_gpu_count) {
     CK_THROW_(Error_t::OutOfBound, "prepare_for_sparse_all_gather send tensors check error");
   }
 
-  if(local_gpu_count == total_gpu_count) {
+  if (local_gpu_count == total_gpu_count) {
     size_t total_nnz = 0;
-    for(size_t i = 0; i < local_gpu_count; ++i){
+    for (size_t i = 0; i < local_gpu_count; ++i) {
       config.nnzs.get_ptr()[i] = total_nnz;
       config.nnzs_num.get_ptr()[i] = send_tensors[i].nnz();
       total_nnz += send_tensors[i].nnz();
@@ -101,18 +103,18 @@ void SparseEmbeddingFunctors::prepare_for_sparse_all_gather(const SparseTensors<
   }
   std::vector<size_t> global_nnzs(total_gpu_count, 0);
 
-  CK_MPI_THROW_(MPI_Allgather(local_nnzs.data(), local_gpu_count * sizeof(size_t), MPI_CHAR, global_nnzs.data(),
-  total_gpu_count * sizeof(size_t), MPI_CHAR, MPI_COMM_WORLD)); 
+  CK_MPI_THROW_(MPI_Allgather(local_nnzs.data(), local_gpu_count * sizeof(size_t), MPI_CHAR,
+                              global_nnzs.data(), total_gpu_count * sizeof(size_t), MPI_CHAR,
+                              MPI_COMM_WORLD));
 
   size_t total_nnz = 0;
-  for(size_t i = 0; i < total_gpu_count; ++i){
+  for (size_t i = 0; i < total_gpu_count; ++i) {
     config.nnzs.get_ptr()[i] = total_nnz;
     config.nnzs_num.get_ptr()[i] = global_nnzs[i];
     total_nnz += global_nnzs[i];
   }
   config.total_nnz = total_nnz;
-#endif 
-
+#endif
 }
 
 namespace sparse_tensor_all_gather_kernel {
@@ -124,8 +126,8 @@ __global__ void split_rowoffset(const Type *rowoffset, size_t rowoffset_count,
     rowoffset_split_result[tid] = rowoffset[tid + 1] - rowoffset[tid];
   }
 }
-}
-          
+}  // namespace sparse_tensor_all_gather_kernel
+
 // for sparse tensor, this is an all_gatherv
 // prepare SparseTensorAllGatherConfig.host_nnz first
 template <typename Type>
@@ -151,21 +153,20 @@ void SparseEmbeddingFunctors::all_gather(const SparseTensor<Type> &send_tensor,
   {
     CK_NCCL_THROW_(ncclGroupStart());
     for (size_t recv_id = 0; recv_id < total_gpu_count; ++recv_id) {
-      CK_NCCL_THROW_(ncclBroadcast(send_tensor.get_value_ptr(),
-                                  recv_tensor.get_value_ptr() + config.nnzs.get_ptr()[recv_id],
-                                  config.nnzs_num.get_ptr()[recv_id], nccl_type, recv_id, local_gpu->get_nccl(),
-                                  stream));
+      CK_NCCL_THROW_(ncclBroadcast(
+          send_tensor.get_value_ptr(), recv_tensor.get_value_ptr() + config.nnzs.get_ptr()[recv_id],
+          config.nnzs_num.get_ptr()[recv_id], nccl_type, recv_id, local_gpu->get_nccl(), stream));
     }
 
-    CK_NCCL_THROW_(ncclAllGather(recv_tensor.get_rowoffset_ptr() + id * send_rowoffset_num,
-                                recv_tensor.get_rowoffset_ptr(),
-                                send_rowoffset_num, nccl_type,
-                                local_gpu->get_nccl(), stream)); // send_rowoffset_num may vary between train and evaluate
+    CK_NCCL_THROW_(ncclAllGather(
+        recv_tensor.get_rowoffset_ptr() + id * send_rowoffset_num, recv_tensor.get_rowoffset_ptr(),
+        send_rowoffset_num, nccl_type, local_gpu->get_nccl(),
+        stream));  // send_rowoffset_num may vary between train and evaluate
     CK_NCCL_THROW_(ncclGroupEnd());
   }
-  
+
   *recv_tensor.get_nnz_ptr() = config.total_nnz;
-  
+
   return;
 }
 
@@ -178,10 +179,14 @@ template void SparseEmbeddingFunctors::all_gather<__half>(size_t send_count,
                                                           const Tensors2<__half> &send_tensors,
                                                           Tensors2<__half> &recv_tensors,
                                                           const ResourceManager &resource_manager);
-                                         
-template void SparseEmbeddingFunctors::prepare_for_sparse_all_gather<unsigned int>(const SparseTensors<unsigned int> &send_tensors, SparseTensorAllGatherConfig<unsigned int> &config,  const ResourceManager &resource_manager);
 
-template void SparseEmbeddingFunctors::prepare_for_sparse_all_gather<long long>(const SparseTensors<long long> &send_tensors, SparseTensorAllGatherConfig<long long> &config,  const ResourceManager &resource_manager);
+template void SparseEmbeddingFunctors::prepare_for_sparse_all_gather<unsigned int>(
+    const SparseTensors<unsigned int> &send_tensors,
+    SparseTensorAllGatherConfig<unsigned int> &config, const ResourceManager &resource_manager);
+
+template void SparseEmbeddingFunctors::prepare_for_sparse_all_gather<long long>(
+    const SparseTensors<long long> &send_tensors, SparseTensorAllGatherConfig<long long> &config,
+    const ResourceManager &resource_manager);
 
 template void SparseEmbeddingFunctors::all_gather<unsigned int>(
     const SparseTensor<unsigned int> &send_tensor, SparseTensor<unsigned int> &recv_tensor,

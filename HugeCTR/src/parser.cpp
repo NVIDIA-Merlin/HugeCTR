@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <parser.hpp>
-#include <embeddings/hybrid_sparse_embedding.hpp>
 #include <data_readers/async_reader/async_reader_adapter.hpp>
+#include <embeddings/hybrid_sparse_embedding.hpp>
+#include <parser.hpp>
 
 namespace HugeCTR {
 
@@ -35,10 +35,8 @@ Parser::Parser(const std::string& configure_file, size_t batch_size, size_t batc
       use_algorithm_search_(use_algorithm_search),
       use_cuda_graph_(use_cuda_graph) {}
 
-void Parser::create_allreduce_comm(
-    const std::shared_ptr<ResourceManager>& resource_manager,
-    std::shared_ptr<ExchangeWgrad>& exchange_wgrad) {
-
+void Parser::create_allreduce_comm(const std::shared_ptr<ResourceManager>& resource_manager,
+                                   std::shared_ptr<ExchangeWgrad>& exchange_wgrad) {
   auto ar_algo = AllReduceAlgo::NCCL;
   bool grouped_all_reduce = false;
   if (has_key_(config_, "all_reduce")) {
@@ -61,21 +59,18 @@ void Parser::create_allreduce_comm(
   grouped_all_reduce_ = grouped_all_reduce;
   if (grouped_all_reduce_) {
     if (use_mixed_precision_) {
-      exchange_wgrad =  std::make_shared<GroupedExchangeWgrad<__half>>(resource_manager);
+      exchange_wgrad = std::make_shared<GroupedExchangeWgrad<__half>>(resource_manager);
     } else {
-      exchange_wgrad =  std::make_shared<GroupedExchangeWgrad<float>>(resource_manager);
+      exchange_wgrad = std::make_shared<GroupedExchangeWgrad<float>>(resource_manager);
     }
-  }
-  else {
+  } else {
     if (use_mixed_precision_) {
-      exchange_wgrad =  std::make_shared<NetworkExchangeWgrad<__half>>(resource_manager);
+      exchange_wgrad = std::make_shared<NetworkExchangeWgrad<__half>>(resource_manager);
     } else {
-      exchange_wgrad =  std::make_shared<NetworkExchangeWgrad<float>>(resource_manager);
+      exchange_wgrad = std::make_shared<NetworkExchangeWgrad<float>>(resource_manager);
     }
   }
-
 }
-
 
 template <typename TypeKey>
 void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
@@ -106,25 +101,15 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_re
         // scheduling the data reader should be off.
         // THe scheduling needs to be generalized.
         auto j_solver = get_json(config_, "solver");
-        auto enable_overlap =
-          get_value_from_json_soft<bool>(j_solver, "enable_overlap", false);
+        auto enable_overlap = get_value_from_json_soft<bool>(j_solver, "enable_overlap", false);
 
         const nlohmann::json& j = j_layers_array[0];
-        create_datareader<TypeKey>()(
-            j, 
-            sparse_input_map, 
-            train_tensor_entries_list,
-            evaluate_tensor_entries_list,
-            init_data_reader,
-            train_data_reader,
-            evaluate_data_reader,
-            batch_size_,
-            batch_size_eval_,
-            use_mixed_precision_,
-            repeat_dataset_,
-            enable_overlap,
-            resource_manager);
-      } // Create Data Reader
+        create_datareader<TypeKey>()(j, sparse_input_map, train_tensor_entries_list,
+                                     evaluate_tensor_entries_list, init_data_reader,
+                                     train_data_reader, evaluate_data_reader, batch_size_,
+                                     batch_size_eval_, use_mixed_precision_, repeat_dataset_,
+                                     enable_overlap, resource_manager);
+      }  // Create Data Reader
 
       // Create Embedding
       {
@@ -144,37 +129,15 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_re
 
           if (use_mixed_precision_) {
             create_embedding<TypeKey, __half>()(
-                sparse_input_map,
-                train_tensor_entries_list,
-                evaluate_tensor_entries_list,
-                embeddings,
-                embedding_type,
-                config_,
-                resource_manager,
-                batch_size_,
-                batch_size_eval_,
-                exchange_wgrad,
-                use_mixed_precision_,
-                scaler_,
-                j,
-                use_cuda_graph_,
+                sparse_input_map, train_tensor_entries_list, evaluate_tensor_entries_list,
+                embeddings, embedding_type, config_, resource_manager, batch_size_,
+                batch_size_eval_, exchange_wgrad, use_mixed_precision_, scaler_, j, use_cuda_graph_,
                 grouped_all_reduce_);
           } else {
             create_embedding<TypeKey, float>()(
-                sparse_input_map,
-                train_tensor_entries_list,
-                evaluate_tensor_entries_list,
-                embeddings,
-                embedding_type,
-                config_,
-                resource_manager,
-                batch_size_,
-                batch_size_eval_, 
-                exchange_wgrad,
-                use_mixed_precision_,
-                scaler_,
-                j,
-                use_cuda_graph_,
+                sparse_input_map, train_tensor_entries_list, evaluate_tensor_entries_list,
+                embeddings, embedding_type, config_, resource_manager, batch_size_,
+                batch_size_eval_, exchange_wgrad, use_mixed_precision_, scaler_, j, use_cuda_graph_,
                 grouped_all_reduce_);
           }
         }  // for ()
@@ -187,21 +150,11 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_re
       }
       for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
         networks.emplace_back(Network::create_network(
-            j_layers_array,
-            j_optimizer,
-            train_tensor_entries_list[i],
-            evaluate_tensor_entries_list[i],
-            total_gpu_count,
-            exchange_wgrad,
-            resource_manager->get_local_cpu(),
-            resource_manager->get_local_gpu(i),
-            use_mixed_precision_,
-            enable_tf32_compute_,
-            scaler_,
-            use_algorithm_search_,
-            use_cuda_graph_,
-            false,
-            grouped_all_reduce_));
+            j_layers_array, j_optimizer, train_tensor_entries_list[i],
+            evaluate_tensor_entries_list[i], total_gpu_count, exchange_wgrad,
+            resource_manager->get_local_cpu(), resource_manager->get_local_gpu(i),
+            use_mixed_precision_, enable_tf32_compute_, scaler_, use_algorithm_search_,
+            use_cuda_graph_, false, grouped_all_reduce_));
       }
     }
     exchange_wgrad->allocate();
@@ -212,34 +165,25 @@ void Parser::create_pipeline_internal(std::shared_ptr<IDataReader>& init_data_re
   }
 }
 
-void Parser::create_pipeline(std::shared_ptr<IDataReader>& init_data_reader,std::shared_ptr<IDataReader>& train_data_reader,
+void Parser::create_pipeline(std::shared_ptr<IDataReader>& init_data_reader,
+                             std::shared_ptr<IDataReader>& train_data_reader,
                              std::shared_ptr<IDataReader>& evaluate_data_reader,
                              std::vector<std::shared_ptr<IEmbedding>>& embeddings,
                              std::vector<std::shared_ptr<Network>>& networks,
                              const std::shared_ptr<ResourceManager>& resource_manager,
                              std::shared_ptr<ExchangeWgrad>& exchange_wgrad) {
   if (i64_input_key_) {
-    create_pipeline_internal<long long>(
-        init_data_reader,
-        train_data_reader,
-        evaluate_data_reader,
-        embeddings,
-        networks,
-        resource_manager,
-        exchange_wgrad);
+    create_pipeline_internal<long long>(init_data_reader, train_data_reader, evaluate_data_reader,
+                                        embeddings, networks, resource_manager, exchange_wgrad);
   } else {
-    create_pipeline_internal<unsigned int>(
-        init_data_reader,
-        train_data_reader,
-        evaluate_data_reader,
-        embeddings,
-        networks,
-        resource_manager,
-        exchange_wgrad);
+    create_pipeline_internal<unsigned int>(init_data_reader, train_data_reader,
+                                           evaluate_data_reader, embeddings, networks,
+                                           resource_manager, exchange_wgrad);
   }
 }
 
-// TODO: this whole function is only for HE & AysncReader. It is better to refactor or generalize it.
+// TODO: this whole function is only for HE & AysncReader. It is better to refactor or generalize
+// it.
 template <typename TypeKey>
 void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_data_reader,
                                           std::vector<std::shared_ptr<IEmbedding>>& embedding,
@@ -256,7 +200,8 @@ void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_dat
       Embedding_t embedding_type = Embedding_t::LocalizedSlotSparseEmbeddingOneHot;
       (void)find_item_in_map(embedding_type, embedding_name, EMBEDDING_TYPE_MAP);
       if (embedding_type == Embedding_t::HybridSparseEmbedding) {
-        auto init_data_reader_as = std::dynamic_pointer_cast<AsyncReader<TypeKey>>(init_data_reader);
+        auto init_data_reader_as =
+            std::dynamic_pointer_cast<AsyncReader<TypeKey>>(init_data_reader);
         if (use_mixed_precision) {
           std::shared_ptr<HybridSparseEmbedding<TypeKey, __half>> hybrid_embedding =
               std::dynamic_pointer_cast<HybridSparseEmbedding<TypeKey, __half>>(embedding[i - 1]);
@@ -264,7 +209,8 @@ void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_dat
           init_data_reader_as->start();
           init_data_reader_as->read_a_batch_to_device();
           hybrid_embedding->init_model(
-              // bags_to_tensors<TypeKey>(init_data_reader_as->get_value_tensors()), embed_wgrad_size);
+              // bags_to_tensors<TypeKey>(init_data_reader_as->get_value_tensors()),
+              // embed_wgrad_size);
               init_data_reader_as->get_value_tensors(), embed_wgrad_size);
         } else {
           std::shared_ptr<HybridSparseEmbedding<TypeKey, float>> hybrid_embedding =
@@ -272,7 +218,8 @@ void Parser::initialize_pipeline_internal(std::shared_ptr<IDataReader>& init_dat
           init_data_reader_as->start();
           init_data_reader_as->read_a_batch_to_device();
           hybrid_embedding->init_model(
-              // bags_to_tensors<TypeKey>(init_data_reader_as->get_value_tensors()), embed_wgrad_size);
+              // bags_to_tensors<TypeKey>(init_data_reader_as->get_value_tensors()),
+              // embed_wgrad_size);
               init_data_reader_as->get_value_tensors(), embed_wgrad_size);
         }
       }
@@ -290,9 +237,11 @@ void Parser::initialize_pipeline(std::shared_ptr<IDataReader>& init_data_reader,
                                  const std::shared_ptr<ResourceManager>& resource_manager,
                                  std::shared_ptr<ExchangeWgrad>& exchange_wgrad) {
   if (i64_input_key_) {
-    initialize_pipeline_internal<long long>(init_data_reader, embedding, resource_manager, exchange_wgrad);
+    initialize_pipeline_internal<long long>(init_data_reader, embedding, resource_manager,
+                                            exchange_wgrad);
   } else {
-    initialize_pipeline_internal<unsigned int>(init_data_reader, embedding, resource_manager, exchange_wgrad);
+    initialize_pipeline_internal<unsigned int>(init_data_reader, embedding, resource_manager,
+                                               exchange_wgrad);
   }
 }
 }  // namespace HugeCTR

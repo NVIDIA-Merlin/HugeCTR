@@ -21,8 +21,8 @@ namespace HugeCTR {
 
 namespace {
 
-void cpu_mm(__half *c, const __half *a, bool transpose_a, const __half *b, bool transpose_b,
-                   int m, int k, int n) {
+void cpu_mm(__half* c, const __half* a, bool transpose_a, const __half* b, bool transpose_b, int m,
+            int k, int n) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
       float sum = 0.0f;
@@ -36,7 +36,7 @@ void cpu_mm(__half *c, const __half *a, bool transpose_a, const __half *b, bool 
   }
 }
 
-void cpu_add_bias_and_re(__half *top, __half *middle, const __half *bias, int m, int n) {
+void cpu_add_bias_and_re(__half* top, __half* middle, const __half* bias, int m, int n) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
       __half t = top[i * n + j] + bias[j];
@@ -46,8 +46,8 @@ void cpu_add_bias_and_re(__half *top, __half *middle, const __half *bias, int m,
   }
 }
 
-void cpu_reverse_add_bias_and_re(__half *bias_grad, __half *middle, const __half *top, int m,
-                                        int n) {
+void cpu_reverse_add_bias_and_re(__half* bias_grad, __half* middle, const __half* top, int m,
+                                 int n) {
   for (int i = 0; i < m; ++i)
     for (int j = 0; j < n; ++j) {
       if (middle[i * n + j] < 0) {
@@ -131,7 +131,6 @@ FusedFullyConnectedLayerCPU::FusedFullyConnectedLayerCPU(
 }
 
 void FusedFullyConnectedLayerCPU::fprop(bool is_train) {
-
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* bias = weights_half_[1].get_ptr();
   const __half* bottom = get_bottom_tensor(is_train).get_ptr();

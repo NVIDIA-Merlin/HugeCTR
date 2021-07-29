@@ -21,8 +21,8 @@ namespace HugeCTR {
 
 namespace {
 
-void cpu_mm(__half *c, const __half *a, bool transpose_a, const __half *b, bool transpose_b,
-                   int m, int k, int n) {
+void cpu_mm(__half* c, const __half* a, bool transpose_a, const __half* b, bool transpose_b, int m,
+            int k, int n) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
       float sum = 0.0f;
@@ -36,7 +36,7 @@ void cpu_mm(__half *c, const __half *a, bool transpose_a, const __half *b, bool 
   }
 }
 
-void cpu_add_bias(__half *top, const __half *bias, int m, int n) {
+void cpu_add_bias(__half* top, const __half* bias, int m, int n) {
   for (int i = 0; i < m; ++i) {
     for (int j = 0; j < n; ++j) {
       top[i * n + j] = top[i * n + j] + bias[j];
@@ -44,7 +44,7 @@ void cpu_add_bias(__half *top, const __half *bias, int m, int n) {
   }
 }
 
-void cpu_reverse_add_bias(__half *bias_grad, const __half *top, int m, int n) {
+void cpu_reverse_add_bias(__half* bias_grad, const __half* top, int m, int n) {
   for (int i = 0; i < n; ++i) {
     float sum = 0.0f;
     for (int j = 0; j < m; ++j) sum += top[j * n + i];
@@ -52,8 +52,7 @@ void cpu_reverse_add_bias(__half *bias_grad, const __half *top, int m, int n) {
   }
 }
 
-} // end namespace
-
+}  // end namespace
 
 FullyConnectedLayerCPU<__half>::FullyConnectedLayerCPU(
     const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
@@ -114,7 +113,6 @@ FullyConnectedLayerCPU<__half>::FullyConnectedLayerCPU(
 }
 
 void FullyConnectedLayerCPU<__half>::fprop(bool is_train) {
-
   const __half* kernel = weights_half_[0].get_ptr();
   const __half* bias = weights_half_[1].get_ptr();
   const __half* bottom = get_bottom_tensor(is_train).get_ptr();

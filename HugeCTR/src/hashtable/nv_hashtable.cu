@@ -76,8 +76,8 @@ __global__ void get_mark_kernel(Table* table, const typename Table::key_type* co
   const size_t i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < len) {
     auto it = table->find(keys[i]);
-    vals[i] = (it != table->end()) ? it->second :
-              std::numeric_limits<typename Table::mapped_type>::max();
+    vals[i] =
+        (it != table->end()) ? it->second : std::numeric_limits<typename Table::mapped_type>::max();
   }
 }
 

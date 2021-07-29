@@ -15,10 +15,9 @@
  */
 
 #include <algorithm>
+#include <cpu/layers/reduce_sum_layer_cpu.hpp>
 #include <functional>
 #include <utils.hpp>
-
-#include <cpu/layers/reduce_sum_layer_cpu.hpp>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -133,9 +132,9 @@ void reduce_sum_dgrad_cpu(const T* top_grad, T* dgrad, std::vector<size_t> dims,
 }  // end of namespace
 
 template <typename T>
-ReduceSumLayerCPU<T>::ReduceSumLayerCPU(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-                                  const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-                                  int axis)
+ReduceSumLayerCPU<T>::ReduceSumLayerCPU(
+    const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+    const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff, int axis)
     : LayerCPU(), axis_(axis) {
   try {
     // error input checking
@@ -170,7 +169,6 @@ ReduceSumLayerCPU<T>::ReduceSumLayerCPU(const Tensor2<T>& in_tensor, Tensor2<T>&
 
 template <typename T>
 void ReduceSumLayerCPU<T>::fprop(bool is_train) {
-
   T* input = in_tensors_[0].get_ptr();
   T* output = out_tensors_[0].get_ptr();
   auto in_dims = in_tensors_[0].get_dimensions();

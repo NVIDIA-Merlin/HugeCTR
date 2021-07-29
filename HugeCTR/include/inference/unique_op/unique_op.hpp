@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <utils.hpp>
 #include <hash_functions.cuh>
+#include <utils.hpp>
 
 #define UNIQUE_OP_LOAD_FACTOR 0.75
 
@@ -24,34 +24,27 @@ namespace HugeCTR {
 namespace unique_op {
 
 // The unique op
-template<typename KeyType, 
-         typename CounterType, 
-         KeyType empty_key, 
-         CounterType empty_val, 
-         typename hasher = MurmurHash3_32<KeyType>>
-class unique_op{
-public:
-  //Ctor
+template <typename KeyType, typename CounterType, KeyType empty_key, CounterType empty_val,
+          typename hasher = MurmurHash3_32<KeyType>>
+class unique_op {
+ public:
+  // Ctor
   unique_op(const size_t capacity, const CounterType init_counter_val = 0);
 
-  //Dtor
+  // Dtor
   ~unique_op();
 
   // Get the max capacity of unique op obj
   size_t get_capacity() const;
 
   // Unique operation
-  void unique(const KeyType* d_key, 
-              const size_t len, 
-              CounterType* d_output_index, 
-              KeyType* d_unique_key, 
-              size_t* d_output_counter, 
-              cudaStream_t stream);
+  void unique(const KeyType* d_key, const size_t len, CounterType* d_output_index,
+              KeyType* d_unique_key, size_t* d_output_counter, cudaStream_t stream);
 
   // Clear operation
   void clear(cudaStream_t stream);
 
-private:
+ private:
   static const size_t BLOCK_SIZE_ = 64;
 
   // Capacity
@@ -66,9 +59,8 @@ private:
   CounterType* vals_;
 
   // Counter for value index
-  CounterType* counter_; 
-
+  CounterType* counter_;
 };
 
-} // namespace unique_op
-} // namespace HugeCTR
+}  // namespace unique_op
+}  // namespace HugeCTR

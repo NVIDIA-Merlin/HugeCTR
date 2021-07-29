@@ -15,29 +15,27 @@
  */
 
 #pragma once
-#include <utils.hpp> 
-#include <iostream>
 #include <embedding.hpp>
+#include <inference/embedding_interface.hpp>
+#include <inference/unique_op/unique_op.hpp>
+#include <iostream>
 #include <metrics.hpp>
 #include <network.hpp>
+#include <nv_gpu_cache.hpp>
 #include <parser.hpp>
-#include <utils.hpp>
 #include <string>
 #include <thread>
 #include <utility>
+#include <utils.hpp>
 #include <vector>
-#include <nv_gpu_cache.hpp>
-#include <inference/embedding_interface.hpp>
-#include <inference/unique_op/unique_op.hpp>
 
 namespace HugeCTR {
 
 template <typename TypeHashKey>
 class embedding_cache : public embedding_interface {
  public:
-  embedding_cache(const std::string& model_config_path,
-                const InferenceParams& inference_params,
-                HugectrUtility<TypeHashKey>* parameter_server);
+  embedding_cache(const std::string& model_config_path, const InferenceParams& inference_params,
+                  HugectrUtility<TypeHashKey>* parameter_server);
 
   virtual ~embedding_cache();
 
@@ -48,23 +46,31 @@ class embedding_cache : public embedding_interface {
   virtual void destroy_workspace(embedding_cache_workspace& workspace_handler);
 
   // Query embeddingcolumns
-  virtual void look_up(const void* h_embeddingcolumns, // The input emb_id buffer(before shuffle) on host
-                       const std::vector<size_t>& h_embedding_offset, // The input offset on host, size = (# of samples * # of emb_table) + 1
-                       float* d_shuffled_embeddingoutputvector, // The output buffer for emb_vec result on device
-                       embedding_cache_workspace& workspace_handler, // The handler to the workspace buffers
-                       const std::vector<cudaStream_t>& streams); // The CUDA stream to launch kernel to each emb_cache for each emb_table, size = # of emb_table(cache)
+  virtual void look_up(
+      const void* h_embeddingcolumns,  // The input emb_id buffer(before shuffle) on host
+      const std::vector<size_t>& h_embedding_offset,  // The input offset on host, size = (# of
+                                                      // samples * # of emb_table) + 1
+      float* d_shuffled_embeddingoutputvector,  // The output buffer for emb_vec result on device
+      embedding_cache_workspace& workspace_handler,  // The handler to the workspace buffers
+      const std::vector<cudaStream_t>&
+          streams);  // The CUDA stream to launch kernel to each emb_cache for each emb_table, size
+                     // = # of emb_table(cache)
 
   // Update the embedding cache with missing embeddingcolumns from query API
-  virtual void update(embedding_cache_workspace& workspace_handler, 
+  virtual void update(embedding_cache_workspace& workspace_handler,
                       const std::vector<cudaStream_t>& streams);
 
  private:
   static const size_t BLOCK_SIZE_ = 64;
-  
+
   // The GPU embedding cache type
-  using cache_ = gpu_cache::gpu_cache<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(), SET_ASSOCIATIVITY, SLAB_SIZE>;
+  using cache_ =
+      gpu_cache::gpu_cache<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(),
+                           SET_ASSOCIATIVITY, SLAB_SIZE>;
   // The GPU unique op type
-  using unique_op_ = unique_op::unique_op<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(), std::numeric_limits<uint64_t>::max()>;
+  using unique_op_ =
+      unique_op::unique_op<TypeHashKey, uint64_t, std::numeric_limits<TypeHashKey>::max(),
+                           std::numeric_limits<uint64_t>::max()>;
 
   // The back-end parameter server
   HugectrUtility<TypeHashKey>* parameter_server_;
@@ -74,7 +80,6 @@ class embedding_cache : public embedding_interface {
 
   // The cache configuration
   embedding_cache_config cache_config_;
-  
 };
 
 }  // namespace HugeCTR

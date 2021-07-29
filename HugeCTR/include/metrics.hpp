@@ -36,7 +36,8 @@ enum class Type { AUC, AverageLoss, HitRate };
 
 using RawMetricMap = std::map<RawType, TensorBag2>;
 
-void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_type, bool mixed_precision, float *rst, size_t num);
+void get_raw_metric_as_host_float_tensor(RawMetricMap metric_map, RawType raw_type,
+                                         bool mixed_precision, float* rst, size_t num);
 
 class Metric {
  public:
@@ -75,14 +76,12 @@ class AverageLoss : public Metric {
   int n_batches_;
 };
 
-
 template <typename T>
 class HitRate : public Metric {
  public:
   using PredType = T;
   using LabelType = float;
-  HitRate(int batch_size_per_gpu,
-      const std::shared_ptr<ResourceManager>& resource_manager);
+  HitRate(int batch_size_per_gpu, const std::shared_ptr<ResourceManager>& resource_manager);
   ~HitRate() override;
 
   void local_reduce(int local_gpu_id, RawMetricMap raw_metrics) override;
@@ -106,83 +105,81 @@ class HitRate : public Metric {
   int hits_global_;
 };
 
-
 class AUCStorage {
-  public:
-    float*      d_preds()                  const { return ptr_preds_1_                ; }
-    float*      d_labels()                 const { return ptr_labels_1_               ; }
-    CountType*  d_local_bins()             const { return ptr_local_bins_             ; }
-    CountType*  d_global_bins()            const { return ptr_global_bins_            ; }
-    CountType*  d_global_bins_sum()        const { return ptr_global_bins_sum_        ; }
-    CountType*  d_local_bins_sum()         const { return ptr_local_bins_sum_         ; }
-    int*        d_pivots()                 const { return ptr_pivots_                 ; }
-    CountType*  d_partition_offsets()      const { return ptr_partition_offsets_      ; }
-    float*      d_partitioned_preds()      const { return ptr_preds_2_                ; }
-    float*      d_partitioned_labels()     const { return ptr_labels_2_               ; }
-    CountType*  d_all_partition_offsets()  const { return ptr_all_partition_offsets_  ; }
-    CountType*  d_recv_offsets()           const { return ptr_recv_offsets_           ; }
-    float*      d_presorted_preds()        const { return ptr_preds_1_                ; }
-    float*      d_presorted_labels()       const { return ptr_labels_1_               ; }
-    float*      d_sorted_preds()           const { return ptr_preds_2_                ; }
-    float*      d_sorted_labels()          const { return ptr_labels_2_               ; }
-    float*      d_tp()                     const { return ptr_preds_1_                ; }
-    float*      d_fp()                     const { return ptr_labels_1_               ; }
-    float*      d_pos_per_gpu()            const { return ptr_pos_per_gpu_            ; }
-    float*      d_neg_per_gpu()            const { return ptr_neg_per_gpu_            ; }
-    float*      d_tpr()                    const { return ptr_preds_2_                ; }
-    float*      d_fpr()                    const { return ptr_labels_2_               ; }
-    CountType*  d_identical_pred_starts()  const { return ptr_identical_pred_starts_  ; }
-    CountType*  d_identical_pred_lengths() const { return ptr_identical_pred_lengths_ ; }
-    int*        d_num_identical_segments() const { return ptr_num_identical_segments_ ; }
-    float*      d_halo_tpr()               const { return ptr_halo_tpr_               ; }
-    float*      d_halo_fpr()               const { return ptr_halo_fpr_               ; }
-    CountType*  d_tp_offsets()             const { return ptr_tp_offsets_             ; }
-    CountType*  d_fp_offsets()             const { return ptr_fp_offsets_             ; }
-    float*      d_auc()                    const { return ptr_auc_                    ; }
+ public:
+  float* d_preds() const { return ptr_preds_1_; }
+  float* d_labels() const { return ptr_labels_1_; }
+  CountType* d_local_bins() const { return ptr_local_bins_; }
+  CountType* d_global_bins() const { return ptr_global_bins_; }
+  CountType* d_global_bins_sum() const { return ptr_global_bins_sum_; }
+  CountType* d_local_bins_sum() const { return ptr_local_bins_sum_; }
+  int* d_pivots() const { return ptr_pivots_; }
+  CountType* d_partition_offsets() const { return ptr_partition_offsets_; }
+  float* d_partitioned_preds() const { return ptr_preds_2_; }
+  float* d_partitioned_labels() const { return ptr_labels_2_; }
+  CountType* d_all_partition_offsets() const { return ptr_all_partition_offsets_; }
+  CountType* d_recv_offsets() const { return ptr_recv_offsets_; }
+  float* d_presorted_preds() const { return ptr_preds_1_; }
+  float* d_presorted_labels() const { return ptr_labels_1_; }
+  float* d_sorted_preds() const { return ptr_preds_2_; }
+  float* d_sorted_labels() const { return ptr_labels_2_; }
+  float* d_tp() const { return ptr_preds_1_; }
+  float* d_fp() const { return ptr_labels_1_; }
+  float* d_pos_per_gpu() const { return ptr_pos_per_gpu_; }
+  float* d_neg_per_gpu() const { return ptr_neg_per_gpu_; }
+  float* d_tpr() const { return ptr_preds_2_; }
+  float* d_fpr() const { return ptr_labels_2_; }
+  CountType* d_identical_pred_starts() const { return ptr_identical_pred_starts_; }
+  CountType* d_identical_pred_lengths() const { return ptr_identical_pred_lengths_; }
+  int* d_num_identical_segments() const { return ptr_num_identical_segments_; }
+  float* d_halo_tpr() const { return ptr_halo_tpr_; }
+  float* d_halo_fpr() const { return ptr_halo_fpr_; }
+  CountType* d_tp_offsets() const { return ptr_tp_offsets_; }
+  CountType* d_fp_offsets() const { return ptr_fp_offsets_; }
+  float* d_auc() const { return ptr_auc_; }
 
+  void* d_workspace() const { return workspace_; }
 
-    void*       d_workspace()              const { return workspace_                  ; }
+  size_t& temp_storage_bytes() { return allocated_temp_storage_; }
 
-    size_t& temp_storage_bytes() { return allocated_temp_storage_; }
+  void alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
+                  size_t num_global_gpus);
+  void realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream);
+  void realloc_workspace(size_t temp_storage);
+  void free_all();
 
-    void alloc_main(size_t num_local_samples, size_t num_bins, size_t num_partitions,
-                    size_t num_global_gpus);
-    void realloc_redistributed(size_t num_redistributed_samples, cudaStream_t stream);
-    void realloc_workspace(size_t temp_storage);
-    void free_all();
+  float* ptr_preds_1_ = nullptr;
+  float* ptr_labels_1_ = nullptr;
+  float* ptr_preds_2_ = nullptr;
+  float* ptr_labels_2_ = nullptr;
 
-    float*     ptr_preds_1_                = nullptr;
-    float*     ptr_labels_1_               = nullptr;
-    float*     ptr_preds_2_                = nullptr;
-    float*     ptr_labels_2_               = nullptr;
+ private:
+  const float reallocate_factor_ = 1.2f;
+  size_t allocated_temp_storage_ = 0;
+  size_t num_allocated_redistributed_ = 0;
 
-  private:
-    const float reallocate_factor_ = 1.2f;
-    size_t allocated_temp_storage_ = 0;
-    size_t num_allocated_redistributed_ = 0;
+  CountType* ptr_local_bins_ = nullptr;
+  CountType* ptr_global_bins_ = nullptr;
+  CountType* ptr_global_bins_sum_ = nullptr;
+  CountType* ptr_local_bins_sum_ = nullptr;
+  int* ptr_pivots_ = nullptr;
+  CountType* ptr_partition_offsets_ = nullptr;
+  CountType* ptr_all_partition_offsets_ = nullptr;
+  CountType* ptr_recv_offsets_ = nullptr;
+  float* ptr_pos_per_gpu_ = nullptr;
+  float* ptr_neg_per_gpu_ = nullptr;
+  CountType* ptr_identical_pred_starts_ = nullptr;
+  CountType* ptr_identical_pred_lengths_ = nullptr;
+  int* ptr_num_identical_segments_ = nullptr;
+  float* ptr_halo_tpr_ = nullptr;
+  float* ptr_halo_fpr_ = nullptr;
+  CountType* ptr_tp_offsets_ = nullptr;
+  CountType* ptr_fp_offsets_ = nullptr;
+  float* ptr_auc_ = nullptr;
 
-    CountType* ptr_local_bins_             = nullptr;
-    CountType* ptr_global_bins_            = nullptr;
-    CountType* ptr_global_bins_sum_        = nullptr;
-    CountType* ptr_local_bins_sum_         = nullptr;
-    int*       ptr_pivots_                 = nullptr;
-    CountType* ptr_partition_offsets_      = nullptr;
-    CountType* ptr_all_partition_offsets_  = nullptr;
-    CountType* ptr_recv_offsets_           = nullptr;
-    float*     ptr_pos_per_gpu_            = nullptr;
-    float*     ptr_neg_per_gpu_            = nullptr;
-    CountType* ptr_identical_pred_starts_  = nullptr;
-    CountType* ptr_identical_pred_lengths_ = nullptr;
-    int*       ptr_num_identical_segments_ = nullptr;
-    float*     ptr_halo_tpr_               = nullptr;
-    float*     ptr_halo_fpr_               = nullptr;
-    CountType* ptr_tp_offsets_             = nullptr;
-    CountType* ptr_fp_offsets_             = nullptr;
-    float*     ptr_auc_                    = nullptr;
+  void* workspace_ = nullptr;
 
-    void*      workspace_                  = nullptr;
-
-    void realloc_ptr(void** ptr, size_t old_size, size_t new_size, cudaStream_t stream);
+  void realloc_ptr(void** ptr, size_t old_size, size_t new_size, cudaStream_t stream);
 };
 
 template <typename T>
@@ -263,7 +260,6 @@ class HitRate: public Metric {
 };
 */
 
-
 /*
 template <typename T>
 class HitRate: public Metric {
@@ -304,7 +300,6 @@ class HitRate: public Metric {
 };
 */
 
-
 /*
 template <typename T>
 class HitRate: public Metric {
@@ -344,7 +339,6 @@ class HitRate: public Metric {
   std::vector<AUCStorage> storage_;
 };
 */
-
 
 }  // namespace metrics
 

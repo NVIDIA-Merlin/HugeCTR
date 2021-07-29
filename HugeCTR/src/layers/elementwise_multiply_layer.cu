@@ -43,7 +43,8 @@ __global__ void elementwise_multiply_kernel(T** inputs, T* output, int size, int
 }
 
 template <typename T>
-__global__ void elementwise_multiply_dgrad_kernel(const T* top_grad, T** dgrads, int size, int num) {
+__global__ void elementwise_multiply_dgrad_kernel(const T* top_grad, T** dgrads, int size,
+                                                  int num) {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (tid < size) {
@@ -54,7 +55,8 @@ __global__ void elementwise_multiply_dgrad_kernel(const T* top_grad, T** dgrads,
 }
 
 template <>
-__global__ void elementwise_multiply_kernel<__half>(__half** inputs, __half* output, int size, int num) {
+__global__ void elementwise_multiply_kernel<__half>(__half** inputs, __half* output, int size,
+                                                    int num) {
   const __half2** inputs2 = (const __half2**)(inputs);
   __half2* output2 = (__half2*)(output);
   int size2 = size / 2;
@@ -79,8 +81,8 @@ __global__ void elementwise_multiply_kernel<__half>(__half** inputs, __half* out
 }
 
 template <>
-__global__ void elementwise_multiply_dgrad_kernel<__half>(const __half* top_grad, __half** dgrads, int size,
-                                         int num) {
+__global__ void elementwise_multiply_dgrad_kernel<__half>(const __half* top_grad, __half** dgrads,
+                                                          int size, int num) {
   const __half2* top_grad2 = (const __half2*)(top_grad);
   __half2** dgrads2 = (__half2**)(dgrads);
   int size2 = size / 2;
@@ -102,9 +104,10 @@ __global__ void elementwise_multiply_dgrad_kernel<__half>(const __half* top_grad
 }  // end of namespace
 
 template <typename T>
-ElementwiseMultiplyLayer<T>::ElementwiseMultiplyLayer(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-                      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                      const std::shared_ptr<GPUResource>& gpu_resource)
+ElementwiseMultiplyLayer<T>::ElementwiseMultiplyLayer(
+    const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
+    const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+    const std::shared_ptr<GPUResource>& gpu_resource)
     : Layer(gpu_resource) {
   try {
     size_ = in_tensors[0].get_num_elements();
@@ -163,9 +166,8 @@ void ElementwiseMultiplyLayer<T>::fprop(bool is_train) {
 
   dim3 block_size(256, 1, 1);
   dim3 grid_size((size_ + block_size.x - 1) / block_size.x, 1, 1);
-  elementwise_multiply_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(), 
-		                                                   output, size_, num_);
-                                                                   
+  elementwise_multiply_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+      d_inputs_.get_ptr(), output, size_, num_);
 }
 
 template <typename T>
@@ -176,8 +178,8 @@ void ElementwiseMultiplyLayer<T>::bprop() {
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ + blockSize.x - 1) / blockSize.x, 1, 1);
-  elementwise_multiply_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, d_inputs_.get_ptr(),
-                                                                       size_, num_);
+  elementwise_multiply_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+      output, d_inputs_.get_ptr(), size_, num_);
 }
 
 template <>
@@ -188,8 +190,8 @@ void ElementwiseMultiplyLayer<__half>::fprop(bool is_train) {
 
   dim3 block_size(256, 1, 1);
   dim3 grid_size((size_ / 2 + block_size.x - 1) / block_size.x, 1, 1);
-  elementwise_multiply_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(d_inputs_.get_ptr(), output,
-                                                                   size_, num_);
+  elementwise_multiply_kernel<<<grid_size, block_size, 0, get_gpu().get_stream()>>>(
+      d_inputs_.get_ptr(), output, size_, num_);
 }
 
 template <>
@@ -200,8 +202,8 @@ void ElementwiseMultiplyLayer<__half>::bprop() {
 
   dim3 blockSize(256, 1, 1);
   dim3 gridSize((size_ / 2 + blockSize.x - 1) / blockSize.x, 1, 1);
-  elementwise_multiply_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(output, d_inputs_.get_ptr(),
-                                                                       size_, num_);
+  elementwise_multiply_dgrad_kernel<<<gridSize, blockSize, 0, get_gpu().get_stream()>>>(
+      output, d_inputs_.get_ptr(), size_, num_);
 }
 
 template class ElementwiseMultiplyLayer<float>;

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <resource_manager.hpp>
 #include <random>
+#include <resource_manager.hpp>
 #include <resource_managers/resource_manager_core.hpp>
 #include <utils.hpp>
 
@@ -44,7 +44,7 @@ std::shared_ptr<ResourceManager> ResourceManager::create(
 #endif
 
   MESSAGE_("Global seed is " + std::to_string(seed));
-  
+
   return std::shared_ptr<ResourceManager>(
       new ResourceManagerCore(size, rank, std::move(device_map), seed));
 }

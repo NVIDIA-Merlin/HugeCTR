@@ -59,9 +59,9 @@ class InteractionLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   InteractionLayerCPU(const Tensor2<T>& in_bottom_mlp_tensor, const Tensor2<T>& in_embeddings,
-                   Tensor2<T>& out_tensor,
-                   const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-                   bool use_mixed_precision);
+                      Tensor2<T>& out_tensor,
+                      const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                      bool use_mixed_precision);
   ~InteractionLayerCPU() override;
 
   /**

@@ -18,10 +18,9 @@ class AsyncReader : public IDataReaderWithScheduling {
   AsyncReader(std::string fname, size_t batch_size, size_t label_dim, size_t dense_dim,
               std::vector<DataReaderSparseParam>& params, bool mixed_precision,
               const std::shared_ptr<ResourceManager>& resource_manager, int num_threads,
-              int num_batches_per_thread,
-              size_t io_block_size, int io_depth, int io_alignment,
-              bool shuffle=false, bool wait_for_gpu_idle=false,
-	      Alignment_t aligned = Alignment_t::None);
+              int num_batches_per_thread, size_t io_block_size, int io_depth, int io_alignment,
+              bool shuffle = false, bool wait_for_gpu_idle = false,
+              Alignment_t aligned = Alignment_t::None);
 
   long long read_a_batch_to_device_delay_release() override;
   long long get_full_batchsize() const override;
@@ -30,7 +29,7 @@ class AsyncReader : public IDataReaderWithScheduling {
   void schedule_here(cudaStream_t stream, int raw_device_id) override;
   void schedule_here_graph(cudaStream_t stream, int raw_device_id) override;
   void update_schedule_graph(int raw_device_id) override;
-  
+
   long long get_current_batchsize_per_device(size_t local_id) override;
   TensorScalarType get_scalar_type() const override;
   bool is_started() const override;
@@ -40,16 +39,11 @@ class AsyncReader : public IDataReaderWithScheduling {
   std::vector<TensorBag2> get_dense_tensors() const;
   SparseTensors<SparseType> get_value_tensors() const;
 
-  void create_drwg_norm(std::string file_list,
-                        Check_t check_type,
+  void create_drwg_norm(std::string file_list, Check_t check_type,
                         bool start_reading_from_beginning = true) override;
-  void create_drwg_raw(std::string file_name, 
-                       long long num_samples,
-                       bool float_label_dense,
-                       bool data_shuffle, 
-                       bool start_reading_from_beginning = true) override;
-  void create_drwg_parquet(std::string file_list,
-                           const std::vector<long long> slot_offset,
+  void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
+                       bool data_shuffle, bool start_reading_from_beginning = true) override;
+  void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override;
   void set_source(std::string file_list = std::string()) override;
 

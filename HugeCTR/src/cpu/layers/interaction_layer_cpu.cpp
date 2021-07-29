@@ -21,9 +21,9 @@
 #include <mma.h>
 
 #include <common.hpp>
+#include <cpu/layers/interaction_layer_cpu.hpp>
 #include <type_traits>
 #include <utils.hpp>
-#include <cpu/layers/interaction_layer_cpu.hpp>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -47,8 +47,8 @@ struct __align__(8) half4 {
 };
 
 template <typename T>
-void concat_cpu(size_t height, size_t in_width, size_t out_width, size_t n_ins, size_t n_emb, bool fprop,
-                T* h_concat, T* h_in_mlp, T* h_in_emb) {
+void concat_cpu(size_t height, size_t in_width, size_t out_width, size_t n_ins, size_t n_emb,
+                bool fprop, T *h_concat, T *h_in_mlp, T *h_in_emb) {
   for (size_t ni = 0; ni < n_ins; ni++) {
     for (size_t h = 0; h < height; h++) {
       size_t in_idx_base = (ni == 0) ? h * in_width : h * in_width * n_emb;
@@ -56,8 +56,7 @@ void concat_cpu(size_t height, size_t in_width, size_t out_width, size_t n_ins, 
         size_t in_idx = in_idx_base + w;
         size_t out_idx = h * out_width + ni * in_width + w;
         if (fprop) {
-          h_concat[out_idx] =
-              (ni == 0) ? h_in_mlp[in_idx] : h_in_emb[(ni - 1) * in_width + in_idx];
+          h_concat[out_idx] = (ni == 0) ? h_in_mlp[in_idx] : h_in_emb[(ni - 1) * in_width + in_idx];
         } else {
           if (ni == 0) {
             h_in_mlp[in_idx] = h_in_mlp[in_idx] + h_concat[out_idx];
@@ -71,7 +70,7 @@ void concat_cpu(size_t height, size_t in_width, size_t out_width, size_t n_ins, 
 }
 
 template <typename T>
-void matmul_cpu(size_t height, size_t in_width, size_t n_ins, T* h_concat, T* h_mat) {
+void matmul_cpu(size_t height, size_t in_width, size_t n_ins, T *h_concat, T *h_mat) {
   for (size_t p = 0; p < height; p++) {
     size_t concat_stride = n_ins * in_width * p;
     size_t mat_stride = n_ins * n_ins * p;
@@ -89,8 +88,8 @@ void matmul_cpu(size_t height, size_t in_width, size_t n_ins, T* h_concat, T* h_
 }
 
 template <typename T>
-void gather_concat_cpu(size_t height, size_t in_width, size_t n_ins,
-                      T* h_in_mlp, T* h_mat, T* h_ref) {
+void gather_concat_cpu(size_t height, size_t in_width, size_t n_ins, T *h_in_mlp, T *h_mat,
+                       T *h_ref) {
   size_t out_len = in_width + (n_ins * (n_ins + 1) / 2 - n_ins) + 1;
   for (size_t p = 0; p < height; p++) {
     size_t cur_idx = 0;
@@ -106,7 +105,7 @@ void gather_concat_cpu(size_t height, size_t in_width, size_t n_ins,
         }
       }
     }
-  } 
+  }
 }
 
 }  // anonymous namespace
@@ -114,10 +113,8 @@ void gather_concat_cpu(size_t height, size_t in_width, size_t n_ins,
 template <typename T>
 InteractionLayerCPU<T>::InteractionLayerCPU(
     const Tensor2<T> &in_bottom_mlp_tensor, const Tensor2<T> &in_embeddings, Tensor2<T> &out_tensor,
-    const std::shared_ptr<GeneralBuffer2<HostAllocator>> &blobs_buff,
-    bool use_mixed_precision)
-    : LayerCPU(),
-      use_mixed_precision_(use_mixed_precision) {
+    const std::shared_ptr<GeneralBuffer2<HostAllocator>> &blobs_buff, bool use_mixed_precision)
+    : LayerCPU(), use_mixed_precision_(use_mixed_precision) {
   try {
     auto first_in_dims = in_bottom_mlp_tensor.get_dimensions();
     auto second_in_dims = in_embeddings.get_dimensions();
@@ -180,7 +177,6 @@ InteractionLayerCPU<T>::~InteractionLayerCPU(){};
 
 template <typename T>
 void InteractionLayerCPU<T>::fprop(bool is_train) {
-
   T *concat = internal_tensors_[0].get_ptr();
   T *in_mlp = get_in_tensors(is_train)[0].get_ptr();
   T *in_emb = get_in_tensors(is_train)[1].get_ptr();
