@@ -1,11 +1,10 @@
 #pragma once
 
+#include <data_readers/async_reader/async_reader_common.hpp>
+#include <data_readers/async_reader/thread_async_reader.hpp>
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <data_readers/async_reader/async_reader_common.hpp>
-#include <data_readers/async_reader/thread_async_reader.hpp>
 
 namespace HugeCTR {
 
@@ -15,9 +14,8 @@ class AsyncReaderImpl {
  public:
   AsyncReaderImpl(std::string fname, size_t batch_size_bytes,
                   const ResourceManager* resource_manager, int num_threads,
-                  int num_batches_per_thread,
-                  size_t io_block_size, int io_depth, int io_alignment,
-                  bool shuffle=false, bool wait_for_gpu_idle=false);
+                  int num_batches_per_thread, size_t io_block_size, int io_depth, int io_alignment,
+                  bool shuffle = false, bool wait_for_gpu_idle = false);
 
   bool is_currently_loading();
   void load_async();

@@ -15,9 +15,9 @@
  */
 
 #pragma once
+#include <gpu_learning_rate_scheduler.hpp>
 #include <optimizer.hpp>
 #include <tensor2.hpp>
-#include <gpu_learning_rate_scheduler.hpp>
 #include <vector>
 
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
@@ -27,9 +27,7 @@ class IEmbedding {
  public:
   virtual ~IEmbedding() {}
 
-  virtual TrainState train(bool is_train, int i, TrainState state) { 
-    return TrainState();
-  }
+  virtual TrainState train(bool is_train, int i, TrainState state) { return TrainState(); }
   // TODO: can we remove the default argument?
   virtual void forward(bool is_train, int eval_batch = -1) = 0;
   virtual void backward() = 0;
@@ -74,8 +72,8 @@ struct SparseEmbeddingHashParams {
   size_t slot_num;                      // slot number
   int combiner;                         // 0-sum, 1-mean
   OptParams opt_params;                 // optimizer params
-  bool is_data_parallel = true;                // Temp test
-  bool do_unique_key_flag = true; // do not do unique_key in ci
+  bool is_data_parallel = true;         // Temp test
+  bool do_unique_key_flag = true;       // do not do unique_key in ci
 
   size_t get_batch_size(bool is_train) const {
     if (is_train) {
@@ -88,7 +86,6 @@ struct SparseEmbeddingHashParams {
   size_t get_universal_batch_size() const {
     return std::max(train_batch_size, evaluate_batch_size);
   }
-
 };
 
 static size_t get_slot_num(const SparseTensorBag& bag) {

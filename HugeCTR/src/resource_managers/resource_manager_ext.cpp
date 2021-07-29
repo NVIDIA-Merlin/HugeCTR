@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <resource_managers/resource_manager_ext.hpp>
 #include <random>
+#include <resource_managers/resource_manager_ext.hpp>
 #include <utils.hpp>
 
 namespace HugeCTR {
@@ -23,7 +23,8 @@ namespace HugeCTR {
 std::unordered_map<int, int> CudaCPUDeviceContext::device_id_to_numa_node_;
 
 std::shared_ptr<ResourceManager> ResourceManagerExt::create(
-    const std::vector<std::vector<int>>& visible_devices, unsigned long long seed, DeviceMap::Layout layout) {
+    const std::vector<std::vector<int>>& visible_devices, unsigned long long seed,
+    DeviceMap::Layout layout) {
   int size = 1, rank = 0;
 
 #ifdef ENABLE_MPI
@@ -43,7 +44,7 @@ std::shared_ptr<ResourceManager> ResourceManagerExt::create(
 #endif
 
   MESSAGE_("Global seed is " + std::to_string(seed));
-  
+
   CK_NVML_THROW_(nvmlInit_v2());
   CudaCPUDeviceContext::init_cpu_mapping(device_map.get_device_list());
 
@@ -53,8 +54,7 @@ std::shared_ptr<ResourceManager> ResourceManagerExt::create(
   return std::shared_ptr<ResourceManager>(new ResourceManagerExt(core));
 }
 
-ResourceManagerExt::ResourceManagerExt(std::shared_ptr<ResourceManager> core)
-    : core_(core) {
+ResourceManagerExt::ResourceManagerExt(std::shared_ptr<ResourceManager> core) : core_(core) {
 #ifdef ENABLE_MPI
   int num_process = get_num_process();
   if (num_process > 1) {
@@ -65,8 +65,7 @@ ResourceManagerExt::ResourceManagerExt(std::shared_ptr<ResourceManager> core)
 #endif
 }
 
-void ResourceManagerExt::set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision)
-{
+void ResourceManagerExt::set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) {
   int num_process = get_num_process();
 #ifdef ENABLE_MPI
   ar_comm_ = AllReduceInPlaceComm::create(num_process, algo, use_mixed_precision, get_local_gpus(),

@@ -109,14 +109,13 @@ class FullyConnectedLayer<__half> : public Layer {
    * @param tensor_format: specifies the format of the weight tensor, either HW (row major) or WH
    * (col-major)
    */
-  FullyConnectedLayer(
-      const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
-      const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
-      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-      const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
-      const std::shared_ptr<GPUResource>& gpu_resource,
-      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+  FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& master_weights_buff,
+                      const std::shared_ptr<BufferBlock2<__half>>& weights_buff,
+                      const std::shared_ptr<BufferBlock2<__half>>& weights_grad_buff,
+                      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                      const Tensor2<__half>& bottom_tensor, const Tensor2<__half>& top_tensor,
+                      const std::shared_ptr<GPUResource>& gpu_resource,
+                      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
   FullyConnectedLayer(const FullyConnectedLayer&) = delete;
   FullyConnectedLayer& operator=(const FullyConnectedLayer&);
 };

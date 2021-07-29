@@ -16,13 +16,12 @@
 
 #pragma once
 
+#include <cpu_resource.hpp>
 #include <fstream>
 #include <functional>
+#include <general_buffer2.hpp>
 #include <string>
 #include <vector>
-
-#include <cpu_resource.hpp>
-#include <general_buffer2.hpp>
 
 namespace HugeCTR {
 /**
@@ -30,7 +29,6 @@ namespace HugeCTR {
  * Definition of a basic layer class.
  */
 class LayerCPU {
-
  protected:
   /*
    * stores the weight tensors of this layer.
@@ -58,7 +56,6 @@ class LayerCPU {
    * Some of the layers requires initialize like fully connected layer
    */
   virtual void initialize() {}
-
 };
 
 }  // namespace HugeCTR

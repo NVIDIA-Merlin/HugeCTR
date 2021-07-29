@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <gpu_barrier.hpp>
+#include <collectives/all_reduce_comm.hpp>
 #include <collectives/ib_comm.hpp>
+#include <gpu_barrier.hpp>
 #include <queue>
 #include <random>
 #include <resource_manager.hpp>
@@ -34,9 +35,6 @@
 #include "HugeCTR/include/embeddings/hybrid_embedding/statistics.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
 #include "HugeCTR/include/tensor2.hpp"
-#include <collectives/ib_comm.hpp>
-#include <collectives/all_reduce_comm.hpp>
-#include <gpu_barrier.hpp>
 
 using namespace HugeCTR::hybrid_embedding;
 
@@ -118,7 +116,7 @@ class HybridSparseEmbedding : public IEmbedding {
 
   Tensors2<emtype> train_output_tensors_;    /**< The output tensors. */
   Tensors2<emtype> evaluate_output_tensors_; /**< The output tensors. */
-  template <typename T> 
+  template <typename T>
   using BuffPtr = std::shared_ptr<BufferBlock2<T>>;
   std::vector<BuffPtr<emtype>> grouped_wgrad_buff_;
   bool grouped_all_reduce_ = false;
@@ -131,11 +129,11 @@ class HybridSparseEmbedding : public IEmbedding {
   // TODO: this parameter is not used by HE at all.
   // We should be in pursuit of merging SparseEmbeddingHashParams and HybridSparseEmbeddingParams
   SparseEmbeddingHashParams dummy_params_;
-  
+
   void index_calculation(bool is_train, int eval_batch, int i, cudaStream_t stream);
-  void forward          (bool is_train, int eval_batch, int i, cudaStream_t stream);
-  void backward_pre_communication (int i, cudaStream_t stream);
-  void backward_communications    (int i, cudaStream_t stream);
+  void forward(bool is_train, int eval_batch, int i, cudaStream_t stream);
+  void backward_pre_communication(int i, cudaStream_t stream);
+  void backward_communications(int i, cudaStream_t stream);
   void backward_post_communication(int i, cudaStream_t stream);
 
  protected:
@@ -154,7 +152,7 @@ class HybridSparseEmbedding : public IEmbedding {
   }
   size_t get_embedding_vec_size() const { return embedding_params_.embedding_vec_size; }
   size_t get_slot_num() const { return embedding_params_.slot_num; }
-  void get_num_instances_per_node(std::vector<uint32_t> &num_instances_per_node) {
+  void get_num_instances_per_node(std::vector<uint32_t>& num_instances_per_node) {
     uint32_t total_gpu_count = resource_manager_->get_global_gpu_count();
     for (uint32_t gid = 0; gid < total_gpu_count; ++gid) {
       uint32_t nodeid = resource_manager_->get_process_id_from_gpu_global_id(gid);
@@ -163,7 +161,7 @@ class HybridSparseEmbedding : public IEmbedding {
     return;
   }
 
-  const GPUResource &get_local_gpu(int i) const { return *resource_manager_->get_local_gpu(i); }
+  const GPUResource& get_local_gpu(int i) const { return *resource_manager_->get_local_gpu(i); }
 
   size_t get_categories_num() {
     size_t num_categories = 0;
@@ -174,22 +172,21 @@ class HybridSparseEmbedding : public IEmbedding {
   }
 
   cudaStream_t& get_stream(uint32_t device_id, const std::string& key);
-  cudaEvent_t&  get_event (uint32_t device_id, const std::string& key);
+  cudaEvent_t& get_event(uint32_t device_id, const std::string& key);
   void destroy_streams();
   void destroy_events();
 
  public:
-  HybridSparseEmbedding(const SparseTensors<dtype> &train_input_tensors,
-                        const SparseTensors<dtype> &evaluate_input_tensors,
-                        const HybridSparseEmbeddingParams<emtype> &embedding_params,
+  HybridSparseEmbedding(const SparseTensors<dtype>& train_input_tensors,
+                        const SparseTensors<dtype>& evaluate_input_tensors,
+                        const HybridSparseEmbeddingParams<emtype>& embedding_params,
                         const std::vector<BuffPtr<emtype>>& grouped_wgrad_buff,
-                        const GpuLearningRateSchedulers lr_scheds,
-                        bool graph_mode,
-                        const std::shared_ptr<ResourceManager> &resource_manager);
+                        const GpuLearningRateSchedulers lr_scheds, bool graph_mode,
+                        const std::shared_ptr<ResourceManager>& resource_manager);
   ~HybridSparseEmbedding();
 
   // TODO: consider to merge it with init_params
-  void init_model(const SparseTensors<dtype> &data, size_t& wgrad_offset);
+  void init_model(const SparseTensors<dtype>& data, size_t& wgrad_offset);
 
   TrainState train(bool is_train, int i, TrainState state) override;
   void forward(bool is_train, int eval_batch = -1) override;
@@ -208,25 +205,25 @@ class HybridSparseEmbedding : public IEmbedding {
 
   Embedding_t get_embedding_type() const override { return Embedding_t::HybridSparseEmbedding; }
   // TODO: implemented the empty virtual functions below and in the corresponding CU file.
-  void load_parameters(BufferBag &keys, size_t num) override {}
-  void dump_parameters(BufferBag& keys, size_t *num) const override {}
+  void load_parameters(BufferBag& keys, size_t num) override {}
+  void dump_parameters(BufferBag& keys, size_t* num) const override {}
 
-  void dump_opt_states(std::ofstream& stream) override {} 
-  void load_opt_states(std::ifstream& stream) override {} 
+  void dump_opt_states(std::ofstream& stream) override {}
+  void load_opt_states(std::ifstream& stream) override {}
   void reset_optimizer() override {}
   void reset() override {}
 
-  const SparseEmbeddingHashParams& get_embedding_params() const override {
-    return dummy_params_;
-  }
+  const SparseEmbeddingHashParams& get_embedding_params() const override { return dummy_params_; }
   void check_overflow() const override {}
   void get_forward_results_tf(const bool is_train, const bool on_gpu,
-                              void *const forward_result) override {}
+                              void* const forward_result) override {}
 
   std::vector<TensorBag2> get_train_output_tensors() const override;
   std::vector<TensorBag2> get_evaluate_output_tensors() const override;
 
-  cudaError_t update_top_gradients(const bool on_gpu, const void *const top_gradients) override { throw; }
+  cudaError_t update_top_gradients(const bool on_gpu, const void* const top_gradients) override {
+    throw;
+  }
 };
 
 }  // namespace HugeCTR

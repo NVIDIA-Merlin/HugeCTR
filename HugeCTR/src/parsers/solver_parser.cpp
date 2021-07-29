@@ -80,23 +80,19 @@ SolverParser::SolverParser(const std::string& file) {
     if (has_max_eval_batches && has_max_eval_samples) {
       CK_THROW_(Error_t::WrongInput,
                 "max_eval_batches and max_eval_samples cannot be used together.");
-    }
-    else {
+    } else {
       if (has_max_eval_batches) {
         max_eval_batches = get_value_from_json<int>(j, "max_eval_batches");
-      }
-      else if (has_max_eval_samples) {
+      } else if (has_max_eval_samples) {
         int max_eval_samples = get_value_from_json<int>(j, "max_eval_samples");
         int rem = max_eval_samples % batchsize_eval;
         if (rem) {
           MESSAGE_("max_eval_samples(" + std::to_string(max_eval_samples) +
-                   ") is not divisible by batchsize_eval(" +
-                   std::to_string(batchsize_eval) +
+                   ") is not divisible by batchsize_eval(" + std::to_string(batchsize_eval) +
                    ". The remainder is truncated.");
         }
         max_eval_batches = max_eval_samples / batchsize_eval;
-      }
-      else {
+      } else {
         CK_THROW_(Error_t::WrongInput,
                   "Either max_eval_batches or max_eval_samples must be specified.");
       }
@@ -120,7 +116,8 @@ SolverParser::SolverParser(const std::string& file) {
           sparse_opt_states_files.push_back(j_embedding_tmp.get<std::string>());
         }
       } else {
-        sparse_opt_states_files.push_back(get_value_from_json<std::string>(j, "sparse_opt_states_file"));
+        sparse_opt_states_files.push_back(
+            get_value_from_json<std::string>(j, "sparse_opt_states_file"));
       }
     }
 
@@ -190,7 +187,9 @@ SolverParser::SolverParser(const std::string& file) {
     }
 
     const std::map<std::string, metrics::Type> metrics_map = {
-        {"AverageLoss", metrics::Type::AverageLoss}, {"AUC", metrics::Type::AUC}, {"HitRate", metrics::Type::HitRate} };
+        {"AverageLoss", metrics::Type::AverageLoss},
+        {"AUC", metrics::Type::AUC},
+        {"HitRate", metrics::Type::HitRate}};
 
     if (has_key_(j, "eval_metrics")) {
       auto eval_metrics = get_json(j, "eval_metrics");
@@ -225,7 +224,7 @@ SolverParser::SolverParser(const std::string& file) {
                 }
                 metrics_spec[metrics::Type::HitRate] = val;
                 break;
-	      }
+              }
               default: {
                 CK_THROW_(Error_t::WrongInput, "Unreachable");
                 break;
@@ -272,10 +271,10 @@ SolverParser::SolverParser(const std::string& file) {
       use_cuda_graph = false;
     }
 
-    if(has_key_(j, "export_predictions_prefix")){
+    if (has_key_(j, "export_predictions_prefix")) {
       export_predictions_prefix = get_value_from_json<std::string>(j, "export_predictions_prefix");
       MESSAGE_("Export prediction prefix: " + export_predictions_prefix);
-    }else {
+    } else {
       export_predictions_prefix = "";
       MESSAGE_("Export prediction: OFF");
     }

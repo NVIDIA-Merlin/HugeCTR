@@ -123,10 +123,10 @@ class InfrequentEmbedding {
   void update_network(const emtype *gradients, emtype *message_buffer, cudaStream_t stream);
   void fused_intra_update_network(const emtype *gradients, emtype **message_buffer,
                                   cudaStream_t stream);
-  void update_model(const emtype *message_buffer, float* dev_lr, float scale, cudaStream_t stream);
-  void hier_update_model(const emtype *message_buffer, float* dev_lr, float scale,
+  void update_model(const emtype *message_buffer, float *dev_lr, float scale, cudaStream_t stream);
+  void hier_update_model(const emtype *message_buffer, float *dev_lr, float scale,
                          cudaStream_t stream);
-  void update_model_direct(float* dev_lr, float scale, cudaStream_t stream);
+  void update_model_direct(float *dev_lr, float scale, cudaStream_t stream);
   void calculate_model_indices_temp_storage_bytes();
   void calculate_network_indices_temp_storage_bytes();
   void calculate_model_indices(cudaStream_t stream);

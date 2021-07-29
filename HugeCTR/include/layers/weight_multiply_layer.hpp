@@ -61,13 +61,13 @@ class WeightMultiplyLayer : public Layer {
    * @param device_id the id of GPU where this layer belongs
    */
   WeightMultiplyLayer(const std::shared_ptr<BufferBlock2<float>>& master_weight_buff,
-                const std::shared_ptr<BufferBlock2<T>>& weight_buff,
-                const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
-                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
-                const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-                const std::vector<size_t>& weight_dims,
-                const std::shared_ptr<GPUResource>& gpu_resource,
-                std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
+                      const std::shared_ptr<BufferBlock2<T>>& weight_buff,
+                      const std::shared_ptr<BufferBlock2<T>>& wgrad_buff,
+                      const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blob_buff,
+                      const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
+                      const std::vector<size_t>& weight_dims,
+                      const std::shared_ptr<GPUResource>& gpu_resource,
+                      std::vector<Initializer_t> initializer_types = std::vector<Initializer_t>());
 
   ~WeightMultiplyLayer() override{};
 

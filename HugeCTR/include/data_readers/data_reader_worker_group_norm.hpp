@@ -26,7 +26,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
   std::string file_list_; /**< file list of data set */
 
   std::shared_ptr<Source> create_source(size_t worker_id, size_t num_worker,
-      const std::string& file_name, bool repeat) override {
+                                        const std::string &file_name, bool repeat) override {
     return std::make_shared<FileSource>(worker_id, num_worker, file_name, repeat);
   }
 
@@ -34,9 +34,7 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
   // Ctor
   DataReaderWorkerGroupNorm(const std::vector<std::shared_ptr<ThreadBuffer>> &output_buffers,
                             const std::shared_ptr<ResourceManager> &resource_manager_,
-                            std::string file_list,
-                            bool repeat,
-                            Check_t check_type,
+                            std::string file_list, bool repeat, Check_t check_type,
                             const std::vector<DataReaderSparseParam> &params,
                             bool start_reading_from_beginning = true)
       : DataReaderWorkerGroup(start_reading_from_beginning, DataReaderType_t::Norm) {
@@ -45,20 +43,22 @@ class DataReaderWorkerGroupNorm : public DataReaderWorkerGroup {
     }
     int num_threads = output_buffers.size();
     size_t local_gpu_count = resource_manager_->get_local_gpu_count();
-    
+
     // create data reader workers
     int max_feature_num_per_sample = 0;
-    for (auto& param : params) {
+    for (auto &param : params) {
       max_feature_num_per_sample += param.max_feature_num;
 
       if (param.max_feature_num <= 0 || param.slot_num <= 0) {
         CK_THROW_(Error_t::WrongInput, "param.max_feature_num <= 0 || param.slot_num <= 0");
       }
     }
-    
+
     for (int i = 0; i < num_threads; i++) {
       std::shared_ptr<IDataReaderWorker> data_reader(new DataReaderWorker<TypeKey>(
-          i, num_threads, resource_manager_->get_local_gpu(i % local_gpu_count), &data_reader_loop_flag_, output_buffers[i], file_list, max_feature_num_per_sample, repeat, check_type, params));
+          i, num_threads, resource_manager_->get_local_gpu(i % local_gpu_count),
+          &data_reader_loop_flag_, output_buffers[i], file_list, max_feature_num_per_sample, repeat,
+          check_type, params));
       data_readers_.push_back(data_reader);
     }
     create_data_reader_threads();

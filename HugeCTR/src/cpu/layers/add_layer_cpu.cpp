@@ -15,9 +15,9 @@
  */
 
 #include <algorithm>
+#include <cpu/layers/add_layer_cpu.hpp>
 #include <functional>
 #include <utils.hpp>
-#include <cpu/layers/add_layer_cpu.hpp>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -28,7 +28,7 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-void add_cpu(T **input, T *output, size_t size, size_t num) {
+void add_cpu(T** input, T* output, size_t size, size_t num) {
   for (size_t i = 0; i < size; i++) {
     float tmp = 0.f;
     for (size_t j = 0; j < num; j++) {
@@ -39,7 +39,7 @@ void add_cpu(T **input, T *output, size_t size, size_t num) {
 }
 
 template <>
-void add_cpu(__half **input, __half *output, size_t size, size_t num) {
+void add_cpu(__half** input, __half* output, size_t size, size_t num) {
   for (size_t i = 0; i < size; i++) {
     float tmp = 0.f;
     for (size_t j = 0; j < num; j++) {
@@ -50,7 +50,7 @@ void add_cpu(__half **input, __half *output, size_t size, size_t num) {
 }
 
 template <typename T>
-void add_dgrad_cpu(const T *top_grad, T **dgrad, size_t size, size_t num) {
+void add_dgrad_cpu(const T* top_grad, T** dgrad, size_t size, size_t num) {
   for (size_t i = 0; i < size; i++) {
     for (size_t j = 0; j < num; j++) {
       dgrad[j][i] = top_grad[i];
@@ -62,7 +62,7 @@ void add_dgrad_cpu(const T *top_grad, T **dgrad, size_t size, size_t num) {
 
 template <typename T>
 AddLayerCPU<T>::AddLayerCPU(const Tensors2<T>& in_tensors, const Tensor2<T>& out_tensor,
-                      const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff)
+                            const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff)
     : LayerCPU() {
   try {
     size_ = in_tensors[0].get_num_elements();
@@ -106,7 +106,6 @@ void AddLayerCPU<T>::initialize() {
 
 template <typename T>
 void AddLayerCPU<T>::fprop(bool is_train) {
-
   T* output = out_tensors_[0].get_ptr();
 
   add_cpu(h_inputs_.get_ptr(), output, size_, num_);

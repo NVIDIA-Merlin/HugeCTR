@@ -15,9 +15,9 @@
  */
 
 #pragma once
+#include <map>
 #include <string>
 #include <thread>
-#include <map>
 #include <vector>
 
 namespace HugeCTR {
@@ -37,20 +37,28 @@ struct InferenceParams {
   float scaler;
   bool use_algorithm_search;
   bool use_cuda_graph;
-  InferenceParams(const std::string& model_name, const size_t max_batchsize, const float hit_rate_threshold,
-                  const std::string& dense_model_file, const std::vector<std::string>& sparse_model_files,
-                  const int device_id, const bool use_gpu_embedding_cache, const float cache_size_percentage,
-                  const bool i64_input_key, const bool use_mixed_precision = false, const float scaler = 1.0,
-                  const bool use_algorithm_search = true, const bool use_cuda_graph = true);
+  InferenceParams(const std::string& model_name, const size_t max_batchsize,
+                  const float hit_rate_threshold, const std::string& dense_model_file,
+                  const std::vector<std::string>& sparse_model_files, const int device_id,
+                  const bool use_gpu_embedding_cache, const float cache_size_percentage,
+                  const bool i64_input_key, const bool use_mixed_precision = false,
+                  const float scaler = 1.0, const bool use_algorithm_search = true,
+                  const bool use_cuda_graph = true);
 };
 
-struct parameter_server_config{
+struct parameter_server_config {
   std::map<std::string, size_t> model_name_id_map_;
-  // Each vector should have size of M(# of models), where each element in the vector should be a vector with size E(# of embedding tables in that model)
-  std::vector<std::vector<std::string>> emb_file_name_; // The file name per embedding table per model
-  std::vector<std::vector<bool>> distributed_emb_; // The file format flag per embedding table per model
-  std::vector<std::vector<size_t>> embedding_vec_size_; // The emb_vec_size per embedding table per model
-  std::vector<std::vector<float>> default_emb_vec_value_; // The defualt emb_vec value when emb_id cannot be found, per embedding table per model
+  // Each vector should have size of M(# of models), where each element in the vector should be a
+  // vector with size E(# of embedding tables in that model)
+  std::vector<std::vector<std::string>>
+      emb_file_name_;  // The file name per embedding table per model
+  std::vector<std::vector<bool>>
+      distributed_emb_;  // The file format flag per embedding table per model
+  std::vector<std::vector<size_t>>
+      embedding_vec_size_;  // The emb_vec_size per embedding table per model
+  std::vector<std::vector<float>>
+      default_emb_vec_value_;  // The defualt emb_vec value when emb_id cannot be found, per
+                               // embedding table per model
 };
 
 // Base interface class for parameter_server
@@ -61,9 +69,12 @@ class HugectrUtility {
   HugectrUtility();
   virtual ~HugectrUtility();
   // Should not be called directly, should be called by embedding cache
-  virtual void look_up(const TypeHashKey* h_embeddingcolumns, size_t length, float* h_embeddingoutputvector, const std::string& model_name, size_t embedding_table_id) = 0;
-  static HugectrUtility<TypeHashKey>* Create_Parameter_Server(INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path, const std::vector<InferenceParams>& inference_params_array);
+  virtual void look_up(const TypeHashKey* h_embeddingcolumns, size_t length,
+                       float* h_embeddingoutputvector, const std::string& model_name,
+                       size_t embedding_table_id) = 0;
+  static HugectrUtility<TypeHashKey>* Create_Parameter_Server(
+      INFER_TYPE Infer_type, const std::vector<std::string>& model_config_path,
+      const std::vector<InferenceParams>& inference_params_array);
 };
 
 }  // namespace HugeCTR
-

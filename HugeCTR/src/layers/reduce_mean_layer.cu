@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <functional>
 #include <layers/reduce_mean_layer.hpp>
 #include <utils.cuh>
 #include <utils.hpp>
-
-#include <algorithm>
-#include <functional>
 
 #ifndef NDEBUG
 #include <iostream>

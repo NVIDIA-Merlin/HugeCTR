@@ -307,23 +307,24 @@ void copy_async(SparseTensor<T> &dst, const SparseTensor<T> &src, cudaMemcpyKind
 
 template <typename T>
 void copy_async(SparseTensor<T> &dst, const CSR<T> &src, cudaStream_t stream) {
-  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_value_ptr(), src.get_value_tensor().get_ptr(), src.get_num_values() * sizeof(T),
-                                 cudaMemcpyHostToDevice, stream));
+  CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_value_ptr(), src.get_value_tensor().get_ptr(),
+                                 src.get_num_values() * sizeof(T), cudaMemcpyHostToDevice, stream));
 
   CK_CUDA_THROW_(cudaMemcpyAsync(dst.get_rowoffset_ptr(), src.get_row_offset_tensor().get_ptr(),
-                                 src.get_row_offset_tensor().get_size_in_bytes(), cudaMemcpyHostToDevice, stream));
+                                 src.get_row_offset_tensor().get_size_in_bytes(),
+                                 cudaMemcpyHostToDevice, stream));
 
   *dst.get_nnz_ptr() = src.get_num_values();
 }
 }  // namespace cuda
 namespace cpu {
-  template <typename T>
-  void copy(SparseTensor<T> &dst, const SparseTensor<T> &src) {
-    memcpy(dst.get_value_ptr(), src.get_value_ptr(), src.nnz() * sizeof(T));
-    memcpy(dst.get_rowoffset_ptr(), src.get_rowoffset_ptr(), src.rowoffset_count() * sizeof(T));
+template <typename T>
+void copy(SparseTensor<T> &dst, const SparseTensor<T> &src) {
+  memcpy(dst.get_value_ptr(), src.get_value_ptr(), src.nnz() * sizeof(T));
+  memcpy(dst.get_rowoffset_ptr(), src.get_rowoffset_ptr(), src.rowoffset_count() * sizeof(T));
 
-    *dst.get_nnz_ptr() = src.nnz();
-  }
+  *dst.get_nnz_ptr() = src.nnz();
 }
+}  // namespace cpu
 }  // namespace sparse_tensor_helper
 }  // namespace HugeCTR

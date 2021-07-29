@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "tensor2.hpp"
-#include "parser.hpp"
 #include "HugeCTR/include/model_oversubscriber/parameter_server.hpp"
+#include "parser.hpp"
+#include "tensor2.hpp"
 
 namespace HugeCTR {
 
@@ -27,12 +27,11 @@ class ParameterServerManager {
   std::vector<std::shared_ptr<ParameterServer<TypeKey>>> ps_;
   BufferBag buf_bag_;
 
-public:
-  ParameterServerManager(bool use_host_ps,
-      const std::vector<std::string>& sparse_embedding_files,
-      const std::vector<Embedding_t>& embedding_types,
-      const std::vector<SparseEmbeddingHashParams>& embedding_params,
-      size_t buffer_size, std::shared_ptr<ResourceManager> resource_manager);
+ public:
+  ParameterServerManager(bool use_host_ps, const std::vector<std::string>& sparse_embedding_files,
+                         const std::vector<Embedding_t>& embedding_types,
+                         const std::vector<SparseEmbeddingHashParams>& embedding_params,
+                         size_t buffer_size, std::shared_ptr<ResourceManager> resource_manager);
 
   ParameterServerManager(const ParameterServerManager&) = delete;
   ParameterServerManager& operator=(const ParameterServerManager&) = delete;
@@ -44,7 +43,9 @@ public:
   BufferBag& get_buffer_bag() { return buf_bag_; }
 
   void update_sparse_model_file() {
-    for (auto& ps : ps_) { ps->flush_emb_tbl_to_ssd(); }
+    for (auto& ps : ps_) {
+      ps->flush_emb_tbl_to_ssd();
+    }
   }
 };
 

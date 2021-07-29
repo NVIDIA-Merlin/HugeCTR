@@ -57,15 +57,14 @@ void add_bias(float* data, const float* bias, const int m, const int n, bool row
 #endif
 }
 
-} // namespace
+}  // namespace
 
-FullyConnectedLayer<float>::FullyConnectedLayer(const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                                                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                                                const Tensor2<float>& in_tensor,
-                                                const Tensor2<float>& out_tensor,
-                                                const std::shared_ptr<GPUResource>& gpu_resource,
-                                                bool use_mixed_precision, bool enable_tf32_compute,
-                                                std::vector<Initializer_t> initializer_types)
+FullyConnectedLayer<float>::FullyConnectedLayer(
+    const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+    const std::shared_ptr<BufferBlock2<float>>& wgrad_buff, const Tensor2<float>& in_tensor,
+    const Tensor2<float>& out_tensor, const std::shared_ptr<GPUResource>& gpu_resource,
+    bool use_mixed_precision, bool enable_tf32_compute,
+    std::vector<Initializer_t> initializer_types)
     : Layer(gpu_resource, initializer_types),
       use_mixed_precision_(use_mixed_precision),
       enable_tf32_compute_(enable_tf32_compute) {
@@ -148,7 +147,7 @@ void FullyConnectedLayer<float>::fprop(bool is_train) {
                                 CUDA_R_32F, n, compute_type, falgo_));
   add_bias(out, bias, m, n, true, get_gpu().get_stream());
 
-  //PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
+  // PROFILE_RECORD("TopMLP.fprop.stop", get_gpu().get_stream());
 }
 
 void FullyConnectedLayer<float>::bprop() {

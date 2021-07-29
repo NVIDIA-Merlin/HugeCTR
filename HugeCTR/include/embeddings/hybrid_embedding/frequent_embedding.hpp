@@ -137,9 +137,9 @@ class FrequentEmbedding {
   void forward_network_aux(const vectype *embedding_vectors, emtype *interaction_layer_input,
                            cudaStream_t stream);
   void forward_network(emtype *interaction_layer_input, bool from_cache, cudaStream_t stream);
-  void update_model(float* dev_lr, float scale, cudaStream_t stream);
+  void update_model(float *dev_lr, float scale, cudaStream_t stream);
   void local_reduce(const emtype *gradients, cudaStream_t stream, bool reset_all = true);
-  void update_model_direct(float* dev_lr, float scale, cudaStream_t stream);
+  void update_model_direct(float *dev_lr, float scale, cudaStream_t stream);
   void calculate_frequent_sample_indices_temp_storage_bytes();
   void calculate_model_cache_indices_temp_storage_bytes();
   void calculate_network_cache_indices_temp_storage_bytes();

@@ -15,9 +15,9 @@
  */
 
 #include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
+#include <embeddings/hybrid_sparse_embedding.hpp>
 #include <embeddings/localized_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
-#include <embeddings/hybrid_sparse_embedding.hpp>
 #include <loss.hpp>
 #include <optimizer.hpp>
 #include <parser.hpp>
@@ -32,17 +32,10 @@ void create_embedding<TypeKey, TypeFP>::operator()(
     std::map<std::string, SparseInput<TypeKey>>& sparse_input_map,
     std::vector<TensorEntry>* train_tensor_entries_list,
     std::vector<TensorEntry>* evaluate_tensor_entries_list,
-    std::vector<std::shared_ptr<IEmbedding>>& embeddings,
-    Embedding_t embedding_type,
-    const nlohmann::json& config,
-    const std::shared_ptr<ResourceManager>& resource_manager,
-    size_t batch_size,
-    size_t batch_size_eval,
-    std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
-    bool use_mixed_precision,
-    float scaler,
-    const nlohmann::json& j_layers,
-    bool use_cuda_graph,
+    std::vector<std::shared_ptr<IEmbedding>>& embeddings, Embedding_t embedding_type,
+    const nlohmann::json& config, const std::shared_ptr<ResourceManager>& resource_manager,
+    size_t batch_size, size_t batch_size_eval, std::shared_ptr<ExchangeWgrad>& exchange_wgrad,
+    bool use_mixed_precision, float scaler, const nlohmann::json& j_layers, bool use_cuda_graph,
     bool grouped_all_reduce) {
 #ifdef ENABLE_MPI
   int num_procs = 1, pid = 0;
@@ -57,13 +50,16 @@ void create_embedding<TypeKey, TypeFP>::operator()(
   auto top_name = get_value_from_json<std::string>(j_layers, "top");
 
   auto j_hparam = get_json(j_layers, "sparse_embedding_hparam");
-  if(!has_key_(j_hparam, "workspace_size_per_gpu_in_mb") && !has_key_(j_hparam, "slot_size_array")) {
+  if (!has_key_(j_hparam, "workspace_size_per_gpu_in_mb") &&
+      !has_key_(j_hparam, "slot_size_array")) {
     CK_THROW_(Error_t::WrongInput, "need workspace_size_per_gpu_in_mb or slot_size_array");
   }
-  size_t workspace_size_per_gpu_in_mb = get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
+  size_t workspace_size_per_gpu_in_mb =
+      get_value_from_json_soft<size_t>(j_hparam, "workspace_size_per_gpu_in_mb", 0);
   auto embedding_vec_size = get_value_from_json<size_t>(j_hparam, "embedding_vec_size");
-  
-  size_t max_vocabulary_size_per_gpu = (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
+
+  size_t max_vocabulary_size_per_gpu =
+      (workspace_size_per_gpu_in_mb * 1024 * 1024) / (sizeof(float) * embedding_vec_size);
 
   auto combiner_str = get_value_from_json<std::string>(j_hparam, "combiner");
 
@@ -100,55 +96,51 @@ void create_embedding<TypeKey, TypeFP>::operator()(
 
   switch (embedding_type) {
     case Embedding_t::DistributedSlotSparseEmbeddingHash: {
-      const SparseEmbeddingHashParams embedding_params = {
-          batch_size,
-          batch_size_eval,
-          max_vocabulary_size_per_gpu,
-          {},
-          embedding_vec_size,
-          sparse_input.max_feature_num_per_sample,
-          sparse_input.slot_num,
-          combiner,  // combiner: 0-sum, 1-mean
-          embedding_opt_params};
+      const SparseEmbeddingHashParams embedding_params = {batch_size,
+                                                          batch_size_eval,
+                                                          max_vocabulary_size_per_gpu,
+                                                          {},
+                                                          embedding_vec_size,
+                                                          sparse_input.max_feature_num_per_sample,
+                                                          sparse_input.slot_num,
+                                                          combiner,  // combiner: 0-sum, 1-mean
+                                                          embedding_opt_params};
 
       embeddings.emplace_back(new DistributedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
-          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params, resource_manager));
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params,
+          resource_manager));
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingHash: {
-
-      const SparseEmbeddingHashParams embedding_params = {
-          batch_size,
-          batch_size_eval,
-          max_vocabulary_size_per_gpu,
-          slot_size_array,
-          embedding_vec_size,
-          sparse_input.max_feature_num_per_sample,
-          sparse_input.slot_num,
-          combiner,  // combiner: 0-sum, 1-mean
-          embedding_opt_params};
+      const SparseEmbeddingHashParams embedding_params = {batch_size,
+                                                          batch_size_eval,
+                                                          max_vocabulary_size_per_gpu,
+                                                          slot_size_array,
+                                                          embedding_vec_size,
+                                                          sparse_input.max_feature_num_per_sample,
+                                                          sparse_input.slot_num,
+                                                          combiner,  // combiner: 0-sum, 1-mean
+                                                          embedding_opt_params};
 
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingHash<TypeKey, TypeFP>(
-          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params, resource_manager));
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params,
+          resource_manager));
 
       break;
     }
     case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-      const SparseEmbeddingHashParams embedding_params = {
-          batch_size,
-          batch_size_eval,
-          0,
-          slot_size_array,
-          embedding_vec_size,
-          sparse_input.max_feature_num_per_sample,
-          sparse_input.slot_num,
-          combiner,  // combiner: 0-sum, 1-mean
-          embedding_opt_params};
+      const SparseEmbeddingHashParams embedding_params = {batch_size,
+                                                          batch_size_eval,
+                                                          0,
+                                                          slot_size_array,
+                                                          embedding_vec_size,
+                                                          sparse_input.max_feature_num_per_sample,
+                                                          sparse_input.slot_num,
+                                                          combiner,  // combiner: 0-sum, 1-mean
+                                                          embedding_opt_params};
 
       embeddings.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
-          sparse_input.train_sparse_tensors,
-          sparse_input.evaluate_sparse_tensors,
-          embedding_params,
+          sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params,
           resource_manager));
 
       break;
@@ -202,9 +194,12 @@ void create_embedding<TypeKey, TypeFP>::operator()(
                   "No such hybrid embedding type: " + hybrid_embedding_type_string);
       }
 
-      auto& embed_wgrad_buff = (grouped_all_reduce) ? 
-            std::dynamic_pointer_cast<GroupedExchangeWgrad<TypeFP>>(exchange_wgrad)->get_embed_wgrad_buffs() :
-                std::dynamic_pointer_cast<NetworkExchangeWgrad<TypeFP>>(exchange_wgrad)->get_embed_wgrad_buffs();
+      auto& embed_wgrad_buff =
+          (grouped_all_reduce)
+              ? std::dynamic_pointer_cast<GroupedExchangeWgrad<TypeFP>>(exchange_wgrad)
+                    ->get_embed_wgrad_buffs()
+              : std::dynamic_pointer_cast<NetworkExchangeWgrad<TypeFP>>(exchange_wgrad)
+                    ->get_embed_wgrad_buffs();
 
       auto j_solver = get_json(config, "solver");
       bool graph_mode = get_value_from_json_soft<bool>(j_solver, "holistic_cuda_graph", false);
@@ -214,7 +209,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           batch_size_eval,
           num_iterations_statistics,                                            // TBD
           max_num_frequent_categories * std::max(batch_size, batch_size_eval),  // TBD
-          max_num_infrequent_samples,  // TBD
+          max_num_infrequent_samples,                                           // TBD
           p_dup_max,
           embedding_vec_size,
           sparse_input.slot_num,
@@ -227,9 +222,7 @@ void create_embedding<TypeKey, TypeFP>::operator()(
           embedding_opt_params};
       embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(
           sparse_input.train_sparse_tensors, sparse_input.evaluate_sparse_tensors, embedding_params,
-          embed_wgrad_buff,
-          get_gpu_learning_rate_schedulers(config, resource_manager),
-          graph_mode,
+          embed_wgrad_buff, get_gpu_learning_rate_schedulers(config, resource_manager), graph_mode,
           resource_manager));
       break;
     }

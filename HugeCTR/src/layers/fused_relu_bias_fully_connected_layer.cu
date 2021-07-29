@@ -336,7 +336,6 @@ void FusedReluBiasFullyConnectedLayer::fprop(bool is_train) {
   cudaDeviceSynchronize();
   CK_CUDA_THROW_(cudaGetLastError());
 #endif
-
 }
 
 void FusedReluBiasFullyConnectedLayer::bprop() {

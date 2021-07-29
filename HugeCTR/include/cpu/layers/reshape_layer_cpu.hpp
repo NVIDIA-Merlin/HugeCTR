@@ -68,8 +68,8 @@ class ReshapeLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   ReshapeLayerCPU(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-               size_t leading_dim);
+                  const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                  size_t leading_dim);
   /**
    * Specialized Ctor of ReshapeLayer which assumes the 3D input tensor
    * @param in_tensor the input tensor
@@ -80,8 +80,8 @@ class ReshapeLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   ReshapeLayerCPU(const Tensor2<T>& in_tensor, Tensor2<T>& out_tensor,
-               const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
-               std::vector<int>& selected);
+                  const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff,
+                  std::vector<int>& selected);
 
   /**
    * A method of implementing the forward pass of Reshape

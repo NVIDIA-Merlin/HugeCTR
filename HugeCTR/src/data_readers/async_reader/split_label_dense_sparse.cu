@@ -7,8 +7,8 @@ namespace HugeCTR {
 template <typename DenseType, typename SparseType>
 __global__ void split_kernel_3_way(int batch_size, float* label_ptr, int label_dim,
                                    DenseType* dense_ptr, int dense_dim, int dense_dim_no_align,
-				                           int* sparse_ptr, int sparse_dim,
-                                   const int* label_dense_sparse, int sample_size_int) {
+                                   int* sparse_ptr, int sparse_dim, const int* label_dense_sparse,
+                                   int sample_size_int) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (idx < batch_size * sample_size_int) {
@@ -32,19 +32,18 @@ __global__ void split_kernel_3_way(int batch_size, float* label_ptr, int label_d
   return;
 }
 
-
 template <int samples_per_cta, typename DenseType, typename SparseType>
 __global__ void split_kernel_3_way_read4_write4(int batch_size, float* label_ptr, int label_dim,
-                                                DenseType* dense_ptr, int dense_dim, int dense_dim_no_align,
-						                                    int* sparse_ptr, int sparse_dim,
-                                                const int* label_dense_sparse, int sample_size_int) {
-
-  using DenseType4 = typename std::conditional<(sizeof(DenseType) == 4),int4,int2>::type;
+                                                DenseType* dense_ptr, int dense_dim,
+                                                int dense_dim_no_align, int* sparse_ptr,
+                                                int sparse_dim, const int* label_dense_sparse,
+                                                int sample_size_int) {
+  using DenseType4 = typename std::conditional<(sizeof(DenseType) == 4), int4, int2>::type;
   extern __shared__ int label_dense_sparse_s[];
   constexpr int vec_size = sizeof(int4) / sizeof(int);
   static_assert(samples_per_cta % vec_size == 0,
-    "Number of samples per block has to respect divisibility constraints");
-  assert(blockDim.x >= 3*warpSize);
+                "Number of samples per block has to respect divisibility constraints");
+  assert(blockDim.x >= 3 * warpSize);
 
   const int idx_l = threadIdx.x;
   const int warp_id = threadIdx.x / warpSize;
@@ -59,24 +58,25 @@ __global__ void split_kernel_3_way_read4_write4(int batch_size, float* label_ptr
   int4* label_dense_sparse_s_align4 = reinterpret_cast<int4*>(label_dense_sparse_s);
   const int4* label_dense_sparse_align4 = reinterpret_cast<const int4*>(label_dense_sparse);
 
-  float* label_s       = reinterpret_cast<float*>     (label_dense_sparse_s + sample_size_int * samples_per_cta);
-  DenseType* dense_s   = reinterpret_cast<DenseType*> (label_s + label_dim * samples_per_cta);
+  float* label_s =
+      reinterpret_cast<float*>(label_dense_sparse_s + sample_size_int * samples_per_cta);
+  DenseType* dense_s = reinterpret_cast<DenseType*>(label_s + label_dim * samples_per_cta);
   SparseType* sparse_s = reinterpret_cast<SparseType*>((int*)dense_s + dense_dim * samples_per_cta);
 
   // read with int4
   const int src_base = samples_per_cta * sample_size_int / vec_size * blockIdx.x;
-  for (int id=idx_l; id < my_cta_samples*sample_size_int/vec_size; id+=blockDim.x) {
+  for (int id = idx_l; id < my_cta_samples * sample_size_int / vec_size; id += blockDim.x) {
     label_dense_sparse_s_align4[id] = label_dense_sparse_align4[src_base + id];
   }
 
-  for (int id=idx_l; id < samples_per_cta*dense_dim; id+=blockDim.x) {
+  for (int id = idx_l; id < samples_per_cta * dense_dim; id += blockDim.x) {
     dense_s[id] = 0;
   }
 
   __syncthreads();
 
   // transpose
-  for (int id=idx_l; id < samples_per_cta*sample_size_int; id+=blockDim.x) {
+  for (int id = idx_l; id < samples_per_cta * sample_size_int; id += blockDim.x) {
     const int in_col = id % sample_size_int;
     const int in_row = id / sample_size_int;
     const int out_row = in_row;
@@ -95,42 +95,39 @@ __global__ void split_kernel_3_way_read4_write4(int batch_size, float* label_ptr
   }
   __syncthreads();
 
-  float4*      label_s_align4 = reinterpret_cast<float4*>    (label_s);
-  DenseType4*  dense_s_align4 = reinterpret_cast<DenseType4*>(dense_s);
-  int4*       sparse_s_align4 = reinterpret_cast<int4*>      (sparse_s);
-  float4*        label_align4 = reinterpret_cast<float4*>    (label_ptr);
-  DenseType4*    dense_align4 = reinterpret_cast<DenseType4*>(dense_ptr);
-  int4*         sparse_align4 = reinterpret_cast<int4*>      (sparse_ptr);
+  float4* label_s_align4 = reinterpret_cast<float4*>(label_s);
+  DenseType4* dense_s_align4 = reinterpret_cast<DenseType4*>(dense_s);
+  int4* sparse_s_align4 = reinterpret_cast<int4*>(sparse_s);
+  float4* label_align4 = reinterpret_cast<float4*>(label_ptr);
+  DenseType4* dense_align4 = reinterpret_cast<DenseType4*>(dense_ptr);
+  int4* sparse_align4 = reinterpret_cast<int4*>(sparse_ptr);
 
-  const int label_size_int4_per_cta  = label_dim  * samples_per_cta / vec_size;
-  const int dense_size_int4_per_cta  = dense_dim  * samples_per_cta / vec_size;
+  const int label_size_int4_per_cta = label_dim * samples_per_cta / vec_size;
+  const int dense_size_int4_per_cta = dense_dim * samples_per_cta / vec_size;
   const int sparse_size_int4_per_cta = sparse_dim * samples_per_cta / vec_size;
 
   if (warp_id == 0) {
-    for (int id=lane_id; id < label_dim * my_cta_samples / vec_size; id+=warpSize) {
+    for (int id = lane_id; id < label_dim * my_cta_samples / vec_size; id += warpSize) {
       label_align4[id + blockIdx.x * label_size_int4_per_cta] = label_s_align4[id];
     }
   }
   if (warp_id == 1) {
-    for (int id=lane_id; id < dense_dim * my_cta_samples / vec_size; id+=warpSize) {
+    for (int id = lane_id; id < dense_dim * my_cta_samples / vec_size; id += warpSize) {
       dense_align4[id + blockIdx.x * dense_size_int4_per_cta] = dense_s_align4[id];
     }
   }
   if (warp_id == 2) {
-    for (int id=lane_id; id < sparse_dim * my_cta_samples / vec_size; id+=warpSize) {
+    for (int id = lane_id; id < sparse_dim * my_cta_samples / vec_size; id += warpSize) {
       sparse_align4[id + blockIdx.x * sparse_size_int4_per_cta] = sparse_s_align4[id];
     }
   }
 }
 
-
 template <typename DenseType, typename SparseType>
 void split_3_way(Tensor2<float> label_tensor, Tensor2<DenseType> dense_tensor,
                  Tensor2<SparseType> sparse_tensor, Tensor2<int> label_dense_sparse_buffer,
                  cudaStream_t stream) {
-  
   if (label_dense_sparse_buffer.get_num_elements() > 0) {
-
     assert(label_tensor.get_dimensions()[0] == dense_tensor.get_dimensions()[0]);
     assert(label_tensor.get_dimensions()[0] == sparse_tensor.get_dimensions()[0]);
 
@@ -139,34 +136,29 @@ void split_3_way(Tensor2<float> label_tensor, Tensor2<DenseType> dense_tensor,
     const int dense_dim = dense_tensor.get_dimensions()[1];
     const int sparse_dim = sparse_tensor.get_dimensions()[1];
     const int sample_size_int = label_dense_sparse_buffer.get_dimensions()[1];
-    
+
     int dense_dim_no_align = sample_size_int - label_dim - sparse_dim;
 
     constexpr int block_dim = 128;
     constexpr int samples_per_cta = 24;
 
     int vec_width = sizeof(int4) / sizeof(int);
-    if (batch_size % vec_width == 0 && samples_per_cta*sample_size_int*sizeof(int) <= 24*1024) {
+    if (batch_size % vec_width == 0 &&
+        samples_per_cta * sample_size_int * sizeof(int) <= 24 * 1024) {
       const int grid_dim = (batch_size + samples_per_cta - 1) / samples_per_cta;
-      const int shmem = 2*samples_per_cta * (label_dim + dense_dim + sparse_dim) * sizeof(int);
+      const int shmem = 2 * samples_per_cta * (label_dim + dense_dim + sparse_dim) * sizeof(int);
 
       split_kernel_3_way_read4_write4<samples_per_cta, DenseType, SparseType>
-        <<<grid_dim, block_dim, shmem, stream>>>(
-          batch_size,
-          label_tensor.get_ptr(), label_dim,
-          dense_tensor.get_ptr(), dense_dim, dense_dim_no_align,
-          reinterpret_cast<int*>(sparse_tensor.get_ptr()), sparse_dim,
-          label_dense_sparse_buffer.get_ptr(),
-	        sample_size_int);
+          <<<grid_dim, block_dim, shmem, stream>>>(
+              batch_size, label_tensor.get_ptr(), label_dim, dense_tensor.get_ptr(), dense_dim,
+              dense_dim_no_align, reinterpret_cast<int*>(sparse_tensor.get_ptr()), sparse_dim,
+              label_dense_sparse_buffer.get_ptr(), sample_size_int);
     } else {
       const int grid_dim = (label_dense_sparse_buffer.get_num_elements() - 1) / block_dim + 1;
       split_kernel_3_way<DenseType, SparseType><<<grid_dim, block_dim, 0, stream>>>(
-          batch_size,
-          label_tensor.get_ptr(), label_dim,
-          dense_tensor.get_ptr(), dense_dim, dense_dim_no_align,
-          reinterpret_cast<int*>(sparse_tensor.get_ptr()), sparse_dim,
-          label_dense_sparse_buffer.get_ptr(),
-	        sample_size_int);
+          batch_size, label_tensor.get_ptr(), label_dim, dense_tensor.get_ptr(), dense_dim,
+          dense_dim_no_align, reinterpret_cast<int*>(sparse_tensor.get_ptr()), sparse_dim,
+          label_dense_sparse_buffer.get_ptr(), sample_size_int);
     }
   }
 }

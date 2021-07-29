@@ -15,7 +15,6 @@
  */
 
 #include <cpu/layers/cast_layer_cpu.hpp>
-
 #include <utils.hpp>
 
 namespace HugeCTR {
@@ -37,7 +36,8 @@ void cast_cpu(float* top, const __half* bottom, int len) {
 }  // namespace
 
 template <typename From, typename To>
-CastLayerCPU<From, To>::CastLayerCPU(const Tensor2<From>& bottom_tensor, const Tensor2<To>& top_tensor)
+CastLayerCPU<From, To>::CastLayerCPU(const Tensor2<From>& bottom_tensor,
+                                     const Tensor2<To>& top_tensor)
     : LayerCPU() {
   assert(bottom_tensor.get_num_elements() == top_tensor.get_num_elements());
 

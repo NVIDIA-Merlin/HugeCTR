@@ -17,13 +17,12 @@
 #pragma once
 
 #include <common.hpp>
+#include <cpu/layer_cpu.hpp>
 #include <fstream>
 #include <functional>
 #include <nlohmann/json.hpp>
-#include <vector>
-
-#include <cpu/layer_cpu.hpp>
 #include <parser.hpp>
+#include <vector>
 
 namespace HugeCTR {
 
@@ -35,7 +34,7 @@ namespace HugeCTR {
  */
 class NetworkCPU {
  private:
-  std::vector<std::unique_ptr<LayerCPU>> layers_;    /**< vector of layers */
+  std::vector<std::unique_ptr<LayerCPU>> layers_; /**< vector of layers */
 
   Tensor2<float> weight_tensor_;
   Tensor2<float> wgrad_tensor_;
@@ -72,8 +71,7 @@ class NetworkCPU {
    * @param gpu_resource gpu resource for local gpu.
    * @param disable_parser only for unit test.
    */
-  NetworkCPU(const std::shared_ptr<CPUResource>& cpu_resource, 
-          bool use_mixed_precision = false);
+  NetworkCPU(const std::shared_ptr<CPUResource>& cpu_resource, bool use_mixed_precision = false);
   NetworkCPU(const NetworkCPU&) = delete;
   NetworkCPU& operator=(const NetworkCPU&) = delete;
 
@@ -92,7 +90,6 @@ class NetworkCPU {
    */
   size_t get_params_num() const { return weight_tensor_.get_num_elements(); }
 
-
   /**
    * Read parameters from model_file.
    */
@@ -107,9 +104,9 @@ class NetworkCPU {
    * factory method to create network
    */
   static NetworkCPU* create_network(const nlohmann::json& j_array,
-                                 std::vector<TensorEntry>& tensor_entries,
-                                 const std::shared_ptr<CPUResource>& cpu_resource,
-                                 bool use_mixed_precision);
+                                    std::vector<TensorEntry>& tensor_entries,
+                                    const std::shared_ptr<CPUResource>& cpu_resource,
+                                    bool use_mixed_precision);
 };
 
 }  // namespace HugeCTR

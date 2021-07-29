@@ -29,27 +29,26 @@
 #include <layers/fully_connected_layer_half.hpp>
 #include <layers/fused_fully_connected_layer.hpp>
 #include <layers/fused_relu_bias_fully_connected_layer.hpp>
-#include <layers/interaction_layer.hpp>
-#include <layers/multi_cross_layer.hpp>
-#include <layers/reduce_sum_layer.hpp>
-#include <layers/relu_layer.hpp>
-#include <layers/reshape_layer.hpp>
-#include <layers/sigmoid_layer.hpp>
-#include <layers/slice_layer.hpp>
-#include <layers/weight_multiply_layer.hpp>
-#include <regularizers/l1_regularizer.hpp>
-#include <regularizers/l2_regularizer.hpp>
-#include <regularizers/no_regularizer.hpp>
-
 #include <layers/fused_reshape_concat_general_layer.hpp>
 #include <layers/fused_reshape_concat_layer.hpp>
 #include <layers/gather_layer.hpp>
 #include <layers/gru_layer.hpp>
+#include <layers/interaction_layer.hpp>
+#include <layers/multi_cross_layer.hpp>
 #include <layers/prelu_dice_layer.hpp>
 #include <layers/reduce_mean_layer.hpp>
+#include <layers/reduce_sum_layer.hpp>
+#include <layers/relu_layer.hpp>
+#include <layers/reshape_layer.hpp>
 #include <layers/scale_layer.hpp>
+#include <layers/sigmoid_layer.hpp>
+#include <layers/slice_layer.hpp>
 #include <layers/softmax_layer.hpp>
 #include <layers/sub_layer.hpp>
+#include <layers/weight_multiply_layer.hpp>
+#include <regularizers/l1_regularizer.hpp>
+#include <regularizers/l2_regularizer.hpp>
+#include <regularizers/no_regularizer.hpp>
 
 #ifdef ENABLE_MPI
 #include <mpi.h>
@@ -111,14 +110,24 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
       sparse_hparam_config["slot_size_array"] = sparse_embedding_params[i].slot_size_array;
     }
     if (sparse_embedding_params[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
-      sparse_hparam_config["max_num_frequent_categories"] = sparse_embedding_params[i].hybrid_embedding_param.max_num_frequent_categories;
-      sparse_hparam_config["max_num_infrequent_samples"] = sparse_embedding_params[i].hybrid_embedding_param.max_num_infrequent_samples;
-      sparse_hparam_config["p_dup_max"] = sparse_embedding_params[i].hybrid_embedding_param.p_dup_max;
-      sparse_hparam_config["max_all_reduce_bandwidth"] = sparse_embedding_params[i].hybrid_embedding_param.max_all_reduce_bandwidth;
-      sparse_hparam_config["max_all_to_all_bandwidth"] = sparse_embedding_params[i].hybrid_embedding_param.max_all_to_all_bandwidth;
-      sparse_hparam_config["efficiency_bandwidth_ratio"] = sparse_embedding_params[i].hybrid_embedding_param.efficiency_bandwidth_ratio;
-      sparse_hparam_config["communication_type"] = HE_COMM_TYPE_TO_STRING[sparse_embedding_params[i].hybrid_embedding_param.communication_type];
-      sparse_hparam_config["hybrid_embedding_type"] = HE_TYPE_TO_STRING[sparse_embedding_params[i].hybrid_embedding_param.hybrid_embedding_type];
+      sparse_hparam_config["max_num_frequent_categories"] =
+          sparse_embedding_params[i].hybrid_embedding_param.max_num_frequent_categories;
+      sparse_hparam_config["max_num_infrequent_samples"] =
+          sparse_embedding_params[i].hybrid_embedding_param.max_num_infrequent_samples;
+      sparse_hparam_config["p_dup_max"] =
+          sparse_embedding_params[i].hybrid_embedding_param.p_dup_max;
+      sparse_hparam_config["max_all_reduce_bandwidth"] =
+          sparse_embedding_params[i].hybrid_embedding_param.max_all_reduce_bandwidth;
+      sparse_hparam_config["max_all_to_all_bandwidth"] =
+          sparse_embedding_params[i].hybrid_embedding_param.max_all_to_all_bandwidth;
+      sparse_hparam_config["efficiency_bandwidth_ratio"] =
+          sparse_embedding_params[i].hybrid_embedding_param.efficiency_bandwidth_ratio;
+      sparse_hparam_config["communication_type"] =
+          HE_COMM_TYPE_TO_STRING[sparse_embedding_params[i]
+                                     .hybrid_embedding_param.communication_type];
+      sparse_hparam_config["hybrid_embedding_type"] =
+          HE_TYPE_TO_STRING[sparse_embedding_params[i]
+                                .hybrid_embedding_param.hybrid_embedding_type];
     }
     sparse_config["sparse_embedding_hparam"] = sparse_hparam_config;
     nlohmann::json optimizer_config;
@@ -167,7 +176,9 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         optimizer_config["sgd_hparam"] = optimizer_hparam_config;
         break;
       }
-      default: { assert(!"Error: no such optimizer && should never get here!"); }
+      default: {
+        assert(!"Error: no such optimizer && should never get here!");
+      }
     }
     sparse_config["optimizer"] = optimizer_config;
     layer_config_array.push_back(sparse_config);
@@ -351,7 +362,9 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
         }
         break;
       }
-      default: { break; }
+      default: {
+        break;
+      }
     }
     layer_config_array.push_back(layer_config);
   }
@@ -689,7 +702,9 @@ DenseLayer get_dense_layer_from_json(const nlohmann::json& j_dense_layer) {
       }
       break;
     }
-    default: { break; }
+    default: {
+      break;
+    }
   }
   return dense_layer;
 }
@@ -746,33 +761,29 @@ static std::shared_ptr<Regularizer<T>> create_regularizer(
         reg.reset(new L2Regularizer<T>(weight_buff, wgrad_buff, batch_size, lambda, gpu_resource));
         break;
       }
-      default: { assert(!"Error: no such regularizer!"); }
+      default: {
+        assert(!"Error: no such regularizer!");
+      }
     }
   }
   return reg;
 }
 
-void add_dense_layer_internal(DenseLayer& dense_layer,
-                std::vector<TensorEntry>& tensor_entries,
-                const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
-                const std::shared_ptr<BufferBlock2<float>>& weight_buff,
-                const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
-                const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
-                const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
-                Tensor2<float>& loss_tensor,
-                std::vector<std::unique_ptr<Layer>>& layers,
-                std::unique_ptr<ILoss>& loss,
-                bool enable_cuda_graph,
-                metrics::RawMetricMap* raw_metrics,
-                int num_networks_in_global,
-                const std::shared_ptr<GPUResource>& gpu_resource,
-                bool use_mixed_precision,
-                bool enable_tf32_compute,
-                float scaler,
-                bool use_algorithm_search,
-                std::vector<Layer*>* top_layers = nullptr,
-                std::vector<Layer*>* bottom_layers = nullptr,
-                bool dlrm_bottom_mlp = false) {
+void add_dense_layer_internal(DenseLayer& dense_layer, std::vector<TensorEntry>& tensor_entries,
+                              const std::shared_ptr<GeneralBuffer2<CudaAllocator>>& blobs_buff,
+                              const std::shared_ptr<BufferBlock2<float>>& weight_buff,
+                              const std::shared_ptr<BufferBlock2<__half>>& weight_buff_half,
+                              const std::shared_ptr<BufferBlock2<float>>& wgrad_buff,
+                              const std::shared_ptr<BufferBlock2<__half>>& wgrad_buff_half,
+                              Tensor2<float>& loss_tensor,
+                              std::vector<std::unique_ptr<Layer>>& layers,
+                              std::unique_ptr<ILoss>& loss, bool enable_cuda_graph,
+                              metrics::RawMetricMap* raw_metrics, int num_networks_in_global,
+                              const std::shared_ptr<GPUResource>& gpu_resource,
+                              bool use_mixed_precision, bool enable_tf32_compute, float scaler,
+                              bool use_algorithm_search, std::vector<Layer*>* top_layers = nullptr,
+                              std::vector<Layer*>* bottom_layers = nullptr,
+                              bool dlrm_bottom_mlp = false) {
   bool skip_dgrad = layers.size() == 0;
   Layer_t layer_type = dense_layer.layer_type;
   const auto& layer_type_to_string =
@@ -958,7 +969,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
       } else if (pos_type == FcPosition_t::Isolated && input_size == 1 && output_size == 1) {
       } else if (pos_type == FcPosition_t::None && input_size == 1 && output_size == 1) {
       } else {
-        CK_THROW_(Error_t::WrongInput, 
+        CK_THROW_(Error_t::WrongInput,
                   "The position and dimension of bottom and top layer aren't compatible: " +
                       LAYER_TYPE_TO_STRING_MP[layer_type]);
       }
@@ -970,7 +981,7 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
 
       if (use_mixed_precision) {
         Tensor2<__half> train_in_tensor =
-              Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
+            Tensor2<__half>::stretch_from(input_output_info.inputs[0]);
         Tensor2<__half> mask_in_tensor, dRelu_in_tensor, db_in_tensor;
         if (pos_type == FcPosition_t::Body || pos_type == FcPosition_t::Tail) {
           mask_in_tensor = Tensor2<__half>::stretch_from(input_output_info.inputs[1]);
@@ -1461,7 +1472,9 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
       }
       break;
     }
-    default: { assert(!"Error: no such layer && should never get here!"); }
+    default: {
+      assert(!"Error: no such layer && should never get here!");
+    }
   }  // end of switch
   if (!(layer_type == Layer_t::CrossEntropyLoss || layer_type == Layer_t::BinaryCrossEntropyLoss ||
         layer_type == Layer_t::MultiCrossEntropyLoss)) {
@@ -1484,49 +1497,32 @@ void add_dense_layer_internal(DenseLayer& dense_layer,
   }
 }
 
-void add_dense_layer(DenseLayer& dense_layer,
-                std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
-                std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
-                const std::shared_ptr<ResourceManager>& resource_manager,
-                bool use_mixed_precision,
-                bool enable_tf32_compute,
-                float scaler,
-                bool use_algorithm_search,
-                bool use_cuda_graph,
-                std::vector<std::shared_ptr<Network>>& networks,
-                std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& blobs_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& train_weight_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& train_weight_buff_half_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_list, 
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
-                std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
-                std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
-                bool dlrm_bottom_mlp) {
+void add_dense_layer(
+    DenseLayer& dense_layer, std::vector<std::vector<TensorEntry>>& train_tensor_entries_list,
+    std::vector<std::vector<TensorEntry>>& evaluate_tensor_entries_list,
+    const std::shared_ptr<ResourceManager>& resource_manager, bool use_mixed_precision,
+    bool enable_tf32_compute, float scaler, bool use_algorithm_search, bool use_cuda_graph,
+    std::vector<std::shared_ptr<Network>>& networks,
+    std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>& blobs_buff_list,
+    std::vector<std::shared_ptr<BufferBlock2<float>>>& train_weight_buff_list,
+    std::vector<std::shared_ptr<BufferBlock2<__half>>>& train_weight_buff_half_list,
+    std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_list,
+    std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_list,
+    std::vector<std::shared_ptr<BufferBlock2<float>>>& evaluate_weight_buff_list,
+    std::vector<std::shared_ptr<BufferBlock2<__half>>>& evaluate_weight_buff_half_list,
+    std::vector<std::shared_ptr<BufferBlock2<float>>>& wgrad_buff_placeholder_list,
+    std::vector<std::shared_ptr<BufferBlock2<__half>>>& wgrad_buff_half_placeholder_list,
+    bool dlrm_bottom_mlp) {
   for (size_t i = 0; i < resource_manager->get_local_gpu_count(); i++) {
     // add dense layer for train
-    add_dense_layer_internal(dense_layer,
-                train_tensor_entries_list[i],
-                blobs_buff_list[i],
-                train_weight_buff_list[i],
-                train_weight_buff_half_list[i],
-                wgrad_buff_list[i],
-                wgrad_buff_half_list[i],
-                networks[i]->train_loss_tensor_,
-                networks[i]->train_layers_,
-                networks[i]->train_loss_,
-                networks[i]->enable_cuda_graph_,
-                nullptr,
-                resource_manager->get_global_gpu_count(),
-                resource_manager->get_local_gpu(i),
-                use_mixed_precision,
-                enable_tf32_compute,
-                scaler,
-                use_algorithm_search,
-                &networks[i]->top_layers_,
-                &networks[i]->bottom_layers_,
-                dlrm_bottom_mlp);
+    add_dense_layer_internal(
+        dense_layer, train_tensor_entries_list[i], blobs_buff_list[i], train_weight_buff_list[i],
+        train_weight_buff_half_list[i], wgrad_buff_list[i], wgrad_buff_half_list[i],
+        networks[i]->train_loss_tensor_, networks[i]->train_layers_, networks[i]->train_loss_,
+        networks[i]->enable_cuda_graph_, nullptr, resource_manager->get_global_gpu_count(),
+        resource_manager->get_local_gpu(i), use_mixed_precision, enable_tf32_compute, scaler,
+        use_algorithm_search, &networks[i]->top_layers_, &networks[i]->bottom_layers_,
+        dlrm_bottom_mlp);
     // add dense layer for evaluation
     add_dense_layer_internal(dense_layer, evaluate_tensor_entries_list[i], blobs_buff_list[i],
                              evaluate_weight_buff_list[i], evaluate_weight_buff_half_list[i],

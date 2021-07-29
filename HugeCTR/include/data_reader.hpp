@@ -20,8 +20,8 @@
 #include <common.hpp>
 #include <fstream>
 #include <gpu_resource.hpp>
-#include <utils.hpp>
 #include <tensor2.hpp>
+#include <utils.hpp>
 #include <vector>
 
 namespace HugeCTR {
@@ -50,17 +50,13 @@ class IDataReader {
   virtual bool is_started() const = 0;
   virtual void start() = 0;
 
-  virtual void create_drwg_norm(std::string file_list, 
-                        Check_t check_type,
-                        bool start_reading_from_beginning = true) = 0;
-  virtual void create_drwg_raw( std::string file_name, 
-                        long long num_samples,
-                        bool float_label_dense,
-                        bool data_shuffle, 
-                        bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_norm(std::string file_list, Check_t check_type,
+                                bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
+                               bool data_shuffle, bool start_reading_from_beginning = true) = 0;
 
-  virtual void create_drwg_parquet( std::string file_list,const std::vector<long long> slot_offset,
-                            bool start_reading_from_beginning = true) = 0;
+  virtual void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
+                                   bool start_reading_from_beginning = true) = 0;
 
   // TODO(xiaoleis, 01182021): add SourceType_t to allow user to change the type
   virtual void set_source(std::string file_name = std::string()) = 0;

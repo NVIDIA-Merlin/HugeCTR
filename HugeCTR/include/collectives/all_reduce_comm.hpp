@@ -18,11 +18,11 @@
 #include <boost/serialization/strong_typedef.hpp>
 #include <collectives/ib_comm.hpp>
 #include <collectives/ib_proxy.hpp>
+#include <general_buffer2.hpp>
 #include <gpu_resource.hpp>
 #include <memory>
-#include <vector>
 #include <tensor2.hpp>
-#include <general_buffer2.hpp>
+#include <vector>
 
 namespace HugeCTR {
 enum class AllReduceAlgo { ONESHOT, NCCL };

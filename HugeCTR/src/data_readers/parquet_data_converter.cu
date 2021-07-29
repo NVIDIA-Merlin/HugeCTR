@@ -182,8 +182,7 @@ void __global__ value_kernel_without_shared_mem__(int64_t *row_offsets_src, int6
   const int total_dim = slots_num;
   const int tid = threadIdx.x;
 
-  int sample_start =
-      min(static_cast<int>(sample_num * blockIdx.x), static_cast<int>(batchsize));
+  int sample_start = min(static_cast<int>(sample_num * blockIdx.x), static_cast<int>(batchsize));
   int sample_end =
       min(static_cast<int>(sample_num * (blockIdx.x + 1)), static_cast<int>(batchsize));
   for (int i = 0; i < total_dim; i++) {
@@ -254,8 +253,7 @@ void __global__ value_kernel_without_shared_mem__(int64_t *row_offsets_src, int6
 template <typename T>
 void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
                                    const int label_dense_dim, int batch_size, int batch_start,
-                                   int batch_end, T *dense_data_buffers,
-                                   int64_t *dev_ptr_staging,
+                                   int batch_end, T *dense_data_buffers, int64_t *dev_ptr_staging,
                                    std::deque<rmm::device_buffer> &rmm_resources,
                                    rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   int samples_to_interleaved = batch_size;
@@ -278,7 +276,8 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
   // rmm_resources.emplace_back(size_of_out_ptrs, task_stream, mr);
   // rmm::device_buffer &dev_out_data_ptr = rmm_resources.back();
 
-  // CK_CUDA_THROW_(cudaMemcpyAsync(dev_out_data_ptr.data(), pinned_dev_out_buffer, size_of_out_ptrs,
+  // CK_CUDA_THROW_(cudaMemcpyAsync(dev_out_data_ptr.data(), pinned_dev_out_buffer,
+  // size_of_out_ptrs,
   //                                cudaMemcpyHostToDevice, task_stream));
 
   // assuming 48KB smem/SM
@@ -289,7 +288,8 @@ void convert_parquet_dense_columns(std::vector<T *> &dense_column_data_ptr,
   dim3 grid((samples_to_interleaved - 1) / block.x + 1, 1, 1);
 
   // fill empty sample dense features
-  CK_CUDA_THROW_(cudaMemsetAsync(dense_data_buffers, 0, sizeof(T) * label_dense_dim * (batch_end - batch_start), task_stream));
+  CK_CUDA_THROW_(cudaMemsetAsync(
+      dense_data_buffers, 0, sizeof(T) * label_dense_dim * (batch_end - batch_start), task_stream));
   dense_data_converter_kernel__<T>
       <<<grid, block, 0, task_stream>>>((int64_t *)dev_in_column_ptr.data(), label_dense_dim,
                                         samples_to_interleaved, dense_data_buffers);
@@ -326,7 +326,7 @@ size_t convert_parquet_cat_columns(
     int64_t *dev_ptr_staging, T *dev_slot_offset_ptr, std::deque<rmm::device_buffer> &rmm_resources,
     rmm::mr::device_memory_resource *mr, cudaStream_t task_stream) {
   size_t pinned_staging_elements_used = 0;
-// return 0;
+  // return 0;
   size_t size_of_col_ptrs = cat_column_data_ptr.size() * sizeof(int64_t *);
 
   // prepare for value input

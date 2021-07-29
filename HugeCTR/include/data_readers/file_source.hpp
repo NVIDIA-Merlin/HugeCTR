@@ -34,14 +34,8 @@ class FileSource : public Source {
   unsigned int counter_{0};
 
  public:
-  FileSource(long long offset,
-             long long stride,
-             const std::string& file_list,
-             bool repeat)
-      : file_list_(file_list),
-      offset_(offset),
-      stride_(stride),
-      repeat_(repeat) { }
+  FileSource(long long offset, long long stride, const std::string& file_list, bool repeat)
+      : file_list_(file_list), offset_(offset), stride_(stride), repeat_(repeat) {}
 
   /**
    * Read "bytes_to_read" byte to the memory associated to ptr.

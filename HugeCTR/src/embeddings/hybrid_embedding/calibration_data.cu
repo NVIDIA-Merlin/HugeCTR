@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <utils.cuh>
 #include <vector>
 
 #include "HugeCTR/include/common.hpp"
@@ -25,7 +26,6 @@
 #include "HugeCTR/include/embeddings/hybrid_embedding/data.hpp"
 #include "HugeCTR/include/embeddings/hybrid_embedding/utils.hpp"
 #include "HugeCTR/include/tensor2.hpp"
-#include <utils.cuh>
 
 namespace HugeCTR {
 
@@ -54,8 +54,8 @@ __global__ void binary_threshold_search(const CountsT *__restrict__ counts, Thre
 }
 
 template <typename CountsT>
-__global__ void sum_counts(const CountsT *__restrict__ counts, CountsT * result, size_t n_elem) {
-  const int tid = threadIdx.x + blockIdx.x*blockDim.x;
+__global__ void sum_counts(const CountsT *__restrict__ counts, CountsT *result, size_t n_elem) {
+  const int tid = threadIdx.x + blockIdx.x * blockDim.x;
   CountsT val = 0;
   if (tid < n_elem) {
     val = counts[tid];
@@ -185,16 +185,15 @@ dtype ModelInitializationFunctors<dtype>::calculate_num_frequent_categories(
 ///
 template <typename dtype>
 double ModelInitializationFunctors<dtype>::calculate_frequent_probability(
-    const Statistics<dtype> &statistics, const dtype num_frequent,
-    uint32_t *d_total_frequent_count, cudaStream_t stream) {
+    const Statistics<dtype> &statistics, const dtype num_frequent, uint32_t *d_total_frequent_count,
+    cudaStream_t stream) {
   uint32_t total_frequent_count;
 
   CK_CUDA_THROW_(cudaMemsetAsync(d_total_frequent_count, 0, sizeof(uint32_t), stream));
-  calibration_data_kernels::sum_counts<<<num_frequent/128+1, 128, 0, stream>>>(
-        statistics.counts_sorted.get_ptr(), d_total_frequent_count,
-        num_frequent);
-  CK_CUDA_THROW_(cudaMemcpyAsync(&total_frequent_count, d_total_frequent_count, 
-                                 sizeof(dtype), cudaMemcpyDeviceToHost, stream));
+  calibration_data_kernels::sum_counts<<<num_frequent / 128 + 1, 128, 0, stream>>>(
+      statistics.counts_sorted.get_ptr(), d_total_frequent_count, num_frequent);
+  CK_CUDA_THROW_(cudaMemcpyAsync(&total_frequent_count, d_total_frequent_count, sizeof(dtype),
+                                 cudaMemcpyDeviceToHost, stream));
   CK_CUDA_THROW_(cudaStreamSynchronize(stream));
 
   return (double)total_frequent_count / (double)statistics.num_samples;

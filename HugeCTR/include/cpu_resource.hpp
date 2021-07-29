@@ -16,7 +16,6 @@
 
 #pragma once
 #include <curand.h>
-#include <vector>
 
 #include <vector>
 
@@ -34,9 +33,7 @@ class CPUResource {
   CPUResource& operator=(const CPUResource&) = delete;
   ~CPUResource();
 
-  unsigned long long get_replica_uniform_seed() const {
-    return replica_uniform_seed_;
-  }
+  unsigned long long get_replica_uniform_seed() const { return replica_uniform_seed_; }
 
   const curandGenerator_t& get_replica_uniform_curand_generator(size_t id) const {
     return replica_uniform_curand_generators_[id];

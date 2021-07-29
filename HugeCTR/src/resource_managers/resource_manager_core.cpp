@@ -51,8 +51,10 @@ void ResourceManagerCore::all2all_warmup() {
     auto& stream = local_gpu->get_stream();
     auto& comm = local_gpu->get_nccl();
     for (size_t s = 0; s < num_global_gpus; s++) {
-      CK_NCCL_THROW_(ncclSend(all2all_warmup_tensors[g].get_ptr() + s, 1, ncclUint64, s, comm, stream));
-      CK_NCCL_THROW_(ncclRecv(all2all_warmup_tensors[g].get_ptr() + s, 1, ncclUint64, s, comm, stream));
+      CK_NCCL_THROW_(
+          ncclSend(all2all_warmup_tensors[g].get_ptr() + s, 1, ncclUint64, s, comm, stream));
+      CK_NCCL_THROW_(
+          ncclRecv(all2all_warmup_tensors[g].get_ptr() + s, 1, ncclUint64, s, comm, stream));
     }
   }
   CK_NCCL_THROW_(ncclGroupEnd());
@@ -108,7 +110,7 @@ void ResourceManagerCore::initialize_rmm_resources() {
 }
 
 ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
-                                 unsigned long long seed)
+                                         unsigned long long seed)
     : num_process_(num_process), process_id_(process_id), device_map_(std::move(device_map)) {
   if (num_process_ != device_map_.num_nodes()) {
     CK_THROW_(Error_t::WrongInput, "Error: the MPI total rank doesn't match the node count");
@@ -170,12 +172,9 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
 #pragma omp parallel num_threads(local_gpu_count)
   {
     size_t id = omp_get_thread_num();
-    set_local_gpu(std::make_shared<GPUResource>(local_gpu_device_id_list[id],
-                                                id,
-                                                device_map_.get_global_id(id),
-                                                replica_uniform_seed,
-                                                local_replica_variant_seeds[id],
-                                                comms[id]),
+    set_local_gpu(std::make_shared<GPUResource>(local_gpu_device_id_list[id], id,
+                                                device_map_.get_global_id(id), replica_uniform_seed,
+                                                local_replica_variant_seeds[id], comms[id]),
                   id);
   }
 

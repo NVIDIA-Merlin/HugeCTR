@@ -17,14 +17,13 @@
 #pragma once
 #include <common.hpp>
 #include <embedding.hpp>
+#include <exchange_wgrad.hpp>
 #include <metrics.hpp>
 #include <network.hpp>
 #include <parser.hpp>
 #include <string>
 #include <thread>
 #include <utility>
-
-#include <exchange_wgrad.hpp>
 
 namespace HugeCTR {
 
@@ -81,7 +80,8 @@ class Session {
    * export predictions to file
    * @param output_file_name file name of destination filename
    */
-  Error_t export_predictions(const std::string& output_prediction_file_name, const std::string& output_label_file_name);
+  Error_t export_predictions(const std::string& output_prediction_file_name,
+                             const std::string& output_label_file_name);
 
   /**
    * Set learning rate while training
@@ -137,8 +137,7 @@ class Session {
       resource_manager_; /**< GPU resources include handles and streams etc.*/
   std::shared_ptr<Parser> parser_;
   std::shared_ptr<ExchangeWgrad> exchange_wgrad_;
-  Error_t download_params_to_files_(std::string weights_file,
-                                    std::string dense_opt_states_file,
+  Error_t download_params_to_files_(std::string weights_file, std::string dense_opt_states_file,
                                     const std::vector<std::string>& embedding_files,
                                     const std::vector<std::string>& sparse_opt_state_files);
 
@@ -150,7 +149,6 @@ class Session {
     std::vector<cudaGraphExec_t> instance;
     std::vector<cudaEvent_t> fork_event;
   } train_graph_;
-
 
   // TODO: these two variables for export_predictions.
   // There may be a better place for them.
@@ -165,7 +163,7 @@ class Session {
 
   /**
    * A method load optimizer states for dense model.
-   * @param dense_opt_states_file optimizer states generated in training 
+   * @param dense_opt_states_file optimizer states generated in training
    */
   Error_t load_opt_states_for_dense_(const std::string& dense_opt_states_file);
 

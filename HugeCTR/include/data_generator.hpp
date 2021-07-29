@@ -170,8 +170,8 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
                               int label_dim, int dense_dim, int max_nnz, bool long_tail = false,
                               float alpha = 0.0, std::vector<T>* generated_value = nullptr,
                               std::vector<T>* generated_rowoffset = nullptr,
-                              std::vector<float> *generated_label = nullptr,
-                              std::vector<float> *generated_dense = nullptr) {
+                              std::vector<float>* generated_label = nullptr,
+                              std::vector<float>* generated_dense = nullptr) {
   if (file_exist(file_list_name)) {
     std::cout << "File (" + file_list_name +
                      ") exist. To generate new dataset plesae remove this file."
@@ -212,10 +212,10 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
         ldata_sim.reset(new IntUniformDataSimulator<T>(0, vocabulary_size - 1));  // for key
       for (int j = 0; j < label_dim + dense_dim; j++) {
         float label_dense = fdata_sim.get_num();
-        if(j < label_dim && generated_label != nullptr) {
+        if (j < label_dim && generated_label != nullptr) {
           generated_label->push_back(label_dense);
         }
-        if(j >= label_dim && generated_dense != nullptr) {
+        if (j >= label_dim && generated_dense != nullptr) {
           generated_dense->push_back(label_dense);
         }
         data_writer.append(reinterpret_cast<char*>(&label_dense), sizeof(float));
@@ -230,11 +230,11 @@ void data_generation_for_test(std::string file_list_name, std::string data_prefi
             key = ldata_sim->get_num();
           }
           data_writer.append(reinterpret_cast<char*>(&key), sizeof(T));
-          if(generated_value != nullptr) {
+          if (generated_value != nullptr) {
             generated_value->push_back(key);
           }
         }
-        if(generated_rowoffset != nullptr){
+        if (generated_rowoffset != nullptr) {
           generated_rowoffset->push_back(nnz);
         }
       }
@@ -496,8 +496,8 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
                                     std::vector<int> nnz_array = std::vector<int>(),
                                     bool long_tail = false, float alpha = 0.0,
                                     std::vector<T>* generated_sparse_data = nullptr,
-                                    std::vector<float> *generated_dense_data = nullptr,
-                                    std::vector<float> *generated_label_data = nullptr) {
+                                    std::vector<float>* generated_dense_data = nullptr,
+                                    std::vector<float>* generated_label_data = nullptr) {
   static_assert(std::is_same<T, long long>::value || std::is_same<T, unsigned int>::value,
                 "type not support");
 
@@ -506,18 +506,17 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
   // check input
 
   std::vector<std::shared_ptr<IDataSimulator<long long>>> ldata_sim_vec;
-  
-  if(slot_size.size() != nnz_array.size() && !nnz_array.empty()){
+
+  if (slot_size.size() != nnz_array.size() && !nnz_array.empty()) {
     std::cout << "Error: slot_size.size() != nnz_array.size() && !nnz_array.empty()" << std::endl;
     exit(-1);
   }
 
-  for(auto& voc: slot_size){
-    if(long_tail){
-      ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<long long>(0, voc-1, alpha));
-    }
-    else{
-      ldata_sim_vec.emplace_back(new IntUniformDataSimulator<long long>(0, voc-1));
+  for (auto& voc : slot_size) {
+    if (long_tail) {
+      ldata_sim_vec.emplace_back(new IntPowerLawDataSimulator<long long>(0, voc - 1, alpha));
+    } else {
+      ldata_sim_vec.emplace_back(new IntUniformDataSimulator<long long>(0, voc - 1));
     }
   }
 
@@ -527,7 +526,7 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
       float label_float = static_cast<float>(label_int);
       char* label_ptr = float_label_dense ? reinterpret_cast<char*>(&label_float)
                                           : reinterpret_cast<char*>(&label_int);
-      if(generated_label_data != nullptr) {
+      if (generated_label_data != nullptr) {
         generated_label_data->push_back(label_float);
       }
       out_stream.write(label_ptr, size_label_dense);
@@ -537,7 +536,7 @@ inline void data_generation_for_raw(std::string file_name, long long num_samples
       float dense_float = static_cast<float>(dense_int);
       char* dense_ptr = float_label_dense ? reinterpret_cast<char*>(&dense_float)
                                           : reinterpret_cast<char*>(&dense_int);
-      if(generated_dense_data != nullptr) {
+      if (generated_dense_data != nullptr) {
         generated_dense_data->push_back(dense_float);
       }
       out_stream.write(dense_ptr, size_label_dense);

@@ -16,11 +16,11 @@
 
 #include <HugeCTR/include/utils.hpp>
 #include <algorithm>
+#include <cpu/layers/dropout_layer_cpu.hpp>
 #include <cstdio>
 #include <ctime>
-#include <functional>
-#include <cpu/layers/dropout_layer_cpu.hpp>
 #include <data_generator.hpp>
+#include <functional>
 
 #ifndef NDEBUG
 #include <iostream>
@@ -31,25 +31,28 @@ namespace HugeCTR {
 namespace {
 
 template <typename T>
-void dropout_cpu(T *input, T *output, float* mask, float rate, float scale, size_t num, bool is_train) {
+void dropout_cpu(T* input, T* output, float* mask, float rate, float scale, size_t num,
+                 bool is_train) {
   for (size_t i = 0; i < num; i++) {
     output[i] = is_train ? ((1.f - mask[i]) >= rate) * input[i] * scale : input[i];
   }
 }
 
 template <>
-void dropout_cpu(__half *input, __half *output, float* mask, float rate, float scale, size_t num, bool is_train) {
+void dropout_cpu(__half* input, __half* output, float* mask, float rate, float scale, size_t num,
+                 bool is_train) {
   for (size_t i = 0; i < num; i++) {
-    output[i] = is_train ? __float2half( ((1.f - mask[i]) >= rate) * __half2float(input[i]) * scale ): input[i];
+    output[i] = is_train ? __float2half(((1.f - mask[i]) >= rate) * __half2float(input[i]) * scale)
+                         : input[i];
   }
 }
 
-} // end namespace
- 
+}  // end namespace
+
 template <typename T>
 DropoutLayerCPU<T>::DropoutLayerCPU(const Tensor2<T>& in_tensor, const Tensor2<T>& out_tensor,
-                              const std::shared_ptr<GeneralBuffer2<HostAllocator>> blobs_buff,
-                              float rate)
+                                    const std::shared_ptr<GeneralBuffer2<HostAllocator>> blobs_buff,
+                                    float rate)
     : LayerCPU(), rate_(rate), scale_(1.0 / (1.0 - rate + 1e-6)) {
   assert(in_tensor.get_num_elements() == out_tensor.get_num_elements());
   assert(rate_ > 0.f && rate_ < 1.f);

@@ -41,8 +41,8 @@ class ParameterServer {
                   Embedding_t embedding_type, size_t emb_vec_size,
                   std::shared_ptr<ResourceManager> resource_manager);
 
-  ParameterServer(const ParameterServer&) = delete;
-  ParameterServer& operator=(const ParameterServer&) = delete;
+  ParameterServer(const ParameterServer &) = delete;
+  ParameterServer &operator=(const ParameterServer &) = delete;
 
   ~ParameterServer() = default;
 
@@ -59,10 +59,10 @@ class ParameterServer {
    * @param buf_bag The buffer bag for keys, slot_id, and hash_table_val.
    * @param hit_size The number of keys to be loaded to be loaded to buffer bag.
    */
-  void pull(BufferBag &buf_bag, size_t& hit_size);
+  void pull(BufferBag &buf_bag, size_t &hit_size);
 
-  std::pair<std::vector<long long>, std::vector<float>>
-      pull(const std::vector<long long> &keys_to_load);
+  std::pair<std::vector<long long>, std::vector<float>> pull(
+      const std::vector<long long> &keys_to_load);
 
   /**
    * @brief Push the embedding table downloaded from devices to the trained

@@ -19,8 +19,9 @@
 #include <general_buffer2.hpp>
 #include <resource_manager.hpp>
 #include <unordered_map>
-#include "HugeCTR/include/utils.hpp"
+
 #include "HugeCTR/include/embeddings/sparse_embedding_functors.hpp"
+#include "HugeCTR/include/utils.hpp"
 namespace HugeCTR {
 
 template <typename TypeKey, typename TypeEmbeddingComp>
@@ -30,8 +31,8 @@ class EmbeddingData {
   SparseEmbeddingHashParams embedding_params_; /**< Sparse embedding hash params. */
 
   std::vector<std::shared_ptr<GeneralBuffer2<CudaAllocator>>>
-      bufs_; /**< The buffer for storing output tensors. */
-  Tensors2<TypeEmbeddingComp> train_output_tensors_;    /**< The output tensors. */
+      bufs_;                                         /**< The buffer for storing output tensors. */
+  Tensors2<TypeEmbeddingComp> train_output_tensors_; /**< The output tensors. */
   Tensors2<TypeEmbeddingComp> evaluate_output_tensors_; /**< The output tensors. */
   Tensors2<TypeKey> train_row_offsets_tensors_; /**< The row_offsets tensors of the input data. */
   Tensors2<TypeKey> train_value_tensors_;       /**< The value tensors of the input data. */
@@ -194,8 +195,7 @@ class EmbeddingData {
    * @param resource_manager the GPU device resource group
    * @param scaler scaler factor for mixed precision
    */
-  EmbeddingData(const Embedding_t embedding_type,
-                const SparseTensors<TypeKey>& train_keys,
+  EmbeddingData(const Embedding_t embedding_type, const SparseTensors<TypeKey>& train_keys,
                 const SparseTensors<TypeKey>& evaluate_keys,
                 const SparseEmbeddingHashParams& embedding_params,
                 const std::shared_ptr<ResourceManager>& resource_manager)
@@ -229,14 +229,14 @@ class EmbeddingData {
           Tensor2<TypeEmbeddingComp> tensor;
           buf->reserve({get_batch_size_per_gpu(true), embedding_params_.slot_num,
                         embedding_params_.embedding_vec_size},
-                      &tensor);
+                       &tensor);
           train_output_tensors_.push_back(tensor);
         }
         {
           Tensor2<TypeEmbeddingComp> tensor;
           buf->reserve({get_batch_size_per_gpu(false), embedding_params_.slot_num,
-                      embedding_params_.embedding_vec_size},
-                     &tensor);
+                        embedding_params_.embedding_vec_size},
+                       &tensor);
           evaluate_output_tensors_.push_back(tensor);
         }
         {
@@ -244,11 +244,8 @@ class EmbeddingData {
           buf->reserve({embedding_params.slot_size_array.size()}, &tensor);
           embedding_offsets_.push_back(tensor);
         }
-        
-
       }
 
-      
     } catch (const std::runtime_error& rt_err) {
       std::cerr << rt_err.what() << std::endl;
       throw;
@@ -259,7 +256,6 @@ class EmbeddingData {
    * The declaration for indicating that there is no default copy construtor in this class.
    */
   DISALLOW_COPY_AND_MOVE(EmbeddingData)
-
 };
 
 #define USE_EMBEDDING_DATA_FUNCTION(embedding_data)                                          \

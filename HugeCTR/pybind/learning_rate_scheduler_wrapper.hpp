@@ -15,6 +15,7 @@
  */
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
 #include <HugeCTR/include/parser.hpp>
 
 namespace HugeCTR {
@@ -22,8 +23,9 @@ namespace HugeCTR {
 namespace python_lib {
 
 void LearningRateSchedulerPybind(pybind11::module& m) {
-  pybind11::class_<HugeCTR::LearningRateScheduler, std::shared_ptr<HugeCTR::LearningRateScheduler>>(m, "LearningRateScheduler")
-    .def("get_next", &HugeCTR::LearningRateScheduler::get_next);
+  pybind11::class_<HugeCTR::LearningRateScheduler, std::shared_ptr<HugeCTR::LearningRateScheduler>>(
+      m, "LearningRateScheduler")
+      .def("get_next", &HugeCTR::LearningRateScheduler::get_next);
 }
 
 }  // namespace python_lib

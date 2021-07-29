@@ -54,7 +54,7 @@ class ReduceSumLayerCPU : public LayerCPU {
    * @param device_id the id of GPU where this layer belongs
    */
   ReduceSumLayerCPU(const Tensor2<T>& in_tensors, Tensor2<T>& out_tensor,
-                 const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff, int axis);
+                    const std::shared_ptr<GeneralBuffer2<HostAllocator>>& blobs_buff, int axis);
   ~ReduceSumLayerCPU(){};
 
   /**

@@ -20,6 +20,7 @@
 #include <cudnn.h>
 #include <curand.h>
 #include <nccl.h>
+
 #include "utils.hpp"
 
 namespace HugeCTR {
@@ -50,8 +51,7 @@ class GPUResource {
 
  public:
   GPUResource(int device_id, size_t local_id, size_t global_id,
-              unsigned long long replica_uniform_seed,
-              unsigned int long long replica_variant_seed,
+              unsigned long long replica_uniform_seed, unsigned int long long replica_variant_seed,
               const ncclComm_t& comm);
   GPUResource(const GPUResource&) = delete;
   GPUResource& operator=(const GPUResource&) = delete;
