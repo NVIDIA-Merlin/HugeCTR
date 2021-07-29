@@ -161,6 +161,9 @@ FusedReluBiasFullyConnectedLayer::FusedReluBiasFullyConnectedLayer(
 }
 
 void FusedReluBiasFullyConnectedLayer::initialize() {
+  CudaDeviceContext context(get_device_id());
+  CK_CUDA_THROW_(cudaEventCreate(&event_overlap_));
+  CK_CUDA_THROW_(cudaEventCreate(&event_overlap_end_));
   // TODO: We need different bottom desc based on is_train or not
   const auto& bottom_tensor_dim = get_bottom_tensor_fprop(true).get_dimensions();
   const auto& top_tensor_dim = train_out_tensor_.get_dimensions();
@@ -393,6 +396,17 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
 
   PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.cublasGemmEx_1.start",
                  get_gpu().get_stream());
+  if (pos_ == FcPosition_t::Body || pos_ == FcPosition_t::Tail) {
+    CK_CUBLAS_THROW_(cublasSetStream(get_gpu().get_cublas_handle(), get_gpu().get_comp_overlap_stream()));
+    CK_CUDA_THROW_(cudaEventRecord(event_overlap_, get_gpu().get_stream()));
+    CK_CUDA_THROW_(cudaStreamWaitEvent(get_gpu().get_comp_overlap_stream(), event_overlap_));
+  }
+  if (pos_ == FcPosition_t::Head) {
+    CK_CUBLAS_THROW_(cublasSetStream(get_gpu().get_cublas_handle(), get_gpu().get_stream()));
+    CK_CUDA_THROW_(cudaEventRecord(event_overlap_end_, get_gpu().get_comp_overlap_stream()));
+    CK_CUDA_THROW_(cudaStreamWaitEvent(get_gpu().get_stream(), event_overlap_end_));
+  }
+
   CK_CUBLAS_THROW_(cublasGemmEx(get_gpu().get_cublas_handle(), CUBLAS_OP_N, CUBLAS_OP_T, n, k, m,
                                 &alpha, dRelu_top, CUDA_R_16F, n, bottom, CUDA_R_16F, k, &beta_k,
                                 kernel_grad, CUDA_R_16F, n, CUDA_R_32F, balgo_k_));
@@ -416,6 +430,7 @@ void FusedReluBiasFullyConnectedLayer::bprop() {
       cublaslt_workspace_size_, get_gpu().get_stream()));
   PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.cublasGemmEx_2.stop",
                  get_gpu().get_stream());
+
 
   PROFILE_RECORD("fused_relu_bias_fully_connected.bprop.stop", get_gpu().get_stream());
 

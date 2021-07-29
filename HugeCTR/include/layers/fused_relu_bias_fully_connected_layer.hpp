@@ -112,6 +112,9 @@ class FusedReluBiasFullyConnectedLayer : public Layer {
    */
   bool skip_dgrad_;
 
+
+  cudaEvent_t event_overlap_, event_overlap_end_;
+
   std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) override;
   std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) override;
