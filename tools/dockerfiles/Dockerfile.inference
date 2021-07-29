@@ -29,6 +29,7 @@ RUN apt-get update -y && \
         gdb \
         make \
         wget \
+        clang-format \
         libboost-all-dev \
         libboost-regex-dev \
         libboost-system-dev \
