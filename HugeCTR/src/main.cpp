@@ -174,9 +174,7 @@ void train(std::string config_file) {
   timer_data_reading.start();
 #endif
 
-#ifdef ENABLE_PROFILING
-  HugeCTR::global_profiler.initialize(solver_config.use_cuda_graph);
-#endif
+INITIALIZE_PROFILER(solver_config.use_cuda_graph || solver_config.use_holistic_cuda_graph);
 
   // train
   if (pid == 0) {

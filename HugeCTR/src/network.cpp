@@ -88,7 +88,7 @@ void Network::prop_layers(const std::vector<LPtr>& layers, Network::GraphWrapper
 
   bool do_capture;
 #ifdef ENABLE_PROFILING
-  if (global_profiler.init_cuda_graph_this_iter) {
+  if (profiler_init_cuda_graph_this_iter()) {
     do_capture = !graph.initialized_with_profiling;
     graph.initialized = false;
     graph.initialized_with_profiling = true;
