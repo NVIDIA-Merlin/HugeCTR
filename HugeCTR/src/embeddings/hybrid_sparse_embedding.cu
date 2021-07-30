@@ -493,9 +493,9 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, int 
 
   frequent_embeddings_[i].data_ = data;
   infrequent_embeddings_[i].data_ = data;
-  PROFILE_RECORD("data_to_unique_categories.start", stream, false);
+  PROFILE_RECORD("data_to_unique_categories.start", stream);
   data.data_to_unique_categories(input, stream);
-  PROFILE_RECORD("data_to_unique_categories.stop", stream, false);
+  PROFILE_RECORD("data_to_unique_categories.stop", stream);
 
   cudaStream_t stream_frequent_sample_indices = get_stream(i, "stream_frequent_sample_indices");
   cudaStream_t stream_model_indices = get_stream(i, "stream_model_indices");
@@ -512,22 +512,22 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, int 
   CK_CUDA_THROW_(cudaStreamWaitEvent(stream_model_indices, event_main));
   CK_CUDA_THROW_(cudaStreamWaitEvent(stream_network_indices, event_main));
 
-  PROFILE_RECORD("index_calculation.start", stream, false);
-  PROFILE_RECORD("calculate_frequent_sample_indices.start", stream_frequent_sample_indices, false);
+  PROFILE_RECORD("index_calculation.start", stream);
+  PROFILE_RECORD("calculate_frequent_sample_indices.start", stream_frequent_sample_indices);
   frequent_embeddings_[i].calculate_frequent_sample_indices(stream_frequent_sample_indices);
-  PROFILE_RECORD("calculate_frequent_sample_indices.stop", stream_frequent_sample_indices, false,
+  PROFILE_RECORD("calculate_frequent_sample_indices.stop", stream_frequent_sample_indices, true,
                  -1, std::string("num_frequent: ") + std::to_string(model_[i].num_frequent));
   CK_CUDA_THROW_(cudaEventRecord(event_frequent_sample_indices, stream_frequent_sample_indices));
 
-  PROFILE_RECORD("inf_calculate_model_indices.start", stream_model_indices, false);
+  PROFILE_RECORD("inf_calculate_model_indices.start", stream_model_indices);
   infrequent_embeddings_[i].calculate_model_indices(stream_model_indices);
-  PROFILE_RECORD("inf_calculate_model_indices.stop", stream_model_indices, false);
+  PROFILE_RECORD("inf_calculate_model_indices.stop", stream_model_indices);
   CK_CUDA_THROW_(cudaEventRecord(event_model_indices, stream_model_indices));
 
   if (embedding_params_.communication_type != CommunicationType::NVLink_SingleNode) {
-    PROFILE_RECORD("inf_calculate_network_indices.start", stream_network_indices, false);
+    PROFILE_RECORD("inf_calculate_network_indices.start", stream_network_indices);
     infrequent_embeddings_[i].calculate_network_indices(stream_network_indices);
-    PROFILE_RECORD("inf_calculate_network_indices.stop", stream_network_indices, false);
+    PROFILE_RECORD("inf_calculate_network_indices.stop", stream_network_indices);
     CK_CUDA_THROW_(cudaEventRecord(event_network_indices, stream_network_indices));
     CK_CUDA_THROW_(cudaStreamWaitEvent(stream, event_network_indices));
 
@@ -541,30 +541,29 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, int 
 
     CK_CUDA_THROW_(cudaStreamWaitEvent(stream_cache_masks, event_main));
 
-    PROFILE_RECORD("single_node_fre_calculate_cache_masks.start", stream_cache_masks, false);
+    PROFILE_RECORD("single_node_fre_calculate_cache_masks.start", stream_cache_masks);
     frequent_embeddings_[i].calculate_cache_masks(stream_cache_masks);
-    PROFILE_RECORD("single_node_fre_calculate_cache_masks.stop", stream_cache_masks, false);
+    PROFILE_RECORD("single_node_fre_calculate_cache_masks.stop", stream_cache_masks);
     CK_CUDA_THROW_(cudaEventRecord(event_cache_masks, stream_cache_masks));
 
     CK_CUDA_THROW_(cudaStreamWaitEvent(stream_network_cache_indices, event_cache_masks));
     CK_CUDA_THROW_(cudaStreamWaitEvent(stream_model_cache_indices, event_cache_masks));
 
     PROFILE_RECORD("single_node_fre_calculate_network_cache_indices.start",
-                   stream_network_cache_indices, false);
+                   stream_network_cache_indices);
     // we don't need to calculate cache indices during eval
     if (is_train || (-1 == eval_batch)) {
       frequent_embeddings_[i].calculate_network_cache_indices(stream_network_cache_indices);
     }
     PROFILE_RECORD("single_node_fre_calculate_network_cache_indices.stop",
-                   stream_network_cache_indices, false);
+                   stream_network_cache_indices);
     CK_CUDA_THROW_(cudaEventRecord(event_network_cache_indices, stream_network_cache_indices));
     CK_CUDA_THROW_(cudaStreamWaitEvent(stream, event_network_cache_indices));
 
     PROFILE_RECORD("single_node_fre_calculate_model_cache_indices.start",
-                   stream_model_cache_indices, false);
+                   stream_model_cache_indices);
     frequent_embeddings_[i].calculate_model_cache_indices(stream_model_cache_indices);
-    PROFILE_RECORD("single_node_fre_calculate_model_cache_indices.stop", stream_model_cache_indices,
-                   false);
+    PROFILE_RECORD("single_node_fre_calculate_model_cache_indices.stop", stream_model_cache_indices);
     CK_CUDA_THROW_(cudaEventRecord(event_model_cache_indices, stream_model_cache_indices));
     CK_CUDA_THROW_(cudaStreamWaitEvent(stream, event_model_cache_indices));
   }
@@ -574,18 +573,15 @@ void HybridSparseEmbedding<dtype, emtype>::index_calculation(bool is_train, int 
   CK_CUDA_THROW_(cudaStreamWaitEvent(stream, event_model_indices));
 
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-    PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.start", stream,
-                   false);
+    PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.start", stream);
     infrequent_embeddings_[i].calculate_model_indices_sizes_from_offsets(stream);
-    PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.stop", stream, false);
-    PROFILE_RECORD("multi_node_inf_calculate_network_indices_sizes_from_offsets.start", stream,
-                   false);
+    PROFILE_RECORD("multi_node_inf_calculate_model_indices_sizes_from_offsets.stop", stream);
+    PROFILE_RECORD("multi_node_inf_calculate_network_indices_sizes_from_offsets.start", stream);
     infrequent_embeddings_[i].calculate_network_indices_sizes_from_offsets(stream);
-    PROFILE_RECORD("multi_node_inf_calculate_network_indices_sizes_from_offsets.stop", stream,
-                   false);
+    PROFILE_RECORD("multi_node_inf_calculate_network_indices_sizes_from_offsets.stop", stream);
     infrequent_forward_comms_[i]->update_sizes(stream);
   }
-  PROFILE_RECORD("index_calculation.stop", stream, false);
+  PROFILE_RECORD("index_calculation.stop", stream);
 }
 
 template <typename dtype, typename emtype>
@@ -597,43 +593,43 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, int eval_batch
   auto &data = (is_train) ? data_train_[i] : data_evaluate_[i];
   auto &output = (is_train) ? train_output_tensors_[i] : evaluate_output_tensors_[i];
 
-  PROFILE_RECORD("hybrid_embedding.forward.start", stream, false);
+  PROFILE_RECORD("hybrid_embedding.forward.start", stream);
 
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
     CK_CUDA_THROW_(cudaStreamSynchronize(stream));
-    PROFILE_RECORD("multi_node_fre_forward_network.start", stream, false);
+    PROFILE_RECORD("multi_node_fre_forward_network.start", stream);
     frequent_embeddings_[i].forward_network(output.get_ptr(), false, stream);
-    PROFILE_RECORD("multi_node_fre_forward_network.stop", stream, false);
+    PROFILE_RECORD("multi_node_fre_forward_network.stop", stream);
 
-    PROFILE_RECORD("multi_node_inf_forward_model.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_forward_model.start", stream);
     infrequent_embeddings_[i].forward_model(
         infrequent_forward_comm_buffers_[i].send_buffer.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_forward_model.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_forward_model.stop", stream);
 
-    PROFILE_RECORD("multi_node_inf_forward_a2a.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_forward_a2a.start", stream);
     infrequent_forward_comms_[i]->communicate(stream);
-    PROFILE_RECORD("multi_node_inf_forward_a2a.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_forward_a2a.stop", stream);
 
-    PROFILE_RECORD("multi_node_inf_forward_network.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_forward_network.start", stream);
     infrequent_embeddings_[i].forward_network(
         infrequent_forward_comm_buffers_[i].recv_buffer.get_ptr(), output.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_forward_network.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_forward_network.stop", stream);
 
   } else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-    PROFILE_RECORD("multi_node_fre_forward_network.start", stream, false);
+    PROFILE_RECORD("multi_node_fre_forward_network.start", stream);
     frequent_embeddings_[i].forward_network(output.get_ptr(), false, stream);
-    PROFILE_RECORD("multi_node_fre_forward_network.stop", stream, false);
-    PROFILE_RECORD("multi_node_inf_fused_intra_forward_model.start", stream, false);
+    PROFILE_RECORD("multi_node_fre_forward_network.stop", stream);
+    PROFILE_RECORD("multi_node_inf_fused_intra_forward_model.start", stream);
     infrequent_embeddings_[i].fused_intra_forward_model(
         infrequent_forward_comm_buffers_[i].send_buffer_ptrs.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_fused_intra_forward_model.stop", stream, false);
-    PROFILE_RECORD("multi_node_inf_forward_a2a.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_fused_intra_forward_model.stop", stream);
+    PROFILE_RECORD("multi_node_inf_forward_a2a.start", stream);
     infrequent_forward_comms_[i]->communicate(stream);
-    PROFILE_RECORD("multi_node_inf_forward_a2a.stop", stream, false);
-    PROFILE_RECORD("multi_node_inf_hier_forward_network.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_forward_a2a.stop", stream);
+    PROFILE_RECORD("multi_node_inf_hier_forward_network.start", stream);
     infrequent_embeddings_[i].hier_forward_network(
         infrequent_forward_comm_buffers_[i].recv_buffer.get_ptr(), output.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_hier_forward_network.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_hier_forward_network.stop", stream);
     infrequent_backward_comms_[i]->update_sizes(stream);
     if (!is_train) {
       // Global barrier
@@ -644,29 +640,29 @@ void HybridSparseEmbedding<dtype, emtype>::forward(bool is_train, int eval_batch
     }
   } else {  // Assuming single node
 
-    PROFILE_RECORD("single_node_inf_forward_network_direct.start", stream, false);
+    PROFILE_RECORD("single_node_inf_forward_network_direct.start", stream);
     infrequent_embeddings_[i].forward_network_direct(is_train, stream);
-    PROFILE_RECORD("single_node_inf_forward_network_direct.stop", stream, false);
+    PROFILE_RECORD("single_node_inf_forward_network_direct.stop", stream);
 
-    PROFILE_RECORD("single_node_fre_forward_model.start", stream, false);
+    PROFILE_RECORD("single_node_fre_forward_model.start", stream);
     // we just need to update frequent cache once in eval
     if (is_train || (-1 == eval_batch)) {
       frequent_embeddings_[i].forward_model(stream);
     } else if (0 == eval_batch) {
       frequent_embeddings_[i].forward_model_eval(stream);
     }
-    PROFILE_RECORD("single_node_fre_forward_model.stop", stream, false);
+    PROFILE_RECORD("single_node_fre_forward_model.stop", stream);
 
     // This barrier is needed for two reasons:
     // - Ensure all infrequent vectors have been pushed before mlp
     // - Ensure all frequent vectors have been pushed before forward_network
     gpu_barrier_->sync_all_gpus(stream, i);
 
-    PROFILE_RECORD("single_node_fre_forward_network.start", stream, false);
+    PROFILE_RECORD("single_node_fre_forward_network.start", stream);
     frequent_embeddings_[i].forward_network(output.get_ptr(), true, stream);
-    PROFILE_RECORD("single_node_fre_forward_network.stop", stream, false);
+    PROFILE_RECORD("single_node_fre_forward_network.stop", stream);
   }
-  PROFILE_RECORD("hybrid_embedding.forward.stop", stream, false);
+  PROFILE_RECORD("hybrid_embedding.forward.stop", stream);
 }
 
 template <typename dtype, typename emtype>
@@ -690,24 +686,24 @@ void HybridSparseEmbedding<dtype, emtype>::backward_pre_communication(int i, cud
   int cur_device = get_local_gpu(i).get_device_id();
   CudaDeviceContext context(cur_device);
 
-  PROFILE_RECORD("fre_local_reduce.start", stream, false);
+  PROFILE_RECORD("fre_local_reduce.start", stream);
   bool reset_all = ((embedding_params_.communication_type == CommunicationType::IB_NVLink) ||
                     (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier));
   frequent_embeddings_[i].local_reduce(train_output_tensors_[i].get_ptr(), stream, reset_all);
-  PROFILE_RECORD("fre_local_reduce.stop", stream, false);
+  PROFILE_RECORD("fre_local_reduce.stop", stream);
 
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-    PROFILE_RECORD("multi_node_inf_update_network.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_update_network.start", stream);
     infrequent_embeddings_[i].update_network(
         train_output_tensors_[i].get_ptr(),
         infrequent_backward_comm_buffers_[i].send_buffer.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_update_network.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_update_network.stop", stream);
   } else if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
-    PROFILE_RECORD("multi_node_inf_fused_intra_update_network.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_fused_intra_update_network.start", stream);
     infrequent_embeddings_[i].fused_intra_update_network(
         train_output_tensors_[i].get_ptr(),
         infrequent_backward_comm_buffers_[i].send_buffer_ptrs.get_ptr(), stream);
-    PROFILE_RECORD("multi_node_inf_fused_intra_update_network.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_fused_intra_update_network.stop", stream);
   }
 }
 
@@ -722,23 +718,23 @@ void HybridSparseEmbedding<dtype, emtype>::backward_communications(int i, cudaSt
 
     float *dev_lr = lr_scheds_[i]->get_learning_rate();
     float scale = opt_params_[i].scaler;
-    PROFILE_RECORD("single_node_fre_update_model_direct.start", stream, false);
+    PROFILE_RECORD("single_node_fre_update_model_direct.start", stream);
     frequent_embeddings_[i].update_model_direct(dev_lr, scale, stream);
-    PROFILE_RECORD("single_node_fre_update_model_direct.stop", stream, false);
+    PROFILE_RECORD("single_node_fre_update_model_direct.stop", stream);
 
-    PROFILE_RECORD("single_node_inf_update_model_direct.start", stream, false);
+    PROFILE_RECORD("single_node_inf_update_model_direct.start", stream);
     infrequent_embeddings_[i].update_model_direct(dev_lr, scale, stream);
-    PROFILE_RECORD("single_node_inf_update_model_direct.stop", stream, false);
+    PROFILE_RECORD("single_node_inf_update_model_direct.stop", stream);
   } else {
-    PROFILE_RECORD("multi_node_fre_backward_allreduce.start", stream, false);
+    PROFILE_RECORD("multi_node_fre_backward_allreduce.start", stream);
     if (!grouped_all_reduce_) {
       frequent_comms_[i]->communicate(stream);
     }
-    PROFILE_RECORD("multi_node_fre_backward_allreduce.stop", stream, false);
+    PROFILE_RECORD("multi_node_fre_backward_allreduce.stop", stream);
 
-    PROFILE_RECORD("multi_node_inf_backward_a2a.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_backward_a2a.start", stream);
     infrequent_backward_comms_[i]->communicate(stream);
-    PROFILE_RECORD("multi_node_inf_backward_a2a.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_backward_a2a.stop", stream);
   }
 }
 
@@ -750,19 +746,19 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
   float scale = opt_params_[i].scaler;
 
   if (embedding_params_.communication_type != CommunicationType::NVLink_SingleNode) {
-    PROFILE_RECORD("multi_node_fre_update_model.start", stream, false);
+    PROFILE_RECORD("multi_node_fre_update_model.start", stream);
     frequent_embeddings_[i].update_model(dev_lr, scale, stream);
-    PROFILE_RECORD("multi_node_fre_update_model.stop", stream, false);
+    PROFILE_RECORD("multi_node_fre_update_model.stop", stream);
   }
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink) {
-    PROFILE_RECORD("multi_node_inf_update_model.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_update_model.start", stream);
     infrequent_embeddings_[i].update_model(
         infrequent_backward_comm_buffers_[i].recv_buffer.get_ptr(), dev_lr, scale, stream);
-    PROFILE_RECORD("multi_node_inf_update_model.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_update_model.stop", stream);
   }
   if (embedding_params_.communication_type == CommunicationType::IB_NVLink_Hier) {
 #ifdef ENABLE_MPI
-    PROFILE_RECORD("multi_node_inf_hier_update_model.start", stream, false);
+    PROFILE_RECORD("multi_node_inf_hier_update_model.start", stream);
     infrequent_embeddings_[i].hier_update_model(
         infrequent_backward_comm_buffers_[i].recv_buffer.get_ptr(), dev_lr, scale, stream);
 
@@ -772,7 +768,7 @@ void HybridSparseEmbedding<dtype, emtype>::backward_post_communication(int i, cu
       CK_CUDA_THROW_(cudaStreamWaitEvent(stream, update_comm_event));
     }
 
-    PROFILE_RECORD("multi_node_inf_hier_update_model.stop", stream, false);
+    PROFILE_RECORD("multi_node_inf_hier_update_model.stop", stream);
 #else
     CK_THROW_(Error_t::WrongInput, "MPI is not enabled but trying to use IB_NVLink_Hier");
 #endif
@@ -850,10 +846,10 @@ void HybridSparseEmbedding<dtype, emtype>::backward() {
     auto stream = get_local_gpu(i).get_stream();
     auto cur_device = get_local_gpu(i).get_device_id();
     CudaDeviceContext context(cur_device);
-    PROFILE_RECORD("hybrid_embedding.backward.start", stream, false);
+    PROFILE_RECORD("hybrid_embedding.backward.start", stream);
     backward_pre_communication(i, stream);
     backward_communications(i, stream);
-    PROFILE_RECORD("hybrid_embedding.backward.stop", stream, false);
+    PROFILE_RECORD("hybrid_embedding.backward.stop", stream);
   }
 }
 
@@ -866,9 +862,9 @@ void HybridSparseEmbedding<dtype, emtype>::update_params() {
     auto stream = get_local_gpu(i).get_stream();
     auto cur_device = get_local_gpu(i).get_device_id();
     CudaDeviceContext context(cur_device);
-    PROFILE_RECORD("hybrid_embedding.update_params.start", stream, false);
+    PROFILE_RECORD("hybrid_embedding.update_params.start", stream);
     backward_post_communication(i, stream);
-    PROFILE_RECORD("hybrid_embedding.update_params.stop", stream, false);
+    PROFILE_RECORD("hybrid_embedding.update_params.stop", stream);
   }
 }
 

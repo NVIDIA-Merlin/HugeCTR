@@ -347,10 +347,10 @@ void InfrequentEmbedding<dtype, emtype>::forward_network_direct(bool is_train,
                 {true}};
       });
 
-  PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.start", stream, false);
+  PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.start", stream);
   shuffle(copy_desc, stream, local_samples_size / 10);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.stop", stream, false);
+  PROFILE_RECORD("inf_forward_network_direct.forward_network_direct.stop", stream);
 }
 
 template <typename dtype, typename emtype>
@@ -469,7 +469,7 @@ void InfrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, floa
   int n_blocks = 16 * num_sm;  // TODO: better heuristics
 
   /* Each model reads from the gradients of each network */
-  PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.start", stream, false);
+  PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.start", stream);
   infrequent_embedding_kernels::
       infrequent_update_model_direct<<<n_blocks, embedding_vec_size_, 0, stream>>>(
           gradients_pointers_.get_ptr(), infrequent_embedding_vectors_.get_ptr(),
@@ -477,7 +477,7 @@ void InfrequentEmbedding<dtype, emtype>::update_model_direct(float* dev_lr, floa
           model_.category_location.get_ptr(), model_.num_instances, model_.global_instance_id,
           embedding_vec_size_, local_samples_size, dev_lr, scale);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.stop", stream, false);
+  PROFILE_RECORD("inf_update_model_direct.infrequent_update_model_direct.stop", stream);
 }
 
 template <typename dtype>
@@ -517,21 +517,21 @@ void InfrequentEmbedding<dtype, emtype>::calculate_model_indices(cudaStream_t st
   cub::CountingInputIterator<uint32_t> counting(0);
   ModelIndicesSelectOp<dtype> select_op(data_.samples.get_ptr(), model_.category_location.get_ptr(),
                                         model_.global_instance_id);
-  PROFILE_RECORD("inf_calculate_model_indices.device_select_if.start", stream, false);
+  PROFILE_RECORD("inf_calculate_model_indices.device_select_if.start", stream);
   cub::DeviceSelect::If(reinterpret_cast<void*>(model_indices_temp_storage_.get_ptr()),
                         model_indices_temp_storage_bytes, counting, model_indices_.get_ptr(),
                         model_indices_offsets_.get_ptr() + num_instances,
                         data_.batch_size * data_.table_sizes.size(), select_op, stream);
-  PROFILE_RECORD("inf_calculate_model_indices.device_select_if.stop", stream, false);
+  PROFILE_RECORD("inf_calculate_model_indices.device_select_if.stop", stream);
 
   // Compute offsets
   constexpr size_t TPB = 256;
   const size_t n_blocks = ceildiv<size_t>(num_instances, TPB);
-  PROFILE_RECORD("inf_calculate_model_indices.offsets_kernel.start", stream, false);
+  PROFILE_RECORD("inf_calculate_model_indices.offsets_kernel.start", stream);
   offsets_kernel<<<n_blocks, TPB, 0, stream>>>(model_indices_.get_ptr(),
                                                model_indices_offsets_.get_ptr(), num_instances,
                                                local_batch_size * data_.table_sizes.size());
-  PROFILE_RECORD("inf_calculate_model_indices.offsets_kernel.stop", stream, false);
+  PROFILE_RECORD("inf_calculate_model_indices.offsets_kernel.stop", stream);
   CK_CUDA_THROW_(cudaPeekAtLastError());
 }
 
@@ -590,43 +590,41 @@ void InfrequentEmbedding<dtype, emtype>::calculate_network_indices(cudaStream_t 
   // Compute mask (for each source GPU, whether each element in the batch is located there)
   constexpr uint32_t TPB_mask = 256;
   uint32_t n_blocks_mask = ceildiv<uint32_t>(local_samples_size, TPB_mask);
-  PROFILE_RECORD("inf_calculate_network_indices.calculate_network_indices_mask.start", stream,
-                 false);
+  PROFILE_RECORD("inf_calculate_network_indices.calculate_network_indices_mask.start", stream);
   infrequent_embedding_kernels::
       calculate_network_indices_mask<<<n_blocks_mask, TPB_mask, 0, stream>>>(
           data_.samples.get_ptr() + model_.global_instance_id * local_samples_size,
           model_.category_location.get_ptr(), d_mask, local_samples_size, num_instances);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_calculate_network_indices.calculate_network_indices_mask.stop", stream,
-                 false);
+  PROFILE_RECORD("inf_calculate_network_indices.calculate_network_indices_mask.stop", stream);
 
   // Select indices according to the mask
   cub::CountingInputIterator<uint32_t> counting(0);
-  PROFILE_RECORD("inf_calculate_network_indices.device_select_flagged.start", stream, false);
+  PROFILE_RECORD("inf_calculate_network_indices.device_select_flagged.start", stream);
   cub::DeviceSelect::Flagged(
       d_temp_storage, temp_storage_bytes, counting, d_mask, network_indices_.get_ptr(),
       network_indices_offsets_.get_ptr() + num_instances, samples_size, stream);
-  PROFILE_RECORD("inf_calculate_network_indices.device_select_flagged.stop", stream, false);
+  PROFILE_RECORD("inf_calculate_network_indices.device_select_flagged.stop", stream);
 
   // Compute offsets
   constexpr uint32_t TPB_offsets = 256;
   uint32_t n_blocks_offsets = ceildiv<uint32_t>(num_instances, TPB_offsets);
-  PROFILE_RECORD("inf_calculate_network_indices.offsets_kernel.start", stream, false);
+  PROFILE_RECORD("inf_calculate_network_indices.offsets_kernel.start", stream);
   offsets_kernel<<<n_blocks_offsets, TPB_offsets, 0, stream>>>(network_indices_.get_ptr(),
                                                                network_indices_offsets_.get_ptr(),
                                                                num_instances, local_samples_size);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_calculate_network_indices.offsets_kernel.stop", stream, false);
+  PROFILE_RECORD("inf_calculate_network_indices.offsets_kernel.stop", stream);
 
   // Re-map indices between 0 and local_samples_size - 1
   uint32_t TPB_remap = 256;
   uint32_t n_blocks_remap = gpu_resource.get_sm_count();
-  PROFILE_RECORD("inf_calculate_network_indices.modulo_kernel.start", stream, false);
+  PROFILE_RECORD("inf_calculate_network_indices.modulo_kernel.start", stream);
   modulo_kernel<<<n_blocks_remap, TPB_remap, 0, stream>>>(
       network_indices_.get_ptr(), network_indices_offsets_.get_ptr() + num_instances,
       local_samples_size);
   CK_CUDA_THROW_(cudaPeekAtLastError());
-  PROFILE_RECORD("inf_calculate_network_indices.modulo_kernel.stop", stream, false);
+  PROFILE_RECORD("inf_calculate_network_indices.modulo_kernel.stop", stream);
 }
 
 template <typename dtype, typename emtype>
