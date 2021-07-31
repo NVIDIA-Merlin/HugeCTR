@@ -106,7 +106,7 @@ auto load_sparse_model_to_map = [](std::vector<T>& key_vec,
 
 void init_sparse_model(const char *sparse_model) {
   if (!fs::exists(sparse_model)) {
-    fs::create_directory(sparse_model);
+    fs::create_directories(sparse_model);
   }
   const std::string key_file = std::string(sparse_model) + "/key";
   const std::string vec_file = std::string(sparse_model) + "/emb_vector";
