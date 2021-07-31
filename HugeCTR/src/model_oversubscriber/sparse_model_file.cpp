@@ -156,7 +156,7 @@ SparseModelFile<TypeKey>::SparseModelFile(const std::string& sparse_model_file,
 #endif
       if (resource_manager_->is_master_process()) {
         MESSAGE_(sparse_model_file + " not exist, create and train from scratch");
-        fs::create_directory(mmap_handler_.get_folder_name());
+        fs::create_directories(mmap_handler_.get_folder_name());
 
         int ret;
         std::string command("touch ");

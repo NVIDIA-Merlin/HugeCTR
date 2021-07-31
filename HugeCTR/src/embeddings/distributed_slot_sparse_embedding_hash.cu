@@ -939,7 +939,7 @@ void DistributedSlotSparseEmbeddingHash<TypeHashKey, TypeEmbeddingComp>::dump_pa
   size_t local_gpu_count = embedding_data_.get_resource_manager().get_local_gpu_count();
 
   if (!fs::exists(sparse_model)) {
-    fs::create_directory(sparse_model);
+    fs::create_directories(sparse_model);
   }
   const std::string key_file(sparse_model + "/key");
   const std::string vec_file(sparse_model + "/emb_vector");
