@@ -126,7 +126,7 @@ void init_sparse_model(const char *sparse_model) {
   std::cout << "Init hash table";
   // init hash table file: <key, solt_id, value>
   if (!fs::exists(sparse_model)) {
-    fs::create_directory(sparse_model);
+    fs::create_directories(sparse_model);
   }
   const std::string key_file = std::string(sparse_model) + "/key";
   const std::string slot_file = std::string(sparse_model) + "/slot_id";
