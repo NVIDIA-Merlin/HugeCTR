@@ -15,7 +15,7 @@ HugeCTR is available as buildable source code, but the easiest way to install an
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.6
+   $ docker run --gpus=all --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.6
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
@@ -40,6 +40,7 @@ With the above steps, the preprocessed data is saved locally in the `data/` dire
 $ python ncf.py
 ```
 By default, this will run 10 epochs of the dataset and provide Cumulative Hit Rate (HitRate) accuracy results after each.  The HitRate provided by HugeCTR is computed on testing data as the fraction of predictions that are over a threshold (0.8) and correspond to a real interaction (i.e., label is 1). 
+
 
 If you are using the `Movielens 1M` dataset instead, simply run `get_ml1_data.sh` and `python preprocess-1m.py` to prepare the dataset.  Then edit `ncf.py` to use `ml-1m` directories, and change  parameters to the values that are commented out in `ncf.py` (such as `workspace_size_per_gpu_in_mb`).  Note that in general, `workspace_size_per_gpu_in_mb` should be approximately the sum of users and items in the dataset.
 
