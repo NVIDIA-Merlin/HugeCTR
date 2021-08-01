@@ -63,12 +63,7 @@ HugeCTR is included in the Merlin Docker image, which is available in the [NVIDI
 
 You can pull and launch the container by running the following command:
 ```shell
-$ docker run --runtime=nvidia --rm -it nvcr.io/nvidia/merlin/merlin-training:0.6  # Start interaction mode
-``` 
-
-Activate the merlin conda environment by running the following command:  
-```shell.
-source activate merlin
+$ docker run --gpus=all --rm -it nvcr.io/nvidia/merlin/merlin-training:0.6  # Start interaction mode
 ```  
 
 ### Building Your Own HugeCTR Docker Container ###
@@ -125,12 +120,22 @@ For more information regarding how to use the HugeCTR Python API and comprehend 
 
 ## Core Features ##
 In addition to single node and full precision training, HugeCTR supports a variety of features including the following:
+* [Model Parallel Training](#model-parallel-training)
 * [multi-node training](#multi-node-training)
 * [mixed precision training](#mixed-precision-training)
 * [SGD optimizer and learning rate scheduling](#sgd-optimizer-and-learning-rate-scheduling)
-* [model oversubscription](#model-oversubscription)
+* [embedding training cache](#embedding-training-cache)
 
 **NOTE**: Multi-node training and mixed precision training can be used simultaneously.
+
+### Model Parallel Training ###
+Natively HugeCTR supports both model parallel training and data parallel to train very large models on GPUs. Features and categories of embeddings can be distributed across multiple GPUs and multiple nodes. For example, if you have 2 nodes with 8xA100 80GB GPUs you can train upto 1TB model fully on GPU (by embedding training cache you can train even larger models on the same nodes). 
+
+To achieve the best performance on different embeddings, we support variant implementations of embedding layers. Each of these implementations targets different practical training cases:
+* LocalizedSlotEmbeddingHash: the features in the same slot (feature field) will be stored in one GPU (that is why we call it “localized slot”), and different slots may be stored in different GPUs according to the index number of the slot. LocalizedSlotEmbedding is optimized for the case each embedding is smaller than the memory size of GPU. As local reduction per slot is used in LocalizedSlotEmbedding and no global reduce between GPUs, the overall data transaction in Embedding is much less than DistributedSlotEmbedding. **Note**: Users should gurantee that there's no overlap between different feature feature fields (no duplicated keys) in the input dataset.
+* DistributedSlotEmbeddingHash: all the features (in different feature fields / slots) are distributed to different GPUs according to the index number of the feature, regardless of the index number of the slot. That means the features in the same slot may be stored in different GPUs (that is why we call it “distributed slot”). DistributedSlotEmbedding is made for the case some of the embeddings are larger than the memory size of GPU. As global reduction is required. DistributedSlotEmbedding has much more memory trasactions between GPUs. **Note**: Users should gurantee that there's no overlap between different feature feature fields (no duplicated keys) in the input dataset.
+* LocalizedSlotEmbeddingOneHot: a specialized LocalizedSlotEmbedding which requires that the input of data is one hot and each feature field is indexed from zero (e.g. gender: 0,1; 1,2 is wrong)
+
 
 ### Multi-Node Training ###
 Multi-node training makes it easy to train an embedding table of arbitrary size. In a multi-node solution, the sparse model, which is referred to as the embedding layer, is distributed across the nodes. Meanwhile, the dense model, such as DNN, is data parallel and contains a copy of the dense model in each GPU (see Fig. 2). In our implementation, HugeCTR leverages NCCL for high speed and scalable inter- and intra-node communication.
@@ -155,8 +160,8 @@ Please find more information under [Python Interface Introduction](./python_inte
 
 <br></br>
 
-### Model Oversubscription ###
-Model oversubscription gives you the ability to train a large model up to TeraBytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU's memory, into the GPU in a coarse-grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them (see Fig. 7).<br/>This feature currently supports both single and multi-node training. It supports all embedding types and can be used with [Norm](./python_interface.md#norm) and [Raw](./python_interface.md#raw) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to this dataset.
+### Embedding Training Cache ###
+Embedding Training Cache (Model oversubscription) gives you the ability to train a large model up to TeraBytes. It's implemented by loading a subset of an embedding table, which exceeds the aggregated capacity of GPU's memory, into the GPU in a coarse-grained, on-demand manner during the training stage. To use this feature, you need to split your dataset into multiple sub-datasets while extracting the unique key sets from them (see Fig. 7).<br/>This feature currently supports both single and multi-node training. It supports all embedding types and can be used with [Norm](./python_interface.md#norm) and [Raw](./python_interface.md#raw) dataset formats. We revised our [`criteo2hugectr` tool](../tools/criteo_script/criteo2hugectr.cpp) to support the key set extraction for the Criteo dataset. For additional information, see our [Python Jupyter Notebook](../notebooks/python_interface.ipynb) to learn how to use this feature with the Criteo dataset. Please note that The Criteo dataset is a common use case, but model prefetching is not limited to this dataset.
 
 <div align=center><img width="520" height="153" src="user_guide_src/dataset_split.png"/></div>
 <div align=center>Fig. 7: Preprocessing of dataset for model oversubscription</div>
