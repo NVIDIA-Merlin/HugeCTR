@@ -15,7 +15,7 @@ HugeCTR is available as buildable source code, but the easiest way to install an
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --runtime=nvidia --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.6
+   $ docker run --gpus=all --rm -it -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-training:0.6
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
