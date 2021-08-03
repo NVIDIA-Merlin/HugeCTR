@@ -31,7 +31,6 @@ $ export PYTHONPATH=/usr/local/hugectr/lib:$PYTHONPATH
 
 ## MLPerf DLRM
 Ensure that you've met the following requirements:
-- See the requirements noted [here](../../README.md#Requirements) 
 - MLPerf v0.7: DGX A100 or DGX2 (32GB V100) 
 - MLPerf v1.0: DGX A100 14 nodes
 
@@ -77,7 +76,6 @@ Run the 14-node DGX-100 Python script using the following command:
 
 ## Kaggle DLRM
 Ensure that you've met the following requirements:
-- See the requirements noted [here](../../README.md#Requirements) 
 - DGX A100 or DGX2 (32GB V100)
 
 ### Preprocess the Kaggle Display Advertising Dataset ##
