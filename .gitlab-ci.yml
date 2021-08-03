@@ -567,7 +567,7 @@ nightly_build_train_release:
     - 1GPU
   stage: build
   script:
-    - export TRAIN_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_train"
+    - export TRAIN_IMAGE_RELEASE="${CI_REGISTRY}/dl/hugectr/hugectr:devel_train_release"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - cd ./tools/dockerfiles/
     - docker build --pull
