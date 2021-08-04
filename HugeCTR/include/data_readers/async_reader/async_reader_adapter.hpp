@@ -43,8 +43,10 @@ class AsyncReader : public IDataReaderWithScheduling {
                         bool start_reading_from_beginning = true) override;
   void create_drwg_raw(std::string file_name, long long num_samples, bool float_label_dense,
                        bool data_shuffle, bool start_reading_from_beginning = true) override;
+#ifndef DISABLE_CUDF
   void create_drwg_parquet(std::string file_list, const std::vector<long long> slot_offset,
                            bool start_reading_from_beginning = true) override;
+#endif
   void set_source(std::string file_list = std::string()) override;
 
   ~AsyncReader();
