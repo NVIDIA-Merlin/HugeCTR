@@ -467,7 +467,7 @@ class Model {
   std::shared_ptr<ResourceManager>
       resource_manager_;     /**< GPU resources include handles and streams etc.*/
   metrics::Metrics metrics_; /**< evaluation metrics. */
-  
+
   long long current_eval_batchsize_; /**< used for export prediction in epoch mode. */
 
   std::shared_ptr<IDataReader> init_data_reader_;
