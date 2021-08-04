@@ -277,10 +277,12 @@ template <typename SparseType>
 void AsyncReader<SparseType>::create_drwg_raw(std::string file_name, long long num_samples,
                                               bool float_label_dense, bool data_shuffle,
                                               bool start_reading_from_beginning) {}
+#ifndef DISABLE_CUDF
 template <typename SparseType>
 void AsyncReader<SparseType>::create_drwg_parquet(std::string file_list,
                                                   const std::vector<long long> slot_offset,
                                                   bool start_reading_from_beginning) {}
+#endif
 template <typename SparseType>
 void AsyncReader<SparseType>::set_source(std::string file_list) {}
 

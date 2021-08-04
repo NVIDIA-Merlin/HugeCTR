@@ -451,8 +451,17 @@ inline void MESSAGE_(const std::string msg, bool per_process = false, bool new_l
   } while (0)
 
 template <typename T>
-inline void print_func(T& t) {
+inline void print_func(T const& t) {
   std::cout << t << ", ";
+  return;
+}
+
+// Set precision for double type
+template <>
+inline void print_func<double>(double const& t) {
+  std::stringstream ss;
+  ss << std::fixed << std::setprecision(2) << t << ", ";
+  std::cout << ss.str();
   return;
 }
 
