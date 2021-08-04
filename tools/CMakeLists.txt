@@ -14,7 +14,9 @@
 #
 
 cmake_minimum_required(VERSION 3.17)
-add_subdirectory(criteo_script)
-add_subdirectory(raw_script)
-add_subdirectory(criteo_script_legacy)
-add_subdirectory(dlrm_script)
+if(NOT DISABLE_CUDF)
+    add_subdirectory(criteo_script)
+    add_subdirectory(raw_script)
+    add_subdirectory(criteo_script_legacy)
+    add_subdirectory(dlrm_script)
+endif()
